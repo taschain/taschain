@@ -1,0 +1,102 @@
+package groupsig
+
+import (
+	"log"
+	"unsafe"
+
+	"common"
+	"consensus/bls"
+
+	"golang.org/x/crypto/sha3"
+)
+
+// types
+
+// Pubkey -
+type Pubkey struct {
+	value bls.PublicKey
+}
+
+//MAP（地址->公钥）
+type PubkeyMap map[common.Address]Pubkey
+
+//判断两个公钥是否相同
+func (pub Pubkey) IsEqual(rhs Pubkey) bool {
+	return pub.value.IsEqual(&rhs.value)
+}
+
+//由字节切片初始化私钥
+func (pub *Pubkey) Deserialize(b []byte) error {
+	return pub.value.Deserialize(b)
+}
+
+//把公钥转换成字节切片（小端模式？）
+func (pub Pubkey) Serialize() []byte {
+	return pub.value.Serialize()
+}
+
+//由公钥生成TAS地址
+func (pub Pubkey) GetAddress() common.Address {
+	h := sha3.Sum256(pub.Serialize())  //取得公钥的SHA3 256位哈希
+	return common.BytesToAddress(h[:]) //由256位哈希生成TAS160位地址
+}
+
+//把公钥转换成十六进制字符串，不包含0x前缀
+func (pub Pubkey) GetHexString() string {
+	return pub.value.GetHexString()
+}
+
+//由十六进制字符串初始化公钥
+func (pub *Pubkey) SetHexString(s string) error {
+	return pub.value.SetHexString(s)
+}
+
+//由私钥构建公钥
+func NewPubkeyFromSeckey(sec Seckey) *Pubkey {
+	pub := new(Pubkey)
+	pub.value = *sec.value.GetPublicKey()
+	return pub
+}
+
+//构建一个安全性要求不高的公钥
+func TrivialPubkey() *Pubkey {
+	return NewPubkeyFromSeckey(*TrivialSeckey())
+}
+
+//公钥聚合函数，用bls曲线加法把多个公钥聚合成一个
+func AggregatePubkeys(pubs []Pubkey) *Pubkey {
+	if len(pubs) == 0 {
+		log.Printf("AggregatePubkeys no pubs")
+		return nil
+	}
+	pub := new(Pubkey)
+	pub.value = pubs[0].value
+	for i := 1; i < len(pubs); i++ {
+		pub.value.Add(&pubs[i].value) //调用bls曲线的公钥相加函数
+	}
+	return pub
+}
+
+//公钥分片生成函数，用多项式替换生成特定于某个ID的公钥分片
+//mpub : master公钥切片
+//id : 获得该分片的id
+func SharePubkey(mpub []Pubkey, id ID) *Pubkey {
+	mpk := *(*[]bls.PublicKey)(unsafe.Pointer(&mpub))
+	pub := new(Pubkey)
+	err := pub.value.Set(mpk, &id.value) //用master公钥切片和id，调用bls曲线的（公钥）分片生成函数
+	if err != nil {
+		log.Printf("SharePubkey err=%s id=%s\n", err, id.GetHexString())
+		return nil
+	}
+	return pub
+}
+
+//以i作为ID，调用公钥分片生成函数
+func SharePubkeyByInt(mpub []Pubkey, i int) *Pubkey {
+	return SharePubkey(mpub, *NewIDFromInt(i))
+}
+
+//以id+1作为ID，调用公钥分片生成函数
+func SharePubkeyByMembershipNumber(mpub []Pubkey, id int) *Pubkey {
+	return SharePubkey(mpub, *NewIDFromInt(id + 1))
+}
