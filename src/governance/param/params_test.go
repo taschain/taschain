@@ -15,3 +15,7 @@ func TestParamDefs_GetParamByIndex(t *testing.T) {
 	ptr := Params.GetParamByIndex(0)
 	fmt.Println(ptr.CurrentValue())
 }
+
+func TestParamDefs_UpdateParam(t *testing.T) {
+
+}
