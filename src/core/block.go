@@ -21,6 +21,7 @@ type BlockHeader struct {
 	nonce                int32
 	extraData            []int8
 	maxExtraDataLength   uint16
+
 }
 
 type SignedBlockHeader struct {
