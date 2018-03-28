@@ -23,7 +23,8 @@ func (sig Signature) IsEqual(rhs Signature) bool {
 }
 
 //MAP(地址->签名)
-type SignatureMap map[common.Address]Signature
+type SignatureAMap map[common.Address]Signature
+type SignatureIMap map[ID]Signature
 
 // Conversion
 
@@ -41,6 +42,11 @@ func (sig *Signature) Deserialize(b []byte) error {
 //把签名转换为字节切片
 func (sig Signature) Serialize() []byte {
 	return sig.value.Serialize()
+}
+
+func (sig Signature) IsValid() bool {
+	s := sig.Serialize()
+	return len(s) > 0
 }
 
 //把签名转换为十六进制字符串，不带0x前缀
@@ -106,8 +112,24 @@ func RecoverSignature(sigs []Signature, ids []ID) *Signature {
 	return sig
 }
 
+//签名恢复函数，m为map(ID->签名)，k为门限值
+func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
+	ids := make([]ID, k)
+	sigs := make([]Signature, k)
+	i := 0
+	for id, si := range m { //map遍历
+		ids[i] = id  //组成员ID值
+		sigs[i] = si //组成员签名
+		i++
+		if i >= k {
+			break
+		}
+	}
+	return RecoverSignature(sigs, ids) //调用签名恢复函数
+}
+
 //签名恢复函数，m为map(地址->签名)，k为门限值
-func RecoverSignatureByMap(m SignatureMap, k int) *Signature {
+func RecoverSignatureByMapA(m SignatureAMap, k int) *Signature {
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0
@@ -117,12 +139,12 @@ func RecoverSignatureByMap(m SignatureMap, k int) *Signature {
 			log.Printf("RecoverSignatureByMap bad address %s\n", a)
 			return nil
 		}
-		ids[i] = *id		//组成员ID值
-		sigs[i] = s			//组成员签名
+		ids[i] = *id //组成员ID值
+		sigs[i] = s  //组成员签名
 		i++
 		if i >= k {
 			break
 		}
 	}
-	return RecoverSignature(sigs, ids)		//调用签名恢复函数
+	return RecoverSignature(sigs, ids) //调用签名恢复函数
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 )
 
 type Expect struct {
@@ -284,7 +285,11 @@ func testID(t *testing.T) {
 }
 
 func test(t *testing.T, c int) {
-	fmt.Printf("call test, c =%v\n.", c)
+	fmt.Printf("call test, c =%v.\n", c)
+	var tmp []byte
+	fmt.Printf("len of empty []byte=%v.\n", len(tmp))
+	var ti time.Time
+	fmt.Printf("time zero=%v.\n", ti.IsZero())
 	Init(c)
 	testID(t)
 	testSeckey(t)

@@ -1,12 +1,11 @@
 package logical
 
 import (
+	"common"
 	"consensus/groupsig"
 	"fmt"
 	"math/big"
 	"net"
-
-	"common"
 )
 
 type MemberInfo struct {
@@ -15,29 +14,30 @@ type MemberInfo struct {
 
 //静态组结构（组创建即确定）
 type StaticGroupInfo struct {
-	group_id  groupsig.ID            //组ID
-	group_pk  groupsig.Pubkey        //组公钥
-	members   []MemberInfo           //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)
-	map_mid_i map[groupsig.ID]uint32 //用ID查找成员信息
+	GroupID  groupsig.ID            //组ID
+	GroupPK  groupsig.Pubkey        //组公钥
+	members  []MemberInfo           //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)
+	mapCache map[groupsig.ID]uint32 //用ID查找成员信息
 }
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
-	_, ok := sgi.map_mid_i[uid]
+	_, ok := sgi.mapCache[uid]
 	return ok
 }
 
 func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m MemberInfo, result bool) {
 	var i uint32
-	i, result = sgi.map_mid_i[uid]
+	i, result = sgi.mapCache[uid]
 	if result {
 		m = sgi.members[i]
 	}
 	return
 }
 
+
 //取得某个成员在组内的排位
 func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.map_mid_i[uid]
+	i, ok := sgi.mapCache[uid]
 	if ok {
 		return int32(i)
 	} else {
@@ -70,12 +70,12 @@ func (dgi DynamicGroupInfo) GetNetPort(ma string) int32 {
 ///////////////////////////////////////////////////////////////////////////////
 type GlobalGroups struct {
 	//全网组的静态信息列表，用slice而不是map是为了求模定位
-	sgi       []StaticGroupInfo
-	map_gid_i map[groupsig.ID]uint32 //用ID查找组信息
+	sgi      []StaticGroupInfo
+	mapCache map[groupsig.ID]uint32 //用ID查找组信息
 }
 
 func (gg GlobalGroups) GetPosition(gid groupsig.ID) int32 {
-	i, ok := gg.map_gid_i[gid]
+	i, ok := gg.mapCache[gid]
 	if ok {
 		return int32(i)
 	} else {
@@ -94,7 +94,7 @@ func (gg GlobalGroups) GetGroupByIndex(i int) (g StaticGroupInfo, err error) {
 }
 
 func (gg GlobalGroups) GetGroupByID(id groupsig.ID) (g StaticGroupInfo, err error) {
-	index, ok := gg.map_gid_i[id]
+	index, ok := gg.mapCache[id]
 	if ok {
 		g, err = gg.GetGroupByIndex(int(index))
 	}
@@ -107,7 +107,7 @@ func (gg GlobalGroups) SelectNextGroup(h common.Hash) (groupsig.ID, error) {
 	value := h.Big()
 	if value.BitLen() > 0 && len(gg.sgi) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(gg.sgi))))
-		ga = gg.sgi[index.Uint64()].group_id
+		ga = gg.sgi[index.Uint64()].GroupID
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("SelectNextGroup failed, arg error.")
@@ -128,6 +128,6 @@ func (gg GlobalGroups) GetCastGroup(pre_h common.Hash) (g StaticGroupInfo) {
 //h：上一个铸块的哈希
 func (gg GlobalGroups) IsCastGroup(pre_h common.Hash, pub_key groupsig.Pubkey) (result bool) {
 	g := gg.GetCastGroup(pre_h)
-	result = g.group_pk == pub_key
+	result = g.GroupPK == pub_key
 	return
 }

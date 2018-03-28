@@ -89,6 +89,10 @@ func (a Address) Bytes() []byte        { return a[:] }
 func (a Address) BigInteger() *big.Int { return new(big.Int).SetBytes(a[:]) }
 func (a Address) Hash() Hash           { return BytesToHash(a[:]) }
 
+func (a Address) IsValid() bool {
+	return len(a.Bytes()) > 0
+}
+
 // Hex returns an EIP55-compliant hex string representation of the address.
 //输出地址的EIP55编码字符串
 func (a Address) Hex() string {
@@ -163,6 +167,10 @@ func (h Hash) Hex() string   { return utility.Encode(h[:]) }
 // output during logging.
 func (h Hash) TerminalString() string {
 	return fmt.Sprintf("%x…%x", h[:3], h[29:])
+}
+
+func (h Hash) IsValid() bool {
+	return len(h.Bytes()) > 0
 }
 
 // String implements the stringer interface and is used also by the logger when

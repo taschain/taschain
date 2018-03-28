@@ -47,6 +47,11 @@ func (id ID) GetBigInt() *big.Int {
 	return x
 }
 
+func (id ID) IsValid() bool {
+	bi := id.GetBigInt()
+	return bi != big.NewInt(0)
+}
+
 //把ID转换到十进制字符串
 func (id ID) GetDecimalString() string {
 	return id.value.GetDecString()
@@ -83,7 +88,7 @@ func NewIDFromInt(i int) *ID {
 	return NewIDFromBigInt(big.NewInt(int64(i)))
 }
 
-//从TAS 160位地址创建ID
+//从TAS 160位地址创建（FP254曲线256位或FP382曲线384位的）ID
 func NewIDFromAddress(addr common.Address) *ID {
 	return NewIDFromBigInt(addr.BigInteger())
 }
