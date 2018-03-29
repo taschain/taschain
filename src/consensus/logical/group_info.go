@@ -9,7 +9,9 @@ import (
 )
 
 type MemberInfo struct {
+	id     groupsig.ID
 	pubkey groupsig.Pubkey //组内成员签名公钥
+
 }
 
 //静态组结构（组创建即确定）
@@ -34,7 +36,6 @@ func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m MemberInfo, result bool
 	return
 }
 
-
 //取得某个成员在组内的排位
 func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
 	i, ok := sgi.mapCache[uid]
@@ -43,6 +44,15 @@ func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
 	} else {
 		return int32(-1)
 	}
+}
+
+//取得指定位置的铸块人
+func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
+	var m groupsig.ID
+	if i >= 0 && i < len(sgi.members) {
+		m = sgi.members[i].id
+	}
+	return m
 }
 
 //动态组结构（运行时变化）

@@ -8,13 +8,6 @@ import (
 	"common"
 )
 
-
-//组铸块最大允许时间=10s
-const MAX_GROUP_BLOCK_TIME int32 = 10
-
-//个人出块最大允许时间=2s
-const MAX_USER_CAST_TIME int32 = 2
-
 //计算当前距上一个铸块完成已经过去了几个铸块时间窗口（组间）
 func getBlockTimeWindow(b time.Time) int32 {
 	diff := time.Since(b).Seconds() //从上个铸块完成到现在的时间（秒）
@@ -35,6 +28,43 @@ func getCastTimeWindow(b time.Time) int32 {
 	}
 }
 
+//自己的出块信息
+type SelfCastInfo struct {
+	block_qns map[uint][]uint //当前节点已经出过的块(高度->出块QN列表)
+}
+
+func (sci *SelfCastInfo) FindQN(height uint, newQN uint) bool {
+	qns, ok := sci.block_qns[height]
+	if ok {
+		for _, qn := range qns {
+			if qn == newQN { //该newQN已存在
+				return true
+			}
+		}
+		return false
+	} else {
+		return false
+	}
+}
+
+//如该QN已存在，则返回false
+func (sci *SelfCastInfo) AddQN(height uint, newQN uint) bool {
+	qns, ok := sci.block_qns[height]
+	if ok {
+		for _, qn := range qns {
+			if qn == newQN { //该newQN已存在
+				return false
+			}
+		}
+		sci.block_qns[height] = append(sci.block_qns[height], newQN)
+		return true
+	} else {
+		sci.block_qns[height] = []uint{newQN}
+		return true
+	}
+	return false
+}
+
 //见证人处理器
 type Processer struct {
 	bc   BlockContext    //铸块上下文
@@ -43,6 +73,8 @@ type Processer struct {
 	uid  groupsig.ID     //个人ID
 	gusk groupsig.Seckey //组成员签名私钥（片）
 	usk  groupsig.Seckey //组个人私钥（用组内成员列表处保存的个人公钥可以验签）
+	sci  SelfCastInfo    //自己的铸块信息
+
 }
 
 func (p Processer) isBHCastLegal(bh BlockHeader, sd SignData) (result bool) {
@@ -65,9 +97,9 @@ func (p Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	n := p.bc.UserCasted(cs)
 	fmt.Printf("processer:OnMessageCast UserCasted result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
-		b := p.bc.VerifyGroupSign(cs, p.GetSelfGroup().GroupPK)
-		if b { //验证通过
-			//to do: 鸠兹上链，小熊广播
+		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)
+		if b { //组签名验证通过
+			p.SuccessNewBlock(cs)			//上链和组外广播
 		}
 	}
 	return
@@ -78,9 +110,9 @@ func (p Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	n := p.bc.UserVerified(cs)
 	fmt.Printf("processer::OnMessageVerify UserVerified result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
-		b := p.bc.VerifyGroupSign(cs, p.GetSelfGroup().GroupPK)
-		if b {
-			//to do: 鸠兹上链，小熊广播
+		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)
+		if b {		//组签名验证通过
+			p.SuccessNewBlock(cs)			//上链和组外广播
 		}
 	}
 	return
@@ -111,15 +143,9 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	if err == nil {
 		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
 		if ok {                                   //该用户和我是同一组
-			if ccm.si.VerifySign(ru.pubkey) { //消息验签
+			if ccm.si.VerifySign(ru.pubkey) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
 				//to do : 屮逸组内广播
-				//检查当前节点是否铸块节点
-				pos := p.GetSelfGroup().GetPosition(p.uid) //当前节点在组内位置
-				if pos >= 0 && getCastTimeWindow(ccm.PreTime) == int32(pos) {
-					//当前节点为铸块节点
-					p.CastBlock() //启动铸块
-				}
 			}
 		}
 	} else {
@@ -127,9 +153,33 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	}
 }
 
+//在某个区块高度的QN值成功出块，保存上链，向组外广播
+//同一个高度，可能会因QN不同而多次调用该函数
+//但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
+func (p Processer) SuccessNewBlock(cs ConsensusSummary) {
+	//鸠兹保存上链
+	//屮逸组外广播
+	p.bc.CastedUpdateStatus(uint(cs.QueueNumber))
+	p.bc.SignedUpdateMinQN(uint(cs.QueueNumber))
+	return
+}
+
+func (p Processer) CheckCastRoutine(user_index int32, qn int64, height uint) {
+	if user_index < 0 || qn < 0 {
+		return
+	}
+
+	if p.getSelfGroup().GetCastor(int(user_index)) == p.uid { //轮到自己铸块
+		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
+			p.castBlock(qn) //铸块
+		}
+	}
+	return
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //取得自身所在的组
-func (p Processer) GetSelfGroup() StaticGroupInfo {
+func (p Processer) getSelfGroup() StaticGroupInfo {
 	g, err := p.gg.GetGroupByID(p.gid)
 	if err != nil {
 		panic("GetSelfGroup failed.")
@@ -138,7 +188,7 @@ func (p Processer) GetSelfGroup() StaticGroupInfo {
 }
 
 //当前节点成为KING，出块
-func (p Processer) CastBlock() {
+func (p Processer) castBlock(qn int64) bool {
 	var bh BlockHeader
 	var hash []byte
 	//to do : 鸠兹生成bh和哈希
@@ -152,5 +202,5 @@ func (p Processer) CastBlock() {
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
 	//更新共识上下文
-	return
+	return true
 }

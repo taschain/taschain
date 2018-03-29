@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 type Expect struct {
@@ -290,6 +291,8 @@ func test(t *testing.T, c int) {
 	fmt.Printf("len of empty []byte=%v.\n", len(tmp))
 	var ti time.Time
 	fmt.Printf("time zero=%v.\n", ti.IsZero())
+	var tmp_i int = 456
+	fmt.Printf("sizeof(int) =%v.\n", unsafe.Sizeof(tmp_i))
 	Init(c)
 	testID(t)
 	testSeckey(t)

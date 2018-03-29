@@ -4,9 +4,9 @@ import (
 	"common"
 	"consensus/groupsig"
 	"fmt"
+	"math/big"
 	"time"
 )
-
 
 //见证人身份
 type WITNESS_STATUS int
@@ -20,11 +20,12 @@ const (
 type CAST_BLOCK_CONSENSUS_STATUS int
 
 const (
-	CBCS_IDLE    CAST_BLOCK_CONSENSUS_STATUS = iota //非当前组
-	CBCS_CURRENT                                    //成为当前铸块组
-	CBCS_CASTING                                    //至少收到一块组内共识数据
-	CBCS_BLOCKED                                    //铸块完成（已通知到组外）
-	CBCS_TIMEOUT                                    //组铸块超时
+	CBCS_IDLE           CAST_BLOCK_CONSENSUS_STATUS = iota //非当前组
+	CBCS_CURRENT                                           //成为当前铸块组
+	CBCS_CASTING                                           //至少收到一块组内共识数据
+	CBCS_BLOCKED                                           //组内已有铸块完成（已通知到组外）
+	CBCS_MIN_QN_BLOCKED                                    //组内最小铸块完成（已通知到组外），该高度铸块结束
+	CBCS_TIMEOUT                                           //组铸块超时
 )
 
 const CONSENSUS_VERSION = 1                                          //共识版本号
@@ -35,6 +36,15 @@ const MAX_SYNC_CASTORS = 3                                           //最多同
 const INVALID_QN = -1                                                //无效的队列序号
 const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
 const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
+
+//组铸块最大允许时间=10s
+const MAX_GROUP_BLOCK_TIME int32 = 10
+
+//个人出块最大允许时间=2s
+const MAX_USER_CAST_TIME int32 = 2
+
+//组内能出的最大QN值
+const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME
 
 //铸块上下文，和当前谁铸块（QueueNumber）有关
 type CastContext struct {
@@ -98,6 +108,7 @@ const (
 	CMBR_IGNORE_QN_FUTURE                                    //丢弃：未轮到该QN
 	CMBR_IGNORE_CASTED                                       //丢弃：该高度出块已完成
 	CMBR_IGNORE_TIMEOUT                                      //丢弃：该高度出块时间已过
+	CMBR_IGNORE_MIN_QN_SIGNED											//丢弃：该节点已向组外广播出更低QN值的块
 	CMBR_IGNORE_NOT_CASTING                                  //丢弃：未启动当前组铸块共识
 	CBMR_ERROR_ARG                                           //异常：参数异常
 	CBMR_ERROR_SIGN                                          //异常：签名验证异常
@@ -169,8 +180,7 @@ func (cc CastContext) IsValid() bool {
 //取得铸块权重
 //第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (cc CastContext) GetWeight() uint64 {
-	const MAX_QN int64 = 63
-	if cc.QueueNumber <= MAX_QN {
+	if cc.QueueNumber <= int64(MAX_QN) {
 		return uint64(cc.QueueNumber) << 1
 	} else {
 		return 0
@@ -180,19 +190,67 @@ func (cc CastContext) GetWeight() uint64 {
 ///////////////////////////////////////////////////////////////////////////////
 //共识上下文，和块高度有关
 type BlockContext struct {
-	Version         uint
-	PreTime         time.Time                     //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	CCTimer         time.Ticker                   //共识定时器
-	VerifiedMaxQN   int64                         //已验证过的最大QN
+	Version uint
+	PreTime time.Time   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
+	CCTimer time.Ticker //共识定时器
+	SignedMinQN   int64                         //组内已出的最小QN值的块
 	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS   //铸块状态
 	PrevHash        common.Hash                   //上一块哈希值
 	CastHeight      uint64                        //待铸块高度
 	GroupMembers    uint                          //组成员数量
 	Threshold       uint                          //百分比（0-100）
 	Castors         [MAX_SYNC_CASTORS]CastContext //并行铸块人
+
+	Proc *Processer //处理器
 }
 
-func (bc BlockContext) findEmptySlot() int32 {
+func (bc *BlockContext) NeedSignQN(qn uint) bool {
+	if bc.SignedMinQN == INVALID_QN {	//当前节点还没有铸出过该组的块
+		return true
+	} else {			//当前节点已经铸出过块
+		if qn < uint(bc.SignedMinQN) {
+			return true
+		} else {
+			return false
+		}
+	}	
+}
+
+//组出块后更新最小QN值
+func (bc *BlockContext) SignedUpdateMinQN(qn uint) bool {
+	b := bc.NeedSignQN(qn)
+	if b {
+		bc.SignedMinQN = int64(qn)
+	}
+	return b
+}
+
+func (bc *BlockContext) CastedUpdateStatus(qn uint) bool {
+	if bc.ConsensusStatus == CBCS_CASTING || bc.ConsensusStatus == CBCS_BLOCKED || bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED {
+		if bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED { //已经铸出过QN=0的块
+			return false //不应该再铸块了
+		} else {
+			if bc.ConsensusStatus == CBCS_CASTING {
+				if qn == 0 {
+					bc.ConsensusStatus = CBCS_MIN_QN_BLOCKED
+				} else {
+					bc.ConsensusStatus = CBCS_BLOCKED
+				}
+				return true
+			} else {
+				//已经铸出过块
+				if qn == 0 { //收到最小QN块消息
+					bc.ConsensusStatus = CBCS_MIN_QN_BLOCKED
+				}
+				return true
+			}
+		}
+	} else { //不在铸块周期内
+		return false
+	}
+}
+
+func (bc *BlockContext) findEmptySlot() int32 {
 	for i, v := range bc.Castors {
 		if v.QueueNumber == INVALID_QN {
 			return int32(i)
@@ -201,7 +259,7 @@ func (bc BlockContext) findEmptySlot() int32 {
 	return -1
 }
 
-func (bc BlockContext) findMaxQNSlot() (int32, int64) {
+func (bc *BlockContext) findMaxQNSlot() (int32, int64) {
 	var index int32 = -1
 	var max_qn int64 = -1
 	for i, v := range bc.Castors {
@@ -216,7 +274,7 @@ func (bc BlockContext) findMaxQNSlot() (int32, int64) {
 //检查是否有相关铸块人的槽
 //qn：铸块序号
 //返回：int32:槽序号（没找到返回-1），bool：是否已有铸块人消息（在int32>=0时有意义）
-func (bc BlockContext) findCastSlot(qn int64) (int32, bool) {
+func (bc *BlockContext) findCastSlot(qn int64) (int32, bool) {
 	for i, v := range bc.Castors {
 		if v.QueueNumber == qn {
 			return int32(i), v.KingMessage
@@ -236,7 +294,7 @@ const (
 )
 
 //根据QN规则，尝试找到有效的插槽
-func (bc BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT) {
+func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT) {
 	var info QN_QUERY_SLOT_RESULT = QQSR_NO_UNKNOWN
 	var max_qn int64 = -1
 	i, km := bc.findCastSlot(qn)
@@ -266,12 +324,17 @@ func (bc BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT)
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
 func (bc *BlockContext) accpetCV(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT {
 	count := getCastTimeWindow(bc.PreTime)
-	if count < 0 { //时间窗口异常
+	if count < 0 || cs.QueueNumber < 0 { //时间窗口异常
 		return CBMR_ERROR_ARG
 	}
 	if int32(cs.QueueNumber) >= count { //未轮到该QN出块
 		return CMBR_IGNORE_QN_FUTURE
 	}
+
+	if !bc.NeedSignQN(uint(cs.QueueNumber)) {		//该节点已经向组外广播更低QN值的块
+		return CMBR_IGNORE_MIN_QN_SIGNED
+	}
+
 	i, info := bc.ConsensusFindSlot(cs.QueueNumber)
 	if i < 0 { //没有找到有效的插槽
 		return CMBR_IGNORE_QN_BIG_QN
@@ -288,7 +351,8 @@ func (bc *BlockContext) accpetCV(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT 
 
 //判断当前节点所在组当前是否在铸块共识中
 func (bc BlockContext) IsCasting() bool {
-	if bc.ConsensusStatus == CBCS_IDLE || bc.ConsensusStatus == CBCS_BLOCKED || bc.ConsensusStatus == CBCS_TIMEOUT {
+	if bc.ConsensusStatus == CBCS_IDLE || bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED || bc.ConsensusStatus == CBCS_TIMEOUT {
+		//空闲，已出权重最高的块，超时
 		return false
 	} else {
 		return true
@@ -301,7 +365,7 @@ func (bc *BlockContext) Reset() {
 	bc.PreTime = *new(time.Time)
 	bc.CCTimer.Stop() //关闭定时器
 	bc.ConsensusStatus = CBCS_IDLE
-	bc.VerifiedMaxQN = INVALID_QN
+	bc.SignedMinQN = INVALID_QN
 	bc.PrevHash = *new(common.Hash)
 	bc.CastHeight = 0
 	bc.GroupMembers = GROUP_MAX_MEMBERS
@@ -315,7 +379,7 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 	fmt.Printf("BlockContext::BeginConsensus...\n")
 	bc.PreTime = tc //上一块的铸块成功时间
 	bc.ConsensusStatus = CBCS_CURRENT
-	bc.VerifiedMaxQN = INVALID_QN //等待第一个出块者
+	bc.SignedMinQN = INVALID_QN //等待第一个出块者
 	bc.PrevHash = h
 	bc.CastHeight = bh + 1
 	bc.Castors = *new([MAX_SYNC_CASTORS]CastContext)
@@ -328,6 +392,7 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 //tc: 完成块出块时间
 //h:  完成块哈希
 //该函数会被多次重入，需要做容错处理。
+//在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
 	var max_height uint64 = 0
 	//to do : 鸠兹从链上取得最高有效块
@@ -378,6 +443,34 @@ func (bc BlockContext) VerifyGroupSign(cs ConsensusSummary, pk groupsig.Pubkey) 
 	return false
 }
 
+//计算当前铸块人位置和QN
+func (bc *BlockContext) CalcCastor() (int32, int64) {
+	var index int32 = -1
+	var qn int64 = -1
+	d := time.Since(bc.PreTime)
+	var secs uint64 = uint64(d.Seconds())
+	if secs < uint64(MAX_GROUP_BLOCK_TIME) { //在组铸块共识时间窗口内
+		qn = int64(secs / uint64(MAX_USER_CAST_TIME))
+		first_i := bc.getFirstCastor() //取得第一个铸块人位置
+		if first_i >= 0 && bc.GroupMembers > 0 {
+			index = (int32(qn) + first_i) % int32(bc.GroupMembers)
+		} else {
+			qn = -1
+		}
+	}
+	return index, qn
+}
+
+//取得第一个铸块人在组内的位置
+func (bc *BlockContext) getFirstCastor() int32 {
+	var index int32 = -1
+	bi_hash := bc.PrevHash.Big()
+	if bi_hash.BitLen() > 0 && bc.GroupMembers > 0 {
+		index = int32(bi_hash.Mod(bi_hash, big.NewInt(int64(bc.GroupMembers))).Int64())
+	}
+	return index
+}
+
 func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
 	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
@@ -402,7 +495,12 @@ func (bc *BlockContext) TickerRoutine() {
 		fmt.Printf("block_context::TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", d.Seconds(), bc.ConsensusStatus)
 		bc.Reset()
 	} else {
-		//当前组仍在有效铸块共识时间内，不做任何事情
+		//当前组仍在有效铸块共识时间内
+		//检查自己是否成为铸块人
+		if bc.Proc != nil {
+			index, qn := bc.CalcCastor()		//当前铸块人（KING）和QN值
+			bc.Proc.CheckCastRoutine(index, qn, uint(bc.CastHeight))
+		}
 	}
 	return
 }
