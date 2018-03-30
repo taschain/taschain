@@ -83,7 +83,7 @@ func NewIDFromInt64(i int64) *ID {
 	return NewIDFromBigInt(big.NewInt(i))
 }
 
-//由int32创建ID-
+//由int32创建ID
 func NewIDFromInt(i int) *ID {
 	return NewIDFromBigInt(big.NewInt(int64(i)))
 }
@@ -91,4 +91,10 @@ func NewIDFromInt(i int) *ID {
 //从TAS 160位地址创建（FP254曲线256位或FP382曲线384位的）ID
 func NewIDFromAddress(addr common.Address) *ID {
 	return NewIDFromBigInt(addr.BigInteger())
+}
+
+//由公钥构建ID，公钥->（缩小到160位）地址->（放大到256/384位）ID
+func NewIDFromPubkey(pk Pubkey) *ID {
+	addr := pk.GetAddress()
+	return NewIDFromAddress(addr)
 }

@@ -3,7 +3,7 @@ package groupsig
 import (
 	"log"
 	"unsafe"
-
+	"math/big"
 	"common"
 	"consensus/bls"
 
@@ -33,6 +33,18 @@ func (pub *Pubkey) Deserialize(b []byte) error {
 //把公钥转换成字节切片（小端模式？）
 func (pub Pubkey) Serialize() []byte {
 	return pub.value.Serialize()
+}
+
+//把公钥转换成big.Int
+func (pub Pubkey) GetBigInt() *big.Int {
+	x := new(big.Int)
+	x.SetString(pub.value.GetHexString(), 16)
+	return x
+}
+
+func (pub Pubkey) IsValid() bool {
+	bi := pub.GetBigInt()
+	return bi != big.NewInt(0)
 }
 
 //由公钥生成TAS地址

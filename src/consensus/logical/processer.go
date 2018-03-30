@@ -99,7 +99,7 @@ func (p Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)
 		if b { //组签名验证通过
-			p.SuccessNewBlock(cs)			//上链和组外广播
+			p.SuccessNewBlock(cs) //上链和组外广播
 		}
 	}
 	return
@@ -111,8 +111,8 @@ func (p Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("processer::OnMessageVerify UserVerified result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)
-		if b {		//组签名验证通过
-			p.SuccessNewBlock(cs)			//上链和组外广播
+		if b { //组签名验证通过
+			p.SuccessNewBlock(cs) //上链和组外广播
 		}
 	}
 	return
@@ -143,7 +143,7 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	if err == nil {
 		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
 		if ok {                                   //该用户和我是同一组
-			if ccm.si.VerifySign(ru.pubkey) { //消息合法
+			if ccm.si.VerifySign(ru.pk) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
 				//to do : 屮逸组内广播
 			}
@@ -175,6 +175,22 @@ func (p Processer) CheckCastRoutine(user_index int32, qn int64, height uint) {
 		}
 	}
 	return
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//组初始化相关消息
+func (p Processer) OnMessageGroupInit() {
+
+}
+
+//收到组内成员发给我的秘密分享片段消息
+func (p Processer) OnMessageSharePiece() {
+
+}
+
+//收到组内成员发给我的组成员签名公钥消息
+func (p Processer) OnMessagePubKeyPiece() {
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////

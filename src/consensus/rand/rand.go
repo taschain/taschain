@@ -1,109 +1,83 @@
 package rand
 
-// TODO
-// - rename String() to HexString()
-
 import (
-    "crypto/rand"
-    "encoding/hex"
-    "math/big"
+	"crypto/rand"
+	"encoding/hex"
+	"math/big"
 )
 
-/// Rand
-
-// RandLength -- fixed length of all random values
-// Everything is written for this length. To change it the selected hash functions have to be changed.
-//随机数长度，跟算法有相关性
+//随机数长度=32*8=356位，跟使用的哈希函数有相关性
 const RandLength = 32
 
-// Rand - the type of our random values
-//随机数类型，32个byte，即256位。
 type Rand [RandLength]byte
 
-// Constructors
-
-// NewRand -- initialize and return a random value
-//生成一个新的默认随机数
-func NewRand() (r Rand) {
-    b := make([]byte, RandLength)
-    rand.Read(b)
-    return RandFromBytes(b)
-}
-
-// RandFromBytes -- convert one or more byte arrays to a fixed length randomness through hashing
-//把一个或多个字节数组转化为固定长度的随机数（通过哈希的方式）
+//以多维字节数组作为种子，进行SHA3哈希生成随机数（底层函数）
 func RandFromBytes(b ...[]byte) (r Rand) {
-    HashBytes(b...).Sum(r[:0])
-    return
+	HashBytes(b...).Sum(r[:0])
+	return
 }
 
-// RandFromHex -- convert one or more hex strings to a fixed length randomness through hashing
-//把一个或多个16进制字符串转化为固定长度的随机数（通过哈希的方式）
+//对系统强随机种子（unix和windows系统的实现不同）进行SHA3哈希生成随机数
+func NewRand() (r Rand) {
+	b := make([]byte, RandLength)
+	rand.Read(b)
+	return RandFromBytes(b)
+}
+
+//把多维字符串转换成多维字节数组后，进行SHA3哈希生成随机数
 func RandFromHex(s ...string) (r Rand) {
-    return RandFromBytes(MapHexToBytes(s)...)
+	return RandFromBytes(MapHexToBytes(s)...)
 }
 
-// Getters
-
-// Bytes -- Return Rand as []byte
-//把一个随机数用字节数组的方式返回
+//把随机数转换成字节数组
 func (r Rand) Bytes() []byte {
-    return r[:]
+	return r[:]
 }
 
-// String -- Return Rand as hex string, not prefixed with 0x
-//把一个随机数用16进制字符串的方式返回，不包含0x前缀
-func (r Rand) String() string {
-    return hex.EncodeToString(r[:])
+//把随机数转换成16进制字符串（不包含0x前缀）
+func (r Rand) GetHexString() string {
+	return hex.EncodeToString(r[:])
 }
 
-// DerivedRand -- Derived Randomness hierarchically
 // r.DerivedRand(x) := Rand(r,x) := H(r || x) converted to Rand
 // r.DerivedRand(x1,x2) := Rand(Rand(r,x1),x2)
-//随机衍生函数，以随机数r为基，以参数x为变量，生成衍生随机数。
+//哈希叠加函数。以随机数r为基，以多维字节数组x为变量进行SHA3处理，生成衍生随机数。
+//硬计算量，没法做优化，具有良好的抗量子攻击。
 func (r Rand) DerivedRand(x ...[]byte) Rand {
-    // Keccak is not susceptible to length-extension-attacks, so we can use it as-is to implement an HMAC
-    //HMAC:基于哈希的消息验证码
-    //KECCAK是可以抵抗长度扩展攻击的，所以我们可以使用它来实现HMAC
-    ri := r
-    for _, xi := range x {
-        HashBytes(ri.Bytes(),xi).Sum(ri[:0])
-    }
-    return ri
+	ri := r
+	for _, xi := range x { //遍历多维字节数组
+		HashBytes(ri.Bytes(), xi).Sum(ri[:0]) //哈希叠加计算
+	}
+	return ri
 }
 
-// Shortcuts to the derivation function
-
-// Ders -- Derive randomness with indices given as strings
+//以多维字符串进行哈希叠加
 func (r Rand) Ders(s ...string) Rand {
-    return r.DerivedRand(MapStringToBytes(s)...)
+	return r.DerivedRand(MapStringToBytes(s)...)
 }
 
-// Deri -- Derive randomness with indices given as ints
+//以多维整数进行哈希叠加
 func (r Rand) Deri(vi ...int) Rand {
-    return r.Ders(MapItoa(vi)...)
+	return r.Ders(MapItoa(vi)...)
 }
 
-// Modulo -- Return Rand as integer modulo n
-// Convert to a random integer from the interval [0,n-1].
+//随机数求模操作，返回0到n-1之间的一个值
 func (r Rand) Modulo(n int) int {
-    //var b big.Int
-    b := big.NewInt(0)
-    b.SetBytes(r.Bytes())
-    b.Mod(b, big.NewInt(int64(n)))
-    return int(b.Int64())
+	b := big.NewInt(0)
+	b.SetBytes(r.Bytes())          //随机数转换成big.Int
+	b.Mod(b, big.NewInt(int64(n))) //对n求模
+	return int(b.Int64())
 }
 
-// RandomPerm -- A permutation deterministically derived from Rand
-// Produces a sequence of k integers from the interval[0,n-1] without repetitions
+//从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
 func (r Rand) RandomPerm(n int, k int) []int {
-    l := make([]int, n)
-    for i := range l {
-        l[i] = i
-    }
-    for i := 0; i < k; i++ {
-        j := r.Deri(i).Modulo(n-i) + i
-        l[i], l[j] = l[j], l[i]
-    }
-    return l[:k]
+	l := make([]int, n)
+	for i := range l {
+		l[i] = i
+	}
+	for i := 0; i < k; i++ {
+		j := r.Deri(i).Modulo(n-i) + i
+		l[i], l[j] = l[j], l[i]
+	}
+	return l[:k]
 }

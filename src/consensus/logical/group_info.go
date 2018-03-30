@@ -9,9 +9,34 @@ import (
 )
 
 type MemberInfo struct {
-	id     groupsig.ID
-	pubkey groupsig.Pubkey //组内成员签名公钥
+	id groupsig.ID //成员全局唯一ID
+	//pubkey groupsig.Pubkey 	//成员全局唯一公钥（哪怕不加入组，该公钥也存在，用于接收交易）组内成员签名公钥
+	pk groupsig.Pubkey //成员全局唯一公钥（哪怕不加入组，该公钥也存在，用于接收交易）
+}
 
+//组初始化结构
+type InitGroupInfo struct {
+	members []MemberInfo
+}
+
+//集齐所有组成员公钥后，可以聚合出组公钥。
+func (igi *InitGroupInfo) UpdateMemberPubKey(id groupsig.ID, pk groupsig.Pubkey) bool {
+	if !id.IsValid() || !pk.IsValid() {
+		return false
+	}
+	for i := 0; i < len(igi.members); i++ {
+		if igi.members[i].id == id {
+			if !igi.members[i].pk.IsValid() {
+				igi.members[i].pk = pk
+			} else {
+				if igi.members[i].pk != pk {
+					panic("UpdateMemberPubKey failed, pub key diff.")
+				}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 //静态组结构（组创建即确定）
@@ -20,6 +45,42 @@ type StaticGroupInfo struct {
 	GroupPK  groupsig.Pubkey        //组公钥
 	members  []MemberInfo           //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)
 	mapCache map[groupsig.ID]uint32 //用ID查找成员信息
+}
+
+//创建一个未经过组初始化共识的静态组结构（尚未共识生成组私钥、组公钥和组ID）
+//输入：组成员ID列表，该ID为组成员的私有ID（由该成员的交易私钥->公开地址处理而来），和组共识无关
+func CreateWithRawMembers(mems []MemberInfo) *StaticGroupInfo {
+	sgi := new(StaticGroupInfo)
+	sgi.members = make([]MemberInfo, GROUP_MAX_MEMBERS)
+	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
+	for i := 0; i < len(mems); i++ {
+		sgi.members = append(sgi.members, mems[i])
+		sgi.mapCache[mems[i].id] = uint32(len(sgi.members)) - 1
+	}
+	return sgi
+}
+
+//按组内排位取得成员ID列表
+func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
+	ids := make([]groupsig.ID, GROUP_MAX_MEMBERS)
+	for i := 0; i < len(sgi.members); i++ {
+		ids = append(ids, sgi.members[i].id)
+	}
+	return ids
+}
+
+func (sgi *StaticGroupInfo) Addmember(m MemberInfo) {
+	if m.id.IsValid() {
+		_, ok := sgi.mapCache[m.id]
+		if !ok {
+			sgi.members = append(sgi.members, m)
+			sgi.mapCache[m.id] = uint32(len(sgi.members)) - 1
+		}
+	}
+}
+
+func (sgi *StaticGroupInfo) CanGroupSing() bool {
+	return sgi.GroupPK.IsValid()
 }
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {

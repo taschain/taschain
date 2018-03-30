@@ -1,21 +1,17 @@
 package rand
 
 import (
-    "golang.org/x/crypto/sha3"
-    "hash"
+	"hash"
+	"golang.org/x/crypto/sha3"
 )
 
 // Hash helpers
 
-// HashBytes -- the hash of the concatenation of multiple byte arrays
-// This calculates the SHA3-256 value
-// Access the digest for example with h := d.Sum(nil)
-//生成多维二进制数组的SHA3_256位哈希
+//生成多维字节数组的SHA3_256位哈希
 func HashBytes(b ...[]byte) hash.Hash {
-    d := sha3.New256()
-    for _, bi := range b {
-        d.Write(bi)
-    }
-    return d
+	d := sha3.New256()
+	for _, bi := range b {
+		d.Write(bi)
+	}
+	return d
 }
-

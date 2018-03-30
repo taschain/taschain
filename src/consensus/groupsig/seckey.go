@@ -47,6 +47,11 @@ func (sec Seckey) GetBigInt() (s *big.Int) {
 	return s
 }
 
+func (sec Seckey) IsValid() bool {
+	bi := sec.GetBigInt()
+	return bi != big.NewInt(0)
+}
+
 //把私钥转换成十进制字符串
 func (sec Seckey) GetDecimalString() string {
 	return sec.value.GetDecString()
