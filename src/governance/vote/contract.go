@@ -14,29 +14,20 @@ import (
 type ContractRef common.Address
 
 type VoteContract struct {
-	//TODO: 继承普通合约
-	//Contract
-	Config VoteConfig
+	template *VoteTemplate
+	addr common.Address
+	config *VoteConfig
 }
 
 type VotePool struct {
 	mu	sync.Mutex
-	votes	[]*VoteContract
+	votes map[common.Address]*VoteContract
 }
 
 func (v *VotePool) AddVoteContract(vote *VoteContract) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-    v.votes = append(v.votes, vote)
+    v.votes[vote.addr] = vote
 }
 
-func (v *VotePool) StoreVoteContract(vote *VoteContract)  {
-    v.AddVoteContract(vote)
-    //TODO: 持久化
-}
-
-func (v *VotePool) GetVoteContract(ref ContractRef) *VoteContract  {
-	//TODO: 根据地址查找合约
-    return nil
-}

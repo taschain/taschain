@@ -5,6 +5,7 @@ import (
 	"common"
 	"sync"
 	"fmt"
+	"governance"
 )
 
 /*
@@ -15,13 +16,10 @@ import (
 
 const DEFAULT_VERSION = 0
 
-const (
-	DEFAULT_GASPRICE_MIN            = 10000 //gasprice min
-	DEFAULT_BLOCK_FIX_AWARD         = 5     //区块固定奖励
-	DEFAULT_VOTER_CNT_MIN           = 100   //最小参与投票人
-	DEFAULT_VOTER_DEPOSIT_MIN       = 1     //每个投票人最低缴纳的保证金
-	DEFAULT_VOTER_TOTAL_DEPOSIT_MIN = 100   //所有投票人最低保证金总和
-)
+
+//参数校验函数
+type ValidateFunc func(input interface{}) error
+
 
 type ParamMeta struct {
 	Value       interface{}
@@ -33,11 +31,11 @@ type ParamMeta struct {
 }
 
 type ParamDef struct {
-	mu			*sync.Mutex
-	Current 	*ParamMeta
-	Futures 	[]*ParamMeta
-	Historys	[]*ParamMeta
-	//RangeCheck
+	mu        sync.Mutex
+	Current   *ParamMeta
+	Futures   []*ParamMeta
+	Histories []*ParamMeta
+	Validate	ValidateFunc
 }
 
 func newMeta(v interface{}) *ParamMeta {
@@ -48,16 +46,11 @@ func newMeta(v interface{}) *ParamMeta {
 	}
 }
 
-func newParamDef(current *ParamMeta) *ParamDef {
+func newParamDef(init interface{}, validator ValidateFunc) *ParamDef {
 	return &ParamDef{
-		Current: current,
-		mu: new(sync.Mutex),
+		Current: newMeta(init),
+		Validate: validator,
 	}
-}
-
-func currentBlock() uint64 {
-	//TODO: 获取当前区块高度
-	return 2
 }
 
 func (p *ParamDef ) CurrentValue() interface{} {
@@ -80,10 +73,10 @@ func (p *ParamDef) removePreFuture(idx int)  {
 }
 
 func (p *ParamDef) copyFuture2History(futures []*ParamMeta)  {
-	if p.Historys == nil {
-		p.Historys = []*ParamMeta{}
+	if p.Histories == nil {
+		p.Histories = []*ParamMeta{}
 	}
-	p.Historys = append(p.Historys, futures...)
+	p.Histories = append(p.Histories, futures...)
 }
 
 func (p *ParamDef) tryApplyFutureMeta()  {
@@ -92,8 +85,8 @@ func (p *ParamDef) tryApplyFutureMeta()  {
 
 	for i := len(p.Futures) - 1; i >= 0; i-- {
 		f := p.Futures[i]
-		if f.ValidBlock <= currentBlock() {
-			p.Historys = append(p.Historys, p.Current)
+		if f.ValidBlock <= governance.CurrentBlock() {
+			p.Histories = append(p.Histories, p.Current)
 			p.Current = f
 			p.Current.version ++
 			p.copyFuture2History(p.Futures[:i])
@@ -104,18 +97,18 @@ func (p *ParamDef) tryApplyFutureMeta()  {
 
 }
 
-func print(a []*ParamMeta) {
+func out(a []*ParamMeta) {
 	for idx, meta := range a {
 		fmt.Println(idx, meta.ValidBlock, meta.Value)
 	}
 }
 
 func (p *ParamDef) printFuture()  {
-    print(p.Futures)
+    out(p.Futures)
 }
 
 func (p *ParamDef) printHistory()  {
-	print(p.Historys)
+	out(p.Histories)
 }
 
 func (p *ParamDef) AddFuture(meta *ParamMeta) {
