@@ -13,4 +13,5 @@ type Transaction struct {
 	gas      uint32
 	gaslimit uint32
 	gasprice uint32
+	hash     common.Hash
 }
