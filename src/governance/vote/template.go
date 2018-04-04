@@ -1,6 +1,9 @@
 package vote
 
-import "common"
+import (
+	"common"
+	"time"
+)
 
 /*
 **  Creator: pxf
@@ -8,17 +11,23 @@ import "common"
 **  Description: 
 */
 
-type Code []byte
+type ABI string	//todo ABI define
 
-func DeployVoteTemplate(code Code) (*TemplateID) {
+type VoteTemplate struct {
+	code []byte
+	hash common.Hash
+	abi ABI
+	gmtPublish time.Time
+	author common.Address
+	valid bool
+}
+
+func DeployVoteTemplate(template *VoteTemplate) (*TemplateID) {
 	//TODO:
 	return nil
 }
 
-func UpdateVoteTemplate(id TemplateID, code Code) error {
-	return nil
-}
 
-func GetVoteTemplate(id TemplateID) (Code, common.Hash, error) {
-	return nil, common.Hash{}, nil
+func GetVoteTemplate(id TemplateID) (*VoteTemplate, error) {
+	return nil, nil
 }
