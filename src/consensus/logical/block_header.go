@@ -1,5 +1,5 @@
 package logical
-   
+
 import (
 	"common"
 	"consensus/groupsig"
@@ -26,6 +26,15 @@ type SignData struct {
 	SignMember groupsig.ID        //用户ID或组ID，看消息类型
 }
 
+func (sd SignData) GetID() groupsig.ID {
+	return sd.SignMember
+}
+
+//用pk验证签名，验证通过返回true，否则false。
 func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
-	return groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
+	b := pk.IsValid()
+	if b {
+		b = groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
+	}
+	return b
 }

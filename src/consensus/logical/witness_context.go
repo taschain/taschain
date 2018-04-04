@@ -31,6 +31,7 @@ const (
 const CONSENSUS_VERSION = 1                                          //共识版本号
 const SSSS_THRESHOLD = 51                                            //1-100
 const GROUP_MAX_MEMBERS = 10                                         //一个组最大的成员数量
+const GROUP_INIT_MAX_SECONDS = 600												//10分钟内完成初始化，否则该组失败。不再有初始化机会。
 const MAX_UNKNOWN_BLOCKS = 5                                         //内存保存最大不能上链的未来块（中间块没有收到）
 const MAX_SYNC_CASTORS = 3                                           //最多同时支持几个铸块验证
 const INVALID_QN = -1                                                //无效的队列序号
@@ -117,7 +118,7 @@ const (
 
 //收到一个（组内分片）验证通过请求
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (cc *CastContext) AcceptPiece(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (cc *CastContext) AcceptPiece(cs ConsensusBlockSummary) CAST_BLOCK_MESSAGE_RESULT {
 	if len(cc.MapWitness) > GROUP_MAX_MEMBERS {
 		panic("CastContext::Verified failed, too many members.")
 	}
@@ -152,7 +153,7 @@ func (cc CastContext) IsKing(member groupsig.ID) bool {
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func newCastContext(cs ConsensusSummary) CastContext {
+func newCastContext(cs ConsensusBlockSummary) CastContext {
 	var cc CastContext
 	cc.TimeRev = time.Now()
 	cc.HeaderHash = cs.DataHash
@@ -322,7 +323,7 @@ func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 //铸块共识消息处理函数
 //cc：铸块共识数据
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (bc *BlockContext) accpetCV(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (bc *BlockContext) accpetCV(cs ConsensusBlockSummary) CAST_BLOCK_MESSAGE_RESULT {
 	count := getCastTimeWindow(bc.PreTime)
 	if count < 0 || cs.QueueNumber < 0 { //时间窗口异常
 		return CBMR_ERROR_ARG
@@ -416,7 +417,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 }
 
 //收到某个铸块人的铸块完成消息（个人铸块完成消息也是个人验证完成消息）
-func (bc *BlockContext) UserCasted(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (bc *BlockContext) UserCasted(cs ConsensusBlockSummary) CAST_BLOCK_MESSAGE_RESULT {
 	if !bc.IsCasting() {
 		return CMBR_IGNORE_NOT_CASTING
 	}
@@ -425,7 +426,7 @@ func (bc *BlockContext) UserCasted(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESUL
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (bc *BlockContext) UserVerified(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (bc *BlockContext) UserVerified(cs ConsensusBlockSummary) CAST_BLOCK_MESSAGE_RESULT {
 	if !bc.IsCasting() { //没有在组铸块共识窗口
 		return CMBR_IGNORE_NOT_CASTING
 	}
@@ -433,7 +434,7 @@ func (bc *BlockContext) UserVerified(cs ConsensusSummary) CAST_BLOCK_MESSAGE_RES
 	return result
 }
 
-func (bc BlockContext) VerifyGroupSign(cs ConsensusSummary, pk groupsig.Pubkey) bool {
+func (bc BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pubkey) bool {
 	//找到cs对应的槽
 	i, king := bc.findCastSlot(cs.QueueNumber)
 	if i >= 0 && king {
