@@ -4,6 +4,7 @@ import (
 	"common"
 	"consensus/groupsig"
 	"time"
+	"core"
 )
 
 type CONSENSUS_TYPE uint8
@@ -42,7 +43,7 @@ type ConsensusCurrentMessage struct {
 }
 
 type ConsensusBlockMessageBase struct {
-	bh BlockHeader
+	bh core.BlockHeader
 	si SignData
 }
 
@@ -55,7 +56,7 @@ type ConsensusVerifyMessage ConsensusBlockMessageBase
 //出块消息 - 该组成功完成了一个出块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage ConsensusBlockMessageBase
 
-func GenConsensusSummary(bh BlockHeader, si SignData) ConsensusBlockSummary {
+func GenConsensusSummary(bh core.BlockHeader, si SignData) ConsensusBlockSummary {
 	var cs ConsensusBlockSummary
 	cs.Castor = bh.Castor
 	cs.DataHash = si.DataHash

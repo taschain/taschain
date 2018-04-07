@@ -4,7 +4,7 @@ import (
 	"consensus/groupsig"
 	"fmt"
 	"time"
-
+	"core"
 	"common"
 )
 
@@ -83,7 +83,7 @@ func (p *Processer) InitProcesser() {
 }
 
 //检查区块头是否合法
-func (p Processer) isBHCastLegal(bh BlockHeader, sd SignData) (result bool) {
+func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
 	//to do : 检查是否基于链上最高块的出块
 	gi := p.gg.GetCastGroup(bh.PreHash) //取得合法的铸块组
 	if gi.GroupID == sd.SignMember {
@@ -148,7 +148,7 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	gi, err := p.gg.GetGroupByID(p.gid)
 	if err == nil {
 		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
-		if ok {                                   //该用户和我是同一组
+		if ok { //该用户和我是同一组
 			if ccm.si.VerifySign(ru.pk) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
 				//to do : 屮逸组内广播
@@ -263,7 +263,7 @@ func (p Processer) getSelfGroup() StaticGroupInfo {
 
 //当前节点成为KING，出块
 func (p Processer) castBlock(qn int64) bool {
-	var bh BlockHeader
+	var bh core.BlockHeader
 	var hash []byte
 	//to do : 鸠兹生成bh和哈希
 	//给鸠兹的参数：QN, nonce，castor
