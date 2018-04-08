@@ -3,8 +3,11 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
-	"time"
+	"consensus/rand"
 	"core"
+	"hash"
+	"strconv"
+	"time"
 )
 
 type CONSENSUS_TYPE uint8
@@ -84,6 +87,16 @@ func (gis *ConsensusGroupInitSummary) IsExpired() bool {
 	} else {
 		return true
 	}
+}
+
+//生成哈希
+func (gis *ConsensusGroupInitSummary) GenHash() hash.Hash {
+	buf := gis.ParentID.GetHexString()
+	buf += strconv.FormatUint(gis.Authority, 16)
+	buf += string(gis.Name[:])
+	buf += gis.DummyID.GetHexString()
+	buf += gis.BeginTime.Format(time.ANSIC)
+	return rand.HashBytes([]byte(buf))
 }
 
 //组初始化消息族
