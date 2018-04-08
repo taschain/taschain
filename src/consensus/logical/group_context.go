@@ -14,17 +14,99 @@ import (
 type NewGroupMemberData struct {
 	h   hash.Hash
 	gpk groupsig.Pubkey
-	gid groupsig.ID
+	//gid groupsig.ID
 }
 
 type NewGroupChained struct {
-	sgi  StaticGroupInfo
-	mems map[groupsig.ID]NewGroupMemberData
+	sgi    StaticGroupInfo                    //共识数据（基准）和组成员列表
+	mems   map[groupsig.ID]NewGroupMemberData //接收到的组成员共识结果（成员ID->组ID和组公钥）
+	status int                                //-1,组初始化失败（超时或无法达成共识，不可逆）；=0，组初始化中；=1，组初始化成功
+	gpk    groupsig.Pubkey
+}
+
+func (ngc *NewGroupChained) Convergence() bool {
+	if ngc.gpk.IsValid() {
+		return true
+	}
+	countMap := make(map[groupsig.Pubkey]int, 0)
+	//统计出现次数
+	for _, v := range ngc.mems {
+		countMap[v.gpk]++
+	}
+	//查找最多的元素
+	var gpk groupsig.Pubkey
+	var count int
+	for k, v := range countMap {
+		if count == 0 || v > count {
+			count = v
+			gpk = k
+		}
+	}
+	if count >= GROUP_MIN_WITNESSES {
+		ngc.gpk = gpk
+		return true
+	}
+	return false
+}
+
+//检查和更新组初始化状态
+//to do : 失败处理可以更精细化
+func (ngc *NewGroupChained) UpdateStatus() int {
+	if ngc.status == -1 || ngc.status == 1 {
+		return ngc.status
+	}
+	if len(ngc.mems) >= GROUP_MIN_WITNESSES { //收到超过阈值成员的数据
+		if ngc.Convergence() { //相同性测试
+			return 1 //有超过阈值的组成员生成的组公钥相同
+		} else {
+			if len(ngc.mems) == GROUP_MAX_MEMBERS { //收到了所有组员的结果，仍然失败
+				return -1
+			}
+		}
+	}
+	return 0
 }
 
 //新组生成器
 type NewGroupGenerator struct {
-	groups map[groupsig.ID]NewGroupChained
+	groups map[groupsig.ID]NewGroupChained //组ID（dummyID）->组创建共识
+}
+
+func (ngg *NewGroupGenerator) Load() {
+	ngg.groups = make(map[groupsig.ID]NewGroupChained, 1)
+	//to do : 从主链加载待初始化的组信息
+}
+
+//创建新组数据接收处理
+//gid：待初始化组的dummy id
+//uid：组成员的公开id（和组无关）
+//ngmd：组的初始化共识结果
+//返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
+func (ngg *NewGroupGenerator) ReceiveData(gid groupsig.ID, uid groupsig.ID, ngmd NewGroupMemberData) int {
+	ngc, ge := ngg.groups[gid]
+	if !ge { //不存在该组
+		return -1
+	}
+	if ngc.sgi.gis.IsExpired() { //该组初始化共识已超时
+		return -1
+	}
+	if !ngc.sgi.MemExist(uid) { //消息发送方不属于待初始化的组
+		return -1
+	}
+	_, ue := ngc.mems[uid]
+	if ue { //已收到过该用户的数据
+		return 0
+	}
+	if ngmd.h != ngc.sgi.gis.GenHash() { //共识数据异常
+		return -1
+	}
+	ngc.mems[uid] = ngmd //数据接收
+	if len(ngc.mems) >= GROUP_MIN_WITNESSES {
+		return 1
+	} else {
+		return 0
+	}
+	return -1
 }
 
 ///////////////////////////////////////////////////////////////////////////////
