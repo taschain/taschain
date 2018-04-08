@@ -12,8 +12,9 @@ import (
 */
 
 func newInstance() *ParamDef {
-	meta := newMeta(10)
-	def := newParamDef(meta)
+	def := newParamDef(10, func(input interface{}) error {
+		return nil
+	})
 	return def
 }
 

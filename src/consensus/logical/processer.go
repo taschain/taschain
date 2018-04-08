@@ -4,7 +4,7 @@ import (
 	"consensus/groupsig"
 	"fmt"
 	"time"
-
+	"core"
 	"common"
 )
 
@@ -67,17 +67,23 @@ func (sci *SelfCastInfo) AddQN(height uint, newQN uint) bool {
 
 //见证人处理器
 type Processer struct {
+	gc   *GroupContext   //组初始化上下文(组初始化完成上链后，不再需要)
 	bc   BlockContext    //铸块上下文
-	gg   GlobalGroups    //全网组信息
-	gid  groupsig.ID     //所属组ID
-	uid  groupsig.ID     //个人ID
-	gusk groupsig.Seckey //组成员签名私钥（片）
-	usk  groupsig.Seckey //组个人私钥（用组内成员列表处保存的个人公钥可以验签）
-	sci  SelfCastInfo    //自己的铸块信息
-
+	gg   GlobalGroups    //全网组静态信息
+	gid  groupsig.ID     //当前节点所属组ID
+	uid  groupsig.ID     //当前节点ID
+	gusk groupsig.Seckey //组成员（铸块）签名私钥
+	usk  groupsig.Seckey //个人私钥，和组无关（用全网组静态信息里所属组保存的个人公钥可以验签）
+	sci  SelfCastInfo    //当前节点的铸块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）
 }
 
-func (p Processer) isBHCastLegal(bh BlockHeader, sd SignData) (result bool) {
+func (p *Processer) InitProcesser() {
+	//to do ： 从链上加载和初始化成员变量
+	return
+}
+
+//检查区块头是否合法
+func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
 	//to do : 检查是否基于链上最高块的出块
 	gi := p.gg.GetCastGroup(bh.PreHash) //取得合法的铸块组
 	if gi.GroupID == sd.SignMember {
@@ -142,7 +148,7 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	gi, err := p.gg.GetGroupByID(p.gid)
 	if err == nil {
 		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
-		if ok {                                   //该用户和我是同一组
+		if ok { //该用户和我是同一组
 			if ccm.si.VerifySign(ru.pk) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
 				//to do : 屮逸组内广播
@@ -156,7 +162,7 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p Processer) SuccessNewBlock(cs ConsensusSummary) {
+func (p Processer) SuccessNewBlock(cs ConsensusBlockSummary) {
 	//鸠兹保存上链
 	//屮逸组外广播
 	p.bc.CastedUpdateStatus(uint(cs.QueueNumber))
@@ -179,18 +185,70 @@ func (p Processer) CheckCastRoutine(user_index int32, qn int64, height uint) {
 
 ///////////////////////////////////////////////////////////////////////////////
 //组初始化相关消息
-func (p Processer) OnMessageGroupInit() {
-
+//to do : 之前我跟哪些节点属于同一组的信息保存在哪里？
+func (p Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
+	if p.gg.GetGroupStatus(p.gid) != SGS_INITING {
+		return //当前节点所在的组不需要初始化
+	}
+	if p.gc == nil {
+		//to do : 需要初始化
+		fmt.Printf("OnMessageGroupInit failed, receive GROUPINIT msg when gc=nil.\n")
+		return
+	}
+	if p.gc.RawMeesage(grm) { //第一次收到该消息
+		pieces := p.gc.GenSharePieces() //生成秘密分享
+		for _, piece := range pieces {
+			if piece.IsValid() {
+				//to do : 调用屮逸的发送函数
+			}
+		}
+	}
+	return
 }
 
 //收到组内成员发给我的秘密分享片段消息
-func (p Processer) OnMessageSharePiece() {
-
+func (p Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
+	if p.gc == nil {
+		fmt.Printf("OnMessageSharePiece failed, receive SHAREPIECE msg when gc=nil.\n")
+		return
+	}
+	if !p.isSameGroup(spm.si.SignMember, false) {
+		fmt.Printf("OnMessageSharePiece failed, not same group.\n")
+		return
+	}
+	result := p.gc.PieceMessage(spm)
+	if result == 1 { //已聚合出签名私钥
+		pk := p.gc.GetPiecePubKey()
+		if pk.IsValid() {
+			//to do ：把公钥pk发送给组内所有成员
+		}
+	}
 }
 
 //收到组内成员发给我的组成员签名公钥消息
-func (p Processer) OnMessagePubKeyPiece() {
+func (p Processer) OnMessagePubKeyPiece(ppm ConsensusPubKeyPieceMessage) {
+	if p.gc == nil {
+		fmt.Printf("OnMessagePubKeyPiece failed, receive PUBKEYPIECE msg when gc=nil.\n")
+		return
+	}
+	if !p.isSameGroup(ppm.si.SignMember, false) {
+		fmt.Printf("OnMessagePubKeyPiece failed, not same group.\n")
+		return
+	}
+	result := p.gc.PiecePubKey(ppm)
+	if result == 1 { //已经聚合出组公钥
+		id, pk := p.gc.GetGroupInfo()
+		if id.IsValid() && pk.IsValid() {
+			//to do : 把已初始化的组信息广播到全网
+		}
+	}
+}
 
+//全网节点收到某组已初始化完成消息（在一个时间窗口内收到该组51%成员的消息相同，才确认上链）
+//最终版本修改为父亲节点进行验证（51%）和上链
+func (p Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
+	//g := p.gg.GetGroupByID(gim.gi.gis.DummyID)
+	return
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -205,7 +263,7 @@ func (p Processer) getSelfGroup() StaticGroupInfo {
 
 //当前节点成为KING，出块
 func (p Processer) castBlock(qn int64) bool {
-	var bh BlockHeader
+	var bh core.BlockHeader
 	var hash []byte
 	//to do : 鸠兹生成bh和哈希
 	//给鸠兹的参数：QN, nonce，castor
@@ -219,4 +277,14 @@ func (p Processer) castBlock(qn int64) bool {
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
 	//更新共识上下文
 	return true
+}
+
+//判断某个ID和当前节点是否同一组
+//uid：远程节点ID，inited：组是否已初始化完成
+func (p Processer) isSameGroup(uid groupsig.ID, inited bool) bool {
+	if inited {
+		return p.getSelfGroup().MemExist(uid)
+	} else {
+		return p.gc.MemExist(uid)
+	}
 }
