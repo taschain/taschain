@@ -1,4 +1,12 @@
-*.xml
+#MacOS file info
 .DS_Store
+
+#Goland IDE data
 .idea
 .idea/*.*
+
+#output of Golang package
+/pkg
+
+#other ignore files
+*.xml

@@ -12,7 +12,7 @@ import (
 //本地查询transaction
 type queryTracsactionFn func(hs []common.Hash) ([]core.Transaction, error)
 
-//监听到交易到达
+//监听到交易到达 //todo  班德 鸠兹 各自实现一个
 type transactionArrivedNotifyFn func(ts []core.Transaction)
 
 //接收到新的块 本地上链
@@ -38,6 +38,9 @@ type syncGroupInfoToChainFn func(hbm map[int]logical.StaticGroupInfo)
 
 //将接收到的交易加入交易池
 type addTransactionToPoolFn func(t core.Transaction)
+
+//根据hash获取对应的block todo 暂不使用
+type queryBlocksByHashFn func(h common.Hash) (core.Block, error)
 
 //---------------------------------------------------------------------------------------------------------------------
 type BlockChainMessageHandler struct {
