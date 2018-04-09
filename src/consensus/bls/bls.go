@@ -2,6 +2,8 @@ package bls
 
 /*
 #cgo CFLAGS:-DMCLBN_FP_UNIT_SIZE=6
+#cgo CFLAGS:  -I../../../include
+#cgo LDFLAGS: -L../../../lib/darwin_amd64
 #cgo LDFLAGS:-lbls384 -lgmpxx -lstdc++ -lgmp -lcrypto
 #include <bls/bls.h>
 */

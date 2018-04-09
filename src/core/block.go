@@ -15,7 +15,7 @@ type BlockHeader struct {
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	BlockHeight  uint64        //铸块高度
-	QueueNumber  uint32        //轮转序号
+	QueueNumber  uint64        //轮转序号
 	CurTime      time.Time     //当前铸块时间
 	Castor       groupsig.ID   //铸块人(ID同时决定了铸块人的权重)
 	Signature    common.Hash   // 组签名
