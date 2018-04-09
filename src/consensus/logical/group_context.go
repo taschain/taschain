@@ -135,7 +135,7 @@ func (gc *GroupContext) MemExist(id groupsig.ID) bool {
 	return gc.sgi.MemExist(id)
 }
 
-func CreateGCByMems(mems []MemberInfo) *GroupContext {
+func CreateGCByMems(mems []PubKeyInfo) *GroupContext {
 	gc := new(GroupContext)
 	gc.sgi = CreateWithRawMembers(mems)
 	gc.is = GIS_RAW
