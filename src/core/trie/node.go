@@ -181,7 +181,7 @@ func decodeRef(buf []byte, cachegen uint16) (node, []byte, error) {
 
 // wraps a decoding error with information about the path to the
 // invalid child node (for debugging encoding issues).
-type decodeError struct {
+type nodeDecodeError struct {
 	what  error
 	stack []string
 }
@@ -190,13 +190,13 @@ func wrapError(err error, ctx string) error {
 	if err == nil {
 		return nil
 	}
-	if decErr, ok := err.(*decodeError); ok {
+	if decErr, ok := err.(*nodeDecodeError); ok {
 		decErr.stack = append(decErr.stack, ctx)
 		return decErr
 	}
-	return &decodeError{err, []string{ctx}}
+	return &nodeDecodeError{err, []string{ctx}}
 }
 
-func (err *decodeError) Error() string {
+func (err *nodeDecodeError) Error() string {
 	return fmt.Sprintf("%v (decode path: %s)", err.what, strings.Join(err.stack, "<-"))
 }

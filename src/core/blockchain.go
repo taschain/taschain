@@ -9,26 +9,89 @@ import (
 	"hash"
 	"crypto/sha256"
 	"sync"
+	"consensus/logical"
 )
 
+const STATUS_KEY = "current"
+
+// 配置文件，暂时写死
+type BlockChainConfig struct {
+	block       string
+	blockCache  int
+	blockHandle int
+
+	blockHeight       string
+	blockHeightCache  int
+	blockHeightHandle int
+}
+
 type BlockChain struct {
-	blocks          datasource.Database // key: blockhash, value: block
-	blockHeight     datasource.Database //key: height, value: blockHeader
+	config *BlockChainConfig
+
+	// key: blockhash, value: block
+	blocks datasource.Database
+	//key: height, value: blockHeader
+	blockHeight datasource.Database
+
 	transactionPool *TransactionPool
-	latestBlock     *BlockHeader
-	height          uint64
-	hs              hash.Hash
-	lock            sync.RWMutex
+	//已上链的最新块
+	latestBlock *BlockHeader
+	//当前链的高度
+	height uint64
+
+	// sha256 Hasher实例
+	hs hash.Hash
+
+	// 读写锁
+	lock sync.RWMutex
+}
+
+// 默认配置
+func DefaultBlockChainConfig() *BlockChainConfig {
+	return &BlockChainConfig{
+		block:       "block",
+		blockCache:  128,
+		blockHandle: 1024,
+
+		blockHeight:       "height",
+		blockHeightCache:  128,
+		blockHeightHandle: 1024,
+	}
 }
 
 func InitBlockChain() *BlockChain {
-	//todo: 从磁盘文件中初始化leveldb
-	return &BlockChain{
+
+	chain := &BlockChain{
+		config:          DefaultBlockChainConfig(),
 		transactionPool: NewTransactionPool(),
 		height:          0,
+		latestBlock:     nil,
 		hs:              sha256.New(),
 		lock:            sync.RWMutex{},
 	}
+
+	//从磁盘文件中初始化leveldb
+	var err error
+
+	chain.blocks, err = datasource.NewLDBDatabase(chain.config.block, chain.config.blockCache, chain.config.blockHandle)
+	if err != nil {
+		//todo: 日志
+		return nil
+	}
+
+	chain.blockHeight, err = datasource.NewLDBDatabase(chain.config.blockHeight, chain.config.blockHeightCache, chain.config.blockHeightHandle)
+	if err != nil {
+		//todo: 日志
+		return nil
+	}
+
+	// 恢复链状态 height,latestBlock
+	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
+	chain.latestBlock = chain.getBlockHeaderByHeight([]byte(STATUS_KEY))
+	if nil != chain.latestBlock {
+		chain.height = chain.latestBlock.Height
+	}
+	return chain
 }
 
 //根据哈希取得某个交易
@@ -60,9 +123,8 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 }
 
 //根据指定高度查询块
-func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
-
-	result, err := chain.blockHeight.Get(chain.generateHeightKey(height))
+func (chain *BlockChain) getBlockHeaderByHeight(height []byte) *BlockHeader {
+	result, err := chain.blockHeight.Get(height)
 	if err != nil {
 		var header BlockHeader
 		err = json.Unmarshal(result, &header)
@@ -76,6 +138,12 @@ func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 	}
 }
 
+//根据指定高度查询块
+func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
+
+	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
+}
+
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock() Block {
 
@@ -84,7 +152,7 @@ func (chain *BlockChain) CastingBlock() Block {
 
 	transactionHashes := make([]common.Hash, len(block.transactions))
 	for i, tx := range block.transactions {
-		transactionHashes[i] = tx.hash
+		transactionHashes[i] = tx.Hash
 	}
 
 	block.header = &BlockHeader{
@@ -187,11 +255,15 @@ func (chain *BlockChain) saveBlock(b Block) int8 {
 		return -1
 	}
 
+	// 持久化保存最新块信息
 	chain.latestBlock = b.header
 	chain.height = b.header.Height
+	err = chain.blockHeight.Put([]byte(STATUS_KEY), headerJson)
+	if err != nil {
+		return -1
+	}
 
 	return 0
-
 }
 
 // 链分叉，调整主链
@@ -236,7 +308,18 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 
 // 判断权重
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
-	return true
+
+	return chain.getWeight(current.QueueNumber) > chain.getWeight(candidate.QueueNumber)
+}
+
+//取得铸块权重
+//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
+func (chain *BlockChain) getWeight(number uint64) uint64 {
+	if number <= uint64(logical.MAX_QN) {
+		return uint64(number) << 1
+	} else {
+		return 0
+	}
 }
 
 // 删除块

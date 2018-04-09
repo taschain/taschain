@@ -1,4 +1,3 @@
-
 package trie
 
 import (
@@ -6,8 +5,7 @@ import (
 	"time"
 	"common"
 
-	"../datasource"
-	"github.com/ethereum/ethdb"
+	"core/datasource"
 )
 
 // secureKeyPrefix is the database key prefix used to store trie node preimages.
@@ -37,9 +35,9 @@ type Database struct {
 	preimages map[common.Hash][]byte      // Preimages of nodes from the secure trie
 	seckeybuf [secureKeyLength]byte       // Ephemeral buffer for calculating preimage keys
 
-	gctime  time.Duration      // Time spent on garbage collection since last commit
-	gcnodes uint64             // Nodes garbage collected since last commit
-	gcsize  StorageSize // Data storage garbage collected since last commit
+	gctime  time.Duration // Time spent on garbage collection since last commit
+	gcnodes uint64        // Nodes garbage collected since last commit
+	gcsize  StorageSize   // Data storage garbage collected since last commit
 
 	nodesSize     StorageSize // Storage size of the nodes cache
 	preimagesSize StorageSize // Storage size of the preimages cache
@@ -196,7 +194,7 @@ func (db *Database) Dereference(child common.Hash, parent common.Hash) {
 	db.gctime += time.Since(start)
 
 	//log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
-		//"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
+	//"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 }
 
 // dereference is the private locked version of Dereference.
@@ -245,7 +243,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 			db.lock.RUnlock()
 			return err
 		}
-		if batch.ValueSize() > ethdb.IdealBatchSize {
+		if batch.ValueSize() > datasource.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return err
 			}
@@ -290,7 +288,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 }
 
 // commit is the private locked version of Commit.
-func (db *Database) commit(hash common.Hash, batch ethdb.Batch) error {
+func (db *Database) commit(hash common.Hash, batch datasource.Batch) error {
 	// If the node does not exist, it's a previously committed node
 	node, ok := db.nodes[hash]
 	if !ok {
@@ -305,7 +303,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch) error {
 		return err
 	}
 	// If we've reached an optimal match size, commit and start over
-	if batch.ValueSize() >= ethdb.IdealBatchSize {
+	if batch.ValueSize() >= datasource.IdealBatchSize {
 		if err := batch.Write(); err != nil {
 			return err
 		}

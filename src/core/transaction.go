@@ -5,13 +5,14 @@ import (
 )
 
 type Transaction struct {
-	id       common.Address
-	status   int8
-	data     []int8
-	source   common.Address
-	target   common.Address
-	gas      uint32
-	gaslimit uint32
-	gasprice uint32
-	hash     common.Hash
+	Id       common.Address
+	Status   int8
+	Data     []int8
+	Source   common.Address
+	Target   common.Address
+	Gas      uint32
+	Gaslimit uint32
+	Gasprice uint32
+	Hash     common.Hash
+	ExtraData []int8
 }
