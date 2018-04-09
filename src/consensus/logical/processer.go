@@ -1,11 +1,11 @@
 package logical
 
 import (
+	"common"
 	"consensus/groupsig"
+	"core"
 	"fmt"
 	"time"
-	"core"
-	"common"
 )
 
 //计算当前距上一个铸块完成已经过去了几个铸块时间窗口（组间）
@@ -67,14 +67,15 @@ func (sci *SelfCastInfo) AddQN(height uint, newQN uint) bool {
 
 //见证人处理器
 type Processer struct {
-	gc   *GroupContext   //组初始化上下文(组初始化完成上链后，不再需要)
-	bc   BlockContext    //铸块上下文
-	gg   GlobalGroups    //全网组静态信息
-	gid  groupsig.ID     //当前节点所属组ID
-	uid  groupsig.ID     //当前节点ID
-	gusk groupsig.Seckey //组成员（铸块）签名私钥
-	usk  groupsig.Seckey //个人私钥，和组无关（用全网组静态信息里所属组保存的个人公钥可以验签）
-	sci  SelfCastInfo    //当前节点的铸块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）
+	ngg  NewGroupGenerator //to do : 移动到别的结构，放在这里不合适。用于测试目的。
+	gc   *GroupContext     //组初始化上下文(组初始化完成上链后，不再需要)
+	bc   BlockContext      //铸块上下文
+	gg   GlobalGroups      //全网组静态信息
+	gid  groupsig.ID       //当前节点所属组ID
+	uid  groupsig.ID       //当前节点ID
+	gusk groupsig.Seckey   //组成员（铸块）签名私钥
+	usk  groupsig.Seckey   //个人私钥，和组无关（用全网组静态信息里所属组保存的个人公钥可以验签）
+	sci  SelfCastInfo      //当前节点的铸块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）
 }
 
 func (p *Processer) InitProcesser() {
@@ -148,7 +149,7 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	gi, err := p.gg.GetGroupByID(p.gid)
 	if err == nil {
 		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
-		if ok { //该用户和我是同一组
+		if ok {                                   //该用户和我是同一组
 			if ccm.si.VerifySign(ru.pk) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
 				//to do : 屮逸组内广播
@@ -163,8 +164,8 @@ func (p Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p Processer) SuccessNewBlock(cs ConsensusBlockSummary) {
-	//鸠兹保存上链
-	//屮逸组外广播
+	//to do : 鸠兹保存上链
+	//to do : 屮逸组外广播
 	p.bc.CastedUpdateStatus(uint(cs.QueueNumber))
 	p.bc.SignedUpdateMinQN(uint(cs.QueueNumber))
 	return
@@ -220,7 +221,7 @@ func (p Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	if result == 1 { //已聚合出签名私钥
 		pk := p.gc.GetPiecePubKey()
 		if pk.IsValid() {
-			//to do ：把公钥pk发送给组内所有成员
+			//to do ：屮逸把公钥pk发送给组内所有成员
 		}
 	}
 }
@@ -247,7 +248,20 @@ func (p Processer) OnMessagePubKeyPiece(ppm ConsensusPubKeyPieceMessage) {
 //全网节点收到某组已初始化完成消息（在一个时间窗口内收到该组51%成员的消息相同，才确认上链）
 //最终版本修改为父亲节点进行验证（51%）和上链
 func (p Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
-	//g := p.gg.GetGroupByID(gim.gi.gis.DummyID)
+	var ngmd NewGroupMemberData
+	ngmd.h = gim.gi.gis.GenHash()
+	ngmd.gpk = gim.gi.GroupPK
+	result := p.ngg.ReceiveData(gim.gi.gis.DummyID, gim.si.SignMember, ngmd)
+	switch result {
+	case 1: //收到组内相同消息>阈值，可上链
+		//to do : 上链已初始化的组
+		//to do ：从待初始化组中删除
+		//to do : 是否全网广播该组的生成？广播的意义？
+	case -1: //该组初始化异常，且无法恢复
+		//to do : 从待初始化组中删除
+	case 0:
+		//继续等待下一包数据
+	}
 	return
 }
 

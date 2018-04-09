@@ -2,6 +2,7 @@ package bls
 
 /*
 #cgo CFLAGS:-DMCLBN_FP_UNIT_SIZE=6
+#cgo CFLAGS:  -I../../../include
 #include <mcl/bn.h>
 #include <bls/bls.h>
 */
