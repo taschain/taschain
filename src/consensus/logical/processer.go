@@ -100,8 +100,8 @@ func (p Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		fmt.Printf("processer::OnMessageCast failed, group not in cast.\n")
 		return
 	}
-	cs := GenConsensusSummary(ccm.bh, ccm.si)
-	n := p.bc.UserCasted(cs)
+	cs := GenConsensusSummary(ccm.bh)
+	n := p.bc.UserCasted(cs, ccm.si)
 	fmt.Printf("processer:OnMessageCast UserCasted result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)
@@ -113,8 +113,8 @@ func (p Processer) OnMessageCast(ccm ConsensusCastMessage) {
 }
 
 func (p Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
-	cs := GenConsensusSummary(cvm.bh, cvm.si)
-	n := p.bc.UserVerified(cs)
+	cs := GenConsensusSummary(cvm.bh)
+	n := p.bc.UserVerified(cs, cvm.si)
 	fmt.Printf("processer::OnMessageVerify UserVerified result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := p.bc.VerifyGroupSign(cs, p.getSelfGroup().GroupPK)

@@ -24,3 +24,7 @@ func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
 	}
 	return b
 }
+
+func (sd SignData) HasSign() bool {
+	return sd.DataSign.IsValid() && sd.SignMember.IsValid()
+}

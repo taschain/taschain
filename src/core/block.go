@@ -10,7 +10,7 @@ import (
 type BlockHeader struct {
 	//Trans_Hash_List：交易集哈希列表
 	//Trans_Root_Hash：默克尔树根哈希
-	Hash         common.Hash   // 本块的hash
+	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
@@ -25,6 +25,12 @@ type BlockHeader struct {
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
 	ExtraData    []int8
+}
+
+func (bh BlockHeader) GenHash() common.Hash {
+	var h common.Hash
+	//to do ：鸠兹完成
+	return h
 }
 
 type Block struct {

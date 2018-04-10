@@ -13,6 +13,7 @@ import (
 type GetTransactionByHash func(h common.Hash, forced bool) (int, core.Transaction)
 
 //构建一个铸块（组内当前铸块人同步操作）
+//to do : 细化入参(铸块人，QN，盐)
 type CastingBlock func() (core.Block, error)
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -31,3 +32,6 @@ type QueryBlockByHash func() *core.BlockHeader
 
 //根据指定高度查询块，不存在则返回nil。
 type QueryBlockByHeight func() *core.BlockHeader
+
+//加载组信息
+//to do :
