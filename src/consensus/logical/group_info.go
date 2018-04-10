@@ -8,27 +8,6 @@ import (
 	"net"
 )
 
-type PubKeyInfo struct {
-	id groupsig.ID //成员全局唯一ID
-	//成员全局唯一公钥（哪怕不加入组，该公钥也存在，用于接收交易）/ 组成员公钥
-	//看具体的实施场景
-	pk groupsig.Pubkey
-}
-
-func (p *PubKeyInfo) IsValid() bool {
-	return p.id.IsValid() && p.pk.IsValid()
-}
-
-//秘密分享片段，用于生成组成员私钥（进行组签名片段）
-type SecKeyInfo struct {
-	id groupsig.ID     //成员全局唯一ID
-	sk groupsig.Seckey //秘密片段
-}
-
-func (s *SecKeyInfo) IsValid() bool {
-	return s.id.IsValid() && s.sk.IsValid()
-}
-
 //组初始化结构
 type InitGroupInfo struct {
 	shares []SecKeyInfo    //第一步：聚合组成员（签名）私钥

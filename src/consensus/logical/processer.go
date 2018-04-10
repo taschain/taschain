@@ -78,9 +78,9 @@ type Processer struct {
 	sci  SelfCastInfo      //当前节点的铸块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）
 }
 
-func (p *Processer) InitProcesser() {
+func (p *Processer) InitProcesser() bool {
 	//to do ： 从链上加载和初始化成员变量
-	return
+	return true
 }
 
 //检查区块头是否合法
@@ -286,7 +286,11 @@ func (p Processer) castBlock(qn int64) bool {
 	si.SignMember = p.uid
 	si.DataSign = groupsig.Sign(p.gusk, si.DataHash.Bytes()) //对区块头签名
 	if bh.BlockHeight > 0 && si.DataSign.IsValid() {
-		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, bh.Castor.GetHexString())
+		var tmp_id groupsig.ID
+		if tmp_id.Deserialize(bh.Castor) != nil {
+			panic("ID Deserialize failed.")
+		}
+		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, tmp_id.GetHexString())
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
 	//更新共识上下文
