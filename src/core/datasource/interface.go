@@ -16,6 +16,7 @@ type Database interface {
 	Has(key []byte) (bool, error)
 	Delete(key []byte) error
 	Close()
+	Clear() error
 	NewBatch() Batch
 }
 

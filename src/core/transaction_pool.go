@@ -39,7 +39,7 @@ type TransactionPool struct {
 	receivedLock sync.RWMutex
 
 	// 收到的待处理transaction
-	received map[common.Hash]*Transaction
+	received map[common.Hash]*Transaction //todo: 替换成sync.Map 自带锁的map
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -59,6 +59,10 @@ func NewTransactionPool() *TransactionPool {
 		received:     make(map[common.Hash]*Transaction),
 		lowestPrice:  nil,
 	}
+}
+
+func (pool *TransactionPool) GetReceived() map[common.Hash]*Transaction {
+	return pool.received
 }
 
 // 返回待处理的transaction数组

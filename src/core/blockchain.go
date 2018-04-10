@@ -6,10 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
-	"hash"
 	"crypto/sha256"
 	"sync"
-	"consensus/logical"
+	"hash"
 )
 
 const STATUS_KEY = "current"
@@ -23,6 +22,9 @@ type BlockChainConfig struct {
 	blockHeight       string
 	blockHeightCache  int
 	blockHeightHandle int
+
+	//组内能出的最大QN值
+	qn uint64
 }
 
 type BlockChain struct {
@@ -40,10 +42,13 @@ type BlockChain struct {
 	height uint64
 
 	// sha256 Hasher实例
-	hs hash.Hash
+	hasherPool sync.Pool
 
 	// 读写锁
 	lock sync.RWMutex
+
+	// 是否可以工作
+	init bool
 }
 
 // 默认配置
@@ -56,6 +61,8 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 		blockHeight:       "height",
 		blockHeightCache:  128,
 		blockHeightHandle: 1024,
+
+		qn: 4,
 	}
 }
 
@@ -66,8 +73,11 @@ func InitBlockChain() *BlockChain {
 		transactionPool: NewTransactionPool(),
 		height:          0,
 		latestBlock:     nil,
-		hs:              sha256.New(),
-		lock:            sync.RWMutex{},
+		hasherPool: sync.Pool{New: func() interface{} {
+			return sha256.New()
+		}},
+		lock: sync.RWMutex{},
+		init: true,
 	}
 
 	//从磁盘文件中初始化leveldb
@@ -94,6 +104,28 @@ func InitBlockChain() *BlockChain {
 	return chain
 }
 
+//清除链所有数据
+func (chain *BlockChain) Clear() error {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+
+	chain.init = false
+	chain.latestBlock = nil
+	chain.height = 0
+
+	err := chain.blockHeight.Clear()
+	if nil != err {
+		return err
+	}
+	err = chain.blocks.Clear()
+	if nil != err {
+		return err
+	}
+
+	chain.init = true
+	return err
+}
+
 //根据哈希取得某个交易
 func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
@@ -101,12 +133,18 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, erro
 
 //辅助方法族
 //查询最高块
-func (chain *BlockChain) QueryTopBlock() BlockHeader {
-	return *chain.latestBlock
+func (chain *BlockChain) QueryTopBlock() *BlockHeader {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	return chain.latestBlock
 }
 
 //根据指定哈希查询块
 func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if err != nil {
@@ -124,6 +162,9 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 
 //根据指定高度查询块
 func (chain *BlockChain) getBlockHeaderByHeight(height []byte) *BlockHeader {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
 	result, err := chain.blockHeight.Get(height)
 	if err != nil {
 		var header BlockHeader
@@ -140,12 +181,14 @@ func (chain *BlockChain) getBlockHeaderByHeight(height []byte) *BlockHeader {
 
 //根据指定高度查询块
 func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
 
 	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock() Block {
+func (chain *BlockChain) CastingBlock() *Block {
 
 	block := new(Block)
 	block.transactions = chain.transactionPool.GetTransactionsForCasting()
@@ -166,9 +209,20 @@ func (chain *BlockChain) CastingBlock() Block {
 	}
 
 	blockByte, _ := json.Marshal(block)
-	block.header.Hash = common.BytesToHash(chain.hs.Sum(blockByte))
+	block.header.Hash = common.BytesToHash(chain.sha256(blockByte))
 
-	return *block
+	return block
+}
+
+// 计算sha256
+func (chain *BlockChain) sha256(blockByte []byte) []byte {
+	hasher := chain.hasherPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer chain.hasherPool.Put(hasher)
+
+	hasher.Write(blockByte)
+
+	return hasher.Sum(nil)
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -315,7 +369,7 @@ func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bo
 //取得铸块权重
 //第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (chain *BlockChain) getWeight(number uint64) uint64 {
-	if number <= uint64(logical.MAX_QN) {
+	if number <= chain.config.qn {
 		return uint64(number) << 1
 	} else {
 		return 0
@@ -326,4 +380,8 @@ func (chain *BlockChain) getWeight(number uint64) uint64 {
 func (chain *BlockChain) remove(header *BlockHeader) {
 	chain.blocks.Delete(header.Hash.Bytes())
 	chain.blockHeight.Delete(chain.generateHeightKey(header.Height))
+}
+
+func (chain *BlockChain) GetTransactionPool() *TransactionPool {
+	return chain.transactionPool
 }
