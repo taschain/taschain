@@ -21,7 +21,7 @@ type BlockChainI interface {
 
 	//铸块成功，上链
 	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-	AddBlockOnChain(b Block) int8
+	AddBlockOnChain(b *Block) int8
 
 	//辅助方法族
 	//查询最高块

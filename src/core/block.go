@@ -4,6 +4,10 @@ import (
 	"common"
 	"time"
 	"consensus/groupsig"
+	"sync"
+	"crypto/sha256"
+	"hash"
+	"encoding/json"
 )
 
 //区块头结构
@@ -24,7 +28,7 @@ type BlockHeader struct {
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
-	ExtraData    []int8
+	ExtraData    []byte
 }
 
 func (bh BlockHeader) GenHash() common.Hash {
@@ -34,6 +38,37 @@ func (bh BlockHeader) GenHash() common.Hash {
 }
 
 type Block struct {
-	header       *BlockHeader
-	transactions []*Transaction
+	Header       *BlockHeader
+	Transactions []*Transaction
+}
+
+var hasherPool = sync.Pool{
+	New: func() interface{} {
+		return sha256.New()
+	},
+}
+
+// 计算sha256
+func Sha256(blockByte []byte) []byte {
+	hasher := hasherPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer hasherPool.Put(hasher)
+
+	hasher.Write(blockByte)
+	return hasher.Sum(nil)
+
+}
+
+// 创始块
+func GenesisBlock() *Block {
+	block := new(Block)
+
+	block.Header = &BlockHeader{
+		ExtraData: Sha256([]byte("tas")),
+	}
+
+	blockByte, _ := json.Marshal(block)
+	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
+
+	return block
 }

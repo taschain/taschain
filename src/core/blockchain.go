@@ -6,9 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
-	"crypto/sha256"
 	"sync"
-	"hash"
+	"os"
 )
 
 const STATUS_KEY = "current"
@@ -41,9 +40,6 @@ type BlockChain struct {
 	//当前链的高度
 	height uint64
 
-	// sha256 Hasher实例
-	hasherPool sync.Pool
-
 	// 读写锁
 	lock sync.RWMutex
 
@@ -73,9 +69,7 @@ func InitBlockChain() *BlockChain {
 		transactionPool: NewTransactionPool(),
 		height:          0,
 		latestBlock:     nil,
-		hasherPool: sync.Pool{New: func() interface{} {
-			return sha256.New()
-		}},
+
 		lock: sync.RWMutex{},
 		init: true,
 	}
@@ -100,8 +94,17 @@ func InitBlockChain() *BlockChain {
 	chain.latestBlock = chain.getBlockHeaderByHeight([]byte(STATUS_KEY))
 	if nil != chain.latestBlock {
 		chain.height = chain.latestBlock.Height
+	} else {
+		// 创始块
+		chain.saveBlock(GenesisBlock())
+		chain.height = 1
 	}
 	return chain
+}
+
+func Clear(config *BlockChainConfig) {
+	os.RemoveAll(config.block)
+	os.RemoveAll(config.blockHeight)
 }
 
 //清除链所有数据
@@ -122,6 +125,9 @@ func (chain *BlockChain) Clear() error {
 		return err
 	}
 
+	// 创始块
+	chain.saveBlock(GenesisBlock())
+	chain.height = 1
 	chain.init = true
 	return err
 }
@@ -154,7 +160,7 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 			return nil
 		}
 
-		return block.header
+		return block.Header
 	} else {
 		return nil
 	}
@@ -191,38 +197,27 @@ func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 func (chain *BlockChain) CastingBlock() *Block {
 
 	block := new(Block)
-	block.transactions = chain.transactionPool.GetTransactionsForCasting()
 
-	transactionHashes := make([]common.Hash, len(block.transactions))
-	for i, tx := range block.transactions {
+	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
+	transactionHashes := make([]common.Hash, len(block.Transactions))
+	for i, tx := range block.Transactions {
 		transactionHashes[i] = tx.Hash
 	}
 
-	block.header = &BlockHeader{
+	block.Header = &BlockHeader{
 		Transactions: transactionHashes,
 		CurTime:      time.Now(), //todo:时区问题
 	}
 
 	if chain.latestBlock != nil {
-		block.header.PreHash = chain.latestBlock.Hash
-		block.header.Height = chain.latestBlock.Height + 1
+		block.Header.PreHash = chain.latestBlock.Hash
+		block.Header.Height = chain.latestBlock.Height + 1
 	}
 
 	blockByte, _ := json.Marshal(block)
-	block.header.Hash = common.BytesToHash(chain.sha256(blockByte))
+	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
 
 	return block
-}
-
-// 计算sha256
-func (chain *BlockChain) sha256(blockByte []byte) []byte {
-	hasher := chain.hasherPool.Get().(hash.Hash)
-	hasher.Reset()
-	defer chain.hasherPool.Put(hasher)
-
-	hasher.Write(blockByte)
-
-	return hasher.Sum(nil)
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -249,8 +244,8 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) int8 {
 
 //铸块成功，上链
 //返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-func (chain *BlockChain) AddBlockOnChain(b Block) int8 {
-	preHash := b.header.PreHash
+func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
+	preHash := b.Header.PreHash
 	preBlock, error := chain.blocks.Has(preHash.Bytes())
 
 	//本地无父块，暂不处理
@@ -260,13 +255,13 @@ func (chain *BlockChain) AddBlockOnChain(b Block) int8 {
 	}
 
 	// 验证块是否有问题
-	status := chain.VerifyCastingBlock(*b.header)
+	status := chain.VerifyCastingBlock(*b.Header)
 	if status != 0 {
 		return -1
 	}
 
 	// 检查高度
-	height := b.header.Height
+	height := b.Header.Height
 
 	// 完美情况
 	if height == (chain.latestBlock.Height + 1) {
@@ -284,7 +279,7 @@ func (chain *BlockChain) AddBlockOnChain(b Block) int8 {
 
 // 保存block到ldb
 // todo:错误回滚
-func (chain *BlockChain) saveBlock(b Block) int8 {
+func (chain *BlockChain) saveBlock(b *Block) int8 {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
@@ -293,25 +288,25 @@ func (chain *BlockChain) saveBlock(b Block) int8 {
 	if err != nil {
 		return -1
 	}
-	err = chain.blocks.Put(b.header.Hash.Bytes(), blockJson)
+	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
 		return -1
 	}
 
 	// 根据height存blockheader
-	headerJson, err := json.Marshal(b.header)
+	headerJson, err := json.Marshal(b.Header)
 	if err != nil {
 		return -1
 	}
 
-	err = chain.blockHeight.Put(chain.generateHeightKey(chain.height+1), headerJson)
+	err = chain.blockHeight.Put(chain.generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
 		return -1
 	}
 
 	// 持久化保存最新块信息
-	chain.latestBlock = b.header
-	chain.height = b.header.Height
+	chain.latestBlock = b.Header
+	chain.height = b.Header.Height
 	err = chain.blockHeight.Put([]byte(STATUS_KEY), headerJson)
 	if err != nil {
 		return -1
@@ -322,17 +317,17 @@ func (chain *BlockChain) saveBlock(b Block) int8 {
 
 // 链分叉，调整主链
 // todo:错误回滚
-func (chain *BlockChain) adjust(b Block) int8 {
+func (chain *BlockChain) adjust(b *Block) int8 {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	header := chain.QueryBlockByHeight(b.header.Height)
+	header := chain.QueryBlockByHeight(b.Header.Height)
 	if header == nil {
 		return -1
 	}
 
 	// todo:判断权重，决定是否要替换
-	if chain.weight(header, b.header) {
+	if chain.weight(header, b.Header) {
 		chain.remove(header)
 		// 替换
 		for height := header.Height + 1; height < chain.height; height++ {
