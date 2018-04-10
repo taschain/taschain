@@ -1,10 +1,10 @@
-package log
+package taslog
 
 import (
 	"testing"
 	"github.com/cihub/seelog"
 )
-
+// seelog wiki:https://github.com/cihub/seelog/wiki
 var config = `<seelog minlevel="debug">
 		<outputs formatid="testConfig">
 			<rollingfile type="size" filename="/home/admin/tas/logs/test_config.log" maxsize="100000" maxrolls="3"/>

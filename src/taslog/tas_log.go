@@ -1,4 +1,4 @@
-package log
+package taslog
 
 import (
 	"github.com/cihub/seelog"
