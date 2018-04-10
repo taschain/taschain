@@ -15,7 +15,7 @@ var config = `<seelog minlevel="debug">
 	</seelog>`
 
 func TestGetLogger(t *testing.T) {
-	logger := GetLogger("conf/taslog_test.xml")
+	logger := GetLogger("conf/tas_log_test.xml")
 	for i := 0; i < 3; i++ {
 		logger.Debug("TestGetLogger debug output", i)
 		logger.Info("TestGetLogger info output", i)
@@ -40,7 +40,7 @@ func TestGetLoggerByConfig(t *testing.T) {
 
 func TestMultiLogger(t *testing.T) {
 	logger1 := GetLoggerByConfig(config)
-	logger2 := GetLogger("conf/taslog_test.xml")
+	logger2 := GetLogger("conf/tas_log_test.xml")
 	logger3 := GetLogger("")
 
 	go func() {
