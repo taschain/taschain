@@ -151,9 +151,13 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
+	return chain.queryBlockByHash(hash)
+}
+
+func (chain *BlockChain) queryBlockByHash(hash common.Hash) *BlockHeader {
 	result, err := chain.blocks.Get(hash.Bytes())
 
-	if err != nil {
+	if result != nil {
 		var block Block
 		err = json.Unmarshal(result, &block)
 		if err != nil || &block == nil {
@@ -168,11 +172,9 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 
 //根据指定高度查询块
 func (chain *BlockChain) getBlockHeaderByHeight(height []byte) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
 
 	result, err := chain.blockHeight.Get(height)
-	if err != nil {
+	if result != nil {
 		var header BlockHeader
 		err = json.Unmarshal(result, &header)
 		if err != nil {
@@ -190,6 +192,10 @@ func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
+	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
+}
+
+func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
 	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
@@ -245,6 +251,9 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) int8 {
 //铸块成功，上链
 //返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
 func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+
 	preHash := b.Header.PreHash
 	preBlock, error := chain.blocks.Has(preHash.Bytes())
 
@@ -273,6 +282,10 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		status = chain.adjust(b)
 	}
 
+	// 上链成功，移除pool中的交易
+	if 0 == status {
+		chain.transactionPool.Remove(b.Header.Transactions)
+	}
 	return status
 
 }
@@ -280,9 +293,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 // 保存block到ldb
 // todo:错误回滚
 func (chain *BlockChain) saveBlock(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
-
 	// 根据hash存block
 	blockJson, err := json.Marshal(b)
 	if err != nil {
@@ -318,10 +328,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
-
-	header := chain.QueryBlockByHeight(b.Header.Height)
+	header := chain.queryBlockByHeight(b.Header.Height)
 	if header == nil {
 		return -1
 	}
@@ -330,19 +337,15 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 	if chain.weight(header, b.Header) {
 		chain.remove(header)
 		// 替换
-		for height := header.Height + 1; height < chain.height; height++ {
-			header = chain.QueryBlockByHeight(height)
+		for height := header.Height + 1; height <= chain.height; height++ {
+			header = chain.queryBlockByHeight(height)
 			if header == nil {
 				continue
 			}
 			chain.remove(header)
 		}
 
-		if chain.saveBlock(b) == 0 {
-			return 1
-		} else {
-			return -1
-		}
+		return chain.saveBlock(b)
 	} else {
 		return -1
 	}

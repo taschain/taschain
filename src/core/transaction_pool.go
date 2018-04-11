@@ -123,17 +123,23 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	return true, nil
 }
 
-// 从池子里移除某个交易
-func (pool *TransactionPool) Remove(tx *Transaction) (bool, error) {
-	if tx == nil {
-		return false, ErrNil
+// 从池子里移除一批交易
+func (pool *TransactionPool) Remove(transactions []common.Hash) {
+	if nil == transactions || 0 == len(transactions) {
+		return
 	}
+
+	for _, tx := range transactions {
+		pool.remove(tx)
+	}
+}
+
+// 从池子里移除某个交易
+func (pool *TransactionPool) remove(hash common.Hash) {
 
 	pool.receivedLock.Lock()
 	defer pool.receivedLock.Unlock()
-	delete(pool.received, tx.Hash)
-
-	return true, nil
+	delete(pool.received, hash)
 
 }
 
