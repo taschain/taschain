@@ -39,7 +39,7 @@ type TransactionPool struct {
 	receivedLock sync.RWMutex
 
 	// 收到的待处理transaction
-	received map[common.Hash]*Transaction
+	received map[common.Hash]*Transaction //todo: 替换成sync.Map 自带锁的map
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -59,6 +59,10 @@ func NewTransactionPool() *TransactionPool {
 		received:     make(map[common.Hash]*Transaction),
 		lowestPrice:  nil,
 	}
+}
+
+func (pool *TransactionPool) GetReceived() map[common.Hash]*Transaction {
+	return pool.received
 }
 
 // 返回待处理的transaction数组
@@ -93,7 +97,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	}
 
 	// 检查交易是否已经存在
-	hash := tx.hash
+	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 
 		//log.Trace("Discarding already known transaction", "hash", hash)
@@ -103,7 +107,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	// 池子满了
 	if uint32(len(pool.received)) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
-		if pool.lowestPrice.gasprice > tx.gasprice {
+		if pool.lowestPrice.Gasprice > tx.Gasprice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 
 			return false, ErrUnderpriced
@@ -127,7 +131,7 @@ func (pool *TransactionPool) Remove(tx *Transaction) (bool, error) {
 
 	pool.receivedLock.Lock()
 	defer pool.receivedLock.Unlock()
-	delete(pool.received, tx.hash)
+	delete(pool.received, tx.Hash)
 
 	return true, nil
 
@@ -158,7 +162,7 @@ func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
 
 // 校验transaction是否合法
 func (pool *TransactionPool) validate(tx *Transaction) error {
-	if !tx.hash.IsValid() {
+	if !tx.Hash.IsValid() {
 		return ErrHash
 	}
 
@@ -170,10 +174,10 @@ func (pool *TransactionPool) add(tx *Transaction) {
 	pool.receivedLock.Lock()
 	defer pool.receivedLock.Unlock()
 
-	pool.received[tx.hash] = tx
+	pool.received[tx.Hash] = tx
 
 	lowestPrice := pool.lowestPrice
-	if lowestPrice == nil || lowestPrice.gasprice > tx.gasprice {
+	if lowestPrice == nil || lowestPrice.Gasprice > tx.Gasprice {
 		pool.lowestPrice = tx
 	}
 
@@ -182,8 +186,8 @@ func (pool *TransactionPool) add(tx *Transaction) {
 func (pool *TransactionPool) replace(tx *Transaction) {
 	// 替换
 	pool.receivedLock.Lock()
-	delete(pool.received, pool.lowestPrice.hash)
-	pool.received[tx.hash] = tx
+	delete(pool.received, pool.lowestPrice.Hash)
+	pool.received[tx.Hash] = tx
 	pool.receivedLock.Unlock()
 
 	// 更新lowest
@@ -191,7 +195,7 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 	pool.receivedLock.RLock()
 
 	for _, transaction := range pool.received {
-		if transaction.gasprice < lowest.gasprice {
+		if transaction.Gasprice < lowest.Gasprice {
 			lowest = transaction
 		}
 	}

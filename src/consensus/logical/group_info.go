@@ -8,39 +8,16 @@ import (
 	"net"
 )
 
-type PubKeyInfo struct {
-	id groupsig.ID //成员全局唯一ID
-	//成员全局唯一公钥（哪怕不加入组，该公钥也存在，用于接收交易）/ 组成员公钥
-	//看具体的实施场景
-	pk groupsig.Pubkey
-}
-
-func (p *PubKeyInfo) IsValid() bool {
-	return p.id.IsValid() && p.pk.IsValid()
-}
-
-type MemberInfo struct {
-	PubKeyInfo
-}
-
-//秘密分享片段，用于生成组成员私钥（进行组签名片段）
-type SecKeyInfo struct {
-	id groupsig.ID     //成员全局唯一ID
-	sk groupsig.Seckey //秘密片段
-}
-
-func (s *SecKeyInfo) IsValid() bool {
-	return s.id.IsValid() && s.sk.IsValid()
-}
-
 //组初始化结构
 type InitGroupInfo struct {
 	shares []SecKeyInfo    //第一步：聚合组成员（签名）私钥
-	pubs   []MemberInfo    //第二步：聚合组公钥
+	pubs   []PubKeyInfo    //第二步：聚合组公钥
 	ssk    groupsig.Seckey //第一步的输出：组成员签名私钥
 	gpk    groupsig.Pubkey //第二步的输出：组公钥
 }
 
+//取得待聚合的片段数量
+//share=true，秘密聚合；share=false，公钥聚合
 func (igi *InitGroupInfo) GetValidCount(share bool) int {
 	var count int = 0
 	if share {
@@ -107,7 +84,8 @@ func (igi *InitGroupInfo) AggrSignSecKey() bool {
 	return false
 }
 
-//生成组公钥片段
+//生成组公钥片段。
+//前提：组成员签名私钥已经聚合完成。
 func (igi *InitGroupInfo) GenGroupPubKeyPiece() *groupsig.Pubkey {
 	if !igi.ssk.IsValid() { //组成员签名私钥尚未生成
 		return nil
@@ -182,9 +160,9 @@ const (
 
 //静态组结构（组创建即确定）
 type StaticGroupInfo struct {
-	GroupID  groupsig.ID               //组ID
+	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK  groupsig.Pubkey           //组公钥
-	members  []MemberInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)
+	members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)
 	mapCache map[groupsig.ID]uint32    //用ID查找成员信息(成员ID->members中的索引)
 	gis      ConsensusGroupInitSummary //组的初始化凭证
 }
@@ -205,9 +183,9 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 
 //创建一个未经过组初始化共识的静态组结构（尚未共识生成组私钥、组公钥和组ID）
 //输入：组成员ID列表，该ID为组成员的私有ID（由该成员的交易私钥->公开地址处理而来），和组共识无关
-func CreateWithRawMembers(mems []MemberInfo) StaticGroupInfo {
+func CreateWithRawMembers(mems []PubKeyInfo) StaticGroupInfo {
 	sgi := new(StaticGroupInfo)
-	sgi.members = make([]MemberInfo, GROUP_MAX_MEMBERS)
+	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
 	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
 	for i := 0; i < len(mems); i++ {
 		sgi.members = append(sgi.members, mems[i])
@@ -243,7 +221,7 @@ func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
 	return ids
 }
 
-func (sgi *StaticGroupInfo) Addmember(m MemberInfo) {
+func (sgi *StaticGroupInfo) Addmember(m PubKeyInfo) {
 	if m.id.IsValid() {
 		_, ok := sgi.mapCache[m.id]
 		if !ok {
@@ -262,7 +240,7 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 	return ok
 }
 
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m MemberInfo, result bool) {
+func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, result bool) {
 	var i uint32
 	i, result = sgi.mapCache[uid]
 	if result {
@@ -320,10 +298,22 @@ type GlobalGroups struct {
 	mapCache map[groupsig.ID]uint32 //用ID查找组信息
 }
 
+//取得矿工的公钥
+func (gg *GlobalGroups) GetMinerPubKey(gid groupsig.ID, uid groupsig.ID) *groupsig.Pubkey {
+	if index, ok := gg.mapCache[gid]; ok {
+		g := gg.sgi[index]
+		m, b := g.GetMember(uid)
+		if b {
+			return &m.pk
+		}
+	}
+	return nil
+}
+
 //组初始化完成后更新静态信息
 //上链不在这里完成，由外部完成
 func (gg *GlobalGroups) GroupInited(dummyid groupsig.ID, gid groupsig.ID, gpk groupsig.Pubkey) bool {
-	//to do : 
+	//to do :
 	return false
 }
 
