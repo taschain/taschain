@@ -7,5 +7,8 @@ package governance
 */
 
 func InitGov() bool {
+	////加载配置文件
+	//cm := param.NewConfINIManager("tas.conf")
+	//cm.GetString("","")
 	return true
 }

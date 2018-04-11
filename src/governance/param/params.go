@@ -23,6 +23,14 @@ const (
 	DEFAULT_VOTER_TOTAL_DEPOSIT_MIN = 100   //所有投票人最低保证金总和
 )
 
+const (
+	IDX_GASPRICE_MIN	= iota
+	IDX_BLOCK_FIX_AWARD
+	IDX_VOTER_CNT_MIN
+	IDX_VOTER_DEPOSIT_MIN
+	IDX_VOTER_TOTAL_DEPOSIT_MIN
+)
+
 type DefaultValueDef struct {
 	name string
 	init interface{}
@@ -30,7 +38,12 @@ type DefaultValueDef struct {
 	max  interface{}
 }
 
-func init() {
+func loadFromDB() *ParamDefs {
+	return nil
+}
+
+
+func initParamDefs() *ParamDefs {
 	Params = ParamDefs{}
 
 	gasPriceMin := buildUint64ParamDef(DefaultValueDef{
@@ -70,6 +83,16 @@ func init() {
 	Params = append(Params, voteCntMin)
 	Params = append(Params, voteDepositMin)
 	Params = append(Params, voteTotalDepositMin)
+
+	return &Params
+}
+
+func NewParamDefs() *ParamDefs {
+	defs := loadFromDB()
+	if defs == nil {
+		defs = initParamDefs()
+	}
+	return defs
 }
 
 func buildUint64ParamDef(def DefaultValueDef) *ParamDef {
