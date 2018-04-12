@@ -17,10 +17,6 @@ import (
 const DEFAULT_VERSION = 0
 
 
-//参数校验函数
-type ValidateFunc func(input interface{}) error
-
-
 type ParamMeta struct {
 	Value       interface{}
 	version     uint32
@@ -36,6 +32,11 @@ type ParamDef struct {
 	Futures   []*ParamMeta
 	Histories []*ParamMeta
 	Validate	ValidateFunc
+	update	chan int
+}
+
+type ParamDefs struct {
+	defs []*ParamDef
 }
 
 func newMeta(v interface{}) *ParamMeta {
@@ -50,8 +51,16 @@ func newParamDef(init interface{}, validator ValidateFunc) *ParamDef {
 	return &ParamDef{
 		Current: newMeta(init),
 		Validate: validator,
+		update: make(chan int),
 	}
 }
+func newParamDefs() *ParamDefs {
+	return &ParamDefs{
+		defs: make([]*ParamDef,0, PARAM_CNT),
+
+	}
+}
+
 
 func (p *ParamDef ) CurrentValue() interface{} {
 	p.tryApplyFutureMeta()
@@ -79,6 +88,10 @@ func (p *ParamDef) copyFuture2History(futures []*ParamMeta)  {
 	p.Histories = append(p.Histories, futures...)
 }
 
+func (p *ParamDef) notifyUpdate()  {
+	p.update<- 1
+}
+
 func (p *ParamDef) tryApplyFutureMeta()  {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -91,6 +104,7 @@ func (p *ParamDef) tryApplyFutureMeta()  {
 			p.Current.version ++
 			p.copyFuture2History(p.Futures[:i])
 			p.removePreFuture(i)
+			p.notifyUpdate()
 			break
 		}
 	}
@@ -125,7 +139,54 @@ func (p *ParamDef) AddFuture(meta *ParamMeta) {
 	copy(p.Futures[pos+1:], p.Futures[pos: len(p.Futures)-1])
 	p.Futures[pos] = meta
 
+	p.notifyUpdate()
 }
 
 
+func buildUint64ParamDef(def *DefaultValueDef) *ParamDef {
+	return newParamDef(
+		def.init,
+		getValidateFunc(def))
+}
 
+
+func (p *ParamDefs) AddParam(def *ParamDef)  {
+	p.defs = append(p.defs, def)
+}
+
+func (p *ParamDefs) GetParamByIndex(index int) *ParamDef {
+	return p.defs[index]
+}
+
+func (p *ParamDefs) Size() int {
+	return len(p.defs)
+}
+
+func (p *ParamDefs) UpdateParam(index int, def *ParamDef) error {
+	if p.Size() <= index {
+		return fmt.Errorf("error index %v", index)
+	}
+	if err := def.Validate(def.Current.Value); err != nil {
+		return err
+	}
+	p.defs[index] = def
+	return nil
+}
+
+func initParamDefs() *ParamDefs {
+
+	param := newParamDefs()
+
+	gasPriceMin := buildUint64ParamDef(getDefaultValueDefs(IDX_GASPRICE_MIN))
+	blockFixAward := buildUint64ParamDef(getDefaultValueDefs(IDX_BLOCK_FIX_AWARD))
+	voteCntMin := buildUint64ParamDef(getDefaultValueDefs(IDX_VOTER_CNT_MIN))
+	voteDepositMin := buildUint64ParamDef(getDefaultValueDefs(IDX_VOTER_DEPOSIT_MIN))
+	voteTotalDepositMin := buildUint64ParamDef(getDefaultValueDefs(IDX_VOTER_TOTAL_DEPOSIT_MIN))
+
+	param.AddParam(gasPriceMin)
+	param.AddParam(blockFixAward)
+	param.AddParam(voteCntMin)
+	param.AddParam(voteDepositMin)
+	param.AddParam(voteTotalDepositMin)
+	return param
+}

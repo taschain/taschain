@@ -12,5 +12,5 @@ package governance
 * @return:  uint64
 */
 func CurrentBlock() uint64 {
-	return 0
+	return 2
 }
