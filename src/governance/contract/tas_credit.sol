@@ -4,7 +4,7 @@ contract TASCredit {
 
     struct AccountCredit {
         uint32  transCnt;
-        uint32  gmtLatestTrans;
+        uint64  latestTransBlock;
         uint32  voteCnt;
         uint32  voteAcceptCnt;
         uint64  blockNum;
@@ -14,7 +14,7 @@ contract TASCredit {
     address owner;
 
     modifier onlyOwner {
-        required(msg.sender == owner);
+        require(msg.sender == owner);
         _;
     }
 
@@ -26,8 +26,8 @@ contract TASCredit {
         credits[ac].transCnt += delta;
     }
 
-    function setGmtLatestTrans(address ac, uint32 v) public onlyOwner {
-        credits[ac].gmtLatestTrans = v;
+    function setLatestTransBlock(address ac, uint64 v) public onlyOwner {
+        credits[ac].latestTransBlock = v;
     }
 
     function addVoteCnt(address ac, uint32 delta) public onlyOwner {
@@ -46,5 +46,21 @@ contract TASCredit {
         return ac.balance;
     }
 
+    function score(address ac) public view returns (uint256) {
+        AccountCredit storage credit = credits[ac];
+        uint256 ret = credit.transCnt
+                    + credit.voteCnt
+                    + (credit.voteAcceptCnt * 5)
+                    - (block.number - credit.latestTransBlock) * credit.transCnt / 10000.0;
+        return ret;
+    }
+
+    function checkPermit(address ac, uint256 bound) public view returns (bool) {
+        uint256 sc = score(ac);
+        if (sc > bound) {
+            return true;
+        }
+        return false;
+    }
 
 }
