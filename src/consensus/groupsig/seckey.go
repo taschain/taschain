@@ -1,13 +1,13 @@
 package groupsig
 
 import (
-	"log"
-	"math/big"
-	"unsafe"
-
 	"common"
 	"consensus/bls"
 	"consensus/rand"
+	//"fmt"
+	"log"
+	"math/big"
+	"unsafe"
 )
 
 // Curve and Field order
@@ -59,6 +59,7 @@ func (sec Seckey) GetDecimalString() string {
 
 //把私钥转换成十六进制字符串（没有0x前缀）
 func (sec Seckey) GetHexString() string {
+	//return PREFIX + sec.value.GetHexString()
 	return sec.value.GetHexString()
 }
 
@@ -75,6 +76,13 @@ func (sec *Seckey) SetLittleEndian(b []byte) error {
 
 //由十进制字符串初始化私钥
 func (sec *Seckey) SetHexString(s string) error {
+	/*
+		if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+			return fmt.Errorf("arg failed")
+		}
+		buf := s[len(PREFIX):]
+		return sec.value.SetHexString(buf)
+	*/
 	return sec.value.SetHexString(s)
 }
 

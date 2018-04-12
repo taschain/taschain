@@ -9,31 +9,51 @@ import (
 )
 
 func TestPrivateKey(test *testing.T) {
-	fmt.Printf("begin TestPrivateKey...\n")
-	pk := GenerateKey()
-	buf := pk.ToBytes()
-	fmt.Printf("byte buf len of private key = %v.\n", len(buf))
+	fmt.Printf("\nbegin TestPrivateKey...\n")
+	sk := GenerateKey("")
+	str := sk.GetHexString()
+	fmt.Printf("sec key export, len=%v, data=%v.\n", len(str), str)
+	new_sk := HexStringToSecKey(str)
+	new_str := new_sk.GetHexString()
+	fmt.Printf("import sec key and export again, len=%v, data=%v.\n", len(new_str), new_str)
+	fmt.Printf("end TestPrivateKey.\n")
 }
 
 func TestPublickKey(test *testing.T) {
-	fmt.Printf("begin TestPublicKey...\n")
-	pri_k := GenerateKey()
-	pub_k := pri_k.GetPubKey()
-	buf := pub_k.ToBytes()
-	fmt.Printf("byte buf len of public key = %v.\n", len(buf))
+	fmt.Printf("\nbegin TestPublicKey...\n")
+	sk := GenerateKey("")
+	pk := sk.GetPubKey()
+	//buf := pub_k.toBytes()
+	//fmt.Printf("byte buf len of public key = %v.\n", len(buf))
+	str := pk.GetHexString()
+	fmt.Printf("pub key export, len=%v, data=%v.\n", len(str), str)
+	new_pk := HexStringToPubKey(str)
+	new_str := new_pk.GetHexString()
+	fmt.Printf("import pub key and export again, len=%v, data=%v.\n", len(new_str), new_str)
+
+	fmt.Printf("\nbegin test address...\n")
+	a := pk.GetAddress()
+	str = a.GetHexString()
+	fmt.Printf("address export, len=%v, data=%v.\n", len(str), str)
+	new_a := HexStringToAddress(str)
+	new_str = new_a.GetHexString()
+	fmt.Printf("import address and export again, len=%v, data=%v.\n", len(new_str), new_str)
+
+	fmt.Printf("end TestPublicKey.\n")
 }
 
 func TestSign(test *testing.T) {
+	fmt.Printf("\nbegin TestSign...\n")
 	plain_txt := "My name is thiefox."
 	buf := []byte(plain_txt)
 	sha1_hash := sha1.Sum(buf)
 	sha3_hash := sha3.Sum256(buf)
 	fmt.Printf("hash test, sha1_len=%v, sha3_len=%v.\n", len(sha1_hash), len(sha3_hash))
-	pri_k := GenerateKey()
+	pri_k := GenerateKey("")
 	pub_k := pri_k.GetPubKey()
 
-	pub_buf := pub_k.ToBytes() //测试公钥到字节切片的转换
-	pub_k = BytesToPublicKey(pub_buf)
+	pub_buf := pub_k.toBytes() //测试公钥到字节切片的转换
+	pub_k = *bytesToPublicKey(pub_buf)
 
 	var sha_buf []byte
 	copy(sha_buf, sha1_hash[:])
@@ -55,4 +75,5 @@ func TestSign(test *testing.T) {
 	}
 	success = pub_k.Verify(sha_buf, &sha3_si)
 	fmt.Printf("sha3 sign verify result=%v.\n", success)
+	fmt.Printf("end TestSign.\n")
 }

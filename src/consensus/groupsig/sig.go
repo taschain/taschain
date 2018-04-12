@@ -1,13 +1,11 @@
 package groupsig
 
 import (
-	"log"
-	"unsafe"
-	//"github.com/dfinity/go-dfinity-crypto/bls"
-	//"github.com/dfinity/go-dfinity-crypto/rand"
 	"common"
 	"consensus/bls"
 	"consensus/rand"
+	"log"
+	"unsafe"
 )
 
 // types
@@ -49,13 +47,21 @@ func (sig Signature) IsValid() bool {
 	return len(s) > 0
 }
 
-//把签名转换为十六进制字符串，不带0x前缀
+//把签名转换为十六进制字符串
 func (sig Signature) GetHexString() string {
+	//return PREFIX + sig.value.GetHexString()
 	return sig.value.GetHexString()
 }
 
 //由十六进制字符串初始化签名
 func (sig *Signature) SetHexString(s string) error {
+	/*
+		if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+			return fmt.Errorf("arg failed")
+		}
+		buf := s[len(PREFIX):]
+		return sig.value.SetHexString(buf)
+	*/
 	return sig.value.SetHexString(s)
 }
 

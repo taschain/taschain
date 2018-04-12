@@ -4,8 +4,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha1"
+	"encoding/hex"
+	"fmt"
 )
 
+//用户公钥
 type PublicKey struct {
 	PubKey ecdsa.PublicKey
 }
@@ -30,22 +33,39 @@ func (pk PublicKey) GetAddress() Address {
 }
 
 //把公钥转换成字节切片
-func (pk PublicKey) ToBytes() []byte {
-	return elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
-	//x := pk.PubKey.X.Bytes()
-	//y := pk.PubKey.Y.Bytes()
-	//x = append(x, y...)
-	//return x
+func (pk PublicKey) toBytes() []byte {
+	buf := elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
+	fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
+	return buf
 }
 
 //从字节切片转换到公钥
-func BytesToPublicKey(data []byte) (pk PublicKey) {
-	pk.PubKey.Curve = elliptic.P256()
+func bytesToPublicKey(data []byte) (pk *PublicKey) {
+	pk = new(PublicKey)
+	pk.PubKey.Curve = getDefaultCurve()
+	fmt.Printf("begin pub key unmarshal, len=%v, data=%v.\n", len(data), data)
 	x, y := elliptic.Unmarshal(pk.PubKey.Curve, data)
 	if x == nil || y == nil {
 		panic("unmarshal public key failed.")
 	}
 	pk.PubKey.X = x
 	pk.PubKey.Y = y
+	return
+}
+
+//导出函数
+func (pk *PublicKey) GetHexString() string {
+	buf := pk.toBytes()
+	str := PREFIX + hex.EncodeToString(buf)
+	return str
+}
+
+//导入函数
+func HexStringToPubKey(s string) (pk *PublicKey) {
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return
+	}
+	buf, _ := hex.DecodeString(s[len(PREFIX):])
+	pk = bytesToPublicKey(buf)
 	return
 }

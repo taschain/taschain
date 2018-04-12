@@ -5,6 +5,8 @@ import (
 	"consensus/bls"
 )
 
+const PREFIX = "0x"
+
 // Init --
 func Init(curve int) {
 	err := bls.Init(curve) //以特定的椭圆曲线初始化BLS C库

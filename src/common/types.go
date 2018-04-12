@@ -7,12 +7,10 @@ import (
 	"math/rand"
 	"reflect"
 	"utility"
-
-	"golang.org/x/crypto/sha3"
 )
 
 const (
-	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1)
+	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1，160位)
 	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)
 	//PubKeyLength  = 64 //公钥字节长度(BLS，组公钥)
 	//SecKeyLength  = 32 //私钥字节长度(BLS，组私钥)
@@ -53,6 +51,7 @@ func (a *Address) Set(other Address) {
 	copy(a[:], other[:])
 }
 
+/*
 // MarshalText returns the hex representation of a.
 //把地址编码成十六进制字符串
 func (a Address) MarshalText() ([]byte, error) {
@@ -82,7 +81,7 @@ func IsHexAddress(s string) bool {
 	}
 	return false
 }
-
+*/
 //类型转换输出函数
 func (a Address) Str() string          { return string(a[:]) }
 func (a Address) Bytes() []byte        { return a[:] }
@@ -93,36 +92,23 @@ func (a Address) IsValid() bool {
 	return len(a.Bytes()) > 0
 }
 
-// Hex returns an EIP55-compliant hex string representation of the address.
-//输出地址的EIP55编码字符串
-func (a Address) Hex() string {
-	unchecksummed := hex.EncodeToString(a[:])
-	//sha := sha3.NewKeccak256()
-	//sha.Write([]byte(unchecksummed))
-	//hash := sha.Sum(nil)
-	hash := sha3.Sum256([]byte(unchecksummed))
+func (a Address) GetHexString() string {
+	str := PREFIX + hex.EncodeToString(a[:])
+	return str
+}
 
-	result := []byte(unchecksummed)
-	for i := 0; i < len(result); i++ {
-		hashByte := hash[i/2]
-		if i%2 == 0 {
-			hashByte = hashByte >> 4
-		} else {
-			hashByte &= 0xf
-		}
-		if result[i] > '9' && hashByte > 7 {
-			result[i] -= 32
-		}
+func HexStringToAddress(s string) (a Address) {
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return
 	}
-	return "0x" + string(result)
+	buf, _ := hex.DecodeString(s[len(PREFIX):])
+	if len(buf) == AddressLength {
+		a.SetBytes(buf)
+	}
+	return
 }
 
-// String implements the stringer interface and is used also by the logger.
-//输出十六进制字符串，用于调试
-func (a Address) String() string {
-	return a.Hex()
-}
-
+/*
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
 // without going through the stringer interface used for logging.
 func (a Address) Format(s fmt.State, c rune) {
@@ -143,7 +129,7 @@ func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(a[:])), nil
 }
-
+*/
 ///////////////////////////////////////////////////////////////////////////////
 //256位哈希
 type Hash [HashLength]byte

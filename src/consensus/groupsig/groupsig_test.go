@@ -17,6 +17,7 @@ type Expect struct {
 
 //测试用衍生随机数生成私钥，从私钥萃取公钥，以及公钥的序列化
 func testPubkey(t *testing.T) {
+	fmt.Printf("\nbegin test pub key...\n")
 	t.Log("testPubkey")
 	r := rand.NewRand() //生成随机数
 
@@ -43,11 +44,13 @@ func testPubkey(t *testing.T) {
 			t.Log("pub != pub2")
 		}
 	}
+	fmt.Printf("\nend test pub key.\n")
 }
 
 //用big.Int生成私钥，取得公钥和签名。然后对私钥、公钥和签名各复制一份后测试加法后的验证是否正确。
 //同时测试签名的序列化。
 func testComparison(t *testing.T) {
+	fmt.Printf("\nbegin test Comparison...\n")
 	t.Log("testComparison")
 	var b = new(big.Int)
 	b.SetString("16798108731015832284940804142231733909759579603404752749028378864165570215948", 10)
@@ -90,21 +93,27 @@ func testComparison(t *testing.T) {
 			t.Error("sig2.Deserialize")
 		}
 	}
+	fmt.Printf("\nend test Comparison.\n")
 }
 
 //测试从big.Int生成私钥，以及私钥的序列化
 func testSeckey(t *testing.T) {
+	fmt.Printf("\nbegin test sec key...\n")
 	t.Log("testSeckey")
 	s := "401035055535747319451436327113007154621327258807739504261475863403006987855"
 	var b = new(big.Int)
 	b.SetString(s, 10)
 	sec := NewSeckeyFromBigInt(b) //以固定的字符串常量构建私钥
+	str := sec.GetHexString()
+	fmt.Printf("sec key export, len=%v, data=%v.\n", len(str), str)
 	{
 		var sec2 Seckey
-		err := sec2.SetHexString(sec.GetHexString()) //测试私钥的十六进制字符串导出
-		if err != nil || !sec.IsEqual(sec2) {        //检查字符串导入生成的私钥是否和之前的私钥相同
+		err := sec2.SetHexString(str)         //测试私钥的十六进制字符串导出
+		if err != nil || !sec.IsEqual(sec2) { //检查字符串导入生成的私钥是否和之前的私钥相同
 			t.Error("bad SetHexString")
 		}
+		str = sec2.GetHexString()
+		fmt.Printf("sec key import and export again, len=%v, data=%v.\n", len(str), str)
 	}
 	{
 		var sec2 Seckey
@@ -123,10 +132,12 @@ func testSeckey(t *testing.T) {
 			t.Error("bad Serialize")
 		}
 	}
+	fmt.Printf("end test sec key.\n")
 }
 
 //生成n个衍生随机数私钥，对这n个衍生私钥进行聚合生成组私钥，然后萃取出组公钥
 func testAggregation(t *testing.T) {
+	fmt.Printf("\nbegin test Aggregation...\n")
 	t.Log("testAggregation")
 	//    m := 5
 	n := 3
@@ -139,6 +150,7 @@ func testAggregation(t *testing.T) {
 	groupSeckey := AggregateSeckeys(seckeyContributions) //对n个私钥聚合，生成组私钥（bls底层算法）
 	groupPubkey := NewPubkeyFromSeckey(*groupSeckey)     //从组私钥萃取出组公钥
 	t.Log("Group pubkey:", groupPubkey.GetHexString())
+	fmt.Printf("end test Aggregation.\n")
 }
 
 //把secs切片的每个私钥都转化成big.Int，累加后对曲线域求模，以求模后的big.Int作为参数构建一个新的私钥
@@ -264,6 +276,7 @@ func testShareSeckey(t *testing.T) {
 //测试从big.Int生成ID，以及ID的序列化
 func testID(t *testing.T) {
 	t.Log("testString")
+	fmt.Printf("\nbegin test ID...\n")
 	b := new(big.Int)
 	b.SetString("1234567890abcdef", 16)
 	id1 := NewIDFromBigInt(b) //从big.Int生成ID
@@ -271,8 +284,10 @@ func testID(t *testing.T) {
 		t.Error("NewIDFromBigInt")
 	} else {
 		buf := id1.Serialize()
-		fmt.Printf("size of id = %v.\n", len(buf))
+		fmt.Printf("id Serialize, len=%v, data=%v.\n", len(buf), buf)
 	}
+	str := id1.GetHexString()
+	fmt.Printf("ID export, len=%v, data=%v.\n", len(str), str)
 	{
 		var id2 ID
 		err := id2.SetHexString(id1.GetHexString()) //测试ID的十六进制导出和导入功能
@@ -287,6 +302,7 @@ func testID(t *testing.T) {
 			t.Errorf("not same\n%s\n%s", id1.GetHexString(), id2.GetHexString())
 		}
 	}
+	fmt.Printf("end test ID.\n")
 }
 
 func test(t *testing.T, c int) {
