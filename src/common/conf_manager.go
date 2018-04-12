@@ -1,4 +1,4 @@
-package param
+package common
 
 import (
 	"github.com/glacjay/goini"
@@ -13,13 +13,6 @@ import (
 */
 
 type ConfManager interface {
-	//read votable param
-	GetGasPriceMin() uint64
-	GetFixBlockAward() uint64
-	GetVoterCntMin() uint64
-	GetVoterDepositMin() uint64
-	GetVoterTotalDepositMin() uint64
-
 	//read basic conf from tas.conf file
 	GetString(section string, key string) (string, bool)
 	GetBool(section string, key string) (bool, bool)
@@ -39,29 +32,9 @@ type ConfManager interface {
 type ConfFileManager struct {
 	path string
 	dict ini.Dict
-	params ParamDefs
 	lock sync.RWMutex
 }
 
-func (cs *ConfFileManager) GetGasPriceMin() uint64 {
-	return 0
-}
-
-func (cs *ConfFileManager) GetFixBlockAward() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterCntMin() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterDepositMin() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterTotalDepositMin() uint64 {
-	panic("implement me")
-}
 
 func NewConfINIManager(path string) ConfManager {
 	cs := &ConfFileManager{
