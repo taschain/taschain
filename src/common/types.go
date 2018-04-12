@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -9,11 +10,18 @@ import (
 	"utility"
 )
 
+const PREFIX = "0x"
+
+func getDefaultCurve() elliptic.Curve {
+	return elliptic.P256()
+}
+
 const (
 	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1，160位)
-	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)
-	//PubKeyLength  = 64 //公钥字节长度(BLS，组公钥)
-	//SecKeyLength  = 32 //私钥字节长度(BLS，组私钥)
+	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
+	PubKeyLength  = 65 //公钥字节长度，1 bytes curve, 64 bytes x,y。
+	SecKeyLength  = 97 //私钥字节长度，65 bytes pub, 32 bytes D。
+	SignLength    = 64 //签名字节长度，32 bytes r & 32 bytes s.
 )
 
 var (

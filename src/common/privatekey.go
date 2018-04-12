@@ -2,7 +2,6 @@ package common
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,20 +9,6 @@ import (
 	"math/big"
 	"strings"
 )
-
-const PREFIX = "0x"
-
-func getDefaultCurve() elliptic.Curve {
-	return elliptic.P256()
-}
-
-func GetPubByteLen() int {
-	return 65 //1 bytes curve, 64 bytes x,y
-}
-
-func GetSecByteLen() int {
-	return 97 //65 bytes pub, 32 bytes D
-}
 
 type PrivateKey struct {
 	PrivKey ecdsa.PrivateKey
@@ -98,12 +83,12 @@ func (pk *PrivateKey) toBytes() []byte {
 
 func bytesToSecKey(data []byte) (sk *PrivateKey) {
 	fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
-	if len(data) < GetSecByteLen() {
+	if len(data) < SecKeyLength {
 		return nil
 	}
 	sk = new(PrivateKey)
-	buf_pub := data[:GetPubByteLen()]
-	buf_d := data[GetPubByteLen():]
+	buf_pub := data[:PubKeyLength]
+	buf_d := data[PubKeyLength:]
 	sk.PrivKey.PublicKey = bytesToPublicKey(buf_pub).PubKey
 	sk.PrivKey.D = new(big.Int).SetBytes(buf_d)
 	if sk.PrivKey.X != nil && sk.PrivKey.Y != nil && sk.PrivKey.D != nil {

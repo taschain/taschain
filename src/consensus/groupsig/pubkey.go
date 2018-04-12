@@ -3,6 +3,7 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
+	"fmt"
 	//"fmt"
 	"log"
 	"math/big"
@@ -54,20 +55,18 @@ func (pub Pubkey) GetAddress() common.Address {
 
 //把公钥转换成十六进制字符串，不包含0x前缀
 func (pub Pubkey) GetHexString() string {
-	//return PREFIX + pub.value.GetHexString()
-	return pub.value.GetHexString()
+	return PREFIX + pub.value.GetHexString()
+	//return pub.value.GetHexString()
 }
 
 //由十六进制字符串初始化公钥
 func (pub *Pubkey) SetHexString(s string) error {
-	/*
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
 	buf := s[len(PREFIX):]
 	return pub.value.SetHexString(buf)
-	*/
-	return pub.value.SetHexString(s)
+	//return pub.value.SetHexString(s)
 }
 
 //由私钥构建公钥

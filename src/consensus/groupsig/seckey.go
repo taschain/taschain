@@ -4,7 +4,7 @@ import (
 	"common"
 	"consensus/bls"
 	"consensus/rand"
-	//"fmt"
+	"fmt"
 	"log"
 	"math/big"
 	"unsafe"
@@ -14,8 +14,6 @@ import (
 var curveOrder = new(big.Int) //曲线整数域
 var fieldOrder = new(big.Int)
 var bitLength int
-
-// types
 
 // Seckey -- represented by a big.Int modulo curveOrder
 //私钥对象，表现为一个大整数在曲线域上的求模？
@@ -43,7 +41,7 @@ func (sec Seckey) Serialize() []byte {
 //把私钥转换成big.Int
 func (sec Seckey) GetBigInt() (s *big.Int) {
 	s = new(big.Int)
-	s.SetString(sec.GetHexString(), 16)
+	s.SetString(sec.getHex(), 16)
 	return s
 }
 
@@ -52,15 +50,14 @@ func (sec Seckey) IsValid() bool {
 	return bi != big.NewInt(0)
 }
 
-//把私钥转换成十进制字符串
-func (sec Seckey) GetDecimalString() string {
-	return sec.value.GetDecString()
+//返回十六进制字符串表示，不带前缀
+func (sec Seckey) getHex() string {
+	return sec.value.GetHexString()
 }
 
-//把私钥转换成十六进制字符串（没有0x前缀）
+//返回十六进制字符串表示，带前缀
 func (sec Seckey) GetHexString() string {
-	//return PREFIX + sec.value.GetHexString()
-	return sec.value.GetHexString()
+	return PREFIX + sec.getHex()
 }
 
 //由字节切片初始化私钥
@@ -74,21 +71,19 @@ func (sec *Seckey) SetLittleEndian(b []byte) error {
 	return sec.value.SetLittleEndian(b) //调用bls C库曲线函数
 }
 
-//由十进制字符串初始化私钥
-func (sec *Seckey) SetHexString(s string) error {
-	/*
-		if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
-			return fmt.Errorf("arg failed")
-		}
-		buf := s[len(PREFIX):]
-		return sec.value.SetHexString(buf)
-	*/
+//由不带前缀的十六进制字符串转换
+func (sec *Seckey) setHex(s string) error {
 	return sec.value.SetHexString(s)
 }
 
-//由十六进制字符串初始化私钥
-func (sec *Seckey) SetDecimalString(s string) error {
-	return sec.value.SetDecString(s)
+//由带前缀的十六进制字符串转换
+func (sec *Seckey) SetHexString(s string) error {
+	fmt.Printf("begin SecKey.SetHexString...\n")
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return fmt.Errorf("arg failed")
+	}
+	buf := s[len(PREFIX):]
+	return sec.setHex(buf)
 }
 
 //由字节切片（小端模式）构建私钥

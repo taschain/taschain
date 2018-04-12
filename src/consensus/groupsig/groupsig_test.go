@@ -51,23 +51,22 @@ func testPubkey(t *testing.T) {
 //同时测试签名的序列化。
 func testComparison(t *testing.T) {
 	fmt.Printf("\nbegin test Comparison...\n")
-	t.Log("testComparison")
+	t.Log("begin testComparison")
 	var b = new(big.Int)
 	b.SetString("16798108731015832284940804142231733909759579603404752749028378864165570215948", 10)
 	sec := NewSeckeyFromBigInt(b) //从big.Int（固定的常量）生成原始私钥
 	t.Log("sec.Hex: ", sec.GetHexString())
-	t.Log("sec.DecimalString: ", sec.GetDecimalString())
 
 	// Add Seckeys
 	sum := AggregateSeckeys([]Seckey{*sec, *sec}) //同一个原始私钥相加，生成聚合私钥（bls底层算法）
 	if sum == nil {
-		t.Log("AggregateSeckeys")
+		t.Error("AggregateSeckeys failed.")
 	}
 
 	// Pubkey
 	pub := NewPubkeyFromSeckey(*sec) //从原始私钥萃取出公钥
 	if pub == nil {
-		t.Log("NewPubkeyFromSeckey")
+		t.Error("NewPubkeyFromSeckey failed.")
 	} else {
 		fmt.Printf("size of pub key = %v.\n", len(pub.Serialize()))
 	}
@@ -93,6 +92,7 @@ func testComparison(t *testing.T) {
 			t.Error("sig2.Deserialize")
 		}
 	}
+	t.Log("end testComparison")
 	fmt.Printf("\nend test Comparison.\n")
 }
 
@@ -114,16 +114,6 @@ func testSeckey(t *testing.T) {
 		}
 		str = sec2.GetHexString()
 		fmt.Printf("sec key import and export again, len=%v, data=%v.\n", len(str), str)
-	}
-	{
-		var sec2 Seckey
-		err := sec2.SetDecimalString(sec.GetDecimalString()) //测试私钥的十进制字符串导出
-		if err != nil || !sec.IsEqual(sec2) {                //检查字符串导入生成的私钥是否和之前的私钥相同
-			t.Error("bad DecimalString")
-		}
-		if s != sec.GetDecimalString() {
-			t.Error("bad GetDecimalString")
-		}
 	}
 	{
 		var sec2 Seckey
@@ -165,19 +155,26 @@ func AggregateSeckeysByBigInt(secs []Seckey) *Seckey {
 
 //生成n个衍生随机数私钥，对这n个衍生私钥用bls聚合法和big.Int聚合法生成聚合私钥，比较2个聚合私钥是否一致。
 func testAggregateSeckeys(t *testing.T) {
-	t.Log("testAggregateSeckeys")
+	fmt.Printf("\nbegin testAggregateSeckeys...\n")
+	t.Log("begin testAggregateSeckeys")
 	n := 100
 	r := rand.NewRand() //创建随机数基r
 	secs := make([]Seckey, n)
-	// init secs
+	fmt.Printf("begin init 100 sec key...\n")
 	for i := 0; i < n; i++ {
 		secs[i] = *NewSeckeyFromRand(r.Deri(i)) //以基r和递增变量i生成随机数，创建私钥切片
 	}
+	fmt.Printf("begin aggr sec key with bigint...\n")
 	s1 := AggregateSeckeysByBigInt(secs) //通过int加法和求模生成聚合私钥
-	s2 := AggregateSeckeys(secs)         //通过bls底层库生成聚合私钥
-	if !s1.value.IsEqual(&s2.value) {    //比较用简单加法求模生成的聚合私钥和bls底层库生成的聚合私钥是否不同
-		t.Errorf("not same %s %s\n", s1.GetHexString(), s2.GetHexString())
+	fmt.Printf("begin aggr sec key with bls...\n")
+	s2 := AggregateSeckeys(secs) //通过bls底层库生成聚合私钥
+	fmt.Printf("sec aggred with int, data=%v.\n", s1.GetHexString())
+	fmt.Printf("sec aggred with bls, data=%v.\n", s2.GetHexString())
+	if !s1.value.IsEqual(&s2.value) { //比较用简单加法求模生成的聚合私钥和bls底层库生成的聚合私钥是否不同
+		t.Errorf("not same int(%v) VS bls(%v).\n", s1.GetHexString(), s2.GetHexString())
 	}
+	t.Log("end testAggregateSeckeys")
+	fmt.Printf("end testAggregateSeckeys.\n")
 }
 
 //big.Int处理法：以私钥切片和ID切片恢复出组私钥(私钥切片和ID切片的大小都为门限值k)
@@ -218,6 +215,7 @@ func RecoverSeckeyByBigInt(secs []Seckey, ids []ID) *Seckey {
 
 //生成n个ID和n个衍生随机数私钥，然后调用bls恢复法和bls.Int恢复法，比较2个恢复的私钥是否一致。
 func testRecoverSeckey(t *testing.T) {
+	fmt.Printf("\nbegin testRecoverSeckey...\n")
 	t.Log("testRecoverSeckey")
 	n := 50
 	r := rand.NewRand() //生成随机数基
@@ -233,6 +231,7 @@ func testRecoverSeckey(t *testing.T) {
 	if !s1.value.IsEqual(&s2.value) {      //检查两种方法恢复的私钥是否相同
 		t.Errorf("Mismatch in recovered secret key:\n  %s\n  %s.", s1.GetHexString(), s2.GetHexString())
 	}
+	fmt.Printf("end testRecoverSeckey.\n")
 }
 
 //big.Int处理法：以master key切片和ID生成属于该ID的（签名）私钥
@@ -255,6 +254,7 @@ func ShareSeckeyByBigInt(msec []Seckey, id ID) *Seckey {
 
 //调用bls生成n个衍生随机数私钥，然后针对一个特定的ID生成bls分享片段和big.Int分享片段，比较2个分享片段是否一致。
 func testShareSeckey(t *testing.T) {
+	fmt.Printf("\nbegin testShareSeckey...\n")
 	t.Log("testShareSeckey")
 	n := 100
 	msec := make([]Seckey, n)
@@ -271,6 +271,7 @@ func testShareSeckey(t *testing.T) {
 		buf := s2.Serialize()
 		fmt.Printf("size of seckey = %v.\n", len(buf))
 	}
+	fmt.Printf("end testShareSeckey.\n")
 }
 
 //测试从big.Int生成ID，以及ID的序列化
@@ -333,13 +334,18 @@ func test(t *testing.T, c int) {
 }
 
 func TestMain(t *testing.T) {
+	fmt.Printf("begin TestMain...\n")
 	t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
 	t.Log("CurveFp254BNb")
+	fmt.Printf("\ncall test with curve(CurveFp254BNb)=%v...\n", bls.CurveFp254BNb)
 	test(t, bls.CurveFp254BNb)
 	if bls.GetMaxOpUnitSize() == 6 {
 		t.Log("CurveFp382_1")
+		fmt.Printf("\ncall test with curve(CurveFp382_1)=%v...\n", bls.CurveFp382_1)
 		test(t, bls.CurveFp382_1)
 		t.Log("CurveFp382_2")
+		fmt.Printf("\ncall test with curve(CurveFp382_2)=%v...\n", bls.CurveFp382_2)
 		test(t, bls.CurveFp382_2)
 	}
+	return
 }
