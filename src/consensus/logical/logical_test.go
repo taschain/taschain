@@ -158,14 +158,14 @@ func testGroupInit(t *testing.T) {
 		t.Error("rip pub key from sec key failed.")
 	}
 	fmt.Printf("direct gen group sec key=%v.\n", gsk.GetHexString())
-	fmt.Printf("direct gen group pub key=%v.\n", gpk.GetHexString())
+	fmt.Printf("rip group pub key from direct gen gsk, =%v.\n", gpk.GetHexString())
 
 	pubs := make([]groupsig.Pubkey, 0)
 	//直接生成组公钥
 	for _, v := range users {
 		temp_pub := groupsig.NewPubkeyFromSeckey(v.sk)
 		if temp_pub == nil {
-			t.Error("rip pub key from sec key failed.")
+			t.Error("NewPubkeyFromSeckey failed.")
 		}
 		pubs = append(pubs, *temp_pub)
 	}
@@ -173,7 +173,7 @@ func testGroupInit(t *testing.T) {
 	if temp_gpk == nil {
 		t.Error("Aggr group pub key failed.")
 	}
-	fmt.Printf("(aggr)direct gen group pub key=%v.\n", temp_gpk.GetHexString())
+	fmt.Printf("aggr gen group pub key=%v.\n", temp_gpk.GetHexString())
 
 	fmt.Printf("\nbegin exchange share pieces...\n")
 	//生成和交换秘密分享
@@ -230,64 +230,86 @@ func testGroupInit(t *testing.T) {
 	}
 	fmt.Printf("end send group member sign pubkey.\n")
 
-	//聚合组公钥
-	fmt.Printf("begin aggr group pubkey...\n")
-	for k, v := range users {
-		/*
-			fmt.Printf("pub key piece size = %v.\n", len(v.pubs))
-			for i, j := range v.pubs {
-				fmt.Printf("(%v) pub piece=%v.\n", i, j.GetHexString())
-			}
-		*/
-		temp_pk := groupsig.AggregatePubkeys(v.pubs)
-		if temp_pk != nil {
-			v.group_pk = *temp_pk
-			users[k] = v
-			fmt.Printf("uid = %v.\n", k.GetHexString())
-			fmt.Printf("aggr group pub key = %v.\n", v.group_pk.GetHexString()) //组公钥
-		} else {
-			fmt.Printf("AggregatePubkeys ERROR.\n")
-			panic("AggregatePubkeys ERROR.")
-		}
-
-	}
-	fmt.Printf("end aggr group pubkey.\n")
-
 	/*
-		//打印组公钥
-		fmt.Printf("begin print group pubkey...\n")
+		//聚合组公钥（！错，这个聚合出来的不是组公钥）
+		fmt.Printf("begin aggr group pubkey...\n")
 		for k, v := range users {
-			fmt.Printf("uid=%v, group pub key=%v.\n", k.GetHexString(), v.group_pk.GetHexString())
+			temp_pk := groupsig.AggregatePubkeys(v.pubs)
+			if temp_pk != nil {
+				v.group_pk = *temp_pk
+				users[k] = v
+				fmt.Printf("uid = %v.\n", k.GetHexString())
+				fmt.Printf("aggr group pub key = %v.\n", v.group_pk.GetHexString()) //组公钥
+			} else {
+				fmt.Printf("AggregatePubkeys ERROR.\n")
+				panic("AggregatePubkeys ERROR.")
+			}
+
 		}
-		fmt.Printf("end print group pubkey.\n")
+		fmt.Printf("end aggr group pubkey.\n")
 	*/
 
+	//用阈值恢复法生成组私钥和组公钥
+	fmt.Printf("\nbegin recover group sec key and group pub key...\n")
 	sk_pieces := make([]groupsig.Seckey, 0)
 	id_pieces := make([]groupsig.ID, 0)
-	//用作弊法生成和打印组私钥
-	i := 0
+	const RECOVER_BEGIN = 0 //range 0-2
 	for k, v := range users {
 		sk_pieces = append(sk_pieces, v.sign_sk)
 		id_pieces = append(id_pieces, k)
-		i++
-		if i == TEST_THRESHOLD {
-			break
-		}
 	}
-	fmt.Printf("i = %v, data len=%v.\n", i, len(sk_pieces))
+	sk_pieces = sk_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	id_pieces = id_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	fmt.Printf("sk_pieces len=%v, id_pieces len=%v.\n", len(sk_pieces), len(id_pieces))
 	inner_gsk := groupsig.RecoverSeckey(sk_pieces, id_pieces)
+	var inner_gpk *groupsig.Pubkey
 	if inner_gsk != nil {
-		fmt.Printf("aggr group sec key=%v.\n", inner_gsk.GetHexString())
-		inner_gpk := groupsig.NewPubkeyFromSeckey(*inner_gsk)
+		fmt.Printf("recover group sec key=%v.\n", inner_gsk.GetHexString())
+		inner_gpk = groupsig.NewPubkeyFromSeckey(*inner_gsk)
 		if inner_gpk != nil {
-			fmt.Printf("rip gpk from aggr gsk=%v.\n", inner_gpk.GetHexString())
+			fmt.Printf("rip gpk from recover gsk=%v.\n", inner_gpk.GetHexString())
 		}
 	} else {
-		fmt.Printf("AggregatePubkeys group sec key ERROR.\n")
-		panic("AggregatePubkeys group sec key ERROR.")
+		fmt.Printf("RecoverSeckey group sec key ERROR.\n")
+		panic("RecoverSeckey group sec key ERROR.")
 	}
+	fmt.Printf("end recover group sec key and group pub key.\n")
 
-	fmt.Printf("end testGroupInit.\n")
+	//测试签名
+	fmt.Printf("\nbegin test sign...\n")
+	plain := []byte("this is a plain message.")
+	//直接用组公钥和组私钥验证
+	gs1 := groupsig.Sign(*gsk, plain)
+	fmt.Printf("direct sign data=%v.\n", gs1.GetHexString())
+	result1 := groupsig.VerifySig(*gpk, plain, gs1)
+	fmt.Printf("1 verify group sign direct, result = %v.\n", result1)
+	if !result1 {
+		t.Error("1 verify sign failed.")
+	}
+	//用阈值恢复法验证
+	si_pieces := make([]groupsig.Signature, 0)
+	id_pieces = make([]groupsig.ID, 0)
+
+	for k, v := range users {
+		sig_piece := groupsig.Sign(v.sign_sk, plain)
+		si_pieces = append(si_pieces, sig_piece)
+		id_pieces = append(id_pieces, k)
+	}
+	si_pieces = si_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	id_pieces = id_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	gs2 := groupsig.RecoverSignature(si_pieces, id_pieces)
+	if gs2 == nil {
+		t.Error("RecoverSignature failed.")
+	}
+	fmt.Printf("recover sign data=%v.\n", gs2.GetHexString())
+	result2 := groupsig.VerifySig(*gpk, plain, *gs2)
+	fmt.Printf("2 verify group sign from recover, result = %v.\n", result2)
+	if !result2 {
+		t.Error("2 verify sign failed.")
+	}
+	fmt.Printf("\nend test sign.\n")
+
+	fmt.Printf("\nend testGroupInit.\n")
 	return
 }
 
