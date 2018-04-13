@@ -17,11 +17,13 @@ func getDefaultCurve() elliptic.Curve {
 }
 
 const (
+	//默认曲线相关参数开始：
+	PubKeyLength = 65 //公钥字节长度，1 bytes curve, 64 bytes x,y。
+	SecKeyLength = 97 //私钥字节长度，65 bytes pub, 32 bytes D。
+	SignLength   = 64 //签名字节长度，32 bytes r & 32 bytes s.
+	//默认曲线相关参数结束。
 	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1，160位)
 	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
-	PubKeyLength  = 65 //公钥字节长度，1 bytes curve, 64 bytes x,y。
-	SecKeyLength  = 97 //私钥字节长度，65 bytes pub, 32 bytes D。
-	SignLength    = 64 //签名字节长度，32 bytes r & 32 bytes s.
 )
 
 var (
