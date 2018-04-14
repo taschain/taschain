@@ -13,7 +13,6 @@ contract TASCredit {
     mapping(address => AccountCredit) public credits;
 
 
-
     function addTransCnt(address ac, uint32 delta) public {
         credits[ac].transCnt += delta;
     }

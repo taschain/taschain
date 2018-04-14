@@ -45,12 +45,12 @@ func (pm *ParamManager) updateLoop()  {
 	}
 }
 
-func (pm *ParamManager) getParamByIndex(idx int) *ParamDef {
+func (pm *ParamManager) GetParamByIndex(idx int) *ParamDef {
 	return pm.defs.GetParamByIndex(idx)
 }
 
 func (pm *ParamManager) getUint64ByIndex(idx int) uint64 {
-	return pm.getParamByIndex(idx).CurrentValue().(uint64)
+	return pm.GetParamByIndex(idx).CurrentValue().(uint64)
 }
 
 func (pm *ParamManager) GetGasPriceMin() uint64 {

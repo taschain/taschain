@@ -28,16 +28,16 @@ func TestParamDef_CurrentValue(t *testing.T) {
 func TestParamDef_AddFuture(t *testing.T) {
 	def := newInstance()
 
-	future1 := newMeta(11)
+	future1 := NewMeta(11)
 	future1.ValidBlock = 5
 
-	future2 := newMeta(12)
+	future2 := NewMeta(12)
 	future2.ValidBlock = 2
 
-	future3 := newMeta(13)
+	future3 := NewMeta(13)
 	future3.ValidBlock = 3
 
-	future4 := newMeta(16)
+	future4 := NewMeta(16)
 	future4.ValidBlock = 1
 
 	def.AddFuture(future1)

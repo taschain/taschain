@@ -17,8 +17,8 @@ func TestParamManager_GetFixBlockAward(t *testing.T) {
 	t.Log(pm.GetVoterDepositMin())
 	t.Log(pm.GetVoterTotalDepositMin())
 
-	def := pm.getParamByIndex(1)
-	meta := newMeta(uint64(1))
+	def := pm.GetParamByIndex(1)
+	meta := NewMeta(uint64(1))
 	meta.ValidBlock = 2
 	def.AddFuture(meta)
 
