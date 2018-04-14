@@ -6,6 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"utility/ecies"
+	"io"
 )
 
 //用户公钥
@@ -68,4 +70,10 @@ func HexStringToPubKey(s string) (pk *PublicKey) {
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
 	pk = bytesToPublicKey(buf)
 	return
+}
+
+//公钥加密消息
+func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (ct []byte, err error) {
+	pubECIES := ecies.ImportECDSAPublic(&pub.PubKey)
+	return ecies.Encrypt(rand, pubECIES, msg, nil, nil)
 }

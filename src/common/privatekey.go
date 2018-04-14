@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"utility/ecies"
 )
 
 type PrivateKey struct {
@@ -95,4 +96,10 @@ func bytesToSecKey(data []byte) (sk *PrivateKey) {
 		return sk
 	}
 	return nil
+}
+
+//私钥解密消息
+func (pk *PrivateKey) Decrypt(rand io.Reader, ct[]byte) (m []byte, err error) {
+	prv := ecies.ImportECDSA(&pk.PrivKey)
+	return prv.Decrypt(rand, ct, nil, nil )
 }
