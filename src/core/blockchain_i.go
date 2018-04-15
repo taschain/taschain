@@ -3,8 +3,8 @@ package core
 import (
 	"common"
 	"vm/core/state"
-	"vm/core/vm"
 	"vm/core/types"
+	"math/big"
 )
 
 //主链接口
@@ -49,5 +49,11 @@ type GroupInfoI interface {
 
 // VM执行器
 type VMExecutor interface {
-	Execute(block *Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, uint64, error)
+	//Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error)
+	Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error)
+}
+
+// 账户查询接口
+type AccountRepository interface {
+	GetBalance(address common.Address) *big.Int
 }

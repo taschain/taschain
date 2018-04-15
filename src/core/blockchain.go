@@ -11,17 +11,11 @@ import (
 	"vm/core/state"
 	c "vm/common"
 	"vm/ethdb"
-	"bytes"
-
-	"vm/trie"
-	"vm/rlp"
-	"vm/core/types"
 	"vm/common/hexutil"
+	"math/big"
 )
 
 const STATUS_KEY = "current"
-
-var emptyHash = common.Hash{}
 
 // 配置文件，暂时写死
 type BlockChainConfig struct {
@@ -52,6 +46,8 @@ type BlockChain struct {
 	transactionPool *TransactionPool
 	//已上链的最新块
 	latestBlock *BlockHeader
+
+	latestStateDB *state.StateDB
 	//当前链的高度
 	height uint64
 
@@ -139,6 +135,14 @@ func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.block)
 	os.RemoveAll(config.blockHeight)
 	os.RemoveAll(config.state)
+}
+
+func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
+	if nil == chain.latestStateDB {
+		return nil
+	}
+
+	return chain.latestStateDB.GetBalance(c.BytesToAddress(address.Bytes()))
 }
 
 //清除链所有数据
@@ -259,8 +263,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 		block.Header.Height = latestBlock.Height + 1
 	}
 
-	blockByte, _ := json.Marshal(block)
-	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
+
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -274,9 +277,10 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	}
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 
-	block.Header.TxTree = chain.calcTxTree(block.Transactions)
-	block.Header.ReceiptTree = chain.calcReceiptsTree(receipts)
+	block.Header.TxTree = block.calcTxTree()
+	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
 
+	block.Header.Hash = block.Header.GenHash()
 	return block
 }
 
@@ -284,42 +288,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 func (chain *BlockChain) CastingBlock() *Block {
 	return chain.CastingBlockAfter(chain.latestBlock)
 
-}
-
-func (chain *BlockChain) calcReceiptsTree(receipts types.Receipts) common.Hash {
-	if nil == receipts || 0 == len(receipts) {
-		return emptyHash
-	}
-
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
-	for i := 0; i < len(receipts); i++ {
-		keybuf.Reset()
-		rlp.Encode(keybuf, uint(i))
-		encode, _ := rlp.EncodeToBytes(receipts[i])
-		trie.Update(keybuf.Bytes(), encode)
-	}
-	hash := trie.Hash()
-
-	return common.BytesToHash(hash.Bytes())
-}
-
-func (chain *BlockChain) calcTxTree(tx []*Transaction) common.Hash {
-	if nil == tx || 0 == len(tx) {
-		return emptyHash
-	}
-
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
-	for i := 0; i < len(tx); i++ {
-		keybuf.Reset()
-		rlp.Encode(keybuf, uint(i))
-		encode, _ := rlp.EncodeToBytes(tx[i])
-		trie.Update(keybuf.Bytes(), encode)
-	}
-	hash := trie.Hash()
-
-	return common.BytesToHash(hash.Bytes())
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -364,21 +332,27 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	if status != 0 {
 		return -1
 	}
+	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()){
+		return -1
+	}
 
+	// 验证交易执行结果
 	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		return -1
 	}
-
-	// Process block using the parent state as reference point.
-	_, statehash, _, err := chain.executor.Execute(state, b)
+	receipts, statehash, _, err := chain.executor.Execute(state, b)
 	if err != nil {
 		return -1
 	}
-
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
 		return -1
 	}
+
+	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
+		return -1
+	}
+
 
 	// 检查高度
 	height := b.Header.Height
@@ -396,10 +370,11 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
-
+		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
 	}
 	return status
 
