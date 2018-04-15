@@ -2,6 +2,9 @@ package core
 
 import (
 	"common"
+	"vm/core/state"
+	"vm/core/vm"
+	"vm/core/types"
 )
 
 //主链接口
@@ -10,7 +13,7 @@ type BlockChainI interface {
 
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取
-	GetTransactionByHash(h common.Hash) (*Transaction,error)
+	GetTransactionByHash(h common.Hash) (*Transaction, error)
 
 	//构建一个铸块（组内当前铸块人同步操作）
 	CastingBlock() *Block
@@ -42,4 +45,9 @@ type BlockChainI interface {
 
 //组管理接口
 type GroupInfoI interface {
+}
+
+// VM执行器
+type VMExecutor interface {
+	Execute(block *Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, uint64, error)
 }

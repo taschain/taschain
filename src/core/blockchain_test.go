@@ -23,10 +23,10 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 交易1
-	txpool.Add(genTestTx("jdai1", 12345))
+	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0))
 
 	//交易2
-	txpool.Add(genTestTx("jdai2", 123456))
+	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0))
 
 	// 铸块1
 	block := chain.CastingBlock()
@@ -51,7 +51,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	//交易3
-	txpool.Add(genTestTx("jdai3", 1))
+	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1))
 
 	// 铸块2
 	block2 := chain.CastingBlock()
@@ -86,10 +86,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 铸块4 空块
-	block4 := chain.CastingBlock()
 	// 模拟分叉
-	block4.Header.PreHash = block.Header.PreHash
-	block4.Header.Height = block.Header.Height + 1
+	block4 := chain.CastingBlockAfter(block.Header)
+
 	if 0 != chain.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -105,11 +104,18 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 }
 
-func genTestTx(hash string, price uint32) *Transaction {
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64) *Transaction {
 	bytes3 := []byte(hash)
 	hash3 := Sha256(bytes3)
+
+	sourcebyte := common.BytesToAddress(Sha256([]byte(source)))
+	targetbyte := common.BytesToAddress(Sha256([]byte(target)))
+
 	return &Transaction{
-		Gasprice: price,
+		GasPrice: price,
 		Hash:     common.BytesToHash(hash3),
+		Source:   &sourcebyte,
+		Target:   &targetbyte,
+		Nonce:    nonce,
 	}
 }
