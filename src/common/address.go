@@ -32,15 +32,15 @@ func RandomAddresses(n int) ([]Address, error) {
 //对addresses从l->r区间内的地址按从小到大进行16进制排序
 func sortByHex(addresses []Address, l int, r int) {
 	if l < r {
-		pivot := addresses[(l+r)/2].Hex()
+		pivot := addresses[(l+r)/2].GetHexString()
 		i := l
 		j := r
 		var tmp Address
 		for i <= j {
-			for addresses[i].Hex() < pivot {
+			for addresses[i].GetHexString() < pivot {
 				i++
 			}
-			for addresses[j].Hex() > pivot {
+			for addresses[j].GetHexString() > pivot {
 				j--
 			}
 			if i <= j {

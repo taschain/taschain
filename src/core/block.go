@@ -2,12 +2,11 @@ package core
 
 import (
 	"common"
-	"time"
-	"consensus/groupsig"
-	"sync"
 	"crypto/sha256"
-	"hash"
 	"encoding/json"
+	"hash"
+	"sync"
+	"time"
 )
 
 //区块头结构
@@ -21,7 +20,7 @@ type BlockHeader struct {
 	BlockHeight  uint64        //铸块高度
 	QueueNumber  uint64        //轮转序号
 	CurTime      time.Time     //当前铸块时间
-	Castor       groupsig.ID   //铸块人(ID同时决定了铸块人的权重)
+	Castor       []byte        //出块人ID，groupsig.ID的二进制表示
 	Signature    common.Hash   // 组签名
 	Nonce        uint64        //盐
 	Transactions []common.Hash // 交易集哈希列表

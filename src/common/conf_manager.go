@@ -1,9 +1,10 @@
-package param
+package common
 
 import (
 	"github.com/glacjay/goini"
 	"sync"
 	"os"
+	"strings"
 )
 
 /*
@@ -13,13 +14,6 @@ import (
 */
 
 type ConfManager interface {
-	//read votable param
-	GetGasPriceMin() uint64
-	GetFixBlockAward() uint64
-	GetVoterCntMin() uint64
-	GetVoterDepositMin() uint64
-	GetVoterTotalDepositMin() uint64
-
 	//read basic conf from tas.conf file
 	GetString(section string, key string) (string, bool)
 	GetBool(section string, key string) (bool, bool)
@@ -39,29 +33,9 @@ type ConfManager interface {
 type ConfFileManager struct {
 	path string
 	dict ini.Dict
-	params ParamDefs
 	lock sync.RWMutex
 }
 
-func (cs *ConfFileManager) GetGasPriceMin() uint64 {
-	return 0
-}
-
-func (cs *ConfFileManager) GetFixBlockAward() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterCntMin() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterDepositMin() uint64 {
-	panic("implement me")
-}
-
-func (cs *ConfFileManager) GetVoterTotalDepositMin() uint64 {
-	panic("implement me")
-}
 
 func NewConfINIManager(path string) ConfManager {
 	cs := &ConfFileManager{
@@ -87,58 +61,58 @@ func (cs *ConfFileManager) GetString(section string, key string) (string, bool) 
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetString(section, key)
+	return cs.dict.GetString(strings.ToLower(section), strings.ToLower(key))
 }
 
 func (cs *ConfFileManager) GetBool(section string, key string) (bool, bool) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetBool(section, key)
+	return cs.dict.GetBool(strings.ToLower(section), strings.ToLower(key))
 }
 
 func (cs *ConfFileManager) GetDouble(section string, key string) (float64, bool) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetDouble(section, key)
+	return cs.dict.GetDouble(strings.ToLower(section), strings.ToLower(key))
 }
 
 func (cs *ConfFileManager) GetInt(section string, key string) (int, bool) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetInt(section, key)
+	return cs.dict.GetInt(strings.ToLower(section), strings.ToLower(key))
 }
 
 func (cs *ConfFileManager) SetString(section string, key string, value string) {
 	cs.update(func() {
-		cs.dict.SetString(section, key, value)
+		cs.dict.SetString(strings.ToLower(section), strings.ToLower(key), value)
 	})
 }
 
 func (cs *ConfFileManager) SetBool(section string, key string, value bool) {
 	cs.update(func() {
-		cs.dict.SetBool(section, key, value)
+		cs.dict.SetBool(strings.ToLower(section), strings.ToLower(key), value)
 	})
 }
 
 func (cs *ConfFileManager) SetDouble(section string, key string, value float64) {
 	cs.update(func() {
-		cs.dict.SetDouble(section, key, value)
+		cs.dict.SetDouble(strings.ToLower(section), strings.ToLower(key), value)
 	})
 }
 
 func (cs *ConfFileManager) SetInt(section string, key string, value int) {
 	cs.update(func() {
-		cs.dict.SetInt(section, key, value)
+		cs.dict.SetInt(strings.ToLower(section), strings.ToLower(key), value)
 	})
 }
 
 
 func (cs *ConfFileManager) Del(section string, key string) {
 	cs.update(func() {
-		cs.dict.Delete(section, key)
+		cs.dict.Delete(strings.ToLower(section), strings.ToLower(key))
 	})
 }
 

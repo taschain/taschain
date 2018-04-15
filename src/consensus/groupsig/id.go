@@ -3,6 +3,9 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
+	"crypto/sha1"
+	"fmt"
+	"io"
 	"log"
 	"math/big"
 )
@@ -32,7 +35,11 @@ func (id *ID) SetDecimalString(s string) error {
 
 //把十六进制字符串转换到ID
 func (id *ID) SetHexString(s string) error {
-	return id.value.SetHexString(s)
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return fmt.Errorf("arg failed")
+	}
+	buf := s[len(PREFIX):]
+	return id.value.SetHexString(buf)
 }
 
 //把字节切片转换到ID
@@ -59,7 +66,7 @@ func (id ID) GetDecimalString() string {
 
 //把ID转换到十六进制字符串
 func (id ID) GetHexString() string {
-	return id.value.GetHexString()
+	return PREFIX + id.value.GetHexString()
 }
 
 //把ID转换到字节切片（小端模式）
@@ -97,4 +104,13 @@ func NewIDFromAddress(addr common.Address) *ID {
 func NewIDFromPubkey(pk Pubkey) *ID {
 	addr := pk.GetAddress()
 	return NewIDFromAddress(addr)
+}
+
+//从字符串生成ID
+func NewIDFromString(s string) *ID {
+	h := sha1.New()
+	io.WriteString(h, s)
+	data := h.Sum(nil)
+	bi := new(big.Int).SetBytes(data[:])
+	return NewIDFromBigInt(bi)
 }

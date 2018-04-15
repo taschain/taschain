@@ -1,24 +1,26 @@
 package groupsig
 
 import (
-	"log"
-	"unsafe"
-	"math/big"
 	"common"
 	"consensus/bls"
+	"fmt"
+	//"fmt"
+	"log"
+	"math/big"
+	"unsafe"
 
 	"golang.org/x/crypto/sha3"
 )
 
-// types
-
-// Pubkey -
+//用户公钥
 type Pubkey struct {
 	value bls.PublicKey
 }
 
 //MAP（地址->公钥）
 type PubkeyMap map[common.Address]Pubkey
+
+type PubkeyMapID map[ID]Pubkey
 
 //判断两个公钥是否相同
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {
@@ -55,12 +57,18 @@ func (pub Pubkey) GetAddress() common.Address {
 
 //把公钥转换成十六进制字符串，不包含0x前缀
 func (pub Pubkey) GetHexString() string {
-	return pub.value.GetHexString()
+	return PREFIX + pub.value.GetHexString()
+	//return pub.value.GetHexString()
 }
 
 //由十六进制字符串初始化公钥
 func (pub *Pubkey) SetHexString(s string) error {
-	return pub.value.SetHexString(s)
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return fmt.Errorf("arg failed")
+	}
+	buf := s[len(PREFIX):]
+	return pub.value.SetHexString(buf)
+	//return pub.value.SetHexString(s)
 }
 
 //由私钥构建公钥
