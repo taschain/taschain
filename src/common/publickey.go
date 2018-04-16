@@ -6,8 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"utility/ecies"
 	"io"
+	"common/ecies"
 )
 
 //用户公钥
