@@ -169,6 +169,14 @@ func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
 	return chain.latestStateDB.GetBalance(c.BytesToAddress(address.Bytes()))
 }
 
+func (chain *BlockChain) GetNonce(address common.Address) uint64 {
+	if nil == chain.latestStateDB {
+		return 0
+	}
+
+	return chain.latestStateDB.GetNonce(c.BytesToAddress(address.Bytes()))
+}
+
 //清除链所有数据
 func (chain *BlockChain) Clear() error {
 	chain.lock.Lock()

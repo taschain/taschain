@@ -56,4 +56,7 @@ type VMExecutor interface {
 // 账户查询接口
 type AccountRepository interface {
 	GetBalance(address common.Address) *big.Int
+
+	GetNonce(address common.Address) uint64
+
 }
