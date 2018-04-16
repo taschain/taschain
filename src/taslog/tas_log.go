@@ -23,13 +23,16 @@ func GetLogger(configFilePath string) seelog.LoggerInterface {
 	if configFilePath == "" {
 		configFilePath = baseConfigFilePath
 	}
-	logger, err := seelog.LoggerFromConfigAsFile(configFilePath)
+	var logger seelog.LoggerInterface
+	l, err := seelog.LoggerFromConfigAsFile(configFilePath)
 
 	if err != nil {
-		fmt.Print("Get logger error!")
-		return nil
+		fmt.Printf("Get logger error! use defalut log!\n ")
+		logger = GetLoggerByConfig(defaultConfig)
+	} else {
+		logger = l
 	}
-	regiter(logger)
+	register(logger)
 	return logger
 }
 
@@ -38,22 +41,31 @@ func GetLoggerByConfig(config string) seelog.LoggerInterface {
 	if config == `` {
 		config = defaultConfig
 	}
-	logger, err := seelog.LoggerFromConfigAsBytes([]byte(config))
+	var logger seelog.LoggerInterface
+	l, err := seelog.LoggerFromConfigAsBytes([]byte(config))
 
 	if err != nil {
-		fmt.Print("Get logger error!")
-		return nil
+		fmt.Printf("Get logger error!use defalut log!\n")
+		logger = GetLoggerByConfig(defaultConfig)
+	} else {
+		logger = l
 	}
-	regiter(logger)
+	register(logger)
 	return logger
 }
 
-func regiter(logger seelog.LoggerInterface) {
+func register(logger seelog.LoggerInterface) {
 	if logger != nil {
 		logManager = append(logManager, logger)
 	}
 }
 
+var P2pLogger seelog.LoggerInterface
+
+func init() {
+	P2pLogger = GetLogger("conf/p2p.xml")
+
+}
 func Close() {
 	for _, logger := range logManager {
 		logger.Flush()

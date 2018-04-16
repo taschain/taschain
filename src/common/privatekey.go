@@ -54,7 +54,7 @@ func (pk PrivateKey) GetPubKey() PublicKey {
 
 //导出函数
 func (pk *PrivateKey) GetHexString() string {
-	buf := pk.toBytes()
+	buf := pk.ToBytes()
 	str := PREFIX + hex.EncodeToString(buf)
 	return str
 }
@@ -65,14 +65,14 @@ func HexStringToSecKey(s string) (sk *PrivateKey) {
 		return
 	}
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	sk = bytesToSecKey(buf)
+	sk = BytesToSecKey(buf)
 	return
 }
 
-func (pk *PrivateKey) toBytes() []byte {
+func (pk *PrivateKey) ToBytes() []byte {
 	fmt.Printf("begin seckey ToBytes...\n")
 	pubk := pk.GetPubKey() //取得公钥
-	buf := pubk.toBytes()  //公钥序列化
+	buf := pubk.ToBytes()  //公钥序列化
 	fmt.Printf("pub key tobytes, len=%v, data=%v.\n", len(buf), buf)
 	d := pk.PrivKey.D.Bytes() //D序列化
 	buf = append(buf, d...)   //叠加公钥和D的序列化
@@ -81,7 +81,7 @@ func (pk *PrivateKey) toBytes() []byte {
 	return buf
 }
 
-func bytesToSecKey(data []byte) (sk *PrivateKey) {
+func BytesToSecKey(data []byte) (sk *PrivateKey) {
 	fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
 	if len(data) < SecKeyLength {
 		return nil
@@ -89,7 +89,7 @@ func bytesToSecKey(data []byte) (sk *PrivateKey) {
 	sk = new(PrivateKey)
 	buf_pub := data[:PubKeyLength]
 	buf_d := data[PubKeyLength:]
-	sk.PrivKey.PublicKey = bytesToPublicKey(buf_pub).PubKey
+	sk.PrivKey.PublicKey = BytesToPublicKey(buf_pub).PubKey
 	sk.PrivKey.D = new(big.Int).SetBytes(buf_d)
 	if sk.PrivKey.X != nil && sk.PrivKey.Y != nil && sk.PrivKey.D != nil {
 		return sk

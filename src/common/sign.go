@@ -29,3 +29,22 @@ func (s Sign) GetR() big.Int {
 func (s Sign) GetS() big.Int {
 	return s.s
 }
+
+func (s Sign) Bytes() []byte {
+	rb := s.r.Bytes()
+	sb := s.s.Bytes()
+	r := make([]byte, len(rb)+len(sb))
+	copy(r, rb)
+	copy(r[len(rb):], sb)
+	return r
+}
+
+func BytesToSign(b []byte) *Sign {
+	var r, s big.Int
+	br := b[:32]
+	r = *r.SetBytes(br)
+
+	sr := b[32:]
+	s = *s.SetBytes(sr)
+	return &Sign{r, s}
+}

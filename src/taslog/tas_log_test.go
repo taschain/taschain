@@ -4,6 +4,7 @@ import (
 	"testing"
 	"github.com/cihub/seelog"
 )
+
 // seelog wiki:https://github.com/cihub/seelog/wiki
 var config = `<seelog minlevel="debug">
 		<outputs formatid="testConfig">
@@ -37,7 +38,6 @@ func TestGetLoggerByConfig(t *testing.T) {
 	Close()
 }
 
-
 func TestMultiLogger(t *testing.T) {
 	logger1 := GetLoggerByConfig(config)
 	logger2 := GetLogger("conf/tas_log_test.xml")
@@ -61,6 +61,7 @@ func TestMultiLogger(t *testing.T) {
 		logger1.Error("TestMultiLogger test main error output")
 	}
 }
+
 //test.log
 func logFunc(logger seelog.LoggerInterface, i int) {
 	logger.Debug("TestMultiLogger logFunc debug output", i)
@@ -68,11 +69,6 @@ func logFunc(logger seelog.LoggerInterface, i int) {
 	logger.Warn("TestMultiLogger logFunc Warn output", i)
 	logger.Error("TestMultiLogger logFunc error output", i)
 }
-
-
-
-
-
 
 func TestGetLoggerDefault(t *testing.T) {
 	logger := GetLogger("")
@@ -98,4 +94,7 @@ func TestGetLoggerByConfigDefault(t *testing.T) {
 	Close()
 }
 
-
+func TestInitTasLog(t *testing.T) {
+	P2pLogger.Debug("debug test by p2p logger")
+	P2pLogger.Flush()
+}
