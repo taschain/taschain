@@ -15,9 +15,9 @@ import (
 	"github.com/libp2p/go-libp2p-host"
 	"common"
 	"errors"
-	"gx/ipfs/QmYvJhMM1SRTcGFxsHQ6gYZMUtHUphkAKUYp7VPrMtRAQ9/go-libp2p-blankhost"
 	"fmt"
 	"time"
+	"github.com/libp2p/go-libp2p-blankhost"
 )
 
 const (

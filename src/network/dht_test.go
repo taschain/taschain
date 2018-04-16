@@ -9,7 +9,6 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-swarm"
-	//"github.com/libp2p/go-libp2p/p2p/host/basic"
 	"common"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-peer"
@@ -19,7 +18,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-crypto"
 	"time"
-	"gx/ipfs/QmYvJhMM1SRTcGFxsHQ6gYZMUtHUphkAKUYp7VPrMtRAQ9/go-libp2p-blankhost"
+	"github.com/libp2p/go-libp2p-blankhost"
 	"github.com/multiformats/go-multihash"
 )
 
