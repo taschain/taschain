@@ -8,6 +8,11 @@ import (
 	"time"
 	"sync"
 	"os"
+	"vm/core/state"
+	c "vm/common"
+	"vm/ethdb"
+	"vm/common/hexutil"
+	"math/big"
 )
 
 const STATUS_KEY = "current"
@@ -21,6 +26,10 @@ type BlockChainConfig struct {
 	blockHeight       string
 	blockHeightCache  int
 	blockHeightHandle int
+
+	state       string
+	stateCache  int
+	stateHandle int
 
 	//组内能出的最大QN值
 	qn uint64
@@ -37,6 +46,8 @@ type BlockChain struct {
 	transactionPool *TransactionPool
 	//已上链的最新块
 	latestBlock *BlockHeader
+
+	latestStateDB *state.StateDB
 	//当前链的高度
 	height uint64
 
@@ -45,6 +56,11 @@ type BlockChain struct {
 
 	// 是否可以工作
 	init bool
+
+	statedb    ethdb.Database
+	stateCache state.Database // State database to reuse between imports (contains state cache)
+
+	executor *EVMExecutor
 }
 
 // 默认配置
@@ -57,6 +73,10 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 		blockHeight:       "height",
 		blockHeightCache:  128,
 		blockHeightHandle: 1024,
+
+		state:       "state",
+		stateCache:  128,
+		stateHandle: 1024,
 
 		qn: 4,
 	}
@@ -89,22 +109,64 @@ func InitBlockChain() *BlockChain {
 		return nil
 	}
 
+	chain.statedb, err = ethdb.NewLDBDatabase(chain.config.state, chain.config.stateCache, chain.config.stateHandle)
+	if err != nil {
+		//todo: 日志
+		return nil
+	}
+	chain.stateCache = state.NewDatabase(chain.statedb)
+
+	chain.executor = NewEVMExecutor(chain)
+
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.getBlockHeaderByHeight([]byte(STATUS_KEY))
 	if nil != chain.latestBlock {
 		chain.height = chain.latestBlock.Height
+		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+		}
 	} else {
 		// 创始块
-		chain.saveBlock(GenesisBlock())
-		chain.height = 1
+		state, err := state.New(c.Hash{}, chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+
+			// 创始块
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(100))
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("2"))), big.NewInt(200))
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("3"))), big.NewInt(300))
+
+			chain.latestStateDB.IntermediateRoot(false)
+
+			root, _ := chain.latestStateDB.Commit(false)
+			triedb := chain.stateCache.TrieDB()
+			triedb.Commit(root, false)
+
+			block := GenesisBlock()
+			block.Header.StateTree = common.BytesToHash(root.Bytes())
+			chain.saveBlock(block)
+			chain.height = 1
+
+		}
 	}
+
 	return chain
 }
 
 func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.block)
 	os.RemoveAll(config.blockHeight)
+	os.RemoveAll(config.state)
+}
+
+func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
+	if nil == chain.latestStateDB {
+		return nil
+	}
+
+	return chain.latestStateDB.GetBalance(c.BytesToAddress(address.Bytes()))
 }
 
 //清除链所有数据
@@ -122,6 +184,13 @@ func (chain *BlockChain) Clear() error {
 	}
 	err = chain.blocks.Clear()
 	if nil != err {
+		return err
+	}
+
+	os.RemoveAll(chain.config.state)
+	chain.statedb, err = ethdb.NewLDBDatabase(chain.config.state, chain.config.stateCache, chain.config.stateHandle)
+	if err != nil {
+		//todo: 日志
 		return err
 	}
 
@@ -199,9 +268,7 @@ func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
 	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
-//构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock() *Block {
-
+func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
@@ -215,15 +282,34 @@ func (chain *BlockChain) CastingBlock() *Block {
 		CurTime:      time.Now(), //todo:时区问题
 	}
 
-	if chain.latestBlock != nil {
-		block.Header.PreHash = chain.latestBlock.Hash
-		block.Header.Height = chain.latestBlock.Height + 1
+	if latestBlock != nil {
+		block.Header.PreHash = latestBlock.Hash
+		block.Header.Height = latestBlock.Height + 1
 	}
 
-	blockByte, _ := json.Marshal(block)
-	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
+	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
+	if err != nil {
+		return nil
+	}
 
+	// Process block using the parent state as reference point.
+	receipts, statehash, _, err := chain.executor.Execute(state, block)
+	if err != nil {
+		return nil
+	}
+	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
+
+	block.Header.TxTree = block.calcTxTree()
+	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
+
+	block.Header.Hash = block.Header.GenHash()
 	return block
+}
+
+//构建一个铸块（组内当前铸块人同步操作）
+func (chain *BlockChain) CastingBlock() *Block {
+	return chain.CastingBlockAfter(chain.latestBlock)
+
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -255,17 +341,37 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	defer chain.lock.Unlock()
 
 	preHash := b.Header.PreHash
-	preBlock, error := chain.blocks.Has(preHash.Bytes())
+	preBlock := chain.queryBlockByHash(preHash)
 
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
-	if error != nil || !preBlock {
+	if preBlock == nil {
 		return -1
 	}
 
 	// 验证块是否有问题
 	status := chain.VerifyCastingBlock(*b.Header)
 	if status != 0 {
+		return -1
+	}
+	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()) {
+		return -1
+	}
+
+	// 验证交易执行结果
+	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	if err != nil {
+		return -1
+	}
+	receipts, statehash, _, err := chain.executor.Execute(state, b)
+	if err != nil {
+		return -1
+	}
+	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
+		return -1
+	}
+
+	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return -1
 	}
 
@@ -285,6 +391,11 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
+		chain.latestStateDB = state
+		root, _ := state.Commit(true)
+		triedb := chain.stateCache.TrieDB()
+		triedb.Commit(root, false)
+
 	}
 	return status
 
@@ -378,6 +489,8 @@ func (chain *BlockChain) getWeight(number uint64) uint64 {
 func (chain *BlockChain) remove(header *BlockHeader) {
 	chain.blocks.Delete(header.Hash.Bytes())
 	chain.blockHeight.Delete(chain.generateHeightKey(header.Height))
+
+	// todo: 删除块的交易，是否要回transactionpool
 }
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {

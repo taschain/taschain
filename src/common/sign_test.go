@@ -2,10 +2,12 @@ package common
 
 import (
 	"crypto/sha1"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"golang.org/x/crypto/sha3"
+	"bytes"
 )
 
 func TestPrivateKey(test *testing.T) {
@@ -78,6 +80,43 @@ func TestSign(test *testing.T) {
 	fmt.Printf("end TestSign.\n")
 }
 
+
+func TestEncryptDecrypt(t *testing.T) {
+	fmt.Printf("\nbegin TestEncryptDecrypt...\n")
+	sk1 := GenerateKey("")
+	pk1 := sk1.GetPubKey()
+
+	sk2 := GenerateKey("")
+
+	message := []byte("Hello, world.")
+	ct, err := Encrypt(rand.Reader, &pk1, message)
+	if err != nil {
+		fmt.Println(err.Error())
+		t.FailNow()
+	}
+
+	pt, err := sk1.Decrypt(rand.Reader, ct)
+	if err != nil {
+		fmt.Println(err.Error())
+		t.FailNow()
+	}
+
+	fmt.Println(message)
+	fmt.Println(ct)
+	fmt.Println(pt)
+
+	if !bytes.Equal(pt, message) {
+		fmt.Println("ecies: plaintext doesn't match message")
+		t.FailNow()
+	}
+
+	_, err = sk2.Decrypt(rand.Reader, ct)
+	if err == nil {
+		fmt.Println("ecies: encryption should not have succeeded")
+		t.FailNow()
+	}
+	fmt.Printf("end TestEncryptDecrypt.\n")
+}
 func TestSignBytes(test *testing.T) {
 	plain_txt := "Sign bytes convert."
 	buf := []byte(plain_txt)

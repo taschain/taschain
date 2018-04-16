@@ -6,7 +6,7 @@ import (
 	"math/big"
 )
 
-//随机数长度=32*8=356位，跟使用的哈希函数有相关性
+//随机数长度=32*8=256位，跟使用的哈希函数有相关性
 const RandLength = 32
 
 type Rand [RandLength]byte
@@ -27,6 +27,11 @@ func NewRand() (r Rand) {
 //把多维字符串转换成多维字节数组后，进行SHA3哈希生成随机数
 func RandFromHex(s ...string) (r Rand) {
 	return RandFromBytes(MapHexToBytes(s)...)
+}
+
+//对字符串进行哈希后生成伪随机数
+func RandFromString(s string) (r Rand) {
+	return RandFromBytes([]byte(s))
 }
 
 //把随机数转换成字节数组

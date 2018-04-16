@@ -3,6 +3,8 @@ package core
 import (
 	"testing"
 	"common"
+
+	c "vm/common"
 )
 
 func TestBlockChain_AddBlock(t *testing.T) {
@@ -17,16 +19,20 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
+	if chain.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 100 {
+		t.Fatalf("fail to init 1 balace to 100")
+	}
+
 	txpool := chain.GetTransactionPool()
 	if nil == txpool {
 		t.Fatalf("fail to get txpool")
 	}
 
 	// 交易1
-	txpool.Add(genTestTx("jdai1", 12345))
+	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
 
 	//交易2
-	txpool.Add(genTestTx("jdai2", 123456))
+	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
 	// 铸块1
 	block := chain.CastingBlock()
@@ -45,13 +51,17 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("add block1 failed")
 	}
 
+	if chain.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 99 {
+		t.Fatalf("fail to transfer 1 from 1  to 2")
+	}
+
 	// 池子中交易的数量为0
 	if 0 != len(txpool.received) {
 		t.Fatalf("fail to remove transactions after addBlock")
 	}
 
 	//交易3
-	txpool.Add(genTestTx("jdai3", 1))
+	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1, 10))
 
 	// 铸块2
 	block2 := chain.CastingBlock()
@@ -59,6 +69,11 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	if 0 != chain.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
 	}
+
+	if chain.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 89 {
+		t.Fatalf("fail to transfer 10 from 1 to 2")
+	}
+
 	//最新块是块2
 	blockHeader = chain.QueryTopBlock()
 	if nil == blockHeader || 2 != blockHeader.Height || blockHeader.Hash != block2.Header.Hash || block.Header.Hash != block2.Header.PreHash {
@@ -86,10 +101,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 铸块4 空块
-	block4 := chain.CastingBlock()
 	// 模拟分叉
-	block4.Header.PreHash = block.Header.PreHash
-	block4.Header.Height = block.Header.Height + 1
+	block4 := chain.CastingBlockAfter(block.Header)
+
 	if 0 != chain.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -103,13 +117,28 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("failed to remove uncle blocks")
 	}
 
+	if chain.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 99 {
+		t.Fatalf("fail to switch to main chain")
+	}
+
 }
 
-func genTestTx(hash string, price uint32) *Transaction {
-	bytes3 := []byte(hash)
-	hash3 := Sha256(bytes3)
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
+
+	sourcebyte := common.BytesToAddress(genHash(source))
+	targetbyte := common.BytesToAddress(genHash(target))
+
 	return &Transaction{
-		Gasprice: price,
-		Hash:     common.BytesToHash(hash3),
+		GasPrice: price,
+		Hash:     common.BytesToHash(genHash(hash)),
+		Source:   &sourcebyte,
+		Target:   &targetbyte,
+		Nonce:    nonce,
+		Value:    value,
 	}
+}
+
+func genHash(hash string) []byte {
+	bytes3 := []byte(hash)
+	return Sha256(bytes3)
 }

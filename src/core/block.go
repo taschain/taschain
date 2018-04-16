@@ -7,12 +7,14 @@ import (
 	"hash"
 	"sync"
 	"time"
+	"bytes"
+	"vm/trie"
+	"vm/rlp"
+	"vm/core/types"
 )
 
 //区块头结构
 type BlockHeader struct {
-	//Trans_Hash_List：交易集哈希列表
-	//Trans_Root_Hash：默克尔树根哈希
 	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
@@ -30,15 +32,53 @@ type BlockHeader struct {
 	ExtraData    []byte
 }
 
-func (bh BlockHeader) GenHash() common.Hash {
-	var h common.Hash
-	//to do ：鸠兹完成
-	return h
+func (bh *BlockHeader) GenHash() common.Hash {
+	blockByte, _ := json.Marshal(bh)
+	return common.BytesToHash(Sha256(blockByte))
 }
+
+var emptyHash = common.Hash{}
 
 type Block struct {
 	Header       *BlockHeader
 	Transactions []*Transaction
+}
+
+func (b *Block) calcTxTree() common.Hash {
+	tx := b.Transactions
+	if nil == tx || 0 == len(tx) {
+		return emptyHash
+	}
+
+	keybuf := new(bytes.Buffer)
+	trie := new(trie.Trie)
+	for i := 0; i < len(tx); i++ {
+		keybuf.Reset()
+		rlp.Encode(keybuf, uint(i))
+		encode, _ := rlp.EncodeToBytes(tx[i])
+		trie.Update(keybuf.Bytes(), encode)
+	}
+	hash := trie.Hash()
+
+	return common.BytesToHash(hash.Bytes())
+}
+
+func (b *Block) calcReceiptsTree(receipts types.Receipts) common.Hash {
+	if nil == receipts || 0 == len(receipts) {
+		return emptyHash
+	}
+
+	keybuf := new(bytes.Buffer)
+	trie := new(trie.Trie)
+	for i := 0; i < len(receipts); i++ {
+		keybuf.Reset()
+		rlp.Encode(keybuf, uint(i))
+		encode, _ := rlp.EncodeToBytes(receipts[i])
+		trie.Update(keybuf.Bytes(), encode)
+	}
+	hash := trie.Hash()
+
+	return common.BytesToHash(hash.Bytes())
 }
 
 var hasherPool = sync.Pool{

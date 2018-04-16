@@ -33,6 +33,8 @@ type SeckeyMap map[common.Address]Seckey
 //map(地址->私钥)
 type SeckeyMapInt map[int]Seckey
 
+type SeckeyMapID map[ID]Seckey
+
 //把私钥转换成字节切片（小端模式）
 func (sec Seckey) Serialize() []byte {
 	return sec.value.GetLittleEndian()

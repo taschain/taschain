@@ -192,7 +192,7 @@ func (gc *GroupContext) GenSharePieces() []SecKeyInfo {
 		master_seckeys := make([]groupsig.Seckey, gc.sgi.GetLen())
 		seed := rand.NewRand() //每个组成员自己生成的随机数
 
-		for i := 0; i < gc.sgi.GetLen(); i++ {
+		for i := 0; i < gc.sgi.GetLen(); i++ { //组成员数量
 			master_seckeys[i] = *groupsig.NewSeckeyFromRand(seed.Deri(i)) //生成master私钥数组（bls库函数）
 		}
 

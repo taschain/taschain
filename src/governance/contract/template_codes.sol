@@ -12,10 +12,10 @@ contract TemplateCode {
     mapping(address => Template) public templates;
 
 
-    function template(address key) public view returns (bytes code, string abi, uint64 bn, address author) {
+    function template(address key) public view returns (bytes code, string abi, uint64 blockNum, address author) {
         code = templates[key].code;
         abi = templates[key].abi;
-        bn = templates[key].blockNum;
+        blockNum = templates[key].blockNum;
         author = templates[key].author;
     }
 

@@ -3,7 +3,9 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
+	"crypto/sha1"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 )
@@ -102,4 +104,13 @@ func NewIDFromAddress(addr common.Address) *ID {
 func NewIDFromPubkey(pk Pubkey) *ID {
 	addr := pk.GetAddress()
 	return NewIDFromAddress(addr)
+}
+
+//从字符串生成ID
+func NewIDFromString(s string) *ID {
+	h := sha1.New()
+	io.WriteString(h, s)
+	data := h.Sum(nil)
+	bi := new(big.Int).SetBytes(data[:])
+	return NewIDFromBigInt(bi)
 }

@@ -78,7 +78,7 @@ type Processer struct {
 	sci  SelfCastInfo      //当前节点的铸块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）
 }
 
-func (p *Processer) InitProcesser() bool {
+func (p *Processer) Init() bool {
 	//to do ： 从链上加载和初始化成员变量
 	return true
 }

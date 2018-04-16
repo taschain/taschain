@@ -11,34 +11,25 @@ contract TASCredit {
     }
 
     mapping(address => AccountCredit) public credits;
-    address owner;
 
-    modifier onlyOwner {
-        require(msg.sender == owner);
-        _;
-    }
 
-    function TASCredit() public {
-        owner = msg.sender;
-    }
-
-    function addTransCnt(address ac, uint32 delta) public onlyOwner {
+    function addTransCnt(address ac, uint32 delta) public {
         credits[ac].transCnt += delta;
     }
 
-    function setLatestTransBlock(address ac, uint64 v) public onlyOwner {
+    function setLatestTransBlock(address ac, uint64 v) public {
         credits[ac].latestTransBlock = v;
     }
 
-    function addVoteCnt(address ac, uint32 delta) public onlyOwner {
+    function addVoteCnt(address ac, uint32 delta) public {
         credits[ac].voteCnt += delta;
     }
 
-    function addVoteAcceptCnt(address ac, uint32 delta) public onlyOwner {
+    function addVoteAcceptCnt(address ac, uint32 delta) public {
         credits[ac].voteAcceptCnt += delta;
     }
 
-    function setBlockNum(address ac, uint64 num) public onlyOwner {
+    function setBlockNum(address ac, uint64 num) public {
         credits[ac].blockNum = num;
     }
 

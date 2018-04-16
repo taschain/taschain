@@ -23,7 +23,7 @@ const (
 
 // Init --
 func Init(curve int) {
-	fmt.Printf("\begin groupsig init, curve=%v.\n", curve)
+	fmt.Printf("\nbegin groupsig init, curve=%v.\n", curve)
 	err := bls.Init(curve) //以特定的椭圆曲线初始化BLS C库
 	if err != nil {
 		panic("groupsig.Init")
@@ -31,4 +31,5 @@ func Init(curve int) {
 	curveOrder.SetString(bls.GetCurveOrder(), 10)
 	fieldOrder.SetString(bls.GetFieldOrder(), 10)
 	bitLength = curveOrder.BitLen()
+	fmt.Printf("end groupsig init.")
 }
