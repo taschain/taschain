@@ -123,11 +123,35 @@ func InitBlockChain() *BlockChain {
 	chain.latestBlock = chain.getBlockHeaderByHeight([]byte(STATUS_KEY))
 	if nil != chain.latestBlock {
 		chain.height = chain.latestBlock.Height
+		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+		}
 	} else {
 		// 创始块
-		chain.saveBlock(GenesisBlock())
-		chain.height = 1
+		state, err := state.New(c.Hash{}, chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+
+			// 创始块
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(100))
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("2"))), big.NewInt(200))
+			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("3"))), big.NewInt(300))
+
+			chain.latestStateDB.IntermediateRoot(false)
+
+			root, _ := chain.latestStateDB.Commit(false)
+			triedb := chain.stateCache.TrieDB()
+			triedb.Commit(root, false)
+
+			block := GenesisBlock()
+			block.Header.StateTree = common.BytesToHash(root.Bytes())
+			chain.saveBlock(block)
+			chain.height = 1
+
+		}
 	}
+
 	return chain
 }
 
@@ -263,8 +287,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 		block.Header.Height = latestBlock.Height + 1
 	}
 
-
-
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		return nil
@@ -332,7 +354,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	if status != 0 {
 		return -1
 	}
-	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()){
+	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()) {
 		return -1
 	}
 
@@ -352,7 +374,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return -1
 	}
-
 
 	// 检查高度
 	height := b.Header.Height
