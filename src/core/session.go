@@ -105,7 +105,7 @@ func (st *Session) refundGas() {
 	st.gp.AddGas(st.gas)
 }
 
-func (st *Session) run(evm *vm.EVM) (ret []byte, usedGas uint64, failed bool, err error) {
+func (st *Session) Run(evm *vm.EVM) (ret []byte, usedGas uint64, failed bool, err error) {
 	if err = st.preCheck(); err != nil {
 		return
 	}
