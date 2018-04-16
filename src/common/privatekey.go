@@ -8,7 +8,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
-	"utility/ecies"
+	"common/ecies"
 )
 
 type PrivateKey struct {
