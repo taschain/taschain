@@ -14,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p-net"
 	"github.com/libp2p/go-libp2p-host"
 	"common"
-	"errors"
 	"fmt"
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
@@ -134,21 +133,13 @@ func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
 }
 
 func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
-	seedIdStrPretty, b1 := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY)
-	if !b1 {
-		fmt.Printf("Get seed id from config file error!\n")
-		return peer.ID(""), "", errors.New("Get seed id from config file error")
-	}
+	seedIdStrPretty:= (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY,"QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
 	seedId, e := peer.IDB58Decode(seedIdStrPretty)
 	if e != nil {
 		fmt.Printf("Decode seed id error:%s\n", e.Error())
 		return peer.ID(""), "", e
 	}
 
-	seedAddrStr, b2 := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY)
-	if !b2 {
-		fmt.Printf("Get seed address from config file error!\n")
-		return peer.ID(""), "", errors.New("Get seed address from config file error")
-	}
+	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY,"/ip4/10.0.0.66/tcp/1122")
 	return seedId, seedAddrStr, nil
 }
