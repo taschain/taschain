@@ -7,7 +7,7 @@ import (
 type Transaction struct {
 	Id        common.Address
 	Status    int8
-	Data      []int8
+	Data      []byte
 	Value     uint64
 	Nonce     uint64
 	Source    *common.Address
@@ -16,5 +16,5 @@ type Transaction struct {
 	GasLimit  uint64
 	GasPrice  uint64
 	Hash      common.Hash
-	ExtraData []int8
+	ExtraData []byte
 }
