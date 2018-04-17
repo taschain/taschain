@@ -37,6 +37,7 @@ func NewSession(state vm.StateDB, tx *Transaction, gp *core.GasPool) *Session {
 		source:   tx.Source,
 		target:   tx.Target,
 		value:    new(big.Int).SetUint64(tx.Value),
+		data:     tx.Data,
 		gasLimit: tx.GasLimit,
 		gasPrice: new(big.Int).SetUint64(tx.GasPrice),
 		gp:       gp,
