@@ -5,7 +5,7 @@ import (
 )
 
 type Transaction struct {
-	Id        common.Address
+
 	Status    int8
 	Data      []byte
 	Value     uint64
