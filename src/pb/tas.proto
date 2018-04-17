@@ -1,0 +1,93 @@
+syntax = "proto2";
+package tas.pb;
+
+message Message{
+
+    required uint32 Code  = 1;
+
+    required bytes Signature  = 2;
+
+    optional bytes Body  = 3;
+
+}
+
+
+message Transaction{
+
+    required bytes Id  = 1 ;
+
+    required bytes Data  = 2 ;
+
+    required uint64 Value = 3;
+
+    required uint64 Nonce = 4;
+
+    required bytes Source  = 5 ;
+
+    required bytes Target  = 6 ;
+
+    required uint64 GasLimit = 7;
+
+    required uint64 GasPrice = 8;
+
+    required bytes Hash  = 9 ;
+
+    optional bytes ExtraData  = 10 ;
+
+}
+
+
+message TransactionSlice{
+
+    repeated Transaction transactions = 1;
+}
+
+
+message BlockHeader{
+
+     required bytes Hash  = 1 ;
+
+     required uint64 Height = 2;
+
+     required bytes PreHash  = 3 ;
+
+     required bytes PreTime  = 4 ;
+
+     required uint64 BlockHeight = 5;
+
+     required uint64 QueueNumber = 6;
+
+     required bytes CurTime  = 7 ;
+
+     required bytes Castor  = 8 ;
+
+     required bytes Signature  = 9 ;
+
+     required uint64 Nonce = 10;
+
+     repeated bytes transactions = 11;
+
+     required bytes TxTree  = 12 ;
+
+     required bytes ReceiptTree  = 13 ;
+
+     required bytes StateTree  = 14 ;
+
+     required bytes ExtraData  = 15 ;
+}
+
+message Block{
+    required BlockHeader Header = 1;
+
+    repeated Transaction transactions = 2;
+
+}
+
+
+message BlockSlice{
+    repeated Block Blocks = 1;
+}
+
+message BlockMap{
+     map<uint64,Block> Blocks = 1;
+}

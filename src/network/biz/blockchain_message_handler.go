@@ -19,14 +19,7 @@ type transactionArrivedNotifyConsensusFn func(ts []core.Transaction, sd logical.
 //接收到新的块 本地上链
 type addNewBlockToChainFn func(b core.Block, sd logical.SignData)
 
-//获取本地链高度 todo  是否应该一个有参数 一个没参数 参数是签名
-type getLocalBlockChainHeightFn func() (int, error)
 
-//根据高度获取对应的block
-type queryBlocksByHeightFn func(hs []int, sd logical.SignData) (map[int]core.Block, error)
-
-//同步多个区块到链上
-type syncBlocksToChainFn func(hbm map[int]core.Block, sd logical.SignData)
 
 //获取本地组链高度
 type getLocalGroupChainHeightFn func() (int, error)
@@ -45,15 +38,11 @@ type queryBlocksByHashFn func(h common.Hash) (core.Block, error)
 
 //---------------------------------------------------------------------------------------------------------------------
 type BlockChainMessageHandler struct {
-	sv           *signValidator
 	queryTx      queryTracsactionFn
 	txGotNofifyB transactionArrivedNotifyBlockChainFn
 	txGotNofifyC transactionArrivedNotifyConsensusFn
 	addNewBlock  addNewBlockToChainFn
 
-	getBlockChainHeight getLocalBlockChainHeightFn
-	queryBlock          queryBlocksByHeightFn
-	syncBlocks          syncBlocksToChainFn
 
 	getGroupChainHeight getLocalGroupChainHeightFn
 	queryGroup          queryGroupInfoByHeightFn
@@ -63,19 +52,14 @@ type BlockChainMessageHandler struct {
 }
 
 func NewBlockChainMessageHandler(queryTx queryTracsactionFn, txGotNofifyB transactionArrivedNotifyBlockChainFn, txGotNofifyC transactionArrivedNotifyConsensusFn,
-	addNewBlock addNewBlockToChainFn, getBlockChainHeight getLocalBlockChainHeightFn, queryBlock queryBlocksByHeightFn,
-	syncBlocks syncBlocksToChainFn, getGroupChainHeight getLocalGroupChainHeightFn, queryGroup queryGroupInfoByHeightFn,
+	addNewBlock addNewBlockToChainFn, getBlockChainHeight , getGroupChainHeight getLocalGroupChainHeightFn, queryGroup queryGroupInfoByHeightFn,
 	syncGroup syncGroupInfoToChainFn, addTxToPool addTransactionToPoolFn) BlockChainMessageHandler {
 
 	return BlockChainMessageHandler{
-		sv:                  GetSignValidatorInstance(),
 		queryTx:             queryTx,
 		txGotNofifyC:        txGotNofifyC,
 		txGotNofifyB:        txGotNofifyB,
 		addNewBlock:         addNewBlock,
-		getBlockChainHeight: getBlockChainHeight,
-		queryBlock:          queryBlock,
-		syncBlocks:          syncBlocks,
 		getGroupChainHeight: getGroupChainHeight,
 		queryGroup:          queryGroup,
 		syncGroup:           syncGroup,
@@ -100,7 +84,7 @@ func (h BlockChainMessageHandler) onTransactionRequest(hs []common.Hash, sd logi
 //param: transaction slice
 //       signData
 func (h BlockChainMessageHandler) onMessageTransaction(ts []core.Transaction, sd logical.SignData) {
-	//todo 是否有先后顺序  应该有返回值？ 如果本地查不到是否需要广播该请求？
+	//todo 有先后顺序  先给鸠兹 再给班德  应该有返回值？ 如果本地查不到需要广播该请求？
 	h.txGotNofifyB(ts, sd)
 	h.txGotNofifyC(ts, sd)
 }
@@ -114,54 +98,8 @@ func (h BlockChainMessageHandler) onMessageNewBlock(b core.Block, sd logical.Sig
 	h.addNewBlock(b, sd)
 }
 
-/////////////////////////////////////////////////////链同步/////////////////////////////////////////////////////////////
 
-//接收到链高度信息请求，返回自身链高度
-//param: signData
-func (h BlockChainMessageHandler) onBlockChainHeightRequest(sd logical.SignData) int {
 
-	height, e := h.getBlockChainHeight()
-	if e != nil {
-		return height
-	}
-	return -1
-}
-
-//接收到链高度信息，对比自身高度，判定是否发起同步
-//param: block chain height
-//       signData
-func (h BlockChainMessageHandler) onMessageBlockChainHeight(height int, sd logical.SignData) {
-
-	//TODO 时间窗口内找出最高块的高度
-	bestHeight := 0
-
-	height, e := h.getBlockChainHeight()
-	if e != nil {
-		if bestHeight > height {
-			//todo 发起块同步
-			//requestBlockByHeight
-		}
-	}
-}
-
-//节点接收索要块请求
-//param: block height slice
-//       signData
-func (h BlockChainMessageHandler) onBlockRequest(hs []int, sd logical.SignData) map[int]core.Block {
-	hbm, e := h.queryBlock(hs, sd)
-	if e != nil {
-		return nil
-	}
-	return hbm
-}
-
-//节点收到块信息
-//param: heigth block map
-//       signData
-func (h BlockChainMessageHandler) onMessageBlock(hbm map[int]core.Block, sd logical.SignData) {
-
-	h.syncBlocks(hbm, sd)
-}
 
 ////////////////////////////////////////////////////////组同步//////////////////////////////////////////////////////////
 

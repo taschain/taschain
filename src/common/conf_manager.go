@@ -15,10 +15,11 @@ import (
 
 type ConfManager interface {
 	//read basic conf from tas.conf file
-	GetString(section string, key string) (string, bool)
-	GetBool(section string, key string) (bool, bool)
-	GetDouble(section string, key string) (float64, bool)
-	GetInt(section string, key string) (int, bool)
+	//返回section组下的key的值, 若未配置, 则返回默认值defv
+	GetString(section string, key string, defaultValue string) (string)
+	GetBool(section string, key string, defaultValue bool) (bool)
+	GetDouble(section string, key string, defaultValue float64) (float64)
+	GetInt(section string, key string, defaultValue int) (int)
 
 	//set basic conf to tas.conf file
 	SetString(section string, key string, value string)
@@ -47,9 +48,11 @@ func NewConfINIManager(path string) ConfManager {
 	if err != nil && os.IsNotExist(err) {
 		_, err = os.Create(path)
 		if err != nil {
+			//TODO: 记日志
 			panic(err)
 		}
 	} else if err != nil {
+		//TODO: 记日志
 		panic(err)
 	}
 	cs.dict = ini.MustLoad(path)
@@ -57,32 +60,44 @@ func NewConfINIManager(path string) ConfManager {
 	return cs
 }
 
-func (cs *ConfFileManager) GetString(section string, key string) (string, bool) {
+func (cs *ConfFileManager) GetString(section string, key string, defaultValue string) (string) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetString(strings.ToLower(section), strings.ToLower(key))
+	if v, ok := cs.dict.GetString(strings.ToLower(section), strings.ToLower(key)); ok {
+		return v
+	}
+	return defaultValue
 }
 
-func (cs *ConfFileManager) GetBool(section string, key string) (bool, bool) {
+func (cs *ConfFileManager) GetBool(section string, key string, defaultValue bool) (bool) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetBool(strings.ToLower(section), strings.ToLower(key))
+	if v, ok := cs.dict.GetBool(strings.ToLower(section), strings.ToLower(key)); ok {
+		return v
+	}
+	return defaultValue
 }
 
-func (cs *ConfFileManager) GetDouble(section string, key string) (float64, bool) {
+func (cs *ConfFileManager) GetDouble(section string, key string, defaultValue float64) (float64) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetDouble(strings.ToLower(section), strings.ToLower(key))
+	if v, ok := cs.dict.GetDouble(strings.ToLower(section), strings.ToLower(key)); ok {
+		return v
+	}
+	return defaultValue
 }
 
-func (cs *ConfFileManager) GetInt(section string, key string) (int, bool) {
+func (cs *ConfFileManager) GetInt(section string, key string, defaultValue int) (int) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.dict.GetInt(strings.ToLower(section), strings.ToLower(key))
+	if v, ok := cs.dict.GetInt(strings.ToLower(section), strings.ToLower(key)); ok {
+		return v
+	}
+	return defaultValue
 }
 
 func (cs *ConfFileManager) SetString(section string, key string, value string) {

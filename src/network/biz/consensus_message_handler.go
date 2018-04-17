@@ -33,7 +33,6 @@ type verifiedCastMessageArrivedNotifyFn func(bh core.BlockHeader, sd logical.Sig
 
 //---------------------------------------------------------------------------------------------------------------------
 type ConsensusMessageHandler struct {
-	sv *signValidator
 
 	genSHarePiece   genKeySharePieceFn
 	keyPieceGot     keyPieceArrivedNotifyFn
@@ -49,7 +48,6 @@ func NewConsensusMessageHandler(genSHarePiece genKeySharePieceFn, keyPieceGot ke
 	addNewGroup addNewGroupToChainFn, beginCast beginCastFn, verifyCast verifyCastFn, castVerifiedGot verifiedCastMessageArrivedNotifyFn) ConsensusMessageHandler {
 
 	return ConsensusMessageHandler{
-		sv:              GetSignValidatorInstance(),
 		genSHarePiece:   genSHarePiece,
 		keyPieceGot:     keyPieceGot,
 		memberPubkeyGot: memberPubkeyGot,
@@ -68,19 +66,13 @@ func (h ConsensusMessageHandler) onMessageGroupInit(sd logical.SignData) {
 	h.genSHarePiece(sd)
 }
 
-//组内节点接收密钥片段 保存，收到所有密钥片段后 生成用来签名的  组用户私钥
+//组内节点接收密钥片段 保存，收到所有密钥片段后 生成组公钥
 //param:keyPiece
 //      signData
 func (h ConsensusMessageHandler) onMessageKeyPiece(kp groupsig.Pubkey, sd logical.SignData) {
 	h.keyPieceGot(kp, sd)
 }
 
-//接收组用户公钥 单位时间内超过k个 生成组公钥
-//参数:组用户公钥
-//     signData
-func (h ConsensusMessageHandler) onMessageMemberPubKey(mk groupsig.Pubkey, sd logical.SignData) {
-	h.memberPubkeyGot(mk, sd)
-}
 
 //接收组  不验证了 进行上链 广播
 //参数: groupInfo senderId
