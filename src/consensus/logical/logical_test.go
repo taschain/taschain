@@ -106,8 +106,8 @@ func testGroupInit(t *testing.T) {
 		t.Error("create group init summary failed")
 	}
 
-	gis_hash := gis.GenHash().Sum(nil) //组初始化共识的哈希值（尝试以这个作为共享秘密的基。如不行再以成员ID合并作为基，但这样没法支持缩扩容。）
-	gis_rand := rand.RandFromBytes(gis_hash)
+	gis_hash := gis.GenHash() //组初始化共识的哈希值（尝试以这个作为共享秘密的基。如不行再以成员ID合并作为基，但这样没法支持缩扩容。）
+	gis_rand := rand.RandFromBytes(gis_hash.Bytes())
 
 	//组成员信息
 	users := make(map[groupsig.ID]test_node_data)
@@ -316,14 +316,179 @@ func testGroupInit(t *testing.T) {
 //测试成为当前高度的铸块组
 func testBlockCurrent(t *testing.T) {
 	var proc Processer
-	if !proc.Init() {
+	miner := NewMinerInfo("thiefox", "710208")
+	if !proc.Init(miner) {
 		return
 	}
 
 	return
 }
 
+func genAllNodes(gis ConsensusGroupInitSummary) map[groupsig.ID]GroupNode {
+	nodes := make(map[groupsig.ID]GroupNode, 0)
+	var node GroupNode
+	node.InitForMinerStr("thiefox", "710208", gis)
+	nodes[node.GetMinerID()] = node
+	node.InitForMinerStr("siren", "850701", gis)
+	nodes[node.GetMinerID()] = node
+	node.InitForMinerStr("juanzi", "123456", gis)
+	nodes[node.GetMinerID()] = node
+	node.InitForMinerStr("wild children", "111111", gis)
+	nodes[node.GetMinerID()] = node
+	node.InitForMinerStr("gebaini", "999999", gis)
+	nodes[node.GetMinerID()] = node
+	return nodes
+}
+
+//测试逻辑功能
+func testLogicGroupInit(t *testing.T) {
+	fmt.Printf("\nbegin testLogicGroupInit...\n")
+	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GROUP_MAX_MEMBERS, GetGroupK())
+	//初始化
+	fmt.Printf("begin init data...\n")
+	root := NewMinerInfo("root", "TASchain")
+	gis := genDummyGIS(root, "64-2")
+
+	nodes := genAllNodes(gis)
+
+	//合并出组私钥和组公钥
+	fmt.Printf("begin aggr group sec key and pub key direct...\n")
+	secs := make([]groupsig.Seckey, 0)
+	pubs := make([]groupsig.Pubkey, 0)
+	for _, v := range nodes {
+		secs = append(secs, v.getSeedSecKey())
+		pubs = append(pubs, v.GetSeedPubKey())
+	}
+	gsk1 := *groupsig.AggregateSeckeys(secs)
+	gpk1 := *groupsig.AggregatePubkeys(pubs)
+	fmt.Printf("init aggr group sec key=%v.\n", gsk1.GetHexString())
+	fmt.Printf("init aggr group pub key=%v.\n", gpk1.GetHexString())
+	{
+		temp_gpk := *groupsig.NewPubkeyFromSeckey(gsk1)
+		fmt.Printf("rip gpk from aggr group sec key=%v.\n", temp_gpk.GetHexString())
+	}
+	//交换秘密
+	fmt.Printf("begin exchange secure...\n")
+	ids := make([]groupsig.ID, 0)
+	for k, _ := range nodes {
+		ids = append(ids, k)
+	}
+	for k, v := range nodes {
+		shares := v.GenSharePiece(ids)
+		var piece SharePiece
+		piece.pub = v.GetSeedPubKey()
+		for x, y := range nodes {
+			piece.share = shares[x]
+			y.SetInitPiece(k, piece)
+			nodes[x] = y
+		}
+	}
+	for k, v := range nodes {
+		v.BeingValidMiner()
+		fmt.Printf("node=%v, aggr group pub key=%v.\n", k.GetHexString(), v.GetGroupPubKey().GetHexString())
+		nodes[k] = v
+	}
+	//恢复组私钥（内部函数）
+	fmt.Printf("begin recover group sec key and group pub key...\n")
+	const RECOVER_BEGIN = 0 //range 0-2
+	secs = make([]groupsig.Seckey, 0)
+	ids = make([]groupsig.ID, 0)
+	for k, v := range nodes {
+
+		ids = append(ids, k)
+		secs = append(secs, v.getSignSecKey())
+	}
+	ids = ids[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
+	secs = secs[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
+	fmt.Printf("secs len=%v, ids len=%v.\n", len(secs), len(ids))
+	gsk2 := *groupsig.RecoverSeckey(secs, ids)
+	gpk2 := *groupsig.NewPubkeyFromSeckey(gsk2)
+	fmt.Printf("recover group sec key=%v.\n", gsk2.GetHexString())
+	fmt.Printf("rip gpk from recover gsk=%v.\n", gpk2.GetHexString())
+
+	fmt.Printf("end testLogicGroupInit.\n")
+	return
+}
+
+func genAllProcessers() map[groupsig.ID]*Processer {
+	procs := make(map[groupsig.ID]*Processer, GROUP_MAX_MEMBERS)
+
+	proc := new(Processer)
+	proc.Init(NewMinerInfo("thiefox", "710208"))
+	procs[proc.GetMinerID()] = proc
+
+	proc = new(Processer)
+	proc.Init(NewMinerInfo("siren", "850701"))
+	procs[proc.GetMinerID()] = proc
+
+	proc = new(Processer)
+	proc.Init(NewMinerInfo("juanzi", "123456"))
+	procs[proc.GetMinerID()] = proc
+
+	proc = new(Processer)
+	proc.Init(NewMinerInfo("wild children", "111111"))
+	procs[proc.GetMinerID()] = proc
+
+	proc = new(Processer)
+	proc.Init(NewMinerInfo("gebaini", "999999"))
+	procs[proc.GetMinerID()] = proc
+
+	return procs
+}
+
+func testLogicGroupInitEx(t *testing.T) {
+	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
+	root := NewMinerInfo("root", "TASchain")
+
+	procs := genAllProcessers() //生成矿工进程
+	var ids []groupsig.ID
+	for _, v := range procs {
+		id := v.GetMinerID()
+		ids = append(ids, id)
+		v.setProcs(procs)
+	}
+	var grm ConsensusGroupRawMessage
+	copy(grm.ids[:], ids[:])
+	grm.gi = genDummyGIS(root, "64-2")
+	//to do : 一个矿工的消息签名是用common还是bls?
+	grm.si = GenSignData(grm.gi.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
+	fmt.Printf("grm msg member size=%v.\n", len(grm.ids))
+
+	//通知所有节点这个待初始化的组合法
+	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息
+	ngc := CreateInitingGroup(sgiinfo)
+	for _, v := range procs {
+		v.gg.ngg.addInitingGroup(ngc)
+	}
+
+	//启动所有节点进行初始化
+	for _, v := range procs {
+		v.OnMessageGroupInit(grm) //启动
+	}
+
+	//聚合组公钥
+	var pub_pieces []groupsig.Pubkey
+	for _, v := range procs {
+		pub_piece := v.GetMinerPubKeyPieceForGroup(grm.gi.DummyID)
+		pub_pieces = append(pub_pieces, pub_piece)
+	}
+	group_pub := groupsig.AggregatePubkeys(pub_pieces)
+	if group_pub != nil {
+		fmt.Printf("direct aggr group pub key=%v.\n", group_pub.GetHexString())
+	} else {
+		panic("direct aggr group pub key failed.")
+	}
+	return
+}
+
 func TestMain(t *testing.T) {
 	groupsig.Init(1)
-	testGroupInit(t)
+	//testGroupInit(t)
+	//testLogicGroupInit(t)
+	testLogicGroupInitEx(t)
+	return
 }
+
+//to do 给屮逸：
+//2个签名验证函数
+//一个组初始化完成后的上链结构

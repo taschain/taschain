@@ -1,7 +1,9 @@
 package rand
 
 import (
+	"common"
 	"hash"
+
 	"golang.org/x/crypto/sha3"
 )
 
@@ -14,4 +16,16 @@ func HashBytes(b ...[]byte) hash.Hash {
 		d.Write(bi)
 	}
 	return d
+}
+
+//生成数据的256位common.Hash
+func Data2CommonHash(data []byte) common.Hash {
+	var h common.Hash
+	sha3_hash := sha3.Sum256(data)
+	if len(sha3_hash) == common.HashLength {
+		copy(h[:], sha3_hash[:])
+	} else {
+		panic("Data2Hash failed, size error.")
+	}
+	return h
 }

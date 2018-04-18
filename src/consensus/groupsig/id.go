@@ -96,6 +96,7 @@ func NewIDFromInt(i int) *ID {
 }
 
 //从TAS 160位地址创建（FP254曲线256位或FP382曲线384位的）ID
+//bls.ID和common.Address不支持双向来回互转，因为两者的值域不一样（384位和160位），互转就会生成不同的值。
 func NewIDFromAddress(addr common.Address) *ID {
 	return NewIDFromBigInt(addr.BigInteger())
 }

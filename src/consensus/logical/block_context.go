@@ -8,37 +8,6 @@ import (
 	"time"
 )
 
-//共识名词定义：
-//铸块组：轮到铸当前高度块的组。
-//铸块时间窗口：给该组完成当前高度铸块的时间。如无法完成，则当前高度为空块，由上个铸块的哈希的哈希决定铸下一个块的组。
-//铸块槽：组内某个时间窗口的出块和验证。一个铸块槽如果能走到最后，则会成功产出该组的一个铸块。一个铸块组会有多个铸块槽。
-//铸块槽权重：组内第一个铸块槽权重最高=1，第二个=2，第三个=4...。铸块槽权重<=0为无效。权重在>0的情况下，越小越好（有特权）。
-//出块时间窗口：一个铸块槽的完成时间。如当前铸块槽在出块时间窗口内无法组内达成共识（上链，组外广播），则当前槽的King的组内排位后继成员成为下一个铸块槽的King，启动下一个铸块槽。
-//出块人（King）：铸块槽内的出块节点，一个铸块槽只有一个出块人。
-//见证人（Witness）：铸块槽内的验证节点，一个铸块槽有多个见证人。见证人包括组内除了出块人之外的所有成员。
-//出块消息：在一个铸块槽内，出块人广播到组内的出块消息（类似比特币的铸块）。
-//验块消息：在一个铸块槽内，见证人广播到组内的验证消息（对出块人出块消息的验证）。出块人的出块消息同时也是他的验块消息。
-//合法铸块：就某个铸块槽组内达成一致，完成上链和组外广播。
-//最终铸块：权重=1的铸块槽完成合法铸块；或当期高度铸块时间窗口内的组内权重最小的合法铸块。
-//插槽替换规则（插槽可以容纳铸块槽，如插槽容量=5，则同时最多能容纳5个铸块槽）：
-//1. 每过一个铸块槽时间窗口，如组内无法对上个铸块槽达成共识（完成组签名，向组外宣布铸块完成），则允许新启动一个铸块槽。新槽的King为上一个槽King的组内排位后继。
-//2. 一个铸块高度在同一时间内可能会有多个铸块槽同时运行，如插槽未满，则所有满足规则1的出块消息或验块消息都允许新生成一个铸块槽。
-//3. 如插槽已满，则时间窗口更早的铸块槽替换时间窗口较晚的铸块槽。
-//4. 如某个铸块槽已经完成该高度的铸块（上链，组外广播），则只允许时间窗口更早的铸块槽更新该高度的铸块（上链，组外广播）。
-
-const CONSENSUS_VERSION = 1                                          //共识版本号
-const SSSS_THRESHOLD = 51                                            //1-100
-const GROUP_MAX_MEMBERS = 10                                         //一个组最大的成员数量
-const GROUP_INIT_MAX_SECONDS = 600                                   //10分钟内完成初始化，否则该组失败。不再有初始化机会。
-const MAX_UNKNOWN_BLOCKS = 5                                         //内存保存最大不能上链的未来块（中间块没有收到）
-const MAX_SYNC_CASTORS = 3                                           //最多同时支持几个铸块验证
-const INVALID_QN = -1                                                //无效的队列序号
-const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
-const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
-const MAX_GROUP_BLOCK_TIME int32 = 10                                //组铸块最大允许时间=10s
-const MAX_USER_CAST_TIME int32 = 2                                   //个人出块最大允许时间=2s
-const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
-
 //铸块人身份
 type WITNESS_STATUS int
 
@@ -229,7 +198,8 @@ type BlockContext struct {
 	Threshold       uint                          //百分比（0-100）
 	Slots           [MAX_SYNC_CASTORS]SlotContext //铸块槽列表
 
-	Proc *Processer //处理器
+	Proc    *Processer  //处理器
+	GroupID groupsig.ID //所属组
 }
 
 //检查是否要处理某个铸块槽
@@ -531,7 +501,7 @@ func (bc *BlockContext) TickerRoutine() {
 		//检查自己是否成为铸块人
 		if bc.Proc != nil {
 			index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
-			bc.Proc.CheckCastRoutine(index, qn, uint(bc.CastHeight))
+			bc.Proc.CheckCastRoutine(bc.GroupID, index, qn, uint(bc.CastHeight))
 		}
 	}
 	return

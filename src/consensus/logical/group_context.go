@@ -1,51 +1,82 @@
 package logical
 
 import (
-	"hash"
-	//"common"
+	"common"
 	"consensus/groupsig"
-	"consensus/rand"
+	"fmt"
 )
 
-//新组的上链处理（全网节点需要处理）
+//新组的上链处理（全网节点/父亲组节点需要处理）
 //组的索引ID为DUMMY ID。
 //待共识的数据由链上获取(公信力)，不由消息获取。
 //消息提供4样东西，成员ID，共识数据哈希，组公钥，组ID。
 type NewGroupMemberData struct {
-	h   hash.Hash
-	gpk groupsig.Pubkey
-	//gid groupsig.ID
+	h   common.Hash     //父亲组指定信息的哈希（不可改变）
+	gid groupsig.ID     //组ID(非父亲组指定的DUMMY ID),而是跟组内成员的初始化共识结果有关
+	gpk groupsig.Pubkey //组公钥
 }
 
 type NewGroupChained struct {
 	sgi    StaticGroupInfo                    //共识数据（基准）和组成员列表
 	mems   map[groupsig.ID]NewGroupMemberData //接收到的组成员共识结果（成员ID->组ID和组公钥）
 	status int                                //-1,组初始化失败（超时或无法达成共识，不可逆）；=0，组初始化中；=1，组初始化成功
-	gpk    groupsig.Pubkey
+	gpk    groupsig.Pubkey                    //输出：生成的组公钥
+}
+
+//创建一个初始化中的组
+func CreateInitingGroup(s StaticGroupInfo) NewGroupChained {
+	var ngc NewGroupChained
+	ngc.sgi = s
+	ngc.mems = make(map[groupsig.ID]NewGroupMemberData, 0)
+	return ngc
 }
 
 func (ngc *NewGroupChained) Convergence() bool {
-	if ngc.gpk.IsValid() {
-		return true
+	fmt.Printf("begin Convergence, mems = %v.\n", len(ngc.mems))
+	/*
+		if ngc.gpk.IsValid() {
+			fmt.Printf("gpk already valid, =%v.\n", ngc.gpk.GetHexString())
+			return true
+		}
+	*/
+	type count_data struct {
+		count int
+		pk    groupsig.Pubkey
 	}
-	countMap := make(map[groupsig.Pubkey]int, 0)
+	countMap := make(map[string]count_data, 0)
 	//统计出现次数
 	for _, v := range ngc.mems {
-		countMap[v.gpk]++
+		if k, ok := countMap[v.gpk.GetHexString()]; ok {
+			k.count = k.count + 1
+			countMap[v.gpk.GetHexString()] = k
+		} else {
+			var item count_data
+			item.pk = v.gpk
+			item.count = 1
+			countMap[v.gpk.GetHexString()] = item
+		}
 	}
+	/*
+		fmt.Printf("CountMap size=%v.\n", len(countMap))
+		for k, v := range countMap {
+			fmt.Printf("---countMap info : count=%v, gpk=%v.\n", v.count, k)
+		}
+	*/
 	//查找最多的元素
 	var gpk groupsig.Pubkey
 	var count int
-	for k, v := range countMap {
-		if count == 0 || v > count {
-			count = v
-			gpk = k
+	for _, v := range countMap {
+		if count == 0 || v.count > count {
+			count = v.count
+			gpk = v.pk
 		}
 	}
 	if count >= GROUP_MIN_WITNESSES {
+		fmt.Printf("found max count gpk=%v, count=%v.\n", gpk.GetHexString(), count)
 		ngc.gpk = gpk
 		return true
 	}
+	fmt.Printf("found max count gpk failed, max_gpk=%v, count=%v.\n", gpk.GetHexString(), count)
 	return false
 }
 
@@ -57,24 +88,34 @@ func (ngc *NewGroupChained) UpdateStatus() int {
 	}
 	if len(ngc.mems) >= GROUP_MIN_WITNESSES { //收到超过阈值成员的数据
 		if ngc.Convergence() { //相同性测试
-			return 1 //有超过阈值的组成员生成的组公钥相同
+			ngc.status = 1
+			return ngc.status //有超过阈值的组成员生成的组公钥相同
 		} else {
 			if len(ngc.mems) == GROUP_MAX_MEMBERS { //收到了所有组员的结果，仍然失败
-				return -1
+				ngc.status = -1
+				return ngc.status
 			}
 		}
 	}
-	return 0
+	return ngc.status
 }
 
-//新组生成器
+//组生成器，父亲组节点或全网节点组外处理器（非组内初始化共识器）
 type NewGroupGenerator struct {
 	groups map[groupsig.ID]NewGroupChained //组ID（dummyID）->组创建共识
 }
 
-func (ngg *NewGroupGenerator) Load() {
+func (ngg *NewGroupGenerator) Init() {
 	ngg.groups = make(map[groupsig.ID]NewGroupChained, 1)
 	//to do : 从主链加载待初始化的组信息
+}
+
+func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
+	dummy_id := ngc.sgi.gis.DummyID
+	if _, ok := ngg.groups[dummy_id]; !ok {
+		ngg.groups[dummy_id] = ngc
+	}
+	return
 }
 
 //创建新组数据接收处理
@@ -82,39 +123,54 @@ func (ngg *NewGroupGenerator) Load() {
 //uid：组成员的公开id（和组无关）
 //ngmd：组的初始化共识结果
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
-func (ngg *NewGroupGenerator) ReceiveData(gid groupsig.ID, uid groupsig.ID, ngmd NewGroupMemberData) int {
-	ngc, ge := ngg.groups[gid]
+func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberData) int {
+	ngc, ge := ngg.groups[id.gid]
 	if !ge { //不存在该组
+		fmt.Printf("ReceiveData failed, not found initing group.\n")
 		return -1
 	}
 	if ngc.sgi.gis.IsExpired() { //该组初始化共识已超时
+		fmt.Printf("ReceiveData failed, group initing timeout.\n")
 		return -1
 	}
-	if !ngc.sgi.MemExist(uid) { //消息发送方不属于待初始化的组
+	if !ngc.sgi.MemExist(id.uid) { //消息发送方不属于待初始化的组
+		fmt.Printf("ReceiveData failed, msg sender not in group.\n")
 		return -1
 	}
-	_, ue := ngc.mems[uid]
+	_, ue := ngc.mems[id.uid]
 	if ue { //已收到过该用户的数据
+		fmt.Printf("ReceiveData failed, receive same node data, ignore it, sender size=%v.\n", len(ngc.mems))
 		return 0
 	}
 	if ngmd.h != ngc.sgi.gis.GenHash() { //共识数据异常
+		fmt.Printf("ReceiveData failed, parent data hash diff.\n")
 		return -1
 	}
-	ngc.mems[uid] = ngmd //数据接收
+	ngc.mems[id.uid] = ngmd //数据接收
+	fmt.Printf("ReceiveData OK, sender size=%v.\n", len(ngc.mems))
 	if len(ngc.mems) >= GROUP_MIN_WITNESSES {
+		check_result := ngc.UpdateStatus()
+		fmt.Printf("Check gourp inited result=%v.\n", check_result)
+		if check_result == 1 {
+			new_gpk := ngc.gpk
+			fmt.Printf("SUCCESS ACCEPT A NEW GROUP!!! group pub key=%v.\n", new_gpk.GetHexString())
+		}
 		return 1
 	} else {
 		return 0
 	}
+	fmt.Printf("ReceiveData failed, because common error.\n")
 	return -1
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//组初始化共识状态
 type GROUP_INIT_STATUS int
 
 const (
-	GIS_RAW    GROUP_INIT_STATUS = iota //组处于原始状态（知道有哪些人是一组的，但是组公钥和ID尚未生成）
-	GIS_SHARED                          //当前节点已经生成秘密分享片段
+	GIS_RAW    GROUP_INIT_STATUS = iota //组处于原始状态（知道有哪些人是一组的，但是组公钥和组ID尚未生成）
+	GIS_PIECE                           //没有收到父亲组的组初始化消息，而先收到了组成员发给我的秘密分享
+	GIS_SHARED                          //当前节点已经生成秘密分享片段，并发送给组内成员
 	GIS_INITED                          //组公钥和ID已生成，可以进行铸块
 )
 
@@ -122,117 +178,170 @@ const (
 //判断一个消息是否合法，在外层验证
 //判断一个消息是否来自组内，由GroupContext验证
 type GroupContext struct {
-	igi InitGroupInfo //里面的公钥是组签名聚合公钥
-	is  GROUP_INIT_STATUS
-	//to do : 后面三个字段合并为一个结构
-	pid  groupsig.ID //父亲组ID
-	auth uint64
-	name string
-	sgi  StaticGroupInfo //组信息(里面的ID和公钥是组成员个人ID和公钥！)
+	is   GROUP_INIT_STATUS         //组初始化状态
+	node GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
+	ids  []groupsig.ID             //组内成员ID列表（由父亲组指定）
+	gis  ConsensusGroupInitSummary //组初始化信息（由父亲组指定）
 }
 
-func (gc *GroupContext) MemExist(id groupsig.ID) bool {
-	return gc.sgi.MemExist(id)
+func (gc *GroupContext) GetNode() *GroupNode {
+	return &gc.node
 }
 
-func CreateGCByMems(mems []PubKeyInfo) *GroupContext {
+func (gc GroupContext) GetGroupStatus() GROUP_INIT_STATUS {
+	return gc.is
+}
+
+func (gc GroupContext) getMembers() []groupsig.ID {
+	return gc.ids
+}
+
+func (gc GroupContext) MemExist(id groupsig.ID) bool {
+	for _, v := range gc.ids {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+//更新组信息（先收到piece消息再收到raw消息的处理）
+func (gc *GroupContext) UpdateMesageFromParent(grm ConsensusGroupRawMessage) {
+	if gc.is == GIS_PIECE {
+		gc.ids = make([]groupsig.ID, len(grm.ids))
+		copy(gc.ids[:], grm.ids[:])
+		gc.gis = grm.gi
+		gc.is = GIS_RAW
+	} else {
+		fmt.Printf("GroupContext::UpdateMesageFromParent failed, status=%v.\n", gc.is)
+	}
+	return
+}
+
+//从秘密分享消息创建GroupContext结构
+func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
 	gc := new(GroupContext)
-	gc.sgi = CreateWithRawMembers(mems)
-	gc.is = GIS_RAW
+	gc.is = GIS_PIECE
+	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+	gc.node.InitForGroup(spm.GISHash)
 	return gc
 }
 
-//收到RAW消息
-func (gc *GroupContext) RawMeesage(grm ConsensusGroupRawMessage) bool {
-	if !gc.sgi.MemExist(grm.si.SignMember) { //发消息的非组内成员
-		return false //忽略该消息
+//从组初始化消息创建GroupContext结构
+func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
+	if len(grm.ids) != GROUP_MAX_MEMBERS {
+		fmt.Printf("group member size failed=%v.", len(grm.ids))
+		return nil
 	}
-	if gc.is == GIS_RAW {
-		gc.pid = grm.gi.ParentID
-		gc.auth = grm.gi.Authority
-		gc.name = string(grm.gi.Name[:])
-		return true
-	} else {
-		//已经处于SHARED态或INITED态
-		return false
+	for k, v := range grm.ids {
+		if !v.IsValid() {
+			fmt.Printf("i=%v, ID failed=%v.", k, v.GetHexString())
+			return nil
+		}
 	}
-	return false
+	gc := new(GroupContext)
+	gc.ids = make([]groupsig.ID, len(grm.ids))
+	copy(gc.ids[:], grm.ids[:])
+	gc.gis = grm.gi
+	gc.is = GIS_RAW
+	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+	gc.node.InitForGroup(grm.gi.GenHash())
+	return gc
 }
 
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
 func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
-	if !gc.sgi.MemExist(spm.si.SignMember) { //非组内成员
+	/*可能父亲组消息还没到，先收到组成员的piece消息
+	if !gc.MemExist(spm.si.SignMember) { //非组内成员
 		return -1
 	}
-	var piece groupsig.Seckey
-	//to do : 吕博数据解密
-	result := gc.igi.UpdateShare(spm.si.SignMember, piece)
-	if result == 1 { //聚合成功
-
+	*/
+	result := gc.node.SetInitPiece(spm.si.SignMember, spm.share)
+	switch result {
+	case 1: //完成聚合（已生成组公钥和组成员签名私钥）
+		//由外层启动组外广播（to do : 升级到通知父亲组节点）
+	case 0: //正常接收
+	case -1:
+		panic("GroupContext::PieceMessage failed, SetInitPiece result -1.")
 	}
 	return result
 }
 
-//从已聚合的组成员签名私钥萃取出对应的公钥
-func (gc *GroupContext) GetPiecePubKey() groupsig.Pubkey {
-	var pk groupsig.Pubkey
-	if gc.igi.ssk.IsValid() { //已经聚合出了组签名私钥
-		pk = *groupsig.NewPubkeyFromSeckey(gc.igi.ssk)
-	}
-	return pk
-}
-
-//生成某个成员针对所有组内成员的秘密分享（私钥形式）
-func (gc *GroupContext) GenSharePieces() []SecKeyInfo {
-	var shares []SecKeyInfo
-	if gc.sgi.GetLen() > 0 && gc.is == GIS_RAW {
-		shares = make([]SecKeyInfo, gc.sgi.GetLen())
-
-		master_seckeys := make([]groupsig.Seckey, gc.sgi.GetLen())
-		seed := rand.NewRand() //每个组成员自己生成的随机数
-
-		for i := 0; i < gc.sgi.GetLen(); i++ { //组成员数量
-			master_seckeys[i] = *groupsig.NewSeckeyFromRand(seed.Deri(i)) //生成master私钥数组（bls库函数）
-		}
-
-		for i := 0; i < gc.sgi.GetLen(); i++ {
-			var piece SecKeyInfo
-			piece.id = gc.sgi.GetCastor(i)
-			piece.sk = *groupsig.ShareSeckey(master_seckeys, piece.id) //对每个组成员生成秘密分享
-			shares[i] = piece
+//生成发送给组内成员的秘密分享
+func (gc *GroupContext) GenSharePieces() ShareMapID {
+	shares := make(ShareMapID, 0)
+	if len(gc.ids) == GROUP_MAX_MEMBERS && gc.is == GIS_RAW {
+		secs := gc.node.GenSharePiece(gc.ids)
+		var piece SharePiece
+		piece.pub = gc.node.GetSeedPubKey()
+		for k, v := range secs {
+			piece.share = v
+			shares[k] = piece
 		}
 		gc.is = GIS_SHARED
+	} else {
+		fmt.Printf("GenSharePieces failed, mems=%v, status=%v.\n", len(gc.ids), gc.is)
 	}
 	return shares
 }
 
-//取得组信息（ID和公钥）。必须在已经完成组公钥的聚合后有效。
-func (gc *GroupContext) GetGroupInfo() (gid groupsig.ID, gpk groupsig.Pubkey) {
-	if gc.igi.gpk.IsValid() { //已经聚合出组公钥
-		gpk = gc.igi.gpk
-		gid = *groupsig.NewIDFromPubkey(gpk)
+//（收到所有组内成员的秘密共享后）取得组信息
+func (gc GroupContext) GetGroupInfo() (g PubKeyInfo, sk groupsig.Seckey) {
+	g.pk = gc.node.GetGroupPubKey()
+	if g.pk.IsValid() {
+		g.id = *groupsig.NewIDFromPubkey(g.pk)
+		sk = gc.node.getSignSecKey()
 	}
 	return
 }
 
-//收到一片组公钥片段
-//返回-1为异常，返回0为正常接收，返回1为已聚合出组公钥和组ID
-func (gc *GroupContext) PiecePubKey(ppm ConsensusPubKeyPieceMessage) int {
-	if gc.is == GIS_INITED { //已经初始化完成
-		return 1
-	}
-	if gc.is != GIS_SHARED {
-		panic("GroupContext::PiecePubKey failed, group status error.")
-	}
-	result := gc.igi.UpdateMemberPubKey(ppm.si.SignMember, ppm.pk)
-	if result == 1 { //可以聚合组公钥
-		b := gc.igi.AggrGroupPubKey()
-		if b {
-			gc.is = GIS_INITED //组初始化完成
-		} else {
-			panic("GroupContext::PiecePubKey failed, GenGroupPubKey error.")
+//未初始化完成的加入组
+type JoiningGroups struct {
+	groups map[groupsig.ID]*GroupContext
+}
+
+func (jgs *JoiningGroups) Init() {
+	jgs.groups = make(map[groupsig.ID]*GroupContext, 0)
+}
+
+func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
+	if v, ok := jgs.groups[grm.gi.DummyID]; ok {
+		gs := v.GetGroupStatus()
+		fmt.Printf("found initing group info, status=%v...\n", gs)
+		if gs == GIS_PIECE {
+			v.UpdateMesageFromParent(grm)
+			fmt.Printf("after UpdateParentMessage, status=%v.\n", v.GetGroupStatus())
 		}
+		return v
+	} else {
+		fmt.Printf("create new initing group info...\n")
+		v = CreateGroupContextWithRawMessage(grm, mi)
+		if v != nil {
+			jgs.groups[grm.gi.DummyID] = v
+		}
+		return v
 	}
-	return result
+}
+
+func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
+	if v, ok := jgs.groups[spm.DummyID]; ok {
+		fmt.Printf("found initing group info...\n")
+		return v
+	} else {
+		fmt.Printf("create new initing group info...\n")
+		v = CreateGroupContextWithPieceMessage(spm, mi)
+		if v != nil {
+			jgs.groups[spm.DummyID] = v
+		}
+		return v
+	}
+}
+
+func (jg *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
+	if v, ok := jg.groups[gid]; ok {
+		return v
+	} else {
+		return nil
+	}
 }
