@@ -95,7 +95,15 @@ func (s *server) SendMessage(m Message, id string) {
 		taslog.P2pLogger.Errorf("Marshal message error:%s\n", e.Error())
 		return
 	}
-	s.send(bytes, id)
+
+	length := len(bytes)
+	b2 := utility.UInt32ToByte(uint32(length))
+
+	b := make([]byte, len(bytes)+len(b2))
+	copy(b[:4], b2)
+	copy(b[4:], bytes)
+
+	s.send(b, id)
 }
 
 func (s *server) send(b []byte, id string) {
@@ -105,7 +113,12 @@ func (s *server) send(b []byte, id string) {
 		panic("DHT find peer error!")
 	}
 	s.host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	stream, e := s.host.Network().NewStream(context.Background(), peer.ID(id))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, e := s.host.Network().NewStream(ctx, peer.ID(id))
+	defer stream.Close()
 	if e != nil {
 		taslog.P2pLogger.Errorf("New stream for %s error:%s\n", id, error.Error())
 		panic("New stream error!")
@@ -114,7 +127,8 @@ func (s *server) send(b []byte, id string) {
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
 		if r != l || err != nil {
-
+			taslog.P2pLogger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+			panic("Writew stream error!")
 		}
 	} else {
 		n := l / PACKAGE_MAX_SIZE
@@ -199,19 +213,22 @@ type ConnInfo struct {
 }
 
 //todo 待测试
-func GetConnInfo() []ConnInfo {
-	conns := Server.host.Network().Conns()
-	result := make([]ConnInfo, len(conns))
+func (s *server)GetConnInfo() []ConnInfo {
+	conns := s.host.Network().Conns()
+	result := []ConnInfo{}
 	for _, conn := range conns {
 		id := conn.RemotePeer().Pretty()
+		if id ==""{
+			continue
+		}
 		addr := conn.RemoteMultiaddr().String()
 		//addr /ip4/127.0.0.1/udp/1234"
 		split := strings.Split(addr, "/")
-		if len(split) != 4 {
+		if len(split) != 5 {
 			continue
 		}
-		ip := split[1]
-		port := split[3]
+		ip := split[2]
+		port := split[4]
 		c := ConnInfo{Id: id, Ip: ip, TcpPort: port}
 		result = append(result, c)
 	}
