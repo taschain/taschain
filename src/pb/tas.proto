@@ -89,3 +89,30 @@ message BlockSlice{
 message BlockMap{
      map<uint64,Block> Blocks = 1;
 }
+
+
+message Member{
+
+    required bytes Id = 1;
+
+    required bytes PubKey  = 2 ;
+}
+
+message Group{
+
+    required  bytes Id   = 1;
+
+	repeated  Member Members  = 2;
+
+	required  bytes PubKey = 3;
+
+	required  bytes Parent = 4;
+
+	required  bytes Dummy = 5;
+
+	required  bytes Signature  = 6;
+}
+
+message GroupMap{
+     map<uint64,Group> Groups = 1;
+}

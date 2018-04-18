@@ -79,10 +79,9 @@ type server struct {
 
 func InitServer(host host.Host, dht *dht.IpfsDHT) {
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		nil, nil, nil, nil, nil)
+		nil, nil, )
 
-	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil, nil,
-		nil, nil, nil)
+	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil,nil,nil,nil)
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
@@ -212,7 +211,6 @@ type ConnInfo struct {
 	TcpPort string
 }
 
-//todo 待测试
 func (s *server)GetConnInfo() []ConnInfo {
 	conns := s.host.Network().Conns()
 	result := []ConnInfo{}

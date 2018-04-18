@@ -20,16 +20,6 @@ type transactionArrivedNotifyConsensusFn func(ts []core.Transaction, sd logical.
 type addNewBlockToChainFn func(b core.Block, sd logical.SignData)
 
 
-
-//获取本地组链高度
-type getLocalGroupChainHeightFn func() (int, error)
-
-//根据高度获取对应的组信息
-type queryGroupInfoByHeightFn func(hs []int) (map[int]logical.StaticGroupInfo, error)
-
-//同步多组到链上
-type syncGroupInfoToChainFn func(hbm map[int]logical.StaticGroupInfo, sd logical.SignData)
-
 //将接收到的交易加入交易池
 type addTransactionToPoolFn func(t core.Transaction)
 
@@ -43,26 +33,17 @@ type BlockChainMessageHandler struct {
 	txGotNofifyC transactionArrivedNotifyConsensusFn
 	addNewBlock  addNewBlockToChainFn
 
-
-	getGroupChainHeight getLocalGroupChainHeightFn
-	queryGroup          queryGroupInfoByHeightFn
-	syncGroup           syncGroupInfoToChainFn
-
 	addTxToPool addTransactionToPoolFn
 }
 
 func NewBlockChainMessageHandler(queryTx queryTracsactionFn, txGotNofifyB transactionArrivedNotifyBlockChainFn, txGotNofifyC transactionArrivedNotifyConsensusFn,
-	addNewBlock addNewBlockToChainFn, getBlockChainHeight , getGroupChainHeight getLocalGroupChainHeightFn, queryGroup queryGroupInfoByHeightFn,
-	syncGroup syncGroupInfoToChainFn, addTxToPool addTransactionToPoolFn) BlockChainMessageHandler {
+	addNewBlock addNewBlockToChainFn, getBlockChainHeight , addTxToPool addTransactionToPoolFn) BlockChainMessageHandler {
 
 	return BlockChainMessageHandler{
 		queryTx:             queryTx,
 		txGotNofifyC:        txGotNofifyC,
 		txGotNofifyB:        txGotNofifyB,
 		addNewBlock:         addNewBlock,
-		getGroupChainHeight: getGroupChainHeight,
-		queryGroup:          queryGroup,
-		syncGroup:           syncGroup,
 		addTxToPool:         addTxToPool,
 	}
 }
@@ -97,60 +78,6 @@ func (h BlockChainMessageHandler) onMessageNewBlock(b core.Block, sd logical.Sig
 
 	h.addNewBlock(b, sd)
 }
-
-
-
-
-////////////////////////////////////////////////////////组同步//////////////////////////////////////////////////////////
-
-//接收到组链高度信息请求，返回自身组链高度
-//param: signData
-func (h BlockChainMessageHandler) onGroupChainHeightRequest(sd logical.SignData) int {
-	//todo 这里是否要签名入参
-	height, e := h.getGroupChainHeight()
-	if e != nil {
-		return height
-	}
-	return -1
-}
-
-//接收到组链高度信息，对比自身组链高度，判定是否发起同步
-//param: group chain height
-//       signData
-func (h BlockChainMessageHandler) onMessageGroupChainHeight(height int, sd logical.SignData) {
-
-	//TODO 时间窗口内找出最高块的高度
-	bestHeight := 0
-	//todo 这里是否要签名入参
-	height, e := h.getGroupChainHeight()
-	if e != nil {
-		if bestHeight > height {
-			//todo 发起组同步
-			//requestGroupInfoByHeight
-		}
-	}
-}
-
-//节点接收索要组信息请求
-//param: group height slice
-//       signData
-func (h BlockChainMessageHandler) onGroupInfoRequest(gs []int, sd logical.SignData) map[int]logical.StaticGroupInfo {
-
-	hgm, e := h.queryGroup(gs)
-	if e != nil {
-		return nil
-	}
-	return hgm
-}
-
-//节点收到组信息
-//param: heigth group map
-//       signData
-func (h BlockChainMessageHandler) onMessageGroupInfo(hgm map[int]logical.StaticGroupInfo, sd logical.SignData) {
-	h.syncGroup(hgm, sd)
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //接收来自客户端的交易
 func (h BlockChainMessageHandler) onNewTransaction(t core.Transaction, sd logical.SignData) {}
