@@ -110,22 +110,14 @@ func mockDHT(privateKey string, config *common.ConfManager,ctx context.Context) 
 	//	return nil, self.Id
 	//}
 
-	seedIdStrPretty, b1 := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY)
-	if !b1 {
-		fmt.Printf("Get seed id from config file error!\n")
-		return nil, self.Id
-	}
+	seedIdStrPretty := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY,"QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
 	seedId, e := peer.IDB58Decode(seedIdStrPretty)
 	if e!=nil{
 		fmt.Printf("Decode seed id error:%s\n",e.Error())
 		return nil, self.Id
 	}
 
-	seedAddrStr, b2 := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY)
-	if !b2 {
-		fmt.Printf("Get seed address from config file error!\n")
-		return nil, self.Id
-	}
+	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY,"/ip4/10.0.0.66/tcp/1122")
 
 	a := self.GenMulAddrStr()
 	if a != seedAddrStr {

@@ -44,7 +44,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 }
 
 func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
-	transaction := tas_pb.Transaction{Id: t.Id.Bytes(), Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_pb.Transaction{ Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
 		Target: t.Target.Bytes(), GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(), ExtraData: t.ExtraData}
 	return &transaction
 }
@@ -52,7 +52,7 @@ func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
 func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
-	transaction := core.Transaction{Id: common.BytesToAddress(t.Id), Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
+	transaction := core.Transaction{ Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
 		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash), ExtraData: t.ExtraData}
 	return &transaction
 }

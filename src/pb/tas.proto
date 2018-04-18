@@ -14,25 +14,23 @@ message Message{
 
 message Transaction{
 
-    required bytes Id  = 1 ;
+    required bytes Data  = 1 ;
 
-    required bytes Data  = 2 ;
+    required uint64 Value = 2;
 
-    required uint64 Value = 3;
+    required uint64 Nonce = 3;
 
-    required uint64 Nonce = 4;
+    required bytes Source  = 4 ;
 
-    required bytes Source  = 5 ;
+    required bytes Target  = 5 ;
 
-    required bytes Target  = 6 ;
+    required uint64 GasLimit = 6;
 
-    required uint64 GasLimit = 7;
+    required uint64 GasPrice = 7;
 
-    required uint64 GasPrice = 8;
+    required bytes Hash  = 8 ;
 
-    required bytes Hash  = 9 ;
-
-    optional bytes ExtraData  = 10 ;
+    optional bytes ExtraData  = 9 ;
 
 }
 

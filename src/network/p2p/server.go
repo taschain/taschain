@@ -89,21 +89,13 @@ func InitServer(host host.Host, dht *dht.IpfsDHT) {
 	Server = server{host: host, dht: dht, bHandler: bHandler, cHandler: cHandler}
 }
 
-func (s *server) SendMessage(m tas_pb.Message, id string) {
-	b1, e := proto.Marshal(&m)
+func (s *server) SendMessage(m Message, id string) {
+	bytes, e := MarshalMessage(m)
 	if e != nil {
-		taslog.P2pLogger.Errorf("Proto marshal message error:%s\n", e.Error())
+		taslog.P2pLogger.Errorf("Marshal message error:%s\n", e.Error())
 		return
 	}
-	length := len(b1)
-	b2 := utility.UInt32ToByte(uint32(length))
-
-	b := make([]byte, len(b1)+len(b2))
-	copy(b, b1)
-	copy(b[len(b1):], b2)
-
-	s.send(b, id)
-
+	s.send(bytes, id)
 }
 
 func (s *server) send(b []byte, id string) {
@@ -205,6 +197,7 @@ type ConnInfo struct {
 	Ip      string
 	TcpPort string
 }
+
 //todo 待测试
 func GetConnInfo() []ConnInfo {
 	conns := Server.host.Network().Conns()
@@ -214,7 +207,7 @@ func GetConnInfo() []ConnInfo {
 		addr := conn.RemoteMultiaddr().String()
 		//addr /ip4/127.0.0.1/udp/1234"
 		split := strings.Split(addr, "/")
-		if len(split) != 4{
+		if len(split) != 4 {
 			continue
 		}
 		ip := split[1]
