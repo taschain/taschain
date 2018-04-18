@@ -8,7 +8,7 @@ import "common"
 **  Description: 
 */
 
-type TemplateID common.Hash256
+type TemplateID common.Address
 
 type VoteConfig struct {
 	TemplateId          TemplateID  //合约模板id

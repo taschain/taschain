@@ -6,6 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"common/ecies"
 )
 
 //用户公钥
@@ -33,14 +35,14 @@ func (pk PublicKey) GetAddress() Address {
 }
 
 //把公钥转换成字节切片
-func (pk PublicKey) toBytes() []byte {
+func (pk PublicKey) ToBytes() []byte {
 	buf := elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
 	fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
 	return buf
 }
 
 //从字节切片转换到公钥
-func bytesToPublicKey(data []byte) (pk *PublicKey) {
+func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	pk = new(PublicKey)
 	pk.PubKey.Curve = getDefaultCurve()
 	fmt.Printf("begin pub key unmarshal, len=%v, data=%v.\n", len(data), data)
@@ -55,7 +57,7 @@ func bytesToPublicKey(data []byte) (pk *PublicKey) {
 
 //导出函数
 func (pk *PublicKey) GetHexString() string {
-	buf := pk.toBytes()
+	buf := pk.ToBytes()
 	str := PREFIX + hex.EncodeToString(buf)
 	return str
 }
@@ -66,6 +68,12 @@ func HexStringToPubKey(s string) (pk *PublicKey) {
 		return
 	}
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	pk = bytesToPublicKey(buf)
+	pk = BytesToPublicKey(buf)
 	return
+}
+
+//公钥加密消息
+func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (ct []byte, err error) {
+	pubECIES := ecies.ImportECDSAPublic(&pub.PubKey)
+	return ecies.Encrypt(rand, pubECIES, msg, nil, nil)
 }

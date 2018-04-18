@@ -21,8 +21,8 @@ type ParamMeta struct {
 	Value       interface{}
 	version     uint32
 	gmtModified time.Time
-	voteAddr    common.Address
-	blockHash   common.Hash256
+	VoteAddr    common.Address
+	Block   	uint64
 	ValidBlock  uint64
 }
 
@@ -39,7 +39,7 @@ type ParamDefs struct {
 	defs []*ParamDef
 }
 
-func newMeta(v interface{}) *ParamMeta {
+func NewMeta(v interface{}) *ParamMeta {
 	return &ParamMeta{
 		Value:      v,
 		version:    DEFAULT_VERSION,
@@ -49,9 +49,9 @@ func newMeta(v interface{}) *ParamMeta {
 
 func newParamDef(init interface{}, validator ValidateFunc) *ParamDef {
 	return &ParamDef{
-		Current: newMeta(init),
+		Current:  NewMeta(init),
 		Validate: validator,
-		update: make(chan int),
+		update:   make(chan int),
 	}
 }
 func newParamDefs() *ParamDefs {
@@ -67,14 +67,14 @@ func (p *ParamDef ) CurrentValue() interface{} {
     return p.Current.Value
 }
 
-func (p *ParamDef) findPos4Future(meta* ParamMeta) uint {
+func (p *ParamDef) findPos4Future(meta* ParamMeta) int {
 	i := 0
 	for ; i < len(p.Futures) && p.Futures[i].ValidBlock < meta.ValidBlock; i++ {}
-	return uint(i)
+	return i
 }
 
 func (p *ParamDef) removePreFuture(idx int)  {
-	if len(p.Futures) == idx {
+	if len(p.Futures)-1 == idx {
 		p.Futures = []*ParamMeta{}
 	} else {
 		p.Futures = p.Futures[idx+1:]
@@ -134,10 +134,13 @@ func (p *ParamDef) AddFuture(meta *ParamMeta) {
 	}
 
 	pos := p.findPos4Future(meta)
+	l := len(p.Futures)
 	p.Futures = append(p.Futures, meta)
 
-	copy(p.Futures[pos+1:], p.Futures[pos: len(p.Futures)-1])
-	p.Futures[pos] = meta
+	if pos < l {
+		copy(p.Futures[pos+1:], p.Futures[pos: l])
+		p.Futures[pos] = meta
+	}
 
 	p.notifyUpdate()
 }
@@ -155,6 +158,9 @@ func (p *ParamDefs) AddParam(def *ParamDef)  {
 }
 
 func (p *ParamDefs) GetParamByIndex(index int) *ParamDef {
+	if index > p.Size() {
+		return nil
+	}
 	return p.defs[index]
 }
 

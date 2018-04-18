@@ -2,10 +2,12 @@ package common
 
 import (
 	"crypto/sha1"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"golang.org/x/crypto/sha3"
+	"bytes"
 )
 
 func TestPrivateKey(test *testing.T) {
@@ -52,8 +54,8 @@ func TestSign(test *testing.T) {
 	pri_k := GenerateKey("")
 	pub_k := pri_k.GetPubKey()
 
-	pub_buf := pub_k.toBytes() //测试公钥到字节切片的转换
-	pub_k = *bytesToPublicKey(pub_buf)
+	pub_buf := pub_k.ToBytes() //测试公钥到字节切片的转换
+	pub_k = *BytesToPublicKey(pub_buf)
 
 	var sha_buf []byte
 	copy(sha_buf, sha1_hash[:])
@@ -76,4 +78,59 @@ func TestSign(test *testing.T) {
 	success = pub_k.Verify(sha_buf, &sha3_si)
 	fmt.Printf("sha3 sign verify result=%v.\n", success)
 	fmt.Printf("end TestSign.\n")
+}
+
+
+func TestEncryptDecrypt(t *testing.T) {
+	fmt.Printf("\nbegin TestEncryptDecrypt...\n")
+	sk1 := GenerateKey("")
+	pk1 := sk1.GetPubKey()
+
+	sk2 := GenerateKey("")
+
+	message := []byte("Hello, world.")
+	ct, err := Encrypt(rand.Reader, &pk1, message)
+	if err != nil {
+		fmt.Println(err.Error())
+		t.FailNow()
+	}
+
+	pt, err := sk1.Decrypt(rand.Reader, ct)
+	if err != nil {
+		fmt.Println(err.Error())
+		t.FailNow()
+	}
+
+	fmt.Println(message)
+	fmt.Println(ct)
+	fmt.Println(pt)
+
+	if !bytes.Equal(pt, message) {
+		fmt.Println("ecies: plaintext doesn't match message")
+		t.FailNow()
+	}
+
+	_, err = sk2.Decrypt(rand.Reader, ct)
+	if err == nil {
+		fmt.Println("ecies: encryption should not have succeeded")
+		t.FailNow()
+	}
+	fmt.Printf("end TestEncryptDecrypt.\n")
+}
+func TestSignBytes(test *testing.T) {
+	plain_txt := "Sign bytes convert."
+	buf := []byte(plain_txt)
+
+	pri_k := GenerateKey("")
+
+	sha1_hash := sha1.Sum(buf)
+	var sha_buf []byte
+	copy(sha_buf, sha1_hash[:])
+	sign := pri_k.Sign(sha_buf) //私钥签名
+
+	sign_bytes := sign.Bytes()
+	sign_r := BytesToSign(sign_bytes)
+
+	sign_r.Bytes()
+
 }

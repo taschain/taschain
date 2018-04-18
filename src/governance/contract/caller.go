@@ -3,6 +3,8 @@ package contract
 import (
 	"common"
 	"math/big"
+	tasCore "core"
+	"common/abi"
 )
 
 /*
@@ -21,31 +23,77 @@ type CallMsg struct {
 
 
 type CallerContext struct {
-	address common.Address
 	msg *CallMsg
 	method string
 	args []interface{}
+	blockChain *tasCore.BlockChain
 }
 
 type ContractCaller interface {
 
-	CallContract(ctx *CallerContext) (interface{}, error)
-
-	decodeResult(result []byte) (interface{}, error)
-}
-
-type SimpleContractCaller struct {
-
+	CallContract(ctx *CallerContext, result interface{}) (error)
 
 }
 
-func (*SimpleContractCaller) CallContract(ctx *CallerContext) (interface{}, error) {
-	panic("implement me")
+type BoundContract struct {
+	address common.Address
+	abi	abi.ABI
 }
 
-func (*SimpleContractCaller) decodeResult(result []byte) (interface{}, error) {
-	panic("implement me")
+func NewCallContext(method string, args ...interface{}) *CallerContext {
+	return nil
 }
+
+//TODO: 状态转换接口,即执行交易TODO:
+func (sc *BoundContract) call(ctx *CallerContext) ([]byte, error) {
+	return nil, nil
+}
+
+func (sc *BoundContract) CallContract(ctx *CallerContext, result interface{}) (error) {
+	input, err := sc.abi.Pack(ctx.method, ctx.args...)
+	if err != nil {
+		return err
+	}
+
+	ctx.msg.Data = input
+
+	var output []byte
+	output, err = sc.call(ctx)
+	if err != nil {
+		return err
+	}
+	if len(output) == 0 {
+		return nil
+	}
+
+	return sc.abi.Unpack(result, ctx.method, output)
+	// Ensure message is initialized properly.
+	//call := ctx.msg
+	//if call.GasPrice == nil {
+	//	call.GasPrice = big.NewInt(1)
+	//}
+	//if call.Gas == 0 {
+	//	call.Gas = 50000000
+	//}
+	//if call.Value == nil {
+	//	call.Value = new(big.Int)
+	//}
+
+	// Set infinite balance to the fake caller account.
+	//from := statedb.GetOrNewStateObject(call.From)
+	//from.SetBalance(math.MaxBig256)
+	//// Execute the call.
+	//msg := callmsg{call}
+	//
+	//evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
+	//// Create a new environment which holds all relevant information
+	//// about the transaction and calling mechanisms.
+	//vmenv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
+	//gaspool := new(core.GasPool).AddGas(math.MaxUint64)
+	//
+	//return core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
+}
+
 
 
 

@@ -16,6 +16,8 @@ var (
 
 	ErrNonceTooLow = errors.New("nonce too low")
 
+	ErrNonceTooHigh = errors.New("nonce too high")
+
 	ErrUnderpriced = errors.New("transaction underpriced")
 
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
@@ -107,7 +109,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	// 池子满了
 	if uint32(len(pool.received)) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
-		if pool.lowestPrice.Gasprice > tx.Gasprice {
+		if pool.lowestPrice.GasPrice > tx.GasPrice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 
 			return false, ErrUnderpriced
@@ -183,7 +185,7 @@ func (pool *TransactionPool) add(tx *Transaction) {
 	pool.received[tx.Hash] = tx
 
 	lowestPrice := pool.lowestPrice
-	if lowestPrice == nil || lowestPrice.Gasprice > tx.Gasprice {
+	if lowestPrice == nil || lowestPrice.GasPrice > tx.GasPrice {
 		pool.lowestPrice = tx
 	}
 
@@ -201,7 +203,7 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 	pool.receivedLock.RLock()
 
 	for _, transaction := range pool.received {
-		if transaction.Gasprice < lowest.Gasprice {
+		if transaction.GasPrice < lowest.GasPrice {
 			lowest = transaction
 		}
 	}
