@@ -1,17 +1,15 @@
 package core
 
 import (
-	"time"
-	
-	"common"
+
+	"consensus/logical"
 )
 
 type Group struct {
-	address   common.Address
+	id   []byte
 	members   []Member
-	pubKey    common.Hash256
-	gmtCreate time.Time
-	parent    common.Address
-	signature common.Hash256
-	status    int8
+	pubKey    []byte
+	parent    []byte//父亲组 的组ID
+	yayuan logical.ConsensusGroupInitSummary
+	signature  []byte
 }
