@@ -5,7 +5,6 @@ import (
 	"common"
 	"sync"
 	"fmt"
-	"governance"
 )
 
 /*
@@ -62,8 +61,8 @@ func newParamDefs() *ParamDefs {
 }
 
 
-func (p *ParamDef ) CurrentValue() interface{} {
-	p.tryApplyFutureMeta()
+func (p *ParamDef ) CurrentValue(block uint64) interface{} {
+	p.tryApplyFutureMeta(block)
     return p.Current.Value
 }
 
@@ -92,13 +91,13 @@ func (p *ParamDef) notifyUpdate()  {
 	p.update<- 1
 }
 
-func (p *ParamDef) tryApplyFutureMeta()  {
+func (p *ParamDef) tryApplyFutureMeta(blockHeight uint64)  {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	for i := len(p.Futures) - 1; i >= 0; i-- {
 		f := p.Futures[i]
-		if f.ValidBlock <= governance.CurrentBlock() {
+		if f.ValidBlock <= blockHeight {
 			p.Histories = append(p.Histories, p.Current)
 			p.Current = f
 			p.Current.version ++

@@ -37,6 +37,15 @@ type ConfFileManager struct {
 	lock sync.RWMutex
 }
 
+var GlobalConf ConfManager
+
+func InitConf(path string) {
+	cf := GlobalConf.(*ConfFileManager)
+	if cf.path == "" {
+		GlobalConf = NewConfINIManager(path)
+	}
+}
+
 
 func NewConfINIManager(path string) ConfManager {
 	cs := &ConfFileManager{

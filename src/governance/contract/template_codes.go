@@ -2,6 +2,7 @@ package contract
 
 import (
 	"common"
+	ethcom "vm/common"
 )
 
 /*
@@ -10,42 +11,35 @@ import (
 **  Description: 
 */
 
-const (
-	TEMPLATE_CODE = ``
-	TEMPLATE_ABI = ``
-)
-
 
 type TemplateCode struct {
-	BaseContract
+	BoundContract
+	ctx *CallContext
 }
 
 type VoteTemplate struct {
-	code []byte
-	abi string
-	blockNum uint64
-	author common.Address
+	Code []byte
+	Abi string
+	BlockNum uint64
+	Author ethcom.Address
 }
 
 
-func NewTemplateCode(address common.Address) (*TemplateCode, error) {
-	base, err := newBaseContract(address, TEMPLATE_CODE, TEMPLATE_ABI)
-	if err != nil {
-		return nil, err
-	}
+func NewTemplateCode(ctx *CallContext, bc *BoundContract) (*TemplateCode) {
 	return &TemplateCode{
-		BaseContract: *base,
-	}, nil
+		BoundContract: *bc,
+		ctx:ctx,
+	}
 }
 
 func (tc *TemplateCode) AddTemplate(addr common.Address, codes []byte, abi string) error {
-	return tc.NoResultCall( "addTemplate", addr, codes, abi)
+	return tc.NoResultCall(tc.ctx,  NewCallOpt(nil, "addTemplate", addr, codes, abi))
 }
 
 func (tc *TemplateCode) Template(addr common.Address) (*VoteTemplate, error) {
-	if ret, err := tc.ResultCall(func() interface{} {
+	if ret, err := tc.ResultCall(tc.ctx, func() interface{} {
 		return &VoteTemplate{}
-	}, "template", addr); err != nil {
+	},  NewCallOpt(nil, "template", addr)); err != nil {
 		return nil, err
 	} else {
 		return ret.(*VoteTemplate), nil
