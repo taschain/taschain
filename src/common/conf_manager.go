@@ -29,12 +29,47 @@ type ConfManager interface {
 
 	//delete basic conf
 	Del(section string, key string)
+
+	//获取一个section的配置管理
+	GetSectionManager(section string) SectionConfManager
+}
+
+type SectionConfManager interface {
+	//read basic conf from tas.conf file
+	//返回section组下的key的值, 若未配置, 则返回默认值defv
+	GetString(key string, defaultValue string) (string)
+	GetBool(key string, defaultValue bool) (bool)
+	GetDouble(key string, defaultValue float64) (float64)
+	GetInt(key string, defaultValue int) (int)
+
+	//set basic conf to tas.conf file
+	SetString(key string, value string)
+	SetBool(key string, value bool)
+	SetDouble(key string, value float64)
+	SetInt(key string, value int)
+
+	//delete basic conf
+	Del(key string)
 }
 
 type ConfFileManager struct {
 	path string
 	dict ini.Dict
 	lock sync.RWMutex
+}
+
+type SectionConfFileManager struct {
+	section string
+	cfm ConfManager
+}
+
+var GlobalConf ConfManager
+
+func InitConf(path string) {
+	cf := GlobalConf.(*ConfFileManager)
+	if cf.path == "" {
+		GlobalConf = NewConfINIManager(path)
+	}
 }
 
 
@@ -59,6 +94,51 @@ func NewConfINIManager(path string) ConfManager {
 
 	return cs
 }
+
+func (cs *ConfFileManager) GetSectionManager(section string) SectionConfManager {
+	return &SectionConfFileManager{
+		section: section,
+		cfm: cs,
+	}
+}
+
+
+func (sfm *SectionConfFileManager) GetString(key string, defaultValue string) (string) {
+	return sfm.cfm.GetString(sfm.section, key, defaultValue)
+}
+
+func (sfm *SectionConfFileManager) GetBool(key string, defaultValue bool) (bool) {
+	return sfm.cfm.GetBool(sfm.section, key, defaultValue)
+}
+
+func (sfm *SectionConfFileManager) GetDouble(key string, defaultValue float64) (float64) {
+	return sfm.cfm.GetDouble(sfm.section, key, defaultValue)
+}
+
+func (sfm *SectionConfFileManager) GetInt(key string, defaultValue int) (int) {
+	return sfm.cfm.GetInt(sfm.section, key, defaultValue)
+}
+
+func (sfm *SectionConfFileManager) SetString(key string, value string) {
+	sfm.cfm.SetString(sfm.section, key, value)
+}
+
+func (sfm *SectionConfFileManager) SetBool(key string, value bool) {
+	sfm.cfm.SetBool(sfm.section, key, value)
+}
+
+func (sfm *SectionConfFileManager) SetDouble(key string, value float64) {
+	sfm.cfm.SetDouble(sfm.section, key, value)
+}
+
+func (sfm *SectionConfFileManager) SetInt(key string, value int) {
+	sfm.cfm.SetInt(sfm.section, key, value)
+}
+
+func (sfm *SectionConfFileManager) Del(key string) {
+	sfm.cfm.Del(sfm.section, key)
+}
+
 
 func (cs *ConfFileManager) GetString(section string, key string, defaultValue string) (string) {
 	cs.lock.RLock()

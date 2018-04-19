@@ -7,7 +7,7 @@ contract TASCredit {
         uint64  latestTransBlock;
         uint32  voteCnt;
         uint32  voteAcceptCnt;
-        uint64  blockNum;
+//        uint64  blockNum;
     }
 
     mapping(address => AccountCredit) public credits;
@@ -29,12 +29,20 @@ contract TASCredit {
         credits[ac].voteAcceptCnt += delta;
     }
 
-    function setBlockNum(address ac, uint64 num) public {
-        credits[ac].blockNum = num;
+    function creditInfo(address ac) public view returns (uint32 transCnt, uint64 latestTransBlock, uint32 voteCnt, uint32 voteAcceptCnt, uint256 balance) {
+        transCnt = credits[ac].transCnt;
+        latestTransBlock = credits[ac].latestTransBlock;
+        voteCnt = credits[ac].voteCnt;
+        voteAcceptCnt = credits[ac].voteAcceptCnt;
+        balance = ac.balance;
     }
 
-    function balance(address ac) public view returns (uint256) {
-        return ac.balance;
+//    function setBlockNum(address ac, uint64 num) public {
+//        credits[ac].blockNum = num;
+//    }
+
+    function balance(address ac) public view returns ( uint256 balance) {
+        balance = ac.balance;
     }
 
     function score(address ac) public view returns (uint256) {
@@ -42,6 +50,7 @@ contract TASCredit {
         uint256 ret = credit.transCnt
                     + credit.voteCnt
                     + (credit.voteAcceptCnt * 5)
+                    + ac.balance
                     - (block.number - credit.latestTransBlock) * credit.transCnt / 10000.0;
         return ret;
     }

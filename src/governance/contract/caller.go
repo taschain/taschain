@@ -2,9 +2,16 @@ package contract
 
 import (
 	"common"
-	"math/big"
 	tasCore "core"
 	"common/abi"
+	"vm/core/vm"
+	"vm/common/math"
+	"governance/util"
+	"vm/core"
+	"strings"
+	"vm/crypto"
+	"math/big"
+	"errors"
 )
 
 /*
@@ -16,49 +23,134 @@ type CallMsg struct {
 	From     common.Address  // the sender of the 'transaction'
 	To       *common.Address // the destination contract (nil for contract creation)
 	Gas      uint64          // if 0, the call executes with near-infinite gas
-	GasPrice *big.Int        // wei <-> gas exchange ratio
-	Value    *big.Int        // amount of wei sent along with the call
+	GasPrice uint64        // wei <-> gas exchange ratio
+	Value    uint64        // amount of wei sent along with the call
 	Data     []byte          // input data, usually an ABI-encoded contract method invocation
 }
 
-
-type CallerContext struct {
+type CallOpt struct {
 	msg *CallMsg
 	method string
 	args []interface{}
-	blockChain *tasCore.BlockChain
 }
 
-type ContractCaller interface {
 
-	CallContract(ctx *CallerContext, result interface{}) (error)
-
+type CallContext struct {
+	block      *tasCore.Block
+	bc *tasCore.BlockChain
+	state    vm.StateDB
 }
 
 type BoundContract struct {
 	address common.Address
 	abi	abi.ABI
+	//code    []byte
+}
+type ResultProvider func() interface{}
+
+func newBoundContract(address common.Address, abi abi.ABI) *BoundContract {
+	return &BoundContract{
+		address: address,
+		abi: abi,
+		//code:    common.Hex2Bytes(codes),
+	}
 }
 
-func NewCallContext(method string, args ...interface{}) *CallerContext {
-	return nil
+func BuildBoundContract(address common.Address, abis string) *BoundContract {
+	_abi, _ := abi.JSON(strings.NewReader(abis))
+	return newBoundContract(address, _abi)
 }
 
-//TODO: 状态转换接口,即执行交易TODO:
-func (sc *BoundContract) call(ctx *CallerContext) ([]byte, error) {
-	return nil, nil
+func NewCallOpt(msg *CallMsg, method string, args ...interface{}) *CallOpt {
+	return &CallOpt{
+		msg: msg,
+		method: method,
+		args: args,
+	}
 }
 
-func (sc *BoundContract) CallContract(ctx *CallerContext, result interface{}) (error) {
-	input, err := sc.abi.Pack(ctx.method, ctx.args...)
+func NewDefaultCallMsg(from common.Address, to *common.Address, input []byte) *CallMsg {
+	return &CallMsg{
+		From: from,
+		To: to,
+		Value: 0,
+		Gas: math.MaxUint64,
+		GasPrice: 1,
+		Data: input,
+	}
+}
+
+func NewSimulateCallMsg(from common.Address, to *common.Address, gas uint64) *CallMsg {
+	return &CallMsg{
+		From: from,
+		To: to,
+		Value: 0,
+		Gas: gas,
+		GasPrice: 1,
+	}
+}
+
+func NewCallContext(b *tasCore.Block, bc *tasCore.BlockChain, db vm.StateDB) *CallContext {
+	return &CallContext{
+		block: b,
+		bc: bc,
+		state: db,
+	}
+}
+
+func (sc *BoundContract) call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) {
+	tx := &tasCore.Transaction{
+		Source: &msg.From,
+		Target: msg.To,
+		Nonce:	ctx.state.GetNonce(util.ToETHAddress(msg.From)),
+		Value: msg.Value,
+		GasLimit: msg.Gas,
+		GasPrice: msg.GasPrice,
+		Data: msg.Data,
+	}
+
+	gp := new(core.GasPool).AddGas(tx.GasLimit)
+
+	//executor := tasCore.NewEVMExecutor(ctx.blockChain)
+
+	context := tasCore.NewEVMContext(tx, ctx.block.Header, ctx.bc)
+	vmenv := vm.NewEVM(context, ctx.state, tasCore.TestnetChainConfig, vm.Config{})
+
+	ret, _, fail, err := tasCore.NewSession(ctx.state, tx, gp).Run(vmenv)
+	if err != nil {
+		return nil, nil, err
+	}
+	if fail {
+		return nil, nil, errors.New("vm error")
+	}
+	return ret, tx, nil
+}
+
+func infiniteBalance(db vm.StateDB, account string) common.Address {
+	source := common.StringToAddress(account)
+	//设置该账户余额
+	db.AddBalance(util.ToETHAddress(source), new(big.Int).SetUint64(math.MaxUint64))
+	return source
+}
+
+func (sc *BoundContract) CallContract(ctx *CallContext, opt *CallOpt, result interface{}) (error) {
+	input, err := sc.abi.Pack(opt.method, opt.args...)
 	if err != nil {
 		return err
 	}
 
-	ctx.msg.Data = input
-
 	var output []byte
-	output, err = sc.call(ctx)
+
+	var msg *CallMsg
+	if opt.msg == nil {
+		source := infiniteBalance(ctx.state, "_sys_gov_call_")
+		msg = NewDefaultCallMsg(source, &sc.address, input)
+	} else {
+		msg = opt.msg
+		msg.Data = input
+	}
+
+	output, _, err = sc.call(ctx, msg)
 	if err != nil {
 		return err
 	}
@@ -66,35 +158,45 @@ func (sc *BoundContract) CallContract(ctx *CallerContext, result interface{}) (e
 		return nil
 	}
 
-	return sc.abi.Unpack(result, ctx.method, output)
-	// Ensure message is initialized properly.
-	//call := ctx.msg
-	//if call.GasPrice == nil {
-	//	call.GasPrice = big.NewInt(1)
-	//}
-	//if call.Gas == 0 {
-	//	call.Gas = 50000000
-	//}
-	//if call.Value == nil {
-	//	call.Value = new(big.Int)
-	//}
+	return sc.abi.Unpack(result, opt.method, output)
 
-	// Set infinite balance to the fake caller account.
-	//from := statedb.GetOrNewStateObject(call.From)
-	//from.SetBalance(math.MaxBig256)
-	//// Execute the call.
-	//msg := callmsg{call}
-	//
-	//evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
-	//// Create a new environment which holds all relevant information
-	//// about the transaction and calling mechanisms.
-	//vmenv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
-	//gaspool := new(core.GasPool).AddGas(math.MaxUint64)
-	//
-	//return core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
 }
 
+func (sc *BoundContract) NoResultCall(ctx *CallContext, opt *CallOpt) error {
+	return sc.CallContract(ctx, opt, 0)
+}
 
+func (sc *BoundContract) ResultCall(ctx *CallContext, rp ResultProvider, opt *CallOpt) (interface{}, error) {
+	ret := rp()
+	if err := sc.CallContract(ctx, opt, ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
 
+func SimulateDeployContract(ctx *CallContext, from string, abis string, codes string, args ...interface{}) (common.Address, []byte, error) {
+	sc := BuildBoundContract(common.Address{}, abis)
+	input, err := sc.abi.Pack("", args...)
+	if err != nil {
+		return common.Address{}, nil, err
+	}
+
+	var (
+		ret []byte
+		tx *tasCore.Transaction
+	)
+	code := common.Hex2Bytes(codes)
+	fromAddr := infiniteBalance(ctx.state, from)
+
+	msg := NewDefaultCallMsg(fromAddr, nil, append(code, input...))
+
+	ret, tx, err = sc.call(ctx, msg)
+	if err != nil {
+		return common.Address{}, nil, err
+	}
+
+	addr := util.ToTASAddress(crypto.CreateAddress(util.ToETHAddress(*tx.Source), tx.Nonce))
+	return addr, ret, nil
+}
 
 

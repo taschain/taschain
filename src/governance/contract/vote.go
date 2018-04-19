@@ -2,6 +2,8 @@ package contract
 
 import (
 	"common"
+	ethcom "vm/common"
+	"math/big"
 )
 
 /*
@@ -10,31 +12,35 @@ import (
 **  Description: 
 */
 
-const (
-	VOTE_CODE = ``
-	VOTE_ABI = ``
-)
-
 
 type Vote struct {
-	BaseContract
+	BoundContract
+	ctx *CallContext
+}
+
+type VoterInfo struct {
+	Addr ethcom.Address
+	Voted bool
+	Delegate ethcom.Address
+	AsDelegates []ethcom.Address
+	Approval bool
+	VoteBlock uint64
+	Deposit uint64
+	DepositBlock uint64
 }
 
 
-func NewVote(address common.Address) (*Vote, error) {
-	base, err := newBaseContract(address, VOTE_CODE, VOTE_ABI)
-	if err != nil {
-		return nil, err
-	}
+func NewVote(ctx *CallContext, address common.Address, bc *BoundContract) (*Vote) {
 	return &Vote{
-		BaseContract: *base,
-	}, nil
+		BoundContract: *newBoundContract(address, bc.abi),
+		ctx: ctx,
+	}
 }
 
 func (v *Vote) CheckResult() (bool, error) {
-	if ret, err := v.ResultCall(func() interface{} {
+	if ret, err := v.ResultCall(v.ctx, func() interface{} {
 		return bool(false)
-	}, "checkResult"); err != nil {
+	},  NewCallOpt(nil, "checkResult")); err != nil {
 		return false, err
 	} else {
 		return ret.(bool), nil
@@ -43,5 +49,40 @@ func (v *Vote) CheckResult() (bool, error) {
 }
 
 func (v *Vote) HandleDeposit() error {
-	return v.NoResultCall("handleDeposit")
+	return v.NoResultCall(v.ctx, NewCallOpt(nil, "handleDeposit"))
+}
+
+func (v *Vote) UpdateCredit(pass bool) error {
+	return v.NoResultCall(v.ctx, NewCallOpt(nil, "updateCredit", pass))
+}
+
+func (v *Vote) VoterInfo(addr common.Address) (*VoterInfo, error) {
+	if v, err := v.ResultCall(v.ctx, func() interface{} {
+		return &VoterInfo{}
+	},  NewCallOpt(nil,"voterInfo", addr)); err != nil {
+		return nil, err
+	} else {
+		return v.(*VoterInfo), nil
+	}
+}
+
+func (v *Vote) VoterAddrs() ([]ethcom.Address, error) {
+	if v, err := v.ResultCall(v.ctx, func() interface{} {
+		return &[]ethcom.Address{}
+	},  NewCallOpt(nil, "voterAddrList")); err != nil {
+		return nil, err
+	} else {
+		return *(v.(*[]ethcom.Address)), nil
+	}
+}
+
+
+func (v *Vote) ScoreOf(addr common.Address) (*big.Int, error) {
+	if v, err := v.ResultCall(v.ctx, func() interface{} {
+		return new(big.Int)
+	},  NewCallOpt(nil, "scoreOf", addr)); err != nil {
+		return nil, err
+	} else {
+		return v.(*big.Int), nil
+	}
 }

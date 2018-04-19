@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"math/big"
 )
 
 // Argument holds the name of the argument and the corresponding type.
@@ -156,6 +157,13 @@ func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues []interf
 	reflectValue := reflect.ValueOf(marshalledValues[0])
 
 	if kind == reflect.Struct {
+		if rel, ok := v.(*big.Int); ok {
+			if ret, t := marshalledValues[0].(*big.Int); t {
+				rel.SetBytes(ret.Bytes())
+				return nil
+			}
+		}
+
 		//make sure names don't collide
 		if err := requireUniqueStructFieldNames(arguments); err != nil {
 			return err
