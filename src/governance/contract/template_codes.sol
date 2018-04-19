@@ -20,6 +20,9 @@ contract TemplateCode {
     }
 
     function addTemplate(address key, bytes code, string abi) public {
+        assert(
+            templates[key].author == 0
+        );
         templates[key].code = code;
         templates[key].abi = abi;
         templates[key].blockNum = uint64(block.number);

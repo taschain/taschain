@@ -5,8 +5,8 @@ import (
 	"net"
 	"strconv"
 	"taslog"
-	"github.com/multiformats/go-multihash"
 	"github.com/libp2p/go-libp2p-peer"
+	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -60,6 +60,8 @@ func GetIdFromPublicKey(p common.PublicKey) string {
 		taslog.P2pLogger.Error("GetIdFromPublicKey error!:%s", e.Error())
 		return ""
 	}
+	//addr := p.GetAddress()
+	//idBytes := groupsig.NewIDFromAddress(addr).Serialize()
 	id := string(peer.ID(idBytes))
 	return id
 }

@@ -5,30 +5,30 @@ import (
 	"core"
 	"taslog"
 	"sync"
+	"consensus/logical"
 )
 
-//todo  用于填充  将来改为班德的签名
-type sig struct {
-}
+
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
-//其他节点获取本地链高度 todo 签名
-type getBlockChainHeightFn func(sd sig) (int, error)
+//其他节点获取本地块链高度
+type getBlockChainHeightFn func(sig logical.SignData) (int, error)
 
 //自身请求
 type getLocalBlockChainHeightFn func() (int, error)
 
 //根据高度获取对应的block
-type queryBlocksByHeightFn func(hs []int, sd sig) (map[int]core.Block, error)
+type queryBlocksByHeightFn func(hs []int, sig []byte) (map[int]core.Block, error)
 
 //同步多个区块到链上
-type addBlocksToChainFn func(hbm map[int]core.Block, sd sig)
+type addBlocksToChainFn func(hbm map[int]core.Block, sig []byte)
+
 
 //---------------------------------------------------------------------------------------------------------------------
 
 const (
-	HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
+	BLOCK_HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
 
 	BLOCK_SYNC_INTERVAL = 60 * time.Second
 )
@@ -36,25 +36,25 @@ const (
 var BlockSyncer blockSyncer
 
 type BlockHeightRequest struct {
-	Sig      sig
+	Sig      logical.SignData
 	SourceId string
 }
 
 type BlockHeight struct {
 	Height   int
 	SourceId string
-	Sig      sig
+	Sig      []byte
 }
 
 type BlockRequest struct {
 	HeightSlice []int
 	SourceId    string
-	Sig         sig
+	Sig         []byte
 }
 
 type BlockArrived struct {
 	BlockMap map[int]core.Block
-	Sig      sig
+	Sig      []byte
 }
 
 type blockSyncer struct {
@@ -94,7 +94,7 @@ func (bs *blockSyncer) Start() {
 				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
-			sendHeight(hr.SourceId, height)
+			sendBlockHeight(hr.SourceId, height)
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
 			//todo  验证签名
@@ -128,7 +128,7 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxHeightLock.Unlock()
 
 	go requestBlockChainHeight()
-	t := time.NewTimer(HEIGHT_RECEIVE_INTERVAL)
+	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
 	localHeight, e := bs.getLocalHeight()
@@ -154,13 +154,12 @@ func (bs *blockSyncer) syncBlock() {
 
 }
 
-//广播索要链高度
-//todo param: signData
-func requestBlockChainHeight() {}
+//广播索要链高度 todo 签名
+func requestBlockChainHeight() {
+}
 
 //todo 签名
-func sendHeight(targetId string, height int) {}
-
+func sendBlockHeight(targetId string, localHeight int) {}
 //todo 签名
 func sendBlocks(targetId string, blockMap map[int]core.Block) {}
 
