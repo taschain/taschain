@@ -1,11 +1,11 @@
 package p2p
 
 import (
-	"core"
 	"consensus/logical"
 	"common"
 	"taslog"
 	"consensus/groupsig"
+	"core"
 )
 
 const (
@@ -161,13 +161,22 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 	}
 }
 
-//验证节点 交易集缺失，索要、特定交易 全网广播
-//param:hash slice of transaction slice
-//      signData
-func RequestTransactionByHash(hs []common.Hash, sd logical.SignData) {}
-
 //对外广播经过组签名的block 全网广播
 //param: block
 //       member signature
 //       signData
 func BroadcastNewBlock(b core.Block, sd logical.SignData) {}
+
+
+
+
+//验证节点 交易集缺失，索要、特定交易 全网广播
+//param:hash slice of transaction slice
+//      signData
+func (p *peer) RequestTransactionByHash(hs []common.Hash, sig []byte) {}
+
+//收到交易 全网扩散
+func (p *peer) BroadcastTransaction(hs []common.Hash, sig []byte) {}
+
+//自己调
+func (p *peer) BroadcastTransactionRequest(hs []common.Hash, sig []byte) {}

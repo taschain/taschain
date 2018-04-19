@@ -5,22 +5,22 @@ import (
 	"sync"
 	"time"
 	"taslog"
+	"common"
 )
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 //获取本地组链高度
-type getGroupChainHeightFn func(sig []byte) (int, error)
+type getGroupChainHeightFn func(sig []byte) (uint64, error)
 
-
-type getLocalGroupChainHeightFn func() (int, error)
+type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
 
 //根据高度获取对应的组信息
-type queryGroupInfoByHeightFn func(hs []int,sig []byte) (map[int]core.Group, error)
+// todo 返回结构体 code  []*Block  []hash []ratio
+type queryGroupInfoByHeightFn func(localHeight uint64, currentHash common.Hash, sig []byte) (map[int]core.Group, error)
 
 //同步多组到链上
-type addGroupInfoToChainFn func(hbm map[int]core.Group,sig []byte)
-
-
+//todo 入参 换成上面，结构体
+type addGroupInfoToChainFn func(hbm map[uint64]core.Group, sig []byte)
 
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -32,24 +32,25 @@ type GroupHeightRequest struct {
 }
 
 type GroupHeight struct {
-	Height   int
+	Height   uint64
 	SourceId string
 	Sig      []byte
 }
 
 type GroupRequest struct {
-	HeightSlice []int
-	SourceId    string
-	Sig         []byte
+	sourceHeight      uint64
+	sourceCurrentHash common.Hash
+	SourceId          string
+	Sig               []byte
 }
 
 type GroupArrived struct {
-	GroupMap map[int]core.Group
+	GroupMap map[uint64]core.Group
 	Sig      []byte
 }
 
 type groupSyncer struct {
-	neighborMaxHeight int        //邻居节点的最大高度
+	neighborMaxHeight uint64     //邻居节点的最大高度
 	bestNodeId        string     //最佳同步节点
 	maxHeightLock     sync.Mutex //同步锁
 
@@ -60,7 +61,7 @@ type groupSyncer struct {
 
 	getHeight      getGroupChainHeightFn
 	getLocalHeight getLocalGroupChainHeightFn
-	queryGroup    queryGroupInfoByHeightFn
+	queryGroup     queryGroupInfoByHeightFn
 	addGroups      addGroupInfoToChainFn
 }
 
@@ -72,7 +73,6 @@ func InitGroupSyncer(getHeight getGroupChainHeightFn, getLocalHeight getLocalGro
 	}
 	GroupSyncer.start()
 }
-
 
 func (gs *groupSyncer) start() {
 	gs.syncGroup()
@@ -88,7 +88,7 @@ func (gs *groupSyncer) start() {
 				return
 			}
 			//todo 签名
-			sendGroupHeight(hr.SourceId, height,nil)
+			sendGroupHeight(hr.SourceId, height, nil)
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的块链高度
 			//todo  验证签名
@@ -100,13 +100,14 @@ func (gs *groupSyncer) start() {
 			gs.maxHeightLock.Unlock()
 		case br := <-gs.GroupRequestCh:
 			//收到块请求
-			groups, e := gs.queryGroup(br.HeightSlice, br.Sig)
-			if e != nil {
-				taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
-				return
-			}
+			//groups, e := gs.queryGroup(br.sourceHeight,br.sourceCurrentHash, br.Sig)
+			//if e != nil {
+			//	taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
+			//	return
+			//}
+			var groups []*core.Group
 			//todo 签名
-			sendGroups(br.SourceId, groups,nil)
+			sendGroups(br.SourceId, groups, nil)
 		case bm := <-gs.GroupArrivedCh:
 			//收到块信息
 			gs.addGroups(bm.GroupMap, bm.Sig)
@@ -127,7 +128,7 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	localHeight, e := gs.getLocalHeight()
+	localHeight, currentHash, e := gs.getLocalHeight()
 	if e != nil {
 		taslog.P2pLogger.Errorf("Self get group height error:%s\n", e.Error())
 		return
@@ -141,12 +142,8 @@ func (gs *groupSyncer) syncGroup() {
 		return
 	} else {
 		taslog.P2pLogger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		heightSlice := make([]int, maxHeight-localHeight)
-		for i := localHeight; i <= maxHeight; i++ {
-			heightSlice = append(heightSlice, i)
-		}
 		//todo 签名
-		requestBlockByHeight(bestNodeId, heightSlice,nil)
+		requestBlockByHeight(bestNodeId, localHeight, currentHash, nil)
 	}
 
 }
@@ -155,12 +152,12 @@ func (gs *groupSyncer) syncGroup() {
 func requestGroupChainHeight(sig []byte) {
 }
 
-func sendGroupHeight(targetId string, localHeight int,sig []byte) {}
+func sendGroupHeight(targetId string, localHeight uint64, sig []byte) {}
 
-func sendGroups(targetId string, groupMap map[int]core.Group,sig []byte) {}
+func sendGroups(targetId string, groups []*core.Group, sig []byte) {}
 
 //向某一节点请求Block
 //param: target peer id
 //       block height slice
 //       sign data
-func requestGroupByHeight(id string, hs []int,sig []byte) {}
+func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash, sig []byte) {}
