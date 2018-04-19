@@ -3,21 +3,20 @@ package biz
 import (
 	"common"
 	"core"
-	"consensus/logical"
 )
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
 //本地查询transaction
-type queryTracsactionFn func(hs []common.Hash, sd logical.SignData) ([]core.Transaction, error)
+type queryTracsactionFn func(hs []common.Hash, sig []byte) ([]core.Transaction, error)
 
 //监听到交易到达
-type transactionArrivedNotifyBlockChainFn func(ts []core.Transaction, sd logical.SignData)
+type transactionArrivedNotifyBlockChainFn func(ts []core.Transaction,sig []byte)
 
-type transactionArrivedNotifyConsensusFn func(ts []core.Transaction, sd logical.SignData)
+type transactionArrivedNotifyConsensusFn func(ts []core.Transaction, sig []byte)
 
 //接收到新的块 本地上链
-type addNewBlockToChainFn func(b core.Block, sd logical.SignData)
+type addNewBlockToChainFn func(b core.Block, sig []byte)
 
 
 //将接收到的交易加入交易池
@@ -53,8 +52,8 @@ func NewBlockChainMessageHandler(queryTx queryTracsactionFn, txGotNofifyB transa
 //接收索要交易请求 查询自身是否有该交易 有的话返回
 //param: hash list of transaction slice
 //       signData
-func (h BlockChainMessageHandler) onTransactionRequest(hs []common.Hash, sd logical.SignData) []core.Transaction {
-	transactions, e := h.queryTx(hs, sd)
+func (h BlockChainMessageHandler) onTransactionRequest(hs []common.Hash, sig []byte) []core.Transaction {
+	transactions, e := h.queryTx(hs, sig)
 	if e != nil {
 		return transactions
 	}
@@ -64,20 +63,20 @@ func (h BlockChainMessageHandler) onTransactionRequest(hs []common.Hash, sd logi
 //验证节点接收交易 判定是否是待验证blockheader的交易集 是的话累加，全部交易集都拿到之后 开始验证
 //param: transaction slice
 //       signData
-func (h BlockChainMessageHandler) onMessageTransaction(ts []core.Transaction, sd logical.SignData) {
+func (h BlockChainMessageHandler) onMessageTransaction(ts []core.Transaction, sig []byte) {
 	//todo 有先后顺序  先给鸠兹 再给班德  应该有返回值？ 如果本地查不到需要广播该请求？
-	h.txGotNofifyB(ts, sd)
-	h.txGotNofifyC(ts, sd)
+	h.txGotNofifyB(ts, sig)
+	h.txGotNofifyC(ts, sig)
 }
 
 //全网其他节点 接收block 进行验证
 //param: block
 //       member signature
 //       signData
-func (h BlockChainMessageHandler) onMessageNewBlock(b core.Block, sd logical.SignData) {
+func (h BlockChainMessageHandler) onMessageNewBlock(b core.Block, sig []byte) {
 
-	h.addNewBlock(b, sd)
+	h.addNewBlock(b, sig)
 }
 
 //接收来自客户端的交易
-func (h BlockChainMessageHandler) onNewTransaction(t core.Transaction, sd logical.SignData) {}
+func (h BlockChainMessageHandler) onNewTransaction(t core.Transaction, sig []byte) {}

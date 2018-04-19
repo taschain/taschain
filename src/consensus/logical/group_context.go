@@ -208,8 +208,8 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //更新组信息（先收到piece消息再收到raw消息的处理）
 func (gc *GroupContext) UpdateMesageFromParent(grm ConsensusGroupRawMessage) {
 	if gc.is == GIS_PIECE {
-		gc.ids = make([]groupsig.ID, len(grm.ids))
-		copy(gc.ids[:], grm.ids[:])
+		gc.ids = make([]groupsig.ID, len(grm.Ids))
+		copy(gc.ids[:], grm.Ids[:])
 		gc.gis = grm.gi
 		gc.is = GIS_RAW
 	} else {
@@ -229,19 +229,19 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
-	if len(grm.ids) != GROUP_MAX_MEMBERS {
-		fmt.Printf("group member size failed=%v.", len(grm.ids))
+	if len(grm.Ids) != GROUP_MAX_MEMBERS {
+		fmt.Printf("group member size failed=%v.", len(grm.Ids))
 		return nil
 	}
-	for k, v := range grm.ids {
+	for k, v := range grm.Ids {
 		if !v.IsValid() {
 			fmt.Printf("i=%v, ID failed=%v.", k, v.GetHexString())
 			return nil
 		}
 	}
 	gc := new(GroupContext)
-	gc.ids = make([]groupsig.ID, len(grm.ids))
-	copy(gc.ids[:], grm.ids[:])
+	gc.ids = make([]groupsig.ID, len(grm.Ids))
+	copy(gc.ids[:], grm.Ids[:])
 	gc.gis = grm.gi
 	gc.is = GIS_RAW
 	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
@@ -290,7 +290,7 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 func (gc GroupContext) GetGroupInfo() (g PubKeyInfo, sk groupsig.Seckey) {
 	g.pk = gc.node.GetGroupPubKey()
 	if g.pk.IsValid() {
-		g.id = *groupsig.NewIDFromPubkey(g.pk)
+		g.Id = *groupsig.NewIDFromPubkey(g.pk)
 		sk = gc.node.getSignSecKey()
 	}
 	return

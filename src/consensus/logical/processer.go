@@ -296,23 +296,23 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	if result == 1 { //已聚合出签名私钥
 		g, sk := gc.GetGroupInfo()
 		if g.IsValid() && sk.IsValid() {
-			p.addSignKey(g.id, sk)
-			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.id.GetHexString(), g.pk.GetHexString())
+			p.addSignKey(g.Id, sk)
+			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.Id.GetHexString(), g.pk.GetHexString())
 			//to do : 把初始化完成的组加入到gc（更新）
 			//to do : 把组初始化完成消息广播到全网
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-				msg.gi.gis = gc.gis
-				msg.gi.GroupID = g.id
-				msg.gi.GroupPK = g.pk
+				msg.Gi.gis = gc.gis
+				msg.Gi.GroupID = g.Id
+				msg.Gi.GroupPK = g.pk
 				var pki PubKeyInfo
 				var mems []PubKeyInfo
 				for _, id := range gc.ids {
-					pki.id = id
+					pki.Id = id
 					mems = append(mems, pki)
 				}
-				msg.gi.members = mems
+				msg.Gi.Members = mems
 				msg.GenSign(ski)
 				for _, proc := range p.GroupProcs {
 					proc.OnMessageGroupInited(msg)
@@ -334,11 +334,11 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	fmt.Printf("node(%v)bein Processer::OnMessageGroupInited...\n", p.mi.GetMinerID().GetHexString())
 	var ngmd NewGroupMemberData
-	ngmd.h = gim.gi.gis.GenHash()
-	ngmd.gid = gim.gi.GroupID
-	ngmd.gpk = gim.gi.GroupPK
+	ngmd.h = gim.Gi.gis.GenHash()
+	ngmd.gid = gim.Gi.GroupID
+	ngmd.gpk = gim.Gi.GroupPK
 	var mid GroupMinerID
-	mid.gid = gim.gi.gis.DummyID
+	mid.gid = gim.Gi.gis.DummyID
 	mid.uid = gim.si.SignMember
 	result := p.gg.GroupInitedMessage(mid, ngmd)
 	p.inited_count++

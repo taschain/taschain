@@ -115,12 +115,12 @@ func (sd SignData) HasSign() bool {
 
 //id->公钥对
 type PubKeyInfo struct {
-	id groupsig.ID //矿工ID
+	Id groupsig.ID //矿工ID
 	pk groupsig.Pubkey
 }
 
 func (p PubKeyInfo) IsValid() bool {
-	return p.id.IsValid() && p.pk.IsValid()
+	return p.Id.IsValid() && p.pk.IsValid()
 }
 
 //id->私钥对

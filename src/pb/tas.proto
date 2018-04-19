@@ -5,7 +5,7 @@ message Message{
 
     required uint32 Code  = 1;
 
-    required bytes Signature  = 2;
+    optional bytes Signature  = 2;
 
     optional bytes Body  = 3;
 
@@ -115,4 +115,14 @@ message Group{
 
 message GroupMap{
      map<uint64,Group> Groups = 1;
+}
+
+
+message ConsensusGroupInitSummary{
+
+    required  bytes ParentID  = 1;
+	required  uint64  Authority = 2；
+	Name      [64]byte    //父亲组取的名字
+	DummyID   groupsig.ID //父亲组给的伪ID
+	BeginTime time.Time
 }
