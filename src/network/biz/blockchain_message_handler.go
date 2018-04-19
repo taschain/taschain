@@ -19,8 +19,6 @@ type transactionArrivedNotifyConsensusFn func(ts []core.Transaction, sd logical.
 //接收到新的块 本地上链
 type addNewBlockToChainFn func(b core.Block, sd logical.SignData)
 
-
-
 //获取本地组链高度
 type getLocalGroupChainHeightFn func() (int, error)
 
@@ -43,7 +41,6 @@ type BlockChainMessageHandler struct {
 	txGotNofifyC transactionArrivedNotifyConsensusFn
 	addNewBlock  addNewBlockToChainFn
 
-
 	getGroupChainHeight getLocalGroupChainHeightFn
 	queryGroup          queryGroupInfoByHeightFn
 	syncGroup           syncGroupInfoToChainFn
@@ -52,7 +49,7 @@ type BlockChainMessageHandler struct {
 }
 
 func NewBlockChainMessageHandler(queryTx queryTracsactionFn, txGotNofifyB transactionArrivedNotifyBlockChainFn, txGotNofifyC transactionArrivedNotifyConsensusFn,
-	addNewBlock addNewBlockToChainFn, getBlockChainHeight , getGroupChainHeight getLocalGroupChainHeightFn, queryGroup queryGroupInfoByHeightFn,
+	addNewBlock addNewBlockToChainFn, getBlockChainHeight, getGroupChainHeight getLocalGroupChainHeightFn, queryGroup queryGroupInfoByHeightFn,
 	syncGroup syncGroupInfoToChainFn, addTxToPool addTransactionToPoolFn) BlockChainMessageHandler {
 
 	return BlockChainMessageHandler{
@@ -97,9 +94,6 @@ func (h BlockChainMessageHandler) onMessageNewBlock(b core.Block, sd logical.Sig
 
 	h.addNewBlock(b, sd)
 }
-
-
-
 
 ////////////////////////////////////////////////////////组同步//////////////////////////////////////////////////////////
 
