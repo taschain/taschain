@@ -94,6 +94,18 @@ func TestGetLoggerByConfigDefault(t *testing.T) {
 	Close()
 }
 
+
+func TestGetLoggerByName(t *testing.T) {
+	name := "littleBear"
+	logger := GetLoggerByName(name)
+	logger.Debug("TestGetLoggerByName logFunc debug output")
+	logger.Info("TestGetLoggerByName logFunc info output")
+	logger.Warn("TestGetLoggerByName logFunc Warn output")
+	logger.Error("TestGetLoggerByName logFunc error output")
+	Close()
+}
+
+
 func TestInitTasLog(t *testing.T) {
 	P2pLogger.Debug("debug test by p2p logger")
 	P2pLogger.Flush()

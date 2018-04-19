@@ -3,6 +3,7 @@ package taslog
 import (
 	"github.com/cihub/seelog"
 	"fmt"
+	"strings"
 )
 
 const baseConfigFilePath = "conf/default.xml"
@@ -53,6 +54,29 @@ func GetLoggerByConfig(config string) seelog.LoggerInterface {
 	register(logger)
 	return logger
 }
+
+
+func GetLoggerByName(name string) seelog.LoggerInterface {
+	var config string
+	if name == "" {
+		config = defaultConfig
+	}else {
+		fileName := name+".log"
+		config = strings.Replace(defaultConfig,"default.log",fileName,1)
+	}
+	var logger seelog.LoggerInterface
+	l, err := seelog.LoggerFromConfigAsBytes([]byte(config))
+
+	if err != nil {
+		fmt.Printf("Get logger error! use defalut log!\n ")
+		logger = GetLoggerByConfig(defaultConfig)
+	} else {
+		logger = l
+	}
+	register(logger)
+	return logger
+}
+
 
 func register(logger seelog.LoggerInterface) {
 	if logger != nil {
