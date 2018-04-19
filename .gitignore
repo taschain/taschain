@@ -10,3 +10,7 @@
 
 #other ignore files
 *.xml
+src/governance/state
+src/governance/block
+src/governance/height
+src/core/wenqin_test_util.go
