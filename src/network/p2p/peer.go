@@ -5,7 +5,6 @@ import (
 	"common"
 	"taslog"
 	"consensus/groupsig"
-	"core"
 )
 
 const (
@@ -74,7 +73,7 @@ func (p *peer) SendKeySharePiece(spm logical.ConsensusSharePieceMessage) {
 
 }
 
-//组初始化完成 广播组信息 全网广播 //todo  这里是否上链 还是班德去上链
+//组初始化完成 广播组信息 全网广播
 func (p *peer) BroadcastGroupInfo(cgm logical.ConsensusGroupInitedMessage) {
 
 	body, e := MarshalConsensusGroupInitedMessage(&cgm)
@@ -162,10 +161,8 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 }
 
 //对外广播经过组签名的block 全网广播
-//param: block
-//       member signature
-//       signData
-func BroadcastNewBlock(b core.Block, sd logical.SignData) {}
+//todo 此处参数留空 等班德构造
+func BroadcastNewBlock() {}
 
 
 

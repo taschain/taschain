@@ -252,9 +252,9 @@ func (s *server) handleMessage(b []byte, from string) {
 }
 
 type ConnInfo struct {
-	Id      string
-	Ip      string
-	TcpPort string
+	Id      string `json:"id"`
+	Ip      string `json:"ip"`
+	TcpPort string `json:"tcp_port"`
 }
 
 func (s *server) GetConnInfo() []ConnInfo {
