@@ -66,8 +66,7 @@ type SectionConfFileManager struct {
 var GlobalConf ConfManager
 
 func InitConf(path string) {
-	cf := GlobalConf.(*ConfFileManager)
-	if cf.path == "" {
+	if GlobalConf == nil {
 		GlobalConf = NewConfINIManager(path)
 	}
 }
