@@ -7,6 +7,7 @@ import (
 	"common"
 	"taslog"
 	"time"
+	"consensus/logical"
 )
 
 //--------------------------------------Transactions-------------------------------------------------------------------
@@ -288,4 +289,55 @@ func UnMarshalGroupMap(b []byte) (map[uint64]core.Group, error) {
 		g[height] = *pbToGroup(group)
 	}
 	return g, nil
+}
+
+//----------------------------------------------组初始化---------------------------------------------------------------
+
+func MarshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePieceMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusGroupInitedMessage(m *logical.ConsensusGroupInitedMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
+	return nil, nil
+}
+
+//--------------------------------------------组铸币--------------------------------------------------------------------
+func MarshalConsensusCurrentMessagee(m *logical.ConsensusCurrentMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusCastMessage(m *logical.ConsensusCastMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage, error) {
+	return nil,nil
 }

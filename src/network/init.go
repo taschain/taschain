@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
+	"network/biz"
 )
 
 const (
@@ -27,48 +28,74 @@ const (
 
 func InitNetwork(config *common.ConfManager) error {
 
-	e1 := initSelfNode(config)
+	e1 := initPeer(config)
 	if e1 != nil {
 		return e1
 	}
 
-	ctx := context.Background()
-	network, e2 := initSwarm(ctx)
+	e2 := initServer(config)
 	if e2 != nil {
 		return e2
 	}
 
-	host := initHost(network)
-	e4 := connectToSeed(ctx, host, config)
-	if e4 != nil {
-		return e4
-	}
+	initBlockSyncer()
 
-	dht, e5 := initDHT(ctx, host)
-	if e5 != nil {
-		return e5
-	}
-
-	p2p.InitServer(host, dht)
+	initGroupSyncer()
 	return nil
 }
 
-func initSelfNode(config *common.ConfManager) error {
-	e0 := p2p.InitSelfNode(config)
-	if e0 != nil {
-		taslog.P2pLogger.Error("InitSelfNode error!\n" + e0.Error())
-		return e0
+func initPeer(config *common.ConfManager) error {
+	node, error := makeSelfNode(config)
+	if error != nil {
+		return error
 	}
+	p2p.InitPeer(node)
 	return nil
 }
 
-func initSwarm(ctx context.Context) (net.Network, error) {
-	self := p2p.SelfNetInfo
-	localId := self.Id
-	multiaddr, e2 := ma.NewMultiaddr(self.GenMulAddrStr())
+func initServer(config *common.ConfManager) error {
+
+	ctx := context.Background()
+	network, e1 := makeSwarm(ctx)
+	if e1 != nil {
+		return e1
+	}
+
+	host := makeHost(network)
+	e2 := connectToSeed(ctx, host, config)
 	if e2 != nil {
-		taslog.P2pLogger.Error("new mlltiaddr error!\n" + e2.Error())
-		return nil, e2
+		return e2
+	}
+
+	dht, e3 := initDHT(ctx, host)
+	if e3 != nil {
+		return e3
+	}
+
+	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
+		nil, nil, )
+
+	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil, nil, nil, nil)
+
+	p2p.InitServer(host, dht, bHandler, cHandler)
+	return nil
+}
+func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
+	node, error := p2p.InitSelfNode(config)
+	if error != nil {
+		taslog.P2pLogger.Error("InitSelfNode error!\n" + error.Error())
+		return nil, error
+	}
+	return node, nil
+}
+
+func makeSwarm(ctx context.Context) (net.Network, error) {
+	self := p2p.Peer.SelfNetInfo
+	localId := self.Id
+	multiaddr, e1 := ma.NewMultiaddr(self.GenMulAddrStr())
+	if e1 != nil {
+		taslog.P2pLogger.Error("new mlltiaddr error!\n" + e1.Error())
+		return nil, e1
 	}
 	listenAddrs := []ma.Multiaddr{multiaddr}
 
@@ -79,39 +106,38 @@ func initSwarm(ctx context.Context) (net.Network, error) {
 	peerStore.AddPrivKey(peer.ID(localId), p2)
 	//bwc  is a bandwidth metrics collector, This is used to track incoming and outgoing bandwidth on connections managed by this swarm.
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
-	sw, e3 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
-	if e3 != nil {
-		taslog.P2pLogger.Error("New swarm error!\n" + e3.Error())
-		return nil, e3
+	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
+	if e2 != nil {
+		taslog.P2pLogger.Error("New swarm error!\n" + e2.Error())
+		return nil, e2
 	}
 	peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
 	return sw, nil
 }
 
-func initHost(n net.Network) (host.Host) {
+func makeHost(n net.Network) (host.Host) {
 	host := blankhost.NewBlankHost(n)
 	return host
 }
 
 func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManager) error {
-	//get seed ID and sedd multi address from config file
-	seedIdStr, seedAddrStr, e := getSeedInfo(config)
-	if e != nil {
-		return e
+	seedIdStr, seedAddrStr, e1 := getSeedInfo(config)
+	if e1 != nil {
+		return e1
 	}
-	if p2p.SelfNetInfo.GenMulAddrStr() == seedAddrStr {
+	if p2p.Peer.SelfNetInfo.GenMulAddrStr() == seedAddrStr {
 		return nil
 	}
-	seedMultiaddr, e6 := ma.NewMultiaddr(seedAddrStr)
-	if e6 != nil {
-		taslog.P2pLogger.Error("SeedIdStr to seedMultiaddr error!\n" + e6.Error())
-		return e6
+	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
+	if e2 != nil {
+		taslog.P2pLogger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
+		return e2
 	}
 	seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
-	e7 := host.Connect(ctx, seedPeerInfo)
-	if e7 != nil {
-		taslog.P2pLogger.Error("Host connect to seed error!\n" + e7.Error())
-		return e7
+	e3 := host.Connect(ctx, seedPeerInfo)
+	if e3 != nil {
+		taslog.P2pLogger.Error("Host connect to seed error!\n" + e3.Error())
+		return e3
 	}
 	return nil
 }
@@ -123,23 +149,31 @@ func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
 	cfg := dht.DefaultBootstrapConfig
 	cfg.Queries = 3
 	cfg.Period = time.Duration(20 * time.Second)
-	process, e8 := kadDht.BootstrapWithConfig(cfg)
-	if e8 != nil {
+	process, e := kadDht.BootstrapWithConfig(cfg)
+	if e != nil {
 		process.Close()
-		taslog.P2pLogger.Error("KadDht bootstrap error!\n" + e8.Error())
-		return kadDht, e8
+		taslog.P2pLogger.Error("KadDht bootstrap error!\n" + e.Error())
+		return kadDht, e
 	}
 	return kadDht, nil
 }
 
 func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
-	seedIdStrPretty:= (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY,"QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
+	seedIdStrPretty := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
 	seedId, e := peer.IDB58Decode(seedIdStrPretty)
 	if e != nil {
 		fmt.Printf("Decode seed id error:%s\n", e.Error())
 		return peer.ID(""), "", e
 	}
 
-	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY,"/ip4/10.0.0.66/tcp/1122")
+	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 	return seedId, seedAddrStr, nil
+}
+
+func initBlockSyncer() {
+	p2p.InitBlockSyncer(nil, nil, nil, nil)
+}
+
+func initGroupSyncer() {
+	p2p.InitGroupSyncer(nil, nil, nil, nil)
 }

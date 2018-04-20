@@ -6,7 +6,7 @@ import (
 	"utility"
 	"github.com/libp2p/go-libp2p-host"
 	"context"
-	"github.com/libp2p/go-libp2p-peer"
+	gpeer "github.com/libp2p/go-libp2p-peer"
 	"network/biz"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
@@ -15,6 +15,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"strings"
+	"consensus/groupsig"
 )
 
 const (
@@ -29,40 +30,38 @@ const (
 
 	KEY_PIECE_MSG uint32 = 0x01
 
-	MEMBER_PUBKEY_MSG uint32 = 0x02
-
-	GROUP_INIT_DONE_MSG uint32 = 0x03
+	GROUP_INIT_DONE_MSG uint32 = 0x02
 
 	//-----------组铸币---------------------------------
-	CURRENT_GROUP_CAST_MSG uint32 = 0x04
+	CURRENT_GROUP_CAST_MSG uint32 = 0x03
 
-	CAST_VERIFY_MSG uint32 = 0x05
+	CAST_VERIFY_MSG uint32 = 0x04
 
-	VARIFIED_CAST_MSG uint32 = 0x06
+	VARIFIED_CAST_MSG uint32 = 0x05
 
-	REQ_TRANSACTION_MSG uint32 = 0x07
+	REQ_TRANSACTION_MSG uint32 = 0x06
 
-	TRANSACTION_MSG uint32 = 0x08
+	TRANSACTION_MSG uint32 = 0x07
 
-	NEW_BLOCK_MSG uint32 = 0x09
+	NEW_BLOCK_MSG uint32 = 0x08
 
 	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0a
+	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x09
 
-	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0b
+	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0a
 
-	REQ_BLOCK_MSG uint32 = 0x0c
+	REQ_BLOCK_MSG uint32 = 0x0b
 
-	BLOCK_MSG uint32 = 0x0d
+	BLOCK_MSG uint32 = 0x0c
 
 	//-----------组同步---------------------------------
-	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0e
+	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0d
 
-	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0f
+	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0e
 
-	REQ_GROUP_MSG uint32 = 0x10
+	REQ_GROUP_MSG uint32 = 0x0f
 
-	GROUP_MSG uint32 = 0x11
+	GROUP_MSG uint32 = 0x10
 )
 
 var Server server
@@ -77,14 +76,7 @@ type server struct {
 	cHandler biz.ConsensusMessageHandler
 }
 
-func InitServer(host host.Host, dht *dht.IpfsDHT) {
-
-
-
-	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		nil, nil, )
-
-	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil,nil,nil,nil)
+func InitServer(host host.Host, dht *dht.IpfsDHT,	bHandler biz.BlockChainMessageHandler,	cHandler biz.ConsensusMessageHandler) {
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
@@ -109,7 +101,7 @@ func (s *server) SendMessage(m Message, id string) {
 }
 
 func (s *server) send(b []byte, id string) {
-	peerInfo, error := s.dht.FindPeer(context.Background(), peer.ID(id))
+	peerInfo, error := s.dht.FindPeer(context.Background(), gpeer.ID(id))
 	if error != nil || peerInfo.ID.String() == "" {
 		taslog.P2pLogger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
@@ -119,7 +111,7 @@ func (s *server) send(b []byte, id string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, e := s.host.Network().NewStream(ctx, peer.ID(id))
+	stream, e := s.host.Network().NewStream(ctx, gpeer.ID(id))
 	defer stream.Close()
 	if e != nil {
 		taslog.P2pLogger.Errorf("New stream for %s error:%s\n", id, error.Error())
@@ -153,13 +145,14 @@ func (s *server) send(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
+	defer stream.Close()
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if n != 4 || err != nil {
 		taslog.P2pLogger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
 		return
 	}
-	pkgLength := utility.ByteToInt(pkgLengthBytes)
+	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	pkgBodyBytes := make([]byte, pkgLength)
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
@@ -185,16 +178,16 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	handleMessage(pkgBodyBytes, (string)(stream.Conn().RemotePeer()))
+	Server.handleMessage(pkgBodyBytes, (string)(stream.Conn().RemotePeer()))
 }
 
-func handleMessage(pkgBodyBytes []byte, from string) {
-	if len(pkgBodyBytes) < 4 {
+func (s *server) handleMessage(b []byte, from string) {
+	if len(b) < 4 {
 		taslog.P2pLogger.Errorf("Message  format error!\n")
 		return
 	}
 	message := new(tas_pb.Message)
-	error := proto.Unmarshal(pkgBodyBytes, message)
+	error := proto.Unmarshal(b, message)
 	if error != nil {
 		taslog.P2pLogger.Errorf("Proto unmarshal error:%s\n", error.Error())
 	}
@@ -202,7 +195,57 @@ func handleMessage(pkgBodyBytes []byte, from string) {
 	code := message.Code
 	switch *code {
 	case GROUP_INIT_MSG:
-		//todo
+		m, e := UnMarshalConsensusGroupRawMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
+			return
+		}
+		Peer.KeyMap = make(map[groupsig.ID]string)
+		for i := 0; i < len(m.Ids); i++ {
+			userId := m.UserIds[i]
+			if userId == "" {
+				taslog.P2pLogger.Error("Bad ConsensusGroupRawMessage:uers is is null.Discard!\n")
+				return
+			}
+			Peer.KeyMap[m.Ids[i]] = m.UserIds[i]
+		}
+		s.cHandler.OnMessageGroupInitFn(*m)
+	case KEY_PIECE_MSG:
+		m, e := UnMarshalConsensusSharePieceMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
+			return
+		}
+		s.cHandler.OnMessageSharePieceFn(*m)
+	case GROUP_INIT_DONE_MSG:
+		m, e := UnMarshalConsensusGroupInitedMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
+			return
+		}
+		s.cHandler.OnMessageGroupInitedFn(*m)
+	case CURRENT_GROUP_CAST_MSG:
+		m,e := UnMarshalConsensusCurrentMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
+			return
+		}
+		s.cHandler.OnMessageCurrentGroupCastFn(*m)
+	case CAST_VERIFY_MSG:
+		m,e := UnMarshalConsensusCastMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
+			return
+		}
+		s.cHandler.OnMessageCastFn(*m)
+	case VARIFIED_CAST_MSG:
+		m,e := UnMarshalConsensusVerifyMessage(b)
+		if e != nil {
+			taslog.P2pLogger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
+			return
+		}
+		s.cHandler.OnMessageVerifiedCastFn(*m)
+
 	default:
 		taslog.P2pLogger.Errorf("Message not support! Code:%d\n", code)
 	}
@@ -214,12 +257,12 @@ type ConnInfo struct {
 	TcpPort string
 }
 
-func (s *server)GetConnInfo() []ConnInfo {
+func (s *server) GetConnInfo() []ConnInfo {
 	conns := s.host.Network().Conns()
 	result := []ConnInfo{}
 	for _, conn := range conns {
 		id := conn.RemotePeer().Pretty()
-		if id ==""{
+		if id == "" {
 			continue
 		}
 		addr := conn.RemoteMultiaddr().String()

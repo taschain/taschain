@@ -23,7 +23,7 @@ const (
 type StaticGroupInfo struct {
 	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK  groupsig.Pubkey           //组公钥
-	members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
+	Members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
 	mapCache map[groupsig.ID]uint32    //用ID查找成员信息(成员ID->members中的索引)
 	gis      ConsensusGroupInitSummary //组的初始化凭证
 }
@@ -31,8 +31,8 @@ type StaticGroupInfo struct {
 func (sgi StaticGroupInfo) GenHash() common.Hash {
 	str := sgi.GroupID.GetHexString()
 	str += sgi.GroupPK.GetHexString()
-	for _, v := range sgi.members {
-		str += v.id.GetHexString()
+	for _, v := range sgi.Members {
+		str += v.Id.GetHexString()
 		str += v.pk.GetHexString()
 	}
 	//mapCache不进哈希
@@ -48,7 +48,7 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 
 func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 	s := SGS_UNKNOWN
-	if len(sgi.members) > 0 && sgi.GroupPK.IsValid() {
+	if len(sgi.Members) > 0 && sgi.GroupPK.IsValid() {
 		s = SGS_CASTOR
 	} else {
 		if sgi.gis.IsExpired() {
@@ -64,14 +64,14 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 	var sgi StaticGroupInfo
 	sgi.gis = grm.gi
-	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
+	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
 	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
 	var pki PubKeyInfo
-	for _, v := range grm.ids {
-		pki.id = v
+	for _, v := range grm.Ids {
+		pki.Id = v
 		//pki.pk =
-		sgi.members = append(sgi.members, pki)
-		sgi.mapCache[pki.id] = uint32(len(sgi.members)) - 1
+		sgi.Members = append(sgi.Members, pki)
+		sgi.mapCache[pki.Id] = uint32(len(sgi.Members)) - 1
 	}
 	return sgi
 }
@@ -80,17 +80,17 @@ func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 //输入：组成员ID列表，该ID为组成员的私有ID（由该成员的交易私钥->公开地址处理而来），和组共识无关
 func CreateWithRawMembers(mems []PubKeyInfo) StaticGroupInfo {
 	var sgi StaticGroupInfo
-	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
+	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
 	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
 	for i := 0; i < len(mems); i++ {
-		sgi.members = append(sgi.members, mems[i])
-		sgi.mapCache[mems[i].id] = uint32(len(sgi.members)) - 1
+		sgi.Members = append(sgi.Members, mems[i])
+		sgi.mapCache[mems[i].Id] = uint32(len(sgi.Members)) - 1
 	}
 	return sgi
 }
 
 func (sgi *StaticGroupInfo) GetLen() int {
-	return len(sgi.members)
+	return len(sgi.Members)
 }
 
 //组完成初始化，必须在一个组尚未初始化的时候调用有效。
@@ -110,18 +110,18 @@ func (sgi *StaticGroupInfo) GroupConsensusInited(pk groupsig.Pubkey, id groupsig
 //按组内排位取得成员ID列表
 func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
 	ids := make([]groupsig.ID, GROUP_MAX_MEMBERS)
-	for i := 0; i < len(sgi.members); i++ {
-		ids = append(ids, sgi.members[i].id)
+	for i := 0; i < len(sgi.Members); i++ {
+		ids = append(ids, sgi.Members[i].Id)
 	}
 	return ids
 }
 
 func (sgi *StaticGroupInfo) Addmember(m PubKeyInfo) {
-	if m.id.IsValid() {
-		_, ok := sgi.mapCache[m.id]
+	if m.Id.IsValid() {
+		_, ok := sgi.mapCache[m.Id]
 		if !ok {
-			sgi.members = append(sgi.members, m)
-			sgi.mapCache[m.id] = uint32(len(sgi.members)) - 1
+			sgi.Members = append(sgi.Members, m)
+			sgi.mapCache[m.Id] = uint32(len(sgi.Members)) - 1
 		}
 	}
 }
@@ -139,7 +139,7 @@ func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, result bool
 	var i uint32
 	i, result = sgi.mapCache[uid]
 	if result {
-		m = sgi.members[i]
+		m = sgi.Members[i]
 	}
 	return
 }
@@ -157,8 +157,8 @@ func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
 //取得指定位置的铸块人
 func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 	var m groupsig.ID
-	if i >= 0 && i < len(sgi.members) {
-		m = sgi.members[i].id
+	if i >= 0 && i < len(sgi.Members) {
+		m = sgi.Members[i].Id
 	}
 	return m
 }

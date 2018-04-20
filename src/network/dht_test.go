@@ -32,15 +32,15 @@ func TestDHT(t *testing.T) {
 
 	seedPrivateKey := "0x0423c75e7593a7e6b5ce489f7d3578f8f737b6dd0fc1d2b10dc12a3e88a0572c62b801e14a8864ebe2d7b8c32e31113ccb511a6ad597c008ea90d850439133819f0b682fe8ff4a9023712e74256fb628c8e97658d99f2a8880a3066f120c2e899b"
 	seedDht,_,seedId := mockDHT(seedPrivateKey, &config, ctx)
-	fmt.Printf("Mock seed node success!\nseddId is:%s\n", peer.ID(seedId).Pretty())
+	fmt.Printf("Mock seed node success!\nseedId is:%s\n",peer.ID(seedId).Pretty())
 	ctx1 := context.Background()
 	node1,_,node1Id := mockDHT("", &config, ctx1)
-	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n", peer.ID(node1Id).Pretty())
+	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n",peer.ID(node1Id).Pretty())
 
 	if node1 != nil && seedDht != nil {
 		dhts := []*dht.IpfsDHT{seedDht, node1}
 		bootDhts(dhts)
-		time.Sleep(60 * time.Second)
+		time.Sleep(30 * time.Second)
 
 		r1 := seedDht.FindLocal(peer.ID(node1Id))
 		fmt.Printf("Seed local find node1. node1 id is:%s\n", r1.ID.Pretty())
@@ -48,11 +48,17 @@ func TestDHT(t *testing.T) {
 		r2 := node1.FindLocal(peer.ID(seedId))
 		fmt.Printf("Node1 local find seed. seed id is:%s\n", r2.ID.Pretty())
 
-		peerInfo, err := seedDht.FindPeer(ctx1, peer.ID(node1Id))
+		r3, err := seedDht.FindPeer(ctx1, peer.ID(node1Id))
 		if err != nil {
 			fmt.Printf("find node1 error:%s\n", err.Error())
 		}
-		fmt.Printf("find result is:%s\n", peerInfo.ID.Pretty())
+		fmt.Printf("find result is:%s\n", r3.ID.Pretty())
+
+		r4, err1 := node1.FindPeer(ctx1, peer.ID(seedId))
+		if err1 != nil {
+			fmt.Printf("find seed error:%s\n", err1.Error())
+		}
+		fmt.Printf("find result is:%s\n", r4.ID.Pretty())
 	}
 }
 
@@ -120,8 +126,7 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 		if e6 != nil {
 			fmt.Printf("SeedIdStr to seedMultiaddr error! %s\n", e6.Error())
 		}
-		fmt.Printf("Seed id pretty:%s\n", seedId.Pretty())
-		seedPeerInfo := pstore.PeerInfo{ID: seedId, Addrs: []ma.Multiaddr{seedMultiaddr}}
+		seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedId), Addrs: []ma.Multiaddr{seedMultiaddr}}
 		e7 := host.Connect(ctx, seedPeerInfo)
 		if e7 != nil {
 			fmt.Printf("Host connect to seed error! %s\n" + e7.Error())
@@ -150,6 +155,24 @@ func TestIDB58(t *testing.T) {
 	}
 	fmt.Printf("ID b58 encode and decode "+
 		"result :%s", r.Pretty())
+}
+
+func TestIDB581(t *testing.T) {
+	//privateKey := common.GenerateKey("")
+	//publicKey := privateKey.GetPubKey()
+	//addr := publicKey.GetAddress()
+	//idStr := addr.Str()
+	//id1 := peer.ID(idStr)
+	//i := base58.Encode([]byte(id1))
+	//fmt.Printf("id1:%s",id1)
+
+}
+
+func TestPeerID(t *testing.T)  {
+	idStr := "494P5YtsjbTy3zHkWhux1ekXi991"
+	id :=peer.ID(idStr)
+	fmt.Printf("id :%s\n",id)
+	fmt.Printf("id pretty:%s\n",id.Pretty())
 }
 
 func TestUnmarshalEcdsaPublicKey(t *testing.T) {

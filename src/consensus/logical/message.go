@@ -40,8 +40,9 @@ type ConsensusBlockMessage ConsensusBlockMessageBase
 //to do : 组成员ID列表在哪里提供
 type ConsensusGroupRawMessage struct {
 	gi  ConsensusGroupInitSummary      //组初始化共识
-	ids [GROUP_MAX_MEMBERS]groupsig.ID //成员ID列表。该次序不可变更，影响组内铸块排位。
+	Ids [GROUP_MAX_MEMBERS]groupsig.ID //成员ID列表。该次序不可变更，影响组内铸块排位。
 	si  SignData                       //矿工（父亲组成员）个人签名
+	UserIds   [GROUP_MAX_MEMBERS]string       //用户ID列表，顺序和成员ID列表严格意义第一对应
 }
 
 func (msg *ConsensusGroupRawMessage) GenSign(ski SecKeyInfo) bool {
@@ -92,7 +93,7 @@ func (msg ConsensusSharePieceMessage) VerifySign(pk groupsig.Pubkey) bool {
 
 //向组外广播该组已经初始化完成(组外节点要收到门限个消息相同，才进行上链)
 type ConsensusGroupInitedMessage struct {
-	gi StaticGroupInfo //组初始化完成后的上链组信息（辅助map不用传输和上链）
+	Gi StaticGroupInfo //组初始化完成后的上链组信息（辅助map不用传输和上链）
 	si SignData        //用户个人签名
 }
 
@@ -101,7 +102,7 @@ func (msg *ConsensusGroupInitedMessage) GenSign(ski SecKeyInfo) bool {
 		return false
 	}
 	msg.si.SignMember = ski.id
-	msg.si.DataHash = msg.gi.GenHash()
+	msg.si.DataHash = msg.Gi.GenHash()
 	return msg.si.GenSign(ski.sk)
 }
 
