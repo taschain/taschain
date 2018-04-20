@@ -11,6 +11,10 @@ import (
 	"vm/trie"
 	"vm/rlp"
 	"vm/core/types"
+	"vm/core/state"
+	"math/big"
+
+	c "vm/common"
 )
 
 //区块头结构
@@ -99,7 +103,7 @@ func Sha256(blockByte []byte) []byte {
 }
 
 // 创始块
-func GenesisBlock() *Block {
+func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 	block := new(Block)
 
 	block.Header = &BlockHeader{
@@ -108,6 +112,15 @@ func GenesisBlock() *Block {
 
 	blockByte, _ := json.Marshal(block)
 	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
+
+	// 创始块账户创建
+	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(100))
+	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("2"))), big.NewInt(200))
+	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("3"))), big.NewInt(300))
+	stateDB.IntermediateRoot(false)
+	root, _ := stateDB.Commit(false)
+	triedb.Commit(root, false)
+	block.Header.StateTree = common.BytesToHash(root.Bytes())
 
 	return block
 }

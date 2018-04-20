@@ -132,20 +132,8 @@ func InitBlockChain() *BlockChain {
 		state, err := state.New(c.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
+			block := GenesisBlock(state, chain.stateCache.TrieDB())
 
-			// 创始块
-			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(100))
-			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("2"))), big.NewInt(200))
-			chain.latestStateDB.SetBalance(c.BytesToAddress(Sha256([]byte("3"))), big.NewInt(300))
-
-			chain.latestStateDB.IntermediateRoot(false)
-
-			root, _ := chain.latestStateDB.Commit(false)
-			triedb := chain.stateCache.TrieDB()
-			triedb.Commit(root, false)
-
-			block := GenesisBlock()
-			block.Header.StateTree = common.BytesToHash(root.Bytes())
 			chain.saveBlock(block)
 			chain.height = 1
 
@@ -202,9 +190,20 @@ func (chain *BlockChain) Clear() error {
 		return err
 	}
 
+	chain.stateCache = state.NewDatabase(chain.statedb)
+	chain.executor = NewEVMExecutor(chain)
+
 	// 创始块
-	chain.saveBlock(GenesisBlock())
-	chain.height = 1
+	state, err := state.New(c.Hash{}, chain.stateCache)
+	if nil == err {
+		chain.latestStateDB = state
+		block := GenesisBlock(state, chain.stateCache.TrieDB())
+
+		chain.saveBlock(block)
+		chain.height = 1
+
+	}
+
 	chain.init = true
 	return err
 }
