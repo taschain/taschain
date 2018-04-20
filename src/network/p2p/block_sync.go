@@ -5,6 +5,7 @@ import (
 	"core"
 	"taslog"
 	"sync"
+	"common"
 )
 
 
@@ -12,15 +13,15 @@ import (
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
 //其他节点获取本地块链高度
-type getBlockChainHeightFn func(sig []byte) (int, error)
+type getBlockChainHeightFn func(sig []byte) (int,error)
 
 //自身请求
-type getLocalBlockChainHeightFn func() (int, error)
+type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
 
-//根据高度获取对应的block
-type queryBlocksByHeightFn func(hs []int, sig []byte) (map[int]core.Block, error)
+//根据高度获取对应的block todo 返回结构体 code  []*Block  []hash []ratio
+type queryBlocksByHeightFn func(localHeight uint64,currentHash []common.Hash, sig []byte) (map[int]core.Block, error)
 
-//同步多个区块到链上
+//todo 入参 换成上面，结构体
 type addBlocksToChainFn func(hbm map[int]core.Block, sig []byte)
 
 
@@ -40,13 +41,14 @@ type BlockHeightRequest struct {
 }
 
 type BlockHeight struct {
-	Height   int
+	Height   uint64
 	SourceId string
 	Sig      []byte
 }
 
 type BlockRequest struct {
-	HeightSlice []int
+	sourceHeight uint64
+	sourceCurrentHash   common.Hash
 	SourceId    string
 	Sig         []byte
 }
@@ -57,7 +59,7 @@ type BlockArrived struct {
 }
 
 type blockSyncer struct {
-	neighborMaxHeight int        //邻居节点的最大高度
+	neighborMaxHeight uint64        //邻居节点的最大高度
 	bestNodeId        string     //最佳同步节点
 	maxHeightLock     sync.Mutex //同步锁
 
@@ -107,11 +109,12 @@ func (bs *blockSyncer) start() {
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
 			//收到块请求
-			blocks, e := bs.queryBlock(br.HeightSlice, br.Sig)
-			if e != nil {
-				taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
-				return
-			}
+			//blocks, e := bs.queryBlock(br.HeightSlice, br.Sig)
+			//if e != nil {
+			//	taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
+			//	return
+			//}
+			var blocks []*core.Block
 			// todo 签名
 			sendBlocks(br.SourceId, blocks,nil)
 		case bm := <-bs.BlockArrivedCh:
@@ -134,7 +137,7 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	localHeight, e := bs.getLocalHeight()
+	localHeight,currentHash, e := bs.getLocalHeight()
 	if e != nil {
 		taslog.P2pLogger.Errorf("Self get block height error:%s\n", e.Error())
 		return
@@ -148,12 +151,8 @@ func (bs *blockSyncer) syncBlock() {
 		return
 	} else {
 		taslog.P2pLogger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		heightSlice := make([]int, maxHeight-localHeight)
-		for i := localHeight; i <= maxHeight; i++ {
-			heightSlice = append(heightSlice, i)
-		}
 		//todo 签名
-		requestBlockByHeight(bestNodeId, heightSlice,nil)
+		requestBlockByHeight(bestNodeId, localHeight,currentHash,nil)
 	}
 
 }
@@ -164,10 +163,10 @@ func requestBlockChainHeight(sig []byte) {
 
 func sendBlockHeight(targetId string, localHeight int,sig []byte) {}
 
-func sendBlocks(targetId string, blockMap map[int]core.Block,sig []byte) {}
+func sendBlocks(targetId string, blocks []*core.Block,sig []byte) {}
 
 //向某一节点请求Block
 //param: target peer id
 //       block height slice
 //       sign data
-func requestBlockByHeight(id string, hs []int,sig []byte) {}
+func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash,sig []byte) {}
