@@ -448,11 +448,11 @@ func testLogicGroupInitEx(t *testing.T) {
 		v.setProcs(procs)
 	}
 	var grm ConsensusGroupRawMessage
-	copy(grm.ids[:], ids[:])
+	copy(grm.Ids[:], ids[:])
 	grm.gi = genDummyGIS(root, "64-2")
 	//to do : 一个矿工的消息签名是用common还是bls?
 	grm.si = GenSignData(grm.gi.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
-	fmt.Printf("grm msg member size=%v.\n", len(grm.ids))
+	fmt.Printf("grm msg member size=%v.\n", len(grm.Ids))
 
 	//通知所有节点这个待初始化的组合法
 	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息

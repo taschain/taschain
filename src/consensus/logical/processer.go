@@ -146,8 +146,11 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		return
 	}
 	cs := GenConsensusSummary(ccm.bh)
+	//todo 缺少逻辑   班德调用鸠兹索要交易，交易缺失鸠兹走网络 此处应有监听交易到达的处理函数
 	n := p.bc.UserCasted(cs, ccm.si)
 	fmt.Printf("processer:OnMessageCast UserCasted result=%v.\n", n)
+	//todo  缺少逻辑  验证完了之后应该在组内广播 自己验证过了(入参是这个嘛？)
+	//p2p.Peer.SendVerifiedCast(ConsensusVerifyMessage)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := p.bc.VerifyGroupSign(cs, p.getGroupPubKey(ccm.GroupID))
 		if b { //组签名验证通过
@@ -200,7 +203,10 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		if ok {                                   //该用户和我是同一组
 			if ccm.si.VerifySign(ru.pk) { //消息合法
 				p.bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
-				//to do : 屮逸组内广播
+				//todo 屮逸  组内广播自己(king)铸出来的块 (方法入参没有？)
+				//p2p.Peer.SendCastVerify(ConsensusCastMessage)
+				//todo :缺少逻辑  屮逸组内广播 当前组铸币 重复广播
+				//p2p.Peer.SendCurrentGroupCast(&ccm)
 			}
 		}
 	} else {
@@ -213,7 +219,8 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processer) SuccessNewBlock(cs ConsensusBlockSummary) {
 	//to do : 鸠兹保存上链
-	//to do : 屮逸组外广播
+	//todo : 缺少逻辑 屮逸组外广播 这里入参ConsensusBlockSummary不对，缺少BLOCK信息  此处应该广播BLOCK了，屮逸参数留空，等待班德构造参数
+	//p2p.Peer.BroadcastNewBlock()
 	p.bc.CastedUpdateStatus(uint(cs.QueueNumber))
 	p.bc.SignedUpdateMinQN(uint(cs.QueueNumber))
 	return
@@ -261,7 +268,8 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				sb := spm.GenSign(ski)
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
 				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.share.share.GetHexString(), spm.share.pub.GetHexString())
-				//to do : 调用屮逸的发送函数
+				//todo : 调用屮逸的发送函数
+				//p2p.Peer.SendKeySharePiece(spm)
 				dest_proc, ok := p.GroupProcs[spm.Dest]
 				if ok {
 					dest_proc.OnMessageSharePiece(spm)
@@ -299,7 +307,6 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 			p.addSignKey(g.Id, sk)
 			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.Id.GetHexString(), g.pk.GetHexString())
 			//to do : 把初始化完成的组加入到gc（更新）
-			//to do : 把组初始化完成消息广播到全网
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
@@ -314,6 +321,8 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				}
 				msg.Gi.Members = mems
 				msg.GenSign(ski)
+				//todo : 把组初始化完成消息广播到全网
+				//p2p.Peer.BroadcastGroupInfo(msg)
 				for _, proc := range p.GroupProcs {
 					proc.OnMessageGroupInited(msg)
 				}

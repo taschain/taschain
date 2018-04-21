@@ -10,17 +10,17 @@ import (
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 //获取本地组链高度
-type getGroupChainHeightFn func(sig []byte) (uint64, error)
+type getGroupChainHeightFn func() (uint64, error)
 
 type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
 
 //根据高度获取对应的组信息
 // todo 返回结构体 code  []*Block  []hash []ratio
-type queryGroupInfoByHeightFn func(localHeight uint64, currentHash common.Hash, sig []byte) (map[int]core.Group, error)
+type queryGroupInfoByHeightFn func(localHeight uint64, currentHash common.Hash) (map[int]core.Group, error)
 
 //同步多组到链上
 //todo 入参 换成上面，结构体
-type addGroupInfoToChainFn func(hbm map[uint64]core.Group, sig []byte)
+type addGroupInfoToChainFn func(hbm map[uint64]core.Group)
 
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -82,13 +82,13 @@ func (gs *groupSyncer) start() {
 		case hr := <-gs.HeightRequestCh:
 			//收到块高度请求
 			//todo  验证签名
-			height, e := gs.getHeight(hr.Sig)
+			height, e := gs.getHeight()
 			if e != nil {
 				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
 			//todo 签名
-			sendGroupHeight(hr.SourceId, height, nil)
+			sendGroupHeight(hr.SourceId, height)
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的块链高度
 			//todo  验证签名
@@ -107,10 +107,10 @@ func (gs *groupSyncer) start() {
 			//}
 			var groups []*core.Group
 			//todo 签名
-			sendGroups(br.SourceId, groups, nil)
+			sendGroups(br.SourceId, groups)
 		case bm := <-gs.GroupArrivedCh:
 			//收到块信息
-			gs.addGroups(bm.GroupMap, bm.Sig)
+			gs.addGroups(bm.GroupMap)
 		case <-t.C:
 			gs.syncGroup()
 		}
@@ -124,7 +124,7 @@ func (gs *groupSyncer) syncGroup() {
 	gs.maxHeightLock.Unlock()
 
 	//todo 签名
-	go requestBlockChainHeight(nil)
+	go requestGroupChainHeight()
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
@@ -143,21 +143,21 @@ func (gs *groupSyncer) syncGroup() {
 	} else {
 		taslog.P2pLogger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		//todo 签名
-		requestBlockByHeight(bestNodeId, localHeight, currentHash, nil)
+		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
 }
 
 //广播索要链高度
-func requestGroupChainHeight(sig []byte) {
+func requestGroupChainHeight() {
 }
 
-func sendGroupHeight(targetId string, localHeight uint64, sig []byte) {}
+func sendGroupHeight(targetId string, localHeight uint64) {}
 
-func sendGroups(targetId string, groups []*core.Group, sig []byte) {}
+func sendGroups(targetId string, groups []*core.Group) {}
 
 //向某一节点请求Block
 //param: target peer id
 //       block height slice
 //       sign data
-func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash, sig []byte) {}
+func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash) {}

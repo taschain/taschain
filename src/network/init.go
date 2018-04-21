@@ -38,9 +38,9 @@ func InitNetwork(config *common.ConfManager) error {
 		return e2
 	}
 
-	initBlockSyncer()
-
-	initGroupSyncer()
+	//initBlockSyncer()
+	//
+	//initGroupSyncer()
 	return nil
 }
 
@@ -73,7 +73,7 @@ func initServer(config *common.ConfManager) error {
 	}
 
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		nil, nil, )
+		nil )
 
 	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil, nil, nil, nil)
 

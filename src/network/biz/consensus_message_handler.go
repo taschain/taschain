@@ -60,18 +60,3 @@ func NewConsensusMessageHandler(onMessageGroupInitFn onMessageGroupInitFn, onMes
 		OnMessageVerifiedCastFn:     onMessageVerifiedCastFn,
 	}
 }
-
-/**
-共识铸块过程中请求父节点哈希不需要走网络请求，默认本地都有，由日常块的同步机制保证实现
-////如果本地没有父区块哈希值，请求最新区块哈希值 全网广播
-//func requestPreHash(){}
-//
-////接收父区块哈希值请求 如果本地有 则返回
-//func onPreHashRequest()common.Hash{
-//	var a common.Hash
-//	return a
-//}
-//
-////接收父区块哈希值
-//func onMessagePreHash(h common.Hash){}
- */
