@@ -96,7 +96,6 @@ func InitBlockChain() *BlockChain {
 
 	//从磁盘文件中初始化leveldb
 	var err error
-
 	chain.blocks, err = datasource.NewLDBDatabase(chain.config.block, chain.config.blockCache, chain.config.blockHandle)
 	if err != nil {
 		//todo: 日志
@@ -120,7 +119,7 @@ func InitBlockChain() *BlockChain {
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
-	chain.latestBlock = chain.getBlockHeaderByHeight([]byte(STATUS_KEY))
+	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(STATUS_KEY))
 	if nil != chain.latestBlock {
 		chain.height = chain.latestBlock.Height
 		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -205,6 +204,8 @@ func (chain *BlockChain) Clear() error {
 	}
 
 	chain.init = true
+
+	chain.transactionPool.Clear()
 	return err
 }
 
@@ -227,27 +228,36 @@ func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
-	return chain.queryBlockByHash(hash)
+	return chain.queryBlockHeaderByHash(hash)
 }
 
-func (chain *BlockChain) queryBlockByHash(hash common.Hash) *BlockHeader {
+func (chain *BlockChain) queryBlockByHash(hash common.Hash) *Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
-		var block Block
+		var block *Block
 		err = json.Unmarshal(result, &block)
 		if err != nil || &block == nil {
 			return nil
 		}
 
-		return block.Header
+		return block
 	} else {
 		return nil
 	}
 }
 
+func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *BlockHeader {
+	block := chain.queryBlockByHash(hash)
+	if nil == block {
+		return nil
+	}
+
+	return block.Header
+}
+
 //根据指定高度查询块
-func (chain *BlockChain) getBlockHeaderByHeight(height []byte) *BlockHeader {
+func (chain *BlockChain) queryBlockHeaderByHeight(height []byte) *BlockHeader {
 
 	result, err := chain.blockHeight.Get(height)
 	if result != nil {
@@ -268,11 +278,11 @@ func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
-	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
+	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
 func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
-	return chain.getBlockHeaderByHeight(chain.generateHeightKey(height))
+	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
 func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
@@ -348,7 +358,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	defer chain.lock.Unlock()
 
 	preHash := b.Header.PreHash
-	preBlock := chain.queryBlockByHash(preHash)
+	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
@@ -398,6 +408,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
+		chain.transactionPool.AddExecuted(receipts)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
@@ -494,10 +505,18 @@ func (chain *BlockChain) getWeight(number uint64) uint64 {
 
 // 删除块
 func (chain *BlockChain) remove(header *BlockHeader) {
-	chain.blocks.Delete(header.Hash.Bytes())
+	hash := header.Hash
+	block := chain.queryBlockByHash(hash)
+	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(chain.generateHeightKey(header.Height))
 
-	// todo: 删除块的交易，是否要回transactionpool
+	// 删除块的交易，返回transactionpool
+	if nil == block {
+		return
+	}
+	txs := block.Transactions
+	chain.transactionPool.RemoveExecuted(txs)
+	chain.transactionPool.addTxs(txs)
 }
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {

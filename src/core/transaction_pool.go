@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"sync"
 	"common"
+	"core/datasource"
+	"os"
+	"vm/core/types"
+	"encoding/json"
 )
 
 var (
@@ -32,6 +36,9 @@ var (
 // 配置文件
 type TransactionPoolConfig struct {
 	maxReceivedPoolSize uint32
+	tx                  string
+	txCache             int
+	txHandle            int
 }
 
 type TransactionPool struct {
@@ -45,22 +52,46 @@ type TransactionPool struct {
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
+
+	// 已经在块上的交易 key ：txhash value： receipt
+	executed datasource.Database
 }
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
 		maxReceivedPoolSize: 10000,
+		tx:                  "tx",
+		txCache:             128,
+		txHandle:            1024,
 	}
 }
 
 func NewTransactionPool() *TransactionPool {
 
-	return &TransactionPool{
+	pool := &TransactionPool{
 		config:       DefaultPoolConfig(),
 		receivedLock: sync.RWMutex{},
 		received:     make(map[common.Hash]*Transaction),
 		lowestPrice:  nil,
 	}
+	executed, err := datasource.NewLDBDatabase(pool.config.tx, pool.config.txCache, pool.config.txHandle)
+	if err != nil {
+		//todo: rebuild executedPool
+		return nil
+	}
+	pool.executed = executed
+
+	return pool
+}
+
+func (pool *TransactionPool) Clear() {
+	pool.receivedLock.Lock()
+	defer pool.receivedLock.Unlock()
+
+	os.RemoveAll(pool.config.tx)
+	executed, _ := datasource.NewLDBDatabase(pool.config.tx, pool.config.txCache, pool.config.txHandle)
+	pool.executed = executed
+	pool.received = make(map[common.Hash]*Transaction)
 }
 
 func (pool *TransactionPool) GetReceived() map[common.Hash]*Transaction {
@@ -165,7 +196,12 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 // 2）已存在块上
 // 3）todo：曾经收到过的，不合法的交易
 func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
-	return pool.received[hash] != nil
+	if pool.received[hash] != nil {
+		return true
+	}
+
+	existed, _ := pool.executed.Has(hash.Bytes())
+	return existed
 }
 
 // 校验transaction是否合法
@@ -191,6 +227,15 @@ func (pool *TransactionPool) add(tx *Transaction) {
 
 }
 
+func (pool *TransactionPool) addTxs(txs []*Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+	for _, tx := range txs {
+		pool.add(tx)
+	}
+}
+
 func (pool *TransactionPool) replace(tx *Transaction) {
 	// 替换
 	pool.receivedLock.Lock()
@@ -211,4 +256,43 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 	pool.lowestPrice = lowest
 	defer pool.receivedLock.RUnlock()
 
+}
+
+func (pool *TransactionPool) AddExecuted(receipts types.Receipts) {
+	if nil == receipts || 0 == len(receipts) {
+		return
+	}
+
+	for _, receipt := range receipts {
+		hash := receipt.TxHash.Bytes()
+		receiptJson, err := json.Marshal(receipt)
+		if nil != err {
+			continue
+		}
+		pool.executed.Put(hash, receiptJson)
+	}
+}
+
+func (pool *TransactionPool) GetExecuted(hash common.Hash) *types.Receipt {
+	receiptJson, _ := pool.executed.Get(hash.Bytes())
+	if nil == receiptJson {
+		return nil
+	}
+
+	var receipt *types.Receipt
+	err := json.Unmarshal(receiptJson, receipt)
+	if err != nil || receipt == nil {
+		return nil
+	}
+
+	return receipt
+}
+
+func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+	for _, tx := range txs {
+		pool.executed.Delete(tx.Hash.Bytes())
+	}
 }

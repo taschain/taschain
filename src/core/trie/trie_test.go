@@ -30,7 +30,6 @@ import (
 	"common"
 	"core/datasource"
 
-	"sync"
 )
 
 func init() {
@@ -40,7 +39,7 @@ func init() {
 
 // Used for testing
 func newEmpty() *Trie {
-	diskdb, _ := NewMemDatabase()
+	diskdb, _ := datasource.NewMemDatabase()
 	trie, _ := New(common.Hash{}, NewDatabase(diskdb))
 	return trie
 }
@@ -65,7 +64,7 @@ func TestNull(t *testing.T) {
 }
 
 func TestMissingRoot(t *testing.T) {
-	diskdb, _ := NewMemDatabase()
+	diskdb, _ := datasource.NewMemDatabase()
 	trie, err := New(common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(diskdb))
 	if trie != nil {
 		t.Error("New returned non-nil trie for invalid root")
@@ -79,7 +78,7 @@ func TestMissingRoot(t *testing.T) {
 //func TestMissingNodeMemonly(t *testing.T) { testMissingNode(t, true) }
 
 func testMissingNode(t *testing.T, memonly bool) {
-	diskdb, _ := NewMemDatabase()
+	diskdb, _ := datasource.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
 
 	trie, _ := New(common.Hash{}, triedb)
@@ -410,7 +409,7 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func runRandTest(rt randTest) bool {
-	diskdb, _ := NewMemDatabase()
+	diskdb, _ := datasource.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
 
 	tr, _ := New(common.Hash{}, triedb)
@@ -612,105 +611,4 @@ func updateString(trie *Trie, k, v string) {
 
 func deleteString(trie *Trie, k string) {
 	trie.Delete([]byte(k))
-}
-
-type MemDatabase struct {
-	db   map[string][]byte
-	lock sync.RWMutex
-}
-
-func NewMemDatabase() (*MemDatabase, error) {
-	return &MemDatabase{
-		db: make(map[string][]byte),
-	}, nil
-}
-
-func (db *MemDatabase) Clear() error{
-	db.db =make(map[string][]byte)
-	return nil
-}
-func (db *MemDatabase) Put(key []byte, value []byte) error {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	db.db[string(key)] = common.CopyBytes(value)
-	return nil
-}
-
-func (db *MemDatabase) Has(key []byte) (bool, error) {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
-
-	_, ok := db.db[string(key)]
-	return ok, nil
-}
-
-func (db *MemDatabase) Get(key []byte) ([]byte, error) {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
-
-	if entry, ok := db.db[string(key)]; ok {
-		return common.CopyBytes(entry), nil
-	}
-	return nil, errors.New("not found")
-}
-
-func (db *MemDatabase) Keys() [][]byte {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
-
-	keys := [][]byte{}
-	for key := range db.db {
-		keys = append(keys, []byte(key))
-	}
-	return keys
-}
-
-func (db *MemDatabase) Delete(key []byte) error {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	delete(db.db, string(key))
-	return nil
-}
-
-func (db *MemDatabase) Close() {}
-
-func (db *MemDatabase) NewBatch() datasource.Batch {
-	return &memBatch{db: db}
-}
-
-func (db *MemDatabase) Len() int { return len(db.db) }
-
-type kv struct{ k, v []byte }
-
-type memBatch struct {
-	db     *MemDatabase
-	writes []kv
-	size   int
-}
-
-func (b *memBatch) Put(key, value []byte) error {
-	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
-	b.size += len(value)
-	return nil
-}
-
-func (b *memBatch) Write() error {
-	b.db.lock.Lock()
-	defer b.db.lock.Unlock()
-
-	for _, kv := range b.writes {
-		b.db.db[string(kv.k)] = kv.v
-	}
-	return nil
-}
-
-func (b *memBatch) ValueSize() int {
-	return b.size
-}
-
-func (b *memBatch) Reset() {
-	b.writes = b.writes[:0]
-	b.size = 0
 }

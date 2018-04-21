@@ -69,6 +69,12 @@ func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, h
 
 	context := NewEVMContext(tx, header, executor.bc)
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+
+	// 投票合约
+	if 0 != tx.ExtraDataType {
+
+	}
+
 	_, gas, failed, err := NewSession(statedb, tx, gp).Run(vmenv)
 	if err != nil {
 		return nil, 0, err
