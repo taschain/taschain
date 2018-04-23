@@ -1,7 +1,9 @@
 package mediator
 
 import (
+	"consensus/groupsig"
 	"consensus/logical"
+	"consensus/rand"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -12,10 +14,17 @@ import (
 var proc logical.Processer
 
 //创建一个矿工
-//secret：种子字符串，需要全网唯一性。为空则采用系统默认强随机数作为种子。
+//id:矿工id，需要全网唯一性。
+//secret：种子字符串，为空则采用系统默认强随机数作为种子。种子字符串越复杂，则矿工私钥的安全系数越高。
 //返回：成功返回矿工结构，该结构包含挖矿私钥信息，请妥善保管。
 func NewMiner(id string, secret string) (mi logical.MinerInfo, ok bool) {
 	mi = logical.NewMinerInfo(id, secret)
+	ok = true
+	return
+}
+
+func NewMinerEx(id groupsig.ID, secret string) (mi logical.MinerInfo, ok bool) {
+	mi.Init(id, rand.RandFromString(secret))
 	ok = true
 	return
 }
