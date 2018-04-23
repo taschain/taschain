@@ -15,7 +15,6 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"strings"
-	"consensus/groupsig"
 )
 
 const (
@@ -200,15 +199,6 @@ func (s *server) handleMessage(b []byte, from string) {
 			taslog.P2pLogger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
 			return
 		}
-		Peer.KeyMap = make(map[groupsig.ID]string)
-		for i := 0; i < len(m.Ids); i++ {
-			userId := m.UserIds[i]
-			if userId == "" {
-				taslog.P2pLogger.Error("Bad ConsensusGroupRawMessage:uers is is null.Discard!\n")
-				return
-			}
-			Peer.KeyMap[m.Ids[i]] = m.UserIds[i]
-		}
 		s.cHandler.OnMessageGroupInitFn(*m)
 	case KEY_PIECE_MSG:
 		m, e := UnMarshalConsensusSharePieceMessage(b)
@@ -261,7 +251,7 @@ func (s *server) GetConnInfo() []ConnInfo {
 	conns := s.host.Network().Conns()
 	result := []ConnInfo{}
 	for _, conn := range conns {
-		id := conn.RemotePeer().Pretty()
+		id := string(conn.RemotePeer())
 		if id == "" {
 			continue
 		}

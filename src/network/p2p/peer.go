@@ -20,8 +20,6 @@ const (
 var Peer peer
 
 type peer struct {
-	KeyMap map[groupsig.ID]string
-
 	KnownTx map[groupsig.ID][]common.Hash
 
 	KnownBlock map[groupsig.ID][]common.Hash
@@ -32,11 +30,10 @@ type peer struct {
 }
 
 func InitPeer(self *Node) {
-	keyMap := map[groupsig.ID]string{}
 	knownTx := make(map[groupsig.ID][]common.Hash)
 	knownBlock := make(map[groupsig.ID][]common.Hash)
 	knownGroup := make(map[groupsig.ID][]string)
-	Peer = peer{KeyMap: keyMap, KnownTx: knownTx, KnownBlock: knownBlock, KnownGroup: knownGroup, SelfNetInfo: self}
+	Peer = peer{KnownTx: knownTx, KnownBlock: knownBlock, KnownGroup: knownGroup, SelfNetInfo: self}
 }
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -50,8 +47,8 @@ func (p *peer) SendGroupInitMessage(grm logical.ConsensusGroupRawMessage) {
 		return
 	}
 	m := Message{Code: GROUP_INIT_MSG, Body: body}
-	for _, userId := range grm.UserIds {
-		Server.SendMessage(m, userId)
+	for _, member := range grm.MEMS {
+		Server.SendMessage(m, member.ID.GetHexString())
 	}
 }
 
@@ -62,14 +59,9 @@ func (p *peer) SendKeySharePiece(spm logical.ConsensusSharePieceMessage) {
 		taslog.P2pLogger.Error("Discard ConsensusSharePieceMessage because of marshal error!\n")
 		return
 	}
-	gId := spm.Dest
-	userId := p.KeyMap[gId]
-	if userId == "" {
-		taslog.P2pLogger.Errorf("Can not get userId from miner id:%s.Discard!\n", gId)
-		return
-	}
+	id := spm.Dest.GetHexString()
 	m := Message{Code: KEY_PIECE_MSG, Body: body}
-	Server.SendMessage(m, userId)
+	Server.SendMessage(m, id)
 
 }
 
@@ -99,7 +91,7 @@ func (p *peer) BroadcastGroupInfo(cgm logical.ConsensusGroupInitedMessage) {
 func (p *peer) SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
-	//todo 从鸠兹获得 可做缓存
+	//todo 从鸠兹获得
 	body, e := MarshalConsensusCurrentMessagee(ccm)
 	if e != nil {
 		taslog.P2pLogger.Error("Discard ConsensusCurrentMessage because of marshal error!\n")
@@ -107,12 +99,7 @@ func (p *peer) SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
 	}
 	m := Message{Code: CURRENT_GROUP_CAST_MSG, Body: body}
 	for _, memberId := range memberIds {
-		userId := p.KeyMap[memberId]
-		if userId == "" {
-			taslog.P2pLogger.Errorf("Can not get userId from miner id:%s.Discard!\n", memberId)
-			continue
-		}
-		Server.SendMessage(m, userId)
+		Server.SendMessage(m, memberId.GetHexString())
 	}
 }
 
@@ -129,12 +116,7 @@ func (p *peer) SendCastVerify(ccm *logical.ConsensusCastMessage) {
 	}
 	m := Message{Code: CAST_VERIFY_MSG, Body: body}
 	for _, memberId := range memberIds {
-		userId := p.KeyMap[memberId]
-		if userId == "" {
-			taslog.P2pLogger.Errorf("Can not get userId from miner id:%s.Discard!\n", memberId)
-			continue
-		}
-		Server.SendMessage(m, userId)
+		Server.SendMessage(m, memberId.GetHexString())
 	}
 }
 
@@ -151,12 +133,7 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 	}
 	m := Message{Code: VARIFIED_CAST_MSG, Body: body}
 	for _, memberId := range memberIds {
-		userId := p.KeyMap[memberId]
-		if userId == "" {
-			taslog.P2pLogger.Errorf("Can not get userId from miner id:%s.Discard!\n", memberId)
-			continue
-		}
-		Server.SendMessage(m, userId)
+		Server.SendMessage(m, memberId.GetHexString())
 	}
 }
 
@@ -164,16 +141,13 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 //todo 此处参数留空 等班德构造
 func BroadcastNewBlock() {}
 
-
-
-
 //验证节点 交易集缺失，索要、特定交易 全网广播
 //param:hash slice of transaction slice
 //      signData
-func (p *peer) RequestTransactionByHash(hs []common.Hash, sig []byte) {}
+func (p *peer) RequestTransactionByHash(hs []common.Hash) {}
 
 //收到交易 全网扩散
-func (p *peer) BroadcastTransaction(hs []common.Hash, sig []byte) {}
+func (p *peer) BroadcastTransaction(hs []common.Hash) {}
 
 //自己调
-func (p *peer) BroadcastTransactionRequest(hs []common.Hash, sig []byte) {}
+func (p *peer) BroadcastTransactionRequest(hs []common.Hash) {}

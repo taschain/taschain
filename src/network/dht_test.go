@@ -20,10 +20,13 @@ import (
 	"github.com/multiformats/go-multihash"
 	"taslog"
 	"github.com/libp2p/go-libp2p-host"
+	"consensus/groupsig"
 )
 
 func TestDHT(t *testing.T) {
 	defer taslog.Close()
+
+	groupsig.Init(1)
 	crypto.KeyTypes = append(crypto.KeyTypes, 3)
 	crypto.PubKeyUnmarshallers[3] = p2p.UnmarshalEcdsaPublicKey
 
@@ -31,35 +34,50 @@ func TestDHT(t *testing.T) {
 	ctx := context.Background()
 
 	seedPrivateKey := "0x0423c75e7593a7e6b5ce489f7d3578f8f737b6dd0fc1d2b10dc12a3e88a0572c62b801e14a8864ebe2d7b8c32e31113ccb511a6ad597c008ea90d850439133819f0b682fe8ff4a9023712e74256fb628c8e97658d99f2a8880a3066f120c2e899b"
-	seedDht,_,seedId := mockDHT(seedPrivateKey, &config, ctx)
-	fmt.Printf("Mock seed node success!\nseedId is:%s\n",peer.ID(seedId).Pretty())
-	ctx1 := context.Background()
-	node1,_,node1Id := mockDHT("", &config, ctx1)
-	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n",peer.ID(node1Id).Pretty())
+	seedDht, _, seedId := mockDHT(seedPrivateKey, &config, ctx)
+	fmt.Printf("Mock seed node success! seedId is:%s\n", seedId)
+
+	node1, _, node1Id := mockDHT("", &config, ctx)
+	fmt.Printf("Mock  node1 success! node1 is:%s\n", node1Id)
 
 	if node1 != nil && seedDht != nil {
 		dhts := []*dht.IpfsDHT{seedDht, node1}
+		//dhts := []*dht.IpfsDHT{seedDht}
 		bootDhts(dhts)
 		time.Sleep(30 * time.Second)
 
 		r1 := seedDht.FindLocal(peer.ID(node1Id))
-		fmt.Printf("Seed local find node1. node1 id is:%s\n", r1.ID.Pretty())
+		fmt.Printf("Seed local find node1. node1 id is:%s\n", string(r1.ID))
 
 		r2 := node1.FindLocal(peer.ID(seedId))
-		fmt.Printf("Node1 local find seed. seed id is:%s\n", r2.ID.Pretty())
+		fmt.Printf("Node1 local find seed. seed id is:%s\n", string(r2.ID))
 
-		r3, err := seedDht.FindPeer(ctx1, peer.ID(node1Id))
+		r3, err := seedDht.FindPeer(ctx, peer.ID(node1Id))
 		if err != nil {
 			fmt.Printf("find node1 error:%s\n", err.Error())
 		}
-		fmt.Printf("find result is:%s\n", r3.ID.Pretty())
+		fmt.Printf("find result is:%s\n", string(r3.ID))
 
-		r4, err1 := node1.FindPeer(ctx1, peer.ID(seedId))
+		r4, err1 := node1.FindPeer(ctx, peer.ID(seedId))
 		if err1 != nil {
 			fmt.Printf("find seed error:%s\n", err1.Error())
 		}
-		fmt.Printf("find result is:%s\n", r4.ID.Pretty())
+		fmt.Printf("find result is:%s\n", string(r4.ID))
 	}
+
+	//node2, _, node2Id := mockDHT("", &config, ctx)
+	//fmt.Printf("Mock  node2 success! node2 is:%s\n", node2Id)
+	//bootDhts([]*dht.IpfsDHT{node2})
+	//time.Sleep(5 * time.Minute)
+	//
+	//r1 := seedDht.FindLocal(peer.ID(node2Id))
+	//fmt.Printf("Seed local find node2. node2 id is:%s\n", string(r1.ID))
+	//
+	//r3, err := seedDht.FindPeer(ctx, peer.ID(node2Id))
+	//if err != nil {
+	//	fmt.Printf("find node2 error:%s\n", err.Error())
+	//}
+	//fmt.Printf("find result is:%s\n", string(r3.ID))
 }
 
 func bootDhts(dhts []*dht.IpfsDHT) {
@@ -67,6 +85,7 @@ func bootDhts(dhts []*dht.IpfsDHT) {
 		d := dhts[i]
 		cfg := dht.DefaultBootstrapConfig
 		cfg.Queries = 3
+		cfg.Period = 1 * time.Minute
 		cfg.Period = time.Duration(20 * time.Second)
 
 		process, e8 := d.BootstrapWithConfig(cfg)
@@ -77,14 +96,15 @@ func bootDhts(dhts []*dht.IpfsDHT) {
 		}
 	}
 }
-func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context) (*dht.IpfsDHT, host.Host,string) {
+func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context) (*dht.IpfsDHT, host.Host, string) {
 	self := p2p.NewSelfNetInfo(privateKey)
+	fmt.Print(self.String())
 
 	localId := self.Id
 	multiaddr, e2 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e2 != nil {
 		fmt.Printf("new mlltiaddr error!" + e2.Error())
-		return nil, nil,self.Id
+		return nil, nil, self.Id
 	}
 	listenAddrs := []ma.Multiaddr{multiaddr}
 	peerStore := pstore.NewPeerstore()
@@ -94,14 +114,15 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	peerStore.AddPubKey(peer.ID(localId), p1)
 	peerStore.AddPrivKey(peer.ID(localId), p2)
 
+	peerStore.AddAddrs(peer.ID(localId), listenAddrs, pstore.PermanentAddrTTL)
 	//bwc  is a bandwidth metrics collector, This is used to track incoming and outgoing bandwidth on connections managed by this swarm.
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
 	sw, e3 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
 	if e3 != nil {
 		fmt.Printf("New swarm error!\n" + e3.Error())
-		return nil, nil,self.Id
+		return nil, nil, self.Id
 	}
-	peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
+	//peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
 
 	//hostOpts := &basichost.HostOpts{}
 	//host:= basichost.New(sw)
@@ -111,12 +132,12 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	//	return nil, self.Id
 	//}
 
-	seedIdStrPretty := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
-	seedId, e := peer.IDB58Decode(seedIdStrPretty)
-	if e != nil {
-		fmt.Printf("Decode seed id error:%s\n", e.Error())
-		return nil, host,self.Id
-	}
+	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
+	//seedId, e := peer.IDB58Decode(seedIdStrPretty)
+	//if e != nil {
+	//	fmt.Printf("Decode seed id error:%s\n", e.Error())
+	//	return nil, host,self.Id
+	//}
 
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 
@@ -126,7 +147,7 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 		if e6 != nil {
 			fmt.Printf("SeedIdStr to seedMultiaddr error! %s\n", e6.Error())
 		}
-		seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedId), Addrs: []ma.Multiaddr{seedMultiaddr}}
+		seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
 		e7 := host.Connect(ctx, seedPeerInfo)
 		if e7 != nil {
 			fmt.Printf("Host connect to seed error! %s\n" + e7.Error())
@@ -134,7 +155,7 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	}
 	dss := dssync.MutexWrap(ds.NewMapDatastore())
 	kadDht := dht.NewDHT(ctx, host, dss)
-	return kadDht, host,self.Id
+	return kadDht, host, self.Id
 }
 
 func TestIDB58(t *testing.T) {
@@ -157,22 +178,24 @@ func TestIDB58(t *testing.T) {
 		"result :%s", r.Pretty())
 }
 
-func TestIDB581(t *testing.T) {
-	//privateKey := common.GenerateKey("")
-	//publicKey := privateKey.GetPubKey()
-	//addr := publicKey.GetAddress()
-	//idStr := addr.Str()
-	//id1 := peer.ID(idStr)
-	//i := base58.Encode([]byte(id1))
-	//fmt.Printf("id1:%s",id1)
+func TestID(t *testing.T) {
+	groupsig.Init(1)
+	privateKey := common.GenerateKey("")
+	publicKey := privateKey.GetPubKey()
+	addr := publicKey.GetAddress()
+	i := groupsig.NewIDFromAddress(addr)
+	idStr := i.GetHexString()
+	id := peer.ID(idStr)
+	s := string(id)
+	fmt.Printf("id:%s\n", s)
 
 }
 
-func TestPeerID(t *testing.T)  {
+func TestPeerID(t *testing.T) {
 	idStr := "494P5YtsjbTy3zHkWhux1ekXi991"
-	id :=peer.ID(idStr)
-	fmt.Printf("id :%s\n",id)
-	fmt.Printf("id pretty:%s\n",id.Pretty())
+	id := peer.ID(idStr)
+	fmt.Printf("id :%s\n", id)
+	fmt.Printf("id pretty:%s\n", id.Pretty())
 }
 
 func TestUnmarshalEcdsaPublicKey(t *testing.T) {
@@ -201,6 +224,3 @@ func TestUnmarshalEcdsaPublicKey(t *testing.T) {
 	}
 	fmt.Print("Origin public key length is :%d,marshal and unmaishal pub key length is:%d\n", len(b1), len(b2))
 }
-
-
-

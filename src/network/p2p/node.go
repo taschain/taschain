@@ -5,9 +5,7 @@ import (
 	"net"
 	"strconv"
 	"taslog"
-	"github.com/multiformats/go-multihash"
-	 gpeer "github.com/libp2p/go-libp2p-peer"
-
+	"consensus/groupsig"
 )
 
 const (
@@ -52,15 +50,15 @@ func InitSelfNode(config *common.ConfManager) (*Node, error) {
 
 //adpat to lib2p2. The whole p2p network use this id to be the only identity
 func GetIdFromPublicKey(p common.PublicKey) string {
-	b := p.ToBytes()
-	idBytes, e := multihash.Sum(b, multihash.SHA2_256, -1)
-	if e != nil {
-		taslog.P2pLogger.Error("GetIdFromPublicKey error!:%s", e.Error())
-		return ""
-	}
-	//addr := p.GetAddress()
-	//idBytes := groupsig.NewIDFromAddress(addr).Serialize()
-	id := string(gpeer.ID(idBytes))
+	//b := p.ToBytes()
+	//idBytes, e := multihash.Sum(b, multihash.SHA2_256, -1)
+	//if e != nil {
+	//	taslog.P2pLogger.Error("GetIdFromPublicKey error!:%s", e.Error())
+	//	return ""
+	//}
+	addr := p.GetAddress()
+	i := groupsig.NewIDFromAddress(addr)
+	id := i.GetHexString()
 	return id
 }
 
@@ -103,8 +101,8 @@ func getAvailableTCPPort(ip string, port int) int {
 }
 
 func (s *Node) String() string {
-	str := "Self node net info:\n Private key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\n Tcp port is:" + strconv.Itoa(s.TcpPort)
+	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort)+"\n"
 	return str
 }
 
@@ -132,6 +130,7 @@ func ToMulAddrStr(ip string, protocol string, port int) string {
 //used to mock a new client
 func NewSelfNetInfo(privateKeyStr string) *Node {
 	var privateKey common.PrivateKey
+
 	if privateKeyStr == "" {
 		privateKey = common.GenerateKey("")
 	} else {
