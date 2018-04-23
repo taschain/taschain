@@ -244,9 +244,9 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //更新组信息（先收到piece消息再收到raw消息的处理）
 func (gc *GroupContext) UpdateMesageFromParent(grm ConsensusGroupRawMessage) {
 	if gc.is == GIS_PIECE {
-		gc.mems = make([]PubKeyInfo, len(grm.mems))
-		copy(gc.mems[:], grm.mems[:])
-		gc.gis = grm.gi
+		gc.mems = make([]PubKeyInfo, len(grm.MEMS))
+		copy(gc.mems[:], grm.MEMS[:])
+		gc.gis = grm.GI
 		gc.is = GIS_RAW
 	} else {
 		fmt.Printf("GroupContext::UpdateMesageFromParent failed, status=%v.\n", gc.is)
@@ -265,23 +265,23 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
-	if len(grm.mems) != GROUP_MAX_MEMBERS {
-		fmt.Printf("group member size failed=%v.", len(grm.mems))
+	if len(grm.MEMS) != GROUP_MAX_MEMBERS {
+		fmt.Printf("group member size failed=%v.", len(grm.MEMS))
 		return nil
 	}
-	for k, v := range grm.mems {
-		if !v.id.IsValid() {
-			fmt.Printf("i=%v, ID failed=%v.", k, v.id.GetHexString())
+	for k, v := range grm.MEMS {
+		if !v.GetID().IsValid() {
+			fmt.Printf("i=%v, ID failed=%v.", k, v.GetID().GetHexString())
 			return nil
 		}
 	}
 	gc := new(GroupContext)
-	gc.mems = make([]PubKeyInfo, len(grm.mems))
-	copy(gc.mems[:], grm.mems[:])
-	gc.gis = grm.gi
+	gc.mems = make([]PubKeyInfo, len(grm.MEMS))
+	copy(gc.mems[:], grm.MEMS[:])
+	gc.gis = grm.GI
 	gc.is = GIS_RAW
 	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
-	gc.node.InitForGroup(grm.gi.GenHash())
+	gc.node.InitForGroup(grm.GI.GenHash())
 	return gc
 }
 
@@ -293,7 +293,7 @@ func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
 		return -1
 	}
 	*/
-	result := gc.node.SetInitPiece(spm.si.SignMember, spm.share)
+	result := gc.node.SetInitPiece(spm.SI.SignMember, spm.Share)
 	switch result {
 	case 1: //完成聚合（已生成组公钥和组成员签名私钥）
 		//由外层启动组外广播（to do : 升级到通知父亲组节点）
@@ -324,9 +324,9 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 
 //（收到所有组内成员的秘密共享后）取得组信息
 func (gc GroupContext) GetGroupInfo() (g PubKeyInfo, sk groupsig.Seckey) {
-	g.pk = gc.node.GetGroupPubKey()
-	if g.pk.IsValid() {
-		g.id = *groupsig.NewIDFromPubkey(g.pk)
+	g.PK = gc.node.GetGroupPubKey()
+	if g.PK.IsValid() {
+		g.ID = *groupsig.NewIDFromPubkey(g.PK)
 		sk = gc.node.getSignSecKey()
 	}
 	return
@@ -342,7 +342,7 @@ func (jgs *JoiningGroups) Init() {
 }
 
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
-	if v, ok := jgs.groups[grm.gi.DummyID]; ok {
+	if v, ok := jgs.groups[grm.GI.DummyID]; ok {
 		gs := v.GetGroupStatus()
 		fmt.Printf("found initing group info, status=%v...\n", gs)
 		if gs == GIS_PIECE {
@@ -354,7 +354,7 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi M
 		fmt.Printf("create new initing group info...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
-			jgs.groups[grm.gi.DummyID] = v
+			jgs.groups[grm.GI.DummyID] = v
 		}
 		return v
 	}

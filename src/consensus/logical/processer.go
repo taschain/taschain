@@ -104,10 +104,7 @@ func (p Processer) getmi() MinerInfo {
 }
 
 func (p Processer) GetMinerInfo() PubKeyInfo {
-	var pki PubKeyInfo
-	pki.id = p.mi.GetMinerID()
-	pki.pk = p.mi.GetDefaultPubKey()
-	return pki
+	return PubKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultPubKey()}
 }
 
 func (p *Processer) setProcs(gps map[string]*Processer) {
@@ -180,7 +177,7 @@ func (p *Processer) addSignKey(gid groupsig.ID, sk groupsig.Seckey) {
 
 //取得矿工在某个组的签名私钥
 func (p Processer) GetSignKey(gid groupsig.ID) groupsig.Seckey {
-	return p.belongGroups[gid.GetHexString()].sk //如该组不存在则返回空值
+	return p.belongGroups[gid.GetHexString()].SK //如该组不存在则返回空值
 }
 
 //检测某个组是否矿工的铸块组（一个矿工可以参与多个组）
@@ -200,48 +197,66 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 	return result
 }
 
-//收到成为当前组消息
-func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
-	fmt.Printf("begin Processer::OnMessageCurrent...\n")
-	var gid groupsig.ID
-	if gid.Deserialize(ccm.GroupID) != nil {
-		panic("Processer::OnMessageCurrent failed, reason=group id Deserialize.")
+//检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
+func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) *BlockContext {
+	var bc *BlockContext
+	fmt.Printf("proc(%v) beingCastGroup...\n", p.getPrefix())
+	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
+		fmt.Printf("beingCastGroup failed, node not in this group.\n")
+		return nil
 	}
-	if !p.IsMinerGroup(gid) {
-		panic("Processer::OnMessageCurrent failed, node not in group.")
+	gi, err := p.gg.GetGroupByID(cgs.GroupID)
+	if err != nil {
+		panic("gg.GetGroupByID failed.")
 	}
-	gi, err := p.gg.GetGroupByID(gid)
-	if err == nil {
-		ru, ok := gi.GetMember(ccm.si.SignMember) //检查发消息用户是否跟当前节点同组
-		if ok {                                   //该用户和我是同一组
-			fmt.Printf("message sender's id=%v, pub key=%v.\n", ru.id.GetHexString(), ru.pk.GetHexString())
-			if ccm.si.VerifySign(ru.pk) { //消息合法
-				fmt.Printf("message verify sign OK, call BeingCastGroup...\n")
-				bc := p.GetBlockContext(gid.GetHexString())
-				if bc == nil {
-					panic("ERROR, BlockContext = nil.\n")
-				}
-				b := bc.BeingCastGroup(ccm.BlockHeight, ccm.PreTime, ccm.PreHash)
-				fmt.Printf("blockContext::BeingCastGroup result=%v.\n", b)
-				//to do : 屮逸组内广播
+	ru, ok := gi.GetMember(si.SignMember) //检查发消息用户是否跟当前节点同组
+	if ok {                               //该用户和我是同一组
+		fmt.Printf("message sender's id=%v, pub key=%v.\n", GetIDPrefix(ru.GetID()), ru.PK.GetHexString())
+		if si.VerifySign(ru.PK) { //消息合法
+			fmt.Printf("message verify sign OK.\n")
+			bc = p.GetBlockContext(cgs.GroupID.GetHexString())
+			if bc == nil {
+				panic("ERROR, BlockContext = nil.")
 			} else {
-				fmt.Printf("ERROR, message verify failed.\n")
-				panic("ERROR, message verify failed.\n")
+				if !bc.IsCasting() {
+					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash)
+					fmt.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", b, bc.ConsensusStatus)
+				} else {
+					fmt.Printf("bc already in casting, ignore msg.\n")
+				}
 			}
 		} else {
-			fmt.Printf("message sender not same group, ignored.\n")
+			fmt.Printf("ERROR, message verify failed.\n")
+			panic("ERROR, message verify failed.")
 		}
-
 	} else {
-		panic("OnMessageCrrent failed, invalid gid.")
+		fmt.Printf("message sender not same group, ignored.\n")
+	}
+	return bc
+}
+
+//收到成为当前铸块组消息
+func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
+	fmt.Printf("proc(%v) begin Processer::OnMessageCurrent...\n", p.getPrefix())
+	var cgs CastGroupSummary
+	if cgs.GroupID.Deserialize(ccm.GroupID) != nil {
+		panic("Processer::OnMessageCurrent failed, reason=group id Deserialize.")
+	}
+	cgs.PreHash = ccm.PreHash
+	cgs.PreTime = ccm.PreTime
+	cgs.BlockHeight = ccm.BlockHeight
+	bc := p.beingCastGroup(cgs, ccm.SI)
+	if bc != nil {
+		//to do：屮逸组内广播
 	}
 	fmt.Printf("end Processer::OnMessageCurrent.\n")
 	return
 }
 
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
+//有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
-	fmt.Printf("begin Processer::OnMessageCast, group=%v...\n", ccm.GroupID.GetHexString())
+	fmt.Printf("proc(%v) begin Processer::OnMessageCast, group=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID))
 	bc := p.GetBlockContext(ccm.GroupID.GetHexString())
 	if bc == nil {
 		fmt.Printf("local joined groups=%v.\n", len(p.bcs))
@@ -250,12 +265,13 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		}
 		panic("not found this group.")
 	}
+	fmt.Printf("blockContext status=%v.\n", bc.ConsensusStatus)
 	if !bc.IsCasting() { //当前没有在组铸块中
 		fmt.Printf("processer::OnMessageCast failed, group not in cast.\n")
 		return
 	}
-	cs := GenConsensusSummary(ccm.bh)
-	n := bc.UserCasted(cs, ccm.si)
+	cs := GenConsensusSummary(ccm.BH)
+	n := bc.UserCasted(cs, ccm.SI)
 	//todo 缺少逻辑   班德调用鸠兹索要交易，交易缺失鸠兹走网络 此处应有监听交易到达的处理函数
 	fmt.Printf("processer:OnMessageCast UserCasted result=%v.\n", n)
 	//todo  缺少逻辑  验证完了之后应该在组内广播 自己验证过了(入参是这个嘛？)
@@ -274,8 +290,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	bc := p.GetBlockContext(cvm.GroupID.GetHexString())
-	cs := GenConsensusSummary(cvm.bh)
-	n := bc.UserVerified(cs, cvm.si)
+	cs := GenConsensusSummary(cvm.BH)
+	n := bc.UserVerified(cs, cvm.SI)
 	fmt.Printf("processer::OnMessageVerify UserVerified result=%v.\n", n)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := bc.VerifyGroupSign(cs, p.getGroupPubKey(cvm.GroupID))
@@ -289,12 +305,12 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 	bc := p.GetBlockContext(cbm.GroupID.GetHexString())
-	if p.isBHCastLegal(cbm.bh, cbm.si) { //铸块头合法
+	if p.isBHCastLegal(cbm.BH, cbm.SI) { //铸块头合法
 		//to do : 鸠兹上链保存
-		next_group, err := p.gg.SelectNextGroup(cbm.si.DataHash) //查找下一个铸块组
+		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
 		if err == nil {
 			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
-				bc.BeingCastGroup(cbm.bh.BlockHeight, cbm.bh.PreTime, cbm.si.DataHash)
+				bc.BeingCastGroup(cbm.BH.BlockHeight, cbm.BH.PreTime, cbm.SI.DataHash)
 				//to do : 屮逸组内广播
 			}
 		} else {
@@ -302,7 +318,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 		}
 	} else {
 		//丢弃该块
-		fmt.Printf("received invalid new block, height = %v.\n", cbm.bh.BlockHeight)
+		fmt.Printf("received invalid new block, height = %v.\n", cbm.BH.BlockHeight)
 	}
 }
 
@@ -321,14 +337,14 @@ func (p *Processer) SuccessNewBlock(cs ConsensusBlockSummary, gid groupsig.ID) {
 
 //检查是否轮到自己出块
 func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64, height uint) {
-	fmt.Printf("begin Processer::CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", gid.GetHexString(), user_index, qn, height)
+	fmt.Printf("prov(%v) begin Processer::CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), user_index, qn, height)
 	if user_index < 0 || qn < 0 {
 		return
 	}
 	sgi := p.getGroup(gid)
 	pos := sgi.GetMinerPos(p.GetMinerID())
-	fmt.Printf("Current KING=%v.\n", sgi.GetCastor(int(user_index)).GetHexString())
-	fmt.Printf("Current node=%v, index=%v.\n", p.GetMinerID().GetHexString(), pos)
+	fmt.Printf("Current KING=%v.\n", GetIDPrefix(sgi.GetCastor(int(user_index))))
+	fmt.Printf("Current node=%v, index=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(user_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!.\n")
 		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
@@ -351,23 +367,23 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		panic("Processer::OnMessageGroupInit failed, CreateGroupContextWithMessage return nil.")
 	}
 	gs := gc.GetGroupStatus()
-	fmt.Printf("joining group(%v) status=%v.\n", grm.gi.DummyID.GetHexString(), gs)
+	fmt.Printf("joining group(%v) status=%v.\n", grm.GI.DummyID.GetHexString(), gs)
 	if gs == GIS_RAW {
 		fmt.Printf("begin GenSharePieces...\n")
 		shares := gc.GenSharePieces() //生成秘密分享
 		fmt.Printf("node(%v) end GenSharePieces, piece size=%v.\n", p.GetMinerID().GetHexString(), len(shares))
 		var spm ConsensusSharePieceMessage
-		spm.GISHash = grm.gi.GenHash()
-		spm.DummyID = grm.gi.DummyID
+		spm.GISHash = grm.GI.GenHash()
+		spm.DummyID = grm.GI.DummyID
 		ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-		spm.si.SignMember = p.GetMinerID()
+		spm.SI.SignMember = p.GetMinerID()
 		for id, piece := range shares {
 			if id.IsValid() && piece.IsValid() {
 				spm.Dest = id
-				spm.share = piece
+				spm.Share = piece
 				sb := spm.GenSign(ski)
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
-				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.share.share.GetHexString(), spm.share.pub.GetHexString())
+				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.share.GetHexString(), spm.Share.pub.GetHexString())
 				//todo : 调用屮逸的发送函数
 				//p2p.Peer.SendKeySharePiece(spm)
 				dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
@@ -382,7 +398,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		}
 		fmt.Printf("end GenSharePieces.\n")
 	} else {
-		fmt.Printf("group(%v) status=%v, ignore init message.\n", grm.gi.DummyID.GetHexString(), gs)
+		fmt.Printf("group(%v) status=%v, ignore init message.\n", grm.GI.DummyID.GetHexString(), gs)
 	}
 	fmt.Printf("end Processer::OnMessageGroupInit.\n")
 	return
@@ -405,19 +421,19 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 		g, sk := gc.GetGroupInfo()
 		if g.IsValid() && sk.IsValid() {
 			p.addSignKey(g.GetID(), sk)
-			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.GetID().GetHexString(), g.pk.GetHexString())
+			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.GetID().GetHexString(), g.PK.GetHexString())
 			//to do : 把初始化完成的组加入到gc（更新）
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-				msg.Gi.gis = gc.gis
-				msg.Gi.GroupID = g.GetID()
-				msg.Gi.GroupPK = g.pk
+				msg.GI.gis = gc.gis
+				msg.GI.GroupID = g.GetID()
+				msg.GI.GroupPK = g.PK
 				var mems []PubKeyInfo
 				for _, v := range gc.mems {
 					mems = append(mems, v)
 				}
-				msg.Gi.members = mems
+				msg.GI.members = mems
 				msg.GenSign(ski)
 				//todo : 把组初始化完成消息广播到全网
 				//p2p.Peer.BroadcastGroupInfo(msg)
@@ -439,14 +455,14 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 //最终版本修改为父亲节点进行验证（51%）和上链
 //全网节点处理函数->to do : 调整为父亲组节点处理函数
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
-	fmt.Printf("proc(%v)bein Processer::OnMessageGroupInited, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.si.SignMember))
+	fmt.Printf("proc(%v)bein Processer::OnMessageGroupInited, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.SignMember))
 	var ngmd NewGroupMemberData
-	ngmd.h = gim.Gi.gis.GenHash()
-	ngmd.gid = gim.Gi.GroupID
-	ngmd.gpk = gim.Gi.GroupPK
+	ngmd.h = gim.GI.gis.GenHash()
+	ngmd.gid = gim.GI.GroupID
+	ngmd.gpk = gim.GI.GroupPK
 	var mid GroupMinerID
-	mid.gid = gim.Gi.gis.DummyID
-	mid.uid = gim.si.SignMember
+	mid.gid = gim.GI.gis.DummyID
+	mid.uid = gim.SI.SignMember
 	result := p.gg.GroupInitedMessage(mid, ngmd)
 	p.inited_count++
 	fmt.Printf("proc(%v)gg.GroupInitedMessage return=%v, inited_count=%v.\n", p.getPrefix(), result, p.inited_count)
@@ -455,11 +471,11 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	}
 	switch result {
 	case 1: //收到组内相同消息>=阈值，可上链
-		b := p.gg.AddGroup(gim.Gi)
+		b := p.gg.AddGroup(gim.GI)
 		fmt.Printf("Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
 		bc := new(BlockContext)
-		bc.Init(GroupMinerID{gim.Gi.GroupID, p.GetMinerID()})
-		sgi, err := p.gg.GetGroupByID(gim.Gi.GroupID)
+		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
+		sgi, err := p.gg.GetGroupByID(gim.GI.GroupID)
 		if err != nil {
 			panic("GetGroupByID failed.\n")
 		}
@@ -555,12 +571,12 @@ func (p Processer) castBlock(gid groupsig.ID, qn int64) *core.BlockHeader {
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
 		}
-		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, tmp_id.GetHexString())
+		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, GetIDPrefix(tmp_id))
 		//发送该出块消息
 		var ccm ConsensusCastMessage
-		ccm.bh = *bh
+		ccm.BH = *bh
 		ccm.GroupID = gid
-		ccm.si = si
+		ccm.SI = si
 		for _, proc := range p.GroupProcs {
 			proc.OnMessageCast(ccm)
 		}

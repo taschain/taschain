@@ -123,30 +123,30 @@ func (sd SignData) HasSign() bool {
 
 //id->公钥对
 type PubKeyInfo struct {
-	id groupsig.ID //矿工ID
-	pk groupsig.Pubkey
+	ID groupsig.ID
+	PK groupsig.Pubkey
 }
 
 func (p PubKeyInfo) IsValid() bool {
-	return p.id.IsValid() && p.pk.IsValid()
+	return p.ID.IsValid() && p.PK.IsValid()
 }
 
 func (p PubKeyInfo) GetID() groupsig.ID {
-	return p.id
+	return p.ID
 }
 
 //id->私钥对
 type SecKeyInfo struct {
-	id groupsig.ID //矿工ID
-	sk groupsig.Seckey
+	ID groupsig.ID
+	SK groupsig.Seckey
 }
 
 func (s SecKeyInfo) IsValid() bool {
-	return s.id.IsValid() && s.sk.IsValid()
+	return s.ID.IsValid() && s.SK.IsValid()
 }
 
 func (s SecKeyInfo) GetID() groupsig.ID {
-	return s.id
+	return s.ID
 }
 
 //组内秘密分享消息结构
@@ -218,6 +218,14 @@ func (mi *MinerInfo) Deserialize(buf []byte) (err error) {
 	}
 	copy(mi.SecretSeed[:], buf[groupsig.IDLENGTH:])
 	return
+}
+
+//成为当前铸块组共识摘要
+type CastGroupSummary struct {
+	PreHash     common.Hash //上一块哈希
+	PreTime     time.Time   //上一块完成时间
+	BlockHeight uint64      //当前铸块高度
+	GroupID     groupsig.ID //当前组ID
 }
 
 //铸块共识摘要

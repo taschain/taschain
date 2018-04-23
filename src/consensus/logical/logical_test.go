@@ -3,9 +3,12 @@ package logical
 import (
 	"consensus/groupsig"
 	"consensus/rand"
+	"crypto/sha1"
 	"fmt"
 	"testing"
 	"time"
+
+	"common"
 )
 
 const TEST_MEMBERS = 5
@@ -455,11 +458,11 @@ func testLogicGroupInitEx(t *testing.T) {
 		v.setProcs(procs)
 	}
 	var grm ConsensusGroupRawMessage
-	copy(grm.mems[:], mems[:])
-	grm.gi = genDummyGIS(root, "64-2")
+	copy(grm.MEMS[:], mems[:])
+	grm.GI = genDummyGIS(root, "64-2")
 	//to do : 一个矿工的消息签名是用common还是bls?
-	grm.si = GenSignData(grm.gi.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
-	fmt.Printf("grm msg member size=%v.\n", len(grm.mems))
+	grm.SI = GenSignData(grm.GI.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
+	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
 	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息
@@ -476,7 +479,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	//聚合组公钥
 	var pub_pieces []groupsig.Pubkey
 	for _, v := range procs {
-		pub_piece := v.GetMinerPubKeyPieceForGroup(grm.gi.DummyID)
+		pub_piece := v.GetMinerPubKeyPieceForGroup(grm.GI.DummyID)
 		pub_pieces = append(pub_pieces, pub_piece)
 	}
 	group_pub := groupsig.AggregatePubkeys(pub_pieces)
@@ -493,32 +496,33 @@ func testLogicGroupInitEx(t *testing.T) {
 		groups := v.getMinerGroups()
 		fmt.Printf("---proc(%v), mid=%v, joined groups=%v.\n", index, k, len(groups))
 		for gid, sec_info := range groups {
-			fmt.Printf("------group=%v, sign key=%v.\n", gid, sec_info.sk.GetHexString())
+			fmt.Printf("------group=%v, sign key=%v.\n", gid, sec_info.SK.GetHexString())
 		}
 		index++
 	}
-	/*
-		//铸块测试
-		var ccm ConsensusCurrentMessage
-		pre_hash := sha1.Sum([]byte("tas root block"))
-		ccm.PreHash = common.BytesToHash(pre_hash[:])
-		ccm.BlockHeight = 1
-		ccm.PreTime = time.Now()
-		for _, v := range procs {
-			groups := v.getMinerGroups()
-			for _, g := range groups {
-				ccm.GroupID = g.id.Serialize()
-				break
-			}
-			mi := v.getmi()
-			ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
+
+	//铸块测试
+	fmt.Printf("\nbegin group cast test...\n")
+	var ccm ConsensusCurrentMessage
+	pre_hash := sha1.Sum([]byte("tas root block"))
+	ccm.PreHash = common.BytesToHash(pre_hash[:])
+	ccm.BlockHeight = 1
+	ccm.PreTime = time.Now()
+	for _, v := range procs {
+		groups := v.getMinerGroups()
+		for _, g := range groups {
+			ccm.GroupID = g.GetID().Serialize()
 			break
 		}
+		mi := v.getmi()
+		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
+		break
+	}
 
-		for _, v := range procs {
-			v.OnMessageCurrent(ccm)
-		}
-	*/
+	for _, v := range procs {
+		v.OnMessageCurrent(ccm)
+	}
+
 	return
 }
 
