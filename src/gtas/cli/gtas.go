@@ -15,7 +15,7 @@ const (
 	// RemoteHost 默认host
 	RemoteHost = "127.0.0.1"
 	// RemotePort 默认端口
-	RemotePort = 8080
+	RemotePort = 8088
 )
 
 var configManager = &common.GlobalConf
@@ -36,6 +36,8 @@ func (gtas *Gtas) Run() {
 
 	// 投票解析
 	voteCmd := app.Command("vote", "new vote")
+	//modelNum =
+	// from
 	configVote := VoteConfigParams(voteCmd.Arg("config", voteConfigHelp()))
 
 	// 交易解析
@@ -47,17 +49,17 @@ func (gtas *Gtas) Run() {
 
 	// 查询余额解析
 	balanceCmd := app.Command("balance", "get the balance of account")
-	accountBalance := balanceCmd.Flag("account", "account").String()
+	accountBalance := balanceCmd.Flag("account", "account address").String()
 
 	// 新建账户解析
-	newCmd := app.Command("newaccount", "newaccount")
+	newCmd := app.Command("newaccount", "new account")
 
 	// mine
-	mineCmd := app.Command("mine", "mine")
+	mineCmd := app.Command("miner", "miner start")
 	// rpc解析
-	rpc := mineCmd.Flag("rpc", "rpc server").Bool()
+	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
 	rpcAddr := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
-	rpcPort := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8080").Uint()
+	rpcPort := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -72,24 +74,30 @@ func (gtas *Gtas) Run() {
 		vBytes, err := vConfig.AbiEncode()
 		if err != nil {
 			fmt.Println(err)
+		} else {
+			fmt.Printf("%v", vBytes)
 		}
-		fmt.Printf("%v", vBytes)
+		return
 	case tCmd.FullCommand():
 		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_t", *fromT, *toT, *valueT, *codeT)
 		if err != nil {
 			fmt.Println(err)
 		}
 		fmt.Println(msg)
+		return
 	case balanceCmd.FullCommand():
 		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
 		if err != nil {
 			fmt.Println(err)
+		} else {
+			fmt.Println(msg)
 		}
-		fmt.Println(msg)
+		return
 	case newCmd.FullCommand():
 		privKey, address := walletManager.newWallet()
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
+		return
 	case mineCmd.FullCommand():
 		err = gtas.fullInit()
 		if err != nil {
@@ -104,6 +112,13 @@ func (gtas *Gtas) Run() {
 			}
 		}
 	case clearCmd.FullCommand():
+		err := ClearBlock()
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println("clear blockchain successfully")
+		}
+		return
 	}
 
 	// 截获ctrl+c中断信号，退出
@@ -121,7 +136,6 @@ func ClearBlock() error {
 }
 
 func (gtas *Gtas) simpleInit(configPath string) {
-
 	common.InitConf(configPath)
 	walletManager = newWallets()
 }

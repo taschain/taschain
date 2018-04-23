@@ -14,6 +14,9 @@ type wallets []wallet
 
 //
 func (ws *wallets) transaction(source, target string, value uint64, code string) error {
+	if source == "" {
+		source = (*ws)[0].Address
+	}
 	nonce := blockChain.GetNonce(common.HexToAddress(source))
 	txpool := blockChain.GetTransactionPool()
 	if strings.HasPrefix(code, "0x") {
@@ -23,7 +26,10 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if err != nil {
 		return err
 	}
-	txpool.Add(genTx(getRandomString(8), 1, source, target, nonce+1, value, codeBytes))
+	_, err = txpool.Add(genTx(getRandomString(8), 0, source, target, nonce+1, value, codeBytes, []byte{}, 0))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -67,9 +73,23 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 	return balance.Int64(), nil
 }
 
-func newVote(config *global.VoteConfig) error {
+func (ws *wallets) newVote(source string, modelNum string, config *global.VoteConfig) error {
+	if source == "" {
+		source = (*ws)[0].Address
+	}
+	abi, err := config.AbiEncode()
+	if err != nil {
+		return err
+	}
+	nonce := blockChain.GetNonce(common.HexToAddress(source))
+	txpool := blockChain.GetTransactionPool()
+	_, err = txpool.Add(genTx(getRandomString(8), 0, source, "", nonce+1, 0, abi, []byte(modelNum), 1))
+	if err != nil {
+		return err
+	}
 	return nil
 }
+
 
 func newWallets() wallets {
 	var ws wallets
