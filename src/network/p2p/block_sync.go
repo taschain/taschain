@@ -90,17 +90,14 @@ func (bs *blockSyncer) start() {
 		select {
 		case hr := <-bs.HeightRequestCh:
 			//收到块高度请求
-			//todo  验证签名
 			height, e := bs.getHeight()
 			if e != nil {
 				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
-			// todo 签名
 			sendBlockHeight(hr.SourceId, height)
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
-			//todo  验证签名
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
 				bs.neighborMaxHeight = h.Height
@@ -115,7 +112,6 @@ func (bs *blockSyncer) start() {
 			//	return
 			//}
 			var blocks []*core.Block
-			// todo 签名
 			sendBlocks(br.SourceId, blocks)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
@@ -132,7 +128,6 @@ func (bs *blockSyncer) syncBlock() {
 	bs.bestNodeId = ""
 	bs.maxHeightLock.Unlock()
 
-	//todo 签名
 	go requestBlockChainHeight()
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
@@ -151,7 +146,6 @@ func (bs *blockSyncer) syncBlock() {
 		return
 	} else {
 		taslog.P2pLogger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		//todo 签名
 		requestBlockByHeight(bestNodeId, localHeight,currentHash)
 	}
 

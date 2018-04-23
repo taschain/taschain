@@ -18,6 +18,7 @@ import (
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
 	"network/biz"
+	"consensus/mediator"
 )
 
 const (
@@ -72,10 +73,11 @@ func initServer(config *common.ConfManager) error {
 		return e3
 	}
 
+	var proc = mediator.Proc
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
 		nil )
 
-	cHandler := biz.NewConsensusMessageHandler(nil, nil, nil, nil, nil, nil)
+	cHandler := biz.NewConsensusMessageHandler(proc.OnMessageGroupInit, proc.OnMessageSharePiece, proc.OnMessageGroupInited, proc.OnMessageCurrent, proc.OnMessageCast, proc.OnMessageVerify)
 
 	p2p.InitServer(host, dht, bHandler, cHandler)
 	return nil
