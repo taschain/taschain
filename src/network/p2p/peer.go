@@ -19,6 +19,8 @@ const (
 
 var Peer peer
 
+var logger = taslog.GetLogger(taslog.P2PConfig)
+
 type peer struct {
 	KnownTx map[groupsig.ID][]common.Hash
 
@@ -43,7 +45,7 @@ func InitPeer(self *Node) {
 func (p *peer) SendGroupInitMessage(grm logical.ConsensusGroupRawMessage) {
 	body, e := MarshalConsensusGroupRawMessage(&grm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusGroupRawMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusGroupRawMessage because of marshal error!\n")
 		return
 	}
 	m := Message{Code: GROUP_INIT_MSG, Body: body}
@@ -56,7 +58,7 @@ func (p *peer) SendGroupInitMessage(grm logical.ConsensusGroupRawMessage) {
 func (p *peer) SendKeySharePiece(spm logical.ConsensusSharePieceMessage) {
 	body, e := MarshalConsensusSharePieceMessage(&spm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusSharePieceMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusSharePieceMessage because of marshal error!\n")
 		return
 	}
 	id := spm.Dest.GetHexString()
@@ -70,7 +72,7 @@ func (p *peer) BroadcastGroupInfo(cgm logical.ConsensusGroupInitedMessage) {
 
 	body, e := MarshalConsensusGroupInitedMessage(&cgm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusGroupInitedMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusGroupInitedMessage because of marshal error!\n")
 		return
 	}
 	m := Message{Code: GROUP_INIT_DONE_MSG, Body: body}
@@ -94,7 +96,7 @@ func (p *peer) SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
 	//todo 从鸠兹获得
 	body, e := MarshalConsensusCurrentMessagee(ccm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusCurrentMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusCurrentMessage because of marshal error!\n")
 		return
 	}
 	m := Message{Code: CURRENT_GROUP_CAST_MSG, Body: body}
@@ -111,7 +113,7 @@ func (p *peer) SendCastVerify(ccm *logical.ConsensusCastMessage) {
 
 	body, e := MarshalConsensusCastMessage(ccm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusCastMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusCastMessage because of marshal error!\n")
 		return
 	}
 	m := Message{Code: CAST_VERIFY_MSG, Body: body}
@@ -128,7 +130,7 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 
 	body, e := MarshalConsensusVerifyMessage(cvm)
 	if e != nil {
-		taslog.P2pLogger.Error("Discard ConsensusVerifyMessage because of marshal error!\n")
+		logger.Error("Discard ConsensusVerifyMessage because of marshal error!\n")
 		return
 	}
 	m := Message{Code: VARIFIED_CAST_MSG, Body: body}

@@ -189,7 +189,7 @@ message StaticGroupInfo{
 
     repeated PubKeyInfo  members = 3;
 
-    repeated ConsensusGroupInitSummary Gis  = 4;
+    required ConsensusGroupInitSummary Gis  = 4;
 }
 
 message ConsensusGroupInitedMessage{

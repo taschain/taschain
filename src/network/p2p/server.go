@@ -11,7 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 	"pb"
-	"taslog"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"strings"
@@ -85,7 +84,7 @@ func InitServer(host host.Host, dht *dht.IpfsDHT,	bHandler biz.BlockChainMessage
 func (s *server) SendMessage(m Message, id string) {
 	bytes, e := MarshalMessage(m)
 	if e != nil {
-		taslog.P2pLogger.Errorf("Marshal message error:%s\n", e.Error())
+		logger.Errorf("Marshal message error:%s\n", e.Error())
 		return
 	}
 
@@ -102,7 +101,7 @@ func (s *server) SendMessage(m Message, id string) {
 func (s *server) send(b []byte, id string) {
 	peerInfo, error := s.dht.FindPeer(context.Background(), gpeer.ID(id))
 	if error != nil || peerInfo.ID.String() == "" {
-		taslog.P2pLogger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
+		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
 	}
 	s.host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
@@ -113,14 +112,14 @@ func (s *server) send(b []byte, id string) {
 	stream, e := s.host.Network().NewStream(ctx, gpeer.ID(id))
 	defer stream.Close()
 	if e != nil {
-		taslog.P2pLogger.Errorf("New stream for %s error:%s\n", id, error.Error())
+		logger.Errorf("New stream for %s error:%s\n", id, error.Error())
 		panic("New stream error!")
 	}
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
 		if r != l || err != nil {
-			taslog.P2pLogger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+			logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
 			panic("Writew stream error!")
 		}
 	} else {
@@ -148,7 +147,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if n != 4 || err != nil {
-		taslog.P2pLogger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
+		logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
@@ -156,7 +155,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
 		if n1 != pkgLength || err1 != nil {
-			taslog.P2pLogger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", pkgLength, err.Error(), n)
+			logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", pkgLength, err.Error(), n)
 			return
 		}
 	} else {
@@ -166,7 +165,7 @@ func swarmStreamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if n1 != PACKAGE_MAX_SIZE || err1 != nil {
-				taslog.P2pLogger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
@@ -182,13 +181,13 @@ func swarmStreamHandler(stream inet.Stream) {
 
 func (s *server) handleMessage(b []byte, from string) {
 	if len(b) < 4 {
-		taslog.P2pLogger.Errorf("Message  format error!\n")
+		logger.Errorf("Message  format error!\n")
 		return
 	}
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
-		taslog.P2pLogger.Errorf("Proto unmarshal error:%s\n", error.Error())
+		logger.Errorf("Proto unmarshal error:%s\n", error.Error())
 	}
 
 	code := message.Code
@@ -196,48 +195,48 @@ func (s *server) handleMessage(b []byte, from string) {
 	case GROUP_INIT_MSG:
 		m, e := UnMarshalConsensusGroupRawMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageGroupInitFn(*m)
 	case KEY_PIECE_MSG:
 		m, e := UnMarshalConsensusSharePieceMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageSharePieceFn(*m)
 	case GROUP_INIT_DONE_MSG:
 		m, e := UnMarshalConsensusGroupInitedMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageGroupInitedFn(*m)
 	case CURRENT_GROUP_CAST_MSG:
 		m,e := UnMarshalConsensusCurrentMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageCurrentGroupCastFn(*m)
 	case CAST_VERIFY_MSG:
 		m,e := UnMarshalConsensusCastMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageCastFn(*m)
 	case VARIFIED_CAST_MSG:
 		m,e := UnMarshalConsensusVerifyMessage(b)
 		if e != nil {
-			taslog.P2pLogger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
+			logger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageVerifiedCastFn(*m)
 
 	default:
-		taslog.P2pLogger.Errorf("Message not support! Code:%d\n", code)
+		logger.Errorf("Message not support! Code:%d\n", code)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"common"
 	"net"
 	"strconv"
-	"taslog"
 	"consensus/groupsig"
 )
 
@@ -44,7 +43,7 @@ func InitSelfNode(config *common.ConfManager) (*Node, error) {
 	port := getAvailableTCPPort(ip, BASE_PORT)
 
 	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
-	taslog.P2pLogger.Debug(n.String())
+	logger.Debug(n.String())
 	return &n, nil
 }
 
@@ -86,7 +85,7 @@ func getAvailableTCPPort(ip string, port int) int {
 	}
 
 	if port > 65535 {
-		taslog.P2pLogger.Error("No available port!\n")
+		logger.Error("No available port!\n")
 		return -1
 	}
 

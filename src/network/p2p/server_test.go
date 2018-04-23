@@ -123,7 +123,7 @@ func testSteamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if n1 != PACKAGE_MAX_SIZE || err1 != nil {
-				taslog.P2pLogger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)

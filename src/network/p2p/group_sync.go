@@ -4,7 +4,6 @@ import (
 	"core"
 	"sync"
 	"time"
-	"taslog"
 	"common"
 )
 
@@ -84,7 +83,7 @@ func (gs *groupSyncer) start() {
 			//todo  验证签名
 			height, e := gs.getHeight()
 			if e != nil {
-				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
+				logger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
 			//todo 签名
@@ -130,7 +129,7 @@ func (gs *groupSyncer) syncGroup() {
 	<-t.C
 	localHeight, currentHash, e := gs.getLocalHeight()
 	if e != nil {
-		taslog.P2pLogger.Errorf("Self get group height error:%s\n", e.Error())
+		logger.Errorf("Self get group height error:%s\n", e.Error())
 		return
 	}
 	gs.maxHeightLock.Lock()
@@ -138,10 +137,10 @@ func (gs *groupSyncer) syncGroup() {
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		taslog.P2pLogger.Info("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		logger.Info("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		taslog.P2pLogger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		//todo 签名
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}

@@ -5,9 +5,9 @@ import (
 	"core"
 	"github.com/golang/protobuf/proto"
 	"common"
-	"taslog"
 	"time"
 	"consensus/logical"
+	"consensus/groupsig"
 )
 
 //--------------------------------------Transactions-------------------------------------------------------------------
@@ -20,7 +20,7 @@ func UnMarshalTransaction(b []byte) (*core.Transaction, error) {
 	t := new(tas_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
-		taslog.P2pLogger.Errorf("Unmarshal transaction error:%s\n", error.Error())
+		logger.Errorf("Unmarshal transaction error:%s\n", error.Error())
 		return &core.Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
@@ -37,7 +37,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 	ts := new(tas_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
-		taslog.P2pLogger.Errorf("Unmarshal transactions error:%s\n", error.Error())
+		logger.Errorf("Unmarshal transactions error:%s\n", error.Error())
 		return nil, error
 	}
 
@@ -87,39 +87,39 @@ func UnMarshalBlock(bytes []byte) (*core.Block, error) {
 	b := new(tas_pb.Block)
 	error := proto.Unmarshal(bytes, b)
 	if error != nil {
-		taslog.P2pLogger.Errorf("Unmarshal Block error:%s\n", error.Error())
+		logger.Errorf("Unmarshal Block error:%s\n", error.Error())
 		return nil, error
 	}
 	block := pbToBlock(b)
 	return block, nil
 }
 
-//func MarshalBlocks(bs []*core.Block) ([]byte, error) {
-//	blocks := make([]*tas_pb.Block, len(bs))
-//	for _, b := range bs {
-//		block := blockToPb(b)
-//		blocks = append(blocks, block)
-//	}
-//	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
-//	return proto.Marshal(&blockSlice)
-//}
-//
-//func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
-//	blockSlice := new(tas_pb.BlockSlice)
-//	error := proto.Unmarshal(b, blockSlice)
-//	if error != nil {
-//		taslog.P2pLogger.Errorf("Unmarshal Blocks error:%s\n", error.Error())
-//		return nil, error
-//	}
-//	blocks := blockSlice.Blocks
-//	result := make([]*core.Block, len(blocks))
-//
-//	for _, b := range blocks {
-//		block := pbToBlock(b)
-//		result = append(result, block)
-//	}
-//	return result, nil
-//}
+func MarshalBlocks(bs []*core.Block) ([]byte, error) {
+	blocks := make([]*tas_pb.Block, len(bs))
+	for _, b := range bs {
+		block := blockToPb(b)
+		blocks = append(blocks, block)
+	}
+	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
+	return proto.Marshal(&blockSlice)
+}
+
+func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
+	blockSlice := new(tas_pb.BlockSlice)
+	error := proto.Unmarshal(b, blockSlice)
+	if error != nil {
+		logger.Errorf("Unmarshal Blocks error:%s\n", error.Error())
+		return nil, error
+	}
+	blocks := blockSlice.Blocks
+	result := make([]*core.Block, len(blocks))
+
+	for _, b := range blocks {
+		block := pbToBlock(b)
+		result = append(result, block)
+	}
+	return result, nil
+}
 
 func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
@@ -129,13 +129,13 @@ func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
 	}
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
-		taslog.P2pLogger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
+		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
 		return nil
 	}
 
 	curTime, e2 := h.CurTime.MarshalBinary()
 	if e2 != nil {
-		taslog.P2pLogger.Errorf("BlockHeaderToPb marshal cur time error:%s\n", e2.Error())
+		logger.Errorf("BlockHeaderToPb marshal cur time error:%s\n", e2.Error())
 		return nil
 	}
 
@@ -181,28 +181,28 @@ func pbToBlock(b *tas_pb.Block) *core.Block {
 	return &block
 }
 
-func MarshalBlockMap(blockMap map[uint64]core.Block) ([]byte, error) {
-	m := make(map[uint64]*tas_pb.Block, len(blockMap))
-	for id, block := range blockMap {
-		m[id] = blockToPb(&block)
-	}
-	bMap := tas_pb.BlockMap{Blocks: m}
-	return proto.Marshal(&bMap)
-}
-
-func UnMarshalBlockMap(b []byte) (map[uint64]*core.Block, error) {
-	blockMap := new(tas_pb.BlockMap)
-	e := proto.Unmarshal(b, blockMap)
-	if e != nil {
-		taslog.P2pLogger.Errorf("UnMarshalBlockMap error:%s\n", e.Error())
-		return nil, e
-	}
-	m := make(map[uint64]*core.Block, len(blockMap.Blocks))
-	for id, block := range blockMap.Blocks {
-		m[id] = pbToBlock(block)
-	}
-	return m, nil
-}
+//func MarshalBlockMap(blockMap map[uint64]core.Block) ([]byte, error) {
+//	m := make(map[uint64]*tas_pb.Block, len(blockMap))
+//	for id, block := range blockMap {
+//		m[id] = blockToPb(&block)
+//	}
+//	bMap := tas_pb.BlockMap{Blocks: m}
+//	return proto.Marshal(&bMap)
+//}
+//
+//func UnMarshalBlockMap(b []byte) (map[uint64]*core.Block, error) {
+//	blockMap := new(tas_pb.BlockMap)
+//	e := proto.Unmarshal(b, blockMap)
+//	if e != nil {
+//		logger.Errorf("UnMarshalBlockMap error:%s\n", e.Error())
+//		return nil, e
+//	}
+//	m := make(map[uint64]*core.Block, len(blockMap.Blocks))
+//	for id, block := range blockMap.Blocks {
+//		m[id] = pbToBlock(block)
+//	}
+//	return m, nil
+//}
 
 //--------------------------------------------------Group---------------------------------------------------------------
 
@@ -215,7 +215,7 @@ func UnMarshalMember(b []byte) (*core.Member, error) {
 	member := new(tas_pb.Member)
 	e := proto.Unmarshal(b, member)
 	if e != nil {
-		taslog.P2pLogger.Errorf("UnMarshalMember error:%s\n", e.Error())
+		logger.Errorf("UnMarshalMember error:%s\n", e.Error())
 		return nil, e
 	}
 	m := pbToMember(member)
@@ -241,7 +241,7 @@ func UnMarshalGroup(b []byte) (*core.Group, error) {
 	group := new(tas_pb.Group)
 	e := proto.Unmarshal(b, group)
 	if e != nil {
-		taslog.P2pLogger.Errorf("UnMarshalGroup error:%s\n", e.Error())
+		logger.Errorf("UnMarshalGroup error:%s\n", e.Error())
 		return nil, e
 	}
 	g := pbToGroup(group)
@@ -281,7 +281,7 @@ func UnMarshalGroupMap(b []byte) (map[uint64]core.Group, error) {
 	groupMap := new(tas_pb.GroupMap)
 	e := proto.Unmarshal(b, groupMap)
 	if e != nil {
-		taslog.P2pLogger.Errorf("UnMarshalGroupMap error:%s\n", e.Error())
+		logger.Errorf("UnMarshalGroupMap error:%s\n", e.Error())
 		return nil, e
 	}
 	g := make(map[uint64]core.Group, len(groupMap.Groups))
@@ -294,50 +294,349 @@ func UnMarshalGroupMap(b []byte) (map[uint64]core.Group, error) {
 //----------------------------------------------组初始化---------------------------------------------------------------
 
 func MarshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byte, error) {
-	return nil, nil
+	gi := consensusGroupInitSummaryToPb(&m.GI)
+
+	sign := signDataToPb(&m.SI)
+
+	ids := make([]*tas_pb.PubKeyInfo, len(m.MEMS))
+	for _, id := range m.MEMS {
+		ids = append(ids, pubKeyInfoToPb(&id))
+	}
+
+	message := tas_pb.ConsensusGroupRawMessage{ConsensusGroupInitSummary: gi, Ids: ids, Sign: sign}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
-	return nil, nil
+	message := new(tas_pb.ConsensusGroupRawMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusGroupRawMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
+
+	sign := pbToSignData(message.Sign)
+
+	ids := [5]logical.PubKeyInfo{}
+	for i := 0; i < 5; i++ {
+		pkInfo := pbToPubKeyInfo(message.Ids[i])
+		ids[i] = *pkInfo
+	}
+
+	m := logical.ConsensusGroupRawMessage{GI: *gi, MEMS: ids, SI: *sign}
+	return &m, nil
 }
 
 func MarshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([]byte, error) {
-	return nil, nil
+	gisHash := m.GISHash.Bytes()
+	dummyId := m.DummyID.Serialize()
+	dest := m.Dest.Serialize()
+	share := sharePieceToPb(&m.Share)
+	sign := signDataToPb(&m.SI)
+
+	message := tas_pb.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, SharePiece: share, Sign: sign}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePieceMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusSharePieceMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusSharePieceMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	gisHash := common.BytesToHash(m.GISHash)
+	var dummyId, dest groupsig.ID
+	e1 := dummyId.Deserialize(m.DummyID)
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil, e1
+	}
+
+	e2 := dest.Deserialize(m.Dest)
+	if e2 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e2.Error())
+		return nil, e2
+	}
+
+	share := pbToSharePiece(m.SharePiece)
+	sign := pbToSignData(m.Sign)
+
+	message := logical.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, Share: *share, SI: *sign}
+	return &message, nil
 }
 
 func MarshalConsensusGroupInitedMessage(m *logical.ConsensusGroupInitedMessage) ([]byte, error) {
-	return nil, nil
+	gi := staticGroupInfoToPb(&m.GI)
+	si := signDataToPb(&m.SI)
+	message := tas_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusGroupInitedMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusGroupInitedMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	gi := pbToStaticGroup(m.StaticGroupInfo)
+	si := pbToSignData(m.Sign)
+	message := logical.ConsensusGroupInitedMessage{GI: *gi, SI: *si}
+	return &message, nil
 }
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 func MarshalConsensusCurrentMessagee(m *logical.ConsensusCurrentMessage) ([]byte, error) {
-	return nil, nil
+	GroupID := m.GroupID
+	PreHash := m.PreHash.Bytes()
+	PreTime, e := m.PreTime.MarshalBinary()
+	if e != nil {
+		logger.Errorf("MarshalConsensusCurrentMessagee marshal PreTime error:%s\n", e.Error())
+		return nil, e
+	}
+
+	BlockHeight := m.BlockHeight
+	SI := signDataToPb(&m.SI)
+	message := tas_pb.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: &BlockHeight, Sign: SI}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusCurrentMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusCurrentMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	GroupID := m.GroupID
+	PreHash := common.BytesToHash(m.PreHash)
+
+	var PreTime time.Time
+	PreTime.UnmarshalBinary(m.PreTime)
+
+	BlockHeight := m.BlockHeight
+	SI := pbToSignData(m.Sign)
+	message := logical.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: *BlockHeight, SI: *SI}
+	return &message, nil
 }
 
 func MarshalConsensusCastMessage(m *logical.ConsensusCastMessage) ([]byte, error) {
-	return nil, nil
+	bh := blockHeaderToPb(&m.BH)
+	groupId := m.GroupID.Serialize()
+	si := signDataToPb(&m.SI)
+
+	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, GroupID: groupId, Sign: si}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusBlockMessageBase)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusCastMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	bh := pbToBlockHeader(m.Bh)
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(m.GroupID)
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil, e1
+	}
+	si := pbToSignData(m.Sign)
+	message := logical.ConsensusCastMessage{BH: *bh, GroupID: groupId, SI: *si}
+	return &message, nil
 }
 
 func MarshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, error) {
-	return nil, nil
+	bh := blockHeaderToPb(&m.BH)
+	groupId := m.GroupID.Serialize()
+	si := signDataToPb(&m.SI)
+
+	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, GroupID: groupId, Sign: si}
+	return proto.Marshal(&message)
 }
 
 func UnMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage, error) {
-	return nil,nil
+	m := new(tas_pb.ConsensusBlockMessageBase)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshalConsensusVerifyMessage error:%s\n", e.Error())
+		return nil, e
+	}
+
+	bh := pbToBlockHeader(m.Bh)
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(m.GroupID)
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil, e1
+	}
+	si := pbToSignData(m.Sign)
+	message := logical.ConsensusVerifyMessage{BH: *bh, GroupID: groupId, SI: *si}
+	return &message, nil
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+func consensusGroupInitSummaryToPb(m *logical.ConsensusGroupInitSummary) *tas_pb.ConsensusGroupInitSummary {
+	beginTime, e := m.BeginTime.MarshalBinary()
+	if e != nil {
+		logger.Errorf("ConsensusGroupInitSummary marshal begin time error:%s\n", e.Error())
+		return nil
+	}
+
+	name := []byte{}
+	for _, b := range m.Name {
+		name = append(name, b)
+	}
+	message := tas_pb.ConsensusGroupInitSummary{ParentID: m.ParentID.Serialize(), Authority: &m.Authority,
+		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime}
+	return &message
+}
+
+func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical.ConsensusGroupInitSummary {
+	var beginTime time.Time
+	beginTime.UnmarshalBinary(m.BeginTime)
+
+	name := [64]byte{}
+	for i := 0; i < len(name); i++ {
+		name[i] = m.Name[i]
+	}
+
+	var parentId groupsig.ID
+	e1 := parentId.Deserialize(m.ParentID)
+
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil
+	}
+
+	var dummyID groupsig.ID
+	e2 := parentId.Deserialize(m.ParentID)
+
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e2.Error())
+		return nil
+	}
+	message := logical.ConsensusGroupInitSummary{ParentID: parentId, Authority: *m.Authority,
+		Name: name, DummyID: dummyID, BeginTime: beginTime}
+	return &message
+}
+
+func signDataToPb(s *logical.SignData) *tas_pb.SignData {
+	sign := tas_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
+	return &sign
+}
+
+func pbToSignData(s *tas_pb.SignData) *logical.SignData {
+
+	var sig groupsig.Signature
+	e := sig.Deserialize(s.DataSign)
+	if e != nil {
+		logger.Errorf("groupsig.Signature Deserialize error:%s\n", e.Error())
+		return nil
+	}
+
+	id := groupsig.ID{}
+	e1 := id.Deserialize(s.SignMember)
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil
+	}
+	sign := logical.SignData{DataHash: common.BytesToHash(s.DataHash), DataSign: sig, SignMember: id}
+	return &sign
+}
+
+func sharePieceToPb(s *logical.SharePiece) *tas_pb.SharePiece {
+	share := tas_pb.SharePiece{Seckey: s.Share.Serialize(), Pubkey: s.Pub.Serialize()}
+	return &share
+}
+
+func pbToSharePiece(s *tas_pb.SharePiece) *logical.SharePiece {
+	var share groupsig.Seckey
+	var pub groupsig.Pubkey
+
+	e1 := share.Deserialize(s.Seckey)
+	if e1 != nil {
+		logger.Errorf("groupsig.Seckey Deserialize error:%s\n", e1.Error())
+		return nil
+	}
+
+	e2 := pub.Deserialize(s.Pubkey)
+	if e2 != nil {
+		logger.Errorf("groupsig.Pubkey Deserialize error:%s\n", e2.Error())
+		return nil
+	}
+
+	sp := logical.SharePiece{Share: share, Pub: pub}
+	return &sp
+}
+
+func staticGroupInfoToPb(s *logical.StaticGroupInfo) *tas_pb.StaticGroupInfo {
+	groupId := s.GroupID.Serialize()
+	groupPk := s.GroupPK.Serialize()
+	members := make([]*tas_pb.PubKeyInfo, len(s.Members))
+	for _, m := range s.Members {
+		member := pubKeyInfoToPb(&m)
+		members = append(members, member)
+	}
+	gis := consensusGroupInitSummaryToPb(&s.GIS)
+
+	groupInfo := tas_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis}
+	return &groupInfo
+}
+
+func pbToStaticGroup(s *tas_pb.StaticGroupInfo) *logical.StaticGroupInfo {
+	var groupId groupsig.ID
+	groupId.Deserialize(s.GroupID)
+
+	var groupPk groupsig.Pubkey
+	groupPk.Deserialize(s.GroupPK)
+
+	members := make([]logical.PubKeyInfo, len(s.Members))
+	for _, m := range s.Members {
+		member := pbToPubKeyInfo(m)
+		members = append(members, *member)
+	}
+
+	gis := pbToConsensusGroupInitSummary(s.Gis)
+
+	groupInfo := logical.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, GIS: *gis}
+	return &groupInfo
+}
+
+func pubKeyInfoToPb(p *logical.PubKeyInfo) *tas_pb.PubKeyInfo {
+	id := p.ID.Serialize()
+	pk := p.PK.Serialize()
+
+	pkInfo := tas_pb.PubKeyInfo{ID: id, PublicKey: pk}
+	return &pkInfo
+}
+
+func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
+	var id groupsig.ID
+	var pk groupsig.Pubkey
+
+	e1 := id.Deserialize(p.ID)
+	if e1 != nil {
+		logger.Errorf("groupsig.ID Deserialize error:%s\n", e1.Error())
+		return nil
+	}
+
+	e2 := pk.Deserialize(p.PublicKey)
+	if e2 != nil {
+		logger.Errorf("groupsig.Pubkey Deserialize error:%s\n", e2.Error())
+		return nil
+	}
+
+	pkInfo := logical.PubKeyInfo{ID: id, PK: pk}
+	return &pkInfo
 }

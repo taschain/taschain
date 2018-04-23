@@ -3,7 +3,6 @@ package p2p
 import (
 	"time"
 	"core"
-	"taslog"
 	"sync"
 	"common"
 )
@@ -92,7 +91,7 @@ func (bs *blockSyncer) start() {
 			//收到块高度请求
 			height, e := bs.getHeight()
 			if e != nil {
-				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
+				logger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
 			sendBlockHeight(hr.SourceId, height)
@@ -134,7 +133,7 @@ func (bs *blockSyncer) syncBlock() {
 	<-t.C
 	localHeight,currentHash, e := bs.getLocalHeight()
 	if e != nil {
-		taslog.P2pLogger.Errorf("Self get block height error:%s\n", e.Error())
+		logger.Errorf("Self get block height error:%s\n", e.Error())
 		return
 	}
 	bs.maxHeightLock.Lock()
@@ -142,10 +141,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		taslog.P2pLogger.Info("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
+		logger.Info("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		taslog.P2pLogger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight,currentHash)
 	}
 

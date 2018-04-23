@@ -4,93 +4,85 @@ import (
 	"github.com/cihub/seelog"
 	"fmt"
 	"strings"
+	"sync"
+	"vm/crypto/sha3"
 )
 
-const baseConfigFilePath = "conf/default.xml"
+var logManager = map[string]seelog.LoggerInterface{}
 
-const defaultConfig = `<seelog minlevel="debug">
-						<outputs formatid="default">
-							<rollingfile type="size" filename="/home/admin/tas/logs/default.log" maxsize="500000000" maxrolls="10"/>
-						</outputs>
-						<formats>
-							<format id="default" format="%Date/%Time [%Level]  [%File:%Line] %Msg%n" />
-						</formats>
-					</seelog>`
+var lock sync.Mutex
 
-var logManager = []seelog.LoggerInterface{}
-
-func GetLogger(configFilePath string) seelog.LoggerInterface {
-
-	if configFilePath == "" {
-		configFilePath = baseConfigFilePath
-	}
-	var logger seelog.LoggerInterface
-	l, err := seelog.LoggerFromConfigAsFile(configFilePath)
-
-	if err != nil {
-		fmt.Printf("Get logger error! use defalut log!\n ")
-		logger = GetLoggerByConfig(defaultConfig)
-	} else {
-		logger = l
-	}
-	register(logger)
-	return logger
-}
-
-func GetLoggerByConfig(config string) seelog.LoggerInterface {
-
+func GetLogger(config string) Logger {
 	if config == `` {
-		config = defaultConfig
+		config = DefaultConfig
 	}
+	key := getKey(config)
+
+	lock.Lock()
+	r := logManager[key]
+	lock.Unlock()
+
+	if r == nil {
+		l := newLoggerByConfig(config)
+		register(getKey(config), l)
+		return &defaultLogger{logger: l}
+	} else {
+		return &defaultLogger{logger: r}
+	}
+}
+
+func getKey(s string) string {
+	hash := sha3.Sum256([]byte(s))
+	return string(hash[:])
+}
+
+func newLoggerByConfig(config string) seelog.LoggerInterface {
 	var logger seelog.LoggerInterface
 	l, err := seelog.LoggerFromConfigAsBytes([]byte(config))
 
 	if err != nil {
-		fmt.Printf("Get logger error!use defalut log!\n")
-		logger = GetLoggerByConfig(defaultConfig)
+		fmt.Printf("Get logger error:%s\n", err.Error())
+		panic(err)
 	} else {
 		logger = l
 	}
-	register(logger)
 	return logger
 }
 
+func GetLoggerByName(name string) Logger {
+	key := getKey(name)
+	lock.Lock()
+	r := logManager[key]
+	lock.Unlock()
 
-func GetLoggerByName(name string) seelog.LoggerInterface {
-	var config string
-	if name == "" {
-		config = defaultConfig
-	}else {
-		fileName := name+".log"
-		config = strings.Replace(defaultConfig,"default.log",fileName,1)
-	}
-	var logger seelog.LoggerInterface
-	l, err := seelog.LoggerFromConfigAsBytes([]byte(config))
-
-	if err != nil {
-		fmt.Printf("Get logger error! use defalut log!\n ")
-		logger = GetLoggerByConfig(defaultConfig)
+	if r != nil {
+		return &defaultLogger{logger: r}
 	} else {
-		logger = l
+		var config string
+		if name == "" {
+			config = DefaultConfig
+			return GetLogger(config)
+		} else {
+			fileName := name + ".log"
+			config = strings.Replace(DefaultConfig, "default.log", fileName, 1)
+			l := newLoggerByConfig(config)
+			register(getKey(name), l)
+			return &defaultLogger{logger: l}
+		}
 	}
-	register(logger)
-	return logger
 }
 
-
-func register(logger seelog.LoggerInterface) {
+func register(name string, logger seelog.LoggerInterface) {
+	lock.Lock()
+	defer lock.Unlock()
 	if logger != nil {
-		logManager = append(logManager, logger)
+		logManager[name] = logger
 	}
 }
 
-var P2pLogger seelog.LoggerInterface
-
-func init() {
-	P2pLogger = GetLogger("conf/p2p.xml")
-
-}
 func Close() {
+	lock.Lock()
+	defer lock.Unlock()
 	for _, logger := range logManager {
 		logger.Flush()
 		logger.Close()

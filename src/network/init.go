@@ -27,7 +27,10 @@ const (
 	SEED_ADDRESS_KEY = "seed_address"
 )
 
+var logger = taslog.GetLogger(taslog.P2PConfig)
+
 func InitNetwork(config *common.ConfManager) error {
+
 
 	e1 := initPeer(config)
 	if e1 != nil {
@@ -85,7 +88,7 @@ func initServer(config *common.ConfManager) error {
 func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 	node, error := p2p.InitSelfNode(config)
 	if error != nil {
-		taslog.P2pLogger.Error("InitSelfNode error!\n" + error.Error())
+		logger.Error("InitSelfNode error!\n" + error.Error())
 		return nil, error
 	}
 	return node, nil
@@ -96,7 +99,7 @@ func makeSwarm(ctx context.Context) (net.Network, error) {
 	localId := self.Id
 	multiaddr, e1 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e1 != nil {
-		taslog.P2pLogger.Error("new mlltiaddr error!\n" + e1.Error())
+		logger.Error("new mlltiaddr error!\n" + e1.Error())
 		return nil, e1
 	}
 	listenAddrs := []ma.Multiaddr{multiaddr}
@@ -110,7 +113,7 @@ func makeSwarm(ctx context.Context) (net.Network, error) {
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
 	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
 	if e2 != nil {
-		taslog.P2pLogger.Error("New swarm error!\n" + e2.Error())
+		logger.Error("New swarm error!\n" + e2.Error())
 		return nil, e2
 	}
 	peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
@@ -132,13 +135,13 @@ func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManag
 	}
 	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
 	if e2 != nil {
-		taslog.P2pLogger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
+		logger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
 		return e2
 	}
 	seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
 	e3 := host.Connect(ctx, seedPeerInfo)
 	if e3 != nil {
-		taslog.P2pLogger.Error("Host connect to seed error!\n" + e3.Error())
+		logger.Error("Host connect to seed error!\n" + e3.Error())
 		return e3
 	}
 	return nil
@@ -154,7 +157,7 @@ func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
 		process.Close()
-		taslog.P2pLogger.Error("KadDht bootstrap error!\n" + e.Error())
+		logger.Error("KadDht bootstrap error!\n" + e.Error())
 		return kadDht, e
 	}
 	return kadDht, nil
