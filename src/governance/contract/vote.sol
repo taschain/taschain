@@ -36,21 +36,57 @@ contract Vote {
     uint64  canVoteScore;
     uint64  canLaunchScore;
 
-    function Vote(address caddr, uint64 dm, uint64 tdm, uint64 vcm, uint64 adm, uint64 avcm, uint64 vdb, uint64 cb, uint64 eb, uint64 dgb, uint64 cvs, uint64 cls) public {
+    function Vote(
+        address caddr,
+        uint64 DepositMin,
+        uint64 TotalDepositMin,
+        uint64 VoterCntMin,
+        uint64 ApprovalDepositMin,
+        uint64 ApprovalVoterCntMin,
+        uint64 DeadlineBlock,
+        uint64 StatBlock,
+        uint64 EffectBlock,
+        uint64 DepositGap,
+        uint64 cvs,
+        uint64 cls
+    ) public {
         credit = TasCredit(caddr);
         assert(_canLaunchVote());
 
-        depositMin = dm;
-        totalDepositMin = tdm;
-        voterCntMin = vcm;
-        approvalDepositMin = adm;
-        approvalVoterCntMin = avcm;
-        voteDeadlineBlock = vdb;
-        checkBlock = cb;
-        effectBlock = eb;
-        depositGapBlock = dgb;
+        depositMin = DepositMin;
+        totalDepositMin = TotalDepositMin;
+        voterCntMin = VoterCntMin;
+        approvalDepositMin = ApprovalDepositMin;
+        approvalVoterCntMin = ApprovalVoterCntMin;
+        voteDeadlineBlock = DeadlineBlock;
+        checkBlock = StatBlock;
+        effectBlock = EffectBlock;
+        depositGapBlock = DepositGap;
         canVoteScore = cvs;
         canLaunchScore = cls;
+    }
+
+    function config() public view returns (
+        uint64 DepositMin,
+        uint64 TotalDepositMin,
+        uint64 VoterCntMin,
+        uint64 ApprovalDepositMin,
+        uint64 ApprovalVoterCntMin,
+        uint64 DeadlineBlock,
+        uint64 StatBlock,
+        uint64 EffectBlock,
+        uint64 DepositGap
+    ) {
+        DepositMin = depositMin;
+        TotalDepositMin = totalDepositMin;
+        VoterCntMin = voterCntMin;
+        ApprovalDepositMin = approvalDepositMin;
+        ApprovalVoterCntMin = approvalVoterCntMin;
+        DeadlineBlock = voteDeadlineBlock;
+        StatBlock = checkBlock;
+        EffectBlock = effectBlock;
+        DepositGap = depositGapBlock;
+
     }
 
     function _canVote() internal view returns (bool) {
@@ -75,7 +111,7 @@ contract Vote {
     }
 
     // 缴纳保证金
-    function addDeposit(uint64 value) public {
+    function addDeposit(uint64 value) public payable {
         Voter self = voters[msg.sender];
         assert(
             !self.voted    //还未投票
@@ -198,22 +234,23 @@ contract Vote {
             && depositMin > 0
         );
         uint total = 0;
-        uint totalNonApprovalDeposit = 0;
+        uint totalWrongDeposit = 0;
         for (uint i = 0; i < voterAddrs.length; i ++) {
             Voter v = voters[voterAddrs[i]];
             total += uint(v.deposit);
-            if (!v.approval) {
-                totalNonApprovalDeposit += uint(v.deposit);
+            if (v.approval != pass) {
+                totalWrongDeposit += uint(v.deposit);
             }
         }
         uint left = total;
         for (i = 0; i < voterAddrs.length; i ++) {
             v = voters[voterAddrs[i]];
+            if(v.approval != pass) continue;    //投错了不退钱
             uint64 refund = 0;
             if (i == voterAddrs.length - 1) {
                 refund = uint64(left);
             } else {
-                refund = v.deposit + uint64((v.deposit / total) * totalNonApprovalDeposit);
+                refund = v.deposit + uint64((v.deposit / total) * totalWrongDeposit);
                 left -= refund;
             }
             voterAddrs[i].transfer(refund);

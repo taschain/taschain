@@ -31,6 +31,7 @@ type ParamDef struct {
 	Futures   []*ParamMeta
 	Histories []*ParamMeta
 	Validate	ValidateFunc
+	Convertor ConvertFunc
 	update	chan int
 }
 
@@ -46,11 +47,12 @@ func NewMeta(v interface{}) *ParamMeta {
 	}
 }
 
-func newParamDef(init interface{}, validator ValidateFunc) *ParamDef {
+func newParamDef(init interface{}, validator ValidateFunc, convert ConvertFunc) *ParamDef {
 	return &ParamDef{
 		Current:  NewMeta(init),
 		Validate: validator,
 		update:   make(chan int),
+		Convertor: convert,
 	}
 }
 func newParamDefs() *ParamDefs {
@@ -148,7 +150,9 @@ func (p *ParamDef) AddFuture(meta *ParamMeta) {
 func buildUint64ParamDef(def *DefaultValueDef) *ParamDef {
 	return newParamDef(
 		def.init,
-		getValidateFunc(def))
+		getValidateFunc(def),
+		UINT64_CONVERT_FUNC,
+		)
 }
 
 

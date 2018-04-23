@@ -80,7 +80,9 @@ func (abi ABI) Unpack(v interface{}, name string, output []byte) (err error) {
 	}
 	// since there can't be naming collisions with contracts and events,
 	// we need to decide whether we're calling a method or an event
-	if method, ok := abi.Methods[name]; ok {
+	if name == "" {
+		return abi.Constructor.Inputs.Unpack(v, output)
+	} else if method, ok := abi.Methods[name]; ok {
 		if len(output)%32 != 0 {
 			return fmt.Errorf("abi: improperly formatted output")
 		}

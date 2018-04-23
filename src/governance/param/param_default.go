@@ -3,6 +3,7 @@ package param
 import (
 	"math"
 	"fmt"
+	"strconv"
 )
 
 /*
@@ -13,6 +14,8 @@ import (
 
 //参数校验函数
 type ValidateFunc func(input interface{}) error
+
+type ConvertFunc func(string) interface{}
 
 type DefaultValueDef struct {
 	name string
@@ -40,6 +43,11 @@ const (
 )
 
 var DEFAULT_DEFS  [PARAM_CNT]DefaultValueDef
+
+var UINT64_CONVERT_FUNC = func(s string) interface {} {
+	u, _ := strconv.ParseUint(s, 10, 64)
+	return u
+}
 
 func init() {
 	DEFAULT_DEFS[IDX_GASPRICE_MIN] = DefaultValueDef{
