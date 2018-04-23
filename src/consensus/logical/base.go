@@ -31,20 +31,28 @@ const NORMAL_SUCCESS int = 0
 //2. 一个铸块高度在同一时间内可能会有多个铸块槽同时运行，如插槽未满，则所有满足规则1的出块消息或验块消息都允许新生成一个铸块槽。
 //3. 如插槽已满，则时间窗口更早的铸块槽替换时间窗口较晚的铸块槽。
 //4. 如某个铸块槽已经完成该高度的铸块（上链，组外广播），则只允许时间窗口更早的铸块槽更新该高度的铸块（上链，组外广播）。
-
-const CONSENSUS_VERSION = 1                                          //共识版本号
-const SSSS_THRESHOLD = 51                                            //1-100
-const GROUP_MAX_MEMBERS = 5                                          //一个组最大的成员数量
-const GROUP_INIT_MAX_SECONDS = 600                                   //10分钟内完成初始化，否则该组失败。不再有初始化机会。
-const MAX_UNKNOWN_BLOCKS = 5                                         //内存保存最大不能上链的未来块（中间块没有收到）
-const MAX_SYNC_CASTORS = 3                                           //最多同时支持几个铸块验证
-const INVALID_QN = -1                                                //无效的队列序号
-const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
+/*
+bls曲线使用情况：
+使用：CurveFP382_1曲线，初始化参数枚举值=1.
+ID长度（即地址）：48*8=384位。底层同私钥结构。
+私钥长度：48*8=384位。底层结构Fr。
+公钥长度：96*8=768位。底层结构G2。
+签名长度：48*8=384位。底层结构G1。
+*/
+const CONSENSUS_VERSION = 1        //共识版本号
+const SSSS_THRESHOLD = 51          //1-100
+const GROUP_MAX_MEMBERS = 5        //一个组最大的成员数量
+const GROUP_INIT_MAX_SECONDS = 600 //10分钟内完成初始化，否则该组失败。不再有初始化机会。
+const MAX_UNKNOWN_BLOCKS = 5       //内存保存最大不能上链的未来块（中间块没有收到）
+const MAX_SYNC_CASTORS = 3         //最多同时支持几个铸块验证
+const INVALID_QN = -1              //无效的队列序号
+//const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
 const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
 const MAX_GROUP_BLOCK_TIME int32 = 10                                //组铸块最大允许时间=10s
 const MAX_USER_CAST_TIME int32 = 2                                   //个人出块最大允许时间=2s
 const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
 
+//取得门限值
 func GetGroupK() int {
 	return int(math.Ceil(float64(GROUP_MAX_MEMBERS*SSSS_THRESHOLD) / 100))
 }
@@ -183,6 +191,25 @@ func (mi MinerInfo) GetDefaultPubKey() groupsig.Pubkey {
 func (mi MinerInfo) GenSecretForGroup(h common.Hash) rand.Rand {
 	r := rand.RandFromBytes(h.Bytes())
 	return mi.SecretSeed.DerivedRand(r[:])
+}
+
+//流化函数
+func (mi MinerInfo) Serialize() []byte {
+	buf := make([]byte, groupsig.IDLENGTH+rand.RandLength)
+	copy(buf[:groupsig.IDLENGTH], mi.MinerID.Serialize()[:])
+	copy(buf[groupsig.IDLENGTH:], mi.SecretSeed[:])
+	return buf
+}
+
+func (mi *MinerInfo) Deserialize(buf []byte) (err error) {
+	id_buf := make([]byte, groupsig.IDLENGTH)
+	copy(id_buf[:], buf[:groupsig.IDLENGTH])
+	err = mi.MinerID.Deserialize(id_buf)
+	if err != nil {
+		return err
+	}
+	copy(mi.SecretSeed[:], buf[groupsig.IDLENGTH:])
+	return
 }
 
 //铸块共识摘要

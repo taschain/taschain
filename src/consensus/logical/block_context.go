@@ -84,8 +84,8 @@ func (sc *SlotContext) GenGroupSign() bool {
 	if sc.SlotStatus == SS_FAILED {
 		return false
 	}
-	if len(sc.MapWitness) >= GROUP_MIN_WITNESSES && sc.HasKingMessage() { //达到组签名恢复阈值，且当前节点收到了出块人消息
-		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GROUP_MIN_WITNESSES)
+	if len(sc.MapWitness) >= GetGroupK() && sc.HasKingMessage() { //达到组签名恢复阈值，且当前节点收到了出块人消息
+		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GetGroupK())
 		if gs != nil {
 			sc.GroupSign = *gs
 			sc.SlotStatus = SS_RECOVERD
@@ -198,8 +198,14 @@ type BlockContext struct {
 	Threshold       uint                          //百分比（0-100）
 	Slots           [MAX_SYNC_CASTORS]SlotContext //铸块槽列表
 
-	Proc    *Processer  //处理器
-	GroupID groupsig.ID //所属组
+	Proc    *Processer   //处理器
+	MinerID GroupMinerID //矿工ID和所属组ID
+	pos     int          //矿工在组内的排位
+}
+
+func (bc *BlockContext) Init(mid GroupMinerID) {
+	bc.MinerID = mid
+	bc.Reset()
 }
 
 //检查是否要处理某个铸块槽
@@ -378,7 +384,7 @@ func (bc *BlockContext) Reset() {
 //组铸块共识初始化
 //bh : 上一块完成高度，tc：上一块完成时间；h：上一块哈希值
 func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
-	fmt.Printf("BlockContext::BeginConsensus...\n")
+	fmt.Printf("begin BlockContext::BeginConsensus...\n")
 	bc.PreTime = tc //上一块的铸块成功时间
 	bc.ConsensusStatus = CBCS_CURRENT
 	bc.SignedMinQN = INVALID_QN //等待第一个出块者
@@ -386,6 +392,7 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 	bc.CastHeight = bh + 1
 	bc.Slots = *new([MAX_SYNC_CASTORS]SlotContext)
 	bc.StartTimer() //启动定时器
+	fmt.Printf("end BlockContext::BeginConsensus, Timer STARTED.\n")
 	return
 }
 
@@ -396,7 +403,7 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
-	var max_height uint64 = 0
+	max_height := uint64(0)
 	//to do : 鸠兹从链上取得最高有效块
 	if (bh <= max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
 		//不在合法的铸块高度内
@@ -459,6 +466,8 @@ func (bc *BlockContext) CalcCastor() (int32, int64) {
 		} else {
 			qn = -1
 		}
+	} else {
+		fmt.Printf("bc::calcCastor, out of group max cast time!!!\n")
 	}
 	return index, qn
 }
@@ -477,9 +486,11 @@ func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
 	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
 	var count int
+	fmt.Printf("StartTimer Now=%v.\n", time.Now().Format(time.Stamp))
+	bc.TickerRoutine() //先启动一次
 	for _ = range bc.CCTimer.C {
 		count++
-		fmt.Printf("block_context::StartTicker, count=%v.\n", count)
+		fmt.Printf("block_context::StartTicker, Now=%v, count=%v.\n", time.Now().Format(time.Stamp), count)
 		go bc.TickerRoutine()
 	}
 	return
@@ -488,7 +499,9 @@ func (bc *BlockContext) StartTimer() {
 
 //定时器例行处理
 func (bc *BlockContext) TickerRoutine() {
+	fmt.Printf("mid(%v) begin TickerRoutine...\n", bc.Proc.GetMinerID().GetHexString())
 	if !bc.IsCasting() { //没有在组铸块共识中
+		fmt.Printf("mid(%v) not in casting, reset and direct return.\n", bc.Proc.GetMinerID().GetHexString())
 		bc.Reset() //提前出块完成
 		return
 	}
@@ -499,10 +512,9 @@ func (bc *BlockContext) TickerRoutine() {
 	} else {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
-		if bc.Proc != nil {
-			index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
-			bc.Proc.CheckCastRoutine(bc.GroupID, index, qn, uint(bc.CastHeight))
-		}
+		index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
+		fmt.Printf("mid(%v) calced, index=%v, qn=%v.\n", bc.Proc.GetMinerID().GetHexString(), index, qn)
+		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, uint(bc.CastHeight))
 	}
 	return
 }

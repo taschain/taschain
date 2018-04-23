@@ -410,28 +410,28 @@ func testLogicGroupInit(t *testing.T) {
 	return
 }
 
-func genAllProcessers() map[groupsig.ID]*Processer {
-	procs := make(map[groupsig.ID]*Processer, GROUP_MAX_MEMBERS)
+func genAllProcessers() map[string]*Processer {
+	procs := make(map[string]*Processer, GROUP_MAX_MEMBERS)
 
 	proc := new(Processer)
 	proc.Init(NewMinerInfo("thiefox", "710208"))
-	procs[proc.GetMinerID()] = proc
+	procs[proc.GetMinerID().GetHexString()] = proc
 
 	proc = new(Processer)
 	proc.Init(NewMinerInfo("siren", "850701"))
-	procs[proc.GetMinerID()] = proc
+	procs[proc.GetMinerID().GetHexString()] = proc
 
 	proc = new(Processer)
 	proc.Init(NewMinerInfo("juanzi", "123456"))
-	procs[proc.GetMinerID()] = proc
+	procs[proc.GetMinerID().GetHexString()] = proc
 
 	proc = new(Processer)
 	proc.Init(NewMinerInfo("wild children", "111111"))
-	procs[proc.GetMinerID()] = proc
+	procs[proc.GetMinerID().GetHexString()] = proc
 
 	proc = new(Processer)
 	proc.Init(NewMinerInfo("gebaini", "999999"))
-	procs[proc.GetMinerID()] = proc
+	procs[proc.GetMinerID().GetHexString()] = proc
 
 	return procs
 }
@@ -439,26 +439,33 @@ func genAllProcessers() map[groupsig.ID]*Processer {
 func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
 	root := NewMinerInfo("root", "TASchain")
+	fmt.Printf("root mi: id=%v, seed=%v.\n", root.MinerID.GetHexString(), root.SecretSeed.GetHexString())
+	{
+		save_buf := root.Serialize()
+		var root2 MinerInfo
+		root2.Deserialize(save_buf)
+		fmt.Printf("root2 Deserialized, mi: id=%v, seed=%v.\n", root.MinerID.GetHexString(), root.SecretSeed.GetHexString())
+	}
 
 	procs := genAllProcessers() //生成矿工进程
-	var ids []groupsig.ID
+	var mems []PubKeyInfo
 	for _, v := range procs {
-		id := v.GetMinerID()
-		ids = append(ids, id)
+		pki := v.GetMinerInfo()
+		mems = append(mems, pki)
 		v.setProcs(procs)
 	}
 	var grm ConsensusGroupRawMessage
-	copy(grm.ids[:], ids[:])
+	copy(grm.mems[:], mems[:])
 	grm.gi = genDummyGIS(root, "64-2")
 	//to do : 一个矿工的消息签名是用common还是bls?
 	grm.si = GenSignData(grm.gi.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
-	fmt.Printf("grm msg member size=%v.\n", len(grm.ids))
+	fmt.Printf("grm msg member size=%v.\n", len(grm.mems))
 
 	//通知所有节点这个待初始化的组合法
 	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息
-	ngc := CreateInitingGroup(sgiinfo)
+	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
-		v.gg.ngg.addInitingGroup(ngc)
+		v.gg.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
 	}
 
 	//启动所有节点进行初始化
@@ -478,6 +485,40 @@ func testLogicGroupInitEx(t *testing.T) {
 	} else {
 		panic("direct aggr group pub key failed.")
 	}
+
+	//初始化结果测试
+	fmt.Printf("after inited, print processers info:---\n")
+	index := 0
+	for k, v := range procs {
+		groups := v.getMinerGroups()
+		fmt.Printf("---proc(%v), mid=%v, joined groups=%v.\n", index, k, len(groups))
+		for gid, sec_info := range groups {
+			fmt.Printf("------group=%v, sign key=%v.\n", gid, sec_info.sk.GetHexString())
+		}
+		index++
+	}
+	/*
+		//铸块测试
+		var ccm ConsensusCurrentMessage
+		pre_hash := sha1.Sum([]byte("tas root block"))
+		ccm.PreHash = common.BytesToHash(pre_hash[:])
+		ccm.BlockHeight = 1
+		ccm.PreTime = time.Now()
+		for _, v := range procs {
+			groups := v.getMinerGroups()
+			for _, g := range groups {
+				ccm.GroupID = g.id.Serialize()
+				break
+			}
+			mi := v.getmi()
+			ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
+			break
+		}
+
+		for _, v := range procs {
+			v.OnMessageCurrent(ccm)
+		}
+	*/
 	return
 }
 

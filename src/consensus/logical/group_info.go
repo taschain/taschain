@@ -6,7 +6,6 @@ import (
 	"consensus/rand"
 	"fmt"
 	"math/big"
-	"net"
 )
 
 type STATIC_GROUP_STATUS int
@@ -24,8 +23,31 @@ type StaticGroupInfo struct {
 	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK  groupsig.Pubkey           //组公钥
 	members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
-	mapCache map[groupsig.ID]uint32    //用ID查找成员信息(成员ID->members中的索引)
+	mapCache map[string]int            //用ID查找成员信息(成员ID->members中的索引)
 	gis      ConsensusGroupInitSummary //组的初始化凭证
+}
+
+//取得某个矿工在组内的排位
+func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
+	pos := -1
+	if v, ok := sgi.mapCache[id.GetHexString()]; ok {
+		pos = v
+		//双重验证
+		found := false
+		for k, item := range sgi.members {
+			if item.id.GetHexString() == id.GetHexString() {
+				found = true
+				if pos != k {
+					panic("double check failed 1.\n")
+				}
+				break
+			}
+		}
+		if !found {
+			panic("double check failed 2.\n")
+		}
+	}
+	return pos
 }
 
 func (sgi StaticGroupInfo) GenHash() common.Hash {
@@ -65,13 +87,10 @@ func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 	var sgi StaticGroupInfo
 	sgi.gis = grm.gi
 	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
-	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
-	var pki PubKeyInfo
-	for _, v := range grm.ids {
-		pki.id = v
-		//pki.pk =
-		sgi.members = append(sgi.members, pki)
-		sgi.mapCache[pki.id] = uint32(len(sgi.members)) - 1
+	sgi.mapCache = make(map[string]int, GROUP_MAX_MEMBERS)
+	for _, v := range grm.mems {
+		sgi.members = append(sgi.members, v)
+		sgi.mapCache[v.id.GetHexString()] = len(sgi.members) - 1
 	}
 	return sgi
 }
@@ -81,10 +100,10 @@ func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 func CreateWithRawMembers(mems []PubKeyInfo) StaticGroupInfo {
 	var sgi StaticGroupInfo
 	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
-	sgi.mapCache = make(map[groupsig.ID]uint32, GROUP_MAX_MEMBERS)
+	sgi.mapCache = make(map[string]int, GROUP_MAX_MEMBERS)
 	for i := 0; i < len(mems); i++ {
 		sgi.members = append(sgi.members, mems[i])
-		sgi.mapCache[mems[i].id] = uint32(len(sgi.members)) - 1
+		sgi.mapCache[mems[i].id.GetHexString()] = len(sgi.members) - 1
 	}
 	return sgi
 }
@@ -118,10 +137,10 @@ func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
 
 func (sgi *StaticGroupInfo) Addmember(m PubKeyInfo) {
 	if m.id.IsValid() {
-		_, ok := sgi.mapCache[m.id]
+		_, ok := sgi.mapCache[m.id.GetHexString()]
 		if !ok {
 			sgi.members = append(sgi.members, m)
-			sgi.mapCache[m.id] = uint32(len(sgi.members)) - 1
+			sgi.mapCache[m.id.GetHexString()] = len(sgi.members) - 1
 		}
 	}
 }
@@ -131,22 +150,30 @@ func (sgi *StaticGroupInfo) CanGroupSign() bool {
 }
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
-	_, ok := sgi.mapCache[uid]
+	_, ok := sgi.mapCache[uid.GetHexString()]
 	return ok
 }
 
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, result bool) {
-	var i uint32
-	i, result = sgi.mapCache[uid]
-	if result {
+func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, ok bool) {
+	var i int
+	i, ok = sgi.mapCache[uid.GetHexString()]
+	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.members), len(sgi.mapCache))
+	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.members), sgi.GroupPK.GetHexString())
+	if ok {
 		m = sgi.members[i]
+	} else {
+		i := 0
+		for k, _ := range sgi.mapCache {
+			fmt.Printf("---mem(%v)=%v.\n", i, k)
+			i++
+		}
 	}
 	return
 }
 
 //取得某个成员在组内的排位
 func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.mapCache[uid]
+	i, ok := sgi.mapCache[uid.GetHexString()]
 	if ok {
 		return int32(i)
 	} else {
@@ -163,35 +190,48 @@ func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 	return m
 }
 
-//动态组结构（运行时变化）
-type DynamicGroupInfo struct {
-	members map[string]net.TCPAddr //组内成员的网络地址
-}
-
-//取得组成员网络地址
-func (dgi DynamicGroupInfo) GetNetIP(ma string) string {
-	addr, ok := dgi.members[ma]
-	if ok {
-		return addr.IP.String()
-	}
-	return ""
-}
-
-func (dgi DynamicGroupInfo) GetNetPort(ma string) int32 {
-	addr, ok := dgi.members[ma]
-	if ok {
-		return int32(addr.Port)
-	}
-	return 0
-}
-
 ///////////////////////////////////////////////////////////////////////////////
-//如一个组还在初始化中，则以父亲组指定的dummy ID作为临时性group ID.
+//父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
+//未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	//全网组的静态信息列表，用slice而不是map是为了求模定位(to do:组之间不需要求模，可以直接使用map)
-	sgi      []StaticGroupInfo
-	mapCache map[groupsig.ID]uint32 //用ID查找组信息
-	ngg      NewGroupGenerator      //新组处理器(组外处理器)
+	groups       []StaticGroupInfo
+	mapCache     map[string]int             //string(ID)->索引
+	ngg          NewGroupGenerator          //新组处理器(组外处理器)
+	dummy_groups map[string]StaticGroupInfo //未完成初始化的组(str(DUMMY ID)->组信息)
+}
+
+func (gg *GlobalGroups) Init() {
+	gg.groups = make([]StaticGroupInfo, 0)
+	gg.mapCache = make(map[string]int, 0)
+	gg.dummy_groups = make(map[string]StaticGroupInfo, 0)
+	gg.ngg.Init(gg)
+}
+
+func (gg GlobalGroups) GetGroupSize() int {
+	return len(gg.groups)
+}
+
+//增加一个合法铸块组
+func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
+	if len(g.members) != len(g.mapCache) {
+		//重构cache
+		g.mapCache = make(map[string]int, len(g.members))
+		for i, v := range g.members {
+			if v.pk.GetHexString() == "0x0" {
+				panic("GlobalGroups::AddGroup failed, group member has no pub key.")
+			}
+			g.mapCache[v.id.GetHexString()] = i
+		}
+	}
+	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.GetHexString(), len(g.members), len(g.mapCache))
+	if _, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
+		gg.groups = append(gg.groups, g)
+		gg.mapCache[g.GroupID.GetHexString()] = len(gg.groups) - 1
+		return true
+	} else {
+		fmt.Printf("already exist this group, ignored.\n")
+	}
+	return false
 }
 
 func (gg *GlobalGroups) GroupInitedMessage(id GroupMinerID, ngmd NewGroupMemberData) int {
@@ -201,6 +241,7 @@ func (gg *GlobalGroups) GroupInitedMessage(id GroupMinerID, ngmd NewGroupMemberD
 		//to do : 上链已初始化的组
 		//to do ：从待初始化组中删除
 		//to do : 是否全网广播该组的生成？广播的意义？
+		//b := gg.AddGroup(ngmd.)
 	case -1: //该组初始化异常，且无法恢复
 		//to do : 从待初始化组中删除
 	case 0:
@@ -211,21 +252,14 @@ func (gg *GlobalGroups) GroupInitedMessage(id GroupMinerID, ngmd NewGroupMemberD
 
 //取得矿工的公钥
 func (gg *GlobalGroups) GetMinerPubKey(gid groupsig.ID, uid groupsig.ID) *groupsig.Pubkey {
-	if index, ok := gg.mapCache[gid]; ok {
-		g := gg.sgi[index]
+	if index, ok := gg.mapCache[gid.GetHexString()]; ok {
+		g := gg.groups[index]
 		m, b := g.GetMember(uid)
 		if b {
 			return &m.pk
 		}
 	}
 	return nil
-}
-
-//组初始化完成后更新静态信息
-//上链不在这里完成，由外部完成
-func (gg *GlobalGroups) GroupInited(dummyid groupsig.ID, gid groupsig.ID, gpk groupsig.Pubkey) bool {
-	//to do :
-	return false
 }
 
 //检查某个用户是否某个组成员
@@ -249,8 +283,8 @@ func (gg GlobalGroups) GetGroupStatus(gid groupsig.ID) STATIC_GROUP_STATUS {
 
 //由index取得组信息
 func (gg GlobalGroups) GetGroupByIndex(i int) (g StaticGroupInfo, err error) {
-	if i < len(gg.sgi) {
-		g = gg.sgi[i]
+	if i >= 0 && i < len(gg.groups) {
+		g = gg.groups[i]
 	} else {
 		err = fmt.Errorf("out of range")
 	}
@@ -258,9 +292,18 @@ func (gg GlobalGroups) GetGroupByIndex(i int) (g StaticGroupInfo, err error) {
 }
 
 func (gg GlobalGroups) GetGroupByID(id groupsig.ID) (g StaticGroupInfo, err error) {
-	index, ok := gg.mapCache[id]
+	index, ok := gg.mapCache[id.GetHexString()]
 	if ok {
-		g, err = gg.GetGroupByIndex(int(index))
+		g, err = gg.GetGroupByIndex(index)
+	}
+	return
+}
+
+func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err error) {
+	if v, ok := gg.dummy_groups[id.GetHexString()]; ok {
+		g = v
+	} else {
+		err = fmt.Errorf("out of range")
 	}
 	return
 }
@@ -269,9 +312,9 @@ func (gg GlobalGroups) GetGroupByID(id groupsig.ID) (g StaticGroupInfo, err erro
 func (gg GlobalGroups) SelectNextGroup(h common.Hash) (groupsig.ID, error) {
 	var ga groupsig.ID
 	value := h.Big()
-	if value.BitLen() > 0 && len(gg.sgi) > 0 {
-		index := value.Mod(value, big.NewInt(int64(len(gg.sgi))))
-		ga = gg.sgi[index.Uint64()].GroupID
+	if value.BitLen() > 0 && len(gg.groups) > 0 {
+		index := value.Mod(value, big.NewInt(int64(len(gg.groups))))
+		ga = gg.groups[index.Uint64()].GroupID
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("SelectNextGroup failed, arg error.")

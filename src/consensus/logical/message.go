@@ -5,19 +5,38 @@ import (
 	"consensus/groupsig"
 	"consensus/rand"
 	"core"
+	"strconv"
 	"time"
 )
 
 //铸块消息族
 //成为当前处理组消息 - 由第一个发现当前组成为铸块组的成员发出
 type ConsensusCurrentMessage struct {
-	GroupID groupsig.ID //铸块组
-	PreHash common.Hash //上一块哈希
-	PreTime time.Time   //上一块完成时间
-	//ConsensusType CONSENSUS_TYPE //共识类型
+	GroupID     []byte      //铸块组
+	PreHash     common.Hash //上一块哈希
+	PreTime     time.Time   //上一块完成时间
 	BlockHeight uint64      //铸块高度
-	Instigator  groupsig.ID //发起者（发现者）
-	si          SignData
+	si          SignData    //签名者即为发现者
+}
+
+func (msg *ConsensusCurrentMessage) GenSign(ski SecKeyInfo) bool {
+	if !ski.IsValid() {
+		return false
+	}
+	buf := msg.PreHash.Str()
+	buf += string(msg.GroupID[:])
+	buf += msg.PreTime.String()
+	buf += strconv.FormatUint(msg.BlockHeight, 10)
+	msg.si.DataHash = rand.Data2CommonHash([]byte(buf))
+	msg.si.SignMember = ski.id
+	return msg.si.GenSign(ski.sk)
+}
+
+func (msg ConsensusCurrentMessage) VerifySign(pk groupsig.Pubkey) bool {
+	if !msg.si.GetID().IsValid() {
+		return false
+	}
+	return msg.si.VerifySign(pk)
 }
 
 type ConsensusBlockMessageBase struct {
@@ -39,9 +58,9 @@ type ConsensusBlockMessage ConsensusBlockMessageBase
 //收到父亲组的启动组初始化消息
 //to do : 组成员ID列表在哪里提供
 type ConsensusGroupRawMessage struct {
-	gi  ConsensusGroupInitSummary      //组初始化共识
-	ids [GROUP_MAX_MEMBERS]groupsig.ID //成员ID列表。该次序不可变更，影响组内铸块排位。
-	si  SignData                       //矿工（父亲组成员）个人签名
+	gi   ConsensusGroupInitSummary     //组初始化共识
+	mems [GROUP_MAX_MEMBERS]PubKeyInfo //组成员列表，该次序不可变更，影响组内铸块排位。
+	si   SignData                      //矿工（父亲组成员）个人签名
 }
 
 func (msg *ConsensusGroupRawMessage) GenSign(ski SecKeyInfo) bool {
