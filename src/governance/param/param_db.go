@@ -43,6 +43,7 @@ func (db *ParamDB) LoadParams() *ParamDefs {
 			Futures: param.Futures,
 			Histories: param.Histories,
 			Validate: getValidateFunc(getDefaultValueDefs(idx)),
+			Convertor: UINT64_CONVERT_FUNC,
 			update: make(chan int),
 		}
 		defs.AddParam(def)

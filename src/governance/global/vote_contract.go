@@ -1,4 +1,4 @@
-package vote
+package global
 
 import (
 	"sync"
@@ -12,19 +12,9 @@ import (
 **  Description: 
 */
 
-type ContractRef interface {
-	Address() common.Address
-}
-
-type VoteRef common.Address
-
-func (vr VoteRef) Address() common.Address {
-    return (common.Address)(vr)
-}
-
 type VoteContract struct {
 	Template *contract.TemplateCode
-	Ref      VoteRef
+	Addr     common.Address
 	Config   *VoteConfig
 }
 
@@ -48,16 +38,16 @@ func (v *VotePool) AddVote(vote *VoteContract) bool {
     return true
 }
 
-func (v *VotePool) findVote(ref VoteRef) int {
+func (v *VotePool) findVote(ref common.Address) int {
 	for idx, v := range v.votes {
-		if v.Ref == ref {
+		if v.Addr == ref {
 			return idx
 		}
 	}
 	return -1
 }
 
-func (v *VotePool) RemoveVote(ref VoteRef) bool {
+func (v *VotePool) RemoveVote(ref common.Address) bool {
     v.lock.Lock()
     defer v.lock.Unlock()
 

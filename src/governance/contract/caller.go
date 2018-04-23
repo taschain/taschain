@@ -98,7 +98,7 @@ func NewCallContext(b *tasCore.Block, bc *tasCore.BlockChain, db vm.StateDB) *Ca
 	}
 }
 
-func (sc *BoundContract) call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) {
+func call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) {
 	tx := &tasCore.Transaction{
 		Source: &msg.From,
 		Target: msg.To,
@@ -132,6 +132,13 @@ func infiniteBalance(db vm.StateDB, account string) common.Address {
 	db.AddBalance(util.ToETHAddress(source), new(big.Int).SetUint64(math.MaxUint64))
 	return source
 }
+func (sc *BoundContract) GetAddress() common.Address {
+	return sc.address
+}
+
+func (sc *BoundContract) GetAbi() *abi.ABI {
+	return &sc.abi
+}
 
 func (sc *BoundContract) CallContract(ctx *CallContext, opt *CallOpt, result interface{}) (error) {
 	input, err := sc.abi.Pack(opt.method, opt.args...)
@@ -150,7 +157,7 @@ func (sc *BoundContract) CallContract(ctx *CallContext, opt *CallOpt, result int
 		msg.Data = input
 	}
 
-	output, _, err = sc.call(ctx, msg)
+	output, _, err = call(ctx, msg)
 	if err != nil {
 		return err
 	}
@@ -174,6 +181,18 @@ func (sc *BoundContract) ResultCall(ctx *CallContext, rp ResultProvider, opt *Ca
 	return ret, nil
 }
 
+func Deploy(ctx *CallContext, from string, code []byte) (common.Address, []byte, error) {
+	source := infiniteBalance(ctx.state, from)
+	msg := NewDefaultCallMsg(source, nil, code)
+	ret, tx, err := call(ctx, msg)
+	if err != nil {
+		return common.Address{}, nil, err
+	}
+
+	addr := util.ToTASAddress(crypto.CreateAddress(util.ToETHAddress(*tx.Source), tx.Nonce))
+	return addr, ret, nil
+}
+
 func SimulateDeployContract(ctx *CallContext, from string, abis string, codes string, args ...interface{}) (common.Address, []byte, error) {
 	sc := BuildBoundContract(common.Address{}, abis)
 	input, err := sc.abi.Pack("", args...)
@@ -181,22 +200,10 @@ func SimulateDeployContract(ctx *CallContext, from string, abis string, codes st
 		return common.Address{}, nil, err
 	}
 
-	var (
-		ret []byte
-		tx *tasCore.Transaction
-	)
 	code := common.Hex2Bytes(codes)
-	fromAddr := infiniteBalance(ctx.state, from)
 
-	msg := NewDefaultCallMsg(fromAddr, nil, append(code, input...))
+	return Deploy(ctx, from , append(code, input...))
 
-	ret, tx, err = sc.call(ctx, msg)
-	if err != nil {
-		return common.Address{}, nil, err
-	}
-
-	addr := util.ToTASAddress(crypto.CreateAddress(util.ToETHAddress(*tx.Source), tx.Nonce))
-	return addr, ret, nil
 }
 
 

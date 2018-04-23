@@ -23,7 +23,7 @@ func TestTasCredit(t *testing.T) {
 
 	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
 
-	addr, code, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, CREDIT_ABI, CREDIT_CODE)
+	addr, code, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,9 +66,9 @@ func TestTemplateCode(t *testing.T) {
 
 	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
 
-	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, CREDIT_ABI, CREDIT_CODE)
+	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
 
-	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, TEMPLATE_ABI, TEMPLATE_CODE)
+	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.TEMPLATE_ABI, contract.TEMPLATE_CODE)
 
 	gov = newGOV(creditAddr, addr, chain)
 	credit := gov.NewTasCreditInst(ctx)
@@ -77,19 +77,20 @@ func TestTemplateCode(t *testing.T) {
 
 	address := common.StringToAddress("111")
 	t.Log(credit.CreditInfo(address))
-	templateCode.AddTemplate(address, common.Hex2Bytes("3132323223ff"), "abidddd")
-	vt, _ := templateCode.Template(address)
+	templateCode.AddTemplate("111", "3132323223ff", "abidddd")
+	vt, _ := templateCode.Template("111")
 
 	t.Log(vt)
 
 	address = common.StringToAddress("134")
-	templateCode.AddTemplate(address, common.Hex2Bytes("a123322334dddfff"), "afgfargarg")
-	vt, _ = templateCode.Template(address)
+	templateCode.AddTemplate("123", "a123322334dddfff", "afgfargarg")
+	vt, _ = templateCode.Template("123")
 
 	t.Log(vt)
 }
 
 func TestVote(t *testing.T) {
+	common.InitConf("../test.ini")
 	chain := core.InitBlockChain()
 	latestBlock := chain.QueryTopBlock()
 	state := core.NewStateDB(latestBlock.StateTree, chain)
@@ -97,10 +98,10 @@ func TestVote(t *testing.T) {
 	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
 
 	//部署合约1
-	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, CREDIT_ABI, CREDIT_CODE)
+	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
 
 	//部署合约2
-	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, TEMPLATE_ABI, TEMPLATE_CODE)
+	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.TEMPLATE_ABI, contract.TEMPLATE_CODE)
 
 	//初始化治理环境
 	gov = newGOV(creditAddr, addr, chain)
@@ -120,7 +121,7 @@ func TestVote(t *testing.T) {
 	state.AddBalance(util.ToETHAddress(delegateAddr), new(big.Int).SetUint64(math.MaxUint64))
 
 	//部署投票合约
-	voteAddr, _, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT , VOTE_ABI, VOTE_CODE, creditAddr, uint64(1), uint64(1), uint64(1), uint64(1), uint64(1), uint64(10), uint64(11), uint64(12), uint64(1), uint64(1), uint64(5))
+	voteAddr, _, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT , contract.VOTE_ABI, contract.VOTE_CODE, creditAddr, uint64(1), uint64(1), uint64(1), uint64(1), uint64(1), uint64(10), uint64(11), uint64(12), uint64(1), uint64(1), uint64(5))
 
 	if err != nil {
 		t.Fatal(err)
