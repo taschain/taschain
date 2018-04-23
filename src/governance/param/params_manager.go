@@ -1,6 +1,9 @@
 package param
 
-import "time"
+import (
+	"time"
+	"core"
+)
 
 /*
 **  Creator: pxf
@@ -13,12 +16,17 @@ import "time"
 type ParamManager struct {
 	defs *ParamDefs
 	db *ParamDB
+	bc *core.BlockChain
 }
 
+func (pm *ParamManager) CurrentBlockHeight() uint64 {
+    return pm.bc.QueryTopBlock().Height + 1
+}
 
-func NewParamManager() *ParamManager {
+func NewParamManager(bc *core.BlockChain) *ParamManager {
 	pm := &ParamManager{
 		db: &ParamDB{},
+		bc: bc,
 	}
 	
 	pm.defs = pm.db.LoadParams()
@@ -50,7 +58,7 @@ func (pm *ParamManager) GetParamByIndex(idx int) *ParamDef {
 }
 
 func (pm *ParamManager) getUint64ByIndex(idx int) uint64 {
-	return pm.GetParamByIndex(idx).CurrentValue().(uint64)
+	return pm.GetParamByIndex(idx).CurrentValue(pm.CurrentBlockHeight()).(uint64)
 }
 
 func (pm *ParamManager) GetGasPriceMin() uint64 {

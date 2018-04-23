@@ -7,8 +7,10 @@ import (
 	"common"
 	"taslog"
 	"time"
+	"consensus/logical"
 )
 
+//--------------------------------------Transactions-------------------------------------------------------------------
 func MarshalTransaction(t *core.Transaction) ([]byte, error) {
 	transaction := transactionToPb(t)
 	return proto.Marshal(transaction)
@@ -44,7 +46,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 }
 
 func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
-	transaction := tas_pb.Transaction{ Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
 		Target: t.Target.Bytes(), GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(), ExtraData: t.ExtraData}
 	return &transaction
 }
@@ -52,7 +54,7 @@ func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
 func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
-	transaction := core.Transaction{ Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
+	transaction := core.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
 		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash), ExtraData: t.ExtraData}
 	return &transaction
 }
@@ -75,6 +77,7 @@ func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
 	return result
 }
 
+//--------------------------------------------------Block---------------------------------------------------------------
 func MarshalBlock(b *core.Block) ([]byte, error) {
 	block := blockToPb(b)
 	return proto.Marshal(block)
@@ -91,32 +94,32 @@ func UnMarshalBlock(bytes []byte) (*core.Block, error) {
 	return block, nil
 }
 
-func MarshalBlocks(bs []*core.Block) ([]byte, error) {
-	blocks := make([]*tas_pb.Block, len(bs))
-	for _, b := range bs {
-		block := blockToPb(b)
-		blocks = append(blocks, block)
-	}
-	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
-	return proto.Marshal(&blockSlice)
-}
-
-func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
-	blockSlice := new(tas_pb.BlockSlice)
-	error := proto.Unmarshal(b, blockSlice)
-	if error != nil {
-		taslog.P2pLogger.Errorf("Unmarshal Blocks error:%s\n", error.Error())
-		return nil, error
-	}
-	blocks := blockSlice.Blocks
-	result := make([]*core.Block, len(blocks))
-
-	for _, b := range blocks {
-		block := pbToBlock(b)
-		result = append(result, block)
-	}
-	return result, nil
-}
+//func MarshalBlocks(bs []*core.Block) ([]byte, error) {
+//	blocks := make([]*tas_pb.Block, len(bs))
+//	for _, b := range bs {
+//		block := blockToPb(b)
+//		blocks = append(blocks, block)
+//	}
+//	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
+//	return proto.Marshal(&blockSlice)
+//}
+//
+//func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
+//	blockSlice := new(tas_pb.BlockSlice)
+//	error := proto.Unmarshal(b, blockSlice)
+//	if error != nil {
+//		taslog.P2pLogger.Errorf("Unmarshal Blocks error:%s\n", error.Error())
+//		return nil, error
+//	}
+//	blocks := blockSlice.Blocks
+//	result := make([]*core.Block, len(blocks))
+//
+//	for _, b := range blocks {
+//		block := pbToBlock(b)
+//		result = append(result, block)
+//	}
+//	return result, nil
+//}
 
 func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
@@ -190,13 +193,151 @@ func MarshalBlockMap(blockMap map[uint64]core.Block) ([]byte, error) {
 func UnMarshalBlockMap(b []byte) (map[uint64]*core.Block, error) {
 	blockMap := new(tas_pb.BlockMap)
 	e := proto.Unmarshal(b, blockMap)
-	if e!=nil{
+	if e != nil {
 		taslog.P2pLogger.Errorf("UnMarshalBlockMap error:%s\n", e.Error())
-		return nil,e
+		return nil, e
 	}
-	m := make(map[uint64]*core.Block,len(blockMap.Blocks))
-	for id,block := range blockMap.Blocks{
+	m := make(map[uint64]*core.Block, len(blockMap.Blocks))
+	for id, block := range blockMap.Blocks {
 		m[id] = pbToBlock(block)
 	}
-	return m,nil
+	return m, nil
+}
+
+//--------------------------------------------------Group---------------------------------------------------------------
+
+func MarshalMember(m *core.Member) ([]byte, error) {
+	member := memberToPb(m)
+	return proto.Marshal(member)
+}
+
+func UnMarshalMember(b []byte) (*core.Member, error) {
+	member := new(tas_pb.Member)
+	e := proto.Unmarshal(b, member)
+	if e != nil {
+		taslog.P2pLogger.Errorf("UnMarshalMember error:%s\n", e.Error())
+		return nil, e
+	}
+	m := pbToMember(member)
+	return m, nil
+}
+
+func memberToPb(m *core.Member) *tas_pb.Member {
+	member := tas_pb.Member{Id: m.Id, PubKey: m.PubKey}
+	return &member
+}
+
+func pbToMember(m *tas_pb.Member) *core.Member {
+	member := core.Member{Id: m.Id, PubKey: m.PubKey}
+	return &member
+}
+
+func MarshalGroup(g *core.Group) ([]byte, error) {
+	group := groupToPb(g)
+	return proto.Marshal(group)
+}
+
+func UnMarshalGroup(b []byte) (*core.Group, error) {
+	group := new(tas_pb.Group)
+	e := proto.Unmarshal(b, group)
+	if e != nil {
+		taslog.P2pLogger.Errorf("UnMarshalGroup error:%s\n", e.Error())
+		return nil, e
+	}
+	g := pbToGroup(group)
+	return g, nil
+}
+
+func groupToPb(g *core.Group) *tas_pb.Group {
+	members := make([]*tas_pb.Member, len(g.Members))
+	for _, m := range g.Members {
+		member := memberToPb(&m)
+		members = append(members, member)
+	}
+	group := tas_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
+	return &group
+}
+
+func pbToGroup(g *tas_pb.Group) *core.Group {
+	members := make([]core.Member, len(g.Members))
+	for _, m := range g.Members {
+		member := pbToMember(m)
+		members = append(members, *member)
+	}
+	group := core.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
+	return &group
+}
+
+func MarshalGroupMap(groupMap map[uint64]core.Group) ([]byte, error) {
+	g := make(map[uint64]*tas_pb.Group, len(groupMap))
+	for height, group := range groupMap {
+		g[height] = groupToPb(&group)
+	}
+	bMap := tas_pb.GroupMap{Groups: g}
+	return proto.Marshal(&bMap)
+}
+
+func UnMarshalGroupMap(b []byte) (map[uint64]core.Group, error) {
+	groupMap := new(tas_pb.GroupMap)
+	e := proto.Unmarshal(b, groupMap)
+	if e != nil {
+		taslog.P2pLogger.Errorf("UnMarshalGroupMap error:%s\n", e.Error())
+		return nil, e
+	}
+	g := make(map[uint64]core.Group, len(groupMap.Groups))
+	for height, group := range groupMap.Groups {
+		g[height] = *pbToGroup(group)
+	}
+	return g, nil
+}
+
+//----------------------------------------------组初始化---------------------------------------------------------------
+
+func MarshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePieceMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusGroupInitedMessage(m *logical.ConsensusGroupInitedMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
+	return nil, nil
+}
+
+//--------------------------------------------组铸币--------------------------------------------------------------------
+func MarshalConsensusCurrentMessagee(m *logical.ConsensusCurrentMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusCastMessage(m *logical.ConsensusCastMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, error) {
+	return nil, nil
+}
+
+func MarshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage, error) {
+	return nil,nil
 }

@@ -256,7 +256,10 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	}
 	cs := GenConsensusSummary(ccm.bh)
 	n := bc.UserCasted(cs, ccm.si)
+	//todo 缺少逻辑   班德调用鸠兹索要交易，交易缺失鸠兹走网络 此处应有监听交易到达的处理函数
 	fmt.Printf("processer:OnMessageCast UserCasted result=%v.\n", n)
+	//todo  缺少逻辑  验证完了之后应该在组内广播 自己验证过了(入参是这个嘛？)
+	//p2p.Peer.SendVerifiedCast(ConsensusVerifyMessage)
 	if n == CBMR_THRESHOLD_SUCCESS {
 		b := bc.VerifyGroupSign(cs, p.getGroupPubKey(ccm.GroupID))
 		fmt.Printf("bc.VerifyGroupSign result=%v.\n", b)
@@ -309,7 +312,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 func (p *Processer) SuccessNewBlock(cs ConsensusBlockSummary, gid groupsig.ID) {
 	bc := p.GetBlockContext(gid.GetHexString())
 	//to do : 鸠兹保存上链
-	//to do : 屮逸组外广播
+	//todo : 缺少逻辑 屮逸组外广播 这里入参ConsensusBlockSummary不对，缺少BLOCK信息  此处应该广播BLOCK了，屮逸参数留空，等待班德构造参数
+	//p2p.Peer.BroadcastNewBlock()
 	bc.CastedUpdateStatus(uint(cs.QueueNumber))
 	bc.SignedUpdateMinQN(uint(cs.QueueNumber))
 	return
@@ -364,7 +368,8 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				sb := spm.GenSign(ski)
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
 				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.share.share.GetHexString(), spm.share.pub.GetHexString())
-				//to do : 调用屮逸的发送函数
+				//todo : 调用屮逸的发送函数
+				//p2p.Peer.SendKeySharePiece(spm)
 				dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
 				if ok {
 					dest_proc.OnMessageSharePiece(spm)
@@ -394,27 +399,28 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	fmt.Printf("node(%v)begin Processer::OnMessageSharePiece, piecc_count=%v, gc result=%v.\n", p.GetMinerID().GetHexString(), p.piece_count, result)
 	p.piece_count++
 	if result < 0 {
-		panic("OnMessageSharePiece failed, gc.PieceMessage result=%v.\n")
+		panic("OnMessageSharePiece failed, gc.PieceMessage result less than 0.\n")
 	}
 	if result == 1 { //已聚合出签名私钥
 		g, sk := gc.GetGroupInfo()
 		if g.IsValid() && sk.IsValid() {
-			p.addSignKey(g.id, sk)
-			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.id.GetHexString(), g.pk.GetHexString())
+			p.addSignKey(g.GetID(), sk)
+			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", g.GetID().GetHexString(), g.pk.GetHexString())
 			//to do : 把初始化完成的组加入到gc（更新）
-			//to do : 把组初始化完成消息广播到全网
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-				msg.gi.gis = gc.gis
-				msg.gi.GroupID = g.id
-				msg.gi.GroupPK = g.pk
+				msg.Gi.gis = gc.gis
+				msg.Gi.GroupID = g.GetID()
+				msg.Gi.GroupPK = g.pk
 				var mems []PubKeyInfo
 				for _, v := range gc.mems {
 					mems = append(mems, v)
 				}
-				msg.gi.members = mems
+				msg.Gi.members = mems
 				msg.GenSign(ski)
+				//todo : 把组初始化完成消息广播到全网
+				//p2p.Peer.BroadcastGroupInfo(msg)
 				for _, proc := range p.GroupProcs {
 					proc.OnMessageGroupInited(msg)
 				}
@@ -435,11 +441,11 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	fmt.Printf("proc(%v)bein Processer::OnMessageGroupInited, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.si.SignMember))
 	var ngmd NewGroupMemberData
-	ngmd.h = gim.gi.gis.GenHash()
-	ngmd.gid = gim.gi.GroupID
-	ngmd.gpk = gim.gi.GroupPK
+	ngmd.h = gim.Gi.gis.GenHash()
+	ngmd.gid = gim.Gi.GroupID
+	ngmd.gpk = gim.Gi.GroupPK
 	var mid GroupMinerID
-	mid.gid = gim.gi.gis.DummyID
+	mid.gid = gim.Gi.gis.DummyID
 	mid.uid = gim.si.SignMember
 	result := p.gg.GroupInitedMessage(mid, ngmd)
 	p.inited_count++
@@ -449,11 +455,11 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	}
 	switch result {
 	case 1: //收到组内相同消息>=阈值，可上链
-		b := p.gg.AddGroup(gim.gi)
+		b := p.gg.AddGroup(gim.Gi)
 		fmt.Printf("Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
 		bc := new(BlockContext)
-		bc.Init(GroupMinerID{gim.gi.GroupID, p.GetMinerID()})
-		sgi, err := p.gg.GetGroupByID(gim.gi.GroupID)
+		bc.Init(GroupMinerID{gim.Gi.GroupID, p.GetMinerID()})
+		sgi, err := p.gg.GetGroupByID(gim.Gi.GroupID)
 		if err != nil {
 			panic("GetGroupByID failed.\n")
 		}

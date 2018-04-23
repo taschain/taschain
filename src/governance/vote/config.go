@@ -1,6 +1,5 @@
 package vote
 
-import "common"
 
 /*
 **  Creator: pxf
@@ -8,10 +7,9 @@ import "common"
 **  Description: 
 */
 
-type TemplateID common.Address
 
 type VoteConfig struct {
-	TemplateId          TemplateID  //合约模板id
+	TemplateName        string  //合约模板名称
 	PIndex              int         //投票参数索引
 	PValue              interface{} //投票值
 	Custom              bool        //'是否自定义投票合约', true时, pIndex pValue无效
@@ -27,3 +25,7 @@ type VoteConfig struct {
 	DepositGap          int         //缴纳保证金后到可以投票的间隔, 用区块高度差表示
 }
 
+func (cfg *VoteConfig) AbiEncode() ([]byte, error) {
+
+	return nil, nil
+}

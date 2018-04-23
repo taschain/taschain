@@ -5,30 +5,30 @@ import (
 	"core"
 	"taslog"
 	"sync"
+	"common"
 )
 
-//todo  用于填充  将来改为班德的签名
-type sig struct {
-}
+
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
-//其他节点获取本地链高度 todo 签名
-type getBlockChainHeightFn func(sd sig) (int, error)
+//其他节点获取本地块链高度
+type getBlockChainHeightFn func() (int,error)
 
 //自身请求
-type getLocalBlockChainHeightFn func() (int, error)
+type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
 
-//根据高度获取对应的block
-type queryBlocksByHeightFn func(hs []int, sd sig) (map[int]core.Block, error)
+//根据高度获取对应的block todo 返回结构体 code  []*Block  []hash []ratio
+type queryBlocksByHeightFn func(localHeight uint64,currentHash []common.Hash) (map[int]core.Block, error)
 
-//同步多个区块到链上
-type addBlocksToChainFn func(hbm map[int]core.Block, sd sig)
+//todo 入参 换成上面，结构体
+type addBlocksToChainFn func(hbm map[int]core.Block)
+
 
 //---------------------------------------------------------------------------------------------------------------------
 
 const (
-	HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
+	BLOCK_HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
 
 	BLOCK_SYNC_INTERVAL = 60 * time.Second
 )
@@ -36,29 +36,30 @@ const (
 var BlockSyncer blockSyncer
 
 type BlockHeightRequest struct {
-	Sig      sig
+	Sig      []byte
 	SourceId string
 }
 
 type BlockHeight struct {
-	Height   int
+	Height   uint64
 	SourceId string
-	Sig      sig
+	Sig      []byte
 }
 
 type BlockRequest struct {
-	HeightSlice []int
+	sourceHeight uint64
+	sourceCurrentHash   common.Hash
 	SourceId    string
-	Sig         sig
+	Sig         []byte
 }
 
 type BlockArrived struct {
 	BlockMap map[int]core.Block
-	Sig      sig
+	Sig      []byte
 }
 
 type blockSyncer struct {
-	neighborMaxHeight int        //邻居节点的最大高度
+	neighborMaxHeight uint64        //邻居节点的最大高度
 	bestNodeId        string     //最佳同步节点
 	maxHeightLock     sync.Mutex //同步锁
 
@@ -79,9 +80,10 @@ func InitBlockSyncer(getHeight getBlockChainHeightFn, getLocalHeight getLocalBlo
 	BlockSyncer = blockSyncer{HeightRequestCh: make(chan BlockHeightRequest), HeightCh: make(chan BlockHeight), BlockRequestCh: make(chan BlockRequest),
 		BlockArrivedCh: make(chan BlockArrived), getHeight: getHeight, getLocalHeight: getLocalHeight, queryBlock: queryBlock, addBlocks: addBlocks,
 	}
+	BlockSyncer.start()
 }
 
-func (bs *blockSyncer) Start() {
+func (bs *blockSyncer) start() {
 	bs.syncBlock()
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
@@ -89,12 +91,13 @@ func (bs *blockSyncer) Start() {
 		case hr := <-bs.HeightRequestCh:
 			//收到块高度请求
 			//todo  验证签名
-			height, e := bs.getHeight(hr.Sig)
+			height, e := bs.getHeight()
 			if e != nil {
 				taslog.P2pLogger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
 				return
 			}
-			sendHeight(hr.SourceId, height)
+			// todo 签名
+			sendBlockHeight(hr.SourceId, height)
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
 			//todo  验证签名
@@ -106,15 +109,17 @@ func (bs *blockSyncer) Start() {
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
 			//收到块请求
-			blocks, e := bs.queryBlock(br.HeightSlice, br.Sig)
-			if e != nil {
-				taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
-				return
-			}
+			//blocks, e := bs.queryBlock(br.HeightSlice, br.Sig)
+			//if e != nil {
+			//	taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
+			//	return
+			//}
+			var blocks []*core.Block
+			// todo 签名
 			sendBlocks(br.SourceId, blocks)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
-			bs.addBlocks(bm.BlockMap, bm.Sig)
+			bs.addBlocks(bm.BlockMap)
 		case <-t.C:
 			bs.syncBlock()
 		}
@@ -127,11 +132,12 @@ func (bs *blockSyncer) syncBlock() {
 	bs.bestNodeId = ""
 	bs.maxHeightLock.Unlock()
 
+	//todo 签名
 	go requestBlockChainHeight()
-	t := time.NewTimer(HEIGHT_RECEIVE_INTERVAL)
+	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	localHeight, e := bs.getLocalHeight()
+	localHeight,currentHash, e := bs.getLocalHeight()
 	if e != nil {
 		taslog.P2pLogger.Errorf("Self get block height error:%s\n", e.Error())
 		return
@@ -145,28 +151,22 @@ func (bs *blockSyncer) syncBlock() {
 		return
 	} else {
 		taslog.P2pLogger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		heightSlice := make([]int, maxHeight-localHeight)
-		for i := localHeight; i <= maxHeight; i++ {
-			heightSlice = append(heightSlice, i)
-		}
-		requestBlockByHeight(bestNodeId, heightSlice)
+		//todo 签名
+		requestBlockByHeight(bestNodeId, localHeight,currentHash)
 	}
 
 }
 
 //广播索要链高度
-//todo param: signData
-func requestBlockChainHeight() {}
+func requestBlockChainHeight() {
+}
 
-//todo 签名
-func sendHeight(targetId string, height int) {}
+func sendBlockHeight(targetId string, localHeight int) {}
 
-//todo 签名
-func sendBlocks(targetId string, blockMap map[int]core.Block) {}
+func sendBlocks(targetId string, blocks []*core.Block) {}
 
 //向某一节点请求Block
 //param: target peer id
 //       block height slice
 //       sign data
-//todo 签名
-func requestBlockByHeight(id string, hs []int) {}
+func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {}

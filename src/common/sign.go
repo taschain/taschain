@@ -2,11 +2,19 @@ package common
 
 import (
 	"math/big"
+	"vm/common"
 )
 
 type Sign struct {
 	r big.Int
 	s big.Int
+}
+
+//数据签名结构 for message casting
+type SignData struct {
+	DataHash   common.Hash        //哈希值
+	DataSign   Sign				 //签名
+	Id		   string            //用户ID
 }
 
 //签名构造函数

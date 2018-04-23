@@ -131,6 +131,10 @@ func (p PubKeyInfo) IsValid() bool {
 	return p.id.IsValid() && p.pk.IsValid()
 }
 
+func (p PubKeyInfo) GetID() groupsig.ID {
+	return p.id
+}
+
 //id->私钥对
 type SecKeyInfo struct {
 	id groupsig.ID //矿工ID
@@ -139,6 +143,10 @@ type SecKeyInfo struct {
 
 func (s SecKeyInfo) IsValid() bool {
 	return s.id.IsValid() && s.sk.IsValid()
+}
+
+func (s SecKeyInfo) GetID() groupsig.ID {
+	return s.id
 }
 
 //组内秘密分享消息结构

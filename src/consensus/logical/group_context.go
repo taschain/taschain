@@ -227,14 +227,14 @@ func (gc GroupContext) getMembers() []PubKeyInfo {
 func (gc GroupContext) getIDs() []groupsig.ID {
 	var ids []groupsig.ID
 	for _, v := range gc.mems {
-		ids = append(ids, v.id)
+		ids = append(ids, v.GetID())
 	}
 	return ids
 }
 
 func (gc GroupContext) MemExist(id groupsig.ID) bool {
 	for _, v := range gc.mems {
-		if v.id.GetHexString() == id.GetHexString() {
+		if v.GetID().GetHexString() == id.GetHexString() {
 			return true
 		}
 	}

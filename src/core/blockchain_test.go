@@ -11,6 +11,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	Clear(DefaultBlockChainConfig())
 	chain := InitBlockChain()
+	chain.transactionPool.Clear()
 	//chain.Clear()
 
 	// 查询创始块

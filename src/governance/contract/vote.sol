@@ -1,7 +1,9 @@
 pragma solidity ^0.4.0;
 
-contract Permit {
+contract TasCredit {
     function checkPermit(address ac, uint256 bound) public view returns (bool);
+    function addVoteCnt(address ac, uint32 delta) public;
+    function addVoteAcceptCnt(address ac, uint32 delta) public ;
 }
 
 contract Vote {
@@ -18,7 +20,8 @@ contract Vote {
 
     mapping(address => Voter) public voters;    //投票信息
     address[] voterAddrs;   //投票人地址列表
-    Permit     permit; //credit合约
+    TasCredit     credit; //credit合约
+    bool pass;  //投票结果
 
     //以下是配置字段
     uint64 depositMin;  //每个人缴纳的最低保证金
@@ -30,9 +33,11 @@ contract Vote {
     uint64  checkBlock;     //唱票块号
     uint64  effectBlock;    //生效块号
     uint64  depositGapBlock; //缴纳保证金后, 需要等到可以投票的区块间隔
+    uint64  canVoteScore;
+    uint64  canLaunchScore;
 
-    function Vote(address caddr, uint64 dm, uint64 tdm, uint64 vcm, uint64 adm, uint64 avcm, uint64 vdb, uint64 cb, uint64 eb, uint64 dgb) public {
-        permit = Permit(caddr);
+    function Vote(address caddr, uint64 dm, uint64 tdm, uint64 vcm, uint64 adm, uint64 avcm, uint64 vdb, uint64 cb, uint64 eb, uint64 dgb, uint64 cvs, uint64 cls) public {
+        credit = TasCredit(caddr);
         assert(_canLaunchVote());
 
         depositMin = dm;
@@ -44,14 +49,16 @@ contract Vote {
         checkBlock = cb;
         effectBlock = eb;
         depositGapBlock = dgb;
+        canVoteScore = cvs;
+        canLaunchScore = cls;
     }
 
     function _canVote() internal view returns (bool) {
-        return permit.checkPermit(msg.sender, 0);
+        return credit.checkPermit(msg.sender, uint(canVoteScore));
     }
 
     function _canLaunchVote() internal view returns (bool) {
-        return permit.checkPermit(msg.sender, 100);
+        return credit.checkPermit(msg.sender, uint(canLaunchScore));
     }
 
     function _doVote(address who, bool approval, uint64 block) internal {
@@ -89,7 +96,7 @@ contract Vote {
     }
 
     //委托投票
-    function delegate(address who) public {
+    function delegateTo(address who) public {
         Voter self = voters[msg.sender];
         assert(!self.voted
                 && who != 0
@@ -140,8 +147,9 @@ contract Vote {
                 }
             }
 
-            return approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
-            && approvalVoter > (voterAddrs.length / 2) + 1;
+            pass = totalVoter >= voterCntMin    //投票人数达到最低人数限制
+                && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
+                && approvalVoter > (voterAddrs.length / 2) + 1;
             //通过人数超过一半
 
         } else {
@@ -158,11 +166,28 @@ contract Vote {
                 }
             }
 
-            return approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
-            && approvalVoter > (voterAddrs.length / 2) + 1    //通过人数超过一半
-            && approvalDeposit >= approvalDepositMin       //通过保证金达到最低值
-            && approvalDeposit > (totalDeposit / 2) + 1;
+            pass = totalVoter >= voterCntMin    //投票人数达到最低人数限制
+                && totalDeposit >= totalDepositMin  //总缴纳的保证金达到最低总保证金
+                && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
+                && approvalVoter > (voterAddrs.length / 2) + 1    //通过人数超过一半
+                && approvalDeposit >= approvalDepositMin       //通过保证金达到最低值
+                && approvalDeposit > (totalDeposit / 2) + 1;
             //如果需要保证金, 则通过保证金需要超过一半
+        }
+
+        return pass;
+    }
+
+    //更新信用信息
+    function updateCredit(bool pass) public view {
+        assert(
+            block.number == checkBlock
+        );
+        for (uint i = 0; i < voterAddrs.length; i ++) {
+            credit.addVoteCnt(voterAddrs[i], 1);
+            if(pass) {
+                credit.addVoteAcceptCnt(voterAddrs[i], 1);
+            }
         }
     }
 
@@ -194,6 +219,21 @@ contract Vote {
             voterAddrs[i].transfer(refund);
         }
 
+    }
+
+    function voterInfo(address ac) public view returns (address addr, bool voted, address delegate, address[] asDelegates, bool approval, uint64 voteBlock, uint64 deposit, uint64 depositBlock) {
+        addr = ac;
+        voted = voters[ac].voted;
+        delegate = voters[ac].delegate;
+        asDelegates = voters[ac].asDelegates;
+        approval = voters[ac].approval;
+        voteBlock = voters[ac].voteBlock;
+        deposit = voters[ac].deposit;
+        depositBlock = voters[ac].depositBlock;
+    }
+
+    function voterAddrList() public view returns (address[]) {
+        return voterAddrs;
     }
 
 }

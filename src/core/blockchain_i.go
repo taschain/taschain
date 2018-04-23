@@ -60,3 +60,9 @@ type AccountRepository interface {
 	GetNonce(address common.Address) uint64
 
 }
+
+// transactionPool 接口
+type TransactionPoolI interface {
+
+}
+

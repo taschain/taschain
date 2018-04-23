@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"taslog"
 	"github.com/multiformats/go-multihash"
-	"github.com/libp2p/go-libp2p-peer"
+	 gpeer "github.com/libp2p/go-libp2p-peer"
+
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 	PRIVATE_KEY = "private_key"
 )
 
-type selfNode struct {
+type Node struct {
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
@@ -29,9 +30,7 @@ type selfNode struct {
 	TcpPort int
 }
 
-var SelfNetInfo selfNode
-
-func InitSelfNode(config *common.ConfManager) error {
+func InitSelfNode(config *common.ConfManager) (*Node, error) {
 	var privateKey common.PrivateKey
 
 	privateKeyStr := getPrivateKeyFromConfigFile(config)
@@ -43,13 +42,12 @@ func InitSelfNode(config *common.ConfManager) error {
 	}
 	publicKey := privateKey.GetPubKey()
 	id := GetIdFromPublicKey(publicKey)
-	//该转换方式暂时不使用
-	//id := publicKey.GetAddress().GetHexString()
 	ip := getLocalIp()
 	port := getAvailableTCPPort(ip, BASE_PORT)
-	SelfNetInfo = selfNode{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
-	taslog.P2pLogger.Debug(SelfNetInfo.String())
-	return nil
+
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
+	taslog.P2pLogger.Debug(n.String())
+	return &n, nil
 }
 
 //adpat to lib2p2. The whole p2p network use this id to be the only identity
@@ -60,7 +58,9 @@ func GetIdFromPublicKey(p common.PublicKey) string {
 		taslog.P2pLogger.Error("GetIdFromPublicKey error!:%s", e.Error())
 		return ""
 	}
-	id := string(peer.ID(idBytes))
+	//addr := p.GetAddress()
+	//idBytes := groupsig.NewIDFromAddress(addr).Serialize()
+	id := string(gpeer.ID(idBytes))
 	return id
 }
 
@@ -102,14 +102,14 @@ func getAvailableTCPPort(ip string, port int) int {
 	return port
 }
 
-func (s *selfNode) String() string {
+func (s *Node) String() string {
 	str := "Self node net info:\n Private key is:" + s.PrivateKey.GetHexString() +
 		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\n Tcp port is:" + strconv.Itoa(s.TcpPort)
 	return str
 }
 
 func getPrivateKeyFromConfigFile(config *common.ConfManager) (privateKeyStr string) {
-	privateKey := (*config).GetString(BASE_SECTION, PRIVATE_KEY,"")
+	privateKey := (*config).GetString(BASE_SECTION, PRIVATE_KEY, "")
 	return privateKey
 }
 
@@ -118,7 +118,7 @@ func savePrivateKey(privateKeyStr string, config *common.ConfManager) {
 	(*config).SetString(BASE_SECTION, PRIVATE_KEY, privateKeyStr)
 }
 
-func (s selfNode) GenMulAddrStr() string {
+func (s Node) GenMulAddrStr() string {
 	return ToMulAddrStr(s.Ip, "tcp", s.TcpPort)
 }
 
@@ -130,7 +130,7 @@ func ToMulAddrStr(ip string, protocol string, port int) string {
 
 //only for test
 //used to mock a new client
-func NewSelfNetInfo(privateKeyStr string) *selfNode {
+func NewSelfNetInfo(privateKeyStr string) *Node {
 	var privateKey common.PrivateKey
 	if privateKeyStr == "" {
 		privateKey = common.GenerateKey("")
@@ -141,6 +141,5 @@ func NewSelfNetInfo(privateKeyStr string) *selfNode {
 	id := GetIdFromPublicKey(publicKey)
 	ip := getLocalIp()
 	port := getAvailableTCPPort(ip, BASE_PORT)
-	return &selfNode{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
+	return &Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
 }
-
