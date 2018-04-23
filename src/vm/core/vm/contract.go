@@ -121,6 +121,9 @@ func (c *Contract) Caller() common.Address {
 
 // UseGas attempts the use gas and subtracts it and returns true on success
 func (c *Contract) UseGas(gas uint64) (ok bool) {
+	//xtm for no gas
+	return true
+
 	if c.Gas < gas {
 		return false
 	}
