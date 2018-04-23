@@ -5,6 +5,8 @@ import (
 	"common"
 	"taslog"
 	"consensus/groupsig"
+	"network/biz"
+	"core"
 )
 
 const (
@@ -144,12 +146,37 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 func BroadcastNewBlock() {}
 
 //验证节点 交易集缺失，索要、特定交易 全网广播
-//param:hash slice of transaction slice
-//      signData
-func (p *peer) RequestTransactionByHash(hs []common.Hash) {}
+func (p *peer) BroadcastTransactionRequest(m biz.TransactionRequestMessage) {
+	if m.SourceId == "" {
+		m.SourceId = p.SelfNetInfo.Id
+	}
+
+	body, e := MarshalTransactionRequestMessage(&m)
+	if e != nil {
+		logger.Error("Discard MarshalTransactionRequestMessage because of marshal error!\n")
+		return
+	}
+	message := Message{Code: REQ_TRANSACTION_MSG, Body: body}
+
+	conns := Server.host.Network().Conns()
+	for _, conn := range conns {
+		id := conn.RemotePeer()
+		if id != "" {
+			Server.SendMessage(message, string(id))
+		}
+	}
+}
+
+//本地查询到交易，返回请求方
+func (p *peer) SendTransactions(txs []*core.Transaction, sourceId string) {
+	body, e := MarshalTransactions(txs)
+	if e != nil {
+		logger.Error("Discard MarshalTransactions because of marshal error!\n")
+		return
+	}
+	message := Message{Code: TRANSACTION_MSG, Body: body}
+	Server.SendMessage(message, sourceId)
+}
 
 //收到交易 全网扩散
-func (p *peer) BroadcastTransaction(hs []common.Hash) {}
-
-//自己调
-func (p *peer) BroadcastTransactionRequest(hs []common.Hash) {}
+func (p *peer) BroadcastTransactions(hs []common.Hash) {}

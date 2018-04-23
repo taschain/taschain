@@ -235,6 +235,21 @@ func (s *server) handleMessage(b []byte, from string) {
 		}
 		s.cHandler.OnMessageVerifiedCastFn(*m)
 
+	case REQ_TRANSACTION_MSG:
+		m,e := UnMarshalTransactionRequestMessage(b)
+		if e != nil {
+			logger.Error("Discard TransactionRequestMessage because of unmarshal error!\n")
+			return
+		}
+		s.bHandler.OnTransactionRequest(m)
+	case TRANSACTION_MSG:
+		m,e := UnMarshalTransactions(b)
+		if e != nil {
+			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
+			return
+		}
+		s.bHandler.OnMessageTransaction(m)
+
 	default:
 		logger.Errorf("Message not support! Code:%d\n", code)
 	}

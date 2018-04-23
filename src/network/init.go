@@ -78,7 +78,7 @@ func initServer(config *common.ConfManager) error {
 
 	var proc = mediator.Proc
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		nil )
+		p2p.Peer.BroadcastTransactionRequest,p2p.Peer.SendTransactions)
 
 	cHandler := biz.NewConsensusMessageHandler(proc.OnMessageGroupInit, proc.OnMessageSharePiece, proc.OnMessageGroupInited, proc.OnMessageCurrent, proc.OnMessageCast, proc.OnMessageVerify)
 
