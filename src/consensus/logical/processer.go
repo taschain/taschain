@@ -383,7 +383,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				spm.Share = piece
 				sb := spm.GenSign(ski)
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
-				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.share.GetHexString(), spm.Share.pub.GetHexString())
+				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.Share.GetHexString(), spm.Share.Pub.GetHexString())
 				//todo : 调用屮逸的发送函数
 				//p2p.Peer.SendKeySharePiece(spm)
 				dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]

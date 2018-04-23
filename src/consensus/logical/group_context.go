@@ -310,9 +310,9 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 	if len(gc.mems) == GROUP_MAX_MEMBERS && gc.is == GIS_RAW {
 		secs := gc.node.GenSharePiece(gc.getIDs())
 		var piece SharePiece
-		piece.pub = gc.node.GetSeedPubKey()
+		piece.Pub = gc.node.GetSeedPubKey()
 		for k, v := range secs {
-			piece.share = v
+			piece.Share = v
 			shares[k] = piece
 		}
 		gc.is = GIS_SHARED

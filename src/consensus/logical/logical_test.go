@@ -379,9 +379,9 @@ func testLogicGroupInit(t *testing.T) {
 	for k, v := range nodes {
 		shares := v.GenSharePiece(ids)
 		var piece SharePiece
-		piece.pub = v.GetSeedPubKey()
+		piece.Pub = v.GetSeedPubKey()
 		for x, y := range nodes {
-			piece.share = shares[x]
+			piece.Share = shares[x]
 			y.SetInitPiece(k, piece)
 			nodes[x] = y
 		}

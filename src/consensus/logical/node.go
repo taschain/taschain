@@ -18,12 +18,12 @@ func (gmd *GroupInitPool) init() {
 
 //接收数据
 func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece SharePiece) int {
-	fmt.Printf("GroupInitPool::ReceiveData, src node=%v, share=%v, pub=%v.\n", id.GetHexString(), piece.share.GetHexString(), piece.pub.GetHexString())
+	fmt.Printf("GroupInitPool::ReceiveData, src node=%v, share=%v, pub=%v.\n", id.GetHexString(), piece.Share.GetHexString(), piece.Pub.GetHexString())
 	if _, ok := gmd._pool[id]; !ok {
 		gmd._pool[id] = piece //没有收到过该成员消息
 		return 0
 	} else { //收到过
-		if gmd._pool[id].share != piece.share || gmd._pool[id].pub != piece.pub { //两次数据不一致
+		if gmd._pool[id].Share.GetHexString() != piece.Share.GetHexString() || gmd._pool[id].Pub.GetHexString() != piece.Pub.GetHexString() { //两次数据不一致
 			fmt.Printf("GroupInitPool::ReceiveData failed, data diff.\n")
 			return -1
 		}
@@ -42,7 +42,7 @@ func (gmd GroupInitPool) GenMinerSignSecKey() *groupsig.Seckey {
 	}
 	shares := make([]groupsig.Seckey, 0)
 	for _, v := range gmd._pool {
-		shares = append(shares, v.share)
+		shares = append(shares, v.Share)
 	}
 	sk := groupsig.AggregateSeckeys(shares)
 	return sk
@@ -55,7 +55,7 @@ func (gmd GroupInitPool) GenGroupPubKey() *groupsig.Pubkey {
 	}
 	pubs := make([]groupsig.Pubkey, 0)
 	for _, v := range gmd._pool {
-		pubs = append(pubs, v.pub)
+		pubs = append(pubs, v.Pub)
 	}
 	gpk := groupsig.AggregatePubkeys(pubs)
 	return gpk

@@ -151,12 +151,12 @@ func (s SecKeyInfo) GetID() groupsig.ID {
 
 //组内秘密分享消息结构
 type SharePiece struct {
-	share groupsig.Seckey //秘密共享
-	pub   groupsig.Pubkey //矿工（组私密）公钥
+	Share groupsig.Seckey //秘密共享
+	Pub   groupsig.Pubkey //矿工（组私密）公钥
 }
 
 func (piece SharePiece) IsValid() bool {
-	return piece.share.IsValid() && piece.pub.IsValid()
+	return piece.Share.IsValid() && piece.Pub.IsValid()
 }
 
 //map(id->秘密分享)
