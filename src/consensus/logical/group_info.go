@@ -22,19 +22,19 @@ const (
 type StaticGroupInfo struct {
 	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK  groupsig.Pubkey           //组公钥
-	members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
-	mapCache map[string]int            //用ID查找成员信息(成员ID->members中的索引)
-	gis      ConsensusGroupInitSummary //组的初始化凭证
+	Members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
+	MapCache map[string]int            //用ID查找成员信息(成员ID->members中的索引)
+	GIS      ConsensusGroupInitSummary //组的初始化凭证
 }
 
 //取得某个矿工在组内的排位
 func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	pos := -1
-	if v, ok := sgi.mapCache[id.GetHexString()]; ok {
+	if v, ok := sgi.MapCache[id.GetHexString()]; ok {
 		pos = v
 		//双重验证
 		found := false
-		for k, item := range sgi.members {
+		for k, item := range sgi.Members {
 			if item.GetID().GetHexString() == id.GetHexString() {
 				found = true
 				if pos != k {
@@ -53,12 +53,12 @@ func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 func (sgi StaticGroupInfo) GenHash() common.Hash {
 	str := sgi.GroupID.GetHexString()
 	str += sgi.GroupPK.GetHexString()
-	for _, v := range sgi.members {
+	for _, v := range sgi.Members {
 		str += v.ID.GetHexString()
 		str += v.PK.GetHexString()
 	}
 	//mapCache不进哈希
-	gis_hash := sgi.gis.GenHash()
+	gis_hash := sgi.GIS.GenHash()
 	str += gis_hash.Str()
 	all_hash := rand.Data2CommonHash([]byte(str))
 	return all_hash
@@ -70,10 +70,10 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 
 func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 	s := SGS_UNKNOWN
-	if len(sgi.members) > 0 && sgi.GroupPK.IsValid() {
+	if len(sgi.Members) > 0 && sgi.GroupPK.IsValid() {
 		s = SGS_CASTOR
 	} else {
-		if sgi.gis.IsExpired() {
+		if sgi.GIS.IsExpired() {
 			s = SGS_INIT_TIMEOUT
 		} else {
 			s = SGS_INITING
@@ -85,12 +85,12 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 //由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
 func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 	var sgi StaticGroupInfo
-	sgi.gis = grm.GI
-	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
-	sgi.mapCache = make(map[string]int, GROUP_MAX_MEMBERS)
+	sgi.GIS = grm.GI
+	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
+	sgi.MapCache = make(map[string]int, GROUP_MAX_MEMBERS)
 	for _, v := range grm.MEMS {
-		sgi.members = append(sgi.members, v)
-		sgi.mapCache[v.GetID().GetHexString()] = len(sgi.members) - 1
+		sgi.Members = append(sgi.Members, v)
+		sgi.MapCache[v.GetID().GetHexString()] = len(sgi.Members) - 1
 	}
 	return sgi
 }
@@ -99,17 +99,17 @@ func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 //输入：组成员ID列表，该ID为组成员的私有ID（由该成员的交易私钥->公开地址处理而来），和组共识无关
 func CreateWithRawMembers(mems []PubKeyInfo) StaticGroupInfo {
 	var sgi StaticGroupInfo
-	sgi.members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
-	sgi.mapCache = make(map[string]int, GROUP_MAX_MEMBERS)
+	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
+	sgi.MapCache = make(map[string]int, GROUP_MAX_MEMBERS)
 	for i := 0; i < len(mems); i++ {
-		sgi.members = append(sgi.members, mems[i])
-		sgi.mapCache[mems[i].GetID().GetHexString()] = len(sgi.members) - 1
+		sgi.Members = append(sgi.Members, mems[i])
+		sgi.MapCache[mems[i].GetID().GetHexString()] = len(sgi.Members) - 1
 	}
 	return sgi
 }
 
 func (sgi *StaticGroupInfo) GetLen() int {
-	return len(sgi.members)
+	return len(sgi.Members)
 }
 
 //组完成初始化，必须在一个组尚未初始化的时候调用有效。
@@ -129,18 +129,18 @@ func (sgi *StaticGroupInfo) GroupConsensusInited(pk groupsig.Pubkey, id groupsig
 //按组内排位取得成员ID列表
 func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
 	ids := make([]groupsig.ID, GROUP_MAX_MEMBERS)
-	for i := 0; i < len(sgi.members); i++ {
-		ids = append(ids, sgi.members[i].GetID())
+	for i := 0; i < len(sgi.Members); i++ {
+		ids = append(ids, sgi.Members[i].GetID())
 	}
 	return ids
 }
 
 func (sgi *StaticGroupInfo) Addmember(m PubKeyInfo) {
 	if m.GetID().IsValid() {
-		_, ok := sgi.mapCache[m.GetID().GetHexString()]
+		_, ok := sgi.MapCache[m.GetID().GetHexString()]
 		if !ok {
-			sgi.members = append(sgi.members, m)
-			sgi.mapCache[m.GetID().GetHexString()] = len(sgi.members) - 1
+			sgi.Members = append(sgi.Members, m)
+			sgi.MapCache[m.GetID().GetHexString()] = len(sgi.Members) - 1
 		}
 	}
 }
@@ -150,20 +150,20 @@ func (sgi *StaticGroupInfo) CanGroupSign() bool {
 }
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
-	_, ok := sgi.mapCache[uid.GetHexString()]
+	_, ok := sgi.MapCache[uid.GetHexString()]
 	return ok
 }
 
 func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, ok bool) {
 	var i int
-	i, ok = sgi.mapCache[uid.GetHexString()]
-	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.members), len(sgi.mapCache))
-	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.members), sgi.GroupPK.GetHexString())
+	i, ok = sgi.MapCache[uid.GetHexString()]
+	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MapCache))
+	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
 	if ok {
-		m = sgi.members[i]
+		m = sgi.Members[i]
 	} else {
 		i := 0
-		for k, _ := range sgi.mapCache {
+		for k, _ := range sgi.MapCache {
 			fmt.Printf("---mem(%v)=%v.\n", i, k)
 			i++
 		}
@@ -173,7 +173,7 @@ func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, ok bool) {
 
 //取得某个成员在组内的排位
 func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.mapCache[uid.GetHexString()]
+	i, ok := sgi.MapCache[uid.GetHexString()]
 	if ok {
 		return int32(i)
 	} else {
@@ -184,8 +184,8 @@ func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
 //取得指定位置的铸块人
 func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 	var m groupsig.ID
-	if i >= 0 && i < len(sgi.members) {
-		m = sgi.members[i].GetID()
+	if i >= 0 && i < len(sgi.Members) {
+		m = sgi.Members[i].GetID()
 	}
 	return m
 }
@@ -213,17 +213,17 @@ func (gg GlobalGroups) GetGroupSize() int {
 
 //增加一个合法铸块组
 func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
-	if len(g.members) != len(g.mapCache) {
+	if len(g.Members) != len(g.MapCache) {
 		//重构cache
-		g.mapCache = make(map[string]int, len(g.members))
-		for i, v := range g.members {
+		g.MapCache = make(map[string]int, len(g.Members))
+		for i, v := range g.Members {
 			if v.PK.GetHexString() == "0x0" {
 				panic("GlobalGroups::AddGroup failed, group member has no pub key.")
 			}
-			g.mapCache[v.GetID().GetHexString()] = i
+			g.MapCache[v.GetID().GetHexString()] = i
 		}
 	}
-	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.GetHexString(), len(g.members), len(g.mapCache))
+	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.GetHexString(), len(g.Members), len(g.MapCache))
 	if _, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)
 		gg.mapCache[g.GroupID.GetHexString()] = len(gg.groups) - 1

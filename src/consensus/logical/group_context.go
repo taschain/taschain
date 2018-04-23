@@ -124,7 +124,7 @@ func (ngg *NewGroupGenerator) Init(gg *GlobalGroups) {
 }
 
 func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
-	dummy_id := ngc.sgi.gis.DummyID
+	dummy_id := ngc.sgi.GIS.DummyID
 	if _, ok := ngg.groups[dummy_id.GetHexString()]; !ok {
 		fmt.Printf("add initing group %p ok.\n", &ngc)
 		ngg.groups[dummy_id.GetHexString()] = &ngc
@@ -154,7 +154,7 @@ func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberDa
 		}
 	}
 	fmt.Printf("already exist %v mem's data, status=%v.\n ", ngc.getSize(), ngc.status)
-	if ngc.sgi.gis.IsExpired() { //该组初始化共识已超时
+	if ngc.sgi.GIS.IsExpired() { //该组初始化共识已超时
 		fmt.Printf("ReceiveData failed, group initing timeout.\n")
 		return -1
 	}
@@ -170,7 +170,7 @@ func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberDa
 		}
 		return 0
 	}
-	if ngmd.h != ngc.sgi.gis.GenHash() { //共识数据异常
+	if ngmd.h != ngc.sgi.GIS.GenHash() { //共识数据异常
 		fmt.Printf("ReceiveData failed, parent data hash diff.\n")
 		return -1
 	}

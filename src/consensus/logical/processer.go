@@ -426,14 +426,14 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-				msg.GI.gis = gc.gis
+				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = g.GetID()
 				msg.GI.GroupPK = g.PK
 				var mems []PubKeyInfo
 				for _, v := range gc.mems {
 					mems = append(mems, v)
 				}
-				msg.GI.members = mems
+				msg.GI.Members = mems
 				msg.GenSign(ski)
 				//todo : 把组初始化完成消息广播到全网
 				//p2p.Peer.BroadcastGroupInfo(msg)
@@ -457,11 +457,11 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	fmt.Printf("proc(%v)bein Processer::OnMessageGroupInited, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.SignMember))
 	var ngmd NewGroupMemberData
-	ngmd.h = gim.GI.gis.GenHash()
+	ngmd.h = gim.GI.GIS.GenHash()
 	ngmd.gid = gim.GI.GroupID
 	ngmd.gpk = gim.GI.GroupPK
 	var mid GroupMinerID
-	mid.gid = gim.GI.gis.DummyID
+	mid.gid = gim.GI.GIS.DummyID
 	mid.uid = gim.SI.SignMember
 	result := p.gg.GroupInitedMessage(mid, ngmd)
 	p.inited_count++
