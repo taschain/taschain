@@ -146,7 +146,7 @@ func (bs *blockSyncer) syncBlock() {
 		return
 	} else {
 		logger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		Peer.RequestBlockByHeight(bestNodeId, localHeight, currentHash)
+		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
 }
@@ -154,7 +154,7 @@ func (bs *blockSyncer) syncBlock() {
 //广播索要链高度
 func requestBlockChainHeight() {
 	message := Message{Code: REQ_BLOCK_CHAIN_HEIGHT_MSG}
-	conns := Server.host.Network().Conns()
+	conns := Server.Host.Network().Conns()
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
@@ -179,4 +179,16 @@ func sendBlocks(targetId string, blockEntity *BlockEntity) {
 	}
 	message := Message{Code: BLOCK_MSG, Body: body}
 	Server.SendMessage(message, targetId)
+}
+
+//向某一节点请求Block
+func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {
+	m := BlockOrGroupRequestEntity{SourceHeight: localHeight, SourceCurrentHash: currentHash}
+	body, e := MarshalBlockOrGroupRequestEntity(&m)
+	if e != nil {
+		logger.Error("requestBlockByHeight marshal BlockOrGroupRequestEntity error:%s\n", e.Error())
+		return
+	}
+	message := Message{Code: REQ_BLOCK_MSG, Body: body}
+	Server.SendMessage(message, id)
 }

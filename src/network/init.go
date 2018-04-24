@@ -17,6 +17,7 @@ import (
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
 	"network/biz"
+	m "network/mediator"
 	"consensus/mediator"
 )
 
@@ -51,7 +52,7 @@ func initPeer(config *common.ConfManager) error {
 	if error != nil {
 		return error
 	}
-	p2p.InitPeer(node)
+	m.InitPeer(node)
 	return nil
 }
 
@@ -76,7 +77,7 @@ func initServer(config *common.ConfManager) error {
 
 	var proc = mediator.Proc
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		p2p.Peer.BroadcastTransactionRequest, p2p.Peer.SendTransactions,nil)
+		m.Peer.BroadcastTransactionRequest, m.Peer.SendTransactions,nil)
 
 	cHandler := biz.NewConsensusMessageHandler(proc.OnMessageGroupInit, proc.OnMessageSharePiece, proc.OnMessageGroupInited, proc.OnMessageCurrent, proc.OnMessageCast, proc.OnMessageVerify)
 
@@ -93,7 +94,7 @@ func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 }
 
 func makeSwarm(ctx context.Context) (net.Network, error) {
-	self := p2p.Peer.SelfNetInfo
+	self := m.Peer.SelfNetInfo
 	localId := self.Id
 	multiaddr, e1 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e1 != nil {
@@ -128,7 +129,7 @@ func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManag
 	if e1 != nil {
 		return e1
 	}
-	if p2p.Peer.SelfNetInfo.GenMulAddrStr() == seedAddrStr {
+	if m.Peer.SelfNetInfo.GenMulAddrStr() == seedAddrStr {
 		return nil
 	}
 	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
