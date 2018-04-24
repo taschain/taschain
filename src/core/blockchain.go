@@ -154,7 +154,7 @@ func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.state)
 }
 
-func (chain *BlockChain) AddChainEventProcessors(processor ChainEventProcessor) {
+func (chain *BlockChain) AddChainEventProcessor(processor ChainEventProcessor) {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
