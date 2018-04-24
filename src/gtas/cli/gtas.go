@@ -149,7 +149,7 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	err := core.InitBlockChain()
+	err := core.InitCore()
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 func (gtas *Gtas) fullInit() error {
 	var err error
 	groupsig.Init(1)
-	err = core.InitBlockChain()
+	err = core.InitCore()
 	if err != nil {
 		return errors.New("InitBlockChain failed")
 	}
