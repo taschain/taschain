@@ -7,6 +7,7 @@ import (
 	"governance/global"
 	"log"
 	"strings"
+	"core"
 )
 
 // Wallets 钱包
@@ -17,8 +18,8 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if source == "" {
 		source = (*ws)[0].Address
 	}
-	nonce := blockChain.GetNonce(common.HexToAddress(source))
-	txpool := blockChain.GetTransactionPool()
+	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+	txpool := core.BlockChainImpl.GetTransactionPool()
 	if strings.HasPrefix(code, "0x") {
 		code = code[2:]
 	}
@@ -69,7 +70,7 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 	if account == "" && len(walletManager) > 0 {
 		account = walletManager[0].Address
 	}
-	balance := blockChain.GetBalance(common.HexToAddress(account))
+	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
 	return balance.Int64(), nil
 }
 
@@ -81,15 +82,14 @@ func (ws *wallets) newVote(source string, modelNum string, config *global.VoteCo
 	if err != nil {
 		return err
 	}
-	nonce := blockChain.GetNonce(common.HexToAddress(source))
-	txpool := blockChain.GetTransactionPool()
+	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+	txpool := core.BlockChainImpl.GetTransactionPool()
 	_, err = txpool.Add(genTx(getRandomString(8), 0, source, "", nonce+1, 0, abi, []byte(modelNum), 1))
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
 
 func newWallets() wallets {
 	var ws wallets

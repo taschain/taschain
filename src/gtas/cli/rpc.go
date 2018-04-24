@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log"
 	//"network/p2p"
+	"network/p2p"
 	"strconv"
+	"core"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -16,13 +18,13 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(src string, dst string, amount uint64, code string) (*Result, error) {
-	err := walletManager.transaction(src, dst, amount, code)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
+	err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
 	return &Result{
-		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", src, amount, dst),
+		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
 		Data:    "",
 	}, nil
 }
@@ -72,36 +74,31 @@ func (api *GtasAPI) ClearBlock() (*Result, error) {
 
 // BlockHeight 块高查询
 func (api *GtasAPI) BlockHeight() (*Result, error) {
-	if blockChain == nil {
-		return nil, ErrorBlockChainUninitialized
-	}
-	height := blockChain.QueryTopBlock().Height
+	height := core.BlockChainImpl.QueryTopBlock().Height
 	return &Result{fmt.Sprintf("The height of top block is %d", height), height}, nil
 }
 
 // Vote
-func (api *GtasAPI) Vote() (*Result, error) {
-	return nil ,nil
+func (api *GtasAPI) Vote(from, modelNum string,v *VoteConfig) (*Result, error) {
+	config := v.ToGlobal()
+	walletManager.newVote(from, modelNum, config)
+	return &Result{"success", ""}, nil
 }
 
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	//nodes := p2p.Server.GetConnInfo()
-	//return &Result{"", nodes}, nil
-	return nil, nil
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		fmt.Println(err)
+	//	}
+	//}()
+	nodes := p2p.Server.GetConnInfo()
+	return &Result{"", nodes}, nil
 }
 
 // TransPool 查询缓冲区的交易信息。
 func (api *GtasAPI) TransPool() (*Result, error) {
-	if blockChain == nil {
-		return nil, ErrorBlockChainUninitialized
-	}
-	transactions := blockChain.GetTransactionPool().GetReceived()
+	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, 5)
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
