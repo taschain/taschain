@@ -5,6 +5,7 @@ import (
 	"vm/core/state"
 	"vm/core/types"
 	"math/big"
+	"vm/core/vm"
 )
 
 //主链接口
@@ -58,11 +59,10 @@ type AccountRepository interface {
 	GetBalance(address common.Address) *big.Int
 
 	GetNonce(address common.Address) uint64
-
 }
 
-// transactionPool 接口
-type TransactionPoolI interface {
-
+// chain 事件接口
+type ChainEventProcessor interface {
+	BeforeExecuteTransaction(b *Block, db vm.StateDB, tx *Transaction) error
+	BeforeInsertChain(b *Block, stateDB vm.StateDB, receipts types.Receipts) error
 }
-
