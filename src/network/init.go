@@ -14,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p-net"
 	"github.com/libp2p/go-libp2p-host"
 	"common"
-	"fmt"
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
 	"network/biz"
@@ -30,7 +29,6 @@ const (
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
 func InitNetwork(config *common.ConfManager) error {
-
 
 	e1 := initPeer(config)
 	if e1 != nil {
@@ -78,7 +76,7 @@ func initServer(config *common.ConfManager) error {
 
 	var proc = mediator.Proc
 	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		p2p.Peer.BroadcastTransactionRequest,p2p.Peer.SendTransactions)
+		p2p.Peer.BroadcastTransactionRequest, p2p.Peer.SendTransactions,nil)
 
 	cHandler := biz.NewConsensusMessageHandler(proc.OnMessageGroupInit, proc.OnMessageSharePiece, proc.OnMessageGroupInited, proc.OnMessageCurrent, proc.OnMessageCast, proc.OnMessageVerify)
 
@@ -164,15 +162,9 @@ func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
 }
 
 func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
-	seedIdStrPretty := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmaGUeg9A1f2umu2ToPN8r7sJzMgQMuHYYAjaYwkkyrBz9")
-	seedId, e := peer.IDB58Decode(seedIdStrPretty)
-	if e != nil {
-		fmt.Printf("Decode seed id error:%s\n", e.Error())
-		return peer.ID(""), "", e
-	}
-
+	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
-	return seedId, seedAddrStr, nil
+	return peer.ID(seedIdStr), seedAddrStr, nil
 }
 
 func initBlockSyncer() {
