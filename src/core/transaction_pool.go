@@ -9,6 +9,7 @@ import (
 	"os"
 	"vm/core/types"
 	"encoding/json"
+	"network/p2p"
 )
 
 var (
@@ -151,6 +152,12 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	} else {
 		pool.add(tx)
 
+	}
+
+	if nil != &p2p.Peer {
+		txs := *new([]*Transaction)
+		txs = append(txs, tx)
+		p2p.Peer.BroadcastTransactions(txs)
 	}
 
 	return true, nil
