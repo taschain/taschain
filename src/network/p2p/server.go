@@ -93,7 +93,7 @@ func (s *server) SendMessage(m Message, id string) {
 	length := len(bytes)
 	b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte, len(bytes)+len(b2))
+	b := make([]byte,len(bytes)+len(b2))
 	copy(b[:4], b2)
 	copy(b[4:], bytes)
 
