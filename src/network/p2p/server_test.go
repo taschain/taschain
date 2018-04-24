@@ -40,11 +40,11 @@ func TestSendMessage(t *testing.T) {
 	ctx := context.Background()
 
 	seedPrivateKey := "0x0423c75e7593a7e6b5ce489f7d3578f8f737b6dd0fc1d2b10dc12a3e88a0572c62b801e14a8864ebe2d7b8c32e31113ccb511a6ad597c008ea90d850439133819f0b682fe8ff4a9023712e74256fb628c8e97658d99f2a8880a3066f120c2e899b"
-	seedDht, seedHost, seedId := mockDHT(seedPrivateKey, &config, ctx)
+	seedDht, seedHost, seedId,_:= mockDHT(seedPrivateKey, &config, ctx)
 	fmt.Printf("Mock seed node success!\nseddId is:%s\n", seedId)
 
 	ctx1 := context.Background()
-	node1, node1Host, node1Id := mockDHT("", &config, ctx1)
+	node1, node1Host, node1Id,_ := mockDHT("", &config, ctx1)
 	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n", node1Id)
 
 	if node1 != nil && seedDht != nil {
@@ -68,7 +68,7 @@ func TestSendMessage(t *testing.T) {
 		}
 
 		bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-			nil)
+			nil,nil,nil)
 
 		cHandler := biz.NewConsensusMessageHandler(nil, nil, nil,nil,nil,nil)
 
@@ -195,7 +195,7 @@ func bootDhts(dhts []*dht.IpfsDHT) {
 		}
 	}
 }
-func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context) (*dht.IpfsDHT, host.Host, string) {
+func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context) (*dht.IpfsDHT, host.Host, string,*Node) {
 	self := NewSelfNetInfo(privateKey)
 	fmt.Print(self.String())
 
@@ -203,7 +203,7 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	multiaddr, e2 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e2 != nil {
 		fmt.Printf("new mlltiaddr error!" + e2.Error())
-		return nil, nil, self.Id
+		return nil, nil, self.Id,self
 	}
 	listenAddrs := []ma.Multiaddr{multiaddr}
 	peerStore := pstore.NewPeerstore()
@@ -219,7 +219,7 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	sw, e3 := swarm.NewNetwork(ctx, listenAddrs, gpeer.ID(localId), peerStore, nil)
 	if e3 != nil {
 		fmt.Printf("New swarm error!\n" + e3.Error())
-		return nil, nil, self.Id
+		return nil, nil, self.Id,self
 	}
 	//peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
 
@@ -249,12 +249,12 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 		seedPeerInfo := pstore.PeerInfo{ID: gpeer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
 		e7 := host.Connect(ctx, seedPeerInfo)
 		if e7 != nil {
-			fmt.Printf("Host connect to seed error! %s\n" + e7.Error())
+			fmt.Printf("Host connect to seed error:%s\n" , e7.Error())
 		}
 	}
 	dss := dssync.MutexWrap(ds.NewMapDatastore())
 	kadDht := dht.NewDHT(ctx, host, dss)
-	return kadDht, host, self.Id
+	return kadDht, host, self.Id,self
 }
 
 

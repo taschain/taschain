@@ -5,7 +5,6 @@ import (
 )
 
 type Transaction struct {
-	Status int8
 	Data   []byte
 	Value  uint64
 	Nonce  uint64

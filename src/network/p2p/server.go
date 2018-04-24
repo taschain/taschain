@@ -14,6 +14,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"strings"
+	"taslog"
 )
 
 const (
@@ -64,10 +65,12 @@ const (
 	GROUP_MSG uint32 = 0x11
 )
 
+var logger = taslog.GetLogger(taslog.P2PConfig)
+
 var Server server
 
 type server struct {
-	host host.Host
+	Host host.Host
 
 	dht *dht.IpfsDHT
 
@@ -80,7 +83,7 @@ func InitServer(host host.Host, dht *dht.IpfsDHT, bHandler biz.BlockChainMessage
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
-	Server = server{host: host, dht: dht, bHandler: bHandler, cHandler: cHandler}
+	Server = server{Host: host, dht: dht, bHandler: bHandler, cHandler: cHandler}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -93,7 +96,7 @@ func (s *server) SendMessage(m Message, id string) {
 	length := len(bytes)
 	b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte, len(bytes)+len(b2))
+	b := make([]byte,len(bytes)+len(b2))
 	copy(b[:4], b2)
 	copy(b[4:], bytes)
 
@@ -106,12 +109,12 @@ func (s *server) send(b []byte, id string) {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
 	}
-	s.host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, e := s.host.Network().NewStream(ctx, gpeer.ID(id))
+	stream, e := s.Host.Network().NewStream(ctx, gpeer.ID(id))
 	defer stream.Close()
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s\n", id, error.Error())
@@ -299,7 +302,7 @@ type ConnInfo struct {
 }
 
 func (s *server) GetConnInfo() []ConnInfo {
-	conns := s.host.Network().Conns()
+	conns := s.Host.Network().Conns()
 	result := []ConnInfo{}
 	for _, conn := range conns {
 		id := string(conn.RemotePeer())

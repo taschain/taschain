@@ -47,7 +47,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 }
 
 func MarshalTransactionRequestMessage(m *biz.TransactionRequestMessage) ([]byte, error) {
-	txHashes := make([][]byte, len(m.TransactionHashes))
+	txHashes := make([][]byte, 0)
 	for _, txHash := range m.TransactionHashes {
 		txHashes = append(txHashes, txHash.Bytes())
 	}
@@ -70,7 +70,7 @@ func UnMarshalTransactionRequestMessage(b []byte) (*biz.TransactionRequestMessag
 		return nil, e
 	}
 
-	txHashes := make([]common.Hash, len(m.TransactionHashes))
+	txHashes := make([]common.Hash, 0)
 	for _, txHash := range m.TransactionHashes {
 		txHashes = append(txHashes, common.BytesToHash(txHash))
 	}
@@ -101,7 +101,7 @@ func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 }
 
 func transactionsToPb(txs []*core.Transaction) []*tas_pb.Transaction {
-	transactions := make([]*tas_pb.Transaction, len(txs))
+	transactions := make([]*tas_pb.Transaction,0)
 	for _, t := range txs {
 		transaction := transactionToPb(t)
 		transactions = append(transactions, transaction)
@@ -110,7 +110,7 @@ func transactionsToPb(txs []*core.Transaction) []*tas_pb.Transaction {
 }
 
 func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
-	result := make([]*core.Transaction, len(txs))
+	result := make([]*core.Transaction, 0)
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
 		result = append(result, transaction)
@@ -136,7 +136,7 @@ func UnMarshalBlock(bytes []byte) (*core.Block, error) {
 }
 
 func MarshalBlocks(bs []*core.Block) ([]byte, error) {
-	blocks := make([]*tas_pb.Block, len(bs))
+	blocks := make([]*tas_pb.Block, 0)
 	for _, b := range bs {
 		block := blockToPb(b)
 		blocks = append(blocks, block)
@@ -153,7 +153,7 @@ func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
 		return nil, error
 	}
 	blocks := blockSlice.Blocks
-	result := make([]*core.Block, len(blocks))
+	result := make([]*core.Block, 0)
 
 	for _, b := range blocks {
 		block := pbToBlock(b)
@@ -164,7 +164,7 @@ func UnMarshalBlocks(b []byte) ([]*core.Block, error) {
 
 func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
-	hashBytes := make([][]byte, len(hashes))
+	hashBytes := make([][]byte, 0)
 	for _, hash := range hashes {
 		hashBytes = append(hashBytes, hash.Bytes())
 	}
@@ -190,7 +190,7 @@ func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
 func pbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 
 	hashBytes := h.Transactions
-	hashes := make([]common.Hash, len(hashBytes))
+	hashes := make([]common.Hash, 0)
 	for _, hashByte := range hashBytes {
 		hash := common.BytesToHash(hashByte)
 		hashes = append(hashes, hash)
@@ -223,7 +223,7 @@ func pbToBlock(b *tas_pb.Block) *core.Block {
 }
 
 //func MarshalBlockMap(blockMap map[uint64]core.Block) ([]byte, error) {
-//	m := make(map[uint64]*tas_pb.Block, len(blockMap))
+//	m := make(map[uint64]*tas_pb.Block, 0)
 //	for id, block := range blockMap {
 //		m[id] = blockToPb(&block)
 //	}
@@ -238,7 +238,7 @@ func pbToBlock(b *tas_pb.Block) *core.Block {
 //		logger.Errorf("UnMarshalBlockMap error:%s\n", e.Error())
 //		return nil, e
 //	}
-//	m := make(map[uint64]*core.Block, len(blockMap.Blocks))
+//	m := make(map[uint64]*core.Block, 0)
 //	for id, block := range blockMap.Blocks {
 //		m[id] = pbToBlock(block)
 //	}
@@ -290,7 +290,7 @@ func UnMarshalGroup(b []byte) (*core.Group, error) {
 }
 
 func groupToPb(g *core.Group) *tas_pb.Group {
-	members := make([]*tas_pb.Member, len(g.Members))
+	members := make([]*tas_pb.Member, 0)
 	for _, m := range g.Members {
 		member := memberToPb(&m)
 		members = append(members, member)
@@ -300,7 +300,7 @@ func groupToPb(g *core.Group) *tas_pb.Group {
 }
 
 func pbToGroup(g *tas_pb.Group) *core.Group {
-	members := make([]core.Member, len(g.Members))
+	members := make([]core.Member, 0)
 	for _, m := range g.Members {
 		member := pbToMember(m)
 		members = append(members, *member)
@@ -310,7 +310,7 @@ func pbToGroup(g *tas_pb.Group) *core.Group {
 }
 
 func MarshalGroupMap(groupMap map[uint64]core.Group) ([]byte, error) {
-	g := make(map[uint64]*tas_pb.Group, len(groupMap))
+	g := make(map[uint64]*tas_pb.Group,0)
 	for height, group := range groupMap {
 		g[height] = groupToPb(&group)
 	}
@@ -325,7 +325,7 @@ func UnMarshalGroupMap(b []byte) (map[uint64]core.Group, error) {
 		logger.Errorf("UnMarshalGroupMap error:%s\n", e.Error())
 		return nil, e
 	}
-	g := make(map[uint64]core.Group, len(groupMap.Groups))
+	g := make(map[uint64]core.Group, 0)
 	for height, group := range groupMap.Groups {
 		g[height] = *pbToGroup(group)
 	}
@@ -339,7 +339,7 @@ func MarshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byt
 
 	sign := signDataToPb(&m.SI)
 
-	ids := make([]*tas_pb.PubKeyInfo, len(m.MEMS))
+	ids := make([]*tas_pb.PubKeyInfo, 0)
 	for _, id := range m.MEMS {
 		ids = append(ids, pubKeyInfoToPb(&id))
 	}
@@ -624,7 +624,7 @@ func pbToSharePiece(s *tas_pb.SharePiece) *logical.SharePiece {
 func staticGroupInfoToPb(s *logical.StaticGroupInfo) *tas_pb.StaticGroupInfo {
 	groupId := s.GroupID.Serialize()
 	groupPk := s.GroupPK.Serialize()
-	members := make([]*tas_pb.PubKeyInfo, len(s.Members))
+	members := make([]*tas_pb.PubKeyInfo, 0)
 	for _, m := range s.Members {
 		member := pubKeyInfoToPb(&m)
 		members = append(members, member)
@@ -642,7 +642,7 @@ func pbToStaticGroup(s *tas_pb.StaticGroupInfo) *logical.StaticGroupInfo {
 	var groupPk groupsig.Pubkey
 	groupPk.Deserialize(s.GroupPK)
 
-	members := make([]logical.PubKeyInfo, len(s.Members))
+	members := make([]logical.PubKeyInfo, 0)
 	for _, m := range s.Members {
 		member := pbToPubKeyInfo(m)
 		members = append(members, *member)
