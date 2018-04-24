@@ -64,5 +64,5 @@ type AccountRepository interface {
 // chain 事件接口
 type ChainEventProcessor interface {
 	BeforeExecuteTransaction(b *Block, db vm.StateDB, tx *Transaction)
-	BeforeInsertChain(b *Block, stateDB vm.StateDB)
+	BeforeInsertChain(b *Block, stateDB vm.StateDB, receipts types.Receipts)
 }

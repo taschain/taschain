@@ -412,7 +412,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	if nil != chain.chainEventProcessors {
 		for _, process := range chain.chainEventProcessors {
 			if nil != process {
-				process.BeforeInsertChain(b, state)
+				process.BeforeInsertChain(b, state, receipts)
 			}
 		}
 	}
