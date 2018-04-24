@@ -5,8 +5,14 @@ import (
 	"sync"
 	"encoding/json"
 	"fmt"
-	"vm/common/hexutil"
+	"bytes"
+	"encoding/binary"
+	"os"
 )
+
+var GroupChainImpl *GroupChain
+
+const PREFIX = "p"
 
 type GroupChainConfig struct {
 	group       string
@@ -18,43 +24,90 @@ type GroupChain struct {
 	config *GroupChainConfig
 
 	// key id, value group
+	// key number, value id
 	groups datasource.Database
+
+	// cache
+	now [][]byte
+
+	count uint64
 
 	// 读写锁
 	lock sync.RWMutex
-
-	//已上链的最新块
-	latest *Group
 }
 
 func defaultGroupChainConfig() *GroupChainConfig {
 	return &GroupChainConfig{
-		group:       "group",
-		groupCache:  128,
-		groupHandle: 1024,
+		group:       "groupldb",
+		groupCache:  10,
+		groupHandle: 10,
 	}
 }
 
-func NewGroupChain() *GroupChain {
+func ClearGroup(config *GroupChainConfig) {
+	os.RemoveAll(config.group)
+}
+
+func InitGroupChain() error {
 	chain := &GroupChain{
 		config: defaultGroupChainConfig(),
+		now:    *new([][]byte),
 	}
 
 	var err error
 
 	chain.groups, err = datasource.NewLDBDatabase(chain.config.group, chain.config.groupCache, chain.config.groupHandle)
 	if nil != err {
-		return nil
+		return err
 	}
 
-	chain.latest = chain.GetGroupById([]byte(STATUS_KEY))
-	return chain
+	buildCache(chain)
+
+	GroupChainImpl = chain
+	return nil
+}
+
+func buildCache(chain *GroupChain) {
+	count, _ := chain.groups.Get([]byte(STATUS_KEY))
+	if nil == count {
+		return
+	}
+
+	chain.count = binary.BigEndian.Uint64(count)
+	var i uint64
+	for i = 0; i <= chain.count; i++ {
+		groupId, _ := chain.groups.Get(generateKey(i))
+		if nil != groupId {
+			chain.now = append(chain.now, groupId)
+		}
+
+	}
+
+}
+func generateKey(i uint64) []byte {
+	bytesBuffer := bytes.NewBuffer([]byte(PREFIX))
+	bytesBuffer.Write(intToBytes(i))
+	return bytesBuffer.Bytes()
+}
+
+func intToBytes(n uint64) []byte {
+	var buf = make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(n))
+	return buf
+}
+
+func (chain *GroupChain) Close() {
+	chain.groups.Close()
 }
 
 func (chain *GroupChain) GetGroupById(id []byte) *Group {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
+	return chain.getGroupById(id)
+}
+
+func (chain *GroupChain) getGroupById(id []byte) *Group {
 	data, _ := chain.groups.Get(id)
 	if nil == data || 0 == len(data) {
 		return nil
@@ -76,15 +129,16 @@ func (chain *GroupChain) AddGroup(group *Group) error {
 		return fmt.Errorf("nil group")
 	}
 
-	if nil != chain.latest && hexutil.Encode(chain.latest.Id) != hexutil.Encode(group.Id) {
-		return fmt.Errorf("parent not existed")
+	if nil != group.Parent {
+		parent := chain.getGroupById(group.Parent)
+		if nil == parent {
+			return fmt.Errorf("parent is not existed")
+		}
 	}
 
-	error := chain.save(group)
-	if nil == error {
-		chain.latest = group
-	}
-	return error
+	// todo: 通过父亲节点公钥校验本组的合法性
+
+	return chain.save(group)
 }
 
 func (chain *GroupChain) save(group *Group) error {
@@ -93,7 +147,15 @@ func (chain *GroupChain) save(group *Group) error {
 		return err
 	}
 
-	chain.groups.Put([]byte(STATUS_KEY), data)
+	chain.now = append(chain.now, group.Id)
+
+	chain.groups.Put(generateKey(chain.count), group.Id)
+	chain.groups.Put([]byte(STATUS_KEY), intToBytes(chain.count))
+	chain.count++
 	return chain.groups.Put(group.Id, data)
 
+}
+
+func (chain *GroupChain) GetAllGroupID() [][]byte {
+	return chain.now
 }
