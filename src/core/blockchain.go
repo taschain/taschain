@@ -17,6 +17,8 @@ import (
 
 const STATUS_KEY = "current"
 
+var BlockChainImpl *BlockChain
+
 // 配置文件，暂时写死
 type BlockChainConfig struct {
 	block       string
@@ -82,7 +84,7 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 	}
 }
 
-func InitBlockChain() *BlockChain {
+func InitBlockChain() error {
 
 	chain := &BlockChain{
 		config:          DefaultBlockChainConfig(),
@@ -99,19 +101,19 @@ func InitBlockChain() *BlockChain {
 	chain.blocks, err = datasource.NewLDBDatabase(chain.config.block, chain.config.blockCache, chain.config.blockHandle)
 	if err != nil {
 		//todo: 日志
-		return nil
+		return err
 	}
 
 	chain.blockHeight, err = datasource.NewLDBDatabase(chain.config.blockHeight, chain.config.blockHeightCache, chain.config.blockHeightHandle)
 	if err != nil {
 		//todo: 日志
-		return nil
+		return err
 	}
 
 	chain.statedb, err = ethdb.NewLDBDatabase(chain.config.state, chain.config.stateCache, chain.config.stateHandle)
 	if err != nil {
 		//todo: 日志
-		return nil
+		return err
 	}
 	chain.stateCache = state.NewDatabase(chain.statedb)
 
@@ -139,7 +141,8 @@ func InitBlockChain() *BlockChain {
 		}
 	}
 
-	return chain
+	BlockChainImpl = chain
+	return nil
 }
 
 func Clear(config *BlockChainConfig) {

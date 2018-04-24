@@ -156,6 +156,8 @@ func (db *LDBDatabase) Close() {
 			//db.log.Error("Metrics collection failed", "err", err)
 		}
 	}
+
+	db.db.Close()
 	//err := db.db.Close()
 	//if err == nil {
 	//	db.log.Info("Database closed")
