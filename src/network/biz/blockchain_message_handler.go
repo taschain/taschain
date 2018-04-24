@@ -3,6 +3,9 @@ package biz
 import (
 	"common"
 	"core"
+	"time"
+	"taslog"
+	"consensus/logical"
 )
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
@@ -11,63 +14,94 @@ import (
 type queryTransactionFn func(hs []common.Hash) ([]*core.Transaction, error)
 
 //监听到交易到达
-type transactionArrivedNotifyBlockChainFn func(ts []*core.Transaction,)error
+type transactionArrivedNotifyBlockChainFn func(ts []*core.Transaction) error
 
-type transactionArrivedNotifyConsensusFn func(ts []*core.Transaction)error
+type transactionArrivedNotifyConsensusFn func(ts []*core.Transaction) error
 
-//接收到新的块 本地上链  先调用鸠兹  返回成功再调用班德
+//接收到新的块 本地上链
+type addNewBlockToChainFn func(b *core.Block) error
+
+//接收到新的块 通知共识
 //porcess.go OnMessageBlock
-type addNewBlockToChainFn func(b *core.Block, sig []byte)
+type newBlockNotifyConsensusFn func(sbm *logical.ConsensusBlockMessage)
 
+//验证节点 交易集缺失，索要、特定交易 全网广播
+//Peer.BroadcastTransactionRequest
+type broadcastTransactionRequestFn func(m TransactionRequestMessage)
 
-//将接收到的交易加入交易池
-type addTransactionToPoolFn func(t []*core.Transaction)
+//本地查询到交易，返回请求方
+//Peer.SendTransactions
+type sendTransactionsFn func(txs []*core.Transaction, sourceId string)
 
 //根据hash获取对应的block  暂不使用
 //type queryBlocksByHashFn func(h common.Hash) (core.Block, error)
 
 //---------------------------------------------------------------------------------------------------------------------
-type BlockChainMessageHandler struct {
-	queryTx      queryTransactionFn
-	txGotNofifyB transactionArrivedNotifyBlockChainFn
-	txGotNofifyC transactionArrivedNotifyConsensusFn
-	addNewBlock  addNewBlockToChainFn
 
-	addTxToPool addTransactionToPoolFn
+const MAX_TRANSACTION_REQUEST_INTERVAL = 10 * time.Second
+
+var logger = taslog.GetLogger(taslog.P2PConfig)
+
+type BlockChainMessageHandler struct {
+	queryTx                 queryTransactionFn
+	txGotNofifyB            transactionArrivedNotifyBlockChainFn
+	txGotNofifyC            transactionArrivedNotifyConsensusFn
+	addNewBlock             addNewBlockToChainFn
+	newBlockNotifyConsensus newBlockNotifyConsensusFn
+
+	broadcastTxReq broadcastTransactionRequestFn
+	sendTxs        sendTransactionsFn
 }
 
 func NewBlockChainMessageHandler(queryTx queryTransactionFn, txGotNofifyB transactionArrivedNotifyBlockChainFn, txGotNofifyC transactionArrivedNotifyConsensusFn,
-	addNewBlock addNewBlockToChainFn , addTxToPool addTransactionToPoolFn) BlockChainMessageHandler {
+	addNewBlock addNewBlockToChainFn, broadcastTxReq broadcastTransactionRequestFn, sendTxs sendTransactionsFn, newBlockNotifyConsensus newBlockNotifyConsensusFn) BlockChainMessageHandler {
 
 	return BlockChainMessageHandler{
-		queryTx:             queryTx,
-		txGotNofifyC:        txGotNofifyC,
-		txGotNofifyB:        txGotNofifyB,
-		addNewBlock:         addNewBlock,
-		addTxToPool:         addTxToPool,
+		queryTx:                 queryTx,
+		txGotNofifyC:            txGotNofifyC,
+		txGotNofifyB:            txGotNofifyB,
+		addNewBlock:             addNewBlock,
+		newBlockNotifyConsensus: newBlockNotifyConsensus,
+
+		broadcastTxReq: broadcastTxReq,
+		sendTxs:        sendTxs,
 	}
 }
 
 //-----------------------------------------------铸币-------------------------------------------------------------------
 
-//接收索要交易请求 查询自身是否有该交易 有的话返回
-//param: hash list of transaction slice
-//       signData
-//todo 如果本地查不到需要  自己广播该请求
-func (h BlockChainMessageHandler) onTransactionRequest(hs []common.Hash) []*core.Transaction {
-	transactions, e := h.queryTx(hs)
-	if e != nil {
-		return transactions
+//接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
+func (h BlockChainMessageHandler) OnTransactionRequest(m *TransactionRequestMessage) {
+	requestTime := m.RequestTime
+	now := time.Now()
+	interval := now.Sub(requestTime)
+	if interval > MAX_TRANSACTION_REQUEST_INTERVAL {
+		return
 	}
-	return nil
+
+	transactions, e := h.queryTx(m.TransactionHashes)
+	if e != nil {
+		logger.Error("OnTransactionRequest get local transaction error:%s", e.Error())
+		h.broadcastTxReq(*m)
+		return
+	}
+
+	if len(transactions) == 0 {
+		logger.Info("Local do not have transaction,broadcast this message!")
+		h.broadcastTxReq(*m)
+		return
+	}
+	h.sendTxs(transactions, m.SourceId)
 }
 
 //验证节点接收交易 判定是否是待验证blockheader的交易集 是的话累加，全部交易集都拿到之后 开始验证
-//param: transaction slice
-//       signData
-func (h BlockChainMessageHandler) onMessageTransaction(ts []*core.Transaction) {
-	//todo 有先后顺序  先给鸠兹  鸠兹没问题 再给班德  应该有返回值error
-	h.txGotNofifyB(ts)
+func (h BlockChainMessageHandler) OnMessageTransaction(ts []*core.Transaction) {
+	e := h.txGotNofifyB(ts)
+	if e != nil {
+		logger.Errorf("OnMessageTransaction notify block error:%s \n", e.Error())
+		return
+	}
+	//todo  调用班德
 	h.txGotNofifyC(ts)
 }
 
@@ -75,10 +109,16 @@ func (h BlockChainMessageHandler) onMessageTransaction(ts []*core.Transaction) {
 //param: block
 //       member signature
 //       signData
-func (h BlockChainMessageHandler) onMessageNewBlock(b *core.Block, sig []byte) {
-
-	h.addNewBlock(b, sig)
+func (h BlockChainMessageHandler) OnMessageNewBlock(b *core.Block) {
+	e := h.addNewBlock(b)
+	if e != nil {
+		logger.Errorf("Add new block to chain error:%s \n", e.Error())
+		return
+	}
+	//todo : 调用班德 这里参数其实不对
+	var cbm logical.ConsensusBlockMessage
+	h.newBlockNotifyConsensus(&cbm)
 }
 
 //接收来自客户端的交易
-func (h BlockChainMessageHandler) onNewTransaction(t core.Transaction) {}
+func (h BlockChainMessageHandler) OnNewTransaction(t core.Transaction) {}

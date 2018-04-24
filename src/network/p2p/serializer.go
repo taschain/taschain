@@ -8,6 +8,7 @@ import (
 	"time"
 	"consensus/logical"
 	"consensus/groupsig"
+	"network/biz"
 )
 
 //--------------------------------------Transactions-------------------------------------------------------------------
@@ -43,6 +44,16 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 
 	result := pbToTransactions(ts.Transactions)
 	return result, nil
+}
+
+
+func MarshalTransactionRequestMessage(m *biz.TransactionRequestMessage)([]byte, error){
+	return nil,nil
+}
+
+
+func UnMarshalTransactionRequestMessage(b []byte) (*biz.TransactionRequestMessage, error){
+	return nil,nil
 }
 
 func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
