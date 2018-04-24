@@ -12,7 +12,7 @@ import (
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
 //其他节点获取本地块链高度
-type getBlockChainHeightFn func() (int,error)
+type getBlockChainHeightFn func() (uint64,error)
 
 //自身请求
 type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
@@ -154,7 +154,7 @@ func (bs *blockSyncer) syncBlock() {
 func requestBlockChainHeight() {
 }
 
-func sendBlockHeight(targetId string, localHeight int) {}
+func sendBlockHeight(targetId string, localHeight uint64) {}
 
 func sendBlocks(targetId string, blocks []*core.Block) {}
 

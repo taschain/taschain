@@ -48,7 +48,7 @@ func ClearGroup(config *GroupChainConfig) {
 	os.RemoveAll(config.group)
 }
 
-func InitGroupChain() error {
+func initGroupChain() error {
 	chain := &GroupChain{
 		config: defaultGroupChainConfig(),
 		now:    *new([][]byte),

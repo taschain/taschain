@@ -5,14 +5,39 @@ import (
 	"fmt"
 )
 
+var BlockChainConnectorImpl *BlockChainConnector
+var GroupChainConnectorImpl *GroupChainConnector
+
 type BlockChainConnector struct {
 	chain *BlockChain
 }
 
-func NewChainConnector(chain *BlockChain) *BlockChainConnector {
-	return &BlockChainConnector{
-		chain: chain,
+type GroupChainConnector struct {
+	chain *GroupChain
+}
+
+func InitCore() error {
+	if nil == BlockChainImpl {
+		err := initBlockChain()
+		if nil != err {
+			return err
+		}
 	}
+	BlockChainConnectorImpl = &BlockChainConnector{
+		chain: BlockChainImpl,
+	}
+
+	if nil == GroupChainImpl {
+		err := initGroupChain()
+		if nil != err {
+			return err
+		}
+	}
+	GroupChainConnectorImpl = &GroupChainConnector{
+		chain: GroupChainImpl,
+	}
+
+	return nil
 }
 
 //queryTracsactionFn 实现
@@ -59,4 +84,20 @@ func (connector *BlockChainConnector) AddNewBlock(b *Block, sig []byte) {
 //addTransactionToPoolFn 实现
 func (connector *BlockChainConnector) AddTransactionToPool(ts []*Transaction) {
 	connector.TransactionArrived(ts)
+}
+
+//getBlockChainHeightFn 实现
+func (connector *BlockChainConnector) getBlockChainHeight() (uint64, error) {
+	if nil == connector.chain {
+		return 0, fmt.Errorf("nil blockchain")
+	}
+	return connector.chain.height, nil
+}
+
+//getGroupChainHeightFn 实现
+func (connector *GroupChainConnector) getGroupChainHeight() (uint64, error) {
+	if nil == connector.chain {
+		return 0, fmt.Errorf("nil blockchain")
+	}
+	return connector.chain.count, nil
 }

@@ -4,7 +4,7 @@ import "testing"
 
 func TestGroupChain_AddGroup(t *testing.T) {
 	ClearGroup(defaultGroupChainConfig())
-	InitGroupChain()
+	initGroupChain()
 
 	id1 := genHash("test1")
 	group1 := &Group{
@@ -36,7 +36,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	GroupChainImpl.Close()
-	InitGroupChain()
+	initGroupChain()
 
 	group = GroupChainImpl.GetGroupById(id2)
 	if nil == group{

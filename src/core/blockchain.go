@@ -84,7 +84,7 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 	}
 }
 
-func InitBlockChain() error {
+func initBlockChain() error {
 
 	chain := &BlockChain{
 		config:          DefaultBlockChainConfig(),
