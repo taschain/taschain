@@ -62,7 +62,8 @@ type BlockChain struct {
 	statedb    ethdb.Database
 	stateCache state.Database // State database to reuse between imports (contains state cache)
 
-	executor *EVMExecutor
+	executor             *EVMExecutor
+	chainEventProcessors []ChainEventProcessor
 }
 
 // 默认配置
@@ -94,6 +95,8 @@ func initBlockChain() error {
 
 		lock: sync.RWMutex{},
 		init: true,
+
+		chainEventProcessors: *new([]ChainEventProcessor),
 	}
 
 	//从磁盘文件中初始化leveldb
@@ -149,6 +152,13 @@ func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.block)
 	os.RemoveAll(config.blockHeight)
 	os.RemoveAll(config.state)
+}
+
+func (chain *BlockChain) AddChainEventProcessors(processor ChainEventProcessor) {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+
+	chain.chainEventProcessors = append(chain.chainEventProcessors, processor)
 }
 
 func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
@@ -313,7 +323,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	}
 
 	// Process block using the parent state as reference point.
-	receipts, statehash, _, err := chain.executor.Execute(state, block)
+	receipts, statehash, _, err := chain.executor.Execute(state, block, chain.chainEventProcessors)
 	if err != nil {
 		return nil
 	}
@@ -383,7 +393,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	if err != nil {
 		return -1
 	}
-	receipts, statehash, _, err := chain.executor.Execute(state, b)
+	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.chainEventProcessors)
 	if err != nil {
 		return -1
 	}
@@ -397,6 +407,15 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 
 	// 检查高度
 	height := b.Header.Height
+
+	//beforeOnChain
+	if nil != chain.chainEventProcessors {
+		for _, process := range chain.chainEventProcessors {
+			if nil != process {
+				process.BeforeInsertChain(b, state)
+			}
+		}
+	}
 
 	// 完美情况
 	if height == (chain.latestBlock.Height + 1) {

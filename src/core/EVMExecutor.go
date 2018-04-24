@@ -40,7 +40,7 @@ func NewEVMExecutor(bc *BlockChain) *EVMExecutor {
 	}
 }
 
-func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error) {
+func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processors []ChainEventProcessor) (types.Receipts, *common.Hash, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -49,6 +49,14 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block) (type
 	)
 
 	for i, tx := range block.Transactions {
+		if nil != processors {
+			for _, processor := range processors {
+				if nil != processor {
+					processor.BeforeExecuteTransaction(block, statedb, tx)
+				}
+			}
+		}
+
 		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
 		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config)
 		if err != nil {
