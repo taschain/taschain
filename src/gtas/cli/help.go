@@ -2,7 +2,7 @@ package cli
 
 func voteConfigHelp() string {
 	return `format like key=value, keys include: 
-							TemplateId          TemplateID  //合约模板id
+							TemplateId          string      //合约模板id
 							PIndex              int         //投票参数索引
 							PValue              interface{} //投票值
 							Custom              bool        //'是否自定义投票合约', true时, pIndex pValue无效

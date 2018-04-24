@@ -2,16 +2,18 @@ package cli
 
 import (
 	"common"
+	"consensus/groupsig"
 	"core"
 	"errors"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v2"
+	"network"
 	"os"
 )
 
 const (
 	// Section 默认section配置
-	Section    = "gtas"
+	Section = "gtas"
 	// RemoteHost 默认host
 	RemoteHost = "127.0.0.1"
 	// RemotePort 默认端口
@@ -20,9 +22,53 @@ const (
 
 var configManager = &common.GlobalConf
 var walletManager wallets
-var blockChain *core.BlockChain
 
 type Gtas struct {
+}
+
+func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs)  {
+	if from == "" {
+		// 本地钱包同时无钱包地址
+		if len(walletManager) == 0 {
+			fmt.Println("Please new account or assign a account")
+			return
+		} else {
+			from = walletManager[0].Address
+		}
+	}
+	config, err := configVote.ToVoteConfig()
+	if err != nil {
+		fmt.Println("translate vote config error: ", err)
+		return
+	}
+	if err != nil {
+		fmt.Println("serialize config error: ", err)
+		return
+	}
+	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_vote", from, modelNum, config)
+	if err != nil {
+		fmt.Println("rpc get message error: ", err)
+		return
+	}
+	fmt.Println(msg)
+}
+
+func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
+	err := gtas.fullInit()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if rpc {
+		err = StartRPC(rpcAddr, rpcPort)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+	// 截获ctrl+c中断信号，退出
+	quit := signals()
+	<-quit
 }
 
 func (gtas *Gtas) Run() {
@@ -30,14 +76,14 @@ func (gtas *Gtas) Run() {
 	app := kingpin.New("GTAS", "A blockchain application.")
 	app.HelpFlag.Short('h')
 	// TODO config file的默认位置以及相关问题
-	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
+	configFile := app.Flag("config", "Config file").Default("tas_test.ini").String()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
 	// 投票解析
 	voteCmd := app.Command("vote", "new vote")
-	//modelNum =
-	// from
+	modelNumVote := voteCmd.Flag("modelnum", "model number").Default("").String()
+	fromVote := voteCmd.Flag("from", "the wallet address who polled").Default("").String()
 	configVote := VoteConfigParams(voteCmd.Arg("config", voteConfigHelp()))
 
 	// 交易解析
@@ -58,8 +104,8 @@ func (gtas *Gtas) Run() {
 	mineCmd := app.Command("miner", "miner start")
 	// rpc解析
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
-	rpcAddr := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
-	rpcPort := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
+	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
+	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -70,21 +116,13 @@ func (gtas *Gtas) Run() {
 	gtas.simpleInit(*configFile)
 	switch command {
 	case voteCmd.FullCommand():
-		vConfig, _ := configVote.ToVoteConfig()
-		vBytes, err := vConfig.AbiEncode()
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Printf("%v", vBytes)
-		}
-		return
+		gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case tCmd.FullCommand():
 		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_t", *fromT, *toT, *valueT, *codeT)
 		if err != nil {
 			fmt.Println(err)
 		}
 		fmt.Println(msg)
-		return
 	case balanceCmd.FullCommand():
 		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
 		if err != nil {
@@ -92,25 +130,12 @@ func (gtas *Gtas) Run() {
 		} else {
 			fmt.Println(msg)
 		}
-		return
 	case newCmd.FullCommand():
 		privKey, address := walletManager.newWallet()
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
-		return
 	case mineCmd.FullCommand():
-		err = gtas.fullInit()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if *rpc {
-			err = StartRPC(rpcAddr.String(), *rpcPort)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
+		gtas.miner(*rpc, addrRpc.String(), *portRpc)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -118,21 +143,17 @@ func (gtas *Gtas) Run() {
 		} else {
 			fmt.Println("clear blockchain successfully")
 		}
-		return
 	}
-
-	// 截获ctrl+c中断信号，退出
-	quit := signals()
-	<-quit
 
 }
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	if blockChain == nil {
-		blockChain = core.InitBlockChain()
+	err := core.InitBlockChain()
+	if err != nil {
+		return err
 	}
-	return blockChain.Clear()
+	return core.BlockChainImpl.Clear()
 }
 
 func (gtas *Gtas) simpleInit(configPath string) {
@@ -141,15 +162,17 @@ func (gtas *Gtas) simpleInit(configPath string) {
 }
 
 func (gtas *Gtas) fullInit() error {
-	blockChain = core.InitBlockChain()
-	if blockChain == nil {
+	var err error
+	groupsig.Init(1)
+	err = core.InitBlockChain()
+	if err != nil {
 		return errors.New("InitBlockChain failed")
 	}
-	// TODO 初始化日志， network初始化
-	//err := network.InitNetwork(configManager)
-	//if err != nil {
-	//	return err
-	//}
+	//TODO 初始化日志， network初始化
+	err = network.InitNetwork(configManager)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -69,14 +69,14 @@ func genTx(hash string, price uint64, source string, target string, nonce uint64
 	targetbyte := common.HexToAddress(target)
 
 	return &core.Transaction{
-		Data: data,
-		GasPrice: price,
-		Hash:     common.BytesToHash(genHash(hash)),
-		Source:   &sourcebyte,
-		Target:   &targetbyte,
-		Nonce:    nonce,
-		Value:    value,
-		ExtraData: extraData,
+		Data:          data,
+		GasPrice:      price,
+		Hash:          common.BytesToHash(genHash(hash)),
+		Source:        &sourcebyte,
+		Target:        &targetbyte,
+		Nonce:         nonce,
+		Value:         value,
+		ExtraData:     extraData,
 		ExtraDataType: extraDataType,
 	}
 }

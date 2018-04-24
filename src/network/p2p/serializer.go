@@ -46,14 +46,44 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 	return result, nil
 }
 
+func MarshalTransactionRequestMessage(m *biz.TransactionRequestMessage) ([]byte, error) {
+	txHashes := make([][]byte, len(m.TransactionHashes))
+	for _, txHash := range m.TransactionHashes {
+		txHashes = append(txHashes, txHash.Bytes())
+	}
 
-func MarshalTransactionRequestMessage(m *biz.TransactionRequestMessage)([]byte, error){
-	return nil,nil
+	sourceId := []byte(m.SourceId)
+
+	requestTime, e := m.RequestTime.MarshalBinary()
+	if e != nil {
+		logger.Error("TransactionRequestMessage request time marshal error:%s\n", e.Error())
+	}
+	message := tas_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
+	return proto.Marshal(&message)
 }
 
+func UnMarshalTransactionRequestMessage(b []byte) (*biz.TransactionRequestMessage, error) {
+	m := new(tas_pb.TransactionRequestMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("UnMarshal TransactionRequestMessage error:%s\n", e.Error())
+		return nil, e
+	}
 
-func UnMarshalTransactionRequestMessage(b []byte) (*biz.TransactionRequestMessage, error){
-	return nil,nil
+	txHashes := make([]common.Hash, len(m.TransactionHashes))
+	for _, txHash := range m.TransactionHashes {
+		txHashes = append(txHashes, common.BytesToHash(txHash))
+	}
+
+	sourceId := string(m.SourceId)
+
+	var requestTime time.Time
+	e1 := requestTime.UnmarshalBinary(m.RequestTime)
+	if e1 != nil {
+		logger.Error("MarshalTransactionRequestMessage request time unmarshal error:%s\n", e1.Error())
+	}
+	message := biz.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
+	return &message, nil
 }
 
 func transactionToPb(t *core.Transaction) *tas_pb.Transaction {
@@ -650,4 +680,22 @@ func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
 
 	pkInfo := logical.PubKeyInfo{ID: id, PK: pk}
 	return &pkInfo
+}
+
+//----------------------------------------------块同步------------------------------------------------------------------
+func MarshalBlockOrGroupRequestEntity(e *BlockOrGroupRequestEntity) ([]byte, error) {
+	return nil, nil
+}
+
+func UnMarshalBlockOrGroupRequestEntity(b []byte) (*BlockOrGroupRequestEntity, error) {
+	return nil, nil
+}
+
+
+func MarshalBlockEntity(e *BlockEntity)([]byte, error){
+	return nil, nil
+}
+
+func UnMarshalBlockEntity(b []byte)(*BlockEntity,error){
+	return nil, nil
 }

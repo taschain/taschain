@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin/json"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"governance/global"
 	"reflect"
@@ -9,11 +10,51 @@ import (
 	"strings"
 )
 
+type VoteConfig struct {
+	TemplateName        string `json:"template_name"`          //合约模板名称
+	PIndex              uint32 `json:"p_index"`                //投票参数索引
+	PValue              string `json:"p_value"`                //投票值
+	Custom              bool   `json:"custom"`                 //'是否自定义投票合约', true时, pIndex pValue无效
+	Desc                string `json:"desc"`                   //描述
+	DepositMin          uint64 `json:"deposit_min"`            //每个投票人最低缴纳保证金
+	TotalDepositMin     uint64 `json:"total_deposit_min"`      //最低总保证金
+	VoterCntMin         uint64 `json:"voter_cnt_min"`          //最低参与投票人
+	ApprovalDepositMin  uint64 `json:"approval_deposit_min"`   //通过的最低保证金
+	ApprovalVoterCntMin uint64 `json:"approval_voter_cnt_min"` //通过的最低投票人
+	DeadlineBlock       uint64 `json:"deadline_block"`         //投票截止的最高区块高度
+	StatBlock           uint64 `json:"stat_block"`             //唱票区块高度
+	EffectBlock         uint64 `json:"effect_block"`           //生效高度
+	DepositGap          uint64 `json:"deposit_gap"`            //缴纳保证金后到可以投票的间隔, 用区块高度差表示
+}
+
+func (v VoteConfig) Serialize() ([]byte, error) {
+	return json.Marshal(v)
+}
+
+func (v VoteConfig) ToGlobal() *global.VoteConfig {
+	return &global.VoteConfig{
+		TemplateName:        v.TemplateName,
+		PIndex:              v.PIndex,
+		PValue:              v.PValue,
+		Custom:              v.Custom,
+		Desc:                v.Desc,
+		DepositMin:          v.DepositMin,
+		TotalDepositMin:     v.TotalDepositMin,
+		VoterCntMin:         v.VoterCntMin,
+		ApprovalDepositMin:  v.ApprovalDepositMin,
+		ApprovalVoterCntMin: v.ApprovalVoterCntMin,
+		DeadlineBlock:       v.DeadlineBlock,
+		StatBlock:           v.StatBlock,
+		EffectBlock:         v.EffectBlock,
+		DepositGap:          v.DepositGap,
+	}
+}
+
 // VoteConfigList 解析vote命令中的传入的config参数。
-type VoteConfigList [][2]string
+type VoteConfigKvs [][2]string
 
 // Set value from command params
-func (vcl *VoteConfigList) Set(value string) error {
+func (vcl *VoteConfigKvs) Set(value string) error {
 	kv := strings.Split(value, "=")
 	if len(kv) != 2 {
 		return fmt.Errorf("'%s' is not like 'key=value', please confirm your input", value)
@@ -23,18 +64,18 @@ func (vcl *VoteConfigList) Set(value string) error {
 }
 
 // String
-func (vcl *VoteConfigList) String() string {
+func (vcl *VoteConfigKvs) String() string {
 	return ""
 }
 
 // IsCumulative 表示选项可叠加
-func (vcl *VoteConfigList) IsCumulative() bool {
+func (vcl *VoteConfigKvs) IsCumulative() bool {
 	return true
 }
 
 // ToVoteConfig vote命令行参数转换为core.VoteConfig
-func (vcl *VoteConfigList) ToVoteConfig() (*global.VoteConfig, error) {
-	voteConfig := &global.VoteConfig{}
+func (vcl *VoteConfigKvs) ToVoteConfig() (*VoteConfig, error) {
+	voteConfig := &VoteConfig{}
 	refVc := reflect.ValueOf(voteConfig).Elem()
 	for _, kv := range *vcl {
 		fd := refVc.FieldByName(kv[0])
@@ -52,6 +93,7 @@ func (vcl *VoteConfigList) ToVoteConfig() (*global.VoteConfig, error) {
 				}
 				fd.Set(reflect.ValueOf(v))
 			case reflect.Uint64:
+				// TODO 数字过大时转换有问题
 				v, err := strconv.Atoi(kv[1])
 				if err != nil {
 					return nil, err
@@ -60,6 +102,16 @@ func (vcl *VoteConfigList) ToVoteConfig() (*global.VoteConfig, error) {
 					return nil, fmt.Errorf("'%d' is not a uint64 param", v)
 				}
 				fd.Set(reflect.ValueOf(uint64(v)))
+			case reflect.Uint32:
+				// TODO 数字过大时转换有问题
+				v, err := strconv.Atoi(kv[1])
+				if err != nil {
+					return nil, err
+				}
+				if v < 0 {
+					return nil, fmt.Errorf("'%d' is not a uint32 param", v)
+				}
+				fd.Set(reflect.ValueOf(uint32(v)))
 			case reflect.String:
 				fd.Set(reflect.ValueOf(kv[1]))
 			case reflect.Bool:
@@ -76,8 +128,8 @@ func (vcl *VoteConfigList) ToVoteConfig() (*global.VoteConfig, error) {
 }
 
 // VoteConfigParams 解析返回[][2]string, 0:key, 1:value
-func VoteConfigParams(s kingpin.Settings) (target *VoteConfigList) {
-	target = (*VoteConfigList)(new([][2]string))
-	s.SetValue((*VoteConfigList)(target))
+func VoteConfigParams(s kingpin.Settings) (target *VoteConfigKvs) {
+	target = (*VoteConfigKvs)(new([][2]string))
+	s.SetValue((*VoteConfigKvs)(target))
 	return target
 }
