@@ -39,27 +39,29 @@ const (
 
 	REQ_TRANSACTION_MSG uint32 = 0x06
 
-	TRANSACTION_MSG uint32 = 0x07
+	TRANSACTION_GOT_MSG uint32 = 0x07
 
-	NEW_BLOCK_MSG uint32 = 0x08
+	TRANSACTION_MSG uint32 = 0x08
+
+	NEW_BLOCK_MSG uint32 = 0x09
 
 	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x09
+	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0a
 
-	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0a
+	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0b
 
-	REQ_BLOCK_MSG uint32 = 0x0b
+	REQ_BLOCK_MSG uint32 = 0x0c
 
-	BLOCK_MSG uint32 = 0x0c
+	BLOCK_MSG uint32 = 0x0d
 
 	//-----------组同步---------------------------------
-	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0d
+	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0e
 
-	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0e
+	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0f
 
-	REQ_GROUP_MSG uint32 = 0x0f
+	REQ_GROUP_MSG uint32 = 0x10
 
-	GROUP_MSG uint32 = 0x10
+	GROUP_MSG uint32 = 0x11
 )
 
 var Server server
@@ -74,7 +76,7 @@ type server struct {
 	cHandler biz.ConsensusMessageHandler
 }
 
-func InitServer(host host.Host, dht *dht.IpfsDHT,	bHandler biz.BlockChainMessageHandler,	cHandler biz.ConsensusMessageHandler) {
+func InitServer(host host.Host, dht *dht.IpfsDHT, bHandler biz.BlockChainMessageHandler, cHandler biz.ConsensusMessageHandler) {
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
@@ -193,42 +195,43 @@ func (s *server) handleMessage(b []byte, from string) {
 	code := message.Code
 	switch *code {
 	case GROUP_INIT_MSG:
-		m, e := UnMarshalConsensusGroupRawMessage(b)
+		m, e := UnMarshalConsensusGroupRawMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageGroupInitFn(*m)
 	case KEY_PIECE_MSG:
-		m, e := UnMarshalConsensusSharePieceMessage(b)
+		m, e := UnMarshalConsensusSharePieceMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageSharePieceFn(*m)
 	case GROUP_INIT_DONE_MSG:
-		m, e := UnMarshalConsensusGroupInitedMessage(b)
+		m, e := UnMarshalConsensusGroupInitedMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageGroupInitedFn(*m)
+
 	case CURRENT_GROUP_CAST_MSG:
-		m,e := UnMarshalConsensusCurrentMessage(b)
+		m, e := UnMarshalConsensusCurrentMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageCurrentGroupCastFn(*m)
 	case CAST_VERIFY_MSG:
-		m,e := UnMarshalConsensusCastMessage(b)
+		m, e := UnMarshalConsensusCastMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
 			return
 		}
 		s.cHandler.OnMessageCastFn(*m)
 	case VARIFIED_CAST_MSG:
-		m,e := UnMarshalConsensusVerifyMessage(b)
+		m, e := UnMarshalConsensusVerifyMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
 			return
@@ -236,19 +239,53 @@ func (s *server) handleMessage(b []byte, from string) {
 		s.cHandler.OnMessageVerifiedCastFn(*m)
 
 	case REQ_TRANSACTION_MSG:
-		m,e := UnMarshalTransactionRequestMessage(b)
+		m, e := UnMarshalTransactionRequestMessage(message.Body)
 		if e != nil {
 			logger.Error("Discard TransactionRequestMessage because of unmarshal error!\n")
 			return
 		}
 		s.bHandler.OnTransactionRequest(m)
-	case TRANSACTION_MSG:
-		m,e := UnMarshalTransactions(b)
+	case TRANSACTION_GOT_MSG:
+		m, e := UnMarshalTransactions(message.Body)
 		if e != nil {
 			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
 			return
 		}
 		s.bHandler.OnMessageTransaction(m)
+
+	case TRANSACTION_MSG:
+		m, e := UnMarshalTransactions(message.Body)
+		if e != nil {
+			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
+			return
+		}
+		s.bHandler.OnNewTransaction(m)
+
+	case REQ_BLOCK_CHAIN_HEIGHT_MSG:
+		BlockSyncer.HeightRequestCh <- from
+
+	case BLOCK_CHAIN_HEIGHT_MSG:
+		height := utility.ByteToUInt64(message.Body)
+		s := blockHeight{height: height, sourceId: from}
+		BlockSyncer.HeightCh <- s
+	case REQ_BLOCK_MSG:
+		m, e := UnMarshalBlockOrGroupRequestEntity(message.Body)
+		if e != nil {
+			logger.Error("Discard REQ_BLOCK_MSG because of unmarshal error!\n")
+			return
+		}
+
+		enetity := BlockOrGroupRequestEntity{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash}
+		s := blockRequest{bre: enetity, sourceId: from}
+		BlockSyncer.BlockRequestCh <- s
+	case BLOCK_MSG:
+		m, e := UnMarshalBlockEntity(message.Body)
+		if e != nil {
+			logger.Error("Discard BLOCK_MSG because of unmarshal error!\n")
+			return
+		}
+		s := blockArrived{blockEntity: *m, sourceId: from}
+		BlockSyncer.BlockArrivedCh <- s
 
 	default:
 		logger.Errorf("Message not support! Code:%d\n", code)

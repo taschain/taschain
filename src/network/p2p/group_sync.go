@@ -142,7 +142,7 @@ func (gs *groupSyncer) syncGroup() {
 	} else {
 		logger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		//todo 签名
-		requestBlockByHeight(bestNodeId, localHeight, currentHash)
+		requestGroupByHeight(bestNodeId, localHeight, currentHash)
 	}
 
 }

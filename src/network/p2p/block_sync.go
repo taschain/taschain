@@ -5,24 +5,21 @@ import (
 	"core"
 	"sync"
 	"common"
+	"utility"
 )
-
-
 
 //-----------------------------------------------------回调函数定义-----------------------------------------------------
 
 //其他节点获取本地块链高度
-type getBlockChainHeightFn func() (int,error)
+type getBlockChainHeightFn func() (uint64, error)
 
 //自身请求
 type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
 
-//根据高度获取对应的block todo 返回结构体 code  []*Block  []hash []ratio
-type queryBlocksByHeightFn func(localHeight uint64,currentHash []common.Hash) (map[int]core.Block, error)
+//根据高度获取对应的block
+type queryBlocksByHeightFn func(localHeight uint64, currentHash common.Hash) (*BlockEntity, error)
 
-//todo 入参 换成上面，结构体
-type addBlocksToChainFn func(hbm map[int]core.Block)
-
+type addBlocksToChainFn func(blockEntity *BlockEntity,targetId string)
 
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -34,38 +31,43 @@ const (
 
 var BlockSyncer blockSyncer
 
-type BlockHeightRequest struct {
-	Sig      []byte
-	SourceId string
+type BlockOrGroupRequestEntity struct {
+	SourceHeight      uint64
+	SourceCurrentHash common.Hash
 }
 
-type BlockHeight struct {
-	Height   uint64
-	SourceId string
-	Sig      []byte
+type BlockEntity struct {
+	blocks      []*core.Block
+
+	height      uint64//起始高度，如果返回blocks，那就是BLOCKS的起始高度，如果返回blockHashes那就是HASH的起始高度
+	blockHashes []common.Hash
+	blockRatios []float64
 }
 
-type BlockRequest struct {
-	sourceHeight uint64
-	sourceCurrentHash   common.Hash
-	SourceId    string
-	Sig         []byte
+type blockHeight struct {
+	height   uint64
+	sourceId string
 }
 
-type BlockArrived struct {
-	BlockMap map[int]core.Block
-	Sig      []byte
+type blockRequest struct {
+	bre      BlockOrGroupRequestEntity
+	sourceId string
 }
 
+
+type blockArrived struct {
+	blockEntity BlockEntity
+	sourceId string
+}
 type blockSyncer struct {
-	neighborMaxHeight uint64        //邻居节点的最大高度
+	neighborMaxHeight uint64     //邻居节点的最大高度
 	bestNodeId        string     //最佳同步节点
 	maxHeightLock     sync.Mutex //同步锁
 
-	HeightRequestCh chan BlockHeightRequest
-	HeightCh        chan BlockHeight
-	BlockRequestCh  chan BlockRequest
-	BlockArrivedCh  chan BlockArrived
+	HeightRequestCh chan string
+	HeightCh        chan blockHeight
+	BlockRequestCh  chan blockRequest
+	BlockArrivedCh  chan blockArrived
 
 	getHeight      getBlockChainHeightFn
 	getLocalHeight getLocalBlockChainHeightFn
@@ -76,8 +78,8 @@ type blockSyncer struct {
 func InitBlockSyncer(getHeight getBlockChainHeightFn, getLocalHeight getLocalBlockChainHeightFn, queryBlock queryBlocksByHeightFn,
 	addBlocks addBlocksToChainFn) {
 
-	BlockSyncer = blockSyncer{HeightRequestCh: make(chan BlockHeightRequest), HeightCh: make(chan BlockHeight), BlockRequestCh: make(chan BlockRequest),
-		BlockArrivedCh: make(chan BlockArrived), getHeight: getHeight, getLocalHeight: getLocalHeight, queryBlock: queryBlock, addBlocks: addBlocks,
+	BlockSyncer = blockSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan blockHeight), BlockRequestCh: make(chan blockRequest),
+		BlockArrivedCh: make(chan blockArrived), getHeight: getHeight, getLocalHeight: getLocalHeight, queryBlock: queryBlock, addBlocks: addBlocks,
 	}
 	BlockSyncer.start()
 }
@@ -87,34 +89,33 @@ func (bs *blockSyncer) start() {
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
 		select {
-		case hr := <-bs.HeightRequestCh:
+		case sourceId := <-bs.HeightRequestCh:
 			//收到块高度请求
 			height, e := bs.getHeight()
 			if e != nil {
-				logger.Errorf("%s get block height error:%s\n", hr.SourceId, e.Error())
+				logger.Errorf("Get block height rquest from %s error:%s\n", sourceId, e.Error())
 				return
 			}
-			sendBlockHeight(hr.SourceId, height)
+			sendBlockHeight(sourceId, height)
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
-			if h.Height > bs.neighborMaxHeight {
-				bs.neighborMaxHeight = h.Height
-				bs.bestNodeId = h.SourceId
+			if h.height > bs.neighborMaxHeight {
+				bs.neighborMaxHeight = h.height
+				bs.bestNodeId = h.sourceId
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
 			//收到块请求
-			//blocks, e := bs.queryBlock(br.HeightSlice, br.Sig)
-			//if e != nil {
-			//	taslog.P2pLogger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
-			//	return
-			//}
-			var blocks []*core.Block
-			sendBlocks(br.SourceId, blocks)
+			blockEntity, e := bs.queryBlock(br.bre.SourceHeight, br.bre.SourceCurrentHash)
+			if e != nil {
+				logger.Errorf("query block request from %s error:%s\n", br.sourceId, e.Error())
+				return
+			}
+			sendBlocks(br.sourceId, blockEntity)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
-			bs.addBlocks(bm.BlockMap)
+			bs.addBlocks(&bm.blockEntity,bm.sourceId)
 		case <-t.C:
 			bs.syncBlock()
 		}
@@ -131,7 +132,7 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	localHeight,currentHash, e := bs.getLocalHeight()
+	localHeight, currentHash, e := bs.getLocalHeight()
 	if e != nil {
 		logger.Errorf("Self get block height error:%s\n", e.Error())
 		return
@@ -145,21 +146,37 @@ func (bs *blockSyncer) syncBlock() {
 		return
 	} else {
 		logger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
-		requestBlockByHeight(bestNodeId, localHeight,currentHash)
+		Peer.RequestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
 }
 
 //广播索要链高度
 func requestBlockChainHeight() {
+	message := Message{Code: REQ_BLOCK_CHAIN_HEIGHT_MSG}
+	conns := Server.host.Network().Conns()
+	for _, conn := range conns {
+		id := conn.RemotePeer()
+		if id != "" {
+			Server.SendMessage(message, string(id))
+		}
+	}
 }
 
-func sendBlockHeight(targetId string, localHeight int) {}
+//返回自身链高度
+func sendBlockHeight(targetId string, localHeight uint64) {
+	body := utility.UInt64ToByte(localHeight)
+	message := Message{Code: BLOCK_CHAIN_HEIGHT_MSG, Body: body}
+	Server.SendMessage(message, targetId)
+}
 
-func sendBlocks(targetId string, blocks []*core.Block) {}
-
-//向某一节点请求Block
-//param: target peer id
-//       block height slice
-//       sign data
-func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {}
+//本地查询之后将结果返回
+func sendBlocks(targetId string, blockEntity *BlockEntity) {
+	body,e := MarshalBlockEntity(blockEntity)
+	if e!=nil{
+		logger.Errorf("sendBlocks marshal BlockEntity error:%s\n",e.Error())
+		return
+	}
+	message := Message{Code: BLOCK_MSG, Body: body}
+	Server.SendMessage(message, targetId)
+}

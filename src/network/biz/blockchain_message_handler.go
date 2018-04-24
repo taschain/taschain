@@ -120,5 +120,7 @@ func (h BlockChainMessageHandler) OnMessageNewBlock(b *core.Block) {
 	h.newBlockNotifyConsensus(&cbm)
 }
 
-//接收来自客户端的交易
-func (h BlockChainMessageHandler) OnNewTransaction(t core.Transaction) {}
+//接收来自客户端广播的交易
+func (h BlockChainMessageHandler) OnNewTransaction(txs []*core.Transaction) {
+	h.txGotNofifyB(txs)
+}

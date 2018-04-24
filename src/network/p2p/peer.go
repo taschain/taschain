@@ -144,6 +144,7 @@ func (p *peer) SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 //对外广播经过组签名的block 全网广播
 //todo 此处参数留空 等班德构造
 func BroadcastNewBlock() {}
+//----------------------------------------------------------------------------------------------------------------------
 
 //验证节点 交易集缺失，索要、特定交易 全网广播
 func (p *peer) BroadcastTransactionRequest(m biz.TransactionRequestMessage) {
@@ -174,9 +175,39 @@ func (p *peer) SendTransactions(txs []*core.Transaction, sourceId string) {
 		logger.Error("Discard MarshalTransactions because of marshal error!\n")
 		return
 	}
-	message := Message{Code: TRANSACTION_MSG, Body: body}
+	message := Message{Code: TRANSACTION_GOT_MSG, Body: body}
 	Server.SendMessage(message, sourceId)
 }
 
 //收到交易 全网扩散
-func (p *peer) BroadcastTransactions(hs []common.Hash) {}
+func (p *peer) BroadcastTransactions(txs []*core.Transaction) {
+
+	body, e := MarshalTransactions(txs)
+	if e != nil {
+		logger.Error("Discard MarshalTransactions because of marshal error!\n")
+		return
+	}
+	message := Message{Code: TRANSACTION_MSG, Body: body}
+
+	conns := Server.host.Network().Conns()
+	for _, conn := range conns {
+		id := conn.RemotePeer()
+		if id != "" {
+			Server.SendMessage(message, string(id))
+		}
+	}
+}
+
+//-----------------------------------------------------------------组同步----------------------------------------------
+
+//向某一节点请求Block
+func (p *peer)RequestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {
+	m := BlockOrGroupRequestEntity{SourceHeight: localHeight, SourceCurrentHash: currentHash}
+	body, e := MarshalBlockOrGroupRequestEntity(&m)
+	if e != nil {
+		logger.Error("requestBlockByHeight marshal BlockOrGroupRequestEntity error:%s\n", e.Error())
+		return
+	}
+	message := Message{Code: REQ_BLOCK_MSG, Body: body}
+	Server.SendMessage(message, id)
+}
