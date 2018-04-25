@@ -17,6 +17,10 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 
 type ConsensusHandler struct {}
 
+func init(){
+	p2p.SetConsensusHandler(new(ConsensusHandler))
+}
+
 func (c *ConsensusHandler)HandlerMessage(code uint32,body []byte,sourceId string)error{
 	switch code {
 		case p2p.GROUP_INIT_MSG:

@@ -19,6 +19,9 @@ const MAX_TRANSACTION_REQUEST_INTERVAL = 10 * time.Second
 
 type ChainHandler struct{}
 
+func init() {
+	p2p.SetChainHandler(new(ChainHandler))
+}
 
 func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) error {
 	switch code {
