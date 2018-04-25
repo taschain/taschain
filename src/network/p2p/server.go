@@ -73,14 +73,14 @@ type server struct {
 
 	Host host.Host
 
-	dht *dht.IpfsDHT
+	Dht *dht.IpfsDHT
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
-	Server = server{Host: host, dht: dht, SelfNetInfo: node}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -101,8 +101,8 @@ func (s *server) SendMessage(m Message, id string) {
 }
 
 func (s *server) send(b []byte, id string) {
-	peerInfo, error := s.dht.FindPeer(context.Background(), gpeer.ID(id))
-	if error != nil || peerInfo.ID.String() == "" {
+	peerInfo, error := s.Dht.FindPeer(context.Background(), gpeer.ID(id))
+	if error != nil || string(peerInfo.ID)== "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
 	}

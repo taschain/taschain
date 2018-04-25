@@ -73,7 +73,7 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 
 	//peer1Id := "0x3f8ffdd38cbc6df7386868d098d0b95d637c881f"
 	//txs := mockTxs()
-	//m.Peer.SendTransactions(txs, peer1Id)
+	//core.SendTransactions(txs, peer1Id)
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
 	<-quit
