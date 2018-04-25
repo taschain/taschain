@@ -9,7 +9,7 @@ import (
 	"os"
 	"vm/core/types"
 	"encoding/json"
-	"network/p2p"
+	"network/mediator"
 )
 
 var (
@@ -154,10 +154,10 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 
 	}
 
-	if nil != &p2p.Peer {
+	if nil != &mediator.Peer {
 		txs := *new([]*Transaction)
 		txs = append(txs, tx)
-		p2p.Peer.BroadcastTransactions(txs)
+		mediator.Peer.BroadcastTransactions(txs)
 	}
 
 	return true, nil
