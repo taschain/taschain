@@ -16,9 +16,6 @@ import (
 	"common"
 	"time"
 	"github.com/libp2p/go-libp2p-blankhost"
-	"network/biz"
-	m "network/mediator"
-	"consensus/mediator"
 )
 
 const (
@@ -31,41 +28,28 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 
 func InitNetwork(config *common.ConfManager) error {
 
-	e1 := initPeer(config)
+	node, e1 := makeSelfNode(config)
 	if e1 != nil {
 		return e1
 	}
 
-	e2 := initServer(config)
+	e2 := initServer(config, *node)
 	if e2 != nil {
 		return e2
 	}
-
-	//initBlockSyncer()
-	//
-	//initGroupSyncer()
 	return nil
 }
 
-func initPeer(config *common.ConfManager) error {
-	node, error := makeSelfNode(config)
-	if error != nil {
-		return error
-	}
-	m.InitPeer(node)
-	return nil
-}
-
-func initServer(config *common.ConfManager) error {
+func initServer(config *common.ConfManager, node p2p.Node) error {
 
 	ctx := context.Background()
-	network, e1 := makeSwarm(ctx)
+	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
 	}
 
 	host := makeHost(network)
-	e2 := connectToSeed(ctx, host, config)
+	e2 := connectToSeed(ctx, host, config, node)
 	if e2 != nil {
 		return e2
 	}
@@ -74,14 +58,7 @@ func initServer(config *common.ConfManager) error {
 	if e3 != nil {
 		return e3
 	}
-
-	var proc = mediator.Proc
-	bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-		m.Peer.BroadcastTransactionRequest, m.Peer.SendTransactions,nil)
-
-	cHandler := biz.NewConsensusMessageHandler(proc.OnMessageGroupInit, proc.OnMessageSharePiece, proc.OnMessageGroupInited, proc.OnMessageCurrent, proc.OnMessageCast, proc.OnMessageVerify)
-
-	p2p.InitServer(host, dht, bHandler, cHandler)
+	p2p.InitServer(host, dht, &node)
 	return nil
 }
 func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
@@ -93,8 +70,7 @@ func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 	return node, nil
 }
 
-func makeSwarm(ctx context.Context) (net.Network, error) {
-	self := m.Peer.SelfNetInfo
+func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	localId := self.Id
 	multiaddr, e1 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e1 != nil {
@@ -124,12 +100,12 @@ func makeHost(n net.Network) (host.Host) {
 	return host
 }
 
-func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManager) error {
+func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManager, node p2p.Node) error {
 	seedIdStr, seedAddrStr, e1 := getSeedInfo(config)
 	if e1 != nil {
 		return e1
 	}
-	if m.Peer.SelfNetInfo.GenMulAddrStr() == seedAddrStr {
+	if node.GenMulAddrStr() == seedAddrStr {
 		return nil
 	}
 	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
@@ -166,12 +142,4 @@ func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
 	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 	return peer.ID(seedIdStr), seedAddrStr, nil
-}
-
-func initBlockSyncer() {
-	p2p.InitBlockSyncer(nil, nil, nil, nil)
-}
-
-func initGroupSyncer() {
-	p2p.InitGroupSyncer(nil, nil, nil, nil)
 }

@@ -20,7 +20,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 
 	"utility"
-	"network/biz"
 	"consensus/groupsig"
 )
 const (
@@ -44,7 +43,7 @@ func TestSendMessage(t *testing.T) {
 	fmt.Printf("Mock seed node success!\nseddId is:%s\n", seedId)
 
 	ctx1 := context.Background()
-	node1, node1Host, node1Id,_ := mockDHT("", &config, ctx1)
+	node1, node1Host, node1Id,seedNode:= mockDHT("", &config, ctx1)
 	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n", node1Id)
 
 	if node1 != nil && seedDht != nil {
@@ -67,12 +66,7 @@ func TestSendMessage(t *testing.T) {
 			fmt.Printf("find result is:%s\n", string(peerInfo.ID))
 		}
 
-		bHandler := biz.NewBlockChainMessageHandler(nil, nil, nil, nil,
-			nil,nil,nil)
-
-		cHandler := biz.NewConsensusMessageHandler(nil, nil, nil,nil,nil,nil)
-
-		seedServer := server{seedHost, seedDht, bHandler, cHandler}
+		seedServer := server{seedNode,seedHost, seedDht }
 		//seedHost.Network().SetStreamHandler(testSteamHandler)
 
 		node1Host.Network().SetStreamHandler(testSteamHandler)

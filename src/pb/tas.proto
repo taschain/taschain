@@ -94,9 +94,7 @@ message BlockSlice{
     repeated Block Blocks = 1;
 }
 
-message BlockMap{
-     map<uint64,Block> Blocks = 1;
-}
+
 
 
 message Member{
@@ -121,8 +119,52 @@ message Group{
 	required  bytes Signature  = 6;
 }
 
-message GroupMap{
-     map<uint64,Group> Groups = 1;
+message GroupSlice{
+    repeated Group Groups = 1;
+}
+
+
+message EntityRequestMessage{
+
+	required uint64 SourceHeight  =1;
+
+	required bytes SourceCurrentHash =2;
+
+	required bytes SourceId =3;
+}
+
+
+message Hashes{
+
+    repeated bytes hashes = 1;
+}
+
+message Ratios{
+
+    repeated float ratios = 1;
+}
+
+message BlockMessage{
+
+	optional BlockSlice Blocks = 1;
+
+	optional uint64 Height = 2;
+
+	optional Hashes Hashes = 3;
+
+	optional Ratios Ratios = 4;
+}
+
+
+message GroupMessage{
+
+	optional GroupSlice Groups = 1;
+
+	optional uint64 Height = 2;
+
+    optional Hashes  Hashes = 3;
+
+    optional Ratios Ratios = 4;
 }
 
 
@@ -186,7 +228,6 @@ message ConsensusSharePieceMessage{
     required SignData  Sign = 5;
 
 }
-
 
 
 message StaticGroupInfo{

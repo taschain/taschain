@@ -153,6 +153,9 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 
 	}
 
+	txs := *new([]*Transaction)
+	txs = append(txs, tx)
+	BroadcastTransactions(txs)
 	return true, nil
 }
 
