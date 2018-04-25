@@ -36,7 +36,6 @@ func InitCore() error {
 	GroupChainConnectorImpl = &GroupChainConnector{
 		chain: GroupChainImpl,
 	}
-
 	return nil
 }
 

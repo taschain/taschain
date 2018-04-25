@@ -7,7 +7,6 @@ import (
 	"github.com/libp2p/go-libp2p-host"
 	"context"
 	gpeer "github.com/libp2p/go-libp2p-peer"
-	"network/biz"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 	"pb"
@@ -70,20 +69,18 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 var Server server
 
 type server struct {
+	SelfNetInfo *Node
+
 	Host host.Host
 
 	dht *dht.IpfsDHT
-
-	bHandler biz.BlockChainMessageHandler
-
-	cHandler biz.ConsensusMessageHandler
 }
 
-func InitServer(host host.Host, dht *dht.IpfsDHT, bHandler biz.BlockChainMessageHandler, cHandler biz.ConsensusMessageHandler) {
+func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
 	host.Network().SetStreamHandler(swarmStreamHandler)
 
-	Server = server{Host: host, dht: dht, bHandler: bHandler, cHandler: cHandler}
+	Server = server{Host: host, dht: dht, SelfNetInfo: node}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -96,7 +93,7 @@ func (s *server) SendMessage(m Message, id string) {
 	length := len(bytes)
 	b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte,len(bytes)+len(b2))
+	b := make([]byte, len(bytes)+len(b2))
 	copy(b[:4], b2)
 	copy(b[4:], bytes)
 
@@ -197,101 +194,16 @@ func (s *server) handleMessage(b []byte, from string) {
 
 	code := message.Code
 	switch *code {
-	case GROUP_INIT_MSG:
-		m, e := UnMarshalConsensusGroupRawMessage(message.Body)
+	case GROUP_INIT_MSG, KEY_PIECE_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG, VARIFIED_CAST_MSG:
+		consensusHandler.HandlerMessage(*code, message.Body, from)
+	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_HEIGHT_MSG, BLOCK_CHAIN_HEIGHT_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG:
+		chainHandler.HandlerMessage(*code, message.Body, from)
+	case NEW_BLOCK_MSG, TRANSACTION_GOT_MSG:
+		e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
-			logger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
-			return
+			consensusHandler.HandlerMessage(*code, message.Body, from)
 		}
-		s.cHandler.OnMessageGroupInitFn(*m)
-	case KEY_PIECE_MSG:
-		m, e := UnMarshalConsensusSharePieceMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
-			return
-		}
-		s.cHandler.OnMessageSharePieceFn(*m)
-	case GROUP_INIT_DONE_MSG:
-		m, e := UnMarshalConsensusGroupInitedMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
-			return
-		}
-		s.cHandler.OnMessageGroupInitedFn(*m)
-
-	case CURRENT_GROUP_CAST_MSG:
-		m, e := UnMarshalConsensusCurrentMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
-			return
-		}
-		s.cHandler.OnMessageCurrentGroupCastFn(*m)
-	case CAST_VERIFY_MSG:
-		m, e := UnMarshalConsensusCastMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
-			return
-		}
-		s.cHandler.OnMessageCastFn(*m)
-	case VARIFIED_CAST_MSG:
-		m, e := UnMarshalConsensusVerifyMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
-			return
-		}
-		s.cHandler.OnMessageVerifiedCastFn(*m)
-
-	case REQ_TRANSACTION_MSG:
-		m, e := UnMarshalTransactionRequestMessage(message.Body)
-		if e != nil {
-			logger.Error("Discard TransactionRequestMessage because of unmarshal error!\n")
-			return
-		}
-		s.bHandler.OnTransactionRequest(m)
-	case TRANSACTION_GOT_MSG:
-		m, e := UnMarshalTransactions(message.Body)
-		if e != nil {
-			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
-			return
-		}
-		s.bHandler.OnMessageTransaction(m)
-
-	case TRANSACTION_MSG:
-		m, e := UnMarshalTransactions(message.Body)
-		if e != nil {
-			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
-			return
-		}
-		s.bHandler.OnNewTransaction(m)
-
-	case REQ_BLOCK_CHAIN_HEIGHT_MSG:
-		BlockSyncer.HeightRequestCh <- from
-
-	case BLOCK_CHAIN_HEIGHT_MSG:
-		height := utility.ByteToUInt64(message.Body)
-		s := blockHeight{height: height, sourceId: from}
-		BlockSyncer.HeightCh <- s
-	case REQ_BLOCK_MSG:
-		m, e := UnMarshalBlockOrGroupRequestEntity(message.Body)
-		if e != nil {
-			logger.Error("Discard REQ_BLOCK_MSG because of unmarshal error!\n")
-			return
-		}
-
-		enetity := BlockOrGroupRequestEntity{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash}
-		s := blockRequest{bre: enetity, sourceId: from}
-		BlockSyncer.BlockRequestCh <- s
-	case BLOCK_MSG:
-		m, e := UnMarshalBlockEntity(message.Body)
-		if e != nil {
-			logger.Error("Discard BLOCK_MSG because of unmarshal error!\n")
-			return
-		}
-		s := blockArrived{blockEntity: *m, sourceId: from}
-		BlockSyncer.BlockArrivedCh <- s
-
-	default:
-		logger.Errorf("Message not support! Code:%d\n", code)
 	}
 }
 
