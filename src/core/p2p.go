@@ -3,8 +3,6 @@ package core
 import (
 	"common"
 	"fmt"
-	"network/p2p"
-	"core/net/handler"
 )
 
 var BlockChainConnectorImpl *BlockChainConnector

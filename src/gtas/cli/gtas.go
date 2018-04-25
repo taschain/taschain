@@ -10,7 +10,9 @@ import (
 	"network"
 	"os"
 
-
+	"network/p2p"
+	"core/net/handler"
+	chandler "consensus/net/handler"
 )
 
 const (
@@ -175,8 +177,8 @@ func (gtas *Gtas) fullInit() error {
 		return errors.New("InitBlockChain failed")
 	}
 	//TODO 初始化日志， network初始化
-	//p2p.SetChainHandler(new(handler.ChainHandler))
-	//p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
+	p2p.SetChainHandler(new(handler.ChainHandler))
+	p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
 
 	err = network.InitNetwork(configManager)
 	if err != nil {
