@@ -48,20 +48,12 @@ func (bs *blockSyncer) start() {
 		case sourceId := <-bs.HeightRequestCh:
 			//收到块高度请求
 
-			//todo 获取本地块链高度
-			//type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
-			//height,_,e := bs.getHeight()
+			//获取本地块链高度
+			if nil == core.BlockChainImpl {
+				return
+			}
 
-			//height, e := uint64(10), errors.New("")
-			//if e != nil {
-			//	logger.Errorf("Get block height rquest from %s error:%s\n", sourceId, e.Error())
-			//	return
-			//}
-
-			//for test
-			height := uint64(100)
-
-			sendBlockHeight(sourceId, height)
+			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
@@ -73,25 +65,19 @@ func (bs *blockSyncer) start() {
 		case br := <-bs.BlockRequestCh:
 			//收到块请求
 
-			//todo 根据高度获取对应的block
-			//type queryBlocksByHeightFn func(localHeight uint64, currentHash common.Hash) (*core.BlockMessage, error)
-			//blockEntity, e := bs.queryBlock(br.Bre.SourceHeight, br.Bre.SourceCurrentHash)
-
-			//blockEntity, e := new(core.BlockMessage), errors.New("")
-			//if e != nil {
-			//	logger.Errorf("query block request from %s error:%s\n", br.SourceId, e.Error())
-			//	return
-			//}
-
-			//for test
-			blockEntity := &core.BlockMessage{Blocks: []*core.Block{mockBlock()}}
-			sendBlocks(br.SourceId, blockEntity)
+			//根据高度获取对应的block
+			if nil == core.BlockChainImpl {
+				return
+			}
+			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
 
 			//todo block上链
-			//type addBlocksToChainFn func(blockEntity *core.BlockMessage, targetId string)error
-			//bs.addBlocks(&bm.BlockEntity, bm.SourceId)
+			if nil == core.BlockChainImpl {
+				return
+			}
+			core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
 			fmt.Printf(bm.SourceId)
 		case <-t.C:
 			bs.syncBlock()
@@ -109,15 +95,12 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	//todo 获取本地块链高度
-	//localHeight, currentHash, e := bs.getLocalHeight()
+	//获取本地块链高度
+	if nil == core.BlockChainImpl {
+		return
+	}
 
-	//localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
-	//if e != nil {
-	//	logger.Errorf("Self get block height error:%s\n", e.Error())
-	//	return
-	//}
-	localHeight, currentHash := uint64(0), common.BytesToHash([]byte{})
+	localHeight, currentHash := core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
 	bs.maxHeightLock.Lock()
 	maxHeight := bs.neighborMaxHeight
 	bestNodeId := bs.bestNodeId

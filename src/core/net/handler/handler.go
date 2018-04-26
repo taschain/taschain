@@ -11,6 +11,7 @@ import (
 	"taslog"
 	"core/net/sync"
 	"utility"
+	"fmt"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -18,7 +19,6 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
-
 
 func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) error {
 	switch code {
@@ -29,7 +29,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			return nil
 		}
 		OnTransactionRequest(m)
-	case p2p.TRANSACTION_GOT_MSG,p2p.TRANSACTION_MSG:
+	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
 		m, e := unMarshalTransactions(body)
 		if e != nil {
 			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
@@ -38,7 +38,6 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 		return OnMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
 		//todo
-
 
 	case p2p.REQ_BLOCK_CHAIN_HEIGHT_MSG:
 		sync.BlockSyncer.HeightRequestCh <- sourceId
@@ -99,11 +98,12 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	if interval > MAX_TRANSACTION_REQUEST_INTERVAL {
 		return nil
 	}
-	//todo 本地查询transaction
-	//type queryTransactionFn func(hs []common.Hash) ([]*core.Transaction, error)
-	//transactions, e := h.queryTx(m.TransactionHashes)
 
-	transactions, e := []*core.Transaction{}, errors.New("")
+	//本地查询transaction
+	if nil == core.BlockChainImpl {
+		return nil
+	}
+	transactions, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e != nil {
 		logger.Error("OnTransactionRequest get local transaction error:%s", e.Error())
 		core.BroadcastTransactionRequest(*m)
@@ -116,9 +116,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 		return nil
 	}
 
-	// for test
-	//transactions:= mockTxs()
-	//core.SendTransactions(transactions, m.SourceId)
+	core.SendTransactions(transactions, m.SourceId)
 	return nil
 }
 
@@ -151,12 +149,13 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 	}
 }
 
-
 //验证节点接收交易 或者接收来自客户端广播的交易
-func OnMessageTransaction(ts []*core.Transaction) error {
-	//todo 验证节点接收交易 加入交易池
-	//e := h.txGotNofifyB(ts)
-	e := errors.New("")
+func OnMessageTransaction(txs []*core.Transaction) error {
+	//验证节点接收交易 加入交易池
+	if nil == core.BlockChainImpl {
+		return nil
+	}
+	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
 		logger.Errorf("OnMessageTransaction notify block error:%s \n", e.Error())
 		return e
@@ -166,12 +165,13 @@ func OnMessageTransaction(ts []*core.Transaction) error {
 
 //全网其他节点 接收block 进行验证
 func OnMessageNewBlock(b *core.Block) error {
-	//todo 接收到新的块 本地上链
-	//type addNewBlockToChainFn func(b *core.Block) error
-	e := errors.New("")
-	if e != nil {
-		logger.Errorf("Add new block to chain error:%s \n", e.Error())
-		return e
+	//接收到新的块 本地上链
+	if nil == core.BlockChainImpl {
+		return nil
+	}
+	if core.BlockChainImpl.AddBlockOnChain(b) ==-1 {
+		logger.Errorf("Add new block to chain error \n")
+		return fmt.Errorf("fail to add block")
 	}
 	return nil
 }

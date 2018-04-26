@@ -159,6 +159,37 @@ func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
+func (chain *BlockChain) Height() uint64 {
+	return chain.height
+}
+
+func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	//todo: 当前简单处理，暂时不处理分叉问题
+	bh:=chain.queryBlockByHeight(height)
+	if nil == bh{
+		return nil
+	}
+	b:=chain.queryBlockByHash(bh.Hash)
+	return &BlockMessage{
+		Blocks: []*Block{b},
+	}
+}
+
+func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error{
+	blocks := bm.Blocks
+	if nil == blocks || 0==len(blocks){
+		return ErrNil
+	}
+
+	for _, block := range blocks{
+		chain.AddBlockOnChain(block)
+	}
+	return nil
+}
+
 func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
 	if nil == chain.latestStateDB {
 		return nil
