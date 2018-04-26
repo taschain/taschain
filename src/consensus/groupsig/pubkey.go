@@ -20,7 +20,7 @@ type Pubkey struct {
 //MAP（地址->公钥）
 type PubkeyMap map[common.Address]Pubkey
 
-type PubkeyMapID map[ID]Pubkey
+type PubkeyMapID map[string]Pubkey
 
 //判断两个公钥是否相同
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {

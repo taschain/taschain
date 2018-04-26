@@ -59,6 +59,22 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 		return e3
 	}
 	p2p.InitServer(host, dht, &node)
+
+	id, _, _ := getSeedInfo(config)
+	if string(id) != p2p.Server.SelfNetInfo.Id {
+		for {
+			info, e4 := p2p.Server.Dht.FindPeer(ctx, id)
+			if e4 != nil {
+				logger.Errorf("Find seed id %s error:%s\n", string(id), e4.Error())
+			} else if string(info.ID) == "" {
+				logger.Info("Can not find seed node,finding....\n")
+				time.Sleep(5 * time.Second)
+			} else {
+				logger.Info("Find seed node!\n Congratulations to join TAS Network!\n")
+				break
+			}
+		}
+	}
 	return nil
 }
 func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
@@ -115,6 +131,7 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 		return e2
 	}
 	seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
+	(*host).Peerstore().AddAddrs(seedPeerInfo.ID, seedPeerInfo.Addrs, pstore.PermanentAddrTTL)
 	e3 := (*host).Connect(ctx, seedPeerInfo)
 	if e3 != nil {
 		logger.Error("Host connect to seed error!\n" + e3.Error())
@@ -136,7 +153,7 @@ func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT,
 		logger.Error("KadDht bootstrap error!\n" + e.Error())
 		return kadDht, e
 	}
-	logger.Info("Booting p2p network,wait 30s!")
+	logger.Info("Booting p2p network,wait 20s!")
 	time.Sleep(20 * time.Second)
 	logger.Info("Booting dht finished!\n")
 	return kadDht, nil

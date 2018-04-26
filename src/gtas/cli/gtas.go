@@ -13,7 +13,6 @@ import (
 	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
-	"time"
 )
 
 const (
@@ -72,6 +71,7 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 		}
 	}
 
+
 	//测试SendTransactions
 	//peer1Id := "0x3f8ffdd38cbc6df7386868d098d0b95d637c881f"
 	//txs := mockTxs()
@@ -83,8 +83,8 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	//core.BroadcastTransactions(txs)
 
 	//测试BroadcastTransactionRequest
-	m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
-	core.BroadcastTransactionRequest(m)
+	//m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
+	//core.BroadcastTransactionRequest(m)
 
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
@@ -96,7 +96,7 @@ func (gtas *Gtas) Run() {
 	app := kingpin.New("GTAS", "A blockchain application.")
 	app.HelpFlag.Short('h')
 	// TODO config file的默认位置以及相关问题
-	configFile := app.Flag("config", "Config file").Default("tas_test.ini").String()
+	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -196,40 +196,10 @@ func (gtas *Gtas) fullInit() error {
 	if err != nil {
 		return err
 	}
-
+	//sync.InitBlockSyncer()
 	return nil
 }
 
 func NewGtas() *Gtas {
 	return &Gtas{}
-}
-
-
-func mockTxs() []*core.Transaction {
-	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
-	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
-	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
-	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
-	t2 := genTestTx("tx1", 456, "222", "ddd", 0, 1)
-	s := []*core.Transaction{t1, t2}
-	return s
-}
-
-func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
-
-	sourcebyte := common.BytesToAddress(core.Sha256([]byte(source)))
-	targetbyte := common.BytesToAddress(core.Sha256([]byte(target)))
-
-	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
-	data := []byte("This is a transaction")
-	return &core.Transaction{
-		Data:     data,
-		Value:    value,
-		Nonce:    nonce,
-		Source:   &sourcebyte,
-		Target:   &targetbyte,
-		GasPrice: price,
-		GasLimit: 3,
-		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
-	}
 }

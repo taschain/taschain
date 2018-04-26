@@ -154,6 +154,8 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 	return ok
 }
 
+//ok:是否组内成员
+//m:组内成员矿工公钥
 func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, ok bool) {
 	var i int
 	i, ok = sgi.MapCache[uid.GetHexString()]
@@ -188,6 +190,25 @@ func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 		m = sgi.Members[i].GetID()
 	}
 	return m
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//当前节点参与的铸块组（已初始化完成）
+type JoinedGroup struct {
+	GroupID groupsig.ID          //组ID
+	SeedKey groupsig.Seckey      //（组相关性的）私密私钥
+	SignKey groupsig.Seckey      //签名私钥
+	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
+	Members groupsig.PubkeyMapID //组成员（和组相关的）私密公钥列表，非成员签名公钥。
+}
+
+func (jg *JoinedGroup) Init() {
+	jg.Members = make(groupsig.PubkeyMapID, 0)
+}
+
+//取得组内某个成员的签名公钥
+func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
+	return jg.Members[mid.GetHexString()]
 }
 
 ///////////////////////////////////////////////////////////////////////////////

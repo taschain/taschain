@@ -63,7 +63,7 @@ type BlockChain struct {
 	stateCache state.Database // State database to reuse between imports (contains state cache)
 
 	executor      *EVMExecutor
-	voteProcessor *VoteProcessor
+	voteProcessor VoteProcessor
 }
 
 // 默认配置
@@ -152,7 +152,7 @@ func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.state)
 }
 
-func (chain *BlockChain) SetVoteProcessor(processor *VoteProcessor) {
+func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
@@ -330,10 +330,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block.Header.TxTree = block.calcTxTree()
 	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
 
-	if nil != chain.voteProcessor {
-		(*chain.voteProcessor).BeforeInsertChain(block, state, receipts)
-	}
-
 	block.Header.Hash = block.Header.GenHash()
 	return block
 }
@@ -407,15 +403,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		return -1
 	}
 
-	//beforeOnChain
-	if nil != chain.voteProcessor {
-
-		err := (*chain.voteProcessor).BeforeInsertChain(b, state, receipts)
-		if nil != err {
-			return -1
-		}
-	}
-
 	// 检查高度
 	height := b.Header.Height
 
@@ -432,7 +419,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
-		chain.transactionPool.AddExecuted(receipts)
+		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()

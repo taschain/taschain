@@ -286,6 +286,19 @@ func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo
 }
 
 //收到一片秘密分享消息
+//返回-1为异常，返回0为正常接收，返回1为已收到所有组成员的签名私钥
+func (gc *GroupContext) SignPKMessage(spkm ConsensusSignPubKeyMessage) int {
+	result := gc.node.SetSignPKPiece(spkm.SI.SignMember, spkm.SignPK)
+	switch result {
+	case 1:
+	case 0:
+	case -1:
+		panic("GroupContext::SignPKMessage failed, SetSignPKPiece result -1.")
+	}
+	return result
+}
+
+//收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
 func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
 	/*可能父亲组消息还没到，先收到组成员的piece消息
@@ -323,13 +336,8 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 }
 
 //（收到所有组内成员的秘密共享后）取得组信息
-func (gc GroupContext) GetGroupInfo() (g PubKeyInfo, sk groupsig.Seckey) {
-	g.PK = gc.node.GetGroupPubKey()
-	if g.PK.IsValid() {
-		g.ID = *groupsig.NewIDFromPubkey(g.PK)
-		sk = gc.node.getSignSecKey()
-	}
-	return
+func (gc GroupContext) GetGroupInfo() JoinedGroup {
+	return gc.node.GenInnerGroup()
 }
 
 //未初始化完成的加入组
@@ -374,8 +382,8 @@ func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, 
 	}
 }
 
-func (jg *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
-	if v, ok := jg.groups[gid]; ok {
+func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
+	if v, ok := jgs.groups[gid]; ok {
 		return v
 	} else {
 		return nil

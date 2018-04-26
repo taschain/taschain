@@ -31,6 +31,7 @@ const NORMAL_SUCCESS int = 0
 //2. 一个铸块高度在同一时间内可能会有多个铸块槽同时运行，如插槽未满，则所有满足规则1的出块消息或验块消息都允许新生成一个铸块槽。
 //3. 如插槽已满，则时间窗口更早的铸块槽替换时间窗口较晚的铸块槽。
 //4. 如某个铸块槽已经完成该高度的铸块（上链，组外广播），则只允许时间窗口更早的铸块槽更新该高度的铸块（上链，组外广播）。
+//组内第一个KING的QN值=0。
 /*
 bls曲线使用情况：
 使用：CurveFP382_1曲线，初始化参数枚举值=1.
@@ -72,6 +73,10 @@ type SignData struct {
 	DataHash   common.Hash        //哈希值
 	DataSign   groupsig.Signature //签名
 	SignMember groupsig.ID        //用户ID或组ID，看消息类型
+}
+
+func (sd SignData) IsEqual(rhs SignData) bool {
+	return sd.DataHash.Str() == rhs.DataHash.Str() && sd.SignMember.IsEqual(rhs.SignMember) && sd.DataSign.IsEqual(rhs.DataSign)
 }
 
 func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
@@ -159,8 +164,12 @@ func (piece SharePiece) IsValid() bool {
 	return piece.Share.IsValid() && piece.Pub.IsValid()
 }
 
+func (piece SharePiece) IsEqual(rhs SharePiece) bool {
+	return piece.Share.IsEqual(rhs.Share) && piece.Pub.IsEqual(rhs.Pub)
+}
+
 //map(id->秘密分享)
-type ShareMapID map[groupsig.ID]SharePiece
+type ShareMapID map[string]SharePiece
 
 type MinerInfo struct {
 	MinerID    groupsig.ID //矿工ID

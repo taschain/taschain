@@ -55,8 +55,11 @@ func (id ID) GetBigInt() *big.Int {
 }
 
 func (id ID) IsValid() bool {
+	/*
 	bi := id.GetBigInt()
 	return bi != big.NewInt(0)
+	*/
+	return id.GetHexString() != "0x0"
 }
 
 //把ID转换到十进制字符串

@@ -80,7 +80,7 @@ func GenSharePiece(uid groupsig.ID, info test_node_data, group_seed rand.Rand, m
 	*/
 	//生成成员数量个共享秘密
 	for k, _ := range *mems { //组成员遍历
-		shares[k] = *groupsig.ShareSeckey(secs, k)
+		shares[k.GetHexString()] = *groupsig.ShareSeckey(secs, k)
 	}
 	/*
 		fmt.Printf("begin print share data...\n")
@@ -187,7 +187,7 @@ func testGroupInit(t *testing.T) {
 		}
 
 		for uid, node := range users { //组成员遍历接收秘密分享
-			share, ok := shares[uid]
+			share, ok := shares[uid.GetHexString()]
 			if ok {
 				SetSharePiece(uid, &node, k, share, pubs)
 				users[uid] = node
@@ -343,6 +343,111 @@ func genAllNodes(gis ConsensusGroupInitSummary) map[groupsig.ID]GroupNode {
 	return nodes
 }
 
+//测试一个组是否初始化完成
+func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
+	fmt.Printf("\nbegin testGroupInited...\n")
+	var gid groupsig.ID
+	if gid.SetHexString(gid_s) != nil {
+		panic("ID.SetHexString failed.")
+	}
+	//直接用内部函数计算组私钥和组公钥
+	fmt.Printf("calc group sec key with private func...\n")
+	secs := make([]groupsig.Seckey, 0)
+	pubs := make([]groupsig.Pubkey, 0)
+	for _, v := range procs {
+		sec_piece := v.getGroupSeedSecKey(gid)
+		secs = append(secs, sec_piece)
+		pub_piece := groupsig.NewPubkeyFromSeckey(sec_piece)
+		pubs = append(pubs, *pub_piece)
+	}
+	aggr_gsk := groupsig.AggregateSeckeys(secs)
+	if aggr_gsk == nil {
+		t.Error("Aggr group sec key from all member secret sec key faild.")
+	}
+	aggr_gpk := groupsig.NewPubkeyFromSeckey(*aggr_gsk)
+	if aggr_gpk == nil {
+		t.Error("rip pub key from sec key failed.")
+	}
+	fmt.Printf("aggr group sec key from all member secret sec key, aggr_gsk=%v.\n", aggr_gsk.GetHexString())
+	fmt.Printf("rip group pub key from aggr_gsk, aggr_gpk =%v.\n", aggr_gpk.GetHexString())
+	{
+		temp_gpk := groupsig.AggregatePubkeys(pubs)
+		if temp_gpk == nil {
+			t.Error("Aggr group pub key failed.")
+		}
+		fmt.Printf("aggr gen group pub key=%v.\n", temp_gpk.GetHexString())
+		if !aggr_gpk.IsEqual(*temp_gpk) {
+			t.Error("group pub key diff with direct private func.")
+		}
+	}
+
+	//用阈值恢复法生成组私钥和组公钥
+	sk_pieces := make([]groupsig.Seckey, 0) //组成员签名私钥列表
+	id_pieces := make([]groupsig.ID, 0)     //组成员ID列表
+	for _, v := range procs {
+		sign_sk := v.getSignKey(gid)
+		sk_pieces = append(sk_pieces, sign_sk)
+		id := v.GetMinerID()
+		id_pieces = append(id_pieces, id)
+	}
+	const RECOVER_BEGIN = 0 //range 0-2
+	sk_pieces = sk_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	id_pieces = id_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	fmt.Printf("sk_pieces len=%v, id_pieces len=%v.\n", len(sk_pieces), len(id_pieces))
+	fmt.Printf("begin recover group sec key from member sign sec keys...\n")
+	inner_gsk := groupsig.RecoverSeckey(sk_pieces, id_pieces)
+	var inner_gpk *groupsig.Pubkey
+	if inner_gsk != nil {
+		fmt.Printf("recover group sec key=%v.\n", inner_gsk.GetHexString())
+		inner_gpk = groupsig.NewPubkeyFromSeckey(*inner_gsk)
+		if inner_gpk != nil {
+			fmt.Printf("rip gpk from recover gsk=%v.\n", inner_gpk.GetHexString())
+		} else {
+			panic("rip gpk from recovered gsk ERROR.")
+		}
+	} else {
+		fmt.Printf("RecoverSeckey group sec key ERROR.\n")
+		panic("RecoverSeckey group sec key ERROR.")
+	}
+	fmt.Printf("end recover group sec key from member sign sec keys.\n")
+
+	//测试签名
+	fmt.Printf("\nbegin test sign...\n")
+	plain := []byte("this is a plain message.")
+	//直接用组公钥和组私钥验证
+	gs1 := groupsig.Sign(*aggr_gsk, plain)
+	fmt.Printf("direct sign data=%v.\n", gs1.GetHexString())
+	result1 := groupsig.VerifySig(*aggr_gpk, plain, gs1)
+	fmt.Printf("1 verify group sign direct, result = %v.\n", result1)
+	if !result1 {
+		t.Error("1 verify sign failed.")
+	}
+	//用阈值恢复法验证
+	sig_pieces := make([]groupsig.Signature, 0)
+	id_pieces = make([]groupsig.ID, 0)
+
+	for _, v := range procs {
+		sig_piece := groupsig.Sign(v.getSignKey(gid), plain)
+		sig_pieces = append(sig_pieces, sig_piece)
+		id_pieces = append(id_pieces, v.GetMinerID())
+	}
+	sig_pieces = sig_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	id_pieces = id_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
+	gs2 := groupsig.RecoverSignature(sig_pieces, id_pieces)
+	if gs2 == nil {
+		t.Error("RecoverSignature failed.")
+	}
+	fmt.Printf("recover sign data=%v.\n", gs2.GetHexString())
+	result2 := groupsig.VerifySig(*aggr_gpk, plain, *gs2)
+	fmt.Printf("2 verify group sign from recover, result = %v.\n", result2)
+	if !result2 {
+		t.Error("2 verify sign failed.")
+	}
+	fmt.Printf("end test sign.\n")
+	fmt.Printf("end testGroupInited.\n\n")
+	return
+}
+
 //测试逻辑功能
 func testLogicGroupInit(t *testing.T) {
 	fmt.Printf("\nbegin testLogicGroupInit...\n")
@@ -381,7 +486,7 @@ func testLogicGroupInit(t *testing.T) {
 		var piece SharePiece
 		piece.Pub = v.GetSeedPubKey()
 		for x, y := range nodes {
-			piece.Share = shares[x]
+			piece.Share = shares[x.GetHexString()]
 			y.SetInitPiece(k, piece)
 			nodes[x] = y
 		}
@@ -452,8 +557,11 @@ func testLogicGroupInitEx(t *testing.T) {
 
 	procs := genAllProcessers() //生成矿工进程
 	var mems []PubKeyInfo
+	var proc_index int
 	for _, v := range procs {
 		pki := v.GetMinerInfo()
+		fmt.Printf("proc(%v) miner_id=%v, pub_key=%v.\n", proc_index, GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
+		proc_index++
 		mems = append(mems, pki)
 		v.setProcs(procs)
 	}
@@ -489,38 +597,67 @@ func testLogicGroupInitEx(t *testing.T) {
 		panic("direct aggr group pub key failed.")
 	}
 
+	var first_gid groupsig.ID
 	//初始化结果测试
-	fmt.Printf("after inited, print processers info:---\n")
+	fmt.Printf("after inited, print processers info: %v---\n", first_gid.GetBigInt())
 	index := 0
 	for k, v := range procs {
 		groups := v.getMinerGroups()
-		fmt.Printf("---proc(%v), mid=%v, joined groups=%v.\n", index, k, len(groups))
-		for gid, sec_info := range groups {
-			fmt.Printf("------group=%v, sign key=%v.\n", gid, sec_info.SK.GetHexString())
+		fmt.Printf("---i(%v) proc(%v), joined groups=%v.\n", index, k, len(groups))
+		for gid, g_info := range groups {
+			fmt.Printf("------group=%v, id=%v, sign key=%v.\n", gid, g_info.GroupID.GetHexString(), g_info.SignKey.GetHexString())
+			if !first_gid.IsValid() {
+				fmt.Printf("first_gid set value=%v.\n", g_info.GroupID.GetHexString())
+				first_gid = g_info.GroupID
+			} else {
+				fmt.Printf("first_gid valided, value=%v.", first_gid.GetBigInt())
+			}
 		}
 		index++
 	}
+	fmt.Printf("print first_gid=%v.\n", first_gid.GetHexString())
+	if !first_gid.IsValid() {
+		panic("first_gid not valid.")
+	}
+	fmt.Printf("after inited, first group id=%v.\n", GetIDPrefix(first_gid))
+	testGroupInited(procs, first_gid.GetHexString(), t)
+	//return
 
 	//铸块测试
-	fmt.Printf("\nbegin group cast test...\n")
+	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CBMR_PIECE)
 	var ccm ConsensusCurrentMessage
 	pre_hash := sha1.Sum([]byte("tas root block"))
 	ccm.PreHash = common.BytesToHash(pre_hash[:])
 	ccm.BlockHeight = 1
 	ccm.PreTime = time.Now()
-	for _, v := range procs {
+	fmt.Printf("pre block cast time=%v.\n", ccm.PreTime.Format(time.Stamp))
+
+	for _, v := range procs { //进程遍历
 		groups := v.getMinerGroups()
-		for _, g := range groups {
-			ccm.GroupID = g.GetID().Serialize()
-			break
+		var sign_sk groupsig.Seckey
+		for _, g_info := range groups { //加入的组遍历
+			ccm.GroupID = g_info.GroupID.Serialize()
+			sign_sk = g_info.SignKey
+			break //只处理第一个组
 		}
 		mi := v.getmi()
-		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
+		//func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
+		//ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
+		sign_pk := groupsig.NewPubkeyFromSeckey(sign_sk)
+		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), sign_pk.GetHexString())
+		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk})
 		break
 	}
 
-	for _, v := range procs {
+	for _, v := range procs { //向组内每个成员发送“成为当前铸块组”消息
 		v.OnMessageCurrent(ccm)
+	}
+	//主进程堵塞
+	sleep_d, err := time.ParseDuration("8s")
+	if err == nil {
+		fmt.Printf("main func begin sleep, time=%v...", time.Now().Format(time.Stamp))
+		time.Sleep(sleep_d)
+		fmt.Printf("main func end sleep, time=%v.", time.Now().Format(time.Stamp))
 	}
 
 	return
