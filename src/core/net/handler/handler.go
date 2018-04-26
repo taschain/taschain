@@ -102,12 +102,13 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	if nil == core.BlockChainImpl {
 		return nil
 	}
-	transactions, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
+	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
 		logger.Error("Local do not have transaction,broadcast this message!:%s", e.Error())
+		m.TransactionHashes = need
 		core.BroadcastTransactionRequest(*m)
-		return e
 	}
+
 	core.SendTransactions(transactions, m.SourceId)
 	return nil
 }
@@ -222,7 +223,7 @@ func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 	target := common.BytesToAddress(t.Target)
 	transaction := core.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
 		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData,ExtraDataType:*t.ExtraDataType}
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType}
 	return &transaction
 }
 

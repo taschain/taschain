@@ -17,6 +17,7 @@ import (
 	"consensus/logical"
 	"governance/global"
 
+	"time"
 )
 
 const (
@@ -76,18 +77,20 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	}
 
 	//测试SendTransactions
-	peer1Id := "0xe14f286058ed3096ab90ba48a1612564dffdc358"
-	txs := mockTxs()
-	core.SendTransactions(txs, peer1Id)
+	//peer1Id := "0xe14f286058ed3096ab90ba48a1612564dffdc358"
+	//txs := mockTxs()
+	//core.SendTransactions(txs, peer1Id)
 
 
 	//测试BroadcastTransactions
-	//txs := mockTxs()
-	//core.BroadcastTransactions(txs)
+	txs := mockTxs()
+	core.BroadcastTransactions(txs)
 
 	//测试BroadcastTransactionRequest
-	//m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
-	//core.BroadcastTransactionRequest(m)
+	time.Sleep(10*time.Second)
+	m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
+	m.TransactionHashes = []common.Hash{common.BytesToHash(core.Sha256([]byte("tx1"))), common.BytesToHash(core.Sha256([]byte("tx3")))}
+	core.BroadcastTransactionRequest(m)
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
 	<-quit
