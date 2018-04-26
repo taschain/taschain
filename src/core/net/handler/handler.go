@@ -15,7 +15,7 @@ import (
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
-const MAX_TRANSACTION_REQUEST_INTERVAL = 10 * time.Second
+const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
 
