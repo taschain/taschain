@@ -19,11 +19,11 @@ func (gmd *GroupInitPool) init() {
 //接收数据
 func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece SharePiece) int {
 	fmt.Printf("GroupInitPool::ReceiveData, src node=%v, share=%v, pub=%v.\n", id.GetHexString(), piece.Share.GetHexString(), piece.Pub.GetHexString())
-	if _, ok := gmd._pool[id]; !ok {
-		gmd._pool[id] = piece //没有收到过该成员消息
+	if _, ok := gmd._pool[id.GetHexString()]; !ok {
+		gmd._pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0
 	} else { //收到过
-		if gmd._pool[id].Share.GetHexString() != piece.Share.GetHexString() || gmd._pool[id].Pub.GetHexString() != piece.Pub.GetHexString() { //两次数据不一致
+		if !gmd._pool[id.GetHexString()].IsEqual(piece) { //两次数据不一致
 			fmt.Printf("GroupInitPool::ReceiveData failed, data diff.\n")
 			return -1
 		}
@@ -33,6 +33,15 @@ func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece SharePiece) int {
 
 func (gmd *GroupInitPool) GetSize() int {
 	return len(gmd._pool)
+}
+
+//生成组成员签名公钥列表（用于铸块相关消息的验签）
+func (gmd GroupInitPool) GenMemberPubKeys() groupsig.PubkeyMapID {
+	pubs := make(groupsig.PubkeyMapID, 0)
+	for k, v := range gmd._pool {
+		pubs[k] = v.Pub
+	}
+	return pubs
 }
 
 //生成矿工签名私钥
@@ -94,10 +103,22 @@ type GroupNode struct {
 	//矿工属性
 	ms MinerInfo //和组无关的矿工信息（本质上可以跨多个GroupNode共享）
 	//组（相关）属性
-	mgs         MinerGroupSecret //和组相关的矿工信息
-	m_init_pool GroupInitPool    //组初始化消息池
-	m_sign_sk   groupsig.Seckey  //输出：矿工签名私钥（由秘密共享接收池聚合而来）
-	m_gpk       groupsig.Pubkey  //输出：组公钥（由矿工签名公钥接收池聚合而来）
+	mgs         MinerGroupSecret     //和组相关的矿工信息
+	m_init_pool GroupInitPool        //组初始化消息池
+	m_sign_sk   groupsig.Seckey      //输出：矿工签名私钥（由秘密共享接收池聚合而来）
+	m_gpk       groupsig.Pubkey      //输出：组公钥（由矿工签名公钥接收池聚合而来）
+	m_sign_pks  groupsig.PubkeyMapID //组成员签名公钥
+}
+
+func (n GroupNode) GenInnerGroup() JoinedGroup {
+	var jg JoinedGroup
+	jg.GroupPK = n.GetGroupPubKey()
+	jg.SignKey = n.getSignSecKey()
+	//jg.Members = n.m_init_pool.GenMemberPubKeys()
+	jg.Members = n.m_sign_pks
+	jg.GroupID = *groupsig.NewIDFromPubkey(jg.GroupPK)
+	jg.SeedKey = n.mgs.GenSecKey()
+	return jg
 }
 
 //用户初始化
@@ -128,6 +149,7 @@ func (n *GroupNode) InitForGroup(h common.Hash) {
 	n.m_init_pool.init()
 	n.m_sign_sk = *new(groupsig.Seckey) //初始化
 	n.m_gpk = *new(groupsig.Pubkey)
+	n.m_sign_pks = make(groupsig.PubkeyMapID, 0)
 	return
 }
 
@@ -155,13 +177,13 @@ func (n *GroupNode) GenSharePiece(mems []groupsig.ID) groupsig.SeckeyMapID {
 	secs := n.mgs.GenSecKeyList(GetGroupK())
 	//生成成员数量个共享秘密
 	for _, id := range mems { //组成员遍历
-		shares[id] = *groupsig.ShareSeckey(secs, id)
+		shares[id.GetHexString()] = *groupsig.ShareSeckey(secs, id)
 	}
 	return shares
 }
 
 //接收秘密共享
-//返回：0正常接收，-1异常，1完成聚合（启动上链和通知）
+//返回：0正常接收，-1异常，1完成签名私钥聚合和组公钥聚合
 func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 	fmt.Printf("begin GroupNode::SetInitPiece...\n")
 	if n.m_init_pool.ReceiveData(id, share) == -1 {
@@ -172,6 +194,25 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 			return 1
 		} else {
 			return -1
+		}
+	}
+	return 0
+}
+
+//接收秘密共享
+//返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
+func (n *GroupNode) SetSignPKPiece(id groupsig.ID, sign_pk groupsig.Pubkey) int {
+	fmt.Printf("begin GroupNode::SetSignPKPiece...\n")
+	if v, ok := n.m_sign_pks[id.GetHexString()]; ok {
+		if v.IsEqual(sign_pk) {
+			return 0
+		} else {
+			return -1 //两次收到的数据不一致
+		}
+	} else {
+		n.m_sign_pks[id.GetHexString()] = sign_pk
+		if len(n.m_sign_pks) == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的签名公钥
+			return 1
 		}
 	}
 	return 0

@@ -22,7 +22,7 @@ func (sig Signature) IsEqual(rhs Signature) bool {
 
 //MAP(地址->签名)
 type SignatureAMap map[common.Address]Signature
-type SignatureIMap map[ID]Signature
+type SignatureIMap map[string]Signature
 
 // Conversion
 
@@ -123,7 +123,9 @@ func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0
-	for id, si := range m { //map遍历
+	for s_id, si := range m { //map遍历
+		var id ID
+		id.SetHexString(s_id)
 		ids[i] = id  //组成员ID值
 		sigs[i] = si //组成员签名
 		i++
