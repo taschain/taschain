@@ -96,6 +96,9 @@ func intToBytes(n uint64) []byte {
 	return buf
 }
 
+func (chain *GroupChain) Count() uint64{
+	return chain.count
+}
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
