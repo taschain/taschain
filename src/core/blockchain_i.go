@@ -61,8 +61,8 @@ type AccountRepository interface {
 	GetNonce(address common.Address) uint64
 }
 
-// chain 事件接口
-type ChainEventProcessor interface {
-	BeforeExecuteTransaction(b *Block, db vm.StateDB, tx *Transaction) error
+// chain 对于投票事件接口
+type VoteProcessor interface {
+	BeforeExecuteTransaction(b *Block, db vm.StateDB, tx *Transaction) ([]byte, error)
 	BeforeInsertChain(b *Block, stateDB vm.StateDB, receipts types.Receipts) error
 }

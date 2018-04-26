@@ -92,6 +92,12 @@ func SendTransactions(txs []*Transaction, sourceId string) {
 //收到交易 全网扩散
 func BroadcastTransactions(txs []*Transaction) {
 
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Runtime error caught: %v", r)
+		}
+	}()
+
 	body, e := marshalTransactions(txs)
 	if e != nil {
 		logger.Error("Discard MarshalTransactions because of marshal error!\n")
@@ -137,7 +143,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 }
 
 func transactionToPb(t *Transaction) *tas_pb.Transaction {
-	transaction := tas_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_pb.Transaction{Data: t.Data, Source: t.Source.Bytes(),
 		Target: t.Target.Bytes(), GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(), ExtraData: t.ExtraData}
 	return &transaction
 }
