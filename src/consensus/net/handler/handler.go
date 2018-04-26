@@ -173,7 +173,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 		return nil, e1
 	}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusCastMessage{BH: *bh, GroupID: groupId, SI: *si}
+	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase:logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
 	return &message, nil
 }
 
@@ -193,7 +193,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 		return nil, e1
 	}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusVerifyMessage{BH: *bh, GroupID: groupId, SI: *si}
+	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase:logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
 	return &message, nil
 }
 
