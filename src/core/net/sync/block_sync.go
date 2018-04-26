@@ -19,7 +19,7 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 const (
 	BLOCK_HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
 
-	BLOCK_SYNC_INTERVAL = 60 * time.Second
+	BLOCK_SYNC_INTERVAL = 3 * time.Minute
 )
 
 var BlockSyncer blockSyncer
@@ -52,11 +52,16 @@ func (bs *blockSyncer) start() {
 			//todo 获取本地块链高度
 			//type getLocalBlockChainHeightFn func() (uint64, common.Hash, error)
 			//height,_,e := bs.getHeight()
-			height, e := uint64(0), errors.New("")
-			if e != nil {
-				logger.Errorf("Get block height rquest from %s error:%s\n", sourceId, e.Error())
-				return
-			}
+
+			//height, e := uint64(10), errors.New("")
+			//if e != nil {
+			//	logger.Errorf("Get block height rquest from %s error:%s\n", sourceId, e.Error())
+			//	return
+			//}
+
+			//for test
+			height := uint64(100)
+
 			sendBlockHeight(sourceId, height)
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
@@ -72,11 +77,15 @@ func (bs *blockSyncer) start() {
 			//todo 根据高度获取对应的block
 			//type queryBlocksByHeightFn func(localHeight uint64, currentHash common.Hash) (*core.BlockMessage, error)
 			//blockEntity, e := bs.queryBlock(br.Bre.SourceHeight, br.Bre.SourceCurrentHash)
-			blockEntity, e := new(core.BlockMessage), errors.New("")
-			if e != nil {
-				logger.Errorf("query block request from %s error:%s\n", br.SourceId, e.Error())
-				return
-			}
+
+			//blockEntity, e := new(core.BlockMessage), errors.New("")
+			//if e != nil {
+			//	logger.Errorf("query block request from %s error:%s\n", br.SourceId, e.Error())
+			//	return
+			//}
+
+			//for test
+			blockEntity := &core.BlockMessage{Blocks:[]*core.Block{mockBlock()}}
 			sendBlocks(br.SourceId, blockEntity)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
@@ -198,4 +207,44 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 
 	message := tas_pb.BlockMessage{Blocks: &blockSlice, Height: &height, Hashes: &hashSlice, Ratios: &ratioSlice}
 	return proto.Marshal(&message)
+}
+
+
+func mockBlock()*core.Block{
+	txpool := core.BlockChainImpl.GetTransactionPool()
+	if nil == txpool {
+		logger.Error("fail to get txpool")
+	}
+
+	// 交易1
+	txpool.Add(genTestTx("tx1", 123, "111", "abc", 0, 1))
+
+	//交易2
+	txpool.Add(genTestTx("tx1", 456, "222", "ddd", 0, 1))
+
+	// 铸块1
+	block := core.BlockChainImpl.CastingBlock()
+	if nil == block {
+		logger.Error("fail to cast new block")
+	}
+	return block
+}
+
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
+
+	sourcebyte := common.BytesToAddress(core.Sha256([]byte(source)))
+	targetbyte := common.BytesToAddress(core.Sha256([]byte(target)))
+
+	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
+	data := []byte("This is a transaction")
+	return &core.Transaction{
+		Data:     data,
+		Value:    value,
+		Nonce:    nonce,
+		Source:   &sourcebyte,
+		Target:   &targetbyte,
+		GasPrice: price,
+		GasLimit: 3,
+		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
+	}
 }
