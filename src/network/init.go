@@ -65,7 +65,7 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 		for {
 			info, e4 := p2p.Server.Dht.FindPeer(ctx, id)
 			if e4 != nil {
-				logger.Error("Find seed id %s error:%s\n", string(id), e4.Error())
+				logger.Errorf("Find seed id %s error:%s\n", string(id), e4.Error())
 			} else if string(info.ID) == "" {
 				logger.Info("Can not find seed node,finding....\n")
 				time.Sleep(5 * time.Second)
