@@ -3,7 +3,6 @@ package handler
 import (
 	"time"
 	"network/p2p"
-	"errors"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 	"common"
@@ -104,18 +103,11 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 		return nil
 	}
 	transactions, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
-	if e != nil {
-		logger.Error("OnTransactionRequest get local transaction error:%s", e.Error())
+	if e == core.ErrNil {
+		logger.Error("Local do not have transaction,broadcast this message!:%s", e.Error())
 		core.BroadcastTransactionRequest(*m)
 		return e
 	}
-
-	if len(transactions) == 0 {
-		logger.Info("Local do not have transaction,broadcast this message!")
-		core.BroadcastTransactionRequest(*m)
-		return nil
-	}
-
 	core.SendTransactions(transactions, m.SourceId)
 	return nil
 }
@@ -169,7 +161,7 @@ func OnMessageNewBlock(b *core.Block) error {
 	if nil == core.BlockChainImpl {
 		return nil
 	}
-	if core.BlockChainImpl.AddBlockOnChain(b) ==-1 {
+	if core.BlockChainImpl.AddBlockOnChain(b) == -1 {
 		logger.Errorf("Add new block to chain error \n")
 		return fmt.Errorf("fail to add block")
 	}
