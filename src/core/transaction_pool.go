@@ -211,7 +211,7 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 	var err error
 	for i, hash := range hashes {
 		tx, errInner := pool.GetTransaction(hash)
-		if nil == err {
+		if nil == errInner {
 			txs[i] = tx
 		} else {
 			need = append(need, hash)
