@@ -30,7 +30,7 @@ type Session struct {
 	gp *core.GasPool
 }
 
-func NewSession(state vm.StateDB, tx *Transaction, gp *core.GasPool) *Session {
+func NewSession(state vm.StateDB, tx *Transaction, gp *core.GasPool, realdata []byte) *Session {
 	session := &Session{
 		state:    state,
 		nonce:    tx.Nonce,
@@ -43,6 +43,10 @@ func NewSession(state vm.StateDB, tx *Transaction, gp *core.GasPool) *Session {
 		gp:       gp,
 	}
 
+	// todo: 为问勤定制的需求，日后要用接口暴露出去
+	if nil != realdata && len(realdata) > 0 {
+		session.data = realdata
+	}
 	return session
 }
 

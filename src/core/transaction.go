@@ -2,6 +2,7 @@ package core
 
 import (
 	"common"
+	"encoding/json"
 )
 
 type Transaction struct {
@@ -18,3 +19,26 @@ type Transaction struct {
 	ExtraData     []byte
 	ExtraDataType int16
 }
+
+func (tx *Transaction) GenHash() common.Hash {
+	if nil == tx {
+		return common.Hash{}
+	}
+
+	blockByte, _ := json.Marshal(tx)
+	return common.BytesToHash(Sha256(blockByte))
+}
+
+type Transactions []*Transaction
+
+func (c Transactions) Len() int {
+	return len(c)
+}
+func (c Transactions) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+func (c Transactions) Less(i, j int) bool {
+	return c[i].Nonce < c[j].Nonce
+}
+
+
