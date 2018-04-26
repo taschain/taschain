@@ -61,16 +61,18 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	p2p.InitServer(host, dht, &node)
 
 	id, _, _ := getSeedInfo(config)
-	for {
-		info, e4 := p2p.Server.Dht.FindPeer(ctx, id)
-		if e4 != nil {
-			logger.Error("Find seed id %s error:%s\n", string(id), e4.Error())
-		} else if string(info.ID) == "" {
-			logger.Info("Can not find seed node,finding....\n")
-			time.Sleep(5*time.Second)
-		} else {
-			logger.Info("Find seed node!\n Congratulations to join TAS Network!\n")
-			break
+	if string(id) != p2p.Server.SelfNetInfo.Id {
+		for {
+			info, e4 := p2p.Server.Dht.FindPeer(ctx, id)
+			if e4 != nil {
+				logger.Errorf("Find seed id %s error:%s\n", string(id), e4.Error())
+			} else if string(info.ID) == "" {
+				logger.Info("Can not find seed node,finding....\n")
+				time.Sleep(5 * time.Second)
+			} else {
+				logger.Info("Find seed node!\n Congratulations to join TAS Network!\n")
+				break
+			}
 		}
 	}
 	return nil

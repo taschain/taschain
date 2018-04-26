@@ -8,7 +8,6 @@ import (
 	"utility"
 	"network/p2p"
 	"taslog"
-	"errors"
 	"fmt"
 	"pb"
 	"github.com/gogo/protobuf/proto"
@@ -85,7 +84,7 @@ func (bs *blockSyncer) start() {
 			//}
 
 			//for test
-			blockEntity := &core.BlockMessage{Blocks:[]*core.Block{mockBlock()}}
+			blockEntity := &core.BlockMessage{Blocks: []*core.Block{mockBlock()}}
 			sendBlocks(br.SourceId, blockEntity)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
@@ -112,20 +111,22 @@ func (bs *blockSyncer) syncBlock() {
 	<-t.C
 	//todo 获取本地块链高度
 	//localHeight, currentHash, e := bs.getLocalHeight()
-	localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
-	if e != nil {
-		logger.Errorf("Self get block height error:%s\n", e.Error())
-		return
-	}
+
+	//localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
+	//if e != nil {
+	//	logger.Errorf("Self get block height error:%s\n", e.Error())
+	//	return
+	//}
+	localHeight, currentHash := uint64(0), common.BytesToHash([]byte{})
 	bs.maxHeightLock.Lock()
 	maxHeight := bs.neighborMaxHeight
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Info("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -155,7 +156,7 @@ func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := marshalEntityRequestMessage(&m)
 	if e != nil {
-		logger.Error("requestBlockByHeight marshal EntityRequestMessage error:%s\n", e.Error())
+		logger.Errorf("requestBlockByHeight marshal EntityRequestMessage error:%s\n", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_BLOCK_MSG, Body: body}
@@ -209,8 +210,7 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-
-func mockBlock()*core.Block{
+func mockBlock() *core.Block {
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	if nil == txpool {
 		logger.Error("fail to get txpool")
