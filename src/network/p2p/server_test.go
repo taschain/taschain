@@ -39,54 +39,61 @@ func TestSendMessage(t *testing.T) {
 	ctx := context.Background()
 
 	seedPrivateKey := "0x0423c75e7593a7e6b5ce489f7d3578f8f737b6dd0fc1d2b10dc12a3e88a0572c62b801e14a8864ebe2d7b8c32e31113ccb511a6ad597c008ea90d850439133819f0b682fe8ff4a9023712e74256fb628c8e97658d99f2a8880a3066f120c2e899b"
-	seedDht, seedHost, seedId,_:= mockDHT(seedPrivateKey, &config, ctx)
+	seedDht, seedHost, seedId,seedNet:= mockDHT(seedPrivateKey, &config, ctx)
 	fmt.Printf("Mock seed node success!\nseddId is:%s\n", seedId)
 
 	ctx1 := context.Background()
-	node1, node1Host, node1Id,seedNode:= mockDHT("", &config, ctx1)
+	node1, node1Host, node1Id,node1Net:= mockDHT("", &config, ctx1)
 	fmt.Printf("Mock  node1 success!\nnode1 is:%s\n", node1Id)
 
 	if node1 != nil && seedDht != nil {
 
 		if node1 != nil && seedDht != nil {
-			dhts := []*dht.IpfsDHT{seedDht, node1}
+			dhts := []*dht.IpfsDHT{seedDht,node1}
 			bootDhts(dhts)
 			time.Sleep(30 * time.Second)
+			//
+			//dhts = []*dht.IpfsDHT{}
+			//bootDhts(dhts)
 
-			r1 := seedDht.FindLocal(gpeer.ID(node1Id))
-			fmt.Printf("Seed local find node1. node1 id is:%s\n", string(r1.ID))
-
-			r2 := node1.FindLocal(gpeer.ID(seedId))
-			fmt.Printf("Node1 local find seed. seed id is:%s\n", string(r2.ID))
-
-			peerInfo, err := seedDht.FindPeer(ctx1, gpeer.ID(node1Id))
-			if err != nil {
-				fmt.Printf("find node1 error:%s\n", err.Error())
+			peerInfo1, err1 := node1.FindPeer(ctx1, gpeer.ID(seedId))
+			if err1 != nil {
+				fmt.Printf("find seed error:%s\n", err1.Error())
 			}
-			fmt.Printf("find result is:%s\n", string(peerInfo.ID))
+			fmt.Printf("find result is:%s\n", string(peerInfo1.ID))
+			//
+			//
+			//peerInfo, err := seedDht.FindPeer(ctx1, gpeer.ID(node1Id))
+			//if err != nil {
+			//	fmt.Printf("find node1 error:%s\n", err.Error())
+			//}
+			//fmt.Printf("find result is:%s\n", string(peerInfo.ID))
 		}
 
-		seedServer := server{seedNode,seedHost, seedDht }
+		seedServer := server{seedNet,seedHost, seedDht }
 		//seedHost.Network().SetStreamHandler(testSteamHandler)
 
 		node1Host.Network().SetStreamHandler(testSteamHandler)
-		//node1Server := server{node1Host, node1, bHandler, cHandler}
+		node1Server := server{node1Net,node1Host,node1 }
 
-		messsage := mockMessage()
-		//node1Server.SendMessage(messsage,seedId)
-		seedServer.SendMessage(messsage,node1Id)
+		//messsage := mockMessage()
+		//seedServer.SendMessage(messsage,node1Id)
 
 		time.Sleep(1*time.Second)
 		conns := seedServer.GetConnInfo()
 		for _,conn:= range conns{
-			fmt.Printf("conn:%s,%s,%s\n",conn.Id,conn.Ip,conn.TcpPort)
+			fmt.Printf("seed server's conn:%s,%s,%s\n",conn.Id,conn.Ip,conn.TcpPort)
+		}
+
+		conn1 := node1Server.GetConnInfo()
+		for _,conn:= range conn1{
+			fmt.Printf("node1 server's conn:%s,%s,%s\n",conn.Id,conn.Ip,conn.TcpPort)
 		}
 	}
 }
 
 func testSteamHandler(stream inet.Stream) {
 	defer stream.Close()
-	fmt.Printf("in testSteamHandler\n")
 
 	pkgLengthBytes := make([]byte, 4)
 	n, err := stream.Read(pkgLengthBytes)
@@ -94,11 +101,11 @@ func testSteamHandler(stream inet.Stream) {
 		fmt.Printf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
 		return
 	}
-	fmt.Printf("pkgLengthBytes length:%d\n",len(pkgLengthBytes))
-	for i:=0;i<len(pkgLengthBytes);i++{
-		fmt.Printf("b:%d",int(pkgLengthBytes[i]))
-	}
-	fmt.Printf("\n")
+	//fmt.Printf("pkgLengthBytes length:%d\n",len(pkgLengthBytes))
+	//for i:=0;i<len(pkgLengthBytes);i++{
+	//	fmt.Printf("b:%d",int(pkgLengthBytes[i]))
+	//}
+	//fmt.Printf("\n")
 
 
 
@@ -128,12 +135,12 @@ func testSteamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	fmt.Printf("Before unmarshla message!,pkgLength：%d,length:%d\n",pkgLength,len(pkgBodyBytes))
+	//fmt.Printf("Before unmarshla message!,pkgLength：%d,length:%d\n",pkgLength,len(pkgBodyBytes))
 
-	for i:=0;i<len(pkgBodyBytes);i++{
-		fmt.Printf("b:%d",int(pkgBodyBytes[i]))
-	}
-	fmt.Printf("\n")
+	//for i:=0;i<len(pkgBodyBytes);i++{
+	//	fmt.Printf("b:%d",int(pkgBodyBytes[i]))
+	//}
+	//fmt.Printf("\n")
 
 	message, e := UnMarshalMessage(pkgBodyBytes)
 	if e != nil {
@@ -225,32 +232,39 @@ func mockDHT(privateKey string, config *common.ConfManager, ctx context.Context)
 	//	return nil, self.Id
 	//}
 
-	seedIdStr := (*config).GetString(BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
-	//seedId, e := peer.IDB58Decode(seedIdStrPretty)
-	//if e != nil {
-	//	fmt.Printf("Decode seed id error:%s\n", e.Error())
-	//	return nil, host,self.Id
-	//}
-
-	seedAddrStr := (*config).GetString(BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
-
-	a := self.GenMulAddrStr()
-	if a != seedAddrStr {
-		seedMultiaddr, e6 := ma.NewMultiaddr(seedAddrStr)
-		if e6 != nil {
-			fmt.Printf("SeedIdStr to seedMultiaddr error! %s\n", e6.Error())
-		}
-		seedPeerInfo := pstore.PeerInfo{ID: gpeer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
-		e7 := host.Connect(ctx, seedPeerInfo)
-		if e7 != nil {
-			fmt.Printf("Host connect to seed error:%s\n" , e7.Error())
-		}
-	}
+	connectToSeed(ctx,host,config,*self)
 	dss := dssync.MutexWrap(ds.NewMapDatastore())
 	kadDht := dht.NewDHT(ctx, host, dss)
 	return kadDht, host, self.Id,self
 }
 
+func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManager, node Node) error {
+	seedIdStr, seedAddrStr, e1 := getSeedInfo(config)
+	if e1 != nil {
+		return e1
+	}
+	if node.GenMulAddrStr() == seedAddrStr {
+		return nil
+	}
+	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
+	if e2 != nil {
+		logger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
+		return e2
+	}
+	seedPeerInfo := pstore.PeerInfo{ID: gpeer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
+	e3 := host.Connect(ctx, seedPeerInfo)
+	if e3 != nil {
+		logger.Error("Host connect to seed error!\n" + e3.Error())
+		return e3
+	}
+	return nil
+}
+
+func getSeedInfo(config *common.ConfManager) (gpeer.ID, string, error) {
+	seedIdStr := (*config).GetString(BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
+	seedAddrStr := (*config).GetString(BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
+	return gpeer.ID(seedIdStr), seedAddrStr, nil
+}
 
 func TestPubToId(t *testing.T){
 	groupsig.Init(1)

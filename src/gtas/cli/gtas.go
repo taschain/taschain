@@ -13,7 +13,6 @@ import (
 	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
-	"time"
 )
 
 const (
@@ -72,10 +71,9 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 		}
 	}
 
-	time.Sleep(5*time.Second)
-	peer1Id := "0xe14f286058ed3096ab90ba48a1612564dffdc358"
-	txs := mockTxs()
-	core.SendTransactions(txs, peer1Id)
+	//peer1Id := "0x3f8ffdd38cbc6df7386868d098d0b95d637c881f"
+	//txs := mockTxs()
+	//core.SendTransactions(txs, peer1Id)
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
 	<-quit

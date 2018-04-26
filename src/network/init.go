@@ -49,12 +49,12 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	}
 
 	host := makeHost(network)
-	e2 := connectToSeed(ctx, host, config, node)
+	e2 := connectToSeed(ctx, &host, config, node)
 	if e2 != nil {
 		return e2
 	}
 
-	dht, e3 := initDHT(ctx, host)
+	dht, e3 := initDHT(ctx, &host, node)
 	if e3 != nil {
 		return e3
 	}
@@ -84,6 +84,8 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	p2 := &p2p.Privkey{PrivateKey: self.PrivateKey}
 	peerStore.AddPubKey(peer.ID(localId), p1)
 	peerStore.AddPrivKey(peer.ID(localId), p2)
+
+	peerStore.AddAddrs(peer.ID(localId), listenAddrs, pstore.PermanentAddrTTL)
 	//bwc  is a bandwidth metrics collector, This is used to track incoming and outgoing bandwidth on connections managed by this swarm.
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
 	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
@@ -91,7 +93,6 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 		logger.Error("New swarm error!\n" + e2.Error())
 		return nil, e2
 	}
-	peerStore.AddAddrs(peer.ID(localId), sw.ListenAddresses(), pstore.PermanentAddrTTL)
 	return sw, nil
 }
 
@@ -100,7 +101,7 @@ func makeHost(n net.Network) (host.Host) {
 	return host
 }
 
-func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManager, node p2p.Node) error {
+func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfManager, node p2p.Node) error {
 	seedIdStr, seedAddrStr, e1 := getSeedInfo(config)
 	if e1 != nil {
 		return e1
@@ -114,7 +115,7 @@ func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManag
 		return e2
 	}
 	seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
-	e3 := host.Connect(ctx, seedPeerInfo)
+	e3 := (*host).Connect(ctx, seedPeerInfo)
 	if e3 != nil {
 		logger.Error("Host connect to seed error!\n" + e3.Error())
 		return e3
@@ -122,9 +123,9 @@ func connectToSeed(ctx context.Context, host host.Host, config *common.ConfManag
 	return nil
 }
 
-func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
+func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT, error) {
 	dss := dssync.MutexWrap(ds.NewMapDatastore())
-	kadDht := dht.NewDHT(ctx, host, dss)
+	kadDht := dht.NewDHT(ctx, *host, dss)
 
 	cfg := dht.DefaultBootstrapConfig
 	cfg.Queries = 3
@@ -134,6 +135,18 @@ func initDHT(ctx context.Context, host host.Host) (*dht.IpfsDHT, error) {
 		process.Close()
 		logger.Error("KadDht bootstrap error!\n" + e.Error())
 		return kadDht, e
+	}
+	logger.Info("Booting p2p network,wait 30s!")
+	time.Sleep(30 * time.Second)
+	peerInfos, _ := kadDht.FindPeersConnectedToPeer(ctx, peer.ID(node.Id))
+	for {
+		t := time.NewTimer(5 * time.Second)
+		select {
+		case p := <-peerInfos:
+			logger.Info("Node connected to self:%s,%s\n", string(p.ID), p.Addrs[0].String())
+		case <-t.C:
+			break
+		}
 	}
 	return kadDht, nil
 }
