@@ -16,7 +16,7 @@ message Transaction{
 
     required bytes Data  = 1 ;
 
-    required uint64 Value = 2;
+    optional uint64 Value = 2;
 
     required uint64 Nonce = 3;
 

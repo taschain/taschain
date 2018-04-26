@@ -143,7 +143,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 }
 
 func transactionToPb(t *Transaction) *tas_pb.Transaction {
-	transaction := tas_pb.Transaction{Data: t.Data, Source: t.Source.Bytes(),
+	transaction := tas_pb.Transaction{Data: t.Data,Value:&t.Value, Source: t.Source.Bytes(),
 		Target: t.Target.Bytes(), GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(), ExtraData: t.ExtraData}
 	return &transaction
 }
