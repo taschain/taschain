@@ -137,21 +137,8 @@ func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT,
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 30s!")
-	time.Sleep(30 * time.Second)
-	peerInfos, _ := kadDht.FindPeersConnectedToPeer(ctx, peer.ID(node.Id))
-	for {
-		t := time.NewTimer(5 * time.Second)
-		select {
-		case p := <-peerInfos:
-			if p!=nil{
-				logger.Info("Node connected to self:%s,%s\n", string(p.ID), p.Addrs[0].String())
-			}else {
-				logger.Info("Node connected to self:nil,%s\n")
-			}
-		case <-t.C:
-			break
-		}
-	}
+	time.Sleep(20 * time.Second)
+	logger.Info("Booting dht finished!\n")
 	return kadDht, nil
 }
 
