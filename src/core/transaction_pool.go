@@ -123,8 +123,22 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 	return txs
 }
 
+func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+	if nil == txs || 0 == len(txs) {
+		return ErrNil
+	}
+
+	for _, tx := range txs {
+		_, err := pool.Add(tx)
+		if nil != err {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
-// todo: 收到的交易是否需要广播出去？暂时先不广播
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
@@ -185,6 +199,24 @@ func (pool *TransactionPool) remove(hash common.Hash) {
 	defer pool.receivedLock.Unlock()
 	delete(pool.received, hash)
 
+}
+
+func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transaction, error) {
+	if nil == hashes || 0 == len(hashes) {
+		return nil, ErrNil
+	}
+
+	txs := make([]*Transaction, len(hashes))
+	for i, hash := range hashes {
+		tx, err := pool.GetTransaction(hash)
+		if nil != err {
+			txs[i] = tx
+		} else {
+			return nil, err
+		}
+	}
+
+	return txs, nil
 }
 
 // 根据hash获取交易实例
