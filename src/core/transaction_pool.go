@@ -206,13 +206,13 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 		return nil, nil, ErrNil
 	}
 
-	txs := make([]*Transaction, len(hashes))
+	txs := make([]*Transaction, 0)
 	need := make([]common.Hash, 0)
 	var err error
-	for i, hash := range hashes {
+	for _, hash := range hashes {
 		tx, errInner := pool.GetTransaction(hash)
 		if nil == errInner {
-			txs[i] = tx
+			txs = append(txs, tx)
 		} else {
 			need = append(need, hash)
 			err = errInner
