@@ -63,7 +63,7 @@ type BlockChain struct {
 	stateCache state.Database // State database to reuse between imports (contains state cache)
 
 	executor      *EVMExecutor
-	voteProcessor *VoteProcessor
+	voteProcessor VoteProcessor
 }
 
 // 默认配置
@@ -152,7 +152,7 @@ func Clear(config *BlockChainConfig) {
 	os.RemoveAll(config.state)
 }
 
-func (chain *BlockChain) SetVoteProcessor(processor *VoteProcessor) {
+func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 

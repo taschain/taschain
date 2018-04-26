@@ -40,7 +40,7 @@ func NewEVMExecutor(bc *BlockChain) *EVMExecutor {
 	}
 }
 
-func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor *VoteProcessor) (types.Receipts, *common.Hash, uint64, error) {
+func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor VoteProcessor) (types.Receipts, *common.Hash, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -51,7 +51,7 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	for i, tx := range block.Transactions {
 		var realData []byte
 		if nil != processor {
-			realData,_ = (*processor).BeforeExecuteTransaction(block, statedb,tx)
+			realData,_ = processor.BeforeExecuteTransaction(block, statedb,tx)
 		}
 
 		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
@@ -64,7 +64,7 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	}
 
 	if nil != processor {
-		(*processor).AfterAllTransactionExecuted(block, statedb, receipts)
+		processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	}
 
 	//accumulateRewards(chain.Config(), state, header, uncles)
