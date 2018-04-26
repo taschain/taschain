@@ -143,7 +143,11 @@ func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT,
 		t := time.NewTimer(5 * time.Second)
 		select {
 		case p := <-peerInfos:
-			logger.Info("Node connected to self:%s,%s\n", string(p.ID), p.Addrs[0].String())
+			if p!=nil{
+				logger.Info("Node connected to self:%s,%s\n", string(p.ID), p.Addrs[0].String())
+			}else {
+				logger.Info("Node connected to self:nil,%s\n")
+			}
 		case <-t.C:
 			break
 		}
