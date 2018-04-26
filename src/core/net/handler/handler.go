@@ -109,7 +109,10 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 		core.BroadcastTransactionRequest(*m)
 	}
 
-	core.SendTransactions(transactions, m.SourceId)
+	if nil != transactions && 0 != len(transactions) {
+		core.SendTransactions(transactions, m.SourceId)
+	}
+
 	return nil
 }
 
