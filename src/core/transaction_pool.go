@@ -10,6 +10,7 @@ import (
 	"vm/core/types"
 	"encoding/json"
 	"sort"
+	"vm/common/hexutil"
 )
 
 var (
@@ -56,6 +57,11 @@ type TransactionPool struct {
 
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed datasource.Database
+}
+
+type ReceiptWrapper struct {
+	Receipt     *types.Receipt
+	Transaction *Transaction
 }
 
 func DefaultPoolConfig() *TransactionPoolConfig {
@@ -182,7 +188,6 @@ func (pool *TransactionPool) remove(hash common.Hash) {
 }
 
 // 根据hash获取交易实例
-// 如果本地没有，则需要从p2p网络中获取，此处不等待p2p网络的返回，而是直接返回error码
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, error) {
 	pool.receivedLock.RLock()
 	defer pool.receivedLock.RUnlock()
@@ -194,9 +199,12 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 	}
 
 	// 再从executed里获取
+	executed := pool.GetExecuted(hash)
+	if nil != executed {
+		return executed.Transaction, nil
+	}
 
-	//todo： 调用p2p模块，获取相应交易
-	return nil, fmt.Errorf("get transaction: %x remotely", hash)
+	return nil, ErrNil
 }
 
 // 根据交易的hash判断交易是否存在：
@@ -266,14 +274,18 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 
 }
 
-func (pool *TransactionPool) AddExecuted(receipts types.Receipts) {
+func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transaction) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
 
-	for _, receipt := range receipts {
+	for i, receipt := range receipts {
 		hash := receipt.TxHash.Bytes()
-		receiptJson, err := json.Marshal(receipt)
+		receiptWrapper := &ReceiptWrapper{
+			Receipt:     receipt,
+			Transaction: getTransaction(txs, hash, i),
+		}
+		receiptJson, err := json.Marshal(receiptWrapper)
 		if nil != err {
 			continue
 		}
@@ -281,13 +293,30 @@ func (pool *TransactionPool) AddExecuted(receipts types.Receipts) {
 	}
 }
 
-func (pool *TransactionPool) GetExecuted(hash common.Hash) *types.Receipt {
+func getTransaction(txs []*Transaction, hash []byte, i int) *Transaction {
+	if nil == txs || 0 == len(txs) {
+		return nil
+	}
+	if hexutil.Encode(txs[i].Hash.Bytes()) == hexutil.Encode(hash) {
+		return txs[i]
+	}
+
+	for _, tx := range txs {
+		if hexutil.Encode(tx.Hash.Bytes()) == hexutil.Encode(hash) {
+			return tx
+		}
+	}
+
+	return nil
+}
+
+func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	receiptJson, _ := pool.executed.Get(hash.Bytes())
 	if nil == receiptJson {
 		return nil
 	}
 
-	var receipt *types.Receipt
+	var receipt *ReceiptWrapper
 	err := json.Unmarshal(receiptJson, receipt)
 	if err != nil || receipt == nil {
 		return nil
