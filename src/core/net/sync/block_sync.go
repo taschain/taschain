@@ -8,7 +8,6 @@ import (
 	"utility"
 	"network/p2p"
 	"taslog"
-	"errors"
 	"fmt"
 	"pb"
 	"github.com/gogo/protobuf/proto"
@@ -85,7 +84,7 @@ func (bs *blockSyncer) start() {
 			//}
 
 			//for test
-			blockEntity := &core.BlockMessage{Blocks:[]*core.Block{mockBlock()}}
+			blockEntity := &core.BlockMessage{Blocks: []*core.Block{mockBlock()}}
 			sendBlocks(br.SourceId, blockEntity)
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
@@ -112,11 +111,13 @@ func (bs *blockSyncer) syncBlock() {
 	<-t.C
 	//todo 获取本地块链高度
 	//localHeight, currentHash, e := bs.getLocalHeight()
-	localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
-	if e != nil {
-		logger.Errorf("Self get block height error:%s\n", e.Error())
-		return
-	}
+
+	//localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
+	//if e != nil {
+	//	logger.Errorf("Self get block height error:%s\n", e.Error())
+	//	return
+	//}
+	localHeight, currentHash := uint64(0), common.BytesToHash([]byte{})
 	bs.maxHeightLock.Lock()
 	maxHeight := bs.neighborMaxHeight
 	bestNodeId := bs.bestNodeId
@@ -209,8 +210,7 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-
-func mockBlock()*core.Block{
+func mockBlock() *core.Block {
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	if nil == txpool {
 		logger.Error("fail to get txpool")
