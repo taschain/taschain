@@ -63,7 +63,7 @@ func genHash(hash string) []byte {
 }
 
 func genTx(hash string, price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte,
-	extraDataType int16) *core.Transaction {
+	extraDataType int32) *core.Transaction {
 
 	sourcebyte := common.HexToAddress(source)
 	targetbyte := common.HexToAddress(target)

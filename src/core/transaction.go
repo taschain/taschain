@@ -17,7 +17,7 @@ type Transaction struct {
 	Hash     common.Hash
 
 	ExtraData     []byte
-	ExtraDataType int16
+	ExtraDataType int32
 }
 
 func (tx *Transaction) GenHash() common.Hash {

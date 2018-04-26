@@ -221,7 +221,8 @@ func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
 	transaction := core.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
-		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash), ExtraData: t.ExtraData}
+		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
+		ExtraData: t.ExtraData,ExtraDataType:*t.ExtraDataType}
 	return &transaction
 }
 
