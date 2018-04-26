@@ -17,3 +17,10 @@ src/core/wenqin_test_util.go
 
 
 src/taslog/logs
+
+src/gtas/block
+src/gtas/groupldb
+src/gtas/height
+src/gtas/logs
+src/gtas/state
+src/gtas/tx

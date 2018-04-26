@@ -72,6 +72,7 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 		}
 	}
 
+
 	//测试SendTransactions
 	//peer1Id := "0x3f8ffdd38cbc6df7386868d098d0b95d637c881f"
 	//txs := mockTxs()
@@ -96,7 +97,7 @@ func (gtas *Gtas) Run() {
 	app := kingpin.New("GTAS", "A blockchain application.")
 	app.HelpFlag.Short('h')
 	// TODO config file的默认位置以及相关问题
-	configFile := app.Flag("config", "Config file").Default("tas_test.ini").String()
+	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 

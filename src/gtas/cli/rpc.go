@@ -1,13 +1,11 @@
 package cli
 
 import (
-	//"encoding/hex"
 	"net"
 	"vm/rpc"
 
 	"fmt"
 	"log"
-	//"network/p2p"
 	"network/p2p"
 	"strconv"
 	"core"
