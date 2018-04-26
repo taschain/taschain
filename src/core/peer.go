@@ -82,7 +82,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 func SendTransactions(txs []*Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Error("Discard MarshalTransactions because of marshal error!\n")
+		logger.Error("Discard MarshalTransactions because of marshal error! \n")
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
