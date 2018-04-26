@@ -63,6 +63,10 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 
 	}
 
+	if nil != processor {
+		(*processor).AfterAllTransactionExecuted(block, statedb, receipts)
+	}
+
 	//accumulateRewards(chain.Config(), state, header, uncles)
 	hash := statedb.IntermediateRoot(true)
 

@@ -330,10 +330,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block.Header.TxTree = block.calcTxTree()
 	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
 
-	if nil != chain.voteProcessor {
-		(*chain.voteProcessor).BeforeInsertChain(block, state, receipts)
-	}
-
 	block.Header.Hash = block.Header.GenHash()
 	return block
 }
@@ -405,15 +401,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 
 	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return -1
-	}
-
-	//beforeOnChain
-	if nil != chain.voteProcessor {
-
-		err := (*chain.voteProcessor).BeforeInsertChain(b, state, receipts)
-		if nil != err {
-			return -1
-		}
 	}
 
 	// 检查高度
