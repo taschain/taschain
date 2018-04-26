@@ -330,6 +330,10 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block.Header.TxTree = block.calcTxTree()
 	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
 
+	if nil != chain.voteProcessor {
+		(*chain.voteProcessor).BeforeInsertChain(block, state, receipts)
+	}
+
 	block.Header.Hash = block.Header.GenHash()
 	return block
 }
