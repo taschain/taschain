@@ -40,19 +40,23 @@ const (
 
 //铸块槽结构
 type SlotContext struct {
-	TimeRev     time.Time                          //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
-	HeaderHash  common.Hash                        //出块头哈希
-	QueueNumber int64                              //铸块槽序号(<0无效)，等同于出块人序号。
-	King        groupsig.ID                        //出块者ID
-	MapWitness  map[groupsig.ID]groupsig.Signature //该铸块槽的见证人验证签名列表
-	GroupSign   groupsig.Signature                 //成功输出的组签名
+	TimeRev     time.Time                     //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
+	HeaderHash  common.Hash                   //出块头哈希(就这个哈希值达成一致)
+	QueueNumber int64                         //铸块槽序号(<0无效)，等同于出块人序号。
+	King        groupsig.ID                   //出块者ID
+	MapWitness  map[string]groupsig.Signature //该铸块槽的见证人验证签名列表
+	GroupSign   groupsig.Signature            //成功输出的组签名
 	SlotStatus  SLOT_STATUS
+}
+
+func (sc SlotContext) MessageSize() int {
+	return len(sc.MapWitness)
 }
 
 //是否已收到出块人的消息
 func (sc SlotContext) HasKingMessage() bool {
 	if sc.King.IsValid() {
-		_, ok := sc.MapWitness[sc.King]
+		_, ok := sc.MapWitness[sc.King.GetHexString()]
 		return ok
 	}
 	return false
@@ -119,19 +123,26 @@ const (
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
 func (sc *SlotContext) AcceptPiece(cs ConsensusBlockSummary, si SignData) CAST_BLOCK_MESSAGE_RESULT {
-	if len(sc.MapWitness) > GROUP_MAX_MEMBERS {
-		panic("CastContext::Verified failed, too many members.")
+	if len(sc.MapWitness) > GROUP_MAX_MEMBERS || sc.MapWitness == nil {
+		panic("CastContext::Verified failed, too many members or map nil.")
 	}
-	v, ok := sc.MapWitness[si.GetID()]
+	if si.DataHash != sc.HeaderHash {
+		fmt.Printf("SlotContext::AcceptPiece failed, hash diff.\n")
+		fmt.Printf("exist hash=%v.\n", sc.HeaderHash.Hex())
+		fmt.Printf("recv hash=%v.\n", si.DataHash.Hex())
+		panic("SlotContext::AcceptPiece failed, hash diff.")
+	}
+	v, ok := sc.MapWitness[si.GetID().GetHexString()]
 	if ok { //已经收到过该成员的验签
-		if v != si.DataSign {
+		if !v.IsEqual(si.DataSign) {
+			fmt.Printf("DIFF ERROR: sender=%v, exist_sign=%v, new_sign=%v.\n", GetIDPrefix(si.GetID()), v.GetHexString(), si.DataSign.GetHexString())
 			panic("CastContext::Verified failed, one member's two sign diff.")
 		}
 		//忽略
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
-		sc.MapWitness[si.GetID()] = si.DataSign
-		if len(sc.MapWitness) > (GROUP_MAX_MEMBERS*SSSS_THRESHOLD/100) && sc.HasKingMessage() { //达到组签名条件
+		sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
+		if len(sc.MapWitness) >= GetGroupK() && sc.HasKingMessage() { //达到组签名条件
 			if sc.GenGroupSign() {
 				return CBMR_THRESHOLD_SUCCESS
 			} else {
@@ -150,22 +161,25 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func newSlotContext(cs ConsensusBlockSummary, si SignData) SlotContext {
-	var sc SlotContext
+func newSlotContext(cs ConsensusBlockSummary, si SignData) *SlotContext {
+	sc := new(SlotContext)
 	sc.TimeRev = time.Now()
-	sc.HeaderHash = cs.DataHash
+	//sc.HeaderHash = cs.DataHash
+	sc.HeaderHash = si.DataHash
+	fmt.Printf("create new slot, hash=%v.\n", sc.HeaderHash.Hex())
 	sc.QueueNumber = cs.QueueNumber
 	sc.King = cs.Castor
-	sc.MapWitness = make(map[groupsig.ID]groupsig.Signature)
-	sc.MapWitness[si.GetID()] = si.DataSign
+	sc.MapWitness = make(map[string]groupsig.Signature)
+	sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
 	return sc
 }
 
 func (sc *SlotContext) Reset() {
+	sc.TimeRev = *new(time.Time)
+	sc.HeaderHash = *new(common.Hash)
 	sc.QueueNumber = INVALID_QN
 	sc.King = *groupsig.NewIDFromInt(0)
-	sc.MapWitness = make(map[groupsig.ID]groupsig.Signature)
-	sc.HeaderHash = *new(common.Hash)
+	sc.MapWitness = make(map[string]groupsig.Signature)
 	return
 }
 
@@ -188,15 +202,15 @@ func (sc SlotContext) GetWeight() uint64 {
 //组铸块共识上下文结构（一个高度有一个上下文）
 type BlockContext struct {
 	Version         uint
-	PreTime         time.Time                     //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	CCTimer         time.Ticker                   //共识定时器
-	SignedMinQN     int64                         //组内已铸出的最小QN值的块
-	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS   //铸块状态
-	PrevHash        common.Hash                   //上一块哈希值
-	CastHeight      uint64                        //待铸块高度
-	GroupMembers    uint                          //组成员数量
-	Threshold       uint                          //百分比（0-100）
-	Slots           [MAX_SYNC_CASTORS]SlotContext //铸块槽列表
+	PreTime         time.Time                      //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
+	CCTimer         time.Ticker                    //共识定时器
+	SignedMinQN     int64                          //组内已铸出的最小QN值的块
+	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS    //铸块状态
+	PrevHash        common.Hash                    //上一块哈希值
+	CastHeight      uint64                         //待铸块高度
+	GroupMembers    uint                           //组成员数量
+	Threshold       uint                           //百分比（0-100）
+	Slots           [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
 
 	Proc    *Processer   //处理器
 	MinerID GroupMinerID //矿工ID和所属组ID
@@ -282,7 +296,7 @@ func (bc *BlockContext) findMaxQNSlot() (int32, int64) {
 //返回：int32:铸块槽序号（没找到返回-1），bool：该铸块槽是否收到出块人消息（在铸块槽序号>=0时有意义）
 func (bc *BlockContext) findCastSlot(qn int64) (int32, bool) {
 	for i, v := range bc.Slots {
-		if v.QueueNumber == qn {
+		if v != nil && v.QueueNumber == qn {
 			return int32(i), v.HasKingMessage()
 		}
 	}
@@ -305,6 +319,7 @@ func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 	var max_qn int64 = -1
 	i, km := bc.findCastSlot(qn)
 	if i >= 0 { //该qn的槽已存在
+		fmt.Printf("prov(%v) exist slot qn=%v, msg_count=%v, has_king=%v.\n", bc.Proc.getPrefix(), qn, bc.Slots[i].MessageSize(), km)
 		if km {
 			info = QQSR_EXIST_SLOT_WITH_KINGMESSAGE
 		} else {
@@ -314,10 +329,12 @@ func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 	} else {
 		i = bc.findEmptySlot()
 		if i >= 0 { //找到空槽
+			fmt.Printf("prov(%v) found empty slot_index=%v.\n", bc.Proc.getPrefix(), i)
 			return i, QQSR_EMPTY_SLOT
 		} else {
 			i, max_qn = bc.findMaxQNSlot() //取得最大槽
-			if qn < max_qn {               //最大槽的QN被新的QN大
+			fmt.Printf("prov(%v) slot fulled, exist max_qn=%v, slot_index=%v, new_qn=%v.\n", bc.Proc.getPrefix(), max_qn, i, qn)
+			if qn < max_qn { //最大槽的QN被新的QN大
 				return i, QQSR_REPLACE_SLOT
 			}
 		}
@@ -330,10 +347,12 @@ func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
 func (bc *BlockContext) accpetCV(cs ConsensusBlockSummary, si SignData) CAST_BLOCK_MESSAGE_RESULT {
 	count := getCastTimeWindow(bc.PreTime)
-	if count < 0 || cs.QueueNumber <= 0 { //时间窗口异常
+	if count < 0 || cs.QueueNumber < 0 { //时间窗口异常
+		fmt.Printf("proc(%v) acceptCV failed(time windwos ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, cs.QueueNumber)
 		return CBMR_ERROR_ARG
 	}
-	if int32(cs.QueueNumber) >= count { //未轮到该QN出块
+	if int32(cs.QueueNumber) > count { //未轮到该QN出块
+		fmt.Printf("proc(%v) acceptCV failed(qn ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, cs.QueueNumber)
 		return CMBR_IGNORE_QN_FUTURE
 	}
 
@@ -342,14 +361,18 @@ func (bc *BlockContext) accpetCV(cs ConsensusBlockSummary, si SignData) CAST_BLO
 	}
 
 	i, info := bc.ConsensusFindSlot(cs.QueueNumber)
+	fmt.Printf("proc(%v) ConsensusFindSlot, qn=%v, i=%v, info=%v.\n", bc.Proc.getPrefix(), cs.QueueNumber, i, info)
 	if i < 0 { //没有找到有效的插槽
 		return CMBR_IGNORE_QN_BIG_QN
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
+		fmt.Printf("proc(%v) put new_qn=%v in slot[%v], REPLACE=%v.\n", bc.Proc.getPrefix(), cs.QueueNumber, i, info == QQSR_REPLACE_SLOT)
 		bc.Slots[i] = newSlotContext(cs, si)
+		return CBMR_PIECE
 	} else {
 		result := bc.Slots[i].AcceptPiece(cs, si)
+		fmt.Printf("proc(%v) bc::slot[%v] AcceptPiece result=%v, msg_count=%v.\n", bc.Proc.getPrefix(), i, result, bc.Slots[i].MessageSize())
 		return result
 	}
 	return CMBR_ERROR_UNKNOWN
@@ -378,20 +401,30 @@ func (bc *BlockContext) Reset() {
 	bc.CastHeight = 0
 	bc.GroupMembers = GROUP_MAX_MEMBERS
 	bc.Threshold = SSSS_THRESHOLD
-	bc.Slots = *new([MAX_SYNC_CASTORS]SlotContext)
+	bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
+	for i := 0; i < MAX_SYNC_CASTORS; i++ {
+		sc := new(SlotContext)
+		sc.Reset()
+		bc.Slots[i] = sc
+	}
 }
 
 //组铸块共识初始化
 //bh : 上一块完成高度，tc：上一块完成时间；h：上一块哈希值
 func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
-	fmt.Printf("begin BlockContext::BeginConsensus...\n")
+	fmt.Printf("proc(%v) begin BlockContext::BeginConsensus...\n", tc.Format(time.Stamp))
 	bc.PreTime = tc //上一块的铸块成功时间
 	bc.ConsensusStatus = CBCS_CURRENT
 	bc.SignedMinQN = INVALID_QN //等待第一个出块者
 	bc.PrevHash = h
 	bc.CastHeight = bh + 1
-	bc.Slots = *new([MAX_SYNC_CASTORS]SlotContext)
-	bc.StartTimer() //启动定时器
+	bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
+	for i := 0; i < MAX_SYNC_CASTORS; i++ {
+		sc := new(SlotContext)
+		sc.Reset()
+		bc.Slots[i] = sc
+	}
+	go bc.StartTimer() //启动定时器
 	fmt.Printf("end BlockContext::BeginConsensus, Timer STARTED.\n")
 	return
 }
@@ -491,7 +524,8 @@ func (bc *BlockContext) StartTimer() {
 	for _ = range bc.CCTimer.C {
 		count++
 		fmt.Printf("block_context::StartTicker, Now=%v, count=%v.\n", time.Now().Format(time.Stamp), count)
-		go bc.TickerRoutine()
+		//go bc.TickerRoutine()
+		bc.TickerRoutine()
 	}
 	return
 	//<-bc.CCTimer.C
@@ -499,21 +533,21 @@ func (bc *BlockContext) StartTimer() {
 
 //定时器例行处理
 func (bc *BlockContext) TickerRoutine() {
-	fmt.Printf("mid(%v) begin TickerRoutine...\n", bc.Proc.GetMinerID().GetHexString())
+	fmt.Printf("proc(%v) begin TickerRoutine...\n", bc.Proc.getPrefix())
 	if !bc.IsCasting() { //没有在组铸块共识中
-		fmt.Printf("mid(%v) not in casting, reset and direct return.\n", bc.Proc.GetMinerID().GetHexString())
+		fmt.Printf("proc(%v) not in casting, reset and direct return.\n", bc.Proc.getPrefix())
 		bc.Reset() //提前出块完成
 		return
 	}
 	d := time.Since(bc.PreTime)                    //上个铸块完成到现在的时间
 	if int32(d.Seconds()) > MAX_GROUP_BLOCK_TIME { //超过了组最大铸块时间
-		fmt.Printf("block_context::TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", d.Seconds(), bc.ConsensusStatus)
+		fmt.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
 		bc.Reset()
 	} else {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
-		fmt.Printf("mid(%v) calced, index=%v, qn=%v.\n", bc.Proc.GetMinerID().GetHexString(), index, qn)
+		fmt.Printf("proc(%v) end TickerRoutine, index=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, uint(bc.CastHeight))
 	}
 	return
