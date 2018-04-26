@@ -116,7 +116,7 @@ func call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) 
 	context := tasCore.NewEVMContext(tx, ctx.block.Header, ctx.bc)
 	vmenv := vm.NewEVM(context, ctx.state, tasCore.TestnetChainConfig, vm.Config{})
 
-	ret, _, fail, err := tasCore.NewSession(ctx.state, tx, gp).Run(vmenv)
+	ret, _, fail, err := tasCore.NewSession(ctx.state, tx, gp, nil).Run(vmenv)
 	if err != nil {
 		return nil, nil, err
 	}

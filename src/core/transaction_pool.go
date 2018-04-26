@@ -9,6 +9,7 @@ import (
 	"os"
 	"vm/core/types"
 	"encoding/json"
+	"sort"
 )
 
 var (
@@ -112,6 +113,7 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 		i++
 	}
 
+	sort.Sort(Transactions(txs))
 	return txs
 }
 
@@ -185,10 +187,13 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 	pool.receivedLock.RLock()
 	defer pool.receivedLock.RUnlock()
 
+	// 先从received里获取
 	result := pool.received[hash]
 	if nil != result {
 		return result, nil
 	}
+
+	// 再从executed里获取
 
 	//todo： 调用p2p模块，获取相应交易
 	return nil, fmt.Errorf("get transaction: %x remotely", hash)

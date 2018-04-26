@@ -40,7 +40,7 @@ func NewEVMExecutor(bc *BlockChain) *EVMExecutor {
 	}
 }
 
-func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processors []ChainEventProcessor) (types.Receipts, *common.Hash, uint64, error) {
+func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor *VoteProcessor) (types.Receipts, *common.Hash, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -49,21 +49,22 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	)
 
 	for i, tx := range block.Transactions {
-		if nil != processors {
-			for _, processor := range processors {
-				if nil != processor {
-					processor.BeforeExecuteTransaction(block, statedb, tx)
-				}
-			}
+		var realData []byte
+		if nil != processor {
+			realData,_ = (*processor).BeforeExecuteTransaction(block, statedb,tx)
 		}
 
 		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
-		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config)
+		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config, realData)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 		receipts = append(receipts, receipt)
 
+	}
+
+	if nil != processor {
+		(*processor).AfterAllTransactionExecuted(block, statedb, receipts)
 	}
 
 	//accumulateRewards(chain.Config(), state, header, uncles)
@@ -73,17 +74,12 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 
 }
 
-func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, header *BlockHeader, tx *Transaction, usedGas *uint64, cfg vm.Config, config *params.ChainConfig) (*types.Receipt, uint64, error) {
+func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, header *BlockHeader, tx *Transaction, usedGas *uint64, cfg vm.Config, config *params.ChainConfig, realData []byte) (*types.Receipt, uint64, error) {
 
 	context := NewEVMContext(tx, header, executor.bc)
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 
-	// 投票合约
-	if 0 != tx.ExtraDataType {
-
-	}
-
-	_, gas, failed, err := NewSession(statedb, tx, gp).Run(vmenv)
+	_, gas, failed, err := NewSession(statedb, tx, gp, realData).Run(vmenv)
 	if err != nil {
 		return nil, 0, err
 	}
