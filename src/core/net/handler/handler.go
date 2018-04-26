@@ -103,22 +103,22 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	//type queryTransactionFn func(hs []common.Hash) ([]*core.Transaction, error)
 	//transactions, e := h.queryTx(m.TransactionHashes)
 
-	//transactions, e := []*core.Transaction{}, errors.New("")
-	//if e != nil {
-	//	logger.Error("OnTransactionRequest get local transaction error:%s", e.Error())
-	//	core.BroadcastTransactionRequest(*m)
-	//	return e
-	//}
-	//
-	//if len(transactions) == 0 {
-	//	logger.Info("Local do not have transaction,broadcast this message!")
-	//	core.BroadcastTransactionRequest(*m)
-	//	return nil
-	//}
+	transactions, e := []*core.Transaction{}, errors.New("")
+	if e != nil {
+		logger.Error("OnTransactionRequest get local transaction error:%s", e.Error())
+		core.BroadcastTransactionRequest(*m)
+		return e
+	}
+
+	if len(transactions) == 0 {
+		logger.Info("Local do not have transaction,broadcast this message!")
+		core.BroadcastTransactionRequest(*m)
+		return nil
+	}
 
 	// for test
-	transactions:= mockTxs()
-	core.SendTransactions(transactions, m.SourceId)
+	//transactions:= mockTxs()
+	//core.SendTransactions(transactions, m.SourceId)
 	return nil
 }
 
