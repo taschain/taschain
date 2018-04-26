@@ -13,7 +13,9 @@ import (
 	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
-	"time"
+	"consensus/mediator"
+	"consensus/logical"
+	"governance/global"
 )
 
 const (
@@ -73,19 +75,7 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	}
 
 
-	//测试SendTransactions
-	//peer1Id := "0x3f8ffdd38cbc6df7386868d098d0b95d637c881f"
-	//txs := mockTxs()
-	//core.SendTransactions(txs, peer1Id)
 
-
-	//测试BroadcastTransactions
-	//txs := mockTxs()
-	//core.BroadcastTransactions(txs)
-
-	//测试BroadcastTransactionRequest
-	m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
-	core.BroadcastTransactionRequest(m)
 
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
@@ -198,6 +188,17 @@ func (gtas *Gtas) fullInit() error {
 		return err
 	}
 
+	// TODO gov, ConsensusInit? StartMiner?
+	ok := global.InitGov(core.BlockChainImpl)
+	if !ok {
+		return errors.New("")
+	}
+
+	id := p2p.Server.SelfNetInfo.Id
+	secret := getRandomString(5)
+	(*configManager).SetString(Section, "secret", secret)
+	mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
+	mediator.StartMiner()
 	return nil
 }
 
