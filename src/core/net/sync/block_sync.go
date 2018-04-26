@@ -123,10 +123,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Info("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Info("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -156,7 +156,7 @@ func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := marshalEntityRequestMessage(&m)
 	if e != nil {
-		logger.Error("requestBlockByHeight marshal EntityRequestMessage error:%s\n", e.Error())
+		logger.Errorf("requestBlockByHeight marshal EntityRequestMessage error:%s\n", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_BLOCK_MSG, Body: body}

@@ -13,7 +13,6 @@ import (
 	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
-	"core/net/sync"
 )
 
 const (
@@ -197,7 +196,7 @@ func (gtas *Gtas) fullInit() error {
 	if err != nil {
 		return err
 	}
-	sync.InitBlockSyncer()
+	//sync.InitBlockSyncer()
 	return nil
 }
 
