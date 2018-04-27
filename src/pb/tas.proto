@@ -22,7 +22,7 @@ message Transaction{
 
     required bytes Source  = 4 ;
 
-    required bytes Target  = 5 ;
+    optional bytes Target  = 5 ;
 
     required uint64 GasLimit = 6;
 
