@@ -26,19 +26,19 @@ type defaultLogger struct {
 }
 
 func (l *defaultLogger) Debugf(format string, params ...interface{}) {
-	l.logger.Debugf(format, params)
+	l.logger.Debugf(format, params...)
 }
 
 func (l *defaultLogger) Infof(format string, params ...interface{}) {
-	l.logger.Infof(format, params)
+	l.logger.Infof(format, params...)
 }
 
 func (l *defaultLogger) Warnf(format string, params ...interface{}) error {
-	return l.logger.Warnf(format, params)
+	return l.logger.Warnf(format, params...)
 }
 
 func (l *defaultLogger) Errorf(format string, params ...interface{}) error {
-	return l.logger.Errorf(format, params)
+	return l.logger.Errorf(format, params...)
 }
 
 func (l *defaultLogger) Debug(v ...interface{}) {

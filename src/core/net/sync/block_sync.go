@@ -45,14 +45,16 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
-			logger.Info("HeightRequestCh get message from:%s\n",sourceId)
+			logger.Infof("HeightRequestCh get message from:%s\n",sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
-			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
+			//todo for test
+			sendBlockHeight(sourceId, 111)
+			//sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
-			logger.Info("HeightCh get message from:%s\n",h.SourceId)
+			logger.Infof("HeightCh get message from:%s\n",h.SourceId)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -61,14 +63,14 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			logger.Info("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s",br.SourceId,br.SourceHeight,br.SourceCurrentHash)
+			logger.Infof("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s",br.SourceId,br.SourceHeight,br.SourceCurrentHash)
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			logger.Info("BlockArrivedCh get message from:%s,hash:%v\n",bm.SourceId,bm.BlockEntity.BlockHashes)
+			logger.Infof("BlockArrivedCh get message from:%s,hash:%v\n",bm.SourceId,bm.BlockEntity.BlockHashes)
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
@@ -103,10 +105,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Infof("Neightbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neighbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Infof("Neightbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neighbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
