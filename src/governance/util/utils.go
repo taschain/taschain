@@ -3,6 +3,7 @@ package util
 import (
 	"common"
 	eth "vm/common"
+	"core"
 )
 
 /*
@@ -41,4 +42,21 @@ func ToETHAddress(addr common.Address) eth.Address {
 
 func ToTASAddress(addr eth.Address) common.Address {
 	return common.BytesToAddress(addr.Bytes())
+}
+
+func hashBytes(hash string) []byte {
+	bytes3 := []byte(hash)
+	return core.Sha256(bytes3)
+}
+
+func String2Address(s string) common.Address {
+	return common.BytesToAddress(hashBytes(s))
+}
+
+func String2Hash(s string) common.Hash {
+	return common.BytesToHash(hashBytes(s))
+}
+
+func ToETHHash(hash common.Hash) eth.Hash {
+	return eth.BytesToHash(hash.Bytes())
 }

@@ -15,11 +15,15 @@ import (
 
 func TestConfig(t *testing.T) {
 	common.InitConf("test.ini")
-	chain := core.InitBlockChain()
-	latestBlock := chain.QueryTopBlock()
-	state := core.NewStateDB(latestBlock.StateTree, chain)
+	err := core.InitCore()
+	if err != nil {
+		t.Fatal("初始化失败", err)
+	}
+	chain := core.BlockChainImpl
+	//latestBlock := chain.QueryTopBlock()
+	//state := core.NewStateDB(latestBlock.StateTree, chain)
 
-	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
+	ctx := contract.NewCallContext(chain.QueryTopBlock(), chain, chain.LatestStateDB())
 
 	//部署合约1
 	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
@@ -28,7 +32,12 @@ func TestConfig(t *testing.T) {
 	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.TEMPLATE_ABI, contract.TEMPLATE_CODE)
 
 	//初始化治理环境
-	gov = newGOV(creditAddr, addr, chain)
+	param := &NewGovParam{
+		creditAddr: creditAddr,
+		codeAddr: addr,
+		bc: chain,
+	}
+	gov = newGOV(param)
 	_ = gov.NewTasCreditInst(ctx)
 	_ = gov.NewTemplateCodeInst(ctx)
 
@@ -55,7 +64,8 @@ func TestConfig(t *testing.T) {
 	}
 
 	var convert []byte
-	convert, err = ConvertToVoteAbi(ret)
+	_cfg, err := AbiDecodeConfig(ret)
+	convert, err = _cfg.convert()
 
 	////部署投票合约
 	//voteAddr, _, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT , contract.VOTE_ABI, contract.VOTE_CODE,
@@ -69,8 +79,8 @@ func TestConfig(t *testing.T) {
 	//	cfg.StatBlock,
 	//	cfg.EffectBlock,
 	//	cfg.DepositGap,
-	//	gov.VoteScoreMin,
-	//	gov.LaunchVoteScoreMin)
+	//	corei.VoteScoreMin,
+	//	corei.LaunchVoteScoreMin)
 	var realCfg = new(VoteConfig)
 	err = gov.VoteContract.GetAbi().Unpack(realCfg, "", convert)
 	if err != nil {

@@ -19,9 +19,6 @@ type ParamManager struct {
 	bc *core.BlockChain
 }
 
-func (pm *ParamManager) CurrentBlockHeight() uint64 {
-    return pm.bc.QueryTopBlock().Height + 1
-}
 
 func NewParamManager(bc *core.BlockChain) *ParamManager {
 	pm := &ParamManager{
@@ -57,27 +54,27 @@ func (pm *ParamManager) GetParamByIndex(idx int) *ParamDef {
 	return pm.defs.GetParamByIndex(idx)
 }
 
-func (pm *ParamManager) getUint64ByIndex(idx int) uint64 {
-	return pm.GetParamByIndex(idx).CurrentValue(pm.CurrentBlockHeight()).(uint64)
+func (pm *ParamManager) getUint64ByIndex(height uint64, idx int) uint64 {
+	return pm.GetParamByIndex(idx).CurrentValue(height).(uint64)
 }
 
-func (pm *ParamManager) GetGasPriceMin() uint64 {
-	return pm.getUint64ByIndex(IDX_GASPRICE_MIN)
+func (pm *ParamManager) GetGasPriceMin(height uint64, ) uint64 {
+	return pm.getUint64ByIndex(height, IDX_GASPRICE_MIN)
 }
 
-func (pm *ParamManager) GetFixBlockAward() uint64 {
-	return pm.getUint64ByIndex(IDX_BLOCK_FIX_AWARD)
+func (pm *ParamManager) GetFixBlockAward(height uint64, ) uint64 {
+	return pm.getUint64ByIndex(height, IDX_BLOCK_FIX_AWARD)
 }
 
-func (pm *ParamManager) GetVoterCntMin() uint64 {
-	return pm.getUint64ByIndex(IDX_VOTER_CNT_MIN)
+func (pm *ParamManager) GetVoterCntMin(height uint64, ) uint64 {
+	return pm.getUint64ByIndex(height, IDX_VOTER_CNT_MIN)
 }
 
-func (pm *ParamManager) GetVoterDepositMin() uint64 {
-	return pm.getUint64ByIndex(IDX_VOTER_DEPOSIT_MIN)
+func (pm *ParamManager) GetVoterDepositMin(height uint64, ) uint64 {
+	return pm.getUint64ByIndex(height, IDX_VOTER_DEPOSIT_MIN)
 }
 
-func (pm *ParamManager) GetVoterTotalDepositMin() uint64 {
-	return pm.getUint64ByIndex(IDX_VOTER_TOTAL_DEPOSIT_MIN)
+func (pm *ParamManager) GetVoterTotalDepositMin(height uint64, ) uint64 {
+	return pm.getUint64ByIndex(height, IDX_VOTER_TOTAL_DEPOSIT_MIN)
 }
 

@@ -92,16 +92,21 @@ func (s *server) SendMessage(m Message, id string) {
 	length := len(bytes)
 	b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte, len(bytes)+len(b2))
-	copy(b[:4], b2)
-	copy(b[4:], bytes)
+	//"TAS"的byte
+	header := []byte{84, 65, 83}
+
+	b := make([]byte, len(bytes)+len(b2)+3)
+	copy(b[:3], header[:])
+	copy(b[3:7], b2)
+	copy(b[7:], bytes)
+
 
 	s.send(b, id)
 }
 
 func (s *server) send(b []byte, id string) {
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
-	if error != nil || string(peerInfo.ID)== "" {
+	if error != nil || string(peerInfo.ID) == "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
 	}
@@ -119,9 +124,14 @@ func (s *server) send(b []byte, id string) {
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
-		if r != l || err != nil {
+		if err != nil {
 			logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
-			panic("Writew stream error!")
+			return
+		}
+
+		if r != l {
+			logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", l, r)
+			return
 		}
 	} else {
 		n := l / PACKAGE_MAX_SIZE
@@ -130,8 +140,13 @@ func (s *server) send(b []byte, id string) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			copy(a, b[left:right])
 			r, err := stream.Write(a)
-			if r != PACKAGE_MAX_SIZE || err != nil {
-
+			if err != nil {
+				logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+				return
+			}
+			if r != PACKAGE_MAX_SIZE {
+				logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", PACKAGE_MAX_SIZE, r)
+				return
 			}
 			left += PACKAGE_MAX_SIZE
 			right += PACKAGE_MAX_SIZE
@@ -145,18 +160,40 @@ func (s *server) send(b []byte, id string) {
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
 	defer stream.Close()
+	headerBytes := make([]byte, 3)
+	h, e1 := stream.Read(headerBytes)
+	if e1 != nil {
+		logger.Errorf("Stream  read error:%s\n", e1.Error())
+		return
+	}
+	if h != 3 {
+		return
+	}
+	//校验 header
+	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
+		return
+	}
+
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
-	if n != 4 || err != nil {
-		logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
+	if err != nil {
+		logger.Errorf("Stream  read error:%s\n", err.Error())
+		return
+	}
+	if n != 4 {
+		logger.Errorf("Stream  should read %d byte, but received %d bytes\n", 4, n)
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	pkgBodyBytes := make([]byte, pkgLength)
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
-		if n1 != pkgLength || err1 != nil {
-			logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", pkgLength, err.Error(), n)
+		if err1 != nil {
+			logger.Errorf("Stream  read error:%s\n", err.Error())
+			return
+		}
+		if n1 != pkgLength {
+			logger.Errorf("Stream  should read %d byte,but received %d bytes\n", pkgLength, n1)
 			return
 		}
 	} else {
@@ -165,8 +202,13 @@ func swarmStreamHandler(stream inet.Stream) {
 		for i := 0; i <= c; i++ {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
-			if n1 != PACKAGE_MAX_SIZE || err1 != nil {
-				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+			if err1 != nil {
+				logger.Errorf("Stream  read error:%s\n", err.Error())
+				return
+			}
+
+			if n1 != PACKAGE_MAX_SIZE {
+				logger.Errorf("Stream should  read %d byte,but received %d bytes\n", PACKAGE_MAX_SIZE, n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
@@ -177,14 +219,10 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, (string)(stream.Conn().RemotePeer()))
+	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
 
 func (s *server) handleMessage(b []byte, from string) {
-	if len(b) < 4 {
-		logger.Errorf("Message  format error!\n")
-		return
-	}
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
