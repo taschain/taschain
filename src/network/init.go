@@ -15,7 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p-host"
 	"common"
 	"time"
-	"github.com/libp2p/go-libp2p-blankhost"
+	"github.com/libp2p/go-libp2p/p2p/host/basic"
 )
 
 const (
@@ -70,7 +70,7 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 				logger.Info("Can not find seed node,finding....\n")
 				time.Sleep(5 * time.Second)
 			} else {
-				logger.Info("Find seed node!\n Congratulations to join TAS Network!\n")
+				logger.Info("Welcome to join TAS Network!\n")
 				break
 			}
 		}
@@ -98,13 +98,15 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	peerStore := pstore.NewPeerstore()
 	p1 := &p2p.Pubkey{PublicKey: self.PublicKey}
 	p2 := &p2p.Privkey{PrivateKey: self.PrivateKey}
-	peerStore.AddPubKey(peer.ID(localId), p1)
-	peerStore.AddPrivKey(peer.ID(localId), p2)
 
-	peerStore.AddAddrs(peer.ID(localId), listenAddrs, pstore.PermanentAddrTTL)
+	ID := p2p.ConvertToPeerID(localId)
+	peerStore.AddPubKey(ID, p1)
+	peerStore.AddPrivKey(ID, p2)
+
+	peerStore.AddAddrs(ID, listenAddrs, pstore.PermanentAddrTTL)
 	//bwc  is a bandwidth metrics collector, This is used to track incoming and outgoing bandwidth on connections managed by this swarm.
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
-	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, peer.ID(localId), peerStore, nil)
+	sw, e2 := swarm.NewNetwork(ctx, listenAddrs,ID, peerStore, nil)
 	if e2 != nil {
 		logger.Error("New swarm error!\n" + e2.Error())
 		return nil, e2
@@ -113,12 +115,12 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 }
 
 func makeHost(n net.Network) (host.Host) {
-	host := blankhost.NewBlankHost(n)
+	host := basichost.New(n)
 	return host
 }
 
 func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfManager, node p2p.Node) error {
-	seedIdStr, seedAddrStr, e1 := getSeedInfo(config)
+	seedId, seedAddrStr, e1 := getSeedInfo(config)
 	if e1 != nil {
 		return e1
 	}
@@ -130,7 +132,7 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 		logger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
 		return e2
 	}
-	seedPeerInfo := pstore.PeerInfo{ID: peer.ID(seedIdStr), Addrs: []ma.Multiaddr{seedMultiaddr}}
+	seedPeerInfo := pstore.PeerInfo{ID: seedId, Addrs: []ma.Multiaddr{seedMultiaddr}}
 	(*host).Peerstore().AddAddrs(seedPeerInfo.ID, seedPeerInfo.Addrs, pstore.PermanentAddrTTL)
 	e3 := (*host).Connect(ctx, seedPeerInfo)
 	if e3 != nil {
@@ -160,7 +162,7 @@ func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT,
 }
 
 func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
-	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xe14f286058ed3096ab90ba48a1612564dffdc358")
+	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
-	return peer.ID(seedIdStr), seedAddrStr, nil
+	return p2p.ConvertToPeerID(seedIdStr), seedAddrStr, nil
 }
