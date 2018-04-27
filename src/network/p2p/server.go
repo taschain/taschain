@@ -93,11 +93,13 @@ func (s *server) SendMessage(m Message, id string) {
 	b2 := utility.UInt32ToByte(uint32(length))
 
 	//"TAS"的byte
-	//header := []byte{84, 65, 83}
+	header := []byte{84, 65, 83}
 
-	b := make([]byte, len(bytes)+len(b2))
-	copy(b[:4], b2)
-	copy(b[4:], bytes)
+	b := make([]byte, len(bytes)+len(b2)+3)
+	copy(b[:3], header[:])
+	copy(b[3:7], b2)
+	copy(b[7:], bytes)
+
 
 	s.send(b, id)
 }
@@ -158,19 +160,19 @@ func (s *server) send(b []byte, id string) {
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
 	defer stream.Close()
-	//headerBytes := make([]byte, 3)
-	//h, e1 := stream.Read(headerBytes)
-	//if e1 != nil {
-	//	logger.Errorf("Stream  read error:%s\n", e1.Error())
-	//	return
-	//}
-	//if h != 3 {
-	//	return
-	//}
-	////校验 header
-	//if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-	//	return
-	//}
+	headerBytes := make([]byte, 3)
+	h, e1 := stream.Read(headerBytes)
+	if e1 != nil {
+		logger.Errorf("Stream  read error:%s\n", e1.Error())
+		return
+	}
+	if h != 3 {
+		return
+	}
+	//校验 header
+	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
+		return
+	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
