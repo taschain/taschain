@@ -49,15 +49,19 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	}
 
 	host := makeHost(network)
-	dht, e2 := initDHT(ctx, &host, node)
+
+	dss := dssync.MutexWrap(ds.NewMapDatastore())
+	kadDht := dht.NewDHT(ctx, host, dss)
+
+	e2 := connectToSeed(ctx, &host, config, node)
 	if e2 != nil {
 		return e2
 	}
-
-	e3 := connectToSeed(ctx, &host, config, node)
+	dht, e3 := initDHT(kadDht)
 	if e3 != nil {
 		return e3
 	}
+
 	p2p.InitServer(host, dht, &node)
 
 	id, _, _ := getSeedInfo(config)
@@ -107,7 +111,7 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	peerStore.AddAddrs(ID, listenAddrs, pstore.PermanentAddrTTL)
 	//bwc  is a bandwidth metrics collector, This is used to track incoming and outgoing bandwidth on connections managed by this swarm.
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
-	sw, e2 := swarm.NewNetwork(ctx, listenAddrs,ID, peerStore, nil)
+	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, ID, peerStore, nil)
 	if e2 != nil {
 		logger.Error("New swarm error!\n" + e2.Error())
 		return nil, e2
@@ -143,9 +147,7 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 	return nil
 }
 
-func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT, error) {
-	dss := dssync.MutexWrap(ds.NewMapDatastore())
-	kadDht := dht.NewDHT(ctx, *host, dss)
+func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 
 	cfg := dht.DefaultBootstrapConfig
 	cfg.Queries = 3
@@ -157,7 +159,7 @@ func initDHT(ctx context.Context, host *host.Host, node p2p.Node) (*dht.IpfsDHT,
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 20s!")
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 	logger.Info("Booting dht finished!\n")
 	return kadDht, nil
 }
