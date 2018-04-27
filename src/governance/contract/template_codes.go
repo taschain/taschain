@@ -3,6 +3,7 @@ package contract
 import (
 	"common"
 	ethcom "vm/common"
+	"governance/util"
 )
 
 /*
@@ -37,13 +38,13 @@ func NewTemplateCode(ctx *CallContext, bc *BoundContract) (*TemplateCode) {
 }
 
 func (tc *TemplateCode) AddTemplate(name string, hexCode string, abi string) error {
-	return tc.NoResultCall(tc.ctx,  NewCallOpt(nil, "addTemplate", common.StringToAddress(name), common.Hex2Bytes(hexCode), abi))
+	return tc.NoResultCall(tc.ctx,  NewCallOpt(nil, "addTemplate", util.String2Address(name), common.Hex2Bytes(hexCode), abi))
 }
 
 func (tc *TemplateCode) Template(name string) (*VoteTemplate, error) {
 	if ret, err := tc.ResultCall(tc.ctx, func() interface{} {
 		return &VoteTemplate{}
-	},  NewCallOpt(nil, "template", common.StringToAddress(name))); err != nil {
+	},  NewCallOpt(nil, "template", util.String2Address(name))); err != nil {
 		return nil, err
 	} else {
 		return ret.(*VoteTemplate), nil

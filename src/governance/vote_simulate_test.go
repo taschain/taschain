@@ -3,6 +3,11 @@ package governance
 import (
 	"testing"
 	"governance/contract"
+	"core"
+	"fmt"
+	"governance/util"
+	"common"
+	"governance/global"
 )
 
 /*
@@ -11,122 +16,174 @@ import (
 **  Description: 
 */
 
-func showBalance(credit *contract.TasCredit, t *testing.T) {
-	for idx, voter := range voters {
-		b, err := credit.Balance(voter)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log("余额", idx, b)
-	}
 
-	b, err := credit.Balance(voteAddress)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("投票合约余额", b)
+func TestRemove(t *testing.T) {
+	core.Clear(core.DefaultBlockChainConfig())
 }
-
 func TestPrepare(t *testing.T) {
 	prepare()
 }
 
+func TestForrange(t *testing.T) {
+	ss := []string{}
+	ss = append(ss, "1")
+	ss = append(ss, "2")
+	ss = append(ss, "3")
+	ss = append(ss, "4")
+	ss = append(ss, "5")
+	for _, s := range ss {
+		t.Log(s, &s)
+	}
+}
+
+func showVoterInfo()  {
+	callctx := contract.ChainTopCallContext()
+	vote := gov.NewVoteInst(callctx, voteAddress)
+	vs, err := vote.VoterAddrs()
+	if err != nil {
+		fmt.Println("获取地址", err)
+	}
+	for _, voter := range vs {
+		voteInfo, err := vote.VoterInfo(util.ToTASAddress(voter))
+		if err != nil {
+			fmt.Println("获取投票信息", err)
+		}
+		fmt.Println(common.ToHex(voter.Bytes()), voteInfo)
+	}
+
+}
+
+func showCreditInfo() {
+	callctx := contract.ChainTopCallContext()
+	credit := gov.NewTasCreditInst(callctx)
+	for _, voter := range voters {
+		ci, err := credit.CreditInfo(voter)
+		if err != nil {
+			fmt.Println("creditInfo error", err)
+		}
+		fmt.Println(common.ToHex(voter.Bytes()), ci)
+	}
+}
+
+func showParams() {
+	callctx := contract.ChainTopCallContext()
+	ps := gov.NewParamStoreInst(callctx)
+	pw := global.NewParamWrapper()
+
+	fmt.Println("params", pw.GetGasPriceMin(ps), pw.GetBlockFixAward(ps), pw.GetVoterCountMin(ps))
+
+	meta, err := ps.GetCurrentMeta(2)
+	fmt.Println(meta, err)
+
+	meta, err = ps.GetFutureMeta(2, 0)
+	fmt.Println(meta, err)
+}
+func genHash(hash string) []byte {
+	bytes3 := []byte(hash)
+	return core.Sha256(bytes3)
+}
+func TestToChain(t *testing.T) {
+	common.InitConf("test.ini")
+	core.Clear(core.DefaultBlockChainConfig())
+
+	err := core.InitCore()
+	if err != nil {
+		fmt.Println("初始化失败", err)
+	}
+	chain = core.BlockChainImpl
+	chain.GetTransactionPool().Clear()
+
+	global.InitGov(chain)
+	deployAcc := string2Address("122")
+	creditTx := &core.Transaction{
+		GasPrice: 1,
+		Source: &deployAcc,
+		Target: &deployAcc,
+		Value: 0,
+		//Data: common.Hex2Bytes(contract.CREDIT_CODE),
+		Hash: string2Hash("creditTx1"),
+	}
+
+	sourcebyte := common.BytesToAddress(genHash("2343"))
+	targetbyte := common.BytesToAddress(genHash("234"))
+
+	creditTx = &core.Transaction{
+		GasPrice: 1,
+		Hash:     common.BytesToHash(genHash("jde")),
+		Source:   &sourcebyte,
+		Target:   &targetbyte,
+		Nonce:    0,
+		Value:    0,
+	}
+
+	sendTx(creditTx)
+
+	ToChain()
+	ToChain()
+}
 
 func TestVote(t *testing.T) {
 	prepare()
 
-	////block = chain.CastingBlock()
-	////callctx = contract.NewCallContext(block, chain, state)
-	//t.Log("============第二块==============")
-	//deployVote()
-	//
-	//callctx := contract.NewCallContext(block, chain , state)
-	//credit := gov.NewTasCreditInst(callctx)
-	//showBalance(credit, t)
-	//
-	//for _, voter := range voters {
-	//	addDeposit(&voter, 30)
-	//	balance := state.GetBalance(util.ToETHAddress(voter))
-	//	t.Log(common.ToHex(voter.Bytes()), balance)
-	//}
-	//
-	//t.Log("上链2....")
-	//state = newStateDB()
-	//t.Log("===========")
-	//for _, voter := range voters {
-	//	balance := state.GetBalance(util.ToETHAddress(voter))
-	//	t.Log(common.ToHex(voter.Bytes()), balance)
-	//}
-	//
-	//block = chain.CastingBlock()
-	//success := InsertChain(block, state)
-	//if !success {
-	//	t.Fatal("上链失败2")
-	//}
-	//
-	//
-	//t.Log("交保证金后=====================")
-	//callctx = contract.NewCallContext(block, chain, state)
-	//credit = gov.NewTasCreditInst(callctx)
-	//showBalance(credit, t)
-	//
-	//vote := gov.NewVoteInst(callctx, voteAddress)
-	//addrs, err := vote.VoterAddrs()
-	//t.Log("投票地址:", len(addrs), addrs, err)
-	//
-	//t.Log("============第三块==============")
-	//
+	deployVote()
+
+	for _, voter := range voters {
+		addDeposit(voter, 2)
+	}
+
+	ToChain()//height 5
+	//showVoterBalance()
+	fmt.Println("vote contract balance ", chain.GetBalance(voteAddress))
+
+	showVoterInfo()
+
+	ToChain()//heigt 16
+
 	////代理
-	//delegate(&voters[0], voters[9])
-	//delegate(&voters[1], voters[9])
+	//delegate(voters[0], voters[9])
+	//delegate(voters[1], voters[9])
 	//
 	////投票
-	//for i, voter := range voters {
-	//	if i > 6 {
-	//		doVote(&voter, true)
-	//	} else {
-	//		doVote(&voter, false)
-	//	}
-	//}
-	//
-	//block = chain.CastingBlock()
-	//state = newStateDB()
-	//success = InsertChain(block, state)
-	//if !success {
-	//	t.Fatal("上链失败3")
-	//}
-	//
-	//t.Log("投票后=====================")
-	//callctx = contract.NewCallContext(block, chain , state)
-	//credit = gov.NewTasCreditInst(callctx)
-	//showBalance(credit, t)
-	//
-	//def := gov.ParamManager.GetParamByIndex(2)
-	//t.Log("参数生效前", def)
-	//
-	//success = InsertChain(chain.CastingBlock(), newStateDB())
-	//if !success {
-	//	t.Fatal("上链失败4")
-	//}
-	//
-	//success = InsertChain(chain.CastingBlock(), newStateDB())
-	//if !success {
-	//	t.Fatal("上链失败5")
-	//}
-	//
-	//block = chain.CastingBlock()
-	//state = newStateDB()
-	//success = InsertChain(block, state)
-	//if !success {
-	//	t.Fatal("上链失败6")
-	//}
-	//
-	//def = gov.ParamManager.GetParamByIndex(2)
-	//t.Log("参数生效后", def)
-	//
-	//t.Log("生效后=====================")
-	//callctx = contract.NewCallContext(block, chain , state)
-	//credit = gov.NewTasCreditInst(callctx)
-	//showBalance(credit, t)
+	for i, voter := range voters {
+		if i < 2 {
+			//continue
+		}
+		if i >= 2 {
+			doVote(voter, false)
+		} else {
+			doVote(voter, true)
+		}
+	}
+	doVote(common.Address{}, true)
 
+	ToChain()//heigt 17
+
+	fmt.Println("=====after vote====")
+	showVoterInfo()
+
+	ToChain() //height 8
+
+	ToChain() //height 9 唱票
+
+	ToChain() //height 10 生效
+
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+	ToChain()
+
+	showVoterBalance()
+	fmt.Println("vote contract balance ", chain.GetBalance(voteAddress))
+
+	showCreditInfo()
+
+	showParams()
+
+	fmt.Println("height", chain.Height())
 }

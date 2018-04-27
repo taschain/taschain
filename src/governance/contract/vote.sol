@@ -135,11 +135,11 @@ contract Vote {
     function delegateTo(address who) public {
         Voter self = voters[msg.sender];
         assert(!self.voted
-                && who != 0
-                && self.delegate == 0           //未委托过
-                && self.depositBlock > 0   //已经缴纳
-                && block.number < voteDeadlineBlock     //投票未截止
-                && _canVote()                  //有权限
+        && who != 0
+        && self.delegate == 0           //未委托过
+        && self.depositBlock > 0   //已经缴纳
+        && block.number < voteDeadlineBlock     //投票未截止
+        && _canVote()                  //有权限
         );
         voters[who].asDelegates.push(msg.sender);
         self.delegate = who;
@@ -153,10 +153,11 @@ contract Vote {
         Voter self = voters[msg.sender];
         assert(
             !self.voted     //未投票
-            && self.depositBlock > 0  //已缴纳
-            && block.number < voteDeadlineBlock //未截止
-            && self.delegate == 0   //未委托别人
-            && _canVote()
+        && self.depositBlock > 0  //已缴纳
+        && block.number < voteDeadlineBlock //未截止
+        && self.delegate == 0   //未委托别人
+        && block.number >= self.depositBlock + depositGapBlock
+        && _canVote()
         );
 
         _doVote(msg.sender, approval, uint64(block.number));
@@ -184,8 +185,8 @@ contract Vote {
             }
 
             pass = totalVoter >= voterCntMin    //投票人数达到最低人数限制
-                && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
-                && approvalVoter > (voterAddrs.length / 2) + 1;
+            && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
+            && approvalVoter > (voterAddrs.length / 2) + 1;
             //通过人数超过一半
 
         } else {
@@ -203,11 +204,11 @@ contract Vote {
             }
 
             pass = totalVoter >= voterCntMin    //投票人数达到最低人数限制
-                && totalDeposit >= totalDepositMin  //总缴纳的保证金达到最低总保证金
-                && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
-                && approvalVoter > (voterAddrs.length / 2) + 1    //通过人数超过一半
-                && approvalDeposit >= approvalDepositMin       //通过保证金达到最低值
-                && approvalDeposit > (totalDeposit / 2) + 1;
+            && totalDeposit >= totalDepositMin  //总缴纳的保证金达到最低总保证金
+            && approvalVoter >= approvalVoterCntMin    //通过人数达到最低值
+            && approvalVoter > (voterAddrs.length / 2) + 1    //通过人数超过一半
+            && approvalDeposit >= approvalDepositMin       //通过保证金达到最低值
+            && approvalDeposit > (totalDeposit / 2) + 1;
             //如果需要保证金, 则通过保证金需要超过一半
         }
 
@@ -215,13 +216,13 @@ contract Vote {
     }
 
     //更新信用信息
-    function updateCredit(bool pass) public view {
+    function updateCredit() public view {
         assert(
             block.number == checkBlock
         );
         for (uint i = 0; i < voterAddrs.length; i ++) {
             credit.addVoteCnt(voterAddrs[i], 1);
-            if(pass) {
+            if(pass == voters[voterAddrs[i]].approval) {
                 credit.addVoteAcceptCnt(voterAddrs[i], 1);
             }
         }
@@ -242,17 +243,25 @@ contract Vote {
                 totalWrongDeposit += uint(v.deposit);
             }
         }
-        uint left = total;
+        uint bonusLeft = totalWrongDeposit;
         for (i = 0; i < voterAddrs.length; i ++) {
             v = voters[voterAddrs[i]];
             if(v.approval != pass) continue;    //投错了不退钱
-            uint64 refund = 0;
-            if (i == voterAddrs.length - 1) {
-                refund = uint64(left);
-            } else {
-                refund = v.deposit + uint64((v.deposit / total) * totalWrongDeposit);
-                left -= refund;
+            uint64 refund = v.deposit;
+
+            if(bonusLeft > 0) {
+                uint64 bonus = 1;
+                if(i == voterAddrs.length - 1) {
+                    bonus = uint64(bonusLeft);
+                } else {
+                    bonus = uint64(v.deposit * totalWrongDeposit / total);
+                    bonus = (bonus == 0 ? 1 : bonus);
+                }
+
+                refund = refund + bonus;
+                bonusLeft -= bonus;
             }
+
             voterAddrs[i].transfer(refund);
         }
 
