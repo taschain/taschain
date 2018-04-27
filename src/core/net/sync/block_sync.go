@@ -45,13 +45,14 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
+			logger.Info("HeightRequestCh get message from:%s\n",sourceId)
 			//收到块高度请求
-
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
+			logger.Info("HeightCh get message from:%s\n",h.SourceId)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -60,18 +61,21 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
+			logger.Info("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s",br.SourceId,br.SourceHeight,br.SourceCurrentHash)
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
+			logger.Info("BlockArrivedCh get message from:%s,hash:%v\n",bm.SourceId,bm.BlockEntity.BlockHashes)
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
 			}
 			core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
 		case <-t.C:
+			logger.Info("sync time up start to sync!\n")
 			bs.syncBlock()
 		}
 	}
@@ -87,6 +91,7 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
+	logger.Info("block height request  time up!\n")
 	//获取本地块链高度
 	if nil == core.BlockChainImpl {
 		return
