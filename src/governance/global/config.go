@@ -40,16 +40,6 @@ func AbiDecodeConfig(data []byte) (*VoteConfig, error) {
 	return abiDecode(data)
 }
 
-//把通过vote_config_abi_helper.sol编码的字节数组转化成通过vote.sol编码的字节, 以供创建投票时执行
-func ConvertToVoteAbi(data []byte) ([]byte, error) {
-	cfg, err := AbiDecodeConfig(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg.convert()
-}
-
 func (cfg *VoteConfig) convert() ([]byte, error) {
 	_abi := gov.VoteContract.GetAbi()
 	return _abi.Pack(

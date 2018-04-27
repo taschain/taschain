@@ -36,7 +36,7 @@ type CallOpt struct {
 
 
 type CallContext struct {
-	block      *tasCore.Block
+	bh      *tasCore.BlockHeader
 	bc *tasCore.BlockChain
 	state    vm.StateDB
 }
@@ -90,12 +90,16 @@ func NewSimulateCallMsg(from common.Address, to *common.Address, gas uint64) *Ca
 	}
 }
 
-func NewCallContext(b *tasCore.Block, bc *tasCore.BlockChain, db vm.StateDB) *CallContext {
+func NewCallContext(bh *tasCore.BlockHeader, bc *tasCore.BlockChain, db vm.StateDB) *CallContext {
 	return &CallContext{
-		block: b,
+		bh: bh,
 		bc: bc,
 		state: db,
 	}
+}
+func ChainTopCallContext() *CallContext {
+	bc := tasCore.BlockChainImpl
+	return NewCallContext(bc.QueryTopBlock(), bc, bc.LatestStateDB())
 }
 
 func call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) {
@@ -113,7 +117,7 @@ func call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) 
 
 	//executor := tasCore.NewEVMExecutor(ctx.blockChain)
 
-	context := tasCore.NewEVMContext(tx, ctx.block.Header, ctx.bc)
+	context := tasCore.NewEVMContext(tx, ctx.bh, ctx.bc)
 	vmenv := vm.NewEVM(context, ctx.state, tasCore.TestnetChainConfig, vm.Config{})
 
 	ret, _, fail, err := tasCore.NewSession(ctx.state, tx, gp, nil).Run(vmenv)

@@ -23,11 +23,12 @@ const (
 
 
 func TestNewTasCredit(t *testing.T) {
-	chain := core.InitBlockChain()
-	latestBlock := chain.QueryTopBlock()
-	state := core.NewStateDB(latestBlock.StateTree, chain)
+	core.InitCore()
+	chain := core.BlockChainImpl
+	//latestBlock := chain.QueryTopBlock()
+	state := chain.LatestStateDB()
 
-	ctx := NewCallContext(chain.CastingBlock(), chain, state)
+	ctx := ChainTopCallContext()
 
 	//部署合约1
 	addr, _, _ := SimulateDeployContract(ctx, "test1", ABI, CODE)

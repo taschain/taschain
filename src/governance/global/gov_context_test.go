@@ -17,18 +17,26 @@ import (
 */
 
 func TestTasCredit(t *testing.T) {
-	chain := core.InitBlockChain()
-	latestBlock := chain.QueryTopBlock()
-	state := core.NewStateDB(latestBlock.StateTree, chain)
+	err := core.InitCore()
+	if err != nil {
+		t.Fatal("初始化失败", err)
+	}
+	chain := core.BlockChainImpl
 
-	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
+	state := chain.LatestStateDB()
+
+	ctx := contract.NewCallContext(chain.QueryTopBlock(), chain, chain.LatestStateDB())
 
 	addr, code, err := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gov = newGOV(addr, common.Address{}, chain)
+	param := &NewGovParam{
+		creditAddr: addr,
+		bc: chain,
+	}
+	gov = newGOV(param)
 
 	credit := gov.NewTasCreditInst(ctx)
 
@@ -60,17 +68,27 @@ func TestTasCredit(t *testing.T) {
 }
 
 func TestTemplateCode(t *testing.T) {
-	chain := core.InitBlockChain()
+	err := core.InitCore()
+	if err != nil {
+		t.Fatal("初始化失败", err)
+	}
+	chain := core.BlockChainImpl
 	latestBlock := chain.QueryTopBlock()
-	state := core.NewStateDB(latestBlock.StateTree, chain)
+	state := chain.LatestStateDB()
 
-	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
+	ctx := contract.NewCallContext(latestBlock, chain, state)
 
 	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
 
 	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.TEMPLATE_ABI, contract.TEMPLATE_CODE)
 
-	gov = newGOV(creditAddr, addr, chain)
+	param := &NewGovParam{
+		creditAddr: creditAddr,
+		codeAddr: addr,
+		bc: chain,
+	}
+	gov = newGOV(param)
+
 	credit := gov.NewTasCreditInst(ctx)
 	templateCode := gov.NewTemplateCodeInst(ctx)
 
@@ -91,11 +109,15 @@ func TestTemplateCode(t *testing.T) {
 
 func TestVote(t *testing.T) {
 	common.InitConf("../test.ini")
-	chain := core.InitBlockChain()
+	err := core.InitCore()
+	if err != nil {
+		t.Fatal("初始化失败", err)
+	}
+	chain := core.BlockChainImpl
 	latestBlock := chain.QueryTopBlock()
-	state := core.NewStateDB(latestBlock.StateTree, chain)
+	state := chain.LatestStateDB()
 
-	ctx := contract.NewCallContext(chain.CastingBlock(), chain, state)
+	ctx := contract.NewCallContext(latestBlock, chain, state)
 
 	//部署合约1
 	creditAddr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.CREDIT_ABI, contract.CREDIT_CODE)
@@ -104,7 +126,12 @@ func TestVote(t *testing.T) {
 	addr, _, _ := contract.SimulateDeployContract(ctx, DEPLOY_ACCOUNT, contract.TEMPLATE_ABI, contract.TEMPLATE_CODE)
 
 	//初始化治理环境
-	gov = newGOV(creditAddr, addr, chain)
+	param := &NewGovParam{
+		creditAddr: creditAddr,
+		codeAddr: addr,
+		bc: chain,
+	}
+	gov = newGOV(param)
 	_ = gov.NewTasCreditInst(ctx)
 	_ = gov.NewTemplateCodeInst(ctx)
 
