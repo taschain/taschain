@@ -125,7 +125,7 @@ func (s *server) send(b []byte, id string) {
 		}
 
 		if r != l{
-			logger.Errorf("Stream  write %d byte not enough,should %d bytes\n", r, l)
+			logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", l, r)
 			return
 		}
 	} else {
@@ -135,8 +135,13 @@ func (s *server) send(b []byte, id string) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			copy(a, b[left:right])
 			r, err := stream.Write(a)
-			if r != PACKAGE_MAX_SIZE || err != nil {
-
+			if err != nil {
+				logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+				return
+			}
+			if r != PACKAGE_MAX_SIZE {
+				logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", PACKAGE_MAX_SIZE, r)
+				return
 			}
 			left += PACKAGE_MAX_SIZE
 			right += PACKAGE_MAX_SIZE
@@ -152,16 +157,24 @@ func swarmStreamHandler(stream inet.Stream) {
 	defer stream.Close()
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
+	if err != nil {
+		logger.Errorf("Stream  read error:%s\n", err.Error())
+		return
+	}
 	if n != 4 || err != nil {
-		logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", 4, err.Error(), n)
+		logger.Errorf("Stream  should read %d byte, but received %d bytes\n", 4, n)
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	pkgBodyBytes := make([]byte, pkgLength)
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
-		if n1 != pkgLength || err1 != nil {
-			logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", pkgLength, err.Error(), n)
+		if  err1 != nil {
+			logger.Errorf("Stream  read error:%s\n",  err.Error())
+			return
+		}
+		if n1 != pkgLength  {
+			logger.Errorf("Stream  should read %d byte,but received %d bytes\n", pkgLength, n1)
 			return
 		}
 	} else {
@@ -171,12 +184,12 @@ func swarmStreamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if err1 != nil {
-				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+				logger.Errorf("Stream  readerror:%s\n", err.Error())
 				return
 			}
 
 			if n1 !=PACKAGE_MAX_SIZE{
-				logger.Errorf("Stream  read %d byte not enough! received %d bytes\n", PACKAGE_MAX_SIZE, n1)
+				logger.Errorf("Stream should  read %d byte,but received %d bytes\n", PACKAGE_MAX_SIZE, n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
