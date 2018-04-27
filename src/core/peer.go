@@ -73,7 +73,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
-			p2p.Server.SendMessage(message, string(id))
+			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
 }
@@ -109,7 +109,7 @@ func BroadcastTransactions(txs []*Transaction) {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
-			p2p.Server.SendMessage(message, string(id))
+			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
 }
