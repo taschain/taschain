@@ -64,7 +64,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 
 	body, e := marshalTransactionRequestMessage(&m)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!\n",e.Error())
+		logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!\n", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
@@ -82,7 +82,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 func SendTransactions(txs []*Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s!\n",e.Error())
+		logger.Errorf("Discard MarshalTransactions because of marshal error:%s!\n", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
@@ -100,7 +100,7 @@ func BroadcastTransactions(txs []*Transaction) {
 
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s\n",e.Error())
+		logger.Errorf("Discard MarshalTransactions because of marshal error:%s\n", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
@@ -143,8 +143,13 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 }
 
 func transactionToPb(t *Transaction) *tas_pb.Transaction {
-	transaction := tas_pb.Transaction{Data: t.Data, Value: &t.Value,Nonce:&t.Nonce, Source: t.Source.Bytes(),
-		Target: t.Target.Bytes(), GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
+	var target []byte
+	if t.Target != nil {
+		target = t.Target.Bytes()
+	}
+
+	transaction := tas_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
 		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType}
 	return &transaction
 }
