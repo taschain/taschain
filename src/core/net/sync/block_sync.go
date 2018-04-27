@@ -8,7 +8,6 @@ import (
 	"utility"
 	"network/p2p"
 	"taslog"
-	"fmt"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 )
@@ -48,11 +47,9 @@ func (bs *blockSyncer) start() {
 		case sourceId := <-bs.HeightRequestCh:
 			//收到块高度请求
 
-			//获取本地块链高度
 			if nil == core.BlockChainImpl {
 				return
 			}
-
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
 			//收到来自其他节点的块链高度
@@ -64,21 +61,16 @@ func (bs *blockSyncer) start() {
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
 			//收到块请求
-
-			//根据高度获取对应的block
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
 			//收到块信息
-
-			//todo block上链
 			if nil == core.BlockChainImpl {
 				return
 			}
 			core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
-			fmt.Printf(bm.SourceId)
 		case <-t.C:
 			bs.syncBlock()
 		}
@@ -122,7 +114,7 @@ func requestBlockChainHeight() {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
-			p2p.Server.SendMessage(message, string(id))
+			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
 }
