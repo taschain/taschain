@@ -205,14 +205,20 @@ func (gtas *Gtas) fullInit() error {
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)
 	if !ok {
-		return errors.New("")
+		return errors.New("gov module error")
 	}
 
 	id := p2p.Server.SelfNetInfo.Id
 	secret := getRandomString(5)
 	(*configManager).SetString(Section, "secret", secret)
-	mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
-	mediator.StartMiner()
+	ok = mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
+	if !ok {
+		return errors.New("consensus module error")
+	}
+	ok = mediator.StartMiner()
+	if !ok {
+		return errors.New("start miner error")
+	}
 
 	return nil
 }
