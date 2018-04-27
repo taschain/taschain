@@ -200,14 +200,10 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, (string)(stream.Conn().RemotePeer()))
+	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
 
 func (s *server) handleMessage(b []byte, from string) {
-	if len(b) < 4 {
-		logger.Errorf("Message  format error!\n")
-		return
-	}
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
