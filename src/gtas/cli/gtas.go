@@ -18,6 +18,7 @@ import (
 	"governance/global"
 
 	"core/net/sync"
+	"time"
 )
 
 const (
@@ -35,7 +36,7 @@ var walletManager wallets
 type Gtas struct {
 }
 
-func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs)  {
+func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	if from == "" {
 		// 本地钱包同时无钱包地址
 		if len(walletManager) == 0 {
@@ -80,7 +81,6 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	//peer1Id := "QmNo5Ax4xRrs67FpTnzBFyrTTN295RiZTP4P2CDooCE4kw"
 	//txs := mockTxs()
 	//core.SendTransactions(txs, peer1Id)
-
 
 	//测试BroadcastTransactions
 	//txs := mockTxs()
@@ -201,6 +201,7 @@ func (gtas *Gtas) fullInit() error {
 	if err != nil {
 		return err
 	}
+	time.Sleep(5 * time.Second)
 	sync.InitBlockSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
