@@ -17,6 +17,7 @@ import (
 	"consensus/logical"
 	"governance/global"
 
+	"time"
 )
 
 const (
@@ -76,18 +77,20 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	}
 
 	//测试SendTransactions
-	peer1Id := "0xe14f286058ed3096ab90ba48a1612564dffdc358"
-	txs := mockTxs()
-	core.SendTransactions(txs, peer1Id)
+	//peer1Id := "0xe14f286058ed3096ab90ba48a1612564dffdc358"
+	//txs := mockTxs()
+	//core.SendTransactions(txs, peer1Id)
 
 
 	//测试BroadcastTransactions
-	//txs := mockTxs()
-	//core.BroadcastTransactions(txs)
+	txs := mockTxs()
+	core.BroadcastTransactions(txs)
 
 	//测试BroadcastTransactionRequest
-	//m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
-	//core.BroadcastTransactionRequest(m)
+	time.Sleep(10*time.Second)
+	m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
+	m.TransactionHashes = []common.Hash{common.BytesToHash(core.Sha256([]byte("tx1"))), common.BytesToHash(core.Sha256([]byte("tx3")))}
+	core.BroadcastTransactionRequest(m)
 	// 截获ctrl+c中断信号，退出
 	quit := signals()
 	<-quit
@@ -202,14 +205,20 @@ func (gtas *Gtas) fullInit() error {
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)
 	if !ok {
-		return errors.New("")
+		return errors.New("gov module error")
 	}
 
 	id := p2p.Server.SelfNetInfo.Id
 	secret := getRandomString(5)
 	(*configManager).SetString(Section, "secret", secret)
-	mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
-	mediator.StartMiner()
+	ok = mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
+	if !ok {
+		return errors.New("consensus module error")
+	}
+	ok = mediator.StartMiner()
+	if !ok {
+		return errors.New("start miner error")
+	}
 
 	return nil
 }
@@ -222,7 +231,7 @@ func mockTxs() []*core.Transaction {
 	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
 	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
 	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
-	t2 := genTestTx("tx1", 456, "222", "ddd", 0, 1)
+	t2 := genTestTx("tx2", 456, "222", "ddd", 0, 1)
 	s := []*core.Transaction{t1, t2}
 	return s
 }

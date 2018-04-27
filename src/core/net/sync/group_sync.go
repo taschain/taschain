@@ -46,15 +46,11 @@ func (gs *groupSyncer) start() {
 		case sourceId := <-gs.HeightRequestCh:
 			//收到组高度请求
 
-			//todo 获取本地组链高度
-			//type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
-			//height, e := gs.getHeight()
-			height, e := uint64(0), errors.New("")
-			if e != nil {
-				logger.Errorf("%s get group height error:%s\n", sourceId, e.Error())
+			//获取本地组链高度
+			if nil == core.GroupChainImpl {
 				return
 			}
-			sendGroupHeight(sourceId, height)
+			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的组链高度
 			gs.maxHeightLock.Lock()
@@ -98,7 +94,7 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	//todo 获取本地组链高度
+	//获取本地组链高度
 	//type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
 	//localHeight, currentHash, e := gs.getLocalHeight()
 	localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")

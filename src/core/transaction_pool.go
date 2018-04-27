@@ -201,22 +201,25 @@ func (pool *TransactionPool) remove(hash common.Hash) {
 
 }
 
-func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transaction, error) {
+func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
-		return nil, ErrNil
+		return nil, nil, ErrNil
 	}
 
-	txs := make([]*Transaction, len(hashes))
-	for i, hash := range hashes {
-		tx, err := pool.GetTransaction(hash)
-		if nil != err {
-			txs[i] = tx
+	txs := make([]*Transaction, 0)
+	need := make([]common.Hash, 0)
+	var err error
+	for _, hash := range hashes {
+		tx, errInner := pool.GetTransaction(hash)
+		if nil == errInner {
+			txs = append(txs, tx)
 		} else {
-			return nil, err
+			need = append(need, hash)
+			err = errInner
 		}
 	}
 
-	return txs, nil
+	return txs, need, err
 }
 
 // 根据hash获取交易实例

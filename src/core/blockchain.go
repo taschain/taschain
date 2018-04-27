@@ -163,6 +163,10 @@ func (chain *BlockChain) Height() uint64 {
 	return chain.height
 }
 
+func (chain *BlockChain) LatestStateDB() *state.StateDB {
+	return chain.latestStateDB
+}
+
 func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
