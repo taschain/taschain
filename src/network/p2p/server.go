@@ -119,9 +119,14 @@ func (s *server) send(b []byte, id string) {
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
-		if r != l || err != nil {
+		if err != nil {
 			logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
-			panic("Writew stream error!")
+			return
+		}
+
+		if r != l{
+			logger.Errorf("Stream  write %d byte not enough,should %d bytes\n", r, l)
+			return
 		}
 	} else {
 		n := l / PACKAGE_MAX_SIZE
@@ -165,8 +170,13 @@ func swarmStreamHandler(stream inet.Stream) {
 		for i := 0; i <= c; i++ {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
-			if n1 != PACKAGE_MAX_SIZE || err1 != nil {
+			if err1 != nil {
 				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+				return
+			}
+
+			if n1 !=PACKAGE_MAX_SIZE{
+				logger.Errorf("Stream  read %d byte not enough! received %d bytes\n", PACKAGE_MAX_SIZE, n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
