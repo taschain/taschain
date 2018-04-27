@@ -169,7 +169,7 @@ func swarmStreamHandler(stream inet.Stream) {
 		return
 	}
 	//校验 header
-	if (headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
+	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
 		return
 	}
 
