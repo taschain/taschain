@@ -49,12 +49,12 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	}
 
 	host := makeHost(network)
-	e2 := connectToSeed(ctx, &host, config, node)
+	dht, e2 := initDHT(ctx, &host, node)
 	if e2 != nil {
 		return e2
 	}
 
-	dht, e3 := initDHT(ctx, &host, node)
+	e3 := connectToSeed(ctx, &host, config, node)
 	if e3 != nil {
 		return e3
 	}
