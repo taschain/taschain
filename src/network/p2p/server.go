@@ -184,7 +184,7 @@ func swarmStreamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if err1 != nil {
-				logger.Errorf("Stream  readerror:%s\n", err.Error())
+				logger.Errorf("Stream  read error:%s\n", err.Error())
 				return
 			}
 
