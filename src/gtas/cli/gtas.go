@@ -17,8 +17,6 @@ import (
 	"consensus/logical"
 	"governance/global"
 
-	"core/net/sync"
-	"time"
 )
 
 const (
@@ -201,8 +199,8 @@ func (gtas *Gtas) fullInit() error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(5 * time.Second)
-	sync.InitBlockSyncer()
+	//time.Sleep(5 * time.Second)
+	//sync.InitBlockSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)

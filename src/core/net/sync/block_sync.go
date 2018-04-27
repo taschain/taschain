@@ -51,8 +51,8 @@ func (bs *blockSyncer) start() {
 				return
 			}
 			//todo for test
-			sendBlockHeight(sourceId, 111)
-			//sendBlockHeight(sourceId, core.BlockChainImpl.Height())
+			//sendBlockHeight(sourceId, 111)
+			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
 			logger.Infof("HeightCh get message from:%s\n",h.SourceId)
 			//收到来自其他节点的块链高度

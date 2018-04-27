@@ -92,16 +92,20 @@ func (s *server) SendMessage(m Message, id string) {
 	length := len(bytes)
 	b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte, len(bytes)+len(b2))
-	copy(b[:4], b2)
-	copy(b[4:], bytes)
+	//"TAS"的byte
+	header := []byte{84, 65, 83}
+
+	b := make([]byte, len(bytes)+len(b2)+3)
+	copy(b[:3], header[:])
+	copy(b[3:7], b2)
+	copy(b[7:], bytes)
 
 	s.send(b, id)
 }
 
 func (s *server) send(b []byte, id string) {
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
-	if error != nil || string(peerInfo.ID)== "" {
+	if error != nil || string(peerInfo.ID) == "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
 	}
@@ -124,7 +128,7 @@ func (s *server) send(b []byte, id string) {
 			return
 		}
 
-		if r != l{
+		if r != l {
 			logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", l, r)
 			return
 		}
@@ -155,13 +159,27 @@ func (s *server) send(b []byte, id string) {
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
 	defer stream.Close()
+	headerBytes := make([]byte, 3)
+	h, e1 := stream.Read(headerBytes)
+	if e1 != nil {
+		logger.Errorf("Stream  read error:%s\n", e1.Error())
+		return
+	}
+	if h != 3 {
+		return
+	}
+	//校验 header
+	if (headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
+		return
+	}
+
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read error:%s\n", err.Error())
 		return
 	}
-	if n != 4 || err != nil {
+	if n != 4 {
 		logger.Errorf("Stream  should read %d byte, but received %d bytes\n", 4, n)
 		return
 	}
@@ -169,11 +187,11 @@ func swarmStreamHandler(stream inet.Stream) {
 	pkgBodyBytes := make([]byte, pkgLength)
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
-		if  err1 != nil {
-			logger.Errorf("Stream  read error:%s\n",  err.Error())
+		if err1 != nil {
+			logger.Errorf("Stream  read error:%s\n", err.Error())
 			return
 		}
-		if n1 != pkgLength  {
+		if n1 != pkgLength {
 			logger.Errorf("Stream  should read %d byte,but received %d bytes\n", pkgLength, n1)
 			return
 		}
@@ -188,7 +206,7 @@ func swarmStreamHandler(stream inet.Stream) {
 				return
 			}
 
-			if n1 !=PACKAGE_MAX_SIZE{
+			if n1 != PACKAGE_MAX_SIZE {
 				logger.Errorf("Stream should  read %d byte,but received %d bytes\n", PACKAGE_MAX_SIZE, n1)
 				return
 			}
