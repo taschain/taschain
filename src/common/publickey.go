@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"common/ecies"
 )
@@ -37,7 +36,7 @@ func (pk PublicKey) GetAddress() Address {
 //把公钥转换成字节切片
 func (pk PublicKey) ToBytes() []byte {
 	buf := elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
-	fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
+	//fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
 	return buf
 }
 
@@ -45,7 +44,7 @@ func (pk PublicKey) ToBytes() []byte {
 func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	pk = new(PublicKey)
 	pk.PubKey.Curve = getDefaultCurve()
-	fmt.Printf("begin pub key unmarshal, len=%v, data=%v.\n", len(data), data)
+	//fmt.Printf("begin pub key unmarshal, len=%v, data=%v.\n", len(data), data)
 	x, y := elliptic.Unmarshal(pk.PubKey.Curve, data)
 	if x == nil || y == nil {
 		panic("unmarshal public key failed.")

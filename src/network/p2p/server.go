@@ -6,7 +6,6 @@ import (
 	"utility"
 	"github.com/libp2p/go-libp2p-host"
 	"context"
-	gpeer "github.com/libp2p/go-libp2p-peer"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 	"pb"
@@ -101,7 +100,7 @@ func (s *server) SendMessage(m Message, id string) {
 }
 
 func (s *server) send(b []byte, id string) {
-	peerInfo, error := s.Dht.FindPeer(context.Background(), gpeer.ID(id))
+	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
 	if error != nil || string(peerInfo.ID)== "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
 		panic("DHT find peer error!")
@@ -111,7 +110,7 @@ func (s *server) send(b []byte, id string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, e := s.Host.Network().NewStream(ctx, gpeer.ID(id))
+	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
 	defer stream.Close()
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s\n", id, error.Error())
@@ -217,7 +216,7 @@ func (s *server) GetConnInfo() []ConnInfo {
 	conns := s.Host.Network().Conns()
 	result := []ConnInfo{}
 	for _, conn := range conns {
-		id := string(conn.RemotePeer())
+		id := ConvertToID(conn.RemotePeer())
 		if id == "" {
 			continue
 		}

@@ -4,7 +4,8 @@ import (
 	"common"
 	"net"
 	"strconv"
-	"consensus/groupsig"
+	"github.com/libp2p/go-libp2p-peer"
+	"fmt"
 )
 
 const (
@@ -49,15 +50,13 @@ func InitSelfNode(config *common.ConfManager) (*Node, error) {
 
 //adpat to lib2p2. The whole p2p network use this id to be the only identity
 func GetIdFromPublicKey(p common.PublicKey) string {
-	//b := p.ToBytes()
-	//idBytes, e := multihash.Sum(b, multihash.SHA2_256, -1)
-	//if e != nil {
-	//	taslog.P2pLogger.Error("GetIdFromPublicKey error!:%s", e.Error())
-	//	return ""
-	//}
-	addr := p.GetAddress()
-	i := groupsig.NewIDFromAddress(addr)
-	id := i.GetHexString()
+	pubKey := &Pubkey{PublicKey: p}
+	pID, e := peer.IDFromPublicKey(pubKey)
+	if e != nil {
+		logger.Errorf("IDFromPublicKey error:%s\n", e.Error())
+		panic("GetIdFromPublicKey error!")
+	}
+	id := ConvertToID(pID)
 	return id
 }
 
@@ -101,7 +100,7 @@ func getAvailableTCPPort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort)+"\n"
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort) + "\n"
 	return str
 }
 
@@ -123,6 +122,19 @@ func (s Node) GenMulAddrStr() string {
 func ToMulAddrStr(ip string, protocol string, port int) string {
 	addr := "/ip4/" + ip + "/" + protocol + "/" + strconv.Itoa(port)
 	return addr
+}
+
+func ConvertToID(p peer.ID) string {
+	return p.Pretty()
+}
+
+func ConvertToPeerID(i string) peer.ID {
+	id, e := peer.IDB58Decode(i)
+	if e != nil {
+		fmt.Errorf("ConvertToPeerID error:%s\n", e.Error())
+		panic("ConvertToPeerID error!")
+	}
+	return id
 }
 
 //only for test
