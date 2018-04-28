@@ -47,14 +47,14 @@ type Receipt struct {
 	// Consensus fields
 	PostState         []byte `json:"root"`
 	Status            uint   `json:"status"`
-	CumulativeGasUsed uint64 `json:"cumulativeGasUsed" gencodec:"required"`
-	Bloom             Bloom  `json:"logsBloom"         gencodec:"required"`
-	Logs              []*Log `json:"logs"              gencodec:"required"`
+	CumulativeGasUsed uint64 `json:"cumulativeGasUsed"`
+	Bloom             Bloom  `json:"logsBloom"`
+	Logs              []*Log `json:"logs"              `
 
 	// Implementation fields (don't reorder!)
 	TxHash          common.Hash    `json:"transactionHash" gencodec:"required"`
 	ContractAddress common.Address `json:"contractAddress"`
-	GasUsed         uint64         `json:"gasUsed" gencodec:"required"`
+	GasUsed         uint64         `json:"gasUsed"`
 }
 
 type receiptMarshaling struct {
