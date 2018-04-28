@@ -49,7 +49,7 @@ type Receipt struct {
 	Status            uint   `json:"status"`
 	CumulativeGasUsed uint64 `json:"cumulativeGasUsed"`
 	Bloom             Bloom  `json:"logsBloom"`
-	Logs              []*Log `json:"logs"              `
+	Logs              []*Log `json:"logs"`
 
 	// Implementation fields (don't reorder!)
 	TxHash          common.Hash    `json:"transactionHash" gencodec:"required"`

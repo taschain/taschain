@@ -16,12 +16,12 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 	type Receipt struct {
 		PostState         hexutil.Bytes  `json:"root"`
 		Status            hexutil.Uint   `json:"status"`
-		CumulativeGasUsed hexutil.Uint64 `json:"cumulativeGasUsed" gencodec:"required"`
-		Bloom             Bloom          `json:"logsBloom"         gencodec:"required"`
-		Logs              []*Log         `json:"logs"              gencodec:"required"`
+		CumulativeGasUsed hexutil.Uint64 `json:"cumulativeGasUsed" `
+		Bloom             Bloom          `json:"logsBloom"`
+		Logs              []*Log         `json:"logs"`
 		TxHash            common.Hash    `json:"transactionHash" gencodec:"required"`
 		ContractAddress   common.Address `json:"contractAddress"`
-		GasUsed           hexutil.Uint64 `json:"gasUsed" gencodec:"required"`
+		GasUsed           hexutil.Uint64 `json:"gasUsed"`
 	}
 	var enc Receipt
 	enc.PostState = r.PostState
@@ -39,12 +39,12 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	type Receipt struct {
 		PostState         *hexutil.Bytes  `json:"root"`
 		Status            *hexutil.Uint   `json:"status"`
-		CumulativeGasUsed *hexutil.Uint64 `json:"cumulativeGasUsed" gencodec:"required"`
-		Bloom             *Bloom          `json:"logsBloom"         gencodec:"required"`
-		Logs              []*Log          `json:"logs"              gencodec:"required"`
+		CumulativeGasUsed *hexutil.Uint64 `json:"cumulativeGasUsed"`
+		Bloom             *Bloom          `json:"logsBloom"`
+		Logs              []*Log          `json:"logs"`
 		TxHash            *common.Hash    `json:"transactionHash" gencodec:"required"`
 		ContractAddress   *common.Address `json:"contractAddress"`
-		GasUsed           *hexutil.Uint64 `json:"gasUsed" gencodec:"required"`
+		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
