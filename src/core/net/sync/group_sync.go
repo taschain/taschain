@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	GROUP_HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
+	GROUP_HEIGHT_RECEIVE_INTERVAL = 60 * time.Second
 
-	GROUP_SYNC_INTERVAL = 60 * time.Second
+	GROUP_SYNC_INTERVAL = 3 * time.Second
 )
 
 var GroupSyncer groupSyncer
@@ -94,7 +94,7 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	//获取本地组链高度
+	//TODO 获取本地组链高度
 	//type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
 	//localHeight, currentHash, e := gs.getLocalHeight()
 	localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
@@ -123,7 +123,7 @@ func requestGroupChainHeight() {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
-			p2p.Server.SendMessage(message, string(id))
+			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
 }

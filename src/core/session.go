@@ -62,7 +62,8 @@ func (st *Session) preCheck() error {
 	} else if nonce > st.nonce {
 		return ErrNonceTooLow
 	}
-	return st.buyGas()
+	return nil
+	//st.buyGas()
 }
 
 func (st *Session) from() vm.AccountRef {
@@ -145,7 +146,7 @@ func (st *Session) Run(evm *vm.EVM) (ret []byte, usedGas uint64, failed bool, er
 		}
 	}
 
-	st.refundGas()
+	//st.refundGas()
 
 	//todo: 矿工分钱
 	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
