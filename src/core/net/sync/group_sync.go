@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	GROUP_HEIGHT_RECEIVE_INTERVAL = 30 * time.Second
+	GROUP_HEIGHT_RECEIVE_INTERVAL = 60 * time.Second
 
-	GROUP_SYNC_INTERVAL = 60 * time.Second
+	GROUP_SYNC_INTERVAL = 3 * time.Second
 )
 
 var GroupSyncer groupSyncer
@@ -123,7 +123,7 @@ func requestGroupChainHeight() {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 		if id != "" {
-			p2p.Server.SendMessage(message, string(id))
+			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
 }

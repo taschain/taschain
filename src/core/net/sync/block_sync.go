@@ -50,7 +50,7 @@ func (bs *blockSyncer) start() {
 			if nil == core.BlockChainImpl {
 				return
 			}
-			//todo for test
+			// for test
 			//sendBlockHeight(sourceId, 111)
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
