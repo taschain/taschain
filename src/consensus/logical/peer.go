@@ -1,17 +1,13 @@
 package logical
 
 import (
-<<<<<<< HEAD:src/consensus/net/peer.go
-=======
-	"taslog"
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	"consensus/groupsig"
-	"consensus/logical"
-	"core"
 	"network/p2p"
 	"taslog"
 
 	"github.com/gogo/protobuf/proto"
+	"pb"
+	"core"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -66,11 +62,8 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 //组内成员发现自己所在组成为铸币组 发消息通知全组 组内广播
 //param: 组信息
 //      SignData
-<<<<<<< HEAD:src/consensus/net/peer.go
-func SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
-=======
+
 func  SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -86,11 +79,7 @@ func  SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
 }
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-<<<<<<< HEAD:src/consensus/net/peer.go
-func SendCastVerify(ccm *logical.ConsensusCastMessage) {
-=======
 func  SendCastVerify(ccm *ConsensusCastMessage) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -107,11 +96,7 @@ func  SendCastVerify(ccm *ConsensusCastMessage) {
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
-<<<<<<< HEAD:src/consensus/net/peer.go
-func SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
-=======
 func  SendVerifiedCast(cvm *ConsensusVerifyMessage) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -147,12 +132,8 @@ func marshalConsensusGroupRawMessage(m *ConsensusGroupRawMessage) ([]byte, error
 	return proto.Marshal(&message)
 }
 
-<<<<<<< HEAD:src/consensus/net/peer.go
-func marshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([]byte, error) {
-=======
 
 func marshalConsensusSharePieceMessage(m *ConsensusSharePieceMessage) ([]byte, error) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	gisHash := m.GISHash.Bytes()
 	dummyId := m.DummyID.Serialize()
 	dest := m.Dest.Serialize()
@@ -163,13 +144,8 @@ func marshalConsensusSharePieceMessage(m *ConsensusSharePieceMessage) ([]byte, e
 	return proto.Marshal(&message)
 }
 
-<<<<<<< HEAD:src/consensus/net/peer.go
-func marshalConsensusGroupInitedMessage(m *logical.ConsensusGroupInitedMessage) ([]byte, error) {
-=======
-
 
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	gi := staticGroupInfoToPb(&m.GI)
 	si := signDataToPb(&m.SI)
 	message := tas_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
@@ -201,13 +177,8 @@ func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-<<<<<<< HEAD:src/consensus/net/peer.go
-func marshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, error) {
-=======
-
 
 func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	bh := blockHeaderToPb(&m.BH)
 	groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
@@ -233,13 +204,8 @@ func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_pb.Consens
 	return &message
 }
 
-<<<<<<< HEAD:src/consensus/net/peer.go
-func signDataToPb(s *logical.SignData) *tas_pb.SignData {
-=======
-
 
 func signDataToPb(s *SignData) *tas_pb.SignData {
->>>>>>> ec518c89f47e1f6fb2349e20e50554bed8afae2a:src/consensus/logical/peer.go
 	sign := tas_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
 	return &sign
 }
