@@ -96,7 +96,7 @@ func intToBytes(n uint64) []byte {
 	return buf
 }
 
-func (chain *GroupChain) Count() uint64{
+func (chain *GroupChain) Count() uint64 {
 	return chain.count
 }
 func (chain *GroupChain) Close() {
@@ -150,7 +150,10 @@ func (chain *GroupChain) save(group *Group) error {
 		return err
 	}
 
-	chain.now = append(chain.now, group.Id)
+	// todo: 半成品组，不能参与铸块
+	if group.Id != nil {
+		chain.now = append(chain.now, group.Id)
+	}
 
 	chain.groups.Put(generateKey(chain.count), group.Id)
 	chain.groups.Put([]byte(STATUS_KEY), intToBytes(chain.count))
