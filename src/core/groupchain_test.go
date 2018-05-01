@@ -10,7 +10,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	group1 := &Group{
 		Id: id1,
 	}
-	GroupChainImpl.AddGroup(group1)
+	GroupChainImpl.AddGroup(group1, nil, nil)
 	if 1 != GroupChainImpl.count {
 		t.Fatalf("fail to add group1")
 	}
@@ -20,7 +20,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 		Id:     id2,
 		Parent: id1,
 	}
-	GroupChainImpl.AddGroup(group2)
+	GroupChainImpl.AddGroup(group2, nil, nil)
 	if 2 != GroupChainImpl.count {
 		t.Fatalf("fail to add group2")
 	}
@@ -31,7 +31,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	group := GroupChainImpl.GetGroupById(id2)
-	if nil == group{
+	if nil == group {
 		t.Fatalf("fail to GetGroupById2")
 	}
 
@@ -39,7 +39,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	initGroupChain()
 
 	group = GroupChainImpl.GetGroupById(id2)
-	if nil == group{
+	if nil == group {
 		t.Fatalf("fail to GetGroupById2")
 	}
 }

@@ -83,7 +83,7 @@ func (gs *groupSyncer) start() {
 			groups := bm.GroupEntity.Groups
 			if nil != groups && 0 != len(groups) {
 				for _, group := range groups {
-					core.GroupChainImpl.AddGroup(group)
+					core.GroupChainImpl.AddGroup(group, nil, nil)
 				}
 			}
 		case <-t.C:

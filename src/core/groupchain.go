@@ -155,7 +155,7 @@ func (chain *GroupChain) getGroupById(id []byte) *Group {
 	return group
 }
 
-func (chain *GroupChain) AddGroup(group *Group) error {
+func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte) error {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
