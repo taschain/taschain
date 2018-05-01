@@ -88,7 +88,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		for _, tx := range transactions {
 			txHashes = append(txHashes, tx.Hash)
 		}
-		//todo 调用班德
+		mediator.Proc.OnMessageNewTransactions(txHashes)
 	case p2p.NEW_BLOCK_MSG:
 		m, e := unMarshalConsensusBlockMessage(body)
 		if e != nil {
