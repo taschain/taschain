@@ -503,9 +503,9 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 }
 
 //节点所在组成为当前铸块组
-//bn: 完成块高度
-//tc: 完成块出块时间
-//h:  完成块哈希
+//bn: 已完成的最高块高度
+//tc: 已完成的最高块出块时间
+//h:  已完成的最高块哈希
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
