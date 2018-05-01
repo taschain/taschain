@@ -19,6 +19,9 @@ type BlockChainI interface {
 	//构建一个铸块（组内当前铸块人同步操作）
 	CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block
 
+	//根据BlockHeader构建block
+	GenerateBlock(bh BlockHeader) *Block
+
 	//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 	//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
 	//返回缺失交易列表

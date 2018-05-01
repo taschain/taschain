@@ -17,7 +17,7 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 const (
 	BLOCK_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
 
-	BLOCK_SYNC_INTERVAL = 3 * time.Minute
+	BLOCK_SYNC_INTERVAL = 30 * time.Second
 )
 
 var BlockSyncer blockSyncer
@@ -34,7 +34,7 @@ type blockSyncer struct {
 }
 
 func InitBlockSyncer() {
-	BlockSyncer = blockSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
+	BlockSyncer = blockSyncer{neighborMaxHeight:0,HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		BlockRequestCh: make(chan core.EntityRequestMessage), BlockArrivedCh: make(chan core.BlockArrivedMessage),}
 	BlockSyncer.start()
 }
@@ -45,7 +45,7 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
-			logger.Infof("HeightRequestCh get message from:%s\n",sourceId)
+			logger.Infof("HeightRequestCh get message from:%s\n", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
@@ -54,7 +54,7 @@ func (bs *blockSyncer) start() {
 			//sendBlockHeight(sourceId, 111)
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
-			logger.Infof("HeightCh get message from:%s\n",h.SourceId)
+			logger.Infof("HeightCh get message from:%s,it's height is:%d\n", h.SourceId, h.Height)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -63,14 +63,14 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			logger.Infof("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s",br.SourceId,br.SourceHeight,br.SourceCurrentHash)
+			logger.Infof("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash)
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			logger.Infof("BlockArrivedCh get message from:%s,hash:%v\n",bm.SourceId,bm.BlockEntity.BlockHashes)
+			logger.Infof("BlockArrivedCh get message from:%s,hash:%v\n", bm.SourceId, bm.BlockEntity.BlockHashes)
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
@@ -103,12 +103,14 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxHeightLock.Lock()
 	maxHeight := bs.neighborMaxHeight
 	bestNodeId := bs.bestNodeId
+	bs.neighborMaxHeight = 0
+	bs.bestNodeId = ""
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Infof("Neighbor max block height %d is less than self block height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neighbor max block height: %d,is less than self block height: %d .Don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Infof("Neighbor max block height %d is greater than self block height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -191,42 +193,3 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	message := tas_pb.BlockMessage{Blocks: &blockSlice, Height: &height, Hashes: &hashSlice, Ratios: &ratioSlice}
 	return proto.Marshal(&message)
 }
-
-//func mockBlock() *core.Block {
-//	txpool := core.BlockChainImpl.GetTransactionPool()
-//	if nil == txpool {
-//		logger.Error("fail to get txpool")
-//	}
-//
-//	// 交易1
-//	txpool.Add(genTestTx("tx1", 123, "111", "abc", 0, 1))
-//
-//	//交易2
-//	txpool.Add(genTestTx("tx1", 456, "222", "ddd", 0, 1))
-//
-//	// 铸块1
-//	block := core.BlockChainImpl.CastingBlock()
-//	if nil == block {
-//		logger.Error("fail to cast new block")
-//	}
-//	return block
-//}
-//
-//func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
-//
-//	sourcebyte := common.BytesToAddress(core.Sha256([]byte(source)))
-//	targetbyte := common.BytesToAddress(core.Sha256([]byte(target)))
-//
-//	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
-//	data := []byte("This is a transaction")
-//	return &core.Transaction{
-//		Data:     data,
-//		Value:    value,
-//		Nonce:    nonce,
-//		Source:   &sourcebyte,
-//		Target:   &targetbyte,
-//		GasPrice: price,
-//		GasLimit: 3,
-//		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
-//	}
-//}
