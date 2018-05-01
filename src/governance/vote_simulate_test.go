@@ -149,9 +149,9 @@ func TestVote(t *testing.T) {
 			//continue
 		}
 		if i >= 2 {
-			doVote(voter, false)
-		} else {
 			doVote(voter, true)
+		} else {
+			doVote(voter, false)
 		}
 	}
 	doVote(common.Address{}, true)
