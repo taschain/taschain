@@ -172,23 +172,23 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	defer chain.lock.RUnlock()
 
 	//todo: 当前简单处理，暂时不处理分叉问题
-	bh:=chain.queryBlockByHeight(height)
-	if nil == bh{
+	bh := chain.queryBlockByHeight(height)
+	if nil == bh {
 		return nil
 	}
-	b:=chain.queryBlockByHash(bh.Hash)
+	b := chain.queryBlockByHash(bh.Hash)
 	return &BlockMessage{
 		Blocks: []*Block{b},
 	}
 }
 
-func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error{
+func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error {
 	blocks := bm.Blocks
-	if nil == blocks || 0==len(blocks){
+	if nil == blocks || 0 == len(blocks) {
 		return ErrNil
 	}
 
-	for _, block := range blocks{
+	for _, block := range blocks {
 		chain.AddBlockOnChain(block)
 	}
 	return nil
@@ -331,7 +331,9 @@ func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
 	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
-func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
+func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+	//todo: 校验高度
+
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
@@ -343,11 +345,17 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block.Header = &BlockHeader{
 		Transactions: transactionHashes,
 		CurTime:      time.Now(), //todo:时区问题
+		Height:       height,
+		Nonce:        nonce,
+		QueueNumber:  queueNumber,
+		Castor:       castor,
+		GroupId:      groupid,
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.Height = latestBlock.Height + 1
+		block.Header.PreTime = latestBlock.CurTime
 	}
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -370,31 +378,31 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock() *Block {
-	return chain.CastingBlockAfter(chain.latestBlock)
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+	return chain.CastingBlockAfter(chain.latestBlock, height, nonce, queueNumber, castor, groupid)
 
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
-func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) int8 {
-	missing := false
+func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8) {
+	missing := make([]common.Hash, 0)
 	transactions := make([]*Transaction, len(bh.Transactions))
 	for i, hash := range bh.Transactions {
 		transaction, err := chain.transactionPool.GetTransaction(hash)
 		if err != nil {
-			missing = true
+			missing = append(missing, hash)
 		} else {
 			transactions[i] = transaction
 		}
 
 	}
 
-	if missing {
-		return 1
+	if 0 != len(missing) {
+		return missing, 1
 	}
 
-	return 0
+	return missing, 0
 }
 
 //铸块成功，上链
@@ -413,7 +421,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	}
 
 	// 验证块是否有问题
-	status := chain.VerifyCastingBlock(*b.Header)
+	_,status := chain.VerifyCastingBlock(*b.Header)
 	if status != 0 {
 		return -1
 	}

@@ -28,7 +28,7 @@ var (
 
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
 
-	ErrGasLimit = errors.New("exceeds block gas limit")
+	ErrExisted = errors.New("executed transaction")
 
 	ErrNegativeValue = errors.New("negative value")
 

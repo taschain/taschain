@@ -148,6 +148,12 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 //验证节点接收交易 或者接收来自客户端广播的交易
 func OnMessageTransaction(txs []*core.Transaction) error {
 	//验证节点接收交易 加入交易池
+	if nil == txs {
+		logger.Error("received nil txs")
+	} else {
+		logger.Errorf("received: %d", len(txs))
+	}
+
 	if nil == core.BlockChainImpl {
 		return nil
 	}
