@@ -14,6 +14,7 @@ import (
 	"vm/common/hexutil"
 	"math/big"
 	"vm/core/types"
+	"github.com/hashicorp/golang-lru"
 )
 
 const STATUS_KEY = "current"
@@ -65,6 +66,13 @@ type BlockChain struct {
 
 	executor      *EVMExecutor
 	voteProcessor VoteProcessor
+
+	blockCache *lru.Cache
+}
+
+type castingBlock struct {
+	state    *state.StateDB
+	receipts types.Receipts
 }
 
 // 默认配置
@@ -98,8 +106,13 @@ func initBlockChain() error {
 		init: true,
 	}
 
-	//从磁盘文件中初始化leveldb
 	var err error
+	chain.blockCache, err = lru.New(1000)
+	if err != nil {
+		return err
+	}
+
+	//从磁盘文件中初始化leveldb
 	chain.blocks, err = datasource.NewLDBDatabase(chain.config.block, chain.config.blockCache, chain.config.blockHandle)
 	if err != nil {
 		//todo: 日志
@@ -375,6 +388,11 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 
 	block.Header.Hash = block.Header.GenHash()
+
+	chain.blockCache.Add(block.Header.Hash, &castingBlock{
+		state:    state,
+		receipts: receipts,
+	})
 	return block
 }
 
@@ -453,10 +471,26 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	// 验证块是否有问题
-	_, status, state, receipts := chain.VerifyCastingBlock(*b.Header)
-	if status != 0 {
-		return -1
+	var (
+		state    *state.StateDB
+		receipts types.Receipts
+		status   int8
+	)
+
+	// 自己铸块的时候，会将块临时存放到blockCache里
+	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
+	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	if cache != nil {
+		status = 0
+		state = cache.(*castingBlock).state
+		receipts = cache.(*castingBlock).receipts
+		chain.blockCache.Remove(b.Header.Hash)
+	} else {
+		// 验证块是否有问题
+		_, status, state, receipts = chain.VerifyCastingBlock(*b.Header)
+		if status != 0 {
+			return -1
+		}
 	}
 
 	// 检查高度
