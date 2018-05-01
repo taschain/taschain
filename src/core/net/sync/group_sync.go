@@ -63,10 +63,11 @@ func (gs *groupSyncer) start() {
 			if nil == core.GroupChainImpl {
 				return
 			}
-			//todo 根据高度获取对应的组信息
-			//type queryGroupInfoByHeightFn func(localHeight uint64, currentHash common.Hash) ([]*core.Group, error)
-			//groups, e := gs.queryGroup(br.sourceHeight,br.sourceCurrentHash, br.Sig)
-			groups, e := []*core.Group{}, errors.New("")
+
+			if nil == core.GroupChainImpl {
+				return
+			}
+			groups, e := core.GroupChainImpl.GetGroupsByHeight(br.SourceHeight, br.SourceCurrentHash)
 			if e != nil {
 				logger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
 				return

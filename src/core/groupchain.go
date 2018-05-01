@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
+	"common"
 )
 
 var GroupChainImpl *GroupChain
@@ -101,6 +102,36 @@ func (chain *GroupChain) Count() uint64 {
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
+}
+
+func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Hash) ([]*Group, error) {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	if chain.count <= height {
+		return nil, fmt.Errorf("exceed local height")
+	}
+
+	// todo: 校验currentHash
+
+	result := make([]*Group, chain.count-height)
+	for i := height; i < chain.count; i++ {
+		group := chain.getGroupByHeight(i)
+		if nil != group {
+			result = append(result, group)
+		}
+
+	}
+	return result, nil
+}
+
+func (chain *GroupChain) getGroupByHeight(height uint64) *Group {
+	groupId, _ := chain.groups.Get(generateKey(height))
+	if nil != groupId {
+		return chain.getGroupById(groupId)
+	}
+
+	return nil
 }
 
 func (chain *GroupChain) GetGroupById(id []byte) *Group {
