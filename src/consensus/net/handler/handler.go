@@ -153,9 +153,32 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 	return &message, nil
 }
 
-//todo
 func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKeyMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusSignPubKeyMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e.Error())
+		return nil, e
+	}
+	gisHash := common.BytesToHash(m.GISHash)
+	var dummyId groupsig.ID
+	e1 := dummyId.Deserialize(m.DummyID)
+	if e1 != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e1.Error())
+		return nil, e1
+	}
+
+	var pubkey groupsig.Pubkey
+	e2 := pubkey.Deserialize(m.SignPK)
+	if e2 != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e2.Error())
+		return nil, e1
+	}
+
+	signData := pbToSignData(m.SignData)
+
+	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData}
+	return &message, nil
 }
 
 func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
@@ -201,7 +224,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 		return nil, e
 	}
 
-	bh := pbToBlockHeader(m.Bh)
+	bh := handler.PbToBlockHeader(m.Bh)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
@@ -221,7 +244,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 		return nil, e
 	}
 
-	bh := pbToBlockHeader(m.Bh)
+	bh := handler.PbToBlockHeader(m.Bh)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
@@ -233,9 +256,24 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 	return &message, nil
 }
 
-//todo
 func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, error) {
-	return nil, nil
+	m := new(tas_pb.ConsensusBlockMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("unMarshalConsensusBlockMessage error:%s\n", e.Error())
+		return nil, e
+	}
+	block := handler.PbToBlock(m.Block)
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(m.GroupID)
+	if e1 != nil {
+		logger.Errorf("unMarshalConsensusBlockMessage error:%s\n", e1.Error())
+		return nil, e
+	}
+
+	signData := pbToSignData(m.SignData)
+	message := logical.ConsensusBlockMessage{Block: *block, GroupID: groupId, SI: *signData}
+	return &message, nil
 }
 
 func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical.ConsensusGroupInitSummary {
@@ -345,23 +383,3 @@ func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
 	return &pkInfo
 }
 
-func pbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
-
-	hashBytes := h.Transactions
-	hashes := make([]common.Hash, 0)
-	for _, hashByte := range hashBytes {
-		hash := common.BytesToHash(hashByte)
-		hashes = append(hashes, hash)
-	}
-
-	var preTime time.Time
-	preTime.UnmarshalBinary(h.PreTime)
-	var curTime time.Time
-	curTime.UnmarshalBinary(h.CurTime)
-
-	header := core.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		BlockHeight: *h.BlockHeight, QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, Signature: common.BytesToHash(h.Signature),
-		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData}
-	return &header
-}

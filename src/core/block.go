@@ -21,7 +21,6 @@ import (
 type BlockHeader struct {
 	Hash         common.Hash // 本块的hash，to do : 是对哪些数据的哈希
 	Height       uint64      // 本块的高度
-	BlockHeight  uint64
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	QueueNumber  uint64        //轮转序号

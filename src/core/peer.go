@@ -177,7 +177,7 @@ func MarshalBlocks(bs []*Block) ([]byte, error) {
 	return proto.Marshal(&blockSlice)
 }
 
-func blockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
+func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
 	hashBytes := make([][]byte, 0)
 	for _, hash := range hashes {
@@ -196,14 +196,14 @@ func blockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 	}
 
 	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		BlockHeight: &h.BlockHeight, QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, Signature: h.Signature.Bytes(),
+		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature.Bytes(),
 		Nonce: &h.Nonce, Transactions: hashBytes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
 		ExtraData: h.ExtraData}
 	return &header
 }
 
 func BlockToPb(b *Block) *tas_pb.Block {
-	header := blockHeaderToPb(b.Header)
+	header := BlockHeaderToPb(b.Header)
 	transactons := transactionsToPb(b.Transactions)
 	block := tas_pb.Block{Header: header, Transactions: transactons}
 	return &block

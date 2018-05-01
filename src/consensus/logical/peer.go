@@ -112,7 +112,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 
 //对外广播经过组签名的block 全网广播
 func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
-	body, e :=  marshalConsensusBlockMessage(cbm)
+	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
 		logger.Errorf("Discard send ConsensusBlockMessage because of marshal error:%s\n", e.Error())
 		return
@@ -173,9 +173,14 @@ func marshalConsensusSharePieceMessage(m *ConsensusSharePieceMessage) ([]byte, e
 	return proto.Marshal(&message)
 }
 
-//todo
 func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, error) {
-	return nil, nil
+	hash := m.GISHash.Bytes()
+	dummyId := m.DummyID.Serialize()
+	signPK := m.SignPK.Serialize()
+	signData := signDataToPb(&m.SI)
+
+	message := tas_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData}
+	return proto.Marshal(&message)
 }
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {
 	gi := staticGroupInfoToPb(&m.GI)
@@ -201,7 +206,7 @@ func marshalConsensusCurrentMessagee(m *ConsensusCurrentMessage) ([]byte, error)
 }
 
 func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
-	bh := blockHeaderToPb(&m.BH)
+	bh := core.BlockHeaderToPb(&m.BH)
 	groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
@@ -210,7 +215,7 @@ func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 }
 
 func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
-	bh := blockHeaderToPb(&m.BH)
+	bh := core.BlockHeaderToPb(&m.BH)
 	groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
@@ -218,10 +223,14 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-//todo
-func marshalConsensusBlockMessage(m *ConsensusBlockMessage)([]byte, error){
-	return nil,nil
+func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
+	block := core.BlockToPb(&m.Block)
+	id := m.GroupID.Serialize()
+	sign := signDataToPb(&m.SI)
+	message := tas_pb.ConsensusBlockMessage{Block: block, GroupID: id, SignData: sign}
+	return proto.Marshal(&message)
 }
+
 //----------------------------------------------------------------------------------------------------------------------
 func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_pb.ConsensusGroupInitSummary {
 	beginTime, e := m.BeginTime.MarshalBinary()
@@ -269,29 +278,4 @@ func pubKeyInfoToPb(p *PubKeyInfo) *tas_pb.PubKeyInfo {
 
 	pkInfo := tas_pb.PubKeyInfo{ID: id, PublicKey: pk}
 	return &pkInfo
-}
-
-func blockHeaderToPb(h *core.BlockHeader) *tas_pb.BlockHeader {
-	hashes := h.Transactions
-	hashBytes := make([][]byte, 0)
-	for _, hash := range hashes {
-		hashBytes = append(hashBytes, hash.Bytes())
-	}
-	preTime, e1 := h.PreTime.MarshalBinary()
-	if e1 != nil {
-		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
-		return nil
-	}
-
-	curTime, e2 := h.CurTime.MarshalBinary()
-	if e2 != nil {
-		logger.Errorf("BlockHeaderToPb marshal cur time error:%s\n", e2.Error())
-		return nil
-	}
-
-	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		BlockHeight: &h.BlockHeight, QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, Signature: h.Signature.Bytes(),
-		Nonce: &h.Nonce, Transactions: hashBytes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData}
-	return &header
 }
