@@ -189,3 +189,21 @@ type ConsensusBlockMessage struct {
 	GroupID groupsig.ID
 	SI      SignData
 }
+
+func (msg *ConsensusBlockMessage) GenSign(ski SecKeyInfo) bool {
+	if !ski.IsValid() {
+		return false
+	}
+	buf := msg.Block.Header.GenHash().Str()
+	buf += msg.GroupID.GetHexString()
+	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
+	msg.SI.SignMember = ski.ID
+	return msg.SI.GenSign(ski.SK)
+}
+
+func (msg ConsensusBlockMessage) VerifySign(pk groupsig.Pubkey) bool {
+	if !msg.SI.GetID().IsValid() {
+		return false
+	}
+	return msg.SI.VerifySign(pk)
+}

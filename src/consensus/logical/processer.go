@@ -150,6 +150,7 @@ func (p *Processer) setProcs(gps map[string]*Processer) {
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
 	PROC_TEST_MODE = true
+	p.MainChain = core.BlockChainImpl
 	p.mi = mi
 	p.gg.Init()
 	p.jgs.Init()
@@ -324,7 +325,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	fmt.Printf("proc(%v) begin Processer::OnMessageCast, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID), GetIDPrefix(ccm.SI.GetID()))
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
 	var cgs CastGroupSummary
-	cgs.BlockHeight = ccm.BH.BlockHeight
+	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = ccm.GroupID
 	cgs.PreHash = ccm.BH.PreHash
 	cgs.PreTime = ccm.BH.PreTime
@@ -348,12 +349,15 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		fmt.Printf("proc(%v) OMC slot irreversible failed, ignore message.\n", p.getPrefix())
 		return
 	}
+
 	var ccr int8
 	if slot.isAllTransExist() {
 		ccr = 0
 	} else {
-		ccr = p.MainChain.VerifyCastingBlock(ccm.BH)
+		var lost_trans_list []common.Hash
+		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
 		fmt.Printf("proc(%v) OMC chain check result=%v.\n", p.getPrefix(), ccr)
+		slot.InitLostingTrans(lost_trans_list)
 	}
 
 	cs := GenConsensusSummary(ccm.BH)
@@ -420,7 +424,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("proc(%v) OMV rece hash=%v.\n", p.getPrefix(), cvm.SI.DataHash.Hex())
 
 	var cgs CastGroupSummary
-	cgs.BlockHeight = cvm.BH.BlockHeight
+	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = cvm.GroupID
 	cgs.PreHash = cvm.BH.PreHash
 	cgs.PreTime = cvm.BH.PreTime
@@ -444,12 +448,15 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		fmt.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
 		return
 	}
+
 	var ccr int8
 	if slot.isAllTransExist() {
 		ccr = 0
 	} else {
-		ccr = p.MainChain.VerifyCastingBlock(cvm.BH)
+		var lost_trans_list []common.Hash
+		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
 		fmt.Printf("proc(%v) OMV chain check result=%v.\n", p.getPrefix(), ccr)
+		slot.InitLostingTrans(lost_trans_list)
 	}
 
 	cs := GenConsensusSummary(cvm.BH)
@@ -498,12 +505,12 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 	bc := p.GetBlockContext(cbm.GroupID.GetHexString())
-	if p.isBHCastLegal(cbm.BH, cbm.SI) { //铸块头合法
+	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
 		//to do : 鸠兹上链保存
 		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
 		if err == nil {
 			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
-				bc.BeingCastGroup(cbm.BH.BlockHeight, cbm.BH.PreTime, cbm.SI.DataHash)
+				bc.BeingCastGroup(cbm.Block.Header.Height, cbm.Block.Header.PreTime, cbm.SI.DataHash)
 				//to do : 屮逸组内广播
 			}
 		} else {
@@ -511,7 +518,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 		}
 	} else {
 		//丢弃该块
-		fmt.Printf("received invalid new block, height = %v.\n", cbm.BH.BlockHeight)
+		fmt.Printf("received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
 }
 
@@ -524,7 +531,10 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 			//TO DO :调用鸠兹的验证函数
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
-				result := p.MainChain.VerifyCastingBlock(slot.BH)
+				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
+				if len(lost_trans_list) > 0 {
+					panic("OnMessageNewTransactions still losting trans on chain.")
+				}
 				switch result {
 				case 0: //验证通过
 					//to do : 向组内成员发送验证通过消息
@@ -576,7 +586,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 	if sgi.GetCastor(int(user_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
 		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
-			p.castBlock(gid, qn) //铸块
+			p.castBlock(gid, height, qn) //铸块
 		} else {
 			fmt.Printf("In height=%v, qn=%v current node already casted.", height, qn)
 		}
@@ -812,7 +822,6 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	bh.Hash = rand.String2CommonHash("thiefox")
 	bh.Height = 2
 	bh.PreHash = rand.String2CommonHash("TASchain")
-	bh.BlockHeight = bh.Height
 	bh.QueueNumber = uint64(qn)
 	bh.Nonce = 123
 	bh.Castor = uid.Serialize()
@@ -827,26 +836,30 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(gid groupsig.ID, qn int64) *core.BlockHeader {
+func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.BlockHeader {
 	fmt.Printf("begin Processer::castBlock...\n")
-	bh := genDummyBH(int(qn), p.GetMinerID())
-	var hash common.Hash
-	hash = bh.Hash //TO DO:替换成出块头的哈希
+	//bh := genDummyBH(int(qn), p.GetMinerID())
+	//var hash common.Hash
+	//hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : 鸠兹生成bh和哈希
 	//给鸠兹的参数：QN, nonce，castor，group id
 
+	nonce := 12345678
+	//调用鸠兹的铸块处理
+	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+	bh := block.Header
 	var si SignData
-	si.DataHash = hash
+	si.DataHash = bh.Hash
 	si.SignMember = p.GetMinerID()
 	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
 	fmt.Printf("castor sign bh result = %v.\n", b)
 
-	if bh.BlockHeight > 0 && si.DataSign.IsValid() {
+	if bh.Height > 0 && si.DataSign.IsValid() {
 		var tmp_id groupsig.ID
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
 		}
-		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, GetIDPrefix(tmp_id))
+		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.Height, GetIDPrefix(tmp_id))
 		//发送该出块消息
 		var ccm ConsensusCastMessage
 		ccm.BH = *bh
@@ -858,7 +871,7 @@ func (p Processer) castBlock(gid groupsig.ID, qn int64) *core.BlockHeader {
 		}
 
 	} else {
-		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.BlockHeight, si.DataSign.GetHexString())
+		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, si.DataSign.GetHexString())
 		panic("bh Error or sign Error.")
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
