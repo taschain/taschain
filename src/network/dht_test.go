@@ -7,7 +7,6 @@ import (
 	"context"
 	"common"
 	"github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-peer"
 	"github.com/libp2p/go-libp2p-crypto"
 	"time"
 	"taslog"
@@ -41,7 +40,7 @@ func TestDHT(t *testing.T) {
 			fmt.Errorf("connectToSeed error!%s\n", e2.Error())
 			panic("connectToSeed error!")
 		}
-		dhts := []*dht.IpfsDHT{node1Dht,seedDht}
+		dhts := []*dht.IpfsDHT{node1Dht, seedDht}
 		bootDhts(dhts)
 		time.Sleep(30 * time.Second)
 
@@ -105,31 +104,9 @@ func TestID(t *testing.T) {
 	groupsig.Init(1)
 	privateKey := common.GenerateKey("")
 	publicKey := privateKey.GetPubKey()
-
-	pubKey := &p2p.Pubkey{PublicKey: publicKey}
-	pID, e := peer.IDFromPublicKey(pubKey)
-	if e != nil {
-		fmt.Errorf("IDFromPublicKey error:%s\n", e.Error())
-	}
-	pBytes := []byte(pID)
-
-	id := pID.Pretty()
-
-	ID, e1 := peer.IDB58Decode(id)
-	if e1 != nil {
-		fmt.Errorf("IDB58Decode error:%s\n", e1.Error())
-	}
-	IDBytes := []byte(ID)
-	fmt.Printf("%s,%s", len(pBytes), len(IDBytes))
-	//addr := publicKey.GetAddress()
-	//i := groupsig.NewIDFromAddress(addr)
-	//idStr := i.GetHexString()
-	//id := peer.ID(idStr)
-	//s := string(id)
-	//fmt.Printf("id:%s\n", s)
-
+	id := p2p.GetIdFromPublicKey(publicKey)
+	fmt.Printf(id)
 }
-
 
 func TestUnmarshalEcdsaPublicKey(t *testing.T) {
 	crypto.KeyTypes = append(crypto.KeyTypes, 3)
