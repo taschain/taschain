@@ -185,5 +185,7 @@ type ConsensusVerifyMessage struct {
 
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {
-	ConsensusBlockMessageBase
+	Block      core.Block
+	GroupID groupsig.ID
+	SI      SignData
 }
