@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
+	"common"
 )
 
 var GroupChainImpl *GroupChain
@@ -96,11 +97,41 @@ func intToBytes(n uint64) []byte {
 	return buf
 }
 
-func (chain *GroupChain) Count() uint64{
+func (chain *GroupChain) Count() uint64 {
 	return chain.count
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
+}
+
+func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Hash) ([]*Group, error) {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	if chain.count <= height {
+		return nil, fmt.Errorf("exceed local height")
+	}
+
+	// todo: 校验currentHash
+
+	result := make([]*Group, chain.count-height)
+	for i := height; i < chain.count; i++ {
+		group := chain.getGroupByHeight(i)
+		if nil != group {
+			result = append(result, group)
+		}
+
+	}
+	return result, nil
+}
+
+func (chain *GroupChain) getGroupByHeight(height uint64) *Group {
+	groupId, _ := chain.groups.Get(generateKey(height))
+	if nil != groupId {
+		return chain.getGroupById(groupId)
+	}
+
+	return nil
 }
 
 func (chain *GroupChain) GetGroupById(id []byte) *Group {
@@ -124,7 +155,7 @@ func (chain *GroupChain) getGroupById(id []byte) *Group {
 	return group
 }
 
-func (chain *GroupChain) AddGroup(group *Group) error {
+func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte) error {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
@@ -150,7 +181,10 @@ func (chain *GroupChain) save(group *Group) error {
 		return err
 	}
 
-	chain.now = append(chain.now, group.Id)
+	// todo: 半成品组，不能参与铸块
+	if group.Id != nil {
+		chain.now = append(chain.now, group.Id)
+	}
 
 	chain.groups.Put(generateKey(chain.count), group.Id)
 	chain.groups.Put([]byte(STATUS_KEY), intToBytes(chain.count))

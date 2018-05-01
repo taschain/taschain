@@ -15,10 +15,9 @@ import (
 //收到父亲组的启动组初始化消息
 //to do : 组成员ID列表在哪里提供
 type ConsensusGroupRawMessage struct {
-	GI      ConsensusGroupInitSummary     //组初始化共识
-	MEMS    [GROUP_MAX_MEMBERS]PubKeyInfo //组成员列表，该次序不可变更，影响组内铸块排位。
-	SI      SignData                      //矿工（父亲组成员）个人签名
-	UserIds [GROUP_MAX_MEMBERS]string     //用户ID列表，顺序和成员ID列表严格意义第一对应
+	GI   ConsensusGroupInitSummary     //组初始化共识
+	MEMS [GROUP_MAX_MEMBERS]PubKeyInfo //组成员列表，该次序不可变更，影响组内铸块排位。
+	SI   SignData                      //矿工（父亲组成员）个人签名
 }
 
 func (msg *ConsensusGroupRawMessage) GenSign(ski SecKeyInfo) bool {
@@ -185,5 +184,25 @@ type ConsensusVerifyMessage struct {
 
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {
-	ConsensusBlockMessageBase
+	Block   core.Block
+	GroupID groupsig.ID
+	SI      SignData
+}
+
+func (msg *ConsensusBlockMessage) GenSign(ski SecKeyInfo) bool {
+	if !ski.IsValid() {
+		return false
+	}
+	buf := msg.Block.Header.GenHash().Str()
+	buf += msg.GroupID.GetHexString()
+	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
+	msg.SI.SignMember = ski.ID
+	return msg.SI.GenSign(ski.SK)
+}
+
+func (msg ConsensusBlockMessage) VerifySign(pk groupsig.Pubkey) bool {
+	if !msg.SI.GetID().IsValid() {
+		return false
+	}
+	return msg.SI.VerifySign(pk)
 }

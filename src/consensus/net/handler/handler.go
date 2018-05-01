@@ -11,66 +11,116 @@ import (
 	"time"
 	"core"
 	"taslog"
+	"core/net/handler"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
-type ConsensusHandler struct {}
+type ConsensusHandler struct{}
 
-
-func (c *ConsensusHandler)HandlerMessage(code uint32,body []byte,sourceId string)error{
+func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
 	switch code {
-		case p2p.GROUP_INIT_MSG:
-			m, e := unMarshalConsensusGroupRawMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusGroupRawMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageGroupInit(*m)
-		case p2p.KEY_PIECE_MSG:
-			m, e := unMarshalConsensusSharePieceMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusSharePieceMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageSharePiece(*m)
-		case p2p.GROUP_INIT_DONE_MSG:
-			m, e := unMarshalConsensusGroupInitedMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusGroupInitedMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageGroupInited(*m)
-		case p2p.CURRENT_GROUP_CAST_MSG:
-			m, e := unMarshalConsensusCurrentMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusCurrentMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageCurrent(*m)
-		case p2p.CAST_VERIFY_MSG:
-			m, e := unMarshalConsensusCastMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusCastMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageCast(*m)
-		case p2p.VARIFIED_CAST_MSG:
-			m, e := unMarshalConsensusVerifyMessage(body)
-			if e != nil {
-				logger.Error("Discard ConsensusVerifyMessage because of unmarshal error!\n")
-				return e
-			}
-			mediator.Proc.OnMessageVerify(*m)
-		case p2p.TRANSACTION_GOT_MSG:
+	case p2p.GROUP_MEMBER_MSG:
+		m, e := unMarshalConsensusGroupRawMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s\n", e.Error())
+			return nil, e
+		}
+		onGroupMemberReceived(*m)
+	case p2p.GROUP_INIT_MSG:
+		m, e := unMarshalConsensusGroupRawMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageGroupInit(*m)
+	case p2p.KEY_PIECE_MSG:
+		m, e := unMarshalConsensusSharePieceMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusSharePieceMessage because of unmarshal error:%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageSharePiece(*m)
+	case p2p.SIGN_PUBKEY_MSG:
+		m, e := unMarshalConsensusSignPubKeyMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusSignPubKeyMessage because of unmarshal error:%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageSignPK(*m)
+	case p2p.GROUP_INIT_DONE_MSG:
+		m, e := unMarshalConsensusGroupInitedMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusGroupInitedMessage because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageGroupInited(*m)
 
-		case p2p.NEW_BLOCK_MSG:
+	case p2p.CURRENT_GROUP_CAST_MSG:
+		m, e := unMarshalConsensusCurrentMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageCurrent(*m)
+	case p2p.CAST_VERIFY_MSG:
+		m, e := unMarshalConsensusCastMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusCastMessage because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageCast(*m)
+	case p2p.VARIFIED_CAST_MSG:
+		m, e := unMarshalConsensusVerifyMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusVerifyMessage because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		mediator.Proc.OnMessageVerify(*m)
 
+	case p2p.TRANSACTION_GOT_MSG:
+		transactions, e := handler.UnMarshalTransactions(body)
+		if e != nil {
+			logger.Errorf("Discard TRANSACTION_GOT_MSG because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		var txHashes []common.Hash
+		for _, tx := range transactions {
+			txHashes = append(txHashes, tx.Hash)
+		}
+		mediator.Proc.OnMessageNewTransactions(txHashes)
+	case p2p.NEW_BLOCK_MSG:
+		m, e := unMarshalConsensusBlockMessage(body)
+		if e != nil {
+			logger.Errorf("Discard ConsensusBlockMessage because of unmarshal error%s\n", e.Error())
+			return nil, e
+		}
+		//todo 返回一个block
+		mediator.Proc.OnMessageBlock(*m)
+		var b core.Block
+		bytes, e1 := core.MarshalBlock(&b)
+		if e1 != nil {
+			logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s\n", e.Error())
+			return nil, e1
+		}
+		return bytes, nil
 	}
-	return nil
+	return nil, nil
 }
 
+//全网节点收到父亲节点广播的组信息，将组(没有组公钥的)上链
+func onGroupMemberReceived(grm logical.ConsensusGroupRawMessage){
+	members := make([]core.Member,0)
+	for _,m := range grm.MEMS{
+		mem := core.Member{Id:m.ID.Serialize(),PubKey:m.PK.Serialize()}
+		members = append(members,mem)
+	}
+	group := core.Group{Dummy:grm.GI.DummyID.Serialize(),Members:members,Parent:grm.GI.ParentID.Serialize()}
 
+	sender := grm.SI.SignMember.Serialize()
+	signature := grm.SI.DataSign.Serialize()
+	core.GroupChainImpl.AddGroup(&group,sender,signature)
+}
 //----------------------------------------------------------------------------------------------------------------------
 func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
 	message := new(tas_pb.ConsensusGroupRawMessage)
@@ -123,6 +173,34 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 	return &message, nil
 }
 
+func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKeyMessage, error) {
+	m := new(tas_pb.ConsensusSignPubKeyMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e.Error())
+		return nil, e
+	}
+	gisHash := common.BytesToHash(m.GISHash)
+	var dummyId groupsig.ID
+	e1 := dummyId.Deserialize(m.DummyID)
+	if e1 != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e1.Error())
+		return nil, e1
+	}
+
+	var pubkey groupsig.Pubkey
+	e2 := pubkey.Deserialize(m.SignPK)
+	if e2 != nil {
+		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s\n", e2.Error())
+		return nil, e1
+	}
+
+	signData := pbToSignData(m.SignData)
+
+	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData}
+	return &message, nil
+}
+
 func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
 	m := new(tas_pb.ConsensusGroupInitedMessage)
 	e := proto.Unmarshal(b, m)
@@ -136,6 +214,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInit
 	message := logical.ConsensusGroupInitedMessage{GI: *gi, SI: *si}
 	return &message, nil
 }
+
 //--------------------------------------------组铸币--------------------------------------------------------------------
 func unMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessage, error) {
 	m := new(tas_pb.ConsensusCurrentMessage)
@@ -165,7 +244,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 		return nil, e
 	}
 
-	bh := pbToBlockHeader(m.Bh)
+	bh := handler.PbToBlockHeader(m.Bh)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
@@ -173,7 +252,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 		return nil, e1
 	}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase:logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
+	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
 	return &message, nil
 }
 
@@ -185,7 +264,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 		return nil, e
 	}
 
-	bh := pbToBlockHeader(m.Bh)
+	bh := handler.PbToBlockHeader(m.Bh)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
@@ -193,7 +272,27 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 		return nil, e1
 	}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase:logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
+	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
+	return &message, nil
+}
+
+func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, error) {
+	m := new(tas_pb.ConsensusBlockMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("unMarshalConsensusBlockMessage error:%s\n", e.Error())
+		return nil, e
+	}
+	block := handler.PbToBlock(m.Block)
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(m.GroupID)
+	if e1 != nil {
+		logger.Errorf("unMarshalConsensusBlockMessage error:%s\n", e1.Error())
+		return nil, e
+	}
+
+	signData := pbToSignData(m.SignData)
+	message := logical.ConsensusBlockMessage{Block: *block, GroupID: groupId, SI: *signData}
 	return &message, nil
 }
 
@@ -304,23 +403,3 @@ func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
 	return &pkInfo
 }
 
-func pbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
-
-	hashBytes := h.Transactions
-	hashes := make([]common.Hash, 0)
-	for _, hashByte := range hashBytes {
-		hash := common.BytesToHash(hashByte)
-		hashes = append(hashes, hash)
-	}
-
-	var preTime time.Time
-	preTime.UnmarshalBinary(h.PreTime)
-	var curTime time.Time
-	curTime.UnmarshalBinary(h.CurTime)
-
-	header := core.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		BlockHeight: *h.BlockHeight, QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, Signature: common.BytesToHash(h.Signature),
-		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData}
-	return &header
-}

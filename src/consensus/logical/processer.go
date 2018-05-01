@@ -3,6 +3,7 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
+	//"consensus/net"
 	"consensus/rand"
 	"core"
 	"fmt"
@@ -112,12 +113,21 @@ func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 
 func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	str := pk.GetHexString()
-	return str[0:12]
+	if len(str) >= 12 {
+		return str[0:12]
+	} else {
+		return str[0:len(str)]
+	}
+
 }
 
 func GetIDPrefix(id groupsig.ID) string {
 	str := id.GetHexString()
-	return str[0:6]
+	if len(str) >= 6 {
+		return str[0:6]
+	} else {
+		return str[0:len(str)]
+	}
 }
 
 func (p Processer) getPrefix() string {
@@ -140,6 +150,7 @@ func (p *Processer) setProcs(gps map[string]*Processer) {
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
 	PROC_TEST_MODE = true
+	p.MainChain = core.BlockChainImpl
 	p.mi = mi
 	p.gg.Init()
 	p.jgs.Init()
@@ -161,6 +172,7 @@ func (p *Processer) Stop() {
 	return
 }
 
+//增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processer) AddBlockConext(bc *BlockContext) bool {
 	if p.GetBlockContext(bc.MinerID.gid.GetHexString()) == nil {
 		p.bcs[bc.MinerID.gid.GetHexString()] = bc
@@ -170,12 +182,30 @@ func (p *Processer) AddBlockConext(bc *BlockContext) bool {
 	}
 }
 
+//取得一个铸块上下文
+//gid:组ID hex 字符串
 func (p *Processer) GetBlockContext(gid string) *BlockContext {
 	if v, ok := p.bcs[gid]; ok {
 		return v
 	} else {
 		return nil
 	}
+}
+
+//取得当前在铸块中的组数据
+//该函数最多返回一个bc，或者=nil。不允许同时返回多个bc，实际也不会发生这种情况。
+func (p *Processer) GetCastingBC() *BlockContext {
+	var bc *BlockContext
+	for _, v := range p.bcs {
+		if v.IsCasting() {
+			if bc != nil {
+				panic("Processer::GetCastingBC failed, same time more than one casting group.")
+			}
+			bc = v
+			//break    //TO DO : 验证正确后打开
+		}
+	}
+	return bc
 }
 
 //取得矿工ID（和组无关）
@@ -246,7 +276,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 				panic("ERROR, BlockContext = nil.")
 			} else {
 				if !bc.IsCasting() { //之前没有在铸块状态
-					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash)
+					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash) //设置当前铸块高度
 					first = true
 					fmt.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", b, bc.ConsensusStatus)
 				} else {
@@ -266,10 +296,12 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 //收到成为当前铸块组消息
 func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	fmt.Printf("proc(%v) begin Processer::OnMessageCurrent, sender=%v, time=%v...\n", p.getPrefix(), GetIDPrefix(ccm.SI.GetID()), time.Now().Format(time.Stamp))
-	var cgs CastGroupSummary
-	if cgs.GroupID.Deserialize(ccm.GroupID) != nil {
+	var gid groupsig.ID
+	if gid.Deserialize(ccm.GroupID) != nil {
 		panic("Processer::OnMessageCurrent failed, reason=group id Deserialize.")
 	}
+	var cgs CastGroupSummary
+	cgs.GroupID = gid
 	cgs.PreHash = ccm.PreHash
 	cgs.PreTime = ccm.PreTime
 	cgs.BlockHeight = ccm.BlockHeight
@@ -277,7 +309,9 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	fmt.Printf("after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
 	if bc != nil {
 		if first { //第一次收到“当前组成为铸块组”消息
-			//to do：屮逸组内广播
+			ccm_local := ccm
+			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+			SendCurrentGroupCast(&ccm_local)
 		}
 	}
 	fmt.Printf("proc(%v) end Processer::OnMessageCurrent, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
@@ -290,69 +324,96 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	fmt.Printf("proc(%v) begin Processer::OnMessageCast, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID), GetIDPrefix(ccm.SI.GetID()))
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
 	var cgs CastGroupSummary
-	cgs.BlockHeight = ccm.BH.BlockHeight
+	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = ccm.GroupID
 	cgs.PreHash = ccm.BH.PreHash
 	cgs.PreTime = ccm.BH.PreTime
 	bc, first := p.beingCastGroup(cgs, ccm.SI)
 	fmt.Printf("after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
 	if bc == nil {
-		fmt.Printf("local joined groups=%v.\n", len(p.bcs))
-		for k, _ := range p.bcs {
-			fmt.Printf("---joined group:%v.\n", k)
-		}
-		panic("not found this group.")
-	}
-	fmt.Printf("proc(%v) blockContext status=%v.\n", p.getPrefix(), bc.ConsensusStatus)
-	if !bc.IsCasting() { //当前没有在组铸块中
-		fmt.Printf("proc(%v) end processer::OnMessageCast failed, group not in cast.\n", p.getPrefix())
+		fmt.Printf("proc(%v) OMC can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
-	cs := GenConsensusSummary(ccm.BH)
-	n := bc.UserCasted(cs, ccm.SI)
-	//todo 缺少逻辑   班德调用鸠兹索要交易，交易缺失鸠兹走网络 此处应有监听交易到达的处理函数
-	fmt.Printf("proc(%v) OnMessageCast UserCasted result=%v.\n", p.getPrefix(), n)
-	//todo  缺少逻辑  验证完了之后应该在组内广播 自己验证过了(入参是这个嘛？)
-	//p2p.Peer.SendVerifiedCast(ConsensusVerifyMessage)
-	switch n {
-	case CBMR_THRESHOLD_SUCCESS:
-		fmt.Printf("proc(%v) OMC msg_count reach threshold!\n", p.getPrefix())
-		b := bc.VerifyGroupSign(cs, p.getGroupPubKey(ccm.GroupID))
-		fmt.Printf("proc(%v) OMC VerifyGroupSign=%v.\n", p.getPrefix(), b)
-		if b { //组签名验证通过
-			fmt.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
-			p.SuccessNewBlock(cs, ccm.GroupID) //上链和组外广播
-		} else {
-			panic("proc OMC VerifyGroupSign failed.")
-		}
-	case CBMR_PIECE:
-		var cvm ConsensusVerifyMessage
-		cvm.BH = ccm.BH
-		{
-			bh_hash1 := ccm.BH.GenHash()
-			bh_hash2 := cvm.BH.GenHash()
-			if bh_hash1.Hex() != bh_hash2.Hex() {
-				fmt.Printf("proc(%v) bh hash diff, cast=%v, verify=%v.\n", p.getPrefix(), bh_hash1.Hex(), bh_hash2.Hex())
-			}
-		}
-		cvm.GroupID = ccm.GroupID
-		cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
-		if ccm.SI.SignMember.GetHexString() == p.GetMinerID().GetHexString() { //local node is KING
-			equal := cvm.SI.IsEqual(ccm.SI)
-			if !equal {
-				fmt.Printf("proc(%v) cur prov is KING, but cast sign and verify sign diff.\n", p.getPrefix())
-				fmt.Printf("proc(%v) cast sign: id=%v, hash=%v, sign=%v.\n", p.getPrefix(), GetIDPrefix(ccm.SI.SignMember), ccm.SI.DataHash.Hex(), ccm.SI.DataSign.GetHexString())
-				fmt.Printf("proc(%v) verify sign: id=%v, hash=%v, sign=%v.\n", p.getPrefix(), GetIDPrefix(cvm.SI.SignMember), cvm.SI.DataHash.Hex(), cvm.SI.DataSign.GetHexString())
-				panic("cur prov is KING, but cast sign and verify sign diff.")
-			}
-		}
-		fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
-		for _, v := range p.GroupProcs {
-			v.OnMessageVerify(cvm)
-		}
+	fmt.Printf("proc(%v) OMC blockContext status=%v.\n", p.getPrefix(), bc.ConsensusStatus)
+	if !bc.IsCasting() { //当前没有在组铸块中
+		fmt.Printf("proc(%v) OMC failed, group not in cast.\n", p.getPrefix())
+		return
+	}
+	slot := bc.getSlotByQN(int64(ccm.BH.QueueNumber))
+	if slot == nil {
+		fmt.Printf("proc(%v) OMC can't found a valid slot, ignore message.\n", p.getPrefix())
+		return
+	}
+	if slot.IsFailed() {
+		fmt.Printf("proc(%v) OMC slot irreversible failed, ignore message.\n", p.getPrefix())
+		return
 	}
 
-	fmt.Printf("proc(%v) end Processer::OnMessageCast.\n", p.getPrefix())
+	var ccr int8
+	if slot.isAllTransExist() {
+		ccr = 0
+	} else {
+		var lost_trans_list []common.Hash
+		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
+		fmt.Printf("proc(%v) OMC chain check result=%v.\n", p.getPrefix(), ccr)
+		slot.InitLostingTrans(lost_trans_list)
+	}
+
+	cs := GenConsensusSummary(ccm.BH)
+	switch ccr {
+	case 0: //主链验证通过
+		n := bc.UserCasted(ccm.BH, ccm.SI)
+		fmt.Printf("proc(%v) OMC UserCasted result=%v.\n", p.getPrefix(), n)
+		switch n {
+		case CBMR_THRESHOLD_SUCCESS:
+			fmt.Printf("proc(%v) OMC msg_count reach threshold!\n", p.getPrefix())
+			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(ccm.GroupID))
+			fmt.Printf("proc(%v) OMC VerifyGroupSign=%v.\n", p.getPrefix(), b)
+			if b { //组签名验证通过
+				fmt.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
+				p.SuccessNewBlock(&ccm.BH, ccm.GroupID) //上链和组外广播
+			} else {
+				panic("proc OMC VerifyGroupSign failed.")
+			}
+		case CBMR_PIECE:
+			var cvm ConsensusVerifyMessage
+			cvm.BH = ccm.BH
+			{
+				bh_hash1 := ccm.BH.GenHash()
+				bh_hash2 := cvm.BH.GenHash()
+				if bh_hash1.Hex() != bh_hash2.Hex() {
+					fmt.Printf("proc(%v) bh hash diff, cast=%v, verify=%v.\n", p.getPrefix(), bh_hash1.Hex(), bh_hash2.Hex())
+				}
+			}
+			cvm.GroupID = ccm.GroupID
+			cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			if ccm.SI.SignMember.GetHexString() == p.GetMinerID().GetHexString() { //local node is KING
+				equal := cvm.SI.IsEqual(ccm.SI)
+				if !equal {
+					fmt.Printf("proc(%v) cur prov is KING, but cast sign and verify sign diff.\n", p.getPrefix())
+					fmt.Printf("proc(%v) cast sign: id=%v, hash=%v, sign=%v.\n", p.getPrefix(), GetIDPrefix(ccm.SI.SignMember), ccm.SI.DataHash.Hex(), ccm.SI.DataSign.GetHexString())
+					fmt.Printf("proc(%v) verify sign: id=%v, hash=%v, sign=%v.\n", p.getPrefix(), GetIDPrefix(cvm.SI.SignMember), cvm.SI.DataHash.Hex(), cvm.SI.DataSign.GetHexString())
+					panic("cur prov is KING, but cast sign and verify sign diff.")
+				}
+			}
+			fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+			for _, v := range p.GroupProcs {
+				v.OnMessageVerify(cvm)
+			}
+		}
+	case 1: //本地交易缺失
+		n := bc.UserCasted(ccm.BH, ccm.SI)
+		fmt.Printf("proc(%v) OMC UserCasted result=%v.\n", p.getPrefix(), n)
+		switch n {
+		case CBMR_THRESHOLD_SUCCESS:
+			fmt.Printf("proc(%v) OMC msg_count reach threshold, but local missing trans, still waiting.\n", p.getPrefix())
+		case CBMR_PIECE:
+			fmt.Printf("proc(%v) OMC normal receive verify, but local missing trans, waiting.\n", p.getPrefix())
+		}
+	case -1:
+		slot.statusChainFailed()
+	}
+	fmt.Printf("proc(%v) end OMC.\n", p.getPrefix())
 	return
 }
 
@@ -360,72 +421,175 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("proc(%v) begin Processer::OnMessageVerify, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.SignMember))
 	fmt.Printf("proc(%v) OMV rece hash=%v.\n", p.getPrefix(), cvm.SI.DataHash.Hex())
+
 	var cgs CastGroupSummary
-	cgs.BlockHeight = cvm.BH.BlockHeight
+	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = cvm.GroupID
 	cgs.PreHash = cvm.BH.PreHash
 	cgs.PreTime = cvm.BH.PreTime
 	bc, first := p.beingCastGroup(cgs, cvm.SI)
 	fmt.Printf("after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
+	if bc == nil {
+		fmt.Printf("proc(%v) OMV can't get valid bc, ignore message.\n", p.getPrefix())
+		return
+	}
+	fmt.Printf("proc(%v) OMV blockContext status=%v.\n", p.getPrefix(), bc.ConsensusStatus)
+	if !bc.IsCasting() { //当前没有在组铸块中
+		fmt.Printf("proc(%v) OMV failed, group not in cast.\n", p.getPrefix())
+		return
+	}
+	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
+	if slot == nil {
+		fmt.Printf("proc(%v) OMV can't found a valid slot, ignore message.\n", p.getPrefix())
+		return
+	}
+	if slot.IsFailed() {
+		fmt.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
+		return
+	}
+
+	var ccr int8
+	if slot.isAllTransExist() {
+		ccr = 0
+	} else {
+		var lost_trans_list []common.Hash
+		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
+		fmt.Printf("proc(%v) OMV chain check result=%v.\n", p.getPrefix(), ccr)
+		slot.InitLostingTrans(lost_trans_list)
+	}
 
 	cs := GenConsensusSummary(cvm.BH)
-	n := bc.UserVerified(cs, cvm.SI)
-	fmt.Printf("proc(%v) OnMessageVerify UserVerified result=%v.\n", p.getPrefix(), n)
-	switch n {
-	case CBMR_THRESHOLD_SUCCESS:
-		fmt.Printf("proc(%v) OMV msg_count reach threshold!\n", p.getPrefix())
-		b := bc.VerifyGroupSign(cs, p.getGroupPubKey(cvm.GroupID))
-		fmt.Printf("proc(%v) OMV VerifyGroupSign=%v.\n", p.getPrefix(), b)
-		if b { //组签名验证通过
-			fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
-			p.SuccessNewBlock(cs, cvm.GroupID) //上链和组外广播
-		} else {
-			panic("proc OMV VerifyGroupSign failed.")
+	switch ccr { //链检查结果
+	case 0: //验证通过
+		n := bc.UserVerified(cvm.BH, cvm.SI)
+		fmt.Printf("proc(%v) OMV UserVerified result=%v.\n", p.getPrefix(), n)
+		switch n {
+		case CBMR_THRESHOLD_SUCCESS:
+			fmt.Printf("proc(%v) OMV msg_count reach threshold!\n", p.getPrefix())
+			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(cvm.GroupID))
+			fmt.Printf("proc(%v) OMV VerifyGroupSign=%v.\n", p.getPrefix(), b)
+			if b { //组签名验证通过
+				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
+				p.SuccessNewBlock(&cvm.BH, cvm.GroupID) //上链和组外广播
+			} else {
+				panic("proc OMV VerifyGroupSign failed.")
+			}
+		case CBMR_PIECE:
+			var send_message ConsensusVerifyMessage
+			send_message.BH = cvm.BH
+			send_message.GroupID = cvm.GroupID
+			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+			for _, v := range p.GroupProcs {
+				v.OnMessageVerify(send_message)
+			}
 		}
-	case CBMR_PIECE:
-		var send_message ConsensusVerifyMessage
-		send_message.BH = cvm.BH
-		send_message.GroupID = cvm.GroupID
-		send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
-		fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
-		for _, v := range p.GroupProcs {
-			v.OnMessageVerify(send_message)
+	case 1: //本地交易缺失
+		n := bc.UserVerified(cvm.BH, cvm.SI)
+		fmt.Printf("proc(%v) OnMessageVerify UserVerified result=%v.\n", p.getPrefix(), n)
+		switch n {
+		case CBMR_THRESHOLD_SUCCESS:
+			fmt.Printf("proc(%v) OMV msg_count reach threshold, but local missing trans, still waiting.\n", p.getPrefix())
+		case CBMR_PIECE:
+			fmt.Printf("proc(%v) OMV normal receive verify, but local missing trans, waiting.\n", p.getPrefix())
+		}
+	case -1: //不可逆异常
+		slot.statusChainFailed()
+	}
+	fmt.Printf("proc(%v) end OMV.\n", p.getPrefix())
+	return
+}
+
+//收到铸块上链消息(组外矿工节点处理)
+func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
+	bc := p.GetBlockContext(cbm.GroupID.GetHexString())
+	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
+		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
+		if err == nil {
+			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
+				bc.BeingCastGroup(cbm.Block.Header.Height, cbm.Block.Header.PreTime, cbm.SI.DataHash)
+				var ccm ConsensusCurrentMessage
+				ccm.BlockHeight = cbm.Block.Header.Height + 1
+				ccm.PreHash = cbm.Block.Header.Hash
+				ccm.PreTime = cbm.Block.Header.CurTime
+				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
+				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+			}
+		} else {
+			panic("find next cast group failed.")
+		}
+		return &cbm.Block //返回成功的块
+	} else {
+		//丢弃该块
+		fmt.Printf("received invalid new block, height = %v.\n", cbm.Block.Header.Height)
+		return nil
+	}
+}
+
+//新的交易到达通知（用于处理大臣验证消息时缺失的交易）
+func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
+	bc := p.GetCastingBC()
+	if bc != nil {
+		qns := bc.ReceTrans(ths)
+		for _, v := range qns { //对不再缺失交易集的插槽处理
+			//TO DO :调用鸠兹的验证函数
+			slot := bc.getSlotByQN(int64(v))
+			if slot != nil {
+				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
+				if len(lost_trans_list) > 0 {
+					panic("OnMessageNewTransactions still losting trans on chain.")
+				}
+				switch result {
+				case 0: //验证通过
+					var send_message ConsensusVerifyMessage
+					send_message.BH = slot.BH
+					send_message.GroupID = bc.MinerID.gid
+					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
+					/*
+						fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+						for _, v := range p.GroupProcs {
+							v.OnMessageVerify(send_message)
+						}
+					*/
+					SendVerifiedCast(&send_message)
+				case 1:
+					panic("Processer::OnMessageNewTransactions failed, check xiaoxiong's src code.")
+				case -1:
+					slot.statusChainFailed()
+				}
+			}
+
 		}
 	}
 	return
 }
 
-//收到铸块上链消息(组外矿工节点处理)
-func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
-	bc := p.GetBlockContext(cbm.GroupID.GetHexString())
-	if p.isBHCastLegal(cbm.BH, cbm.SI) { //铸块头合法
-		//to do : 鸠兹上链保存
-		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
-		if err == nil {
-			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
-				bc.BeingCastGroup(cbm.BH.BlockHeight, cbm.BH.PreTime, cbm.SI.DataHash)
-				//to do : 屮逸组内广播
-			}
-		} else {
-			panic("find next cast group failed.")
-		}
-	} else {
-		//丢弃该块
-		fmt.Printf("received invalid new block, height = %v.\n", cbm.BH.BlockHeight)
-	}
-}
-
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processer) SuccessNewBlock(cs ConsensusBlockSummary, gid groupsig.ID) {
-	fmt.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), cs.QueueNumber)
+func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
+	if bh == nil {
+		panic("SuccessNewBlock arg failed.")
+	}
+	fmt.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 	bc := p.GetBlockContext(gid.GetHexString())
-	//to do : 鸠兹保存上链
-	//todo : 缺少逻辑 屮逸组外广播 这里入参ConsensusBlockSummary不对，缺少BLOCK信息  此处应该广播BLOCK了，屮逸参数留空，等待班德构造参数
-	//p2p.Peer.BroadcastNewBlock()
-	bc.CastedUpdateStatus(uint(cs.QueueNumber))
-	bc.SignedUpdateMinQN(uint(cs.QueueNumber))
+	block := p.MainChain.GenerateBlock(*bh)
+	if block == nil {
+		panic("core.GenerateBlock failed.")
+	}
+	r := p.MainChain.AddBlockOnChain(block)
+	fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
+	if r == 0 || r == 1 {
+	} else {
+		panic("core.AddBlockOnChain failed.")
+	}
+	var cbm ConsensusBlockMessage
+	//cbm.Block = *block
+	cbm.GroupID = gid
+	cbm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+	BroadcastNewBlock(&cbm)
+	bc.CastedUpdateStatus(uint(bh.QueueNumber))
+	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
@@ -443,7 +607,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 	if sgi.GetCastor(int(user_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
 		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
-			p.castBlock(gid, qn) //铸块
+			p.castBlock(gid, height, qn) //铸块
 		} else {
 			fmt.Printf("In height=%v, qn=%v current node already casted.", height, qn)
 		}
@@ -453,6 +617,8 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 
 ///////////////////////////////////////////////////////////////////////////////
 //组初始化相关消息
+//组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
+
 func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	fmt.Printf("begin Processer::OnMessageGroupInit, procs=%v...\n", len(p.GroupProcs))
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -480,13 +646,15 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
 				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.Share.GetHexString(), spm.Share.Pub.GetHexString())
 				//todo : 调用屮逸的发送函数
-				//p2p.Peer.SendKeySharePiece(spm)
-				dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
-				if ok {
-					dest_proc.OnMessageSharePiece(spm)
-				} else {
-					panic("ERROR, dest proc not found!\n")
-				}
+				SendKeySharePiece(spm)
+				/*
+					dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
+					if ok {
+						dest_proc.OnMessageSharePiece(spm)
+					} else {
+						panic("ERROR, dest proc not found!\n")
+					}
+				*/
 			} else {
 				panic("GenSharePieces data not IsValid.\n")
 			}
@@ -515,7 +683,6 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
 			p.addInnerGroup(jg)
 			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", GetIDPrefix(jg.GroupID), jg.GroupPK.GetHexString())
-			//to do : 把初始化完成的组加入到gc（更新）
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
@@ -528,12 +695,12 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				msg.GI.Members = mems
 				msg.GenSign(ski)
-				//todo : 把组初始化完成消息广播到全网
-				//p2p.Peer.BroadcastGroupInfo(msg)
-				for _, proc := range p.GroupProcs {
-					proc.OnMessageGroupInited(msg)
-				}
-
+				BroadcastGroupInfo(msg)
+				/*
+					for _, proc := range p.GroupProcs {
+						proc.OnMessageGroupInited(msg)
+					}
+				*/
 			}
 
 		} else {
@@ -568,12 +735,13 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.DummyID = spm.DummyID
 				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
 				msg.GenSign(ski)
-				//todo : 把组初始化完成消息广播到全网
-				//p2p.Peer.BroadcastGroupInfo(msg)
-				for _, proc := range p.GroupProcs {
-					proc.OnMessageSignPK(msg)
-				}
-
+				//todo : 组内广播签名公钥
+				SendSignPubKey(msg)
+				/*
+					for _, proc := range p.GroupProcs {
+						proc.OnMessageSignPK(msg)
+					}
+				*/
 			}
 
 		} else {
@@ -619,7 +787,6 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		fmt.Printf("(proc:%v) Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组
 		//to do ：从待初始化组中删除
-		//to do : 是否全网广播该组的生成？广播的意义？
 	case -1: //该组初始化异常，且无法恢复
 		//to do : 从待初始化组中删除
 	case 0:
@@ -677,7 +844,6 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	bh.Hash = rand.String2CommonHash("thiefox")
 	bh.Height = 2
 	bh.PreHash = rand.String2CommonHash("TASchain")
-	bh.BlockHeight = bh.Height
 	bh.QueueNumber = uint64(qn)
 	bh.Nonce = 123
 	bh.Castor = uid.Serialize()
@@ -692,37 +858,41 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(gid groupsig.ID, qn int64) *core.BlockHeader {
+func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.BlockHeader {
 	fmt.Printf("begin Processer::castBlock...\n")
-	bh := genDummyBH(int(qn), p.GetMinerID())
-	var hash common.Hash
-	hash = bh.Hash //TO DO:替换成出块头的哈希
-	//to do : 鸠兹生成bh和哈希
-	//给鸠兹的参数：QN, nonce，castor
+	//bh := genDummyBH(int(qn), p.GetMinerID())
+	//var hash common.Hash
+	//hash = bh.Hash //TO DO:替换成出块头的哈希
+	nonce := 12345678
+	//调用鸠兹的铸块处理
+	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+	bh := block.Header
 	var si SignData
-	si.DataHash = hash
+	si.DataHash = bh.Hash
 	si.SignMember = p.GetMinerID()
 	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
 	fmt.Printf("castor sign bh result = %v.\n", b)
 
-	if bh.BlockHeight > 0 && si.DataSign.IsValid() {
+	if bh.Height > 0 && si.DataSign.IsValid() {
 		var tmp_id groupsig.ID
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
 		}
-		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.BlockHeight, GetIDPrefix(tmp_id))
+		fmt.Printf("success cast block, height= %v, castor= %v.\n", bh.Height, GetIDPrefix(tmp_id))
 		//发送该出块消息
 		var ccm ConsensusCastMessage
 		ccm.BH = *bh
 		ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-		//ccm.SI = si
-		for _, proc := range p.GroupProcs {
-			proc.OnMessageCast(ccm)
-		}
+		SendCastVerify(&ccm)
+		/*
+			for _, proc := range p.GroupProcs {
+				proc.OnMessageCast(ccm)
+			}
+		*/
 
 	} else {
-		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.BlockHeight, si.DataSign.GetHexString())
+		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, si.DataSign.GetHexString())
 		panic("bh Error or sign Error.")
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）

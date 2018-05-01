@@ -8,7 +8,6 @@ import (
 	"network/p2p"
 	"utility"
 	"errors"
-	"fmt"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 )
@@ -61,23 +60,32 @@ func (gs *groupSyncer) start() {
 			gs.maxHeightLock.Unlock()
 		case br := <-gs.GroupRequestCh:
 			//收到组请求
+			if nil == core.GroupChainImpl {
+				return
+			}
 
-			//todo 根据高度获取对应的组信息
-			type queryGroupInfoByHeightFn func(localHeight uint64, currentHash common.Hash) (*core.GroupMessage, error)
-			//groups, e := gs.queryGroup(br.sourceHeight,br.sourceCurrentHash, br.Sig)
-			groupEntity, e := new(core.GroupMessage), errors.New("")
+			if nil == core.GroupChainImpl {
+				return
+			}
+			groups, e := core.GroupChainImpl.GetGroupsByHeight(br.SourceHeight, br.SourceCurrentHash)
 			if e != nil {
 				logger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
 				return
 			}
-			sendGroups(br.SourceId, groupEntity)
+			entity := core.GroupMessage{Groups: groups, Height: br.SourceHeight, Hash: br.SourceCurrentHash}
+			sendGroups(br.SourceId, &entity)
 		case bm := <-gs.GroupArrivedCh:
 			//收到组信息
 
-			//todo 同步多组到链上
-			//type addGroupInfoToChainFn func(*core.GroupMessage)error
-			//gs.addGroups(bm.GroupMap)
-			fmt.Printf(bm.SourceId)
+			if nil == core.GroupChainImpl {
+				return
+			}
+			groups := bm.GroupEntity.Groups
+			if nil != groups && 0 != len(groups) {
+				for _, group := range groups {
+					core.GroupChainImpl.AddGroup(group, nil, nil)
+				}
+			}
 		case <-t.C:
 			gs.syncGroup()
 		}
@@ -94,10 +102,11 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	//TODO 获取本地组链高度
-	//type getLocalGroupChainHeightFn func() (uint64, common.Hash, error)
-	//localHeight, currentHash, e := gs.getLocalHeight()
-	localHeight, currentHash, e := uint64(0), common.BytesToHash([]byte{}), errors.New("")
+
+	if nil == core.GroupChainImpl {
+		return
+	}
+	localHeight, currentHash, e := core.GroupChainImpl.Count(), common.BytesToHash([]byte{}), errors.New("")
 	if e != nil {
 		logger.Errorf("Self get group height error:%s\n", e.Error())
 		return
@@ -170,17 +179,6 @@ func marshalGroupMessage(e *core.GroupMessage) ([]byte, error) {
 	groupSlice := tas_pb.GroupSlice{Groups: groups}
 
 	height := e.Height
-
-	hashes := make([][]byte, 0)
-	if e.GroupHashes != nil {
-		for _, h := range e.GroupHashes {
-			hashes = append(hashes, h.Bytes())
-		}
-	}
-	hashSlice := tas_pb.Hashes{Hashes: hashes}
-
-	ratioSlice := tas_pb.Ratios{Ratios: e.GroupRatios}
-
-	message := tas_pb.GroupMessage{Groups: &groupSlice, Height: &height, Hashes: &hashSlice, Ratios: &ratioSlice}
+	message := tas_pb.GroupMessage{Groups: &groupSlice, Height: &height, Hash: e.Hash.Bytes()}
 	return proto.Marshal(&message)
 }
