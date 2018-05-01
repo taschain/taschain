@@ -13,6 +13,7 @@ import (
 	"vm/ethdb"
 	"vm/common/hexutil"
 	"math/big"
+	"vm/core/types"
 )
 
 const STATUS_KEY = "current"
@@ -172,23 +173,23 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	defer chain.lock.RUnlock()
 
 	//todo: 当前简单处理，暂时不处理分叉问题
-	bh:=chain.queryBlockByHeight(height)
-	if nil == bh{
+	bh := chain.queryBlockByHeight(height)
+	if nil == bh {
 		return nil
 	}
-	b:=chain.queryBlockByHash(bh.Hash)
+	b := chain.queryBlockByHash(bh.Hash)
 	return &BlockMessage{
 		Blocks: []*Block{b},
 	}
 }
 
-func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error{
+func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error {
 	blocks := bm.Blocks
-	if nil == blocks || 0==len(blocks){
+	if nil == blocks || 0 == len(blocks) {
 		return ErrNil
 	}
 
-	for _, block := range blocks{
+	for _, block := range blocks {
 		chain.AddBlockOnChain(block)
 	}
 	return nil
@@ -331,7 +332,9 @@ func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
 	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
 }
 
-func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
+func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+	//todo: 校验高度
+
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
@@ -343,11 +346,17 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	block.Header = &BlockHeader{
 		Transactions: transactionHashes,
 		CurTime:      time.Now(), //todo:时区问题
+		Height:       height,
+		Nonce:        nonce,
+		QueueNumber:  queueNumber,
+		Castor:       castor,
+		GroupId:      groupid,
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.Height = latestBlock.Height + 1
+		block.Header.PreTime = latestBlock.CurTime
 	}
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -362,39 +371,80 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader) *Block {
 	}
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 
-	block.Header.TxTree = block.calcTxTree()
-	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
+	block.Header.TxTree = calcTxTree(block.Transactions)
+	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 
 	block.Header.Hash = block.Header.GenHash()
 	return block
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock() *Block {
-	return chain.CastingBlockAfter(chain.latestBlock)
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+	return chain.CastingBlockAfter(chain.latestBlock, height, nonce, queueNumber, castor, groupid)
 
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
-func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) int8 {
-	missing := false
+func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+
+	// 校验父亲块
+	preHash := bh.PreHash
+	preBlock := chain.queryBlockHeaderByHash(preHash)
+
+	//本地无父块，暂不处理
+	// todo:可以缓存，等父块到了再add
+	if preBlock == nil {
+		return nil, -1, nil, nil
+	}
+
+	// 验证交易
+	missing := make([]common.Hash, 0)
 	transactions := make([]*Transaction, len(bh.Transactions))
 	for i, hash := range bh.Transactions {
 		transaction, err := chain.transactionPool.GetTransaction(hash)
 		if err != nil {
-			missing = true
+			missing = append(missing, hash)
 		} else {
 			transactions[i] = transaction
 		}
 
 	}
-
-	if missing {
-		return 1
+	if 0 != len(missing) {
+		//广播，索取交易
+		m := &TransactionRequestMessage{
+			TransactionHashes: missing,
+			RequestTime:       time.Now(),
+		}
+		BroadcastTransactionRequest(*m)
+		return missing, 1, nil, nil
+	}
+	if hexutil.Encode(calcTxTree(transactions).Bytes()) != hexutil.Encode(bh.TxTree.Bytes()) {
+		return missing, -1, nil, nil
 	}
 
-	return 0
+	//执行交易
+	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	if err != nil {
+		return nil, -1, nil, nil
+	}
+
+	b := new(Block)
+	b.Header = &bh
+	b.Transactions = transactions
+	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	if err != nil {
+		return nil, -1, nil, nil
+	}
+	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
+		return nil, -1, nil, nil
+	}
+
+	if hexutil.Encode(calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
+		return nil, 1, nil, nil
+	}
+
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
@@ -403,38 +453,9 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	preHash := b.Header.PreHash
-	preBlock := chain.queryBlockHeaderByHash(preHash)
-
-	//本地无父块，暂不处理
-	// todo:可以缓存，等父块到了再add
-	if preBlock == nil {
-		return -1
-	}
-
 	// 验证块是否有问题
-	status := chain.VerifyCastingBlock(*b.Header)
+	_, status, state, receipts := chain.VerifyCastingBlock(*b.Header)
 	if status != 0 {
-		return -1
-	}
-	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()) {
-		return -1
-	}
-
-	// 验证交易执行结果
-	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
-	if err != nil {
-		return -1
-	}
-	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
-	if err != nil {
-		return -1
-	}
-	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
-		return -1
-	}
-
-	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return -1
 	}
 

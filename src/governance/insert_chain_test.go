@@ -41,8 +41,11 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//交易2
 	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
+	castor:=new([]byte)
+	groupid:=new([]byte)
+
 	// 铸块1
-	block := chain.CastingBlock()
+	block := chain.CastingBlock(1, 12, 0, *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
@@ -63,7 +66,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1, 10))
 
 	// 铸块2
-	block2 := chain.CastingBlock()
+	block2 := chain.CastingBlock(2, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != chain.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
@@ -86,7 +89,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 铸块3 空块
-	block3 := chain.CastingBlock()
+	block3 := chain.CastingBlock(3, 125, 0, *castor, *groupid)
 	if 0 != chain.AddBlockOnChain(block3) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -98,7 +101,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块4 空块
 	// 模拟分叉
-	block4 := chain.CastingBlockAfter(block.Header)
+	block4 := chain.CastingBlockAfter(block.Header, 2, 1256, 0, *castor, *groupid)
 
 	if 0 != chain.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
