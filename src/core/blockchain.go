@@ -269,6 +269,18 @@ func (chain *BlockChain) Clear() error {
 	return err
 }
 
+func (chain *BlockChain) GenerateBlock(bh BlockHeader) *Block {
+	block := &Block{
+		Header: &bh,
+	}
+
+	block.Transactions = make([]*Transaction, len(bh.Transactions))
+	for i, hash := range bh.Transactions {
+		block.Transactions[i], _ = chain.transactionPool.GetTransaction(hash)
+	}
+	return block
+}
+
 //根据哈希取得某个交易
 func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
