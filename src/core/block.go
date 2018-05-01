@@ -49,8 +49,7 @@ type Block struct {
 	Transactions []*Transaction
 }
 
-func (b *Block) calcTxTree() common.Hash {
-	tx := b.Transactions
+func calcTxTree(tx []*Transaction) common.Hash {
 	if nil == tx || 0 == len(tx) {
 		return emptyHash
 	}
@@ -68,7 +67,7 @@ func (b *Block) calcTxTree() common.Hash {
 	return common.BytesToHash(hash.Bytes())
 }
 
-func (b *Block) calcReceiptsTree(receipts types.Receipts) common.Hash {
+func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
 		return emptyHash
 	}

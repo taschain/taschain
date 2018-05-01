@@ -13,6 +13,7 @@ import (
 	"vm/ethdb"
 	"vm/common/hexutil"
 	"math/big"
+	"vm/core/types"
 )
 
 const STATUS_KEY = "current"
@@ -370,8 +371,8 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	}
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 
-	block.Header.TxTree = block.calcTxTree()
-	block.Header.ReceiptTree = block.calcReceiptsTree(receipts)
+	block.Header.TxTree = calcTxTree(block.Transactions)
+	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 
 	block.Header.Hash = block.Header.GenHash()
 	return block
@@ -385,7 +386,19 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
-func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8) {
+func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+
+	// 校验父亲块
+	preHash := bh.PreHash
+	preBlock := chain.queryBlockHeaderByHash(preHash)
+
+	//本地无父块，暂不处理
+	// todo:可以缓存，等父块到了再add
+	if preBlock == nil {
+		return nil, -1, nil, nil
+	}
+
+	// 验证交易
 	missing := make([]common.Hash, 0)
 	transactions := make([]*Transaction, len(bh.Transactions))
 	for i, hash := range bh.Transactions {
@@ -397,12 +410,41 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		}
 
 	}
-
 	if 0 != len(missing) {
-		return missing, 1
+		//广播，索取交易
+		m := &TransactionRequestMessage{
+			TransactionHashes: missing,
+			RequestTime:       time.Now(),
+		}
+		BroadcastTransactionRequest(*m)
+		return missing, 1, nil, nil
+	}
+	if hexutil.Encode(calcTxTree(transactions).Bytes()) != hexutil.Encode(bh.TxTree.Bytes()) {
+		return missing, -1, nil, nil
 	}
 
-	return missing, 0
+	//执行交易
+	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	if err != nil {
+		return nil, -1, nil, nil
+	}
+
+	b := new(Block)
+	b.Header = &bh
+	b.Transactions = transactions
+	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	if err != nil {
+		return nil, -1, nil, nil
+	}
+	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
+		return nil, -1, nil, nil
+	}
+
+	if hexutil.Encode(calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
+		return nil, 1, nil, nil
+	}
+
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
@@ -411,38 +453,9 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	preHash := b.Header.PreHash
-	preBlock := chain.queryBlockHeaderByHash(preHash)
-
-	//本地无父块，暂不处理
-	// todo:可以缓存，等父块到了再add
-	if preBlock == nil {
-		return -1
-	}
-
 	// 验证块是否有问题
-	_,status := chain.VerifyCastingBlock(*b.Header)
+	_, status, state, receipts := chain.VerifyCastingBlock(*b.Header)
 	if status != 0 {
-		return -1
-	}
-	if hexutil.Encode(b.calcTxTree().Bytes()) != hexutil.Encode(b.Header.TxTree.Bytes()) {
-		return -1
-	}
-
-	// 验证交易执行结果
-	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
-	if err != nil {
-		return -1
-	}
-	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
-	if err != nil {
-		return -1
-	}
-	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
-		return -1
-	}
-
-	if hexutil.Encode(b.calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return -1
 	}
 
