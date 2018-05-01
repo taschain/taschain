@@ -112,7 +112,7 @@ func (s *server) send(b []byte, id string) {
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
 	if error != nil || string(peerInfo.ID) == "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
-		panic("DHT find peer error!")
+		return
 	}
 	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 

@@ -84,11 +84,6 @@ func (bs *blockSyncer) start() {
 }
 
 func (bs *blockSyncer) syncBlock() {
-	bs.maxHeightLock.Lock()
-	bs.neighborMaxHeight = 0
-	bs.bestNodeId = ""
-	bs.maxHeightLock.Unlock()
-
 	go requestBlockChainHeight()
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
@@ -103,8 +98,6 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxHeightLock.Lock()
 	maxHeight := bs.neighborMaxHeight
 	bestNodeId := bs.bestNodeId
-	bs.neighborMaxHeight = 0
-	bs.bestNodeId = ""
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
 		logger.Infof("Neighbor max block height: %d,is less than self block height: %d .Don't sync!\n", maxHeight, localHeight)
