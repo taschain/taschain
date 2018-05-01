@@ -258,7 +258,7 @@ func unMarshalBlock(bytes []byte) (*core.Block, error) {
 		logger.Errorf("Unmarshal Block error:%s\n", error.Error())
 		return nil, error
 	}
-	block := pbToBlock(b)
+	block := PbToBlock(b)
 	return block, nil
 }
 
@@ -279,7 +279,7 @@ func unMarshalBlock(bytes []byte) (*core.Block, error) {
 //	return result, nil
 //}
 
-func pbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
+func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
@@ -289,19 +289,29 @@ func pbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 	}
 
 	var preTime time.Time
-	preTime.UnmarshalBinary(h.PreTime)
+	e1 := preTime.UnmarshalBinary(h.PreTime)
+	if e1 != nil {
+		logger.Errorf("pbToBlockHeader preTime UnmarshalBinary error:%s\n", e1.Error())
+		return nil
+	}
+
 	var curTime time.Time
 	curTime.UnmarshalBinary(h.CurTime)
+	e2 := curTime.UnmarshalBinary(h.CurTime)
+	if e2 != nil {
+		logger.Errorf("pbToBlockHeader curTime UnmarshalBinary error:%s\n", e2.Error())
+		return nil
+	}
 
 	header := core.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		BlockHeight: *h.BlockHeight, QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, Signature: common.BytesToHash(h.Signature),
+		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: common.BytesToHash(h.Signature),
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData}
 	return &header
 }
 
-func pbToBlock(b *tas_pb.Block) *core.Block {
-	h := pbToBlockHeader(b.Header)
+func PbToBlock(b *tas_pb.Block) *core.Block {
+	h := PbToBlockHeader(b.Header)
 	txs := pbToTransactions(b.Transactions)
 	block := core.Block{Header: h, Transactions: txs}
 	return &block
@@ -375,7 +385,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 	blocks := make([]*core.Block, 0)
 	if message.Blocks.Blocks != nil {
 		for _, b := range message.Blocks.Blocks {
-			blocks = append(blocks, pbToBlock(b))
+			blocks = append(blocks, PbToBlock(b))
 		}
 	}
 
