@@ -1,18 +1,17 @@
-package net
+package logical
 
 import (
-	"consensus/logical"
-	"taslog"
 	"consensus/groupsig"
-	"network/p2p"
-	"pb"
-	"github.com/gogo/protobuf/proto"
+	"consensus/logical"
 	"core"
+	"network/p2p"
+	"taslog"
+
+	"github.com/gogo/protobuf/proto"
 )
 
-
-
 var logger = taslog.GetLogger(taslog.P2PConfig)
+
 //----------------------------------------------------组初始化-----------------------------------------------------------
 //广播 组初始化消息  组内广播
 func SendGroupInitMessage(grm logical.ConsensusGroupRawMessage) {
@@ -63,7 +62,7 @@ func BroadcastGroupInfo(cgm logical.ConsensusGroupInitedMessage) {
 //组内成员发现自己所在组成为铸币组 发消息通知全组 组内广播
 //param: 组信息
 //      SignData
-func  SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
+func SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -79,7 +78,7 @@ func  SendCurrentGroupCast(ccm *logical.ConsensusCurrentMessage) {
 }
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-func  SendCastVerify(ccm *logical.ConsensusCastMessage) {
+func SendCastVerify(ccm *logical.ConsensusCastMessage) {
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -96,7 +95,7 @@ func  SendCastVerify(ccm *logical.ConsensusCastMessage) {
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
-func  SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
+func SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 	//groupId := ccm.GroupID
 	var memberIds []groupsig.ID
 	//todo 从鸠兹获得
@@ -116,13 +115,6 @@ func  SendVerifiedCast(cvm *logical.ConsensusVerifyMessage) {
 //todo 此处参数留空 等班德构造
 func BroadcastNewBlock() {}
 
-
-
-
-
-
-
-
 //----------------------------------------------组初始化---------------------------------------------------------------
 
 func marshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byte, error) {
@@ -139,7 +131,6 @@ func marshalConsensusGroupRawMessage(m *logical.ConsensusGroupRawMessage) ([]byt
 	return proto.Marshal(&message)
 }
 
-
 func marshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([]byte, error) {
 	gisHash := m.GISHash.Bytes()
 	dummyId := m.DummyID.Serialize()
@@ -151,14 +142,13 @@ func marshalConsensusSharePieceMessage(m *logical.ConsensusSharePieceMessage) ([
 	return proto.Marshal(&message)
 }
 
-
-
 func marshalConsensusGroupInitedMessage(m *logical.ConsensusGroupInitedMessage) ([]byte, error) {
 	gi := staticGroupInfoToPb(&m.GI)
 	si := signDataToPb(&m.SI)
 	message := tas_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
 	return proto.Marshal(&message)
 }
+
 //--------------------------------------------组铸币--------------------------------------------------------------------
 func marshalConsensusCurrentMessagee(m *logical.ConsensusCurrentMessage) ([]byte, error) {
 	GroupID := m.GroupID
@@ -184,8 +174,6 @@ func marshalConsensusCastMessage(m *logical.ConsensusCastMessage) ([]byte, error
 	return proto.Marshal(&message)
 }
 
-
-
 func marshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, error) {
 	bh := blockHeaderToPb(&m.BH)
 	groupId := m.GroupID.Serialize()
@@ -194,6 +182,7 @@ func marshalConsensusVerifyMessage(m *logical.ConsensusVerifyMessage) ([]byte, e
 	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, GroupID: groupId, Sign: si}
 	return proto.Marshal(&message)
 }
+
 //----------------------------------------------------------------------------------------------------------------------
 func consensusGroupInitSummaryToPb(m *logical.ConsensusGroupInitSummary) *tas_pb.ConsensusGroupInitSummary {
 	beginTime, e := m.BeginTime.MarshalBinary()
@@ -210,8 +199,6 @@ func consensusGroupInitSummaryToPb(m *logical.ConsensusGroupInitSummary) *tas_pb
 		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime}
 	return &message
 }
-
-
 
 func signDataToPb(s *logical.SignData) *tas_pb.SignData {
 	sign := tas_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
