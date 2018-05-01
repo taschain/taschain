@@ -568,17 +568,21 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
+	if bh == nil {
+		panic("SuccessNewBlock arg failed.")
+	}
 	fmt.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 	bc := p.GetBlockContext(gid.GetHexString())
-	/*
-		r := core.AddBlockOnChain(block)
-		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
-		if r == 0 || r == 1 {
-
-		} else {
-			panic("core.AddBlockOnChain failed.")
-		}
-	*/
+	block := p.MainChain.GenerateBlock(*bh)
+	if block == nil {
+		panic("core.GenerateBlock failed.")
+	}
+	r := p.MainChain.AddBlockOnChain(block)
+	fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
+	if r == 0 || r == 1 {
+	} else {
+		panic("core.AddBlockOnChain failed.")
+	}
 	var cbm ConsensusBlockMessage
 	//cbm.Block = *block
 	cbm.GroupID = gid
