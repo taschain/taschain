@@ -164,10 +164,10 @@ func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
 }
 
 //--------------------------------------------------Block---------------------------------------------------------------
-//func marshalBlock(b *Block) ([]byte, error) {
-//	block := blockToPb(b)
-//	return proto.Marshal(block)
-//}
+func MarshalBlock(b *Block) ([]byte, error) {
+	block := BlockToPb(b)
+	return proto.Marshal(block)
+}
 
 func MarshalBlocks(bs []*Block) ([]byte, error) {
 	blocks := make([]*tas_pb.Block, 0)

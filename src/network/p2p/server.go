@@ -27,40 +27,42 @@ const (
 
 	KEY_PIECE_MSG uint32 = 0x01
 
-	GROUP_INIT_DONE_MSG uint32 = 0x02
+	SIGN_PUBKEY_MSG uint32 = 0x02
+
+	GROUP_INIT_DONE_MSG uint32 = 0x03
 
 	//-----------组铸币---------------------------------
-	CURRENT_GROUP_CAST_MSG uint32 = 0x03
+	CURRENT_GROUP_CAST_MSG uint32 = 0x04
 
-	CAST_VERIFY_MSG uint32 = 0x04
+	CAST_VERIFY_MSG uint32 = 0x05
 
-	VARIFIED_CAST_MSG uint32 = 0x05
+	VARIFIED_CAST_MSG uint32 = 0x06
 
-	REQ_TRANSACTION_MSG uint32 = 0x06
+	REQ_TRANSACTION_MSG uint32 = 0x07
 
-	TRANSACTION_GOT_MSG uint32 = 0x07
+	TRANSACTION_GOT_MSG uint32 = 0x08
 
-	TRANSACTION_MSG uint32 = 0x08
+	TRANSACTION_MSG uint32 = 0x09
 
-	NEW_BLOCK_MSG uint32 = 0x09
+	NEW_BLOCK_MSG uint32 = 0x0a
 
 	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0a
+	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0b
 
-	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0b
+	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0c
 
-	REQ_BLOCK_MSG uint32 = 0x0c
+	REQ_BLOCK_MSG uint32 = 0x0d
 
-	BLOCK_MSG uint32 = 0x0d
+	BLOCK_MSG uint32 = 0x0e
 
 	//-----------组同步---------------------------------
-	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0e
+	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0f
 
-	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0f
+	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x10
 
-	REQ_GROUP_MSG uint32 = 0x10
+	REQ_GROUP_MSG uint32 = 0x11
 
-	GROUP_MSG uint32 = 0x11
+	GROUP_MSG uint32 = 0x12
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -231,13 +233,19 @@ func (s *server) handleMessage(b []byte, from string) {
 
 	code := message.Code
 	switch *code {
-	case GROUP_INIT_MSG, KEY_PIECE_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG, VARIFIED_CAST_MSG:
+	case GROUP_INIT_MSG, KEY_PIECE_MSG,SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
+		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_HEIGHT_MSG, BLOCK_CHAIN_HEIGHT_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
 		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG:
 		chainHandler.HandlerMessage(*code, message.Body, from)
-	case NEW_BLOCK_MSG, TRANSACTION_GOT_MSG:
-		e := chainHandler.HandlerMessage(*code, message.Body, from)
+	case NEW_BLOCK_MSG:
+		bytes,e := consensusHandler.HandlerMessage(*code, message.Body, from)
+		if e != nil {
+			chainHandler.HandlerMessage(*code, bytes, from)
+		}
+	case TRANSACTION_GOT_MSG:
+		_,e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
 			consensusHandler.HandlerMessage(*code, message.Body, from)
 		}

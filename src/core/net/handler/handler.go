@@ -19,24 +19,29 @@ const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
 
-func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) error {
+func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
 	switch code {
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
-			logger.Error("Discard TransactionRequestMessage because of unmarshal error!\n")
-			return nil
+			logger.Errorf("Discard TransactionRequestMessage because of unmarshal error:%s\n",e.Error())
+			return nil, nil
 		}
 		OnTransactionRequest(m)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
-		m, e := unMarshalTransactions(body)
+		m, e := UnMarshalTransactions(body)
 		if e != nil {
-			logger.Error("Discard TRANSACTION_MSG because of unmarshal error!\n")
-			return nil
+			logger.Errorf("Discard TRANSACTION_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, nil
 		}
-		return OnMessageTransaction(m)
+		return nil, OnMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
-		//todo
+		block, e := unMarshalBlock(body)
+		if e != nil {
+			logger.Errorf("Discard NEW_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, nil
+		}
+		OnMessageNewBlock(block)
 
 	case p2p.REQ_BLOCK_CHAIN_HEIGHT_MSG:
 		sync.BlockSyncer.HeightRequestCh <- sourceId
@@ -47,16 +52,16 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_BLOCK_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Error("Discard REQ_BLOCK_MSG because of unmarshal error!\n")
-			return e
+			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
 		sync.BlockSyncer.BlockRequestCh <- s
 	case p2p.BLOCK_MSG:
 		m, e := unMarshalBlockMessage(body)
 		if e != nil {
-			logger.Error("Discard BLOCK_MSG because of unmarshal error!\n")
-			return e
+			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, e
 		}
 		s := core.BlockArrivedMessage{BlockEntity: *m, SourceId: sourceId}
 		sync.BlockSyncer.BlockArrivedCh <- s
@@ -70,21 +75,21 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_GROUP_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Error("Discard REQ_BLOCK_MSG because of unmarshal error!\n")
-			return e
+			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
 		sync.GroupSyncer.GroupRequestCh <- s
 	case p2p.GROUP_MSG:
 		m, e := unMarshalGroupMessage(body)
 		if e != nil {
-			logger.Error("Discard BLOCK_MSG because of unmarshal error!\n")
-			return e
+			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			return nil, e
 		}
 		s := core.GroupArrivedMessage{GroupEntity: *m, SourceId: sourceId}
 		sync.GroupSyncer.GroupArrivedCh <- s
 	}
-	return nil
+	return nil, nil
 }
 
 //-----------------------------------------------铸币-------------------------------------------------------------------
@@ -191,7 +196,7 @@ func unMarshalTransaction(b []byte) (*core.Transaction, error) {
 	return transaction, nil
 }
 
-func unMarshalTransactions(b []byte) ([]*core.Transaction, error) {
+func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 	ts := new(tas_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
@@ -246,17 +251,17 @@ func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
 }
 
 //--------------------------------------------------Block---------------------------------------------------------------
-//func unMarshalBlock(bytes []byte) (*core.Block, error) {
-//	b := new(tas_pb.Block)
-//	error := proto.Unmarshal(bytes, b)
-//	if error != nil {
-//		logger.Errorf("Unmarshal Block error:%s\n", error.Error())
-//		return nil, error
-//	}
-//	block := pbToBlock(b)
-//	return block, nil
-//}
-//
+func unMarshalBlock(bytes []byte) (*core.Block, error) {
+	b := new(tas_pb.Block)
+	error := proto.Unmarshal(bytes, b)
+	if error != nil {
+		logger.Errorf("Unmarshal Block error:%s\n", error.Error())
+		return nil, error
+	}
+	block := pbToBlock(b)
+	return block, nil
+}
+
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)
 //	error := proto.Unmarshal(b, blockSlice)
