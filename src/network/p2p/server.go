@@ -23,46 +23,48 @@ const (
 	CODE_SIZE = 4
 
 	//-----------组初始化---------------------------------
-	GROUP_INIT_MSG uint32 = 0x00
+	GROUP_MEMBER_MSG uint32 = 0x00
 
-	KEY_PIECE_MSG uint32 = 0x01
+	GROUP_INIT_MSG uint32 = 0x01
 
-	SIGN_PUBKEY_MSG uint32 = 0x02
+	KEY_PIECE_MSG uint32 = 0x02
 
-	GROUP_INIT_DONE_MSG uint32 = 0x03
+	SIGN_PUBKEY_MSG uint32 = 0x03
+
+	GROUP_INIT_DONE_MSG uint32 = 0x04
 
 	//-----------组铸币---------------------------------
-	CURRENT_GROUP_CAST_MSG uint32 = 0x04
+	CURRENT_GROUP_CAST_MSG uint32 = 0x05
 
-	CAST_VERIFY_MSG uint32 = 0x05
+	CAST_VERIFY_MSG uint32 = 0x06
 
-	VARIFIED_CAST_MSG uint32 = 0x06
+	VARIFIED_CAST_MSG uint32 = 0x07
 
-	REQ_TRANSACTION_MSG uint32 = 0x07
+	REQ_TRANSACTION_MSG uint32 = 0x08
 
-	TRANSACTION_GOT_MSG uint32 = 0x08
+	TRANSACTION_GOT_MSG uint32 = 0x09
 
-	TRANSACTION_MSG uint32 = 0x09
+	TRANSACTION_MSG uint32 = 0x0a
 
-	NEW_BLOCK_MSG uint32 = 0x0a
+	NEW_BLOCK_MSG uint32 = 0x0b
 
 	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0b
+	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0c
 
-	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0c
+	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0d
 
-	REQ_BLOCK_MSG uint32 = 0x0d
+	REQ_BLOCK_MSG uint32 = 0x0e
 
-	BLOCK_MSG uint32 = 0x0e
+	BLOCK_MSG uint32 = 0x0f
 
 	//-----------组同步---------------------------------
-	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x0f
+	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x10
 
-	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x10
+	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x11
 
-	REQ_GROUP_MSG uint32 = 0x11
+	REQ_GROUP_MSG uint32 = 0x12
 
-	GROUP_MSG uint32 = 0x12
+	GROUP_MSG uint32 = 0x13
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -233,7 +235,7 @@ func (s *server) handleMessage(b []byte, from string) {
 
 	code := message.Code
 	switch *code {
-	case GROUP_INIT_MSG, KEY_PIECE_MSG,SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
+	case GROUP_MEMBER_MSG,GROUP_INIT_MSG, KEY_PIECE_MSG,SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_HEIGHT_MSG, BLOCK_CHAIN_HEIGHT_MSG, REQ_BLOCK_MSG, BLOCK_MSG,

@@ -13,6 +13,26 @@ import (
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
+
+//全网广播组成员信息
+func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
+	body, e := marshalConsensusGroupRawMessage(&grm)
+	if e != nil {
+		logger.Errorf("Discard BroadcastMembersInfo because of marshal error:%s\n", e.Error())
+		return
+	}
+	m := p2p.Message{Code: p2p.GROUP_MEMBER_MSG, Body: body}
+
+	conns := p2p.Server.Host.Network().Conns()
+	for _, conn := range conns {
+		id := conn.RemotePeer()
+		if id != "" {
+			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+		}
+	}
+}
+
+
 //广播 组初始化消息  组内广播
 func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(&grm)
