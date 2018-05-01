@@ -18,7 +18,7 @@ type ConsensusGroupRawMessage struct {
 	GI      ConsensusGroupInitSummary     //组初始化共识
 	MEMS    [GROUP_MAX_MEMBERS]PubKeyInfo //组成员列表，该次序不可变更，影响组内铸块排位。
 	SI      SignData                      //矿工（父亲组成员）个人签名
-	UserIds [GROUP_MAX_MEMBERS]string     //用户ID列表，顺序和成员ID列表严格意义第一对应
+	UserIds [GROUP_MAX_MEMBERS]string     //用户ID列表，顺序和成员ID列表严格意义一一对应（added by 屮逸）
 }
 
 func (msg *ConsensusGroupRawMessage) GenSign(ski SecKeyInfo) bool {

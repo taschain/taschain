@@ -3,6 +3,7 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
+	//"consensus/net"
 	"consensus/rand"
 	"core"
 	"fmt"
@@ -112,12 +113,21 @@ func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 
 func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	str := pk.GetHexString()
-	return str[0:12]
+	if len(str) >= 12 {
+		return str[0:12]
+	} else {
+		return str[0:len(str)]
+	}
+
 }
 
 func GetIDPrefix(id groupsig.ID) string {
 	str := id.GetHexString()
-	return str[0:6]
+	if len(str) >= 6 {
+		return str[0:6]
+	} else {
+		return str[0:len(str)]
+	}
 }
 
 func (p Processer) getPrefix() string {
@@ -161,6 +171,7 @@ func (p *Processer) Stop() {
 	return
 }
 
+//增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processer) AddBlockConext(bc *BlockContext) bool {
 	if p.GetBlockContext(bc.MinerID.gid.GetHexString()) == nil {
 		p.bcs[bc.MinerID.gid.GetHexString()] = bc
@@ -170,6 +181,8 @@ func (p *Processer) AddBlockConext(bc *BlockContext) bool {
 	}
 }
 
+//取得一个铸块上下文
+//gid:组ID hex 字符串
 func (p *Processer) GetBlockContext(gid string) *BlockContext {
 	if v, ok := p.bcs[gid]; ok {
 		return v
@@ -246,7 +259,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 				panic("ERROR, BlockContext = nil.")
 			} else {
 				if !bc.IsCasting() { //之前没有在铸块状态
-					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash)
+					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash) //设置当前铸块高度
 					first = true
 					fmt.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", b, bc.ConsensusStatus)
 				} else {
@@ -266,10 +279,12 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 //收到成为当前铸块组消息
 func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	fmt.Printf("proc(%v) begin Processer::OnMessageCurrent, sender=%v, time=%v...\n", p.getPrefix(), GetIDPrefix(ccm.SI.GetID()), time.Now().Format(time.Stamp))
-	var cgs CastGroupSummary
-	if cgs.GroupID.Deserialize(ccm.GroupID) != nil {
+	var gid groupsig.ID
+	if gid.Deserialize(ccm.GroupID) != nil {
 		panic("Processer::OnMessageCurrent failed, reason=group id Deserialize.")
 	}
+	var cgs CastGroupSummary
+	cgs.GroupID = gid
 	cgs.PreHash = ccm.PreHash
 	cgs.PreTime = ccm.PreTime
 	cgs.BlockHeight = ccm.BlockHeight
@@ -277,7 +292,10 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	fmt.Printf("after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
 	if bc != nil {
 		if first { //第一次收到“当前组成为铸块组”消息
+			ccm_local := ccm
+			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
 			//to do：屮逸组内广播
+			//SendCurrentGroupCast(ccm_local)
 		}
 	}
 	fmt.Printf("proc(%v) end Processer::OnMessageCurrent, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
@@ -453,6 +471,8 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 
 ///////////////////////////////////////////////////////////////////////////////
 //组初始化相关消息
+//组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
+
 func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	fmt.Printf("begin Processer::OnMessageGroupInit, procs=%v...\n", len(p.GroupProcs))
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -698,7 +718,8 @@ func (p Processer) castBlock(gid groupsig.ID, qn int64) *core.BlockHeader {
 	var hash common.Hash
 	hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : 鸠兹生成bh和哈希
-	//给鸠兹的参数：QN, nonce，castor
+	//给鸠兹的参数：QN, nonce，castor，group id
+
 	var si SignData
 	si.DataHash = hash
 	si.SignMember = p.GetMinerID()
