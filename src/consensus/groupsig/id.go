@@ -3,9 +3,7 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
-	"crypto/sha1"
 	"fmt"
-	"io"
 	"log"
 	"math/big"
 )
@@ -110,11 +108,14 @@ func NewIDFromPubkey(pk Pubkey) *ID {
 	return NewIDFromAddress(addr)
 }
 
-//从字符串生成ID
+//从字符串生成ID 传入的STRING必须保证离散性
 func NewIDFromString(s string) *ID {
-	h := sha1.New()
-	io.WriteString(h, s)
-	data := h.Sum(nil)
-	bi := new(big.Int).SetBytes(data[:])
+	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
+}
+
+func (id ID)GetString() string {
+	bigInt := id.GetBigInt()
+	b := bigInt.Bytes()
+	return string(b)
 }
