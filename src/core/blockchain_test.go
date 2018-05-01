@@ -35,8 +35,11 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//交易2
 	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
+	castor:=new([]byte)
+	groupid:=new([]byte)
+
 	// 铸块1
-	block := BlockChainImpl.CastingBlock()
+	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
@@ -65,7 +68,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1, 10))
 
 	// 铸块2
-	block2 := BlockChainImpl.CastingBlock()
+	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
@@ -91,7 +94,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 铸块3 空块
-	block3 := BlockChainImpl.CastingBlock()
+	block3 := BlockChainImpl.CastingBlock(3, 125, 0, *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -103,7 +106,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块4 空块
 	// 模拟分叉
-	block4 := BlockChainImpl.CastingBlockAfter(block.Header)
+	block4 := BlockChainImpl.CastingBlockAfter(block.Header,2, 124, 0, *castor, *groupid)
 
 	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")

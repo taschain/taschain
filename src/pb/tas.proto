@@ -60,13 +60,13 @@ message BlockHeader{
 
      required bytes PreTime  = 4 ;
 
-     required uint64 BlockHeight = 5;
+     required uint64 QueueNumber = 5;
 
-     required uint64 QueueNumber = 6;
+     required bytes CurTime  = 6 ;
 
-     required bytes CurTime  = 7 ;
+     required bytes Castor  = 7 ;
 
-     required bytes Castor  = 8 ;
+     required bytes GroupId  = 8 ;
 
      required bytes Signature  = 9 ;
 
@@ -163,9 +163,7 @@ message GroupMessage{
 
 	optional uint64 Height = 2;
 
-    optional Hashes  Hashes = 3;
-
-    optional Ratios Ratios = 4;
+    optional bytes  Hash = 3;
 }
 
 
@@ -230,6 +228,17 @@ message ConsensusSharePieceMessage{
 
 }
 
+message ConsensusSignPubKeyMessage{
+    required bytes GISHash = 1;
+
+    required bytes DummyID = 2;
+
+    required bytes	SignPK  = 3;
+
+    required SignData 	SignData = 4;
+}
+
+
 
 message StaticGroupInfo{
 
@@ -271,4 +280,12 @@ message ConsensusBlockMessageBase{
     required bytes	GroupID = 2;
 
     required SignData	Sign = 3;
+}
+
+message ConsensusBlockMessage{
+    required Block Block = 1;
+
+    required bytes GroupID = 2;
+
+    required SignData SignData = 3;
 }

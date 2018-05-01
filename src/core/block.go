@@ -19,14 +19,14 @@ import (
 
 //区块头结构
 type BlockHeader struct {
-	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
-	Height       uint64        // 本块的高度
+	Hash         common.Hash // 本块的hash，to do : 是对哪些数据的哈希
+	Height       uint64      // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	BlockHeight  uint64        //铸块高度
 	QueueNumber  uint64        //轮转序号
 	CurTime      time.Time     //当前铸块时间
-	Castor       []byte        //出块人ID，groupsig.ID的二进制表示
+	Castor       []byte        //出块人ID
+	GroupId      []byte        //组ID，groupsig.ID的二进制表示
 	Signature    common.Hash   // 组签名
 	Nonce        uint64        //盐
 	Transactions []common.Hash // 交易集哈希列表
@@ -48,8 +48,7 @@ type Block struct {
 	Transactions []*Transaction
 }
 
-func (b *Block) calcTxTree() common.Hash {
-	tx := b.Transactions
+func calcTxTree(tx []*Transaction) common.Hash {
 	if nil == tx || 0 == len(tx) {
 		return emptyHash
 	}
@@ -67,7 +66,7 @@ func (b *Block) calcTxTree() common.Hash {
 	return common.BytesToHash(hash.Bytes())
 }
 
-func (b *Block) calcReceiptsTree(receipts types.Receipts) common.Hash {
+func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
 		return emptyHash
 	}

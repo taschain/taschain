@@ -17,11 +17,12 @@ type BlockChainI interface {
 	GetTransactionByHash(h common.Hash) (*Transaction, error)
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastingBlock() *Block
+	CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block
 
 	//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 	//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
-	VerifyCastingBlock(bh BlockHeader) int8
+	//返回缺失交易列表
+	VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts)
 
 	//铸块成功，上链
 	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整

@@ -333,6 +333,15 @@ func test(t *testing.T, c int) {
 	testShareSeckey(t)
 }
 
+
+func TestIDStringConvert(t *testing.T){
+	Init(1)
+	str := "QmWJZdSV23by4xzYSz8SEmcfdo38N27WgxSefoy179pnoK"
+	id := NewIDFromString(str)
+	s:= id.GetString()
+	fmt.Printf("id str:%s\n",s)
+	fmt.Printf("id str compare resylt:%t\n",str==s)
+}
 func TestMain(t *testing.T) {
 	fmt.Printf("begin TestMain...\n")
 	t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
@@ -349,3 +358,5 @@ func TestMain(t *testing.T) {
 	}
 	return
 }
+
+

@@ -1,7 +1,7 @@
 package p2p
 
 type Handler interface {
-	HandlerMessage(code uint32, body []byte, sourceId string) error
+	HandlerMessage(code uint32, body []byte, sourceId string) ([]byte,error)
 }
 
 var chainHandler Handler
