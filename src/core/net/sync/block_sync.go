@@ -34,7 +34,7 @@ type blockSyncer struct {
 }
 
 func InitBlockSyncer() {
-	BlockSyncer = blockSyncer{neighborMaxHeight:0,HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
+	BlockSyncer = blockSyncer{neighborMaxHeight: 0, HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		BlockRequestCh: make(chan core.EntityRequestMessage), BlockArrivedCh: make(chan core.BlockArrivedMessage),}
 	BlockSyncer.start()
 }
@@ -70,12 +70,15 @@ func (bs *blockSyncer) start() {
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			logger.Infof("BlockArrivedCh get message from:%s,hash:%v\n", bm.SourceId, bm.BlockEntity.BlockHashes)
+			logger.Infof("BlockArrivedCh get message from:%s,block length:%v\n", bm.SourceId, len(bm.BlockEntity.Blocks))
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
 			}
-			core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
+			e := core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
+			if e != nil {
+				logger.Errorf("Block chain add block error:%s\n", e.Error())
+			}
 		case <-t.C:
 			logger.Info("sync time up start to sync!\n")
 			bs.syncBlock()

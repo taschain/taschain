@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"vm/core/types"
 	"github.com/hashicorp/golang-lru"
+	"fmt"
 )
 
 const STATUS_KEY = "current"
@@ -203,7 +204,10 @@ func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error {
 	}
 
 	for _, block := range blocks {
-		chain.AddBlockOnChain(block)
+		code := chain.AddBlockOnChain(block)
+		if 0 != code {
+			return fmt.Errorf("fail to add, code:%d", code)
+		}
 	}
 	return nil
 }
