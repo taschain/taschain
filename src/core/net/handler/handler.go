@@ -412,17 +412,8 @@ func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
 	}
 
 	height := *message.Height
+	hash := common.BytesToHash(message.Hash)
 
-	hashes := make([]common.Hash, 0)
-	if message.Hashes.Hashes != nil {
-		for _, h := range message.Hashes.Hashes {
-			hash := common.BytesToHash(h)
-			hashes = append(hashes, hash)
-		}
-	}
-
-	ratios := message.Ratios.Ratios
-
-	m := core.GroupMessage{Groups: groups, Height: height, GroupHashes: hashes, GroupRatios: ratios}
+	m := core.GroupMessage{Groups: groups, Height: height,Hash:hash}
 	return &m, nil
 }

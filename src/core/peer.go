@@ -45,10 +45,8 @@ type BlockArrivedMessage struct {
 
 type GroupMessage struct {
 	Groups []*Group
-
-	Height      uint64 //起始高度，如果返回blocks，那就是BLOCKS的起始高度，如果返回blockHashes那就是HASH的起始高度
-	GroupHashes []common.Hash
-	GroupRatios []float32
+	Height uint64      //起始高度
+	Hash   common.Hash //起始HASH
 }
 
 type GroupArrivedMessage struct {
