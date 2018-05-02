@@ -16,7 +16,7 @@ import (
 func TestBlockChain_AddBlock(t *testing.T) {
 
 	common.InitConf("test.ini")
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 	core.InitCore()
 	chain := core.BlockChainImpl
 	chain.GetTransactionPool().Clear()

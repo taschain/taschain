@@ -29,7 +29,7 @@ import (
 
 	"common"
 	"core/datasource"
-
+	"vm/ethdb"
 )
 
 func init() {
@@ -315,7 +315,7 @@ func TestLargeValue(t *testing.T) {
 }
 
 type countingDB struct {
-	datasource.Database
+	ethdb.Database
 	gets map[string]int
 }
 
@@ -538,7 +538,7 @@ func benchGet(b *testing.B, commit bool) {
 	b.StopTimer()
 
 	if commit {
-		ldb := trie.db.diskdb.(*datasource.LDBDatabase)
+		ldb := trie.db.diskdb.(*ethdb.LDBDatabase)
 		ldb.Close()
 		os.RemoveAll(ldb.Path())
 	}
@@ -594,7 +594,7 @@ func tempDB() (string, *Database) {
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))
 	}
-	diskdb, err := datasource.NewLDBDatabase(dir, 256, 0)
+	diskdb, err := datasource.NewDatabase(dir)
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary database: %v", err))
 	}

@@ -13,7 +13,7 @@ import (
 */
 
 func TestParamStore(t *testing.T) {
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 	core.InitCore()
 	chain := core.BlockChainImpl
 	chain.GetTransactionPool().Clear()
@@ -55,7 +55,9 @@ func TestParamStore(t *testing.T) {
 	}
 	t.Log("apply前", fm)
 
-	chain.AddBlockOnChain(chain.CastingBlock())
+	castor := new([]byte)
+	groupid := new([]byte)
+	chain.AddBlockOnChain(chain.CastingBlock(1, 12, 0, *castor, *groupid))
 
 	callctx = ChainTopCallContext()
 	ps = &ParamStore{

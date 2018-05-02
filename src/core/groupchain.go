@@ -5,20 +5,18 @@ import (
 	"sync"
 	"encoding/json"
 	"fmt"
-	"bytes"
 	"encoding/binary"
 	"os"
 	"common"
+	"vm/ethdb"
 )
+
+const GROUP_STATUS_KEY = "gcurrent"
 
 var GroupChainImpl *GroupChain
 
-const PREFIX = "p"
-
 type GroupChainConfig struct {
-	group       string
-	groupCache  int
-	groupHandle int
+	group string
 }
 
 type GroupChain struct {
@@ -26,7 +24,7 @@ type GroupChain struct {
 
 	// key id, value group
 	// key number, value id
-	groups datasource.Database
+	groups ethdb.Database
 
 	// cache
 	now [][]byte
@@ -39,9 +37,7 @@ type GroupChain struct {
 
 func defaultGroupChainConfig() *GroupChainConfig {
 	return &GroupChainConfig{
-		group:       "groupldb",
-		groupCache:  10,
-		groupHandle: 10,
+		group: "groupldb",
 	}
 }
 
@@ -52,9 +48,7 @@ func getGroupChainConfig() *GroupChainConfig {
 	}
 
 	return &GroupChainConfig{
-		group:       common.GlobalConf.GetString(CONFIG_SEC, "group", defaultConfig.group),
-		groupCache:  common.GlobalConf.GetInt(CONFIG_SEC, "groupCache", defaultConfig.groupCache),
-		groupHandle: common.GlobalConf.GetInt(CONFIG_SEC, "groupHandle", defaultConfig.groupHandle),
+		group: common.GlobalConf.GetString(CONFIG_SEC, "group", defaultConfig.group),
 	}
 }
 
@@ -70,7 +64,7 @@ func initGroupChain() error {
 
 	var err error
 
-	chain.groups, err = datasource.NewLDBDatabase(chain.config.group, chain.config.groupCache, chain.config.groupHandle)
+	chain.groups, err = datasource.NewDatabase(chain.config.group)
 	if nil != err {
 		return err
 	}
@@ -82,7 +76,7 @@ func initGroupChain() error {
 }
 
 func buildCache(chain *GroupChain) {
-	count, _ := chain.groups.Get([]byte(STATUS_KEY))
+	count, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	if nil == count {
 		return
 	}
@@ -99,9 +93,7 @@ func buildCache(chain *GroupChain) {
 
 }
 func generateKey(i uint64) []byte {
-	bytesBuffer := bytes.NewBuffer([]byte(PREFIX))
-	bytesBuffer.Write(intToBytes(i))
-	return bytesBuffer.Bytes()
+	return intToBytes(i)
 }
 
 func intToBytes(n uint64) []byte {
@@ -200,7 +192,7 @@ func (chain *GroupChain) save(group *Group) error {
 	}
 
 	chain.groups.Put(generateKey(chain.count), group.Id)
-	chain.groups.Put([]byte(STATUS_KEY), intToBytes(chain.count))
+	chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
 	chain.count++
 	return chain.groups.Put(group.Id, data)
 

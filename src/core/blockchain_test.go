@@ -10,7 +10,7 @@ import (
 
 func TestBlockChain_AddBlock(t *testing.T) {
 
-	Clear(DefaultBlockChainConfig())
+	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 	//chain.Clear()
@@ -129,7 +129,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 }
 
 func TestBlockChain_GetBlockMessage(t *testing.T) {
-	Clear(DefaultBlockChainConfig())
+	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 

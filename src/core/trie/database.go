@@ -6,6 +6,7 @@ import (
 	"common"
 
 	"core/datasource"
+	"vm/ethdb"
 )
 
 // secureKeyPrefix is the database key prefix used to store trie node preimages.
@@ -29,7 +30,7 @@ type DatabaseReader interface {
 // the disk database. The aim is to accumulate trie writes in-memory and only
 // periodically flush a couple tries to disk, garbage collecting the remainder.
 type Database struct {
-	diskdb datasource.Database // Persistent storage for matured trie nodes
+	diskdb ethdb.Database // Persistent storage for matured trie nodes
 
 	nodes     map[common.Hash]*cachedNode // Data and references relationships of a node
 	preimages map[common.Hash][]byte      // Preimages of nodes from the secure trie
@@ -55,7 +56,7 @@ type cachedNode struct {
 
 // NewDatabase creates a new trie database to store ephemeral trie content before
 // its written out to disk or garbage collected.
-func NewDatabase(diskdb datasource.Database) *Database {
+func NewDatabase(diskdb ethdb.Database) *Database {
 	return &Database{
 		diskdb: diskdb,
 		nodes: map[common.Hash]*cachedNode{
@@ -288,7 +289,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 }
 
 // commit is the private locked version of Commit.
-func (db *Database) commit(hash common.Hash, batch datasource.Batch) error {
+func (db *Database) commit(hash common.Hash, batch ethdb.Batch) error {
 	// If the node does not exist, it's a previously committed node
 	node, ok := db.nodes[hash]
 	if !ok {
