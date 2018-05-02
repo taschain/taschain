@@ -264,9 +264,11 @@ func (gtas *Gtas) fullInit() error {
 	}
 
 	id := p2p.Server.SelfNetInfo.Id
-	secret := getRandomString(5)
-	(*configManager).SetString(Section, "secret", secret)
-	fmt.Println(id)
+	secret := (*configManager).GetString(Section, "secret", "")
+	if secret == "" {
+		secret := getRandomString(5)
+		(*configManager).SetString(Section, "secret", secret)
+	}
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
