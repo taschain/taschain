@@ -91,6 +91,27 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	//m := core.TransactionRequestMessage{SourceId:p2p.Server.SelfNetInfo.Id,RequestTime:time.Now()}
 	//m.TransactionHashes = []common.Hash{common.BytesToHash(core.Sha256([]byte("tx1"))), common.BytesToHash(core.Sha256([]byte("tx3")))}
 	//core.BroadcastTransactionRequest(m)
+
+	//测试mock block
+	//txpool := core.BlockChainImpl.GetTransactionPool()
+	//// 交易1
+	//txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
+	//
+	////交易2
+	//txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
+	//castor:=[]byte{1,2,3,4}
+	//groupid:=[]byte{5,6,7,8}
+	//
+	//// 铸块1
+	//block := core.BlockChainImpl.CastingBlock(1, 12, 0, castor, groupid)
+	//if 0 != core.BlockChainImpl.AddBlockOnChain(block){
+	//	fmt.Printf("fail to add block\n")
+	//}else{
+	//	fmt.Printf("now height: %d\n",core.BlockChainImpl.Height())
+	//}
+	//
+	//fmt.Printf("local height: %d\n",core.BlockChainImpl.Height())
+
 	// 截获ctrl+c中断信号，退出
 
 	//txpool := core.BlockChainImpl.GetTransactionPool()

@@ -95,10 +95,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusBlockMessage because of unmarshal error%s\n", e.Error())
 			return nil, e
 		}
-		//todo 返回一个block
-		mediator.Proc.OnMessageBlock(*m)
-		var b core.Block
-		bytes, e1 := core.MarshalBlock(&b)
+		b := mediator.Proc.OnMessageBlock(*m)
+		bytes, e1 := core.MarshalBlock(b)
 		if e1 != nil {
 			logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s\n", e.Error())
 			return nil, e1
