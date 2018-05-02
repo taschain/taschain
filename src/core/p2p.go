@@ -90,7 +90,7 @@ func (connector *BlockChainConnector) getBlockChainHeight() (uint64, error) {
 	if nil == connector.chain {
 		return 0, fmt.Errorf("nil blockchain")
 	}
-	return connector.chain.height, nil
+	return connector.chain.Height(), nil
 }
 
 //getGroupChainHeightFn 实现
