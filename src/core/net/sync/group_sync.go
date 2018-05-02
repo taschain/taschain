@@ -69,7 +69,7 @@ func (gs *groupSyncer) start() {
 			}
 			groups, e := core.GroupChainImpl.GetGroupsByHeight(br.SourceHeight, br.SourceCurrentHash)
 			if e != nil {
-				logger.Errorf("%s query block error:%s\n", br.SourceId, e.Error())
+				logger.Errorf("%s query block error:%s", br.SourceId, e.Error())
 				return
 			}
 			entity := core.GroupMessage{Groups: groups, Height: br.SourceHeight, Hash: br.SourceCurrentHash}
@@ -149,7 +149,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := marshalEntityRequestMessage(&m)
 	if e != nil {
-		logger.Error("requestGroupByHeight marshal EntityRequestMessage error:%s\n", e.Error())
+		logger.Error("requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_GROUP_MSG, Body: body}
@@ -160,7 +160,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 func sendGroups(targetId string, groupEntity *core.GroupMessage) {
 	body, e := marshalGroupMessage(groupEntity)
 	if e != nil {
-		logger.Errorf("sendGroups marshal groupEntity error:%s\n", e.Error())
+		logger.Errorf("sendGroups marshal groupEntity error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.GROUP_MSG, Body: body}

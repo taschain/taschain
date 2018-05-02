@@ -62,7 +62,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 
 	body, e := marshalTransactionRequestMessage(&m)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!\n", e.Error())
+		logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
@@ -80,7 +80,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 func SendTransactions(txs []*Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s!\n", e.Error())
+		logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
@@ -98,7 +98,7 @@ func BroadcastTransactions(txs []*Transaction) {
 
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s\n", e.Error())
+		logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
@@ -191,7 +191,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 
 	curTime, e2 := h.CurTime.MarshalBinary()
 	if e2 != nil {
-		logger.Errorf("BlockHeaderToPb marshal cur time error:%s\n", e2.Error())
+		logger.Errorf("BlockHeaderToPb marshal cur time error:%s", e2.Error())
 		return nil
 	}
 

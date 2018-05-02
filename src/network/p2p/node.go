@@ -53,7 +53,7 @@ func GetIdFromPublicKey(p common.PublicKey) string {
 	pubKey := &Pubkey{PublicKey: p}
 	pID, e := peer.IDFromPublicKey(pubKey)
 	if e != nil {
-		logger.Errorf("IDFromPublicKey error:%s\n", e.Error())
+		logger.Errorf("IDFromPublicKey error:%s", e.Error())
 		panic("GetIdFromPublicKey error!")
 	}
 	id := ConvertToID(pID)
@@ -84,7 +84,7 @@ func getAvailableTCPPort(ip string, port int) int {
 	}
 
 	if port > 65535 {
-		logger.Error("No available port!\n")
+		logger.Error("No available port!")
 		return -1
 	}
 
@@ -100,7 +100,7 @@ func getAvailableTCPPort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort) + "\n"
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort)
 	return str
 }
 
@@ -131,7 +131,7 @@ func ConvertToID(p peer.ID) string {
 func ConvertToPeerID(i string) peer.ID {
 	id, e := peer.IDB58Decode(i)
 	if e != nil {
-		fmt.Errorf("ConvertToPeerID error:%s\n", e.Error())
+		fmt.Errorf("ConvertToPeerID error:%s", e.Error())
 		panic("ConvertToPeerID error!")
 	}
 	return id

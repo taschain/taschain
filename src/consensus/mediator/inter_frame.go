@@ -33,6 +33,7 @@ func NewMinerEx(id groupsig.ID, secret string) (mi logical.MinerInfo, ok bool) {
 //mid: 矿工ID
 //返回：true初始化成功，可以启动铸块。内部会和链进行交互，进行初始数据加载和预处理。失败返回false。
 func ConsensusInit(mi logical.MinerInfo) bool {
+	groupsig.Init(1)
 	return Proc.Init(mi)
 }
 

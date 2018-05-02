@@ -155,12 +155,12 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
 		process.Close()
-		logger.Error("KadDht bootstrap error!\n" + e.Error())
+		logger.Error("KadDht bootstrap error!" + e.Error())
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 20s!")
 	time.Sleep(30 * time.Second)
-	logger.Info("Booting dht finished!\n")
+	logger.Info("Booting dht finished!")
 	return kadDht, nil
 }
 
