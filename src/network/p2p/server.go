@@ -104,17 +104,17 @@ func (s *server) SendMessage(m Message, id string) {
 	copy(b[3:7], b2)
 	copy(b[7:], bytes)
 
-
 	s.send(b, id)
 }
 
 func (s *server) send(b []byte, id string) {
-	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
-	if error != nil || string(peerInfo.ID) == "" {
-		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
-		return
+	if id != s.SelfNetInfo.Id {
+		peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
+		if error != nil || string(peerInfo.ID) == "" {
+			logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
+		}
+		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	}
-	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -122,14 +122,14 @@ func (s *server) send(b []byte, id string) {
 	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
 	defer stream.Close()
 	if e != nil {
-		logger.Errorf("New stream for %s error:%s", id, error.Error())
+		logger.Errorf("New stream for %s error:%s", id, e.Error())
 		panic("New stream error!")
 	}
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
 		if err != nil {
-			logger.Errorf("Write stream for %s error:%s", id, error.Error())
+			logger.Errorf("Write stream for %s error:%s", id, e.Error())
 			return
 		}
 
@@ -145,7 +145,7 @@ func (s *server) send(b []byte, id string) {
 			copy(a, b[left:right])
 			r, err := stream.Write(a)
 			if err != nil {
-				logger.Errorf("Write stream for %s error:%s", id, error.Error())
+				logger.Errorf("Write stream for %s error:%s", id, err.Error())
 				return
 			}
 			if r != PACKAGE_MAX_SIZE {
@@ -235,19 +235,19 @@ func (s *server) handleMessage(b []byte, from string) {
 
 	code := message.Code
 	switch *code {
-	case GROUP_MEMBER_MSG,GROUP_INIT_MSG, KEY_PIECE_MSG,SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
+	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_HEIGHT_MSG, BLOCK_CHAIN_HEIGHT_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
 		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
-		bytes,e := consensusHandler.HandlerMessage(*code, message.Body, from)
+		bytes, e := consensusHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
 			chainHandler.HandlerMessage(*code, bytes, from)
 		}
 	case TRANSACTION_GOT_MSG:
-		_,e := chainHandler.HandlerMessage(*code, message.Body, from)
+		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
 			consensusHandler.HandlerMessage(*code, message.Body, from)
 		}

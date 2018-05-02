@@ -2,7 +2,6 @@ package cli
 
 import (
 	"common"
-	"consensus/groupsig"
 	"core"
 	"errors"
 	"fmt"
@@ -17,6 +16,8 @@ import (
 	"consensus/logical"
 	"governance/global"
 
+	"encoding/json"
+	"consensus/groupsig"
 )
 
 const (
@@ -34,6 +35,7 @@ var walletManager wallets
 type Gtas struct {
 }
 
+// vote 投票操作
 func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	if from == "" {
 		// 本地钱包同时无钱包地址
@@ -61,11 +63,30 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	fmt.Println(msg)
 }
 
-func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
+// miner 起旷工节点
+func (gtas *Gtas) miner(rpc, super bool,rpcAddr string, rpcPort uint) {
 	err := gtas.fullInit()
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+	if super {
+		keys := LoadPubKeyInfo()
+		fmt.Println("Waiting node to connect...")
+		for{
+			if len(p2p.Server.GetConnInfo()) >= 1{
+				fmt.Println("Connection:")
+				for _,c :=range  p2p.Server.GetConnInfo(){
+					fmt.Println(c.Id)
+				}
+				break
+			}
+		}
+		zero := mediator.CreateGroup(keys, "gtas")
+		if zero != 0 {
+			fmt.Println("create group failed")
+		}
+		fmt.Println("create group success")
 	}
 	if rpc {
 		err = StartRPC(rpcAddr, rpcPort)
@@ -76,9 +97,9 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	}
 
 	//测试SendTransactions
-	peer1Id := "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2"
-	txs := mockTxs()
-	core.SendTransactions(txs, peer1Id)
+	//peer1Id := "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2"
+	//txs := mockTxs()
+	//core.SendTransactions(txs, peer1Id)
 
 	//测试BroadcastTransactions
 	//txs := mockTxs()
@@ -169,6 +190,7 @@ func (gtas *Gtas) Run() {
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
 	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
+	super := mineCmd.Flag("super", "start super node").Bool()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -198,7 +220,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, addrRpc.String(), *portRpc)
+		gtas.miner(*rpc, *super, addrRpc.String(), *portRpc)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -226,10 +248,12 @@ func (gtas *Gtas) simpleInit(configPath string) {
 
 func (gtas *Gtas) fullInit() error {
 	var err error
+	// 椭圆曲线初始化
 	groupsig.Init(1)
+	// block初始化
 	err = core.InitCore()
 	if err != nil {
-		return errors.New("InitBlockChain failed")
+		return err
 	}
 
 	//TODO 初始化日志， network初始化
@@ -250,9 +274,15 @@ func (gtas *Gtas) fullInit() error {
 	}
 
 	id := p2p.Server.SelfNetInfo.Id
-	secret := getRandomString(5)
-	(*configManager).SetString(Section, "secret", secret)
-	ok = mediator.ConsensusInit(logical.NewMinerInfo(id, secret))
+	secret := (*configManager).GetString(Section, "secret", "")
+	if secret == "" {
+		secret := getRandomString(5)
+		(*configManager).SetString(Section, "secret", secret)
+	}
+	minerInfo := logical.NewMinerInfo(id, secret)
+	// 打印相关
+	ShowPubKeyInfo(minerInfo, id)
+	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
 	}
@@ -264,9 +294,42 @@ func (gtas *Gtas) fullInit() error {
 	return nil
 }
 
+func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo){
+	infos := []PubKeyInfo{}
+	keys := (*configManager).GetString(Section, "pubkeys", "")
+	err := json.Unmarshal([]byte(keys), &infos)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for k, v  := range infos {
+		if k >= 5 {
+			break
+		}
+		var pub = groupsig.Pubkey{}
+		fmt.Println(v.PubKey)
+		err := pub.SetHexString(v.PubKey)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		pubKeyInfos[k] = logical.PubKeyInfo{*groupsig.NewIDFromString(v.ID), pub}
+	}
+	return
+}
+
+func ShowPubKeyInfo(info logical.MinerInfo, id string) {
+	pubKey := info.GetDefaultPubKey().GetHexString()
+	fmt.Printf("PubKey: %s; ID: %s\n", pubKey, id)
+	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
+	fmt.Printf("pubkey_info json: %s", js)
+}
+
 func NewGtas() *Gtas {
 	return &Gtas{}
 }
+
+
 func mockTxs() []*core.Transaction {
 	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
 	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173

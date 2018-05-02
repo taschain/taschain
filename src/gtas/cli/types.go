@@ -34,3 +34,8 @@ type Transactions struct {
 	Target string `json:"target"`
 	Value  string `json:"value"`
 }
+
+type PubKeyInfo struct {
+	PubKey string `json:"pub_key"`
+	ID string `json:"id"`
+}
