@@ -72,6 +72,16 @@ func (gtas *Gtas) miner(rpc, super bool,rpcAddr string, rpcPort uint) {
 	}
 	if super {
 		keys := LoadPubKeyInfo()
+		fmt.Println("Waiting node to connect...")
+		for{
+			if len(p2p.Server.GetConnInfo()) >= 1{
+				fmt.Println("Connection:")
+				for _,c :=range  p2p.Server.GetConnInfo(){
+					fmt.Println(c.Id)
+				}
+				break
+			}
+		}
 		zero := mediator.CreateGroup(keys, "gtas")
 		if zero != 0 {
 			fmt.Println("create group failed")
