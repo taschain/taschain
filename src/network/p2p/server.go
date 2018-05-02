@@ -9,10 +9,9 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 	"pb"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-
 	"strings"
 	"taslog"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
 const (
@@ -108,11 +107,13 @@ func (s *server) SendMessage(m Message, id string) {
 }
 
 func (s *server) send(b []byte, id string) {
-	if id != s.SelfNetInfo.Id {
-		peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
-		if error != nil || string(peerInfo.ID) == "" {
-			logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
-		}
+	if id == s.SelfNetInfo.Id {
+		return
+	}
+	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
+	if error != nil || string(peerInfo.ID) == "" {
+		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
+	} else {
 		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	}
 
@@ -120,11 +121,11 @@ func (s *server) send(b []byte, id string) {
 	defer cancel()
 
 	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
-	defer stream.Close()
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
-		panic("New stream error!")
+		return
 	}
+	defer stream.Close()
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
