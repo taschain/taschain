@@ -56,17 +56,11 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	if dec.Status != nil {
 		r.Status = uint(*dec.Status)
 	}
-	if dec.CumulativeGasUsed == nil {
-		return errors.New("missing required field 'cumulativeGasUsed' for Receipt")
-	}
+
 	r.CumulativeGasUsed = uint64(*dec.CumulativeGasUsed)
-	if dec.Bloom == nil {
-		return errors.New("missing required field 'logsBloom' for Receipt")
-	}
+
 	r.Bloom = *dec.Bloom
-	if dec.Logs == nil {
-		return errors.New("missing required field 'logs' for Receipt")
-	}
+
 	r.Logs = dec.Logs
 	if dec.TxHash == nil {
 		return errors.New("missing required field 'transactionHash' for Receipt")
@@ -75,9 +69,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	if dec.ContractAddress != nil {
 		r.ContractAddress = *dec.ContractAddress
 	}
-	if dec.GasUsed == nil {
-		return errors.New("missing required field 'gasUsed' for Receipt")
-	}
+
 	r.GasUsed = uint64(*dec.GasUsed)
 	return nil
 }
