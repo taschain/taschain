@@ -107,7 +107,7 @@ func getBlockChainConfig() *BlockChainConfig {
 		return defaultConfig
 	}
 
-	config := &BlockChainConfig{
+	return &BlockChainConfig{
 		block:       common.GlobalConf.GetString(CONFIG_SEC, "block", defaultConfig.block),
 		blockCache:  common.GlobalConf.GetInt(CONFIG_SEC, "blockCache", defaultConfig.blockCache),
 		blockHandle: common.GlobalConf.GetInt(CONFIG_SEC, "blockHandle", defaultConfig.blockHandle),
@@ -123,7 +123,6 @@ func getBlockChainConfig() *BlockChainConfig {
 		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 	}
 
-	return config
 }
 
 func initBlockChain() error {

@@ -37,7 +37,7 @@ var (
 
 // 配置文件
 type TransactionPoolConfig struct {
-	maxReceivedPoolSize uint32
+	maxReceivedPoolSize int
 	tx                  string
 	txCache             int
 	txHandle            int
@@ -73,10 +73,25 @@ func DefaultPoolConfig() *TransactionPoolConfig {
 	}
 }
 
+func getPoolConfig() *TransactionPoolConfig {
+	defaultConfig := DefaultPoolConfig()
+	if nil == common.GlobalConf {
+		return defaultConfig
+	}
+
+	return &TransactionPoolConfig{
+		maxReceivedPoolSize: common.GlobalConf.GetInt(CONFIG_SEC, "maxReceivedPoolSize", defaultConfig.maxReceivedPoolSize),
+		tx:                  common.GlobalConf.GetString(CONFIG_SEC, "tx", defaultConfig.tx),
+		txCache:             common.GlobalConf.GetInt(CONFIG_SEC, "txCache", defaultConfig.txCache),
+		txHandle:            common.GlobalConf.GetInt(CONFIG_SEC, "txHandle", defaultConfig.txHandle),
+	}
+
+}
+
 func NewTransactionPool() *TransactionPool {
 
 	pool := &TransactionPool{
-		config:       DefaultPoolConfig(),
+		config:       getPoolConfig(),
 		receivedLock: sync.RWMutex{},
 		received:     make(map[common.Hash]*Transaction),
 		lowestPrice:  nil,
@@ -160,7 +175,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	}
 
 	// 池子满了
-	if uint32(len(pool.received)) >= pool.config.maxReceivedPoolSize {
+	if len(pool.received) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
 		if pool.lowestPrice.GasPrice > tx.GasPrice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())

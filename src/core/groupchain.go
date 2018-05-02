@@ -45,13 +45,26 @@ func defaultGroupChainConfig() *GroupChainConfig {
 	}
 }
 
+func getGroupChainConfig() *GroupChainConfig {
+	defaultConfig := defaultGroupChainConfig()
+	if nil == common.GlobalConf {
+		return defaultConfig
+	}
+
+	return &GroupChainConfig{
+		group:       common.GlobalConf.GetString(CONFIG_SEC, "group", defaultConfig.group),
+		groupCache:  common.GlobalConf.GetInt(CONFIG_SEC, "groupCache", defaultConfig.groupCache),
+		groupHandle: common.GlobalConf.GetInt(CONFIG_SEC, "groupHandle", defaultConfig.groupHandle),
+	}
+}
+
 func ClearGroup(config *GroupChainConfig) {
 	os.RemoveAll(config.group)
 }
 
 func initGroupChain() error {
 	chain := &GroupChain{
-		config: defaultGroupChainConfig(),
+		config: getGroupChainConfig(),
 		now:    *new([][]byte),
 	}
 
