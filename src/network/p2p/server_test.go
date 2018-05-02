@@ -19,7 +19,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 
 	"utility"
-	"consensus/groupsig"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
 )
 
@@ -32,7 +31,6 @@ const (
 func TestSendMessage(t *testing.T) {
 	defer taslog.Close()
 
-	groupsig.Init(1)
 	crypto.KeyTypes = append(crypto.KeyTypes, 3)
 	crypto.PubKeyUnmarshallers[3] = UnmarshalEcdsaPublicKey
 
@@ -99,6 +97,19 @@ func TestSendMessage(t *testing.T) {
 
 func testSteamHandler(stream inet.Stream) {
 	defer stream.Close()
+	headerBytes := make([]byte, 3)
+	h, e1 := stream.Read(headerBytes)
+	if e1 != nil {
+		logger.Errorf("Stream  read error:%s\n", e1.Error())
+		return
+	}
+	if h != 3 {
+		return
+	}
+	//校验 header
+	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
+		return
+	}
 
 	pkgLengthBytes := make([]byte, 4)
 	n, err := stream.Read(pkgLengthBytes)
@@ -127,7 +138,7 @@ func testSteamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if n1 != PACKAGE_MAX_SIZE || err1 != nil {
-				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err.Error(), n1)
+				logger.Errorf("Stream  read %d byte error:%s,received %d bytes\n", PACKAGE_MAX_SIZE, err1.Error(), n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
