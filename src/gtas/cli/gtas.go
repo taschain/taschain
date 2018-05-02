@@ -17,8 +17,6 @@ import (
 	"consensus/logical"
 	"governance/global"
 
-	"time"
-	"core/net/sync"
 )
 
 const (
@@ -78,9 +76,9 @@ func (gtas *Gtas) miner(rpc bool, rpcAddr string, rpcPort uint) {
 	}
 
 	//测试SendTransactions
-	//peer1Id := "QmNo5Ax4xRrs67FpTnzBFyrTTN295RiZTP4P2CDooCE4kw"
-	//txs := mockTxs()
-	//core.SendTransactions(txs, peer1Id)
+	peer1Id := "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2"
+	txs := mockTxs()
+	core.SendTransactions(txs, peer1Id)
 
 	//测试BroadcastTransactions
 	//txs := mockTxs()
@@ -242,8 +240,8 @@ func (gtas *Gtas) fullInit() error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(5 * time.Second)
-	sync.InitBlockSyncer()
+	//time.Sleep(5 * time.Second)
+	//sync.InitBlockSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)

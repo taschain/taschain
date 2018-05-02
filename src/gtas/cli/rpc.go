@@ -150,6 +150,6 @@ func StartRPC(host string, port uint) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("RPC serving on http://%s:%d", host, port)
+	log.Printf("RPC serving on http://%s:%d\n", host, port)
 	return nil
 }

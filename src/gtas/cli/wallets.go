@@ -27,7 +27,9 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if err != nil {
 		return err
 	}
-	_, err = txpool.Add(genTx(getRandomString(8), 0, source, target, nonce+1, value, codeBytes, []byte{}, 0))
+	transaction := genTx(0, source, target, nonce+1, value, codeBytes, []byte{}, 0)
+	transaction.Hash = transaction.GenHash()
+	_, err = txpool.Add(transaction)
 	if err != nil {
 		return err
 	}
@@ -84,7 +86,9 @@ func (ws *wallets) newVote(source string, modelNum string, config *global.VoteCo
 	}
 	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
-	_, err = txpool.Add(genTx(getRandomString(8), 0, source, "", nonce+1, 0, abi, []byte(modelNum), 1))
+	transaction := genTx(0, source, "", nonce+1, 0, abi, []byte(modelNum), 1)
+	transaction.Hash = transaction.GenHash()
+	_, err = txpool.Add(transaction)
 	if err != nil {
 		return err
 	}
