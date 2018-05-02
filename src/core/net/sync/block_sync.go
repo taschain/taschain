@@ -45,16 +45,14 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
-			logger.Infof("HeightRequestCh get message from:%s\n", sourceId)
+			logger.Debugf("HeightRequestCh get message from:%s\n", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
-			// for test
-			//sendBlockHeight(sourceId, 111)
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
-			logger.Infof("HeightCh get message from:%s,it's height is:%d\n", h.SourceId, h.Height)
+			logger.Debugf("HeightCh get message from:%s,it's height is:%d\n", h.SourceId, h.Height)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -63,24 +61,24 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			logger.Infof("BlockRequestCh get message from:%s\n,current height:%s,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash)
+			logger.Debugf("BlockRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			logger.Infof("BlockArrivedCh get message from:%s,block length:%v\n", bm.SourceId, len(bm.BlockEntity.Blocks))
+			logger.Debugf("BlockArrivedCh get message from:%s,block length:%v\n", bm.SourceId, len(bm.BlockEntity.Blocks))
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
 			}
 			e := core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
 			if e != nil {
-				logger.Errorf("Block chain add block error:%s\n", e.Error())
+				logger.Debugf("Block chain add block error:%s\n", e.Error())
 			}
 		case <-t.C:
-			logger.Info("sync time up start to sync!\n")
+			logger.Debug("sync time up start to sync!\n")
 			bs.syncBlock()
 		}
 	}
@@ -91,7 +89,7 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	logger.Info("block height request  time up!\n")
+	logger.Debug("block height request  time up!\n")
 	//获取本地块链高度
 	if nil == core.BlockChainImpl {
 		return
@@ -103,10 +101,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Infof("Neighbor max block height: %d,is less than self block height: %d .Don't sync!\n", maxHeight, localHeight)
+		logger.Debugf("Neighbor max block height: %d,is less than self block height: %d .Don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Infof("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Debugf("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
