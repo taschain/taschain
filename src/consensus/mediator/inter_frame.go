@@ -47,3 +47,9 @@ func StartMiner() bool {
 func StopMiner() {
 	return
 }
+
+//创建一个待初始化的新组
+func CreateGroup(miners [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo, gn string) int {
+	n := Proc.CreateDummyGroup(miners, gn)
+	return n
+}

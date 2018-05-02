@@ -257,7 +257,7 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 //创建一个新建组。由（且有创建组权限的）父亲组节点发起。
 //miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
 //gn：组名。
-func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn string) {
+func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn string) int {
 	var gis ConsensusGroupInitSummary
 	gis.ParentID = p.GetMinerID()
 	gis.DummyID = *groupsig.NewIDFromString(gn)
@@ -277,7 +277,7 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	SendGroupInitMessage(grm)
-	return
+	return 0
 }
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
