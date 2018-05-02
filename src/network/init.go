@@ -150,7 +150,7 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 
 	cfg := dht.DefaultBootstrapConfig
-	cfg.Queries = 3
+	cfg.Queries = 5
 	cfg.Period = time.Duration(20 * time.Second)
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
@@ -159,7 +159,7 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 20s!")
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 	logger.Info("Booting dht finished!")
 	return kadDht, nil
 }
