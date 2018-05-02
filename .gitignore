@@ -1,26 +1,22 @@
 #MacOS file info
 .DS_Store
+*/.DS_Store
 
 #Goland IDE data
-.idea
-.idea/*.*
+.idea/
+*/.idea/
 
 #output of Golang package
-/pkg
+/pkg/
 
 #other ignore files
 *.xml
-src/governance/state
-src/governance/block
-src/governance/height
 src/core/wenqin_test_util.go
 
 
-src/taslog/logs
-
-src/gtas/block
-src/gtas/groupldb
-src/gtas/height
-src/gtas/logs
-src/gtas/state
-src/gtas/tx
+*/block/
+*/groupldb/
+*/height/
+*/logs/
+*/state/
+*/tx/
