@@ -16,6 +16,7 @@ import (
 	"vm/core/types"
 	"github.com/hashicorp/golang-lru"
 	"fmt"
+	"vm/common/math"
 )
 
 const STATUS_KEY = "current"
@@ -53,8 +54,10 @@ type BlockChain struct {
 	latestBlock *BlockHeader
 
 	latestStateDB *state.StateDB
-	//当前链的高度
-	height uint64
+
+	// 当前链的高度，其值等于当前链里有多少块（创始块不计入）
+	// 与最高块的关系是：chain.height = latestBlock.Height
+	//height uint64
 
 	// 读写锁
 	lock sync.RWMutex
@@ -100,7 +103,6 @@ func initBlockChain() error {
 	chain := &BlockChain{
 		config:          DefaultBlockChainConfig(),
 		transactionPool: NewTransactionPool(),
-		height:          0,
 		latestBlock:     nil,
 
 		lock: sync.RWMutex{},
@@ -139,7 +141,6 @@ func initBlockChain() error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(STATUS_KEY))
 	if nil != chain.latestBlock {
-		chain.height = chain.latestBlock.Height
 		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
@@ -152,7 +153,6 @@ func initBlockChain() error {
 			block := GenesisBlock(state, chain.stateCache.TrieDB())
 
 			chain.saveBlock(block)
-			chain.height = 1
 
 		}
 	}
@@ -175,7 +175,13 @@ func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 }
 
 func (chain *BlockChain) Height() uint64 {
-	return chain.height
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	if nil == chain.latestBlock {
+		return math.MaxUint64
+	}
+	return chain.latestBlock.Height
 }
 
 func (chain *BlockChain) LatestStateDB() *state.StateDB {
@@ -186,14 +192,29 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
-	//todo: 当前简单处理，暂时不处理分叉问题
-	bh := chain.queryBlockByHeight(height)
-	if nil == bh {
+	localHeight := chain.latestBlock.Height
+	if height >= localHeight {
 		return nil
 	}
-	b := chain.queryBlockByHash(bh.Hash)
+
+	//todo: 当前简单处理，暂时不处理分叉问题
+	blocks := make([]*Block, localHeight-height)
+
+	for i := height+1; i <= localHeight; i++ {
+		bh := chain.queryBlockByHeight(i)
+		if nil == bh {
+			continue
+		}
+		b := chain.queryBlockByHash(bh.Hash)
+		if nil == b {
+			continue
+		}
+
+		blocks[i-height-1] = b
+	}
+
 	return &BlockMessage{
-		Blocks: []*Block{b},
+		Blocks: blocks,
 	}
 }
 
@@ -235,7 +256,6 @@ func (chain *BlockChain) Clear() error {
 
 	chain.init = false
 	chain.latestBlock = nil
-	chain.height = 0
 
 	err := chain.blockHeight.Clear()
 	if nil != err {
@@ -263,8 +283,6 @@ func (chain *BlockChain) Clear() error {
 		block := GenesisBlock(state, chain.stateCache.TrieDB())
 
 		chain.saveBlock(block)
-		chain.height = 1
-
 	}
 
 	chain.init = true
@@ -562,7 +580,6 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 
 	// 持久化保存最新块信息
 	chain.latestBlock = b.Header
-	chain.height = b.Header.Height
 	err = chain.blockHeight.Put([]byte(STATUS_KEY), headerJson)
 	if err != nil {
 		return -1
@@ -583,7 +600,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 	if chain.weight(header, b.Header) {
 		chain.remove(header)
 		// 替换
-		for height := header.Height + 1; height <= chain.height; height++ {
+		for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header = chain.queryBlockByHeight(height)
 			if header == nil {
 				continue

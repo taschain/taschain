@@ -5,6 +5,7 @@ import (
 	"common"
 
 	c "vm/common"
+	"fmt"
 )
 
 func TestBlockChain_AddBlock(t *testing.T) {
@@ -35,8 +36,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//交易2
 	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
-	castor:=new([]byte)
-	groupid:=new([]byte)
+	castor := new([]byte)
+	groupid := new([]byte)
 
 	// 铸块1
 	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
@@ -106,7 +107,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块4 空块
 	// 模拟分叉
-	block4 := BlockChainImpl.CastingBlockAfter(block.Header,3, 124, 0, *castor, *groupid)
+	block4 := BlockChainImpl.CastingBlockAfter(block.Header, 2, 124, 0, *castor, *groupid)
 
 	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
@@ -127,6 +128,55 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 }
 
+func TestBlockChain_GetBlockMessage(t *testing.T) {
+	Clear(DefaultBlockChainConfig())
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+
+	castor := new([]byte)
+	groupid := new([]byte)
+	block1 := BlockChainImpl.CastingBlock(1, 125, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block1) {
+		t.Fatalf("fail to add empty block")
+	}
+
+	block2 := BlockChainImpl.CastingBlock(2, 1256, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
+		t.Fatalf("fail to add empty block")
+	}
+
+	block3 := BlockChainImpl.CastingBlock(3, 1257, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
+		t.Fatalf("fail to add empty block")
+	}
+
+	if 3 != BlockChainImpl.Height() {
+		t.Fatalf("fail to add 3 blocks")
+	}
+
+	header1 := BlockChainImpl.queryBlockByHeight(1)
+	header2 := BlockChainImpl.queryBlockByHeight(2)
+	header3 := BlockChainImpl.queryBlockByHeight(3)
+
+	b1 := BlockChainImpl.queryBlockByHash(header1.Hash)
+	b2 := BlockChainImpl.queryBlockByHash(header2.Hash)
+	b3 := BlockChainImpl.queryBlockByHash(header3.Hash)
+
+	fmt.Printf("1: %d\n", b1.Header.Nonce)
+	fmt.Printf("2: %d\n", b2.Header.Nonce)
+	fmt.Printf("3: %d\n", b3.Header.Nonce)
+
+	message := BlockChainImpl.GetBlockMessage(1, common.Hash{})
+	if nil == message || nil == message.Blocks {
+		t.Fatalf("fail to get BlockMessage from 1")
+	}
+
+	blocks := message.Blocks
+	if nil == blocks[0] || nil == blocks[1] || 1256 != blocks[0].Header.Nonce || 1257 != blocks[1].Header.Nonce {
+		t.Fatalf("fail to get BlockMessage from 1")
+	}
+
+}
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
 
 	sourcebyte := common.BytesToAddress(genHash(source))
