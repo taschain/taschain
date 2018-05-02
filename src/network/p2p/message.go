@@ -22,7 +22,7 @@ func UnMarshalMessage(b []byte) (*Message, error) {
 	message := new(tas_pb.Message)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("Unmarshal message error:%s\n", e.Error())
+		logger.Errorf("Unmarshal message error:%s", e.Error())
 		return nil, e
 	}
 	m := Message{Code: *message.Code, Sign: message.Signature, Body: message.Body}

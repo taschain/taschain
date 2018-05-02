@@ -24,21 +24,21 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
-			logger.Errorf("Discard TransactionRequestMessage because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard TransactionRequestMessage because of unmarshal error:%s",e.Error())
 			return nil, nil
 		}
 		OnTransactionRequest(m)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
 		m, e := UnMarshalTransactions(body)
 		if e != nil {
-			logger.Errorf("Discard TRANSACTION_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard TRANSACTION_MSG because of unmarshal error:%s",e.Error())
 			return nil, nil
 		}
 		return nil, OnMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
 		block, e := unMarshalBlock(body)
 		if e != nil {
-			logger.Errorf("Discard NEW_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard NEW_BLOCK_MSG because of unmarshal error:%s",e.Error())
 			return nil, nil
 		}
 		OnMessageNewBlock(block)
@@ -52,7 +52,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_BLOCK_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s",e.Error())
 			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
@@ -60,7 +60,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.BLOCK_MSG:
 		m, e := unMarshalBlockMessage(body)
 		if e != nil {
-			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s",e.Error())
 			return nil, e
 		}
 		s := core.BlockArrivedMessage{BlockEntity: *m, SourceId: sourceId}
@@ -75,7 +75,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_GROUP_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard REQ_BLOCK_MSG because of unmarshal error:%s",e.Error())
 			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
@@ -83,7 +83,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.GROUP_MSG:
 		m, e := unMarshalGroupMessage(body)
 		if e != nil {
-			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s\n",e.Error())
+			logger.Errorf("Discard BLOCK_MSG because of unmarshal error:%s",e.Error())
 			return nil, e
 		}
 		s := core.GroupArrivedMessage{GroupEntity: *m, SourceId: sourceId}
@@ -164,7 +164,7 @@ func OnMessageTransaction(txs []*core.Transaction) error {
 	}
 	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
-		logger.Errorf("OnMessageTransaction notify block error:%s \n", e.Error())
+		logger.Errorf("OnMessageTransaction notify block error:%s", e.Error())
 		return e
 	}
 	return nil
@@ -189,7 +189,7 @@ func unMarshalTransaction(b []byte) (*core.Transaction, error) {
 	t := new(tas_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
-		logger.Errorf("Unmarshal transaction error:%s\n", error.Error())
+		logger.Errorf("Unmarshal transaction error:%s", error.Error())
 		return &core.Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
@@ -200,7 +200,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 	ts := new(tas_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
-		logger.Errorf("Unmarshal transactions error:%s\n", error.Error())
+		logger.Errorf("Unmarshal transactions error:%s", error.Error())
 		return nil, error
 	}
 
@@ -212,7 +212,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	m := new(tas_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshal TransactionRequestMessage error:%s\n", e.Error())
+		logger.Errorf("UnMarshal TransactionRequestMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -226,7 +226,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	var requestTime time.Time
 	e1 := requestTime.UnmarshalBinary(m.RequestTime)
 	if e1 != nil {
-		logger.Error("MarshalTransactionRequestMessage request time unmarshal error:%s\n", e1.Error())
+		logger.Error("MarshalTransactionRequestMessage request time unmarshal error:%s", e1.Error())
 	}
 	message := core.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
 	return &message, nil
@@ -255,7 +255,7 @@ func unMarshalBlock(bytes []byte) (*core.Block, error) {
 	b := new(tas_pb.Block)
 	error := proto.Unmarshal(bytes, b)
 	if error != nil {
-		logger.Errorf("Unmarshal Block error:%s\n", error.Error())
+		logger.Errorf("Unmarshal Block error:%s", error.Error())
 		return nil, error
 	}
 	block := PbToBlock(b)
@@ -291,7 +291,7 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 	var preTime time.Time
 	e1 := preTime.UnmarshalBinary(h.PreTime)
 	if e1 != nil {
-		logger.Errorf("pbToBlockHeader preTime UnmarshalBinary error:%s\n", e1.Error())
+		logger.Errorf("pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
 		return nil
 	}
 
@@ -299,7 +299,7 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 	curTime.UnmarshalBinary(h.CurTime)
 	e2 := curTime.UnmarshalBinary(h.CurTime)
 	if e2 != nil {
-		logger.Errorf("pbToBlockHeader curTime UnmarshalBinary error:%s\n", e2.Error())
+		logger.Errorf("pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
 		return nil
 	}
 
@@ -363,7 +363,7 @@ func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error)
 
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("Unmarshal EntityRequestMessage error:%s\n", e.Error())
+		logger.Errorf("Unmarshal EntityRequestMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -378,7 +378,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 	message := new(tas_pb.BlockMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("Unmarshal BlockMessage error:%s\n", e.Error())
+		logger.Errorf("Unmarshal BlockMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -410,7 +410,7 @@ func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
 	message := new(tas_pb.GroupMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("Unmarshal GroupMessage error:%s\n", e.Error())
+		logger.Errorf("Unmarshal GroupMessage error:%s", e.Error())
 		return nil, e
 	}
 
