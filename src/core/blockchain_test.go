@@ -106,7 +106,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块4 空块
 	// 模拟分叉
-	block4 := BlockChainImpl.CastingBlockAfter(block.Header,2, 124, 0, *castor, *groupid)
+	block4 := BlockChainImpl.CastingBlockAfter(block.Header,3, 124, 0, *castor, *groupid)
 
 	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
