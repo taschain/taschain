@@ -254,6 +254,32 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 	return result
 }
 
+//创建一个新建组。由（且有创建组权限的）父亲组节点发起。
+//miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
+//gn：组名。
+func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn string) {
+	var gis ConsensusGroupInitSummary
+	gis.ParentID = p.GetMinerID()
+	gis.DummyID = *groupsig.NewIDFromString(gn)
+	gis.Authority = 777
+	if len(gn) <= 64 {
+		copy(gis.Name[:], gn[:])
+	} else {
+		copy(gis.Name[:], gn[:64])
+	}
+	gis.BeginTime = time.Now()
+	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
+		panic("create group init summary failed")
+	}
+
+	var grm ConsensusGroupRawMessage
+	copy(grm.MEMS[:], miners[:])
+	grm.GI = gis
+	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
+	SendGroupInitMessage(grm)
+	return
+}
+
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
 func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *BlockContext, first bool) {
 	fmt.Printf("proc(%v) beingCastGroup, sender=%v, pre_time=%v...\n", p.getPrefix(), GetIDPrefix(si.GetID()), cgs.PreTime.Format(time.Stamp))
