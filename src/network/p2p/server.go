@@ -89,7 +89,7 @@ func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 func (s *server) SendMessage(m Message, id string) {
 	bytes, e := MarshalMessage(m)
 	if e != nil {
-		logger.Errorf("Marshal message error:%s\n", e.Error())
+		logger.Errorf("Marshal message error:%s", e.Error())
 		return
 	}
 
@@ -111,7 +111,7 @@ func (s *server) SendMessage(m Message, id string) {
 func (s *server) send(b []byte, id string) {
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
 	if error != nil || string(peerInfo.ID) == "" {
-		logger.Errorf("dht find peer error:%s,peer id:%s\n", error.Error(), id)
+		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
 		return
 	}
 	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
@@ -122,19 +122,19 @@ func (s *server) send(b []byte, id string) {
 	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
 	defer stream.Close()
 	if e != nil {
-		logger.Errorf("New stream for %s error:%s\n", id, error.Error())
+		logger.Errorf("New stream for %s error:%s", id, error.Error())
 		panic("New stream error!")
 	}
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
 		if err != nil {
-			logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+			logger.Errorf("Write stream for %s error:%s", id, error.Error())
 			return
 		}
 
 		if r != l {
-			logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", l, r)
+			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
 			return
 		}
 	} else {
@@ -145,11 +145,11 @@ func (s *server) send(b []byte, id string) {
 			copy(a, b[left:right])
 			r, err := stream.Write(a)
 			if err != nil {
-				logger.Errorf("Write stream for %s error:%s\n", id, error.Error())
+				logger.Errorf("Write stream for %s error:%s", id, error.Error())
 				return
 			}
 			if r != PACKAGE_MAX_SIZE {
-				logger.Errorf("Stream  should write %d byte ,bu write %d bytes\n", PACKAGE_MAX_SIZE, r)
+				logger.Errorf("Stream  should write %d byte ,bu write %d bytes", PACKAGE_MAX_SIZE, r)
 				return
 			}
 			left += PACKAGE_MAX_SIZE
@@ -167,7 +167,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("Stream  read error:%s\n", e1.Error())
+		logger.Errorf("Stream  read error:%s", e1.Error())
 		return
 	}
 	if h != 3 {
@@ -181,11 +181,11 @@ func swarmStreamHandler(stream inet.Stream) {
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if err != nil {
-		logger.Errorf("Stream  read error:%s\n", err.Error())
+		logger.Errorf("Stream  read error:%s", err.Error())
 		return
 	}
 	if n != 4 {
-		logger.Errorf("Stream  should read %d byte, but received %d bytes\n", 4, n)
+		logger.Errorf("Stream  should read %d byte, but received %d bytes", 4, n)
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
@@ -193,11 +193,11 @@ func swarmStreamHandler(stream inet.Stream) {
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
 		if err1 != nil {
-			logger.Errorf("Stream  read error:%s\n", err.Error())
+			logger.Errorf("Stream  read error:%s", err.Error())
 			return
 		}
 		if n1 != pkgLength {
-			logger.Errorf("Stream  should read %d byte,but received %d bytes\n", pkgLength, n1)
+			logger.Errorf("Stream  should read %d byte,but received %d bytes", pkgLength, n1)
 			return
 		}
 	} else {
@@ -207,12 +207,12 @@ func swarmStreamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if err1 != nil {
-				logger.Errorf("Stream  read error:%s\n", err.Error())
+				logger.Errorf("Stream  read error:%s", err.Error())
 				return
 			}
 
 			if n1 != PACKAGE_MAX_SIZE {
-				logger.Errorf("Stream should  read %d byte,but received %d bytes\n", PACKAGE_MAX_SIZE, n1)
+				logger.Errorf("Stream should  read %d byte,but received %d bytes", PACKAGE_MAX_SIZE, n1)
 				return
 			}
 			copy(pkgBodyBytes[left:right], a)
@@ -230,7 +230,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
-		logger.Errorf("Proto unmarshal error:%s\n", error.Error())
+		logger.Errorf("Proto unmarshal error:%s", error.Error())
 	}
 
 	code := message.Code
