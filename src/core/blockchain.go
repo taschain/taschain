@@ -19,11 +19,14 @@ import (
 	"vm/common/math"
 )
 
-const STATUS_KEY = "current"
+const (
+	STATUS_KEY = "current"
+	CONFIG_SEC = "chain"
+)
 
 var BlockChainImpl *BlockChain
 
-// 配置文件，暂时写死
+// 配置
 type BlockChainConfig struct {
 	block       string
 	blockCache  int
@@ -98,10 +101,35 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 	}
 }
 
+func getBlockChainConfig() *BlockChainConfig {
+	defaultConfig := DefaultBlockChainConfig()
+	if nil == common.GlobalConf {
+		return defaultConfig
+	}
+
+	config := &BlockChainConfig{
+		block:       common.GlobalConf.GetString(CONFIG_SEC, "block", defaultConfig.block),
+		blockCache:  common.GlobalConf.GetInt(CONFIG_SEC, "blockCache", defaultConfig.blockCache),
+		blockHandle: common.GlobalConf.GetInt(CONFIG_SEC, "blockHandle", defaultConfig.blockHandle),
+
+		blockHeight:       common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
+		blockHeightCache:  common.GlobalConf.GetInt(CONFIG_SEC, "blockHeightCache", defaultConfig.blockHeightCache),
+		blockHeightHandle: common.GlobalConf.GetInt(CONFIG_SEC, "blockHeightHandle", defaultConfig.blockHeightHandle),
+
+		state:       common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
+		stateCache:  common.GlobalConf.GetInt(CONFIG_SEC, "stateCache", defaultConfig.stateCache),
+		stateHandle: common.GlobalConf.GetInt(CONFIG_SEC, "stateHandle", defaultConfig.stateHandle),
+
+		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
+	}
+
+	return config
+}
+
 func initBlockChain() error {
 
 	chain := &BlockChain{
-		config:          DefaultBlockChainConfig(),
+		config:          getBlockChainConfig(),
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
@@ -200,7 +228,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	//todo: 当前简单处理，暂时不处理分叉问题
 	blocks := make([]*Block, localHeight-height)
 
-	for i := height+1; i <= localHeight; i++ {
+	for i := height + 1; i <= localHeight; i++ {
 		bh := chain.queryBlockByHeight(i)
 		if nil == bh {
 			continue
