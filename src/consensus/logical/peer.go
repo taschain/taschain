@@ -32,7 +32,6 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 	}
 }
 
-
 //广播 组初始化消息  组内广播
 func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(&grm)
@@ -42,7 +41,9 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
 	for _, member := range grm.MEMS {
-		p2p.Server.SendMessage(m, member.ID.GetString())
+		if member.ID.GetString() != "" {
+			p2p.Server.SendMessage(m, member.ID.GetString())
+		}
 	}
 }
 
