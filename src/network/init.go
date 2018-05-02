@@ -16,6 +16,7 @@ import (
 	"common"
 	"time"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
+	"fmt"
 )
 
 const (
@@ -47,6 +48,7 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	if e1 != nil {
 		return e1
 	}
+	network.SetConnHandler(newConnHandler)
 
 	host := makeHost(network)
 
@@ -168,4 +170,8 @@ func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
 	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 	return p2p.ConvertToPeerID(seedIdStr), seedAddrStr, nil
+}
+
+func newConnHandler(c net.Conn) {
+	fmt.Println("Get conn from :" + p2p.ConvertToID(c.RemotePeer()))
 }

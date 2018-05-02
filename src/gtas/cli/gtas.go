@@ -18,6 +18,7 @@ import (
 
 	"encoding/json"
 	"consensus/groupsig"
+	"time"
 )
 
 const (
@@ -64,7 +65,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super bool,rpcAddr string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	err := gtas.fullInit()
 	if err != nil {
 		fmt.Println(err)
@@ -73,12 +74,13 @@ func (gtas *Gtas) miner(rpc, super bool,rpcAddr string, rpcPort uint) {
 	if super {
 		keys := LoadPubKeyInfo()
 		fmt.Println("Waiting node to connect...")
-		for{
-			if len(p2p.Server.GetConnInfo()) >= 1{
+		for {
+			if len(p2p.Server.GetConnInfo()) >= 1 {
 				fmt.Println("Connection:")
-				for _,c :=range  p2p.Server.GetConnInfo(){
+				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
+				time.Sleep(60 * time.Second)
 				break
 			}
 		}
@@ -294,7 +296,7 @@ func (gtas *Gtas) fullInit() error {
 	return nil
 }
 
-func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo){
+func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo) {
 	infos := []PubKeyInfo{}
 	keys := (*configManager).GetString(Section, "pubkeys", "")
 	err := json.Unmarshal([]byte(keys), &infos)
@@ -302,7 +304,7 @@ func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo
 		fmt.Println(err)
 		return
 	}
-	for k, v  := range infos {
+	for k, v := range infos {
 		if k >= 5 {
 			break
 		}
@@ -328,7 +330,6 @@ func ShowPubKeyInfo(info logical.MinerInfo, id string) {
 func NewGtas() *Gtas {
 	return &Gtas{}
 }
-
 
 func mockTxs() []*core.Transaction {
 	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
