@@ -276,6 +276,7 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	var gis ConsensusGroupInitSummary
 	gis.ParentID = p.GetMinerID()
 	gis.DummyID = *groupsig.NewIDFromString(gn)
+	fmt.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
 	if len(gn) <= 64 {
 		copy(gis.Name[:], gn[:])
@@ -682,7 +683,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	fmt.Printf("proc(%v) begin OMGI, sender=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.SignMember))
 	p.initLock.Lock()
-	defer p.initLock.Unlock()
+	locked := true
 
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 
@@ -691,11 +692,17 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		panic("Processer::OnMessageGroupInit failed, CreateGroupContextWithMessage return nil.")
 	}
 	gs := gc.GetGroupStatus()
-	fmt.Printf("joining group(%v) status=%v.\n", grm.GI.DummyID.GetHexString(), gs)
+	fmt.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	if gs == GIS_RAW {
-		fmt.Printf("begin GenSharePieces...\n")
+		fmt.Printf("begin GenSharePieces in OMGI...\n")
 		shares := gc.GenSharePieces() //生成秘密分享
-		fmt.Printf("node(%v) end GenSharePieces, piece size=%v.\n", p.GetMinerID().GetHexString(), len(shares))
+		fmt.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
+
+		if locked {
+			p.initLock.Unlock()
+			locked = false
+		}
+
 		var spm ConsensusSharePieceMessage
 		spm.GISHash = grm.GI.GenHash()
 		spm.DummyID = grm.GI.DummyID
@@ -706,8 +713,8 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
 				sb := spm.GenSign(ski)
-				fmt.Printf("spm.GenSign result=%v.\n", sb)
-				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.Share.GetHexString(), spm.Share.Pub.GetHexString())
+				fmt.Printf("OMGI spm.GenSign result=%v.\n", sb)
+				fmt.Printf("OMGI piece to ID(%v), share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				//todo : 调用屮逸的发送函数
 				SendKeySharePiece(spm)
 				/*
@@ -724,8 +731,13 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		}
 		fmt.Printf("end GenSharePieces.\n")
 	} else {
-		fmt.Printf("group(%v) status=%v, ignore init message.\n", grm.GI.DummyID.GetHexString(), gs)
+		fmt.Printf("group(%v) status=%v, ignore init message.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	}
+	if locked {
+		p.initLock.Unlock()
+		locked = false
+	}
+
 	fmt.Printf("end Processer::OMGI.\n")
 	return
 }
@@ -741,10 +753,10 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 	result := gc.PieceMessage(spm)
-	fmt.Printf("proc(%v) after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
+	fmt.Printf("proc(%v) OMSP after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
 	p.piece_count++
 	if result < 0 {
-		panic("OnMessageSharePiece failed, gc.PieceMessage result less than 0.\n")
+		panic("OMSP failed, gc.PieceMessage result less than 0.\n")
 	}
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()

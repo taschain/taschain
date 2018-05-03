@@ -353,7 +353,7 @@ func (jgs *JoiningGroups) Init() {
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
 	if v, ok := jgs.groups[grm.GI.DummyID.GetHexString()]; ok {
 		gs := v.GetGroupStatus()
-		fmt.Printf("found initing group info, status=%v...\n", gs)
+		fmt.Printf("found initing group info BY RAW, status=%v...\n", gs)
 		if gs == GIS_PIECE {
 			v.UpdateMesageFromParent(grm)
 			fmt.Printf("after UpdateParentMessage, status=%v.\n", v.GetGroupStatus())
@@ -371,7 +371,7 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi M
 
 func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
 	if v, ok := jgs.groups[spm.DummyID.GetHexString()]; ok {
-		fmt.Printf("found initing group info...\n")
+		fmt.Printf("found initing group info by SP...\n")
 		return v
 	} else {
 		fmt.Printf("create new initing group info by SP...\n")
