@@ -410,6 +410,9 @@
                     if (rdata.result !== undefined){
                         let nodes_table = $("#nodes_table");
                         nodes_table.empty();
+                        rdata.result.data.sort(function (a, b) {
+                            return parseInt(a.ip.split(".")[3]) - parseInt(b.ip.split(".")[3])
+                        });
                         $.each(rdata.result.data, function (i,val) {
                             nodes_table.append(
                                     " <tr><td>id</td><td>ip</td><td>port</td></tr>".replace("ip", val.ip).replace("id", val.id).replace("port", val.tcp_port)
@@ -420,6 +423,10 @@
                         // $("#t_error").text(rdata.error.message)
                     }
                 },
+                error: function () {
+                    let nodes_table = $("#nodes_table");
+                    nodes_table.empty();
+                }
             });
         }
 
@@ -458,6 +465,10 @@
                         // $("#t_error").text(rdata.error.message)
                     }
                 },
+                error: function () {
+                    let trans_table = $("#trans_table");
+                    trans_table.empty();
+                }
             });
         }
 

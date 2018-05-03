@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"consensus/groupsig"
 	"time"
+	"taslog"
 )
 
 const (
@@ -155,6 +156,13 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	//fmt.Printf("local height: %d\n",core.BlockChainImpl.Height())
 	quit := signals()
 	<-quit
+	gtas.exit()
+}
+
+func (gtas *Gtas) exit() {
+	fmt.Println("exiting...")
+	core.BlockChainImpl.Close()
+	taslog.Close()
 }
 
 func (gtas *Gtas) Run() {
