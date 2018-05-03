@@ -14,6 +14,7 @@ import (
 	"consensus/groupsig"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	"net"
 )
 
 func TestDHT(t *testing.T) {
@@ -133,4 +134,30 @@ func TestUnmarshalEcdsaPublicKey(t *testing.T) {
 
 	}
 	fmt.Print("Origin public key length is :%d,marshal and unmaishal pub key length is:%d\n", len(b1), len(b2))
+}
+
+
+func TestContext(t *testing.T){
+	ctx := context.Background()
+	deadline, ok := ctx.Deadline()
+	fmt.Print(deadline,ok)
+}
+
+
+func TestIp(t *testing.T){
+	addrs, err := net.InterfaceAddrs()
+
+	if err != nil {
+		fmt.Printf("TestIp error:%s",err.Error())
+	}
+
+	for _, address := range addrs {
+		// 检查ip地址判断是否回环地址
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				fmt.Printf(ipnet.IP.String())
+				break
+			}
+		}
+	}
 }

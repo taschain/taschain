@@ -9,10 +9,11 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 	"pb"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-
 	"strings"
 	"taslog"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-protocol"
+	"time"
 )
 
 const (
@@ -67,6 +68,11 @@ const (
 	GROUP_MSG uint32 = 0x13
 )
 
+var ProtocolTAS protocol.ID ="/tas/1.0.0"
+
+var ContextTimeOut = time.Minute * 5
+
+
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
 var Server server
@@ -81,7 +87,7 @@ type server struct {
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
-	host.Network().SetStreamHandler(swarmStreamHandler)
+	host.SetStreamHandler(ProtocolTAS,swarmStreamHandler)
 
 	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
 }
@@ -108,23 +114,29 @@ func (s *server) SendMessage(m Message, id string) {
 }
 
 func (s *server) send(b []byte, id string) {
-	if id != s.SelfNetInfo.Id {
-		peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
-		if error != nil || string(peerInfo.ID) == "" {
-			logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
-		}
+	if id == s.SelfNetInfo.Id {
+		go s.sendSelf(b,id)
+		return
+	}
+	ctx := context.Background()
+	context.WithTimeout(ctx,ContextTimeOut)
+	peerInfo, error := s.Dht.FindPeer(ctx, ConvertToPeerID(id))
+	if error != nil || string(peerInfo.ID) == "" {
+		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
+	} else {
 		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	c, cancel := context.WithCancel(context.Background())
+	context.WithTimeout(c,ContextTimeOut)
 	defer cancel()
 
-	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
-	defer stream.Close()
+	stream, e := s.Host.NewStream(c, ConvertToPeerID(id),ProtocolTAS)
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
-		panic("New stream error!")
+		return
 	}
+	defer stream.Close()
 	l := len(b)
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
@@ -159,6 +171,11 @@ func (s *server) send(b []byte, id string) {
 			}
 		}
 	}
+}
+
+func (s *server)sendSelf(b []byte,id string){
+	pkgBodyBytes:= b[7:]
+	s.handleMessage(pkgBodyBytes,id)
 }
 
 //TODO 考虑读写超时
@@ -223,8 +240,9 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
+	go Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
+
 
 func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)

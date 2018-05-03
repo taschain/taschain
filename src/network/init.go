@@ -12,10 +12,10 @@ import (
 	"github.com/libp2p/go-libp2p-peer"
 	"network/p2p"
 	"github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-host"
 	"common"
 	"time"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-libp2p-host"
 )
 
 const (
@@ -43,6 +43,7 @@ func InitNetwork(config *common.ConfManager) error {
 func initServer(config *common.ConfManager, node p2p.Node) error {
 
 	ctx := context.Background()
+	context.WithTimeout(ctx, p2p.ContextTimeOut)
 	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
@@ -150,8 +151,9 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 
 	cfg := dht.DefaultBootstrapConfig
-	cfg.Queries = 5
+	cfg.Queries = 3
 	cfg.Period = time.Duration(20 * time.Second)
+	cfg.Timeout = time.Second * 30
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
 		process.Close()
@@ -159,7 +161,6 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 20s!")
-	time.Sleep(10 * time.Second)
 	logger.Info("Booting dht finished!")
 	return kadDht, nil
 }
