@@ -18,7 +18,6 @@ import (
 
 	"encoding/json"
 	"consensus/groupsig"
-	"time"
 )
 
 const (
@@ -80,7 +79,6 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
-				time.Sleep(60 * time.Second)
 				break
 			}
 		}
