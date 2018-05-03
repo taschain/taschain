@@ -175,6 +175,10 @@ func Clear() {
 
 }
 
+func (chain *BlockChain) Close(){
+	chain.statedb.Close()
+}
+
 func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
