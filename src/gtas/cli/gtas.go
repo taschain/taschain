@@ -18,6 +18,7 @@ import (
 
 	"encoding/json"
 	"consensus/groupsig"
+	"time"
 )
 
 const (
@@ -79,6 +80,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
+				time.Sleep(time.Second * 5)
 				break
 			}
 		}
@@ -320,7 +322,7 @@ func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo
 
 func ShowPubKeyInfo(info logical.MinerInfo, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("PubKey: %s; ID: %s;IDHex:%s;\n", pubKey, id,groupsig.NewIDFromString(id).GetHexString())
+	fmt.Printf("PubKey: %s;\nID: %s;\nIDHex:%s;\n", pubKey, id, groupsig.NewIDFromString(id).GetHexString())
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
 	fmt.Printf("pubkey_info json: %s", js)
 }

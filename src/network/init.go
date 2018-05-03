@@ -43,6 +43,7 @@ func InitNetwork(config *common.ConfManager) error {
 func initServer(config *common.ConfManager, node p2p.Node) error {
 
 	ctx := context.Background()
+	context.WithTimeout(ctx, p2p.ContextTimeOut)
 	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
@@ -152,6 +153,7 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 	cfg := dht.DefaultBootstrapConfig
 	cfg.Queries = 3
 	cfg.Period = time.Duration(20 * time.Second)
+	cfg.Timeout = time.Second * 30
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
 		process.Close()
@@ -168,4 +170,3 @@ func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 	return p2p.ConvertToPeerID(seedIdStr), seedAddrStr, nil
 }
-
