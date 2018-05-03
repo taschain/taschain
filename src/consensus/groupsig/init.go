@@ -31,5 +31,7 @@ func Init(curve int) {
 	curveOrder.SetString(bls.GetCurveOrder(), 10)
 	fieldOrder.SetString(bls.GetFieldOrder(), 10)
 	bitLength = curveOrder.BitLen()
-	fmt.Printf("end groupsig init.")
+	fmt.Printf("groupsig init success, curve_order=%v, field_order=%v, bitlen=%v.\n",
+		curveOrder.String(), fieldOrder.String(), bitLength)
+	return
 }
