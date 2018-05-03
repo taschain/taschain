@@ -12,10 +12,10 @@ import (
 	"github.com/libp2p/go-libp2p-peer"
 	"network/p2p"
 	"github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-host"
 	"common"
 	"time"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-libp2p-host"
 )
 
 const (

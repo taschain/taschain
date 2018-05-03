@@ -12,6 +12,7 @@ import (
 	"strings"
 	"taslog"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-protocol"
 )
 
 const (
@@ -66,6 +67,8 @@ const (
 	GROUP_MSG uint32 = 0x13
 )
 
+var ProtocolTAS protocol.ID ="/tas/1.0.0"
+
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
 var Server server
@@ -80,7 +83,7 @@ type server struct {
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
-	host.Network().SetStreamHandler(swarmStreamHandler)
+	host.SetStreamHandler(ProtocolTAS,swarmStreamHandler)
 
 	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
 }
@@ -120,7 +123,7 @@ func (s *server) send(b []byte, id string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, e := s.Host.Network().NewStream(ctx, ConvertToPeerID(id))
+	stream, e := s.Host.NewStream(ctx, ConvertToPeerID(id),ProtocolTAS)
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
 		return
