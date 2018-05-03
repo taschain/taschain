@@ -293,6 +293,7 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	fmt.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
+	fmt.Printf("call network service SendGroupInitMessage...\n")
 	SendGroupInitMessage(grm)
 	return 0
 }
@@ -356,6 +357,7 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		if first { //第一次收到“当前组成为铸块组”消息
 			ccm_local := ccm
 			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+			fmt.Printf("call network service SendCurrentGroupCast...\n")
 			SendCurrentGroupCast(&ccm_local)
 		}
 	}
@@ -443,6 +445,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					panic("cur prov is KING, but cast sign and verify sign diff.")
 				}
 			}
+			fmt.Printf("call network service SendVerifiedCast...\n")
 			SendVerifiedCast(&cvm)
 			/*
 				fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
@@ -531,6 +534,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			send_message.BH = cvm.BH
 			send_message.GroupID = cvm.GroupID
 			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			fmt.Printf("call network service SendVerifiedCast...\n")
 			SendVerifiedCast(&send_message)
 			/*
 				fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
@@ -570,6 +574,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
+				fmt.Printf("call network service SendCurrentGroupCast...\n")
 				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
 		} else {
@@ -604,6 +609,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 					send_message.BH = slot.BH
 					send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
+					fmt.Printf("call network service SendVerifiedCast...\n")
 					SendVerifiedCast(&send_message)
 					/*
 						fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
@@ -648,6 +654,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	//cbm.Block = *block
 	cbm.GroupID = gid
 	cbm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+	fmt.Printf("call network service BroadcastNewBlock...\n")
 	BroadcastNewBlock(&cbm)
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
@@ -681,7 +688,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 //组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
 
 func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
-	fmt.Printf("proc(%v) begin OMGI, sender=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.SignMember))
+	fmt.Printf("proc(%v) begin OMGI, sender=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	p.initLock.Lock()
 	locked := true
 
@@ -716,6 +723,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				fmt.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				fmt.Printf("OMGI piece to ID(%v), share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				//todo : 调用屮逸的发送函数
+				fmt.Printf("call network service SendKeySharePiece...\n")
 				SendKeySharePiece(spm)
 				/*
 					dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
@@ -737,8 +745,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		p.initLock.Unlock()
 		locked = false
 	}
-
-	fmt.Printf("end Processer::OMGI.\n")
+	fmt.Printf("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	return
 }
 
@@ -746,9 +753,14 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	fmt.Printf("proc(%v)begin Processer::OMSP, sender=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.SignMember))
 	p.initLock.Lock()
-	defer p.initLock.Unlock()
+	locked := true
+	
 	gc := p.jgs.ConfirmGroupFromPiece(spm, p.mi)
 	if gc == nil {
+		if locked {
+			p.initLock.Unlock()
+			locked = false
+		}
 		panic("OnMessageSharePiece failed, receive SHAREPIECE msg but gc=nil.\n")
 		return
 	}
@@ -761,8 +773,8 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()
 		//这时还没有所有组成员的签名公钥
-		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
-			fmt.Printf("SUCCESS GEN GROUP PUB KEY AND LOCAL SIGN KEY: group_id=%v, pub_key=%v.\n", GetIDPrefix(jg.GroupID), jg.GroupPK.GetHexString())
+		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
+			fmt.Printf("OMSP SUCCESS gen sign sec key and group pub key piece, msk=%v, gpk_piece=%v.\n", GetSecKeyPrefix(jg.SignKey), GetPubKeyPrefix(jg.GroupPK))
 			{
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
 				var msg ConsensusSignPubKeyMessage
@@ -771,6 +783,12 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
 				msg.GenSign(ski)
 				//todo : 组内广播签名公钥
+				fmt.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
+				if locked {
+					p.initLock.Unlock()
+					locked = false
+				}
+				fmt.Printf("call network service SendSignPubKey...\n")
 				SendSignPubKey(msg)
 				/*
 					for _, proc := range p.GroupProcs {
@@ -780,21 +798,31 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 			}
 
 		} else {
-			panic("Processer::OnMessageSharePiece failed, aggr key error.")
+			panic("Processer::OMSP failed, aggr key error.")
 		}
 	}
-	fmt.Printf("end Processer::OnMessageSharePiece.\n")
+	if locked {
+		p.initLock.Unlock()
+		locked = false
+	}
+	fmt.Printf("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
 
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
+	fmt.Printf("proc(%v) begin OMSPK, sender=%v, dummy gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	p.initLock.Lock()
-	defer p.initLock.Unlock()
-	fmt.Printf("proc(%v) Processer::OnMessageSignPK, group dummy id=%v.\n", p.getPrefix(), GetIDPrefix(spkm.DummyID))
+	locked := true
+	
+	
 	gc := p.jgs.GetGroup(spkm.DummyID)
 	if gc == nil {
-		fmt.Printf("OnMessageSignPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
+		if locked {
+			p.initLock.Unlock()
+			locked = false
+		}
+		fmt.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
 		return
 	}
 	fmt.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.m_sign_pks))
@@ -804,7 +832,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 		jg := gc.GetGroupInfo()
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
 			p.addInnerGroup(jg)
-			fmt.Printf("SUCCESS INIT GROUP: group_id=%v, pub_key=%v.\n", GetIDPrefix(jg.GroupID), jg.GroupPK.GetHexString())
+			fmt.Printf("SUCCESS INIT GROUP: gid=%v, gpk=%v.\n", GetIDPrefix(jg.GroupID), GetPubKeyPrefix(jg.GroupPK))
 			{
 				var msg ConsensusGroupInitedMessage
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
@@ -817,6 +845,11 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				msg.GI.Members = mems
 				msg.GenSign(ski)
+				if locked {
+					p.initLock.Unlock()
+					locked = false
+				}
+				fmt.Printf("call network service BroadcastGroupInfo...\n")
 				BroadcastGroupInfo(msg)
 				/*
 					for _, proc := range p.GroupProcs {
@@ -829,6 +862,11 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 			panic("Processer::OnMessageSharePiece failed, aggr key error.")
 		}
 	}
+	if locked {
+		p.initLock.Unlock()
+		locked = false
+	}
+	fmt.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
 
@@ -836,9 +874,10 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 //最终版本修改为父亲节点进行验证（51%）和上链
 //全网节点处理函数->to do : 调整为父亲组节点处理函数
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
+	fmt.Printf("proc(%v) begin OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	p.initLock.Lock()
 	defer p.initLock.Unlock()
-	fmt.Printf("proc(%v)bein Processer::OnMessageGroupInited, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.SignMember))
+	
 	var ngmd NewGroupMemberData
 	ngmd.h = gim.GI.GIS.GenHash()
 	ngmd.gid = gim.GI.GroupID
@@ -848,12 +887,13 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	mid.uid = gim.SI.SignMember
 	result := p.gg.GroupInitedMessage(mid, ngmd)
 	p.inited_count++
-	fmt.Printf("proc(%v)gg.GroupInitedMessage return=%v, inited_count=%v.\n", p.getPrefix(), result, p.inited_count)
+	fmt.Printf("proc(%v) gg.GroupInitedMessage result=%v, inited_count=%v.\n", p.getPrefix(), result, p.inited_count)
 	if result < 0 {
 		panic("gg.GroupInitedMessage failed because of return value.")
 	}
 	switch result {
 	case 1: //收到组内相同消息>=阈值，可上链
+		fmt.Printf("SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 		b := p.gg.AddGroup(gim.GI)
 		fmt.Printf("Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
 		bc := new(BlockContext)
@@ -874,7 +914,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	case 0:
 		//继续等待下一包数据
 	}
-	fmt.Printf("end Processer::OnMessageGroupInited.\n")
+	fmt.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	return
 }
 
