@@ -104,10 +104,10 @@ func (gs *groupSyncer) syncGroup() {
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Info("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestGroupByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -137,7 +137,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := marshalEntityRequestMessage(&m)
 	if e != nil {
-		logger.Error("requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
+		logger.Errorf("requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_GROUP_MSG, Body: body}
