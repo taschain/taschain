@@ -320,7 +320,7 @@ func LoadPubKeyInfo() (pubKeyInfos [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo
 
 func ShowPubKeyInfo(info logical.MinerInfo, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("PubKey: %s; ID: %s\n", pubKey, id)
+	fmt.Printf("PubKey: %s; ID: %s;IDHex:%s;\n", pubKey, id,groupsig.NewIDFromString(id).GetHexString())
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
 	fmt.Printf("pubkey_info json: %s", js)
 }
