@@ -544,6 +544,13 @@ func genAllProcessers() map[string]*Processer {
 	return procs
 }
 
+func testGenesisGroup(procs map[string]*Processer, t *testing.T) {
+	for _, v := range procs {
+		pk_piece := v.BeginGenesisGroupMember()
+	}
+	return
+}
+
 func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
 	root := NewMinerInfo("root", "TASchain")
@@ -664,6 +671,7 @@ func testLogicGroupInitEx(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
+	PROC_TEST_MODE = true
 	groupsig.Init(1)
 	//testGroupInit(t)
 	//testLogicGroupInit(t)

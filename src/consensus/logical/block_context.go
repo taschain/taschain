@@ -251,15 +251,15 @@ func (sc SlotContext) GetWeight() uint64 {
 //组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
 type BlockContext struct {
 	Version         uint
-	PreTime         time.Time                      //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	CCTimer         time.Ticker                    //共识定时器
-	SignedMinQN     int64                          //组内已铸出的最小QN值的块
-	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS    //铸块状态
-	PrevHash        common.Hash                    //上一块哈希值
-	CastHeight      uint64                         //待铸块高度
-	GroupMembers    uint                           //组成员数量
-	Threshold       uint                           //百分比（0-100）
-	Slots           [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
+	PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
+	CCTimer         time.Ticker                 //共识定时器
+	SignedMinQN     int64                       //组内已铸出的最小QN值的块
+	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
+	PrevHash        common.Hash                 //上一块哈希值
+	CastHeight      uint64                      //待铸块高度
+	GroupMembers    uint                        //组成员数量
+	//Threshold       uint                           //百分比（0-100）
+	Slots [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
 
 	Proc    *Processer   //处理器
 	MinerID GroupMinerID //矿工ID和所属组ID
@@ -472,8 +472,8 @@ func (bc *BlockContext) Reset() {
 	bc.SignedMinQN = INVALID_QN
 	bc.PrevHash = *new(common.Hash)
 	bc.CastHeight = 0
-	bc.GroupMembers = GROUP_MAX_MEMBERS
-	bc.Threshold = SSSS_THRESHOLD
+	bc.GroupMembers = uint(GROUP_MAX_MEMBERS)
+	//bc.Threshold = SSSS_THRESHOLD
 	bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
 	for i := 0; i < MAX_SYNC_CASTORS; i++ {
 		sc := new(SlotContext)

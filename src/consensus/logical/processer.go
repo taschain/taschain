@@ -164,7 +164,6 @@ func (p *Processer) setProcs(gps map[string]*Processer) {
 
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
-	PROC_TEST_MODE = true
 	p.MainChain = core.BlockChainImpl
 	p.mi = mi
 	p.gg.Init()
@@ -269,10 +268,43 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 	return result
 }
 
+//生成创世组成员信息
+func (p *Processer) BeginGenesisGroupMember() {
+	gis := p.GenGenesisGroupSummary()
+	temp_mi := p.getmi()
+	temp_mgs := NewMinerGroupSecret(temp_mi.GenSecretForGroup(gis.GenHash()))
+	gsk_piece := temp_mgs.GenSecKey()
+	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
+	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
+	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
+	return
+}
+
+func (p *Processer) GenGenesisGroupSummary() ConsensusGroupInitSummary {
+	var gis ConsensusGroupInitSummary
+	//gis.ParentID = P.GetMinerID()
+	gis.DummyID = *groupsig.NewIDFromString("Trust Among Strangers")
+	gis.Authority = 777
+	gn := "TAS genesis group"
+	if len(gn) <= 64 {
+		copy(gis.Name[:], gn[:])
+	} else {
+		copy(gis.Name[:], gn[:64])
+	}
+	gis.BeginTime = time.Date(2018, time.May, 3, 18, 00, 00, 00, time.Local)
+	gis.Extends = "room 1003, BLWJXXJS6KYHX"
+	gis.Members = uint64(GROUP_MAX_MEMBERS)
+	return gis
+}
+
 //创建一个新建组。由（且有创建组权限的）父亲组节点发起。
 //miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
 //gn：组名。
-func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn string) int {
+func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
+	if len(miners) != GROUP_MAX_MEMBERS {
+		fmt.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
+		return -1
+	}
 	var gis ConsensusGroupInitSummary
 	gis.ParentID = p.GetMinerID()
 	gis.DummyID = *groupsig.NewIDFromString(gn)
@@ -287,7 +319,8 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
-
+	gis.Members = uint64(GROUP_MAX_MEMBERS)
+	gis.Extends = "Dummy"
 	var grm ConsensusGroupRawMessage
 	copy(grm.MEMS[:], miners[:])
 	grm.GI = gis
@@ -762,17 +795,19 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				sb := spm.GenSign(ski)
 				fmt.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				fmt.Printf("OMGI piece to ID(%v), share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
-				//todo : 调用屮逸的发送函数
-				fmt.Printf("call network service SendKeySharePiece...\n")
-				SendKeySharePiece(spm)
-				/*
+				if !PROC_TEST_MODE {
+					fmt.Printf("call network service SendKeySharePiece...\n")
+					SendKeySharePiece(spm)
+				} else {
+					fmt.Printf("test mode, call OMSP direct...\n")
 					dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
 					if ok {
 						dest_proc.OnMessageSharePiece(spm)
 					} else {
 						panic("ERROR, dest proc not found!\n")
 					}
-				*/
+				}
+
 			} else {
 				panic("GenSharePieces data not IsValid.\n")
 			}
@@ -828,13 +863,15 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 					p.initLock.Unlock()
 					locked = false
 				}
-				fmt.Printf("OMSP call network service SendSignPubKey...\n")
-				SendSignPubKey(msg)
-				/*
+				if !PROC_TEST_MODE {
+					fmt.Printf("OMSP call network service SendSignPubKey...\n")
+					SendSignPubKey(msg)
+				} else {
+					fmt.Printf("test mode, call OnMessageSignPK direct...\n")
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageSignPK(msg)
 					}
-				*/
+				}
 			}
 
 		} else {
@@ -888,15 +925,16 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 					p.initLock.Unlock()
 					locked = false
 				}
-				fmt.Printf("call network service BroadcastGroupInfo...\n")
-				BroadcastGroupInfo(msg)
-				/*
+				if !PROC_TEST_MODE {
+					fmt.Printf("call network service BroadcastGroupInfo...\n")
+					BroadcastGroupInfo(msg)
+				} else {
+					fmt.Printf("test mode, call OnMessageGroupInited direct...\n")
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageGroupInited(msg)
 					}
-				*/
+				}
 			}
-
 		} else {
 			panic("Processer::OnMessageSharePiece failed, aggr key error.")
 		}

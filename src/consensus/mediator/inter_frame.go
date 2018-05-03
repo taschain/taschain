@@ -4,6 +4,7 @@ import (
 	"consensus/groupsig"
 	"consensus/logical"
 	"consensus/rand"
+	"fmt"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -33,6 +34,7 @@ func NewMinerEx(id groupsig.ID, secret string) (mi logical.MinerInfo, ok bool) {
 //mid: 矿工ID
 //返回：true初始化成功，可以启动铸块。内部会和链进行交互，进行初始数据加载和预处理。失败返回false。
 func ConsensusInit(mi logical.MinerInfo) bool {
+	logical.InitConsensus()
 	//groupsig.Init(1)
 	return Proc.Init(mi)
 }
@@ -50,7 +52,30 @@ func StopMiner() {
 
 //创建一个待初始化的新组
 //返回0成功，返回<0异常。
-func CreateGroup(miners [logical.GROUP_MAX_MEMBERS]logical.PubKeyInfo, gn string) int {
+func CreateGroup(miners []logical.PubKeyInfo, gn string) int {
 	n := Proc.CreateDummyGroup(miners, gn)
 	return n
+}
+
+//生成创世组公钥
+func GenGenesisGroupPubKey(hex_pk_pieces []string) groupsig.Pubkey {
+	if len(hex_pk_pieces) != logical.GROUP_MAX_MEMBERS {
+		fmt.Printf("group member size=%v, real=%v, failed.\n", logical.GROUP_MAX_MEMBERS, len(hex_pk_pieces))
+		panic("member size diff failed.")
+	}
+	pubs := make([]groupsig.Pubkey, 0)
+	for k, v := range hex_pk_pieces {
+		var pk_piece groupsig.Pubkey
+		if pk_piece.SetHexString(v) != nil {
+			fmt.Printf("index=%v, convert hex string to pub key failed, value=%v failed.\n", k, v)
+			panic("SetHexString failed.")
+		} else {
+			pubs = append(pubs, pk_piece)
+		}
+	}
+	gpk := groupsig.AggregatePubkeys(pubs)
+	if gpk == nil {
+		panic("AggregatePubkeys failed.")
+	}
+	return *gpk
 }

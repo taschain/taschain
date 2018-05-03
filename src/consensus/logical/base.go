@@ -41,8 +41,8 @@ ID长度（即地址）：48*8=384位。底层同私钥结构。
 签名长度：48*8=384位。底层结构G1。
 */
 const CONSENSUS_VERSION = 1        //共识版本号
-const SSSS_THRESHOLD = 51          //1-100
-const GROUP_MAX_MEMBERS = 5        //一个组最大的成员数量
+var SSSS_THRESHOLD int = 51        //1-100
+var GROUP_MAX_MEMBERS int = 5      //一个组最大的成员数量
 const GROUP_INIT_MAX_SECONDS = 600 //10分钟内完成初始化，否则该组失败。不再有初始化机会。
 const MAX_UNKNOWN_BLOCKS = 5       //内存保存最大不能上链的未来块（中间块没有收到）
 const MAX_SYNC_CASTORS = 3         //最多同时支持几个铸块验证
@@ -52,6 +52,13 @@ const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器
 const MAX_GROUP_BLOCK_TIME int32 = 10                                //组铸块最大允许时间=10s
 const MAX_USER_CAST_TIME int32 = 2                                   //个人出块最大允许时间=2s
 const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
+
+func InitConsensus() {
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	GROUP_MAX_MEMBERS = cc.GetInt("GROUP_MAX_MEMBERS", GROUP_MAX_MEMBERS)
+	SSSS_THRESHOLD = cc.GetInt("GROUP_MAX_MEMBERS", SSSS_THRESHOLD)
+	return
+}
 
 //取得门限值
 func GetGroupK() int {
@@ -279,7 +286,9 @@ type ConsensusGroupInitSummary struct {
 	Authority uint64      //权限相关数据（父亲组赋予）
 	Name      [64]byte    //父亲组取的名字
 	DummyID   groupsig.ID //父亲组给的伪ID
+	Members   uint64      //成员数量
 	BeginTime time.Time   //初始化开始时间（必须在指定时间窗口内完成初始化）
+	Extends   string      //带外数据
 }
 
 //生成测试数据
@@ -293,6 +302,7 @@ func genDummyGIS(parent MinerInfo, group_name string) ConsensusGroupInitSummary 
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
+	gis.Extends = "Dummy"
 	return gis
 }
 
@@ -311,6 +321,12 @@ func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
 	buf += strconv.FormatUint(gis.Authority, 16)
 	buf += string(gis.Name[:])
 	buf += gis.DummyID.GetHexString()
+	buf += strconv.FormatUint(gis.Members, 16)
 	buf += gis.BeginTime.Format(time.ANSIC)
+	if len(gis.Extends) <= 1024 {
+		buf += gis.Extends
+	} else {
+		buf += gis.Extends[:1024]
+	}
 	return rand.Data2CommonHash([]byte(buf))
 }

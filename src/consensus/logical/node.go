@@ -135,7 +135,7 @@ func (n *GroupNode) ImportUser(sk common.PrivateKey, addr common.Address) {
 	n.u_address = addr
 }
 
-//矿工初始化
+//矿工初始化(和组无关)
 func (n *GroupNode) InitForMiner(id groupsig.ID, secret rand.Rand) {
 	fmt.Printf("begin GroupNode::InitForMiner...\n")
 	n.ms.Init(id, secret)
@@ -240,7 +240,7 @@ func (n GroupNode) getSignSecKey() groupsig.Seckey {
 
 //取得（和组相关的）私密公钥
 func (n GroupNode) GetSeedPubKey() groupsig.Pubkey {
-	return *groupsig.NewPubkeyFromSeckey(n.mgs.GenSecKey())
+	return *groupsig.NewPubkeyFromSeckey(n.getSeedSecKey())
 }
 
 //取得组公钥（在秘密交换后有效）
