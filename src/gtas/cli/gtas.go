@@ -287,6 +287,7 @@ func (gtas *Gtas) fullInit() error {
 	}
 	time.Sleep(5 * time.Second)
 	sync.InitBlockSyncer()
+	sync.InitGroupSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)

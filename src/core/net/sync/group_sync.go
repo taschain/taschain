@@ -34,7 +34,7 @@ type groupSyncer struct {
 func InitGroupSyncer() {
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		GroupRequestCh: make(chan core.EntityRequestMessage), GroupArrivedCh: make(chan core.GroupArrivedMessage),}
-	GroupSyncer.start()
+	go GroupSyncer.start()
 }
 
 func (gs *groupSyncer) start() {
