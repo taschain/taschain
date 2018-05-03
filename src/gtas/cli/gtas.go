@@ -75,7 +75,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys := LoadPubKeyInfo()
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 1 {
+			if len(p2p.Server.GetConnInfo()) >= 3 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)

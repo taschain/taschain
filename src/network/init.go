@@ -159,7 +159,6 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 		return kadDht, e
 	}
 	logger.Info("Booting p2p network,wait 20s!")
-	time.Sleep(30 * time.Second)
 	logger.Info("Booting dht finished!")
 	return kadDht, nil
 }
