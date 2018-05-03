@@ -312,7 +312,7 @@ func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical
 	}
 
 	var dummyID groupsig.ID
-	e2 := parentId.Deserialize(m.ParentID)
+	e2 := parentId.Deserialize(m.DummyID)
 
 	if e1 != nil {
 		logger.Errorf("groupsig.ID Deserialize error:%s", e2.Error())
