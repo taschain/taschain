@@ -292,7 +292,7 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	fmt.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
-	go SendGroupInitMessage(grm)
+	SendGroupInitMessage(grm)
 	return 0
 }
 
@@ -355,7 +355,7 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		if first { //第一次收到“当前组成为铸块组”消息
 			ccm_local := ccm
 			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-			go SendCurrentGroupCast(&ccm_local)
+			SendCurrentGroupCast(&ccm_local)
 		}
 	}
 	fmt.Printf("proc(%v) end Processer::OnMessageCurrent, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
@@ -442,7 +442,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					panic("cur prov is KING, but cast sign and verify sign diff.")
 				}
 			}
-			go SendVerifiedCast(&cvm)
+			SendVerifiedCast(&cvm)
 			/*
 				fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 				for _, v := range p.GroupProcs {
@@ -530,7 +530,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			send_message.BH = cvm.BH
 			send_message.GroupID = cvm.GroupID
 			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
-			go SendVerifiedCast(&send_message)
+			SendVerifiedCast(&send_message)
 			/*
 				fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 				for _, v := range p.GroupProcs {
@@ -569,7 +569,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
-				go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
 		} else {
 			panic("find next cast group failed.")
@@ -603,7 +603,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 					send_message.BH = slot.BH
 					send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
-					go SendVerifiedCast(&send_message)
+					SendVerifiedCast(&send_message)
 					/*
 						fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 						for _, v := range p.GroupProcs {
@@ -647,7 +647,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	//cbm.Block = *block
 	cbm.GroupID = gid
 	cbm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-	go BroadcastNewBlock(&cbm)
+	BroadcastNewBlock(&cbm)
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
@@ -709,7 +709,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
 				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.Share.GetHexString(), spm.Share.Pub.GetHexString())
 				//todo : 调用屮逸的发送函数
-				go SendKeySharePiece(spm)
+				SendKeySharePiece(spm)
 				/*
 					dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
 					if ok {
@@ -759,7 +759,7 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
 				msg.GenSign(ski)
 				//todo : 组内广播签名公钥
-				go SendSignPubKey(msg)
+				SendSignPubKey(msg)
 				/*
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageSignPK(msg)
@@ -805,7 +805,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				msg.GI.Members = mems
 				msg.GenSign(ski)
-				go BroadcastGroupInfo(msg)
+				BroadcastGroupInfo(msg)
 				/*
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageGroupInited(msg)
@@ -954,7 +954,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 		ccm.BH = *bh
 		ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-		go SendCastVerify(&ccm)
+		SendCastVerify(&ccm)
 		/*
 			for _, proc := range p.GroupProcs {
 				proc.OnMessageCast(ccm)
