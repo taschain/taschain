@@ -12,7 +12,7 @@ type AccountData struct {
 
 //创建一个交易账户
 //s：种子字符串，为空则采用系统默认强随机数作为种子。
-//返回：成功返回私钥，该私钥请妥善保管（最高优先级）。
+//返回：成功返回账户信息（私钥，公钥和地址），该私钥请妥善保管（最高优先级）。
 func NewAccount(s string) (account AccountData) {
 	seckey := GenerateKey(s)
 	pubkey := seckey.GetPubKey()

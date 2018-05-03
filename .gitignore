@@ -20,3 +20,4 @@ src/core/wenqin_test_util.go
 */logs/
 */state/
 */tx/
+*/database/
