@@ -111,7 +111,7 @@ func (s *server) SendMessage(m Message, id string) {
 
 func (s *server) send(b []byte, id string) {
 	if id == s.SelfNetInfo.Id {
-		s.sendSelf(b,id)
+		go s.sendSelf(b,id)
 		return
 	}
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
@@ -233,7 +233,7 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
+	go Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
 
 
