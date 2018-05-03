@@ -19,11 +19,11 @@ const (CONFIG_SEC = "chain"
 )
 var (
 	ErrLDBInit = errors.New("LDB instance not inited")
-	instance   ethdb.Database
+	instance   *LDBDatabase
 )
 
 type PrefixedDatabase struct {
-	db     ethdb.Database
+	db     *LDBDatabase
 	prefix string
 }
 
@@ -45,9 +45,9 @@ func NewDatabase(prefix string) (ethdb.Database, error) {
 	}, nil
 }
 
-func getInstance() (ethdb.Database, error) {
+func getInstance() (*LDBDatabase, error) {
 	var (
-		instanceInner ethdb.Database
+		instanceInner *LDBDatabase
 		err           error
 	)
 	if nil != instance {
@@ -88,28 +88,56 @@ func (db *PrefixedDatabase) Close() {
 }
 
 func (db *PrefixedDatabase) Put(key []byte, value []byte) error {
-	return db.db.Put(db.generateKey(key), value)
+	return db.db.Put(generateKey(key,db.prefix), value)
 }
 
 func (db *PrefixedDatabase) Get(key []byte) ([]byte, error) {
-	return db.db.Get(db.generateKey(key))
+	return db.db.Get(generateKey(key,db.prefix))
 }
 
 func (db *PrefixedDatabase) Has(key []byte) (bool, error) {
-	return db.db.Has(db.generateKey(key))
+	return db.db.Has(generateKey(key,db.prefix))
 }
 
 func (db *PrefixedDatabase) Delete(key []byte) error {
-	return db.db.Delete(db.generateKey(key))
+	return db.db.Delete(generateKey(key,db.prefix))
 }
 
 func (db *PrefixedDatabase) NewBatch() ethdb.Batch {
-	return db.db.NewBatch()
+
+	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch),prefix:db.prefix,}
 }
 
+type prefixBatch struct {
+	db   *leveldb.DB
+	b    *leveldb.Batch
+	size int
+	prefix string
+}
+
+func (b *prefixBatch) Put(key, value []byte) error {
+	b.b.Put(generateKey(key,b.prefix), value)
+	b.size += len(value)
+	return nil
+}
+
+func (b *prefixBatch) Write() error {
+	return b.db.Write(b.b, nil)
+}
+
+func (b *prefixBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *prefixBatch) Reset() {
+	b.b.Reset()
+	b.size = 0
+}
+
+
 // 加入前缀的key
-func (db *PrefixedDatabase) generateKey(raw []byte) []byte {
-	bytesBuffer := bytes.NewBuffer([]byte(db.prefix))
+func generateKey(raw []byte, prefix string) []byte {
+	bytesBuffer := bytes.NewBuffer([]byte(prefix))
 	bytesBuffer.Write(raw)
 	return bytesBuffer.Bytes()
 }
@@ -127,7 +155,7 @@ type LDBDatabase struct {
 	inited bool
 }
 
-func newLDBDatabase(file string, cache int, handles int) (ethdb.Database, error) {
+func newLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 
 	if cache < 16 {
 		cache = 16

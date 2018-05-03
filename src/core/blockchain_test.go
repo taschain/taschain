@@ -126,6 +126,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("fail to switch to main chain")
 	}
 
+	BlockChainImpl.Close()
+
 }
 
 func TestBlockChain_GetBlockMessage(t *testing.T) {
