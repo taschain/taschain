@@ -134,3 +134,10 @@ func TestUnmarshalEcdsaPublicKey(t *testing.T) {
 	}
 	fmt.Print("Origin public key length is :%d,marshal and unmaishal pub key length is:%d\n", len(b1), len(b2))
 }
+
+
+func TestContext(t *testing.T){
+	ctx := context.Background()
+	deadline, ok := ctx.Deadline()
+	fmt.Print(deadline,ok)
+}

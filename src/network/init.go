@@ -22,6 +22,7 @@ const (
 	SEED_ID_KEY = "seed_id"
 
 	SEED_ADDRESS_KEY = "seed_address"
+
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -43,6 +44,7 @@ func InitNetwork(config *common.ConfManager) error {
 func initServer(config *common.ConfManager, node p2p.Node) error {
 
 	ctx := context.Background()
+	context.WithTimeout(ctx,p2p.ContextTimeOut)
 	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
