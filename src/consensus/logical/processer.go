@@ -95,8 +95,8 @@ type Processer struct {
 	//////链接口
 	MainChain core.BlockChainI
 	//锁
-	initLock sync.Mutex		//组初始化锁
-	castLock sync.Mutex		//组铸块锁
+	initLock sync.Mutex //组初始化锁
+	castLock sync.Mutex //组铸块锁
 }
 
 //取得组内成员的签名公钥
@@ -118,7 +118,7 @@ func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 func GetSecKeyPrefix(sk groupsig.Seckey) string {
 	str := sk.GetHexString()
 	if len(str) >= 12 {
-		link := str[0:6] + "-" + str[len(str)-6:len(str)]  
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]
 		return link
 	} else {
 		return str[0:len(str)]
@@ -128,7 +128,7 @@ func GetSecKeyPrefix(sk groupsig.Seckey) string {
 func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	str := pk.GetHexString()
 	if len(str) >= 12 {
-		link := str[0:6] + "-" + str[len(str)-6:len(str)]  
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]
 		return link
 	} else {
 		return str[0:len(str)]
@@ -292,7 +292,7 @@ func (p *Processer) CreateDummyGroup(miners [GROUP_MAX_MEMBERS]PubKeyInfo, gn st
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	fmt.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
-	SendGroupInitMessage(grm)
+	go SendGroupInitMessage(grm)
 	return 0
 }
 
@@ -355,7 +355,7 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		if first { //第一次收到“当前组成为铸块组”消息
 			ccm_local := ccm
 			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-			SendCurrentGroupCast(&ccm_local)
+			go SendCurrentGroupCast(&ccm_local)
 		}
 	}
 	fmt.Printf("proc(%v) end Processer::OnMessageCurrent, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
@@ -442,10 +442,13 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					panic("cur prov is KING, but cast sign and verify sign diff.")
 				}
 			}
-			fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
-			for _, v := range p.GroupProcs {
-				v.OnMessageVerify(cvm)
-			}
+			go SendVerifiedCast(&cvm)
+			/*
+				fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+				for _, v := range p.GroupProcs {
+					v.OnMessageVerify(cvm)
+				}
+			*/
 		}
 	case 1: //本地交易缺失
 		n := bc.UserCasted(ccm.BH, ccm.SI)
@@ -527,10 +530,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			send_message.BH = cvm.BH
 			send_message.GroupID = cvm.GroupID
 			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
-			fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
-			for _, v := range p.GroupProcs {
-				v.OnMessageVerify(send_message)
-			}
+			go SendVerifiedCast(&send_message)
+			/*
+				fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+				for _, v := range p.GroupProcs {
+					v.OnMessageVerify(send_message)
+				}
+			*/
 		}
 	case 1: //本地交易缺失
 		n := bc.UserVerified(cvm.BH, cvm.SI)
@@ -563,7 +569,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
-				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+				go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
 		} else {
 			panic("find next cast group failed.")
@@ -597,13 +603,13 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 					send_message.BH = slot.BH
 					send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
+					go SendVerifiedCast(&send_message)
 					/*
 						fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 						for _, v := range p.GroupProcs {
 							v.OnMessageVerify(send_message)
 						}
 					*/
-					SendVerifiedCast(&send_message)
 				case 1:
 					panic("Processer::OnMessageNewTransactions failed, check xiaoxiong's src code.")
 				case -1:
@@ -635,13 +641,13 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	} else {
 		panic("core.AddBlockOnChain failed.")
 	}
+	bc.CastedUpdateStatus(uint(bh.QueueNumber))
+	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
 	var cbm ConsensusBlockMessage
 	//cbm.Block = *block
 	cbm.GroupID = gid
 	cbm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-	BroadcastNewBlock(&cbm)
-	bc.CastedUpdateStatus(uint(bh.QueueNumber))
-	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
+	go BroadcastNewBlock(&cbm)
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
@@ -677,7 +683,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	fmt.Printf("proc(%v) begin OMGI, sender=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.SignMember))
 	p.initLock.Lock()
 	defer p.initLock.Unlock()
-	
+
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 
 	gc := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
@@ -703,7 +709,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				fmt.Printf("spm.GenSign result=%v.\n", sb)
 				fmt.Printf("piece to ID(%v), share=%v, pub=%v.\n", spm.Dest.GetHexString(), spm.Share.Share.GetHexString(), spm.Share.Pub.GetHexString())
 				//todo : 调用屮逸的发送函数
-				SendKeySharePiece(spm)
+				go SendKeySharePiece(spm)
 				/*
 					dest_proc, ok := p.GroupProcs[spm.Dest.GetHexString()]
 					if ok {
@@ -753,7 +759,7 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
 				msg.GenSign(ski)
 				//todo : 组内广播签名公钥
-				SendSignPubKey(msg)
+				go SendSignPubKey(msg)
 				/*
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageSignPK(msg)
@@ -799,7 +805,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				msg.GI.Members = mems
 				msg.GenSign(ski)
-				BroadcastGroupInfo(msg)
+				go BroadcastGroupInfo(msg)
 				/*
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageGroupInited(msg)
@@ -948,7 +954,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 		ccm.BH = *bh
 		ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-		SendCastVerify(&ccm)
+		go SendCastVerify(&ccm)
 		/*
 			for _, proc := range p.GroupProcs {
 				proc.OnMessageCast(ccm)
