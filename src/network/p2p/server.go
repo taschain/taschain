@@ -111,6 +111,7 @@ func (s *server) SendMessage(m Message, id string) {
 
 func (s *server) send(b []byte, id string) {
 	if id == s.SelfNetInfo.Id {
+		s.sendSelf(b,id)
 		return
 	}
 	peerInfo, error := s.Dht.FindPeer(context.Background(), ConvertToPeerID(id))
@@ -163,6 +164,11 @@ func (s *server) send(b []byte, id string) {
 			}
 		}
 	}
+}
+
+func (s *server)sendSelf(b []byte,id string){
+	pkgBodyBytes:= b[7:]
+	s.handleMessage(pkgBodyBytes,id)
 }
 
 //TODO 考虑读写超时
@@ -229,6 +235,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	}
 	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
+
 
 func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)
