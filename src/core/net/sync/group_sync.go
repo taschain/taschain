@@ -7,15 +7,14 @@ import (
 	"common"
 	"network/p2p"
 	"utility"
-	"errors"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 )
 
 const (
-	GROUP_HEIGHT_RECEIVE_INTERVAL = 60 * time.Second
+	GROUP_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
 
-	GROUP_SYNC_INTERVAL = 3 * time.Second
+	GROUP_SYNC_INTERVAL = 30 * time.Second
 )
 
 var GroupSyncer groupSyncer
@@ -99,11 +98,7 @@ func (gs *groupSyncer) syncGroup() {
 	if nil == core.GroupChainImpl {
 		return
 	}
-	localHeight, currentHash, e := core.GroupChainImpl.Count(), common.BytesToHash([]byte{}), errors.New("")
-	if e != nil {
-		logger.Errorf("Self get group height error:%s\n", e.Error())
-		return
-	}
+	localHeight, currentHash := core.GroupChainImpl.Count(), common.BytesToHash([]byte{})
 	gs.maxHeightLock.Lock()
 	maxHeight := gs.neighborMaxHeight
 	bestNodeId := gs.bestNodeId
