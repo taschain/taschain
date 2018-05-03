@@ -79,7 +79,7 @@ var PROC_TEST_MODE bool
 type Processer struct {
 	jgs JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
-	bcs map[string]*BlockContext //铸块上下文, 单个组。to do : 处理一个processer参与多个铸块组的情况
+	bcs map[string]*BlockContext //组ID->组铸块上下文
 	gg  GlobalGroups             //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
 	sci SelfCastInfo //当前节点的出块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）。组内成员动态数据。
@@ -115,6 +115,15 @@ func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 	return
 }
 
+func GetSecKeyPrefix(sk groupsig.Seckey) string {
+	str := sk.GetHexString()
+	if len(str) >= 12 {
+		return str[0:12]
+	} else {
+		return str[0:len(str)]
+	}
+}
+
 func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	str := pk.GetHexString()
 	if len(str) >= 12 {
@@ -122,7 +131,6 @@ func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	} else {
 		return str[0:len(str)]
 	}
-
 }
 
 func GetIDPrefix(id groupsig.ID) string {
@@ -663,9 +671,10 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64
 //组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
 
 func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
+	fmt.Printf("proc(%v) begin OMGI, sender=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.SignMember))
 	p.initLock.Lock()
 	defer p.initLock.Unlock()
-	fmt.Printf("begin Processer::OnMessageGroupInit, procs=%v...\n", len(p.GroupProcs))
+	
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 
 	gc := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
@@ -708,7 +717,52 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	} else {
 		fmt.Printf("group(%v) status=%v, ignore init message.\n", grm.GI.DummyID.GetHexString(), gs)
 	}
-	fmt.Printf("end Processer::OnMessageGroupInit.\n")
+	fmt.Printf("end Processer::OMGI.\n")
+	return
+}
+
+//收到组内成员发给我的秘密分享片段消息
+func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
+	fmt.Printf("proc(%v)begin Processer::OMSP, sender=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.SignMember))
+	p.initLock.Lock()
+	defer p.initLock.Unlock()
+	gc := p.jgs.ConfirmGroupFromPiece(spm, p.mi)
+	if gc == nil {
+		panic("OnMessageSharePiece failed, receive SHAREPIECE msg but gc=nil.\n")
+		return
+	}
+	result := gc.PieceMessage(spm)
+	fmt.Printf("proc(%v) after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
+	p.piece_count++
+	if result < 0 {
+		panic("OnMessageSharePiece failed, gc.PieceMessage result less than 0.\n")
+	}
+	if result == 1 { //已聚合出签名私钥
+		jg := gc.GetGroupInfo()
+		//这时还没有所有组成员的签名公钥
+		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
+			fmt.Printf("SUCCESS GEN GROUP PUB KEY AND LOCAL SIGN KEY: group_id=%v, pub_key=%v.\n", GetIDPrefix(jg.GroupID), jg.GroupPK.GetHexString())
+			{
+				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
+				var msg ConsensusSignPubKeyMessage
+				msg.GISHash = spm.GISHash
+				msg.DummyID = spm.DummyID
+				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
+				msg.GenSign(ski)
+				//todo : 组内广播签名公钥
+				SendSignPubKey(msg)
+				/*
+					for _, proc := range p.GroupProcs {
+						proc.OnMessageSignPK(msg)
+					}
+				*/
+			}
+
+		} else {
+			panic("Processer::OnMessageSharePiece failed, aggr key error.")
+		}
+	}
+	fmt.Printf("end Processer::OnMessageSharePiece.\n")
 	return
 }
 
@@ -754,50 +808,6 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 			panic("Processer::OnMessageSharePiece failed, aggr key error.")
 		}
 	}
-	return
-}
-
-//收到组内成员发给我的秘密分享片段消息
-func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
-	p.initLock.Lock()
-	defer p.initLock.Unlock()
-	gc := p.jgs.ConfirmGroupFromPiece(spm, p.mi)
-	if gc == nil {
-		panic("OnMessageSharePiece failed, receive SHAREPIECE msg but gc=nil.\n")
-		return
-	}
-	result := gc.PieceMessage(spm)
-	fmt.Printf("proc(%v)begin Processer::OnMessageSharePiece, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
-	p.piece_count++
-	if result < 0 {
-		panic("OnMessageSharePiece failed, gc.PieceMessage result less than 0.\n")
-	}
-	if result == 1 { //已聚合出签名私钥
-		jg := gc.GetGroupInfo()
-		//这时还没有所有组成员的签名公钥
-		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
-			fmt.Printf("SUCCESS GEN GROUP PUB KEY AND LOCAL SIGN KEY: group_id=%v, pub_key=%v.\n", GetIDPrefix(jg.GroupID), jg.GroupPK.GetHexString())
-			{
-				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
-				var msg ConsensusSignPubKeyMessage
-				msg.GISHash = spm.GISHash
-				msg.DummyID = spm.DummyID
-				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
-				msg.GenSign(ski)
-				//todo : 组内广播签名公钥
-				SendSignPubKey(msg)
-				/*
-					for _, proc := range p.GroupProcs {
-						proc.OnMessageSignPK(msg)
-					}
-				*/
-			}
-
-		} else {
-			panic("Processer::OnMessageSharePiece failed, aggr key error.")
-		}
-	}
-	fmt.Printf("end Processer::OnMessageSharePiece.\n")
 	return
 }
 

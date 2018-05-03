@@ -16,6 +16,7 @@ type NewGroupMemberData struct {
 	gpk groupsig.Pubkey //组公钥
 }
 
+//组外矿工节点处理器
 type NewGroupChained struct {
 	sgi    StaticGroupInfo               //共识数据（基准）和组成员列表
 	mems   map[string]NewGroupMemberData //接收到的组成员共识结果（成员ID->组ID和组公钥）
@@ -342,15 +343,15 @@ func (gc GroupContext) GetGroupInfo() JoinedGroup {
 
 //未初始化完成的加入组
 type JoiningGroups struct {
-	groups map[groupsig.ID]*GroupContext
+	groups map[string]*GroupContext //group dummy id->GroupContext
 }
 
 func (jgs *JoiningGroups) Init() {
-	jgs.groups = make(map[groupsig.ID]*GroupContext, 0)
+	jgs.groups = make(map[string]*GroupContext, 0)
 }
 
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
-	if v, ok := jgs.groups[grm.GI.DummyID]; ok {
+	if v, ok := jgs.groups[grm.GI.DummyID.GetHexString()]; ok {
 		gs := v.GetGroupStatus()
 		fmt.Printf("found initing group info, status=%v...\n", gs)
 		if gs == GIS_PIECE {
@@ -359,31 +360,32 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi M
 		}
 		return v
 	} else {
-		fmt.Printf("create new initing group info...\n")
+		fmt.Printf("create new initing group info by RAW...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
-			jgs.groups[grm.GI.DummyID] = v
+			jgs.groups[grm.GI.DummyID.GetHexString()] = v
 		}
 		return v
 	}
 }
 
 func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
-	if v, ok := jgs.groups[spm.DummyID]; ok {
+	if v, ok := jgs.groups[spm.DummyID.GetHexString()]; ok {
 		fmt.Printf("found initing group info...\n")
 		return v
 	} else {
-		fmt.Printf("create new initing group info...\n")
+		fmt.Printf("create new initing group info by SP...\n")
 		v = CreateGroupContextWithPieceMessage(spm, mi)
 		if v != nil {
-			jgs.groups[spm.DummyID] = v
+			jgs.groups[spm.DummyID.GetHexString()] = v
 		}
 		return v
 	}
 }
 
+//gid : group dummy id
 func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
-	if v, ok := jgs.groups[gid]; ok {
+	if v, ok := jgs.groups[gid.GetHexString()]; ok {
 		return v
 	} else {
 		return nil

@@ -18,7 +18,7 @@ func (gmd *GroupInitPool) init() {
 
 //接收数据
 func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece SharePiece) int {
-	fmt.Printf("GroupInitPool::ReceiveData, src node=%v, share=%v, pub=%v.\n", id.GetHexString(), piece.Share.GetHexString(), piece.Pub.GetHexString())
+	fmt.Printf("GroupInitPool::ReceiveData, sender=%v, share=%v, pub=%v...\n", GetIDPrefix(id), GetSecKeyPrefix(piece.Share), GetPubKeyPrefix(piece.Pub))
 	if _, ok := gmd._pool[id.GetHexString()]; !ok {
 		gmd._pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0
@@ -70,6 +70,7 @@ func (gmd GroupInitPool) GenGroupPubKey() *groupsig.Pubkey {
 	return gpk
 }
 
+//组相关的秘密
 type MinerGroupSecret struct {
 	secretSeed rand.Rand //某个矿工针对某个组的私密种子（矿工个人私密种子固定和组信息固定的情况下，该值固定）
 }
@@ -199,7 +200,7 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 	return 0
 }
 
-//接收秘密共享
+//接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
 func (n *GroupNode) SetSignPKPiece(id groupsig.ID, sign_pk groupsig.Pubkey) int {
 	fmt.Printf("begin GroupNode::SetSignPKPiece...\n")
