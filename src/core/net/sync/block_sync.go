@@ -45,14 +45,14 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
-			logger.Debugf("HeightRequestCh get message from:%s", sourceId)
+			logger.Debugf("BlockSyncer HeightRequestCh get message from:%s", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
-			logger.Debugf("HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			logger.Debugf("BlockSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -78,7 +78,7 @@ func (bs *blockSyncer) start() {
 				logger.Debugf("Block chain add block error:%s", e.Error())
 			}
 		case <-t.C:
-			logger.Debug("sync time up start to sync!")
+			logger.Debug("sync time up, start to block sync!")
 			bs.syncBlock()
 		}
 	}
