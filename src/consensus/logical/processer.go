@@ -118,7 +118,8 @@ func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 func GetSecKeyPrefix(sk groupsig.Seckey) string {
 	str := sk.GetHexString()
 	if len(str) >= 12 {
-		return str[0:12]
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]  
+		return link
 	} else {
 		return str[0:len(str)]
 	}
@@ -127,7 +128,8 @@ func GetSecKeyPrefix(sk groupsig.Seckey) string {
 func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 	str := pk.GetHexString()
 	if len(str) >= 12 {
-		return str[0:12]
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]  
+		return link
 	} else {
 		return str[0:len(str)]
 	}
@@ -135,8 +137,9 @@ func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 
 func GetIDPrefix(id groupsig.ID) string {
 	str := id.GetHexString()
-	if len(str) >= 6 {
-		return str[0:6]
+	if len(str) >= 12 {
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]
+		return link
 	} else {
 		return str[0:len(str)]
 	}
