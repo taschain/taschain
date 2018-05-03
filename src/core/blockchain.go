@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	STATUS_KEY = "current"
+	BLOCK_STATUS_KEY = "bcurrent"
 	CONFIG_SEC = "chain"
 )
 
@@ -28,17 +28,11 @@ var BlockChainImpl *BlockChain
 
 // 配置
 type BlockChainConfig struct {
-	block       string
-	blockCache  int
-	blockHandle int
+	block string
 
-	blockHeight       string
-	blockHeightCache  int
-	blockHeightHandle int
+	blockHeight string
 
-	state       string
-	stateCache  int
-	stateHandle int
+	state string
 
 	//组内能出的最大QN值
 	qn uint64
@@ -48,9 +42,9 @@ type BlockChain struct {
 	config *BlockChainConfig
 
 	// key: blockhash, value: block
-	blocks datasource.Database
+	blocks ethdb.Database
 	//key: height, value: blockHeader
-	blockHeight datasource.Database
+	blockHeight ethdb.Database
 
 	transactionPool *TransactionPool
 	//已上链的最新块
@@ -85,17 +79,11 @@ type castingBlock struct {
 // 默认配置
 func DefaultBlockChainConfig() *BlockChainConfig {
 	return &BlockChainConfig{
-		block:       "block",
-		blockCache:  128,
-		blockHandle: 1024,
+		block: "block",
 
-		blockHeight:       "height",
-		blockHeightCache:  128,
-		blockHeightHandle: 1024,
+		blockHeight: "height",
 
-		state:       "state",
-		stateCache:  128,
-		stateHandle: 1024,
+		state: "state",
 
 		qn: 4,
 	}
@@ -108,17 +96,11 @@ func getBlockChainConfig() *BlockChainConfig {
 	}
 
 	return &BlockChainConfig{
-		block:       common.GlobalConf.GetString(CONFIG_SEC, "block", defaultConfig.block),
-		blockCache:  common.GlobalConf.GetInt(CONFIG_SEC, "blockCache", defaultConfig.blockCache),
-		blockHandle: common.GlobalConf.GetInt(CONFIG_SEC, "blockHandle", defaultConfig.blockHandle),
+		block: common.GlobalConf.GetString(CONFIG_SEC, "block", defaultConfig.block),
 
-		blockHeight:       common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
-		blockHeightCache:  common.GlobalConf.GetInt(CONFIG_SEC, "blockHeightCache", defaultConfig.blockHeightCache),
-		blockHeightHandle: common.GlobalConf.GetInt(CONFIG_SEC, "blockHeightHandle", defaultConfig.blockHeightHandle),
+		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
-		state:       common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
-		stateCache:  common.GlobalConf.GetInt(CONFIG_SEC, "stateCache", defaultConfig.stateCache),
-		stateHandle: common.GlobalConf.GetInt(CONFIG_SEC, "stateHandle", defaultConfig.stateHandle),
+		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
 
 		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 	}
@@ -143,19 +125,19 @@ func initBlockChain() error {
 	}
 
 	//从磁盘文件中初始化leveldb
-	chain.blocks, err = datasource.NewLDBDatabase(chain.config.block, chain.config.blockCache, chain.config.blockHandle)
+	chain.blocks, err = datasource.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.blockHeight, err = datasource.NewLDBDatabase(chain.config.blockHeight, chain.config.blockHeightCache, chain.config.blockHeightHandle)
+	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.statedb, err = ethdb.NewLDBDatabase(chain.config.state, chain.config.stateCache, chain.config.stateHandle)
+	chain.statedb, err = datasource.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -166,7 +148,7 @@ func initBlockChain() error {
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
-	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(STATUS_KEY))
+	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY))
 	if nil != chain.latestBlock {
 		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
@@ -188,10 +170,13 @@ func initBlockChain() error {
 	return nil
 }
 
-func Clear(config *BlockChainConfig) {
-	os.RemoveAll(config.block)
-	os.RemoveAll(config.blockHeight)
-	os.RemoveAll(config.state)
+func Clear() {
+	os.RemoveAll(datasource.DEFAULT_FILE)
+
+}
+
+func (chain *BlockChain) Close(){
+	chain.statedb.Close()
 }
 
 func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
@@ -284,17 +269,23 @@ func (chain *BlockChain) Clear() error {
 	chain.init = false
 	chain.latestBlock = nil
 
-	err := chain.blockHeight.Clear()
-	if nil != err {
-		return err
-	}
-	err = chain.blocks.Clear()
-	if nil != err {
-		return err
-	}
+	//err := chain.blockHeight.Clear()
+	//if nil != err {
+	//	return err
+	//}
+	//err = chain.blocks.Clear()
+	//if nil != err {
+	//	return err
+	//}
+	var err error
 
-	os.RemoveAll(chain.config.state)
-	chain.statedb, err = ethdb.NewLDBDatabase(chain.config.state, chain.config.stateCache, chain.config.stateHandle)
+	chain.blocks.Close()
+	chain.blockHeight.Close()
+	chain.statedb.Close()
+
+	os.RemoveAll(datasource.DEFAULT_FILE)
+
+	chain.statedb, err = datasource.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -607,7 +598,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 
 	// 持久化保存最新块信息
 	chain.latestBlock = b.Header
-	err = chain.blockHeight.Put([]byte(STATUS_KEY), headerJson)
+	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		return -1
 	}

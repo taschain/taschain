@@ -13,7 +13,7 @@ import (
 */
 
 func TestParamWrapper(t *testing.T) {
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 	core.InitCore()
 	chain := core.BlockChainImpl
 	chain.GetTransactionPool().Clear()

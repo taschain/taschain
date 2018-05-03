@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"consensus/groupsig"
 	"time"
+	"taslog"
 )
 
 const (
@@ -34,6 +35,7 @@ var configManager = &common.GlobalConf
 var walletManager wallets
 
 type Gtas struct {
+	inited bool
 }
 
 // vote 投票操作
@@ -80,7 +82,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
-				time.Sleep(time.Second * 5)
+				time.Sleep(time.Second * 10)
 				break
 			}
 		}
@@ -97,7 +99,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			return
 		}
 	}
-
+	gtas.inited = true
 	//测试SendTransactions
 	//peer1Id := "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2"
 	//txs := mockTxs()
@@ -153,12 +155,28 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	//}
 	//
 	//fmt.Printf("local height: %d\n",core.BlockChainImpl.Height())
-	quit := signals()
-	<-quit
+}
+
+func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
+	<- ctrlC
+	fmt.Println("exiting...")
+	core.BlockChainImpl.Close()
+	taslog.Close()
+	if gtas.inited {
+		fmt.Println("exit success")
+		quit <- true
+	} else {
+		fmt.Println("exit before inited")
+		os.Exit(0)
+	}
 }
 
 func (gtas *Gtas) Run() {
 	var err error
+	// control+c 信号
+	ctrlC := signals()
+	quitChan := make(chan bool)
+	go gtas.exit(ctrlC, quitChan)
 	app := kingpin.New("GTAS", "A blockchain application.")
 	app.HelpFlag.Short('h')
 	// TODO config file的默认位置以及相关问题
@@ -231,7 +249,7 @@ func (gtas *Gtas) Run() {
 			fmt.Println("clear blockchain successfully")
 		}
 	}
-
+	<-quitChan
 }
 
 // ClearBlock 删除本地的chainblock数据。

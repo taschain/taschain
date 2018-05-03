@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"sort"
 	"vm/common/hexutil"
+	"vm/ethdb"
 )
 
 var (
@@ -39,8 +40,6 @@ var (
 type TransactionPoolConfig struct {
 	maxReceivedPoolSize int
 	tx                  string
-	txCache             int
-	txHandle            int
 }
 
 type TransactionPool struct {
@@ -56,7 +55,7 @@ type TransactionPool struct {
 	lowestPrice *Transaction
 
 	// 已经在块上的交易 key ：txhash value： receipt
-	executed datasource.Database
+	executed ethdb.Database
 }
 
 type ReceiptWrapper struct {
@@ -68,8 +67,6 @@ func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
 		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
-		txCache:             128,
-		txHandle:            1024,
 	}
 }
 
@@ -82,8 +79,6 @@ func getPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
 		maxReceivedPoolSize: common.GlobalConf.GetInt(CONFIG_SEC, "maxReceivedPoolSize", defaultConfig.maxReceivedPoolSize),
 		tx:                  common.GlobalConf.GetString(CONFIG_SEC, "tx", defaultConfig.tx),
-		txCache:             common.GlobalConf.GetInt(CONFIG_SEC, "txCache", defaultConfig.txCache),
-		txHandle:            common.GlobalConf.GetInt(CONFIG_SEC, "txHandle", defaultConfig.txHandle),
 	}
 
 }
@@ -96,7 +91,7 @@ func NewTransactionPool() *TransactionPool {
 		received:     make(map[common.Hash]*Transaction),
 		lowestPrice:  nil,
 	}
-	executed, err := datasource.NewLDBDatabase(pool.config.tx, pool.config.txCache, pool.config.txHandle)
+	executed, err := datasource.NewDatabase(pool.config.tx)
 	if err != nil {
 		//todo: rebuild executedPool
 		return nil
@@ -111,7 +106,7 @@ func (pool *TransactionPool) Clear() {
 	defer pool.receivedLock.Unlock()
 
 	os.RemoveAll(pool.config.tx)
-	executed, _ := datasource.NewLDBDatabase(pool.config.tx, pool.config.txCache, pool.config.txHandle)
+	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.received = make(map[common.Hash]*Transaction)
 }

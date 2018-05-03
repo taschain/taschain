@@ -10,11 +10,137 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"common"
+	"bytes"
+	"vm/ethdb"
 )
 
+const (CONFIG_SEC = "chain"
+	DEFAULT_FILE = "database"
+)
 var (
 	ErrLDBInit = errors.New("LDB instance not inited")
+	instance   *LDBDatabase
 )
+
+type PrefixedDatabase struct {
+	db     *LDBDatabase
+	prefix string
+}
+
+type databaseConfig struct {
+	database string
+	cache    int
+	handler  int
+}
+
+func NewDatabase(prefix string) (ethdb.Database, error) {
+	dbInner, err := getInstance()
+	if nil != err {
+		return nil, err
+	}
+
+	return &PrefixedDatabase{
+		db:     dbInner,
+		prefix: prefix,
+	}, nil
+}
+
+func getInstance() (*LDBDatabase, error) {
+	var (
+		instanceInner *LDBDatabase
+		err           error
+	)
+	if nil != instance {
+		return instance, nil
+	}
+
+	defaultConfig := &databaseConfig{
+		database: DEFAULT_FILE,
+		cache:    128,
+		handler:  1024,
+	}
+
+	if nil == common.GlobalConf {
+		instanceInner, err = newLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
+
+	} else {
+		instanceInner, err = newLDBDatabase(common.GlobalConf.GetString(CONFIG_SEC, "database", defaultConfig.database), common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+	}
+
+	if nil == err {
+		instance = instanceInner
+	}
+
+	return instance, err
+}
+
+//func (db *PrefixedDatabase) Clear() error {
+//	inner := db.db
+//	if nil == inner {
+//		return ErrLDBInit
+//	}
+//
+//	return inner.Clear()
+//}
+
+func (db *PrefixedDatabase) Close() {
+	db.db.Close()
+}
+
+func (db *PrefixedDatabase) Put(key []byte, value []byte) error {
+	return db.db.Put(generateKey(key,db.prefix), value)
+}
+
+func (db *PrefixedDatabase) Get(key []byte) ([]byte, error) {
+	return db.db.Get(generateKey(key,db.prefix))
+}
+
+func (db *PrefixedDatabase) Has(key []byte) (bool, error) {
+	return db.db.Has(generateKey(key,db.prefix))
+}
+
+func (db *PrefixedDatabase) Delete(key []byte) error {
+	return db.db.Delete(generateKey(key,db.prefix))
+}
+
+func (db *PrefixedDatabase) NewBatch() ethdb.Batch {
+
+	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch),prefix:db.prefix,}
+}
+
+type prefixBatch struct {
+	db   *leveldb.DB
+	b    *leveldb.Batch
+	size int
+	prefix string
+}
+
+func (b *prefixBatch) Put(key, value []byte) error {
+	b.b.Put(generateKey(key,b.prefix), value)
+	b.size += len(value)
+	return nil
+}
+
+func (b *prefixBatch) Write() error {
+	return b.db.Write(b.b, nil)
+}
+
+func (b *prefixBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *prefixBatch) Reset() {
+	b.b.Reset()
+	b.size = 0
+}
+
+
+// 加入前缀的key
+func generateKey(raw []byte, prefix string) []byte {
+	bytesBuffer := bytes.NewBuffer([]byte(prefix))
+	bytesBuffer.Write(raw)
+	return bytesBuffer.Bytes()
+}
 
 type LDBDatabase struct {
 	db *leveldb.DB
@@ -29,7 +155,7 @@ type LDBDatabase struct {
 	inited bool
 }
 
-func NewLDBDatabase(file string, cache int, handles int) (Database, error) {
+func newLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 
 	if cache < 16 {
 		cache = 16
@@ -166,7 +292,7 @@ func (db *LDBDatabase) Close() {
 	//}
 }
 
-func (db *LDBDatabase) NewBatch() Batch {
+func (db *LDBDatabase) NewBatch() ethdb.Batch {
 	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
 }
 
@@ -195,7 +321,6 @@ func (b *ldbBatch) Reset() {
 	b.size = 0
 }
 
-
 type MemDatabase struct {
 	db   map[string][]byte
 	lock sync.RWMutex
@@ -207,8 +332,8 @@ func NewMemDatabase() (*MemDatabase, error) {
 	}, nil
 }
 
-func (db *MemDatabase) Clear() error{
-	db.db =make(map[string][]byte)
+func (db *MemDatabase) Clear() error {
+	db.db = make(map[string][]byte)
 	return nil
 }
 func (db *MemDatabase) Put(key []byte, value []byte) error {
@@ -258,7 +383,7 @@ func (db *MemDatabase) Delete(key []byte) error {
 
 func (db *MemDatabase) Close() {}
 
-func (db *MemDatabase) NewBatch() Batch {
+func (db *MemDatabase) NewBatch() ethdb.Batch {
 	return &memBatch{db: db}
 }
 

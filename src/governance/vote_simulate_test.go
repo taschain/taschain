@@ -18,7 +18,7 @@ import (
 
 
 func TestRemove(t *testing.T) {
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 }
 func TestPrepare(t *testing.T) {
 	prepare()
@@ -84,7 +84,7 @@ func genHash(hash string) []byte {
 }
 func TestToChain(t *testing.T) {
 	common.InitConf("test.ini")
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 
 	err := core.InitCore()
 	if err != nil {

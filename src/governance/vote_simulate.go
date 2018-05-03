@@ -35,7 +35,9 @@ var (
 const VOTE_TEMPLATE_1 = "vote_template_1"
 
 func ToChain() {
-	b := chain.CastingBlock()
+	castor := new([]byte)
+	groupid := new([]byte)
+	b := chain.CastingBlock(1, 12, 0, *castor, *groupid)
 	ret := chain.AddBlockOnChain(b)
 	if ret < 0 {
 		fmt.Println("上链失败, 高度=", b.Header.Height)
@@ -46,7 +48,7 @@ func ToChain() {
 func prepare() {
 	idx = 100
 	common.InitConf("test.ini")
-	core.Clear(core.DefaultBlockChainConfig())
+	core.Clear()
 
 	err := core.InitCore()
 	if err != nil {
