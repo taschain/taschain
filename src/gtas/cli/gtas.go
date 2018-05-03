@@ -144,18 +144,34 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	//
 	////交易2
 	//txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
-	//castor:=[]byte{1,2,3,4}
-	//groupid:=[]byte{5,6,7,8}
+	//castor := []byte{1, 2, 3, 4}
+	//groupid := []byte{5, 6, 7, 8}
 	//
 	//// 铸块1
-	//block := core.BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
-	//if 0 != core.BlockChainImpl.AddBlockOnChain(block){
+	//block := core.BlockChainImpl.CastingBlock(1, 12, 0, castor, groupid)
+	//if 0 != core.BlockChainImpl.AddBlockOnChain(block) {
 	//	fmt.Printf("fail to add block\n")
-	//}else{
-	//	fmt.Printf("now height: %d\n",core.BlockChainImpl.Height())
+	//} else {
+	//	fmt.Printf("now height: %d\n", core.BlockChainImpl.Height())
 	//}
 	//
-	//fmt.Printf("local height: %d\n",core.BlockChainImpl.Height())
+	//block = core.BlockChainImpl.CastingBlockAfter(block.Header,2, 123, 0, castor, groupid)
+	//if 0 != core.BlockChainImpl.AddBlockOnChain(block) {
+	//	fmt.Printf("fail to add block\n")
+	//} else {
+	//	fmt.Printf("now height: %d\n", core.BlockChainImpl.Height())
+	//}
+	//
+	//block = core.BlockChainImpl.CastingBlockAfter(block.Header,3, 124, 0, castor, groupid)
+	//if 0 != core.BlockChainImpl.AddBlockOnChain(block) {
+	//	fmt.Printf("fail to add block\n")
+	//} else {
+	//	fmt.Printf("now height: %d\n", core.BlockChainImpl.Height())
+	//}
+	//
+	//fmt.Printf("local height: %d\n", core.BlockChainImpl.Height())
+
+
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
