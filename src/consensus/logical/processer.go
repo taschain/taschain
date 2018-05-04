@@ -269,7 +269,7 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 }
 
 //生成创世组成员信息
-func (p *Processer) BeginGenesisGroupMember() {
+func (p *Processer) BeginGenesisGroupMember() PubKeyInfo {
 	gis := p.GenGenesisGroupSummary()
 	temp_mi := p.getmi()
 	temp_mgs := NewMinerGroupSecret(temp_mi.GenSecretForGroup(gis.GenHash()))
@@ -277,7 +277,7 @@ func (p *Processer) BeginGenesisGroupMember() {
 	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
 	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
 	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
-	return
+	return pki
 }
 
 func (p *Processer) GenGenesisGroupSummary() ConsensusGroupInitSummary {
