@@ -698,7 +698,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 }
 
 //检查自身所在的组（集合）是否成为当前铸块组，如是，则启动相应处理
-func (p *Processer) checkCastingGroup(sign common.Hash, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
+func (p *Processer) checkCastingGroup(groupId groupsig.ID,sign common.Hash, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
 	var casting bool
 	var ccm ConsensusCurrentMessage
 	next_group, err := p.gg.SelectNextGroup(sign) //查找下一个铸块组
@@ -711,6 +711,7 @@ func (p *Processer) checkCastingGroup(sign common.Hash, height uint64, t time.Ti
 				panic("current proc belong next cast group, but GetBlockContext=nil.")
 			}
 			bc.BeingCastGroup(height, t, h)
+			ccm.GroupID = groupId.Serialize()
 			ccm.BlockHeight = height + 1
 			ccm.PreHash = h
 			ccm.PreTime = t
@@ -733,7 +734,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
-		casting, ccm := p.checkCastingGroup(cbm.Block.Header.Signature, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
+		casting, ccm := p.checkCastingGroup(cbm.GroupID,cbm.Block.Header.Signature, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
 		if locked {
 			p.castLock.Unlock()
 			locked = false
@@ -1113,7 +1114,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			if top_bh == nil {
 				panic("QueryTopBlock failed")
 			}
-			casting, ccm := p.checkCastingGroup(top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
+			casting, ccm := p.checkCastingGroup(gim.GI.GroupID,top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
 			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)
 			if casting {
 				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
