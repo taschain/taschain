@@ -73,7 +73,6 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		fmt.Println(err)
 		return
 	}
-	addGenesisToChain()
 	if super {
 		keys := LoadPubKeyInfo()
 		fmt.Println("Waiting node to connect...")
@@ -392,92 +391,4 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 	}
 }
 
-func addGenesisToChain() {
-	var bearPubKey groupsig.Pubkey
-	e1k := bearPubKey.SetHexString("0x1 709ebc2b1e05ac7152b715464c3f5816789f55bb7fbbca89379c6acbf601452eee0fdd8dcc20080b753658295ff7ed7 2233e99d351812e60a77247f089a0371a2890c5297365eed354f6f6c661a29362f62be0940407dc5599c3e63b97fdfe 20f3ce45e139aceb775fba3cecb4da854777f4f8ab6a4828e5754ae3538c5f6ce74eaf2265df05558197b69bcbfc671d a02fa8f29a5e2685f7e7358fa8e50494607ca09812ada89b838a63f21cd759325832a608de357436a2abbf7403b1ea9")
-	if e1k != nil {
-		fmt.Printf("bearPubKey.SetHexString error:%s\n", e1k.Error())
-		return
-	}
-	var bearID groupsig.ID
-	e1i := bearID.SetHexString("0x516d5066374172545478447164317a6e43394c46357237335952383573624555317431537a547674326652727932")
-	if e1i != nil {
-		fmt.Printf("bearID.SetHexString error:%s\n", e1i.Error())
-		return
-	}
-	bear := core.Member{Id: bearID.Serialize(), PubKey: bearPubKey.Serialize()}
 
-	var lvPubkey groupsig.Pubkey
-	e2k := lvPubkey.SetHexString("0x1 2090589bd58e23bb179bfaf4c1f0c1a7dacedf5d7add4044c48f3aeb555a086bbeddaf93e530d300df5dc734dac5abbc 3246873433c0d7c930d8f52c5e5c0c196ffb56d775ed1f2e0bdc0e9df8d793796f4f94b16392d7a75fd3fef1dafba37 906159f420ec406d366d92da6f0fc2ebbc2048f55f1a2dfa7c221718e4a638fc7a620b7985ba25e24212ce01b6900cf 122cc028ca1f8ae599e57c535ec0e3051f1ad54b3208d43badaf1f2f0e769d15a0b63a3094bc3f5043373689cea88ce3")
-	if e2k != nil {
-		fmt.Printf("lvPubkey.SetHexString error:%s\n", e2k.Error())
-		return
-	}
-	var lvID groupsig.ID
-	e2i := lvID.SetHexString("0x516d54376368614b3667384a6b424c4e74326b576a534a58664a4d6f596a575233735933557a645255436e506935")
-	if e2i != nil {
-		fmt.Printf("lvID.SetHexString error:%s\n", e2i.Error())
-		return
-	}
-	lv := core.Member{Id: lvID.Serialize(), PubKey: lvPubkey.Serialize()}
-
-	var darrenPubkey groupsig.Pubkey
-	e3k := darrenPubkey.SetHexString("0x1 cc59923b63c02f8635e50c0fc67b8492b79efaa1d9e9fa0705d0585a9a0913782278eed9c99a00ed7c0c2d4d6e3fc8f 1bd1824dae9364367c234a3023bd10d85af299c7655958bd09bb275968949980dfadd195b3d90bb6f7998d573b9d7251 12f08b2ff2a1bf0df8ccb2f6da0de37e0b3ebd6e1c3860e2ece635b7d39c2e5e2ef0983cbd008a7278edf7fedb4c97ee 129d98f3e9ef2677aaf9c490eb9cde2d6241dd4f0437e370772ecc860fbcfdb07ba916ec2a53e45ecd9365d9176b3e40")
-	if e3k != nil {
-		fmt.Printf("darrenPubkey.SetHexString error:%s\n", e3k.Error())
-		return
-	}
-	var darrenID groupsig.ID
-	e3i := darrenID.SetHexString("0x516d6342474e6d5142743774334e4c643572637876416e4c675872713570336254446d4663474e4c585976374d39")
-	if e3i != nil {
-		fmt.Printf("darrenID.SetHexStringp error:%s\n", e3i.Error())
-		return
-	}
-	darren := core.Member{Id: darrenID.Serialize(), PubKey: darrenPubkey.Serialize()}
-
-	var grayPubkey groupsig.Pubkey
-	e4k := grayPubkey.SetHexString("0x1 209c65510187801ea663a5e41e332c5920358070291953b81b318fe217b0f4b4d6e7a2eab35b5d4154d89babecc7f1e7 20d3a2be50dc97850769abf41a66a357dcdd1d6578ece72fb4f0e6e3c63d7ea6c3427ea24dfa1af04e0daf1ebb83caba 10b81e153831d4a8a9a81c27ccf1cb3942a33a4f7bc322644f4e038ca11193058c63fc00bef0ca9856b4f79a3d89447a 11d7801aa7b962d9e8c86f243705578383b39bfb160477aa78567ff091bc8beb2fa70d7f53bc46893650bcd85f3a337b")
-	if e4k != nil {
-		fmt.Printf("grayPubkey.SetHexString error:%s\n", e4k.Error())
-		return
-	}
-	var grayID groupsig.ID
-	e4i := grayID.SetHexString("0x516d4e6f354178347852727336374670546e7a4246797254544e32393552695a545034503243446f6f4345346b77")
-	if e4i != nil {
-		fmt.Printf("grayID.SetHexStringp error:%s\n", e4i.Error())
-		return
-	}
-	gray := core.Member{Id: grayID.Serialize(), PubKey: grayPubkey.Serialize()}
-
-	var gray1Pubkey groupsig.Pubkey
-	e5k := gray1Pubkey.SetHexString("0x1 8b84e3955be06ef05a54c19bcd9746ccfa0ccf7fb750d3d09c029a009f27a3d2519ed3266814b8f5b0f408f2b0906a3 1243e7a3b010383f5db545f87091bebb297f1efeebbfb26161133c600b7c2a5f071b451d3199ac0ceb0e8f9b98405189 1b49318244bcd636ece72ad22a54e7d7f351c1ccb520f0f543d65196a47bd109d7952d2e0320ff70234fd631a4bb11ba a6a860d77d8113a68d1f884a2f0f7d611ab926f786e3d0ef6691e3d237f1dc6c70b2f13a13f4fd9ed63cb09e9a55c1d")
-	if e5k != nil {
-		fmt.Printf("gray1Pubkey.SetHexString error:%s\n", e5k.Error())
-		return
-	}
-	var gray1ID groupsig.ID
-	e5i := gray1ID.SetHexString("0x516d516b555036684b67643670466e377071316a394546416a6b335577504b33583532655732657a3671476d314d")
-	if e5i != nil {
-		fmt.Printf("gray1ID.SetHexStringp error:%s\n", e5i.Error())
-		return
-	}
-	gray1 := core.Member{Id: gray1ID.Serialize(), PubKey: gray1Pubkey.Serialize()}
-
-	members := []core.Member{bear, lv, darren, gray, gray1}
-
-	pubkeys := []string{bearPubKey.GetHexString(), lvPubkey.GetHexString(), darrenPubkey.GetHexString(), grayPubkey.GetHexString(), gray1Pubkey.GetHexString()}
-	groupPubkey := mediator.GenGenesisGroupPubKey(pubkeys)
-
-	parentID := []byte{0, 0, 0}
-	id := []byte{84, 65, 83}
-	dummyId := []byte("genesis group dummy")
-
-	group := core.Group{Members: members, Id: id, PubKey: groupPubkey.Serialize(), Dummy: dummyId, Parent: parentID}
-	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
-	if err != nil {
-		fmt.Printf("Add generic group error:%s\n", err.Error())
-	} else {
-		fmt.Printf("Add generic to chain success!")
-	}
-
-}
