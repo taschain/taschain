@@ -327,6 +327,22 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	fmt.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
 	fmt.Printf("call network service SendGroupInitMessage...\n")
+	//dummy 组写入组链 add by 小熊
+	members := make([]core.Member, 0)
+	for _, miner := range miners {
+		member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+		members = append(members, member)
+	}
+	//此时组ID 跟组公钥是没有的
+	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: gis.ParentID.Serialize()}
+	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
+	if err != nil {
+		fmt.Printf("Add dummy group error:%s\n", err.Error())
+	} else {
+		fmt.Printf("Add dummy to chain success!")
+	}
+	fmt.Printf("Waiting 60s for dummy group sync...\n")
+	time.Sleep(60 * time.Second)
 	SendGroupInitMessage(grm)
 	return 0
 }
@@ -344,7 +360,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() {                //该用户和我是同一组
+	if sign_pk.IsValid() { //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")

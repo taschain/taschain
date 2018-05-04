@@ -14,7 +14,7 @@ import (
 const (
 	GROUP_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
 
-	GROUP_SYNC_INTERVAL = 30 * time.Second
+	GROUP_SYNC_INTERVAL = 20 * time.Second
 )
 
 var GroupSyncer groupSyncer
