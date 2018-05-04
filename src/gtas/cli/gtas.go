@@ -171,7 +171,16 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	//
 	//fmt.Printf("local height: %d\n", core.BlockChainImpl.Height())
 
-
+	group := &core.Group{
+		Parent: []byte{0, 1},
+		Dummy:  []byte{1, 2},
+		Members: []core.Member{{
+			Id:     []byte{2, 2},
+			PubKey: []byte{4, 4},
+		}},
+	}
+	core.GroupChainImpl.AddGroup(group, nil, nil)
+	fmt.Printf("group count: %d\n", core.GroupChainImpl.Count())
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
