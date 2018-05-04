@@ -36,7 +36,7 @@ type blockSyncer struct {
 func InitBlockSyncer() {
 	BlockSyncer = blockSyncer{neighborMaxHeight: 0, HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		BlockRequestCh: make(chan core.EntityRequestMessage), BlockArrivedCh: make(chan core.BlockArrivedMessage),}
-	BlockSyncer.start()
+	go BlockSyncer.start()
 }
 
 func (bs *blockSyncer) start() {

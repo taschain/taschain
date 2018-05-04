@@ -232,6 +232,6 @@ func GroupToPb(g *Group) *tas_pb.Group {
 		member := memberToPb(&m)
 		members = append(members, member)
 	}
-	group := tas_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
+	group := tas_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.Parent, Dummy: g.Dummy, Signature: g.Signature}
 	return &group
 }

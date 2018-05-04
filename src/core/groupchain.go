@@ -123,7 +123,7 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Has
 	for i := height; i < chain.count; i++ {
 		group := chain.getGroupByHeight(i)
 		if nil != group {
-			result = append(result, group)
+			result[i-height] = group
 		}
 
 	}
@@ -168,12 +168,12 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	if nil != group.Parent {
-		parent := chain.getGroupById(group.Parent)
-		if nil == parent {
-			return fmt.Errorf("parent is not existed")
-		}
-	}
+	//if nil != group.Parent {
+	//	parent := chain.getGroupById(group.Parent)
+	//	if nil == parent {
+	//		return fmt.Errorf("parent is not existed")
+	//	}
+	//}
 
 	// todo: 通过父亲节点公钥校验本组的合法性
 

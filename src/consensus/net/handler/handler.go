@@ -132,7 +132,7 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMess
 
 	sign := pbToSignData(message.Sign)
 
-	ids := [5]logical.PubKeyInfo{}
+	ids := []logical.PubKeyInfo{}
 	for i := 0; i < 5; i++ {
 		pkInfo := pbToPubKeyInfo(message.Ids[i])
 		ids[i] = *pkInfo

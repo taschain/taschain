@@ -7,15 +7,14 @@ import (
 	"common"
 	"network/p2p"
 	"utility"
-	"errors"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 )
 
 const (
-	GROUP_HEIGHT_RECEIVE_INTERVAL = 60 * time.Second
+	GROUP_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
 
-	GROUP_SYNC_INTERVAL = 3 * time.Second
+	GROUP_SYNC_INTERVAL = 20 * time.Second
 )
 
 var GroupSyncer groupSyncer
@@ -34,7 +33,7 @@ type groupSyncer struct {
 func InitGroupSyncer() {
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		GroupRequestCh: make(chan core.EntityRequestMessage), GroupArrivedCh: make(chan core.GroupArrivedMessage),}
-	GroupSyncer.start()
+	go GroupSyncer.start()
 }
 
 func (gs *groupSyncer) start() {
@@ -99,20 +98,16 @@ func (gs *groupSyncer) syncGroup() {
 	if nil == core.GroupChainImpl {
 		return
 	}
-	localHeight, currentHash, e := core.GroupChainImpl.Count(), common.BytesToHash([]byte{}), errors.New("")
-	if e != nil {
-		logger.Errorf("Self get group height error:%s\n", e.Error())
-		return
-	}
+	localHeight, currentHash := core.GroupChainImpl.Count(), common.BytesToHash([]byte{})
 	gs.maxHeightLock.Lock()
 	maxHeight := gs.neighborMaxHeight
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Info("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		logger.Infof("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Info("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Infof("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestGroupByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -142,7 +137,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := marshalEntityRequestMessage(&m)
 	if e != nil {
-		logger.Error("requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
+		logger.Errorf("requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_GROUP_MSG, Body: body}
