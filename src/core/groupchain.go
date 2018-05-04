@@ -170,12 +170,12 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	if nil != group.Parent {
-		parent := chain.getGroupById(group.Parent)
-		if nil == parent {
-			return fmt.Errorf("parent is not existed")
-		}
-	}
+	//if nil != group.Parent {
+	//	parent := chain.getGroupById(group.Parent)
+	//	if nil == parent {
+	//		return fmt.Errorf("parent is not existed")
+	//	}
+	//}
 
 	// 检查是否已经存在
 	if nil != group.Id {
