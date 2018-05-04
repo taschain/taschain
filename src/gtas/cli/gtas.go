@@ -470,7 +470,7 @@ func addGenesisToChain() {
 	group := core.Group{Members: members, Id: nil, PubKey: nil, Dummy: nil}
 	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
 	if err != nil {
-		fmt.Printf("Add generic group error:%s\n", error.Error())
+		fmt.Printf("Add generic group error:%s\n", err.Error())
 	} else {
 		fmt.Printf("Add generic to chain success")
 	}
