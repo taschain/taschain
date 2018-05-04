@@ -101,10 +101,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Debugf("Neighbor max block height: %d,is less than self block height: %d .Don't sync!", maxHeight, localHeight)
+		//logger.Debugf("Neighbor max block height: %d,is less than self block height: %d .Don't sync!", maxHeight, localHeight)
 		return
 	} else {
-		logger.Debugf("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!", maxHeight, localHeight, bestNodeId)
+		//logger.Debugf("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!", maxHeight, localHeight, bestNodeId)
 		requestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 

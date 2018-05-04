@@ -367,7 +367,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() {                //该用户和我是同一组
+	if sign_pk.IsValid() { //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")
@@ -510,7 +510,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 				} else {
 					ccm.BH.Signature = slot.GetGroupSignHash()
 					fmt.Printf("update group sign data=%v.\n", ccm.BH.Signature.Hex())
-					
+
 				}
 				fmt.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
 				p.SuccessNewBlock(&ccm.BH, ccm.GroupID) //上链和组外广播
@@ -698,7 +698,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 }
 
 //检查自身所在的组（集合）是否成为当前铸块组，如是，则启动相应处理
-func (p *Processer) checkCastingGroup(groupId groupsig.ID,sign common.Hash, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
+func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign common.Hash, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
 	var casting bool
 	var ccm ConsensusCurrentMessage
 	next_group, err := p.gg.SelectNextGroup(sign) //查找下一个铸块组
@@ -734,7 +734,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
-		casting, ccm := p.checkCastingGroup(cbm.GroupID,cbm.Block.Header.Signature, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
+		casting, ccm := p.checkCastingGroup(cbm.GroupID, cbm.Block.Header.Signature, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
 		if locked {
 			p.castLock.Unlock()
 			locked = false
@@ -1047,6 +1047,17 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 					locked = false
 				}
 				if !PROC_TEST_MODE {
+					//组写入组链 add by 小熊
+					members := make([]core.Member, 0)
+					for _, miner := range mems {
+						member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+						members = append(members, member)
+					}
+					group := core.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
+					e := core.GroupChainImpl.AddGroup(&group, nil, nil)
+					if e != nil {
+						fmt.Print(e.Error())
+					}
 					fmt.Printf("call network service BroadcastGroupInfo...\n")
 					BroadcastGroupInfo(msg)
 				} else {
@@ -1114,7 +1125,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			if top_bh == nil {
 				panic("QueryTopBlock failed")
 			}
-			casting, ccm := p.checkCastingGroup(gim.GI.GroupID,top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
+			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
 			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)
 			if casting {
 				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")

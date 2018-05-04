@@ -104,10 +104,10 @@ func (gs *groupSyncer) syncGroup() {
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		logger.Infof("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		//logger.Infof("Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		logger.Infof("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		//logger.Infof("Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestGroupByHeight(bestNodeId, localHeight, currentHash)
 	}
 
