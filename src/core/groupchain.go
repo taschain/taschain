@@ -177,6 +177,19 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		}
 	}
 
+	// 检查是否已经存在
+	if nil != group.Id {
+		flag, _ := chain.groups.Has(group.Id)
+		if flag {
+			return nil
+		}
+	}
+	if nil != group.Dummy {
+		flag, _ := chain.groups.Has(group.Dummy)
+		if flag {
+			return nil
+		}
+	}
 	// todo: 通过父亲节点公钥校验本组的合法性
 
 	return chain.save(group)
