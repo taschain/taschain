@@ -1,7 +1,6 @@
 package core
 
 import (
-	"core/datasource"
 	"sync"
 	"encoding/json"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"common"
 	"vm/ethdb"
+	"core/datasource"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -53,7 +53,7 @@ func getGroupChainConfig() *GroupChainConfig {
 }
 
 func ClearGroup(config *GroupChainConfig) {
-	os.RemoveAll(config.group)
+	os.RemoveAll("database")
 }
 
 func initGroupChain() error {
@@ -69,15 +69,17 @@ func initGroupChain() error {
 		return err
 	}
 
-	buildCache(chain)
+	build(chain)
 
 	GroupChainImpl = chain
 	return nil
 }
 
-func buildCache(chain *GroupChain) {
+func build(chain *GroupChain) {
 	count, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	if nil == count {
+		// 创始块
+		chain.save(genesisGroup())
 		return
 	}
 
@@ -103,7 +105,7 @@ func intToBytes(n uint64) []byte {
 }
 
 func (chain *GroupChain) Count() uint64 {
-	return chain.count
+	return chain.count - 1
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
@@ -168,12 +170,12 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	//if nil != group.Parent {
-	//	parent := chain.getGroupById(group.Parent)
-	//	if nil == parent {
-	//		return fmt.Errorf("parent is not existed")
-	//	}
-	//}
+	if nil != group.Parent {
+		parent := chain.getGroupById(group.Parent)
+		if nil == parent {
+			return fmt.Errorf("parent is not existed")
+		}
+	}
 
 	// todo: 通过父亲节点公钥校验本组的合法性
 
@@ -191,11 +193,17 @@ func (chain *GroupChain) save(group *Group) error {
 		chain.now = append(chain.now, group.Id)
 	}
 
-	chain.groups.Put(generateKey(chain.count), group.Id)
-	chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
-	chain.count++
-	return chain.groups.Put(group.Id, data)
-
+	if group.Dummy != nil {
+		chain.groups.Put(generateKey(chain.count), group.Dummy)
+		chain.count++
+		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
+		return chain.groups.Put(group.Dummy, data)
+	} else {
+		chain.groups.Put(generateKey(chain.count), group.Id)
+		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
+		chain.count++
+		return chain.groups.Put(group.Id, data)
+	}
 }
 
 func (chain *GroupChain) GetAllGroupID() [][]byte {

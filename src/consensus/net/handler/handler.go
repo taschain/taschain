@@ -107,18 +107,19 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 }
 
 //全网节点收到父亲节点广播的组信息，将组(没有组公钥的)上链
-func onGroupMemberReceived(grm logical.ConsensusGroupRawMessage){
-	members := make([]core.Member,0)
-	for _,m := range grm.MEMS{
-		mem := core.Member{Id:m.ID.Serialize(),PubKey:m.PK.Serialize()}
-		members = append(members,mem)
+func onGroupMemberReceived(grm logical.ConsensusGroupRawMessage) {
+	members := make([]core.Member, 0)
+	for _, m := range grm.MEMS {
+		mem := core.Member{Id: m.ID.Serialize(), PubKey: m.PK.Serialize()}
+		members = append(members, mem)
 	}
-	group := core.Group{Dummy:grm.GI.DummyID.Serialize(),Members:members,Parent:grm.GI.ParentID.Serialize()}
+	group := core.Group{Dummy: grm.GI.DummyID.Serialize(), Members: members, Parent: grm.GI.ParentID.Serialize()}
 
 	sender := grm.SI.SignMember.Serialize()
 	signature := grm.SI.DataSign.Serialize()
-	core.GroupChainImpl.AddGroup(&group,sender,signature)
+	core.GroupChainImpl.AddGroup(&group, sender, signature)
 }
+
 //----------------------------------------------------------------------------------------------------------------------
 func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
 	message := new(tas_pb.ConsensusGroupRawMessage)
@@ -133,9 +134,9 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMess
 	sign := pbToSignData(message.Sign)
 
 	ids := []logical.PubKeyInfo{}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < len(message.Ids); i++ {
 		pkInfo := pbToPubKeyInfo(message.Ids[i])
-		ids[i] = *pkInfo
+		ids = append(ids, *pkInfo)
 	}
 
 	m := logical.ConsensusGroupRawMessage{GI: *gi, MEMS: ids, SI: *sign}
@@ -312,7 +313,7 @@ func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical
 	}
 
 	var dummyID groupsig.ID
-	e2 := parentId.Deserialize(m.DummyID)
+	e2 := dummyID.Deserialize(m.DummyID)
 
 	if e1 != nil {
 		logger.Errorf("groupsig.ID Deserialize error:%s", e2.Error())
@@ -400,4 +401,3 @@ func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
 	pkInfo := logical.PubKeyInfo{ID: id, PK: pk}
 	return &pkInfo
 }
-
