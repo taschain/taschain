@@ -309,8 +309,10 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	//gis.ParentID = p.GetMinerID()
 
 	var parentID groupsig.ID
-	parentID.Deserialize([]byte("Z2VuZXNpcyBncm91cCBkdW1teQ=="))
+	//todo future bug
+	parentID.Deserialize([]byte("genesis group dummy"))
 	gis.ParentID = parentID
+	fmt.Print(parentID.Serialize())
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 	fmt.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
@@ -339,7 +341,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		members = append(members, member)
 	}
 	//此时组ID 跟组公钥是没有的
-	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: gis.ParentID.Serialize()}
+	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
 	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
 	if err != nil {
 		fmt.Printf("Add dummy group error:%s\n", err.Error())
