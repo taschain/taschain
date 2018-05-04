@@ -349,7 +349,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		fmt.Printf("Add dummy to chain success!")
 	}
 	fmt.Printf("Waiting 60s for dummy group sync...\n")
-	time.Sleep(60 * time.Second)
+	time.Sleep(30 * time.Second)
 	SendGroupInitMessage(grm)
 	return 0
 }
