@@ -306,7 +306,11 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		return -1
 	}
 	var gis ConsensusGroupInitSummary
-	gis.ParentID = p.GetMinerID()
+	//gis.ParentID = p.GetMinerID()
+
+	var parentID groupsig.ID
+	parentID.Deserialize([]byte("Z2VuZXNpcyBncm91cCBkdW1teQ=="))
+	gis.ParentID = parentID
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 	fmt.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
@@ -361,7 +365,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() {                //该用户和我是同一组
+	if sign_pk.IsValid() { //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")
