@@ -306,7 +306,13 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		return -1
 	}
 	var gis ConsensusGroupInitSummary
-	gis.ParentID = p.GetMinerID()
+	//gis.ParentID = p.GetMinerID()
+
+	var parentID groupsig.ID
+	//todo future bug
+	parentID.Deserialize([]byte("genesis group dummy"))
+	gis.ParentID = parentID
+	fmt.Print(parentID.Serialize())
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 	fmt.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
@@ -335,7 +341,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		members = append(members, member)
 	}
 	//此时组ID 跟组公钥是没有的
-	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: gis.ParentID.Serialize()}
+	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
 	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
 	if err != nil {
 		fmt.Printf("Add dummy group error:%s\n", err.Error())
@@ -361,7 +367,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() {                //该用户和我是同一组
+	if sign_pk.IsValid() { //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")
