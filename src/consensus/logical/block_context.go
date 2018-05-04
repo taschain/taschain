@@ -118,6 +118,10 @@ func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
 	return b
 }
 
+func (sc SlotContext) GetGroupSignHash() common.Hash {
+	return sc.GroupSign.GetHash()
+}
+
 //（达到超过阈值的签名片段后）生成组签名
 //如成功，则置位成员变量GroupSign和GSStatus，返回true。
 func (sc *SlotContext) GenGroupSign() bool {
