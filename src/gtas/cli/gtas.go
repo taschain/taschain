@@ -74,6 +74,13 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		return
 	}
 	addGenesisToChain()
+	if rpc {
+		err = StartRPC(rpcAddr, rpcPort)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
 	if super {
 		keys := LoadPubKeyInfo()
 		fmt.Println("Waiting node to connect...")
@@ -92,13 +99,6 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			fmt.Println("create group failed")
 		}
 		fmt.Println("create group success")
-	}
-	if rpc {
-		err = StartRPC(rpcAddr, rpcPort)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
 	}
 	gtas.inited = true
 	//测试SendTransactions
