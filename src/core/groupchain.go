@@ -193,11 +193,17 @@ func (chain *GroupChain) save(group *Group) error {
 		chain.now = append(chain.now, group.Id)
 	}
 
-	chain.groups.Put(generateKey(chain.count), group.Id)
-	chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
-	chain.count++
-	return chain.groups.Put(group.Id, data)
-
+	if group.Dummy != nil {
+		chain.groups.Put(generateKey(chain.count), group.Dummy)
+		chain.count++
+		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
+		return chain.groups.Put(group.Dummy, data)
+	} else {
+		chain.groups.Put(generateKey(chain.count), group.Id)
+		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
+		chain.count++
+		return chain.groups.Put(group.Id, data)
+	}
 }
 
 func (chain *GroupChain) GetAllGroupID() [][]byte {

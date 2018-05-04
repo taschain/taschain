@@ -6,6 +6,14 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	ClearGroup(defaultGroupChainConfig())
 	initGroupChain()
 
+	first := genesisGroup()
+	if nil==GroupChainImpl.getGroupById(first.Dummy){
+		t.Fatalf("fail to put genesis")
+	}
+	if nil!=GroupChainImpl.getGroupById(first.Id){
+		t.Fatalf("fail to put genesis")
+	}
+
 	id1 := genHash("test1")
 	group1 := &Group{
 		Id: id1,
