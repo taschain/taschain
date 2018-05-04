@@ -40,13 +40,13 @@ ID长度（即地址）：48*8=384位。底层同私钥结构。
 公钥长度：96*8=768位。底层结构G2。
 签名长度：48*8=384位。底层结构G1。
 */
-const CONSENSUS_VERSION = 1        //共识版本号
-var SSSS_THRESHOLD int = 51        //1-100
-var GROUP_MAX_MEMBERS int = 5      //一个组最大的成员数量
-const GROUP_INIT_MAX_SECONDS = 600 //10分钟内完成初始化，否则该组失败。不再有初始化机会。
-const MAX_UNKNOWN_BLOCKS = 5       //内存保存最大不能上链的未来块（中间块没有收到）
-const MAX_SYNC_CASTORS = 3         //最多同时支持几个铸块验证
-const INVALID_QN = -1              //无效的队列序号
+const CONSENSUS_VERSION = 1                 //共识版本号
+var SSSS_THRESHOLD int = 51                 //1-100
+var GROUP_MAX_MEMBERS int = 5               //一个组最大的成员数量
+const GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
+const MAX_UNKNOWN_BLOCKS = 5                //内存保存最大不能上链的未来块（中间块没有收到）
+const MAX_SYNC_CASTORS = 3                  //最多同时支持几个铸块验证
+const INVALID_QN = -1                       //无效的队列序号
 //const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
 const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
 const MAX_GROUP_BLOCK_TIME int32 = 10                                //组铸块最大允许时间=10s
@@ -302,6 +302,7 @@ func genDummyGIS(parent MinerInfo, group_name string) ConsensusGroupInitSummary 
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
+	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	gis.Extends = "Dummy"
 	return gis
 }

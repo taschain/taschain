@@ -76,6 +76,12 @@ func (api *GtasAPI) BlockHeight() (*Result, error) {
 	return &Result{fmt.Sprintf("The height of top block is %d", height), height}, nil
 }
 
+// GroupHeight 组块高查询
+func (api *GtasAPI) GroupHeight() (*Result, error) {
+	height := core.GroupChainImpl.Count()
+	return &Result{fmt.Sprintf("The height of group is %d", height), height}, nil
+}
+
 // Vote
 func (api *GtasAPI) Vote(from, modelNum string,v *VoteConfig) (*Result, error) {
 	config := v.ToGlobal()

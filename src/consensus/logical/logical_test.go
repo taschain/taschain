@@ -368,14 +368,14 @@ func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
 	if aggr_gpk == nil {
 		t.Error("rip pub key from sec key failed.")
 	}
-	fmt.Printf("aggr group sec key from all member secret sec key, aggr_gsk=%v.\n", aggr_gsk.GetHexString())
-	fmt.Printf("rip group pub key from aggr_gsk, aggr_gpk =%v.\n", aggr_gpk.GetHexString())
+	fmt.Printf("aggr group sec key from all member secret sec key, aggr_gsk=%v.\n", GetSecKeyPrefix(*aggr_gsk))
+	fmt.Printf("rip group pub key from aggr_gsk, aggr_gpk =%v.\n", GetPubKeyPrefix(*aggr_gpk))
 	{
 		temp_gpk := groupsig.AggregatePubkeys(pubs)
 		if temp_gpk == nil {
 			t.Error("Aggr group pub key failed.")
 		}
-		fmt.Printf("aggr gen group pub key=%v.\n", temp_gpk.GetHexString())
+		fmt.Printf("aggr gen group pub key=%v.\n", GetPubKeyPrefix(*temp_gpk))
 		if !aggr_gpk.IsEqual(*temp_gpk) {
 			t.Error("group pub key diff with direct private func.")
 		}
@@ -384,11 +384,15 @@ func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
 	//用阈值恢复法生成组私钥和组公钥
 	sk_pieces := make([]groupsig.Seckey, 0) //组成员签名私钥列表
 	id_pieces := make([]groupsig.ID, 0)     //组成员ID列表
+	pk_pieces := make([]groupsig.Pubkey, 0) //组成员签名公钥列表
 	for _, v := range procs {
 		sign_sk := v.getSignKey(gid)
 		sk_pieces = append(sk_pieces, sign_sk)
+		sign_pk := *groupsig.NewPubkeyFromSeckey(sign_sk)
+		pk_pieces = append(pk_pieces, sign_pk)
 		id := v.GetMinerID()
 		id_pieces = append(id_pieces, id)
+
 	}
 	const RECOVER_BEGIN = 0 //range 0-2
 	sk_pieces = sk_pieces[RECOVER_BEGIN : TEST_THRESHOLD+RECOVER_BEGIN]
@@ -398,10 +402,10 @@ func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
 	inner_gsk := groupsig.RecoverSeckey(sk_pieces, id_pieces)
 	var inner_gpk *groupsig.Pubkey
 	if inner_gsk != nil {
-		fmt.Printf("recover group sec key=%v.\n", inner_gsk.GetHexString())
+		fmt.Printf("recover group sec key=%v.\n", GetSecKeyPrefix(*inner_gsk))
 		inner_gpk = groupsig.NewPubkeyFromSeckey(*inner_gsk)
 		if inner_gpk != nil {
-			fmt.Printf("rip gpk from recover gsk=%v.\n", inner_gpk.GetHexString())
+			fmt.Printf("rip gpk from recover gsk=%v.\n", GetPubKeyPrefix(*inner_gpk))
 		} else {
 			panic("rip gpk from recovered gsk ERROR.")
 		}
@@ -409,6 +413,7 @@ func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
 		fmt.Printf("RecoverSeckey group sec key ERROR.\n")
 		panic("RecoverSeckey group sec key ERROR.")
 	}
+
 	fmt.Printf("end recover group sec key from member sign sec keys.\n")
 
 	//测试签名
@@ -545,8 +550,17 @@ func genAllProcessers() map[string]*Processer {
 }
 
 func testGenesisGroup(procs map[string]*Processer, t *testing.T) {
+	fmt.Printf("begin being genesis group member...\n")
+	pubs := make([]groupsig.Pubkey, 0)
 	for _, v := range procs {
 		pk_piece := v.BeginGenesisGroupMember()
+		pubs = append(pubs, pk_piece.PK)
+	}
+	gpk := groupsig.AggregatePubkeys(pubs)
+	if gpk == nil {
+		t.Error("aggr gpk failed.")
+	} else {
+		fmt.Printf("end being genesis group member, gpk=%v.\n", GetPubKeyPrefix(*gpk))
 	}
 	return
 }
@@ -554,29 +568,41 @@ func testGenesisGroup(procs map[string]*Processer, t *testing.T) {
 func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
 	root := NewMinerInfo("root", "TASchain")
-	fmt.Printf("root mi: id=%v, seed=%v.\n", root.MinerID.GetHexString(), root.SecretSeed.GetHexString())
+	fmt.Printf("root mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 	{
 		save_buf := root.Serialize()
 		var root2 MinerInfo
 		root2.Deserialize(save_buf)
-		fmt.Printf("root2 Deserialized, mi: id=%v, seed=%v.\n", root.MinerID.GetHexString(), root.SecretSeed.GetHexString())
+		fmt.Printf("root2 Deserialized, mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 	}
 
 	procs := genAllProcessers() //生成矿工进程
+	var first_proc *Processer
 	var mems []PubKeyInfo
 	var proc_index int
 	for _, v := range procs {
+		if first_proc == nil && v != nil {
+			first_proc = v
+		}
 		pki := v.GetMinerInfo()
-		fmt.Printf("proc(%v) miner_id=%v, pub_key=%v.\n", proc_index, GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
+		fmt.Printf("proc(%v) miner_id=%v, pub_key=%v.\n", proc_index, GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 		proc_index++
 		mems = append(mems, pki)
 		v.setProcs(procs)
 	}
+
+	testGenesisGroup(procs, t)
+
 	var grm ConsensusGroupRawMessage
+	grm.MEMS = make([]PubKeyInfo, len(mems))
+	fmt.Printf("mems size=%v.\n", len(mems))
 	copy(grm.MEMS[:], mems[:])
-	grm.GI = genDummyGIS(root, "64-2")
-	//to do : 一个矿工的消息签名是用common还是bls?
-	grm.SI = GenSignData(grm.GI.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
+	fmt.Printf("grm.MEMS size=%v, mems size=%v.\n", len(grm.MEMS), len(mems))
+	//grm.GI = genDummyGIS(root, "64-2")
+
+	grm.GI = first_proc.GenGenesisGroupSummary()
+
+	//grm.SI = GenSignData(grm.GI.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
@@ -599,7 +625,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	}
 	group_pub := groupsig.AggregatePubkeys(pub_pieces)
 	if group_pub != nil {
-		fmt.Printf("direct aggr group pub key=%v.\n", group_pub.GetHexString())
+		fmt.Printf("direct aggr group pub key=%v.\n", GetPubKeyPrefix(*group_pub))
 	} else {
 		panic("direct aggr group pub key failed.")
 	}
@@ -612,9 +638,9 @@ func testLogicGroupInitEx(t *testing.T) {
 		groups := v.getMinerGroups()
 		fmt.Printf("---i(%v) proc(%v), joined groups=%v.\n", index, k, len(groups))
 		for gid, g_info := range groups {
-			fmt.Printf("------group=%v, id=%v, sign key=%v.\n", gid, g_info.GroupID.GetHexString(), g_info.SignKey.GetHexString())
+			fmt.Printf("------group=%v, id=%v, sign key=%v.\n", gid, GetIDPrefix(g_info.GroupID), GetSecKeyPrefix(g_info.SignKey))
 			if !first_gid.IsValid() {
-				fmt.Printf("first_gid set value=%v.\n", g_info.GroupID.GetHexString())
+				fmt.Printf("first_gid set value=%v.\n", GetIDPrefix(g_info.GroupID))
 				first_gid = g_info.GroupID
 			} else {
 				fmt.Printf("first_gid valided, value=%v.", first_gid.GetBigInt())
@@ -622,13 +648,13 @@ func testLogicGroupInitEx(t *testing.T) {
 		}
 		index++
 	}
-	fmt.Printf("print first_gid=%v.\n", first_gid.GetHexString())
+	fmt.Printf("print first_gid=%v.\n", GetIDPrefix(first_gid))
 	if !first_gid.IsValid() {
 		panic("first_gid not valid.")
 	}
 	fmt.Printf("after inited, first group id=%v.\n", GetIDPrefix(first_gid))
 	testGroupInited(procs, first_gid.GetHexString(), t)
-	//return
+	return
 
 	//铸块测试
 	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CBMR_PIECE)

@@ -19,10 +19,13 @@
     <div class="layui-tab-content">
         <div class="layui-tab-item  layui-show">
             <div class="layui-row layui-col-space10 layui-bg-green">
-                <div class="layui-col-md5">
+                <div class="layui-col-md4">
                 </div>
-                <div class="layui-col-md3" style="font-size: 20px">
+                <div class="layui-col-md2" style="font-size: 20px">
                     <span>当前块高：</span><span id="block_height">0</span>
+                </div>
+                <div class="layui-col-md2" style="font-size: 20px">
+                    <span>当前组高：</span><span id="group_height">0</span>
                 </div>
                 <div class="layui-col-md4">
                 </div>
@@ -472,7 +475,7 @@
             });
         }
 
-        // 同步块高
+        // 同步块高，组高
         function syncBlockHeight() {
             let params = {
                 "method": "GTAS_blockHeight",
@@ -490,6 +493,30 @@
                 success: function (rdata) {
                     if (rdata.result !== undefined){
                         let block_height = $("#block_height");
+                        block_height.text(rdata.result.data)
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+            });
+
+            let params2 = {
+                "method": "GTAS_groupHeight",
+                "params": [],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params2),
+                success: function (rdata) {
+                    if (rdata.result !== undefined){
+                        let block_height = $("#group_height");
                         block_height.text(rdata.result.data)
                     }
                     if (rdata.error !== undefined){

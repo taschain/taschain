@@ -269,7 +269,7 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 }
 
 //生成创世组成员信息
-func (p *Processer) BeginGenesisGroupMember() {
+func (p *Processer) BeginGenesisGroupMember() PubKeyInfo {
 	gis := p.GenGenesisGroupSummary()
 	temp_mi := p.getmi()
 	temp_mgs := NewMinerGroupSecret(temp_mi.GenSecretForGroup(gis.GenHash()))
@@ -277,7 +277,7 @@ func (p *Processer) BeginGenesisGroupMember() {
 	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
 	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
 	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
-	return
+	return pki
 }
 
 func (p *Processer) GenGenesisGroupSummary() ConsensusGroupInitSummary {
@@ -322,11 +322,28 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	gis.Extends = "Dummy"
 	var grm ConsensusGroupRawMessage
+	grm.MEMS = make([]PubKeyInfo, len(miners))
 	copy(grm.MEMS[:], miners[:])
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
 	fmt.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
 	fmt.Printf("call network service SendGroupInitMessage...\n")
+	//dummy 组写入组链 add by 小熊
+	members := make([]core.Member, 0)
+	for _, miner := range miners {
+		member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+		members = append(members, member)
+	}
+	//此时组ID 跟组公钥是没有的
+	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: gis.ParentID.Serialize()}
+	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
+	if err != nil {
+		fmt.Printf("Add dummy group error:%s\n", err.Error())
+	} else {
+		fmt.Printf("Add dummy to chain success!")
+	}
+	fmt.Printf("Waiting 60s for dummy group sync...\n")
+	time.Sleep(60 * time.Second)
 	SendGroupInitMessage(grm)
 	return 0
 }
@@ -639,14 +656,16 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
 		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
 		if err == nil {
+			fmt.Printf("OMB next cast group=%v.\n", GetIDPrefix(next_group))
 			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
+				fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n", GetIDPrefix(next_group))
 				bc.BeingCastGroup(cbm.Block.Header.Height, cbm.Block.Header.PreTime, cbm.SI.DataHash)
 				var ccm ConsensusCurrentMessage
 				ccm.BlockHeight = cbm.Block.Header.Height + 1
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
-				fmt.Printf("call network service SendCurrentGroupCast...\n")
+				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
 				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
 		} else {
@@ -655,7 +674,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		block = &cbm.Block //返回成功的块
 	} else {
 		//丢弃该块
-		fmt.Printf("received invalid new block, height = %v.\n", cbm.Block.Header.Height)
+		fmt.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
 	fmt.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return block
