@@ -33,6 +33,16 @@ func TestGroupChain_AddGroup(t *testing.T) {
 		t.Fatalf("fail to add group2")
 	}
 
+	// 相同id
+	group3 := &Group{
+		Id:     id2,
+		Parent: id1,
+	}
+	GroupChainImpl.AddGroup(group3, nil, nil)
+	if 2 != GroupChainImpl.Count() {
+		t.Fatalf("fail to add group2")
+	}
+
 	now := GroupChainImpl.GetAllGroupID()
 	if nil == now {
 		t.Fatalf("fail to get all groupID")
