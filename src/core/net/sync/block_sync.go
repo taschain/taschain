@@ -45,14 +45,14 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.HeightRequestCh:
-			logger.Debugf("BlockSyncer HeightRequestCh get message from:%s", sourceId)
+			//logger.Debugf("BlockSyncer HeightRequestCh get message from:%s", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
 		case h := <-bs.HeightCh:
-			logger.Debugf("BlockSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			//logger.Debugf("BlockSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
 			//收到来自其他节点的块链高度
 			bs.maxHeightLock.Lock()
 			if h.Height > bs.neighborMaxHeight {
@@ -61,14 +61,14 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxHeightLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			logger.Debugf("BlockRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
+			//logger.Debugf("BlockRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			logger.Debugf("BlockArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.BlockEntity.Blocks))
+			//logger.Debugf("BlockArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.BlockEntity.Blocks))
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
@@ -78,7 +78,7 @@ func (bs *blockSyncer) start() {
 				logger.Debugf("Block chain add block error:%s", e.Error())
 			}
 		case <-t.C:
-			logger.Debug("sync time up, start to block sync!")
+			//logger.Debug("sync time up, start to block sync!")
 			bs.syncBlock()
 		}
 	}
@@ -89,7 +89,7 @@ func (bs *blockSyncer) syncBlock() {
 	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	logger.Debug("block height request  time up!")
+	//logger.Debug("block height request  time up!")
 	//获取本地块链高度
 	if nil == core.BlockChainImpl {
 		return

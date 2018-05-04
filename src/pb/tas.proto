@@ -268,8 +268,6 @@ message ConsensusCurrentMessage{
 
     required uint64 BlockHeight = 4;
 
-    required bytes Instigator = 5;
-
     required SignData Sign = 6;
 }
 

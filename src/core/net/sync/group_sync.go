@@ -42,14 +42,14 @@ func (gs *groupSyncer) start() {
 	for {
 		select {
 		case sourceId := <-gs.HeightRequestCh:
-			logger.Debugf("GroupSyncer HeightRequestCh get message from:%s", sourceId)
+			//logger.Debugf("GroupSyncer HeightRequestCh get message from:%s", sourceId)
 			//收到组高度请求
 			if nil == core.GroupChainImpl {
 				return
 			}
 			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
-			logger.Debugf("GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			//logger.Debugf("GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
 			//收到来自其他节点的组链高度
 			gs.maxHeightLock.Lock()
 			if h.Height > gs.neighborMaxHeight {
@@ -58,7 +58,7 @@ func (gs *groupSyncer) start() {
 			}
 			gs.maxHeightLock.Unlock()
 		case br := <-gs.GroupRequestCh:
-			logger.Debugf("GroupRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
+			//logger.Debugf("GroupRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到组请求
 			if nil == core.GroupChainImpl {
 				return
@@ -71,7 +71,7 @@ func (gs *groupSyncer) start() {
 			entity := core.GroupMessage{Groups: groups, Height: br.SourceHeight, Hash: br.SourceCurrentHash}
 			sendGroups(br.SourceId, &entity)
 		case bm := <-gs.GroupArrivedCh:
-			logger.Debugf("GroupArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.GroupEntity.Groups))
+			//logger.Debugf("GroupArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.GroupEntity.Groups))
 			//收到组信息
 			if nil == core.GroupChainImpl {
 				return
@@ -83,7 +83,7 @@ func (gs *groupSyncer) start() {
 				}
 			}
 		case <-t.C:
-			logger.Debug("sync time up, start to group sync!")
+			//logger.Debug("sync time up, start to group sync!")
 			gs.syncGroup()
 		}
 	}
@@ -94,7 +94,7 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	logger.Debug("group height request  time up!")
+	//logger.Debug("group height request  time up!")
 	if nil == core.GroupChainImpl {
 		return
 	}
