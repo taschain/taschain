@@ -559,10 +559,10 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
+	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, rece hash=%v...\n",
+		p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.GetID()), cvm.SI.DataHash.Hex())
 	p.castLock.Lock()
-	defer p.castLock.Unlock()
-	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.SignMember))
-	fmt.Printf("proc(%v) OMV rece hash=%v.\n", p.getPrefix(), cvm.SI.DataHash.Hex())
+	locked := true
 
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
@@ -572,20 +572,36 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	bc, first := p.beingCastGroup(cgs, cvm.SI)
 	fmt.Printf("after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
 	if bc == nil {
+		if locked {
+			p.castLock.Unlock()
+			locked = false
+		}
 		fmt.Printf("proc(%v) OMV can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
 	fmt.Printf("proc(%v) OMV blockContext status=%v.\n", p.getPrefix(), bc.ConsensusStatus)
 	if !bc.IsCasting() { //当前没有在组铸块中
+		if locked {
+			p.castLock.Unlock()
+			locked = false
+		}
 		fmt.Printf("proc(%v) OMV failed, group not in cast.\n", p.getPrefix())
 		return
 	}
 	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
 	if slot == nil {
+		if locked {
+			p.castLock.Unlock()
+			locked = false
+		}
 		fmt.Printf("proc(%v) OMV can't found a valid slot, ignore message.\n", p.getPrefix())
 		return
 	}
 	if slot.IsFailed() {
+		if locked {
+			p.castLock.Unlock()
+			locked = false
+		}
 		fmt.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
 		return
 	}
@@ -611,9 +627,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(cvm.GroupID))
 			fmt.Printf("proc(%v) OMV VerifyGroupSign=%v.\n", p.getPrefix(), b)
 			if b { //组签名验证通过
-				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
+				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK, qn=%v.!!!\n", p.getPrefix(), cvm.BH.QueueNumber)
 				p.SuccessNewBlock(&cvm.BH, cvm.GroupID) //上链和组外广播
 			} else {
+				if locked {
+					p.castLock.Unlock()
+					locked = false
+				}
 				panic("proc OMV VerifyGroupSign failed.")
 			}
 		case CBMR_PIECE:
@@ -621,6 +641,10 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			send_message.BH = cvm.BH
 			send_message.GroupID = cvm.GroupID
 			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			if locked {
+				p.castLock.Unlock()
+				locked = false
+			}
 			fmt.Printf("call network service SendVerifiedCast...\n")
 			SendVerifiedCast(&send_message)
 			/*
@@ -642,6 +666,10 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	case -1: //不可逆异常
 		slot.statusChainFailed()
 	}
+	if locked {
+		p.castLock.Unlock()
+		locked = false
+	}
 	fmt.Printf("proc(%v) end OMV.\n", p.getPrefix())
 	return
 }
@@ -650,7 +678,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	fmt.Printf("proc(%v) begin OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	p.castLock.Lock()
-	defer p.castLock.Unlock()
+	locked := true
 	var block *core.Block
 	bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
@@ -658,13 +686,17 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		if err == nil {
 			fmt.Printf("OMB next cast group=%v.\n", GetIDPrefix(next_group))
 			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
-				fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n", GetIDPrefix(next_group))
+				fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n")
 				bc.BeingCastGroup(cbm.Block.Header.Height, cbm.Block.Header.PreTime, cbm.SI.DataHash)
 				var ccm ConsensusCurrentMessage
 				ccm.BlockHeight = cbm.Block.Header.Height + 1
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
+				if locked {
+					p.castLock.Unlock()
+					locked = false
+				}
 				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
 				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
@@ -676,24 +708,36 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		//丢弃该块
 		fmt.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
+	if locked {
+		p.castLock.Unlock()
+		locked = false
+	}
 	fmt.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return block
 }
 
 //新的交易到达通知（用于处理大臣验证消息时缺失的交易）
 func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
+	fmt.Printf("proc(%v) begin OMNT, trans count=%v...\n", p.getPrefix(), len(ths))
+	if len(ths) > 0 {
+		fmt.Printf("proc(%v) OMNT, first trans=%v.\n", p.getPrefix(), ths[0].Hex())
+	}
 	p.castLock.Lock()
-	defer p.castLock.Unlock()
+	locked := true
 	bc := p.GetCastingBC()
 	if bc != nil {
 		qns := bc.ReceTrans(ths)
 		for _, v := range qns { //对不再缺失交易集的插槽处理
-			//TO DO :调用鸠兹的验证函数
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
+				fmt.Printf("OMNT slot (qn=%v) info : still losts=%v, result=%v.\n", v, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
-					panic("OnMessageNewTransactions still losting trans on chain.")
+					if locked {
+						p.castLock.Unlock()
+						locked = false
+					}
+					panic("OMNT still losting trans on main chain.")
 				}
 				switch result {
 				case 0: //验证通过
@@ -701,23 +745,37 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 					send_message.BH = slot.BH
 					send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
-					fmt.Printf("call network service SendVerifiedCast...\n")
-					SendVerifiedCast(&send_message)
-					/*
+					if locked {
+						p.castLock.Unlock()
+						locked = false
+					}
+					if !PROC_TEST_MODE {
+						fmt.Printf("call network service SendVerifiedCast...\n")
+						SendVerifiedCast(&send_message)
+					} else {
 						fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 						for _, v := range p.GroupProcs {
 							v.OnMessageVerify(send_message)
 						}
-					*/
+					}
 				case 1:
 					panic("Processer::OnMessageNewTransactions failed, check xiaoxiong's src code.")
 				case -1:
+					fmt.Printf("OMNT set slot (qn=%v) failed irreversible.\n", v)
 					slot.statusChainFailed()
 				}
+			} else {
+				panic("OMNT failed, slot is nil.")
 			}
-
 		}
+	} else {
+		fmt.Printf("OMNT, current proc not in casting, ignore OMNT message.\n")
 	}
+	if locked {
+		p.castLock.Unlock()
+		locked = false
+	}
+	fmt.Printf("proc(%v) end OMNT.\n", p.getPrefix())
 	return
 }
 

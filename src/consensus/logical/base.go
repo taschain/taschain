@@ -56,7 +56,7 @@ const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	GROUP_MAX_MEMBERS = cc.GetInt("GROUP_MAX_MEMBERS", GROUP_MAX_MEMBERS)
-	SSSS_THRESHOLD = cc.GetInt("GROUP_MAX_MEMBERS", SSSS_THRESHOLD)
+	SSSS_THRESHOLD = cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD)
 	return
 }
 
