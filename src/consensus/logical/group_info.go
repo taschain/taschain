@@ -232,6 +232,18 @@ func (gg GlobalGroups) GetGroupSize() int {
 	return len(gg.groups)
 }
 
+func (gg *GlobalGroups) AddDummyGroup(g StaticGroupInfo) bool {
+	var add bool
+	fmt.Printf("gg AddDummyGroup, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(g.GIS.DummyID), len(gg.dummy_groups))
+	if _, ok := gg.dummy_groups[g.GIS.DummyID.GetHexString()]; !ok {
+		gg.dummy_groups[g.GIS.DummyID.GetHexString()] = g
+		add = true
+	} else {
+		fmt.Printf("already exist this dummy group in gg.\n")
+	}
+	return add
+}
+
 //增加一个合法铸块组
 func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
 	if len(g.Members) != len(g.MapCache) {
@@ -321,6 +333,7 @@ func (gg GlobalGroups) GetGroupByID(id groupsig.ID) (g StaticGroupInfo, err erro
 }
 
 func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err error) {
+	fmt.Printf("gg GetGroupByDummyID, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(id), len(gg.dummy_groups))
 	if v, ok := gg.dummy_groups[id.GetHexString()]; ok {
 		g = v
 	} else {

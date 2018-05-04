@@ -843,10 +843,13 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	locked := true
 
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
+	sgi_info := NewSGIFromRawMessage(grm)
+	//p.gg.AddDummyGroup(sgi)
+	p.gg.ngg.addInitingGroup(CreateInitingGroup(sgi_info))
 
 	gc := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
 	if gc == nil {
-		panic("Processer::OnMessageGroupInit failed, CreateGroupContextWithMessage return nil.")
+		panic("Processer::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
 	gs := gc.GetGroupStatus()
 	fmt.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)

@@ -127,8 +127,10 @@ func (ngg *NewGroupGenerator) Init(gg *GlobalGroups) {
 func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
 	dummy_id := ngc.sgi.GIS.DummyID
 	if _, ok := ngg.groups[dummy_id.GetHexString()]; !ok {
-		fmt.Printf("add initing group %p ok.\n", &ngc)
+		fmt.Printf("add initing group %p ok, dummy_id=%v.\n", &ngc, GetIDPrefix(dummy_id))
 		ngg.groups[dummy_id.GetHexString()] = &ngc
+	} else {
+		fmt.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummy_id))
 	}
 	return
 }
@@ -139,7 +141,9 @@ func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
 //ngmd：组的初始化共识结果
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
 func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberData) int {
+	fmt.Printf("ngg ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id.gid))
 	ngc, ge := ngg.groups[id.gid.GetHexString()]
+	fmt.Printf("ReceiveData, ngg initing group count=%v.\n", len(ngg.groups))
 	if !ge { //不存在该组
 		sgi, err := ngg.globalInfo.GetGroupByDummyID(id.gid) //在全局组对象中查找
 		if err != nil {
