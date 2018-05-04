@@ -101,6 +101,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		}
 	}
 	gtas.inited = true
+	addGenesisToChain()
 	//测试SendTransactions
 	//peer1Id := "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2"
 	//txs := mockTxs()
@@ -341,10 +342,7 @@ func LoadPubKeyInfo() ([]logical.PubKeyInfo) {
 		return nil
 	}
 	pubKeyInfos := []logical.PubKeyInfo{}
-	for k, v := range infos {
-		if k >= 5 {
-			break
-		}
+	for _, v := range infos {
 		var pub = groupsig.Pubkey{}
 		fmt.Println(v.PubKey)
 		err := pub.SetHexString(v.PubKey)
@@ -471,8 +469,8 @@ func addGenesisToChain() {
 	members := []core.Member{bear, lv, darren, gray, gray1}
 
 	group := core.Group{Members: members, Id: nil, PubKey: nil, Dummy: nil}
-	error := core.GroupChainImpl.AddGroup(&group, nil, nil)
-	if error != nil {
+	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
+	if err != nil {
 		fmt.Printf("Add generic group error:%s\n", error.Error())
 	} else {
 		fmt.Printf("Add generic to chain success")
