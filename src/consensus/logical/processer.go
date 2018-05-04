@@ -322,6 +322,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	gis.Extends = "Dummy"
 	var grm ConsensusGroupRawMessage
+	grm.MEMS = make([]PubKeyInfo, len(miners))
 	copy(grm.MEMS[:], miners[:])
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getmi().GetDefaultSecKey())
@@ -360,7 +361,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() { //该用户和我是同一组
+	if sign_pk.IsValid() {                //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")
@@ -655,14 +656,16 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
 		next_group, err := p.gg.SelectNextGroup(cbm.SI.DataHash) //查找下一个铸块组
 		if err == nil {
+			fmt.Printf("OMB next cast group=%v.\n", GetIDPrefix(next_group))
 			if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
+				fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n", GetIDPrefix(next_group))
 				bc.BeingCastGroup(cbm.Block.Header.Height, cbm.Block.Header.PreTime, cbm.SI.DataHash)
 				var ccm ConsensusCurrentMessage
 				ccm.BlockHeight = cbm.Block.Header.Height + 1
 				ccm.PreHash = cbm.Block.Header.Hash
 				ccm.PreTime = cbm.Block.Header.CurTime
 				ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
-				fmt.Printf("call network service SendCurrentGroupCast...\n")
+				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
 				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
 		} else {
@@ -671,7 +674,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		block = &cbm.Block //返回成功的块
 	} else {
 		//丢弃该块
-		fmt.Printf("received invalid new block, height = %v.\n", cbm.Block.Header.Height)
+		fmt.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
 	fmt.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return block
