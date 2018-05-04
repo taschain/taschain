@@ -1056,7 +1056,9 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 					group := core.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
 					e := core.GroupChainImpl.AddGroup(&group, nil, nil)
 					if e != nil {
-						fmt.Print(e.Error())
+						fmt.Printf("group inited add group error:%s\n", e.Error())
+					} else {
+						fmt.Printf("group inited add group success\n")
 					}
 					fmt.Printf("call network service BroadcastGroupInfo...\n")
 					BroadcastGroupInfo(msg)
