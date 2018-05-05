@@ -9,231 +9,252 @@
     </style>
 </head>
 <body>
-<div class="layui-tab" lay-filter="demo" style="margin: 50px 5%"  >
-    <ul class="layui-tab-title">
-        <li class="layui-this">Dashboard</li>
-        <li>新建账户</li>
-        <li>转账演示</li>
-        <li>查询余额</li>
-    </ul>
-    <div class="layui-tab-content">
-        <div class="layui-tab-item  layui-show">
-            <div class="layui-row layui-col-space10 layui-bg-green">
-                <div class="layui-col-md4">
+<div style="margin: 20px 5%" >
+    <div>
+        <label class="layui-label" id="host"></label>
+        <span class="layui-badge-dot" style="position: relative; top: -2px; left: -2px" id="online_flag"></span>
+        <button class="layui-btn layui-btn-xs" id="change_host">更换host</button>
+    </div>
+    <div class="layui-tab" lay-filter="demo" style="margin: 20px 0">
+        <ul class="layui-tab-title">
+            <li class="layui-this">Dashboard</li>
+            <li>新建账户</li>
+            <li>转账演示</li>
+            <li>查询余额</li>
+        </ul>
+        <div class="layui-tab-content">
+            <div class="layui-tab-item  layui-show">
+                <div class="layui-row layui-col-space10 layui-bg-green">
+                    <div class="layui-col-md4">
+                    </div>
+                    <div class="layui-col-md2" style="font-size: 20px">
+                        <span>当前块高：</span><span id="block_height">0</span>
+                    </div>
+                    <div class="layui-col-md2" style="font-size: 20px">
+                        <span>当前组高：</span><span id="group_height">0</span>
+                    </div>
+                    <div class="layui-col-md4">
+                    </div>
                 </div>
-                <div class="layui-col-md2" style="font-size: 20px">
-                    <span>当前块高：</span><span id="block_height">0</span>
-                </div>
-                <div class="layui-col-md2" style="font-size: 20px">
-                    <span>当前组高：</span><span id="group_height">0</span>
-                </div>
-                <div class="layui-col-md4">
+                <hr/>
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md6">
+                        <label>已连接节点</label>
+                        <table class="layui-table">
+                            <colgroup>
+                                <col width="50%">
+                                <col width="30%">
+                                <col>
+                            </colgroup>
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>ip地址</th>
+                                <th>端口</th>
+                            </tr>
+                            </thead>
+                            <tbody id="nodes_table">
+
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="layui-col-md6">
+                        <label>缓冲区</label>
+                        <table class="layui-table">
+                            <colgroup>
+                                <col width="33%">
+                                <col width="33%">
+                                <col>
+                            </colgroup>
+                            <thead>
+                            <tr>
+                                <th>source</th>
+                                <th>target</th>
+                                <th>value</th>
+                            </tr>
+                            </thead>
+                            <tbody id="trans_table">
+
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-            <hr/>
-            <div class="layui-row layui-col-space10">
-                <div class="layui-col-md6">
-                    <label>已连接节点</label>
-                    <table class="layui-table">
-                        <colgroup>
-                            <col width="50%">
-                            <col width="30%">
-                            <col>
-                        </colgroup>
-                        <thead>
-                        <tr>
-                            <th>id</th>
-                            <th>ip地址</th>
-                            <th>端口</th>
-                        </tr>
-                        </thead>
-                        <tbody id="nodes_table">
+            <div class="layui-tab-item">
+                <button class="layui-btn" id="create_btn">创建账户</button>
+                <table class="layui-table" style="table-layout: fixed">
+                    <colgroup>
+                        <col width="65%">
+                        <col width="20%">
+                        <col>
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th>私钥</th>
+                        <th>钱包地址</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody id="create_chart">
 
-                        </tbody>
-                    </table>
-                </div>
-                <div class="layui-col-md6">
-                    <label>缓冲区</label>
-                    <table class="layui-table">
-                        <colgroup>
-                            <col width="33%">
-                            <col width="33%">
-                            <col>
-                        </colgroup>
-                        <thead>
-                        <tr>
-                            <th>source</th>
-                            <th>target</th>
-                            <th>value</th>
-                        </tr>
-                        </thead>
-                        <tbody id="trans_table">
-
-                        </tbody>
-                    </table>
-                </div>
+                    </tbody>
+                </table>
             </div>
-        </div>
-        <div class="layui-tab-item">
-            <button class="layui-btn" id="create_btn">创建账户</button>
-            <table class="layui-table" style="table-layout: fixed">
-                <colgroup>
-                    <col width="65%">
-                    <col width="20%">
-                    <col>
-                </colgroup>
-                <thead>
-                <tr>
-                    <th>私钥</th>
-                    <th>钱包地址</th>
-                    <th>操作</th>
-                </tr>
-                </thead>
-                <tbody id="create_chart">
-
-                </tbody>
-            </table>
-        </div>
-        <div class="layui-tab-item">
-            <form class="layui-form" action="">
-                <div class="layui-form-item">
-                    <label class="layui-form-label">from</label>
-                    <div class="layui-input-block">
-                        <input type="text" name="from"   autocomplete="off" class="layui-input"
-                               placeholder="请输入发送方地址(len=40)">
+            <div class="layui-tab-item">
+                <form class="layui-form" action="">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">from</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="from"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入发送方地址(len=40)">
+                        </div>
                     </div>
-                </div>
-                <div class="layui-form-item">
-                    <label class="layui-form-label">to</label>
-                    <div class="layui-input-block">
-                        <input type="text" name="to"   autocomplete="off" class="layui-input"
-                               placeholder="请输入接收方地址(len=40)">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">to</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="to"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入接收方地址(len=40)">
+                        </div>
                     </div>
-                </div>
-                <div class="layui-form-item">
-                    <label class="layui-form-label">amount</label>
-                    <div class="layui-input-block">
-                        <input type="text" name="amount"  autocomplete="off" class="layui-input"
-                               placeholder="请输入金额(正整数)">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">amount</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="amount"  autocomplete="off" class="layui-input"
+                                   placeholder="请输入金额(正整数)">
+                        </div>
                     </div>
-                </div>
-                <div class="layui-form-item">
-                    <label class="layui-form-label">code</label>
-                    <div class="layui-input-block">
-                        <input type="text" name="code"  autocomplete="off" class="layui-input"
-                               placeholder="code">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">code</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code"  autocomplete="off" class="layui-input"
+                                   placeholder="code">
+                        </div>
                     </div>
-                </div>
-                <div class="layui-form-item">
-                    <div class="layui-input-block">
-                        <button class="layui-btn" lay-submit lay-filter="t_form">立即提交</button>
-                        <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="t_form">立即提交</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
                     </div>
-                </div>
-            </form>
-            <hr/>
-            Message: &nbsp;<span id="t_message"></span>
-            <hr/>
-            Error: &nbsp; <span id="t_error"></span>
-            <hr/>
-        </div>
+                </form>
+                <hr/>
+                Message: &nbsp;<span id="t_message"></span>
+                <hr/>
+                Error: &nbsp; <span id="t_error"></span>
+                <hr/>
+            </div>
 
-        <div class="layui-tab-item">
+            <div class="layui-tab-item">
 
-            <table class="layui-table">
-                <colgroup>
-                    <col width="50%">
-                    <col width="30%">
-                </colgroup>
-                <thead>
-                <tr>
-                    <th>地址</th>
-                    <th>余额</th>
-                    <th>操作</th>
-                </tr>
-                </thead>
-                <tbody id="balance_chart">
+                <table class="layui-table">
+                    <colgroup>
+                        <col width="50%">
+                        <col width="30%">
+                    </colgroup>
+                    <thead>
                     <tr>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入查询地址" id="query_input_0">
-                        </td>
-                        <td id="query_balance_0">
-
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
-                        </td>
+                        <th>地址</th>
+                        <th>余额</th>
+                        <th>操作</th>
                     </tr>
-                    <tr>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入查询地址" id="query_input_1">
-                        </td>
-                        <td id="query_balance_1">
+                    </thead>
+                    <tbody id="balance_chart">
+                        <tr>
+                            <td>
+                                <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                       placeholder="请输入查询地址" id="query_input_0">
+                            </td>
+                            <td id="query_balance_0">
 
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入查询地址" id="query_input_2">
-                        </td>
-                        <td id="query_balance_2">
+                            </td>
+                            <td>
+                                <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                       placeholder="请输入查询地址" id="query_input_1">
+                            </td>
+                            <td id="query_balance_1">
 
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn" id="query_btn_2">查询</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入查询地址" id="query_input_3">
-                        </td>
-                        <td id="query_balance_3">
+                            </td>
+                            <td>
+                                <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                       placeholder="请输入查询地址" id="query_input_2">
+                            </td>
+                            <td id="query_balance_2">
 
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn" id="query_btn_3">查询</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入查询地址" id="query_input_4">
-                        </td>
-                        <td id="query_balance_4">
+                            </td>
+                            <td>
+                                <button class="layui-btn query_btn" id="query_btn_2">查询</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                       placeholder="请输入查询地址" id="query_input_3">
+                            </td>
+                            <td id="query_balance_3">
 
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn" id="query_btn_4">查询</button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div style="padding-top: 30px"></div>
-            <hr/>
-            Message: &nbsp;<span id="balance_message"></span>
-            <hr/>
-            Error: &nbsp; <span id="balance_error"></span>
-            <hr/>
+                            </td>
+                            <td>
+                                <button class="layui-btn query_btn" id="query_btn_3">查询</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                       placeholder="请输入查询地址" id="query_input_4">
+                            </td>
+                            <td id="query_balance_4">
+
+                            </td>
+                            <td>
+                                <button class="layui-btn query_btn" id="query_btn_4">查询</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="padding-top: 30px"></div>
+                <hr/>
+                Message: &nbsp;<span id="balance_message"></span>
+                <hr/>
+                Error: &nbsp; <span id="balance_error"></span>
+                <hr/>
+            </div>
         </div>
     </div>
 </div>
 <script src="./js/layui/layui.js"></script>
 <script>
 
-    layui.use(['form', 'jquery', 'element'], function(){
+    layui.use(['form', 'jquery', 'element', 'layer'], function(){
         var element = layui.element;
         var form = layui.form;
+        var layer = layui.layer;
         var $ = layui.$;
         var HOST = "http://127.0.0.1:8088";
         var ref;
-        var ref2;
+        var host_ele = $("#host");
+        var online=false;
+        host_ele.text(HOST);
+        $("#change_host").click(function () {
+            layer.prompt({
+                formType: 0,
+                value: HOST,
+                title: '请输入新的host',
+            }, function(value, index, elem){
+                HOST = value;
+                host_ele.text(HOST);
+                layer.close(index);
+            });
+        });
 
         // 查询余额
         $(".query_btn").click(function () {
@@ -500,8 +521,11 @@
                     }
                 },
             });
+        }
 
-            let params2 = {
+        // 同步组高
+        function syncGroupHeight() {
+            let params = {
                 "method": "GTAS_groupHeight",
                 "params": [],
                 "jsonrpc": "2.0",
@@ -513,7 +537,7 @@
                 beforeSend: function (xhr) {
                     xhr.setRequestHeader("Content-Type", "application/json");
                 },
-                data: JSON.stringify(params2),
+                data: JSON.stringify(params),
                 success: function (rdata) {
                     if (rdata.result !== undefined){
                         let block_height = $("#group_height");
@@ -522,7 +546,17 @@
                     if (rdata.error !== undefined){
                         // $("#t_error").text(rdata.error.message)
                     }
+                    if(!online) {
+                        online = true;
+                        $("#online_flag").addClass("layui-bg-green")
+                    }
                 },
+                error: function () {
+                    if(online) {
+                        online = false;
+                        $("#online_flag").removeClass("layui-bg-green")
+                    }
+                }
             });
         }
 
@@ -531,6 +565,10 @@
         syncNodes();
         syncTrans();
         syncBlockHeight();
+        syncGroupHeight();
+        setInterval(function () {
+            syncGroupHeight();
+        }, 1000);
         ref = setInterval(function(){
             syncNodes();
             syncTrans();
@@ -539,7 +577,6 @@
 
         element.on('tab(demo)', function(data){
             if(data.index === 0) {
-                syncNodes();
                 ref = setInterval(function(){
                     syncNodes();
                     syncTrans();
