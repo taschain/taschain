@@ -72,7 +72,7 @@ message BlockHeader{
 
      optional uint64 Nonce = 10;
 
-     repeated bytes transactions = 11;
+     optional Hashes transactions = 11;
 
      optional bytes TxTree  = 12 ;
 

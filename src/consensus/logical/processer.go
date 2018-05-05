@@ -279,13 +279,14 @@ func (p Processer) IsMinerGroup(gid groupsig.ID) bool {
 
 //检查区块头是否合法
 func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
-	//to do : 检查是否基于链上最高块的出块
-	gi := p.gg.GetCastGroup(bh.PreHash) //取得合法的铸块组
-	if gi.GroupID == sd.SignMember {
-		//检查组签名是否正确
-		result = sd.VerifySign(gi.GroupPK)
-	}
-	return result
+	////to do : 检查是否基于链上最高块的出块
+	//gi := p.gg.GetCastGroup(bh.PreHash) //取得合法的铸块组
+	//if gi.GroupID == sd.SignMember {
+	//	//检查组签名是否正确
+	//	result = sd.VerifySign(gi.GroupPK)
+	//}
+	//return result
+	return true
 }
 
 //生成创世组成员信息
