@@ -12,21 +12,21 @@ import (
 )
 
 //计算当前距上一个铸块完成已经过去了几个铸块时间窗口（组间）
-func getBlockTimeWindow(b time.Time) int32 {
+func getBlockTimeWindow(b time.Time) int {
 	diff := time.Since(b).Seconds() //从上个铸块完成到现在的时间（秒）
 	if diff >= 0 {
-		return int32(diff) / MAX_GROUP_BLOCK_TIME
+		return int(diff) / MAX_GROUP_BLOCK_TIME
 	} else {
 		return -1
 	}
 }
 
 //计算当前距上一个铸块完成已经过去了几个出块时间窗口（组内）
-func getCastTimeWindow(b time.Time) int32 {
+func getCastTimeWindow(b time.Time) int {
 	diff := time.Since(b).Seconds() //从上个铸块完成到现在的时间（秒）
 	fmt.Printf("getCastTimeWindow, time_begin=%v, diff=%v.\n", b.Format(time.Stamp), diff)
 	if diff >= 0 {
-		return int32(diff) / MAX_USER_CAST_TIME
+		return int(diff) / MAX_USER_CAST_TIME
 	} else {
 		return -1
 	}
@@ -887,7 +887,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64, height uint) {
 	p.castLock.Lock()
 	defer p.castLock.Unlock()
-	fmt.Printf("prov(%v) begin Processer::CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), user_index, qn, height)
+	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), user_index, qn, height)
 	if user_index < 0 || qn < 0 {
 		return
 	}
@@ -1045,6 +1045,8 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 	p.initLock.Lock()
 	locked := true
 
+
+
 	gc := p.jgs.GetGroup(spkm.DummyID)
 	if gc == nil {
 		if locked {
@@ -1149,6 +1151,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		bc.pos = sgi.GetMinerPos(p.GetMinerID())
 		fmt.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
 		bc.Proc = p
+		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 		b = p.AddBlockConext(bc)
 		fmt.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组

@@ -428,7 +428,7 @@ func (bc *BlockContext) accpetCV(bh core.BlockHeader, si SignData) CAST_BLOCK_ME
 		fmt.Printf("proc(%v) acceptCV failed(time windwos ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, bh.QueueNumber)
 		return CBMR_ERROR_ARG
 	}
-	if int32(bh.QueueNumber) > count { //未轮到该QN出块
+	if int(bh.QueueNumber) > count { //未轮到该QN出块
 		fmt.Printf("proc(%v) acceptCV failed(qn ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, bh.QueueNumber)
 		return CMBR_IGNORE_QN_FUTURE
 	}
@@ -567,17 +567,21 @@ func (bc *BlockContext) CalcCastor() (int32, int64) {
 	var index int32 = -1
 	var qn int64 = -1
 	d := time.Since(bc.PreTime)
+	
 	var secs uint64 = uint64(d.Seconds())
 	if secs < uint64(MAX_GROUP_BLOCK_TIME) { //在组铸块共识时间窗口内
 		qn = int64(secs / uint64(MAX_USER_CAST_TIME))
 		first_i := bc.getFirstCastor() //取得第一个铸块人位置
+		fmt.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, first_i, qn, first_i + int32(qn))
 		if first_i >= 0 && bc.GroupMembers > 0 {
 			index = (int32(qn) + first_i) % int32(bc.GroupMembers)
+			fmt.Printf("real cur King pos(MOD mem_count)=%v.\n", index)
 		} else {
 			qn = -1
 		}
 	} else {
-		fmt.Printf("bc::calcCastor, out of group max cast time!!!\n")
+		fmt.Printf("bc::calcCastor failed, out of group max cast time, PreTime=%v, escape seconds=%v.!!!\n", 
+			bc.PreTime.Format(time.Stamp), secs)
 	}
 	return index, qn
 }
@@ -602,30 +606,38 @@ func (bc *BlockContext) StartTimer() {
 		count++
 		fmt.Printf("block_context::StartTicker, Now=%v, count=%v.\n", time.Now().Format(time.Stamp), count)
 		//go bc.TickerRoutine()
-		bc.TickerRoutine()
+		b := bc.TickerRoutine()
+		if !b {
+			fmt.Printf("bc.TickerRoutine return false, break timer...\n")		
+			break
+		}
 	}
+	fmt.Printf("StartTimer end, Now=%v.\n", time.Now().Format(time.Stamp))
 	return
 	//<-bc.CCTimer.C
 }
 
 //定时器例行处理
-func (bc *BlockContext) TickerRoutine() {
-	fmt.Printf("proc(%v) begin TickerRoutine...\n", bc.Proc.getPrefix())
+//如果返回false, 则关闭定时器
+func (bc *BlockContext) TickerRoutine() bool {
+	fmt.Printf("proc(%v) begin TickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 	if !bc.IsCasting() { //没有在组铸块共识中
 		fmt.Printf("proc(%v) not in casting, reset and direct return.\n", bc.Proc.getPrefix())
 		bc.Reset() //提前出块完成
-		return
+		return false
 	}
 	d := time.Since(bc.PreTime)                    //上个铸块完成到现在的时间
-	if int32(d.Seconds()) > MAX_GROUP_BLOCK_TIME { //超过了组最大铸块时间
+	if int(d.Seconds()) > MAX_GROUP_BLOCK_TIME { //超过了组最大铸块时间
 		fmt.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
 		bc.Reset()
+		return false
 	} else {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
 		fmt.Printf("proc(%v) end TickerRoutine, index=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, uint(bc.CastHeight))
+		return true
 	}
-	return
+	return true
 }
