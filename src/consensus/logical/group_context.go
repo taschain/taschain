@@ -271,12 +271,12 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
 	if len(grm.MEMS) != GROUP_MAX_MEMBERS {
-		fmt.Printf("group member size failed=%v.", len(grm.MEMS))
+		fmt.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
 	}
 	for k, v := range grm.MEMS {
 		if !v.GetID().IsValid() {
-			fmt.Printf("i=%v, ID failed=%v.", k, v.GetID().GetHexString())
+			fmt.Printf("i=%v, ID failed=%v.\n", k, v.GetID().GetHexString())
 			return nil
 		}
 	}

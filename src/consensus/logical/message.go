@@ -71,7 +71,16 @@ type ConsensusSignPubKeyMessage struct {
 	GISHash common.Hash //组初始化共识的哈希
 	DummyID groupsig.ID
 	SignPK  groupsig.Pubkey //组成员签名公钥
+	GISSign groupsig.Signature		//用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
 	SI      SignData        //矿工个人签名
+}
+
+func (msg *ConsensusSignPubKeyMessage) GenGISSign(sk groupsig.Seckey) {
+	msg.GISSign = groupsig.Sign(sk, msg.GISHash.Bytes())
+}
+
+func (msg *ConsensusSignPubKeyMessage) VerifyGISSign(pk groupsig.Pubkey) bool {
+	return groupsig.VerifySig(pk, msg.GISHash.Bytes(), msg.GISSign)
 }
 
 func (msg *ConsensusSignPubKeyMessage) GenSign(ski SecKeyInfo) bool {

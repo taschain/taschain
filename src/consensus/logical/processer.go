@@ -460,7 +460,7 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
-	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID), GetIDPrefix(ccm.SI.GetID()))
+	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID), GetIDPrefix(ccm.SI.GetID()), ccm.BH.QueueNumber)
 	p.castLock.Lock()
 	locked := true
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
@@ -488,32 +488,27 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		fmt.Printf("proc(%v) OMC failed, group not in cast.\n", p.getPrefix())
 		return
 	}
-	slot := bc.getSlotByQN(int64(ccm.BH.QueueNumber))
-	if slot == nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
-		fmt.Printf("proc(%v) OMC can't found a valid slot, ignore message.\n", p.getPrefix())
-		return
-	}
-	if slot.IsFailed() {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
-		fmt.Printf("proc(%v) OMC slot irreversible failed, ignore message.\n", p.getPrefix())
-		return
-	}
 
 	var ccr int8
-	if slot.isAllTransExist() {
-		ccr = 0
-	} else {
-		var lost_trans_list []common.Hash
-		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
-		fmt.Printf("proc(%v) OMC chain check result=%v.\n", p.getPrefix(), ccr)
-		slot.InitLostingTrans(lost_trans_list)
+	var lost_trans_list []common.Hash
+
+	slot := bc.getSlotByQN(int64(ccm.BH.QueueNumber))
+	if slot != nil {
+		if slot.IsFailed() {
+			if locked {
+				p.castLock.Unlock()
+				locked = false
+			}
+			fmt.Printf("proc(%v) OMC slot irreversible failed, ignore message.\n", p.getPrefix())
+			return
+		}
+		if slot.isAllTransExist() { //所有交易都已本地存在
+			ccr = 0
+		} else {
+			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
+			fmt.Printf("proc(%v) OMC chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
+			slot.InitLostingTrans(lost_trans_list)
+		}
 	}
 
 	cs := GenConsensusSummary(ccm.BH)
@@ -596,8 +591,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
-	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, rece hash=%v...\n",
-		p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.GetID()), cvm.SI.DataHash.Hex())
+	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, qn=%v, rece hash=%v...\n",
+		p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.GetID()), cvm.BH.QueueNumber, cvm.SI.DataHash.Hex())
 	p.castLock.Lock()
 	locked := true
 
@@ -625,32 +620,27 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		fmt.Printf("proc(%v) OMV failed, group not in cast.\n", p.getPrefix())
 		return
 	}
-	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
-	if slot == nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
-		fmt.Printf("proc(%v) OMV can't found a valid slot, ignore message.\n", p.getPrefix())
-		return
-	}
-	if slot.IsFailed() {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
-		fmt.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
-		return
-	}
 
 	var ccr int8
-	if slot.isAllTransExist() {
-		ccr = 0
-	} else {
-		var lost_trans_list []common.Hash
-		lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
-		fmt.Printf("proc(%v) OMV chain check result=%v.\n", p.getPrefix(), ccr)
-		slot.InitLostingTrans(lost_trans_list)
+	var lost_trans_list []common.Hash
+
+	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
+	if slot != nil {
+		if slot.IsFailed() {
+			if locked {
+				p.castLock.Unlock()
+				locked = false
+			}
+			fmt.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
+			return
+		}
+		if slot.isAllTransExist() { //所有交易都已本地存在
+			ccr = 0
+		} else {
+			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
+			fmt.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
+			slot.InitLostingTrans(lost_trans_list)
+		}
 	}
 
 	cs := GenConsensusSummary(cvm.BH)
@@ -883,18 +873,18 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 }
 
 //检查是否轮到自己出块
-func (p *Processer) CheckCastRoutine(gid groupsig.ID, user_index int32, qn int64, height uint) {
+func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64, height uint) {
 	p.castLock.Lock()
 	defer p.castLock.Unlock()
-	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), user_index, qn, height)
-	if user_index < 0 || qn < 0 {
+	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), king_index, qn, height)
+	if king_index < 0 || qn < 0 {
 		return
 	}
 	sgi := p.getGroup(gid)
-	pos := sgi.GetMinerPos(p.GetMinerID())
-	fmt.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(user_index))))
+	pos := sgi.GetMinerPos(p.GetMinerID()) //取得当前节点在组中的排位
+	fmt.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(king_index))))
 	fmt.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
-	if sgi.GetCastor(int(user_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
+	if sgi.GetCastor(int(king_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
 		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
 			p.castBlock(gid, height, qn) //铸块
@@ -1008,6 +998,11 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.GISHash = spm.GISHash
 				msg.DummyID = spm.DummyID
 				msg.SignPK = *groupsig.NewPubkeyFromSeckey(jg.SignKey)
+				msg.GenGISSign(jg.SignKey)
+				if !msg.VerifyGISSign(msg.SignPK) {
+					panic("verify GISSign with group member sign pub key failed.")
+				}
+
 				msg.GenSign(ski)
 				//todo : 组内广播签名公钥
 				fmt.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
@@ -1044,7 +1039,11 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 	p.initLock.Lock()
 	locked := true
 
-
+	/* 待小熊增加GISSign成员的流化后打开
+	if !spkm.VerifyGISSign(spkm.SignPK) {
+		panic("OMSP verify GISSign with sign pub key failed.")
+	}
+	*/
 
 	gc := p.jgs.GetGroup(spkm.DummyID)
 	if gc == nil {
