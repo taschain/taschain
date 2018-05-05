@@ -113,9 +113,9 @@ message Group{
 
 	optional  bytes PubKey = 3;
 
-	required  bytes Parent = 4;
+	optional  bytes Parent = 4;
 
-	required  bytes Dummy = 5;
+	optional  bytes Dummy = 5;
 
 	optional  bytes Signature  = 6;
 }
