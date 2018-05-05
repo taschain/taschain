@@ -145,6 +145,26 @@ func GetIDPrefix(id groupsig.ID) string {
 	}
 }
 
+func GetHashPrefix(h common.Hash) string {
+	str := h.Hex()
+	if len(str) >= 12 {
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]
+		return link
+	} else {
+		return str[0:len(str)]
+	}
+}
+
+func GetSignPrefix(sign groupsig.Signature) string {
+	str := sign.GetHexString()
+	if len(str) >= 12 {
+		link := str[0:6] + "-" + str[len(str)-6:len(str)]
+		return link
+	} else {
+		return str[0:len(str)]
+	}
+}
+
 func (p Processer) getPrefix() string {
 	return GetIDPrefix(p.GetMinerID())
 }
@@ -291,7 +311,7 @@ func (p *Processer) GenGenesisGroupSummary() ConsensusGroupInitSummary {
 	} else {
 		copy(gis.Name[:], gn[:64])
 	}
-	gis.BeginTime = time.Date(2018, time.May, 3, 18, 00, 00, 00, time.Local)
+	gis.BeginTime = time.Date(2018, time.May, 4, 18, 00, 00, 00, time.Local)
 	gis.Extends = "room 1003, BLWJXXJS6KYHX"
 	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	return gis
@@ -367,8 +387,10 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() { //该用户和我是同一组
+	if sign_pk.IsValid() {                //该用户和我是同一组
 		fmt.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
+		fmt.Printf("bCG::si info: id=%v, data hash=%v, sign=%v.\n",
+			GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
 		if si.VerifySign(sign_pk) { //消息合法
 			fmt.Printf("message verify sign OK.\n")
 			bc = p.GetBlockContext(cgs.GroupID.GetHexString())
@@ -384,7 +406,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 				}
 			}
 		} else {
-			fmt.Printf("ERROR, message verify failed.\n")
+			fmt.Printf("ERROR, message verify failed, data_hash=%v.\n", GetHashPrefix(si.DataHash))
 			panic("ERROR, message verify failed.")
 		}
 	} else {
@@ -412,6 +434,8 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	cgs.PreHash = ccm.PreHash
 	cgs.PreTime = ccm.PreTime
 	cgs.BlockHeight = ccm.BlockHeight
+	fmt.Printf("OMCur::SIGN_INFO: id=%v, data hash=%v, sign=%v.\n",
+		GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
 	bc, first := p.beingCastGroup(cgs, ccm.SI)
 	fmt.Printf("OMCur after beingCastGroup, bc valid=%v, first=%v.\n", bc != nil, first)
 	if bc != nil {
@@ -715,8 +739,16 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign common.Hash, hei
 			ccm.BlockHeight = height + 1
 			ccm.PreHash = h
 			ccm.PreTime = t
-			ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)})
+			ski := SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)}
+			temp_spk := groupsig.NewPubkeyFromSeckey(ski.SK)
+			if temp_spk == nil {
+				panic("ccg spk nil failed")
+			} else {
+				fmt.Printf("id=%v, sign_pk=%v notify group members being current.\n", GetIDPrefix(ski.GetID()), GetPubKeyPrefix(*temp_spk))
+			}
+			ccm.GenSign(ski)
 			casting = true
+			fmt.Printf("cCG: id=%v, sign_sk=%v, data hash=%v.\n", GetIDPrefix(ccm.SI.GetID()), GetSecKeyPrefix(ski.SK), GetHashPrefix(ccm.SI.DataHash))
 		} else {
 			fmt.Printf("current proc not in next group.\n")
 		}
@@ -1130,6 +1162,8 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
 			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)
 			if casting {
+				fmt.Printf("OMB: id=%v, data hash=%v, sign=%v.\n",
+					GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
 				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
 				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 			}
