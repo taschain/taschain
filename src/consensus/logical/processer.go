@@ -460,13 +460,17 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
-	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(ccm.GroupID), GetIDPrefix(ccm.SI.GetID()), ccm.BH.QueueNumber)
+	var g_id groupsig.ID
+	if g_id.Deserialize(ccm.BH.GroupId) != nil {
+		panic("OMC Deserialize group_id failed")
+	}
+	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.QueueNumber)
 	p.castLock.Lock()
 	locked := true
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
-	cgs.GroupID = ccm.GroupID
+	cgs.GroupID = g_id
 	cgs.PreHash = ccm.BH.PreHash
 	cgs.PreTime = ccm.BH.PreTime
 	bc, first := p.beingCastGroup(cgs, ccm.SI)
@@ -519,7 +523,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		switch n {
 		case CBMR_THRESHOLD_SUCCESS:
 			fmt.Printf("proc(%v) OMC msg_count reach threshold!\n", p.getPrefix())
-			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(ccm.GroupID))
+			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(g_id))
 			fmt.Printf("proc(%v) OMC VerifyGroupSign=%v.\n", p.getPrefix(), b)
 			if b { //组签名验证通过
 				slot := bc.getSlotByQN(cs.QueueNumber)
@@ -531,7 +535,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 				}
 				fmt.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
-				p.SuccessNewBlock(&ccm.BH, ccm.GroupID) //上链和组外广播
+				p.SuccessNewBlock(&ccm.BH, g_id) //上链和组外广播
 			} else {
 				panic("proc OMC VerifyGroupSign failed.")
 			}
@@ -545,8 +549,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					fmt.Printf("proc(%v) bh hash diff, cast=%v, verify=%v.\n", p.getPrefix(), bh_hash1.Hex(), bh_hash2.Hex())
 				}
 			}
-			cvm.GroupID = ccm.GroupID
-			cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			//cvm.GroupID = g_id
+			cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(g_id)})
 			if ccm.SI.SignMember.GetHexString() == p.GetMinerID().GetHexString() { //local node is KING
 				equal := cvm.SI.IsEqual(ccm.SI)
 				if !equal {
@@ -591,14 +595,18 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
+	var g_id groupsig.ID
+	if g_id.Deserialize(cvm.BH.GroupId) != nil {
+		panic("OMV Deserialize group_id failed")
+	}
 	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, qn=%v, rece hash=%v...\n",
-		p.getPrefix(), GetIDPrefix(cvm.GroupID), GetIDPrefix(cvm.SI.GetID()), cvm.BH.QueueNumber, cvm.SI.DataHash.Hex())
+		p.getPrefix(), GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.QueueNumber, cvm.SI.DataHash.Hex())
 	p.castLock.Lock()
 	locked := true
 
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
-	cgs.GroupID = cvm.GroupID
+	cgs.GroupID = g_id
 	cgs.PreHash = cvm.BH.PreHash
 	cgs.PreTime = cvm.BH.PreTime
 	bc, first := p.beingCastGroup(cgs, cvm.SI)
@@ -651,7 +659,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		switch n {
 		case CBMR_THRESHOLD_SUCCESS:
 			fmt.Printf("proc(%v) OMV msg_count reach threshold!\n", p.getPrefix())
-			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(cvm.GroupID))
+			b := bc.VerifyGroupSign(cs, p.getGroupPubKey(g_id))
 			fmt.Printf("proc(%v) OMV VerifyGroupSign=%v.\n", p.getPrefix(), b)
 			if b { //组签名验证通过
 				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK, qn=%v.!!!\n", p.getPrefix(), cvm.BH.QueueNumber)
@@ -664,7 +672,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 					fmt.Printf("update group sign data=%v.\n", cvm.BH.Signature.Hex())
 				}
 				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
-				p.SuccessNewBlock(&cvm.BH, cvm.GroupID) //上链和组外广播
+				p.SuccessNewBlock(&cvm.BH, g_id) //上链和组外广播
 			} else {
 				if locked {
 					p.castLock.Unlock()
@@ -675,8 +683,8 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		case CBMR_PIECE:
 			var send_message ConsensusVerifyMessage
 			send_message.BH = cvm.BH
-			send_message.GroupID = cvm.GroupID
-			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(cvm.GroupID)})
+			//send_message.GroupID = g_id
+			send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(g_id)})
 			if locked {
 				p.castLock.Unlock()
 				locked = false
@@ -805,7 +813,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 				case 0: //验证通过
 					var send_message ConsensusVerifyMessage
 					send_message.BH = slot.BH
-					send_message.GroupID = bc.MinerID.gid
+					//send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
 					if locked {
 						p.castLock.Unlock()
@@ -1266,7 +1274,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 		//发送该出块消息
 		var ccm ConsensusCastMessage
 		ccm.BH = *bh
-		ccm.GroupID = gid
+		//ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
 		SendCastVerify(&ccm)
 		/*

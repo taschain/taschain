@@ -159,7 +159,7 @@ func (msg ConsensusCurrentMessage) VerifySign(pk groupsig.Pubkey) bool {
 
 type ConsensusBlockMessageBase struct {
 	BH      core.BlockHeader
-	GroupID groupsig.ID
+	//GroupID groupsig.ID
 	SI      SignData
 }
 
@@ -167,9 +167,12 @@ func (msg *ConsensusBlockMessageBase) GenSign(ski SecKeyInfo) bool {
 	if !ski.IsValid() {
 		return false
 	}
+	/*
 	buf := msg.BH.GenHash().Str()
 	buf += msg.GroupID.GetHexString()
 	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
+	*/
+	msg.SI.DataHash = msg.BH.GenHash()
 	msg.SI.SignMember = ski.ID
 	return msg.SI.GenSign(ski.SK)
 }

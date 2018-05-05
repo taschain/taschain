@@ -222,6 +222,11 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	sc.MapWitness = make(map[string]groupsig.Signature)
 	sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
 	sc.LostingTrans = make(map[common.Hash]int)
+
+	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(bh)
+	fmt.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ccr)
+	sc.InitLostingTrans(ltl)
+
 	return sc
 }
 
