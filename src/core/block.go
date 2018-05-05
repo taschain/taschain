@@ -19,8 +19,8 @@ import (
 
 //区块头结构
 type BlockHeader struct {
-	Hash         common.Hash // 本块的hash，to do : 是对哪些数据的哈希
-	Height       uint64      // 本块的高度
+	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
+	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	QueueNumber  uint64        //轮转序号
@@ -107,6 +107,7 @@ func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 
 	block.Header = &BlockHeader{
 		ExtraData: Sha256([]byte("tas")),
+		CurTime:   time.Date(2018, 5, 5, 12, 0, 0, 0, time.Local),
 	}
 
 	blockByte, _ := json.Marshal(block)

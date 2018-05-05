@@ -332,7 +332,6 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	//todo future bug
 	parentID.Deserialize([]byte("genesis group dummy"))
 	gis.ParentID = parentID
-	fmt.Print(parentID.Serialize())
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 	fmt.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
@@ -368,7 +367,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	} else {
 		fmt.Printf("Add dummy to chain success!")
 	}
-	fmt.Printf("Waiting 60s for dummy group sync...\n")
+	fmt.Printf("Waiting 30s for dummy group sync...\n")
 	time.Sleep(30 * time.Second)
 	SendGroupInitMessage(grm)
 	return 0
