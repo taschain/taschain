@@ -621,7 +621,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		return
 	}
 
-	var ccr int8
+	var ccr int8 = 0
 	var lost_trans_list []common.Hash
 
 	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
@@ -1159,6 +1159,8 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			top_bh := p.MainChain.QueryTopBlock()
 			if top_bh == nil {
 				panic("QueryTopBlock failed")
+			} else {
+				fmt.Printf("top height on chain=%v.\n", top_bh.Height)
 			}
 			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
 			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)

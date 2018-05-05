@@ -448,7 +448,7 @@ func (bc *BlockContext) accpetCV(bh core.BlockHeader, si SignData) CAST_BLOCK_ME
 		fmt.Printf("proc(%v) put new_qn=%v in slot[%v], REPLACE=%v.\n", bc.Proc.getPrefix(), bh.QueueNumber, i, info == QQSR_REPLACE_SLOT)
 		bc.Slots[i] = newSlotContext(bh, si)
 		return CBMR_PIECE
-	} else {
+	} else { //该QN值对应的插槽已存在
 		result := bc.Slots[i].AcceptPiece(bh, si)
 		fmt.Printf("proc(%v) bc::slot[%v] AcceptPiece result=%v, msg_count=%v.\n", bc.Proc.getPrefix(), i, result, bc.Slots[i].MessageSize())
 		return result
@@ -514,9 +514,8 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
-	max_height := uint64(0)
-	//to do : 鸠兹从链上取得最高有效块
-	if (bh <= max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
+	max_height := bc.Proc.MainChain.QueryTopBlock().Height
+	if (bh < max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
 		//不在合法的铸块高度内
 		fmt.Printf("height failed, max_height=%v, bh=%v.\n", max_height, bh)
 		panic("BlockContext::BeingCastGroup height failed.")
