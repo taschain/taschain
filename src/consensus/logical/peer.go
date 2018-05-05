@@ -8,6 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"pb"
 	"core"
+	"time"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -94,6 +95,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 //      SignData
 
 func SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
+	time.Sleep(10 * time.Second)
 	body, e := marshalConsensusCurrentMessagee(ccm)
 	if e != nil {
 		logger.Errorf("Discard send ConsensusCurrentMessage because of marshal error::%s", e.Error())
