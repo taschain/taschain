@@ -49,14 +49,17 @@ const MAX_SYNC_CASTORS = 3                  //最多同时支持几个铸块验�
 const INVALID_QN = -1                       //无效的队列序号
 //const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
 const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
-const MAX_GROUP_BLOCK_TIME int32 = 10                                //组铸块最大允许时间=10s
-const MAX_USER_CAST_TIME int32 = 2                                   //个人出块最大允许时间=2s
-const MAX_QN int32 = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
+var MAX_GROUP_BLOCK_TIME int = 10                                //组铸块最大允许时间=10s
+var MAX_USER_CAST_TIME int = 2                                   //个人出块最大允许时间=2s
+var MAX_QN int = -1 //组内能出的最大QN值
 
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	GROUP_MAX_MEMBERS = cc.GetInt("GROUP_MAX_MEMBERS", GROUP_MAX_MEMBERS)
 	SSSS_THRESHOLD = cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD)
+	MAX_GROUP_BLOCK_TIME = cc.GetInt("MAX_GROUP_BLOCK_TIME", 60 * 60 * 24 * 30)
+	MAX_USER_CAST_TIME = cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME)
+	MAX_QN = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
 	return
 }
 
