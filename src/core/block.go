@@ -37,8 +37,13 @@ type BlockHeader struct {
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
+	sign := bh.Signature
+	bh.Signature = common.Hash{}
 	blockByte, _ := json.Marshal(bh)
-	return common.BytesToHash(Sha256(blockByte))
+	result := common.BytesToHash(Sha256(blockByte))
+
+	bh.Signature = sign
+	return result
 }
 
 var emptyHash = common.Hash{}
