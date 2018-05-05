@@ -119,7 +119,14 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
-	groupBroadcast(m, ccm.GroupID)
+
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(ccm.BH.GroupId)
+	if e1 != nil {
+		logger.Errorf("Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		return
+	}
+	groupBroadcast(m, groupId)
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -130,7 +137,13 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.VARIFIED_CAST_MSG, Body: body}
-	groupBroadcast(m, cvm.GroupID)
+	var groupId groupsig.ID
+	e1 := groupId.Deserialize(cvm.BH.GroupId)
+	if e1 != nil {
+		logger.Errorf("Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		return
+	}
+	groupBroadcast(m, groupId)
 }
 
 //对外广播经过组签名的block 全网广播
@@ -230,19 +243,19 @@ func marshalConsensusCurrentMessagee(m *ConsensusCurrentMessage) ([]byte, error)
 
 func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 	bh := core.BlockHeaderToPb(&m.BH)
-	groupId := m.GroupID.Serialize()
+	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, GroupID: groupId, Sign: si}
+	message := tas_pb.ConsensusBlockMessageBase{Bh: bh,  Sign: si}
 	return proto.Marshal(&message)
 }
 
 func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 	bh := core.BlockHeaderToPb(&m.BH)
-	groupId := m.GroupID.Serialize()
+	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, GroupID: groupId, Sign: si}
+	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
 	return proto.Marshal(&message)
 }
 

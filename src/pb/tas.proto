@@ -260,7 +260,7 @@ message ConsensusGroupInitedMessage{
 
 message ConsensusCurrentMessage{
 
-    required bytes GroupID  = 1;
+    optional bytes GroupID  = 1;
 
     required bytes PreHash = 2;
 
@@ -275,7 +275,7 @@ message ConsensusBlockMessageBase{
 
     required BlockHeader Bh = 1;
 
-    required bytes	GroupID = 2;
+    optional bytes	GroupID = 2;
 
     required SignData	Sign = 3;
 }
@@ -283,7 +283,7 @@ message ConsensusBlockMessageBase{
 message ConsensusBlockMessage{
     required Block Block = 1;
 
-    required bytes GroupID = 2;
+    optional bytes GroupID = 2;
 
     required SignData SignData = 3;
 }
