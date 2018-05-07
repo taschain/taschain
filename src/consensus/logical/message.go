@@ -70,9 +70,9 @@ func (msg ConsensusSharePieceMessage) VerifySign(pk groupsig.Pubkey) bool {
 type ConsensusSignPubKeyMessage struct {
 	GISHash common.Hash //组初始化共识的哈希
 	DummyID groupsig.ID
-	SignPK  groupsig.Pubkey //组成员签名公钥
-	GISSign groupsig.Signature		//用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
-	SI      SignData        //矿工个人签名
+	SignPK  groupsig.Pubkey    //组成员签名公钥
+	GISSign groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
+	SI      SignData           //矿工个人签名
 }
 
 func (msg *ConsensusSignPubKeyMessage) GenGISSign(sk groupsig.Seckey) {
@@ -158,9 +158,9 @@ func (msg ConsensusCurrentMessage) VerifySign(pk groupsig.Pubkey) bool {
 }
 
 type ConsensusBlockMessageBase struct {
-	BH      core.BlockHeader
+	BH core.BlockHeader
 	//GroupID groupsig.ID
-	SI      SignData
+	SI SignData
 }
 
 func (msg *ConsensusBlockMessageBase) GenSign(ski SecKeyInfo) bool {
@@ -168,9 +168,9 @@ func (msg *ConsensusBlockMessageBase) GenSign(ski SecKeyInfo) bool {
 		return false
 	}
 	/*
-	buf := msg.BH.GenHash().Str()
-	buf += msg.GroupID.GetHexString()
-	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
+		buf := msg.BH.GenHash().Str()
+		buf += msg.GroupID.GetHexString()
+		msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
 	*/
 	msg.SI.DataHash = msg.BH.GenHash()
 	msg.SI.SignMember = ski.ID

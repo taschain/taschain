@@ -275,6 +275,31 @@ type BlockContext struct {
 	pos     int          //矿工在组内的排位
 }
 
+//切换到铸块高度
+func (bc *BlockContext) Switch2Height(cgs CastGroupSummary) bool {
+	fmt.Printf("begin bc::Switch2Height, cur height=%v, new height=%v...\n", bc.CastHeight, cgs.BlockHeight)
+	var switched bool
+	if !cgs.GroupID.IsEqual(bc.MinerID.gid) {
+		fmt.Printf("cast group=%v, bc group=%v, diff failed.\n", GetIDPrefix(cgs.GroupID), GetIDPrefix(bc.MinerID.gid))
+		return false
+	}
+	if cgs.BlockHeight == bc.CastHeight { //已经在当前高度
+		fmt.Printf("already in this height, return true direct.\n")
+		return true
+	}
+	if cgs.BlockHeight < bc.CastHeight {
+		fmt.Printf("cast height-%v, bc height=%v, less failed..\n", cgs.BlockHeight, bc.CastHeight)
+		return false
+	}
+	bc.Reset()
+	bc.CastHeight = cgs.BlockHeight
+	bc.PreTime = cgs.PreTime
+	bc.PrevHash = cgs.PreHash
+	switched = true
+	fmt.Printf("end bc::Switch2Height, switched=%v.\n", switched)
+	return switched
+}
+
 func (bc *BlockContext) Init(mid GroupMinerID) {
 	bc.MinerID = mid
 	bc.Reset()
@@ -428,7 +453,7 @@ func (bc *BlockContext) ConsensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
 func (bc *BlockContext) accpetCV(bh core.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
-	fmt.Printf("begin BlockContext::accpetCV, qn=%v...\n", bh.QueueNumber)
+	fmt.Printf("begin BlockContext::accpetCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	count := getCastTimeWindow(bc.PreTime)
 	if count < 0 || bh.QueueNumber < 0 { //时间窗口异常
 		fmt.Printf("proc(%v) acceptCV failed(time windwos ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, bh.QueueNumber)
@@ -474,7 +499,7 @@ func (bc BlockContext) IsCasting() bool {
 //铸块上下文复位，在某个高度轮到当前组铸块时调用。
 //to do : 还是索性重新生成。
 func (bc *BlockContext) Reset() {
-	fmt.Printf("BlockContext::Reset...\n")
+	fmt.Printf("begin BlockContext::Reset...\n")
 	bc.Version = CONSENSUS_VERSION
 	bc.PreTime = *new(time.Time)
 	bc.CCTimer.Stop() //关闭定时器
@@ -490,6 +515,7 @@ func (bc *BlockContext) Reset() {
 		sc.Reset()
 		bc.Slots[i] = sc
 	}
+	fmt.Printf("end BlockContext::Reset.\n")
 }
 
 //组铸块共识初始化
