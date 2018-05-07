@@ -67,6 +67,7 @@ func (sc *SlotContext) IsFailed() bool {
 }
 
 func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
+	fmt.Printf("slot begin InitLostingTrans, cur_count=%v, input_count=%v...\n", len(sc.LostingTrans), len(ths))
 	if sc.TransFulled {
 		panic("SlotContext::InitLostingTrans failed, transFulled=true")
 	}
@@ -75,6 +76,7 @@ func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
 		sc.LostingTrans[v] = 0
 	}
 	sc.TransFulled = len(sc.LostingTrans) == 0
+	fmt.Printf("slot end InitLostingTrans, cur_count=%v, fulled=%v.\n", len(sc.LostingTrans), sc.TransFulled)
 	return
 }
 

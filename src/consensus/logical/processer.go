@@ -471,8 +471,15 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 				p.castLock.Unlock()
 				locked = false
 			}
-			fmt.Printf("call network service SendCurrentGroupCast...\n")
-			SendCurrentGroupCast(&ccm_local)
+			if !PROC_TEST_MODE {
+				fmt.Printf("call network service SendCurrentGroupCast...\n")
+				SendCurrentGroupCast(&ccm_local)
+			} else {
+				fmt.Printf("proc(%v) OMCur BEGIN SEND OnMessageCurrent 2 ALL PROCS...\n", p.getPrefix())
+				for _, v := range p.GroupProcs {
+					v.OnMessageCurrent(ccm_local)
+				}
+			}
 		}
 	}
 	if locked {
@@ -547,8 +554,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 			ccr = 0
 		} else {
 			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
-			fmt.Printf("proc(%v) OMC chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
-			slot.InitLostingTrans(lost_trans_list)
+			fmt.Printf("proc(%v) OMC chain check result=%v, lost_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
+			//slot.InitLostingTrans(lost_trans_list)
 		}
 	}
 
@@ -601,14 +608,16 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 				p.castLock.Unlock()
 				locked = false
 			}
-			fmt.Printf("call network service SendVerifiedCast...\n")
-			SendVerifiedCast(&cvm)
-			/*
+			if !PROC_TEST_MODE {
+				fmt.Printf("call network service SendVerifiedCast...\n")
+				SendVerifiedCast(&cvm)
+			} else {
 				fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 				for _, v := range p.GroupProcs {
 					v.OnMessageVerify(cvm)
 				}
-			*/
+			}
+
 		}
 	case 1: //本地交易缺失
 		n := bc.UserCasted(ccm.BH, ccm.SI)
@@ -694,7 +703,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		} else {
 			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
 			fmt.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
-			slot.InitLostingTrans(lost_trans_list)
+			//slot.InitLostingTrans(lost_trans_list)
 		}
 	}
 
