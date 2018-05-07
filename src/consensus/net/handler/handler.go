@@ -244,14 +244,14 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 	}
 
 	bh := handler.PbToBlockHeader(m.Bh)
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(m.GroupID)
-	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
-		return nil, e1
-	}
+	//var groupId groupsig.ID
+	//e1 := groupId.Deserialize(m.GroupID)
+	//if e1 != nil {
+	//	logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+	//	return nil, e1
+	//}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
+	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, SI: *si}}
 	return &message, nil
 }
 
@@ -264,14 +264,14 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 	}
 
 	bh := handler.PbToBlockHeader(m.Bh)
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(m.GroupID)
-	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
-		return nil, e1
-	}
+	//var groupId groupsig.ID
+	//e1 := groupId.Deserialize(m.GroupID)
+	//if e1 != nil {
+	//	logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+	//	return nil, e1
+	//}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, GroupID: groupId, SI: *si}}
+	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, SI: *si}}
 	return &message, nil
 }
 

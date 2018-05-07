@@ -153,6 +153,9 @@ func transactionToPb(t *Transaction) *tas_pb.Transaction {
 }
 
 func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
+	if txs == nil{
+		return nil
+	}
 	transactions := make([]*tas_pb.Transaction, 0)
 	for _, t := range txs {
 		transaction := transactionToPb(t)
@@ -180,9 +183,14 @@ func MarshalBlocks(bs []*Block) ([]byte, error) {
 func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
 	hashBytes := make([][]byte, 0)
-	for _, hash := range hashes {
-		hashBytes = append(hashBytes, hash.Bytes())
+
+	if hashes != nil {
+		for _, hash := range hashes {
+			hashBytes = append(hashBytes, hash.Bytes())
+		}
 	}
+	txHashes := tas_pb.Hashes{Hashes:hashBytes}
+
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
 		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
@@ -197,7 +205,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 
 	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature.Bytes(),
-		Nonce: &h.Nonce, Transactions: hashBytes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
+		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
 		ExtraData: h.ExtraData}
 	return &header
 }
