@@ -7,6 +7,7 @@ import (
 	"network/p2p"
 	"time"
 	"common"
+	"fmt"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -153,7 +154,7 @@ func transactionToPb(t *Transaction) *tas_pb.Transaction {
 }
 
 func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
-	if txs == nil{
+	if txs == nil {
 		return nil
 	}
 	transactions := make([]*tas_pb.Transaction, 0)
@@ -189,7 +190,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 			hashBytes = append(hashBytes, hash.Bytes())
 		}
 	}
-	txHashes := tas_pb.Hashes{Hashes:hashBytes}
+	txHashes := tas_pb.Hashes{Hashes: hashBytes}
 
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
@@ -211,6 +212,10 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 }
 
 func BlockToPb(b *Block) *tas_pb.Block {
+	if b == nil {
+		fmt.Print("Block is nil!")
+		return nil
+	}
 	header := BlockHeaderToPb(b.Header)
 	transactons := transactionsToPb(b.Transactions)
 	block := tas_pb.Block{Header: header, Transactions: transactons}
