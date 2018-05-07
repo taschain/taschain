@@ -297,6 +297,7 @@ func (bc *BlockContext) Switch2Height(cgs CastGroupSummary) bool {
 	bc.CastHeight = cgs.BlockHeight
 	bc.PreTime = cgs.PreTime
 	bc.PrevHash = cgs.PreHash
+	bc.ConsensusStatus = CBCS_CURRENT
 	switched = true
 	fmt.Printf("end bc::Switch2Height, switched=%v.\n", switched)
 	return switched
