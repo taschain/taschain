@@ -98,7 +98,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		b := mediator.Proc.OnMessageBlock(*m)
 		bytes, e1 := core.MarshalBlock(b)
 		if e1 != nil {
-			logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s", e.Error())
+			logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s", e1.Error())
 			return nil, e1
 		}
 		return bytes, nil

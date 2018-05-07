@@ -168,6 +168,9 @@ func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
 //--------------------------------------------------Block---------------------------------------------------------------
 func MarshalBlock(b *Block) ([]byte, error) {
 	block := BlockToPb(b)
+	if block == nil{
+		return nil,nil
+	}
 	return proto.Marshal(block)
 }
 
