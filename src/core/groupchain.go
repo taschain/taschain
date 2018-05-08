@@ -79,7 +79,7 @@ func build(chain *GroupChain) {
 	count, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	if nil == count {
 		// 创始块
-		chain.save(genesisGroup())
+		chain.save(genesisGroup(), false)
 		return
 	}
 
@@ -170,32 +170,30 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	//if nil != group.Parent {
-	//	parent := chain.getGroupById(group.Parent)
-	//	if nil == parent {
-	//		return fmt.Errorf("parent is not existed")
-	//	}
-	//}
-
-	// 检查是否已经存在
-	if nil != group.Id {
-		flag, _ := chain.groups.Has(group.Id)
-		if flag {
-			return nil
+	if isDebug {
+		if nil != group.Parent {
+			parent := chain.getGroupById(group.Parent)
+			if nil == parent {
+				return fmt.Errorf("parent is not existed")
+			}
 		}
 	}
-	if nil != group.Dummy {
-		flag, _ := chain.groups.Has(group.Dummy)
-		if flag {
-			return nil
-		}
+
+	// 检查是否已经存在
+	var flag bool
+	if nil != group.Id {
+		flag, _ = chain.groups.Has(group.Id)
+
+	} else if nil != group.Dummy {
+		flag, _ = chain.groups.Has(group.Dummy)
+
 	}
 	// todo: 通过父亲节点公钥校验本组的合法性
 
-	return chain.save(group)
+	return chain.save(group, flag)
 }
 
-func (chain *GroupChain) save(group *Group) error {
+func (chain *GroupChain) save(group *Group, overWrite bool) error {
 	data, err := json.Marshal(group)
 	if nil != err {
 		return err
@@ -208,13 +206,17 @@ func (chain *GroupChain) save(group *Group) error {
 
 	if group.Dummy != nil {
 		chain.groups.Put(generateKey(chain.count), group.Dummy)
-		chain.count++
+		if !overWrite {
+			chain.count++
+		}
 		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
 		return chain.groups.Put(group.Dummy, data)
 	} else {
 		chain.groups.Put(generateKey(chain.count), group.Id)
 		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
-		chain.count++
+		if !overWrite {
+			chain.count++
+		}
 		return chain.groups.Put(group.Id, data)
 	}
 }

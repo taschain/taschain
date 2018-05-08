@@ -5,8 +5,11 @@ import (
 	"fmt"
 )
 
-var BlockChainConnectorImpl *BlockChainConnector
-var GroupChainConnectorImpl *GroupChainConnector
+var (
+	BlockChainConnectorImpl *BlockChainConnector
+	GroupChainConnectorImpl *GroupChainConnector
+	isDebug                 bool
+)
 
 type BlockChainConnector struct {
 	chain *BlockChain
@@ -17,6 +20,12 @@ type GroupChainConnector struct {
 }
 
 func InitCore() error {
+	// 默认是debug模式
+	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
+	if isDebug {
+		Clear()
+	}
+
 	if nil == BlockChainImpl {
 		err := initBlockChain()
 		if nil != err {

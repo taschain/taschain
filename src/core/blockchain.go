@@ -21,7 +21,7 @@ import (
 
 const (
 	BLOCK_STATUS_KEY = "bcurrent"
-	CONFIG_SEC = "chain"
+	CONFIG_SEC       = "chain"
 )
 
 var BlockChainImpl *BlockChain
@@ -171,11 +171,11 @@ func initBlockChain() error {
 }
 
 func Clear() {
-	os.RemoveAll(datasource.DEFAULT_FILE)
+	os.RemoveAll(common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE))
 
 }
 
-func (chain *BlockChain) Close(){
+func (chain *BlockChain) Close() {
 	chain.statedb.Close()
 }
 
