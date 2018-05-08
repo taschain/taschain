@@ -3,6 +3,7 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
+	"encoding/json"
 	"sync"
 	//"consensus/net"
 	"consensus/rand"
@@ -182,6 +183,62 @@ func (p *Processer) setProcs(gps map[string]*Processer) {
 	p.GroupProcs = gps
 }
 
+func (p *Processer) Load() bool {
+	fmt.Printf("begin Processer::Load, group_count=%v, bcg_count=%v, bg_count=%v...\n", len(p.gg.groups), len(p.bcs), len(p.belongGroups))
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	str := cc.GetString("BlockContexts", "")
+	if len(str) == 0 {
+		return false
+	}
+	var buf []byte = []byte(str)
+	err := json.Unmarshal(buf, p.bcs)
+	if err != nil {
+		fmt.Println("error:", err)
+		panic("Processer::Load Unmarshal failed 1.")
+	}
+
+	str = cc.GetString("BelongGroups", "")
+	if len(str) == 0 {
+		return false
+	}
+	buf = []byte(str)
+	err = json.Unmarshal(buf, p.belongGroups)
+	if err != nil {
+		fmt.Println("error:", err)
+		panic("Processer::Load Unmarshal failed 2.")
+	}
+
+	p.gg.Load()
+
+	fmt.Printf("end Precesser::Load, group_count=%v, bcg_count=%v, bg_count=%v...\n", len(p.gg.groups), len(p.bcs), len(p.belongGroups))
+	return true
+}
+
+func (p Processer) Save() {
+	fmt.Printf("begin Processer::Save, group_count=%v, bcg_count=%v, bg_count=%v...\n", len(p.gg.groups), len(p.bcs), len(p.belongGroups))
+	b, err := json.Marshal(p.bcs)
+	if err != nil {
+		fmt.Println("error 1:", err)
+		panic("Processer::Save Marshal failed 1.")
+	}
+	str := string(b[:])
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	cc.SetString("BlockContexts", str)
+
+	b, err = json.Marshal(p.belongGroups)
+	if err != nil {
+		fmt.Println("error 2:", err)
+		panic("Processer::Save Marshal failed 2.")
+	}
+	str = string(b[:])
+	cc.SetString("BelongGroups", str)
+
+	p.gg.Save()
+
+	fmt.Printf("end Processer::Save.\n")
+	return
+}
+
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
 	p.MainChain = core.BlockChainImpl
@@ -207,7 +264,7 @@ func (p *Processer) Stop() {
 }
 
 //增加一个铸块上下文（一个组有一个铸块上下文）
-func (p *Processer) AddBlockConext(bc *BlockContext) bool {
+func (p *Processer) AddBlockContext(bc *BlockContext) bool {
 	if p.GetBlockContext(bc.MinerID.gid.GetHexString()) == nil {
 		p.bcs[bc.MinerID.gid.GetHexString()] = bc
 		return true
@@ -278,7 +335,7 @@ func (p Processer) IsMinerGroup(gid groupsig.ID) bool {
 }
 
 //检查区块头是否合法
-func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
+func (p *Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
 	//to do : 检查是否基于链上最高块的出块
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -288,9 +345,20 @@ func (p Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool)
 	if gi.GroupID.IsEqual(gid) {
 		fmt.Printf("BHCastLegal, real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
 		//检查组签名是否正确
-		result = sd.VerifySign(gi.GroupPK)
+		var g_sign groupsig.Signature
+		if g_sign.Deserialize(bh.Signature) != nil {
+			panic("isBHCastLegal sign Deserialize failed.")
+		}
+		result = groupsig.VerifySig(gi.GroupPK, bh.Hash.Bytes(), g_sign)
+		if !result {
+			fmt.Printf("isBHCastLegal::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
+				GetPubKeyPrefix(gi.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(g_sign), GetIDPrefix(gid))
+			panic("isBHCastLegal::verify group sign failed")
+		}
+		//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
 	} else {
 		fmt.Printf("BHCastLegal failed, expect group=%v, real cast group=%v.\n", GetIDPrefix(gi.GroupID), GetIDPrefix(gid))
+		panic("isBHCastLegal failed, not expect group")
 	}
 	fmt.Printf("BHCastLegal result=%v.\n", result)
 	return result
@@ -574,8 +642,9 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 				if slot == nil {
 					panic("getSlotByQN return nil.")
 				} else {
-					ccm.BH.Signature = slot.GetGroupSignHash()
-					fmt.Printf("update group sign data=%v.\n", ccm.BH.Signature.Hex())
+					sign := slot.GetGroupSign()
+					ccm.BH.Signature = sign.Serialize()
+					fmt.Printf("OMC BH hash=%v, update group sign data=%v.\n", GetHashPrefix(ccm.BH.Hash), GetSignPrefix(sign))
 
 				}
 				fmt.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK, height=%v, qn=%v!!!\n", p.getPrefix(), ccm.BH.Height, cs.QueueNumber)
@@ -586,13 +655,6 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		case CBMR_PIECE:
 			var cvm ConsensusVerifyMessage
 			cvm.BH = ccm.BH
-			{
-				bh_hash1 := ccm.BH.GenHash()
-				bh_hash2 := cvm.BH.GenHash()
-				if bh_hash1.Hex() != bh_hash2.Hex() {
-					fmt.Printf("proc(%v) bh hash diff, cast=%v, verify=%v.\n", p.getPrefix(), bh_hash1.Hex(), bh_hash2.Hex())
-				}
-			}
 			//cvm.GroupID = g_id
 			cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(g_id)})
 			if ccm.SI.SignMember.GetHexString() == p.GetMinerID().GetHexString() { //local node is KING
@@ -724,8 +786,9 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 				if slot == nil {
 					panic("getSlotByQN return nil.")
 				} else {
-					cvm.BH.Signature = slot.GetGroupSignHash()
-					fmt.Printf("update group sign data=%v.\n", cvm.BH.Signature.Hex())
+					sign := slot.GetGroupSign()
+					cvm.BH.Signature = sign.Serialize()
+					fmt.Printf("OMV BH hash=%v, update group sign data=%v.\n", GetHashPrefix(cvm.BH.Hash), GetSignPrefix(sign))
 				}
 				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
 				p.SuccessNewBlock(&cvm.BH, g_id) //上链和组外广播
@@ -777,10 +840,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 }
 
 //检查自身所在的组（集合）是否成为当前铸块组，如是，则启动相应处理
-func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign common.Hash, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
+//sign：组签名
+func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signature, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
 	var casting bool
 	var ccm ConsensusCurrentMessage
-	next_group, err := p.gg.SelectNextGroup(sign) //查找下一个铸块组
+	sign_hash := sign.GetHash()
+	fmt.Printf("cCG pre_block group sign hash=%v, find next group...\n", GetHashPrefix(sign_hash))
+	next_group, err := p.gg.SelectNextGroup(sign_hash) //查找下一个铸块组
 	if err == nil {
 		fmt.Printf("cCG next cast group=%v.\n", GetIDPrefix(next_group))
 		if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
@@ -826,7 +892,11 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
-		casting, ccm := p.checkCastingGroup(cbm.GroupID, cbm.Block.Header.Signature, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
+		var sign groupsig.Signature
+		if sign.Deserialize(cbm.Block.Header.Signature) != nil {
+			panic("OMB group sign Deserialize failed.")
+		}
+		casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
 		if locked {
 			p.castLock.Unlock()
 			locked = false
@@ -937,7 +1007,8 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	var cbm ConsensusBlockMessage
 	cbm.Block = *block
 	cbm.GroupID = gid
-	cbm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+	ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
+	cbm.GenSign(ski)
 	fmt.Printf("call network service BroadcastNewBlock...\n")
 	BroadcastNewBlock(&cbm)
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
@@ -1222,7 +1293,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		fmt.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
 		bc.Proc = p
 		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
-		b = p.AddBlockConext(bc)
+		b = p.AddBlockContext(bc)
 		fmt.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组
 		//to do ：从待初始化组中删除
@@ -1234,7 +1305,11 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			} else {
 				fmt.Printf("top height on chain=%v.\n", top_bh.Height)
 			}
-			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, top_bh.Signature, top_bh.Height, top_bh.CurTime, top_bh.Hash)
+			var g_sign groupsig.Signature
+			if g_sign.Deserialize(top_bh.Signature) != nil {
+				panic("OMGIED group sign Deserialize failed.")
+			}
+			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, g_sign, top_bh.Height, top_bh.CurTime, top_bh.Hash)
 			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)
 			if casting {
 				fmt.Printf("OMB: id=%v, data hash=%v, sign=%v.\n",
@@ -1315,13 +1390,18 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 
 //当前节点成为KING，出块
 func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.BlockHeader {
-	fmt.Printf("begin Processer::castBlock...\n")
+	fmt.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
 	//bh := genDummyBH(int(qn), p.GetMinerID())
 	//var hash common.Hash
 	//hash = bh.Hash //TO DO:替换成出块头的哈希
-	nonce := 12345678
+	//to do : change nonce
+	nonce := time.Now().Unix()
 	//调用鸠兹的铸块处理
 	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+	if block == nil {
+		fmt.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
+		panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+	}
 	bh := block.Header
 	var si SignData
 	si.DataHash = bh.Hash
@@ -1340,13 +1420,15 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 		ccm.BH = *bh
 		//ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-		SendCastVerify(&ccm)
-		/*
+		if !PROC_TEST_MODE {
+			fmt.Printf("call network service SendCastVerify...\n")
+			SendCastVerify(&ccm)
+		} else {
+			fmt.Printf("call proc.OnMessageCast direct...\n")
 			for _, proc := range p.GroupProcs {
 				proc.OnMessageCast(ccm)
 			}
-		*/
-
+		}
 	} else {
 		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, si.DataSign.GetHexString())
 		panic("bh Error or sign Error.")
