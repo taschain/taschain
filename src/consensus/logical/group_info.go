@@ -4,6 +4,7 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/rand"
+	"encoding/json"
 	"fmt"
 	"math/big"
 )
@@ -219,6 +220,38 @@ type GlobalGroups struct {
 	mapCache     map[string]int             //string(ID)->索引
 	ngg          NewGroupGenerator          //新组处理器(组外处理器)
 	dummy_groups map[string]StaticGroupInfo //未完成初始化的组(str(DUMMY ID)->组信息)
+}
+
+func (gg *GlobalGroups) Load() bool {
+	fmt.Printf("begin GlobalGroups::Load, group_count=%v...\n", len(gg.groups))
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	str := cc.GetString("GLOBAL_GROUPS", "")
+	if len(str) == 0 {
+		return false
+	}
+	var buf []byte = []byte(str)
+	err := json.Unmarshal(buf, gg)
+	if err != nil {
+		fmt.Println("error:", err)
+		panic("GlobalGroups::Load Unmarshal failed.")
+	}
+	fmt.Printf("end GlobalGroups::Load, group_count=%v.\n", len(gg.groups))
+	return true
+}
+
+func (gg GlobalGroups) Save() {
+	fmt.Printf("begin GlobalGroups::Save, group_count=%v...\n", len(gg.groups))
+	b, err := json.Marshal(gg)
+	if err != nil {
+		fmt.Println("error:", err)
+		panic("GlobalGroups::Save Marshal failed.")
+	}
+
+	str := string(b[:])
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	cc.SetString("GLOBAL_GROUPS", str)
+	fmt.Printf("end GlobalGroups::Save.\n")
+	return
 }
 
 func (gg *GlobalGroups) Init() {

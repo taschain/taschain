@@ -120,8 +120,8 @@ func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
 	return b
 }
 
-func (sc SlotContext) GetGroupSignHash() common.Hash {
-	return sc.GroupSign.GetHash()
+func (sc SlotContext) GetGroupSign() groupsig.Signature {
+	return sc.GroupSign
 }
 
 //（达到超过阈值的签名片段后）生成组签名
