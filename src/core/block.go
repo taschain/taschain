@@ -27,7 +27,7 @@ type BlockHeader struct {
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Signature    common.Hash   // 组签名
+	Signature    []byte        // 组签名
 	Nonce        uint64        //盐
 	Transactions []common.Hash // 交易集哈希列表
 	TxTree       common.Hash   // 交易默克尔树根hash
@@ -38,7 +38,7 @@ type BlockHeader struct {
 
 func (bh *BlockHeader) GenHash() common.Hash {
 	sign := bh.Signature
-	bh.Signature = common.Hash{}
+	bh.Signature = []byte{}
 	blockByte, _ := json.Marshal(bh)
 	result := common.BytesToHash(Sha256(blockByte))
 
@@ -117,7 +117,7 @@ func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 
 	blockByte, _ := json.Marshal(block)
 	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
-	block.Header.Signature = common.BytesToHash(Sha256([]byte("tas")))
+	block.Header.Signature = Sha256([]byte("tas"))
 
 	// 创始块账户创建
 	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(100))

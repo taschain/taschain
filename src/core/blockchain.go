@@ -429,8 +429,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.Height = latestBlock.Height + 1
 		block.Header.PreTime = latestBlock.CurTime
-	}else {
-		panic("nil latestBlock")
 	}
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
