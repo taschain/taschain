@@ -170,7 +170,7 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	if isDebug {
+	if !isDebug {
 		if nil != group.Parent {
 			parent := chain.getGroupById(group.Parent)
 			if nil == parent {
