@@ -215,10 +215,13 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
 func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	if bh.GenHash() != si.DataHash {
+		fmt.Printf("newSlotContext arg failed 1, bh.Gen()=%v, si_hash=%v.\n", GetHashPrefix(bh.GenHash()), GetHashPrefix(si.DataHash))
 		panic("newSlotContext arg failed, hash not samed 1.")
 	}
 	if bh.Hash != si.DataHash {
-		panic("newSlotContext arg failed, hash not samed 2.")
+		fmt.Printf("newSlotContext arg failed 2, bh_hash=%v, si_hash=%v.\n", GetHashPrefix(bh.Hash), GetHashPrefix(si.DataHash))
+		//fmt.Printf("King=%v, sender=%v.\n", bh.Castor)
+		panic("newSlotContext arg failed, hash not samed 2")
 	}
 	sc := new(SlotContext)
 	sc.TimeRev = time.Now()
@@ -231,10 +234,12 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
 	sc.LostingTrans = make(map[common.Hash]int)
 
-	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(bh)
-	fmt.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ccr)
-	sc.InitLostingTrans(ltl)
+	if !PROC_TEST_MODE {
+		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(bh)
+		fmt.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ccr)
+		sc.InitLostingTrans(ltl)
 
+	}
 	return sc
 }
 
@@ -554,7 +559,10 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
-	max_height := bc.Proc.MainChain.QueryTopBlock().Height
+	var max_height uint64
+	if !PROC_TEST_MODE {
+		max_height = bc.Proc.MainChain.QueryTopBlock().Height
+	}
 	if (bh < max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
 		//不在合法的铸块高度内
 		fmt.Printf("height failed, max_height=%v, bh=%v.\n", max_height, bh)
