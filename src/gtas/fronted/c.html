@@ -381,14 +381,14 @@
             let to = data.field.to;
             let amount = data.field.amount;
             let code = data.field.code;
-            if (from.length !== 42) {
-                layer.msg("from 参数字段长度错误");
-                return false
-            }
-            if (to.length !== 42) {
-                layer.msg("to 参数字段长度错误");
-                return false
-            }
+            // if (from.length !== 42) {
+            //     layer.msg("from 参数字段长度错误");
+            //     return false
+            // }
+            // if (to.length !== 42) {
+            //     layer.msg("to 参数字段长度错误");
+            //     return false
+            // }
             let params = {
                 "method": "GTAS_t",
                 "params": [from, to, parseFloat(amount), code],
