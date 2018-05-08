@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"fmt"
 	"vm/common/math"
+	"bytes"
 )
 
 const (
@@ -433,13 +434,19 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
-		return nil
+		var buffer bytes.Buffer
+		buffer.WriteString("fail to new statedb, lateset height: ")
+		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
+		buffer.WriteString(", block height: ")
+		buffer.WriteString(fmt.Sprintf("%d", block.Header.Height))
+		panic(buffer.String())
+
 	}
 
 	// Process block using the parent state as reference point.
 	receipts, statehash, _, err := chain.executor.Execute(state, block, chain.voteProcessor)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 

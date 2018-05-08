@@ -132,8 +132,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 func TestBlockChain_CastingBlock(t *testing.T) {
 	Clear()
-	err:=initBlockChain()
-	if nil != err{
+	err := initBlockChain()
+	if nil != err {
 		panic(err)
 	}
 	BlockChainImpl.transactionPool.Clear()
