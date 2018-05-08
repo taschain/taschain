@@ -170,7 +170,7 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 		return fmt.Errorf("nil group")
 	}
 
-	if isDebug {
+	if !isDebug {
 		if nil != group.Parent {
 			parent := chain.getGroupById(group.Parent)
 			if nil == parent {
@@ -210,6 +210,7 @@ func (chain *GroupChain) save(group *Group, overWrite bool) error {
 			chain.count++
 		}
 		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
+		fmt.Printf("[group]put dummy succ.count: %d, now:%d, overwrite: %t, dummy id:%x \n", chain.count, len(chain.now),overWrite, group.Dummy)
 		return chain.groups.Put(group.Dummy, data)
 	} else {
 		chain.groups.Put(generateKey(chain.count), group.Id)
@@ -217,6 +218,7 @@ func (chain *GroupChain) save(group *Group, overWrite bool) error {
 		if !overWrite {
 			chain.count++
 		}
+		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now),overWrite, group.Id)
 		return chain.groups.Put(group.Id, data)
 	}
 }

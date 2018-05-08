@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"testing"
+	"fmt"
+)
 
 func TestGroupChain_AddGroup(t *testing.T) {
 	ClearGroup(defaultGroupChainConfig())
@@ -72,6 +75,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 		t.Fatalf("fail to get all groupID")
 	}
 
+	fmt.Printf("len now: %d\n",len(now))
 	group := GroupChainImpl.GetGroupById(id2)
 	if nil == group {
 		t.Fatalf("fail to GetGroupById2")

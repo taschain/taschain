@@ -448,7 +448,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	if err != nil {
 		fmt.Printf("Add dummy group error:%s\n", err.Error())
 	} else {
-		fmt.Printf("Add dummy to chain success!")
+		fmt.Printf("Add dummy to chain success! count: %d, now: %d", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
 	}
 	fmt.Printf("Waiting 60s for dummy group sync...\n")
 	time.Sleep(60 * time.Second)
@@ -1258,7 +1258,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 					if e != nil {
 						fmt.Printf("group inited add group error:%s\n", e.Error())
 					} else {
-						fmt.Printf("group inited add group success\n")
+						fmt.Printf("group inited add group success. count: %d, now: %d\n", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
 					}
 					fmt.Printf("call network service BroadcastGroupInfo...\n")
 					BroadcastGroupInfo(msg)
