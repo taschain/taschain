@@ -62,6 +62,10 @@ func prepare() {
 	global.InitGov(chain)
 	gov = global.GetGOV()
 
+	fmt.Println("credit addr", common.Bytes2Hex(gov.CreditContract.GetAddress().Bytes()))
+	fmt.Println("template code addr", common.Bytes2Hex(gov.CodeContract.GetAddress().Bytes()))
+	fmt.Println("votepool addr", common.Bytes2Hex(gov.VoteAddrPool.GetAddress().Bytes()))
+	fmt.Println("param store addr", common.Bytes2Hex(gov.ParamStore.GetAddress().Bytes()))
 
 	deployAcc := string2Address("3")
 	nonce := chain.GetNonce(deployAcc)
@@ -137,9 +141,12 @@ func prepare() {
 		fmt.Println("添加模板abi pack失败", err)
 		panic(err)
 	}
+	fmt.Println("template add input :", common.Bytes2Hex(input))
 
 	//添加模板
 	codeAddr := gov.CodeContract.GetAddress()
+	fmt.Println("codeTemplate contract address :", common.Bytes2Hex(codeAddr.Bytes()))
+
 	addTemplateTx := &core.Transaction{
 		GasPrice: 1,
 		GasLimit: 10,
@@ -194,7 +201,7 @@ func deployVote() {
 	cfg := &global.VoteConfig{
 		TemplateName: VOTE_TEMPLATE_1,
 		PIndex: 2,
-		PValue: "103",
+		PValue: "999",
 		Custom: false,
 		Desc: "描述",
 		DepositMin: 1,
@@ -202,9 +209,9 @@ func deployVote() {
 		VoterCntMin: 4,
 		ApprovalDepositMin: 2,
 		ApprovalVoterCntMin: 2,
-		DeadlineBlock: 8,
-		StatBlock: 9,
-		EffectBlock: 10,
+		DeadlineBlock: 80,
+		StatBlock: 85,
+		EffectBlock: 90,
 		DepositGap: 1,
 	}
 
@@ -233,7 +240,8 @@ func deployVote() {
 	}
 
 	//vote = corei.NewVoteInst(callctx, voteAddress)
-
+	fmt.Println("vote cfg input :", common.Bytes2Hex(input))
+	fmt.Println("vote contract addr : ", common.Bytes2Hex(voteAddress.Bytes()))
 	sendTx(tx)
 	ToChain()	//height 15
 
@@ -257,6 +265,8 @@ func sendTransaction(tx *core.Transaction, method string, args ...interface{}) {
 	tx.Target = &voteAddress
 	tx.Hash = string2Hash(nextIdx())
 	tx.Nonce = chain.GetNonce(*tx.Source)
+
+	fmt.Printf("call %v method %v, input %v", common.Bytes2Hex(tx.Source.Bytes()), method, common.Bytes2Hex(input))
 	sendTx(tx)
 }
 

@@ -132,6 +132,7 @@ func checkStatVotes(callctx *contract.CallContext, b *core.Block) error {
 		if err != nil {
 			return ctx.Logger.Warnf("check vote result fail, voteAddr %v, err %v", addr, err)
 		}
+		ctx.Logger.Infof("check voteAddr %v, result %v", common.Bytes2Hex(addr.Bytes()), pass)
 		if pass {
 			if cfg.Custom {
 				//TODO: 自定义投票, 暂不实现处理
@@ -186,12 +187,17 @@ func checkEffectVotes(callctx *contract.CallContext, b *core.Block) error {
 		if err != nil {
 			return gov.Logger.Warnf("handle vote deposit fail, voteAddr %v, err %v", addr, err)
 		}
+
+		oldValue := gov.ParamWrapper.getUint64Value(cfg.PIndex, paramStore)
+
 		//使参数值生效
 		if cfg.Custom {
 			//TODO: 自定义投票, 暂不实现处理
 		} else {
 			gov.ParamWrapper.refresh(cfg.PIndex, paramStore)
 		}
+		newValue := gov.ParamWrapper.getUint64Value(cfg.PIndex, paramStore)
+		gov.Logger.Infof("vote effect param, from %v to %v ", oldValue, newValue)
 
 		//移除投票信息
 		b, err := vap.RemoveVote(addr)
@@ -237,6 +243,8 @@ func handleVoteCreate(callctx *contract.CallContext, b *core.Block, receipts *ty
 			if ok, err := vap.AddVote(v); err != nil || !ok {
 				return gov.Logger.Warn("add vote fail", ok, err)
 			}
+
+			gov.Logger.Infof("vote contract found!, address %v", common.Bytes2Hex(v.Addr.Bytes()))
 		}
 	}
 	return nil
