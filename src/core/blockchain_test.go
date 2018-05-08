@@ -130,6 +130,24 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 }
 
+func TestBlockChain_CastingBlock(t *testing.T) {
+	Clear()
+	err:=initBlockChain()
+	if nil != err{
+		panic(err)
+	}
+	BlockChainImpl.transactionPool.Clear()
+
+	castor := []byte{1, 2}
+	group := []byte{3, 4}
+	block1 := BlockChainImpl.CastingBlock(1, 1, 1, castor, group)
+	if nil == block1 {
+		t.Fatalf("fail to cast block1")
+	}
+
+	BlockChainImpl.Close()
+}
+
 func TestBlockChain_GetBlockMessage(t *testing.T) {
 	Clear()
 	initBlockChain()

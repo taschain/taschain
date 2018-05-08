@@ -171,7 +171,11 @@ func initBlockChain() error {
 }
 
 func Clear() {
-	os.RemoveAll(common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE))
+	path := datasource.DEFAULT_FILE
+	if nil != common.GlobalConf {
+		path = common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE)
+	}
+	os.RemoveAll(path)
 
 }
 
@@ -398,6 +402,9 @@ func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
 }
 
 func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+	chain.lock.Lock()
+	chain.lock.Unlock()
+
 	//todo: 校验高度
 
 	block := new(Block)
@@ -422,6 +429,8 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.Height = latestBlock.Height + 1
 		block.Header.PreTime = latestBlock.CurTime
+	}else {
+		panic("nil latestBlock")
 	}
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)

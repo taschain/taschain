@@ -14,12 +14,15 @@ import (
 	"vm/ethdb"
 )
 
-const (CONFIG_SEC = "chain"
+const (
+	CONFIG_SEC   = "chain"
 	DEFAULT_FILE = "database"
 )
+
 var (
-	ErrLDBInit = errors.New("LDB instance not inited")
-	instance   *LDBDatabase
+	ErrLDBInit   = errors.New("LDB instance not inited")
+	instance     *LDBDatabase
+	instanceLock = sync.RWMutex{}
 )
 
 type PrefixedDatabase struct {
@@ -46,6 +49,9 @@ func NewDatabase(prefix string) (ethdb.Database, error) {
 }
 
 func getInstance() (*LDBDatabase, error) {
+	instanceLock.Lock()
+	defer instanceLock.Unlock()
+
 	var (
 		instanceInner *LDBDatabase
 		err           error
@@ -84,39 +90,43 @@ func getInstance() (*LDBDatabase, error) {
 //}
 
 func (db *PrefixedDatabase) Close() {
+	instanceLock.Lock()
+	defer instanceLock.Unlock()
+
+	instance = nil
 	db.db.Close()
 }
 
 func (db *PrefixedDatabase) Put(key []byte, value []byte) error {
-	return db.db.Put(generateKey(key,db.prefix), value)
+	return db.db.Put(generateKey(key, db.prefix), value)
 }
 
 func (db *PrefixedDatabase) Get(key []byte) ([]byte, error) {
-	return db.db.Get(generateKey(key,db.prefix))
+	return db.db.Get(generateKey(key, db.prefix))
 }
 
 func (db *PrefixedDatabase) Has(key []byte) (bool, error) {
-	return db.db.Has(generateKey(key,db.prefix))
+	return db.db.Has(generateKey(key, db.prefix))
 }
 
 func (db *PrefixedDatabase) Delete(key []byte) error {
-	return db.db.Delete(generateKey(key,db.prefix))
+	return db.db.Delete(generateKey(key, db.prefix))
 }
 
 func (db *PrefixedDatabase) NewBatch() ethdb.Batch {
 
-	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch),prefix:db.prefix,}
+	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
 }
 
 type prefixBatch struct {
-	db   *leveldb.DB
-	b    *leveldb.Batch
-	size int
+	db     *leveldb.DB
+	b      *leveldb.Batch
+	size   int
 	prefix string
 }
 
 func (b *prefixBatch) Put(key, value []byte) error {
-	b.b.Put(generateKey(key,b.prefix), value)
+	b.b.Put(generateKey(key, b.prefix), value)
 	b.size += len(value)
 	return nil
 }
@@ -133,7 +143,6 @@ func (b *prefixBatch) Reset() {
 	b.b.Reset()
 	b.size = 0
 }
-
 
 // 加入前缀的key
 func generateKey(raw []byte, prefix string) []byte {
