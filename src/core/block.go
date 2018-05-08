@@ -38,11 +38,15 @@ type BlockHeader struct {
 
 func (bh *BlockHeader) GenHash() common.Hash {
 	sign := bh.Signature
+	hash := bh.Hash
+
 	bh.Signature = []byte{}
+	bh.Hash = common.Hash{}
 	blockByte, _ := json.Marshal(bh)
 	result := common.BytesToHash(Sha256(blockByte))
 
 	bh.Signature = sign
+	bh.Hash = hash
 	return result
 }
 
