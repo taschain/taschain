@@ -3,6 +3,8 @@ package core
 import (
 	"common"
 	"fmt"
+	"bytes"
+	"encoding/binary"
 )
 
 var (
@@ -108,4 +110,11 @@ func (connector *GroupChainConnector) getGroupChainHeight() (uint64, error) {
 		return 0, fmt.Errorf("nil blockchain")
 	}
 	return connector.chain.count, nil
+}
+
+
+func uint64ToByte(i uint64) []byte {
+	buf := bytes.NewBuffer([]byte{})
+	binary.Write(buf, binary.BigEndian, i)
+	return buf.Bytes()
 }
