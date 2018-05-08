@@ -479,6 +479,8 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
 	if preBlock == nil {
+		fmt.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
+
 		return nil, -1, nil, nil
 	}
 
@@ -503,13 +505,18 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		BroadcastTransactionRequest(*m)
 		return missing, 1, nil, nil
 	}
-	if hexutil.Encode(calcTxTree(transactions).Bytes()) != hexutil.Encode(bh.TxTree.Bytes()) {
+	txtree := calcTxTree(transactions).Bytes()
+	if hexutil.Encode(txtree) != hexutil.Encode(bh.TxTree.Bytes()) {
+		fmt.Printf("[block]fail to verify txtree, hash1:%s hash2:%s \n", txtree, bh.TxTree.Bytes())
+
 		return missing, -1, nil, nil
 	}
 
 	//执行交易
 	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
+		fmt.Printf("[block]fail to new statedb, error:%s \n", err)
+
 		return nil, -1, nil, nil
 	}
 
@@ -518,13 +525,19 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	b.Transactions = transactions
 	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if err != nil {
+		fmt.Printf("[block]fail to execute txs, error:%s \n", err)
+
 		return nil, -1, nil, nil
 	}
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
+		fmt.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
+
 		return nil, -1, nil, nil
 	}
+	receiptsTree := calcReceiptsTree(receipts).Bytes()
+	if hexutil.Encode(receiptsTree) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
+		fmt.Printf("[block]fail to verify receipt, hash1:%s hash2:%s \n", receiptsTree, b.Header.ReceiptTree.Bytes())
 
-	if hexutil.Encode(calcReceiptsTree(receipts).Bytes()) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
 		return nil, 1, nil, nil
 	}
 
@@ -555,6 +568,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		// 验证块是否有问题
 		_, status, state, receipts = chain.VerifyCastingBlock(*b.Header)
 		if status != 0 {
+			fmt.Printf("[block]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
@@ -567,7 +581,8 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		status = chain.saveBlock(b)
 	} else if height > (chain.latestBlock.Height + 1) {
 		//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
-		return -1
+		fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
+		return -2
 	} else {
 		status = chain.adjust(b)
 	}
@@ -592,21 +607,26 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	// 根据hash存block
 	blockJson, err := json.Marshal(b)
 	if err != nil {
+		fmt.Printf("[block]fail to json Marshal, error:%s \n", err)
 		return -1
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
+		fmt.Printf("[block]fail to put key:hash value:block, error:%s \n", err)
 		return -1
 	}
 
 	// 根据height存blockheader
 	headerJson, err := json.Marshal(b.Header)
 	if err != nil {
+
+		fmt.Printf("[block]fail to json Marshal header, error:%s \n", err)
 		return -1
 	}
 
 	err = chain.blockHeight.Put(chain.generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
+		fmt.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1
 	}
 
@@ -614,6 +634,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	chain.latestBlock = b.Header
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
+		fmt.Printf("[block]fail to put current, error:%s \n", err)
 		return -1
 	}
 
@@ -625,6 +646,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 func (chain *BlockChain) adjust(b *Block) int8 {
 	header := chain.queryBlockByHeight(b.Header.Height)
 	if header == nil {
+		fmt.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
 		return -1
 	}
 
@@ -642,6 +664,8 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 		return chain.saveBlock(b)
 	} else {
+		fmt.Printf("[block]fail to adjust, height:%d \n", b.Header.Height)
+
 		return -1
 	}
 
