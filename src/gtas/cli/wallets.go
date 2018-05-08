@@ -27,7 +27,8 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if err != nil {
 		return err
 	}
-	transaction := genTx(0, source, target, nonce+1, value, codeBytes, []byte{}, 0)
+	log.Println(nonce)
+	transaction := genTx(0, source, target, nonce, value, codeBytes, []byte{}, 0)
 	transaction.Hash = transaction.GenHash()
 	_, err = txpool.Add(transaction)
 	if err != nil {
