@@ -42,8 +42,8 @@ const (
 
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
-	TimeRev      time.Time                     //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
-	HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
+	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
+	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
 	BH           core.BlockHeader              //出块头详细数据
 	QueueNumber  int64                         //铸块槽序号(<0无效)，等同于出块人序号。
 	King         groupsig.ID                   //出块者ID
@@ -113,7 +113,7 @@ func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
 	if sc.SlotStatus != SS_RECOVERD || !sc.GroupSign.IsValid() {
 		return false
 	}
-	b := groupsig.VerifySig(pk, sc.HeaderHash.Bytes(), sc.GroupSign)
+	b := groupsig.VerifySig(pk, sc.BH.Hash.Bytes(), sc.GroupSign)
 	if b {
 		sc.SlotStatus = SS_VERIFIED //组签名验证通过
 	}
@@ -169,16 +169,19 @@ const (
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
 func (sc *SlotContext) AcceptPiece(bh core.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if bh.GenHash() != si.DataHash {
-		panic("SlotContext::AcceptPiece arg failed, hash not samed.")
+		panic("SlotContext::AcceptPiece arg failed, hash not samed 1.")
+	}
+	if bh.Hash != si.DataHash {
+		panic("SlotContext::AcceptPiece arg failed, hash not samed 2.")
 	}
 
 	if len(sc.MapWitness) > GROUP_MAX_MEMBERS || sc.MapWitness == nil {
 		panic("CastContext::Verified failed, too many members or map nil.")
 	}
-	if si.DataHash != sc.HeaderHash {
+	if si.DataHash != sc.BH.Hash {
 		fmt.Printf("SlotContext::AcceptPiece failed, hash diff.\n")
-		fmt.Printf("exist hash=%v.\n", sc.HeaderHash.Hex())
-		fmt.Printf("recv hash=%v.\n", si.DataHash.Hex())
+		fmt.Printf("exist hash=%v.\n", GetHashPrefix(sc.BH.Hash))
+		fmt.Printf("recv hash=%v.\n", GetHashPrefix(si.DataHash))
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
 	v, ok := sc.MapWitness[si.GetID().GetHexString()]
@@ -212,13 +215,16 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
 func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	if bh.GenHash() != si.DataHash {
-		panic("newSlotContext arg failed, hash not samed.")
+		panic("newSlotContext arg failed, hash not samed 1.")
+	}
+	if bh.Hash != si.DataHash {
+		panic("newSlotContext arg failed, hash not samed 2.")
 	}
 	sc := new(SlotContext)
 	sc.TimeRev = time.Now()
 	sc.BH = bh
-	sc.HeaderHash = si.DataHash
-	fmt.Printf("create new slot, hash=%v.\n", sc.HeaderHash.Hex())
+	//sc.HeaderHash = si.DataHash
+	fmt.Printf("create new slot, hash=%v.\n", GetHashPrefix(sc.BH.Hash))
 	sc.QueueNumber = int64(bh.QueueNumber)
 	sc.King.Deserialize(bh.Castor)
 	sc.MapWitness = make(map[string]groupsig.Signature)
@@ -234,7 +240,7 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 
 func (sc *SlotContext) Reset() {
 	sc.TimeRev = *new(time.Time)
-	sc.HeaderHash = *new(common.Hash)
+	//sc.HeaderHash = *new(common.Hash)
 	sc.BH = *new(core.BlockHeader)
 	sc.QueueNumber = INVALID_QN
 	sc.King = *groupsig.NewIDFromInt(0)
