@@ -93,6 +93,8 @@ type Processer struct {
 
 	piece_count  int
 	inited_count int
+	load_data    int
+	save_data    int
 	//////链接口
 	MainChain core.BlockChainI
 	//锁
@@ -248,6 +250,11 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.belongGroups = make(map[string]JoinedGroup, 0)
 	p.bcs = make(map[string]*BlockContext, 0)
 	p.sci.Init()
+
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	p.load_data = cc.GetInt("LOAD_DATA", 0)
+	p.save_data = cc.GetInt("SAVE_DATA", 0)
+
 	fmt.Printf("proc(%v) inited.\n", p.getPrefix())
 	return true
 }
@@ -643,6 +650,15 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					panic("getSlotByQN return nil.")
 				} else {
 					sign := slot.GetGroupSign()
+					gpk := p.getGroupPubKey(g_id)
+					if !slot.VerifyGroupSign(gpk) {
+						fmt.Printf("OMC group pub key local check failed, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n",
+							GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(ccm.BH.Hash))
+						panic("OMC group pub key local check failed")
+					} else {
+						fmt.Printf("OMC group pub key local check OK, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n",
+							GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(ccm.BH.Hash))
+					}
 					ccm.BH.Signature = sign.Serialize()
 					fmt.Printf("OMC BH hash=%v, update group sign data=%v.\n", GetHashPrefix(ccm.BH.Hash), GetSignPrefix(sign))
 
@@ -781,12 +797,21 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			fmt.Printf("proc(%v) OMV VerifyGroupSign=%v.\n", p.getPrefix(), b)
 			if b { //组签名验证通过
 				fmt.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK, height=%v, qn=%v.!!!\n", p.getPrefix(), cvm.BH.Height, cvm.BH.QueueNumber)
-
 				slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
 				if slot == nil {
 					panic("getSlotByQN return nil.")
 				} else {
 					sign := slot.GetGroupSign()
+
+					gpk := p.getGroupPubKey(g_id)
+					if !slot.VerifyGroupSign(gpk) {
+						fmt.Printf("OMC group pub key local check failed, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n",
+							GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(cvm.BH.Hash))
+						panic("OMC group pub key local check failed")
+					} else {
+						fmt.Printf("OMC group pub key local check OK, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n",
+							GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(cvm.BH.Hash))
+					}
 					cvm.BH.Signature = sign.Serialize()
 					fmt.Printf("OMV BH hash=%v, update group sign data=%v.\n", GetHashPrefix(cvm.BH.Hash), GetSignPrefix(sign))
 				}
@@ -1134,7 +1159,7 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 		jg := gc.GetGroupInfo()
 		//这时还没有所有组成员的签名公钥
 		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
-			fmt.Printf("OMSP SUCCESS gen sign sec key and group pub key piece, msk=%v, gpk_piece=%v.\n", GetSecKeyPrefix(jg.SignKey), GetPubKeyPrefix(jg.GroupPK))
+			fmt.Printf("OMSP SUCCESS gen sign sec key and group pub key, msk=%v, gpk=%v.\n", GetSecKeyPrefix(jg.SignKey), GetPubKeyPrefix(jg.GroupPK))
 			{
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
 				var msg ConsensusSignPubKeyMessage
