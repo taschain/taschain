@@ -479,6 +479,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
 	if preBlock == nil {
+
 		fmt.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
 
 		return nil, -1, nil, nil
@@ -595,7 +596,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
-
 	}
 	return status
 
@@ -664,7 +664,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d \n", b.Header.Height)
+		fmt.Printf("[block]fail to adjust, height:%d, current weight:%d, coming weight:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, chain.getWeight(header.QueueNumber), chain.getWeight(b.Header.QueueNumber), header.QueueNumber, b.Header.QueueNumber)
 
 		return -1
 	}
