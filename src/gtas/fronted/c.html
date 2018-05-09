@@ -21,6 +21,7 @@
             <li>新建账户</li>
             <li>转账演示</li>
             <li>查询余额</li>
+            <li>投票</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -228,6 +229,128 @@
                 Error: &nbsp; <span id="balance_error"></span>
                 <hr/>
             </div>
+            {{/*投票部分页面*/}}
+            <div class="layui-tab-item">
+                <form class="layui-form" action="">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">from</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="from"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入发送方地址(len=40)">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">TemplateName</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="template_name"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="vote_template_1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">PIndex</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="p_index"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="2">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">PValue</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="p_value"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="999">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">Custom</label>
+                        <div class="layui-input-block">
+                            <input type="radio" name="custom" value="true" title="true">
+                            <input type="radio" name="custom" value="false" title="false" checked>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">Desc</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="desc"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="描述">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">DepositMin</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="deposit_min"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">TotalDepositMin</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="total_deposit_min"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="2">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">VoterCntMin</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="voter_cnt_min"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="4">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">ApprovalDepositMin</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="approval_deposit_min"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="2">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">ApprovalVoterCntMin</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="approval_voter_cnt_min"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="2">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">DeadlineBlock</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="deadline_block"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="80">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">StatBlock</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="stat_block"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="85">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">EffectBlock</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="effect_block"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="90">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">DepositGap</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="deposit_gap"   autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="vote_form">立即提交</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                    <div style="padding-top: 30px"></div>
+                    <hr/>
+                    Message: &nbsp;<span id="vote_message"></span>
+                    <hr/>
+                    Error: &nbsp; <span id="vote_error"></span>
+                    <hr/>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -370,6 +493,51 @@
                     });
                 },
             });
+        });
+
+        // 投票表单提交
+        form.on('submit(vote_form)', function (data) {
+            $("#vote_message").text("");
+            $("#vote_error").text("");
+            let from = data.field.from;
+            let vote_param = {};
+            vote_param.template_name = data.field.template_name;
+            vote_param.p_index = parseInt(data.field.p_index);
+            vote_param.p_value = data.field.p_value;
+            vote_param.custom = (data.field.custom === "true");
+            vote_param.desc = data.field.desc;
+            vote_param.deposit_min = parseInt(data.field.deposit_min);
+            vote_param.total_deposit_min = parseInt(data.field.total_deposit_min);
+            vote_param.voter_cnt_min = parseInt(data.field.voter_cnt_min);
+            vote_param.approval_deposit_min = parseInt(data.field.approval_deposit_min);
+            vote_param.approval_voter_cnt_min = parseInt(data.field.approval_voter_cnt_min);
+            vote_param.deadline_block = parseInt(data.field.deadline_block);
+            vote_param.stat_block = parseInt(data.field.stat_block);
+            vote_param.effect_block = parseInt(data.field.effect_block);
+            vote_param.deposit_gap = parseInt(data.field.deposit_gap);
+            let params = {
+                "method": "GTAS_vote",
+                "params": [from, vote_param],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined){
+                        $("#vote_message").text(rdata.result.message)
+                    }
+                    if (rdata.error !== undefined){
+                        $("#vote_error").text(rdata.error.message)
+                    }
+                },
+            });
+            return false;
         });
 
 
