@@ -283,7 +283,7 @@ func testGroupInit(t *testing.T) {
 	plain := []byte("this is a plain message.")
 	//直接用组公钥和组私钥验证
 	gs1 := groupsig.Sign(*gsk, plain)
-	fmt.Printf("direct sign data=%v.\n", gs1.GetHexString())
+	fmt.Printf("direct sign data=%v.\n", GetSignPrefix(gs1))
 	result1 := groupsig.VerifySig(*gpk, plain, gs1)
 	fmt.Printf("1 verify group sign direct, result = %v.\n", result1)
 	if !result1 {
@@ -304,7 +304,7 @@ func testGroupInit(t *testing.T) {
 	if gs2 == nil {
 		t.Error("RecoverSignature failed.")
 	}
-	fmt.Printf("recover sign data=%v.\n", gs2.GetHexString())
+	fmt.Printf("recover sign data=%v.\n", GetSignPrefix(*gs2))
 	result2 := groupsig.VerifySig(*gpk, plain, *gs2)
 	fmt.Printf("2 verify group sign from recover, result = %v.\n", result2)
 	if !result2 {
@@ -632,18 +632,18 @@ func testLogicGroupInitEx(t *testing.T) {
 
 	var first_gid groupsig.ID
 	//初始化结果测试
-	fmt.Printf("after inited, print processers info: %v---\n", first_gid.GetBigInt())
+	fmt.Printf("after inited, print processers info: %v---\n", GetIDPrefix(first_gid))
 	index := 0
 	for k, v := range procs {
 		groups := v.getMinerGroups()
 		fmt.Printf("---i(%v) proc(%v), joined groups=%v.\n", index, k, len(groups))
-		for gid, g_info := range groups {
-			fmt.Printf("------group=%v, id=%v, sign key=%v.\n", gid, GetIDPrefix(g_info.GroupID), GetSecKeyPrefix(g_info.SignKey))
+		for _, g_info := range groups {
+			fmt.Printf("------g_id=%v, sign key=%v.\n", GetIDPrefix(g_info.GroupID), GetSecKeyPrefix(g_info.SignKey))
 			if !first_gid.IsValid() {
 				fmt.Printf("first_gid set value=%v.\n", GetIDPrefix(g_info.GroupID))
 				first_gid = g_info.GroupID
 			} else {
-				fmt.Printf("first_gid valided, value=%v.", first_gid.GetBigInt())
+				fmt.Printf("first_gid valided, value=%v.", GetIDPrefix(first_gid))
 			}
 		}
 		index++
@@ -677,7 +677,7 @@ func testLogicGroupInitEx(t *testing.T) {
 		//func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 		//ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
 		sign_pk := groupsig.NewPubkeyFromSeckey(sign_sk)
-		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), sign_pk.GetHexString())
+		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), GetPubKeyPrefix(*sign_pk))
 		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk})
 		break
 	}

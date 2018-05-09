@@ -364,6 +364,19 @@ func (bc *BlockContext) CastedUpdateStatus(qn uint) bool {
 	}
 }
 
+func (bc *BlockContext) PrintSlotInfo() string {
+	var str string
+	for i, v := range bc.Slots {
+		if v.QueueNumber != INVALID_QN {
+			str += fmt.Sprintf("slot %v: qn=%v, status=%v, msgs=%v, tf=%v. ", i, v.QueueNumber, v.SlotStatus, len(v.MapWitness), v.TransFulled)
+		}
+	}
+	if len(str) == 0 {
+		str = "all slot empty."
+	}
+	return str
+}
+
 //检查是否有空槽可以接纳一个铸块槽
 //如果还有空槽，返回空槽序号。如果没有空槽，返回-1.
 func (bc *BlockContext) findEmptySlot() int32 {

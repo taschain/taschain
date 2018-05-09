@@ -334,7 +334,7 @@ func (p *Processer) addInnerGroup(g JoinedGroup) {
 	} else {
 		fmt.Printf("Error::Processer::AddSignKey failed, already exist.\n")
 	}
-	fmt.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), g.SignKey.GetHexString())
+	fmt.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), GetSecKeyPrefix(g.SignKey))
 	return
 }
 
@@ -387,7 +387,7 @@ func (p *Processer) BeginGenesisGroupMember() PubKeyInfo {
 	gsk_piece := temp_mgs.GenSecKey()
 	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
 	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
-	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
+	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 	return pki
 }
 
@@ -588,7 +588,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber)
 
-	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
+	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = g_id
@@ -968,20 +968,22 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 		fmt.Printf("proc(%v) OMNT, first trans=%v.\n", p.getPrefix(), ths[0].Hex())
 	}
 
-	bc := p.GetCastingBC()
+	bc := p.GetCastingBC() //to do ：实际的场景，可能会返回多个bc，需要处理。（一个矿工加入多个组，考虑现在测试的极端情况，矿工加入了连续出块的2个组）
 	if bc != nil {
+		fmt.Printf("OMNT, bc height=%v, status=%v. slots_info=%v.\n", bc.CastHeight, bc.ConsensusStatus, bc.PrintSlotInfo())
 		qns := bc.ReceTrans(ths)
+		fmt.Printf("OMNT, bc.ReceTrans result qns_count=%v.\n", len(qns))
 		for _, v := range qns { //对不再缺失交易集的插槽处理
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
-				fmt.Printf("OMNT slot (qn=%v) info : still losts=%v, result=%v.\n", v, len(lost_trans_list), result)
+				fmt.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", v, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
 					if locked {
 						p.castLock.Unlock()
 						locked = false
 					}
-					panic("OMNT still losting trans on main chain.")
+					panic("OMNT still losting trans on main chain, ERROR.")
 				}
 				switch result {
 				case 0: //验证通过
@@ -1003,12 +1005,13 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 						}
 					}
 				case 1:
-					panic("Processer::OnMessageNewTransactions failed, check xiaoxiong's src code.")
+					panic("Processer::OMNT failed, check xiaoxiong's src code.")
 				case -1:
 					fmt.Printf("OMNT set slot (qn=%v) failed irreversible.\n", v)
 					slot.statusChainFailed()
 				}
 			} else {
+				fmt.Printf("OMNT failed, after ReceTrans slot %v is nil.\n", v)
 				panic("OMNT failed, slot is nil.")
 			}
 		}
@@ -1036,11 +1039,13 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	if block == nil {
 		panic("core.GenerateBlock failed.")
 	}
-	r := p.MainChain.AddBlockOnChain(block)
-	fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
-	if r == 0 || r == 1 {
-	} else {
-		panic("core.AddBlockOnChain failed.")
+	if !PROC_TEST_MODE {
+		r := p.MainChain.AddBlockOnChain(block)
+		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
+		if r == 0 || r == 1 {
+		} else {
+			panic("core.AddBlockOnChain failed.")
+		}
 	}
 	bc.CastedUpdateStatus(uint(bh.QueueNumber))
 	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
@@ -1049,8 +1054,10 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	cbm.GroupID = gid
 	ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
 	cbm.GenSign(ski)
-	fmt.Printf("call network service BroadcastNewBlock...\n")
-	BroadcastNewBlock(&cbm)
+	if !PROC_TEST_MODE {
+		fmt.Printf("call network service BroadcastNewBlock...\n")
+		BroadcastNewBlock(&cbm)
+	}
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
