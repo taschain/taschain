@@ -83,11 +83,11 @@ func (ngc *NewGroupChained) Convergence() bool {
 		}
 	}
 	if count >= GetGroupK() {
-		fmt.Printf("found max count gpk=%v, count=%v.\n", gpk.GetHexString(), count)
+		fmt.Printf("found max count gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
 		ngc.gpk = gpk
 		return true
 	}
-	fmt.Printf("found max count gpk failed, max_gpk=%v, count=%v.\n", gpk.GetHexString(), count)
+	fmt.Printf("found max count gpk failed, max_gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
 	return false
 }
 
@@ -186,7 +186,7 @@ func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberDa
 		fmt.Printf("Check gourp inited result=%v, status=%v.\n", check_result, ngc.status)
 		if check_result == 1 {
 			new_gpk := ngc.gpk
-			fmt.Printf("SUCCESS ACCEPT A NEW GROUP!!! group pub key=%v.\n", new_gpk.GetHexString())
+			fmt.Printf("SUCCESS ACCEPT A NEW GROUP!!! group pub key=%v.\n", GetPubKeyPrefix(new_gpk))
 		}
 		return 1
 	} else {

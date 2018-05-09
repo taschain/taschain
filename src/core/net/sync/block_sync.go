@@ -17,7 +17,7 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 const (
 	BLOCK_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
 
-	BLOCK_SYNC_INTERVAL = 30 * time.Second
+	BLOCK_SYNC_INTERVAL = 10 * time.Second
 )
 
 var BlockSyncer blockSyncer

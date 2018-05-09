@@ -289,7 +289,7 @@ func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
 			g.MapCache[v.GetID().GetHexString()] = i
 		}
 	}
-	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.GetHexString(), len(g.Members), len(g.MapCache))
+	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MapCache))
 	if _, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)
 		gg.mapCache[g.GroupID.GetHexString()] = len(gg.groups) - 1

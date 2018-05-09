@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"governance/util"
 	"common"
+	v "vm/common"
 	"governance/global"
 )
 
@@ -122,6 +123,15 @@ func TestToChain(t *testing.T) {
 	ToChain()
 }
 
+func misc() {
+	gov := global.GetGOV()
+	b, _ := gov.VoteContract.GetAbi().Pack("voterAddrList")
+	fmt.Println("voteaddrlist input", common.Bytes2Hex(b))
+
+	b, _ = gov.VoteContract.GetAbi().Pack("voterInfo", string2Address("23"))
+	fmt.Println("voterinfo input", common.Bytes2Hex(b))
+}
+
 func TestVote(t *testing.T) {
 	prepare()
 
@@ -130,6 +140,8 @@ func TestVote(t *testing.T) {
 	for _, voter := range voters {
 		addDeposit(voter, 2)
 	}
+
+	misc()
 
 	ToChain()//height 5
 	//showVoterBalance()
@@ -186,4 +198,16 @@ func TestVote(t *testing.T) {
 	showParams()
 
 	fmt.Println("height", chain.Height())
+}
+
+func TestName(t *testing.T) {
+	fmt.Println(v.Bytes2Hex(core.Sha256([]byte("1"))))
+	fmt.Println(v.Bytes2Hex(core.Sha256([]byte("2"))))
+	fmt.Println(v.Bytes2Hex(core.Sha256([]byte("3"))))
+	fmt.Println(common.BytesToAddress(core.Sha256([]byte("2"))))
+	fmt.Println(common.BytesToAddress(core.Sha256([]byte("3"))))
+}
+
+func TestAddTemplateParams(t *testing.T) {
+
 }

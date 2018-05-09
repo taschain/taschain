@@ -101,6 +101,22 @@ func (g *GOV) NewParamStoreInst(ctx *contract.CallContext) *contract.ParamStore 
 	return contract.NewParamStore(ctx, g.ParamStore)
 }
 
+func ShowVoterInfo(address common.Address)  {
+	callctx := contract.ChainTopCallContext()
+	vote := gov.NewVoteInst(callctx, address)
+	vs, err := vote.VoterAddrs()
+	if err != nil {
+		gov.Logger.Error("获取地址", err)
+	}
+	for _, voter := range vs {
+		voteInfo, err := vote.VoterInfo(util.ToTASAddress(voter))
+		if err != nil {
+			gov.Logger.Error("获取投票信息", err)
+		}
+		gov.Logger.Info(common.ToHex(voter.Bytes()), voteInfo)
+	}
+}
+
 func InitGov(bc *core.BlockChain) bool {
 	if gov != nil && gov.init {
 		return true

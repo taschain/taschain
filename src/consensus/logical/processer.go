@@ -251,11 +251,19 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.bcs = make(map[string]*BlockContext, 0)
 	p.sci.Init()
 
-	cc := common.GlobalConf.GetSectionManager("consensus")
-	p.load_data = cc.GetInt("LOAD_DATA", 0)
-	p.save_data = cc.GetInt("SAVE_DATA", 0)
+	if !PROC_TEST_MODE {
+		cc := common.GlobalConf.GetSectionManager("consensus")
+		p.load_data = cc.GetInt("LOAD_DATA", 0)
+		p.save_data = cc.GetInt("SAVE_DATA", 0)
 
-	fmt.Printf("proc(%v) inited.\n", p.getPrefix())
+		fmt.Printf("proc(%v) inited 1, load_data=%v, save_data=%v.\n", p.getPrefix(), p.load_data, p.save_data)
+
+		if p.load_data == 1 {
+			b := p.Load()
+			fmt.Printf("proc(%v) load_data result=%v.\n", p.getPrefix(), b)
+		}
+	}
+	fmt.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	return true
 }
 
@@ -326,7 +334,7 @@ func (p *Processer) addInnerGroup(g JoinedGroup) {
 	} else {
 		fmt.Printf("Error::Processer::AddSignKey failed, already exist.\n")
 	}
-	fmt.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), g.SignKey.GetHexString())
+	fmt.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), GetSecKeyPrefix(g.SignKey))
 	return
 }
 
@@ -379,7 +387,7 @@ func (p *Processer) BeginGenesisGroupMember() PubKeyInfo {
 	gsk_piece := temp_mgs.GenSecKey()
 	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
 	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
-	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), pki.PK.GetHexString())
+	fmt.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 	return pki
 }
 
@@ -394,7 +402,10 @@ func (p *Processer) GenGenesisGroupSummary() ConsensusGroupInitSummary {
 	} else {
 		copy(gis.Name[:], gn[:64])
 	}
-	gis.BeginTime = time.Date(2018, time.May, 4, 18, 00, 00, 00, time.Local)
+	//gis.BeginTime = time.Date(2018, time.May, 4, 18, 00, 00, 00, time.Local)
+	unix_time := time.Now().Unix()
+	unix_time = unix_time - 100
+	gis.BeginTime = time.Unix(unix_time, 0)
 	gis.Extends = "room 1003, BLWJXXJS6KYHX"
 	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	return gis
@@ -577,7 +588,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber)
 
-	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), ccm.SI.DataHash.Hex())
+	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = g_id
@@ -628,9 +639,11 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		if slot.isAllTransExist() { //所有交易都已本地存在
 			ccr = 0
 		} else {
-			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
-			fmt.Printf("proc(%v) OMC chain check result=%v, lost_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
-			//slot.InitLostingTrans(lost_trans_list)
+			if !PROC_TEST_MODE {
+				lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(ccm.BH)
+				fmt.Printf("proc(%v) OMC chain check result=%v, lost_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
+				//slot.InitLostingTrans(lost_trans_list)
+			}
 		}
 	}
 
@@ -779,9 +792,11 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		if slot.isAllTransExist() { //所有交易都已本地存在
 			ccr = 0
 		} else {
-			lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
-			fmt.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
-			//slot.InitLostingTrans(lost_trans_list)
+			if !PROC_TEST_MODE {
+				lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
+				fmt.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
+				//slot.LostingTrans(lost_trans_list)
+			}
 		}
 	}
 
@@ -953,20 +968,22 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 		fmt.Printf("proc(%v) OMNT, first trans=%v.\n", p.getPrefix(), ths[0].Hex())
 	}
 
-	bc := p.GetCastingBC()
+	bc := p.GetCastingBC() //to do ：实际的场景，可能会返回多个bc，需要处理。（一个矿工加入多个组，考虑现在测试的极端情况，矿工加入了连续出块的2个组）
 	if bc != nil {
+		fmt.Printf("OMNT, bc height=%v, status=%v. slots_info=%v.\n", bc.CastHeight, bc.ConsensusStatus, bc.PrintSlotInfo())
 		qns := bc.ReceTrans(ths)
+		fmt.Printf("OMNT, bc.ReceTrans result qns_count=%v.\n", len(qns))
 		for _, v := range qns { //对不再缺失交易集的插槽处理
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
-				fmt.Printf("OMNT slot (qn=%v) info : still losts=%v, result=%v.\n", v, len(lost_trans_list), result)
+				fmt.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", v, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
 					if locked {
 						p.castLock.Unlock()
 						locked = false
 					}
-					panic("OMNT still losting trans on main chain.")
+					panic("OMNT still losting trans on main chain, ERROR.")
 				}
 				switch result {
 				case 0: //验证通过
@@ -988,12 +1005,13 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 						}
 					}
 				case 1:
-					panic("Processer::OnMessageNewTransactions failed, check xiaoxiong's src code.")
+					panic("Processer::OMNT failed, check xiaoxiong's src code.")
 				case -1:
 					fmt.Printf("OMNT set slot (qn=%v) failed irreversible.\n", v)
 					slot.statusChainFailed()
 				}
 			} else {
+				fmt.Printf("OMNT failed, after ReceTrans slot %v is nil.\n", v)
 				panic("OMNT failed, slot is nil.")
 			}
 		}
@@ -1021,11 +1039,13 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	if block == nil {
 		panic("core.GenerateBlock failed.")
 	}
-	r := p.MainChain.AddBlockOnChain(block)
-	fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
-	if r == 0 || r == 1 {
-	} else {
-		panic("core.AddBlockOnChain failed.")
+	if !PROC_TEST_MODE {
+		r := p.MainChain.AddBlockOnChain(block)
+		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
+		if r == 0 || r == 1 {
+		} else {
+			panic("core.AddBlockOnChain failed.")
+		}
 	}
 	bc.CastedUpdateStatus(uint(bh.QueueNumber))
 	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
@@ -1034,8 +1054,10 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	cbm.GroupID = gid
 	ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
 	cbm.GenSign(ski)
-	fmt.Printf("call network service BroadcastNewBlock...\n")
-	BroadcastNewBlock(&cbm)
+	if !PROC_TEST_MODE {
+		fmt.Printf("call network service BroadcastNewBlock...\n")
+		BroadcastNewBlock(&cbm)
+	}
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
@@ -1322,6 +1344,12 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		fmt.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组
 		//to do ：从待初始化组中删除
+
+		//检查是否写入配置文件
+		if p.save_data == 1 {
+			p.Save()
+		}
+
 		//拉取当前最高块
 		if !PROC_TEST_MODE {
 			top_bh := p.MainChain.QueryTopBlock()
@@ -1403,31 +1431,48 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	bh.QueueNumber = uint64(qn)
 	bh.Nonce = 123
 	bh.Castor = uid.Serialize()
-
 	sleep_d, err := time.ParseDuration("20ms")
 	if err == nil {
 		time.Sleep(sleep_d)
 	}
 	bh.CurTime = time.Now()
-	//bh.Signature
+
+	hash := bh.GenHash()
+	bh.Hash = hash
+	fmt.Printf("bh.Hash=%v.\n", GetHashPrefix(bh.Hash))
+	hash2 := bh.GenHash()
+	if hash != hash2 {
+		fmt.Printf("bh GenHash twice failed, first=%v, second=%v.\n", GetHashPrefix(hash), GetHashPrefix(hash2))
+		panic("bh GenHash twice failed, hash diff.")
+	}
 	return bh
 }
 
 //当前节点成为KING，出块
 func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.BlockHeader {
 	fmt.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
-	//bh := genDummyBH(int(qn), p.GetMinerID())
+	var bh *core.BlockHeader
 	//var hash common.Hash
 	//hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : change nonce
 	nonce := time.Now().Unix()
 	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
-	if block == nil {
-		fmt.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-		panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+	if !PROC_TEST_MODE {
+		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+		if block == nil {
+			fmt.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
+			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+		}
+		bh = block.Header
+	} else {
+		bh = genDummyBH(int(qn), p.GetMinerID())
+		bh.GroupId = gid.Serialize()
+		bh.Castor = p.GetMinerID().Serialize()
+		bh.Nonce = uint64(nonce)
+		bh.Height = uint64(height)
+		bh.Hash = bh.GenHash()
 	}
-	bh := block.Header
+
 	var si SignData
 	si.DataHash = bh.Hash
 	si.SignMember = p.GetMinerID()
@@ -1455,7 +1500,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 			}
 		}
 	} else {
-		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, si.DataSign.GetHexString())
+		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, GetSignPrefix(si.DataSign))
 		panic("bh Error or sign Error.")
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
