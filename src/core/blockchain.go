@@ -664,7 +664,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d, current weight:%d, coming weight:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, chain.getWeight(header.QueueNumber), chain.getWeight(b.Header.QueueNumber), header.QueueNumber, b.Header.QueueNumber)
+		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, header.QueueNumber, b.Header.QueueNumber)
 
 		return -1
 	}
