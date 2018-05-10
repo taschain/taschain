@@ -251,18 +251,17 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.bcs = make(map[string]*BlockContext, 0)
 	p.sci.Init()
 
-	if !PROC_TEST_MODE {
-		cc := common.GlobalConf.GetSectionManager("consensus")
-		p.load_data = cc.GetInt("LOAD_DATA", 0)
-		p.save_data = cc.GetInt("SAVE_DATA", 0)
+	cc := common.GlobalConf.GetSectionManager("consensus")
+	p.load_data = cc.GetInt("LOAD_DATA", 0)
+	p.save_data = cc.GetInt("SAVE_DATA", 0)
 
-		fmt.Printf("proc(%v) inited 1, load_data=%v, save_data=%v.\n", p.getPrefix(), p.load_data, p.save_data)
+	fmt.Printf("proc(%v) inited 1, load_data=%v, save_data=%v.\n", p.getPrefix(), p.load_data, p.save_data)
 
-		if p.load_data == 1 {
-			b := p.Load()
-			fmt.Printf("proc(%v) load_data result=%v.\n", p.getPrefix(), b)
-		}
+	if p.load_data == 1 {
+		b := p.Load()
+		fmt.Printf("proc(%v) load_data result=%v.\n", p.getPrefix(), b)
 	}
+
 	fmt.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	return true
 }
@@ -280,12 +279,13 @@ func (p *Processer) Stop() {
 
 //增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processer) AddBlockContext(bc *BlockContext) bool {
+	var add bool
 	if p.GetBlockContext(bc.MinerID.gid.GetHexString()) == nil {
 		p.bcs[bc.MinerID.gid.GetHexString()] = bc
-		return true
-	} else {
-		return false //已存在
+		add = true
 	}
+	fmt.Printf("AddBlockContext, gid=%v, result=%v\n.", GetIDPrefix(bc.MinerID.gid), add)
+	return add
 }
 
 //取得一个铸块上下文
@@ -486,7 +486,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 		fmt.Printf("bCG::si info: id=%v, data hash=%v, sign=%v.\n",
 			GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
 		if si.VerifySign(sign_pk) { //消息合法
-			fmt.Printf("message verify sign OK.\n")
+			fmt.Printf("message verify sign OK, find gid=%v blockContext...\n", GetIDPrefix(cgs.GroupID))
 			bc = p.GetBlockContext(cgs.GroupID.GetHexString())
 			if bc == nil {
 				panic("ERROR, BlockContext = nil.")
@@ -1350,6 +1350,15 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.Save()
 		}
 
+		fmt.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
+		sleep_d, err := time.ParseDuration("5s")
+		if err == nil {
+			time.Sleep(sleep_d)
+		} else {
+			panic("time.ParseDuration 5s failed.")
+		}
+		fmt.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
+
 		//拉取当前最高块
 		if !PROC_TEST_MODE {
 			top_bh := p.MainChain.QueryTopBlock()
@@ -1434,6 +1443,8 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	sleep_d, err := time.ParseDuration("20ms")
 	if err == nil {
 		time.Sleep(sleep_d)
+	} else {
+		panic("time.ParseDuration failed.")
 	}
 	bh.CurTime = time.Now()
 

@@ -698,7 +698,9 @@ func testLogicGroupInitEx(t *testing.T) {
 
 func TestMain(t *testing.T) {
 	PROC_TEST_MODE = true
+	common.InitConf("/home/thiefox/src/tas/src/consensus/logical/logical_test.ini")
 	groupsig.Init(1)
+
 	//testGroupInit(t)
 	//testLogicGroupInit(t)
 	testLogicGroupInitEx(t)
