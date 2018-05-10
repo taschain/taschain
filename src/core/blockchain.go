@@ -479,6 +479,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
 	if preBlock == nil {
+
 		fmt.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
 
 		return nil, -1, nil, nil
@@ -595,7 +596,6 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
-
 	}
 	return status
 
@@ -664,7 +664,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d \n", b.Header.Height)
+		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, header.QueueNumber, b.Header.QueueNumber)
 
 		return -1
 	}
@@ -678,19 +678,10 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 }
 
 // 判断权重
+//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
 
-	return chain.getWeight(current.QueueNumber) > chain.getWeight(candidate.QueueNumber)
-}
-
-//取得铸块权重
-//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
-func (chain *BlockChain) getWeight(number uint64) uint64 {
-	if number <= chain.config.qn {
-		return uint64(number) << 1
-	} else {
-		return 0
-	}
+	return current.QueueNumber > candidate.QueueNumber
 }
 
 // 删除块

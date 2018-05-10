@@ -27,7 +27,6 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if err != nil {
 		return err
 	}
-	log.Println(nonce)
 	transaction := genTx(0, source, target, nonce, value, codeBytes, []byte{}, 0)
 	transaction.Hash = transaction.GenHash()
 	_, err = txpool.Add(transaction)
@@ -77,7 +76,7 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 	return balance.Int64(), nil
 }
 
-func (ws *wallets) newVote(source string, modelNum string, config *global.VoteConfig) error {
+func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
@@ -87,7 +86,7 @@ func (ws *wallets) newVote(source string, modelNum string, config *global.VoteCo
 	}
 	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
-	transaction := genTx(0, source, "", nonce+1, 0, abi, []byte(modelNum), 1)
+	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
 	transaction.Hash = transaction.GenHash()
 	_, err = txpool.Add(transaction)
 	if err != nil {

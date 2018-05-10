@@ -83,9 +83,9 @@ func (api *GtasAPI) GroupHeight() (*Result, error) {
 }
 
 // Vote
-func (api *GtasAPI) Vote(from, modelNum string,v *VoteConfig) (*Result, error) {
+func (api *GtasAPI) Vote(from string,v *VoteConfig) (*Result, error) {
 	config := v.ToGlobal()
-	walletManager.newVote(from, modelNum, config)
+	walletManager.newVote(from, config)
 	return &Result{"success", ""}, nil
 }
 
