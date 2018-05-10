@@ -223,31 +223,45 @@ type GlobalGroups struct {
 }
 
 func (gg *GlobalGroups) Load() bool {
-	fmt.Printf("begin GlobalGroups::Load, group_count=%v...\n", len(gg.groups))
+	fmt.Printf("begin GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v...\n", len(gg.groups), len(gg.mapCache), len(gg.dummy_groups))
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	str := cc.GetString("GLOBAL_GROUPS", "")
 	if len(str) == 0 {
 		return false
 	}
+	fmt.Printf("gg groups unmarshal str=%v.\n", str)
+	gg.groups = make([]StaticGroupInfo, 0)
 	var buf []byte = []byte(str)
-	err := json.Unmarshal(buf, gg)
+	err := json.Unmarshal(buf, &gg.groups)
 	if err != nil {
 		fmt.Println("error:", err)
 		panic("GlobalGroups::Load Unmarshal failed.")
 	}
-	fmt.Printf("end GlobalGroups::Load, group_count=%v.\n", len(gg.groups))
+	fmt.Printf("after Ummarshal, group_count=%v.\n", len(gg.groups))
+	gg.mapCache = make(map[string]int, 0)
+	for k, v := range gg.groups {
+		fmt.Printf("---static group: gid=%v, gpk=%v, mems=%v.\n", GetIDPrefix(v.GroupID), GetPubKeyPrefix(v.GroupPK), len(v.Members))
+		gg.mapCache[v.GroupID.GetHexString()] = k
+	}
+
+	fmt.Printf("end GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v.\n", len(gg.groups), len(gg.mapCache), len(gg.dummy_groups))
 	return true
 }
 
 func (gg GlobalGroups) Save() {
 	fmt.Printf("begin GlobalGroups::Save, group_count=%v...\n", len(gg.groups))
-	b, err := json.Marshal(gg)
+	for _, v := range gg.groups {
+		fmt.Printf("---static group: gid=%v, gpk=%v, mems=%v.\n", GetIDPrefix(v.GroupID), GetPubKeyPrefix(v.GroupPK), len(v.Members))
+	}
+
+	b, err := json.Marshal(gg.groups)
 	if err != nil {
 		fmt.Println("error:", err)
 		panic("GlobalGroups::Save Marshal failed.")
 	}
 
 	str := string(b[:])
+	fmt.Printf("gg groups marshal str=%v.\n", str)
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	cc.SetString("GLOBAL_GROUPS", str)
 	fmt.Printf("end GlobalGroups::Save.\n")

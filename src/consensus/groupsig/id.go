@@ -54,8 +54,8 @@ func (id ID) GetBigInt() *big.Int {
 
 func (id ID) IsValid() bool {
 	/*
-	bi := id.GetBigInt()
-	return bi != big.NewInt(0)
+		bi := id.GetBigInt()
+		return bi != big.NewInt(0)
 	*/
 	return id.GetHexString() != "0x0"
 }
@@ -73,6 +73,20 @@ func (id ID) GetHexString() string {
 //把ID转换到字节切片（小端模式）
 func (id ID) Serialize() []byte {
 	return id.value.GetLittleEndian()
+}
+
+func (id ID) MarshalJSON() ([]byte, error) {
+	str := "\"" + id.GetHexString() + "\""
+	return []byte(str), nil
+}
+
+func (id *ID) UnmarshalJSON(data []byte) error {
+	str := string(data[:])
+	if len(str) < 2 {
+		return fmt.Errorf("data size less than min.")
+	}
+	str = str[1:len(str)-1]
+	return id.SetHexString(str)
 }
 
 //由big.Int创建ID
@@ -114,7 +128,7 @@ func NewIDFromString(s string) *ID {
 	return NewIDFromBigInt(bi)
 }
 
-func (id ID)GetString() string {
+func (id ID) GetString() string {
 	bigInt := id.GetBigInt()
 	b := bigInt.Bytes()
 	return string(b)

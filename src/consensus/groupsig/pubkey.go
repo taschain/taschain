@@ -37,6 +37,20 @@ func (pub Pubkey) Serialize() []byte {
 	return pub.value.Serialize()
 }
 
+func (pub Pubkey) MarshalJSON() ([]byte, error) {
+	str := "\"" + pub.GetHexString() + "\""
+	return []byte(str), nil
+}
+
+func (pub *Pubkey) UnmarshalJSON(data []byte) error {
+	str := string(data[:])
+	if len(str) < 2 {
+		return fmt.Errorf("data size less than min.")
+	}
+	str = str[1:len(str)-1]
+	return pub.SetHexString(str)
+}
+
 //把公钥转换成big.Int
 func (pub Pubkey) GetBigInt() *big.Int {
 	x := new(big.Int)

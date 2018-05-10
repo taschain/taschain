@@ -68,6 +68,20 @@ func (sec *Seckey) Deserialize(b []byte) error {
 	return sec.value.SetLittleEndian(b)
 }
 
+func (sec Seckey) MarshalJSON() ([]byte, error) {
+	str := "\"" + sec.GetHexString() + "\""
+	return []byte(str), nil
+}
+
+func (sec *Seckey) UnmarshalJSON(data []byte) error {
+	str := string(data[:])
+	if len(str) < 2 {
+		return fmt.Errorf("data size less than min.")
+	}
+	str = str[1:len(str)-1]
+	return sec.SetHexString(str)
+}
+
 //由字节切片（小端模式）初始化私钥
 func (sec *Seckey) SetLittleEndian(b []byte) error {
 	return sec.value.SetLittleEndian(b) //调用bls C库曲线函数
@@ -80,7 +94,7 @@ func (sec *Seckey) setHex(s string) error {
 
 //由带前缀的十六进制字符串转换
 func (sec *Seckey) SetHexString(s string) error {
-	fmt.Printf("begin SecKey.SetHexString...\n")
+	//fmt.Printf("begin SecKey.SetHexString...\n")
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}

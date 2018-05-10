@@ -186,28 +186,40 @@ func (p *Processer) setProcs(gps map[string]*Processer) {
 }
 
 func (p *Processer) Load() bool {
-	fmt.Printf("begin Processer::Load, group_count=%v, bcg_count=%v, bg_count=%v...\n", len(p.gg.groups), len(p.bcs), len(p.belongGroups))
+	fmt.Printf("proc(%v) begin Load, group_count=%v, bcg_count=%v, bg_count=%v...\n",
+		p.getPrefix(), len(p.gg.groups), len(p.bcs), len(p.belongGroups))
 	cc := common.GlobalConf.GetSectionManager("consensus")
-	str := cc.GetString("BlockContexts", "")
-	if len(str) == 0 {
-		return false
-	}
-	var buf []byte = []byte(str)
-	err := json.Unmarshal(buf, p.bcs)
-	if err != nil {
-		fmt.Println("error:", err)
-		panic("Processer::Load Unmarshal failed 1.")
-	}
-
+	var str string
+	var buf []byte
+	var err error
+	/*
+		str = cc.GetString("BlockContexts", "")
+		if len(str) == 0 {
+			return false
+		}
+		var buf []byte = []byte(str)
+		err = json.Unmarshal(buf, p.bcs)
+		if err != nil {
+			fmt.Println("error:", err)
+			panic("Processer::Load Unmarshal failed 1.")
+		}
+	*/
+	p.belongGroups = make(map[string]JoinedGroup, 0)
 	str = cc.GetString("BelongGroups", "")
 	if len(str) == 0 {
 		return false
 	}
+	fmt.Printf("unmarshal string=%v.\n", str)
 	buf = []byte(str)
-	err = json.Unmarshal(buf, p.belongGroups)
+	err = json.Unmarshal(buf, &p.belongGroups)
 	if err != nil {
 		fmt.Println("error:", err)
 		panic("Processer::Load Unmarshal failed 2.")
+	}
+	fmt.Printf("belongGroups info: len=%v...\n", len(p.belongGroups))
+	for _, v := range p.belongGroups {
+		fmt.Printf("---gid=%v, gpk=%v, seed_sk=%v, sign_sk=%v, mems=%v.\n",
+			GetIDPrefix(v.GroupID), GetPubKeyPrefix(v.GroupPK), GetSecKeyPrefix(v.SeedKey), GetSecKeyPrefix(v.SignKey), len(v.Members))
 	}
 
 	p.gg.Load()
@@ -217,22 +229,34 @@ func (p *Processer) Load() bool {
 }
 
 func (p Processer) Save() {
-	fmt.Printf("begin Processer::Save, group_count=%v, bcg_count=%v, bg_count=%v...\n", len(p.gg.groups), len(p.bcs), len(p.belongGroups))
-	b, err := json.Marshal(p.bcs)
-	if err != nil {
-		fmt.Println("error 1:", err)
-		panic("Processer::Save Marshal failed 1.")
-	}
-	str := string(b[:])
+	fmt.Printf("proc(%v) begin Save, group_count=%v, bcg_count=%v, bg_count=%v...\n",
+		p.getPrefix(), len(p.gg.groups), len(p.bcs), len(p.belongGroups))
 	cc := common.GlobalConf.GetSectionManager("consensus")
-	cc.SetString("BlockContexts", str)
+	var str string
+	var buf []byte
+	var err error
+	/*
+		buf, err = json.Marshal(p.bcs)
+		if err != nil {
+			fmt.Println("error 1:", err)
+			panic("Processer::Save Marshal failed 1.")
+		}
+		str = string(buf[:])
 
-	b, err = json.Marshal(p.belongGroups)
+		cc.SetString("BlockContexts", str)
+	*/
+	fmt.Printf("belongGroups info: len=%v...\n", len(p.belongGroups))
+	for _, v := range p.belongGroups {
+		fmt.Printf("---gid=%v, gpk=%v, seed_sk=%v, sign_sk=%v, mems=%v.\n",
+			GetIDPrefix(v.GroupID), GetPubKeyPrefix(v.GroupPK), GetSecKeyPrefix(v.SeedKey), GetSecKeyPrefix(v.SignKey), len(v.Members))
+	}
+	buf, err = json.Marshal(p.belongGroups)
 	if err != nil {
 		fmt.Println("error 2:", err)
 		panic("Processer::Save Marshal failed 2.")
 	}
-	str = string(b[:])
+	str = string(buf[:])
+	fmt.Printf("marshal string=%v.\n", str)
 	cc.SetString("BelongGroups", str)
 
 	p.gg.Save()
@@ -328,7 +352,7 @@ func (p Processer) getMinerGroups() map[string]JoinedGroup {
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
 func (p *Processer) addInnerGroup(g JoinedGroup) {
-	fmt.Printf("begin Processer::addInnerGroup...\n")
+	fmt.Printf("begin Processer::addInnerGroup, gid=%v...\n", GetIDPrefix(g.GroupID))
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups[g.GroupID.GetHexString()] = g
 	} else {

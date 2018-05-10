@@ -654,7 +654,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	}
 	fmt.Printf("after inited, first group id=%v.\n", GetIDPrefix(first_gid))
 	testGroupInited(procs, first_gid.GetHexString(), t)
-	//return
+	return
 
 	//铸块测试
 	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CBMR_PIECE)
