@@ -62,17 +62,23 @@ func genHash(hash string) []byte {
 	return core.Sha256(bytes3)
 }
 
-func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte,
-	extraDataType int32) *core.Transaction {
+func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *core.Transaction {
+	var sourceAddr, targetAddr *common.Address
 
 	sourcebyte := common.HexToAddress(source)
-	targetbyte := common.HexToAddress(target)
+	sourceAddr = &sourcebyte
+	if target == "" {
+		targetAddr = nil
+	} else {
+		targetbyte := common.HexToAddress(target)
+		targetAddr = &targetbyte
+	}
 
 	return &core.Transaction{
 		Data:          data,
 		GasPrice:      price,
-		Source:        &sourcebyte,
-		Target:        &targetbyte,
+		Source:        sourceAddr,
+		Target:        targetAddr,
 		Nonce:         nonce,
 		Value:         value,
 		ExtraData:     extraData,
