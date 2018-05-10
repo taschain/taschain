@@ -678,19 +678,10 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 }
 
 // 判断权重
+//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
 
-	return chain.getWeight(current.QueueNumber) > chain.getWeight(candidate.QueueNumber)
-}
-
-//取得铸块权重
-//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
-func (chain *BlockChain) getWeight(number uint64) uint64 {
-	if number <= chain.config.qn {
-		return uint64(number) << 1
-	} else {
-		return 0
-	}
+	return current.QueueNumber > candidate.QueueNumber
 }
 
 // 删除块
