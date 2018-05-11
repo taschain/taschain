@@ -81,10 +81,12 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		}
 	}
 	if super {
-		keys := LoadPubKeyInfo()
+		keys1 := LoadPubKeyInfo("pubkeys1")
+		keys2 := LoadPubKeyInfo("pubkeys2")
+		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 2 {
+			if len(p2p.Server.GetConnInfo()) >= 6 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -93,11 +95,9 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				break
 			}
 		}
-		zero := mediator.CreateGroup(keys, "gtas")
-		if zero != 0 {
-			fmt.Println("create group failed")
-		}
-		fmt.Println("create group success")
+		go createGroup(keys1, "gtas1")
+		go createGroup(keys2, "gtas2")
+		createGroup(keys3, "gtas3")
 	}
 	gtas.inited = true
 	//测试SendTransactions
@@ -170,6 +170,14 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	//
 	//fmt.Printf("local height: %d\n", core.BlockChainImpl.Height())
 
+}
+
+func createGroup(keys []logical.PubKeyInfo,name string) {
+	zero := mediator.CreateGroup(keys, name)
+	if zero != 0 {
+		fmt.Printf("create %s group failed\n", name)
+	}
+	fmt.Println("create %s group success\n", name)
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
@@ -311,7 +319,7 @@ func (gtas *Gtas) fullInit() error {
 	id := p2p.Server.SelfNetInfo.Id
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
-		secret := getRandomString(5)
+		secret = getRandomString(5)
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
@@ -329,9 +337,9 @@ func (gtas *Gtas) fullInit() error {
 	return nil
 }
 
-func LoadPubKeyInfo() ([]logical.PubKeyInfo) {
+func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 	infos := []PubKeyInfo{}
-	keys := (*configManager).GetString(Section, "pubkeys", "")
+	keys := (*configManager).GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
 		fmt.Println(err)
