@@ -68,6 +68,11 @@ func GetGroupK() int {
 	return int(math.Ceil(float64(GROUP_MAX_MEMBERS*SSSS_THRESHOLD) / 100))
 }
 
+//获取组成员个数
+func GetGroupMemberNum() int {
+	return GROUP_MAX_MEMBERS
+}
+
 //矿工ID信息
 type GroupMinerID struct {
 	gid groupsig.ID //组ID

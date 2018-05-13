@@ -12,6 +12,7 @@ import (
 	"core"
 	"taslog"
 	"core/net/handler"
+	"consensus/net"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -33,28 +34,51 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageGroupInit(*m)
+		machine := net.TimeSeq.GetStateMachine(m.GI.DummyID.GetHexString(), net.MTYPE_GROUP)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageGroupInit(*msg.(*logical.ConsensusGroupRawMessage))
+		})
+		//mediator.Proc.OnMessageGroupInit(*m)
 	case p2p.KEY_PIECE_MSG:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			logger.Errorf("Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageSharePiece(*m)
+		machine := net.TimeSeq.GetStateMachine(m.DummyID.GetHexString(), net.MTYPE_GROUP)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageSharePiece(*msg.(*logical.ConsensusSharePieceMessage))
+		})
+		//mediator.Proc.OnMessageSharePiece(*m)
 	case p2p.SIGN_PUBKEY_MSG:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			logger.Errorf("Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageSignPK(*m)
+		machine := net.TimeSeq.GetStateMachine(m.DummyID.GetHexString(), net.MTYPE_GROUP)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageSignPK(*msg.(*logical.ConsensusSignPubKeyMessage))
+		})
+		//mediator.Proc.OnMessageSignPK(*m)
 	case p2p.GROUP_INIT_DONE_MSG:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
 			logger.Errorf("Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageGroupInited(*m)
+
+		//如果属于该组, 则需要输入到状态机
+		belongGroup := mediator.Proc.IsMinerGroup(m.GI.GroupID)
+		if belongGroup {
+			machine := net.TimeSeq.GetStateMachine(m.GI.GIS.DummyID.GetHexString(), net.MTYPE_GROUP)
+			machine.Input(code, m, func(msg interface{}) {
+				mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
+			})
+
+		} else {	//不属于该组, 则收到的是其他组广播的信息, 不需要输入状态机
+			mediator.Proc.OnMessageGroupInited(*m)
+		}
 
 	case p2p.CURRENT_GROUP_CAST_MSG:
 		m, e := unMarshalConsensusCurrentMessage(body)
@@ -62,21 +86,38 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageCurrent(*m)
+
+		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.GroupID), net.MTYPE_BLOCK)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
+		})
+
+		//mediator.Proc.OnMessageCurrent(*m)
 	case p2p.CAST_VERIFY_MSG:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			logger.Errorf("Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageCast(*m)
+		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.BH.GroupId), net.MTYPE_BLOCK)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
+		})
+
+		//mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			logger.Errorf("Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		mediator.Proc.OnMessageVerify(*m)
+
+		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.BH.GroupId), net.MTYPE_BLOCK)
+		machine.Input(code, m, func(msg interface{}) {
+			mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
+		})
+
+		//mediator.Proc.OnMessageVerify(*m)
 
 	case p2p.TRANSACTION_GOT_MSG:
 		transactions, e := handler.UnMarshalTransactions(body)
@@ -95,7 +136,20 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		b := mediator.Proc.OnMessageBlock(*m)
+
+		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
+		b := &m.Block
+		belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
+		if belongGroup {
+			machine := net.TimeSeq.GetStateMachine(m.GroupID.GetHexString(), net.MTYPE_BLOCK)
+			machine.Input(code, m, func(msg interface{}) {
+				mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
+			})
+		} else {
+			b = mediator.Proc.OnMessageBlock(*m)
+		}
+
+		//b := mediator.Proc.OnMessageBlock(*m)
 		bytes, e1 := core.MarshalBlock(b)
 		if e1 != nil {
 			logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s", e1.Error())
