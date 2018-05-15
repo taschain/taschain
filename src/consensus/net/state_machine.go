@@ -115,7 +115,24 @@ func newStateMachine(id string) *StateMachine {
 	return &StateMachine{Id: id, Current:init, Head:init}
 }
 
-func newGroupCreateStateMachine(dummyId string) *StateMachine {
+/** 
+* @Description: 组创建组外状态机 
+* @Param:  
+* @return:  
+*/
+func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
+	machine := newStateMachine(dummyId + "-outsidegroup")
+	machine.addNode(newStateNode(p2p.GROUP_INIT_MSG), 1)
+	machine.addNode(newStateNode(p2p.GROUP_INIT_DONE_MSG), logical.GetGroupK())
+	return machine
+}
+
+/** 
+* @Description: 组创建组内状态机 
+* @Param:  
+* @return:  
+*/ 
+func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId)
 	machine.addNode(newStateNode(p2p.GROUP_INIT_MSG), 1)
 	machine.addNode(newStateNode(p2p.KEY_PIECE_MSG), logical.GetGroupMemberNum())
@@ -124,6 +141,11 @@ func newGroupCreateStateMachine(dummyId string) *StateMachine {
 	return machine
 }
 
+/** 
+* @Description: 组内某个king铸块状态机 
+* @Param:  
+* @return:
+*/ 
 func newBlockCastStateMachine(id string) *StateMachine {
 	machine := newStateMachine(id)
 	machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
@@ -255,14 +277,28 @@ func (m *StateMachine) addNode(node *StateNode, repeat int) {
 	}
 }
 
-func (this *TimeSequence) GetGroupStateMachine(dummyId string) StateMachineTransform {
+func (this *TimeSequence) GetInsideGroupStateMachine(dummyId string) StateMachineTransform {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
 	if m, ok := this.groupMachines[dummyId]; ok {
 		return m
 	} else {
-		m = newGroupCreateStateMachine(dummyId)
+		m = newInsideGroupCreateStateMachine(dummyId)
+		this.groupMachines[dummyId] = m
+		return m
+	}
+
+}
+
+func (this *TimeSequence) GetOutsideGroupStateMachine(dummyId string) StateMachineTransform {
+	this.lock.Lock()
+	defer this.lock.Unlock()
+
+	if m, ok := this.groupMachines[dummyId]; ok {
+		return m
+	} else {
+		m = newOutsideGroupCreateStateMachine(dummyId)
 		this.groupMachines[dummyId] = m
 		return m
 	}

@@ -30,7 +30,7 @@ func outputMachine(m *StateMachine) {
 }
 
 func TestTimeSequence_GetStateMachine(t *testing.T) {
-	machine := TimeSeq.GetGroupStateMachine("g1")
+	machine := TimeSeq.GetInsideGroupStateMachine("g1")
 	outputMachine(machine.(*StateMachine))
 	machine = TimeSeq.GetBlockStateMachine([]byte("g2"), 1)
 	//outputMachine(machine.(*StateMachine))
@@ -38,7 +38,7 @@ func TestTimeSequence_GetStateMachine(t *testing.T) {
 }
 
 func TestStateMachine_GroupMachine(t *testing.T) {
-	machine := TimeSeq.GetGroupStateMachine("m1")
+	machine := TimeSeq.GetInsideGroupStateMachine("m1")
 	InputGroupMachine(p2p.GROUP_INIT_DONE_MSG, "done 1", "u2", machine)
 	InputGroupMachine(p2p.SIGN_PUBKEY_MSG, "pubkey 5", "u5", machine)
 	InputGroupMachine(p2p.SIGN_PUBKEY_MSG, "pubkey 52", "u5", machine)

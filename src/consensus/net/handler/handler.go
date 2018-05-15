@@ -19,6 +19,15 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 
 type ConsensusHandler struct{}
 
+func memberExistIn(mems *[]logical.PubKeyInfo, id groupsig.ID) bool {
+	for _, member := range *mems {
+		if member.ID.IsEqual(id) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
 	switch code {
 	case p2p.GROUP_MEMBER_MSG:
@@ -34,7 +43,15 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetGroupStateMachine(m.GI.DummyID.GetHexString())
+
+		belongGroup := memberExistIn(&m.MEMS, mediator.Proc.GetMinerID())
+
+		var machine net.StateMachineTransform
+		if belongGroup {
+			machine = net.TimeSeq.GetInsideGroupStateMachine(m.GI.DummyID.GetHexString())
+		} else {
+			machine = net.TimeSeq.GetOutsideGroupStateMachine(m.GI.DummyID.GetHexString())
+		}
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageGroupInit(*msg.(*logical.ConsensusGroupRawMessage))
 		})
@@ -45,7 +62,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetGroupStateMachine(m.DummyID.GetHexString())
+		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSharePiece(*msg.(*logical.ConsensusSharePieceMessage))
 		})
@@ -56,7 +73,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetGroupStateMachine(m.DummyID.GetHexString())
+		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSignPK(*msg.(*logical.ConsensusSignPubKeyMessage))
 		})
@@ -68,17 +85,19 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		//如果属于该组, 则需要输入到状态机
-		belongGroup := mediator.Proc.IsMinerGroup(m.GI.GroupID)
-		if belongGroup {
-			machine := net.TimeSeq.GetGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
-			machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
-				mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
-			})
-
-		} else {	//不属于该组, 则收到的是其他组广播的信息, 不需要输入状态机
-			mediator.Proc.OnMessageGroupInited(*m)
+		belongGroup := memberExistIn(&m.GI.Members, mediator.Proc.GetMinerID())
+		var machine net.StateMachineTransform
+		if belongGroup { //组内状态机
+			machine = net.TimeSeq.GetInsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
+		} else {	//组外状态机
+			machine = net.TimeSeq.GetOutsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
 		}
+
+		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
+			mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
+		})
+
+
 
 	case p2p.CURRENT_GROUP_CAST_MSG:
 		m, e := unMarshalConsensusCurrentMessage(body)
