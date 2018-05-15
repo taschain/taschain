@@ -174,13 +174,17 @@ func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool
 		m.prepareNext(state)
 		m.transform() //执行状态转换
 		return true
-	} else if future, st := m.futureState(state); future && st != nil {
-		logger.Debugf("machine %v future state received, cached %v", m.Id, state.State)
-		st.State = state.State // 后续消息先到达,不能转换, 消息先缓存
-		st.Handler = handleFunc
+	} else if future, st := m.futureState(state); future {
+		if st == nil {
+			logger.Debugf("machine %v future reducdant state received, ingored! %v", m.Id, state.State)
+		} else {
+			logger.Debugf("machine %v future state received, cached! %v", m.Id, state.State)
+			st.State = state.State // 后续消息先到达,不能转换, 消息先缓存
+			st.Handler = handleFunc
+		}
 		return false
 	} else {
-		logger.Debugf("machine %v reducdant state, handle %v", m.Id, state.State)
+		logger.Debugf("machine %v prev state received, handle %v", m.Id, state.State)
 		handleFunc(msg.msg) //重复消息或者是某些超过门限后的消息, 怎么处理?
 		return false
 	}
@@ -244,13 +248,13 @@ func (m *StateMachine) futureState(state *StateNode) (bool, *StateNode) {
 		}
 		p = p.Next
 	}
+	if p == nil {
+		logger.Warnf("illegal msg found! current state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
+	}
 	future = future && p != nil
 
 	for p != nil && p.State.code == state.State.code && p.State.msg != nil && p.State.sid != state.State.sid {
 		p = p.Next
-	}
-	if p == nil {
-		logger.Warnf("illegal msg found! current state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
 	}
 
 	return future, p

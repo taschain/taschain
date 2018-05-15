@@ -1123,6 +1123,13 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	//p.gg.AddDummyGroup(sgi)
 	p.gg.ngg.addInitingGroup(CreateInitingGroup(sgi_info))
 
+	//非组内成员不走后续流程
+	if !sgi_info.MemExist(p.GetMinerID()) {
+		p.initLock.Unlock()
+		locked = false
+		return
+	}
+
 	gc := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
 	if gc == nil {
 		panic("Processer::OMGI failed, ConfirmGroupFromRaw return nil.")

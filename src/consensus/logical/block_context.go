@@ -585,6 +585,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 	if bc.IsCasting() { //已经在铸块共识中
 		if bc.CastHeight == (bh + 1) { //已经在铸消息通知的块
 			if bc.PreTime != tc || bc.PrevHash != h {
+				fmt.Printf("block_context:Begin_Cast failed, %v, %v, %v, %v. \n", bc.PreTime, tc, bc.PrevHash, h)
 				panic("block_context:Begin_Cast failed, arg error.\n")
 			} else {
 				//忽略该消息
