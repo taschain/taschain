@@ -33,7 +33,7 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 	}
 }
 
-//广播 组初始化消息  组内广播
+//广播 组初始化消息  全网广播
 func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(&grm)
 	if e != nil {
@@ -41,9 +41,11 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
-	for _, member := range grm.MEMS {
-		if member.ID.GetString() != "" {
-			p2p.Server.SendMessage(m, member.ID.GetString())
+	conns := p2p.Server.Host.Network().Conns()
+	for _, conn := range conns {
+		id := conn.RemotePeer()
+		if id != "" {
+			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
 }
