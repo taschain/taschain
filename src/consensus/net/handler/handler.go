@@ -34,8 +34,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetStateMachine(m.GI.DummyID.GetHexString(), net.MTYPE_GROUP)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetGroupStateMachine(m.GI.DummyID.GetHexString())
+		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageGroupInit(*msg.(*logical.ConsensusGroupRawMessage))
 		})
 		//mediator.Proc.OnMessageGroupInit(*m)
@@ -45,8 +45,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetStateMachine(m.DummyID.GetHexString(), net.MTYPE_GROUP)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetGroupStateMachine(m.DummyID.GetHexString())
+		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSharePiece(*msg.(*logical.ConsensusSharePieceMessage))
 		})
 		//mediator.Proc.OnMessageSharePiece(*m)
@@ -56,8 +56,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetStateMachine(m.DummyID.GetHexString(), net.MTYPE_GROUP)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetGroupStateMachine(m.DummyID.GetHexString())
+		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSignPK(*msg.(*logical.ConsensusSignPubKeyMessage))
 		})
 		//mediator.Proc.OnMessageSignPK(*m)
@@ -71,8 +71,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//如果属于该组, 则需要输入到状态机
 		belongGroup := mediator.Proc.IsMinerGroup(m.GI.GroupID)
 		if belongGroup {
-			machine := net.TimeSeq.GetStateMachine(m.GI.GIS.DummyID.GetHexString(), net.MTYPE_GROUP)
-			machine.Input(code, m, func(msg interface{}) {
+			machine := net.TimeSeq.GetGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
+			machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 				mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
 			})
 
@@ -87,8 +87,9 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.GroupID), net.MTYPE_BLOCK)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
+		stateMsg := net.NewStateMsg(code, m, sourceId, "")
+		machine.Transform(stateMsg, func(msg interface{}) {
 			mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
 		})
 
@@ -99,8 +100,9 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.BH.GroupId), net.MTYPE_BLOCK)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
+		key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 			mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
 		})
 
@@ -112,8 +114,9 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		machine := net.TimeSeq.GetStateMachine(common.Bytes2Hex(m.BH.GroupId), net.MTYPE_BLOCK)
-		machine.Input(code, m, func(msg interface{}) {
+		machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
+		key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 			mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
 		})
 
@@ -141,8 +144,9 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		b := &m.Block
 		belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
 		if belongGroup {
-			machine := net.TimeSeq.GetStateMachine(m.GroupID.GetHexString(), net.MTYPE_BLOCK)
-			machine.Input(code, m, func(msg interface{}) {
+			machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
+			key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
+			machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 				mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
 			})
 		} else {

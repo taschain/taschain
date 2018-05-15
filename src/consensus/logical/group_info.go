@@ -87,7 +87,7 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 	var sgi StaticGroupInfo
 	sgi.GIS = grm.GI
-	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
+	sgi.Members = make([]PubKeyInfo, 0)
 	sgi.MapCache = make(map[string]int, GROUP_MAX_MEMBERS)
 	for _, v := range grm.MEMS {
 		sgi.Members = append(sgi.Members, v)
