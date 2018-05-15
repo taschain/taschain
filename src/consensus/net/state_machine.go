@@ -8,6 +8,7 @@ import (
 	"vm/common/math"
 	"fmt"
 	"common"
+	"consensus/mediator"
 )
 
 
@@ -113,6 +114,7 @@ func newStateNodeEx(msg *StateMsg) *StateNode {
 
 func newStateMachine(id string) *StateMachine {
 	init := newStateNode(math.MaxUint32)
+	id = logical.GetIDPrefix(mediator.Proc.GetMinerID()) + "-" + id
 	return &StateMachine{Id: id, Current:init, Head:init}
 }
 
@@ -162,9 +164,13 @@ func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	defer func() {
+		if !m.Finish() {
+			logger.Debugf("machine %v wating state %v", m.Id, m.Current.Next.State.code)
+		}
+	}()
 
 	if m.canTransform(state) {	//状态可以转换
-		logger.Debugf("machine %v transform and handle %v", m.Id, state.State)
 		m.prepareNext(state)
 		m.transform() //执行状态转换
 		return true
@@ -244,7 +250,7 @@ func (m *StateMachine) futureState(state *StateNode) (bool, *StateNode) {
 		p = p.Next
 	}
 	if p == nil {
-		logger.Warn("illegal msg found! ignored!", state.State.msg, state.State.sid)
+		logger.Warnf("illegal msg found! current state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
 	}
 
 	return future, p
@@ -266,7 +272,7 @@ func (m *StateMachine) transform() bool {
 	for !m.Finish() && m.Current.Next.State.msg != nil {
 		m.Current = m.Current.Next
 		if m.Current.State.msg != nil {
-			logger.Debugf("machine %v handle state %v", m.Id, m.Current.State)
+			logger.Debugf("machine %v handle state %v %v", m.Id, m.Current.State)
 			m.Current.Handler(m.Current.State.msg)
 		}
 	}
