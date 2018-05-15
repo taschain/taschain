@@ -21,7 +21,7 @@ const (
 )
 
 type StateMachineTransform interface {
-	Transform(msg *StateMsg, transformFunc StateHandleFunc) bool
+	Transform(msg *StateMsg, handlerFunc StateHandleFunc) bool
 }
 
 type StateMachine struct {
@@ -35,6 +35,7 @@ type BlockStateMachines struct {
 	height uint64
 	currentMsgNode *StateNode
 	kingMachines map[string]*StateMachine
+	lock sync.Mutex
 }
 
 type StateMsg struct {
@@ -179,29 +180,53 @@ func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool
 	}
 }
 
+func (bsm *BlockStateMachines) getMachineByKey(key string) *StateMachine {
+    bsm.lock.Lock()
+    defer bsm.lock.Unlock()
+	if m, ok := bsm.kingMachines[key]; !ok {
+		m = newBlockCastStateMachine(key)
+		bsm.kingMachines[key] = m
+		return m
+	} else {
+		return m
+	}
+}
+
+func (bsm *BlockStateMachines) setCurrentMsgNode(msg *StateMsg, handlerFunc StateHandleFunc)  {
+    bsm.lock.Lock()
+    defer bsm.lock.Unlock()
+	bsm.currentMsgNode = newStateNodeEx(msg)
+	bsm.currentMsgNode.Handler = handlerFunc
+}
+
 func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
 	if msg.code == p2p.CURRENT_GROUP_CAST_MSG {
-		bsm.currentMsgNode = newStateNodeEx(msg)
-		bsm.currentMsgNode.Handler = handleFunc
-		for _, m := range bsm.kingMachines {
-			m.Transform(msg, handleFunc)
+		if bsm.currentMsgNode == nil {
+			bsm.setCurrentMsgNode(msg, handleFunc)
+			for _, m := range bsm.kingMachines {
+				m.Transform(msg, handleFunc)
+			}
 		}
 	} else {
-		var machine *StateMachine
-		if m, ok := bsm.kingMachines[msg.key]; !ok {
-			machine = newBlockCastStateMachine(msg.key)
-			bsm.kingMachines[msg.key] = machine
-		} else {
-			machine = m
-		}
+		machine := bsm.getMachineByKey(msg.key)
+
 		if bsm.currentMsgNode != nil {
-			if future, _ := machine.futureState(bsm.currentMsgNode); future {
+			if future := machine.future(bsm.currentMsgNode); future {
 				machine.Transform(bsm.currentMsgNode.State, bsm.currentMsgNode.Handler)
 			}
 		}
 		machine.Transform(msg, handleFunc)
 	}
 	return true
+}
+
+func (m *StateMachine) future(node *StateNode) bool {
+    m.lock.Lock()
+    defer m.lock.Unlock()
+    if ok, _ := m.futureState(node); ok {
+    	return true
+	}
+	return false
 }
 
 func (m *StateMachine) futureState(state *StateNode) (bool, *StateNode) {
@@ -310,10 +335,10 @@ func GenerateBlockMachineKey(groupId []byte, height uint64, kingId []byte) strin
 }
 
 func (this *TimeSequence) GetBlockStateMachine(groupId []byte, height uint64) StateMachineTransform {
+	id := fmt.Sprintf("%s-%d", common.Bytes2Hex(groupId), height)
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
-	id := fmt.Sprintf("%s-%d", common.Bytes2Hex(groupId), height)
 	if ms, ok := this.blockMachines[id]; ok {
 		return ms
 		//if m, ok2 := ms.kingMachines[key]; ok2 {
