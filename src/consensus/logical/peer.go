@@ -170,7 +170,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		}
 	}
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+	//p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
 }
 
 //组内广播
