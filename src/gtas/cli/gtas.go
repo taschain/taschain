@@ -86,7 +86,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 6 {
+			if len(p2p.Server.GetConnInfo()) >= 8 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -95,8 +95,8 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				break
 			}
 		}
-		go createGroup(keys1, "gtas1")
-		go createGroup(keys2, "gtas2")
+		createGroup(keys1, "gtas1")
+		createGroup(keys2, "gtas2")
 		createGroup(keys3, "gtas3")
 	}
 	gtas.inited = true
@@ -177,7 +177,7 @@ func createGroup(keys []logical.PubKeyInfo,name string) {
 	if zero != 0 {
 		fmt.Printf("create %s group failed\n", name)
 	}
-	fmt.Println("create %s group success\n", name)
+	fmt.Printf("create %s group success\n", name)
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
