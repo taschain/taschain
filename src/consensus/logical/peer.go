@@ -48,6 +48,9 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
+	//发给自己
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+
 }
 
 //组内广播密钥   for each定向发送 组内广播
@@ -89,6 +92,8 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
+	//发给自己
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -164,6 +169,8 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
+	//发给自己
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
 }
 
 //组内广播
