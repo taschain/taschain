@@ -635,6 +635,8 @@ func (bc *BlockContext) CalcCastor() (int32, int64) {
 	var secs uint64 = uint64(d.Seconds())
 	if secs < uint64(MAX_GROUP_BLOCK_TIME) { //在组铸块共识时间窗口内
 		qn = int64(secs / uint64(MAX_USER_CAST_TIME))
+		fmt.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(MAX_GROUP_BLOCK_TIME), "qn", qn, "cal", int64(secs / uint64(MAX_USER_CAST_TIME)))
+		fmt.Println("ttttttttttt","prehash", bc.PrevHash, "castheight", bc.CastHeight)
 		first_i := bc.getFirstCastor() //取得第一个铸块人位置
 		fmt.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, first_i, qn, first_i+int32(qn))
 		if first_i >= 0 && bc.GroupMembers > 0 {

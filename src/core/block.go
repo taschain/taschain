@@ -116,7 +116,8 @@ func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 
 	block.Header = &BlockHeader{
 		ExtraData: Sha256([]byte("tas")),
-		CurTime:   time.Date(2018, 5, 5, 12, 0, 0, 0, time.Local),
+		//CurTime:   time.Date(2018, 5, 5, 12, 0, 0, 0, time.Local),
+		CurTime: time.Now(),
 	}
 
 	blockByte, _ := json.Marshal(block)
