@@ -175,7 +175,7 @@ func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool
 		return false
 	} else {
 		logger.Debugf("machine %v reducdant state, handle %v", m.Id, state.State)
-		handleFunc(msg) //重复消息或者是某些超过门限后的消息, 怎么处理?
+		handleFunc(msg.msg) //重复消息或者是某些超过门限后的消息, 怎么处理?
 		return false
 	}
 }
