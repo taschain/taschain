@@ -209,5 +209,9 @@ func TestName(t *testing.T) {
 }
 
 func TestAddTemplateParams(t *testing.T) {
-
+	s := make([]string, 3)
+	s = append(s, "123")
+	s = append(s, "1234")
+	s = append(s, "ggwe")
+	t.Log(s, len(s))
 }
