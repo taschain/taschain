@@ -107,13 +107,13 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
-		stateMsg := net.NewStateMsg(code, m, sourceId, "")
-		machine.Transform(stateMsg, func(msg interface{}) {
-			mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
-		})
+		//machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
+		//stateMsg := net.NewStateMsg(code, m, sourceId, "")
+		//machine.Transform(stateMsg, func(msg interface{}) {
+		//	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
+		//})
 
-		//mediator.Proc.OnMessageCurrent(*m)
+		mediator.Proc.OnMessageCurrent(*m)
 	case p2p.CAST_VERIFY_MSG:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {

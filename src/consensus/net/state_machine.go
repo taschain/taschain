@@ -78,6 +78,8 @@ func init() {
 		for {
 			id := <- TimeSeq.finishCh
 			logger.Info("state machine finished, id=", id)
+			TimeSeq.lock.Lock()
+
 			delete(TimeSeq.groupMachines, id)
 			for _, ms := range TimeSeq.blockMachines {
 				delete(ms.kingMachines, id)
@@ -88,6 +90,8 @@ func init() {
 					logger.Info("cacscade delete block machines, id=", gid)
 				}
 			}
+
+			TimeSeq.lock.Unlock()
 		}
 	}()
 }
@@ -151,7 +155,7 @@ func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
 */ 
 func newBlockCastStateMachine(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
+	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
 	machine.addNode(newStateNode(p2p.CAST_VERIFY_MSG), 1)
 	machine.addNode(newStateNode(p2p.VARIFIED_CAST_MSG), logical.GetGroupK() - 1)
 	machine.addNode(newStateNode(p2p.NEW_BLOCK_MSG), 1)
@@ -213,6 +217,8 @@ func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFu
 	if msg.code == p2p.CURRENT_GROUP_CAST_MSG {
 		if bsm.currentMsgNode == nil {
 			bsm.setCurrentMsgNode(msg, handleFunc)
+			bsm.lock.Lock()
+			defer bsm.lock.Unlock()
 			for _, m := range bsm.kingMachines {
 				m.Transform(msg, handleFunc)
 			}
