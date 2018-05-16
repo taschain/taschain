@@ -965,8 +965,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 
 		//上链
 		//onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
-		onchain, _:= p.AddOnChain(&cbm.Block)
-		fmt.Printf("OMB onchain result %v\n", onchain)
+		onchain, future := p.AddOnChain(&cbm.Block)
+		fmt.Printf("OMB onchain result %v, %v\n", onchain, future)
 
 
 	} else {
@@ -1083,9 +1083,10 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	}
 	if !PROC_TEST_MODE {
 		r, _ := p.AddOnChain(block)
-		if r == 2 {
-			return //分叉调整
+		if r == 2 || (r != 0 && r != 1) {	//分叉调整或 上链失败都不走下面的逻辑
+			return
 		}
+
 		//r := p.MainChain.AddBlockOnChain(block)
 		//fmt.Printf("AddBlockOnChain header %v \n", block.Header)
 		//fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())

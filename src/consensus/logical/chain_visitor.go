@@ -34,14 +34,7 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 	fmt.Printf("AddBlockOnChain header %v \n", block.Header)
 	fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())
 	fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, result)
-	if result == 0 || result == 1 {	//上链成功
-		return result
-	} else if result == 2 {	//分叉调整, 未上链
-		return result
-	} else { //上链失败
-		//可能多次掉次方法, 要区分是否同一个块上链失败
-		panic("core.AddBlockOnChain failed.")
-	}
+	return result
 
 }
 
