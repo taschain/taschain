@@ -20,6 +20,7 @@ import (
 	"consensus/groupsig"
 	"taslog"
 	"core/net/sync"
+	"time"
 )
 
 const (
@@ -95,9 +96,12 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				break
 			}
 		}
-		createGroup(keys1, "gtas1")
-		createGroup(keys2, "gtas2")
 		createGroup(keys3, "gtas3")
+		time.Sleep(time.Second*60)
+		createGroup(keys2, "gtas2")
+		time.Sleep(time.Second*60)
+		createGroup(keys1, "gtas1")
+
 	}
 	gtas.inited = true
 	//测试SendTransactions
