@@ -964,7 +964,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
 
 		//上链
-		onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
+		//onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
+		onchain, _:= p.AddOnChain(&cbm.Block)
 		fmt.Printf("OMB onchain result %v\n", onchain)
 
 
@@ -1081,18 +1082,22 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		panic("core.GenerateBlock failed.")
 	}
 	if !PROC_TEST_MODE {
-		r := p.MainChain.AddBlockOnChain(block)
-		fmt.Printf("AddBlockOnChain header %v \n", block.Header)
-		fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())
-		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
-		if r == 0 || r == 1 {	//上链成功
-
-		} else if r == 2 {	//分叉调整, 未上链
-			return
-		} else { //上链失败
-			//可能多次掉次方法, 要区分是否同一个块上链失败
-			panic("core.AddBlockOnChain failed.")
+		r, _ := p.AddOnChain(block)
+		if r == 2 {
+			return //分叉调整
 		}
+		//r := p.MainChain.AddBlockOnChain(block)
+		//fmt.Printf("AddBlockOnChain header %v \n", block.Header)
+		//fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())
+		//fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
+		//if r == 0 || r == 1 {	//上链成功
+		//
+		//} else if r == 2 {	//分叉调整, 未上链
+		//	return
+		//} else { //上链失败
+		//	//可能多次掉次方法, 要区分是否同一个块上链失败
+		//	panic("core.AddBlockOnChain failed.")
+		//}
 	}
 	bc.CastedUpdateStatus(uint(bh.QueueNumber))
 	bc.SignedUpdateMinQN(uint(bh.QueueNumber))
