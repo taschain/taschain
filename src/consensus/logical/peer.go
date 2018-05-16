@@ -176,7 +176,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 
 //组内广播
 func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
-	fmt.Printf("groupBroadcast:%d",m.Code)
+	fmt.Printf("[groupBroadcast] message:%d,groupid:%x\n",m.Code,groupId.Serialize())
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		logger.Errorf("Get nil group by id:%s\n", groupId.GetString())
