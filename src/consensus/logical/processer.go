@@ -1084,8 +1084,11 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		fmt.Printf("AddBlockOnChain header %v \n", block.Header)
 		fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())
 		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
-		if r == 0 || r == 1 {
-		} else {
+		if r == 0 || r == 1 {	//上链成功
+
+		} else if r == 2 {	//分叉调整, 未上链
+			return
+		} else { //上链失败
 			//可能多次掉次方法, 要区分是否同一个块上链失败
 			panic("core.AddBlockOnChain failed.")
 		}
