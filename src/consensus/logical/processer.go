@@ -962,39 +962,40 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
-		var sign groupsig.Signature
-		if sign.Deserialize(cbm.Block.Header.Signature) != nil {
-			panic("OMB group sign Deserialize failed.")
-		}
 
 		//上链
 		onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
 		fmt.Printf("OMB onchain result %v\n", onchain)
 
-		preHeader := p.MainChain.QueryTopBlock()
-		if preHeader == nil {
-			panic("cannot find top block header!")
-		}
 
-		casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
-		if casting {
-			fmt.Printf("OMB current proc being casting group...\n")
-			fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
-			SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
-		}
-		block = &cbm.Block //返回成功的块
 	} else {
 		//丢弃该块
 		fmt.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
+
+	//收到不合法的块也要做一次检查自己是否属于下一个铸块组, 否则会形成死循环, 没有组出块
+	preHeader := p.MainChain.QueryTopBlock()
+	if preHeader == nil {
+		panic("cannot find top block header!")
+	}
+
+	var sign groupsig.Signature
+	if sign.Deserialize(cbm.Block.Header.Signature) != nil {
+		panic("OMB group sign Deserialize failed.")
+	}
+	casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
 	if locked {
 		p.castLock.Unlock()
 		locked = false
 	}
+
+	if casting {
+		fmt.Printf("OMB current proc being casting group...\n")
+		fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
+		SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+	}
+	block = &cbm.Block //返回成功的块
+
 	fmt.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return block
 }
