@@ -926,7 +926,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 				panic("current proc belong next cast group, but GetBlockContext=nil.")
 			}
 			bc.BeingCastGroup(height, t, h)
-			ccm.GroupID = groupId.Serialize()
+			ccm.GroupID = next_group.Serialize() //groupId.Serialize()
 			ccm.BlockHeight = height + 1
 			ccm.PreHash = h
 			ccm.PreTime = t
