@@ -163,6 +163,9 @@ func marshalEntityRequestMessage(e *core.EntityRequestMessage) ([]byte, error) {
 }
 
 func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
+	if e == nil {
+		return nil, nil
+	}
 	blocks := make([]*tas_pb.Block, 0)
 
 	if e.Blocks != nil {
