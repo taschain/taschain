@@ -60,7 +60,7 @@ func (pub Pubkey) GetBigInt() *big.Int {
 
 func (pub Pubkey) IsValid() bool {
 	bi := pub.GetBigInt()
-	return bi != big.NewInt(0)
+	return bi.Int64() != int64(0)
 }
 
 //由公钥生成TAS地址

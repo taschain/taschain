@@ -1086,6 +1086,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
 		if r == 0 || r == 1 {
 		} else {
+			//可能多次掉次方法, 要区分是否同一个块上链失败
 			panic("core.AddBlockOnChain failed.")
 		}
 	}
