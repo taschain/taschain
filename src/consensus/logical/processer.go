@@ -967,13 +967,13 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 			panic("OMB group sign Deserialize failed.")
 		}
 
-		preHeader := cbm.Block.Header
 		//上链
 		onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
-		if onchain != 0 && onchain != 1 {	//上链失败
-			preHeader = p.MainChain.QueryTopBlock()
-			//丢弃该块
-			fmt.Printf("OMB received block onchain failed, height = %v, result= %v. checkCastGroup base on chain top block %v\n", cbm.Block.Header.Height, onchain, preHeader)
+		fmt.Printf("OMB onchain result %v\n", onchain)
+
+		preHeader := p.MainChain.QueryTopBlock()
+		if preHeader == nil {
+			panic("cannot find top block header!")
 		}
 
 		casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
