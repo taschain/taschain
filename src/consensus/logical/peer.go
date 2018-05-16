@@ -9,6 +9,7 @@ import (
 	"pb"
 	"core"
 	"time"
+	"fmt"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -175,9 +176,11 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 
 //组内广播
 func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
+	fmt.Printf("groupBroadcast:%d",m.Code)
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		logger.Errorf("Get nil group by id:%s\n", groupId.GetString())
+		fmt.Printf("[groupBroadcast]Get nil group by id:%s\n", groupId.GetString())
 		return
 	}
 	for _, member := range group.Members {
@@ -188,6 +191,8 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			return
 		}
 		p2p.Server.SendMessage(m, id.GetString())
+		fmt.Printf("[groupBroadcast]send messsage %d to id %s",m.Code,id.GetString())
+
 	}
 }
 
