@@ -260,10 +260,7 @@ func (s *server) handleMessage(b []byte, from string) {
 		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
-		bytes, e := consensusHandler.HandlerMessage(*code, message.Body, from)
-		if e != nil {
-			chainHandler.HandlerMessage(*code, bytes, from)
-		}
+		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case TRANSACTION_GOT_MSG:
 		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
