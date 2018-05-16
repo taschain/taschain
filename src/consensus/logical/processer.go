@@ -397,7 +397,7 @@ func (p *Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool
 		//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
 	} else {
 		fmt.Printf("BHCastLegal failed, expect group=%v, real cast group=%v.\n", GetIDPrefix(gi.GroupID), GetIDPrefix(gid))
-		panic("isBHCastLegal failed, not expect group")
+		//panic("isBHCastLegal failed, not expect group")  非法铸块组 直接跳过就行了吧?
 	}
 	fmt.Printf("BHCastLegal result=%v.\n", result)
 	return result
