@@ -566,6 +566,12 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		receipts = cache.(*castingBlock).receipts
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
+		// 验证块是否已经在链上
+		existed:=chain.queryBlockByHash(b.Header.Hash)
+		if nil!=existed{
+			return 0
+		}
+
 		// 验证块是否有问题
 		_, status, state, receipts = chain.VerifyCastingBlock(*b.Header)
 		if status != 0 {
@@ -666,7 +672,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 	} else {
 		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, header.QueueNumber, b.Header.QueueNumber)
 
-		return -1
+		return 2
 	}
 
 }
