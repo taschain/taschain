@@ -612,6 +612,9 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber)
 
+	fmt.Printf("OMCCCCC message bh %v\n", ccm.BH)
+	fmt.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
+
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
@@ -764,6 +767,9 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	}
 	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex())
+
+	fmt.Printf("OMVVVVVV message bh %v\n", cvm.BH)
+	fmt.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
 
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
@@ -960,7 +966,17 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		if sign.Deserialize(cbm.Block.Header.Signature) != nil {
 			panic("OMB group sign Deserialize failed.")
 		}
-		casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, cbm.Block.Header.Height, cbm.Block.Header.CurTime, cbm.Block.Header.Hash)
+
+		preHeader := cbm.Block.Header
+		//上链
+		onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
+		if onchain != 0 && onchain != 1 {	//上链失败
+			preHeader = p.MainChain.QueryTopBlock()
+			//丢弃该块
+			fmt.Printf("OMB received block onchain failed, height = %v, result= %v. checkCastGroup base on chain top block %v\n", cbm.Block.Header.Height, onchain, preHeader)
+		}
+
+		casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
 		if locked {
 			p.castLock.Unlock()
 			locked = false
@@ -1065,6 +1081,8 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	}
 	if !PROC_TEST_MODE {
 		r := p.MainChain.AddBlockOnChain(block)
+		fmt.Printf("AddBlockOnChain header %v \n", block.Header)
+		fmt.Printf("QueryTopBlock header %v \n", p.MainChain.QueryTopBlock())
 		fmt.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, r)
 		if r == 0 || r == 1 {
 		} else {
@@ -1506,6 +1524,10 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
 		}
 		bh = block.Header
+
+		fmt.Printf("AAAAAA castBlock bh %v\n", bh)
+		fmt.Printf("AAAAAA chain top bh %v\n", p.MainChain.QueryTopBlock())
+
 	} else {
 		bh = genDummyBH(int(qn), p.GetMinerID())
 		bh.GroupId = gid.Serialize()

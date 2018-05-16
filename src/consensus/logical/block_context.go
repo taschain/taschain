@@ -586,7 +586,10 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 		if bc.CastHeight == (bh + 1) { //已经在铸消息通知的块
 			if bc.PreTime != tc || bc.PrevHash != h {
 				fmt.Printf("block_context:Begin_Cast failed, %v, %v, %v, %v. \n", bc.PreTime, tc, bc.PrevHash, h)
-				panic("block_context:Begin_Cast failed, arg error.\n")
+				//panic("block_context:Begin_Cast failed, arg error.\n")
+				//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
+				fmt.Println("block_context chain adjust found! re consensus!")
+				bc.beginConsensus(bh, tc, h)
 			} else {
 				//忽略该消息
 				fmt.Printf("block_context:Begin_Cast ignored, already in casting.\n")
