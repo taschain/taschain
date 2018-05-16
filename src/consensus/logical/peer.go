@@ -180,7 +180,7 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		logger.Errorf("Get nil group by id:%s\n", groupId.GetString())
-		fmt.Printf("[groupBroadcast]Get nil group by id:%s\n", groupId.GetString())
+		fmt.Printf("[groupBroadcast]Get nil group by id:%x\n", groupId.Serialize())
 		return
 	}
 	for _, member := range group.Members {
@@ -191,7 +191,7 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			return
 		}
 		p2p.Server.SendMessage(m, id.GetString())
-		fmt.Printf("[groupBroadcast]send messsage %d to id %s",m.Code,id.GetString())
+		fmt.Printf("[groupBroadcast]send messsage %d to id %s\n",m.Code,id.GetString())
 
 	}
 }
