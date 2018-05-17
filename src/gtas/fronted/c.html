@@ -22,6 +22,7 @@
             <li>转账演示</li>
             <li>查询余额</li>
             <li>投票</li>
+            <li>查询块信息</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -351,13 +352,16 @@
                     <hr/>
                 </form>
             </div>
+            <div class="layui-tab-item">
+                <table id="block_detail" lay-filter="block_detail"></table>
+            </div>
         </div>
     </div>
 </div>
 <script src="./js/layui/layui.js"></script>
 <script>
 
-    layui.use(['form', 'jquery', 'element', 'layer'], function(){
+    layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         var element = layui.element;
         var form = layui.form;
         var layer = layui.layer;
@@ -366,7 +370,23 @@
         var ref;
         var host_ele = $("#host");
         var online=false;
+        var current_block_height = 0;
         host_ele.text(HOST);
+        var blocks = [];
+        var table = layui.table;
+
+
+        var block_table = table.render({
+            elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
+            ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
+                {field:'pre_time', title: 'pre_time'},{field:'queue_number', title: 'queue_number'},
+                {field:'cur_time', title: 'cur_time'},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}]] //设置表头
+            ,data: blocks
+            ,page: true
+            ,limit:30
+        });
+
+
         $("#change_host").click(function () {
             layer.prompt({
                 formType: 0,
@@ -664,7 +684,7 @@
             });
         }
 
-        // 同步块高，组高
+        // 同步块高
         function syncBlockHeight() {
             let params = {
                 "method": "GTAS_blockHeight",
@@ -687,7 +707,21 @@
                     if (rdata.error !== undefined){
                         // $("#t_error").text(rdata.error.message)
                     }
+                    if(!online) {
+                        online = true;
+                        $("#online_flag").addClass("layui-bg-green")
+                    }
+                    for(let i=current_block_height+1; i<=rdata.result.data; i++) {
+                        syncBlock(i);
+                    }
+                    current_block_height = rdata.result.data
                 },
+                error: function () {
+                    if(online) {
+                        online = false;
+                        $("#online_flag").removeClass("layui-bg-green")
+                    }
+                }
             });
         }
 
@@ -714,20 +748,39 @@
                     if (rdata.error !== undefined){
                         // $("#t_error").text(rdata.error.message)
                     }
-                    if(!online) {
-                        online = true;
-                        $("#online_flag").addClass("layui-bg-green")
-                    }
                 },
-                error: function () {
-                    if(online) {
-                        online = false;
-                        $("#online_flag").removeClass("layui-bg-green")
-                    }
-                }
             });
         }
 
+        function syncBlock(height) {
+            let params = {
+                "method": "GTAS_getBlock",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined){
+                        blocks.push(rdata.result.data);
+                        console.log(blocks);
+                        block_table.reload({
+                                    data: blocks
+                                }
+                        )
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+            });
+        }
 
         // dashboard同步数据
         syncNodes();
@@ -735,12 +788,12 @@
         syncBlockHeight();
         syncGroupHeight();
         setInterval(function () {
-            syncGroupHeight();
+            syncBlockHeight();
         }, 1000);
         ref = setInterval(function(){
             syncNodes();
             syncTrans();
-            syncBlockHeight();
+            syncGroupHeight();
         },1000);
 
         element.on('tab(demo)', function(data){

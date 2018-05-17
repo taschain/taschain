@@ -9,6 +9,7 @@ import (
 	"network/p2p"
 	"strconv"
 	"core"
+	"encoding/hex"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -112,6 +113,20 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 		})
 	}
 	return &Result{"success", transList}, nil
+}
+
+func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
+	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+	blockDetail := make(map[string]interface{})
+	blockDetail["hash"] = bh.Hash.Hex()
+	blockDetail["height"] = bh.Height
+	blockDetail["pre_hash"] = bh.PreHash.Hex()
+	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
+	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
+	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
+	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	return &Result{"success", blockDetail}, nil
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.
