@@ -380,7 +380,21 @@ func (p *Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool
 	if gid.Deserialize(bh.GroupId) != nil {
 		panic("isBHCastLegal, group id Deserialize failed.")
 	}
-	gi := p.gg.GetCastGroup(bh.PreHash) //取得合法的铸块组
+
+	preHeader := p.MainChain.QueryBlockByHash(bh.PreHash)
+	if preHeader == nil {
+		fmt.Printf("isBHCastLegal: cannot find pre block header!,ignore block. %v, %v, %v\n", bh.PreHash, bh.Height, bh.Hash)
+		return false
+		//panic("isBHCastLegal: cannot find pre block header!,ignore block")
+	}
+
+	var sign groupsig.Signature
+	if sign.Deserialize(preHeader.Signature) != nil {
+		panic("OMB group sign Deserialize failed.")
+	}
+
+	gi := p.gg.GetCastGroup(sign.GetHash()) //取得合法的铸块组
+
 	if gi.GroupID.IsEqual(gid) {
 		fmt.Printf("BHCastLegal, real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
 		//检查组签名是否正确
@@ -981,7 +995,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	}
 
 	var sign groupsig.Signature
-	if sign.Deserialize(cbm.Block.Header.Signature) != nil {
+	if sign.Deserialize(preHeader.Signature) != nil {
 		panic("OMB group sign Deserialize failed.")
 	}
 	casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
