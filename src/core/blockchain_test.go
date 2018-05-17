@@ -174,9 +174,9 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 		t.Fatalf("fail to add 3 blocks")
 	}
 
-	header1 := BlockChainImpl.queryBlockByHeight(1)
-	header2 := BlockChainImpl.queryBlockByHeight(2)
-	header3 := BlockChainImpl.queryBlockByHeight(3)
+	header1 := BlockChainImpl.queryBlockHeaderByHeight(uint64(1), true)
+	header2 := BlockChainImpl.queryBlockHeaderByHeight(uint64(2), false)
+	header3 := BlockChainImpl.queryBlockHeaderByHeight(uint64(3), true)
 
 	b1 := BlockChainImpl.queryBlockByHash(header1.Hash)
 	b2 := BlockChainImpl.queryBlockByHash(header2.Hash)
@@ -194,6 +194,59 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 	blocks := message.Blocks
 	if nil == blocks[0] || nil == blocks[1] || 1256 != blocks[0].Header.Nonce || 1257 != blocks[1].Header.Nonce {
 		t.Fatalf("fail to get BlockMessage from 1")
+	}
+
+}
+
+func TestBlockChain_GetTopBlocks(t *testing.T) {
+	Clear()
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+
+	castor := new([]byte)
+	groupid := new([]byte)
+
+	var i uint64
+	for i = 1; i < 2000; i++ {
+		block := BlockChainImpl.CastingBlock(i, i, 0, *castor, *groupid)
+		if 0 != BlockChainImpl.AddBlockOnChain(block) {
+			t.Fatalf("fail to add empty block")
+		}
+	}
+
+	if 1000 != BlockChainImpl.topBlocks.Len() {
+		t.Fatalf("error for size:1000")
+	}
+
+	for i = BlockChainImpl.Height() - 999; i < 2000; i++ {
+		lowest, ok := BlockChainImpl.topBlocks.Get(i)
+		if !ok || nil == lowest {
+			t.Fatalf("fail to get lowest block,%d", i)
+		}
+
+		lowestLDB := BlockChainImpl.queryBlockHeaderByHeight(i, false)
+		if nil == lowestLDB {
+			t.Fatalf("fail to get lowest block from ldb,%d", i)
+		}
+
+		bh := lowest.(*BlockHeader)
+		if bh.Height != lowestLDB.Height {
+			t.Fatalf("fail to check block from cache to ldb,%d", i)
+		}
+	}
+
+	top := BlockChainImpl.GetTopBlocks()
+	if top == nil || len(top) != 1000 {
+		t.Fatalf("fail to get top blocks")
+	}
+
+	for i = 0; i < 1000; i++ {
+		if top[i] == nil {
+
+			t.Fatalf("fail to get top blocks, missing: %d", i)
+
+		}
+
 	}
 
 }

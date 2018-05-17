@@ -48,9 +48,10 @@ type BlockChain struct {
 	blockHeight ethdb.Database
 
 	transactionPool *TransactionPool
-	//已上链的最新块
-	latestBlock *BlockHeader
 
+	//已上链的最新块
+	latestBlock   *BlockHeader
+	topBlocks     *lru.Cache
 	latestStateDB *state.StateDB
 
 	// 当前链的高度，其值等于当前链里有多少块（创始块不计入）
@@ -121,6 +122,7 @@ func initBlockChain() error {
 
 	var err error
 	chain.blockCache, err = lru.New(1000)
+	chain.topBlocks, _ = lru.New(1000)
 	if err != nil {
 		return err
 	}
@@ -149,8 +151,9 @@ func initBlockChain() error {
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
-	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY))
+	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
+		chain.buildCache(chain.topBlocks)
 		state, err := state.New(c.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
@@ -161,9 +164,7 @@ func initBlockChain() error {
 		if nil == err {
 			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB())
-
 			chain.saveBlock(block)
-
 		}
 	}
 
@@ -218,7 +219,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	blocks := make([]*Block, localHeight-height)
 
 	for i := height + 1; i <= localHeight; i++ {
-		bh := chain.queryBlockByHeight(i)
+		bh := chain.queryBlockHeaderByHeight(i, true)
 		if nil == bh {
 			continue
 		}
@@ -273,6 +274,7 @@ func (chain *BlockChain) Clear() error {
 
 	chain.init = false
 	chain.latestBlock = nil
+	chain.topBlocks, _ = lru.New(1000)
 
 	//err := chain.blockHeight.Clear()
 	//if nil != err {
@@ -373,10 +375,29 @@ func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *BlockHeader {
 	return block.Header
 }
 
-//根据指定高度查询块
-func (chain *BlockChain) queryBlockHeaderByHeight(height []byte) *BlockHeader {
+// 根据指定高度查询块
+func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool) *BlockHeader {
+	var key []byte
+	switch height.(type) {
+	case []byte:
+		key = height.([]byte)
+	default:
+		if cache {
+			h := height.(uint64)
+			if h > (chain.latestBlock.Height - 1000) {
+				result, ok := chain.topBlocks.Get(h)
+				if ok {
+					return result.(*BlockHeader)
+				}
 
-	result, err := chain.blockHeight.Get(height)
+			}
+		}
+
+		key = chain.generateHeightKey(height.(uint64))
+	}
+
+	// 从持久化存储中查询
+	result, err := chain.blockHeight.Get(key)
 	if result != nil {
 		var header BlockHeader
 		err = json.Unmarshal(result, &header)
@@ -390,16 +411,13 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height []byte) *BlockHeader {
 	}
 }
 
-//根据指定高度查询块
+// 根据指定高度查询块
+// 带有缓存
 func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
-	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
-}
-
-func (chain *BlockChain) queryBlockByHeight(height uint64) *BlockHeader {
-	return chain.queryBlockHeaderByHeight(chain.generateHeightKey(height))
+	return chain.queryBlockHeaderByHeight(height, true)
 }
 
 func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
@@ -567,8 +585,8 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否已经在链上
-		existed:=chain.queryBlockByHash(b.Header.Hash)
-		if nil!=existed{
+		existed := chain.queryBlockByHash(b.Header.Hash)
+		if nil != existed {
 			return 0
 		}
 
@@ -638,6 +656,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 
 	// 持久化保存最新块信息
 	chain.latestBlock = b.Header
+	chain.topBlocks.Add(b.Header.Height, b.Header)
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		fmt.Printf("[block]fail to put current, error:%s \n", err)
@@ -650,7 +669,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) int8 {
-	header := chain.queryBlockByHeight(b.Header.Height)
+	header := chain.queryBlockHeaderByHeight(b.Header.Height, true)
 	if header == nil {
 		fmt.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
 		return -1
@@ -661,11 +680,12 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 		chain.remove(header)
 		// 替换
 		for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header = chain.queryBlockByHeight(height)
+			header = chain.queryBlockHeaderByHeight(height, true)
 			if header == nil {
 				continue
 			}
 			chain.remove(header)
+			chain.topBlocks.Remove(header.Height)
 		}
 
 		return chain.saveBlock(b)
@@ -708,4 +728,38 @@ func (chain *BlockChain) remove(header *BlockHeader) {
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {
 	return chain.transactionPool
+}
+
+func (chain *BlockChain) buildCache(cache *lru.Cache) {
+	for i := chain.getStartIndex(); i < chain.latestBlock.Height; i++ {
+		chain.topBlocks.Add(i, chain.queryBlockHeaderByHeight(i, false))
+	}
+
+}
+
+func (chain *BlockChain) getStartIndex() uint64 {
+	var start uint64
+	height := chain.latestBlock.Height
+	if height < 1000 {
+		start = 0
+	} else {
+		start = height - 999
+	}
+
+	return start
+}
+
+func (chain *BlockChain) GetTopBlocks() []*BlockHeader {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+
+	start := chain.getStartIndex()
+	result := make([]*BlockHeader, chain.latestBlock.Height-start+1)
+
+	for i := start; i <= chain.latestBlock.Height; i++ {
+		bh, _ := chain.topBlocks.Get(i)
+		result[i-start] = bh.(*BlockHeader)
+	}
+
+	return result
 }
