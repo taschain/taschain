@@ -386,7 +386,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 			h := height.(uint64)
 			if h > (chain.latestBlock.Height - 1000) {
 				result, ok := chain.topBlocks.Get(h)
-				if ok {
+				if ok && nil != result {
 					return result.(*BlockHeader)
 				}
 

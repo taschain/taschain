@@ -229,8 +229,13 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 			t.Fatalf("fail to get lowest block from ldb,%d", i)
 		}
 
+		lowestCache := BlockChainImpl.queryBlockHeaderByHeight(i, true)
+		if nil == lowestCache {
+			t.Fatalf("fail to get lowest block from cache,%d", i)
+		}
+
 		bh := lowest.(*BlockHeader)
-		if bh.Height != lowestLDB.Height {
+		if bh.Height != lowestLDB.Height || bh.Height != lowestCache.Height || lowestLDB.Height != lowestCache.Height {
 			t.Fatalf("fail to check block from cache to ldb,%d", i)
 		}
 	}
