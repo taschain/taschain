@@ -623,8 +623,10 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	if g_id.Deserialize(ccm.BH.GroupId) != nil {
 		panic("OMC Deserialize group_id failed")
 	}
-	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber)
+	var castor groupsig.ID
+	castor.Deserialize(ccm.BH.Castor)
+	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(),
+		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber, GetIDPrefix(castor))
 
 	fmt.Printf("OMCCCCC message bh %v\n", ccm.BH)
 	fmt.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
@@ -779,10 +781,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	if g_id.Deserialize(cvm.BH.GroupId) != nil {
 		panic("OMV Deserialize group_id failed")
 	}
-	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v...\n", p.getPrefix(),
-		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex())
+	var castor groupsig.ID
+	castor.Deserialize(cvm.BH.Castor)
+	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v castor=%v...\n", p.getPrefix(),
+		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex(), GetIDPrefix(castor))
 
 	fmt.Printf("OMVVVVVV message bh %v\n", cvm.BH)
+	fmt.Printf("OMVVVVVV message bh hash %v\n", GetHashPrefix(cvm.BH.Hash))
 	fmt.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
 
 	var cgs CastGroupSummary
@@ -1581,6 +1586,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
 		if !PROC_TEST_MODE {
 			fmt.Printf("call network service SendCastVerify...\n")
+			fmt.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
 			SendCastVerify(&ccm)
 		} else {
 			fmt.Printf("call proc.OnMessageCast direct...\n")

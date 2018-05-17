@@ -671,7 +671,7 @@ func (bc *BlockContext) StartTimer() {
 	var count int
 	fmt.Printf("StartTimer Now=%v.\n", time.Now().Format(time.Stamp))
 	bc.TickerRoutine() //先启动一次
-	for _ = range bc.CCTimer.C {
+	for range bc.CCTimer.C {
 		count++
 		fmt.Printf("block_context::StartTicker, Now=%v, count=%v.\n", time.Now().Format(time.Stamp), count)
 		//go bc.TickerRoutine()
