@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+	"vm/common/math"
 )
 
 //铸块人身份
@@ -582,22 +583,34 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 		panic("BlockContext::BeingCastGroup height failed.")
 		return false
 	}
-	if bc.IsCasting() { //已经在铸块共识中
-		if bc.CastHeight == (bh + 1) { //已经在铸消息通知的块
-			if bc.PreTime != tc || bc.PrevHash != h {
-				fmt.Printf("block_context:Begin_Cast failed, %v, %v, %v, %v. \n", bc.PreTime, tc, bc.PrevHash, h)
-				//panic("block_context:Begin_Cast failed, arg error.\n")
-				//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
-				fmt.Println("block_context chain adjust found! re consensus!")
-				bc.beginConsensus(bh, tc, h)
-			} else {
-				//忽略该消息
-				fmt.Printf("block_context:Begin_Cast ignored, already in casting.\n")
-			}
-		}
-	} else { //没有在铸块中
+
+	fmt.Printf("BeginCastGroup: bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
+	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
+	if bc.IsCasting() && bc.CastHeight == (bh+1) && bc.PreTime.Equal(tc) && bc.PrevHash == h {
+
+	} else {
 		bc.beginConsensus(bh, tc, h)
 	}
+
+	//if bc.IsCasting() { //已经在铸块共识中
+	//	if bc.CastHeight == (bh + 1) { //已经在铸消息通知的块
+	//		if bc.PreTime != tc || bc.PrevHash != h {
+	//			fmt.Printf("block_context:Begin_Cast failed, %v, %v, %v, %v. \n", bc.PreTime, tc, bc.PrevHash, h)
+	//			//panic("block_context:Begin_Cast failed, arg error.\n")
+	//			//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
+	//			fmt.Println("block_context chain adjust found! re consensus!")
+	//			bc.beginConsensus(bh, tc, h)
+	//		} else {
+	//			//忽略该消息
+	//			fmt.Printf("block_context:Begin_Cast ignored, already in casting.\n")
+	//		}
+	//	} else {	//正在铸的块已经在链上了
+	//		fmt.Println("block_context chain adjust found! re consensus!")
+	//		bc.beginConsensus(bh, tc, h)
+	//	}
+	//} else { //没有在铸块中
+	//	bc.beginConsensus(bh, tc, h)
+	//}
 	return true
 }
 
@@ -635,10 +648,14 @@ func (bc *BlockContext) CalcCastor() (int32, int64) {
 	var qn int64 = -1
 	d := time.Since(bc.PreTime)
 
-	var secs uint64 = uint64(d.Seconds())
-	if secs < uint64(MAX_GROUP_BLOCK_TIME) { //在组铸块共识时间窗口内
+	max := uint64(MAX_GROUP_BLOCK_TIME)
+	if bc.CastHeight == 1 {
+		max = math.MaxUint64
+	}
+	var secs = uint64(d.Seconds())
+	if secs < max { //在组铸块共识时间窗口内
 		qn = int64(secs / uint64(MAX_USER_CAST_TIME))
-		fmt.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(MAX_GROUP_BLOCK_TIME), "qn", qn, "cal", int64(secs / uint64(MAX_USER_CAST_TIME)))
+		fmt.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(max), "qn", qn, "cal", int64(secs / uint64(MAX_USER_CAST_TIME)))
 		fmt.Println("ttttttttttt","prehash", bc.PrevHash, "castheight", bc.CastHeight)
 		first_i := bc.getFirstCastor() //取得第一个铸块人位置
 		fmt.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, first_i, qn, first_i+int32(qn))

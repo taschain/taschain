@@ -550,17 +550,22 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 //收到成为当前铸块组消息
 func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	p.castLock.Lock()
-	locked := true
+	defer p.castLock.Unlock()
+
 	fmt.Printf("proc(%v) begin OMCur, sender=%v, time=%v, height=%v...\n", p.getPrefix(),
 		GetIDPrefix(ccm.SI.GetID()), time.Now().Format(time.Stamp), ccm.BlockHeight)
 	var gid groupsig.ID
 	if gid.Deserialize(ccm.GroupID) != nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		panic("Processer::OMCur failed, reason=group id Deserialize.")
 	}
+
+	topBH := p.MainChain.QueryTopBlock()
+	if topBH.Height != ccm.BlockHeight + 1 || topBH.PreHash != ccm.PreHash {	//不再是链上的最后一块
+		fmt.Printf("OMCur block height already on chain!, ingore!, topBlockHeight=%v, ccm.Height=%v, topHash=%v, ccm.PreHash=%v", topBH.Height, ccm.BlockHeight, GetHashPrefix(topBH.PreHash), GetHashPrefix(ccm.PreHash))
+		return
+	}
+
+
 	var cgs CastGroupSummary
 	cgs.GroupID = gid
 	cgs.PreHash = ccm.PreHash
@@ -570,10 +575,6 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
 	bc, first := p.beingCastGroup(cgs, ccm.SI)
 	if bc == nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		fmt.Printf("proc(%v) OMCur can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
@@ -582,33 +583,25 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		switched := bc.Switch2Height(cgs)
 		if !switched {
 			fmt.Printf("bc::Switch2Height failed, ignore message.\n")
-			if locked {
-				p.castLock.Unlock()
-				locked = false
-			}
 			return
 		}
-		if first { //第一次收到“当前组成为铸块组”消息
-			ccm_local := ccm
-			ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-			if locked {
-				p.castLock.Unlock()
-				locked = false
-			}
-			if !PROC_TEST_MODE {
-				fmt.Printf("call network service SendCurrentGroupCast...\n")
-				SendCurrentGroupCast(&ccm_local)
-			} else {
-				fmt.Printf("proc(%v) OMCur BEGIN SEND OnMessageCurrent 2 ALL PROCS...\n", p.getPrefix())
-				for _, v := range p.GroupProcs {
-					v.OnMessageCurrent(ccm_local)
-				}
-			}
-		}
-	}
-	if locked {
-		p.castLock.Unlock()
-		locked = false
+		//if first { //第一次收到“当前组成为铸块组”消息
+		//	ccm_local := ccm
+		//	ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+		//	if locked {
+		//		p.castLock.Unlock()
+		//		locked = false
+		//	}
+		//	if !PROC_TEST_MODE {
+		//		fmt.Printf("call network service SendCurrentGroupCast...\n")
+		//		SendCurrentGroupCast(&ccm_local)
+		//	} else {
+		//		fmt.Printf("proc(%v) OMCur BEGIN SEND OnMessageCurrent 2 ALL PROCS...\n", p.getPrefix())
+		//		for _, v := range p.GroupProcs {
+		//			v.OnMessageCurrent(ccm_local)
+		//		}
+		//	}
+		//}
 	}
 	fmt.Printf("proc(%v) end OMCur, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
 	return
