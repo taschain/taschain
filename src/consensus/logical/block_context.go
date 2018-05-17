@@ -713,7 +713,12 @@ func (bc *BlockContext) TickerRoutine() bool {
 		return false
 	}
 	d := time.Since(bc.PreTime)                  //上个铸块完成到现在的时间
-	if int(d.Seconds()) > MAX_GROUP_BLOCK_TIME { //超过了组最大铸块时间
+	max := MAX_GROUP_BLOCK_TIME
+	if bc.CastHeight == 1 {
+		max = math.MaxInt32
+	}
+
+	if int(d.Seconds()) > max { //超过了组最大铸块时间
 		fmt.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
 		bc.Reset()
 		return false

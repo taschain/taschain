@@ -558,12 +558,12 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	if gid.Deserialize(ccm.GroupID) != nil {
 		panic("Processer::OMCur failed, reason=group id Deserialize.")
 	}
-
-	topBH := p.MainChain.QueryTopBlock()
-	if topBH.Height != ccm.BlockHeight + 1 || topBH.PreHash != ccm.PreHash {	//不再是链上的最后一块
-		fmt.Printf("OMCur block height already on chain!, ingore!, topBlockHeight=%v, ccm.Height=%v, topHash=%v, ccm.PreHash=%v", topBH.Height, ccm.BlockHeight, GetHashPrefix(topBH.PreHash), GetHashPrefix(ccm.PreHash))
-		return
-	}
+	//
+	//topBH := p.MainChain.QueryTopBlock()
+	//if topBH.Height == ccm.BlockHeight && topBH.PreHash == ccm.PreHash {	//已经在链上了
+	//	fmt.Printf("OMCur block height already on chain!, ingore!, topBlockHeight=%v, ccm.Height=%v, topHash=%v, ccm.PreHash=%v", topBH.Height, ccm.BlockHeight, GetHashPrefix(topBH.PreHash), GetHashPrefix(ccm.PreHash))
+	//	return
+	//}
 
 
 	var cgs CastGroupSummary
