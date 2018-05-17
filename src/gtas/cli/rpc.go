@@ -126,6 +126,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	return &Result{"success", blockDetail}, nil
 }
 

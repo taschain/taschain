@@ -141,7 +141,7 @@ func (s *server) send(b []byte, id string) {
 	if l < PACKAGE_MAX_SIZE {
 		r, err := stream.Write(b)
 		if err != nil {
-			logger.Errorf("Write stream for %s error:%s", id, e.Error())
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
 			return
 		}
 
