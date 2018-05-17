@@ -97,9 +97,9 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			}
 		}
 		createGroup(keys3, "gtas3")
-		time.Sleep(time.Second*60)
+		time.Sleep(time.Second*30)
 		createGroup(keys2, "gtas2")
-		time.Sleep(time.Second*60)
+		time.Sleep(time.Second*30)
 		createGroup(keys1, "gtas1")
 
 	}
