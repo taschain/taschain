@@ -590,7 +590,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 		return false
 	}
 
-	fmt.Printf("BeginCastGroup: bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
+	fmt.Printf("BeginCastGroup: bc.IsCasting=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.IsCasting(), bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
 	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
 	if bc.IsCasting() {
 		if bc.CastHeight <= bh {	//在铸老的块

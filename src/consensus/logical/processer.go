@@ -1177,7 +1177,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64
 	fmt.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(king_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
-		if p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
+		if !p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
 			head := p.castBlock(gid, height, qn) //铸块
 			if head != nil {
 				p.sci.AddQN(height, uint(qn))
