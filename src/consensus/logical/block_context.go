@@ -346,7 +346,7 @@ func (bc *BlockContext) CastedUpdateStatus(qn uint) bool {
 			return false //该高度不用再铸块了
 		} else {
 			if bc.ConsensusStatus == CBCS_CASTING {
-				if qn == 1 {
+				if qn == 0 {
 					bc.ConsensusStatus = CBCS_MIN_QN_BLOCKED
 				} else {
 					bc.ConsensusStatus = CBCS_BLOCKED
@@ -354,7 +354,7 @@ func (bc *BlockContext) CastedUpdateStatus(qn uint) bool {
 				return true
 			} else {
 				//已经铸出过块
-				if qn == 1 { //收到最小QN块消息
+				if qn == 0 { //收到最小QN块消息
 					bc.ConsensusStatus = CBCS_MIN_QN_BLOCKED
 				}
 				return true
@@ -578,7 +578,7 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 //h:  已完成的最高块哈希
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
-func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) bool {
+func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) (cast bool, broadcast bool) {
 	var max_height uint64
 	if !PROC_TEST_MODE {
 		max_height = bc.Proc.MainChain.QueryTopBlock().Height
@@ -587,9 +587,10 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 		//不在合法的铸块高度内
 		fmt.Printf("height failed, max_height=%v, bh=%v.\n", max_height, bh)
 		//panic("BlockContext::BeingCastGroup height failed.")
-		return false
+		return false, false
 	}
 
+	broadcast = true
 	fmt.Printf("BeginCastGroup: bc.IsCasting=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.IsCasting(), bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
 	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
 	if bc.IsCasting() {
@@ -600,6 +601,8 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 				//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
 				fmt.Println("block_context chain adjust found! re consensus!")
 				bc.castRebase(bh, tc, h)
+			} else {
+				broadcast = false
 			}
 		} else {	//铸未来的块
 			bc.castRebase(bh, tc, h)
@@ -627,7 +630,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 	//} else { //没有在铸块中
 	//	bc.beginConsensus(bh, tc, h)
 	//}
-	return true
+	return true, broadcast
 }
 
 //收到某个铸块人的铸块完成消息（个人铸块完成消息也是个人验证完成消息）
@@ -722,6 +725,11 @@ func (bc *BlockContext) StartTimer() {
 //定时器例行处理
 //如果返回false, 则关闭定时器
 func (bc *BlockContext) TickerRoutine() bool {
+	//此处有并发问题
+	//todo 后续使用blockcontext自己的锁
+	bc.Proc.castLock.Lock()
+	defer bc.Proc.castLock.Unlock()
+
 	fmt.Printf("proc(%v) begin TickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 	if !bc.IsCasting() { //没有在组铸块共识中
 		fmt.Printf("proc(%v) not in casting, reset and direct return.\n", bc.Proc.getPrefix())

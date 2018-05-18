@@ -533,7 +533,7 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 				panic("ERROR, BlockContext = nil.")
 			} else {
 				if !bc.IsCasting() { //之前没有在铸块状态
-					b := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash) //设置当前铸块高度
+					b, _ := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash) //设置当前铸块高度
 					first = true
 					fmt.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", b, bc.ConsensusStatus)
 				} else {
@@ -641,6 +641,13 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 	fmt.Printf("OMCCCCC message bh %v\n", ccm.BH)
 	fmt.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
+
+	pre := p.MainChain.QueryBlockByHeight(ccm.BH.Height - 1)
+	if pre != nil && pre.Hash != ccm.BH.PreHash {
+		fmt.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
+		p.castLock.Unlock()
+		return
+	}
 
 	fmt.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
 	var cgs CastGroupSummary
@@ -808,6 +815,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("OMVVVVVV message bh hash %v\n", GetHashPrefix(cvm.BH.Hash))
 	fmt.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
 
+	pre := p.MainChain.QueryBlockByHeight(cvm.BH.Height - 1)
+	if pre != nil && pre.Hash != cvm.BH.PreHash {
+		fmt.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
+		p.castLock.Unlock()
+		return
+	}
+
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = g_id
@@ -949,7 +963,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 //检查自身所在的组（集合）是否成为当前铸块组，如是，则启动相应处理
 //sign：组签名
 func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signature, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
-	var casting bool
+	var firstCast bool
 	var ccm ConsensusCurrentMessage
 	sign_hash := sign.GetHash()
 	fmt.Printf("cCG pre_block group sign hash=%v, find next group...\n", GetHashPrefix(sign_hash))
@@ -962,7 +976,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 			if bc == nil {
 				panic("current proc belong next cast group, but GetBlockContext=nil.")
 			}
-			bc.BeingCastGroup(height, t, h)
+			_, firstCast = bc.BeingCastGroup(height, t, h)
 			ccm.GroupID = next_group.Serialize() //groupId.Serialize()
 			ccm.BlockHeight = height + 1
 			ccm.PreHash = h
@@ -975,7 +989,6 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 				fmt.Printf("id=%v, sign_pk=%v notify group members being current.\n", GetIDPrefix(ski.GetID()), GetPubKeyPrefix(*temp_spk))
 			}
 			ccm.GenSign(ski)
-			casting = true
 			fmt.Printf("cCG: id=%v, sign_sk=%v, data hash=%v.\n", GetIDPrefix(ccm.SI.GetID()), GetSecKeyPrefix(ski.SK), GetHashPrefix(ccm.SI.DataHash))
 		} else {
 			fmt.Printf("current proc not in next group.\n")
@@ -986,7 +999,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 	} else {
 		panic("find next cast group failed.")
 	}
-	return casting, ccm
+	return firstCast, ccm
 }
 
 //收到铸块上链消息(组外矿工节点处理)
@@ -1032,13 +1045,13 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if sign.Deserialize(preHeader.Signature) != nil {
 		panic("OMB group sign Deserialize failed.")
 	}
-	casting, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
+	broadcast, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
 	if locked {
 		p.castLock.Unlock()
 		locked = false
 	}
 
-	if casting {
+	if broadcast {
 		fmt.Printf("OMB current proc being casting group...\n")
 		fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
 		SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
@@ -1488,9 +1501,9 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			if g_sign.Deserialize(top_bh.Signature) != nil {
 				panic("OMGIED group sign Deserialize failed.")
 			}
-			casting, ccm := p.checkCastingGroup(gim.GI.GroupID, g_sign, top_bh.Height, top_bh.CurTime, top_bh.Hash)
-			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", casting)
-			if casting {
+			broadcast, ccm := p.checkCastingGroup(gim.GI.GroupID, g_sign, top_bh.Height, top_bh.CurTime, top_bh.Hash)
+			fmt.Printf("checkCastingGroup, current proc being casting group=%v.", broadcast)
+			if broadcast {
 				fmt.Printf("OMB: id=%v, data hash=%v, sign=%v.\n",
 					GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
 				fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
