@@ -90,15 +90,13 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		var machine net.StateMachineTransform
 		if belongGroup { //组内状态机
 			machine = net.TimeSeq.GetInsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
-		} else {	//组外状态机
+		} else { //组外状态机
 			machine = net.TimeSeq.GetOutsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
 		}
 
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
 		})
-
-
 
 	case p2p.CURRENT_GROUP_CAST_MSG:
 		m, e := unMarshalConsensusCurrentMessage(body)
@@ -457,7 +455,8 @@ func pbToStaticGroup(s *tas_pb.StaticGroupInfo) *logical.StaticGroupInfo {
 
 	gis := pbToConsensusGroupInitSummary(s.Gis)
 
-	groupInfo := logical.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, GIS: *gis}
+	beginHeight := *s.BeginHeight
+	groupInfo := logical.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, GIS: *gis, BeginHeight: beginHeight}
 	return &groupInfo
 }
 

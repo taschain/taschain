@@ -249,6 +249,8 @@ message StaticGroupInfo{
     repeated PubKeyInfo  members = 3;
 
     required ConsensusGroupInitSummary Gis  = 4;
+
+    required uint64 BeginHeight  = 5;
 }
 
 message ConsensusGroupInitedMessage{

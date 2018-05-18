@@ -176,7 +176,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 
 //组内广播
 func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
-	fmt.Printf("[groupBroadcast] message:%d,groupid:%x\n",m.Code,groupId.Serialize())
+	fmt.Printf("[groupBroadcast] message:%d,groupid:%x\n", m.Code, groupId.Serialize())
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		logger.Errorf("Get nil group by id:%s\n", groupId.GetString())
@@ -191,7 +191,7 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			return
 		}
 		p2p.Server.SendMessage(m, id.GetString())
-		fmt.Printf("[groupBroadcast]send messsage %d to id %s\n",m.Code,id.GetString())
+		fmt.Printf("[groupBroadcast]send messsage %d to id %s\n", m.Code, id.GetString())
 
 	}
 }
@@ -260,7 +260,7 @@ func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusBlockMessageBase{Bh: bh,  Sign: si}
+	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
 	return proto.Marshal(&message)
 }
 
@@ -318,7 +318,9 @@ func staticGroupInfoToPb(s *StaticGroupInfo) *tas_pb.StaticGroupInfo {
 	}
 	gis := consensusGroupInitSummaryToPb(&s.GIS)
 
-	groupInfo := tas_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis}
+	beginHeight := &s.BeginHeight
+
+	groupInfo := tas_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis, BeginHeight: beginHeight}
 	return &groupInfo
 }
 
