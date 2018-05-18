@@ -310,6 +310,7 @@ func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
 	if idx, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)
 		gg.mapCache[g.GroupID.GetHexString()] = len(gg.groups) - 1
+		fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
 		return true
 	} else {
 		if gg.groups[idx].BeginHeight < g.BeginHeight {

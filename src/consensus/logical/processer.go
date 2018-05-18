@@ -953,7 +953,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 	var ccm ConsensusCurrentMessage
 	sign_hash := sign.GetHash()
 	fmt.Printf("cCG pre_block group sign hash=%v, find next group...\n", GetHashPrefix(sign_hash))
-	next_group, err := p.gg.SelectNextGroup(sign_hash,height) //查找下一个铸块组
+	next_group, err := p.gg.SelectNextGroup(sign_hash,height+1) //查找下一个铸块组
 	if err == nil {
 		fmt.Printf("cCG next cast group=%v.\n", GetIDPrefix(next_group))
 		bc := p.GetBlockContext(next_group.GetHexString())
@@ -1375,7 +1375,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				msg.GI.Members = mems
 				pTop := p.MainChain.QueryTopBlock()
-				if nil == pTop {
+				if 0 == pTop.Height {
 					msg.GI.BeginHeight = 1
 				} else {
 					msg.GI.BeginHeight = pTop.Height + uint64(GROUP_INIT_IDLE_HEIGHT)
