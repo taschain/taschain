@@ -1178,8 +1178,8 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 
 //检查是否轮到自己出块
 func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64, height uint64) {
-	p.castLock.Lock()
-	defer p.castLock.Unlock()
+	//p.castLock.Lock()
+	//defer p.castLock.Unlock()
 	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), king_index, qn, height)
 	if king_index < 0 || qn < 0 {
 		return
