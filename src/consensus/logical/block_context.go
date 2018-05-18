@@ -742,7 +742,7 @@ func (bc *BlockContext) TickerRoutine() bool {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
-		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, uint(bc.CastHeight))
+		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, bc.CastHeight)
 		fmt.Printf("proc(%v) end TickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}

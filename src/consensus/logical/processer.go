@@ -26,23 +26,26 @@ func getBlockTimeWindow(b time.Time) int {
 func getCastTimeWindow(b time.Time) int {
 	diff := time.Since(b).Seconds() //从上个铸块完成到现在的时间（秒）
 	fmt.Printf("getCastTimeWindow, time_begin=%v, diff=%v.\n", b.Format(time.Stamp), diff)
-	if diff >= 0 {
-		return int(diff) / MAX_USER_CAST_TIME
-	} else {
-		return -1
+
+	begin := 0.0
+	cnt := 0
+	for begin < diff {
+		begin += float64(MAX_USER_CAST_TIME)
+		cnt++
 	}
+	return cnt
 }
 
 //自己的出块信息
 type SelfCastInfo struct {
-	block_qns map[uint][]uint //当前节点已经出过的块(高度->出块QN列表)
+	block_qns map[uint64][]uint //当前节点已经出过的块(高度->出块QN列表)
 }
 
 func (sci *SelfCastInfo) Init() {
-	sci.block_qns = make(map[uint][]uint, 0)
+	sci.block_qns = make(map[uint64][]uint, 0)
 }
 
-func (sci *SelfCastInfo) FindQN(height uint, newQN uint) bool {
+func (sci *SelfCastInfo) FindQN(height uint64, newQN uint) bool {
 	qns, ok := sci.block_qns[height]
 	if ok {
 		for _, qn := range qns {
@@ -57,7 +60,7 @@ func (sci *SelfCastInfo) FindQN(height uint, newQN uint) bool {
 }
 
 //如该QN已存在，则返回false
-func (sci *SelfCastInfo) AddQN(height uint, newQN uint) bool {
+func (sci *SelfCastInfo) AddQN(height uint64, newQN uint) bool {
 	qns, ok := sci.block_qns[height]
 	if ok {
 		for _, qn := range qns {
@@ -1161,7 +1164,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 }
 
 //检查是否轮到自己出块
-func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64, height uint) {
+func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64, height uint64) {
 	p.castLock.Lock()
 	defer p.castLock.Unlock()
 	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), king_index, qn, height)
@@ -1174,8 +1177,11 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64
 	fmt.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(king_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
-		if p.sci.AddQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
-			p.castBlock(gid, height, qn) //铸块
+		if p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
+			head := p.castBlock(gid, height, qn) //铸块
+			if head != nil {
+				p.sci.AddQN(height, uint(qn))
+			}
 		} else {
 			fmt.Printf("In height=%v, qn=%v current node already casted.", height, qn)
 		}
@@ -1565,7 +1571,7 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.BlockHeader {
+func (p Processer) castBlock(gid groupsig.ID, height uint64, qn int64) *core.BlockHeader {
 	fmt.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
 	var bh *core.BlockHeader
 	//var hash common.Hash
@@ -1599,7 +1605,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
 	fmt.Printf("castor sign bh result = %v.\n", b)
 
-	if bh.Height > 0 && si.DataSign.IsValid() {
+	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height {
 		var tmp_id groupsig.ID
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
@@ -1621,8 +1627,9 @@ func (p Processer) castBlock(gid groupsig.ID, height uint, qn int64) *core.Block
 			}
 		}
 	} else {
-		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v.\n", bh.Height, GetSignPrefix(si.DataSign))
-		panic("bh Error or sign Error.")
+		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v, real height=%v.\n", height, GetSignPrefix(si.DataSign), bh.Height)
+		//panic("bh Error or sign Error.")
+		return nil
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
 	//更新共识上下文
