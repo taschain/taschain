@@ -558,6 +558,12 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	if gid.Deserialize(ccm.GroupID) != nil {
 		panic("Processer::OMCur failed, reason=group id Deserialize.")
 	}
+
+	//如果是自己发的, 不处理
+	if p.GetMinerID().IsEqual(ccm.SI.SignMember) {
+		fmt.Printf("OMC receive self msg, ingore! \n")
+		return
+	}
 	//
 	//topBH := p.MainChain.QueryTopBlock()
 	//if topBH.Height == ccm.BlockHeight && topBH.PreHash == ccm.PreHash {	//已经在链上了
@@ -612,6 +618,8 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	p.castLock.Lock()
 	locked := true
+
+
 	var g_id groupsig.ID
 	if g_id.Deserialize(ccm.BH.GroupId) != nil {
 		panic("OMC Deserialize group_id failed")
@@ -620,6 +628,13 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	castor.Deserialize(ccm.BH.Castor)
 	fmt.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber, GetIDPrefix(castor))
+
+	//如果是自己发的, 不处理
+	if p.GetMinerID().IsEqual(ccm.SI.SignMember) {
+		fmt.Printf("OMC receive self msg, ingore! \n")
+		p.castLock.Unlock()
+		return
+	}
 
 	fmt.Printf("OMCCCCC message bh %v\n", ccm.BH)
 	fmt.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
@@ -779,6 +794,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v castor=%v...\n", p.getPrefix(),
 		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex(), GetIDPrefix(castor))
 
+	//如果是自己发的, 不处理
+	if p.GetMinerID().IsEqual(cvm.SI.SignMember) {
+		fmt.Printf("OMC receive self msg, ingore! \n")
+		p.castLock.Unlock()
+		return
+	}
+
 	fmt.Printf("OMVVVVVV message bh %v\n", cvm.BH)
 	fmt.Printf("OMVVVVVV message bh hash %v\n", GetHashPrefix(cvm.BH.Hash))
 	fmt.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
@@ -931,9 +953,9 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 	next_group, err := p.gg.SelectNextGroup(sign_hash) //查找下一个铸块组
 	if err == nil {
 		fmt.Printf("cCG next cast group=%v.\n", GetIDPrefix(next_group))
+		bc := p.GetBlockContext(next_group.GetHexString())
 		if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
 			fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n")
-			bc := p.GetBlockContext(next_group.GetHexString())
 			if bc == nil {
 				panic("current proc belong next cast group, but GetBlockContext=nil.")
 			}
@@ -954,6 +976,9 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 			fmt.Printf("cCG: id=%v, sign_sk=%v, data hash=%v.\n", GetIDPrefix(ccm.SI.GetID()), GetSecKeyPrefix(ski.SK), GetHashPrefix(ccm.SI.DataHash))
 		} else {
 			fmt.Printf("current proc not in next group.\n")
+			if bc.IsCasting() {
+				bc.Reset()
+			}
 		}
 	} else {
 		panic("find next cast group failed.")
@@ -971,6 +996,14 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	}
 	fmt.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
 		GetIDPrefix(cbm.GroupID), GetIDPrefix(g_id), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
+
+	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
+		p.castLock.Unlock()
+		fmt.Println("OMB receive self msg, ingored!")
+		return &cbm.Block
+	}
+
+
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
 	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法

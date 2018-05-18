@@ -546,10 +546,8 @@ func (bc *BlockContext) Reset() {
 	fmt.Printf("end BlockContext::Reset.\n")
 }
 
-//组铸块共识初始化
-//bh : 上一块完成高度，tc：上一块完成时间；h：上一块哈希值
-func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
-	fmt.Printf("proc(%v) begin BlockContext::BeginConsensus...\n", tc.Format(time.Stamp))
+func (bc *BlockContext) castRebase(bh uint64, tc time.Time, h common.Hash) {
+	fmt.Printf("proc(%v) begin castRebase...\n", tc.Format(time.Stamp))
 	bc.PreTime = tc //上一块的铸块成功时间
 	bc.ConsensusStatus = CBCS_CURRENT
 	bc.SignedMinQN = INVALID_QN //等待第一个有效铸块
@@ -561,6 +559,14 @@ func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 		sc.Reset()
 		bc.Slots[i] = sc
 	}
+	return
+}
+
+//组铸块共识初始化
+//bh : 上一块完成高度，tc：上一块完成时间；h：上一块哈希值
+func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
+	fmt.Printf("proc(%v) begin BlockContext::BeginConsensus...\n", tc.Format(time.Stamp))
+	bc.castRebase(bh, tc, h)
 	go bc.StartTimer() //启动定时器
 	fmt.Printf("end BlockContext::BeginConsensus, Timer STARTED.\n")
 	return
@@ -580,14 +586,24 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) b
 	if (bh < max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
 		//不在合法的铸块高度内
 		fmt.Printf("height failed, max_height=%v, bh=%v.\n", max_height, bh)
-		panic("BlockContext::BeingCastGroup height failed.")
+		//panic("BlockContext::BeingCastGroup height failed.")
 		return false
 	}
 
 	fmt.Printf("BeginCastGroup: bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
 	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
-	if bc.IsCasting() && bc.CastHeight == (bh+1) && bc.PreTime.Equal(tc) && bc.PrevHash == h {
-
+	if bc.IsCasting() {
+		if bc.CastHeight <= bh {	//在铸老的块
+			bc.castRebase(bh, tc, h)
+		} else if bc.CastHeight == bh+1 {	//在铸期望的块
+			if !bc.PreTime.Equal(tc) || bc.PrevHash != h {//但是前一块有变化
+				//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
+				fmt.Println("block_context chain adjust found! re consensus!")
+				bc.castRebase(bh, tc, h)
+			}
+		} else {	//铸未来的块
+			bc.castRebase(bh, tc, h)
+		}
 	} else {
 		bc.beginConsensus(bh, tc, h)
 	}
