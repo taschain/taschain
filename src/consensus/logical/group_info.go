@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
 )
 
 type STATIC_GROUP_STATUS int
@@ -26,6 +27,7 @@ type StaticGroupInfo struct {
 	Members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
 	MapCache map[string]int            //用ID查找成员信息(成员ID->members中的索引)
 	GIS      ConsensusGroupInitSummary //组的初始化凭证
+	BeginHeight uint64             	   //组开始参与铸块的高度
 }
 
 //取得某个矿工在组内的排位
@@ -61,6 +63,7 @@ func (sgi StaticGroupInfo) GenHash() common.Hash {
 	//mapCache不进哈希
 	gis_hash := sgi.GIS.GenHash()
 	str += gis_hash.Str()
+	str += strconv.FormatUint(sgi.BeginHeight,16)
 	all_hash := rand.Data2CommonHash([]byte(str))
 	return all_hash
 }
@@ -304,12 +307,18 @@ func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
 		}
 	}
 	fmt.Printf("begin GlobalGroups::AddGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MapCache))
-	if _, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
+	if idx, ok := gg.mapCache[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)
 		gg.mapCache[g.GroupID.GetHexString()] = len(gg.groups) - 1
 		return true
 	} else {
-		fmt.Printf("already exist this group, ignored.\n")
+		if gg.groups[idx].BeginHeight < g.BeginHeight {
+			gg.groups[idx].BeginHeight = g.BeginHeight
+			fmt.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
+		} else {
+			fmt.Printf("already exist this group, ignored.\n")
+		}
+
 	}
 	return false
 }
@@ -390,12 +399,18 @@ func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err
 }
 
 //根据上一块哈希值，确定下一块由哪个组铸块
-func (gg GlobalGroups) SelectNextGroup(h common.Hash) (groupsig.ID, error) {
+func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
 	var ga groupsig.ID
 	value := h.Big()
-	if value.BitLen() > 0 && len(gg.groups) > 0 {
-		index := value.Mod(value, big.NewInt(int64(len(gg.groups))))
-		ga = gg.groups[index.Uint64()].GroupID
+	var vgroups []int = make([]int,0)
+	for i := 0; i<gg.GetGroupSize(); i++ {
+		if gg.groups[i].BeginHeight <= height {
+			vgroups = append(vgroups, i)
+		}
+	}
+	if value.BitLen() > 0 && len(vgroups) > 0 {
+		index := value.Mod(value, big.NewInt(int64(len(vgroups))))
+		ga = gg.groups[vgroups[index.Uint64()]].GroupID
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("SelectNextGroup failed, arg error.")
@@ -404,8 +419,8 @@ func (gg GlobalGroups) SelectNextGroup(h common.Hash) (groupsig.ID, error) {
 
 //取得当前铸块组信息
 //pre_hash : 上一个铸块哈希
-func (gg GlobalGroups) GetCastGroup(pre_h common.Hash) (g StaticGroupInfo) {
-	gid, e := gg.SelectNextGroup(pre_h)
+func (gg GlobalGroups) GetCastGroup(pre_h common.Hash,height uint64) (g StaticGroupInfo) {
+	gid, e := gg.SelectNextGroup(pre_h, height)
 	if e == nil {
 		g, e = gg.GetGroupByID(gid)
 	}
@@ -414,8 +429,8 @@ func (gg GlobalGroups) GetCastGroup(pre_h common.Hash) (g StaticGroupInfo) {
 
 //判断pub_key是否为合法铸块组的公钥
 //h：上一个铸块的哈希
-func (gg GlobalGroups) IsCastGroup(pre_h common.Hash, pub_key groupsig.Pubkey) (result bool) {
-	g := gg.GetCastGroup(pre_h)
+func (gg GlobalGroups) IsCastGroup(pre_h common.Hash, pub_key groupsig.Pubkey, height uint64) (result bool) {
+	g := gg.GetCastGroup(pre_h, height)
 	result = g.GroupPK == pub_key
 	return
 }

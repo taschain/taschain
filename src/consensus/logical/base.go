@@ -44,6 +44,7 @@ const CONSENSUS_VERSION = 1                 //共识版本号
 var SSSS_THRESHOLD int = 51                 //1-100
 var GROUP_MAX_MEMBERS int = 5               //一个组最大的成员数量
 const GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
+const GROUP_INIT_IDLE_HEIGHT = 10           //组初始化完成后，到开始参与铸块时，需等待的时间（以块高为单位）
 const MAX_UNKNOWN_BLOCKS = 5                //内存保存最大不能上链的未来块（中间块没有收到）
 const MAX_SYNC_CASTORS = 3                  //最多同时支持几个铸块验证
 const INVALID_QN = -1                       //无效的队列序号
