@@ -383,8 +383,7 @@
                 {field:'cur_time', title: 'cur_time'},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
             ,data: blocks
             ,page: true
-            ,limit:30
-            ,height:600
+            ,limit:15
         });
 
 
@@ -397,6 +396,11 @@
                 HOST = value;
                 host_ele.text(HOST);
                 layer.close(index);
+                current_block_height = 0;
+                blocks = [];
+                block_table.reload({
+                    data: blocks
+                });
             });
         });
 
@@ -712,6 +716,13 @@
                         online = true;
                         $("#online_flag").addClass("layui-bg-green")
                     }
+                    if (current_block_height > rdata.result.data) {
+                        current_block_height = 0;
+                        blocks = [];
+                        block_table.reload({
+                            data: blocks
+                        });
+                    }
                     for(let i=current_block_height+1; i<=rdata.result.data; i++) {
                         syncBlock(i);
                     }
@@ -753,6 +764,7 @@
             });
         }
 
+        // 同步块信息
         function syncBlock(height) {
             let params = {
                 "method": "GTAS_getBlock",
