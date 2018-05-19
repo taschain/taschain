@@ -8,7 +8,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"pb"
 	"core"
-	"time"
 	"fmt"
 )
 
@@ -103,7 +102,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 //      SignData
 
 func SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 	body, e := marshalConsensusCurrentMessagee(ccm)
 	if e != nil {
 		logger.Errorf("Discard send ConsensusCurrentMessage because of marshal error::%s", e.Error())

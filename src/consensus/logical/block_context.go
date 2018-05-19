@@ -341,7 +341,8 @@ func (bc *BlockContext) SignedUpdateMinQN(qn uint) bool {
 
 //完成某个铸块槽的铸块（上链，组外广播）后，更新组的当前高度铸块状态
 func (bc *BlockContext) CastedUpdateStatus(qn uint) bool {
-	if bc.ConsensusStatus == CBCS_CASTING || bc.ConsensusStatus == CBCS_BLOCKED || bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED {
+	fmt.Printf("CastedUpdateStatus before status=%v, qn=%v\n", bc.ConsensusStatus, qn)
+	if bc.ConsensusStatus == CBCS_CASTING || bc.ConsensusStatus == CBCS_BLOCKED || bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED  || bc.ConsensusStatus == CBCS_CURRENT {
 		if bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED { //已经铸出过QN=1的块
 			return false //该高度不用再铸块了
 		} else {
@@ -591,7 +592,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) (
 	}
 
 	broadcast = true
-	fmt.Printf("BeginCastGroup: bc.IsCasting=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v", bc.IsCasting(), bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
+	fmt.Printf("BeginCastGroup: bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v\n", bc.IsCasting(), bc.ConsensusStatus, bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
 	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
 	if bc.IsCasting() {
 		if bc.CastHeight <= bh {	//在铸老的块
@@ -725,6 +726,10 @@ func (bc *BlockContext) StartTimer() {
 //定时器例行处理
 //如果返回false, 则关闭定时器
 func (bc *BlockContext) TickerRoutine() bool {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("TickerRoutine begin at %v, cost %v", begin.String(), time.Since(begin).String())
+	}()
 	//此处有并发问题
 	//todo 后续使用blockcontext自己的锁
 	bc.Proc.castLock.Lock()
@@ -750,7 +755,7 @@ func (bc *BlockContext) TickerRoutine() bool {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.CalcCastor() //当前铸块人（KING）和QN值
-		bc.Proc.CheckCastRoutine(bc.MinerID.gid, index, qn, bc.CastHeight)
+		bc.Proc.CheckCastRoutine(bc, index, qn)
 		fmt.Printf("proc(%v) end TickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}

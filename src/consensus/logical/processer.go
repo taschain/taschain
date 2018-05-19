@@ -532,7 +532,10 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 			if bc == nil {
 				panic("ERROR, BlockContext = nil.")
 			} else {
-				if !bc.IsCasting() { //之前没有在铸块状态
+				if bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED && bc.CastHeight == cgs.BlockHeight { //最小块已经出了
+					fmt.Printf("beingCastGroup min qn block finished... height=%v\n", bc.CastHeight)
+
+				} else if !bc.IsCasting() { //之前没有在铸块状态
 					b, _ := bc.BeingCastGroup(cgs.BlockHeight, cgs.PreTime, cgs.PreHash) //设置当前铸块高度
 					first = true
 					fmt.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", b, bc.ConsensusStatus)
@@ -552,11 +555,12 @@ func (p *Processer) beingCastGroup(cgs CastGroupSummary, si SignData) (bc *Block
 
 //收到成为当前铸块组消息
 func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
+	beginTime := time.Now()
 	p.castLock.Lock()
 	defer p.castLock.Unlock()
 
 	fmt.Printf("proc(%v) begin OMCur, sender=%v, time=%v, height=%v...\n", p.getPrefix(),
-		GetIDPrefix(ccm.SI.GetID()), time.Now().Format(time.Stamp), ccm.BlockHeight)
+		GetIDPrefix(ccm.SI.GetID()), beginTime.Format(time.Stamp), ccm.BlockHeight)
 	var gid groupsig.ID
 	if gid.Deserialize(ccm.GroupID) != nil {
 		panic("Processer::OMCur failed, reason=group id Deserialize.")
@@ -612,13 +616,17 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 		//	}
 		//}
 	}
-	fmt.Printf("proc(%v) end OMCur, time=%v.\n", p.getPrefix(), time.Now().Format(time.Stamp))
+	fmt.Printf("proc(%v) end OMCur, time=%v. cost=%v\n", p.getPrefix(), time.Now().Format(time.Stamp), time.Since(beginTime).String())
 	return
 }
 
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("OMC begin at %v, cost %v", begin.String(), time.Since(begin).String())
+	}()
 	p.castLock.Lock()
 	locked := true
 
@@ -641,6 +649,13 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 	fmt.Printf("OMCCCCC message bh %v\n", ccm.BH)
 	fmt.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
+
+	exist := p.MainChain.QueryBlockByHeight(ccm.BH.Height)
+	if exist != nil && exist.Hash == ccm.BH.Hash && exist.PreHash == ccm.BH.PreHash {	//已经上链
+		fmt.Printf("OMC receive block already onchain! , height = %v\n", exist.Height)
+		p.castLock.Unlock()
+		return
+	}
 
 	pre := p.MainChain.QueryBlockByHeight(ccm.BH.Height - 1)
 	if pre != nil && pre.Hash != ccm.BH.PreHash {
@@ -762,7 +777,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 			}
 			if !PROC_TEST_MODE {
 				fmt.Printf("call network service SendVerifiedCast...\n")
-				SendVerifiedCast(&cvm)
+				go SendVerifiedCast(&cvm)
 			} else {
 				fmt.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 				for _, v := range p.GroupProcs {
@@ -793,6 +808,11 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("OMV begin at %v, cost %v", begin.String(), time.Since(begin).String())
+	}()
+
 	p.castLock.Lock()
 	locked := true
 	var g_id groupsig.ID
@@ -814,6 +834,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	fmt.Printf("OMVVVVVV message bh %v\n", cvm.BH)
 	fmt.Printf("OMVVVVVV message bh hash %v\n", GetHashPrefix(cvm.BH.Hash))
 	fmt.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
+
+	exist := p.MainChain.QueryBlockByHeight(cvm.BH.Height)
+	if exist != nil && exist.Hash == cvm.BH.Hash && exist.PreHash == cvm.BH.PreHash {	//已经上链
+		fmt.Printf("OMC receive block already onchain! , height = %v\n", exist.Height)
+		p.castLock.Unlock()
+		return
+	}
 
 	pre := p.MainChain.QueryBlockByHeight(cvm.BH.Height - 1)
 	if pre != nil && pre.Hash != cvm.BH.PreHash {
@@ -932,7 +959,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 			}
 			if !PROC_TEST_MODE {
 				fmt.Printf("call network service SendVerifiedCast...\n")
-				SendVerifiedCast(&send_message)
+				go SendVerifiedCast(&send_message)
 			} else {
 				fmt.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 				for _, v := range p.GroupProcs {
@@ -992,9 +1019,14 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 			fmt.Printf("cCG: id=%v, sign_sk=%v, data hash=%v.\n", GetIDPrefix(ccm.SI.GetID()), GetSecKeyPrefix(ski.SK), GetHashPrefix(ccm.SI.DataHash))
 		} else {
 			fmt.Printf("current proc not in next group.\n")
-			if bc.IsCasting() {
-				bc.Reset()
-			}
+			////自身所属的组如果在铸块, 则需要停止
+			//if p.IsMinerGroup(groupId) {
+			//	selfBc := p.GetBlockContext(groupId.GetHexString())
+			//	fmt.Printf("self bc status: consensus=%v, castHeight=%v, preHash=%v, onchainresult=%v", selfBc.ConsensusStatus, selfBc.CastHeight, selfBc.PrevHash, onchainResult)
+			//	if selfBc.IsCasting() && selfBc.CastHeight == height+1 && (onchainResult == 0 || onchainResult == 1) {
+			//		bc.Reset()
+			//	}
+			//}
 		}
 	} else {
 		panic("find next cast group failed.")
@@ -1004,6 +1036,11 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("OMB begin at %v, cost %v", begin.String(), time.Since(begin).String())
+	}()
+
 	p.castLock.Lock()
 	locked := true
 	var g_id groupsig.ID
@@ -1026,9 +1063,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 
 		//上链
 		//onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
-		onchain, future := p.AddOnChain(&cbm.Block)
-		fmt.Printf("OMB onchain result %v, %v\n", onchain, future)
-
+		result, future := p.AddOnChain(&cbm.Block)
+		fmt.Printf("OMB onchain result %v, %v\n", result, future)
 
 	} else {
 		//丢弃该块
@@ -1054,7 +1090,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if broadcast {
 		fmt.Printf("OMB current proc being casting group...\n")
 		fmt.Printf("OMB call network service SendCurrentGroupCast...\n")
-		SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+		go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 	}
 	block = &cbm.Block //返回成功的块
 
@@ -1133,6 +1169,11 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("SuccessNewBlock begin at %v, cost %v", begin.String(), time.Since(begin).String())
+	}()
+
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
 	}
@@ -1170,16 +1211,19 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	cbm.GenSign(ski)
 	if !PROC_TEST_MODE {
 		fmt.Printf("call network service BroadcastNewBlock...\n")
-		BroadcastNewBlock(&cbm)
+		go BroadcastNewBlock(&cbm)
 	}
 	fmt.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
 
 //检查是否轮到自己出块
-func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64, height uint64) {
+func (p *Processer) CheckCastRoutine(bc *BlockContext, king_index int32, qn int64) {
 	//p.castLock.Lock()
 	//defer p.castLock.Unlock()
+	gid := bc.MinerID.gid
+	height := bc.CastHeight
+
 	fmt.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), king_index, qn, height)
 	if king_index < 0 || qn < 0 {
 		return
@@ -1191,7 +1235,7 @@ func (p *Processer) CheckCastRoutine(gid groupsig.ID, king_index int32, qn int64
 	if sgi.GetCastor(int(king_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		fmt.Printf("curent node IS KING!\n")
 		if !p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
-			head := p.castBlock(gid, height, qn) //铸块
+			head := p.castBlock(bc, qn) //铸块
 			if head != nil {
 				p.sci.AddQN(height, uint(qn))
 			}
@@ -1590,13 +1634,17 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(gid groupsig.ID, height uint64, qn int64) *core.BlockHeader {
+func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
+	height := bc.CastHeight
+
 	fmt.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
 	var bh *core.BlockHeader
 	//var hash common.Hash
 	//hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : change nonce
 	nonce := time.Now().Unix()
+	gid := bc.MinerID.gid
+
 	//调用鸠兹的铸块处理
 	if !PROC_TEST_MODE {
 		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
@@ -1624,7 +1672,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint64, qn int64) *core.Blo
 	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
 	fmt.Printf("castor sign bh result = %v.\n", b)
 
-	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height {
+	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == bc.PrevHash {
 		var tmp_id groupsig.ID
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
@@ -1646,7 +1694,7 @@ func (p Processer) castBlock(gid groupsig.ID, height uint64, qn int64) *core.Blo
 			}
 		}
 	} else {
-		fmt.Printf("bh Error or sign Error, bh=%v, ds=%v, real height=%v.\n", height, GetSignPrefix(si.DataSign), bh.Height)
+		fmt.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, bc.PrevHash, bh.PreHash)
 		//panic("bh Error or sign Error.")
 		return nil
 	}
