@@ -1240,7 +1240,7 @@ func (p *Processer) CheckCastRoutine(bc *BlockContext, king_index int32, qn int6
 				p.sci.AddQN(height, uint(qn))
 			}
 		} else {
-			fmt.Printf("In height=%v, qn=%v current node already casted.", height, qn)
+			fmt.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
 		}
 	}
 	return
