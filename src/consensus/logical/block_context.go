@@ -277,6 +277,7 @@ type BlockContext struct {
 	Version         uint
 	PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
 	CCTimer         time.Ticker                 //共识定时器
+	TickerRunning	bool
 	SignedMinQN     int64                       //组内已铸出的最小QN值的块
 	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 	PrevHash        common.Hash                 //上一块哈希值
@@ -533,6 +534,7 @@ func (bc *BlockContext) Reset() {
 	bc.Version = CONSENSUS_VERSION
 	bc.PreTime = *new(time.Time)
 	bc.CCTimer.Stop() //关闭定时器
+	bc.TickerRunning = false
 	bc.ConsensusStatus = CBCS_IDLE
 	bc.SignedMinQN = INVALID_QN
 	bc.PrevHash = *new(common.Hash)
@@ -561,6 +563,9 @@ func (bc *BlockContext) castRebase(bh uint64, tc time.Time, h common.Hash) {
 		sc.Reset()
 		bc.Slots[i] = sc
 	}
+	if !bc.TickerRunning {
+		go bc.StartTimer() //启动定时器
+	}
 	return
 }
 
@@ -569,7 +574,6 @@ func (bc *BlockContext) castRebase(bh uint64, tc time.Time, h common.Hash) {
 func (bc *BlockContext) beginConsensus(bh uint64, tc time.Time, h common.Hash) {
 	log.Printf("proc(%v) begin BlockContext::BeginConsensus...\n", tc.Format(time.Stamp))
 	bc.castRebase(bh, tc, h)
-	go bc.StartTimer() //启动定时器
 	log.Printf("end BlockContext::BeginConsensus, Timer STARTED.\n")
 	return
 }
@@ -706,6 +710,10 @@ func (bc *BlockContext) getFirstCastor() int32 {
 func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
 	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
+	bc.TickerRunning = true
+	defer func() {
+		bc.TickerRunning = false
+	}()
 
 	var count int
 	log.Printf("StartTimer Now=%v.\n", time.Now().Format(time.Stamp))
