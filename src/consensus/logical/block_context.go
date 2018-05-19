@@ -595,7 +595,7 @@ func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) (
 	broadcast = true
 	log.Printf("BeginCastGroup: bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v\n", bc.IsCasting(), bc.ConsensusStatus, bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
 	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
-	if bc.IsCasting() {
+	if bc.IsCasting() || bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED {
 		if bc.CastHeight <= bh {	//在铸老的块
 			bc.castRebase(bh, tc, h)
 		} else if bc.CastHeight == bh+1 {	//在铸期望的块
