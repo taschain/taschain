@@ -68,10 +68,9 @@ const (
 	GROUP_MSG uint32 = 0x13
 )
 
-var ProtocolTAS protocol.ID ="/tas/1.0.0"
+var ProtocolTAS protocol.ID = "/tas/1.0.0"
 
 var ContextTimeOut = time.Minute * 5
-
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
 
@@ -87,7 +86,7 @@ type server struct {
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
-	host.SetStreamHandler(ProtocolTAS,swarmStreamHandler)
+	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
 
 	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
 }
@@ -110,16 +109,17 @@ func (s *server) SendMessage(m Message, id string) {
 	copy(b[3:7], b2)
 	copy(b[7:], bytes)
 
+	logger.Debugf("send to id:%s,code:%d", id, m.Code)
 	s.send(b, id)
 }
 
 func (s *server) send(b []byte, id string) {
 	if id == s.SelfNetInfo.Id {
-		go s.sendSelf(b,id)
+		go s.sendSelf(b, id)
 		return
 	}
 	ctx := context.Background()
-	context.WithTimeout(ctx,ContextTimeOut)
+	context.WithTimeout(ctx, ContextTimeOut)
 	peerInfo, error := s.Dht.FindPeer(ctx, ConvertToPeerID(id))
 	if error != nil || string(peerInfo.ID) == "" {
 		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
@@ -128,10 +128,10 @@ func (s *server) send(b []byte, id string) {
 	}
 
 	c, cancel := context.WithCancel(context.Background())
-	context.WithTimeout(c,ContextTimeOut)
+	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	stream, e := s.Host.NewStream(c, ConvertToPeerID(id),ProtocolTAS)
+	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
 		return
@@ -173,9 +173,9 @@ func (s *server) send(b []byte, id string) {
 	}
 }
 
-func (s *server)sendSelf(b []byte,id string){
-	pkgBodyBytes:= b[7:]
-	s.handleMessage(pkgBodyBytes,id)
+func (s *server) sendSelf(b []byte, id string) {
+	pkgBodyBytes := b[7:]
+	s.handleMessage(pkgBodyBytes, id)
 }
 
 //TODO 考虑读写超时
@@ -243,13 +243,13 @@ func swarmStreamHandler(stream inet.Stream) {
 	go Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
 
-
 func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("Proto unmarshal error:%s", error.Error())
 	}
+	logger.Debugf("receive from id:%s,code:%d", from, message.Code)
 
 	code := message.Code
 	switch *code {
