@@ -8,10 +8,12 @@ import (
 	"log"
 	"strings"
 	"core"
+	"sync"
 )
 
 // Wallets 钱包
 type wallets []wallet
+var mutex sync.Mutex
 
 //
 func (ws *wallets) transaction(source, target string, value uint64, code string) error {
@@ -47,6 +49,8 @@ func (ws *wallets) store() {
 }
 
 func (ws *wallets) deleteWallet(key string) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	for i, v := range *ws {
 		if v.Address == key || v.PrivateKey == key {
 			*ws = append((*ws)[:i], (*ws)[i+1:]...)
@@ -58,6 +62,8 @@ func (ws *wallets) deleteWallet(key string) {
 
 // newWallet 新建钱包并存储到config文件中
 func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	priv := common.GenerateKey("")
 	pub := priv.GetPubKey()
 	address := pub.GetAddress()
