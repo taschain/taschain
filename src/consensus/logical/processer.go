@@ -625,7 +625,7 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	begin := time.Now()
 	defer func() {
-		fmt.Printf("OMC begin at %v, cost %v", begin.String(), time.Since(begin).String())
+		fmt.Printf("OMC begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 	p.castLock.Lock()
 	locked := true
@@ -810,7 +810,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	begin := time.Now()
 	defer func() {
-		fmt.Printf("OMV begin at %v, cost %v", begin.String(), time.Since(begin).String())
+		fmt.Printf("OMV begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 
 	p.castLock.Lock()
@@ -996,7 +996,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 	fmt.Printf("cCG pre_block group sign hash=%v, find next group...\n", GetHashPrefix(sign_hash))
 	next_group, err := p.gg.SelectNextGroup(sign_hash,height+1) //查找下一个铸块组
 	if err == nil {
-		fmt.Printf("cCG next cast group=%v.\n", GetIDPrefix(next_group))
+		fmt.Printf("cCG next cast group=%v. castheight=%v\n", GetIDPrefix(next_group), height+1)
 		bc := p.GetBlockContext(next_group.GetHexString())
 		if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
 			fmt.Printf("IMPORTANT : OMB local miner belong next cast group!.\n")
@@ -1038,7 +1038,7 @@ func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signatu
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	begin := time.Now()
 	defer func() {
-		fmt.Printf("OMB begin at %v, cost %v", begin.String(), time.Since(begin).String())
+		fmt.Printf("OMB begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 
 	p.castLock.Lock()
@@ -1171,7 +1171,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	begin := time.Now()
 	defer func() {
-		fmt.Printf("SuccessNewBlock begin at %v, cost %v", begin.String(), time.Since(begin).String())
+		fmt.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 
 	if bh == nil {

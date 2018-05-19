@@ -705,6 +705,7 @@ func (bc *BlockContext) getFirstCastor() int32 {
 func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
 	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
+
 	var count int
 	fmt.Printf("StartTimer Now=%v.\n", time.Now().Format(time.Stamp))
 	bc.TickerRoutine() //先启动一次
