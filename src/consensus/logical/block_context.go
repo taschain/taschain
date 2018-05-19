@@ -729,7 +729,7 @@ func (bc *BlockContext) StartTimer() {
 func (bc *BlockContext) TickerRoutine() bool {
 	begin := time.Now()
 	defer func() {
-		fmt.Printf("TickerRoutine begin at %v, cost %v", begin.String(), time.Since(begin).String())
+		fmt.Printf("TickerRoutine begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 	//此处有并发问题
 	//todo 后续使用blockcontext自己的锁
