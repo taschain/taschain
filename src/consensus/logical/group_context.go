@@ -3,7 +3,7 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
-	"fmt"
+	"log"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -43,10 +43,10 @@ func (ngc NewGroupChained) getSize() int {
 
 //找出收到最多的相同值
 func (ngc *NewGroupChained) Convergence() bool {
-	fmt.Printf("begin Convergence, K=%v, mems=%v.\n", GetGroupK(), len(ngc.mems))
+	log.Printf("begin Convergence, K=%v, mems=%v.\n", GetGroupK(), len(ngc.mems))
 	/*
 		if ngc.gpk.IsValid() {
-			fmt.Printf("gpk already valid, =%v.\n", ngc.gpk.GetHexString())
+			log.Printf("gpk already valid, =%v.\n", ngc.gpk.GetHexString())
 			return true
 		}
 	*/
@@ -68,9 +68,9 @@ func (ngc *NewGroupChained) Convergence() bool {
 		}
 	}
 	/*
-		fmt.Printf("CountMap size=%v.\n", len(countMap))
+		log.Printf("CountMap size=%v.\n", len(countMap))
 		for k, v := range countMap {
-			fmt.Printf("---countMap info : count=%v, gpk=%v.\n", v.count, k)
+			log.Printf("---countMap info : count=%v, gpk=%v.\n", v.count, k)
 		}
 	*/
 	//查找最多的元素
@@ -83,18 +83,18 @@ func (ngc *NewGroupChained) Convergence() bool {
 		}
 	}
 	if count >= GetGroupK() {
-		fmt.Printf("found max count gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
+		log.Printf("found max count gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
 		ngc.gpk = gpk
 		return true
 	}
-	fmt.Printf("found max count gpk failed, max_gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
+	log.Printf("found max count gpk failed, max_gpk=%v, count=%v.\n", GetPubKeyPrefix(gpk), count)
 	return false
 }
 
 //检查和更新组初始化状态
 //to do : 失败处理可以更精细化
 func (ngc *NewGroupChained) UpdateStatus() int {
-	fmt.Printf("begin UpdateStatus, cur_status=%v.\n", ngc.status)
+	log.Printf("begin UpdateStatus, cur_status=%v.\n", ngc.status)
 	if ngc.status == -1 || ngc.status == 1 {
 		return ngc.status
 	}
@@ -127,10 +127,10 @@ func (ngg *NewGroupGenerator) Init(gg *GlobalGroups) {
 func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
 	dummy_id := ngc.sgi.GIS.DummyID
 	if _, ok := ngg.groups[dummy_id.GetHexString()]; !ok {
-		fmt.Printf("add initing group %p ok, dummy_id=%v.\n", &ngc, GetIDPrefix(dummy_id))
+		log.Printf("add initing group %p ok, dummy_id=%v.\n", &ngc, GetIDPrefix(dummy_id))
 		ngg.groups[dummy_id.GetHexString()] = &ngc
 	} else {
-		fmt.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummy_id))
+		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummy_id))
 	}
 	return
 }
@@ -141,16 +141,16 @@ func (ngg *NewGroupGenerator) addInitingGroup(ngc NewGroupChained) {
 //ngmd：组的初始化共识结果
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
 func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberData) int {
-	fmt.Printf("ngg ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id.gid))
+	log.Printf("ngg ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id.gid))
 	ngc, ge := ngg.groups[id.gid.GetHexString()]
-	fmt.Printf("ReceiveData, ngg initing group count=%v.\n", len(ngg.groups))
+	log.Printf("ReceiveData, ngg initing group count=%v.\n", len(ngg.groups))
 	if !ge { //不存在该组
 		sgi, err := ngg.globalInfo.GetGroupByDummyID(id.gid) //在全局组对象中查找
 		if err != nil {
-			fmt.Printf("ReceiveData failed, not found initing group.\n")
+			log.Printf("ReceiveData failed, not found initing group.\n")
 			return -1
 		} else {
-			fmt.Printf("found new init group %v in gg and add it to ngg.\n", GetIDPrefix(id.gid))
+			log.Printf("found new init group %v in gg and add it to ngg.\n", GetIDPrefix(id.gid))
 			ngg.addInitingGroup(CreateInitingGroup(sgi))
 			ngc, ge = ngg.groups[id.gid.GetHexString()]
 			if !ge {
@@ -158,41 +158,41 @@ func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberDa
 			}
 		}
 	}
-	fmt.Printf("already exist %v mem's data, status=%v.\n ", ngc.getSize(), ngc.status)
+	log.Printf("already exist %v mem's data, status=%v.\n ", ngc.getSize(), ngc.status)
 	if ngc.sgi.GIS.IsExpired() { //该组初始化共识已超时
-		fmt.Printf("ReceiveData failed, group initing timeout.\n")
+		log.Printf("ReceiveData failed, group initing timeout.\n")
 		return -1
 	}
 	if !ngc.sgi.MemExist(id.uid) { //消息发送方不属于待初始化的组
-		fmt.Printf("ReceiveData failed, msg sender not in group.\n")
+		log.Printf("ReceiveData failed, msg sender not in group.\n")
 		return -1
 	}
 	_, ue := ngc.mems[id.uid.GetHexString()]
 	if ue { //已收到过该用户的数据
-		fmt.Printf("ReceiveData failed, receive same node data, ignore it, existed size=%v. mems=%p.\n", len(ngc.mems), &ngc.mems)
+		log.Printf("ReceiveData failed, receive same node data, ignore it, existed size=%v. mems=%p.\n", len(ngc.mems), &ngc.mems)
 		for m, _ := range ngc.mems {
-			fmt.Printf("---exist member %v.\n", m)
+			log.Printf("---exist member %v.\n", m)
 		}
 		return 0
 	}
 	if ngmd.h != ngc.sgi.GIS.GenHash() { //共识数据异常
-		fmt.Printf("ReceiveData failed, parent data hash diff.\n")
+		log.Printf("ReceiveData failed, parent data hash diff.\n")
 		return -1
 	}
 	ngc.mems[id.uid.GetHexString()] = ngmd //数据接收
-	fmt.Printf("ReceiveData OK, sender size=%v, status=%v.\n", len(ngc.mems), ngc.status)
+	log.Printf("ReceiveData OK, sender size=%v, status=%v.\n", len(ngc.mems), ngc.status)
 	if len(ngc.mems) >= GetGroupK() {
 		check_result := ngc.UpdateStatus()
-		fmt.Printf("Check gourp inited result=%v, status=%v.\n", check_result, ngc.status)
+		log.Printf("Check gourp inited result=%v, status=%v.\n", check_result, ngc.status)
 		if check_result == 1 {
 			new_gpk := ngc.gpk
-			fmt.Printf("SUCCESS ACCEPT A NEW GROUP!!! group pub key=%v.\n", GetPubKeyPrefix(new_gpk))
+			log.Printf("SUCCESS ACCEPT A NEW GROUP!!! group pub key=%v.\n", GetPubKeyPrefix(new_gpk))
 		}
 		return 1
 	} else {
 		return 0
 	}
-	fmt.Printf("ReceiveData failed, because common error.\n")
+	log.Printf("ReceiveData failed, because common error.\n")
 	return -1
 }
 
@@ -254,7 +254,7 @@ func (gc *GroupContext) UpdateMesageFromParent(grm ConsensusGroupRawMessage) {
 		gc.gis = grm.GI
 		gc.is = GIS_RAW
 	} else {
-		fmt.Printf("GroupContext::UpdateMesageFromParent failed, status=%v.\n", gc.is)
+		log.Printf("GroupContext::UpdateMesageFromParent failed, status=%v.\n", gc.is)
 	}
 	return
 }
@@ -271,12 +271,12 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
 	if len(grm.MEMS) != GROUP_MAX_MEMBERS {
-		fmt.Printf("group member size failed=%v.\n", len(grm.MEMS))
+		log.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
 	}
 	for k, v := range grm.MEMS {
 		if !v.GetID().IsValid() {
-			fmt.Printf("i=%v, ID failed=%v.\n", k, v.GetID().GetHexString())
+			log.Printf("i=%v, ID failed=%v.\n", k, v.GetID().GetHexString())
 			return nil
 		}
 	}
@@ -335,7 +335,7 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 		}
 		gc.is = GIS_SHARED
 	} else {
-		fmt.Printf("GenSharePieces failed, mems=%v, status=%v.\n", len(gc.mems), gc.is)
+		log.Printf("GenSharePieces failed, mems=%v, status=%v.\n", len(gc.mems), gc.is)
 	}
 	return shares
 }
@@ -357,14 +357,14 @@ func (jgs *JoiningGroups) Init() {
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
 	if v, ok := jgs.groups[grm.GI.DummyID.GetHexString()]; ok {
 		gs := v.GetGroupStatus()
-		fmt.Printf("found initing group info BY RAW, status=%v...\n", gs)
+		log.Printf("found initing group info BY RAW, status=%v...\n", gs)
 		if gs == GIS_PIECE {
 			v.UpdateMesageFromParent(grm)
-			fmt.Printf("after UpdateParentMessage, status=%v.\n", v.GetGroupStatus())
+			log.Printf("after UpdateParentMessage, status=%v.\n", v.GetGroupStatus())
 		}
 		return v
 	} else {
-		fmt.Printf("create new initing group info by RAW...\n")
+		log.Printf("create new initing group info by RAW...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
 			jgs.groups[grm.GI.DummyID.GetHexString()] = v
@@ -375,10 +375,10 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi M
 
 func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
 	if v, ok := jgs.groups[spm.DummyID.GetHexString()]; ok {
-		fmt.Printf("found initing group info by SP...\n")
+		log.Printf("found initing group info by SP...\n")
 		return v
 	} else {
-		fmt.Printf("create new initing group info by SP...\n")
+		log.Printf("create new initing group info by SP...\n")
 		v = CreateGroupContextWithPieceMessage(spm, mi)
 		if v != nil {
 			jgs.groups[spm.DummyID.GetHexString()] = v
