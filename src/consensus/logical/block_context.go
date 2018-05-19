@@ -738,8 +738,12 @@ func (bc *BlockContext) TickerRoutine() bool {
 	defer bc.Proc.castLock.Unlock()
 
 	log.Printf("proc(%v) begin TickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
+
 	//如果出了最小块就停掉, 则会导致出块速度极快!因为OMB会立即触发下一轮铸块
-	if bc.ConsensusStatus != CBCS_MIN_QN_BLOCKED && !bc.IsCasting() { //没有在组铸块共识中
+	if bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED {
+		return true
+	}
+	if !bc.IsCasting() { //没有在组铸块共识中
 		log.Printf("proc(%v) not in casting, reset and direct return.\n", bc.Proc.getPrefix())
 		bc.Reset() //提前出块完成
 		return false
