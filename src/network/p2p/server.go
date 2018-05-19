@@ -14,6 +14,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
+	"log"
 )
 
 const (
@@ -109,7 +110,7 @@ func (s *server) SendMessage(m Message, id string) {
 	copy(b[3:7], b2)
 	copy(b[7:], bytes)
 
-	logger.Debugf("send to id:%s,code:%d", id, m.Code)
+	log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
 	s.send(b, id)
 }
 
@@ -249,7 +250,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	if error != nil {
 		logger.Errorf("Proto unmarshal error:%s", error.Error())
 	}
-	logger.Debugf("receive from id:%s,code:%d", from, message.Code)
+	log.Printf("[p2p]receive from id:%s,code:%d\n", from, message.Code)
 
 	code := message.Code
 	switch *code {
