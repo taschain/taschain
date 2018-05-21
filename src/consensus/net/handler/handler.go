@@ -161,16 +161,16 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 
 		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
 		//b := &m.Block
-		belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
-		if belongGroup {
-			//machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
-			//key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
-			//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-			//	mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
-			//})
-		} else {
+		//belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
+		//if belongGroup {
+		//	machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
+		//	key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
+		//	machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
+		//		mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
+		//	})
+		//} else {
 			mediator.Proc.OnMessageBlock(*m)
-		}
+		//}
 
 		//b := mediator.Proc.OnMessageBlock(*m)
 		//bytes, e1 := core.MarshalBlock(b)
