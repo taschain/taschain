@@ -119,13 +119,13 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 		fmt.Print("Get CAST_VERIFY_MSG!")
-		machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
-		machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-			mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
-		})
+		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
+		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
+		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
+		//})
 
-		//mediator.Proc.OnMessageCast(*m)
+		mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
@@ -133,13 +133,13 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
-		machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-			mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
-		})
+		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
+		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
+		//	mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
+		//})
 
-		//mediator.Proc.OnMessageVerify(*m)
+		mediator.Proc.OnMessageVerify(*m)
 
 	case p2p.TRANSACTION_GOT_MSG:
 		transactions, e := handler.UnMarshalTransactions(body)
@@ -161,16 +161,16 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 
 		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
 		//b := &m.Block
-		belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
-		if belongGroup {
-			machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
-			key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
-			machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-				mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
-			})
-		} else {
+		//belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
+		//if belongGroup {
+		//	machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
+		//	key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
+		//	machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
+		//		mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
+		//	})
+		//} else {
 			mediator.Proc.OnMessageBlock(*m)
-		}
+		//}
 
 		//b := mediator.Proc.OnMessageBlock(*m)
 		//bytes, e1 := core.MarshalBlock(b)

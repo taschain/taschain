@@ -138,7 +138,7 @@ func (sc *SlotContext) GenGroupSign() bool {
 	if sc.SlotStatus == SS_FAILED {
 		return false
 	}
-	if len(sc.MapWitness) >= GetGroupK() && sc.HasKingMessage() { //达到组签名恢复阈值，且当前节点收到了出块人消息
+	if len(sc.MapWitness) >= GetGroupK()/* && sc.HasKingMessage() */{ //达到组签名恢复阈值，且当前节点收到了出块人消息
 		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GetGroupK())
 		if gs != nil {
 			sc.GroupSign = *gs
@@ -199,7 +199,7 @@ func (sc *SlotContext) AcceptPiece(bh core.BlockHeader, si SignData) CAST_BLOCK_
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
 		sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-		if len(sc.MapWitness) >= GetGroupK() && sc.HasKingMessage() { //达到组签名条件
+		if len(sc.MapWitness) >= GetGroupK()/* && sc.HasKingMessage() */{ //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
 			if sc.GenGroupSign() {
 				return CBMR_THRESHOLD_SUCCESS
 			} else {
@@ -725,8 +725,8 @@ func (bc *BlockContext) UserVerified(bh core.BlockHeader, sd SignData) CAST_BLOC
 
 func (bc BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pubkey) bool {
 	//找到cs对应的槽
-	i, king := bc.findCastSlot(cs.QueueNumber)
-	if i >= 0 && king {
+	i, _ := bc.findCastSlot(cs.QueueNumber)
+	if i >= 0/* && king */{
 		b := bc.Slots[i].VerifyGroupSign(pk)
 		return b
 	}
