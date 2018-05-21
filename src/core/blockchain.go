@@ -459,12 +459,12 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	}
 
 	// Process block using the parent state as reference point.
-	receipts, executed, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
+	receipts, executed, errTxs, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
-	// todo: 失败的交易也要考虑从池子里，去除掉
-	block.Header.Transactions = make([]common.Hash, len(receipts))
-	executedTxs := make([]*Transaction, len(receipts))
+	// 失败的交易也要从池子里，去除掉
+	block.Header.Transactions = make([]common.Hash, len(executed))
+	executedTxs := make([]*Transaction, len(executed))
 	for i, tx := range executed {
 		if tx == nil {
 			continue
@@ -473,11 +473,11 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		executedTxs[i] = tx
 	}
 	block.Transactions = executedTxs
+	block.Header.EvictedTxs = errTxs
 
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
-
 	block.Header.Hash = block.Header.GenHash()
 
 	chain.blockCache.Add(block.Header.Hash, &castingBlock{
@@ -549,7 +549,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	b := new(Block)
 	b.Header = &bh
 	b.Transactions = transactions
-	receipts, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
+	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
 
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
 		fmt.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
@@ -618,6 +618,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
+		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
