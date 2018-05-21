@@ -10,6 +10,8 @@ import (
 	"vm/core"
 	"math/big"
 	"vm/common/math"
+	"fmt"
+	c "common"
 )
 
 type EVMExecutor struct {
@@ -40,26 +42,30 @@ func NewEVMExecutor(bc *BlockChain) *EVMExecutor {
 	}
 }
 
-func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor VoteProcessor) (types.Receipts, *common.Hash, uint64, error) {
+func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor VoteProcessor) (types.Receipts, []*Transaction, []c.Hash, *common.Hash, uint64) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
 		header   = block.Header
 		gp       = new(core.GasPool).AddGas(math.MaxUint64)
 	)
-
+	executedTxs := make([]*Transaction, 0)
+	errTxs := make([]c.Hash, 0)
 	for i, tx := range block.Transactions {
 		var realData []byte
 		if nil != processor {
-			realData,_ = processor.BeforeExecuteTransaction(block, statedb,tx)
+			realData, _ = processor.BeforeExecuteTransaction(block, statedb, tx)
 		}
 
 		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
 		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config, realData)
 		if err != nil {
-			return nil, nil, 0, err
+			fmt.Printf("[block] fail to execute tx, error: %s\n", err)
+			errTxs = append(errTxs, tx.Hash)
+		} else {
+			receipts = append(receipts, receipt)
+			executedTxs = append(executedTxs, tx)
 		}
-		receipts = append(receipts, receipt)
 
 	}
 
@@ -70,7 +76,7 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	//accumulateRewards(chain.Config(), state, header, uncles)
 	hash := statedb.IntermediateRoot(true)
 
-	return receipts, &hash, *usedGas, nil
+	return receipts, executedTxs, errTxs, &hash, *usedGas
 
 }
 

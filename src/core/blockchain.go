@@ -424,29 +424,26 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	chain.lock.Lock()
 	chain.lock.Unlock()
 
-	//todo: 校验高度
-
+	//校验高度
+	if latestBlock != nil && height <= latestBlock.Height {
+		fmt.Printf("[block] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
+		return nil
+	}
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
-	transactionHashes := make([]common.Hash, len(block.Transactions))
-	for i, tx := range block.Transactions {
-		transactionHashes[i] = tx.Hash
-	}
-
 	block.Header = &BlockHeader{
-		Transactions: transactionHashes,
-		CurTime:      time.Now(), //todo:时区问题
-		Height:       height,
-		Nonce:        nonce,
-		QueueNumber:  queueNumber,
-		Castor:       castor,
-		GroupId:      groupid,
+		CurTime:     time.Now(), //todo:时区问题
+		Height:      height,
+		Nonce:       nonce,
+		QueueNumber: queueNumber,
+		Castor:      castor,
+		GroupId:     groupid,
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
-		block.Header.Height = latestBlock.Height + 1
+		block.Header.Height = height
 		block.Header.PreTime = latestBlock.CurTime
 	}
 
@@ -462,15 +459,25 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	}
 
 	// Process block using the parent state as reference point.
-	receipts, statehash, _, err := chain.executor.Execute(state, block, chain.voteProcessor)
-	if err != nil {
-		panic(err)
+	receipts, executed, errTxs, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
+
+	// 准确执行了的交易，入块
+	// 失败的交易也要从池子里，去除掉
+	block.Header.Transactions = make([]common.Hash, len(executed))
+	executedTxs := make([]*Transaction, len(executed))
+	for i, tx := range executed {
+		if tx == nil {
+			continue
+		}
+		block.Header.Transactions[i] = tx.Hash
+		executedTxs[i] = tx
 	}
-	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
+	block.Transactions = executedTxs
+	block.Header.EvictedTxs = errTxs
 
 	block.Header.TxTree = calcTxTree(block.Transactions)
+	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
-
 	block.Header.Hash = block.Header.GenHash()
 
 	chain.blockCache.Add(block.Header.Hash, &castingBlock{
@@ -542,12 +549,8 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	b := new(Block)
 	b.Header = &bh
 	b.Transactions = transactions
-	receipts, statehash, _, err := chain.executor.Execute(state, b, chain.voteProcessor)
-	if err != nil {
-		fmt.Printf("[block]fail to execute txs, error:%s \n", err)
+	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
 
-		return nil, -1, nil, nil
-	}
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
 		fmt.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
 
@@ -615,6 +618,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
+		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
