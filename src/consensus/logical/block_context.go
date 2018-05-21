@@ -196,7 +196,7 @@ func (sc *SlotContext) AcceptPiece(bh core.BlockHeader, si SignData) CAST_BLOCK_
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
 		sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-		if len(sc.MapWitness) >= GetGroupK() && sc.HasKingMessage() { //达到组签名条件
+		if len(sc.MapWitness) >= GetGroupK()/* && sc.HasKingMessage() */{ //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
 			if sc.GenGroupSign() {
 				return CBMR_THRESHOLD_SUCCESS
 			} else {
