@@ -1116,6 +1116,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 		for _, v := range qns { //对不再缺失交易集的插槽处理
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
+				log.Printf("VerifyCastingBlock [%v]\n",slot.BH)
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
 				log.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", v, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
@@ -1123,6 +1124,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 						p.castLock.Unlock()
 						locked = false
 					}
+					log.Printf("lost_trans_list (%v), slot[%v].LostingTrans(%v)\n", lost_trans_list,int64(v),slot.LostingTrans)
 					panic("OMNT still losting trans on main chain, ERROR.")
 				}
 				switch result {
