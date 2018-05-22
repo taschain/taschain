@@ -851,6 +851,8 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		return
 	}
 
+	outputBlockHeaderAndSign("OMV", &cvm.BH, &cvm.SI)
+
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = g_id
@@ -1062,7 +1064,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		fmt.Println("OMB receive self msg, ingored!")
 		return &cbm.Block
 	}
-
+	outputBlockHeaderAndSign("OMB", cbm.Block.Header, &cbm.SI)
 
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
@@ -1193,6 +1195,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		panic("core.GenerateBlock failed.")
 	}
 	if !PROC_TEST_MODE {
+		outputBlockHeaderAndSign("SuccessNewBlock", block.Header, nil)
 		r, _ := p.AddOnChain(block)
 		if r == 2 || (r != 0 && r != 1) {	//分叉调整或 上链失败都不走下面的逻辑
 			return
@@ -1646,6 +1649,23 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	return bh
 }
 
+func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)  {
+	var castor groupsig.ID
+	castor.Deserialize(bh.Castor)
+	txs := ""
+	if bh.Transactions != nil {
+		for _, tx := range bh.Transactions {
+			txs += GetHashPrefix(tx) + ","
+		}
+	}
+	txs = "[" + txs + "]"
+	log.Printf("%v, BLOCKINFO: height= %v, castor=%v, hash=%v, txs=%v, txtree=%v, statetree=%v, receipttree=%v\n", prefix, bh.Height, GetIDPrefix(castor), GetHashPrefix(bh.Hash), txs, GetHashPrefix(bh.TxTree), GetHashPrefix(bh.StateTree), GetHashPrefix(bh.ReceiptTree))
+
+	if si != nil {
+		log.Printf("%v, SIDATA: datahash=%v, sign=%v, signer=%v\n", prefix, GetHashPrefix(si.DataHash), si.DataSign.GetHexString(), GetIDPrefix(si.SignMember))
+	}
+}
+
 //当前节点成为KING，出块
 func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 	height := bc.CastHeight
@@ -1701,6 +1721,8 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendCastVerify...\n")
 			log.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
+			outputBlockHeaderAndSign("castBlock and Send", bh, &ccm.SI)
+
 			SendCastVerify(&ccm)
 		} else {
 			log.Printf("call proc.OnMessageCast direct...\n")

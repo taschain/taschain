@@ -280,7 +280,7 @@ func (sc SlotContext) GetWeight() uint64 {
 type BlockContext struct {
 	Version         uint
 	PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	CCTimer         time.Ticker                 //共识定时器
+	CCTimer         *time.Ticker                 //共识定时器
 	TickerRunning	bool
 	SignedMinQN     int64                       //组内已铸出的最小QN值的块
 	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
@@ -713,7 +713,7 @@ func (bc *BlockContext) getFirstCastor() int32 {
 
 func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
-	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
+	bc.CCTimer = time.NewTicker(TIMER_INTEVAL_SECONDS)
 	bc.TickerRunning = true
 	defer func() {
 		bc.TickerRunning = false
