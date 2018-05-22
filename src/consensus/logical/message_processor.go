@@ -43,18 +43,23 @@ func (p *Processer) OnMessageCurrent(ccm ConsensusCurrentMessage) {
 	cgs.BlockHeight = ccm.BlockHeight
 	log.Printf("OMCur::SIGN_INFO: id=%v, data hash=%v, sign=%v.\n",
 		GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
-	bc, first := p.beingCastGroup(cgs, ccm.SI)
+	bc, cast := p.beingCastGroup(&cgs, ccm.SI)
 	if bc == nil {
 		log.Printf("proc(%v) OMCur can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
-	log.Printf("OMCur after beingCastGroup, bc.height=%v, first=%v, status=%v.\n", bc.CastHeight, first, bc.ConsensusStatus)
+	if !cast {
+		log.Println("OMCur being castgroup failed!")
+		return
+	}
+
+	log.Printf("OMCur after beingCastGroup, bc.height=%v, first=%v.\n", bc.CastHeight, bc.ConsensusStatus)
 	if bc != nil {
-		switched := bc.Switch2Height(cgs)
-		if !switched {
-			log.Printf("bc::Switch2Height failed, ignore message.\n")
-			return
-		}
+		//switched := bc.Switch2Height(cgs)
+		//if !switched {
+		//	log.Printf("bc::Switch2Height failed, ignore message.\n")
+		//	return
+		//}
 		//if first { //第一次收到“当前组成为铸块组”消息
 		//	ccm_local := ccm
 		//	ccm_local.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
@@ -86,6 +91,11 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	}()
 	p.castLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.castLock.Unlock()
+		}
+	}()
 
 
 	var g_id groupsig.ID
@@ -100,7 +110,6 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(ccm.SI.SignMember) {
 		log.Printf("OMC receive self msg, ingore! \n")
-		p.castLock.Unlock()
 		return
 	}
 
@@ -110,16 +119,15 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	exist := p.MainChain.QueryBlockByHeight(ccm.BH.Height)
 	if exist != nil && exist.Hash == ccm.BH.Hash && exist.PreHash == ccm.BH.PreHash {	//已经上链
 		log.Printf("OMC receive block already onchain! , height = %v\n", exist.Height)
-		p.castLock.Unlock()
 		return
 	}
-
-	pre := p.MainChain.QueryBlockByHeight(ccm.BH.Height - 1)
-	if pre != nil && pre.Hash != ccm.BH.PreHash {
-		log.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
-		p.castLock.Unlock()
-		return
-	}
+	//
+	//pre := p.MainChain.QueryBlockByHeight(ccm.BH.Height - 1)
+	//if pre != nil && pre.Hash != ccm.BH.PreHash {
+	//	log.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
+	//	p.castLock.Unlock()
+	//	return
+	//}
 
 	log.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
 	var cgs CastGroupSummary
@@ -127,31 +135,28 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	cgs.GroupID = g_id
 	cgs.PreHash = ccm.BH.PreHash
 	cgs.PreTime = ccm.BH.PreTime
-	bc, first := p.beingCastGroup(cgs, ccm.SI)
+	bc, cast := p.beingCastGroup(&cgs, ccm.SI)
 	if bc == nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		log.Printf("proc(%v) OMC can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
-	log.Printf("OMC after beingCastGroup, bc.Height=%v, first=%v, status=%v.\n", bc.CastHeight, first, bc.ConsensusStatus)
-	switched := bc.Switch2Height(cgs)
-	if !switched {
-		log.Printf("bc::Switch2Height failed, ignore message.\n")
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
+	if !cast {
+		log.Println("being castgroup failed!")
 		return
 	}
 
+	log.Printf("OMC after beingCastGroup, bc.Height=%v, first=%v.\n", bc.CastHeight, bc.ConsensusStatus)
+	//switched := bc.Switch2Height(cgs)
+	//if !switched {
+	//	log.Printf("bc::Switch2Height failed, ignore message.\n")
+	//	if locked {
+	//		p.castLock.Unlock()
+	//		locked = false
+	//	}
+	//	return
+	//}
+
 	if !bc.IsCasting() { //当前没有在组铸块中
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		log.Printf("proc(%v) OMC failed, group not in cast.\n", p.getPrefix())
 		return
 	}
@@ -162,10 +167,6 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	slot := bc.getSlotByQN(int64(ccm.BH.QueueNumber))
 	if slot != nil {
 		if slot.IsFailed() {
-			if locked {
-				p.castLock.Unlock()
-				locked = false
-			}
 			log.Printf("proc(%v) OMC slot irreversible failed, ignore message.\n", p.getPrefix())
 			return
 		}
@@ -255,10 +256,6 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	case -1:
 		slot.statusChainFailed()
 	}
-	if locked {
-		p.castLock.Unlock()
-		locked = false
-	}
 	log.Printf("proc(%v) end OMC.\n", p.getPrefix())
 	return
 }
@@ -272,6 +269,13 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 
 	p.castLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.castLock.Unlock()
+		}
+	}()
+
+
 	var g_id groupsig.ID
 	if g_id.Deserialize(cvm.BH.GroupId) != nil {
 		panic("OMV Deserialize group_id failed")
@@ -284,7 +288,6 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(cvm.SI.SignMember) {
 		log.Printf("OMC receive self msg, ingore! \n")
-		p.castLock.Unlock()
 		return
 	}
 
@@ -295,48 +298,44 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	exist := p.MainChain.QueryBlockByHeight(cvm.BH.Height)
 	if exist != nil && exist.Hash == cvm.BH.Hash && exist.PreHash == cvm.BH.PreHash {	//已经上链
 		log.Printf("OMC receive block already onchain! , height = %v\n", exist.Height)
-		p.castLock.Unlock()
 		return
 	}
 
-	pre := p.MainChain.QueryBlockByHeight(cvm.BH.Height - 1)
-	if pre != nil && pre.Hash != cvm.BH.PreHash {
-		log.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
-		p.castLock.Unlock()
-		return
-	}
+	//pre := p.MainChain.QueryBlockByHeight(cvm.BH.Height - 1)
+	//if pre != nil && pre.Hash != cvm.BH.PreHash {
+	//	log.Printf("OMC recevie error block, chain pre blockheader=%v", pre)
+	//	p.castLock.Unlock()
+	//	return
+	//}
 
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = g_id
 	cgs.PreHash = cvm.BH.PreHash
 	cgs.PreTime = cvm.BH.PreTime
-	bc, first := p.beingCastGroup(cgs, cvm.SI)
+	bc, cast := p.beingCastGroup(&cgs, cvm.SI)
 	if bc == nil {
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		log.Printf("proc(%v) OMV can't get valid bc, ignore message.\n", p.getPrefix())
 		return
 	}
-	log.Printf("OMV after beingCastGroup, bc.Height=%v, first=%v, status=%v.\n", bc.CastHeight, first, bc.ConsensusStatus)
-
-	switched := bc.Switch2Height(cgs)
-	if !switched {
-		log.Printf("bc::Switch2Height failed, ignore message.\n")
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
+	if !cast {
+		log.Println("OMV being castgroup failed!")
 		return
 	}
 
+	log.Printf("OMV after beingCastGroup, bc.Height=%v, first=%v.\n", bc.CastHeight, bc.ConsensusStatus)
+
+	//switched := bc.Switch2Height(cgs)
+	//if !switched {
+	//	log.Printf("bc::Switch2Height failed, ignore message.\n")
+	//	if locked {
+	//		p.castLock.Unlock()
+	//		locked = false
+	//	}
+	//	return
+	//}
+
 	if !bc.IsCasting() { //当前没有在组铸块中
-		if locked {
-			p.castLock.Unlock()
-			locked = false
-		}
 		log.Printf("proc(%v) OMV failed, group not in cast, ignore message.\n", p.getPrefix())
 		return
 	}
@@ -347,10 +346,6 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	slot := bc.getSlotByQN(int64(cvm.BH.QueueNumber))
 	if slot != nil {
 		if slot.IsFailed() {
-			if locked {
-				p.castLock.Unlock()
-				locked = false
-			}
 			log.Printf("proc(%v) OMV slot irreversible failed, ignore message.\n", p.getPrefix())
 			return
 		}
@@ -399,10 +394,6 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 				p.SuccessNewBlock(&cvm.BH, g_id) //上链和组外广播
 
 			} else {
-				if locked {
-					p.castLock.Unlock()
-					locked = false
-				}
 				panic("proc OMV VerifyGroupSign failed.")
 			}
 		case CBMR_PIECE:
@@ -436,10 +427,6 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	case -1: //不可逆异常
 		slot.statusChainFailed()
 	}
-	if locked {
-		p.castLock.Unlock()
-		locked = false
-	}
 	log.Printf("proc(%v) end OMV.\n", p.getPrefix())
 	return
 }
@@ -453,6 +440,12 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 
 	p.castLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.castLock.Unlock()
+		}
+	}()
+
 	var g_id groupsig.ID
 	if g_id.Deserialize(cbm.Block.Header.GroupId) != nil {
 		panic("OMB Deserialize group_id failed")
@@ -461,7 +454,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		GetIDPrefix(cbm.GroupID), GetIDPrefix(g_id), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
 
 	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
-		p.castLock.Unlock()
 		fmt.Println("OMB receive self msg, ingored!")
 		return &cbm.Block
 	}
@@ -481,27 +473,29 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		log.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
 
+	p.checkSelfCastRoutine()
+
 	//收到不合法的块也要做一次检查自己是否属于下一个铸块组, 否则会形成死循环, 没有组出块
-	preHeader := p.MainChain.QueryTopBlock()
-	if preHeader == nil {
-		panic("cannot find top block header!")
-	}
-
-	var sign groupsig.Signature
-	if sign.Deserialize(preHeader.Signature) != nil {
-		panic("OMB group sign Deserialize failed.")
-	}
-	broadcast, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
-	if locked {
-		p.castLock.Unlock()
-		locked = false
-	}
-
-	if broadcast {
-		log.Printf("OMB current proc being casting group...\n")
-		log.Printf("OMB call network service SendCurrentGroupCast...\n")
-		go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
-	}
+	//preHeader := p.MainChain.QueryTopBlock()
+	//if preHeader == nil {
+	//	panic("cannot find top block header!")
+	//}
+	//
+	//var sign groupsig.Signature
+	//if sign.Deserialize(preHeader.Signature) != nil {
+	//	panic("OMB group sign Deserialize failed.")
+	//}
+	//broadcast, ccm := p.checkCastingGroup(cbm.GroupID, sign, preHeader.Height, preHeader.CurTime, preHeader.Hash)
+	//if locked {
+	//	p.castLock.Unlock()
+	//	locked = false
+	//}
+	//
+	//if broadcast {
+	//	log.Printf("OMB current proc being casting group...\n")
+	//	log.Printf("OMB call network service SendCurrentGroupCast...\n")
+	//	go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+	//}
 	block = &cbm.Block //返回成功的块
 
 	log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
@@ -862,27 +856,28 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		}
 		log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
 
+		p.checkSelfCastRoutine()
 		//拉取当前最高块
-		if !PROC_TEST_MODE {
-			top_bh := p.MainChain.QueryTopBlock()
-			if top_bh == nil {
-				panic("QueryTopBlock failed")
-			} else {
-				log.Printf("top height on chain=%v.\n", top_bh.Height)
-			}
-			var g_sign groupsig.Signature
-			if g_sign.Deserialize(top_bh.Signature) != nil {
-				panic("OMGIED group sign Deserialize failed.")
-			}
-			broadcast, ccm := p.checkCastingGroup(gim.GI.GroupID, g_sign, top_bh.Height, top_bh.CurTime, top_bh.Hash)
-			log.Printf("checkCastingGroup, current proc being casting group=%v.", broadcast)
-			if broadcast {
-				log.Printf("OMB: id=%v, data hash=%v, sign=%v.\n",
-					GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
-				log.Printf("OMB call network service SendCurrentGroupCast...\n")
-				SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
-			}
-		}
+		//if !PROC_TEST_MODE {
+		//	top_bh := p.MainChain.QueryTopBlock()
+		//	if top_bh == nil {
+		//		panic("QueryTopBlock failed")
+		//	} else {
+		//		log.Printf("top height on chain=%v.\n", top_bh.Height)
+		//	}
+		//	var g_sign groupsig.Signature
+		//	if g_sign.Deserialize(top_bh.Signature) != nil {
+		//		panic("OMGIED group sign Deserialize failed.")
+		//	}
+		//	broadcast, ccm := p.checkCastingGroup(gim.GI.GroupID, g_sign, top_bh.Height, top_bh.CurTime, top_bh.Hash)
+		//	log.Printf("checkCastingGroup, current proc being casting group=%v.", broadcast)
+		//	if broadcast {
+		//		log.Printf("OMB: id=%v, data hash=%v, sign=%v.\n",
+		//			GetIDPrefix(ccm.SI.GetID()), GetHashPrefix(ccm.SI.DataHash), GetSignPrefix(ccm.SI.DataSign))
+		//		log.Printf("OMB call network service SendCurrentGroupCast...\n")
+		//		SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
+		//	}
+		//}
 	case -1: //该组初始化异常，且无法恢复
 		//to do : 从待初始化组中删除
 	case 0:

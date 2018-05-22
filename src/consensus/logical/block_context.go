@@ -9,8 +9,6 @@ import (
 	"time"
 	"vm/common/math"
 	"fmt"
-	"consensus/ticker"
-	"consensus/rand"
 	"sync"
 )
 
@@ -48,7 +46,6 @@ type BlockContext struct {
 	PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
 	//CCTimer         time.Ticker                 //共识定时器
 	//TickerRunning	bool
-	Ticker 			*ticker.GlobalTicker		//全局定时器, 组初始化完成后启动
 	SignedMaxQN     int64                       //组内已铸出的最大QN值的块
 	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 	PrevHash        common.Hash                 //上一块哈希值
@@ -65,79 +62,49 @@ type BlockContext struct {
 }
 
 //切换到铸块高度
-func (bc *BlockContext) Switch2Height(cgs CastGroupSummary) bool {
-	log.Printf("begin bc::Switch2Height, cur height=%v, new height=%v...\n", bc.CastHeight, cgs.BlockHeight)
-	var switched bool
-	if !cgs.GroupID.IsEqual(bc.MinerID.gid) {
-		log.Printf("cast group=%v, bc group=%v, diff failed.\n", GetIDPrefix(cgs.GroupID), GetIDPrefix(bc.MinerID.gid))
-		return false
-	}
-	if cgs.BlockHeight == bc.CastHeight { //已经在当前高度
-		log.Printf("already in this height, return true direct.\n")
-		return true
-	}
-	if cgs.BlockHeight < bc.CastHeight {
-		log.Printf("cast height-%v, bc height=%v, less failed..\n", cgs.BlockHeight, bc.CastHeight)
-		return false
-	}
-	bc.reset()
-	bc.CastHeight = cgs.BlockHeight
-	bc.PreTime = cgs.PreTime
-	bc.PrevHash = cgs.PreHash
-	bc.ConsensusStatus = CBCS_CURRENT
-	switched = true
-	log.Printf("end bc::Switch2Height, switched=%v.\n", switched)
-	return switched
-}
+//func (bc *BlockContext) Switch2Height(cgs CastGroupSummary) bool {
+//	bc.lock.Lock()
+//	defer bc.lock.Unlock()
+//
+//	log.Printf("begin bc::Switch2Height, cur height=%v, new height=%v...\n", bc.CastHeight, cgs.BlockHeight)
+//	var switched bool
+//	if !cgs.GroupID.IsEqual(bc.MinerID.gid) {
+//		log.Printf("cast group=%v, bc group=%v, diff failed.\n", GetIDPrefix(cgs.GroupID), GetIDPrefix(bc.MinerID.gid))
+//		return false
+//	}
+//	if cgs.BlockHeight == bc.CastHeight { //已经在当前高度
+//		log.Printf("already in this height, return true direct.\n")
+//		return true
+//	}
+//	if cgs.BlockHeight < bc.CastHeight {
+//		log.Printf("cast height-%v, bc height=%v, less failed..\n", cgs.BlockHeight, bc.CastHeight)
+//		return false
+//	}
+//	bc.reset()
+//	bc.CastHeight = cgs.BlockHeight
+//	bc.PreTime = cgs.PreTime
+//	bc.PrevHash = cgs.PreHash
+//	bc.ConsensusStatus = CBCS_CURRENT
+//	switched = true
+//	log.Printf("end bc::Switch2Height, switched=%v.\n", switched)
+//	return switched
+//}
 
 func (bc *BlockContext) Init(mid GroupMinerID) {
 	bc.MinerID = mid
 	bc.reset()
-	bc.Ticker = ticker.NewGlobalTicker(mid.gid.GetHexString(), MAX_USER_CAST_TIME)
-	bc.Ticker.RegisterRoutine("self_cast_check_" + mid.gid.GetHexString(), bc.checkSelfCastRoutine, false)
 }
 
 func (bc *BlockContext) getKingCheckRoutineName() string {
     return "king_check_routine_" + bc.MinerID.gid.GetHexString()
 }
 
-//检查是否当前组铸块
-func (bc *BlockContext) checkSelfCastRoutine() bool {
-	if bc.IsCasting() {
-		return true
-	}
-
-	top := bc.Proc.MainChain.QueryTopBlock()
-	d := time.Since(top.CurTime)
-	if d < 0 {
-		return false
-	}
-
-	deltaHeight := uint64(d) / uint64(MAX_GROUP_BLOCK_TIME) + 1
-	castHeight := top.Height + deltaHeight
-
-	data := top.Signature
-
-	var hash common.Hash
-	for ; deltaHeight > 0; deltaHeight -- {
-		hash = rand.Data2CommonHash(data)
-		data = hash.Bytes()
-	}
-
-	selectGroup, err := bc.Proc.gg.SelectNextGroup(hash, castHeight)
-	if err != nil {
-		log.Println("self check casting err:", err)
-		return false
-	}
-
-	//自己成为下一个铸块组
-	if bc.Proc.IsMinerGroup(selectGroup) {
-		bc.CastRebase(castHeight, top.CurTime, top.Hash)
-		return true
-	}
-
-	return false
+func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+    return bc.isCasting() && bc.CastHeight == height && bc.PrevHash == preHash
 }
+
 
 //检查是否要处理某个铸块槽
 //返回true需要处理，返回false可以丢弃。
@@ -161,6 +128,11 @@ func (bc *BlockContext) signedUpdateMinQN(qn uint) bool {
 //完成某个铸块槽的铸块（上链，组外广播）后，更新组的当前高度铸块状态
 func (bc *BlockContext) castedUpdateStatus(qn uint) bool {
 	log.Printf("castedUpdateStatus before status=%v, qn=%v\n", bc.ConsensusStatus, qn)
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
+	bc.signedUpdateMinQN(qn)
+
 	st := bc.ConsensusStatus
 
 	switch st {
@@ -177,6 +149,10 @@ func (bc *BlockContext) castedUpdateStatus(qn uint) bool {
 		return true
 	}
 
+}
+
+func (bc *BlockContext) maxQNCasted() bool {
+    return bc.ConsensusStatus == CBCS_MAX_QN_BLOCKED
 }
 
 func (bc *BlockContext) PrintSlotInfo() string {
@@ -231,6 +207,9 @@ func (bc *BlockContext) findCastSlot(qn int64) (int32) {
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
 func (bc *BlockContext) ReceTrans(ths []common.Hash) []int {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
 	var qns []int
 	for _, v := range bc.Slots {
 		if v != nil {
@@ -253,6 +232,9 @@ const (
 )
 
 func (bc *BlockContext) getSlotByQN(qn int64) *SlotContext {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
 	i := bc.findCastSlot(qn)
 	if i >= 0 {
 		return bc.Slots[i]
@@ -339,6 +321,14 @@ func (bc BlockContext) IsCasting() bool {
 	return bc.isCasting()
 }
 
+func (bc *BlockContext) resetSlotContext()  {
+	for i := 0; i < MAX_SYNC_CASTORS; i++ {
+		sc := new(SlotContext)
+		sc.Reset()
+		bc.Slots[i] = sc
+	}
+}
+
 //铸块上下文复位，在某个高度轮到当前组铸块时调用。
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
@@ -354,24 +344,13 @@ func (bc *BlockContext) reset() {
 	bc.GroupMembers = uint(GROUP_MAX_MEMBERS)
 	//bc.Threshold = SSSS_THRESHOLD
 	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
-	for i := 0; i < MAX_SYNC_CASTORS; i++ {
-		sc := new(SlotContext)
-		sc.Reset()
-		bc.Slots[i] = sc
-	}
-	bc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
+	bc.resetSlotContext()
+	bc.Proc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
 	log.Printf("end BlockContext::Reset.\n")
 }
 
-func (bc *BlockContext) CastRebase(castHeight uint64, preTime time.Time, preHash common.Hash)  {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-
-	bc.castRebase(castHeight, preTime, preHash)
-}
-
 //调整铸块基准
-func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash common.Hash) {
+func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash common.Hash, immediatelyTriggerCheck bool) {
 	log.Printf("proc(%v) begin castRebase...\n", preTime.Format(time.Stamp))
 
 	bc.PreTime = preTime //上一块的铸块成功时间
@@ -380,61 +359,68 @@ func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash
 	bc.PrevHash = preHash
 	bc.CastHeight = castHeight
 	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
-	for i := 0; i < MAX_SYNC_CASTORS; i++ {
-		sc := new(SlotContext)
-		sc.Reset()
-		bc.Slots[i] = sc
-	}
-	bc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.KingTickerRoutine, false)
+	bc.resetSlotContext()
+	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME), immediatelyTriggerCheck)
 	return
 }
 
-
 //节点所在组成为当前铸块组
-//bn: 已完成的最高块高度
-//tc: 已完成的最高块出块时间
-//h:  已完成的最高块哈希
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
-func (bc *BlockContext) BeingCastGroup(bh uint64, tc time.Time, h common.Hash) (cast bool, broadcast bool) {
-	var max_height uint64
+func (bc *BlockContext) BeingCastGroup(cgs *CastGroupSummary) (cast bool) {
+	var chainHeight uint64
 	if !PROC_TEST_MODE {
-		max_height = bc.Proc.MainChain.QueryTopBlock().Height
+		chainHeight = bc.Proc.MainChain.QueryTopBlock().Height
 	}
-	if (bh < max_height) || (bh > max_height+MAX_UNKNOWN_BLOCKS) {
+
+	castHeight := cgs.BlockHeight
+	preTime := cgs.PreTime
+	preHash := cgs.PreHash
+
+	if !cgs.GroupID.IsEqual(bc.MinerID.gid) {
+		log.Printf("cast group=%v, bc group=%v, diff failed.\n", GetIDPrefix(cgs.GroupID), GetIDPrefix(bc.MinerID.gid))
+		return false
+	}
+
+	if castHeight > chainHeight+MAX_UNKNOWN_BLOCKS {
 		//不在合法的铸块高度内
-		log.Printf("height failed, max_height=%v, bh=%v.\n", max_height, bh)
+		log.Printf("height failed, chainHeight=%v, castHeight=%v.\n", chainHeight, castHeight)
 		//panic("BlockContext::BeingCastGroup height failed.")
-		return false, false
+		return false
 	}
 
-	broadcast = true
-	log.Printf("BeginCastGroup: bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, bh=%v, bc.Pretime=%v, tc=%v, bc.PrevHash=%v, h=%v\n", bc.IsCasting(), bc.ConsensusStatus, bc.CastHeight, bh, bc.PreTime, tc, bc.PrevHash, h)
-	//如果正在铸块,并且是基于当前链上最高块在铸的话, 则继续铸
-	if bc.IsCasting() || bc.ConsensusStatus == CBCS_MAX_QN_BLOCKED {
-		if bc.CastHeight <= bh {	//在铸老的块
-			bc.castRebase(bh, tc, h)
-		} else if bc.CastHeight == bh+1 {	//在铸期望的块
-			if !bc.PreTime.Equal(tc) || bc.PrevHash != h {//但是前一块有变化
-				//这种情况是因为, 对同一个高度的不同qn的块上链成功了, 即进行了分叉调整, 此时需要重新启动基于最新的块铸块
-				log.Println("block_context chain adjust found! re consensus!")
-				bc.castRebase(bh, tc, h)
-			} else {
-				broadcast = false
-			}
-		} else {	//铸未来的块
-			bc.castRebase(bh, tc, h)
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
+	log.Printf("BeginCastGroup: bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, castHeight=%v, bc.Pretime=%v, preTime=%v, bc.PrevHash=%v, preHash=%v\n", bc.isCasting(), bc.ConsensusStatus, bc.CastHeight, castHeight, bc.PreTime, preTime, bc.PrevHash, preHash)
+
+	if bc.maxQNCasted() && bc.CastHeight == castHeight { //如果已出最高qn块, 直接返回
+		log.Println("BeginCastGroup: max qn casted in this height: ", castHeight)
+		return false
+	}
+
+	if bc.isCasting() {	//如果在铸块中
+		if bc.CastHeight == castHeight {
+			log.Printf("already in casting height %v\n", castHeight)
+		} else if bc.CastHeight > castHeight {
+			log.Printf("already in casting higher block, current castHeight=%v, request castHeight=%v\n", bc.CastHeight, castHeight)
+			return false
+		} else {
+			bc.castRebase(castHeight, preTime, preHash, false)
 		}
-	} else {
-		bc.castRebase(bh, tc, h)
+	} else { //不在铸块, 则开启铸块
+		bc.castRebase(castHeight, preTime, preHash, true)
 	}
 
-	return true, broadcast
+	return true
 }
 
 //收到某个铸块人的铸块完成消息（个人铸块完成消息也是个人验证完成消息）
 func (bc *BlockContext) UserCasted(bh core.BlockHeader, sd SignData) CAST_BLOCK_MESSAGE_RESULT {
-	if !bc.IsCasting() {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
+	if !bc.isCasting() {
 		return CMBR_IGNORE_NOT_CASTING
 	}
 	result := bc.accpetCV(bh, sd)
@@ -443,7 +429,10 @@ func (bc *BlockContext) UserCasted(bh core.BlockHeader, sd SignData) CAST_BLOCK_
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
 func (bc *BlockContext) UserVerified(bh core.BlockHeader, sd SignData) CAST_BLOCK_MESSAGE_RESULT {
-	if !bc.IsCasting() { //没有在组铸块共识窗口
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
+	if !bc.isCasting() { //没有在组铸块共识窗口
 		return CMBR_IGNORE_NOT_CASTING
 	}
 	result := bc.accpetCV(bh, sd) //>=0为消息正确接收
@@ -451,6 +440,9 @@ func (bc *BlockContext) UserVerified(bh core.BlockHeader, sd SignData) CAST_BLOC
 }
 
 func (bc BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pubkey) bool {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+
 	//找到cs对应的槽
 	i := bc.findCastSlot(cs.QueueNumber)
 	if i >= 0/* && king */{
@@ -500,46 +492,21 @@ func (bc *BlockContext) getFirstCastor() int32 {
 	return index
 }
 
-//func (bc *BlockContext) StartTimer() {
-	//bc.CCTimer.Stop()
-	//bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
-	//bc.TickerRunning = true
-	//defer func() {
-	//	bc.TickerRunning = false
-	//}()
-	//
-	//var count int
-	//log.Printf("StartTimer Now=%v.\n", time.Now().Format(time.Stamp))
-	//bc.TickerRoutine() //先启动一次
-	//for range bc.CCTimer.C {
-	//	count++
-	//	log.Printf("block_context::StartTicker, Now=%v, count=%v.\n", time.Now().Format(time.Stamp), count)
-	//	//go bc.TickerRoutine()
-	//	b := bc.TickerRoutine()
-	//	if !b {
-	//		log.Printf("bc.TickerRoutine return false, break timer...\n")
-	//		break
-	//	}
-	//
-	//}
-	//log.Printf("StartTimer end, Now=%v.\n", time.Now().Format(time.Stamp))
-	//return
-	//<-bc.CCTimer.C
-//}
 
 //定时器例行处理
 //如果返回false, 则关闭定时器
-func (bc *BlockContext) KingTickerRoutine() bool {
+func (bc *BlockContext) kingTickerRoutine() bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
 	log.Printf("proc(%v) begin TickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
-	if !bc.isCasting() { //没有在组铸块共识中
-		log.Printf("proc(%v) not in casting, reset and direct return.\n", bc.Proc.getPrefix())
+	if !bc.isCasting() || bc.maxQNCasted() { //没有在组铸块共识中或已经出最高qn块
+		log.Printf("proc(%v) not in casting, reset and direct return. consensus status=%v.\n", bc.Proc.getPrefix(), bc.ConsensusStatus)
 		bc.reset() //提前出块完成
 		return false
 	}
+
 	d := time.Since(bc.PreTime)                  //上个铸块完成到现在的时间
 	max := MAX_GROUP_BLOCK_TIME
 	if bc.CastHeight == 1 {
@@ -548,7 +515,8 @@ func (bc *BlockContext) KingTickerRoutine() bool {
 
 	if int(d.Seconds()) > max { //超过了组最大铸块时间
 		log.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
-		bc.reset()
+		//bc.reset()
+		bc.ConsensusStatus = CBCS_TIMEOUT
 		return false
 	} else {
 		//当前组仍在有效铸块共识时间内

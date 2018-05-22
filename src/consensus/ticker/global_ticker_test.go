@@ -6,36 +6,31 @@ import (
 	"log"
 )
 
+func handler(str string) RoutineFunc {
+	return func() bool {
+		log.Printf(str)
+		return true
+	}
+}
+
 func TestGlobalTicker_RegisterRoutine(t *testing.T) {
 
-	ticker := NewGlobalTicker("test", 2)
+	ticker := NewGlobalTicker("test")
 
 	time.Sleep(time.Second * 5)
 
-	ticker.RegisterRoutine("name1", func() {
-		log.Println("name1 exect1")
-	}, true)
+	ticker.RegisterRoutine("name1", handler("name1 exec1"), uint32(2),true)
 
 	time.Sleep(time.Second * 5)
-
-	ticker.RegisterRoutine("name2", func() {
-		log.Println("name2 aafffddd")
-	}, false)
-
+	ticker.RegisterRoutine("name2", handler("name2 exec1"), uint32(3),true)
 	time.Sleep(time.Second * 5)
 
-
-	ticker.RegisterRoutine("name3", func() {
-		log.Println("name3 22333")
-	}, false)
-
-
-	time.Sleep(time.Second * 5)
+	ticker.RegisterRoutine("name3", handler("name3 exec1"), uint32(4),false)
 
 	ticker.RemoveRoutine("name1")
 
-	ticker.RemoveRoutine("name3")
 
 	time.Sleep(time.Second * 5)
-	time.Sleep(time.Second * 5)
+	ticker.RemoveRoutine("name3")
+	time.Sleep(time.Second * 55)
 }

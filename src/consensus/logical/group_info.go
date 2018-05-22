@@ -403,7 +403,7 @@ func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err
 func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
 	var ga groupsig.ID
 	value := h.Big()
-	var vgroups []int = make([]int,0)
+	var vgroups = make([]int,0)
 	for i := 0; i<gg.GetGroupSize(); i++ {
 		if gg.groups[i].BeginHeight <= height {
 			vgroups = append(vgroups, i)
