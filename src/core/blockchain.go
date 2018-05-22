@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"vm/common/math"
 	"bytes"
+	"log"
 )
 
 const (
@@ -552,7 +553,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
 
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
-		fmt.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
+		log.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
 
 		return nil, -1, nil, nil
 	}

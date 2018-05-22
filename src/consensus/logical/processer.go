@@ -665,7 +665,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		return
 	}
 
-	log.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
+	log.Printf("proc(%v) OMC rece datahash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
+	log.Printf("proc(%v) OMC rece bh genhash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.BH.GenHash()))
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = g_id
@@ -751,7 +752,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					}
 					ccm.BH.Signature = sign.Serialize()
 					log.Printf("OMC BH hash=%v, update group sign data=%v.\n", GetHashPrefix(ccm.BH.Hash), GetSignPrefix(sign))
-
+					bc.ConsensusStatus = CBCS_BLOCKED
 				}
 				log.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK, height=%v, qn=%v!!!\n", p.getPrefix(), ccm.BH.Height, cs.QueueNumber)
 				p.SuccessNewBlock(&ccm.BH, g_id) //上链和组外广播
@@ -905,6 +906,10 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 				lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
 				log.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
 				//slot.LostingTrans(lost_trans_list)
+				if ccr != 0 {
+					log.Println("||||OMV BH transactions[%v]",cvm.BH.Transactions)
+					log.Println("||||OMV lost_trans[%v]",lost_trans_list)
+				}
 			}
 		}
 	}
@@ -939,6 +944,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 					cvm.BH.Signature = sign.Serialize()
 					log.Printf("OMV BH hash=%v, update group sign data=%v.\n", GetHashPrefix(cvm.BH.Hash), GetSignPrefix(sign))
 				}
+				bc.ConsensusStatus = CBCS_BLOCKED
 				log.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
 				p.SuccessNewBlock(&cvm.BH, g_id) //上链和组外广播
 
@@ -1507,16 +1513,20 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 		b := p.gg.AddGroup(gim.GI)
 		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
-		bc := new(BlockContext)
-		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
+
+		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 		sgi, err := p.gg.GetGroupByID(gim.GI.GroupID)
 		if err != nil {
 			panic("OMGIED GetGroupByID failed.\n")
 		}
+		if !sgi.MemExist(p.GetMinerID()) {
+			return
+		}
+		bc := new(BlockContext)
+		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
 		bc.pos = sgi.GetMinerPos(p.GetMinerID())
 		log.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
 		bc.Proc = p
-		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 		b = p.AddBlockContext(bc)
 		log.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组
@@ -1542,7 +1552,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			if top_bh == nil {
 				panic("QueryTopBlock failed")
 			} else {
-				log.Printf("top height on chain=%v.\n", top_bh.Height)
+				log.Printf("top chain height[%v], prehash[%v], hash[%v], signature[%v]\n", top_bh.Height, GetHashPrefix(top_bh.PreHash),GetHashPrefix(top_bh.Hash),top_bh.Signature)
 			}
 			var g_sign groupsig.Signature
 			if g_sign.Deserialize(top_bh.Signature) != nil {
@@ -1653,10 +1663,12 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
 		if block == nil {
 			log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			return nil
 		}
 		bh = block.Header
-
+		bc.ConsensusStatus = CBCS_CASTING
+		log.Printf("AAAAAA castBlock bh genhash=%v\n", GetHashPrefix(bh.GenHash()))
 		log.Printf("AAAAAA castBlock bh %v\n", bh)
 		log.Printf("AAAAAA chain top bh %v\n", p.MainChain.QueryTopBlock())
 
