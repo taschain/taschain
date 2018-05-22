@@ -1653,7 +1653,8 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
 		if block == nil {
 			log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			return nil
 		}
 		bh = block.Header
 
