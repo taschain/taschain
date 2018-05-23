@@ -40,14 +40,18 @@ type BlockHeader struct {
 func (bh *BlockHeader) GenHash() common.Hash {
 	sign := bh.Signature
 	hash := bh.Hash
+	time1:=bh.CurTime
 
 	bh.Signature = []byte{}
 	bh.Hash = common.Hash{}
+	bh.CurTime=time.Unix(1,1)
+
 	blockByte, _ := json.Marshal(bh)
 	result := common.BytesToHash(Sha256(blockByte))
 
 	bh.Signature = sign
 	bh.Hash = hash
+	bh.CurTime = time1
 	return result
 }
 
