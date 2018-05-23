@@ -123,7 +123,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 99 {
-		t.Fatalf("fail to switch to main chain")
+		t.Fatalf("fail to switch to main chain. %d",BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
 	}
 
 	BlockChainImpl.Close()
@@ -307,8 +307,29 @@ func TestBlockChain_StateTree(t *testing.T) {
 		t.Fatalf("fail to add block")
 	}
 
-	_,_,res,_ :=BlockChainImpl.VerifyCastingBlock(*block.Header)
-	fmt.Printf("result: %d\n",res)
+	// 铸块2
+	block2 := BlockChainImpl.CastingBlock(3, 12, 0, *castor, *groupid)
+	if nil == block {
+		t.Fatalf("fail to cast new block")
+	}
+
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
+		t.Fatalf("fail to add block")
+	}
+	fmt.Printf("state: %d\n",BlockChainImpl.latestBlock.StateTree)
+
+	// 铸块3
+	block3 := BlockChainImpl.CastingBlock(4, 12, 0, *castor, *groupid)
+	if nil == block {
+		t.Fatalf("fail to cast new block")
+	}
+
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
+		t.Fatalf("fail to add block")
+	}
+	fmt.Printf("state: %d\n",BlockChainImpl.latestBlock.StateTree)
 }
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
