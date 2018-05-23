@@ -242,7 +242,7 @@ func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
 }
 
 func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
-	if txs == nil{
+	if txs == nil {
 		return nil
 	}
 	result := make([]*core.Transaction, 0)
@@ -309,10 +309,20 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 		return nil
 	}
 
+	eTxs := h.EvictedTxs
+	evictedTxs := make([]common.Hash, 0)
+
+	if eTxs != nil {
+		for _, etx := range eTxs.Hashes {
+			hash := common.BytesToHash(etx)
+			evictedTxs = append(evictedTxs, hash)
+		}
+	}
+
 	header := core.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
 		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData}
+		ExtraData: h.ExtraData, EvictedTxs: evictedTxs}
 	return &header
 }
 

@@ -217,6 +217,7 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
 func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	if bh.GenHash() != si.DataHash {
+		log.Println(bh)
 		log.Printf("newSlotContext arg failed 1, bh.Gen()=%v, si_hash=%v.\n", GetHashPrefix(bh.GenHash()), GetHashPrefix(si.DataHash))
 		panic("newSlotContext arg failed, hash not samed 1.")
 	}
@@ -239,8 +240,11 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	if !PROC_TEST_MODE {
 		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(bh)
 		log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ccr)
-		sc.InitLostingTrans(ltl)
-
+		if 0 == ccr {
+			sc.InitLostingTrans(ltl)
+		}else {
+			log.Printf("<===>Fail BH transactions[%v], lost_list[%v]",bh.Transactions, ltl)
+		}
 	}
 	return sc
 }
@@ -276,7 +280,7 @@ func (sc SlotContext) GetWeight() uint64 {
 type BlockContext struct {
 	Version         uint
 	PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	CCTimer         time.Ticker                 //共识定时器
+	CCTimer         *time.Ticker                 //共识定时器
 	TickerRunning	bool
 	SignedMinQN     int64                       //组内已铸出的最小QN值的块
 	ConsensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
@@ -709,7 +713,7 @@ func (bc *BlockContext) getFirstCastor() int32 {
 
 func (bc *BlockContext) StartTimer() {
 	bc.CCTimer.Stop()
-	bc.CCTimer = *time.NewTicker(TIMER_INTEVAL_SECONDS)
+	bc.CCTimer = time.NewTicker(TIMER_INTEVAL_SECONDS)
 	bc.TickerRunning = true
 	defer func() {
 		bc.TickerRunning = false
@@ -725,6 +729,7 @@ func (bc *BlockContext) StartTimer() {
 		b := bc.TickerRoutine()
 		if !b {
 			log.Printf("bc.TickerRoutine return false, break timer...\n")
+			bc.CCTimer.Stop()
 			break
 		}
 	}
@@ -749,6 +754,7 @@ func (bc *BlockContext) TickerRoutine() bool {
 
 	//如果出了最小块就停掉, 则会导致出块速度极快!因为OMB会立即触发下一轮铸块
 	if bc.ConsensusStatus == CBCS_MIN_QN_BLOCKED {
+		log.Printf("TickerRoutine direct return for MIN_QN.\n")
 		return true
 	}
 	if !bc.IsCasting() { //没有在组铸块共识中

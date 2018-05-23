@@ -118,7 +118,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			logger.Errorf("Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		fmt.Print("Get CAST_VERIFY_MSG!")
+		fmt.Println("Get CAST_VERIFY_MSG!")
 		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
 		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {

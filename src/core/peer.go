@@ -168,8 +168,8 @@ func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
 //--------------------------------------------------Block---------------------------------------------------------------
 func MarshalBlock(b *Block) ([]byte, error) {
 	block := BlockToPb(b)
-	if block == nil{
-		return nil,nil
+	if block == nil {
+		return nil, nil
 	}
 	return proto.Marshal(block)
 }
@@ -207,10 +207,20 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 		return nil
 	}
 
+	eTxs := h.EvictedTxs
+	eBytes := make([][]byte, 0)
+
+	if eTxs != nil {
+		for _, etx := range eTxs {
+			eBytes = append(eBytes, etx.Bytes())
+		}
+	}
+	evictedTxs := tas_pb.Hashes{Hashes: eBytes}
+
 	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData}
+		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs}
 	return &header
 }
 

@@ -665,7 +665,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		return
 	}
 
-	log.Printf("proc(%v) OMC rece hash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
+	log.Printf("proc(%v) OMC rece datahash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.SI.DataHash))
+	log.Printf("proc(%v) OMC rece bh genhash=%v.\n", p.getPrefix(), GetHashPrefix(ccm.BH.GenHash()))
 	var cgs CastGroupSummary
 	cgs.BlockHeight = ccm.BH.Height
 	cgs.GroupID = g_id
@@ -751,7 +752,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 					}
 					ccm.BH.Signature = sign.Serialize()
 					log.Printf("OMC BH hash=%v, update group sign data=%v.\n", GetHashPrefix(ccm.BH.Hash), GetSignPrefix(sign))
-
+					bc.ConsensusStatus = CBCS_BLOCKED
 				}
 				log.Printf("proc(%v) OMC SUCCESS CAST GROUP BLOCK, height=%v, qn=%v!!!\n", p.getPrefix(), ccm.BH.Height, cs.QueueNumber)
 				p.SuccessNewBlock(&ccm.BH, g_id) //上链和组外广播
@@ -850,6 +851,8 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 		return
 	}
 
+	outputBlockHeaderAndSign("OMV", &cvm.BH, &cvm.SI)
+
 	var cgs CastGroupSummary
 	cgs.BlockHeight = cvm.BH.Height
 	cgs.GroupID = g_id
@@ -905,6 +908,10 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 				lost_trans_list, ccr, _, _ = p.MainChain.VerifyCastingBlock(cvm.BH)
 				log.Printf("proc(%v) OMV chain check result=%v, lost_trans_count=%v.\n", p.getPrefix(), ccr, len(lost_trans_list))
 				//slot.LostingTrans(lost_trans_list)
+				if ccr != 0 {
+					log.Println("||||OMV BH transactions[%v]",cvm.BH.Transactions)
+					log.Println("||||OMV lost_trans[%v]",lost_trans_list)
+				}
 			}
 		}
 	}
@@ -939,6 +946,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 					cvm.BH.Signature = sign.Serialize()
 					log.Printf("OMV BH hash=%v, update group sign data=%v.\n", GetHashPrefix(cvm.BH.Hash), GetSignPrefix(sign))
 				}
+				bc.ConsensusStatus = CBCS_BLOCKED
 				log.Printf("proc(%v) OMV SUCCESS CAST GROUP BLOCK!!!\n", p.getPrefix())
 				p.SuccessNewBlock(&cvm.BH, g_id) //上链和组外广播
 
@@ -1056,7 +1064,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		fmt.Println("OMB receive self msg, ingored!")
 		return &cbm.Block
 	}
-
+	outputBlockHeaderAndSign("OMB", cbm.Block.Header, &cbm.SI)
 
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
@@ -1116,6 +1124,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 		for _, v := range qns { //对不再缺失交易集的插槽处理
 			slot := bc.getSlotByQN(int64(v))
 			if slot != nil {
+				log.Printf("VerifyCastingBlock [%v]\n",slot.BH)
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
 				log.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", v, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
@@ -1123,6 +1132,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 						p.castLock.Unlock()
 						locked = false
 					}
+					log.Printf("lost_trans_list (%v), slot[%v].LostingTrans(%v)\n", lost_trans_list,int64(v),slot.LostingTrans)
 					panic("OMNT still losting trans on main chain, ERROR.")
 				}
 				switch result {
@@ -1185,6 +1195,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		panic("core.GenerateBlock failed.")
 	}
 	if !PROC_TEST_MODE {
+		outputBlockHeaderAndSign("SuccessNewBlock", block.Header, nil)
 		r, _ := p.AddOnChain(block)
 		if r == 2 || (r != 0 && r != 1) {	//分叉调整或 上链失败都不走下面的逻辑
 			return
@@ -1505,16 +1516,20 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 		b := p.gg.AddGroup(gim.GI)
 		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
-		bc := new(BlockContext)
-		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
+
+		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 		sgi, err := p.gg.GetGroupByID(gim.GI.GroupID)
 		if err != nil {
 			panic("OMGIED GetGroupByID failed.\n")
 		}
+		if !sgi.MemExist(p.GetMinerID()) {
+			return
+		}
+		bc := new(BlockContext)
+		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
 		bc.pos = sgi.GetMinerPos(p.GetMinerID())
 		log.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
 		bc.Proc = p
-		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 		b = p.AddBlockContext(bc)
 		log.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
 		//to do : 上链已初始化的组
@@ -1540,7 +1555,7 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			if top_bh == nil {
 				panic("QueryTopBlock failed")
 			} else {
-				log.Printf("top height on chain=%v.\n", top_bh.Height)
+				log.Printf("top chain height[%v], prehash[%v], hash[%v], signature[%v]\n", top_bh.Height, GetHashPrefix(top_bh.PreHash),GetHashPrefix(top_bh.Hash),top_bh.Signature)
 			}
 			var g_sign groupsig.Signature
 			if g_sign.Deserialize(top_bh.Signature) != nil {
@@ -1634,6 +1649,23 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	return bh
 }
 
+func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)  {
+	var castor groupsig.ID
+	castor.Deserialize(bh.Castor)
+	txs := ""
+	if bh.Transactions != nil {
+		for _, tx := range bh.Transactions {
+			txs += GetHashPrefix(tx) + ","
+		}
+	}
+	txs = "[" + txs + "]"
+	log.Printf("%v, BLOCKINFO: height= %v, castor=%v, hash=%v, txs=%v, txtree=%v, statetree=%v, receipttree=%v\n", prefix, bh.Height, GetIDPrefix(castor), GetHashPrefix(bh.Hash), txs, GetHashPrefix(bh.TxTree), GetHashPrefix(bh.StateTree), GetHashPrefix(bh.ReceiptTree))
+
+	if si != nil {
+		log.Printf("%v, SIDATA: datahash=%v, sign=%v, signer=%v\n", prefix, GetHashPrefix(si.DataHash), si.DataSign.GetHexString(), GetIDPrefix(si.SignMember))
+	}
+}
+
 //当前节点成为KING，出块
 func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 	height := bc.CastHeight
@@ -1651,10 +1683,12 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
 		if block == nil {
 			log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			return nil
 		}
 		bh = block.Header
-
+		bc.ConsensusStatus = CBCS_CASTING
+		log.Printf("AAAAAA castBlock bh genhash=%v\n", GetHashPrefix(bh.GenHash()))
 		log.Printf("AAAAAA castBlock bh %v\n", bh)
 		log.Printf("AAAAAA chain top bh %v\n", p.MainChain.QueryTopBlock())
 
@@ -1687,6 +1721,8 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendCastVerify...\n")
 			log.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
+			outputBlockHeaderAndSign("castBlock and Send", bh, &ccm.SI)
+
 			SendCastVerify(&ccm)
 		} else {
 			log.Printf("call proc.OnMessageCast direct...\n")
