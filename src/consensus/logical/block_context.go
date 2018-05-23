@@ -730,6 +730,7 @@ func (bc *BlockContext) StartTimer() {
 		b := bc.TickerRoutine()
 		if !b {
 			log.Printf("bc.TickerRoutine return false, break timer...\n")
+			log.Printf("^^^bc = %+v", bc)
 			bc.CCTimer.Stop()
 			break
 		}
