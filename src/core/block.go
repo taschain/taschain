@@ -33,25 +33,21 @@ type BlockHeader struct {
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
-	EvictedTxs   []common.Hash // 要移除的交易hash
+	EvictedTxs   []common.Hash
 	ExtraData    []byte
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
 	sign := bh.Signature
 	hash := bh.Hash
-	time1:=bh.CurTime
 
 	bh.Signature = []byte{}
 	bh.Hash = common.Hash{}
-	bh.CurTime=time.Unix(1,1)
-
 	blockByte, _ := json.Marshal(bh)
 	result := common.BytesToHash(Sha256(blockByte))
 
 	bh.Signature = sign
 	bh.Hash = hash
-	bh.CurTime = time1
 	return result
 }
 
