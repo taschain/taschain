@@ -255,6 +255,62 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 	}
 
 }
+
+func TestBlockChain_StateTree(t *testing.T) {
+
+	Clear()
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+	//chain.Clear()
+
+	// 查询创始块
+	blockHeader := BlockChainImpl.QueryTopBlock()
+	if nil == blockHeader || 0 != blockHeader.Height {
+		t.Fatalf("clear data fail")
+	}
+
+	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 100 {
+		t.Fatalf("fail to init 1 balace to 100")
+	}
+
+	txpool := BlockChainImpl.GetTransactionPool()
+	if nil == txpool {
+		t.Fatalf("fail to get txpool")
+	}
+
+	castor := new([]byte)
+	groupid := new([]byte)
+
+	block0 := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block0) {
+		t.Fatalf("fail to add block0")
+	}
+
+	// 交易1
+	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
+
+	//交易2
+	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 2))
+
+	// 交易3 失败的交易
+	txpool.Add(genTestTx("jdai3", 123457, "1", "2", 0, 3))
+
+	// 铸块1
+	block := BlockChainImpl.CastingBlock(2, 12, 0, *castor, *groupid)
+	if nil == block {
+		t.Fatalf("fail to cast new block")
+	}
+
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block) {
+		t.Fatalf("fail to add block")
+	}
+
+	_,_,res,_ :=BlockChainImpl.VerifyCastingBlock(*block.Header)
+	fmt.Printf("result: %d\n",res)
+}
+
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
 
 	sourcebyte := common.BytesToAddress(genHash(source))

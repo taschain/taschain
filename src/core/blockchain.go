@@ -483,6 +483,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		state:    state,
 		receipts: receipts,
 	})
+	fmt.Printf("[block]cast block success. block: %+v\n", block)
 	return block
 }
 
