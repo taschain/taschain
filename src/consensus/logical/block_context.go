@@ -537,7 +537,9 @@ func (bc *BlockContext) Reset() {
 	log.Printf("begin BlockContext::Reset...\n")
 	bc.Version = CONSENSUS_VERSION
 	bc.PreTime = *new(time.Time)
-	bc.CCTimer.Stop() //关闭定时器
+	if bc.CCTimer != nil {
+		bc.CCTimer.Stop() //关闭定时器
+	}
 	bc.TickerRunning = false
 	bc.ConsensusStatus = CBCS_IDLE
 	bc.SignedMinQN = INVALID_QN
@@ -712,7 +714,6 @@ func (bc *BlockContext) getFirstCastor() int32 {
 }
 
 func (bc *BlockContext) StartTimer() {
-	bc.CCTimer.Stop()
 	bc.CCTimer = time.NewTicker(TIMER_INTEVAL_SECONDS)
 	bc.TickerRunning = true
 	defer func() {
