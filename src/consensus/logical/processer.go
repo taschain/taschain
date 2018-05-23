@@ -1540,12 +1540,12 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.Save()
 		}
 
-		log.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
-		sleep_d, err := time.ParseDuration("5s")
+		log.Printf("begin sleeping 10 seconds, now=%v...\n", time.Now().Format(time.Stamp))
+		sleep_d, err := time.ParseDuration("10s")
 		if err == nil {
 			time.Sleep(sleep_d)
 		} else {
-			panic("time.ParseDuration 5s failed.")
+			panic("time.ParseDuration 10s failed.")
 		}
 		log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
 
