@@ -60,7 +60,7 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
 		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config, realData)
 		if err != nil {
-			fmt.Printf("[block] fail to execute tx, error: %s\n", err)
+			fmt.Printf("[block] fail to execute tx, error: %s, tx: %+v\n", err, tx)
 			errTxs = append(errTxs, tx.Hash)
 		} else {
 			receipts = append(receipts, receipt)

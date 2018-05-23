@@ -331,7 +331,7 @@ func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transac
 			Transaction: getTransaction(txs, hash, i),
 		}
 		if nil != receipt {
-			fmt.Printf("[Receipts]txhash %x, contractaddress %x", hash, receipt.ContractAddress.Bytes())
+			fmt.Printf("[Receipts]txhash %x, contractaddress %x\n", hash, receipt.ContractAddress.Bytes())
 		}
 		receiptJson, err := json.Marshal(receiptWrapper)
 		if nil != err {
