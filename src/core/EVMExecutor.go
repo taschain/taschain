@@ -51,6 +51,12 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	)
 	executedTxs := make([]*Transaction, 0)
 	errTxs := make([]c.Hash, 0)
+
+	if 0 == len(block.Transactions) {
+		hash := statedb.IntermediateRoot(true)
+		return receipts, executedTxs, errTxs, &hash, *usedGas
+	}
+
 	for _, tx := range block.Transactions {
 		var realData []byte
 		if nil != processor {
