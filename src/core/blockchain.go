@@ -461,21 +461,21 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	}
 
 	// Process block using the parent state as reference point.
-	receipts, executed, errTxs, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
+	receipts, _, _, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
-	block.Header.Transactions = make([]common.Hash, len(executed))
-	executedTxs := make([]*Transaction, len(executed))
-	for i, tx := range executed {
-		if tx == nil {
-			continue
-		}
-		block.Header.Transactions[i] = tx.Hash
-		executedTxs[i] = tx
-	}
-	block.Transactions = executedTxs
-	block.Header.EvictedTxs = errTxs
+	//block.Header.Transactions = make([]common.Hash, len(executed))
+	//executedTxs := make([]*Transaction, len(executed))
+	//for i, tx := range executed {
+	//	if tx == nil {
+	//		continue
+	//	}
+	//	block.Header.Transactions[i] = tx.Hash
+	//	executedTxs[i] = tx
+	//}
+	//block.Transactions = executedTxs
+	//block.Header.EvictedTxs = errTxs
 
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
