@@ -770,6 +770,7 @@ func (bc *BlockContext) TickerRoutine() bool {
 	}
 
 	if int(d.Seconds()) > max { //超过了组最大铸块时间
+		log.Printf("^^^bc = %+v", bc)
 		log.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
 		bc.Reset()
 		return false
