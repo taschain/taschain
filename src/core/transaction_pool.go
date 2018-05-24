@@ -134,6 +134,9 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 }
 
 func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+	pool.receivedLock.Lock()
+	defer pool.receivedLock.Unlock()
+
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
 	}
@@ -150,6 +153,9 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+	pool.receivedLock.Lock()
+	defer pool.receivedLock.Unlock()
+
 	if tx == nil {
 		return false, ErrNil
 	}
