@@ -648,7 +648,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 		return
 	}
 
-	log.Printf("OMCCCCC message bh %v\n", ccm.BH)
+	log.Printf("OMCCCCC message bh %+v\n", ccm.BH)
 	log.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
 
 	exist := p.MainChain.QueryBlockByHeight(ccm.BH.Height)
@@ -1540,12 +1540,12 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.Save()
 		}
 
-		log.Printf("begin sleeping 10 seconds, now=%v...\n", time.Now().Format(time.Stamp))
-		sleep_d, err := time.ParseDuration("10s")
+		log.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
+		sleep_d, err := time.ParseDuration("5s")
 		if err == nil {
 			time.Sleep(sleep_d)
 		} else {
-			panic("time.ParseDuration 10s failed.")
+			panic("time.ParseDuration 5s failed.")
 		}
 		log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
 
