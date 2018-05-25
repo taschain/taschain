@@ -439,13 +439,15 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
+
+
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
-		block.Header.Height = height
 		block.Header.PreTime = latestBlock.CurTime
 	}
+
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -459,22 +461,27 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	}
 
 	// Process block using the parent state as reference point.
-	receipts, executed, errTxs, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
+	receipts, _, _, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
-	block.Header.Transactions = make([]common.Hash, len(executed))
-	executedTxs := make([]*Transaction, len(executed))
-	for i, tx := range executed {
-		if tx == nil {
-			continue
-		}
-		block.Header.Transactions[i] = tx.Hash
-		executedTxs[i] = tx
-	}
-	block.Transactions = executedTxs
-	block.Header.EvictedTxs = errTxs
+	//block.Header.Transactions = make([]common.Hash, len(executed))
+	//executedTxs := make([]*Transaction, len(executed))
+	//for i, tx := range executed {
+	//	if tx == nil {
+	//		continue
+	//	}
+	//	block.Header.Transactions[i] = tx.Hash
+	//	executedTxs[i] = tx
+	//}
+	//block.Transactions = executedTxs
+	//block.Header.EvictedTxs = errTxs
 
+	block.Header.Transactions = make([]common.Hash, len(block.Transactions))
+	for i,tx := range block.Transactions{
+		block.Header.Transactions[i] = tx.Hash
+	}
+	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
@@ -484,6 +491,9 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		state:    state,
 		receipts: receipts,
 	})
+
+
+	fmt.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
 	return block
 }
 
@@ -496,7 +506,15 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
 func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
 
+	return chain.verifyCastingBlock(bh)
+}
+
+func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+
+	fmt.Printf("[block] start to verifyCastingBlock, %+v\n", bh)
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
@@ -544,15 +562,17 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		fmt.Printf("[block]fail to new statedb, error:%s \n", err)
 
 		return nil, -1, nil, nil
+	}else{
+		fmt.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
 	}
 
 	b := new(Block)
 	b.Header = &bh
 	b.Transactions = transactions
-	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
 
-	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(b.Header.StateTree.Bytes()) {
-		fmt.Printf("[block]fail to verify statetree, hash1:%s hash2:%s \n", statehash.Bytes(), b.Header.StateTree.Bytes())
+	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
+	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(bh.StateTree.Bytes()) {
+		fmt.Printf("[block]fail to verify statetree, hash1:%x hash2:%x \n", statehash.Bytes(), b.Header.StateTree.Bytes())
 
 		return nil, -1, nil, nil
 	}
@@ -563,6 +583,10 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		return nil, 1, nil, nil
 	}
 
+	chain.blockCache.Add(bh.Hash, &castingBlock{
+		state:    state,
+		receipts: receipts,
+	})
 	return nil, 0, state, receipts
 }
 
@@ -594,7 +618,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		}
 
 		// 验证块是否有问题
-		_, status, state, receipts = chain.VerifyCastingBlock(*b.Header)
+		_, status, state, receipts = chain.verifyCastingBlock(*b.Header)
 		if status != 0 {
 			fmt.Printf("[block]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1

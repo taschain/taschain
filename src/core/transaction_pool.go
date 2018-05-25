@@ -134,6 +134,7 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 }
 
 func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
 	}
@@ -150,6 +151,7 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -331,7 +333,7 @@ func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transac
 			Transaction: getTransaction(txs, hash, i),
 		}
 		if nil != receipt {
-			fmt.Printf("[Receipts]txhash %x, contractaddress %x", hash, receipt.ContractAddress.Bytes())
+			fmt.Printf("[Receipts]txhash %x, contractaddress %x\n", hash, receipt.ContractAddress.Bytes())
 		}
 		receiptJson, err := json.Marshal(receiptWrapper)
 		if nil != err {

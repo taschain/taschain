@@ -51,16 +51,22 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 	)
 	executedTxs := make([]*Transaction, 0)
 	errTxs := make([]c.Hash, 0)
-	for i, tx := range block.Transactions {
+
+	if 0 == len(block.Transactions) {
+		hash := statedb.IntermediateRoot(true)
+		return receipts, executedTxs, errTxs, &hash, *usedGas
+	}
+
+	for _, tx := range block.Transactions {
 		var realData []byte
 		if nil != processor {
 			realData, _ = processor.BeforeExecuteTransaction(block, statedb, tx)
 		}
 
-		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), i)
+		statedb.Prepare(common.BytesToHash(tx.Hash.Bytes()), common.BytesToHash(header.Hash.Bytes()), 0)
 		receipt, _, err := executor.execute(statedb, gp, header, tx, usedGas, executor.cfg, executor.config, realData)
 		if err != nil {
-			fmt.Printf("[block] fail to execute tx, error: %s\n", err)
+			fmt.Printf("[block] fail to execute tx, error: %s, tx: %+v\n", err, tx)
 			errTxs = append(errTxs, tx.Hash)
 		} else {
 			receipts = append(receipts, receipt)

@@ -81,6 +81,8 @@ message BlockHeader{
      optional bytes StateTree  = 14 ;
 
      optional bytes ExtraData  = 15 ;
+
+     optional Hashes EvictedTxs  = 16 ;
 }
 
 message Block{

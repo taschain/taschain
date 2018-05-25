@@ -33,7 +33,7 @@ type BlockHeader struct {
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
-	EvictedTxs   []common.Hash // 要移除的交易hash
+	EvictedTxs   []common.Hash
 	ExtraData    []byte
 }
 
