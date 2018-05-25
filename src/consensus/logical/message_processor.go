@@ -115,6 +115,7 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 
 	log.Printf("OMCCCCC message bh %v\n", ccm.BH)
 	log.Printf("OMCCCCC chain top bh %v\n", p.MainChain.QueryTopBlock())
+	outputBlockHeaderAndSign("castBlock", &ccm.BH, &ccm.SI)
 
 	exist := p.MainChain.QueryBlockByHeight(ccm.BH.Height)
 	if exist != nil && exist.Hash == ccm.BH.Hash && exist.PreHash == ccm.BH.PreHash {	//已经上链
@@ -294,6 +295,7 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	log.Printf("OMVVVVVV message bh %v\n", cvm.BH)
 	log.Printf("OMVVVVVV message bh hash %v\n", GetHashPrefix(cvm.BH.Hash))
 	log.Printf("OMVVVVVV chain top bh %v\n", p.MainChain.QueryTopBlock())
+	outputBlockHeaderAndSign("castBlock", &cvm.BH, &cvm.SI)
 
 	exist := p.MainChain.QueryBlockByHeight(cvm.BH.Height)
 	if exist != nil && exist.Hash == cvm.BH.Hash && exist.PreHash == cvm.BH.PreHash {	//已经上链
@@ -458,6 +460,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		return &cbm.Block
 	}
 
+	outputBlockHeaderAndSign("castBlock", cbm.Block.Header, &cbm.SI)
 
 	var block *core.Block
 	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
@@ -472,8 +475,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		//丢弃该块
 		log.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
 	}
-
-	p.checkSelfCastRoutine()
 
 	//收到不合法的块也要做一次检查自己是否属于下一个铸块组, 否则会形成死循环, 没有组出块
 	//preHeader := p.MainChain.QueryTopBlock()
@@ -827,24 +828,30 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 		b := p.gg.AddGroup(gim.GI)
 		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
-		bc := new(BlockContext)
-		bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
-		sgi, err := p.gg.GetGroupByID(gim.GI.GroupID)
-		if err != nil {
-			panic("OMGIED GetGroupByID failed.\n")
-		}
-		bc.pos = sgi.GetMinerPos(p.GetMinerID())
-		log.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
-		bc.Proc = p
-		//to do:只有自己属于这个组的节点才需要调用AddBlockConext
-		b = p.AddBlockContext(bc)
-		log.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
-		//to do : 上链已初始化的组
-		//to do ：从待初始化组中删除
 
 		//检查是否写入配置文件
 		if p.save_data == 1 {
 			p.Save()
+		}
+
+		if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID.GetHexString()) == nil {
+			bc := new(BlockContext)
+			bc.Proc = p
+			bc.Init(GroupMinerID{gim.GI.GroupID, p.GetMinerID()})
+			sgi, err := p.gg.GetGroupByID(gim.GI.GroupID)
+			if err != nil {
+				panic("OMGIED GetGroupByID failed.\n")
+			}
+			bc.pos = sgi.GetMinerPos(p.GetMinerID())
+			log.Printf("OMGIED current ID in group pos=%v.\n", bc.pos)
+			//to do:只有自己属于这个组的节点才需要调用AddBlockConext
+			b = p.AddBlockContext(bc)
+			log.Printf("(proc:%v) OMGIED Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
+			//to do : 上链已初始化的组
+			//to do ：从待初始化组中删除
+
+			p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
+			p.triggerCastCheck()
 		}
 
 		log.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
@@ -855,8 +862,6 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			panic("time.ParseDuration 5s failed.")
 		}
 		log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
-
-		p.checkSelfCastRoutine()
 		//拉取当前最高块
 		//if !PROC_TEST_MODE {
 		//	top_bh := p.MainChain.QueryTopBlock()

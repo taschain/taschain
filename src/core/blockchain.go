@@ -625,19 +625,25 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		}
 	}
 
-	// 检查高度
-	height := b.Header.Height
-
-	// 完美情况
-	if height == (chain.latestBlock.Height + 1) {
+	preHash := b.Header.PreHash
+	if preHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if height > (chain.latestBlock.Height + 1) {
-		//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
-		fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
-		return -2
 	} else {
 		status = chain.adjust(b)
 	}
+	// 检查高度
+	//height := b.Header.Height
+	//
+	//// 完美情况
+	//if height == (chain.latestBlock.Height + 1) {
+	//	status = chain.saveBlock(b)
+	//} else if height > (chain.latestBlock.Height + 1) {
+	//	//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
+	//	fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
+	//	return -2
+	//} else {
+	//	status = chain.adjust(b)
+	//}
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
@@ -706,15 +712,25 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 	// todo:判断权重，决定是否要替换
 	if chain.weight(header, b.Header) {
 		chain.remove(header)
-		// 替换
-		for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header = chain.queryBlockHeaderByHeight(height, true)
+		tmpHash := header.Hash
+
+		for h := chain.latestBlock.Hash; h != tmpHash; h = header.PreHash {
+			header = chain.QueryBlockByHash(h)
 			if header == nil {
 				continue
 			}
 			chain.remove(header)
 			chain.topBlocks.Remove(header.Height)
 		}
+		// 替换
+		//for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
+		//	header = chain.queryBlockHeaderByHeight(height, true)
+		//	if header == nil {
+		//		continue
+		//	}
+		//	chain.remove(header)
+		//	chain.topBlocks.Remove(header.Height)
+		//}
 
 		return chain.saveBlock(b)
 	} else {
@@ -735,7 +751,7 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 //第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
 
-	return current.QueueNumber > candidate.QueueNumber
+	return current.QueueNumber < candidate.QueueNumber
 }
 
 // 删除块

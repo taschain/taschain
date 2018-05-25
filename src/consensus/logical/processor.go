@@ -247,8 +247,18 @@ func (p Processer) Save() {
 	return
 }
 
+//立即触发一次检查自己是否下个铸块组
+func (p *Processer) triggerCastCheck()  {
+    p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+}
+
 //检查是否当前组铸块
 func (p *Processer) checkSelfCastRoutine() bool {
+	begin := time.Now()
+	defer func() {
+		log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
+	}()
+
 	if len(p.belongGroups) == 0 || len(p.bcs) == 0 {
 		return false
 	}
@@ -263,9 +273,11 @@ func (p *Processer) checkSelfCastRoutine() bool {
 			return false
 		}
 
-		deltaHeight := uint64(d) / uint64(MAX_GROUP_BLOCK_TIME) + 1
+		deltaHeight := uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
 		castHeight = top.Height + deltaHeight
 	}
+
+	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, top.Hash, top.CurTime, castHeight)
 
 	for gid, _bc := range p.bcs {
 		if _bc.alreadyInCasting(castHeight, top.Hash) {
@@ -285,8 +297,12 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		return false
 	}
 
+	log.Printf("NEXT CAST GROUP is %v\n", GetIDPrefix(*selectGroup))
+	log.Printf("checkSelfCastRoutine: selectedGroup bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, castHeight=%v, bc.Pretime=%v, preTime=%v, bc.PrevHash=%v, preHash=%v\n", bc.isCasting(), bc.ConsensusStatus, bc.CastHeight, castHeight, bc.PreTime, top.CurTime, bc.PrevHash, top.Hash)
+
 	//自己属于下一个铸块组
 	if p.IsMinerGroup(*selectGroup) {
+		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
 		bc.lock.Lock()
 
 		if bc.isCasting() {
@@ -320,6 +336,10 @@ func (p *Processer) checkSelfCastRoutine() bool {
 	return false
 }
 
+func (p *Processer) getCastCheckRoutineName() string {
+    return "self_cast_check_" + p.getPrefix()
+}
+
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
 	p.MainChain = core.BlockChainImpl
@@ -341,7 +361,7 @@ func (p *Processer) Init(mi MinerInfo) bool {
 		log.Printf("proc(%v) load_data result=%v.\n", p.getPrefix(), b)
 	}
 	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
-	p.Ticker.RegisterRoutine("self_cast_check_" + p.getPrefix(), p.checkSelfCastRoutine, 4, true)
+	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
 
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	return true
@@ -812,6 +832,29 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	return bh
 }
 
+
+func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)  {
+	//bbyte, _ := bh.CurTime.MarshalBinary()
+	//jbyte, _ := bh.CurTime.MarshalJSON()
+	//textbyte, _ := bh.CurTime.MarshalText()
+	//log.Printf("%v, bh.curTime %v, byte=%v, jsonByte=%v, textByte=%v, nano=%v, utc=%v, local=%v, location=%v\n", prefix, bh.CurTime, bbyte, jbyte, textbyte, bh.CurTime.UnixNano(), bh.CurTime.UTC(), bh.CurTime.Local(), bh.CurTime.Location().String())
+
+	//var castor groupsig.ID
+	//castor.Deserialize(bh.Castor)
+	//txs := ""
+	//if bh.Transactions != nil {
+	//	for _, tx := range bh.Transactions {
+	//		txs += GetHashPrefix(tx) + ","
+	//	}
+	//}
+	//txs = "[" + txs + "]"
+	//log.Printf("%v, BLOCKINFO: height= %v, castor=%v, hash=%v, txs=%v, txtree=%v, statetree=%v, receipttree=%v\n", prefix, bh.Height, GetIDPrefix(castor), GetHashPrefix(bh.Hash), txs, GetHashPrefix(bh.TxTree), GetHashPrefix(bh.StateTree), GetHashPrefix(bh.ReceiptTree))
+	//
+	//if si != nil {
+	//	log.Printf("%v, SIDATA: datahash=%v, sign=%v, signer=%v\n", prefix, GetHashPrefix(si.DataHash), si.DataSign.GetHexString(), GetIDPrefix(si.SignMember))
+	//}
+}
+
 //当前节点成为KING，出块
 func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 	height := bc.CastHeight
@@ -829,7 +872,8 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
 		if block == nil {
 			log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-			panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+			return nil
 		}
 		bh = block.Header
 
@@ -862,10 +906,12 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 		ccm.BH = *bh
 		//ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+		outputBlockHeaderAndSign("castBlock", bh, &ccm.SI)
+
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendCastVerify...\n")
 			log.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
-			SendCastVerify(&ccm)
+			go SendCastVerify(&ccm)
 		} else {
 			log.Printf("call proc.OnMessageCast direct...\n")
 			for _, proc := range p.GroupProcs {

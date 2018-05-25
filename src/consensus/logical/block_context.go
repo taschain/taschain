@@ -25,19 +25,6 @@ const (
 	CBCS_TIMEOUT                                           //组铸块超时
 )
 
-//计算当前距上一个铸块完成已经过去了几个出块时间窗口（组内）
-func getCastTimeWindow(b time.Time) int {
-	diff := time.Since(b).Seconds() //从上个铸块完成到现在的时间（秒）
-	log.Printf("getCastTimeWindow, time_begin=%v, diff=%v.\n", b.Format(time.Stamp), diff)
-
-	begin := 0.0
-	cnt := 0
-	for begin < diff {
-		begin += float64(MAX_USER_CAST_TIME)
-		cnt++
-	}
-	return cnt
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
@@ -96,7 +83,7 @@ func (bc *BlockContext) Init(mid GroupMinerID) {
 }
 
 func (bc *BlockContext) getKingCheckRoutineName() string {
-    return "king_check_routine_" + bc.MinerID.gid.GetHexString()
+    return "king_check_routine_" + GetIDPrefix(bc.MinerID.gid)
 }
 
 func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
@@ -266,18 +253,36 @@ func (bc *BlockContext) consensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT
 	return -1, QQSR_NO_UNKNOWN
 }
 
+//计算QN
+func (bc *BlockContext) calcQN() int64 {
+	max := bc.getMaxCastTime()
+	diff := time.Since(bc.PreTime).Seconds() //从上个铸块完成到现在的时间（秒）
+	log.Printf("calcQN, time_begin=%v, diff=%v, max=%v.\n", bc.PreTime.Format(time.Stamp), diff, max)
+
+	var qn int64
+	if bc.baseOnGeneisBlock() {
+		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
+	} else {
+		d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
+		qn = int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
+	}
+
+	return qn
+}
+
+
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (bc *BlockContext) accpetCV(bh core.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
-	log.Printf("begin BlockContext::accpetCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
-	count := getCastTimeWindow(bc.PreTime)
-	if count < 0 || bh.QueueNumber < 0 { //时间窗口异常
-		log.Printf("proc(%v) acceptCV failed(time windwos ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, bh.QueueNumber)
+func (bc *BlockContext) acceptCV(bh core.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
+	log.Printf("begin BlockContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
+	calcQN := bc.calcQN()
+	if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
+		log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", bc.Proc.getPrefix(), calcQN, bh.QueueNumber)
 		return CBMR_ERROR_ARG
 	}
-	if int(bh.QueueNumber) > count { //未轮到该QN出块
-		log.Printf("proc(%v) acceptCV failed(qn ERROR), count=%v, qn=%v.\n", bc.Proc.getPrefix(), count, bh.QueueNumber)
+	if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
+		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", bc.Proc.getPrefix(), calcQN, bh.QueueNumber)
 		return CMBR_IGNORE_QN_FUTURE
 	}
 
@@ -345,13 +350,13 @@ func (bc *BlockContext) reset() {
 	//bc.Threshold = SSSS_THRESHOLD
 	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
 	bc.resetSlotContext()
-	bc.Proc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
+	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
 	log.Printf("end BlockContext::Reset.\n")
 }
 
 //调整铸块基准
 func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash common.Hash, immediatelyTriggerCheck bool) {
-	log.Printf("proc(%v) begin castRebase...\n", preTime.Format(time.Stamp))
+	log.Printf("proc(%v) begin castRebase, trigger %v...\n", preTime.Format(time.Stamp), immediatelyTriggerCheck)
 
 	bc.PreTime = preTime //上一块的铸块成功时间
 	bc.ConsensusStatus = CBCS_CURRENT
@@ -360,7 +365,8 @@ func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash
 	bc.CastHeight = castHeight
 	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
 	bc.resetSlotContext()
-	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME), immediatelyTriggerCheck)
+	bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), immediatelyTriggerCheck)
+	log.Printf("castRebase end. bc.castHeight=%v, bc.PreHash=%v, bc.PreTime=%v\n", castHeight, preHash, preTime)
 	return
 }
 
@@ -368,10 +374,10 @@ func (bc *BlockContext) castRebase(castHeight uint64, preTime time.Time, preHash
 //该函数会被多次重入，需要做容错处理。
 //在某个高度第一次进入时会启动定时器
 func (bc *BlockContext) BeingCastGroup(cgs *CastGroupSummary) (cast bool) {
-	var chainHeight uint64
-	if !PROC_TEST_MODE {
-		chainHeight = bc.Proc.MainChain.QueryTopBlock().Height
-	}
+	//var chainHeight uint64
+	//if !PROC_TEST_MODE {
+	//	chainHeight = bc.Proc.MainChain.QueryTopBlock().Height
+	//}
 
 	castHeight := cgs.BlockHeight
 	preTime := cgs.PreTime
@@ -382,12 +388,12 @@ func (bc *BlockContext) BeingCastGroup(cgs *CastGroupSummary) (cast bool) {
 		return false
 	}
 
-	if castHeight > chainHeight+MAX_UNKNOWN_BLOCKS {
-		//不在合法的铸块高度内
-		log.Printf("height failed, chainHeight=%v, castHeight=%v.\n", chainHeight, castHeight)
-		//panic("BlockContext::BeingCastGroup height failed.")
-		return false
-	}
+	//if castHeight > chainHeight+MAX_UNKNOWN_BLOCKS {
+	//	//不在合法的铸块高度内
+	//	log.Printf("height failed, chainHeight=%v, castHeight=%v.\n", chainHeight, castHeight)
+	//	//panic("BlockContext::BeingCastGroup height failed.")
+	//	return false
+	//}
 
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
@@ -423,7 +429,7 @@ func (bc *BlockContext) UserCasted(bh core.BlockHeader, sd SignData) CAST_BLOCK_
 	if !bc.isCasting() {
 		return CMBR_IGNORE_NOT_CASTING
 	}
-	result := bc.accpetCV(bh, sd)
+	result := bc.acceptCV(bh, sd)
 	return result
 }
 
@@ -435,11 +441,11 @@ func (bc *BlockContext) UserVerified(bh core.BlockHeader, sd SignData) CAST_BLOC
 	if !bc.isCasting() { //没有在组铸块共识窗口
 		return CMBR_IGNORE_NOT_CASTING
 	}
-	result := bc.accpetCV(bh, sd) //>=0为消息正确接收
+	result := bc.acceptCV(bh, sd) //>=0为消息正确接收
 	return result
 }
 
-func (bc BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pubkey) bool {
+func (bc *BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pubkey) bool {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -452,20 +458,26 @@ func (bc BlockContext) VerifyGroupSign(cs ConsensusBlockSummary, pk groupsig.Pub
 	return false
 }
 
+func (bc *BlockContext) baseOnGeneisBlock() bool {
+	geneis := bc.Proc.MainChain.QueryBlockByHeight(0)
+    return bc.PrevHash == geneis.Hash
+}
+
 //计算当前铸块人位置和QN
 func (bc *BlockContext) calcCastor() (int32, int64) {
 	var index int32 = -1
 	var qn int64 = -1
 	d := time.Since(bc.PreTime)
 
-	max := uint64(MAX_GROUP_BLOCK_TIME)
-	if bc.CastHeight == 1 {
-		max = math.MaxUint64
-	}
-	var secs = uint64(d.Seconds())
+	max := bc.getMaxCastTime()
+
+	var secs = int64(d.Seconds())
 	if secs < max { //在组铸块共识时间窗口内
-		qn = int64(MAX_QN) - int64(secs / uint64(MAX_USER_CAST_TIME))//最先到的qn最大, 这样可以最快铸块
-		log.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(max), "qn", qn, "cal", int64(secs / uint64(MAX_USER_CAST_TIME)))
+		qn = bc.calcQN()
+		if qn < 0 {
+			log.Printf("calcCastor qn negative found! qn=%v\n", qn)
+		}
+		log.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(max), "qn", qn)
 		log.Println("ttttttttttt","prehash", bc.PrevHash, "castheight", bc.CastHeight)
 		first_i := bc.getFirstCastor() //取得第一个铸块人位置
 		log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, first_i, qn, first_i+int32(qn))
@@ -492,14 +504,31 @@ func (bc *BlockContext) getFirstCastor() int32 {
 	return index
 }
 
+func (bc *BlockContext) getMaxCastTime() int64 {
+    var max int64
+	if bc.baseOnGeneisBlock() {
+		max = math.MaxInt64
+	} else {
+		preBH := bc.Proc.MainChain.QueryBlockByHash(bc.PrevHash)
+		if preBH == nil {
+			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! bc.castHeight=%v, bc.preHash=%v\n", bc.CastHeight, bc.PrevHash)
+			return 0
+		}
+
+		max = int64(bc.CastHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
+	}
+    log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+	return max
+}
+
 
 //定时器例行处理
 //如果返回false, 则关闭定时器
 func (bc *BlockContext) kingTickerRoutine() bool {
+	log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	log.Printf("proc(%v) begin TickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
 	if !bc.isCasting() || bc.maxQNCasted() { //没有在组铸块共识中或已经出最高qn块
 		log.Printf("proc(%v) not in casting, reset and direct return. consensus status=%v.\n", bc.Proc.getPrefix(), bc.ConsensusStatus)
@@ -508,13 +537,10 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	}
 
 	d := time.Since(bc.PreTime)                  //上个铸块完成到现在的时间
-	max := MAX_GROUP_BLOCK_TIME
-	if bc.CastHeight == 1 {
-		max = math.MaxInt32
-	}
+	max := bc.getMaxCastTime()
 
-	if int(d.Seconds()) > max { //超过了组最大铸块时间
-		log.Printf("proc(%v) end TickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
+	if int64(d.Seconds()) >= max { //超过了组最大铸块时间
+		log.Printf("proc(%v) end kingTickerRoutine, out of max group cast time, time=%v secs, status=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.ConsensusStatus)
 		//bc.reset()
 		bc.ConsensusStatus = CBCS_TIMEOUT
 		return false
@@ -523,7 +549,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 		//检查自己是否成为铸块人
 		index, qn := bc.calcCastor() //当前铸块人（KING）和QN值
 		bc.Proc.CheckCastRoutine(bc, index, qn)
-		log.Printf("proc(%v) end TickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
+		log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}
 	return true

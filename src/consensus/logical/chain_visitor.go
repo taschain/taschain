@@ -4,6 +4,7 @@ import (
 	"core"
 	"log"
 	"sync"
+	"common"
 )
 
 /*
@@ -12,21 +13,14 @@ import (
 **  Description: 
 */
 
-var futureBlocks = make(map[uint64][]*core.Block)
+var futureBlocks = make(map[common.Hash]*core.Block)
 var lock = sync.Mutex{}
 
 func addFutureBlock(b *core.Block) {
-	log.Printf("future block receive cached! h=%v\n", b.Header.Height)
+	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash)
 	lock.Lock()
 	defer lock.Unlock()
-	h := b.Header.Height
-	if bs, ok := futureBlocks[h]; ok {
-		bs = append(bs, b)
-	} else {
-		bs = make([]*core.Block, 0)
-		bs = append(bs, b)
-		futureBlocks[h] = bs
-	}
+	futureBlocks[b.Header.PreHash] = b
 }
 
 func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
@@ -39,31 +33,35 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 }
 
 func (p *Processer) AddOnChain(block *core.Block) (result int8, futrue bool) {
-	pre := p.MainChain.QueryBlockByHeight(block.Header.Height - 1)
+	pre := p.MainChain.QueryBlockByHash(block.Header.PreHash)
 	if pre == nil {
 		addFutureBlock(block)
 		return int8(0), true
 	}
+
+	topHash := p.MainChain.QueryTopBlock().Hash
+
 	 result = p.doAddOnChain(block)
-	 currentHeight := p.MainChain.QueryTopBlock().Height
+	 preHash := p.MainChain.QueryTopBlock().Hash
 
 	 lock.Lock()
 	 defer lock.Unlock()
 
-	 del := make([]uint64, 0)
-	for h, bs := range futureBlocks {
-		if h == currentHeight+1 {
-			log.Printf("add cached block on chain, h = %v, size = %v\n", h, len(bs))
-			for _, b := range bs {
-				p.doAddOnChain(b)
-			}
-			del = append(del, h)
-		}
-		currentHeight = p.MainChain.QueryTopBlock().Height
-	}
+	 del := make([]common.Hash, 0)
+	 for f, ok := futureBlocks[preHash]; ok; {
+		 r := p.doAddOnChain(f)
+		 log.Printf("add cached block on chain, height = %v, hash = %v, result=%v\n", f.Header.Height, f.Header.Hash, r)
+		 del = append(del, preHash)
+		 preHash = p.MainChain.QueryTopBlock().Hash
+	 }
 
 	for _, d := range del {
 		delete(futureBlocks, d)
+	}
+
+	afterOnChainTopHash := p.MainChain.QueryTopBlock().Hash
+	if topHash != afterOnChainTopHash {	//链最高块发生变化后, 触发下个铸块者检查
+		p.triggerCastCheck()
 	}
 	return result, false
 }
