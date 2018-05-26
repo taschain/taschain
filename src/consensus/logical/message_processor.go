@@ -507,6 +507,11 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 	p.castLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.castLock.Unlock()
+		}
+	}()
 	log.Printf("proc(%v) begin OMNT, trans count=%v...\n", p.getPrefix(), len(ths))
 	if len(ths) > 0 {
 		log.Printf("proc(%v) OMNT, first trans=%v.\n", p.getPrefix(), ths[0].Hex())
@@ -515,18 +520,14 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 	bc := p.GetCastingBC() //to do ：实际的场景，可能会返回多个bc，需要处理。（一个矿工加入多个组，考虑现在测试的极端情况，矿工加入了连续出块的2个组）
 	if bc != nil {
 		log.Printf("OMNT, bc height=%v, status=%v. slots_info=%v.\n", bc.CastHeight, bc.ConsensusStatus, bc.PrintSlotInfo())
-		qns := bc.ReceTrans(ths)
-		log.Printf("OMNT, bc.ReceTrans result qns_count=%v.\n", len(qns))
-		for _, v := range qns { //对不再缺失交易集的插槽处理
-			slot := bc.getSlotByQN(int64(v))
+		slots := bc.ReceTrans(ths)
+		log.Printf("OMNT, bc.ReceTrans result slot_count=%v.\n", len(slots))
+		msgs := make([]*ConsensusVerifyMessage, 0)
+		for _, slot := range slots { //对不再缺失交易集的插槽处理
 			if slot != nil {
 				lost_trans_list, result, _, _ := p.MainChain.VerifyCastingBlock(slot.BH)
-				log.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", v, len(lost_trans_list), result)
+				log.Printf("OMNT slot (qn=%v) info : lost_trans=%v, mainchain check result=%v.\n", slot.QueueNumber, len(lost_trans_list), result)
 				if len(lost_trans_list) > 0 {
-					if locked {
-						p.castLock.Unlock()
-						locked = false
-					}
 					panic("OMNT still losting trans on main chain, ERROR.")
 				}
 				switch result {
@@ -535,36 +536,33 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 					send_message.BH = slot.BH
 					//send_message.GroupID = bc.MinerID.gid
 					send_message.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
-					if locked {
-						p.castLock.Unlock()
-						locked = false
-					}
-					if !PROC_TEST_MODE {
-						log.Printf("call network service SendVerifiedCast...\n")
-						SendVerifiedCast(&send_message)
-					} else {
-						log.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
-						for _, v := range p.GroupProcs {
-							v.OnMessageVerify(send_message)
-						}
-					}
+					msgs = append(msgs, &send_message)
+
 				case 1:
 					panic("Processer::OMNT failed, check xiaoxiong's src code.")
 				case -1:
-					log.Printf("OMNT set slot (qn=%v) failed irreversible.\n", v)
+					log.Printf("OMNT set slot (qn=%v) failed irreversible.\n", slot.QueueNumber)
 					slot.statusChainFailed()
 				}
 			} else {
-				log.Printf("OMNT failed, after ReceTrans slot %v is nil.\n", v)
 				panic("OMNT failed, slot is nil.")
+			}
+		}
+		p.castLock.Unlock()
+		locked = false
+		for _, send_message := range msgs {
+			if !PROC_TEST_MODE {
+				log.Printf("call network service SendVerifiedCast...\n")
+				SendVerifiedCast(send_message)
+			} else {
+				log.Printf("proc(%v) OMV BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
+				for _, v := range p.GroupProcs {
+					v.OnMessageVerify(*send_message)
+				}
 			}
 		}
 	} else {
 		log.Printf("OMNT, current proc not in casting, ignore OMNT message.\n")
-	}
-	if locked {
-		p.castLock.Unlock()
-		locked = false
 	}
 	log.Printf("proc(%v) end OMNT.\n", p.getPrefix())
 	return

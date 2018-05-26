@@ -193,20 +193,20 @@ func (bc *BlockContext) findCastSlot(qn int64) (int32) {
 
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
-func (bc *BlockContext) ReceTrans(ths []common.Hash) []int {
+func (bc *BlockContext) ReceTrans(ths []common.Hash) []*SlotContext {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	var qns []int
+	slots := make([]*SlotContext, 0)
 	for _, v := range bc.Slots {
-		if v != nil {
-			result := v.ReceTrans(ths)
-			if result == 0 { //该插槽已不再有缺失的交易
-				qns = append(qns, int(v.QueueNumber))
+		if v != nil && v.QueueNumber != INVALID_QN {
+			before, after := v.ReceTrans(ths)
+			if !before && after { //该插槽已不再有缺失的交易
+				slots = append(slots, v)
 			}
 		}
 	}
-	return qns
+	return slots
 }
 
 type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
