@@ -433,6 +433,23 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	return
 }
 
+
+func (p *Processer) receiveBlock(msg *ConsensusBlockMessage, preBH *core.BlockHeader) bool {
+	if p.isBHCastLegal(&msg.Block, msg.SI, preBH) { //铸块头合法
+		//上链
+		//onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
+		result := p.doAddOnChain(&msg.Block)
+		log.Printf("OMB onchain result %v\n", result)
+		if result == 0 || result == 1 {
+			return true
+		}
+	} else {
+		//丢弃该块
+		log.Printf("OMB received invalid new block, height = %v.\n", msg.Block.Header.Height)
+	}
+	return false
+}
+
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	begin := time.Now()
@@ -460,22 +477,40 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		return &cbm.Block
 	}
 
-	outputBlockHeaderAndSign("castBlock", cbm.Block.Header, &cbm.SI)
+	block := &cbm.Block
 
-	var block *core.Block
-	//bc := p.GetBlockContext(cbm.GroupID.GetHexString())
-	if p.isBHCastLegal(*cbm.Block.Header, cbm.SI) { //铸块头合法
+	topHash := p.MainChain.QueryTopBlock().Hash
 
-		//上链
-		//onchain := p.MainChain.AddBlockOnChain(&cbm.Block)
-		result, future := p.AddOnChain(&cbm.Block)
-		log.Printf("OMB onchain result %v, %v\n", result, future)
-
-	} else {
-		//丢弃该块
-		log.Printf("OMB received invalid new block, height = %v.\n", cbm.Block.Header.Height)
+	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
+	if preHeader == nil {
+		log.Printf("OMB receive future block!, bh=%v\n", block.Header)
+		p.addFutureBlockMsg(&cbm)
+		return block
+		//panic("isBHCastLegal: cannot find pre block header!,ignore block")
 	}
 
+	ret := p.receiveBlock(&cbm, preHeader)
+	if ret {
+		preHeader = block.Header
+		var futureMsgs []*ConsensusBlockMessage
+		for {
+			futureMsgs = p.getFutureBlockMsgs(preHeader.Hash)
+			if futureMsgs == nil || len(futureMsgs) == 0 {
+				break
+			}
+			for _, msg := range futureMsgs {
+				log.Printf("receive cached future block msg: bh=%v, preHeader=%v\n", msg.Block.Header, preHeader)
+				p.receiveBlock(msg, preHeader)
+			}
+			p.removeFutureBlockMsgs(preHeader.Hash)
+			preHeader = p.MainChain.QueryTopBlock()
+		}
+	}
+
+	nowTopHash := p.MainChain.QueryTopBlock().Hash
+	if topHash != nowTopHash {
+		p.triggerCastCheck()
+	}
 	//收到不合法的块也要做一次检查自己是否属于下一个铸块组, 否则会形成死循环, 没有组出块
 	//preHeader := p.MainChain.QueryTopBlock()
 	//if preHeader == nil {
@@ -497,7 +532,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	//	log.Printf("OMB call network service SendCurrentGroupCast...\n")
 	//	go SendCurrentGroupCast(&ccm) //通知所有组员“我们组成为当前铸块组”
 	//}
-	block = &cbm.Block //返回成功的块
 
 	log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return block

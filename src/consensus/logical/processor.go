@@ -73,6 +73,9 @@ type Processer struct {
 	GroupProcs map[string]*Processer
 	Ticker 			*ticker.GlobalTicker		//全局定时器, 组初始化完成后启动
 
+	futureBlockMsg map[common.Hash][]*ConsensusBlockMessage		//存储缺少父块的块
+	futureLock sync.Mutex
+
 	piece_count  int
 	inited_count int
 	load_data    int
@@ -342,6 +345,7 @@ func (p *Processer) getCastCheckRoutineName() string {
 
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
+	p.futureBlockMsg = make(map[common.Hash][]*ConsensusBlockMessage)
 	p.MainChain = core.BlockChainImpl
 	p.mi = mi
 	p.gg.Init()
@@ -469,19 +473,14 @@ func (p *Processer) calcCastGroup(preBH *core.BlockHeader, height uint64) *group
 }
 
 //检查区块头是否合法
-func (p *Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool) {
+func (p *Processer) isBHCastLegal(b *core.Block, sd SignData, preHeader *core.BlockHeader) (result bool) {
 	//to do : 检查是否基于链上最高块的出块
+	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
 		panic("isBHCastLegal, group id Deserialize failed.")
 	}
 
-	preHeader := p.MainChain.QueryBlockByHash(bh.PreHash)
-	if preHeader == nil {
-		log.Printf("isBHCastLegal: cannot find pre block header!,ignore block. %v, %v, %v\n", bh.PreHash, bh.Height, bh.Hash)
-		return false
-		//panic("isBHCastLegal: cannot find pre block header!,ignore block")
-	}
 
 	var sign groupsig.Signature
 	if sign.Deserialize(preHeader.Signature) != nil {
@@ -518,6 +517,7 @@ func (p *Processer) isBHCastLegal(bh core.BlockHeader, sd SignData) (result bool
 		//panic("isBHCastLegal failed, not expect group")  非法铸块组 直接跳过就行了吧?
 	}
 	log.Printf("BHCastLegal result=%v.\n", result)
+
 	return result
 }
 
