@@ -714,7 +714,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	}
 	if !PROC_TEST_MODE {
 		r := p.doAddOnChain(block)
-		if r == 2 || (r != 0 && r != 1) {	//分叉调整或 上链失败都不走下面的逻辑
+		if r != 0 && r != 1 {	//分叉调整或 上链失败都不走下面的逻辑
 			return
 		}
 
@@ -728,27 +728,28 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 	if !PROC_TEST_MODE {
 		log.Printf("call network service BroadcastNewBlock...\n")
 		go BroadcastNewBlock(&cbm)
+		p.triggerCastCheck()
 	}
 	log.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
 
 //检查是否轮到自己出块
-func (p *Processer) CheckCastRoutine(bc *BlockContext, king_index int32, qn int64) {
+func (p *Processer) checkCastRoutine(bc *BlockContext, kingIndex int32, qn int64) {
 	//p.castLock.Lock()
 	//defer p.castLock.Unlock()
 	gid := bc.MinerID.gid
 	height := bc.CastHeight
 
-	log.Printf("prov(%v) begin CheckCastRoutine, gid=%v, king_index=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), king_index, qn, height)
-	if king_index < 0 || qn < 0 {
+	log.Printf("prov(%v) begin CheckCastRoutine, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
+	if kingIndex < 0 || qn < 0 {
 		return
 	}
 	sgi := p.getGroup(gid)
 	pos := sgi.GetMinerPos(p.GetMinerID()) //取得当前节点在组中的排位
-	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(king_index))))
+	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(kingIndex))))
 	log.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
-	if sgi.GetCastor(int(king_index)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
+	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		log.Printf("curent node IS KING!\n")
 		if !p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
 			head := p.castBlock(bc, qn) //铸块

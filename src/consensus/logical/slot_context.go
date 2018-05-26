@@ -18,7 +18,8 @@ import (
 type SLOT_STATUS int
 
 const (
-	SS_WAITING      SLOT_STATUS = iota //等待签名片段达到阈值
+	SS_WAITING      int32 = iota //等待签名片段达到阈值
+	SS_BRAODCASTED                     //是否已经广播验证过
 	SS_RECOVERD                        //恢复出组签名
 	SS_VERIFIED                        //组签名用组公钥验证通过
 	SS_FAILED_CHAIN                    //链反馈失败，不可逆
@@ -29,14 +30,14 @@ const (
 type SlotContext struct {
 	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
 	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
-	BH           core.BlockHeader              //出块头详细数据
-	QueueNumber  int64                         //铸块槽序号(<0无效)，等同于出块人序号。
-	King         groupsig.ID                   //出块者ID
-	MapWitness   map[string]groupsig.Signature //该铸块槽的见证人验证签名列表
-	GroupSign    groupsig.Signature            //成功输出的组签名
-	SlotStatus   SLOT_STATUS
-	LostingTrans map[common.Hash]int //本地缺失的交易集
-	TransFulled  bool                //针对该区块头的交易集在本地链上已全部存在
+	BH          core.BlockHeader              //出块头详细数据
+	QueueNumber int64                         //铸块槽序号(<0无效)，等同于出块人序号。
+	King        groupsig.ID                   //出块者ID
+	MapWitness  map[string]groupsig.Signature //该铸块槽的见证人验证签名列表
+	GroupSign   groupsig.Signature            //成功输出的组签名
+	SlotStatus  int32
+	LosingTrans map[common.Hash]int //本地缺失的交易集
+	TransFulled bool                //针对该区块头的交易集在本地链上已全部存在
 }
 
 func (sc *SlotContext) isAllTransExist() bool {
@@ -52,29 +53,29 @@ func (sc *SlotContext) IsFailed() bool {
 }
 
 func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
-	log.Printf("slot begin InitLostingTrans, cur_count=%v, input_count=%v...\n", len(sc.LostingTrans), len(ths))
+	log.Printf("slot begin InitLostingTrans, cur_count=%v, input_count=%v...\n", len(sc.LosingTrans), len(ths))
 	if sc.TransFulled {
 		panic("SlotContext::InitLostingTrans failed, transFulled=true")
 	}
-	sc.LostingTrans = make(map[common.Hash]int)
+	sc.LosingTrans = make(map[common.Hash]int)
 	for _, v := range ths {
-		sc.LostingTrans[v] = 0
+		sc.LosingTrans[v] = 0
 	}
-	sc.TransFulled = len(sc.LostingTrans) == 0
-	log.Printf("slot end InitLostingTrans, cur_count=%v, fulled=%v.\n", len(sc.LostingTrans), sc.TransFulled)
+	sc.TransFulled = len(sc.LosingTrans) == 0
+	log.Printf("slot end InitLostingTrans, cur_count=%v, fulled=%v.\n", len(sc.LosingTrans), sc.TransFulled)
 	return
 }
 
 //用接收到的新交易更新缺失的交易集
 //返回尚缺失的交易集数量，如当前已没有缺失的交易，返回0.
 func (sc *SlotContext) ReceTrans(ths []common.Hash) (before, after bool) {
-	if len(sc.LostingTrans) == 0 {	//已经无缺失
+	if len(sc.LosingTrans) == 0 { //已经无缺失
 		return true, true
 	}
 	for _, th := range ths {
-		delete(sc.LostingTrans, th)
+		delete(sc.LosingTrans, th)
 	}
-	sc.TransFulled = len(sc.LostingTrans) == 0
+	sc.TransFulled = len(sc.LosingTrans) == 0
 	return false, sc.TransFulled
 }
 
@@ -205,6 +206,7 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	}
 	sc := new(SlotContext)
 	sc.TimeRev = time.Now()
+	sc.SlotStatus = SS_WAITING
 	sc.BH = bh
 	//sc.HeaderHash = si.DataHash
 	log.Printf("create new slot, hash=%v.\n", GetHashPrefix(sc.BH.Hash))
@@ -212,7 +214,7 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	sc.King.Deserialize(bh.Castor)
 	sc.MapWitness = make(map[string]groupsig.Signature)
 	sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-	sc.LostingTrans = make(map[common.Hash]int)
+	sc.LosingTrans = make(map[common.Hash]int)
 
 	if !PROC_TEST_MODE {
 		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(bh)
@@ -223,14 +225,15 @@ func newSlotContext(bh core.BlockHeader, si SignData) *SlotContext {
 	return sc
 }
 
-func (sc *SlotContext) Reset() {
+func (sc *SlotContext) reset() {
 	sc.TimeRev = *new(time.Time)
 	//sc.HeaderHash = *new(common.Hash)
 	sc.BH = core.BlockHeader{}
 	sc.QueueNumber = INVALID_QN
+	sc.SlotStatus = SS_WAITING
 	sc.King = *groupsig.NewIDFromInt(0)
 	sc.MapWitness = make(map[string]groupsig.Signature)
-	sc.LostingTrans = make(map[common.Hash]int)
+	sc.LosingTrans = make(map[common.Hash]int)
 	return
 }
 

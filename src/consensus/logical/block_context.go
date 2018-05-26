@@ -230,6 +230,14 @@ func (bc *BlockContext) getSlotByQN(qn int64) *SlotContext {
 	}
 }
 
+func (bc *BlockContext) getQNs() []int64 {
+	qns := make([]int64, 0)
+	for _, sc := range bc.Slots {
+		qns = append(qns, sc.QueueNumber)
+	}
+	return qns
+}
+
 //根据QN优先级规则，尝试找到有效的插槽
 func (bc *BlockContext) consensusFindSlot(qn int64) (int32, QN_QUERY_SLOT_RESULT) {
 	var minQN int64 = -1
@@ -329,7 +337,7 @@ func (bc BlockContext) IsCasting() bool {
 func (bc *BlockContext) resetSlotContext()  {
 	for i := 0; i < MAX_SYNC_CASTORS; i++ {
 		sc := new(SlotContext)
-		sc.Reset()
+		sc.reset()
 		bc.Slots[i] = sc
 	}
 }
@@ -479,10 +487,10 @@ func (bc *BlockContext) calcCastor() (int32, int64) {
 		}
 		log.Println("ttttttttttt", "d", d, "pretime", bc.PreTime, "secs", secs, "MAXTIME", uint64(max), "qn", qn)
 		log.Println("ttttttttttt","prehash", bc.PrevHash, "castheight", bc.CastHeight)
-		first_i := bc.getFirstCastor() //取得第一个铸块人位置
-		log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, first_i, qn, first_i+int32(qn))
-		if first_i >= 0 && bc.GroupMembers > 0 {
-			index = (int32(qn) + first_i) % int32(bc.GroupMembers)
+		firstKing := bc.getFirstCastor() //取得第一个铸块人位置
+		log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+		if firstKing >= 0 && bc.GroupMembers > 0 {
+			index = int32((qn + int64(firstKing)) % int64(bc.GroupMembers))
 			log.Printf("real cur King pos(MOD mem_count)=%v.\n", index)
 		} else {
 			qn = -1
@@ -548,7 +556,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.calcCastor() //当前铸块人（KING）和QN值
-		bc.Proc.CheckCastRoutine(bc, index, qn)
+		bc.Proc.checkCastRoutine(bc, index, qn)
 		log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}
