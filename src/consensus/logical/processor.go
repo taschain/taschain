@@ -713,7 +713,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		panic("core.GenerateBlock failed.")
 	}
 	if !PROC_TEST_MODE {
-		r, _ := p.AddOnChain(block)
+		r := p.doAddOnChain(block)
 		if r == 2 || (r != 0 && r != 1) {	//分叉调整或 上链失败都不走下面的逻辑
 			return
 		}
