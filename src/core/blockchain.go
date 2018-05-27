@@ -703,38 +703,41 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) int8 {
-	header := chain.queryBlockHeaderByHeight(b.Header.Height, true)
-	if header == nil {
+	preHeader := chain.queryBlockHeaderByHash(b.Header.PreHash)
+	if preHeader == nil {
 		fmt.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
 		return -1
 	}
 
-	// todo:判断权重，决定是否要替换
-	if chain.weight(header, b.Header) {
-		chain.remove(header)
-		tmpHash := header.Hash
+	upHeader := chain.latestBlock
+	for upHeader.PreHash != preHeader.Hash {
+		upHeader = chain.QueryBlockByHash(upHeader.PreHash)
+	}
 
-		for h := chain.latestBlock.Hash; h != tmpHash; h = header.PreHash {
-			header = chain.QueryBlockByHash(h)
-			if header == nil {
+	// todo:判断权重，决定是否要替换
+	if chain.weight(upHeader, b.Header) {
+		tmpHeader := chain.latestBlock
+		for h := tmpHeader.Hash; h != preHeader.Hash; h = tmpHeader.PreHash {
+			tmpHeader = chain.QueryBlockByHash(h)
+			if tmpHeader == nil {
 				continue
 			}
-			chain.remove(header)
-			chain.topBlocks.Remove(header.Height)
+			chain.remove(tmpHeader)
+			chain.topBlocks.Remove(tmpHeader.Height)
 		}
 		// 替换
-		//for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
-		//	header = chain.queryBlockHeaderByHeight(height, true)
-		//	if header == nil {
+		//for height := preHeader.Height + 1; height <= chain.latestBlock.Height; height++ {
+		//	preHeader = chain.queryBlockHeaderByHeight(height, true)
+		//	if preHeader == nil {
 		//		continue
 		//	}
-		//	chain.remove(header)
-		//	chain.topBlocks.Remove(header.Height)
+		//	chain.remove(preHeader)
+		//	chain.topBlocks.Remove(preHeader.Height)
 		//}
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, header.QueueNumber, b.Header.QueueNumber)
+		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, preHeader.QueueNumber, b.Header.QueueNumber)
 
 		return 2
 	}
