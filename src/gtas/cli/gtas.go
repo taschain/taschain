@@ -235,7 +235,7 @@ func (gtas *Gtas) Run() {
 	mineCmd := app.Command("miner", "miner start")
 	// rpc解析
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
-	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
+	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 
