@@ -30,6 +30,7 @@ func (p *Processer) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	if bs, ok := p.futureBlockMsg[b.Header.PreHash]; ok {
 		if !findBlock(bs, b.Header.Hash) {
 			bs = append(bs, msg)
+			p.futureBlockMsg[b.Header.PreHash] = bs
 		}
 	} else {
 		bs := make([]*ConsensusBlockMessage, 0)

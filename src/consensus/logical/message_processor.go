@@ -515,6 +515,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 			if futureMsgs == nil || len(futureMsgs) == 0 {
 				break
 			}
+			log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 			for _, msg := range futureMsgs {
 				log.Printf("receive cached future block msg: bh=%v, preHeader=%v\n", msg.Block.Header, preHeader)
 				p.receiveBlock(msg, preHeader)
