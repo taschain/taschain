@@ -5,11 +5,12 @@ import (
 	"vm/rpc"
 
 	"fmt"
-	"log"
 	"network/p2p"
 	"strconv"
 	"core"
 	"encoding/hex"
+	"strings"
+	"log"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -165,13 +166,21 @@ func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string,
 
 // StartRPC RPC 功能
 func StartRPC(host string, port uint) error {
+	var err error
 	apis := []rpc.API{
 		{Namespace: "GTAS", Version: "1", Service: &GtasAPI{}, Public: true},
 	}
-	err := startHTTP(fmt.Sprintf("%s:%d", host, port), apis, []string{}, []string{}, []string{})
-	if err != nil {
+	for plus := 0; plus < 40; plus ++ {
+		err = startHTTP(fmt.Sprintf("%s:%d", host, port+uint(plus)), apis, []string{}, []string{}, []string{})
+		if err == nil {
+			log.Printf("RPC serving on http://%s:%d\n", host, port+uint(plus))
+			return nil
+		}
+		if strings.Contains(err.Error(), "address already in use") {
+			log.Printf("address: %s:%d already in use\n", host, port+uint(plus))
+			continue
+		}
 		return err
 	}
-	log.Printf("RPC serving on http://%s:%d\n", host, port)
-	return nil
+	return err
 }
