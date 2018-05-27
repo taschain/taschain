@@ -711,14 +711,14 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 	upHeader := chain.latestBlock
 	for upHeader.PreHash != preHeader.Hash {
-		upHeader = chain.QueryBlockByHash(upHeader.PreHash)
+		upHeader = chain.queryBlockHeaderByHash(upHeader.PreHash)
 	}
 
 	// todo:判断权重，决定是否要替换
 	if chain.weight(upHeader, b.Header) {
 		tmpHeader := chain.latestBlock
 		for h := tmpHeader.Hash; h != preHeader.Hash; h = tmpHeader.PreHash {
-			tmpHeader = chain.QueryBlockByHash(h)
+			tmpHeader = chain.queryBlockHeaderByHash(h)
 			if tmpHeader == nil {
 				continue
 			}
