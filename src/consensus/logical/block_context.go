@@ -415,6 +415,9 @@ func (bc *BlockContext) BeingCastGroup(cgs *CastGroupSummary) (cast bool) {
 
 	if bc.isCasting() {	//如果在铸块中
 		if bc.CastHeight == castHeight {
+			if bc.PrevHash != preHash {
+				log.Printf("preHash diff found, bc.preHash=%v, preHash=%v!!!!!!!!!!!\n", bc.PrevHash, preHash)
+			}
 			log.Printf("already in casting height %v\n", castHeight)
 		} else if bc.CastHeight > castHeight {
 			log.Printf("already in casting higher block, current castHeight=%v, request castHeight=%v\n", bc.CastHeight, castHeight)

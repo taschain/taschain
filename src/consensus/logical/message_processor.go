@@ -470,6 +470,11 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 		log.Printf("OMB begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	}()
 
+	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
+		log.Printf("OMB receive block already on chain!\n")
+		return nil
+	}
+
 	p.castLock.Lock()
 	locked := true
 	defer func() {
