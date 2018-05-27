@@ -49,7 +49,8 @@ type TransactionPool struct {
 	receivedLock sync.RWMutex
 
 	// 收到的待处理transaction
-	received map[common.Hash]*Transaction //todo: 替换成sync.Map 自带锁的map
+	received sync.Map
+	//map[common.Hash]*Transaction //todo: 替换成sync.Map 自带锁的map
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -88,7 +89,7 @@ func NewTransactionPool() *TransactionPool {
 	pool := &TransactionPool{
 		config:       getPoolConfig(),
 		receivedLock: sync.RWMutex{},
-		received:     make(map[common.Hash]*Transaction),
+		received:     sync.Map{},
 		lowestPrice:  nil,
 	}
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -108,26 +109,21 @@ func (pool *TransactionPool) Clear() {
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
-	pool.received = make(map[common.Hash]*Transaction)
+	pool.received = sync.Map{}
 }
 
-func (pool *TransactionPool) GetReceived() map[common.Hash]*Transaction {
+func (pool *TransactionPool) GetReceived() sync.Map {
 	return pool.received
 }
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
-	pool.receivedLock.Lock()
-	defer pool.receivedLock.Unlock()
+	txs := make([]*Transaction, 0)
+	pool.received.Range(func(key, value interface{}) bool {
+		txs = append(txs, value.(*Transaction))
 
-	//pool.casting = make(map[common.Hash256]*Transaction)
-
-	txs := make([]*Transaction, len(pool.received))
-	i := 0
-	for _, tx := range pool.received {
-		txs[i] = tx
-		i++
-	}
+		return true
+	})
 
 	sort.Sort(Transactions(txs))
 	return txs
@@ -172,7 +168,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	}
 
 	// 池子满了
-	if len(pool.received) >= pool.config.maxReceivedPoolSize {
+	if length(pool.received) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
 		if pool.lowestPrice.GasPrice > tx.GasPrice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
@@ -207,9 +203,7 @@ func (pool *TransactionPool) Remove(transactions []common.Hash) {
 // 从池子里移除某个交易
 func (pool *TransactionPool) remove(hash common.Hash) {
 
-	pool.receivedLock.Lock()
-	defer pool.receivedLock.Unlock()
-	delete(pool.received, hash)
+	pool.received.Delete(hash)
 
 }
 
@@ -240,9 +234,9 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 	defer pool.receivedLock.RUnlock()
 
 	// 先从received里获取
-	result := pool.received[hash]
+	result, _ := pool.received.Load(hash)
 	if nil != result {
-		return result, nil
+		return result.(*Transaction), nil
 	}
 
 	// 再从executed里获取
@@ -259,7 +253,8 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 // 2）已存在块上
 // 3）todo：曾经收到过的，不合法的交易
 func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
-	if pool.received[hash] != nil {
+	result, _ := pool.received.Load(hash)
+	if result != nil {
 		return true
 	}
 
@@ -281,8 +276,7 @@ func (pool *TransactionPool) add(tx *Transaction) {
 	pool.receivedLock.Lock()
 	defer pool.receivedLock.Unlock()
 
-	pool.received[tx.Hash] = tx
-
+	pool.received.Store(tx.Hash, tx)
 	lowestPrice := pool.lowestPrice
 	if lowestPrice == nil || lowestPrice.GasPrice > tx.GasPrice {
 		pool.lowestPrice = tx
@@ -302,25 +296,27 @@ func (pool *TransactionPool) addTxs(txs []*Transaction) {
 func (pool *TransactionPool) replace(tx *Transaction) {
 	// 替换
 	pool.receivedLock.Lock()
-	delete(pool.received, pool.lowestPrice.Hash)
-	pool.received[tx.Hash] = tx
-	pool.receivedLock.Unlock()
+	defer pool.receivedLock.Unlock()
+
+	pool.received.Delete(pool.lowestPrice.Hash)
+	pool.received.Store(tx.Hash, tx)
 
 	// 更新lowest
 	lowest := tx
-	pool.receivedLock.RLock()
-
-	for _, transaction := range pool.received {
+	pool.received.Range(func(key, value interface{}) bool {
+		transaction := value.(*Transaction)
 		if transaction.GasPrice < lowest.GasPrice {
 			lowest = transaction
 		}
-	}
+
+		return true
+	})
 
 	pool.lowestPrice = lowest
-	defer pool.receivedLock.RUnlock()
 
 }
 
+//todo: 并发处理
 func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transaction) {
 	if nil == receipts || 0 == len(receipts) {
 		return
@@ -382,4 +378,13 @@ func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
 	}
+}
+
+func length(m sync.Map) int {
+	count := 0
+	m.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }

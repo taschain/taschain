@@ -106,13 +106,17 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, 5)
-	for _, v := range transactions {
+	transactions.Range(func(key, value interface{}) bool {
+		v:= value.(core.Transaction)
 		transList = append(transList, Transactions{
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
 		})
-	}
+
+		return true
+	})
+
 	return &Result{"success", transList}, nil
 }
 
