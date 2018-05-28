@@ -439,15 +439,12 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
-
-
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -478,7 +475,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	//block.Header.EvictedTxs = errTxs
 
 	block.Header.Transactions = make([]common.Hash, len(block.Transactions))
-	for i,tx := range block.Transactions{
+	for i, tx := range block.Transactions {
 		block.Header.Transactions[i] = tx.Hash
 	}
 	block.Header.EvictedTxs = []common.Hash{}
@@ -491,7 +488,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		state:    state,
 		receipts: receipts,
 	})
-
 
 	fmt.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
 	return block
@@ -562,7 +558,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		fmt.Printf("[block]fail to new statedb, error:%s \n", err)
 
 		return nil, -1, nil, nil
-	}else{
+	} else {
 		fmt.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
 	}
 
@@ -641,9 +637,12 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
+		chain.transactionPool.Lock()
 		chain.transactionPool.Remove(b.Header.Transactions)
 		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
+		defer chain.transactionPool.Unlock()
+
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
@@ -750,8 +749,10 @@ func (chain *BlockChain) remove(header *BlockHeader) {
 		return
 	}
 	txs := block.Transactions
+	chain.transactionPool.Lock()
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.addTxs(txs)
+	defer chain.transactionPool.Unlock()
 }
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {
