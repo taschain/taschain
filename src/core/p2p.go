@@ -71,16 +71,7 @@ func (connector *BlockChainConnector) TransactionArrived(ts []*Transaction) erro
 		return fmt.Errorf("nil transactions")
 	}
 
-	var returnErr error
-
-	for _, tx := range ts {
-		_, err := connector.chain.GetTransactionPool().Add(tx)
-		if err != nil {
-			returnErr = err
-		}
-	}
-
-	return returnErr
+	return connector.chain.GetTransactionPool().AddTransactions(ts)
 }
 
 //addNewBlockToChainFn 实现
@@ -111,7 +102,6 @@ func (connector *GroupChainConnector) getGroupChainHeight() (uint64, error) {
 	}
 	return connector.chain.count, nil
 }
-
 
 func uint64ToByte(i uint64) []byte {
 	buf := bytes.NewBuffer([]byte{})

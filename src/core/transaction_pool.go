@@ -46,11 +46,11 @@ type TransactionPool struct {
 	config *TransactionPoolConfig
 
 	// 读写锁
-	receivedLock sync.RWMutex
+	lock sync.RWMutex
 
 	// 收到的待处理transaction
 	received sync.Map
-	//map[common.Hash]*Transaction //todo: 替换成sync.Map 自带锁的map
+	//map[common.Hash]*Transaction
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -87,10 +87,10 @@ func getPoolConfig() *TransactionPoolConfig {
 func NewTransactionPool() *TransactionPool {
 
 	pool := &TransactionPool{
-		config:       getPoolConfig(),
-		receivedLock: sync.RWMutex{},
-		received:     sync.Map{},
-		lowestPrice:  nil,
+		config:      getPoolConfig(),
+		lock:        sync.RWMutex{},
+		received:    sync.Map{},
+		lowestPrice: nil,
 	}
 	executed, err := datasource.NewDatabase(pool.config.tx)
 	if err != nil {
@@ -103,13 +103,21 @@ func NewTransactionPool() *TransactionPool {
 }
 
 func (pool *TransactionPool) Clear() {
-	pool.receivedLock.Lock()
-	defer pool.receivedLock.Unlock()
+	pool.Lock()
+	defer pool.Unlock()
 
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.received = sync.Map{}
+}
+
+// lock 与 unlock 用于多个操作的事务处理
+func (pool *TransactionPool) Lock() {
+	pool.lock.Lock()
+}
+func (pool *TransactionPool) Unlock() {
+	pool.lock.Unlock()
 }
 
 func (pool *TransactionPool) GetReceived() sync.Map {
@@ -129,8 +137,8 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 	return txs
 }
 
+// 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
-
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
 	}
@@ -146,7 +154,10 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 }
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
+// 加锁
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+	pool.Lock()
+	defer pool.Unlock()
 
 	if tx == nil {
 		return false, ErrNil
@@ -229,9 +240,10 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 }
 
 // 根据hash获取交易实例
+// 此处加锁
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, error) {
-	pool.receivedLock.RLock()
-	defer pool.receivedLock.RUnlock()
+	pool.lock.RLock()
+	defer pool.lock.RUnlock()
 
 	// 先从received里获取
 	result, _ := pool.received.Load(hash)
@@ -252,6 +264,7 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, err
 // 1）已存在待处理列表
 // 2）已存在块上
 // 3）todo：曾经收到过的，不合法的交易
+// 被add调用，外部加锁
 func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
 	result, _ := pool.received.Load(hash)
 	if result != nil {
@@ -272,10 +285,8 @@ func (pool *TransactionPool) validate(tx *Transaction) error {
 }
 
 // 直接加入未满的池子
+// 不需要加锁，sync.Map保证并发
 func (pool *TransactionPool) add(tx *Transaction) {
-	pool.receivedLock.Lock()
-	defer pool.receivedLock.Unlock()
-
 	pool.received.Store(tx.Hash, tx)
 	lowestPrice := pool.lowestPrice
 	if lowestPrice == nil || lowestPrice.GasPrice > tx.GasPrice {
@@ -284,6 +295,8 @@ func (pool *TransactionPool) add(tx *Transaction) {
 
 }
 
+// 外部加锁
+// 加缓冲区
 func (pool *TransactionPool) addTxs(txs []*Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
@@ -293,11 +306,9 @@ func (pool *TransactionPool) addTxs(txs []*Transaction) {
 	}
 }
 
+// Add时候会调用，在外面加锁
 func (pool *TransactionPool) replace(tx *Transaction) {
 	// 替换
-	pool.receivedLock.Lock()
-	defer pool.receivedLock.Unlock()
-
 	pool.received.Delete(pool.lowestPrice.Hash)
 	pool.received.Store(tx.Hash, tx)
 
@@ -316,7 +327,7 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 
 }
 
-//todo: 并发处理
+// 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
 func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transaction) {
 	if nil == receipts || 0 == len(receipts) {
 		return
@@ -356,6 +367,7 @@ func getTransaction(txs []*Transaction, hash []byte, i int) *Transaction {
 	return nil
 }
 
+// 从磁盘读取，不需要加锁（ldb自行保证）
 func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	receiptJson, _ := pool.executed.Get(hash.Bytes())
 	if nil == receiptJson {
@@ -371,6 +383,7 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	return receipt
 }
 
+// 本身不需要加锁（ldb自己保证）
 func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
