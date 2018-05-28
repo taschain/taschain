@@ -210,7 +210,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	if pkgLength < PACKAGE_MAX_SIZE {
 		n1, err1 := stream.Read(pkgBodyBytes)
 		if err1 != nil {
-			logger.Errorf("Stream  read error:%s", err.Error())
+			logger.Errorf("Stream  read error:%s", err1.Error())
 			return
 		}
 		if n1 != pkgLength {
@@ -224,7 +224,7 @@ func swarmStreamHandler(stream inet.Stream) {
 			a := make([]byte, PACKAGE_MAX_SIZE)
 			n1, err1 := stream.Read(a)
 			if err1 != nil {
-				logger.Errorf("Stream  read error:%s", err.Error())
+				logger.Errorf("Stream  read error:%s", err1.Error())
 				return
 			}
 

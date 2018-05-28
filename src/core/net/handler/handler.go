@@ -399,7 +399,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 	}
 
 	blocks := make([]*core.Block, 0)
-	if message.Blocks.Blocks != nil {
+	if message.Blocks != nil && message.Blocks.Blocks != nil {
 		for _, b := range message.Blocks.Blocks {
 			blocks = append(blocks, PbToBlock(b))
 		}
