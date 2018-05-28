@@ -638,8 +638,8 @@ func (p *Processer) OnMessageCast(ccm ConsensusCastMessage) {
 	}
 	var castor groupsig.ID
 	castor.Deserialize(ccm.BH.Castor)
-	log.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(),
-		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber, GetIDPrefix(castor))
+	log.Printf("proc(%v) begin OMC, group=%v, sender=%v, height=%v, qn=%v, castor=%v, OMC_passtime=%v\n", p.getPrefix(),
+		GetIDPrefix(g_id), GetIDPrefix(ccm.SI.GetID()), ccm.BH.Height, ccm.BH.QueueNumber, GetIDPrefix(castor),time.Since(ccm.BH.CurTime).String())
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(ccm.SI.SignMember) {
@@ -823,8 +823,8 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	}
 	var castor groupsig.ID
 	castor.Deserialize(cvm.BH.Castor)
-	log.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v castor=%v...\n", p.getPrefix(),
-		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex(), GetIDPrefix(castor))
+	log.Printf("proc(%v) begin OMV, group=%v, sender=%v, height=%v, qn=%v, rece hash=%v castor=%v, OMV_passtime=%v\n", p.getPrefix(),
+		GetIDPrefix(g_id), GetIDPrefix(cvm.SI.GetID()), cvm.BH.Height, cvm.BH.QueueNumber, cvm.SI.DataHash.Hex(), GetIDPrefix(castor), time.Since(cvm.BH.CurTime).String())
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(cvm.SI.SignMember) {
@@ -1056,8 +1056,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) *core.Block {
 	if g_id.Deserialize(cbm.Block.Header.GroupId) != nil {
 		panic("OMB Deserialize group_id failed")
 	}
-	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(cbm.GroupID), GetIDPrefix(g_id), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
+	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), sender=%v, height=%v, qn=%v, OMB_passtime=%v\n", p.getPrefix(),
+		GetIDPrefix(cbm.GroupID), GetIDPrefix(g_id), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, time.Since(cbm.Block.Header.CurTime).String())
 
 	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
 		p.castLock.Unlock()
