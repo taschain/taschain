@@ -439,15 +439,12 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
-
-
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -478,7 +475,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 	//block.Header.EvictedTxs = errTxs
 
 	block.Header.Transactions = make([]common.Hash, len(block.Transactions))
-	for i,tx := range block.Transactions{
+	for i, tx := range block.Transactions {
 		block.Header.Transactions[i] = tx.Hash
 	}
 	block.Header.EvictedTxs = []common.Hash{}
@@ -491,7 +488,6 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		state:    state,
 		receipts: receipts,
 	})
-
 
 	fmt.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
 	return block
@@ -562,7 +558,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 		fmt.Printf("[block]fail to new statedb, error:%s \n", err)
 
 		return nil, -1, nil, nil
-	}else{
+	} else {
 		fmt.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
 	}
 
@@ -625,25 +621,34 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		}
 	}
 
-	// 检查高度
-	height := b.Header.Height
-
-	// 完美情况
-	if height == (chain.latestBlock.Height + 1) {
+	preHash := b.Header.PreHash
+	if preHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if height > (chain.latestBlock.Height + 1) {
-		//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
-		fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
-		return -2
 	} else {
 		status = chain.adjust(b)
 	}
+	// 检查高度
+	//height := b.Header.Height
+	//
+	//// 完美情况
+	//if height == (chain.latestBlock.Height + 1) {
+	//	status = chain.saveBlock(b)
+	//} else if height > (chain.latestBlock.Height + 1) {
+	//	//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
+	//	fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
+	//	return -2
+	//} else {
+	//	status = chain.adjust(b)
+	//}
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
+		chain.transactionPool.Lock()
 		chain.transactionPool.Remove(b.Header.Transactions)
 		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
+		defer chain.transactionPool.Unlock()
+
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
@@ -697,28 +702,41 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) int8 {
-	header := chain.queryBlockHeaderByHeight(b.Header.Height, true)
-	if header == nil {
+	preHeader := chain.queryBlockHeaderByHash(b.Header.PreHash)
+	if preHeader == nil {
 		fmt.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
 		return -1
 	}
 
+	upHeader := chain.latestBlock
+	for upHeader.PreHash != preHeader.Hash {
+		upHeader = chain.queryBlockHeaderByHash(upHeader.PreHash)
+	}
+
 	// todo:判断权重，决定是否要替换
-	if chain.weight(header, b.Header) {
-		chain.remove(header)
-		// 替换
-		for height := header.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header = chain.queryBlockHeaderByHeight(height, true)
-			if header == nil {
+	if chain.weight(upHeader, b.Header) {
+		tmpHeader := chain.latestBlock
+		for h := tmpHeader.Hash; h != preHeader.Hash; h = tmpHeader.PreHash {
+			tmpHeader = chain.queryBlockHeaderByHash(h)
+			if tmpHeader == nil {
 				continue
 			}
-			chain.remove(header)
-			chain.topBlocks.Remove(header.Height)
+			chain.remove(tmpHeader)
+			chain.topBlocks.Remove(tmpHeader.Height)
 		}
+		// 替换
+		//for height := preHeader.Height + 1; height <= chain.latestBlock.Height; height++ {
+		//	preHeader = chain.queryBlockHeaderByHeight(height, true)
+		//	if preHeader == nil {
+		//		continue
+		//	}
+		//	chain.remove(preHeader)
+		//	chain.topBlocks.Remove(preHeader.Height)
+		//}
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, header.QueueNumber, b.Header.QueueNumber)
+		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, preHeader.QueueNumber, b.Header.QueueNumber)
 
 		return 2
 	}
@@ -735,7 +753,7 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 //第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
 
-	return current.QueueNumber > candidate.QueueNumber
+	return current.QueueNumber < candidate.QueueNumber
 }
 
 // 删除块
@@ -750,8 +768,10 @@ func (chain *BlockChain) remove(header *BlockHeader) {
 		return
 	}
 	txs := block.Transactions
+	chain.transactionPool.Lock()
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.addTxs(txs)
+	defer chain.transactionPool.Unlock()
 }
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {
