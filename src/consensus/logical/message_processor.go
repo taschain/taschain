@@ -808,7 +808,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 						members = append(members, member)
 					}
 					group := core.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
-					e := core.GroupChainImpl.AddGroup(&group, nil, nil)
+					e := p.GroupChain.AddGroup(&group, nil, nil)
 					if e != nil {
 						log.Printf("group inited add group error:%s\n", e.Error())
 					} else {
@@ -841,6 +841,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
+
 	p.initLock.Lock()
 	defer p.initLock.Unlock()
 
@@ -868,6 +869,20 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.Save()
 		}
 
+		//上链
+		members := make([]core.Member, 0)
+		for _, miner := range gim.GI.Members {
+			member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+			members = append(members, member)
+		}
+		group := core.Group{Id: gim.GI.GroupID.Serialize(), Members: members, PubKey: gim.GI.GroupPK.Serialize(), Parent: gim.GI.GIS.ParentID.Serialize()}
+		e := p.GroupChain.AddGroup(&group, nil, nil)
+		if e != nil {
+			log.Printf("OMGIED group inited add group error:%s\n", e.Error())
+		} else {
+			log.Printf("OMGIED group inited add group success. count: %d, now: %d\n", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
+		}
+
 		if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID.GetHexString()) == nil {
 			bc := new(BlockContext)
 			bc.Proc = p
@@ -887,15 +902,15 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
 			p.triggerCastCheck()
 		}
-
-		log.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
-		sleep_d, err := time.ParseDuration("5s")
-		if err == nil {
-			time.Sleep(sleep_d)
-		} else {
-			panic("time.ParseDuration 5s failed.")
-		}
-		log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
+		//
+		//log.Printf("begin sleeping 5 seconds, now=%v...\n", time.Now().Format(time.Stamp))
+		//sleep_d, err := time.ParseDuration("5s")
+		//if err == nil {
+		//	time.Sleep(sleep_d)
+		//} else {
+		//	panic("time.ParseDuration 5s failed.")
+		//}
+		//log.Printf("end sleeping, now=%v.\n", time.Now().Format(time.Stamp))
 		//拉取当前最高块
 		//if !PROC_TEST_MODE {
 		//	top_bh := p.MainChain.QueryTopBlock()

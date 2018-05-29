@@ -82,6 +82,7 @@ type Processer struct {
 	save_data    int
 	//////链接口
 	MainChain core.BlockChainI
+	GroupChain *core.GroupChain
 	//锁
 	initLock sync.Mutex //组初始化锁
 	castLock sync.Mutex //组铸块锁
@@ -347,6 +348,7 @@ func (p *Processer) getCastCheckRoutineName() string {
 func (p *Processer) Init(mi MinerInfo) bool {
 	p.futureBlockMsg = make(map[common.Hash][]*ConsensusBlockMessage)
 	p.MainChain = core.BlockChainImpl
+	p.GroupChain = core.GroupChainImpl
 	p.mi = mi
 	p.gg.Init()
 	p.jgs.Init()
@@ -597,7 +599,7 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	}
 	//此时组ID 跟组公钥是没有的
 	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
-	err := core.GroupChainImpl.AddGroup(&group, nil, nil)
+	err := p.GroupChain.AddGroup(&group, nil, nil)
 	if err != nil {
 		log.Printf("Add dummy group error:%s\n", err.Error())
 	} else {
