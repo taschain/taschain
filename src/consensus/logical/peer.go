@@ -274,6 +274,9 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 
 func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
 	block := core.BlockToPb(&m.Block)
+	if block == nil{
+		logger.Errorf("Block is nil while marshalConsensusBlockMessage")
+	}
 	id := m.GroupID.Serialize()
 	sign := signDataToPb(&m.SI)
 	message := tas_pb.ConsensusBlockMessage{Block: block, GroupID: id, SignData: sign}
