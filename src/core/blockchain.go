@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"vm/common/math"
 	"bytes"
+	"log"
 )
 
 const (
@@ -323,7 +324,11 @@ func (chain *BlockChain) GenerateBlock(bh BlockHeader) *Block {
 
 	block.Transactions = make([]*Transaction, len(bh.Transactions))
 	for i, hash := range bh.Transactions {
-		block.Transactions[i], _ = chain.transactionPool.GetTransaction(hash)
+		t, _ := chain.transactionPool.GetTransaction(hash)
+		if t == nil {
+			return nil
+		}
+		block.Transactions[i] = t
 	}
 	return block
 }
@@ -426,7 +431,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
-		fmt.Printf("[block] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
+		log.Printf("[block] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
 	}
 	block := new(Block)
@@ -489,7 +494,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		receipts: receipts,
 	})
 
-	fmt.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
+	log.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
 	return block
 }
 
@@ -510,7 +515,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 
 func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
 
-	fmt.Printf("[block] start to verifyCastingBlock, %+v\n", bh)
+	log.Printf("[block] start to verifyCastingBlock, %+v\n", bh)
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
@@ -519,7 +524,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	// todo:可以缓存，等父块到了再add
 	if preBlock == nil {
 
-		fmt.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
+		log.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
 
 		return nil, -1, nil, nil
 	}
@@ -547,7 +552,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	}
 	txtree := calcTxTree(transactions).Bytes()
 	if hexutil.Encode(txtree) != hexutil.Encode(bh.TxTree.Bytes()) {
-		fmt.Printf("[block]fail to verify txtree, hash1:%s hash2:%s \n", txtree, bh.TxTree.Bytes())
+		log.Printf("[block]fail to verify txtree, hash1:%s hash2:%s \n", txtree, bh.TxTree.Bytes())
 
 		return missing, -1, nil, nil
 	}
@@ -555,11 +560,11 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	//执行交易
 	state, err := state.New(c.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
-		fmt.Printf("[block]fail to new statedb, error:%s \n", err)
+		log.Printf("[block]fail to new statedb, error:%s \n", err)
 
 		return nil, -1, nil, nil
 	} else {
-		fmt.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
+		log.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
 	}
 
 	b := new(Block)
@@ -568,13 +573,13 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 
 	receipts, _, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
 	if hexutil.Encode(statehash.Bytes()) != hexutil.Encode(bh.StateTree.Bytes()) {
-		fmt.Printf("[block]fail to verify statetree, hash1:%x hash2:%x \n", statehash.Bytes(), b.Header.StateTree.Bytes())
+		log.Printf("[block]fail to verify statetree, hash1:%x hash2:%x \n", statehash.Bytes(), b.Header.StateTree.Bytes())
 
 		return nil, -1, nil, nil
 	}
 	receiptsTree := calcReceiptsTree(receipts).Bytes()
 	if hexutil.Encode(receiptsTree) != hexutil.Encode(b.Header.ReceiptTree.Bytes()) {
-		fmt.Printf("[block]fail to verify receipt, hash1:%s hash2:%s \n", receiptsTree, b.Header.ReceiptTree.Bytes())
+		log.Printf("[block]fail to verify receipt, hash1:%s hash2:%s \n", receiptsTree, b.Header.ReceiptTree.Bytes())
 
 		return nil, 1, nil, nil
 	}
@@ -616,7 +621,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		// 验证块是否有问题
 		_, status, state, receipts = chain.verifyCastingBlock(*b.Header)
 		if status != 0 {
-			fmt.Printf("[block]fail to VerifyCastingBlock, reason code:%d \n", status)
+			log.Printf("[block]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
@@ -635,7 +640,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 	//	status = chain.saveBlock(b)
 	//} else if height > (chain.latestBlock.Height + 1) {
 	//	//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
-	//	fmt.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
+	//	log.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
 	//	return -2
 	//} else {
 	//	status = chain.adjust(b)
@@ -664,12 +669,12 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	// 根据hash存block
 	blockJson, err := json.Marshal(b)
 	if err != nil {
-		fmt.Printf("[block]fail to json Marshal, error:%s \n", err)
+		log.Printf("[block]fail to json Marshal, error:%s \n", err)
 		return -1
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
-		fmt.Printf("[block]fail to put key:hash value:block, error:%s \n", err)
+		log.Printf("[block]fail to put key:hash value:block, error:%s \n", err)
 		return -1
 	}
 
@@ -677,13 +682,13 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	headerJson, err := json.Marshal(b.Header)
 	if err != nil {
 
-		fmt.Printf("[block]fail to json Marshal header, error:%s \n", err)
+		log.Printf("[block]fail to json Marshal header, error:%s \n", err)
 		return -1
 	}
 
 	err = chain.blockHeight.Put(chain.generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
-		fmt.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
+		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1
 	}
 
@@ -692,7 +697,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
-		fmt.Printf("[block]fail to put current, error:%s \n", err)
+		log.Printf("[block]fail to put current, error:%s \n", err)
 		return -1
 	}
 
@@ -704,7 +709,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 func (chain *BlockChain) adjust(b *Block) int8 {
 	preHeader := chain.queryBlockHeaderByHash(b.Header.PreHash)
 	if preHeader == nil {
-		fmt.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
+		log.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
 		return -1
 	}
 
@@ -736,7 +741,7 @@ func (chain *BlockChain) adjust(b *Block) int8 {
 
 		return chain.saveBlock(b)
 	} else {
-		fmt.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, preHeader.QueueNumber, b.Header.QueueNumber)
+		log.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, preHeader.QueueNumber, b.Header.QueueNumber)
 
 		return 2
 	}

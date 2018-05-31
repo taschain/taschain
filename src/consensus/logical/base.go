@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"time"
+	"log"
 )
 
 const NORMAL_FAILED int = -1
@@ -253,6 +254,20 @@ type CastGroupSummary struct {
 	GroupID     groupsig.ID //当前组ID
 }
 
+func GenCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary {
+	var gid groupsig.ID
+	if err := gid.Deserialize(bh.GroupId); err != nil {
+		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
+		return nil
+	}
+	return &CastGroupSummary{
+		PreHash: bh.Hash,
+		PreTime: bh.PreTime,
+		BlockHeight: bh.Height,
+		GroupID: gid,
+	}
+}
+
 //铸块共识摘要
 type ConsensusBlockSummary struct {
 	Castor      groupsig.ID //铸块人
@@ -262,7 +277,7 @@ type ConsensusBlockSummary struct {
 }
 
 //根据区块头生成铸块共识摘要
-func GenConsensusSummary(bh core.BlockHeader) ConsensusBlockSummary {
+func GenConsensusSummary(bh *core.BlockHeader) ConsensusBlockSummary {
 	var cs ConsensusBlockSummary
 	if cs.Castor.Deserialize(bh.Castor) != nil {
 		panic("ID Deserialize failed.")
