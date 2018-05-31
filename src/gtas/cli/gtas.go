@@ -21,6 +21,7 @@ import (
 	"taslog"
 	"core/net/sync"
 	"time"
+	_ "metrics"
 )
 
 const (
@@ -208,6 +209,8 @@ func (gtas *Gtas) Run() {
 	app.HelpFlag.Short('h')
 	// TODO config file的默认位置以及相关问题
 	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
+	_ = app.Flag("metrics", "enable metrics").Bool()
+	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -240,6 +243,8 @@ func (gtas *Gtas) Run() {
 	super := mineCmd.Flag("super", "start super node").Bool()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
+
+
 
 	command, err := app.Parse(os.Args[1:])
 	if err != nil {

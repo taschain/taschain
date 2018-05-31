@@ -8,29 +8,45 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
+	"net/http"
 )
 
 
-var startTime time.Time
 var Enabled bool
 
+const MetricsEnabledFlag  = "metrics"
+const DashboardEnabledFlag  = "dashboard"
+
 func init() {
-	startTime = time.Now()
+	for _, arg := range os.Args {
+		if flag := strings.TrimLeft(arg, "-"); flag == MetricsEnabledFlag || flag == DashboardEnabledFlag {
+			if flag == MetricsEnabledFlag {
+				EnableMetrics(false)
+				http.Handle("/metrics", http.HandlerFunc(reportHandler))
+				go http.ListenAndServe(":9999", nil)
+				log.Println("metrics serving on http://127.0.0.1:9999")
+			}
+			if flag == DashboardEnabledFlag {
+				EnableMetrics(true)
+			}
+		}
+	}
 }
 
 func EnableMetrics(enableInfluxdb bool) {
 	Enabled = true
-	go CollectTotalRunDurantion(time.Second*5)
+	go collectTotalRunDurantion(time.Second)
 	if enableInfluxdb {
 		go EnableInfluxdbReport()
 	}
 }
 
-func CollectTotalRunDurantion(duration time.Duration) {
-	timer := metrics.GetOrRegisterTimer("total", metrics.DefaultRegistry)
+func collectTotalRunDurantion(duration time.Duration) {
+	totlaMeter := metrics.GetOrRegisterMeter("total", metrics.DefaultRegistry)
 	for {
-		timer.UpdateSince(startTime)
 		time.Sleep(duration)
+		totlaMeter.Mark(int64(duration))
 	}
 }
 
@@ -84,17 +100,28 @@ func EnableInfluxdbReport() {
 }
 
 func ConsoleReport() {
+	log.Println(getReport())
+}
+
+func getReport() string {
 	metricsMaps := metrics.DefaultRegistry.GetAll()
 	var buffer bytes.Buffer
 	buffer.WriteString("metrics:\n/************************************************************************************************/\n")
-	total := metricsMaps["total"]["max"].(int64)
+	total := metricsMaps["total"]["count"].(int64)
 	for k, v := range metricsMaps {
 		if strings.HasPrefix(k, "module") {
-			buffer.WriteString(fmt.Sprintf("%s: %ds %.2f%%\n", k, v["count"].(int64)/int64(time.Second), float64(v["count"].(int64))/float64(total)*100))
+			buffer.WriteString(fmt.Sprintf("%s: %ds %.2f%% \n", k, v["count"].(int64)/int64(time.Second), float64(v["count"].(int64))/float64(total)*100))
 		}
 	}
 	buffer.WriteString(fmt.Sprintf("total: %ds\n",  total/int64(time.Second)))
 	buffer.WriteString("/************************************************************************************************/")
 	log.Println(buffer.String())
+	return buffer.String()
+}
+
+func reportHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html;charset=utf-8")
+	report := fmt.Sprintf("<html><body>%s</body></html>", strings.Replace(getReport(), "\n", "<br>", -1))
+	fmt.Fprintln(w, report)
 }
 
