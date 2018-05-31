@@ -170,7 +170,11 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 
 	if e.Blocks != nil {
 		for _, b := range e.Blocks {
-			blocks = append(blocks, core.BlockToPb(b))
+			pb := core.BlockToPb(b)
+			if pb == nil{
+				logger.Errorf("Block is nil while marshalBlockMessage")
+			}
+			blocks = append(blocks, pb)
 		}
 	}
 	blockSlice := tas_pb.BlockSlice{Blocks: blocks}

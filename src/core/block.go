@@ -45,7 +45,6 @@ func (bh *BlockHeader) GenHash() common.Hash {
 	bh.Hash = common.Hash{}
 	blockByte, _ := json.Marshal(bh)
 	result := common.BytesToHash(Sha256(blockByte))
-
 	bh.Signature = sign
 	bh.Hash = hash
 	return result
