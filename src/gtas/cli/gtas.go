@@ -22,6 +22,8 @@ import (
 	"core/net/sync"
 	"time"
 	_ "metrics"
+	_ "net/http/pprof"
+	"net/http"
 )
 
 const (
@@ -211,6 +213,7 @@ func (gtas *Gtas) Run() {
 	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
+	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -250,6 +253,9 @@ func (gtas *Gtas) Run() {
 	if err != nil {
 		kingpin.Fatalf("%s, try --help", err)
 	}
+	go func() {
+		http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
+	}()
 	gtas.simpleInit(*configFile)
 	switch command {
 	case voteCmd.FullCommand():
