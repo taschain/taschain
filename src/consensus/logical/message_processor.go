@@ -212,7 +212,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 	}()
 
 	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
-		log.Printf("OMB receive block already on chain!\n")
+		log.Printf("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
 		return
 	}
 	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
@@ -241,7 +241,7 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 
 	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
 	if preHeader == nil {
-		log.Printf("OMB receive future block!, bh=%v, topHash=%v, topHeight=%v\n", block.Header, topBH.Hash, topBH.Height)
+		log.Printf("OMB receive future block!, bh=%v, topHash=%v, topHeight=%v\n", p.blockPreview(block.Header), GetHashPrefix(topBH.Hash), topBH.Height)
 		p.addFutureBlockMsg(&cbm)
 		return
 	}
