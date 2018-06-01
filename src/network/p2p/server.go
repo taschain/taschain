@@ -109,7 +109,7 @@ func (s *server) SendMessage(m Message, id string) {
 	copy(b[3:7], b2)
 	copy(b[7:], bytes)
 
-	//log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
+	//log.Printf("[p2p]send message to id:%s,code:%d\n", id, m.Code)
 	s.send(b, id)
 }
 
@@ -249,7 +249,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	if error != nil {
 		logger.Errorf("Proto unmarshal error:%s", error.Error())
 	}
-	//log.Printf("[p2p]receive from id:%s,code:%d\n", from, message.Code)
+	//log.Printf("[p2p]receive message from id:%s,code:%d\n", from, message.Code)
 
 	code := message.Code
 	switch *code {

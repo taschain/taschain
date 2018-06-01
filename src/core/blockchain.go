@@ -217,7 +217,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	}
 
 	//todo: 当前简单处理，暂时不处理分叉问题
-	blocks := make([]*Block, localHeight-height)
+	blocks := make([]*Block, 0)
 
 	for i := height + 1; i <= localHeight; i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
@@ -229,7 +229,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 			continue
 		}
 
-		blocks[i-height-1] = b
+		blocks = append(blocks,b)
 	}
 
 	return &BlockMessage{
