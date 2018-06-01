@@ -87,7 +87,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 20 {
+			if len(p2p.Server.GetConnInfo()) >= 2 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -176,7 +176,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 
 }
 
-func createGroup(keys []logical.PubKeyInfo,name string) {
+func createGroup(keys []logical.PubKeyInfo, name string) {
 	zero := mediator.CreateGroup(keys, name)
 	if zero != 0 {
 		fmt.Printf("create %s group failed\n", name)
@@ -402,4 +402,3 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
 	}
 }
-
