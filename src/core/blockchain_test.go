@@ -21,7 +21,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 100 {
+	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 1000000 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 
@@ -59,7 +59,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("add block1 failed")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 99 {
+	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
 		t.Fatalf("fail to transfer 1 from 1  to 2")
 	}
 
@@ -78,7 +78,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("fail to add empty block")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 89 {
+	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999989 {
 		t.Fatalf("fail to transfer 10 from 1 to 2")
 	}
 
@@ -125,7 +125,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("failed to remove uncle blocks")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 99 {
+	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
 		t.Fatalf("fail to switch to main chain. %d",BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
 	}
 

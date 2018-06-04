@@ -494,7 +494,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		receipts: receipts,
 	})
 
-	log.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
+	log.Printf("[block]cast block success. blockheader: %x\n", block.Header.Hash)
 	return block
 }
 
