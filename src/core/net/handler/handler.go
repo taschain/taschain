@@ -107,11 +107,14 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	if nil == core.BlockChainImpl {
 		return nil
 	}
-	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
+	transactions, _, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
-		logger.Error("Local do not have transaction,broadcast this message!:%s", e.Error())
-		m.TransactionHashes = need
-		core.BroadcastTransactionRequest(*m)
+		//为减少网络消息，本地没有该交易 直接丢弃
+		//TODO 未来需要解决广播策略
+		//logger.Error("Local do not have transaction,broadcast this message!:%s", e.Error())
+		//m.TransactionHashes = need
+		//core.BroadcastTransactionRequest(*m)
+		return nil
 	}
 
 	if nil != transactions && 0 != len(transactions) {

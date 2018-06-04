@@ -74,7 +74,10 @@ type Processer struct {
 	Ticker 			*ticker.GlobalTicker		//全局定时器, 组初始化完成后启动
 
 	futureBlockMsg map[common.Hash][]*ConsensusBlockMessage		//存储缺少父块的块
-	futureLock sync.Mutex
+	futureBlockLock sync.RWMutex
+
+	futureVerifyMsg	map[common.Hash][]*ConsensusBlockMessageBase	//存储缺失前一块的验证消息
+	futureVerifyLock sync.RWMutex
 
 	piece_count  int
 	inited_count int
@@ -85,7 +88,7 @@ type Processer struct {
 	GroupChain *core.GroupChain
 	//锁
 	initLock sync.Mutex //组初始化锁
-	castLock sync.Mutex //组铸块锁
+	rwLock sync.RWMutex 	//读写锁
 }
 
 //取得组内成员的签名公钥
@@ -264,6 +267,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 	}()
 
 	if len(p.belongGroups) == 0 || len(p.bcs) == 0 {
+		log.Printf("current node don't belong to anygroup!!")
 		return false
 	}
 
@@ -283,11 +287,16 @@ func (p *Processer) checkSelfCastRoutine() bool {
 
 	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, top.Hash, top.CurTime, castHeight)
 
-	for gid, _bc := range p.bcs {
+	casting := false
+	for _, _bc := range p.bcs {
 		if _bc.alreadyInCasting(castHeight, top.Hash) {
-			log.Printf("checkSelfCastRoutine: already in cast height, height=%v, prehash=%v, gid=%v", castHeight, top.Hash, gid)
-			return true
+			log.Printf("checkSelfCastRoutine: already in cast height, castInfo=%v", _bc.castingInfo())
+			casting = true
+			break
 		}
+	}
+	if casting {
+		return true
 	}
 
 	selectGroup := p.calcCastGroup(top, castHeight)
@@ -295,45 +304,24 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	bc := p.GetBlockContext(selectGroup.GetHexString())
-	if bc == nil {
-		log.Printf("checkSelfCastRoutine: get nil blockcontext!, gid=%v", GetIDPrefix(*selectGroup))
-		return false
-	}
-
 	log.Printf("NEXT CAST GROUP is %v\n", GetIDPrefix(*selectGroup))
-	log.Printf("checkSelfCastRoutine: selectedGroup bc.IsCasting=%v, bc.ConsensusStatus=%v, bc.castHeight=%v, castHeight=%v, bc.Pretime=%v, preTime=%v, bc.PrevHash=%v, preHash=%v\n", bc.isCasting(), bc.ConsensusStatus, bc.CastHeight, castHeight, bc.PreTime, top.CurTime, bc.PrevHash, top.Hash)
 
 	//自己属于下一个铸块组
 	if p.IsMinerGroup(*selectGroup) {
-		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.lock.Lock()
-
-		if bc.isCasting() {
-			if bc.CastHeight == castHeight {
-				if bc.PrevHash != top.Hash {
-					log.Printf("self check cast: chain adjust found, rebase cast! from %v to %v\n", bc.PrevHash, top.Hash)
-					bc.castRebase(castHeight, top.CurTime, top.Hash, false)
-				} else {
-					log.Printf("checkSelfCastRoutine: already in cast, height=%v, prehash=%v\n", castHeight, top.Hash)
-				}
-			} else {
-				bc.castRebase(castHeight, top.CurTime, top.Hash, false)
-			}
-		} else {
-			bc.castRebase(castHeight, top.CurTime, top.Hash, true)
+		bc := p.GetBlockContext(selectGroup.GetHexString())
+		if bc == nil {
+			log.Printf("[ERROR]checkSelfCastRoutine: get nil blockcontext!, gid=%v", GetIDPrefix(*selectGroup))
+			return false
 		}
-		bc.lock.Unlock()
+
+		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
+		bc.StartCast(castHeight, top.CurTime, top.Hash, true)
 
 		return true
 	} else  {	//自己不是下一个铸块组, 但是当前在铸块
-		for gid, _bc := range p.bcs {
-			_bc.lock.Lock()
-			if _bc.isCasting() && _bc.CastHeight == castHeight {
-				log.Printf("checkSelfCastRoutine: you are not the next cast group! gid=%v, castheight=%v", gid, castHeight)
-				_bc.reset()
-			}
-			_bc.lock.Unlock()
+		for _, _bc := range p.bcs {
+			log.Printf("reset casting blockcontext: castingInfo=%v", _bc.castingInfo())
+			_bc.Reset()
 		}
 	}
 
@@ -347,6 +335,7 @@ func (p *Processer) getCastCheckRoutineName() string {
 //初始化矿工数据（和组无关）
 func (p *Processer) Init(mi MinerInfo) bool {
 	p.futureBlockMsg = make(map[common.Hash][]*ConsensusBlockMessage)
+	p.futureVerifyMsg = make(map[common.Hash][]*ConsensusBlockMessageBase)
 	p.MainChain = core.BlockChainImpl
 	p.GroupChain = core.GroupChainImpl
 	p.mi = mi
@@ -405,21 +394,21 @@ func (p *Processer) GetBlockContext(gid string) *BlockContext {
 	}
 }
 
-//取得当前在铸块中的组数据
-//该函数最多返回一个bc，或者=nil。不允许同时返回多个bc，实际也不会发生这种情况。
-func (p *Processer) GetCastingBC() *BlockContext {
-	var bc *BlockContext
-	for _, v := range p.bcs {
-		if v.IsCasting() {
-			if bc != nil {
-				panic("Processer::GetCastingBC failed, same time more than one casting group.")
-			}
-			bc = v
-			//break    //TO DO : 验证正确后打开
-		}
-	}
-	return bc
-}
+////取得当前在铸块中的组数据
+////该函数最多返回一个bc，或者=nil。不允许同时返回多个bc，实际也不会发生这种情况。
+//func (p *Processer) GetCastingBC() *BlockContext {
+//	var bc *BlockContext
+//	for _, v := range p.bcs {
+//		if v.IsCasting() {
+//			if bc != nil {
+//				panic("Processer::GetCastingBC failed, same time more than one casting group.")
+//			}
+//			bc = v
+//			//break    //TO DO : 验证正确后打开
+//		}
+//	}
+//	return bc
+//}
 
 //取得矿工ID（和组无关）
 func (p Processer) GetMinerID() groupsig.ID {
@@ -474,19 +463,43 @@ func (p *Processer) calcCastGroup(preBH *core.BlockHeader, height uint64) *group
 	return &selectGroup
 }
 
-//检查区块头是否合法
-func (p *Processer) isBHCastLegal(b *core.Block, sd SignData, preHeader *core.BlockHeader) (result bool) {
-	//to do : 检查是否基于链上最高块的出块
+//验证块的组签名是否正确
+func (p *Processer) verifyGroupSign(b *core.Block, sd SignData) bool {
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
-		panic("isBHCastLegal, group id Deserialize failed.")
+		panic("verifyGroupSign: group id Deserialize failed.")
 	}
 
+	groupInfo := p.getGroup(gid)
+	if !groupInfo.GroupID.IsValid() {
+		 panic("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
+	}
 
-	var sign groupsig.Signature
-	if sign.Deserialize(preHeader.Signature) != nil {
-		panic("OMB group sign Deserialize failed.")
+	log.Printf("verifyGroupSign: real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
+	//检查组签名是否正确
+	var gSign groupsig.Signature
+	if gSign.Deserialize(bh.Signature) != nil {
+		panic("verifyGroupSign sign Deserialize failed.")
+	}
+	result := groupsig.VerifySig(groupInfo.GroupPK, bh.Hash.Bytes(), gSign)
+	if !result {
+		log.Printf("[ERROR]verifyGroupSign::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
+			GetPubKeyPrefix(groupInfo.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(gSign), GetIDPrefix(gid))
+	}
+	//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
+	return result
+}
+
+//检查铸块组是否合法
+func (p *Processer) isCastGroupLeagal(bh *core.BlockHeader, preHeader *core.BlockHeader) (result bool) {
+	//to do : 检查是否基于链上最高块的出块
+	defer func() {
+		log.Printf("isCastGroupLeagal result=%v.\n", result)
+	}()
+	var gid groupsig.ID
+	if gid.Deserialize(bh.GroupId) != nil {
+		panic("isCastGroupLeagal, group id Deserialize failed.")
 	}
 
 	selectGroupId := p.calcCastGroup(preHeader, bh.Height)
@@ -496,29 +509,16 @@ func (p *Processer) isBHCastLegal(b *core.Block, sd SignData, preHeader *core.Bl
 
 	groupInfo, err := p.gg.GetGroupByID(*selectGroupId) //取得合法的铸块组
 	if err != nil {
-		log.Printf("isBHCastLegal: getGroupById error, id=%v, err=%v", GetIDPrefix(*selectGroupId), err)
+		log.Printf("isCastGroupLeagal: getGroupById error, id=%v, err=%v", GetIDPrefix(*selectGroupId), err)
 		return false
 	}
 
 	if groupInfo.GroupID.IsEqual(gid) {
-		log.Printf("BHCastLegal, real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
-		//检查组签名是否正确
-		var gSign groupsig.Signature
-		if gSign.Deserialize(bh.Signature) != nil {
-			panic("isBHCastLegal sign Deserialize failed.")
-		}
-		result = groupsig.VerifySig(groupInfo.GroupPK, bh.Hash.Bytes(), gSign)
-		if !result {
-			log.Printf("isBHCastLegal::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
-				GetPubKeyPrefix(groupInfo.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(gSign), GetIDPrefix(gid))
-			panic("isBHCastLegal::verify group sign failed")
-		}
-		//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
+		return true
 	} else {
-		log.Printf("BHCastLegal failed, expect group=%v, real cast group=%v.\n", GetIDPrefix(groupInfo.GroupID), GetIDPrefix(gid))
+		log.Printf("isCastGroupLeagal failed, expect group=%v, real cast group=%v.\n", GetIDPrefix(groupInfo.GroupID), GetIDPrefix(gid))
 		//panic("isBHCastLegal failed, not expect group")  非法铸块组 直接跳过就行了吧?
 	}
-	log.Printf("BHCastLegal result=%v.\n", result)
 
 	return result
 }
@@ -612,94 +612,43 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 }
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processer) beingCastGroup(cgs *CastGroupSummary, si SignData) (bc *BlockContext, cast bool) {
-	cast = false
-	log.Printf("proc(%v) beingCastGroup, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(),
-		GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
+func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
+	log.Printf("proc(%v) verifyCast, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(), GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
+
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
 		log.Printf("beingCastGroup failed, node not in this group.\n")
-		return
+		return false
 	}
 	_, err := p.gg.GetGroupByID(cgs.GroupID)
 	if err != nil {
 		panic("gg.GetGroupByID failed.")
 	}
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
-	sign_pk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	if sign_pk.IsValid() {                //该用户和我是同一组
-		log.Printf("message sender's sign_pk=%v.\n", GetPubKeyPrefix(sign_pk))
-		log.Printf("bCG::si info: id=%v, data hash=%v, sign=%v.\n",
+	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
+
+	if signPk.IsValid() { //该用户和我是同一组
+		log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
+		log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
 			GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
-		if si.VerifySign(sign_pk) { //消息合法
+		if si.VerifySign(signPk) { //消息合法
 			log.Printf("message verify sign OK, find gid=%v blockContext...\n", GetIDPrefix(cgs.GroupID))
-			bc = p.GetBlockContext(cgs.GroupID.GetHexString())
-			if bc == nil {
-				panic("ERROR, BlockContext = nil.")
-			} else {
-				cast  = bc.BeingCastGroup(cgs) //设置当前铸块高度
-				log.Printf("blockContext::BeingCastGroup result=%v, bc::status=%v.\n", cast, bc.ConsensusStatus)
-			}
+			return true
 		} else {
 			log.Printf("ERROR, message verify failed, data_hash=%v.\n", GetHashPrefix(si.DataHash))
-			panic("ERROR, message verify failed.")
+			return false
 		}
 	} else {
-		log.Printf("message sender's sign_pk not in joined groups, ignored.\n")
+		log.Printf("message sender's signPk not in joined groups, ignored.\n")
+		return false
 	}
-	return
 }
 
-//检查自身所在的组（集合）是否成为当前铸块组，如是，则启动相应处理
-//sign：组签名
-//func (p *Processer) checkCastingGroup(groupId groupsig.ID, sign groupsig.Signature, height uint64, t time.Time, h common.Hash) (bool, ConsensusCurrentMessage) {
-//	var firstCast bool
-//	var ccm ConsensusCurrentMessage
-//	sign_hash := sign.GetHash()
-//	log.Printf("cCG pre_block group sign hash=%v, find next group...\n", GetHashPrefix(sign_hash))
-//	next_group, err := p.gg.SelectNextGroup(sign_hash,height+1) //查找下一个铸块组
-//	if err == nil {
-//		log.Printf("cCG next cast group=%v. castheight=%v\n", GetIDPrefix(next_group), height+1)
-//		bc := p.GetBlockContext(next_group.GetHexString())
-//		if p.IsMinerGroup(next_group) { //自身属于下一个铸块组
-//			log.Printf("IMPORTANT : OMB local miner belong next cast group!.\n")
-//			if bc == nil {
-//				panic("current proc belong next cast group, but GetBlockContext=nil.")
-//			}
-//			_, firstCast = bc.BeingCastGroup(height, t, h)
-//			ccm.GroupID = next_group.Serialize() //groupId.Serialize()
-//			ccm.BlockHeight = height + 1
-//			ccm.PreHash = h
-//			ccm.PreTime = t
-//			ski := SecKeyInfo{p.GetMinerID(), p.getSignKey(next_group)}
-//			temp_spk := groupsig.NewPubkeyFromSeckey(ski.SK)
-//			if temp_spk == nil {
-//				panic("ccg spk nil failed")
-//			} else {
-//				log.Printf("id=%v, sign_pk=%v notify group members being current.\n", GetIDPrefix(ski.GetID()), GetPubKeyPrefix(*temp_spk))
-//			}
-//			ccm.GenSign(ski)
-//			log.Printf("cCG: id=%v, sign_sk=%v, data hash=%v.\n", GetIDPrefix(ccm.SI.GetID()), GetSecKeyPrefix(ski.SK), GetHashPrefix(ccm.SI.DataHash))
-//		} else {
-//			log.Printf("current proc not in next group.\n")
-//			////自身所属的组如果在铸块, 则需要停止
-//			//if p.IsMinerGroup(groupId) {
-//			//	selfBc := p.GetBlockContext(groupId.GetHexString())
-//			//	log.Printf("self bc status: consensus=%v, castHeight=%v, preHash=%v, onchainresult=%v", selfBc.ConsensusStatus, selfBc.CastHeight, selfBc.PrevHash, onchainResult)
-//			//	if selfBc.IsCasting() && selfBc.CastHeight == height+1 && (onchainResult == 0 || onchainResult == 1) {
-//			//		bc.Reset()
-//			//	}
-//			//}
-//		}
-//	} else {
-//		panic("find next cast group failed.")
-//	}
-//	return firstCast, ccm
-//}
+
 
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
+func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
 	begin := time.Now()
 	defer func() {
 		log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
@@ -709,19 +658,26 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		panic("SuccessNewBlock arg failed.")
 	}
 	log.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
-	bc := p.GetBlockContext(gid.GetHexString())
-	block := p.MainChain.GenerateBlock(*bh)
-	if block == nil {
-		panic("core.GenerateBlock failed.")
-	}
-	if !PROC_TEST_MODE {
-		r := p.doAddOnChain(block)
-		if r != 0 && r != 1 {	//分叉调整或 上链失败都不走下面的逻辑
-			return
-		}
 
+
+	block := p.MainChain.GenerateBlock(*bh)
+
+	if block == nil {
+		log.Printf("SuccessNewBlock core.GenerateBlock is nil! won't broadcast block!")
+		if p.MainChain.QueryBlockByHash(bh.Hash) != nil {	//已经上链
+			log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
+			vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+		}
+		return
 	}
-	bc.castedUpdateStatus(uint(bh.QueueNumber))
+
+	r := p.doAddOnChain(block)
+
+	if r != 0 && r != 1 {	//分叉调整或 上链失败都不走下面的逻辑
+		return
+	}
+	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+
 	var cbm ConsensusBlockMessage
 	cbm.Block = *block
 	cbm.GroupID = gid
@@ -731,17 +687,18 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, gid groupsig.ID) {
 		log.Printf("call network service BroadcastNewBlock...\n")
 		go BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
+		p.triggerFutureVerifyMsg(bh.Hash)
 	}
 	log.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
 
 //检查是否轮到自己出块
-func (p *Processer) checkCastRoutine(bc *BlockContext, kingIndex int32, qn int64) {
+func (p *Processer) checkCastRoutine(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
 	//p.castLock.Lock()
 	//defer p.castLock.Unlock()
 	gid := bc.MinerID.gid
-	height := bc.CastHeight
+	height := vctx.castHeight
 
 	log.Printf("prov(%v) begin CheckCastRoutine, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
 	if kingIndex < 0 || qn < 0 {
@@ -754,7 +711,7 @@ func (p *Processer) checkCastRoutine(bc *BlockContext, kingIndex int32, qn int64
 	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		log.Printf("curent node IS KING!\n")
 		if !p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
-			head := p.castBlock(bc, qn) //铸块
+			head := p.castBlock(bc, vctx, qn) //铸块
 			if head != nil {
 				p.sci.AddQN(height, uint(qn))
 			}
@@ -859,8 +816,9 @@ func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
-	height := bc.CastHeight
+func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *core.BlockHeader {
+
+	height := vctx.castHeight
 
 	log.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
 	var bh *core.BlockHeader
@@ -878,10 +836,17 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
 			return nil
 		}
+		for _, tx := range block.Transactions {
+			if tx == nil {
+				log.Printf("castBlock tx hashs %v\n", block.Header.Transactions)
+				//panic(fmt.Sprintf("castBlock transaction is nil!, height=%v, hash=%v", block.Header.Height, block.Header.Hash))
+			}
+		}
+
 		bh = block.Header
 
-		log.Printf("AAAAAA castBlock bh %v\n", bh)
-		log.Printf("AAAAAA chain top bh %v\n", p.MainChain.QueryTopBlock())
+		log.Printf("AAAAAA castBlock bh %v\n", p.blockPreview(bh))
+		log.Printf("AAAAAA chain top bh %v\n", p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	} else {
 		bh = genDummyBH(int(qn), p.GetMinerID())
@@ -898,7 +863,7 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
 	log.Printf("castor sign bh result = %v.\n", b)
 
-	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == bc.PrevHash {
+	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
 		var tmp_id groupsig.ID
 		if tmp_id.Deserialize(bh.Castor) != nil {
 			panic("ID Deserialize failed.")
@@ -922,7 +887,7 @@ func (p Processer) castBlock(bc *BlockContext, qn int64) *core.BlockHeader {
 			}
 		}
 	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, bc.PrevHash, bh.PreHash)
+		log.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, vctx.prevHash, bh.PreHash)
 		//panic("bh Error or sign Error.")
 		return nil
 	}

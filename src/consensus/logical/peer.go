@@ -9,6 +9,7 @@ import (
 	"pb"
 	"core"
 	"fmt"
+	"log"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -275,7 +276,7 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
 	block := core.BlockToPb(&m.Block)
 	if block == nil{
-		logger.Errorf("Block is nil while marshalConsensusBlockMessage")
+		log.Printf("Block is nil while marshalConsensusBlockMessage")
 	}
 	id := m.GroupID.Serialize()
 	sign := signDataToPb(&m.SI)

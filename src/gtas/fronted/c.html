@@ -723,8 +723,14 @@
                             data: blocks
                         });
                     }
+                    let count = 0;
                     for(let i=current_block_height+1; i<=rdata.result.data; i++) {
                         syncBlock(i);
+                        count ++;
+                        if (count >= 50) {
+                            current_block_height = i;
+                            return
+                        }
                     }
                     current_block_height = rdata.result.data
                 },
