@@ -9,6 +9,7 @@ import (
 	"strings"
 	"core"
 	"sync"
+	"math/rand"
 )
 
 // Wallets 钱包
@@ -20,7 +21,8 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	if source == "" {
 		source = (*ws)[0].Address
 	}
-	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+	nonce := rand.Uint64()
+		//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	if strings.HasPrefix(code, "0x") {
 		code = code[2:]

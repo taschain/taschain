@@ -382,7 +382,9 @@ const HTMLTEM = `<!DOCTYPE html>
             elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
             ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
                 {field:'pre_time', title: 'pre_time'},{field:'queue_number', title: 'queue_number'},
-                {field:'cur_time', title: 'cur_time'},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
+                {field:'cur_time', title: 'cur_time'},{field:'castor', title: 'castor'},
+				{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}, 
+				{field:'tps', title: 'tps'}, {field:'txs', title: 'txs'}]] //设置表头
             ,data: blocks
             ,page: true
             ,limit:15
