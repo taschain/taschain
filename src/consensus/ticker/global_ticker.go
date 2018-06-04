@@ -56,9 +56,9 @@ func NewGlobalTicker(id string) *GlobalTicker {
 
 func (gt *GlobalTicker) trigger(routine *TickerRoutine) bool {
 	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
-		}
+		//if err := recover(); err != nil {
+		//	log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
+		//}
 	}()
 	t := gt.ticker
 	log.Printf("ticker routine begin, id=%v, globalticker=%v\n", routine.id, t)

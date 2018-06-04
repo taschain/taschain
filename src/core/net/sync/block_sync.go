@@ -10,6 +10,7 @@ import (
 	"taslog"
 	"pb"
 	"github.com/gogo/protobuf/proto"
+	"log"
 )
 
 var logger = taslog.GetLogger(taslog.P2PConfig)
@@ -172,7 +173,7 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 		for _, b := range e.Blocks {
 			pb := core.BlockToPb(b)
 			if pb == nil{
-				logger.Errorf("Block is nil while marshalBlockMessage")
+				log.Printf("Block is nil while marshalBlockMessage")
 			}
 			blocks = append(blocks, pb)
 		}

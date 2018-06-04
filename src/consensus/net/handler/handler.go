@@ -99,19 +99,19 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		})
 
 	case p2p.CURRENT_GROUP_CAST_MSG:
-		m, e := unMarshalConsensusCurrentMessage(body)
-		if e != nil {
-			logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
-			return nil, e
-		}
-
-		//machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
-		//stateMsg := net.NewStateMsg(code, m, sourceId, "")
-		//machine.Transform(stateMsg, func(msg interface{}) {
-		//	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
-		//})
-
-		mediator.Proc.OnMessageCurrent(*m)
+		//m, e := unMarshalConsensusCurrentMessage(body)
+		//if e != nil {
+		//	logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
+		//	return nil, e
+		//}
+		//
+		////machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
+		////stateMsg := net.NewStateMsg(code, m, sourceId, "")
+		////machine.Transform(stateMsg, func(msg interface{}) {
+		////	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
+		////})
+		//
+		//mediator.Proc.OnMessageCurrent(*m)
 	case p2p.CAST_VERIFY_MSG:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
