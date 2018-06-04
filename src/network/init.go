@@ -16,6 +16,7 @@ import (
 	"time"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
 	"github.com/libp2p/go-libp2p-host"
+	"log"
 )
 
 const (
@@ -70,13 +71,13 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 		for {
 			info, e4 := p2p.Server.Dht.FindPeer(ctx, id)
 			if e4 != nil {
-				logger.Errorf("Find seed id %s error:%s\n", p2p.ConvertToID(id), e4.Error())
+				log.Printf("[Network]Find seed id %s error:%s\n", p2p.ConvertToID(id), e4.Error())
 				time.Sleep(5 * time.Second)
 			} else if p2p.ConvertToID(info.ID) == "" {
-				logger.Info("Can not find seed node,finding....\n")
+				log.Printf("[Network]Can not find seed node,finding....\n")
 				time.Sleep(5 * time.Second)
 			} else {
-				logger.Info("Welcome to join TAS Network!\n")
+				logger.Info("[Network]Welcome to join TAS Network!\n")
 				break
 			}
 		}
@@ -86,7 +87,7 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 	node, error := p2p.InitSelfNode(config)
 	if error != nil {
-		logger.Error("InitSelfNode error!\n" + error.Error())
+		log.Printf("[Network]InitSelfNode error!\n" + error.Error())
 		return nil, error
 	}
 	return node, nil
@@ -96,7 +97,7 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	localId := self.Id
 	multiaddr, e1 := ma.NewMultiaddr(self.GenMulAddrStr())
 	if e1 != nil {
-		logger.Error("new mlltiaddr error!\n" + e1.Error())
+		log.Printf("[Network]new mlltiaddr error!\n" + e1.Error())
 		return nil, e1
 	}
 	listenAddrs := []ma.Multiaddr{multiaddr}
@@ -114,7 +115,7 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 	// It is optional, and passing nil will simply result in no metrics for connections being available.
 	sw, e2 := swarm.NewNetwork(ctx, listenAddrs, ID, peerStore, nil)
 	if e2 != nil {
-		logger.Error("New swarm error!\n" + e2.Error())
+		log.Printf("[Network]New swarm error!\n" + e2.Error())
 		return nil, e2
 	}
 	return sw, nil
@@ -135,14 +136,14 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 	}
 	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
 	if e2 != nil {
-		logger.Error("SeedIdStr to seedMultiaddr error!\n" + e2.Error())
+		log.Printf("[Network]SeedIdStr to seedMultiaddr error!\n" + e2.Error())
 		return e2
 	}
 	seedPeerInfo := pstore.PeerInfo{ID: seedId, Addrs: []ma.Multiaddr{seedMultiaddr}}
 	(*host).Peerstore().AddAddrs(seedPeerInfo.ID, seedPeerInfo.Addrs, pstore.PermanentAddrTTL)
 	e3 := (*host).Connect(ctx, seedPeerInfo)
 	if e3 != nil {
-		logger.Error("Host connect to seed error!\n" + e3.Error())
+		log.Printf("[Network]Host connect to seed error!\n" + e3.Error())
 		return e3
 	}
 	return nil
@@ -160,8 +161,6 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 		logger.Error("KadDht bootstrap error!" + e.Error())
 		return kadDht, e
 	}
-	logger.Info("Booting p2p network,wait 20s!")
-	logger.Info("Booting dht finished!")
 	return kadDht, nil
 }
 

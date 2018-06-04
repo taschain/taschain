@@ -90,19 +90,18 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 20 {
+			if len(p2p.Server.GetConnInfo()) >= 8 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
-				//time.Sleep(time.Second * 10)
 				break
 			}
 		}
 		createGroup(keys3, "gtas3")
-		time.Sleep(time.Second*30)
+		time.Sleep(time.Second * 15)
 		createGroup(keys2, "gtas2")
-		time.Sleep(time.Second*30)
+		time.Sleep(time.Second * 15)
 		createGroup(keys1, "gtas1")
 
 	}
@@ -246,8 +245,6 @@ func (gtas *Gtas) Run() {
 	super := mineCmd.Flag("super", "start super node").Bool()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
-
-
 
 	command, err := app.Parse(os.Args[1:])
 	if err != nil {

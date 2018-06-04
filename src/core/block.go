@@ -24,6 +24,7 @@ type BlockHeader struct {
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	QueueNumber  uint64        //轮转序号
+	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -117,6 +118,8 @@ func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 	block.Header = &BlockHeader{
 		ExtraData: Sha256([]byte("tas")),
 		CurTime:   time.Date(2018, 5, 16, 10, 0, 0, 0, time.Local),
+		QueueNumber:0,
+		TotalQN:   0,
 	}
 
 	blockByte, _ := json.Marshal(block)
