@@ -471,9 +471,6 @@ func (chain *BlockChain) QueryTopBlock() *BlockHeader {
 
 //根据指定哈希查询块
 func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	return chain.queryBlockHeaderByHash(hash)
 }
 
