@@ -660,15 +660,16 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	}
 	log.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 
+	if p.blockOnChain(bh) {	//已经上链
+		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
+		vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+		return
+	}
 
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! won't broadcast block!")
-		if p.MainChain.QueryBlockByHash(bh.Hash) != nil {	//已经上链
-			log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
-			vctx.CastedUpdateStatus(int64(bh.QueueNumber))
-		}
 		return
 	}
 

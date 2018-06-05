@@ -75,8 +75,8 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 }
 
 func (p *Processer) blockOnChain(bh *core.BlockHeader) bool {
-	exist := p.MainChain.QueryBlockByHeight(bh.Height)
-	if exist != nil && exist.Hash == bh.Hash && exist.PreHash == bh.PreHash {	//已经上链
+	exist := p.MainChain.QueryBlockByHash(bh.Hash)
+	if exist != nil {	//已经上链
 		return true
 	}
 	return false
