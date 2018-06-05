@@ -43,14 +43,14 @@ func (gs *groupSyncer) start() {
 	for {
 		select {
 		case sourceId := <-gs.HeightRequestCh:
-			log.Printf("[GroupSyncer]GroupSyncer HeightRequestCh get message from:%s", sourceId)
+			//log.Printf("[GroupSyncer]GroupSyncer HeightRequestCh get message from:%s", sourceId)
 			//收到组高度请求
 			if nil == core.GroupChainImpl {
 				return
 			}
 			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
-			log.Printf("[GroupSyncer]GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			//log.Printf("[GroupSyncer]GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
 			//收到来自其他节点的组链高度
 			gs.maxHeightLock.Lock()
 			if h.Height > gs.neighborMaxHeight {
@@ -59,7 +59,7 @@ func (gs *groupSyncer) start() {
 			}
 			gs.maxHeightLock.Unlock()
 		case br := <-gs.GroupRequestCh:
-			log.Printf("[GroupSyncer]GroupRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
+			//log.Printf("[GroupSyncer]GroupRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到组请求
 			if nil == core.GroupChainImpl {
 				return
@@ -72,7 +72,7 @@ func (gs *groupSyncer) start() {
 			entity := core.GroupMessage{Groups: groups, Height: br.SourceHeight, Hash: br.SourceCurrentHash}
 			sendGroups(br.SourceId, &entity)
 		case bm := <-gs.GroupArrivedCh:
-			log.Printf("[GroupSyncer]GroupArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.GroupEntity.Groups))
+			//log.Printf("[GroupSyncer]GroupArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.GroupEntity.Groups))
 			//收到组信息
 			if nil == core.GroupChainImpl {
 				return
@@ -84,7 +84,7 @@ func (gs *groupSyncer) start() {
 				}
 			}
 		case <-t.C:
-			log.Printf("[GroupSyncer]sync time up, start to group sync!")
+			//log.Printf("[GroupSyncer]sync time up, start to group sync!")
 			gs.syncGroup()
 		}
 	}
@@ -95,7 +95,7 @@ func (gs *groupSyncer) syncGroup() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	log.Printf("[GroupSyncer]group height request  time up!")
+	//log.Printf("[GroupSyncer]group height request  time up!")
 	if nil == core.GroupChainImpl {
 		return
 	}
@@ -105,10 +105,10 @@ func (gs *groupSyncer) syncGroup() {
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		log.Printf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		//log.Printf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		return
 	} else {
-		log.Printf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		//log.Printf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestGroupByHeight(bestNodeId, localHeight, currentHash)
 	}
 
@@ -149,7 +149,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 func sendGroups(targetId string, groupEntity *core.GroupMessage) {
 	body, e := marshalGroupMessage(groupEntity)
 	if e != nil {
-		log.Printf("[GroupSyncer]" +
+		log.Printf("[GroupSyncer]"+
 			"sendGroups marshal groupEntity error:%s", e.Error())
 		return
 	}
