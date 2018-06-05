@@ -87,7 +87,7 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 }
 
 //由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
+func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) *StaticGroupInfo {
 	var sgi StaticGroupInfo
 	sgi.GIS = grm.GI
 	sgi.Members = make([]PubKeyInfo, 0)
@@ -96,7 +96,7 @@ func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) StaticGroupInfo {
 		sgi.Members = append(sgi.Members, v)
 		sgi.MapCache[v.GetID().GetHexString()] = len(sgi.Members) - 1
 	}
-	return sgi
+	return &sgi
 }
 
 //创建一个未经过组初始化共识的静态组结构（尚未共识生成组私钥、组公钥和组ID）

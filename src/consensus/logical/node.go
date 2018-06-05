@@ -99,83 +99,83 @@ func (mgs MinerGroupSecret) GenSecKeyList(n int) []groupsig.Seckey {
 //组节点（一个矿工加入多个组，则有多个组节点）
 type GroupNode struct {
 	//用户属性（本质上可以跨多个GroupNode共享）
-	u_sk      common.PrivateKey //用户私钥（非组签名私钥）
-	u_address common.Address    //用户地址
+	privateKey common.PrivateKey //用户私钥（非组签名私钥）
+	address    common.Address    //用户地址
 	//矿工属性
-	ms MinerInfo //和组无关的矿工信息（本质上可以跨多个GroupNode共享）
+	minerInfo MinerInfo //和组无关的矿工信息（本质上可以跨多个GroupNode共享）
 	//组（相关）属性
-	mgs         MinerGroupSecret     //和组相关的矿工信息
-	m_init_pool GroupInitPool        //组初始化消息池
-	m_sign_sk   groupsig.Seckey      //输出：矿工签名私钥（由秘密共享接收池聚合而来）
-	m_gpk       groupsig.Pubkey      //输出：组公钥（由矿工签名公钥接收池聚合而来）
-	m_sign_pks  groupsig.PubkeyMapID //组成员签名公钥
+	minerGroupSecret  MinerGroupSecret     //和组相关的矿工信息
+	groupInitPool     GroupInitPool        //组初始化消息池
+	minerSignedSecret groupsig.Seckey      //输出：矿工签名私钥（由秘密共享接收池聚合而来）
+	groupPubKey       groupsig.Pubkey      //输出：组公钥（由矿工签名公钥接收池聚合而来）
+	memberPubKeys     groupsig.PubkeyMapID //组成员签名公钥
 }
 
 func (n GroupNode) GenInnerGroup() JoinedGroup {
 	var jg JoinedGroup
 	jg.GroupPK = n.GetGroupPubKey()
 	jg.SignKey = n.getSignSecKey()
-	//jg.Members = n.m_init_pool.GenMemberPubKeys()
-	jg.Members = n.m_sign_pks
+	//jg.Members = n.groupInitPool.GenMemberPubKeys()
+	jg.Members = n.memberPubKeys
 	jg.GroupID = *groupsig.NewIDFromPubkey(jg.GroupPK)
-	jg.SeedKey = n.mgs.GenSecKey()
+	jg.SeedKey = n.minerGroupSecret.GenSecKey()
 	return jg
 }
 
 //用户初始化
 func (n *GroupNode) InitUser(sk_str string) {
-	n.u_sk = common.GenerateKey(sk_str)
-	pk := n.u_sk.GetPubKey()
-	n.u_address = pk.GetAddress()
+	n.privateKey = common.GenerateKey(sk_str)
+	pk := n.privateKey.GetPubKey()
+	n.address = pk.GetAddress()
 }
 
 //用户导入
 func (n *GroupNode) ImportUser(sk common.PrivateKey, addr common.Address) {
-	n.u_sk = sk
-	n.u_address = addr
+	n.privateKey = sk
+	n.address = addr
 }
 
 //矿工初始化(和组无关)
 func (n *GroupNode) InitForMiner(id groupsig.ID, secret rand.Rand) {
 	log.Printf("begin GroupNode::InitForMiner...\n")
-	n.ms.Init(id, secret)
+	n.minerInfo.Init(id, secret)
 	return
 }
 
 //加入某个组初始化
 func (n *GroupNode) InitForGroup(h common.Hash) {
 	log.Printf("begin GroupNode::InitForGroup...\n")
-	n.mgs = NewMinerGroupSecret(n.ms.GenSecretForGroup(h)) //生成用户针对该组的私密种子
-	n.m_init_pool = *new(GroupInitPool)                    //初始化秘密接收池
-	n.m_init_pool.init()
-	n.m_sign_sk = *new(groupsig.Seckey) //初始化
-	n.m_gpk = *new(groupsig.Pubkey)
-	n.m_sign_pks = make(groupsig.PubkeyMapID, 0)
+	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(h)) //生成用户针对该组的私密种子
+	n.groupInitPool = *new(GroupInitPool)                                      //初始化秘密接收池
+	n.groupInitPool.init()
+	n.minerSignedSecret = *new(groupsig.Seckey) //初始化
+	n.groupPubKey = *new(groupsig.Pubkey)
+	n.memberPubKeys = make(groupsig.PubkeyMapID, 0)
 	return
 }
 
 //针对矿工的初始化(可以分两层，一个节点ID可以加入多个组)
 func (n *GroupNode) InitForMinerStr(id string, secret string, gis ConsensusGroupInitSummary) {
 	log.Printf("begin GroupNode::InitForMinerStr...\n")
-	n.ms = NewMinerInfo(id, secret)
-	n.mgs = NewMinerGroupSecret(n.ms.GenSecretForGroup(gis.GenHash()))
+	n.minerInfo = NewMinerInfo(id, secret)
+	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(gis.GenHash()))
 
-	n.m_init_pool = *new(GroupInitPool)
-	n.m_init_pool.init()
-	n.m_sign_sk = *new(groupsig.Seckey)
-	n.m_gpk = *new(groupsig.Pubkey)
+	n.groupInitPool = *new(GroupInitPool)
+	n.groupInitPool.init()
+	n.minerSignedSecret = *new(groupsig.Seckey)
+	n.groupPubKey = *new(groupsig.Pubkey)
 	return
 }
 
 func (n GroupNode) GetMinerID() groupsig.ID {
-	return n.ms.MinerID
+	return n.minerInfo.MinerID
 }
 
 //生成针对组内所有成员的秘密共享
 func (n *GroupNode) GenSharePiece(mems []groupsig.ID) groupsig.SeckeyMapID {
 	shares := make(groupsig.SeckeyMapID)
 	//生成门限个密钥
-	secs := n.mgs.GenSecKeyList(GetGroupK())
+	secs := n.minerGroupSecret.GenSecKeyList(GetGroupK())
 	//生成成员数量个共享秘密
 	for _, id := range mems { //组成员遍历
 		shares[id.GetHexString()] = *groupsig.ShareSeckey(secs, id)
@@ -187,10 +187,10 @@ func (n *GroupNode) GenSharePiece(mems []groupsig.ID) groupsig.SeckeyMapID {
 //返回：0正常接收，-1异常，1完成签名私钥聚合和组公钥聚合
 func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 	log.Printf("begin GroupNode::SetInitPiece...\n")
-	if n.m_init_pool.ReceiveData(id, share) == -1 {
+	if n.groupInitPool.ReceiveData(id, share) == -1 {
 		return -1
 	}
-	if n.m_init_pool.GetSize() == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的秘密共享
+	if n.groupInitPool.GetSize() == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的秘密共享
 		if n.BeingValidMiner() {
 			return 1
 		} else {
@@ -202,17 +202,17 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 
 //接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
-func (n *GroupNode) SetSignPKPiece(id groupsig.ID, sign_pk groupsig.Pubkey) int {
+func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey) int {
 	log.Printf("begin GroupNode::SetSignPKPiece...\n")
-	if v, ok := n.m_sign_pks[id.GetHexString()]; ok {
-		if v.IsEqual(sign_pk) {
+	if v, ok := n.memberPubKeys[id.GetHexString()]; ok {
+		if v.IsEqual(signPk) {
 			return 0
 		} else {
 			return -1 //两次收到的数据不一致
 		}
 	} else {
-		n.m_sign_pks[id.GetHexString()] = sign_pk
-		if len(n.m_sign_pks) == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的签名公钥
+		n.memberPubKeys[id.GetHexString()] = signPk
+		if len(n.memberPubKeys) == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的签名公钥
 			return 1
 		}
 	}
@@ -221,21 +221,21 @@ func (n *GroupNode) SetSignPKPiece(id groupsig.ID, sign_pk groupsig.Pubkey) int 
 
 //成为有效矿工
 func (n *GroupNode) BeingValidMiner() bool {
-	if !n.m_gpk.IsValid() || n.m_sign_sk.IsValid() {
-		n.m_gpk = *n.m_init_pool.GenGroupPubKey()         //生成组公钥
-		n.m_sign_sk = *n.m_init_pool.GenMinerSignSecKey() //生成矿工签名私钥
+	if !n.groupPubKey.IsValid() || n.minerSignedSecret.IsValid() {
+		n.groupPubKey = *n.groupInitPool.GenGroupPubKey()           //生成组公钥
+		n.minerSignedSecret = *n.groupInitPool.GenMinerSignSecKey() //生成矿工签名私钥
 	}
-	return n.m_gpk.IsValid() && n.m_sign_sk.IsValid()
+	return n.groupPubKey.IsValid() && n.minerSignedSecret.IsValid()
 }
 
 //取得（和组相关的）私密私钥（这个函数在正式版本中不提供）
 func (n GroupNode) getSeedSecKey() groupsig.Seckey {
-	return n.mgs.GenSecKey()
+	return n.minerGroupSecret.GenSecKey()
 }
 
 //取得签名私钥（这个函数在正式版本中不提供）
 func (n GroupNode) getSignSecKey() groupsig.Seckey {
-	return n.m_sign_sk
+	return n.minerSignedSecret
 }
 
 //取得（和组相关的）私密公钥
@@ -245,5 +245,5 @@ func (n GroupNode) GetSeedPubKey() groupsig.Pubkey {
 
 //取得组公钥（在秘密交换后有效）
 func (n GroupNode) GetGroupPubKey() groupsig.Pubkey {
-	return n.m_gpk
+	return n.groupPubKey
 }

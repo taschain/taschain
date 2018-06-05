@@ -25,9 +25,9 @@ type NewGroupChained struct {
 }
 
 //创建一个初始化中的组
-func CreateInitingGroup(s StaticGroupInfo) NewGroupChained {
+func CreateInitingGroup(s *StaticGroupInfo) NewGroupChained {
 	var ngc NewGroupChained
-	ngc.sgi = s
+	ngc.sgi = *s
 	ngc.mems = make(map[string]NewGroupMemberData, 0)
 	return ngc
 }
@@ -151,7 +151,7 @@ func (ngg *NewGroupGenerator) ReceiveData(id GroupMinerID, ngmd NewGroupMemberDa
 			return -1
 		} else {
 			log.Printf("found new init group %v in gg and add it to ngg.\n", GetIDPrefix(id.gid))
-			ngg.addInitingGroup(CreateInitingGroup(sgi))
+			ngg.addInitingGroup(CreateInitingGroup(&sgi))
 			ngc, ge = ngg.groups[id.gid.GetHexString()]
 			if !ge {
 				panic("addInitingGroup ERROR.")
@@ -355,7 +355,8 @@ func (jgs *JoiningGroups) Init() {
 }
 
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi MinerInfo) *GroupContext {
-	if v, ok := jgs.groups[grm.GI.DummyID.GetHexString()]; ok {
+	dummyIdStr := grm.GI.DummyID.GetHexString()
+	if v, ok := jgs.groups[dummyIdStr]; ok {
 		gs := v.GetGroupStatus()
 		log.Printf("found initing group info BY RAW, status=%v...\n", gs)
 		if gs == GIS_PIECE {
@@ -367,21 +368,22 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm ConsensusGroupRawMessage, mi M
 		log.Printf("create new initing group info by RAW...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
-			jgs.groups[grm.GI.DummyID.GetHexString()] = v
+			jgs.groups[dummyIdStr] = v
 		}
 		return v
 	}
 }
 
 func (jgs *JoiningGroups) ConfirmGroupFromPiece(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
-	if v, ok := jgs.groups[spm.DummyID.GetHexString()]; ok {
+	dummyIdStr := spm.DummyID.GetHexString()
+	if v, ok := jgs.groups[dummyIdStr]; ok {
 		log.Printf("found initing group info by SP...\n")
 		return v
 	} else {
 		log.Printf("create new initing group info by SP...\n")
 		v = CreateGroupContextWithPieceMessage(spm, mi)
 		if v != nil {
-			jgs.groups[spm.DummyID.GetHexString()] = v
+			jgs.groups[dummyIdStr] = v
 		}
 		return v
 	}

@@ -317,33 +317,49 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
 	p.initLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.initLock.Unlock()
+		}
+	}()
 
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-	sgi_info := NewSGIFromRawMessage(grm)
-	//p.gg.AddDummyGroup(sgi)
-	p.gg.ngg.addInitingGroup(CreateInitingGroup(sgi_info))
-
+	staticGroupInfo := NewSGIFromRawMessage(grm)
 	//非组内成员不走后续流程
-	if !sgi_info.MemExist(p.GetMinerID()) {
-		p.initLock.Unlock()
-		locked = false
+	if !staticGroupInfo.MemExist(p.GetMinerID()) {
 		return
 	}
+	//p.gg.AddDummyGroup(sgi)
+	p.gg.ngg.addInitingGroup(CreateInitingGroup(staticGroupInfo))
 
-	gc := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
-	if gc == nil {
+	groupContext := p.jgs.ConfirmGroupFromRaw(grm, p.mi)
+	if groupContext == nil {
 		panic("Processer::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
-	gs := gc.GetGroupStatus()
+	gs := groupContext.GetGroupStatus()
 	log.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	if gs == GIS_RAW {
 		log.Printf("begin GenSharePieces in OMGI...\n")
-		shares := gc.GenSharePieces() //生成秘密分享
+		shares := groupContext.GenSharePieces() //生成秘密分享
 		log.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
 
 		if locked {
 			p.initLock.Unlock()
 			locked = false
+		}
+
+		//dummy 组写入组链 add by 小熊
+		members := make([]core.Member, 0)
+		for _, miner := range grm.MEMS {
+			member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+			members = append(members, member)
+		}
+		//此时组ID 跟组公钥是没有的
+		group := core.Group{Members: members, Dummy: grm.GI.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
+		err := p.GroupChain.AddGroup(&group, nil, nil)
+		if err != nil {
+			log.Printf("ERROR:add dummy group fail! dummyId=%v, err=%v", GetIDPrefix(grm.GI.DummyID), err.Error())
+			return
 		}
 
 		var spm ConsensusSharePieceMessage
@@ -379,10 +395,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	} else {
 		log.Printf("group(%v) status=%v, ignore init message.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	}
-	if locked {
-		p.initLock.Unlock()
-		locked = false
-	}
+
 	log.Printf("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	return
 }
@@ -392,22 +405,21 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processer::OMSP, sender=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	p.initLock.Lock()
 	locked := true
+	defer func() {
+		if locked {
+			p.initLock.Unlock()
+		}
+	}()
 
 	gc := p.jgs.ConfirmGroupFromPiece(spm, p.mi)
 	if gc == nil {
-		if locked {
-			p.initLock.Unlock()
-			locked = false
-		}
 		panic("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
 		return
 	}
 	result := gc.PieceMessage(spm)
 	log.Printf("proc(%v) OMSP after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
 	p.piece_count++
-	if result < 0 {
-		panic("OMSP failed, gc.PieceMessage result less than 0.\n")
-	}
+
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()
 		//这时还没有所有组成员的签名公钥
@@ -446,10 +458,7 @@ func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 			panic("Processer::OMSP failed, aggr key error.")
 		}
 	}
-	if locked {
-		p.initLock.Unlock()
-		locked = false
-	}
+
 	log.Printf("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
@@ -459,7 +468,11 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	p.initLock.Lock()
 	locked := true
-
+	defer func() {
+		if locked {
+			p.initLock.Unlock()
+		}
+	}()
 	/* 待小熊增加GISSign成员的流化后打开
 	if !spkm.VerifyGISSign(spkm.SignPK) {
 		panic("OMSP verify GISSign with sign pub key failed.")
@@ -468,16 +481,12 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 
 	gc := p.jgs.GetGroup(spkm.DummyID)
 	if gc == nil {
-		if locked {
-			p.initLock.Unlock()
-			locked = false
-		}
 		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
 		return
 	}
-	log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.m_sign_pks))
+	log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
 	result := gc.SignPKMessage(spkm)
-	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.m_sign_pks), result)
+	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
@@ -532,10 +541,7 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 			panic("Processer::OnMessageSharePiece failed, aggr key error.")
 		}
 	}
-	if locked {
-		p.initLock.Unlock()
-		locked = false
-	}
+
 	log.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
