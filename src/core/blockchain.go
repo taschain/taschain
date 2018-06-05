@@ -515,7 +515,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 
 func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
 
-	log.Printf("[block] start to verifyCastingBlock, %+v\n", bh)
+	log.Printf("[block] start to verifyCastingBlock, %x\n", bh.Hash)
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)

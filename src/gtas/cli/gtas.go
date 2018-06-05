@@ -24,6 +24,7 @@ import (
 	_ "net/http/pprof"
 	"net/http"
 	"middleware"
+	"time"
 )
 
 const (
@@ -87,11 +88,11 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	}
 	if super {
 		keys1 := LoadPubKeyInfo("pubkeys1")
-		//keys2 := LoadPubKeyInfo("pubkeys2")
-		//keys3 := LoadPubKeyInfo("pubkeys3")
+		keys2 := LoadPubKeyInfo("pubkeys2")
+		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 20 {
+			if len(p2p.Server.GetConnInfo()) >= 8 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -100,10 +101,10 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				break
 			}
 		}
-		//createGroup(keys3, "gtas3")
-		//time.Sleep(time.Second*30)
-		//createGroup(keys2, "gtas2")
-		//time.Sleep(time.Second*30)
+		createGroup(keys3, "gtas3")
+		time.Sleep(time.Second*30)
+		createGroup(keys2, "gtas2")
+		time.Sleep(time.Second*30)
 		createGroup(keys1, "gtas1")
 
 	}
