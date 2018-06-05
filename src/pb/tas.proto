@@ -62,27 +62,29 @@ message BlockHeader{
 
      optional uint64 QueueNumber = 5;
 
-     optional bytes CurTime  = 6 ;
+     optional uint64 TotalQN = 6;
 
-     optional bytes Castor  = 7 ;
+     optional bytes CurTime  = 7 ;
 
-     optional bytes GroupId  = 8 ;
+     optional bytes Castor  = 8 ;
 
-     optional bytes Signature  = 9 ;
+     optional bytes GroupId  = 9 ;
 
-     optional uint64 Nonce = 10;
+     optional bytes Signature  = 10 ;
 
-     optional Hashes transactions = 11;
+     optional uint64 Nonce = 11;
 
-     optional bytes TxTree  = 12 ;
+     optional Hashes transactions = 12;
 
-     optional bytes ReceiptTree  = 13 ;
+     optional bytes TxTree  = 13 ;
 
-     optional bytes StateTree  = 14 ;
+     optional bytes ReceiptTree  = 14 ;
 
-     optional bytes ExtraData  = 15 ;
+     optional bytes StateTree  = 15 ;
 
-     optional Hashes EvictedTxs  = 16 ;
+     optional bytes ExtraData  = 16 ;
+
+     optional Hashes EvictedTxs  = 17;
 }
 
 message Block{
@@ -142,22 +144,38 @@ message Hashes{
     repeated bytes hashes = 1;
 }
 
-message Ratios{
+message ChainBlockHash{
 
-    repeated float ratios = 1;
+	required  uint64 Height = 1;
+
+	required  bytes  Hash = 2;
+}
+
+message ChainBlockHashSlice{
+
+    repeated ChainBlockHash ChainBlockHashes = 1;
 }
 
 message BlockMessage{
 
 	optional BlockSlice Blocks = 1;
 
-	optional uint64 Height = 2;
-
-	optional Hashes Hashes = 3;
-
-	optional Ratios Ratios = 4;
+	optional ChainBlockHashSlice ChainBlockHash = 2;
 }
 
+message EntityTotalQNMessage{
+
+	required uint64 TotalQN = 1;
+
+	required bytes SourceId = 2;
+}
+
+message ChainBlockHashesReq{
+
+	required  uint64 Height = 1;
+
+	required uint64 Length = 2;
+}
 
 message GroupMessage{
 

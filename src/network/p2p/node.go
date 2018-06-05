@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 	"github.com/libp2p/go-libp2p-peer"
-	"fmt"
+	"log"
 )
 
 const (
@@ -53,7 +53,7 @@ func GetIdFromPublicKey(p common.PublicKey) string {
 	pubKey := &Pubkey{PublicKey: p}
 	pID, e := peer.IDFromPublicKey(pubKey)
 	if e != nil {
-		logger.Errorf("IDFromPublicKey error:%s", e.Error())
+		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
 		panic("GetIdFromPublicKey error!")
 	}
 	id := ConvertToID(pID)
@@ -84,7 +84,7 @@ func getAvailableTCPPort(ip string, port int) int {
 	}
 
 	if port > 65535 {
-		logger.Error("No available port!")
+		log.Printf("[Network]No available port!")
 		return -1
 	}
 
@@ -131,7 +131,7 @@ func ConvertToID(p peer.ID) string {
 func ConvertToPeerID(i string) peer.ID {
 	id, e := peer.IDB58Decode(i)
 	if e != nil {
-		fmt.Errorf("ConvertToPeerID error:%s", e.Error())
+		log.Printf("[Network]ConvertToPeerID error:%s", e.Error())
 		panic("ConvertToPeerID error!")
 	}
 	return id

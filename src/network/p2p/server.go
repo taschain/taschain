@@ -14,6 +14,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
+	"log"
 )
 
 const (
@@ -50,9 +51,9 @@ const (
 	NEW_BLOCK_MSG uint32 = 0x0b
 
 	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0c
+	REQ_BLOCK_CHAIN_TOTAL_QN_MSG uint32 = 0x0c
 
-	BLOCK_CHAIN_HEIGHT_MSG uint32 = 0x0d
+	BLOCK_CHAIN_TOTAL_QN_MSG uint32 = 0x0d
 
 	REQ_BLOCK_MSG uint32 = 0x0e
 
@@ -66,6 +67,10 @@ const (
 	REQ_GROUP_MSG uint32 = 0x12
 
 	GROUP_MSG uint32 = 0x13
+	//-----------块链调整---------------------------------
+	BLOCK_CHAIN_HASHES_REQ uint32 = 0x14
+
+	BLOCK_CHAIN_HASHES uint32 = 0x15
 )
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"
@@ -92,30 +97,34 @@ func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 }
 
 func (s *server) SendMessage(m Message, id string) {
-	bytes, e := MarshalMessage(m)
-	if e != nil {
-		logger.Errorf("Marshal message error:%s", e.Error())
-		return
-	}
 
-	length := len(bytes)
-	b2 := utility.UInt32ToByte(uint32(length))
+	go func() {
+		bytes, e := MarshalMessage(m)
+		if e != nil {
+			log.Printf("[Network]Marshal message error:%s", e.Error())
+			return
+		}
 
-	//"TAS"的byte
-	header := []byte{84, 65, 83}
+		length := len(bytes)
+		b2 := utility.UInt32ToByte(uint32(length))
 
-	b := make([]byte, len(bytes)+len(b2)+3)
-	copy(b[:3], header[:])
-	copy(b[3:7], b2)
-	copy(b[7:], bytes)
+		//"TAS"的byte
+		header := []byte{84, 65, 83}
 
-	//log.Printf("[p2p]send message to id:%s,code:%d\n", id, m.Code)
-	s.send(b, id)
+		b := make([]byte, len(bytes)+len(b2)+3)
+		copy(b[:3], header[:])
+		copy(b[3:7], b2)
+		copy(b[7:], bytes)
+
+		//log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
+		s.send(b, id)
+	}()
+
 }
 
 func (s *server) send(b []byte, id string) {
 	if id == s.SelfNetInfo.Id {
-		go s.sendSelf(b, id)
+		s.sendSelf(b, id)
 		return
 	}
 	ctx := context.Background()
@@ -180,6 +189,9 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
+	go handleStream(stream)
+}
+func handleStream(stream inet.Stream) {
 	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
@@ -240,24 +252,24 @@ func swarmStreamHandler(stream inet.Stream) {
 			}
 		}
 	}
-	go Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
+	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
 }
 
 func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
-		logger.Errorf("Proto unmarshal error:%s", error.Error())
+		log.Printf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	//log.Printf("[p2p]receive message from id:%s,code:%d\n", from, message.Code)
+	//log.Printf("[p2p]receive from id:%s,code:%d\n", from, message.Code)
 
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
-	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_HEIGHT_MSG, BLOCK_CHAIN_HEIGHT_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
-		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG:
+	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
