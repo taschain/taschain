@@ -79,6 +79,8 @@ type BlockChain struct {
 	blockCache *lru.Cache
 
 	isAdujsting bool
+
+	solitaryBlocks *lru.Cache
 }
 
 type castingBlock struct {
@@ -135,6 +137,7 @@ func initBlockChain() error {
 	if err != nil {
 		return err
 	}
+	chain.solitaryBlocks, _ = lru.New(100)
 
 	//从磁盘文件中初始化leveldb
 	chain.blocks, err = datasource.NewDatabase(chain.config.block)
@@ -357,8 +360,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	he := cbhr[index]
 	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
+		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,"null",he.Hash)
 		return -1
 	}
+	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,bh.Hash,he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}
@@ -366,8 +371,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	afterHe := cbhr[index-1]
 	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
+		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,"null",afterHe.Hash)
 		return -1
 	}
+	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,afterbh.Hash,afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}
@@ -722,9 +729,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 //        1,链上已存在该块，丢弃该块
 //        2，未上链，缓存该块
 //        3 未上链，异步进行分叉调整
-func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 
 	// 验证块是否已经在链上
 	existed := chain.queryBlockByHash(b.Header.Hash)
@@ -760,7 +765,8 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		status = chain.saveBlock(b)
 	} else {
 		height := b.Header.Height
-		if height > chain.Height() {
+		if height > chain.Height() && chain.queryBlockByHash(b.Header.PreHash) == nil {
+			chain.solitaryBlocks.Add(b.Header.PreHash, b)
 			return 2
 		} else {
 			//出现分叉，进行链调整
@@ -788,9 +794,21 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
+		solitaryBlock, r := chain.solitaryBlocks.Get(b.Header.Hash)
+		if r {
+			chain.addBlockOnChain(solitaryBlock.(*Block))
+		}
 	}
 	return status
 
+}
+
+func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+
+	return chain.addBlockOnChain(b)
 }
 
 // 保存block到ldb

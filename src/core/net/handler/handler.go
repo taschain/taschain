@@ -202,9 +202,12 @@ func OnChainBlockHashesReq(cbhr *core.ChainBlockHashesReq, sourceId string) {
 }
 
 func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
-	if cbhr == nil {
+	log.Printf("Get OnChainBlockHashes from:%s", sourceId)
+	if cbhr == nil || len(cbhr) == 0 {
 		return
 	}
+	log.Printf("ChainBlockHash length is:%d", len(cbhr))
+
 	result, b := core.FindCommonAncestor(cbhr, 0, len(cbhr)-1)
 	if b {
 		//请求对应的块
