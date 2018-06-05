@@ -202,9 +202,6 @@ func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 }
 
 func (chain *BlockChain) Height() uint64 {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	if nil == chain.latestBlock {
 		return math.MaxUint64
 	}
@@ -212,9 +209,6 @@ func (chain *BlockChain) Height() uint64 {
 }
 
 func (chain *BlockChain) TotalQN() uint64 {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	if nil == chain.latestBlock {
 		return 0
 	}
@@ -472,9 +466,6 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, erro
 //辅助方法族
 //查询最高块
 func (chain *BlockChain) QueryTopBlock() *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	return chain.latestBlock
 }
 
