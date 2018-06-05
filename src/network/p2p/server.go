@@ -116,7 +116,9 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
-		//log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
+		if m.Code == CAST_VERIFY_MSG {
+			log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
+		}
 		s.send(b, id)
 	}()
 
