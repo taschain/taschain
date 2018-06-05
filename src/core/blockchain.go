@@ -28,7 +28,7 @@ const (
 	CONFIG_SEC                          = "chain"
 	CHAIN_BLOCK_HASH_INIT_LENGTH uint64 = 10
 
-	BLOCK_CHAIN_AJUST_TIME_OUT = 10 * time.Second
+	BLOCK_CHAIN_ADJUST_TIME_OUT = 10 * time.Second
 )
 
 var BlockChainImpl *BlockChain
@@ -287,7 +287,7 @@ func GetBlockHashesFromLocalChain(height uint64, length uint64) []*ChainBlockHas
 		if height < 0 {
 			break
 		}
-		bh := BlockChainImpl.QueryBlockByHeight(height)
+		bh := BlockChainImpl.queryBlockHeaderByHeight(height, true)
 		if bh == nil {
 			height--
 			continue
@@ -355,7 +355,7 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 		return -100
 	}
 	he := cbhr[index]
-	bh := BlockChainImpl.QueryBlockByHeight(he.Height)
+	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
 		return -1
 	}
@@ -364,7 +364,7 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	}
 	//判断更高的一块
 	afterHe := cbhr[index-1]
-	afterbh := BlockChainImpl.QueryBlockByHeight(afterHe.Height)
+	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
 		return -1
 	}
@@ -769,7 +769,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 			go chain.adjust(b)
 
 			go func() {
-				t := time.NewTimer(BLOCK_CHAIN_AJUST_TIME_OUT)
+				t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
 
 				<-t.C
 				log.Printf("[BlockChain]Local block adjusting time up.change the state!\n")
@@ -837,6 +837,8 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
 	localTotalQN := chain.TotalQN()
 	bTotalQN := b.Header.TotalQN
 	if localTotalQN >= bTotalQN {
@@ -844,7 +846,6 @@ func (chain *BlockChain) adjust(b *Block) {
 		return
 	} else {
 		//删除自身链的结点
-		chain.lock.Lock()
 		for height := b.Header.Height; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
 			if header == nil {
@@ -853,7 +854,6 @@ func (chain *BlockChain) adjust(b *Block) {
 			chain.remove(header)
 			chain.topBlocks.Remove(header.Height)
 		}
-		chain.lock.Unlock()
 
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
