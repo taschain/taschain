@@ -557,14 +557,13 @@ func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
 }
 
 func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
-	chain.lock.Lock()
-	chain.lock.Unlock()
 
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
 		log.Printf("[block] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
 	}
+
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
