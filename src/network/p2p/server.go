@@ -116,9 +116,6 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
-		if m.Code == NEW_BLOCK_MSG {
-			log.Printf("[p2p]send to id:%s,code:%d\n", id, m.Code)
-		}
 		s.send(b, id)
 	}()
 
@@ -265,9 +262,6 @@ func (s *server) handleMessage(b []byte, from string) {
 	}
 
 	code := message.Code
-	if *code == NEW_BLOCK_MSG {
-		log.Printf("[p2p]receive from id:%s,code:%d\n", from, message.Code)
-	}
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:

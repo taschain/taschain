@@ -164,6 +164,8 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	conns := p2p.Server.Host.Network().Conns()
 	for _, conn := range conns {
 		id := conn.RemotePeer()
+
+		log.Printf("[p2p]send to id:%s,height:%d,hash:%s,code:%d\n", p2p.ConvertToID(id),cbm.Block.Header.Height,cbm.Block.Header.Hash, m.Code)
 		if id != "" {
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}

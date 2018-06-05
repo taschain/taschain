@@ -159,6 +159,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
+		log.Printf("[p2p]receive from id:%s,height:%d,hash:%scode:%d\n", sourceId,m.Block.Header.Height,m.Block.Header.Hash,code)
+
 		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
 		//b := &m.Block
 		//belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
