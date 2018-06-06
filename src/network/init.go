@@ -166,7 +166,7 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 }
 
 func getSeedInfo(config *common.ConfManager) (peer.ID, string, error) {
-	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "QmPf7ArTTxDqd1znC9LF5r73YR85sbEU1t1SzTvt2fRry2")
+	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "Qmdeh5r5kT2je77JNYKTsQi6ncckpLa9aFnr6xYQaGAxaw")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
 	return p2p.ConvertToPeerID(seedIdStr), seedAddrStr, nil
 }

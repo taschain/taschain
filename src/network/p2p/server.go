@@ -251,7 +251,8 @@ func handleStream(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()),pkgLengthBytes)
+	logger.Errorf("Get ok message!")
+	//Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()),pkgLengthBytes)
 }
 
 func (s *server) handleMessage(b []byte, from string,lengthByte []byte) {
