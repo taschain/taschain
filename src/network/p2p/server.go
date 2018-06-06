@@ -116,7 +116,7 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[7:], bytes)
 
 		s.send(b, id)
-		logger.Debugf("[p2p] Send message to:%s,message body hash is:%x,cost time:%v",id,common.Sha256(m.Body),time.Since(beginTime).String())
+		logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%x,cost time:%v",id,m.Code,common.Sha256(m.Body),len(b),b2,time.Since(beginTime).String())
 	}()
 
 }
@@ -183,7 +183,7 @@ func (s *server) send(b []byte, id string) {
 
 func (s *server) sendSelf(b []byte, id string) {
 	pkgBodyBytes := b[7:]
-	s.handleMessage(pkgBodyBytes, id)
+	s.handleMessage(pkgBodyBytes, id,b[3:7])
 }
 
 //TODO 考虑读写超时
@@ -252,16 +252,16 @@ func handleStream(stream inet.Stream) {
 			}
 		}
 	}
-	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()))
+	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()),pkgLengthBytes)
 }
 
-func (s *server) handleMessage(b []byte, from string) {
+func (s *server) handleMessage(b []byte, from string,lengthByte []byte) {
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x",from,common.BytesToHash(message.Body))
+	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%x",from,common.BytesToHash(message.Body),lengthByte)
 
 	code := message.Code
 	switch *code {
