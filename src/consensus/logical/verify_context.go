@@ -114,7 +114,7 @@ func (vc *VerifyContext) getMaxCastTime() int64 {
 	} else {
 		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
 		if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
-			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, vc.prevHash)
+			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
 			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
 			max = -1
 		} else {
