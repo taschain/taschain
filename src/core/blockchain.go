@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
-	"sync"
 	"os"
 	"vm/core/state"
 	c "vm/common"
@@ -361,10 +360,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	he := cbhr[index]
 	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,"null",he.Hash)
+		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, "null", he.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,bh.Hash,he.Hash)
+	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}
@@ -372,10 +371,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	afterHe := cbhr[index-1]
 	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,"null",afterHe.Hash)
+		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, "null", afterHe.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,afterbh.Hash,afterHe.Hash)
+	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}
@@ -853,8 +852,8 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("adjust")
+	defer chain.lock.Unlock("adjust")
 	localTotalQN := chain.TotalQN()
 	bTotalQN := b.Header.TotalQN
 	if localTotalQN >= bTotalQN {
@@ -935,8 +934,8 @@ func (chain *BlockChain) getStartIndex() uint64 {
 }
 
 func (chain *BlockChain) GetTopBlocks() []*BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("GetTopBlocks")
+	defer chain.lock.RUnlock("GetTopBlocks")
 
 	start := chain.getStartIndex()
 	result := make([]*BlockHeader, chain.latestBlock.Height-start+1)
