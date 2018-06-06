@@ -131,6 +131,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,ccm.BH.Height,ccm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -148,6 +149,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cvm.BH.Height,cvm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -159,6 +161,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cbm.Block.Header.Height,cbm.Block.Header.Hash)
 
 	conns := p2p.Server.Host.Network().Conns()
 	for _, conn := range conns {
