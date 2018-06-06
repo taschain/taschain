@@ -264,30 +264,30 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 //计算当前铸块人位置和QN
 func (bc *BlockContext) calcCastor(vctx *VerifyContext) (int32, int64) {
 	var index int32 = -1
-	var qn int64 = -1
-
-	d := time.Since(vctx.prevTime)
-
-	max := vctx.getMaxCastTime()
-
-	var secs = int64(d.Seconds())
-	if secs < max { //在组铸块共识时间窗口内
-		qn = vctx.calcQN()
-		if qn < 0 {
-			log.Printf("calcCastor qn negative found! qn=%v\n", qn)
-		}
-		log.Printf("calcCastor: castInfo=%v\n", bc.castingInfo())
-		firstKing := bc.getFirstCastor(vctx.prevHash) //取得第一个铸块人位置
-		log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
-		if firstKing >= 0 && bc.GroupMembers > 0 {
-			index = int32((qn + int64(firstKing)) % int64(bc.GroupMembers))
-			log.Printf("real cur King pos(MOD mem_count)=%v.\n", index)
-		} else {
-			qn = -1
-		}
-	} else {
-		log.Printf("bc::calcCastor failed, out of group max cast time, PreTime=%v, escape seconds=%v.!!!\n", vctx.prevTime.Format(time.Stamp), secs)
+	//
+	//d := time.Since(vctx.prevTime)
+	//
+	//max := vctx.getMaxCastTime()
+	//
+	//var secs = int64(d.Seconds())
+	//if secs < max { //在组铸块共识时间窗口内
+	log.Printf("calcCastor: castInfo=%v\n", bc.castingInfo())
+	qn := vctx.calcQN()
+	if qn < 0 {
+		log.Printf("calcCastor qn negative found! qn=%v\n", qn)
+		return index, qn
 	}
+	firstKing := bc.getFirstCastor(vctx.prevHash) //取得第一个铸块人位置
+	log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	if firstKing >= 0 && bc.GroupMembers > 0 {
+		index = int32((qn + int64(firstKing)) % int64(bc.GroupMembers))
+		log.Printf("real cur King pos(MOD mem_count)=%v.\n", index)
+	} else {
+		qn = -1
+	}
+	//} else {
+	//	log.Printf("bc::calcCastor failed, out of group max cast time, PreTime=%v, escape seconds=%v.!!!\n", vctx.prevTime.Format(time.Stamp), secs)
+	//}
 	return index, qn
 }
 //取得第一个铸块人在组内的位置
@@ -333,11 +333,15 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
 		index, qn := bc.calcCastor(vctx) //当前铸块人（KING）和QN值
-		if qn <= vctx.signedMaxQN {	//已经铸出了更大的qn
+		if index < 0 {
+			log.Printf("kingTickerRoutine: calcCastor index =%v\n", index)
+			return false
+		}
+		if vctx.signedMaxQN != INVALID_QN && qn <= vctx.signedMaxQN {	//已经铸出了更大的qn
 			log.Printf("kingTickerRoutine: already cast maxer qn! height=%v, signMaxQN=%v, calcQn=%v\n", vctx.castHeight, vctx.signedMaxQN, qn)
 			return false
 		}
-		bc.Proc.checkCastRoutine(bc, vctx, index, qn)
+		bc.Proc.kingCheckAndCast(bc, vctx, index, qn)
 		log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}

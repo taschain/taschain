@@ -37,6 +37,8 @@ type VerifyContext struct {
 
 	slots [MAX_SYNC_CASTORS]*SlotContext
 
+	castedQNs	[]int64		//自己铸过的qn
+
 	blockCtx *BlockContext
 
 	lock sync.Mutex
@@ -69,7 +71,18 @@ func (vc *VerifyContext) maxQNCasted() bool {
 	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED
 }
 
+func (vc *VerifyContext) isQNCasted(qn int64) bool {
+	for _, _qn := range vc.castedQNs {
+		if _qn == qn {
+			return true
+		}
+	}
+	return false
+}
 
+func (vc *VerifyContext) addCastedQN(qn int64)  {
+    vc.castedQNs = append(vc.castedQNs, qn)
+}
 
 func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
     vc.prevTime = preTime
@@ -78,6 +91,7 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime tim
     vc.signedMaxQN = INVALID_QN
     vc.consensusStatus = CBCS_CURRENT
     vc.blockCtx = bc
+    vc.castedQNs = make([]int64, 0)
 	vc.resetSlotContext()
 }
 
@@ -91,24 +105,34 @@ func (vc *VerifyContext) baseOnGeneisBlock() bool {
 
 func (vc *VerifyContext) getMaxCastTime() int64 {
 	var max int64
+	defer func() {
+		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+	}()
+
 	if vc.baseOnGeneisBlock() {
 		max = math.MaxInt64
 	} else {
 		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-		if preBH == nil {//TODO: handle preblock is nil
+		if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
 			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, vc.prevHash)
-			panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+			max = -1
+		} else {
+			max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
 		}
 
-		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
 	}
-	log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+
 	return max
 }
 
 //计算QN
 func (vc *VerifyContext) calcQN() int64 {
 	max := vc.getMaxCastTime()
+	if max < 0 {
+		return -1
+	}
+
 	diff := time.Since(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
 	log.Printf("calcQN, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 
