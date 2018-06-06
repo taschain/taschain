@@ -34,7 +34,7 @@ type groupSyncer struct {
 }
 
 func InitGroupSyncer(config *common.ConfManager) {
-	logger = taslog.GetLoggerByName((*config).GetString("chain","sync_log","sync"))
+	logger = taslog.GetLoggerByName((*config).GetString("chain","database","d")+"_sync")
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		GroupRequestCh: make(chan core.EntityRequestMessage), GroupArrivedCh: make(chan core.GroupArrivedMessage),}
 	go GroupSyncer.start()
