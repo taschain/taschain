@@ -143,7 +143,7 @@ const (
 func (bc *BlockContext) castingInfo() string {
 	vctx := bc.currentVerifyContext
 	if vctx != nil {
-		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, signedMaxQN=%v", vctx.consensusStatus, vctx.castHeight, vctx.prevHash, vctx.prevTime.String(), vctx.signedMaxQN)
+		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, signedMaxQN=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevHash), vctx.prevTime.String(), vctx.signedMaxQN)
 	} else {
 		return "not in casting!"
 	}
