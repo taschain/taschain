@@ -725,7 +725,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 //铸块成功，上链
 //返回值: 0,上链成功
 //       -1，验证失败
-//        1,链上已存在该块，丢弃该块
+//        1,链上已存在该块或链上存在QN值更大的相同高度块，丢弃该块
 //        2，未上链，缓存该块
 //        3 未上链，异步进行分叉调整
 func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
@@ -767,6 +767,13 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 		if height > chain.Height() && chain.queryBlockByHash(b.Header.PreHash) == nil {
 			chain.solitaryBlocks.Add(b.Header.PreHash, b)
 			return 2
+		} else if height == chain.Height() && b.Header.PreHash == chain.latestBlock.PreHash{
+			localBlock := chain.latestBlock
+			if localBlock.QueueNumber > b.Header.QueueNumber{
+				return 1
+			}else {
+				status = chain.saveBlock(b)
+			}
 		} else {
 			//出现分叉，进行链调整
 			chain.isAdujsting = true
