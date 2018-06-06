@@ -14,7 +14,6 @@ import (
 	"network"
 )
 
-var logger = network.Logger
 
 const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
@@ -25,21 +24,21 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
 		OnTransactionRequest(m)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
 		m, e := UnMarshalTransactions(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
 		return nil, OnMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
 		block, e := unMarshalBlock(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
 		OnMessageNewBlock(block)
@@ -53,7 +52,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_BLOCK_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
@@ -61,7 +60,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.BLOCK_MSG:
 		m, e := unMarshalBlockMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		s := core.BlockArrivedMessage{BlockEntity: *m, SourceId: sourceId}
@@ -76,7 +75,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_GROUP_MSG:
 		m, e := unMarshalEntityRequestMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard REQ_GROUP_MSG because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard REQ_GROUP_MSG because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
@@ -84,7 +83,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.GROUP_MSG:
 		m, e := unMarshalGroupMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		s := core.GroupArrivedMessage{GroupEntity: *m, SourceId: sourceId}
@@ -92,14 +91,14 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.BLOCK_CHAIN_HASHES_REQ:
 		cbhr, e := unMarshalChainBlockHashesReq(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		OnChainBlockHashesReq(cbhr, sourceId)
 	case p2p.BLOCK_CHAIN_HASHES:
 		cbh, e := unMarshalChainBlockHashes(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		OnChainBlockHashes(cbh, sourceId)
@@ -124,7 +123,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	}
 	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
-		logger.Errorf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
+		network.Logger.Errorf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
 		m.TransactionHashes = need
 		core.BroadcastTransactionRequest(*m)
 	}
@@ -187,7 +186,7 @@ func OnMessageNewBlock(b *core.Block) error {
 		return nil
 	}
 	if core.BlockChainImpl.AddBlockOnChain(b) == -1 {
-		logger.Errorf("[handler]Add new block to chain error \n")
+		network.Logger.Errorf("[handler]Add new block to chain error \n")
 		return fmt.Errorf("fail to add block")
 	}
 	return nil
@@ -202,7 +201,7 @@ func OnChainBlockHashesReq(cbhr *core.ChainBlockHashesReq, sourceId string) {
 }
 
 func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
-	logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
+	network.Logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
 	if cbhr == nil || len(cbhr) == 0 {
 		return
 	}
@@ -211,12 +210,12 @@ func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
 	result, b := core.FindCommonAncestor(cbhr, 0, len(cbhr)-1)
 	if b {
 		//请求对应的块
-		logger.Info("[BlockChain]OnChainBlockHashes:Got common ancestor! Height:%d\n", result.Height)
+		network.Logger.Info("[BlockChain]OnChainBlockHashes:Got common ancestor! Height:%d\n", result.Height)
 		core.RequestBlockByHeight(sourceId, result.Height, result.Hash)
 	} else {
 		//继续索要HASH比较
 		cbhr := core.ChainBlockHashesReq{Height: cbhr[len(cbhr)-1].Height, Length: uint64(len(cbhr) * 10)}
-		logger.Info("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", sourceId, cbhr.Height, cbhr.Length)
+		network.Logger.Info("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", sourceId, cbhr.Height, cbhr.Length)
 		core.RequestBlockChainHashes(sourceId, cbhr)
 	}
 }
@@ -227,7 +226,7 @@ func unMarshalTransaction(b []byte) (*core.Transaction, error) {
 	t := new(tas_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
-		logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
+		network.Logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
 		return &core.Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
@@ -238,7 +237,7 @@ func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
 	ts := new(tas_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
-		logger.Errorf("[handler]Unmarshal transactions error:%s", error.Error())
+		network.Logger.Errorf("[handler]Unmarshal transactions error:%s", error.Error())
 		return nil, error
 	}
 
@@ -250,7 +249,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	m := new(tas_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("[handler]UnMarshal TransactionRequestMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshal TransactionRequestMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -264,7 +263,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	var requestTime time.Time
 	e1 := requestTime.UnmarshalBinary(m.RequestTime)
 	if e1 != nil {
-		logger.Errorf("[handler]MarshalTransactionRequestMessage request time unmarshal error:%s", e1.Error())
+		network.Logger.Errorf("[handler]MarshalTransactionRequestMessage request time unmarshal error:%s", e1.Error())
 	}
 	message := core.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
 	return &message, nil
@@ -296,7 +295,7 @@ func unMarshalBlock(bytes []byte) (*core.Block, error) {
 	b := new(tas_pb.Block)
 	error := proto.Unmarshal(bytes, b)
 	if error != nil {
-		logger.Errorf("[handler]Unmarshal Block error:%s", error.Error())
+		network.Logger.Errorf("[handler]Unmarshal Block error:%s", error.Error())
 		return nil, error
 	}
 	block := PbToBlock(b)
@@ -335,7 +334,7 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 	var preTime time.Time
 	e1 := preTime.UnmarshalBinary(h.PreTime)
 	if e1 != nil {
-		logger.Errorf("[handler]pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
+		network.Logger.Errorf("[handler]pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
 		return nil
 	}
 
@@ -343,7 +342,7 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 	curTime.UnmarshalBinary(h.CurTime)
 	e2 := curTime.UnmarshalBinary(h.CurTime)
 	if e2 != nil {
-		logger.Errorf("[handler]pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
+		network.Logger.Errorf("[handler]pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
 		return nil
 	}
 
@@ -376,7 +375,7 @@ func unMarshalChainBlockHashesReq(byte []byte) (*core.ChainBlockHashesReq, error
 
 	error := proto.Unmarshal(byte, b)
 	if error != nil {
-		logger.Errorf("[handler]unMarshalChainBlockHashesReq error:%s", error.Error())
+		network.Logger.Errorf("[handler]unMarshalChainBlockHashesReq error:%s", error.Error())
 		return nil, error
 	}
 	r := pbTochainBlockHashesReq(b)
@@ -395,7 +394,7 @@ func unMarshalChainBlockHashes(b []byte) ([]*core.ChainBlockHash, error) {
 	chainBlockHashSlice := new(tas_pb.ChainBlockHashSlice)
 	error := proto.Unmarshal(b, chainBlockHashSlice)
 	if error != nil {
-		logger.Errorf("[handler]unMarshalChainBlockHashes error:%s\n", error.Error())
+		network.Logger.Errorf("[handler]unMarshalChainBlockHashes error:%s\n", error.Error())
 		return nil, error
 	}
 	chainBlockHashes := chainBlockHashSlice.ChainBlockHashes
@@ -462,7 +461,7 @@ func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error)
 
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("[handler]Unmarshal EntityRequestMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]Unmarshal EntityRequestMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -477,7 +476,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 	message := new(tas_pb.BlockMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("[handler]Unmarshal BlockMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]Unmarshal BlockMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -504,7 +503,7 @@ func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
 	message := new(tas_pb.GroupMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("[handler]Unmarshal GroupMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]Unmarshal GroupMessage error:%s", e.Error())
 		return nil, e
 	}
 
