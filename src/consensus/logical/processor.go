@@ -285,7 +285,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		castHeight = top.Height + deltaHeight
 	}
 
-	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, top.Hash, top.CurTime, castHeight)
+	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight)
 
 	casting := false
 	for _, _bc := range p.bcs {
@@ -614,7 +614,6 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
 func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
-	log.Printf("proc(%v) verifyCast, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(), GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
 
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
 		log.Printf("beingCastGroup failed, node not in this group.\n")
