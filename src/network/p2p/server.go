@@ -187,7 +187,7 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
-	go handleStream(stream)
+	 handleStream(stream)
 }
 func handleStream(stream inet.Stream) {
 
@@ -251,7 +251,7 @@ func handleStream(stream inet.Stream) {
 			}
 		}
 	}
-	logger.Errorf("Get ok message!")
+	logger.Debugf("Get ok message!")
 	//Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()),pkgLengthBytes)
 }
 
