@@ -21,6 +21,7 @@ import (
 	"consensus/groupsig"
 	"log"
 	"network/p2p"
+	"middleware"
 )
 
 const (
@@ -65,7 +66,7 @@ type BlockChain struct {
 	//height uint64
 
 	// 读写锁
-	lock sync.RWMutex
+	lock middleware.Loglock
 
 	// 是否可以工作
 	init bool
@@ -126,7 +127,7 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock:        sync.RWMutex{},
+		lock:        middleware.NewLoglock(),
 		init:        true,
 		isAdujsting: false,
 	}
@@ -198,8 +199,8 @@ func (chain *BlockChain) Close() {
 }
 
 func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("SetVoteProcessor")
+	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
 }
@@ -233,8 +234,8 @@ func (chain *BlockChain) SetAdujsting(isAjusting bool) {
 //获取当前从height到本地最新的所有的块
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 则返回对应的块，否则返回本地block hash信息 通知请求结点进行链调整
 func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("GetBlockMessage")
+	defer chain.lock.RUnlock("GetBlockMessage")
 	if chain.isAdujsting {
 		return nil
 	}
@@ -402,8 +403,8 @@ func (chain *BlockChain) GetNonce(address common.Address) uint64 {
 
 //清除链所有数据
 func (chain *BlockChain) Clear() error {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("Clear")
+	defer chain.lock.Unlock("Clear")
 
 	chain.init = false
 	chain.latestBlock = nil
@@ -545,8 +546,8 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 // 根据指定高度查询块
 // 带有缓存
 func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("QueryBlockByHeight")
+	defer chain.lock.RUnlock("QueryBlockByHeight")
 
 	return chain.queryBlockHeaderByHeight(height, true)
 }
@@ -633,8 +634,8 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求;=2 当前链正在调整，无法检验
 func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("VerifyCastingBlock")
+	defer chain.lock.Unlock("VerifyCastingBlock")
 
 	if chain.isAdujsting {
 		return nil, 2, nil, nil
@@ -802,8 +803,8 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 }
 
 func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("AddBlockOnChain")
+	defer chain.lock.Unlock("AddBlockOnChain")
 
 	return chain.addBlockOnChain(b)
 }
