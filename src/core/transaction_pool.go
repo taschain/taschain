@@ -172,7 +172,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	}
 
 	// 池子满了
-	if length(pool.received) >= pool.config.maxReceivedPoolSize {
+	if length(&pool.received) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
 		if pool.lowestPrice.GasPrice > tx.GasPrice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
@@ -384,7 +384,7 @@ func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
 	}
 }
 
-func length(m sync.Map) int {
+func length(m *sync.Map) int {
 	count := 0
 	m.Range(func(key, value interface{}) bool {
 		count++

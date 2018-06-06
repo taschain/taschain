@@ -22,7 +22,7 @@ func NewLoglock(title string) Loglock {
 	var prefix = `<seelog minlevel="debug">
 		<outputs formatid="lockConfig">
 			<rollingfile type="size" filename="./logs/`
-	var suffix = `.log" maxsize="100000" maxrolls="3"/>
+	var suffix = `.log" maxsize="1000000" maxrolls="3"/>
 		</outputs>
 		<formats>
 			<format id="lockConfig" format="%Date/%Time [%Level] [%File:%Line] %Msg%n" />
