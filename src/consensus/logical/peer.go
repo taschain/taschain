@@ -7,6 +7,7 @@ import (
 	"pb"
 	"core"
 	"network"
+	"common"
 )
 
 
@@ -163,8 +164,8 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 
-		network.Logger.Infof("[p2p]send to id:%s,height:%d,hash:%s,code:%d", p2p.ConvertToID(id),cbm.Block.Header.Height,cbm.Block.Header.Hash, m.Code)
 		if id != "" {
+			network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%v\n", m.Code, p2p.ConvertToID(id),common.BytesToHash(m.Body))
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
@@ -173,7 +174,6 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 
 //组内广播
 func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
-	//log.Printf("[peer] groupBroadcast message:%d,groupid:%x\n", m.Code, groupId.Serialize())
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		network.Logger.Errorf("[peer] groupBroadcast Get nil group by id:%s\n", groupId.GetString())
@@ -186,8 +186,8 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of groupsig id deserialize error:%s", e.Error())
 			return
 		}
+		network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%v\n", m.Code, id.GetString(),common.BytesToHash(m.Body))
 		p2p.Server.SendMessage(m, id.GetString())
-		//log.Printf("[peer] groupBroadcastsend messsage %d to id %s\n", m.Code, id.GetString())
 
 	}
 }

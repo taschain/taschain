@@ -14,6 +14,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
+	"common"
 )
 
 const (
@@ -95,8 +96,8 @@ func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 }
 
 func (s *server) SendMessage(m Message, id string) {
-
 	go func() {
+		beginTime := time.Now()
 		bytes, e := MarshalMessage(m)
 		if e != nil {
 			logger.Errorf("[Network]Marshal message error:%s", e.Error())
@@ -115,6 +116,7 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[7:], bytes)
 
 		s.send(b, id)
+		logger.Debugf("[p2p] Send message to:%s,message body hash is:%x,cost time:%v",id,common.BytesToHash(m.Body),time.Since(beginTime).String())
 	}()
 
 }
@@ -189,6 +191,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	go handleStream(stream)
 }
 func handleStream(stream inet.Stream) {
+
 	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
@@ -258,6 +261,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
+	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,cost time:%v",from,common.BytesToHash(message.Body))
 
 	code := message.Code
 	switch *code {
