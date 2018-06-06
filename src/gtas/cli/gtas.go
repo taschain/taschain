@@ -396,8 +396,8 @@ func mockTxs() []*core.Transaction {
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
 
-	sourcebyte := common.BytesToAddress(core.Sha256([]byte(source)))
-	targetbyte := common.BytesToAddress(core.Sha256([]byte(target)))
+	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
+	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
 
 	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
 	data := []byte("This is a transaction")
@@ -409,6 +409,6 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		Target:   &targetbyte,
 		GasPrice: price,
 		GasLimit: 3,
-		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
+		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
 	}
 }

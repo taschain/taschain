@@ -3,7 +3,6 @@ package util
 import (
 	"common"
 	eth "vm/common"
-	"core"
 )
 
 /*
@@ -46,7 +45,7 @@ func ToTASAddress(addr eth.Address) common.Address {
 
 func hashBytes(hash string) []byte {
 	bytes3 := []byte(hash)
-	return core.Sha256(bytes3)
+	return common.Sha256(bytes3)
 }
 
 func String2Address(s string) common.Address {
