@@ -3,15 +3,13 @@ package logical
 import (
 	"consensus/groupsig"
 	"network/p2p"
-	"taslog"
-
 	"github.com/gogo/protobuf/proto"
 	"pb"
 	"core"
-	"log"
+	"network"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
+var logger = network.Logger
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
@@ -19,7 +17,7 @@ var logger = taslog.GetLogger(taslog.P2PConfig)
 func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(&grm)
 	if e != nil {
-		log.Printf("[peer]Discard BroadcastMembersInfo because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard BroadcastMembersInfo because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_MEMBER_MSG, Body: body}
@@ -37,7 +35,7 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(&grm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
@@ -57,7 +55,7 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 	body, e := marshalConsensusSharePieceMessage(&spm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
 		return
 	}
 	id := spm.Dest.GetString()
@@ -69,7 +67,7 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 func SendSignPubKey(spkm ConsensusSignPubKeyMessage) {
 	body, e := marshalConsensusSignPubKeyMessage(&spkm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.SIGN_PUBKEY_MSG, Body: body}
@@ -80,7 +78,7 @@ func SendSignPubKey(spkm ConsensusSignPubKeyMessage) {
 func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 	body, e := marshalConsensusGroupInitedMessage(&cgm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusGroupInitedMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusGroupInitedMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_DONE_MSG, Body: body}
@@ -104,14 +102,14 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 func SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
 	body, e := marshalConsensusCurrentMessagee(ccm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusCurrentMessage because of marshal error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of marshal error::%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.CURRENT_GROUP_CAST_MSG, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.GroupID)
 	if e1 != nil {
-		log.Printf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
 	groupBroadcast(m, groupId)
@@ -121,7 +119,7 @@ func SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
 func SendCastVerify(ccm *ConsensusCastMessage) {
 	body, e := marshalConsensusCastMessage(ccm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
@@ -129,7 +127,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
 	if e1 != nil {
-		log.Printf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
 	groupBroadcast(m, groupId)
@@ -139,14 +137,14 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 	body, e := marshalConsensusVerifyMessage(cvm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.VARIFIED_CAST_MSG, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(cvm.BH.GroupId)
 	if e1 != nil {
-		log.Printf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
 	groupBroadcast(m, groupId)
@@ -156,7 +154,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
-		log.Printf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
@@ -165,7 +163,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	for _, conn := range conns {
 		id := conn.RemotePeer()
 
-		log.Printf("[p2p]send to id:%s,height:%d,hash:%s,code:%d\n", p2p.ConvertToID(id),cbm.Block.Header.Height,cbm.Block.Header.Hash, m.Code)
+		logger.Infof("[p2p]send to id:%s,height:%d,hash:%s,code:%d", p2p.ConvertToID(id),cbm.Block.Header.Height,cbm.Block.Header.Hash, m.Code)
 		if id != "" {
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
@@ -178,14 +176,14 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 	//log.Printf("[peer] groupBroadcast message:%d,groupid:%x\n", m.Code, groupId.Serialize())
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
-		log.Printf("[peer] groupBroadcast Get nil group by id:%s\n", groupId.GetString())
+		logger.Errorf("[peer] groupBroadcast Get nil group by id:%s\n", groupId.GetString())
 		return
 	}
 	for _, member := range group.Members {
 		var id groupsig.ID
 		e := id.Deserialize(member.Id)
 		if e != nil {
-			log.Printf("[peer]Discard send ConsensusSignPubKeyMessage because of groupsig id deserialize error:%s", e.Error())
+			logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of groupsig id deserialize error:%s", e.Error())
 			return
 		}
 		p2p.Server.SendMessage(m, id.GetString())
@@ -243,7 +241,7 @@ func marshalConsensusCurrentMessagee(m *ConsensusCurrentMessage) ([]byte, error)
 	PreHash := m.PreHash.Bytes()
 	PreTime, e := m.PreTime.MarshalBinary()
 	if e != nil {
-		log.Printf("[peer]MarshalConsensusCurrentMessagee marshal PreTime error:%s", e.Error())
+		logger.Errorf("[peer]MarshalConsensusCurrentMessagee marshal PreTime error:%s", e.Error())
 		return nil, e
 	}
 
@@ -274,7 +272,7 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
 	block := core.BlockToPb(&m.Block)
 	if block == nil{
-		log.Printf("[peer]Block is nil while marshalConsensusBlockMessage")
+		logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
 	}
 	id := m.GroupID.Serialize()
 	sign := signDataToPb(&m.SI)
