@@ -21,6 +21,7 @@ import (
 	"log"
 	"network/p2p"
 	"middleware"
+	"network"
 )
 
 const (
@@ -243,7 +244,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	bh := chain.QueryBlockByHeight(height)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
-		log.Printf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!\n")
+		network.Logger.Debugf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!\n")
 		blocks := make([]*Block, 0)
 
 		for i := height + 1; i <= localHeight; i++ {
@@ -264,7 +265,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 		}
 	} else {
 		//当前结点和请求结点不在同一条链
-		log.Printf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!\n")
+		network.Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!\n")
 		var cbh []*ChainBlockHash
 		if height > localHeight {
 			cbh = GetBlockHashesFromLocalChain(localHeight, CHAIN_BLOCK_HASH_INIT_LENGTH)
@@ -360,10 +361,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	he := cbhr[index]
 	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, "null", he.Hash)
+		network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, bh.Hash, he.Hash)
+	network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash,he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}
@@ -371,10 +372,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	afterHe := cbhr[index-1]
 	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, "null", afterHe.Hash)
+		network.Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	network.Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}
@@ -769,14 +770,14 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 		} else {
 			//出现分叉，进行链调整
 			chain.isAdujsting = true
-			log.Printf("[BlockChain]Local block chain has fork,adjusting...\n")
+			network.Logger.Debugf("[BlockChain]Local block chain has fork,adjusting...\n")
 			go chain.adjust(b)
 
 			go func() {
 				t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
 
 				<-t.C
-				log.Printf("[BlockChain]Local block adjusting time up.change the state!\n")
+				network.Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!\n")
 				chain.isAdujsting = false
 			}()
 			status = 3
