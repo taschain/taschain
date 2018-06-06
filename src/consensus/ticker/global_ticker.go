@@ -43,17 +43,6 @@ func NewGlobalTicker(id string) *GlobalTicker {
 	return ticker
 }
 
-//func (gt *GlobalTicker) getRoutines() map[string]*TickerRoutine {
-//
-//    tmp := make(map[string]*TickerRoutine)
-//	for id, value := range gt.routines {
-//		if value.running {
-//			tmp[id] = value
-//		}
-//	}
-//	return tmp
-//}
-
 func (gt *GlobalTicker) trigger(routine *TickerRoutine) bool {
 	defer func() {
 		//if err := recover(); err != nil {
@@ -115,13 +104,13 @@ func (gt *GlobalTicker) RegisterRoutine(name string, routine RoutineFunc, interv
 }
 
 
-func (gt *GlobalTicker) StartTickerRoutine(name string, triggerImmediately bool)  {
+func (gt *GlobalTicker) StartTickerRoutine(name string, triggerNextTicker bool)  {
 	ticker, ok := gt.routines[name]
 	if !ok {
 		return
 	}
 
-	if triggerImmediately && atomic.CompareAndSwapInt32(&ticker.triggerNextTick, 0, 1) {
+	if triggerNextTicker && atomic.CompareAndSwapInt32(&ticker.triggerNextTick, 0, 1) {
 		log.Printf("ticker routine will trigger next ticker! id=%v\n", ticker.id)
 	}
 	if atomic.CompareAndSwapInt32(&ticker.running, STOPPED, RUNNING) {

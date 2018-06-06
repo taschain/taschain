@@ -271,6 +271,12 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		return false
 	}
 
+	if p.MainChain.IsAdujsting() {
+		log.Printf("checkSelfCastRoutine: isAdjusting, return...\n")
+		p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+		return false
+	}
+
 	top := p.MainChain.QueryTopBlock()
 
 	castHeight := uint64(1)
