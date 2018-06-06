@@ -475,7 +475,6 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, erro
 func (chain *BlockChain) QueryTopBlock() *BlockHeader {
 	chain.lock.RLock("QueryTopBlock")
 	defer chain.lock.RUnlock("QueryTopBlock")
-
 	return chain.latestBlock
 }
 
@@ -493,7 +492,6 @@ func (chain *BlockChain) queryBlockByHash(hash common.Hash) *Block {
 		if err != nil || &block == nil {
 			return nil
 		}
-
 		return block
 	} else {
 		return nil
