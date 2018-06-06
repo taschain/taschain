@@ -168,7 +168,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		id := conn.RemotePeer()
 
 		if id != "" {
-			network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, p2p.ConvertToID(id),common.BytesToHash(m.Body))
+			network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, p2p.ConvertToID(id),common.Sha256(m.Body))
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
@@ -189,7 +189,7 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of groupsig id deserialize error:%s", e.Error())
 			return
 		}
-		network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, id.GetString(),common.BytesToHash(m.Body))
+		network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, id.GetString(),common.Sha256(m.Body))
 		p2p.Server.SendMessage(m, id.GetString())
 
 	}

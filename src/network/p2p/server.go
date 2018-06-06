@@ -116,7 +116,7 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[7:], bytes)
 
 		s.send(b, id)
-		logger.Debugf("[p2p] Send message to:%s,message body hash is:%x,cost time:%v",id,common.BytesToHash(m.Body),time.Since(beginTime).String())
+		logger.Debugf("[p2p] Send message to:%s,message body hash is:%x,cost time:%v",id,common.Sha256(m.Body),time.Since(beginTime).String())
 	}()
 
 }
