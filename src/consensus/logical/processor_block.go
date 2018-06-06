@@ -70,6 +70,13 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 	log.Printf("AddBlockOnChain header %v \n", p.blockPreview(block.Header))
 	log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, result)
+
+	if result == 0 {
+		p.triggerFutureVerifyMsg(block.Header.Hash)
+	} else if result == -1 {
+		p.removeFutureVerifyMsgs(block.Header.Hash)
+	}
+
 	return result
 
 }
@@ -85,18 +92,18 @@ func (p *Processer) blockOnChain(bh *core.BlockHeader) bool {
 func (p *Processer) getBlockHeaderByHash(hash common.Hash) *core.BlockHeader {
     b := p.MainChain.QueryBlockByHash(hash)
 	if b == nil {
-		p.futureBlockLock.RLock()
-		defer p.futureBlockLock.RUnlock()
-		END:
-		for _, bm := range p.futureBlockMsg {
-			for _, msg := range bm {
-				if msg.Block.Header.Hash == hash {
-					b = msg.Block.Header
-					log.Printf("getBlockHeaderByHash: got from future blockMsg! hash=%v, height=%v\n", b.Hash, b.Height)
-					break END
-				}
-			}
-		}
+		//p.futureBlockLock.RLock()
+		//defer p.futureBlockLock.RUnlock()
+		//END:
+		//for _, bm := range p.futureBlockMsg {
+		//	for _, msg := range bm {
+		//		if msg.Block.Header.Hash == hash {
+		//			b = msg.Block.Header
+		//			log.Printf("getBlockHeaderByHash: got from future blockMsg! hash=%v, height=%v\n", b.Hash, b.Height)
+		//			break END
+		//		}
+		//	}
+		//}
 	}
 	return b
 }

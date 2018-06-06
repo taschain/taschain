@@ -694,7 +694,6 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 		log.Printf("call network service BroadcastNewBlock...\n")
 		go BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
-		p.triggerFutureVerifyMsg(bh.Hash)
 	}
 	log.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return

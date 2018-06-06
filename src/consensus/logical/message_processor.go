@@ -198,7 +198,7 @@ func (p *Processer) cleanVerifyContext(currentHeight uint64)  {
 			}
 		}
 		for _, ctx := range delCtx {
-			log.Printf("cleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevHash)
+			log.Printf("cleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
 		}
 		bc.RemoveVerifyContexts(delCtx)
 	}
@@ -234,8 +234,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 		log.Printf("OMB verifyGroupSign result=%v.\n", verify)
 		return
 	}
-
-	p.triggerFutureVerifyMsg(block.Header.Hash)
 
 	topBH := p.MainChain.QueryTopBlock()
 
