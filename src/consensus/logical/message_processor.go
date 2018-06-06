@@ -28,7 +28,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 
 	var castor groupsig.ID
 	castor.Deserialize(bh.Castor)
-	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", mtype, p.getPrefix(),
+	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype,
 		GetIDPrefix(gid), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(castor))
 
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
@@ -48,7 +48,6 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 		return
 	}
 
-	log.Printf("proc(%v) %v rece hash=%v.\n", p.getPrefix(), mtype, GetHashPrefix(si.DataHash))
 	_, vctx := bc.GetOrNewVerifyContext(bh)
 
 	verifyResult := vctx.UserVerified(bh, si)
@@ -66,8 +65,8 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 				GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 			return
 		} else {
-			log.Printf("%v group pub key local check OK, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
-				GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
+			//log.Printf("%v group pub key local check OK, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
+			//	GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 		}
 		bh.Signature = sign.Serialize()
 		log.Printf("proc(%v) %v SUCCESS CAST GROUP BLOCK, height=%v, qn=%v!!!\n", mtype, p.getPrefix(), bh.Height, bh.QueueNumber)
@@ -105,7 +104,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase)  {
 	bh := &msg.BH
 	si := &msg.SI
-
+	log.Printf("Proc(%v) begin %v, height=%v, qn=%v\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber)
 	begin := time.Now()
 	defer func() {
 		log.Printf("%v begin at %v, cost %v\n", mtype, begin.String(), time.Since(begin).String())
@@ -125,6 +124,7 @@ func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 
 	outputBlockHeaderAndSign(mtype, bh, si)
 
+	log.Printf("proc(%v) %v verifyCast, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(), mtype, GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
 	if !p.verifyCastSign(cgs, si) {
 		log.Printf("%v verify failed!\n", mtype)
 		return

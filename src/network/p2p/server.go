@@ -261,7 +261,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,cost time:%v",from,common.BytesToHash(message.Body))
+	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x",from,common.BytesToHash(message.Body))
 
 	code := message.Code
 	switch *code {
