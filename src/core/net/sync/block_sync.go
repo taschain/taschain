@@ -8,9 +8,7 @@ import (
 	"network/p2p"
 	"pb"
 	"github.com/gogo/protobuf/proto"
-	"log"
 )
-
 
 const (
 	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 5 * time.Second
@@ -73,7 +71,7 @@ func (bs *blockSyncer) start() {
 			}
 			blocks := bm.BlockEntity.Blocks
 			if blocks != nil && len(blocks) != 0 {
-				log.Printf("[BlockSyncer] BlockArrivedCh get block,length:%d\n", len(blocks))
+				logger.Debugf("[BlockSyncer] BlockArrivedCh get block,length:%d\n", len(blocks))
 				for i := 0; i < len(blocks); i++ {
 					block := blocks[i]
 					code := core.BlockChainImpl.AddBlockOnChain(block)
@@ -87,18 +85,23 @@ func (bs *blockSyncer) start() {
 				}
 			} else {
 				blockHashes := bm.BlockEntity.BlockHashes
-				log.Printf("[BlockSyncer] BlockArrivedCh get block hashes,length:%d,lowest height:%d\n", len(blockHashes), blockHashes[len(blockHashes)-1].Height)
-				if blockHashes == nil {
+				if len(blockHashes) == 0 {
+					logger.Debugf("[BlockSyncer] BlockArrivedCh get block hashes,length:%d", len(blockHashes))
 					return
-				}
-				blockHash, hasCommonAncestor := core.FindCommonAncestor(blockHashes, 0, len(blockHashes)-1)
-				if hasCommonAncestor {
-					log.Printf("[BlockSyncer]Got common ancestor! Height:%d\n", blockHash.Height)
-					core.RequestBlockByHeight(bm.SourceId, blockHash.Height, blockHash.Hash)
 				} else {
-					cbhr := core.ChainBlockHashesReq{Height: blockHashes[len(blockHashes)-1].Height, Length: uint64(len(blockHashes) * 10)}
-					log.Printf("[BlockSyncer]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", bm.SourceId, cbhr.Height, cbhr.Length)
-					core.RequestBlockChainHashes(bm.SourceId, cbhr)
+					logger.Debugf("[BlockSyncer] BlockArrivedCh get block hashes,length:%d,lowest height:%d\n", len(blockHashes), blockHashes[len(blockHashes)-1].Height)
+					if blockHashes == nil {
+						return
+					}
+					blockHash, hasCommonAncestor := core.FindCommonAncestor(blockHashes, 0, len(blockHashes)-1)
+					if hasCommonAncestor {
+						logger.Debugf("[BlockSyncer]Got common ancestor! Height:%d\n", blockHash.Height)
+						core.RequestBlockByHeight(bm.SourceId, blockHash.Height, blockHash.Hash)
+					} else {
+						cbhr := core.ChainBlockHashesReq{Height: blockHashes[len(blockHashes)-1].Height, Length: uint64(len(blockHashes) * 10)}
+						logger.Debugf("[BlockSyncer]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", bm.SourceId, cbhr.Height, cbhr.Length)
+						core.RequestBlockChainHashes(bm.SourceId, cbhr)
+					}
 				}
 			}
 		case <-t.C:
@@ -129,7 +132,7 @@ func (bs *blockSyncer) syncBlock() {
 	} else {
 		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
 		if core.BlockChainImpl.IsAdujsting() {
-			log.Printf("[BlockSyncer]Local chain is adujsting, don't sync")
+			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
 		}
 		core.RequestBlockByHeight(bestNodeId, localHeight, currentHash)

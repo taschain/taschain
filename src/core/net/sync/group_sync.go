@@ -9,7 +9,6 @@ import (
 	"utility"
 	"pb"
 	"github.com/gogo/protobuf/proto"
-	"log"
 	"taslog"
 )
 
@@ -141,7 +140,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := core.MarshalEntityRequestMessage(&m)
 	if e != nil {
-		log.Printf("[GroupSyncer]requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
+		logger.Errorf("[GroupSyncer]requestGroupByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_GROUP_MSG, Body: body}
@@ -152,7 +151,7 @@ func requestGroupByHeight(id string, localHeight uint64, currentHash common.Hash
 func sendGroups(targetId string, groupEntity *core.GroupMessage) {
 	body, e := marshalGroupMessage(groupEntity)
 	if e != nil {
-		log.Printf("[GroupSyncer]"+
+		logger.Errorf("[GroupSyncer]"+
 			"sendGroups marshal groupEntity error:%s", e.Error())
 		return
 	}
