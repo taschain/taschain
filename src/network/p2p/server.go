@@ -11,7 +11,6 @@ import (
 	"pb"
 	"strings"
 	"taslog"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
 	"common"
@@ -97,7 +96,6 @@ func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 
 func (s *server) SendMessage(m Message, id string) {
 	go func() {
-		beginTime := time.Now()
 		bytes, e := MarshalMessage(m)
 		if e != nil {
 			logger.Errorf("[Network]Marshal message error:%s", e.Error())
@@ -115,6 +113,7 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
+		beginTime := time.Now()
 		s.send(b, id)
 		logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%x,cost time:%v",id,m.Code,common.Sha256(m.Body),len(b),b2,time.Since(beginTime).String())
 	}()
@@ -128,12 +127,12 @@ func (s *server) send(b []byte, id string) {
 	}
 	ctx := context.Background()
 	context.WithTimeout(ctx, ContextTimeOut)
-	peerInfo, error := s.Dht.FindPeer(ctx, ConvertToPeerID(id))
-	if error != nil || string(peerInfo.ID) == "" {
-		logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
-	} else {
-		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	}
+	//peerInfo, error := s.Dht.FindPeer(ctx, ConvertToPeerID(id))
+	//if error != nil || string(peerInfo.ID) == "" {
+	//	logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
+	//} else {
+	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	//}
 
 	c, cancel := context.WithCancel(context.Background())
 	context.WithTimeout(c, ContextTimeOut)
@@ -226,7 +225,7 @@ func handleStream(stream inet.Stream) {
 			return
 		}
 		if n1 != pkgLength {
-			logger.Errorf("Stream  should read %d byte,but received %d bytes", pkgLength, n1)
+			logger.Errorf("Stream  should read %d byte,but received %d bytes,should read length byte:%v",pkgLength, n1,pkgLengthBytes)
 			return
 		}
 	} else {
