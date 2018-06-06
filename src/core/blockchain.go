@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
-	"sync"
 	"os"
 	"vm/core/state"
 	c "vm/common"
@@ -21,6 +20,7 @@ import (
 	"consensus/groupsig"
 	"log"
 	"network/p2p"
+	"middleware"
 )
 
 const (
@@ -65,7 +65,7 @@ type BlockChain struct {
 	//height uint64
 
 	// 读写锁
-	lock sync.RWMutex
+	lock middleware.Loglock
 
 	// 是否可以工作
 	init bool
@@ -126,7 +126,7 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock:        sync.RWMutex{},
+		lock:        middleware.NewLoglock("chain"),
 		init:        true,
 		isAdujsting: false,
 	}
@@ -198,8 +198,8 @@ func (chain *BlockChain) Close() {
 }
 
 func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("SetVoteProcessor")
+	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
 }
@@ -233,8 +233,8 @@ func (chain *BlockChain) SetAdujsting(isAjusting bool) {
 //获取当前从height到本地最新的所有的块
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 则返回对应的块，否则返回本地block hash信息 通知请求结点进行链调整
 func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("GetBlockMessage")
+	defer chain.lock.RUnlock("GetBlockMessage")
 	if chain.isAdujsting {
 		return nil
 	}
@@ -360,10 +360,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	he := cbhr[index]
 	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,"null",he.Hash)
+		log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, "null", he.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n",he.Height,bh.Hash,he.Hash)
+	log.Printf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%s\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}
@@ -371,10 +371,10 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 	afterHe := cbhr[index-1]
 	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
-		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,"null",afterHe.Hash)
+		log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, "null", afterHe.Hash)
 		return -1
 	}
-	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n",afterHe.Height,afterbh.Hash,afterHe.Hash)
+	log.Printf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%s\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}
@@ -402,8 +402,8 @@ func (chain *BlockChain) GetNonce(address common.Address) uint64 {
 
 //清除链所有数据
 func (chain *BlockChain) Clear() error {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("Clear")
+	defer chain.lock.Unlock("Clear")
 
 	chain.init = false
 	chain.latestBlock = nil
@@ -545,8 +545,8 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 // 根据指定高度查询块
 // 带有缓存
 func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("QueryBlockByHeight")
+	defer chain.lock.RUnlock("QueryBlockByHeight")
 
 	return chain.queryBlockHeaderByHeight(height, true)
 }
@@ -633,8 +633,8 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求;=2 当前链正在调整，无法检验
 func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("VerifyCastingBlock")
+	defer chain.lock.Unlock("VerifyCastingBlock")
 
 	if chain.isAdujsting {
 		return nil, 2, nil, nil
@@ -802,8 +802,8 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 }
 
 func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("AddBlockOnChain")
+	defer chain.lock.Unlock("AddBlockOnChain")
 
 	return chain.addBlockOnChain(b)
 }
@@ -852,8 +852,8 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 // 链分叉，调整主链
 // todo:错误回滚
 func (chain *BlockChain) adjust(b *Block) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("adjust")
+	defer chain.lock.Unlock("adjust")
 	localTotalQN := chain.TotalQN()
 	bTotalQN := b.Header.TotalQN
 	if localTotalQN >= bTotalQN {
@@ -934,8 +934,8 @@ func (chain *BlockChain) getStartIndex() uint64 {
 }
 
 func (chain *BlockChain) GetTopBlocks() []*BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("GetTopBlocks")
+	defer chain.lock.RUnlock("GetTopBlocks")
 
 	start := chain.getStartIndex()
 	result := make([]*BlockHeader, chain.latestBlock.Height-start+1)
