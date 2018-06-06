@@ -201,7 +201,8 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 		bc.currentVerifyContext = verifyCtx
 	}
 
-	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
+	//bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
+	bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
 	log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
 	return
 }
