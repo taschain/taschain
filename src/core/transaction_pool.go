@@ -12,6 +12,7 @@ import (
 	"sort"
 	"vm/common/hexutil"
 	"vm/ethdb"
+	"middleware"
 )
 
 var (
@@ -46,7 +47,7 @@ type TransactionPool struct {
 	config *TransactionPoolConfig
 
 	// 读写锁
-	lock sync.RWMutex
+	lock middleware.Loglock
 
 	// 收到的待处理transaction
 	received sync.Map
@@ -88,7 +89,7 @@ func NewTransactionPool() *TransactionPool {
 
 	pool := &TransactionPool{
 		config:      getPoolConfig(),
-		lock:        sync.RWMutex{},
+		lock:        middleware.NewLoglock("txpool"),
 		received:    sync.Map{},
 		lowestPrice: nil,
 	}
@@ -103,21 +104,13 @@ func NewTransactionPool() *TransactionPool {
 }
 
 func (pool *TransactionPool) Clear() {
-	pool.Lock()
-	defer pool.Unlock()
+	pool.lock.Lock("Clear")
+	defer pool.lock.Unlock("Clear")
 
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.received = sync.Map{}
-}
-
-// lock 与 unlock 用于多个操作的事务处理
-func (pool *TransactionPool) Lock() {
-	pool.lock.Lock()
-}
-func (pool *TransactionPool) Unlock() {
-	pool.lock.Unlock()
 }
 
 func (pool *TransactionPool) GetReceived() sync.Map {
@@ -156,8 +149,8 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
-	pool.Lock()
-	defer pool.Unlock()
+	pool.lock.Lock("Add")
+	defer pool.lock.Unlock("Add")
 
 	if tx == nil {
 		return false, ErrNil
@@ -242,8 +235,8 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 // 根据hash获取交易实例
 // 此处加锁
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, error) {
-	pool.lock.RLock()
-	defer pool.lock.RUnlock()
+	pool.lock.RLock("GetTransaction")
+	defer pool.lock.RUnlock("GetTransaction")
 
 	// 先从received里获取
 	result, _ := pool.received.Load(hash)

@@ -126,7 +126,7 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock:        middleware.NewLoglock(),
+		lock:        middleware.NewLoglock("chain"),
 		init:        true,
 		isAdujsting: false,
 	}

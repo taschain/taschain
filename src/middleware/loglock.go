@@ -13,25 +13,25 @@ type Loglock struct {
 	logger taslog.Logger
 }
 
-func NewLoglock() Loglock {
-	module := "chainlock"
+func NewLoglock(title string) Loglock {
+	module := "0"
 	if common.GlobalConf != nil {
-		module = common.GlobalConf.GetString("chain", "database", "chainlock")
+		module = common.GlobalConf.GetString("chain", "database", "0")
 	}
 
 	var prefix = `<seelog minlevel="debug">
 		<outputs formatid="lockConfig">
-			<rollingfile type="size" filename="./logs/chainlock-`
+			<rollingfile type="size" filename="./logs/`
 	var suffix = `.log" maxsize="100000" maxrolls="3"/>
 		</outputs>
 		<formats>
-			<format id="lockConfig" format="%Date/%Time [%Level]  [%File:%Line] %Msg%n" />
+			<format id="lockConfig" format="%Date/%Time [%Level] [%File:%Line] %Msg%n" />
 		</formats>
 	</seelog>`
 
 	loglock := Loglock{
 		lock:   sync.RWMutex{},
-		logger: taslog.GetLogger(prefix + module + suffix),
+		logger: taslog.GetLogger(prefix + title + module + suffix),
 	}
 	loglock.addr = fmt.Sprintf("%p", &loglock)
 	return loglock

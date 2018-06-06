@@ -14,7 +14,6 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
-	"log"
 )
 
 const (
@@ -77,7 +76,7 @@ var ProtocolTAS protocol.ID = "/tas/1.0.0"
 
 var ContextTimeOut = time.Minute * 5
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
+var logger taslog.Logger
 
 var Server server
 
@@ -90,7 +89,6 @@ type server struct {
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
-
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
 
 	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
@@ -101,7 +99,7 @@ func (s *server) SendMessage(m Message, id string) {
 	go func() {
 		bytes, e := MarshalMessage(m)
 		if e != nil {
-			log.Printf("[Network]Marshal message error:%s", e.Error())
+			logger.Errorf("[Network]Marshal message error:%s", e.Error())
 			return
 		}
 
@@ -258,7 +256,7 @@ func (s *server) handleMessage(b []byte, from string) {
 	message := new(tas_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
-		log.Printf("[Network]Proto unmarshal error:%s", error.Error())
+		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
 
 	code := message.Code

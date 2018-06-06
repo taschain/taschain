@@ -6,13 +6,11 @@ import (
 	"sync"
 	"utility"
 	"network/p2p"
-	"taslog"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 	"log"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
 
 const (
 	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 5 * time.Second
@@ -45,14 +43,14 @@ func (bs *blockSyncer) start() {
 	for {
 		select {
 		case sourceId := <-bs.TotalQNRequestCh:
-			//log.Printf("[BlockSyncer] TotalQNRequestCh get message from:%s\n", sourceId)
+			//logger.Debugf("[BlockSyncer] TotalQNRequestCh get message from:%s\n", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockTotalQN(sourceId, core.BlockChainImpl.TotalQN())
 		case h := <-bs.TotalQNCh:
-			//log.Printf("[BlockSyncer] TotalQNCh get message from:%s,it's totalQN is:%d\n", h.SourceId, h.TotalQN)
+			//logger.Debugf("[BlockSyncer] TotalQNCh get message from:%s,it's totalQN is:%d\n", h.SourceId, h.TotalQN)
 			//收到来自其他节点的块链高度
 			bs.maxTotalQNLock.Lock()
 			if h.TotalQN > bs.neighborMaxTotalQN {
@@ -61,14 +59,14 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxTotalQNLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			//log.Printf("[BlockSyncer] BlockRequestCh get message from:%s,request height:%d,request current hash:%s\n", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
+			//logger.Debugf("[BlockSyncer] BlockRequestCh get message from:%s,request height:%d,request current hash:%s\n", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			//log.Printf("[BlockSyncer] BlockArrivedCh get message from:%s\n", bm.SourceId)
+			//logger.Debugf("[BlockSyncer] BlockArrivedCh get message from:%s\n", bm.SourceId)
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
@@ -104,7 +102,7 @@ func (bs *blockSyncer) start() {
 				}
 			}
 		case <-t.C:
-			//log.Printf("[BlockSyncer]sync time up, start to block sync!")
+			//logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			bs.syncBlock()
 		}
 	}
@@ -126,10 +124,10 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxTotalQNLock.Unlock()
 	if maxTotalQN <= localTotalQN {
-		//log.Printf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!\n", maxTotalQN, localTotalQN)
+		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!\n", maxTotalQN, localTotalQN)
 		return
 	} else {
-		//log.Printf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
+		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
 		if core.BlockChainImpl.IsAdujsting() {
 			log.Printf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
