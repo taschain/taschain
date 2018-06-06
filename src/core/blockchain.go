@@ -473,6 +473,9 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, erro
 //辅助方法族
 //查询最高块
 func (chain *BlockChain) QueryTopBlock() *BlockHeader {
+	chain.lock.RLock("QueryTopBlock")
+	defer chain.lock.RUnlock("QueryTopBlock")
+
 	return chain.latestBlock
 }
 
