@@ -7,18 +7,18 @@ import (
 )
 
 var hasherPool = sync.Pool{
-New: func() interface{} {
-return sha256.New()
-},
+	New: func() interface{} {
+		return sha256.New()
+	},
 }
 
 // 计算sha256
 func Sha256(blockByte []byte) []byte {
-hasher := hasherPool.Get().(hash.Hash)
-hasher.Reset()
-defer hasherPool.Put(hasher)
+	hasher := hasherPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer hasherPool.Put(hasher)
 
-hasher.Write(blockByte)
-return hasher.Sum(nil)
+	hasher.Write(blockByte)
+	return hasher.Sum(nil)
 
 }

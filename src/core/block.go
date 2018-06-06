@@ -3,11 +3,8 @@ package core
 import (
 	"bytes"
 	"common"
-	"crypto/sha256"
 	"encoding/json"
-	"hash"
 	"math/big"
-	"sync"
 	"time"
 	"vm/core/state"
 	"vm/core/types"
@@ -45,7 +42,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 	bh.Signature = []byte{}
 	bh.Hash = common.Hash{}
 	blockByte, _ := json.Marshal(bh)
-	result := common.BytesToHash(Sha256(blockByte))
+	result := common.BytesToHash(common.Sha256(blockByte))
 	bh.Signature = sign
 	bh.Hash = hash
 	return result
@@ -94,49 +91,32 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	return common.BytesToHash(hash.Bytes())
 }
 
-var hasherPool = sync.Pool{
-	New: func() interface{} {
-		return sha256.New()
-	},
-}
-
-// 计算sha256
-func Sha256(blockByte []byte) []byte {
-	hasher := hasherPool.Get().(hash.Hash)
-	hasher.Reset()
-	defer hasherPool.Put(hasher)
-
-	hasher.Write(blockByte)
-	return hasher.Sum(nil)
-
-}
-
 // 创始块
 func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
 	block := new(Block)
 
 	block.Header = &BlockHeader{
-		ExtraData: Sha256([]byte("tas")),
-		CurTime:   time.Date(2018, 5, 16, 10, 0, 0, 0, time.Local),
-		QueueNumber:0,
-		TotalQN:   0,
+		ExtraData:   common.Sha256([]byte("tas")),
+		CurTime:     time.Date(2018, 5, 16, 10, 0, 0, 0, time.Local),
+		QueueNumber: 0,
+		TotalQN:     0,
 	}
 
 	blockByte, _ := json.Marshal(block)
-	block.Header.Hash = common.BytesToHash(Sha256(blockByte))
-	block.Header.Signature = Sha256([]byte("tas"))
+	block.Header.Hash = common.BytesToHash(common.Sha256(blockByte))
+	block.Header.Signature = common.Sha256([]byte("tas"))
 
 	// 创始块账户创建
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("1"))), big.NewInt(1000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("2"))), big.NewInt(2000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("3"))), big.NewInt(3000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("4"))), big.NewInt(1000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("5"))), big.NewInt(2000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("6"))), big.NewInt(3000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("7"))), big.NewInt(1000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("8"))), big.NewInt(2000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("9"))), big.NewInt(3000000))
-	stateDB.SetBalance(c.BytesToAddress(Sha256([]byte("10"))), big.NewInt(1000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
+	stateDB.SetBalance(c.BytesToAddress(common.Sha256([]byte("10"))), big.NewInt(1000000))
 	stateDB.IntermediateRoot(false)
 	root, _ := stateDB.Commit(false)
 	triedb.Commit(root, false)
