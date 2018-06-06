@@ -1,16 +1,14 @@
 package core
 
 import (
-	"taslog"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 	"network/p2p"
 	"time"
 	"common"
-	"log"
+	"network"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
@@ -63,7 +61,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 
 	body, e := marshalTransactionRequestMessage(&m)
 	if e != nil {
-		log.Printf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
@@ -81,7 +79,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 func SendTransactions(txs []*Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		log.Printf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
@@ -93,13 +91,13 @@ func BroadcastTransactions(txs []*Transaction) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[peer]Runtime error caught: %v", r)
+			network.Logger.Errorf("[peer]Runtime error caught: %v", r)
 		}
 	}()
 
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		log.Printf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
@@ -118,7 +116,7 @@ func RequestBlockByHeight(id string, localHeight uint64, currentHash common.Hash
 	m := EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash, SourceId: ""}
 	body, e := MarshalEntityRequestMessage(&m)
 	if e != nil {
-		log.Printf("[peer]requestBlockByHeight marshal EntityRequestMessage error:%s", e.Error())
+		network.Logger.Errorf("[peer]requestBlockByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_BLOCK_MSG, Body: body}
@@ -139,7 +137,7 @@ type ChainBlockHash struct {
 func RequestBlockChainHashes(targetNode string, cbhr ChainBlockHashesReq) {
 	body, e := marshalChainBlockHashesReq(&cbhr)
 	if e != nil {
-		log.Printf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.BLOCK_CHAIN_HASHES_REQ, Body: body}
@@ -150,7 +148,7 @@ func RequestBlockChainHashes(targetNode string, cbhr ChainBlockHashesReq) {
 func SendChainBlockHashes(targetNode string, cbh []*ChainBlockHash) {
 	body, e := marshalChainBlockHashes(cbh)
 	if e != nil {
-		log.Printf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.BLOCK_CHAIN_HASHES, Body: body}
@@ -179,7 +177,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 
 	requestTime, e := m.RequestTime.MarshalBinary()
 	if e != nil {
-		log.Printf("[peer]TransactionRequestMessage request time marshal error:%s\n", e.Error())
+		network.Logger.Errorf("[peer]TransactionRequestMessage request time marshal error:%s\n", e.Error())
 	}
 	message := tas_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
 	return proto.Marshal(&message)
@@ -241,13 +239,13 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
-		log.Printf("[peer]BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
+		network.Logger.Errorf("[peer]BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
 		return nil
 	}
 
 	curTime, e2 := h.CurTime.MarshalBinary()
 	if e2 != nil {
-		log.Printf("[peer]BlockHeaderToPb marshal cur time error:%s", e2.Error())
+		network.Logger.Errorf("[peer]BlockHeaderToPb marshal cur time error:%s", e2.Error())
 		return nil
 	}
 
@@ -270,7 +268,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 
 func BlockToPb(b *Block) *tas_pb.Block {
 	if b == nil {
-		log.Printf("[peer]Block is nil!")
+		network.Logger.Errorf("[peer]Block is nil!")
 		return nil
 	}
 	header := BlockHeaderToPb(b.Header)
