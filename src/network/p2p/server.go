@@ -263,22 +263,22 @@ func (s *server) handleMessage(b []byte, from string,lengthByte []byte) {
 	}
 	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v",from,common.Sha256(message.Body),lengthByte)
 
-	//code := message.Code
-	//switch *code {
-	//case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
-	//	VARIFIED_CAST_MSG:
-	//	consensusHandler.HandlerMessage(*code, message.Body, from)
-	//case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
-	//	REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
-	//	chainHandler.HandlerMessage(*code, message.Body, from)
-	//case NEW_BLOCK_MSG:
-	//	consensusHandler.HandlerMessage(*code, message.Body, from)
-	//case TRANSACTION_GOT_MSG:
-	//	_, e := chainHandler.HandlerMessage(*code, message.Body, from)
-	//	if e != nil {
-	//		consensusHandler.HandlerMessage(*code, message.Body, from)
-	//	}
-	//}
+	code := message.Code
+	switch *code {
+	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
+		VARIFIED_CAST_MSG:
+		consensusHandler.HandlerMessage(*code, message.Body, from)
+	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
+		chainHandler.HandlerMessage(*code, message.Body, from)
+	case NEW_BLOCK_MSG:
+		consensusHandler.HandlerMessage(*code, message.Body, from)
+	case TRANSACTION_GOT_MSG:
+		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
+		if e != nil {
+			consensusHandler.HandlerMessage(*code, message.Body, from)
+		}
+	}
 }
 
 type ConnInfo struct {
