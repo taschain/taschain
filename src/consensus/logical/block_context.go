@@ -177,9 +177,9 @@ func (bc *BlockContext) reset() {
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, immediatelyTriggerCheck bool) {
+func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash) {
 
-	log.Printf("proc(%v) begin startCast, trigger %v...\n", preTime.Format(time.Stamp), immediatelyTriggerCheck)
+	log.Printf("proc(%v) begin startCast...\n", preTime.Format(time.Stamp))
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -201,7 +201,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 		bc.currentVerifyContext = verifyCtx
 	}
 
-	bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), immediatelyTriggerCheck)
+	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
 	log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
 	return
 }

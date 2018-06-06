@@ -273,7 +273,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 
 	if p.MainChain.IsAdujsting() {
 		log.Printf("checkSelfCastRoutine: isAdjusting, return...\n")
-		p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+		p.triggerCastCheck()
 		return false
 	}
 
@@ -321,7 +321,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.StartCast(castHeight, top.CurTime, top.Hash, true)
+		bc.StartCast(castHeight, top.CurTime, top.Hash)
 
 		return true
 	} else  {	//自己不是下一个铸块组, 但是当前在铸块
