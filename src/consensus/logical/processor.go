@@ -633,9 +633,9 @@ func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
 	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
 
 	if signPk.IsValid() { //该用户和我是同一组
-		log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
-		log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
-			GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
+		//log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
+		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
+		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
 		if si.VerifySign(signPk) { //消息合法
 			log.Printf("message verify sign OK, find gid=%v blockContext...\n", GetIDPrefix(cgs.GroupID))
 			return true
