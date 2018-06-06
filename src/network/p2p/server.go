@@ -115,7 +115,7 @@ func (s *server) SendMessage(m Message, id string) {
 
 		beginTime := time.Now()
 		s.send(b, id)
-		logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%x,cost time:%v",id,m.Code,common.Sha256(m.Body),len(b),b2,time.Since(beginTime).String())
+		logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v",id,m.Code,common.Sha256(m.Body),len(b),b2,time.Since(beginTime).String())
 	}()
 
 }
@@ -190,7 +190,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	 handleStream(stream)
 }
 func handleStream(stream inet.Stream) {
-
+	beginTime:= time.Now()
 	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
@@ -225,9 +225,10 @@ func handleStream(stream inet.Stream) {
 			return
 		}
 		if n1 != pkgLength {
-			logger.Errorf("Stream  should read %d byte,but received %d bytes,should read length byte:%v",pkgLength, n1,pkgLengthBytes)
+			logger.Errorf("Stream  should read %d byte,but received %d bytes,should read length byte:%v,cost time:%v",pkgLength, n1,pkgLengthBytes,time.Since(beginTime).String())
 			return
 		}
+		logger.Debugf("Get ok message! cost time:%v,message length:%d",time.Since(beginTime).String(),n1)
 	} else {
 		c := pkgLength / PACKAGE_MAX_SIZE
 		left, right := 0, PACKAGE_MAX_SIZE
@@ -251,7 +252,6 @@ func handleStream(stream inet.Stream) {
 			}
 		}
 	}
-	logger.Debugf("Get ok message!")
 	//Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()),pkgLengthBytes)
 }
 
