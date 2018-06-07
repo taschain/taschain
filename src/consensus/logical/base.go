@@ -9,7 +9,6 @@ import (
 	"math"
 	"strconv"
 	"time"
-	"log"
 )
 
 const NORMAL_FAILED int = -1
@@ -252,20 +251,8 @@ type CastGroupSummary struct {
 	PreTime     time.Time   //上一块完成时间
 	BlockHeight uint64      //当前铸块高度
 	GroupID     groupsig.ID //当前组ID
-}
-
-func GenCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary {
-	var gid groupsig.ID
-	if err := gid.Deserialize(bh.GroupId); err != nil {
-		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
-		return nil
-	}
-	return &CastGroupSummary{
-		PreHash: bh.Hash,
-		PreTime: bh.PreTime,
-		BlockHeight: bh.Height,
-		GroupID: gid,
-	}
+	Castor 		groupsig.ID
+	CastorPos	int32
 }
 
 //铸块共识摘要

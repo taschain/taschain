@@ -144,8 +144,8 @@ const (
 	CBMR_IGNORE_REPEAT                                         //丢弃：重复收到该消息
 	CMBR_IGNORE_QN_BIG_QN                                      //丢弃：QN太大
 	CMBR_IGNORE_QN_FUTURE                                      //丢弃：未轮到该QN
-	CMBR_IGNORE_CASTED                                         //丢弃：该高度出块已完成
-	CMBR_IGNORE_TIMEOUT                                        //丢弃：该高度出块时间已过
+	CMBR_IGNORE_QN_ERROR                                         //丢弃：qn错误
+	CMBR_IGNORE_KING_ERROR                                        //丢弃：king错误
 	CMBR_IGNORE_MAX_QN_SIGNED                                  //丢弃：该节点已向组外广播出更低QN值的块
 	CMBR_IGNORE_NOT_CASTING                                    //丢弃：未启动当前组铸块共识
 	CBMR_ERROR_ARG                                             //异常：参数异常

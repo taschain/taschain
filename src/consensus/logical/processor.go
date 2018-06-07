@@ -256,7 +256,8 @@ func (p Processer) Save() {
 
 //立即触发一次检查自己是否下个铸块组
 func (p *Processer) triggerCastCheck()  {
-    p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    //p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
 //检查是否当前组铸块
@@ -699,6 +700,11 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	return
 }
 
+func (p *Processer) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
+	sgi := p.getGroup(gid)
+	return int32(sgi.GetMinerPos(uid))
+}
+
 //检查是否轮到自己出块
 func (p *Processer) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
 	//p.castLock.Lock()
@@ -710,8 +716,10 @@ func (p *Processer) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, king
 	if kingIndex < 0 || qn < 0 {
 		return
 	}
+
 	sgi := p.getGroup(gid)
-	pos := sgi.GetMinerPos(p.GetMinerID()) //取得当前节点在组中的排位
+	pos := p.getMinerPos(gid, p.GetMinerID()) //取得当前节点在组中的排位
+
 	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(kingIndex))))
 	log.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块

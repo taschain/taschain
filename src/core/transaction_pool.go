@@ -51,7 +51,7 @@ type TransactionPool struct {
 
 	// 收到的待处理transaction
 	received sync.Map
-	//map[common.Hash]*Transaction
+
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
