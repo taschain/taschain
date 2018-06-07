@@ -125,7 +125,6 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	if e == core.ErrNil {
 		network.Logger.Debugf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
 		m.TransactionHashes = need
-		core.BroadcastTransactionRequest(*m)
 	}
 
 	if nil != transactions && 0 != len(transactions) {
