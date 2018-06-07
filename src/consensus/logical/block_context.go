@@ -193,7 +193,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 
 
 	if _, verifyCtx := bc.getVerifyContext(castHeight, preHash); verifyCtx != nil {
-		verifyCtx.Rebase(bc, castHeight, preTime, preHash)
+		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
 		bc.currentVerifyContext = verifyCtx
 	} else {
 		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash)
@@ -201,8 +201,8 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 		bc.currentVerifyContext = verifyCtx
 	}
 
-	//bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
-	bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
+	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
+	//bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
 	log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
 	return
 }

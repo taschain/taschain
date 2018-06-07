@@ -13,7 +13,7 @@ import (
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
-	"common"
+	"io/ioutil"
 )
 
 const (
@@ -113,9 +113,9 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
-		beginTime := time.Now()
+		//beginTime := time.Now()
 		s.send(b, id)
-		logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v", id, m.Code, common.Sha256(m.Body), len(b), b2, time.Since(beginTime).String())
+		//logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v", id, m.Code, common.Sha256(m.Body), len(b), b2, time.Since(beginTime).String())
 	}()
 
 }
@@ -144,39 +144,17 @@ func (s *server) send(b []byte, id string) {
 		return
 	}
 	defer stream.Close()
-	l := len(b)
-	if l < PACKAGE_MAX_SIZE {
-		r, err := stream.Write(b)
-		if err != nil {
-			logger.Errorf("Write stream for %s error:%s", id, err.Error())
-			return
-		}
 
-		if r != l {
-			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-			return
-		}
-	} else {
-		n := l / PACKAGE_MAX_SIZE
-		left, right := 0, PACKAGE_MAX_SIZE
-		for i := 0; i <= n; i++ {
-			a := make([]byte, PACKAGE_MAX_SIZE)
-			copy(a, b[left:right])
-			r, err := stream.Write(a)
-			if err != nil {
-				logger.Errorf("Write stream for %s error:%s", id, err.Error())
-				return
-			}
-			if r != PACKAGE_MAX_SIZE {
-				logger.Errorf("Stream  should write %d byte ,bu write %d bytes", PACKAGE_MAX_SIZE, r)
-				return
-			}
-			left += PACKAGE_MAX_SIZE
-			right += PACKAGE_MAX_SIZE
-			if right > l {
-				right = l
-			}
-		}
+	l := len(b)
+	r, err := stream.Write(b)
+	if err != nil {
+		logger.Errorf("Write stream for %s error:%s", id, err.Error())
+		return
+	}
+
+	if r != l {
+		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+		return
 	}
 }
 
@@ -218,49 +196,17 @@ func handleStream(stream inet.Stream) {
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
-	pkgBodyBytes := make([]byte, pkgLength)
-	if pkgLength < PACKAGE_MAX_SIZE {
-		n1, err1 := stream.Read(pkgBodyBytes)
-		if err1 != nil {
-			logger.Errorf("Stream  read error:%s", err1.Error())
-			return
-		}
-		if n1 != pkgLength {
-			logger.Errorf("Stream  should read %d byte,but received %d bytes,should read length byte:%v,cost time:%v", pkgLength, n1, pkgLengthBytes, time.Since(beginTime).String())
-			p := make([]byte, pkgLength-n1)
-			n2, err2 := stream.Read(p)
-			if err2 != nil {
-				logger.Errorf("Stream  read error:%s", err2.Error())
-				return
-			}
-			logger.Errorf("Read % bytes again!", n2)
-			return
-		}
-		logger.Debugf("Get ok message! cost time:%v,message length:%d",time.Since(beginTime).String(),n1)
-	} else {
-		c := pkgLength / PACKAGE_MAX_SIZE
-		left, right := 0, PACKAGE_MAX_SIZE
-		for i := 0; i <= c; i++ {
-			a := make([]byte, PACKAGE_MAX_SIZE)
-			n1, err1 := stream.Read(a)
-			if err1 != nil {
-				logger.Errorf("Stream  read error:%s", err1.Error())
-				return
-			}
-
-			if n1 != PACKAGE_MAX_SIZE {
-				logger.Errorf("Stream should  read %d byte,but received %d bytes", PACKAGE_MAX_SIZE, n1)
-				return
-			}
-			copy(pkgBodyBytes[left:right], a)
-			left += PACKAGE_MAX_SIZE
-			right += PACKAGE_MAX_SIZE
-			if right > pkgLength {
-				right = pkgLength
-			}
-		}
+	b,err1 := ioutil.ReadAll(stream)
+	if err1 != nil {
+		logger.Errorf("Stream  read error:%s", err1.Error())
+		return
 	}
-	Server.handleMessage(pkgBodyBytes, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
+	if len(b) != pkgLength {
+		logger.Errorf("Stream  should read %d byte,but received %d bytes,cost time:%v", pkgLength, len(b), time.Since(beginTime).String())
+		return
+	}
+
+	Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
 }
 
 func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
@@ -269,24 +215,24 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v", from, common.Sha256(message.Body), lengthByte)
+	//logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v", from, common.Sha256(message.Body), lengthByte)
 
-	//code := message.Code
-	//switch *code {
-	//case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
-	//	VARIFIED_CAST_MSG:
-	//	consensusHandler.HandlerMessage(*code, message.Body, from)
-	//case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
-	//	REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
-	//	chainHandler.HandlerMessage(*code, message.Body, from)
-	//case NEW_BLOCK_MSG:
-	//	consensusHandler.HandlerMessage(*code, message.Body, from)
-	//case TRANSACTION_GOT_MSG:
-	//	_, e := chainHandler.HandlerMessage(*code, message.Body, from)
-	//	if e != nil {
-	//		consensusHandler.HandlerMessage(*code, message.Body, from)
-	//	}
-	//}
+	code := message.Code
+	switch *code {
+	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
+		VARIFIED_CAST_MSG:
+		consensusHandler.HandlerMessage(*code, message.Body, from)
+	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
+		chainHandler.HandlerMessage(*code, message.Body, from)
+	case NEW_BLOCK_MSG:
+		consensusHandler.HandlerMessage(*code, message.Body, from)
+	case TRANSACTION_GOT_MSG:
+		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
+		if e != nil {
+			consensusHandler.HandlerMessage(*code, message.Body, from)
+		}
+	}
 }
 
 type ConnInfo struct {

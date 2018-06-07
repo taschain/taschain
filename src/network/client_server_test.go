@@ -4,6 +4,8 @@ import (
 	"testing"
 	"common"
 	"network/p2p"
+	"time"
+	"math/rand"
 )
 
 func mockSeedServer() {
@@ -22,15 +24,24 @@ func TestNet(t *testing.T) {
 	//seedId := "Qmdeh5r5kT2je77JNYKTsQi6ncckpLa9aFnr6xYQaGAxaw"
 	clientId := "QmSDPsKnRfC4sbiQZLLNnGybt1gkG3GwgumnAHamu8zuwf"
 	mockSeedServer()
-	m := mockMessage()
-	p2p.Server.SendMessage(m, clientId)
 
+	for i := 0; i < 1000; i++ {
+		m := mockMessage()
+		p2p.Server.SendMessage(m, clientId)
+		time.Sleep(100 * time.Millisecond)
+	}
+	time.Sleep(1 * time.Minute)
 }
 
 func mockMessage() p2p.Message {
 	code := p2p.GROUP_INIT_MSG
 	sign := []byte{1, 2, 3, 4, 5, 6, 7}
-	body := []byte{1, 1, 2, 3, 5, 8, 13}
+
+	r := rand.Intn(100000)
+	body := make([]byte, r)
+	for i := 0; i < r; i++ {
+		body[i] = 8
+	}
 	m := p2p.Message{Code: code, Sign: sign, Body: body}
 	return m
 }
