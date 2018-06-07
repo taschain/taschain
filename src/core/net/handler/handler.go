@@ -123,7 +123,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	}
 	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
-		network.Logger.Errorf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
+		network.Logger.Debugf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
 		m.TransactionHashes = need
 		core.BroadcastTransactionRequest(*m)
 	}
