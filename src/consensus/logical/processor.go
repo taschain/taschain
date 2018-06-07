@@ -256,7 +256,8 @@ func (p Processer) Save() {
 
 //立即触发一次检查自己是否下个铸块组
 func (p *Processer) triggerCastCheck()  {
-    p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    //p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
 //检查是否当前组铸块

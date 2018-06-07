@@ -18,7 +18,7 @@ type TickerRoutine struct {
 	handler         RoutineFunc   //执行函数
 	interval        uint32        //触发的心跳间隔
 	lastTicker      uint64        //最后一次执行的心跳
-	triggerCh       chan struct{} //触发信号
+	triggerCh       chan int32 //触发信号
 	status          int32         //当前状态 STOPPED, RUNNING
 	triggerNextTick int32         //下次心跳触发
 }
@@ -43,7 +43,12 @@ func NewGlobalTicker(id string) *GlobalTicker {
 	return ticker
 }
 
-func (gt *GlobalTicker) trigger(routine *TickerRoutine) bool {
+/**
+* @Description: 触发一次执行
+* @Param: chanVal, 1 表示定时器定时触发, 若本次ticker已执行过,则忽略; 2表示需要立即执行, 若本次ticker已执行过, 则延迟到下一次ticker执行
+* @return: bool
+*/
+func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	defer func() {
 		//if err := recover(); err != nil {
 		//	log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
@@ -63,7 +68,12 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine) bool {
 		b = routine.handler()
 		log.Printf("ticker routine end, id=%v, result=%v, globalticker=%v\n", routine.id, b, t)
 	} else {
-		log.Printf("ticker routine already won't execute! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
+		if chanVal == 2 {
+			atomic.CompareAndSwapInt32(&routine.triggerNextTick, 0, 1)
+			log.Printf("ticker routine executed this ticker, will trigger next ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
+		} else {
+			log.Printf("ticker routine already executed this ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
+		}
 	}
 	return b
 }
@@ -76,7 +86,7 @@ func (gt *GlobalTicker) routine() {
 			if (atomic.LoadInt32(&rt.status) == RUNNING && gt.ticker - rt.lastTicker >= uint64(rt.interval)) || atomic.LoadInt32(&rt.triggerNextTick) == 1 {
 				//rt.lastTicker = gt.ticker
 				atomic.CompareAndSwapInt32(&rt.triggerNextTick, 1, 0)
-				rt.triggerCh <- struct{}{}
+				rt.triggerCh <- 1
 			}
 		}
 	}
@@ -94,15 +104,15 @@ func (gt *GlobalTicker) RegisterRoutine(name string, routine RoutineFunc, interv
 		handler:         routine,
 		lastTicker:      0,
 		id:              name,
-		triggerCh:       make(chan struct{}, 5),
+		triggerCh:       make(chan int32, 5),
 		status:          STOPPED,
 		triggerNextTick: 0,
 	}
 	go func() {
 		for {
 			select {
-			case <-r.triggerCh:
-				gt.trigger(r)
+			case val := <-r.triggerCh:
+				gt.trigger(r, val)
 			}
 		}
 	}()
@@ -120,7 +130,6 @@ func (gt *GlobalTicker) StartTickerRoutine(name string, triggerNextTicker bool) 
 	if !ok {
 		return
 	}
-
 	if triggerNextTicker && atomic.CompareAndSwapInt32(&ticker.triggerNextTick, 0, 1) {
 		log.Printf("ticker routine will trigger next ticker! id=%v\n", ticker.id)
 	}
@@ -138,13 +147,13 @@ func (gt *GlobalTicker) StartAndTriggerRoutine(name string)  {
 	}
 
 	if atomic.CompareAndSwapInt32(&ticker.status, STOPPED, RUNNING) {
-		log.Printf("ticker routine started! id=%v\n", ticker.id)
+		log.Printf("StartAndTriggerRoutine:ticker routine started! id=%v\n", ticker.id)
 	} else {
-		log.Printf("ticker routine start failed, already in running! id=%v\n", ticker.id)
-		go func() {
-			ticker.triggerCh <- struct{}{}
-		}()
+		log.Printf("StartAndTriggerRoutine:ticker routine start failed, already in running! id=%v\n", ticker.id)
 	}
+	go func() {
+		ticker.triggerCh <- 2
+	}()
 
 }
 
