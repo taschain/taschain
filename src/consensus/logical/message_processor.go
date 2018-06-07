@@ -11,7 +11,29 @@ import (
 	"sync/atomic"
 )
 
-func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
+func (p *Processer) genCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary {
+	var gid groupsig.ID
+	if err := gid.Deserialize(bh.GroupId); err != nil {
+		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
+		return nil
+	}
+	var castor groupsig.ID
+	if err := castor.Deserialize(bh.Castor); err != nil {
+		log.Printf("fail to deserialize castor: castor=%v, err=%v\n", bh.Castor, err)
+		return nil
+	}
+	cgs := &CastGroupSummary{
+		PreHash: bh.Hash,
+		PreTime: bh.PreTime,
+		BlockHeight: bh.Height,
+		GroupID: gid,
+		Castor: castor,
+	}
+	cgs.CastorPos = p.getMinerPos(cgs.GroupID, cgs.Castor)
+	return cgs
+}
+
+func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *CastGroupSummary)  {
 	bh := &msg.BH
 	si := &msg.SI
 
@@ -23,13 +45,14 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 		return
 	}
 
-	var gid groupsig.ID
-	gid.Deserialize(bh.GroupId)
+	if cgs == nil {
+		cgs = p.genCastGroupSummary(bh)
+		if cgs == nil {
+			return
+		}
+	}
 
-	var castor groupsig.ID
-	castor.Deserialize(bh.Castor)
-	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype,
-		GetIDPrefix(gid), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(castor))
+	gid := cgs.GroupID
 
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
 	if preBH == nil {
@@ -50,7 +73,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 
 	_, vctx := bc.GetOrNewVerifyContext(bh)
 
-	verifyResult := vctx.UserVerified(bh, si)
+	verifyResult := vctx.UserVerified(bh, si, cgs)
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), verifyResult)
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 
@@ -79,7 +102,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase)  {
 		}
 
 	case CBMR_PIECE_NORMAL:
-		if 	atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) && !castor.IsEqual(p.GetMinerID()) {
+		if 	atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) && !cgs.Castor.IsEqual(p.GetMinerID()) {
 			var cvm ConsensusVerifyMessage
 			cvm.BH = *bh
 			//cvm.GroupID = gId
@@ -110,11 +133,13 @@ func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 		log.Printf("%v begin at %v, cost %v\n", mtype, begin.String(), time.Since(begin).String())
 	}()
 
-	cgs := GenCastGroupSummary(bh)
+	cgs := p.genCastGroupSummary(bh)
 	if cgs == nil {
 		log.Printf("[ERROR]%v gen castGroupSummary fail!\n", mtype)
 		return
 	}
+	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype,
+		GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(si.SignMember) {
@@ -130,7 +155,7 @@ func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 		return
 	}
 
-	p.doVerify(mtype, msg)
+	p.doVerify(mtype, msg, cgs)
 
 
 
@@ -168,7 +193,7 @@ func (p *Processer) triggerFutureVerifyMsg(hash common.Hash)  {
 	p.removeFutureVerifyMsgs(hash)
 
 	for _, msg := range futures {
-		p.doVerify("FUTURE_VERIFY", msg)
+		p.doVerify("FUTURE_VERIFY", msg, nil)
 	}
 
 }

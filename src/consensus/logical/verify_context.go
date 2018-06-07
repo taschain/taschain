@@ -139,7 +139,7 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 		return -1
 	}
 
-	log.Printf("qnOfDiffv, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
+	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 	var qn int64
 	if vc.baseOnGeneisBlock() {
 		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
@@ -252,7 +252,7 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	log.Printf("begin VerifyContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	qnDiff := vc.qnOfDiff(bh.CurTime.Sub(bh.PreTime).Seconds())
@@ -261,9 +261,10 @@ func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData) CAST_BLOCK
 		return CMBR_IGNORE_QN_ERROR
 	}
 
-	kingPos := vc.getCastorPosByQN(qnDiff)
-	if kingPos != int32(vc.blockCtx.pos) {	//该qn对应的king错误
-		log.Printf("proc(%v) acceptCV failed(king pos ERROR), curr pos=%v, calc king pos=%v.\n", idPrefix, vc.blockCtx.pos, kingPos)
+	calcKingPos := vc.getCastorPosByQN(qnDiff)
+	receiveKingPos := summary.CastorPos
+	if calcKingPos != receiveKingPos { //该qn对应的king错误
+		log.Printf("proc(%v) acceptCV failed(king pos ERROR), receive king pos=%v, calc king pos=%v.\n", idPrefix, receiveKingPos, calcKingPos)
 		return CMBR_IGNORE_KING_ERROR
 	}
 	//if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
@@ -330,11 +331,11 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *core.BlockHeader, sd *SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *core.BlockHeader, sd *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
-	result := vc.acceptCV(bh, sd) //>=0为消息正确接收
+	result := vc.acceptCV(bh, sd, summary) //>=0为消息正确接收
 	return result
 }
 
