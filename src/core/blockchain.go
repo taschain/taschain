@@ -585,7 +585,8 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		buffer.WriteString("fail to new statedb, lateset height: ")
 		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
 		buffer.WriteString(", block height: ")
-		buffer.WriteString(fmt.Sprintf("%d", block.Header.Height))
+		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
+		buffer.WriteString(fmt.Sprint(err))
 		panic(buffer.String())
 
 	}
