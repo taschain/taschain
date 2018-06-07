@@ -4,7 +4,6 @@ import (
 	"common"
 	"core"
 	"log"
-	"math/big"
 	"time"
 	"fmt"
 	"sync"
@@ -207,100 +206,6 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 	return
 }
 
-//节点所在组成为当前铸块组
-//该函数会被多次重入，需要做容错处理。
-//在某个高度第一次进入时会启动定时器
-//func (bc *BlockContext) BeingCastGroup(cgs *CastGroupSummary) (cast bool) {
-//	//var chainHeight uint64
-//	//if !PROC_TEST_MODE {
-//	//	chainHeight = bc.Proc.MainChain.QueryTopBlock().Height
-//	//}
-//
-//	castHeight := cgs.BlockHeight
-//	preTime := cgs.PreTime
-//	preHash := cgs.PreHash
-//
-//	if !cgs.GroupID.IsEqual(bc.MinerID.gid) {
-//		log.Printf("cast group=%v, bc group=%v, diff failed.\n", GetIDPrefix(cgs.GroupID), GetIDPrefix(bc.MinerID.gid))
-//		return false
-//	}
-//
-//	//if castHeight > chainHeight+MAX_UNKNOWN_BLOCKS {
-//	//	//不在合法的铸块高度内
-//	//	log.Printf("height failed, chainHeight=%v, castHeight=%v.\n", chainHeight, castHeight)
-//	//	//panic("BlockContext::BeingCastGroup height failed.")
-//	//	return false
-//	//}
-//
-//	bc.lock.Lock()
-//	defer bc.lock.Unlock()
-//
-//	log.Printf("BeginCastGroup: bc.IsCasting=%v, bc.consensusStatus=%v, bc.castHeight=%v, castHeight=%v, bc.Pretime=%v, prevTime=%v, bc.PrevHash=%v, prevHash=%v\n", bc.isCasting(), bc.ConsensusStatus, bc.CastHeight, castHeight, bc.PreTime, preTime, bc.PrevHash, preHash)
-//
-//	if bc.maxQNCasted() && bc.CastHeight == castHeight { //如果已出最高qn块, 直接返回
-//		log.Println("BeginCastGroup: max qn casted in this height: ", castHeight)
-//		return false
-//	}
-//
-//	if bc.isCasting() {	//如果在铸块中
-//		if bc.CastHeight == castHeight {
-//			if bc.PrevHash != preHash {
-//				log.Printf("prevHash diff found, bc.prevHash=%v, prevHash=%v!!!!!!!!!!!\n", bc.PrevHash, preHash)
-//			}
-//			log.Printf("already in casting height %v\n", castHeight)
-//		} else if bc.CastHeight > castHeight {
-//			log.Printf("already in casting higher block, current castHeight=%v, request castHeight=%v\n", bc.CastHeight, castHeight)
-//			return false
-//		} else {
-//			bc.castRebase(castHeight, preTime, preHash, false)
-//		}
-//	} else { //不在铸块, 则开启铸块
-//		bc.castRebase(castHeight, preTime, preHash, true)
-//	}
-//
-//	return true
-//}
-
-
-//计算当前铸块人位置和QN
-func (bc *BlockContext) calcCastor(vctx *VerifyContext) (int32, int64) {
-	var index int32 = -1
-	//
-	//d := time.Since(vctx.prevTime)
-	//
-	//max := vctx.getMaxCastTime()
-	//
-	//var secs = int64(d.Seconds())
-	//if secs < max { //在组铸块共识时间窗口内
-	log.Printf("calcCastor: castInfo=%v\n", bc.castingInfo())
-	qn := vctx.calcQN()
-	if qn < 0 {
-		log.Printf("calcCastor qn negative found! qn=%v\n", qn)
-		return index, qn
-	}
-	firstKing := bc.getFirstCastor(vctx.prevHash) //取得第一个铸块人位置
-	log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
-	if firstKing >= 0 && bc.GroupMembers > 0 {
-		index = int32((qn + int64(firstKing)) % int64(bc.GroupMembers))
-		log.Printf("real cur King pos(MOD mem_count)=%v.\n", index)
-	} else {
-		qn = -1
-	}
-	//} else {
-	//	log.Printf("bc::calcCastor failed, out of group max cast time, PreTime=%v, escape seconds=%v.!!!\n", vctx.prevTime.Format(time.Stamp), secs)
-	//}
-	return index, qn
-}
-//取得第一个铸块人在组内的位置
-func (bc *BlockContext) getFirstCastor(prevHash common.Hash) int32 {
-	var index int32 = -1
-	biHash := prevHash.Big()
-	if biHash.BitLen() > 0 && bc.GroupMembers > 0 {
-		index = int32(biHash.Mod(biHash, big.NewInt(int64(bc.GroupMembers))).Int64())
-	}
-	return index
-}
-
 
 //定时器例行处理
 //如果返回false, 则关闭定时器
@@ -333,7 +238,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	} else {
 		//当前组仍在有效铸块共识时间内
 		//检查自己是否成为铸块人
-		index, qn := bc.calcCastor(vctx) //当前铸块人（KING）和QN值
+		index, qn := vctx.calcCastor() //当前铸块人（KING）和QN值
 		if index < 0 {
 			log.Printf("kingTickerRoutine: calcCastor index =%v\n", index)
 			return false

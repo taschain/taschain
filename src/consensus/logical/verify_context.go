@@ -7,6 +7,7 @@ import (
 	"math"
 	"core"
 	"sync"
+	"math/big"
 )
 
 /*
@@ -128,14 +129,17 @@ func (vc *VerifyContext) getMaxCastTime() int64 {
 
 //计算QN
 func (vc *VerifyContext) calcQN() int64 {
+	diff := time.Since(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
+	return vc.qnOfDiff(diff)
+}
+
+func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	max := vc.getMaxCastTime()
 	if max < 0 {
 		return -1
 	}
 
-	diff := time.Since(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
-	log.Printf("calcQN, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
-
+	log.Printf("qnOfDiffv, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 	var qn int64
 	if vc.baseOnGeneisBlock() {
 		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
@@ -251,15 +255,25 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData) CAST_BLOCK_MESSAGE_RESULT {
 	log.Printf("begin VerifyContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	idPrefix := vc.blockCtx.Proc.getPrefix()
-	calcQN := vc.calcQN()
-	if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
-		log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-		return CBMR_ERROR_ARG
+	qnDiff := vc.qnOfDiff(bh.CurTime.Sub(bh.PreTime).Seconds())
+	if qnDiff < 0 || uint64(qnDiff) != bh.QueueNumber {//计算的qn错误
+		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, qnDiff, bh.QueueNumber)
+		return CMBR_IGNORE_QN_ERROR
 	}
-	if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
-		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-		return CMBR_IGNORE_QN_FUTURE
+
+	kingPos := vc.getCastorPosByQN(qnDiff)
+	if kingPos != int32(vc.blockCtx.pos) {	//该qn对应的king错误
+		log.Printf("proc(%v) acceptCV failed(king pos ERROR), curr pos=%v, calc king pos=%v.\n", idPrefix, vc.blockCtx.pos, kingPos)
+		return CMBR_IGNORE_KING_ERROR
 	}
+	//if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
+	//	log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
+	//	return CBMR_ERROR_ARG
+	//}
+	//if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
+	//	log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
+	//	return CMBR_IGNORE_QN_FUTURE
+	//}
 
 	if !vc.needHandleQN(int64(bh.QueueNumber)) { //该组已经铸出过QN值更大的块
 		return CMBR_IGNORE_MAX_QN_SIGNED
@@ -372,4 +386,42 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 		return true
 	}
 	return false
+}
+
+
+//计算当前铸块人位置和QN
+func (vc *VerifyContext) calcCastor() (int32, int64) {
+	//if secs < max { //在组铸块共识时间窗口内
+	qn := vc.calcQN()
+	if qn < 0 {
+		log.Printf("calcCastor qn negative found! qn=%v\n", qn)
+		return -1, qn
+	}
+	index := vc.getCastorPosByQN(qn)
+
+	return index, qn
+}
+
+func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
+	firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
+	//log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	mem := vc.blockCtx.GroupMembers
+	if firstKing >= 0 {
+		index := int32((qn + int64(firstKing)) % int64(mem))
+		log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+		return index
+	} else {
+		return -1
+	}
+}
+
+//取得第一个铸块人在组内的位置
+func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
+	var index int32 = -1
+	biHash := prevHash.Big()
+	mem := vc.blockCtx.GroupMembers
+	if biHash.BitLen() > 0 {
+		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
+	}
+	return index
 }
