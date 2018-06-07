@@ -190,6 +190,7 @@ func swarmStreamHandler(stream inet.Stream) {
 	 handleStream(stream)
 }
 func handleStream(stream inet.Stream) {
+
 	beginTime:= time.Now()
 	defer stream.Close()
 	headerBytes := make([]byte, 3)
@@ -228,7 +229,7 @@ func handleStream(stream inet.Stream) {
 			logger.Errorf("Stream  should read %d byte,but received %d bytes,should read length byte:%v,cost time:%v",pkgLength, n1,pkgLengthBytes,time.Since(beginTime).String())
 			return
 		}
-		logger.Debugf("Get ok message! cost time:%v,message length:%d",time.Since(beginTime).String(),n1)
+		//logger.Debugf("Get ok message! cost time:%v,message length:%d",time.Since(beginTime).String(),n1)
 	} else {
 		c := pkgLength / PACKAGE_MAX_SIZE
 		left, right := 0, PACKAGE_MAX_SIZE
