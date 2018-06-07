@@ -131,7 +131,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,ccm.BH.Height,ccm.BH.Hash)
+	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,ccm.BH.Height,ccm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -149,7 +149,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cvm.BH.Height,cvm.BH.Hash)
+	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cvm.BH.Height,cvm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -168,7 +168,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		id := conn.RemotePeer()
 
 		if id != "" {
-			network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, p2p.ConvertToID(id),common.Sha256(m.Body))
+			//network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, p2p.ConvertToID(id),common.Sha256(m.Body))
 			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
 		}
 	}
