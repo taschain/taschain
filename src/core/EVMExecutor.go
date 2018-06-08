@@ -96,11 +96,11 @@ func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, h
 		return nil, 0, err
 	}
 
-	root := statedb.IntermediateRoot(true).Bytes()
+	//statedb.IntermediateRoot(true).Bytes()
 
 	*usedGas += gas
 
-	receipt := types.NewReceipt(root, failed, *usedGas)
+	receipt := types.NewReceipt(nil, failed, *usedGas)
 	receipt.TxHash = common.BytesToHash(tx.Hash.Bytes())
 	receipt.GasUsed = gas
 
