@@ -381,8 +381,8 @@ const HTMLTEM = `<!DOCTYPE html>
         var block_table = table.render({
             elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
             ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
-                {field:'pre_time', title: 'pre_time', width: 80},{field:'queue_number', title: 'queue_number'},
-                {field:'cur_time', title: 'cur_time', width: 80},{field:'castor', title: 'castor'},
+                {field:'pre_time', title: 'pre_time', width: 189},{field:'queue_number', title: 'queue_number'},
+                {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},
 				{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}, 
 				{field:'tps', title: 'tps'}, {field:'txs', title: 'txs'}]] //设置表头
             ,data: blocks
