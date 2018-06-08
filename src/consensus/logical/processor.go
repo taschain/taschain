@@ -366,6 +366,7 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
 
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
+	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	return true
 }
 
