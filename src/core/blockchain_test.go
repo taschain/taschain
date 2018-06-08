@@ -64,7 +64,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 池子中交易的数量为0
-	if 0 != length(txpool.received) {
+	if 0 != length(&txpool.received) {
 		t.Fatalf("fail to remove transactions after addBlock")
 	}
 
@@ -126,7 +126,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
-		t.Fatalf("fail to switch to main chain. %d",BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
+		t.Fatalf("fail to switch to main chain. %d", BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
 	}
 
 	BlockChainImpl.Close()
@@ -320,7 +320,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add block")
 	}
-	fmt.Printf("state: %d\n",BlockChainImpl.latestBlock.StateTree)
+	fmt.Printf("state: %d\n", BlockChainImpl.latestBlock.StateTree)
 
 	// 铸块3
 	block3 := BlockChainImpl.CastingBlock(4, 12, 0, *castor, *groupid)
@@ -332,7 +332,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 		t.Fatalf("fail to add block")
 	}
-	fmt.Printf("state: %d\n",BlockChainImpl.latestBlock.StateTree)
+	fmt.Printf("state: %d\n", BlockChainImpl.latestBlock.StateTree)
 }
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
@@ -352,5 +352,5 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 
 func genHash(hash string) []byte {
 	bytes3 := []byte(hash)
-	return Sha256(bytes3)
+	return common.Sha256(bytes3)
 }

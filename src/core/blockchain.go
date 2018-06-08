@@ -364,7 +364,7 @@ func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
 		network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1
 	}
-	network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash,he.Hash)
+	network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}
@@ -642,10 +642,10 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	if chain.isAdujsting {
 		return nil, 2, nil, nil
 	}
-	return chain.verifyCastingBlock(bh)
+	return chain.verifyCastingBlock(bh, nil)
 }
 
-func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
 
 	log.Printf("[block] start to verifyCastingBlock, %x\n", bh.Hash)
 	// 校验父亲块
@@ -663,16 +663,22 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 
 	// 验证交易
 	missing := make([]common.Hash, 0)
-	transactions := make([]*Transaction, len(bh.Transactions))
-	for i, hash := range bh.Transactions {
-		transaction, err := chain.transactionPool.GetTransaction(hash)
-		if err != nil {
-			missing = append(missing, hash)
-		} else {
-			transactions[i] = transaction
-		}
+	var transactions []*Transaction
+	if nil == txs {
+		transactions = make([]*Transaction, len(bh.Transactions))
+		for i, hash := range bh.Transactions {
+			transaction, err := chain.transactionPool.GetTransaction(hash)
+			if err != nil {
+				missing = append(missing, hash)
+			} else {
+				transactions[i] = transaction
+			}
 
+		}
+	} else {
+		transactions = txs
 	}
+
 	if 0 != len(missing) {
 		//广播，索取交易
 		m := &TransactionRequestMessage{
@@ -753,7 +759,7 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header)
+		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status != 0 {
 			log.Printf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
@@ -768,11 +774,11 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 		if height > chain.Height() && chain.queryBlockByHash(b.Header.PreHash) == nil {
 			chain.solitaryBlocks.Add(b.Header.PreHash, b)
 			return 2
-		} else if height == chain.Height() && b.Header.PreHash == chain.latestBlock.PreHash{
+		} else if height == chain.Height() && b.Header.PreHash == chain.latestBlock.PreHash {
 			localBlock := chain.latestBlock
-			if localBlock.QueueNumber > b.Header.QueueNumber{
+			if localBlock.QueueNumber > b.Header.QueueNumber {
 				return 1
-			}else {
+			} else {
 				status = chain.saveBlock(b)
 			}
 		} else {
