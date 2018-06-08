@@ -127,6 +127,13 @@ func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
 }
+func NewIdFromBytes(bs []byte) *ID {
+	var id ID
+	if err := id.Deserialize(bs); err != nil {
+		return nil
+	}
+	return &id
+}
 
 func (id ID) GetString() string {
 	bigInt := id.GetBigInt()

@@ -37,6 +37,9 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	bh := &msg.BH
 	si := &msg.SI
 
+	sender := GetIDPrefix(si.SignMember)
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin")
+
 	log.Printf("%v message bh %v\n", mtype, p.blockPreview(bh))
 	log.Printf("%v chain top bh %v\n", mtype, p.blockPreview(p.MainChain.QueryTopBlock()))
 
@@ -77,6 +80,8 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), verifyResult)
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "UserVerified result:%v", verifyResult)
+
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		log.Printf("proc(%v) %v msg_count reach threshold!\n", mtype, p.getPrefix())
@@ -109,6 +114,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 			cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
 			if !PROC_TEST_MODE {
 				log.Printf("call network service SendVerifiedCast...\n")
+				logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
 				go SendVerifiedCast(&cvm)
 			} else {
 				log.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
@@ -128,9 +134,12 @@ func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 	bh := &msg.BH
 	si := &msg.SI
 	log.Printf("Proc(%v) begin %v, height=%v, qn=%v\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber)
+	logStart(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember), "")
+
 	begin := time.Now()
 	defer func() {
 		log.Printf("%v begin at %v, cost %v\n", mtype, begin.String(), time.Since(begin).String())
+		logEnd(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember))
 	}()
 
 	cgs := p.genCastGroupSummary(bh)
@@ -232,8 +241,11 @@ func (p *Processer) cleanVerifyContext(currentHeight uint64)  {
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 	begin := time.Now()
+	bh := cbm.Block.Header
+	logStart("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember), "castor=%v", GetIDPrefix(*groupsig.NewIdFromBytes(bh.Castor)))
 	defer func() {
 		log.Printf("OMB begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
+		logEnd("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember))
 	}()
 
 	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
@@ -280,6 +292,8 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 			log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 			for _, msg := range futureMsgs {
 				log.Printf("receive cached future block msg: bh=%v, preHeader=%v\n", msg.Block.Header, preHeader)
+				tbh := msg.Block.Header
+				logHalfway("OMB", tbh.Height, tbh.QueueNumber, GetIDPrefix(msg.SI.SignMember), "trigger cached future block")
 				p.receiveBlock(msg, preHeader)
 			}
 			p.removeFutureBlockMsgs(preHeader.Hash)
@@ -301,8 +315,10 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 //新的交易到达通知（用于处理大臣验证消息时缺失的交易）
 func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 	begin := time.Now()
+	logStart("OMNT", 0, 0, "", "count=%v,txHash[0]=%v", len(ths), GetHashPrefix(ths[0]))
 	defer func() {
 		log.Printf("OMNT begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
+		logEnd("OMNT", 0, 0, "")
 	}()
 
 	log.Printf("proc(%v) begin OMNT, trans count=%v...\n", p.getPrefix(), len(ths))
@@ -324,6 +340,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 			sendMessage.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
 			if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) {
 				log.Printf("call network service SendVerifiedCast...\n")
+				logHalfway("OMNT", 0,0, p.getPrefix(), "SendVerifiedCast")
 				go SendVerifiedCast(&sendMessage)
 			}
 		}

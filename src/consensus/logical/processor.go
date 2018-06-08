@@ -693,6 +693,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	cbm.GenSign(ski)
 	if !PROC_TEST_MODE {
 		log.Printf("call network service BroadcastNewBlock...\n")
+		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock")
 		go BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
 	}

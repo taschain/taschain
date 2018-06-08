@@ -6,6 +6,7 @@ import (
 	"common"
 	"fmt"
 	"time"
+	"consensus/groupsig"
 )
 
 /*
@@ -67,9 +68,12 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 	}()
 	result = p.MainChain.AddBlockOnChain(block)
 
-	log.Printf("AddBlockOnChain header %v \n", p.blockPreview(block.Header))
+	bh := block.Header
+
+	log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), block.Header.Height, block.Header.QueueNumber, result)
+	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
+	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.NewIdFromBytes(bh.Castor)))
 
 	if result == 0 {
 		p.triggerFutureVerifyMsg(block.Header.Hash)
