@@ -19,7 +19,7 @@ func NewLoglock(title string) Loglock {
 		module = common.GlobalConf.GetString("chain", "database", "0")
 	}
 
-	var prefix = `<seelog minlevel="error">
+	var prefix = `<seelog minlevel="debug">
 		<outputs formatid="lockConfig">
 			<rollingfile type="size" filename="./logs/`
 	var suffix = `.log" maxsize="1000000" maxrolls="3"/>
@@ -38,28 +38,44 @@ func NewLoglock(title string) Loglock {
 }
 
 func (lock *Loglock) Lock(msg string) {
-	lock.logger.Debugf("try to lock: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("try to lock: %s, with msg: %s", lock.addr, msg)
+	}
 	lock.lock.Lock()
-	lock.logger.Debugf("locked: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("locked: %s, with msg: %s", lock.addr, msg)
+	}
 
 }
 
 func (lock *Loglock) RLock(msg string) {
-	lock.logger.Debugf("try to Rlock: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("try to Rlock: %s, with msg: %s", lock.addr, msg)
+	}
 	lock.lock.RLock()
-	lock.logger.Debugf("Rlocked: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("Rlocked: %s, with msg: %s", lock.addr, msg)
+	}
 }
 
 func (lock *Loglock) Unlock(msg string) {
-	lock.logger.Debugf("try to UnLock: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("try to UnLock: %s, with msg: %s", lock.addr, msg)
+	}
 	lock.lock.Unlock()
-	lock.logger.Debugf("UnLocked: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("UnLocked: %s, with msg: %s", lock.addr, msg)
+	}
 
 }
 
 func (lock *Loglock) RUnlock(msg string) {
-	lock.logger.Debugf("try to UnRLock: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("try to UnRLock: %s, with msg: %s", lock.addr, msg)
+	}
 	lock.lock.RUnlock()
-	lock.logger.Debugf("UnRLocked: %s, with msg: %s", lock.addr, msg)
+	if 0==len(msg){
+		lock.logger.Debugf("UnRLocked: %s, with msg: %s", lock.addr, msg)
+	}
 
 }
