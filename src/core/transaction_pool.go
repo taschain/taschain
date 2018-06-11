@@ -136,6 +136,9 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+	pool.lock.Lock("AddTransactions")
+	defer pool.lock.Unlock("AddTransactions")
+
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
 	}
@@ -150,15 +153,15 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 	return nil
 }
 func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+	pool.lock.Lock("Add")
+	defer pool.lock.Unlock("Add")
+
 	return pool.addInner(tx, true)
 }
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
 func (pool *TransactionPool) addInner(tx *Transaction, isBroadcast bool) (bool, error) {
-	pool.lock.Lock("Add")
-	defer pool.lock.Unlock("Add")
-
 	if tx == nil {
 		return false, ErrNil
 	}

@@ -19,7 +19,7 @@ func NewLoglock(title string) Loglock {
 		module = common.GlobalConf.GetString("chain", "database", "0")
 	}
 
-	var prefix = `<seelog minlevel="debug">
+	var prefix = `<seelog minlevel="error">
 		<outputs formatid="lockConfig">
 			<rollingfile type="size" filename="./logs/`
 	var suffix = `.log" maxsize="1000000" maxrolls="3"/>

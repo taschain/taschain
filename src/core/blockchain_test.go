@@ -110,24 +110,24 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块4 空块
 	// 模拟分叉
-	block4 := BlockChainImpl.CastingBlockAfter(block.Header, 2, 124, 0, *castor, *groupid)
-
-	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
-		t.Fatalf("fail to add empty block")
-	}
-	//最新块是块4
-	blockHeader = BlockChainImpl.QueryTopBlock()
-	if nil == blockHeader || 2 != blockHeader.Height || blockHeader.Hash != block4.Header.Hash {
-		t.Fatalf("add block4 failed")
-	}
-	blockHeader = BlockChainImpl.QueryBlockByHeight(3)
-	if nil != blockHeader {
-		t.Fatalf("failed to remove uncle blocks")
-	}
-
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
-		t.Fatalf("fail to switch to main chain. %d", BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
-	}
+	//block4 := BlockChainImpl.CastingBlockAfter(block.Header, 2, 124, 0, *castor, *groupid)
+	//
+	//if 0 != BlockChainImpl.AddBlockOnChain(block4) {
+	//	t.Fatalf("fail to add empty block")
+	//}
+	////最新块是块4
+	//blockHeader = BlockChainImpl.QueryTopBlock()
+	//if nil == blockHeader || 2 != blockHeader.Height || blockHeader.Hash != block4.Header.Hash {
+	//	t.Fatalf("add block4 failed")
+	//}
+	//blockHeader = BlockChainImpl.QueryBlockByHeight(3)
+	//if nil != blockHeader {
+	//	t.Fatalf("failed to remove uncle blocks")
+	//}
+	//
+	//if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
+	//	t.Fatalf("fail to switch to main chain. %d", BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
+	//}
 
 	BlockChainImpl.Close()
 
