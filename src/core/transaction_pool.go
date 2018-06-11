@@ -35,6 +35,8 @@ var (
 	ErrNegativeValue = errors.New("negative value")
 
 	ErrOversizedData = errors.New("oversized data")
+
+	sendingListLength = 20
 )
 
 // 配置文件
@@ -52,6 +54,7 @@ type TransactionPool struct {
 	// 收到的待处理transaction
 	received sync.Map
 
+	sendingList []*Transaction
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -91,6 +94,7 @@ func NewTransactionPool() *TransactionPool {
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
 		received:    sync.Map{},
+		sendingList: make([]*Transaction, sendingListLength),
 		lowestPrice: nil,
 	}
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -137,7 +141,7 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 	}
 
 	for _, tx := range txs {
-		_, err := pool.Add(tx)
+		_, err := pool.addInner(tx, false)
 		if nil != err {
 			return err
 		}
@@ -145,10 +149,13 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 
 	return nil
 }
+func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+	return pool.addInner(tx, true)
+}
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+func (pool *TransactionPool) addInner(tx *Transaction, isBroadcast bool) (bool, error) {
 	pool.lock.Lock("Add")
 	defer pool.lock.Unlock("Add")
 
@@ -187,9 +194,17 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 
 	}
 
-	txs := *new([]*Transaction)
-	txs = append(txs, tx)
-	go BroadcastTransactions(txs)
+	// batch broadcast
+	if isBroadcast {
+		pool.sendingList = append(pool.sendingList, tx)
+		if sendingListLength == len(pool.sendingList) {
+			txs := make([]*Transaction, sendingListLength)
+			copy(txs, pool.sendingList)
+			pool.sendingList = make([]*Transaction, sendingListLength)
+			go BroadcastTransactions(txs)
+		}
+	}
+
 	return true, nil
 }
 
