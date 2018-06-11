@@ -7,6 +7,7 @@ import (
 	"math"
 	"core"
 	"sync"
+	"math/big"
 )
 
 /*
@@ -36,6 +37,8 @@ type VerifyContext struct {
 	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 
 	slots [MAX_SYNC_CASTORS]*SlotContext
+
+	castedQNs	[]int64		//自己铸过的qn
 
 	blockCtx *BlockContext
 
@@ -69,7 +72,18 @@ func (vc *VerifyContext) maxQNCasted() bool {
 	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED
 }
 
+func (vc *VerifyContext) isQNCasted(qn int64) bool {
+	for _, _qn := range vc.castedQNs {
+		if _qn == qn {
+			return true
+		}
+	}
+	return false
+}
 
+func (vc *VerifyContext) addCastedQN(qn int64)  {
+    vc.castedQNs = append(vc.castedQNs, qn)
+}
 
 func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
     vc.prevTime = preTime
@@ -78,6 +92,7 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime tim
     vc.signedMaxQN = INVALID_QN
     vc.consensusStatus = CBCS_CURRENT
     vc.blockCtx = bc
+    vc.castedQNs = make([]int64, 0)
 	vc.resetSlotContext()
 }
 
@@ -91,27 +106,40 @@ func (vc *VerifyContext) baseOnGeneisBlock() bool {
 
 func (vc *VerifyContext) getMaxCastTime() int64 {
 	var max int64
+	defer func() {
+		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+	}()
+
 	if vc.baseOnGeneisBlock() {
 		max = math.MaxInt64
 	} else {
 		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-		if preBH == nil {//TODO: handle preblock is nil
-			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, vc.prevHash)
-			panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+		if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
+			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
+			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+			max = -1
+		} else {
+			max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
 		}
 
-		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
 	}
-	log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+
 	return max
 }
 
 //计算QN
 func (vc *VerifyContext) calcQN() int64 {
-	max := vc.getMaxCastTime()
 	diff := time.Since(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
-	log.Printf("calcQN, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
+	return vc.qnOfDiff(diff)
+}
 
+func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
+	max := vc.getMaxCastTime()
+	if max < 0 {
+		return -1
+	}
+
+	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 	var qn int64
 	if vc.baseOnGeneisBlock() {
 		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
@@ -224,18 +252,29 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	log.Printf("begin VerifyContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	idPrefix := vc.blockCtx.Proc.getPrefix()
-	calcQN := vc.calcQN()
-	if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
-		log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-		return CBMR_ERROR_ARG
+	qnDiff := vc.qnOfDiff(bh.CurTime.Sub(bh.PreTime).Seconds())
+	if qnDiff < 0 || uint64(qnDiff) != bh.QueueNumber {//计算的qn错误
+		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, qnDiff, bh.QueueNumber)
+		return CMBR_IGNORE_QN_ERROR
 	}
-	if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
-		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-		return CMBR_IGNORE_QN_FUTURE
+
+	calcKingPos := vc.getCastorPosByQN(qnDiff)
+	receiveKingPos := summary.CastorPos
+	if calcKingPos != receiveKingPos { //该qn对应的king错误
+		log.Printf("proc(%v) acceptCV failed(king pos ERROR), receive king pos=%v, calc king pos=%v.\n", idPrefix, receiveKingPos, calcKingPos)
+		return CMBR_IGNORE_KING_ERROR
 	}
+	//if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
+	//	log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
+	//	return CBMR_ERROR_ARG
+	//}
+	//if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
+	//	log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
+	//	return CMBR_IGNORE_QN_FUTURE
+	//}
 
 	if !vc.needHandleQN(int64(bh.QueueNumber)) { //该组已经铸出过QN值更大的块
 		return CMBR_IGNORE_MAX_QN_SIGNED
@@ -292,11 +331,11 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *core.BlockHeader, sd *SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *core.BlockHeader, sd *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
-	result := vc.acceptCV(bh, sd) //>=0为消息正确接收
+	result := vc.acceptCV(bh, sd, summary) //>=0为消息正确接收
 	return result
 }
 
@@ -348,4 +387,42 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 		return true
 	}
 	return false
+}
+
+
+//计算当前铸块人位置和QN
+func (vc *VerifyContext) calcCastor() (int32, int64) {
+	//if secs < max { //在组铸块共识时间窗口内
+	qn := vc.calcQN()
+	if qn < 0 {
+		log.Printf("calcCastor qn negative found! qn=%v\n", qn)
+		return -1, qn
+	}
+	index := vc.getCastorPosByQN(qn)
+
+	return index, qn
+}
+
+func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
+	firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
+	//log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	mem := vc.blockCtx.GroupMembers
+	if firstKing >= 0 {
+		index := int32((qn + int64(firstKing)) % int64(mem))
+		log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+		return index
+	} else {
+		return -1
+	}
+}
+
+//取得第一个铸块人在组内的位置
+func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
+	var index int32 = -1
+	biHash := prevHash.Big()
+	mem := vc.blockCtx.GroupMembers
+	if biHash.BitLen() > 0 {
+		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
+	}
+	return index
 }

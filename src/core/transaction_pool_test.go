@@ -10,14 +10,14 @@ func TestCreatePool(t *testing.T) {
 
 	pool := NewTransactionPool()
 
-	fmt.Printf("received: %d transactions\n", length(pool.received))
+	fmt.Printf("received: %d transactions\n", length(&pool.received))
 
 	transaction := &Transaction{
 		GasPrice: 1234,
 	}
 
 	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", length(pool.received))
+	fmt.Printf("received: %d transactions\n", length(&pool.received))
 
 	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
@@ -27,7 +27,7 @@ func TestCreatePool(t *testing.T) {
 	}
 
 	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", length(pool.received))
+	fmt.Printf("received: %d transactions\n", length(&pool.received))
 
 	tGet, error := pool.GetTransaction(h)
 	if nil == error {

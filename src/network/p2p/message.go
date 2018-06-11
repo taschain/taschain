@@ -3,6 +3,7 @@ package p2p
 import (
 	"pb"
 	"github.com/gogo/protobuf/proto"
+	"log"
 )
 
 type Message struct {
@@ -22,7 +23,7 @@ func UnMarshalMessage(b []byte) (*Message, error) {
 	message := new(tas_pb.Message)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("Unmarshal message error:%s", e.Error())
+		log.Printf("Unmarshal message error:%s", e.Error())
 		return nil, e
 	}
 	m := Message{Code: *message.Code, Sign: message.Signature, Body: message.Body}

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"vm/common/hexutil"
 	"vm/ethdb"
+	"middleware"
 )
 
 var (
@@ -34,6 +35,8 @@ var (
 	ErrNegativeValue = errors.New("negative value")
 
 	ErrOversizedData = errors.New("oversized data")
+
+	sendingListLength = 20
 )
 
 // 配置文件
@@ -46,11 +49,12 @@ type TransactionPool struct {
 	config *TransactionPoolConfig
 
 	// 读写锁
-	lock sync.RWMutex
+	lock middleware.Loglock
 
 	// 收到的待处理transaction
 	received sync.Map
-	//map[common.Hash]*Transaction
+
+	sendingList []*Transaction
 
 	// 当前received数组里，price最小的transaction
 	lowestPrice *Transaction
@@ -88,8 +92,9 @@ func NewTransactionPool() *TransactionPool {
 
 	pool := &TransactionPool{
 		config:      getPoolConfig(),
-		lock:        sync.RWMutex{},
+		lock:        middleware.NewLoglock("txpool"),
 		received:    sync.Map{},
+		sendingList: make([]*Transaction, sendingListLength),
 		lowestPrice: nil,
 	}
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -103,21 +108,13 @@ func NewTransactionPool() *TransactionPool {
 }
 
 func (pool *TransactionPool) Clear() {
-	pool.Lock()
-	defer pool.Unlock()
+	pool.lock.Lock("Clear")
+	defer pool.lock.Unlock("Clear")
 
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.received = sync.Map{}
-}
-
-// lock 与 unlock 用于多个操作的事务处理
-func (pool *TransactionPool) Lock() {
-	pool.lock.Lock()
-}
-func (pool *TransactionPool) Unlock() {
-	pool.lock.Unlock()
 }
 
 func (pool *TransactionPool) GetReceived() sync.Map {
@@ -139,12 +136,15 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
 
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+	pool.lock.Lock("AddTransactions")
+	defer pool.lock.Unlock("AddTransactions")
+
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
 	}
 
 	for _, tx := range txs {
-		_, err := pool.Add(tx)
+		_, err := pool.addInner(tx, false)
 		if nil != err {
 			return err
 		}
@@ -152,13 +152,16 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 
 	return nil
 }
+func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+	pool.lock.Lock("Add")
+	defer pool.lock.Unlock("Add")
+
+	return pool.addInner(tx, true)
+}
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
-	pool.Lock()
-	defer pool.Unlock()
-
+func (pool *TransactionPool) addInner(tx *Transaction, isBroadcast bool) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -179,7 +182,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 	}
 
 	// 池子满了
-	if length(pool.received) >= pool.config.maxReceivedPoolSize {
+	if length(&pool.received) >= pool.config.maxReceivedPoolSize {
 		// 如果price太低，丢弃
 		if pool.lowestPrice.GasPrice > tx.GasPrice {
 			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
@@ -194,9 +197,17 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 
 	}
 
-	txs := *new([]*Transaction)
-	txs = append(txs, tx)
-	BroadcastTransactions(txs)
+	// batch broadcast
+	if isBroadcast {
+		pool.sendingList = append(pool.sendingList, tx)
+		if sendingListLength == len(pool.sendingList) {
+			txs := make([]*Transaction, sendingListLength)
+			copy(txs, pool.sendingList)
+			pool.sendingList = make([]*Transaction, sendingListLength)
+			go BroadcastTransactions(txs)
+		}
+	}
+
 	return true, nil
 }
 
@@ -242,8 +253,8 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 // 根据hash获取交易实例
 // 此处加锁
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, error) {
-	pool.lock.RLock()
-	defer pool.lock.RUnlock()
+	pool.lock.RLock("GetTransaction")
+	defer pool.lock.RUnlock("GetTransaction")
 
 	// 先从received里获取
 	result, _ := pool.received.Load(hash)
@@ -339,9 +350,7 @@ func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transac
 			Receipt:     receipt,
 			Transaction: getTransaction(txs, hash, i),
 		}
-		if nil != receipt {
-			fmt.Printf("[Receipts]txhash %x, contractaddress %x\n", hash, receipt.ContractAddress.Bytes())
-		}
+
 		receiptJson, err := json.Marshal(receiptWrapper)
 		if nil != err {
 			continue
@@ -393,7 +402,7 @@ func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
 	}
 }
 
-func length(m sync.Map) int {
+func length(m *sync.Map) int {
 	count := 0
 	m.Range(func(key, value interface{}) bool {
 		count++

@@ -10,13 +10,11 @@ import (
 	"common"
 	"time"
 	"core"
-	"taslog"
 	"core/net/handler"
 	"consensus/net"
-	"fmt"
+	"network"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
 
 type ConsensusHandler struct{}
 
@@ -34,14 +32,14 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.GROUP_MEMBER_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		onGroupMemberReceived(*m)
 	case p2p.GROUP_INIT_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 
@@ -60,7 +58,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.KEY_PIECE_MSG:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
@@ -71,7 +69,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.SIGN_PUBKEY_MSG:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
 		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
@@ -82,7 +80,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.GROUP_INIT_DONE_MSG:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
 
@@ -115,10 +113,10 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.CAST_VERIFY_MSG:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		fmt.Println("Get CAST_VERIFY_MSG!")
+		//fmt.Println("Get CAST_VERIFY_MSG!")
 		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
 		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
@@ -129,7 +127,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
 
@@ -144,7 +142,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.TRANSACTION_GOT_MSG:
 		transactions, e := handler.UnMarshalTransactions(body)
 		if e != nil {
-			logger.Errorf("Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
+			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
 			return nil, e
 		}
 		var txHashes []common.Hash
@@ -155,7 +153,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 	case p2p.NEW_BLOCK_MSG:
 		m, e := unMarshalConsensusBlockMessage(body)
 		if e != nil {
-			logger.Errorf("Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
+			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
 
@@ -202,7 +200,7 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMess
 	message := new(tas_pb.ConsensusGroupRawMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusGroupRawMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusGroupRawMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -224,7 +222,7 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 	m := new(tas_pb.ConsensusSharePieceMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusSharePieceMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusSharePieceMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -232,13 +230,13 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 	var dummyId, dest groupsig.ID
 	e1 := dummyId.Deserialize(m.DummyID)
 	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
 		return nil, e1
 	}
 
 	e2 := dest.Deserialize(m.Dest)
 	if e2 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e2.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e2.Error())
 		return nil, e2
 	}
 
@@ -253,21 +251,21 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKey
 	m := new(tas_pb.ConsensusSignPubKeyMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e.Error())
 		return nil, e
 	}
 	gisHash := common.BytesToHash(m.GISHash)
 	var dummyId groupsig.ID
 	e1 := dummyId.Deserialize(m.DummyID)
 	if e1 != nil {
-		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s", e1.Error())
+		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e1.Error())
 		return nil, e1
 	}
 
 	var pubkey groupsig.Pubkey
 	e2 := pubkey.Deserialize(m.SignPK)
 	if e2 != nil {
-		logger.Errorf("unMarshalConsensusSignPubKeyMessage error:%s", e2.Error())
+		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e2.Error())
 		return nil, e1
 	}
 
@@ -281,7 +279,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInit
 	m := new(tas_pb.ConsensusGroupInitedMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusGroupInitedMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusGroupInitedMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -296,7 +294,7 @@ func unMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessag
 	m := new(tas_pb.ConsensusCurrentMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusCurrentMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusCurrentMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -316,7 +314,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 	m := new(tas_pb.ConsensusBlockMessageBase)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusCastMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusCastMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -336,7 +334,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 	m := new(tas_pb.ConsensusBlockMessageBase)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("UnMarshalConsensusVerifyMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]UnMarshalConsensusVerifyMessage error:%s", e.Error())
 		return nil, e
 	}
 
@@ -356,14 +354,14 @@ func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, e
 	m := new(tas_pb.ConsensusBlockMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("unMarshalConsensusBlockMessage error:%s", e.Error())
+		network.Logger.Errorf("[handler]unMarshalConsensusBlockMessage error:%s", e.Error())
 		return nil, e
 	}
 	block := handler.PbToBlock(m.Block)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
-		logger.Errorf("unMarshalConsensusBlockMessage error:%s", e1.Error())
+		network.Logger.Errorf("[handler]unMarshalConsensusBlockMessage error:%s", e1.Error())
 		return nil, e
 	}
 
@@ -385,7 +383,7 @@ func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical
 	e1 := parentId.Deserialize(m.ParentID)
 
 	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
 		return nil
 	}
 
@@ -393,7 +391,7 @@ func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical
 	e2 := dummyID.Deserialize(m.DummyID)
 
 	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e2.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e2.Error())
 		return nil
 	}
 	message := logical.ConsensusGroupInitSummary{ParentID: parentId, Authority: *m.Authority,
@@ -406,14 +404,14 @@ func pbToSignData(s *tas_pb.SignData) *logical.SignData {
 	var sig groupsig.Signature
 	e := sig.Deserialize(s.DataSign)
 	if e != nil {
-		logger.Errorf("groupsig.Signature Deserialize error:%s", e.Error())
+		network.Logger.Errorf("[handler]groupsig.Signature Deserialize error:%s", e.Error())
 		return nil
 	}
 
 	id := groupsig.ID{}
 	e1 := id.Deserialize(s.SignMember)
 	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
 		return nil
 	}
 	sign := logical.SignData{DataHash: common.BytesToHash(s.DataHash), DataSign: sig, SignMember: id}
@@ -426,13 +424,13 @@ func pbToSharePiece(s *tas_pb.SharePiece) *logical.SharePiece {
 
 	e1 := share.Deserialize(s.Seckey)
 	if e1 != nil {
-		logger.Errorf("groupsig.Seckey Deserialize error:%s", e1.Error())
+		network.Logger.Errorf("[handler]groupsig.Seckey Deserialize error:%s", e1.Error())
 		return nil
 	}
 
 	e2 := pub.Deserialize(s.Pubkey)
 	if e2 != nil {
-		logger.Errorf("groupsig.Pubkey Deserialize error:%s", e2.Error())
+		network.Logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
 		return nil
 	}
 
@@ -466,13 +464,13 @@ func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
 
 	e1 := id.Deserialize(p.ID)
 	if e1 != nil {
-		logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
+		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
 		return nil
 	}
 
 	e2 := pk.Deserialize(p.PublicKey)
 	if e2 != nil {
-		logger.Errorf("groupsig.Pubkey Deserialize error:%s", e2.Error())
+		network.Logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
 		return nil
 	}
 

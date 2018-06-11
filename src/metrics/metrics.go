@@ -12,11 +12,10 @@ import (
 	"net/http"
 )
 
-
 var Enabled bool
 
-const MetricsEnabledFlag  = "metrics"
-const DashboardEnabledFlag  = "dashboard"
+const MetricsEnabledFlag = "metrics"
+const DashboardEnabledFlag = "dashboard"
 
 func init() {
 	for _, arg := range os.Args {
@@ -52,7 +51,7 @@ func collectTotalRunDurantion(duration time.Duration) {
 
 type DurationCollector struct {
 	startTime time.Time
-	module string
+	module    string
 }
 
 func (d *DurationCollector) Reset() {
@@ -66,24 +65,23 @@ func (d *DurationCollector) Stop() {
 	if !Enabled {
 		return
 	}
-	meter := metrics.GetOrRegisterMeter("module/" + d.module, metrics.DefaultRegistry)
+	meter := metrics.GetOrRegisterMeter("module/"+d.module, metrics.DefaultRegistry)
 	meter.Mark(int64(time.Since(d.startTime)))
 }
 
-func NewDurationCollector(module string) *DurationCollector{
+func NewDurationCollector(module string) *DurationCollector {
 	dc := DurationCollector{time.Now(), module}
 	return &dc
 }
 
-
-func CollectRunDuration(module string) func(){
+func CollectRunDuration(module string) func() {
 	if !Enabled {
 		return func() {
 		}
 	}
 	start := time.Now()
 	return func() {
-		meter := metrics.GetOrRegisterMeter("module/" + module, metrics.DefaultRegistry)
+		meter := metrics.GetOrRegisterMeter("module/"+module, metrics.DefaultRegistry)
 		meter.Mark(int64(time.Since(start)))
 	}
 }
@@ -91,11 +89,11 @@ func CollectRunDuration(module string) func(){
 func EnableInfluxdbReport() {
 	go influxdb.InfluxDB(
 		metrics.DefaultRegistry, // metrics registry
-		time.Second * 5,        // interval
+		time.Second*5,           // interval
 		"http://localhost:8086", // the InfluxDB url
 		"gtas",                  // your InfluxDB database
-		"",                // your InfluxDB user
-		"",            // your InfluxDB password
+		"",                      // your InfluxDB user
+		"",                      // your InfluxDB password
 	)
 }
 
@@ -113,7 +111,7 @@ func getReport() string {
 			buffer.WriteString(fmt.Sprintf("%s: %ds %.2f%% \n", k, v["count"].(int64)/int64(time.Second), float64(v["count"].(int64))/float64(total)*100))
 		}
 	}
-	buffer.WriteString(fmt.Sprintf("total: %ds\n",  total/int64(time.Second)))
+	buffer.WriteString(fmt.Sprintf("total: %ds\n", total/int64(time.Second)))
 	buffer.WriteString("/************************************************************************************************/")
 	log.Println(buffer.String())
 	return buffer.String()
@@ -124,4 +122,3 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	report := fmt.Sprintf("<html><body>%s</body></html>", strings.Replace(getReport(), "\n", "<br>", -1))
 	fmt.Fprintln(w, report)
 }
-

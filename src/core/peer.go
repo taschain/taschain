@@ -1,23 +1,24 @@
 package core
 
 import (
-	"taslog"
 	"pb"
 	"github.com/gogo/protobuf/proto"
 	"network/p2p"
 	"time"
 	"common"
-	"fmt"
+	"network"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
+	SourceId          string
+	RequestTime       time.Time
+}
 
+type EntityTotalQNMessage struct {
+	TotalQN  uint64
 	SourceId string
-
-	RequestTime time.Time
 }
 
 type EntityHeightMessage struct {
@@ -32,11 +33,8 @@ type EntityRequestMessage struct {
 }
 
 type BlockMessage struct {
-	Blocks []*Block
-
-	Height      uint64 //起始高度，如果返回blocks，那就是BLOCKS的起始高度，如果返回blockHashes那就是HASH的起始高度
-	BlockHashes []common.Hash
-	BlockRatios []float32
+	Blocks      []*Block
+	BlockHashes []*ChainBlockHash
 }
 
 type BlockArrivedMessage struct {
@@ -63,7 +61,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 
 	body, e := marshalTransactionRequestMessage(&m)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
@@ -81,7 +79,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 func SendTransactions(txs []*Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
@@ -93,13 +91,13 @@ func BroadcastTransactions(txs []*Transaction) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("Runtime error caught: %v", r)
+			network.Logger.Errorf("[peer]Runtime error caught: %v", r)
 		}
 	}()
 
 	body, e := marshalTransactions(txs)
 	if e != nil {
-		logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
+		network.Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
 	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
@@ -111,6 +109,50 @@ func BroadcastTransactions(txs []*Transaction) {
 			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
 		}
 	}
+}
+
+//向某一节点请求Block
+func RequestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {
+	m := EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash, SourceId: ""}
+	body, e := MarshalEntityRequestMessage(&m)
+	if e != nil {
+		network.Logger.Errorf("[peer]requestBlockByHeight marshal EntityRequestMessage error:%s", e.Error())
+		return
+	}
+	message := p2p.Message{Code: p2p.REQ_BLOCK_MSG, Body: body}
+	p2p.Server.SendMessage(message, id)
+}
+
+type ChainBlockHashesReq struct {
+	Height uint64 //起始高度
+	Length uint64 //从起始高度开始的非空长度
+}
+
+type ChainBlockHash struct {
+	Height uint64 //所在链高度
+	Hash   common.Hash
+}
+
+//向目标结点索要 block hash
+func RequestBlockChainHashes(targetNode string, cbhr ChainBlockHashesReq) {
+	body, e := marshalChainBlockHashesReq(&cbhr)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
+		return
+	}
+	message := p2p.Message{Code: p2p.BLOCK_CHAIN_HASHES_REQ, Body: body}
+	p2p.Server.SendMessage(message, targetNode)
+}
+
+//向目标结点发送 block hash
+func SendChainBlockHashes(targetNode string, cbh []*ChainBlockHash) {
+	body, e := marshalChainBlockHashes(cbh)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
+		return
+	}
+	message := p2p.Message{Code: p2p.BLOCK_CHAIN_HASHES, Body: body}
+	p2p.Server.SendMessage(message, targetNode)
 }
 
 //--------------------------------------------------Transaction---------------------------------------------------------------
@@ -135,7 +177,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 
 	requestTime, e := m.RequestTime.MarshalBinary()
 	if e != nil {
-		logger.Error("TransactionRequestMessage request time marshal error:%s\n", e.Error())
+		network.Logger.Errorf("[peer]TransactionRequestMessage request time marshal error:%s\n", e.Error())
 	}
 	message := tas_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
 	return proto.Marshal(&message)
@@ -197,13 +239,13 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
-		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
+		network.Logger.Errorf("[peer]BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
 		return nil
 	}
 
 	curTime, e2 := h.CurTime.MarshalBinary()
 	if e2 != nil {
-		logger.Errorf("BlockHeaderToPb marshal cur time error:%s", e2.Error())
+		network.Logger.Errorf("[peer]BlockHeaderToPb marshal cur time error:%s", e2.Error())
 		return nil
 	}
 
@@ -220,19 +262,65 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs}
+		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalQN: &h.TotalQN}
 	return &header
 }
 
 func BlockToPb(b *Block) *tas_pb.Block {
 	if b == nil {
-		fmt.Print("Block is nil!")
+		network.Logger.Errorf("[peer]Block is nil!")
 		return nil
 	}
 	header := BlockHeaderToPb(b.Header)
 	transactons := transactionsToPb(b.Transactions)
 	block := tas_pb.Block{Header: header, Transactions: transactons}
 	return &block
+}
+
+func marshalChainBlockHashesReq(req *ChainBlockHashesReq) ([]byte, error) {
+	if req == nil {
+		return nil, nil
+	}
+	cbhr := chainBlockHashesReqToPb(req)
+	return proto.Marshal(cbhr)
+}
+
+func chainBlockHashesReqToPb(req *ChainBlockHashesReq) *tas_pb.ChainBlockHashesReq {
+	if req == nil {
+		return nil
+	}
+	cbhr := tas_pb.ChainBlockHashesReq{Height: &req.Height, Length: &req.Length}
+	return &cbhr
+}
+func marshalChainBlockHashes(cbh []*ChainBlockHash) ([]byte, error) {
+	if cbh == nil {
+		return nil, nil
+	}
+
+	chainBlockHashes := make([]*tas_pb.ChainBlockHash, 0)
+	for _, c := range cbh {
+		chainBlockHashes = append(chainBlockHashes, ChainBlockHashToPb(c))
+	}
+	r := tas_pb.ChainBlockHashSlice{ChainBlockHashes: chainBlockHashes}
+	return proto.Marshal(&r)
+}
+
+func ChainBlockHashToPb(cbh *ChainBlockHash) *tas_pb.ChainBlockHash {
+	if cbh == nil {
+		return nil
+	}
+
+	r := tas_pb.ChainBlockHash{Hash: cbh.Hash.Bytes(), Height: &cbh.Height}
+	return &r
+}
+
+func MarshalEntityRequestMessage(e *EntityRequestMessage) ([]byte, error) {
+	sourceHeight := e.SourceHeight
+	currentHash := e.SourceCurrentHash.Bytes()
+	sourceId := []byte(e.SourceId)
+
+	m := tas_pb.EntityRequestMessage{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash, SourceId: sourceId}
+	return proto.Marshal(&m)
 }
 
 //--------------------------------------------------Group---------------------------------------------------------------

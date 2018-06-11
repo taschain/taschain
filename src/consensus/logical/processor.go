@@ -15,45 +15,45 @@ import (
 )
 
 //自己的出块信息
-type SelfCastInfo struct {
-	block_qns map[uint64][]uint //当前节点已经出过的块(高度->出块QN列表)
-}
-
-func (sci *SelfCastInfo) Init() {
-	sci.block_qns = make(map[uint64][]uint, 0)
-}
-
-func (sci *SelfCastInfo) FindQN(height uint64, newQN uint) bool {
-	qns, ok := sci.block_qns[height]
-	if ok {
-		for _, qn := range qns {
-			if qn == newQN { //该newQN已存在
-				return true
-			}
-		}
-		return false
-	} else {
-		return false
-	}
-}
-
-//如该QN已存在，则返回false
-func (sci *SelfCastInfo) AddQN(height uint64, newQN uint) bool {
-	qns, ok := sci.block_qns[height]
-	if ok {
-		for _, qn := range qns {
-			if qn == newQN { //该newQN已存在
-				return false
-			}
-		}
-		sci.block_qns[height] = append(sci.block_qns[height], newQN)
-		return true
-	} else {
-		sci.block_qns[height] = []uint{newQN}
-		return true
-	}
-	return false
-}
+//type SelfCastInfo struct {
+//	block_qns map[uint64][]uint //当前节点已经出过的块(高度->出块QN列表)
+//}
+//
+//func (sci *SelfCastInfo) Init() {
+//	sci.block_qns = make(map[uint64][]uint, 0)
+//}
+//
+//func (sci *SelfCastInfo) FindQN(height uint64, newQN uint) bool {
+//	qns, ok := sci.block_qns[height]
+//	if ok {
+//		for _, qn := range qns {
+//			if qn == newQN { //该newQN已存在
+//				return true
+//			}
+//		}
+//		return false
+//	} else {
+//		return false
+//	}
+//}
+//
+////如该QN已存在，则返回false
+//func (sci *SelfCastInfo) AddQN(height uint64, newQN uint) bool {
+//	qns, ok := sci.block_qns[height]
+//	if ok {
+//		for _, qn := range qns {
+//			if qn == newQN { //该newQN已存在
+//				return false
+//			}
+//		}
+//		sci.block_qns[height] = append(sci.block_qns[height], newQN)
+//		return true
+//	} else {
+//		sci.block_qns[height] = []uint{newQN}
+//		return true
+//	}
+//	return false
+//}
 
 var PROC_TEST_MODE bool
 
@@ -64,7 +64,7 @@ type Processer struct {
 	bcs map[string]*BlockContext //组ID->组铸块上下文
 	gg  GlobalGroups             //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
-	sci SelfCastInfo //当前节点的出块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）。组内成员动态数据。
+	//sci SelfCastInfo //当前节点的出块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）。组内成员动态数据。
 	//////和组无关的矿工信息
 	mi MinerInfo
 	//////加入(成功)的组信息(矿工节点数据)
@@ -256,7 +256,8 @@ func (p Processer) Save() {
 
 //立即触发一次检查自己是否下个铸块组
 func (p *Processer) triggerCastCheck()  {
-    p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    //p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+    p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
 //检查是否当前组铸块
@@ -268,6 +269,12 @@ func (p *Processer) checkSelfCastRoutine() bool {
 
 	if len(p.belongGroups) == 0 || len(p.bcs) == 0 {
 		log.Printf("current node don't belong to anygroup!!")
+		return false
+	}
+
+	if p.MainChain.IsAdujsting() {
+		log.Printf("checkSelfCastRoutine: isAdjusting, return...\n")
+		p.triggerCastCheck()
 		return false
 	}
 
@@ -285,7 +292,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		castHeight = top.Height + deltaHeight
 	}
 
-	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, top.Hash, top.CurTime, castHeight)
+	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight)
 
 	casting := false
 	for _, _bc := range p.bcs {
@@ -315,7 +322,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.StartCast(castHeight, top.CurTime, top.Hash, true)
+		bc.StartCast(castHeight, top.CurTime, top.Hash)
 
 		return true
 	} else  {	//自己不是下一个铸块组, 但是当前在铸块
@@ -343,7 +350,7 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.jgs.Init()
 	p.belongGroups = make(map[string]JoinedGroup, 0)
 	p.bcs = make(map[string]*BlockContext, 0)
-	p.sci.Init()
+	//p.sci.Init()
 
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	p.load_data = cc.GetInt("LOAD_DATA", 0)
@@ -359,6 +366,7 @@ func (p *Processer) Init(mi MinerInfo) bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
 
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
+	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	return true
 }
 
@@ -605,15 +613,15 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	} else {
 		log.Printf("Add dummy to chain success! count: %d, now: %d", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
 	}
-	log.Printf("Waiting 60s for dummy group sync...\n")
-	time.Sleep(30 * time.Second)
+	log.Printf("Waiting 20s for dummy group sync...\n")
+	time.Sleep(20 * time.Second)
+	log.Printf("Begin group init!\n")
 	SendGroupInitMessage(grm)
 	return 0
 }
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
 func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
-	log.Printf("proc(%v) verifyCast, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(), GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
 
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
 		log.Printf("beingCastGroup failed, node not in this group.\n")
@@ -627,9 +635,9 @@ func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
 	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
 
 	if signPk.IsValid() { //该用户和我是同一组
-		log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
-		log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
-			GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
+		//log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
+		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
+		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
 		if si.VerifySign(signPk) { //消息合法
 			log.Printf("message verify sign OK, find gid=%v blockContext...\n", GetIDPrefix(cgs.GroupID))
 			return true
@@ -659,15 +667,16 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	}
 	log.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 
+	if p.blockOnChain(bh) {	//已经上链
+		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
+		vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+		return
+	}
 
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! won't broadcast block!")
-		if p.MainChain.QueryBlockByHash(bh.Hash) != nil {	//已经上链
-			log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
-			vctx.CastedUpdateStatus(int64(bh.QueueNumber))
-		}
 		return
 	}
 
@@ -685,35 +694,42 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	cbm.GenSign(ski)
 	if !PROC_TEST_MODE {
 		log.Printf("call network service BroadcastNewBlock...\n")
+		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock")
 		go BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
-		p.triggerFutureVerifyMsg(bh.Hash)
 	}
 	log.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
 
+func (p *Processer) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
+	sgi := p.getGroup(gid)
+	return int32(sgi.GetMinerPos(uid))
+}
+
 //检查是否轮到自己出块
-func (p *Processer) checkCastRoutine(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
+func (p *Processer) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
 	//p.castLock.Lock()
 	//defer p.castLock.Unlock()
 	gid := bc.MinerID.gid
 	height := vctx.castHeight
 
-	log.Printf("prov(%v) begin CheckCastRoutine, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
+	log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
 	if kingIndex < 0 || qn < 0 {
 		return
 	}
+
 	sgi := p.getGroup(gid)
-	pos := sgi.GetMinerPos(p.GetMinerID()) //取得当前节点在组中的排位
+	pos := p.getMinerPos(gid, p.GetMinerID()) //取得当前节点在组中的排位
+
 	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(kingIndex))))
 	log.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		log.Printf("curent node IS KING!\n")
-		if !p.sci.FindQN(height, uint(qn)) { //在该高度该QN，自己还没铸过快
+		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
 			head := p.castBlock(bc, vctx, qn) //铸块
 			if head != nil {
-				p.sci.AddQN(height, uint(qn))
+				vctx.addCastedQN(qn)
 			}
 		} else {
 			log.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
@@ -821,7 +837,6 @@ func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *c
 	height := vctx.castHeight
 
 	log.Printf("begin Processer::castBlock, height=%v, qn=%v...\n", height, qn)
-	var bh *core.BlockHeader
 	//var hash common.Hash
 	//hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : change nonce
@@ -829,33 +844,18 @@ func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *c
 	gid := bc.MinerID.gid
 
 	//调用鸠兹的铸块处理
-	if !PROC_TEST_MODE {
-		block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
-		if block == nil {
-			log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-			//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-			return nil
-		}
-		for _, tx := range block.Transactions {
-			if tx == nil {
-				log.Printf("castBlock tx hashs %v\n", block.Header.Transactions)
-				//panic(fmt.Sprintf("castBlock transaction is nil!, height=%v, hash=%v", block.Header.Height, block.Header.Hash))
-			}
-		}
-
-		bh = block.Header
-
-		log.Printf("AAAAAA castBlock bh %v\n", p.blockPreview(bh))
-		log.Printf("AAAAAA chain top bh %v\n", p.blockPreview(p.MainChain.QueryTopBlock()))
-
-	} else {
-		bh = genDummyBH(int(qn), p.GetMinerID())
-		bh.GroupId = gid.Serialize()
-		bh.Castor = p.GetMinerID().Serialize()
-		bh.Nonce = uint64(nonce)
-		bh.Height = uint64(height)
-		bh.Hash = bh.GenHash()
+	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+	if block == nil {
+		log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
+		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+		return nil
 	}
+
+	bh := block.Header
+
+	log.Printf("AAAAAA castBlock bh %v\n", p.blockPreview(bh))
+	log.Printf("AAAAAA chain top bh %v\n", p.blockPreview(p.MainChain.QueryTopBlock()))
+
 
 	var si SignData
 	si.DataHash = bh.Hash

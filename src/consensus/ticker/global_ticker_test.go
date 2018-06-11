@@ -19,18 +19,18 @@ func TestGlobalTicker_RegisterRoutine(t *testing.T) {
 
 	time.Sleep(time.Second * 5)
 
-	ticker.RegisterRoutine("name1", handler("name1 exec1"), uint32(2),true)
+	ticker.RegisterRoutine("name1", handler("name1 exec1"), uint32(2))
 
 	time.Sleep(time.Second * 5)
-	ticker.RegisterRoutine("name2", handler("name2 exec1"), uint32(3),true)
+	ticker.RegisterRoutine("name2", handler("name2 exec1"), uint32(3))
 	time.Sleep(time.Second * 5)
 
-	ticker.RegisterRoutine("name3", handler("name3 exec1"), uint32(4),false)
+	ticker.RegisterRoutine("name3", handler("name3 exec1"), uint32(4))
 
-	ticker.RemoveRoutine("name1")
+	ticker.StopTickerRoutine("name1")
 
 
 	time.Sleep(time.Second * 5)
-	ticker.RemoveRoutine("name3")
+	ticker.StopTickerRoutine("name3")
 	time.Sleep(time.Second * 55)
 }

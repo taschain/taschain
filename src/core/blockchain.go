@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
-	"sync"
 	"os"
 	"vm/core/state"
 	c "vm/common"
@@ -18,12 +17,19 @@ import (
 	"fmt"
 	"vm/common/math"
 	"bytes"
+	"consensus/groupsig"
 	"log"
+	"network/p2p"
+	"middleware"
+	"network"
 )
 
 const (
-	BLOCK_STATUS_KEY = "bcurrent"
-	CONFIG_SEC       = "chain"
+	BLOCK_STATUS_KEY                    = "bcurrent"
+	CONFIG_SEC                          = "chain"
+	CHAIN_BLOCK_HASH_INIT_LENGTH uint64 = 10
+
+	BLOCK_CHAIN_ADJUST_TIME_OUT = 10 * time.Second
 )
 
 var BlockChainImpl *BlockChain
@@ -60,7 +66,7 @@ type BlockChain struct {
 	//height uint64
 
 	// 读写锁
-	lock sync.RWMutex
+	lock middleware.Loglock
 
 	// 是否可以工作
 	init bool
@@ -72,6 +78,10 @@ type BlockChain struct {
 	voteProcessor VoteProcessor
 
 	blockCache *lru.Cache
+
+	isAdujsting bool
+
+	solitaryBlocks *lru.Cache
 }
 
 type castingBlock struct {
@@ -117,8 +127,9 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock: sync.RWMutex{},
-		init: true,
+		lock:        middleware.NewLoglock("chain"),
+		init:        true,
+		isAdujsting: false,
 	}
 
 	var err error
@@ -127,6 +138,7 @@ func initBlockChain() error {
 	if err != nil {
 		return err
 	}
+	chain.solitaryBlocks, _ = lru.New(100)
 
 	//从磁盘文件中初始化leveldb
 	chain.blocks, err = datasource.NewDatabase(chain.config.block)
@@ -187,69 +199,190 @@ func (chain *BlockChain) Close() {
 }
 
 func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("SetVoteProcessor")
+	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
 }
 
 func (chain *BlockChain) Height() uint64 {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	if nil == chain.latestBlock {
 		return math.MaxUint64
 	}
 	return chain.latestBlock.Height
 }
 
+func (chain *BlockChain) TotalQN() uint64 {
+	if nil == chain.latestBlock {
+		return 0
+	}
+	return chain.latestBlock.TotalQN
+}
+
 func (chain *BlockChain) LatestStateDB() *state.StateDB {
 	return chain.latestStateDB
 }
 
-func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+func (chain *BlockChain) IsAdujsting() bool {
+	return chain.isAdujsting
+}
 
-	localHeight := chain.latestBlock.Height
-	if height >= localHeight {
+func (chain *BlockChain) SetAdujsting(isAjusting bool) {
+	chain.isAdujsting = isAjusting
+}
+
+//获取当前从height到本地最新的所有的块
+//进行HASH校验，如果请求结点和当前结点在同一条链上面 则返回对应的块，否则返回本地block hash信息 通知请求结点进行链调整
+func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *BlockMessage {
+	chain.lock.RLock("GetBlockMessage")
+	defer chain.lock.RUnlock("GetBlockMessage")
+	if chain.isAdujsting {
 		return nil
 	}
+	localHeight := chain.latestBlock.Height
 
-	//todo: 当前简单处理，暂时不处理分叉问题
-	blocks := make([]*Block, 0)
+	bh := chain.QueryBlockByHeight(height)
+	if bh != nil && bh.Hash == hash {
+		//当前结点和请求结点在同一条链上
+		network.Logger.Debugf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!\n")
+		blocks := make([]*Block, 0)
 
-	for i := height + 1; i <= localHeight; i++ {
-		bh := chain.queryBlockHeaderByHeight(i, true)
-		if nil == bh {
-			continue
+		for i := height + 1; i <= localHeight; i++ {
+			bh := chain.queryBlockHeaderByHeight(i, true)
+			if nil == bh {
+				continue
+			}
+			b := chain.queryBlockByHash(bh.Hash)
+			if nil == b {
+				continue
+			}
+
+			blocks = append(blocks, b)
 		}
-		b := chain.queryBlockByHash(bh.Hash)
-		if nil == b {
-			continue
+
+		return &BlockMessage{
+			Blocks: blocks,
 		}
-
-		blocks = append(blocks,b)
-	}
-
-	return &BlockMessage{
-		Blocks: blocks,
+	} else {
+		//当前结点和请求结点不在同一条链
+		network.Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!\n")
+		var cbh []*ChainBlockHash
+		if height > localHeight {
+			cbh = GetBlockHashesFromLocalChain(localHeight, CHAIN_BLOCK_HASH_INIT_LENGTH)
+		} else {
+			cbh = GetBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
+		}
+		return &BlockMessage{
+			BlockHashes: cbh,
+		}
 	}
 }
 
-func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error {
-	blocks := bm.Blocks
-	if nil == blocks || 0 == len(blocks) {
-		return ErrNil
+//从当前链上获取block hash
+//height 起始高度
+//length 起始高度向下算非空块的长度
+func GetBlockHashesFromLocalChain(height uint64, length uint64) []*ChainBlockHash {
+	if BlockChainImpl.isAdujsting {
+		return nil
 	}
-
-	for _, block := range blocks {
-		code := chain.AddBlockOnChain(block)
-		if 0 != code {
-			return fmt.Errorf("fail to add, code:%d", code)
+	var i uint64
+	r := make([]*ChainBlockHash, 0)
+	for i = 0; i < length; {
+		if height < 0 {
+			break
+		}
+		bh := BlockChainImpl.queryBlockHeaderByHeight(height, true)
+		if bh == nil {
+			height--
+			continue
+		} else {
+			cbh := ChainBlockHash{Hash: bh.Hash, Height: bh.Height}
+			r = append(r, &cbh)
+			i++
 		}
 	}
-	return nil
+	return r
+}
+
+//func (chain *BlockChain) AddBlockMessage(bm BlockMessage) error {
+//	blocks := bm.Blocks
+//	if blocks != nil || len(blocks) != 0 {
+//		for _, block := range blocks {
+//			code := chain.AddBlockOnChain(block)
+//			if code < 0 {
+//				return fmt.Errorf("fail to add, code:%d", code)
+//			}
+//		}
+//	} else {
+//		blockHashes := bm.BlockHashes
+//		if blockHashes == nil{
+//			return ErrNil
+//		}
+//		height, hasCommonAncestor := FindCommonAncestor(blockHashes,0,len(blockHashes)-1)
+//		if hasCommonAncestor{
+//
+//		}else {
+//			RequestBlockChainHashes()
+//		}
+//	}
+//	return nil
+//}
+
+func FindCommonAncestor(cbhr []*ChainBlockHash, l int, r int) (*ChainBlockHash, bool) {
+
+	if l > r || r < 0 || l >= len(cbhr) {
+		return nil, false
+	}
+	m := (l + r) / 2
+	result := isCommonAncestor(cbhr, m)
+	if result == 0 {
+		return cbhr[m], true
+	}
+
+	if result == 1 {
+		return FindCommonAncestor(cbhr, l, m-1)
+	}
+
+	if result == -1 {
+		return FindCommonAncestor(cbhr, m+1, r)
+	}
+	return nil, false
+}
+
+//返回值
+// 0  当前HASH相等，后面一块HASH不相等
+//1   当前HASH相等，后面一块HASH相等
+//-1  当前HASH不相等
+//-100 参数不合法
+func isCommonAncestor(cbhr []*ChainBlockHash, index int) int {
+	if index < 0 || index >= len(cbhr) {
+		return -100
+	}
+	he := cbhr[index]
+	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
+	if bh == nil {
+		network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
+		return -1
+	}
+	network.Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	if index == 0 && bh.Hash == he.Hash {
+		return 0
+	}
+	//判断更高的一块
+	afterHe := cbhr[index-1]
+	afterbh := BlockChainImpl.queryBlockHeaderByHeight(afterHe.Height, true)
+	if afterbh == nil {
+		network.Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
+		return -1
+	}
+	network.Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
+		return 0
+	}
+	if afterHe.Hash == afterbh.Hash && bh.Hash == he.Hash {
+		return 1
+	}
+	return -1
 }
 
 func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
@@ -270,8 +403,8 @@ func (chain *BlockChain) GetNonce(address common.Address) uint64 {
 
 //清除链所有数据
 func (chain *BlockChain) Clear() error {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("Clear")
+	defer chain.lock.Unlock("Clear")
 
 	chain.init = false
 	chain.latestBlock = nil
@@ -341,17 +474,13 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, erro
 //辅助方法族
 //查询最高块
 func (chain *BlockChain) QueryTopBlock() *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
+	chain.lock.RLock("QueryTopBlock")
+	defer chain.lock.RUnlock("QueryTopBlock")
 	return chain.latestBlock
 }
 
 //根据指定哈希查询块
 func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
 	return chain.queryBlockHeaderByHash(hash)
 }
 
@@ -364,7 +493,6 @@ func (chain *BlockChain) queryBlockByHash(hash common.Hash) *Block {
 		if err != nil || &block == nil {
 			return nil
 		}
-
 		return block
 	} else {
 		return nil
@@ -419,21 +547,20 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 // 根据指定高度查询块
 // 带有缓存
 func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("QueryBlockByHeight")
+	defer chain.lock.RUnlock("QueryBlockByHeight")
 
 	return chain.queryBlockHeaderByHeight(height, true)
 }
 
 func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
-	chain.lock.Lock()
-	chain.lock.Unlock()
 
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
 		log.Printf("[block] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
 	}
+
 	block := new(Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
@@ -444,6 +571,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
+		TotalQN:     latestBlock.TotalQN + queueNumber,
 	}
 
 	if latestBlock != nil {
@@ -457,7 +585,8 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		buffer.WriteString("fail to new statedb, lateset height: ")
 		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
 		buffer.WriteString(", block height: ")
-		buffer.WriteString(fmt.Sprintf("%d", block.Header.Height))
+		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
+		buffer.WriteString(fmt.Sprint(err))
 		panic(buffer.String())
 
 	}
@@ -494,7 +623,7 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		receipts: receipts,
 	})
 
-	log.Printf("[block]cast block success. blockheader: %+v txs: %+v\n", block.Header, block.Transactions)
+	log.Printf("[block]cast block success. blockheader: %x\n", block.Header.Hash)
 	return block
 }
 
@@ -505,17 +634,20 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
-//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
+//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求;=2 当前链正在调整，无法检验
 func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+	chain.lock.Lock("VerifyCastingBlock")
+	defer chain.lock.Unlock("VerifyCastingBlock")
 
-	return chain.verifyCastingBlock(bh)
+	if chain.isAdujsting {
+		return nil, 2, nil, nil
+	}
+	return chain.verifyCastingBlock(bh, nil)
 }
 
-func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
 
-	log.Printf("[block] start to verifyCastingBlock, %+v\n", bh)
+	log.Printf("[block] start to verifyCastingBlock, %x\n", bh.Hash)
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
@@ -531,16 +663,22 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 
 	// 验证交易
 	missing := make([]common.Hash, 0)
-	transactions := make([]*Transaction, len(bh.Transactions))
-	for i, hash := range bh.Transactions {
-		transaction, err := chain.transactionPool.GetTransaction(hash)
-		if err != nil {
-			missing = append(missing, hash)
-		} else {
-			transactions[i] = transaction
-		}
+	var transactions []*Transaction
+	if nil == txs {
+		transactions = make([]*Transaction, len(bh.Transactions))
+		for i, hash := range bh.Transactions {
+			transaction, err := chain.transactionPool.GetTransaction(hash)
+			if err != nil {
+				missing = append(missing, hash)
+			} else {
+				transactions[i] = transaction
+			}
 
+		}
+	} else {
+		transactions = txs
 	}
+
 	if 0 != len(missing) {
 		//广播，索取交易
 		m := &TransactionRequestMessage{
@@ -592,10 +730,18 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 }
 
 //铸块成功，上链
-//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+//返回值: 0,上链成功
+//       -1，验证失败
+//        1,链上已存在该块或链上存在QN值更大的相同高度块，丢弃该块
+//        2，未上链，缓存该块
+//        3 未上链，异步进行分叉调整
+func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
+
+	// 验证块是否已经在链上
+	existed := chain.queryBlockByHash(b.Header.Hash)
+	if nil != existed {
+		return 1
+	}
 
 	var (
 		state    *state.StateDB
@@ -612,55 +758,70 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 		receipts = cache.(*castingBlock).receipts
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
-		// 验证块是否已经在链上
-		existed := chain.queryBlockByHash(b.Header.Hash)
-		if nil != existed {
-			return 0
-		}
-
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header)
+		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status != 0 {
-			log.Printf("[block]fail to VerifyCastingBlock, reason code:%d \n", status)
+			log.Printf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
 
-	preHash := b.Header.PreHash
-	if preHash == chain.latestBlock.Hash {
+	// 完美情况
+	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
 	} else {
-		status = chain.adjust(b)
+		height := b.Header.Height
+		if height > chain.Height() && chain.queryBlockByHash(b.Header.PreHash) == nil {
+			chain.solitaryBlocks.Add(b.Header.PreHash, b)
+			return 2
+		} else if height == chain.Height() && b.Header.PreHash == chain.latestBlock.PreHash {
+			localBlock := chain.latestBlock
+			if localBlock.QueueNumber > b.Header.QueueNumber {
+				return 1
+			} else {
+				status = chain.saveBlock(b)
+			}
+		} else {
+			//出现分叉，进行链调整
+			chain.isAdujsting = true
+			network.Logger.Debugf("[BlockChain]Local block chain has fork,adjusting...\n")
+			go chain.adjust(b)
+
+			go func() {
+				t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
+
+				<-t.C
+				network.Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!\n")
+				chain.isAdujsting = false
+			}()
+			status = 3
+		}
 	}
-	// 检查高度
-	//height := b.Header.Height
-	//
-	//// 完美情况
-	//if height == (chain.latestBlock.Height + 1) {
-	//	status = chain.saveBlock(b)
-	//} else if height > (chain.latestBlock.Height + 1) {
-	//	//todo:高度超出链当前链的最大高度，这种case是否等价于父块没有?
-	//	log.Printf("[block]fail to check height, blockHeight:%d, chainHeight:%d \n", height, chain.latestBlock.Height)
-	//	return -2
-	//} else {
-	//	status = chain.adjust(b)
-	//}
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
-		chain.transactionPool.Lock()
 		chain.transactionPool.Remove(b.Header.Transactions)
 		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
-		defer chain.transactionPool.Unlock()
-
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
+		solitaryBlock, r := chain.solitaryBlocks.Get(b.Header.Hash)
+		if r {
+			chain.addBlockOnChain(solitaryBlock.(*Block))
+		}
 	}
 	return status
 
+}
+
+func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
+	chain.lock.Lock("AddBlockOnChain")
+	defer chain.lock.Unlock("AddBlockOnChain")
+
+	return chain.addBlockOnChain(b)
 }
 
 // 保存block到ldb
@@ -697,7 +858,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
-		log.Printf("[block]fail to put current, error:%s \n", err)
+		fmt.Printf("[block]fail to put current, error:%s \n", err)
 		return -1
 	}
 
@@ -706,44 +867,34 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 
 // 链分叉，调整主链
 // todo:错误回滚
-func (chain *BlockChain) adjust(b *Block) int8 {
-	preHeader := chain.queryBlockHeaderByHash(b.Header.PreHash)
-	if preHeader == nil {
-		log.Printf("[block]fail to queryBlockByHeight, height:%d \n", b.Header.Height)
-		return -1
-	}
-
-	upHeader := chain.latestBlock
-	for upHeader.PreHash != preHeader.Hash {
-		upHeader = chain.queryBlockHeaderByHash(upHeader.PreHash)
-	}
-
-	// todo:判断权重，决定是否要替换
-	if chain.weight(upHeader, b.Header) {
-		tmpHeader := chain.latestBlock
-		for h := tmpHeader.Hash; h != preHeader.Hash; h = tmpHeader.PreHash {
-			tmpHeader = chain.queryBlockHeaderByHash(h)
-			if tmpHeader == nil {
+func (chain *BlockChain) adjust(b *Block) {
+	chain.lock.Lock("adjust")
+	defer chain.lock.Unlock("adjust")
+	localTotalQN := chain.TotalQN()
+	bTotalQN := b.Header.TotalQN
+	if localTotalQN >= bTotalQN {
+		log.Printf("[BlockChain]do  not adjust, local chain's total qn: %d,is greater than coming total qn:%d \n", localTotalQN, bTotalQN)
+		return
+	} else {
+		//删除自身链的结点
+		for height := b.Header.Height; height <= chain.latestBlock.Height; height++ {
+			header := chain.queryBlockHeaderByHeight(height, true)
+			if header == nil {
 				continue
 			}
-			chain.remove(tmpHeader)
-			chain.topBlocks.Remove(tmpHeader.Height)
+			chain.remove(header)
+			chain.topBlocks.Remove(header.Height)
 		}
-		// 替换
-		//for height := preHeader.Height + 1; height <= chain.latestBlock.Height; height++ {
-		//	preHeader = chain.queryBlockHeaderByHeight(height, true)
-		//	if preHeader == nil {
-		//		continue
-		//	}
-		//	chain.remove(preHeader)
-		//	chain.topBlocks.Remove(preHeader.Height)
-		//}
 
-		return chain.saveBlock(b)
-	} else {
-		log.Printf("[block]fail to adjust, height:%d, current bigger than coming. current qn: %d, coming qn:%d \n", b.Header.Height, preHeader.QueueNumber, b.Header.QueueNumber)
-
-		return 2
+		var castorId groupsig.ID
+		error := castorId.Deserialize(b.Header.Castor)
+		if error != nil {
+			log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
+			return
+		}
+		cbhr := ChainBlockHashesReq{Height: b.Header.Height, Length: CHAIN_BLOCK_HASH_INIT_LENGTH}
+		log.Printf("[BlockChain]adjust block chain from %s,Base height:%d,Length:%d", p2p.ConvertToPeerID(castorId.GetString()), b.Header.Height, CHAIN_BLOCK_HASH_INIT_LENGTH)
+		RequestBlockChainHashes(castorId.GetString(), cbhr)
 	}
 
 }
@@ -754,11 +905,9 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 	return h
 }
 
-// 判断权重
-//第一顺为权重1，第二顺位权重2，第三顺位权重4...，即权重越低越好（但0为无效）
+// 判断两个块所在的链的权重，取权重最大的块所在的链进行同步
 func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
-
-	return current.QueueNumber < candidate.QueueNumber
+	return current.TotalQN > candidate.TotalQN
 }
 
 // 删除块
@@ -773,10 +922,8 @@ func (chain *BlockChain) remove(header *BlockHeader) {
 		return
 	}
 	txs := block.Transactions
-	chain.transactionPool.Lock()
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.addTxs(txs)
-	defer chain.transactionPool.Unlock()
 }
 
 func (chain *BlockChain) GetTransactionPool() *TransactionPool {
@@ -803,8 +950,8 @@ func (chain *BlockChain) getStartIndex() uint64 {
 }
 
 func (chain *BlockChain) GetTopBlocks() []*BlockHeader {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
+	chain.lock.RLock("GetTopBlocks")
+	defer chain.lock.RUnlock("GetTopBlocks")
 
 	start := chain.getStartIndex()
 	result := make([]*BlockHeader, chain.latestBlock.Height-start+1)

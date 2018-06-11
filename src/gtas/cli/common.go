@@ -59,7 +59,7 @@ func rpcPost(addr string, port uint, method string, params ...interface{}) (*RPC
 
 func genHash(hash string) []byte {
 	bytes3 := []byte(hash)
-	return core.Sha256(bytes3)
+	return common.Sha256(bytes3)
 }
 
 func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *core.Transaction {

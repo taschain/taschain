@@ -4,19 +4,14 @@ import (
 	"time"
 	"core"
 	"sync"
-	"common"
 	"utility"
 	"network/p2p"
-	"taslog"
 	"pb"
 	"github.com/gogo/protobuf/proto"
-	"log"
 )
 
-var logger = taslog.GetLogger(taslog.P2PConfig)
-
 const (
-	BLOCK_HEIGHT_RECEIVE_INTERVAL = 5 * time.Second
+	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 5 * time.Second
 
 	BLOCK_SYNC_INTERVAL = 10 * time.Second
 )
@@ -24,18 +19,18 @@ const (
 var BlockSyncer blockSyncer
 
 type blockSyncer struct {
-	neighborMaxHeight uint64     //邻居节点的最大高度
-	bestNodeId        string     //最佳同步节点
-	maxHeightLock     sync.Mutex //同步锁
+	neighborMaxTotalQN uint64     //邻居节点的最大高度
+	bestNodeId         string     //最佳同步节点
+	maxTotalQNLock     sync.Mutex //同步锁
 
-	HeightRequestCh chan string
-	HeightCh        chan core.EntityHeightMessage
-	BlockRequestCh  chan core.EntityRequestMessage
-	BlockArrivedCh  chan core.BlockArrivedMessage
+	TotalQNRequestCh chan string
+	TotalQNCh        chan core.EntityTotalQNMessage
+	BlockRequestCh   chan core.EntityRequestMessage
+	BlockArrivedCh   chan core.BlockArrivedMessage
 }
 
 func InitBlockSyncer() {
-	BlockSyncer = blockSyncer{neighborMaxHeight: 0, HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
+	BlockSyncer = blockSyncer{neighborMaxTotalQN: 0, TotalQNRequestCh: make(chan string), TotalQNCh: make(chan core.EntityTotalQNMessage),
 		BlockRequestCh: make(chan core.EntityRequestMessage), BlockArrivedCh: make(chan core.BlockArrivedMessage),}
 	go BlockSyncer.start()
 }
@@ -45,75 +40,109 @@ func (bs *blockSyncer) start() {
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
 		select {
-		case sourceId := <-bs.HeightRequestCh:
-			//logger.Debugf("BlockSyncer HeightRequestCh get message from:%s", sourceId)
+		case sourceId := <-bs.TotalQNRequestCh:
+			//logger.Debugf("[BlockSyncer] TotalQNRequestCh get message from:%s\n", sourceId)
 			//收到块高度请求
 			if nil == core.BlockChainImpl {
 				return
 			}
-			sendBlockHeight(sourceId, core.BlockChainImpl.Height())
-		case h := <-bs.HeightCh:
-			//logger.Debugf("BlockSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			sendBlockTotalQN(sourceId, core.BlockChainImpl.TotalQN())
+		case h := <-bs.TotalQNCh:
+			//logger.Debugf("[BlockSyncer] TotalQNCh get message from:%s,it's totalQN is:%d\n", h.SourceId, h.TotalQN)
 			//收到来自其他节点的块链高度
-			bs.maxHeightLock.Lock()
-			if h.Height > bs.neighborMaxHeight {
-				bs.neighborMaxHeight = h.Height
+			bs.maxTotalQNLock.Lock()
+			if h.TotalQN > bs.neighborMaxTotalQN {
+				bs.neighborMaxTotalQN = h.TotalQN
 				bs.bestNodeId = h.SourceId
 			}
-			bs.maxHeightLock.Unlock()
+			bs.maxTotalQNLock.Unlock()
 		case br := <-bs.BlockRequestCh:
-			//logger.Debugf("BlockRequestCh get message from:%s\n,current height:%d,current hash:%s", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
+			//logger.Debugf("[BlockSyncer] BlockRequestCh get message from:%s,request height:%d,request current hash:%s\n", br.SourceId, br.SourceHeight, br.SourceCurrentHash.String())
 			//收到块请求
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlocks(br.SourceId, core.BlockChainImpl.GetBlockMessage(br.SourceHeight, br.SourceCurrentHash))
 		case bm := <-bs.BlockArrivedCh:
-			//logger.Debugf("BlockArrivedCh get message from:%s,block length:%v", bm.SourceId, len(bm.BlockEntity.Blocks))
+			//logger.Debugf("[BlockSyncer] BlockArrivedCh get message from:%s\n", bm.SourceId)
 			//收到块信息
 			if nil == core.BlockChainImpl {
 				return
 			}
-			e := core.BlockChainImpl.AddBlockMessage(bm.BlockEntity)
-			if e != nil {
-				logger.Debugf("Block chain add block error:%s", e.Error())
+			blocks := bm.BlockEntity.Blocks
+			if blocks != nil && len(blocks) != 0 {
+				logger.Debugf("[BlockSyncer] BlockArrivedCh get block,length:%d\n", len(blocks))
+				for i := 0; i < len(blocks); i++ {
+					block := blocks[i]
+					code := core.BlockChainImpl.AddBlockOnChain(block)
+					if code < 0 {
+						panic("fail to add block to block chain")
+					}
+					//todo 如果将来改为发送多次 此处需要修改
+					if i == len(blocks)-1 {
+						core.BlockChainImpl.SetAdujsting(false)
+					}
+				}
+			} else {
+				blockHashes := bm.BlockEntity.BlockHashes
+				if len(blockHashes) == 0 {
+					logger.Debugf("[BlockSyncer] BlockArrivedCh get block hashes,length:%d", len(blockHashes))
+					return
+				} else {
+					logger.Debugf("[BlockSyncer] BlockArrivedCh get block hashes,length:%d,lowest height:%d\n", len(blockHashes), blockHashes[len(blockHashes)-1].Height)
+					if blockHashes == nil {
+						return
+					}
+					blockHash, hasCommonAncestor := core.FindCommonAncestor(blockHashes, 0, len(blockHashes)-1)
+					if hasCommonAncestor {
+						logger.Debugf("[BlockSyncer]Got common ancestor! Height:%d\n", blockHash.Height)
+						core.RequestBlockByHeight(bm.SourceId, blockHash.Height, blockHash.Hash)
+					} else {
+						cbhr := core.ChainBlockHashesReq{Height: blockHashes[len(blockHashes)-1].Height, Length: uint64(len(blockHashes) * 10)}
+						logger.Debugf("[BlockSyncer]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", bm.SourceId, cbhr.Height, cbhr.Length)
+						core.RequestBlockChainHashes(bm.SourceId, cbhr)
+					}
+				}
 			}
 		case <-t.C:
-			//logger.Debug("sync time up, start to block sync!")
+			//logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			bs.syncBlock()
 		}
 	}
 }
 
 func (bs *blockSyncer) syncBlock() {
-	go requestBlockChainHeight()
-	t := time.NewTimer(BLOCK_HEIGHT_RECEIVE_INTERVAL)
+	go requestBlockChainTotalQN()
+	t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
 
 	<-t.C
-	//logger.Debug("block height request  time up!")
 	//获取本地块链高度
 	if nil == core.BlockChainImpl {
 		return
 	}
 
-	localHeight, currentHash := core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
-	bs.maxHeightLock.Lock()
-	maxHeight := bs.neighborMaxHeight
+	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
+	bs.maxTotalQNLock.Lock()
+	maxTotalQN := bs.neighborMaxTotalQN
 	bestNodeId := bs.bestNodeId
-	bs.maxHeightLock.Unlock()
-	if maxHeight <= localHeight {
-		//logger.Debugf("Neighbor max block height: %d,is less than self block height: %d .Don't sync!", maxHeight, localHeight)
+	bs.maxTotalQNLock.Unlock()
+	if maxTotalQN <= localTotalQN {
+		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!\n", maxTotalQN, localTotalQN)
 		return
 	} else {
-		//logger.Debugf("Neighbor max block height: %d is greater than self block height: %d.Sync from %s!", maxHeight, localHeight, bestNodeId)
-		requestBlockByHeight(bestNodeId, localHeight, currentHash)
+		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
+		if core.BlockChainImpl.IsAdujsting() {
+			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
+			return
+		}
+		core.RequestBlockByHeight(bestNodeId, localHeight, currentHash)
 	}
 
 }
 
-//广播索要链高度
-func requestBlockChainHeight() {
-	message := p2p.Message{Code: p2p.REQ_BLOCK_CHAIN_HEIGHT_MSG}
+//广播索要链的QN值
+func requestBlockChainTotalQN() {
+	message := p2p.Message{Code: p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG}
 	conns := p2p.Server.Host.Network().Conns()
 	for _, conn := range conns {
 		id := conn.RemotePeer()
@@ -123,23 +152,11 @@ func requestBlockChainHeight() {
 	}
 }
 
-//返回自身链高度
-func sendBlockHeight(targetId string, localHeight uint64) {
-	body := utility.UInt64ToByte(localHeight)
-	message := p2p.Message{Code: p2p.BLOCK_CHAIN_HEIGHT_MSG, Body: body}
+//返回自身链QN值
+func sendBlockTotalQN(targetId string, localTotalQN uint64) {
+	body := utility.UInt64ToByte(localTotalQN)
+	message := p2p.Message{Code: p2p.BLOCK_CHAIN_TOTAL_QN_MSG, Body: body}
 	p2p.Server.SendMessage(message, targetId)
-}
-
-//向某一节点请求Block
-func requestBlockByHeight(id string, localHeight uint64, currentHash common.Hash) {
-	m := core.EntityRequestMessage{SourceHeight: localHeight, SourceCurrentHash: currentHash}
-	body, e := marshalEntityRequestMessage(&m)
-	if e != nil {
-		logger.Errorf("requestBlockByHeight marshal EntityRequestMessage error:%s", e.Error())
-		return
-	}
-	message := p2p.Message{Code: p2p.REQ_BLOCK_MSG, Body: body}
-	p2p.Server.SendMessage(message, id)
 }
 
 //本地查询之后将结果返回
@@ -154,15 +171,6 @@ func sendBlocks(targetId string, blockEntity *core.BlockMessage) {
 }
 
 //----------------------------------------------块同步------------------------------------------------------------------
-func marshalEntityRequestMessage(e *core.EntityRequestMessage) ([]byte, error) {
-	sourceHeight := e.SourceHeight
-	currentHash := e.SourceCurrentHash.Bytes()
-	sourceId := []byte(e.SourceId)
-
-	m := tas_pb.EntityRequestMessage{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash, SourceId: sourceId}
-	return proto.Marshal(&m)
-}
-
 func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	if e == nil {
 		return nil, nil
@@ -172,26 +180,27 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	if e.Blocks != nil {
 		for _, b := range e.Blocks {
 			pb := core.BlockToPb(b)
-			if pb == nil{
-				log.Printf("Block is nil while marshalBlockMessage")
+			if pb == nil {
+				logger.Errorf("Block is nil while marshalBlockMessage")
 			}
 			blocks = append(blocks, pb)
 		}
 	}
 	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
 
-	height := e.Height
+	cbh := make([]*tas_pb.ChainBlockHash, 0)
 
-	hashes := make([][]byte, 0)
 	if e.BlockHashes != nil {
-		for _, h := range e.BlockHashes {
-			hashes = append(hashes, h.Bytes())
+		for _, b := range e.BlockHashes {
+			pb := core.ChainBlockHashToPb(b)
+			if pb == nil {
+				logger.Errorf("ChainBlockHash is nil while marshalBlockMessage")
+			}
+			cbh = append(cbh, pb)
 		}
 	}
-	hashSlice := tas_pb.Hashes{Hashes: hashes}
+	cbhs := tas_pb.ChainBlockHashSlice{ChainBlockHashes: cbh}
 
-	ratioSlice := tas_pb.Ratios{Ratios: e.BlockRatios}
-
-	message := tas_pb.BlockMessage{Blocks: &blockSlice, Height: &height, Hashes: &hashSlice, Ratios: &ratioSlice}
+	message := tas_pb.BlockMessage{Blocks: &blockSlice, ChainBlockHash: &cbhs}
 	return proto.Marshal(&message)
 }

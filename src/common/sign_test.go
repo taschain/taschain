@@ -134,3 +134,9 @@ func TestSignBytes(test *testing.T) {
 	sign_r.Bytes()
 
 }
+
+func TestHash(test *testing.T){
+	h1 := Hash{1,2,3,4}
+	h2 := Hash{1,2,3,4}
+	fmt.Printf("%v",h1 == h2)
+}

@@ -9,7 +9,7 @@ import (
 	"math"
 	"strconv"
 	"time"
-	"log"
+	"taslog"
 )
 
 const NORMAL_FAILED int = -1
@@ -55,6 +55,8 @@ var MAX_GROUP_BLOCK_TIME int = 10                                //组铸块最�
 var MAX_USER_CAST_TIME int = 2                                   //个人出块最大允许时间=2s
 var MAX_QN int = -1 //组内能出的最大QN值
 
+var consensusLogger taslog.Logger
+
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	GROUP_MAX_MEMBERS = cc.GetInt("GROUP_MAX_MEMBERS", GROUP_MAX_MEMBERS)
@@ -62,6 +64,7 @@ func InitConsensus() {
 	//MAX_GROUP_BLOCK_TIME = cc.GetInt("MAX_GROUP_BLOCK_TIME", 60 * 60 * 24 * 30)
 	MAX_USER_CAST_TIME = cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME)
 	MAX_QN = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
+	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("chain", "database", ""))
 	return
 }
 
@@ -252,20 +255,8 @@ type CastGroupSummary struct {
 	PreTime     time.Time   //上一块完成时间
 	BlockHeight uint64      //当前铸块高度
 	GroupID     groupsig.ID //当前组ID
-}
-
-func GenCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary {
-	var gid groupsig.ID
-	if err := gid.Deserialize(bh.GroupId); err != nil {
-		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
-		return nil
-	}
-	return &CastGroupSummary{
-		PreHash: bh.Hash,
-		PreTime: bh.PreTime,
-		BlockHeight: bh.Height,
-		GroupID: gid,
-	}
+	Castor 		groupsig.ID
+	CastorPos	int32
 }
 
 //铸块共识摘要

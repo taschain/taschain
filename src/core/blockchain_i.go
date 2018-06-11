@@ -46,6 +46,8 @@ type BlockChainI interface {
 
 	//清除链所有数据
 	Clear() error
+	//是否正在调整分叉
+	IsAdujsting() bool
 }
 
 //组管理接口

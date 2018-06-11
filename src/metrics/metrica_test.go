@@ -10,7 +10,7 @@ func init() {
 }
 
 func TestEnableMetrics(t *testing.T) {
-	for i:=0; i <= 60; i ++ {
+	for i:=0; i <= 6; i ++ {
 		Sleep()
 		time.Sleep(time.Second/2)
 	}

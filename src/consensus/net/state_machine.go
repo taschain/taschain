@@ -66,7 +66,7 @@ var TimeSeq TimeSequence
 var logger taslog.Logger
 
 func init() {
-	logger = taslog.GetLoggerByName("consensus")
+	logger = taslog.GetLoggerByName("state_machine")
 
 	TimeSeq = TimeSequence{
 		groupMachines: make(map[string]*StateMachine),

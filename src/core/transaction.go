@@ -26,7 +26,7 @@ func (tx *Transaction) GenHash() common.Hash {
 	}
 
 	blockByte, _ := json.Marshal(tx)
-	return common.BytesToHash(Sha256(blockByte))
+	return common.BytesToHash(common.Sha256(blockByte))
 }
 
 type Transactions []*Transaction

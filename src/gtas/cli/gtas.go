@@ -20,10 +20,11 @@ import (
 	"consensus/groupsig"
 	"taslog"
 	"core/net/sync"
-	"time"
 	_ "metrics"
 	_ "net/http/pprof"
 	"net/http"
+	"middleware"
+	"time"
 )
 
 const (
@@ -72,6 +73,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
+	middleware.SetupStackTrap("/Users/daijia/stack.log")
 	err := gtas.fullInit()
 	if err != nil {
 		fmt.Println(err)
@@ -90,19 +92,18 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 8 {
+			if len(p2p.Server.GetConnInfo()) >= 2 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
-				//time.Sleep(time.Second * 10)
 				break
 			}
 		}
 		createGroup(keys3, "gtas3")
-		time.Sleep(time.Second*30)
+		time.Sleep(time.Second * 15)
 		createGroup(keys2, "gtas2")
-		time.Sleep(time.Second*30)
+		time.Sleep(time.Second * 15)
 		createGroup(keys1, "gtas1")
 
 	}
@@ -179,7 +180,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 
 }
 
-func createGroup(keys []logical.PubKeyInfo,name string) {
+func createGroup(keys []logical.PubKeyInfo, name string) {
 	zero := mediator.CreateGroup(keys, name)
 	if zero != 0 {
 		fmt.Printf("create %s group failed\n", name)
@@ -246,8 +247,6 @@ func (gtas *Gtas) Run() {
 	super := mineCmd.Flag("super", "start super node").Bool()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
-
-
 
 	command, err := app.Parse(os.Args[1:])
 	if err != nil {
@@ -323,7 +322,7 @@ func (gtas *Gtas) fullInit() error {
 		return err
 	}
 	sync.InitBlockSyncer()
-	sync.InitGroupSyncer()
+	sync.InitGroupSyncer(configManager)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)
@@ -397,8 +396,8 @@ func mockTxs() []*core.Transaction {
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
 
-	sourcebyte := common.BytesToAddress(core.Sha256([]byte(source)))
-	targetbyte := common.BytesToAddress(core.Sha256([]byte(target)))
+	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
+	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
 
 	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
 	data := []byte("This is a transaction")
@@ -410,7 +409,6 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		Target:   &targetbyte,
 		GasPrice: price,
 		GasLimit: 3,
-		Hash:     common.BytesToHash(core.Sha256([]byte(hash))),
+		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
 	}
 }
-

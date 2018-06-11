@@ -112,9 +112,9 @@ func (st *Session) refundGas() {
 }
 
 func (st *Session) Run(evm *vm.EVM) (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
-		return
-	}
+	//if err = st.preCheck(); err != nil {
+	//	return
+	//}
 	sender := st.from() // err checked in preCheck
 
 	// Pay intrinsic gas

@@ -11,7 +11,7 @@ const(
 						</formats>
 					</seelog>`
 
- P2PConfig = `<seelog minlevel="debug">
+ P2PConfig = `<seelog minlevel="error">
 						<outputs formatid="default">
 							<rollingfile type="size" filename="./logs/p2p.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>

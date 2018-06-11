@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"common"
+	"log"
 )
 
 const TEST_MEMBERS = 5
@@ -657,7 +658,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	return
 
 	//铸块测试
-	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CBMR_PIECE)
+	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CMBR_IGNORE_KING_ERROR)
 	var ccm ConsensusCurrentMessage
 	pre_hash := sha1.Sum([]byte("tas root block"))
 	ccm.PreHash = common.BytesToHash(pre_hash[:])
@@ -682,9 +683,9 @@ func testLogicGroupInitEx(t *testing.T) {
 		break
 	}
 
-	for _, v := range procs { //向组内每个成员发送“成为当前铸块组”消息
-		v.OnMessageCurrent(ccm)
-	}
+	//for _, v := range procs { //向组内每个成员发送“成为当前铸块组”消息
+	//	//v.OnMessageCurrent(ccm)
+	//}
 	//主进程堵塞
 	sleep_d, err := time.ParseDuration("8s")
 	if err == nil {
@@ -719,3 +720,8 @@ func TestName(t *testing.T) {
 //to do 给屮逸：
 //2个签名验证函数
 //一个组初始化完成后的上链结构
+
+func TestTime(t *testing.T) {
+	log.Printf(time.Now().String())
+	log.Printf(time.Now().Format("2006-01-02 15:04:05.000"))
+}
