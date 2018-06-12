@@ -8,13 +8,14 @@ import (
 	"context"
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
-	"pb"
+
 	"strings"
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
 	"io/ioutil"
 	"common"
+	"middleware/pb"
 )
 
 const (
@@ -213,7 +214,7 @@ func handleStream(stream inet.Stream) {
 }
 
 func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
-	message := new(tas_pb.Message)
+	message := new(tas_middleware_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())

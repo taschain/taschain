@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"pb"
+	"middleware/pb"
 	"github.com/gogo/protobuf/proto"
 	"log"
 )
@@ -15,12 +15,12 @@ type Message struct {
 }
 
 func MarshalMessage(m Message) ([]byte, error) {
-	message := tas_pb.Message{Code: &m.Code, Signature: m.Sign, Body: m.Body}
+	message := tas_middleware_pb.Message{Code: &m.Code, Signature: m.Sign, Body: m.Body}
 	return proto.Marshal(&message)
 }
 
 func UnMarshalMessage(b []byte) (*Message, error) {
-	message := new(tas_pb.Message)
+	message := new(tas_middleware_pb.Message)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		log.Printf("Unmarshal message error:%s", e.Error())

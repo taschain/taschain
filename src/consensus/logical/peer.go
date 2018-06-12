@@ -4,12 +4,10 @@ import (
 	"consensus/groupsig"
 	"network/p2p"
 	"github.com/gogo/protobuf/proto"
-	"pb"
 	"core"
 	"network"
+	"middleware/pb"
 )
-
-
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
@@ -130,7 +128,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,ccm.BH.Height,ccm.BH.Hash)
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -148,7 +146,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cvm.BH.Height,cvm.BH.Hash)
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cvm.BH.Height, cvm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -161,7 +159,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	}
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
 
-	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x",m.Code,cbm.Block.Header.Height,cbm.Block.Header.Hash)
+	network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)
 	conns := p2p.Server.Host.Network().Conns()
 	for _, conn := range conns {
 		id := conn.RemotePeer()
@@ -200,12 +198,12 @@ func marshalConsensusGroupRawMessage(m *ConsensusGroupRawMessage) ([]byte, error
 
 	sign := signDataToPb(&m.SI)
 
-	ids := make([]*tas_pb.PubKeyInfo, 0)
+	ids := make([]*tas_middleware_pb.PubKeyInfo, 0)
 	for _, id := range m.MEMS {
 		ids = append(ids, pubKeyInfoToPb(&id))
 	}
 
-	message := tas_pb.ConsensusGroupRawMessage{ConsensusGroupInitSummary: gi, Ids: ids, Sign: sign}
+	message := tas_middleware_pb.ConsensusGroupRawMessage{ConsensusGroupInitSummary: gi, Ids: ids, Sign: sign}
 	return proto.Marshal(&message)
 }
 
@@ -216,7 +214,7 @@ func marshalConsensusSharePieceMessage(m *ConsensusSharePieceMessage) ([]byte, e
 	share := sharePieceToPb(&m.Share)
 	sign := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, SharePiece: share, Sign: sign}
+	message := tas_middleware_pb.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, SharePiece: share, Sign: sign}
 	return proto.Marshal(&message)
 }
 
@@ -226,13 +224,13 @@ func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, e
 	signPK := m.SignPK.Serialize()
 	signData := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData}
+	message := tas_middleware_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData}
 	return proto.Marshal(&message)
 }
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {
 	gi := staticGroupInfoToPb(&m.GI)
 	si := signDataToPb(&m.SI)
-	message := tas_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
+	message := tas_middleware_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
 	return proto.Marshal(&message)
 }
 
@@ -248,7 +246,7 @@ func marshalConsensusCurrentMessagee(m *ConsensusCurrentMessage) ([]byte, error)
 
 	BlockHeight := m.BlockHeight
 	SI := signDataToPb(&m.SI)
-	message := tas_pb.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: &BlockHeight, Sign: SI}
+	message := tas_middleware_pb.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: &BlockHeight, Sign: SI}
 	return proto.Marshal(&message)
 }
 
@@ -257,7 +255,7 @@ func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
+	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
 	return proto.Marshal(&message)
 }
 
@@ -266,23 +264,23 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
+	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
 	return proto.Marshal(&message)
 }
 
 func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
 	block := core.BlockToPb(&m.Block)
-	if block == nil{
+	if block == nil {
 		network.Logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
 	}
 	id := m.GroupID.Serialize()
 	sign := signDataToPb(&m.SI)
-	message := tas_pb.ConsensusBlockMessage{Block: block, GroupID: id, SignData: sign}
+	message := tas_middleware_pb.ConsensusBlockMessage{Block: block, GroupID: id, SignData: sign}
 	return proto.Marshal(&message)
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_pb.ConsensusGroupInitSummary {
+func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_middleware_pb.ConsensusGroupInitSummary {
 	beginTime, e := m.BeginTime.MarshalBinary()
 	if e != nil {
 		network.Logger.Errorf("ConsensusGroupInitSummary marshal begin time error:%s", e.Error())
@@ -293,25 +291,25 @@ func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_pb.Consens
 	for _, b := range m.Name {
 		name = append(name, b)
 	}
-	message := tas_pb.ConsensusGroupInitSummary{ParentID: m.ParentID.Serialize(), Authority: &m.Authority,
+	message := tas_middleware_pb.ConsensusGroupInitSummary{ParentID: m.ParentID.Serialize(), Authority: &m.Authority,
 		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime}
 	return &message
 }
 
-func signDataToPb(s *SignData) *tas_pb.SignData {
-	sign := tas_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
+func signDataToPb(s *SignData) *tas_middleware_pb.SignData {
+	sign := tas_middleware_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
 	return &sign
 }
 
-func sharePieceToPb(s *SharePiece) *tas_pb.SharePiece {
-	share := tas_pb.SharePiece{Seckey: s.Share.Serialize(), Pubkey: s.Pub.Serialize()}
+func sharePieceToPb(s *SharePiece) *tas_middleware_pb.SharePiece {
+	share := tas_middleware_pb.SharePiece{Seckey: s.Share.Serialize(), Pubkey: s.Pub.Serialize()}
 	return &share
 }
 
-func staticGroupInfoToPb(s *StaticGroupInfo) *tas_pb.StaticGroupInfo {
+func staticGroupInfoToPb(s *StaticGroupInfo) *tas_middleware_pb.StaticGroupInfo {
 	groupId := s.GroupID.Serialize()
 	groupPk := s.GroupPK.Serialize()
-	members := make([]*tas_pb.PubKeyInfo, 0)
+	members := make([]*tas_middleware_pb.PubKeyInfo, 0)
 	for _, m := range s.Members {
 		member := pubKeyInfoToPb(&m)
 		members = append(members, member)
@@ -320,14 +318,14 @@ func staticGroupInfoToPb(s *StaticGroupInfo) *tas_pb.StaticGroupInfo {
 
 	beginHeight := &s.BeginHeight
 
-	groupInfo := tas_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis, BeginHeight: beginHeight}
+	groupInfo := tas_middleware_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis, BeginHeight: beginHeight}
 	return &groupInfo
 }
 
-func pubKeyInfoToPb(p *PubKeyInfo) *tas_pb.PubKeyInfo {
+func pubKeyInfoToPb(p *PubKeyInfo) *tas_middleware_pb.PubKeyInfo {
 	id := p.ID.Serialize()
 	pk := p.PK.Serialize()
 
-	pkInfo := tas_pb.PubKeyInfo{ID: id, PublicKey: pk}
+	pkInfo := tas_middleware_pb.PubKeyInfo{ID: id, PublicKey: pk}
 	return &pkInfo
 }

@@ -1,15 +1,14 @@
 package core
 
 import (
-	"pb"
 	"github.com/gogo/protobuf/proto"
 	"network/p2p"
 	"time"
 	"common"
 	"network"
 	"middleware/types"
+	"middleware/pb"
 )
-
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
@@ -164,7 +163,7 @@ func SendChainBlockHashes(targetNode string, cbh []*ChainBlockHash) {
 
 func marshalTransactions(txs []*types.Transaction) ([]byte, error) {
 	transactions := transactionsToPb(txs)
-	transactionSlice := tas_pb.TransactionSlice{Transactions: transactions}
+	transactionSlice := tas_middleware_pb.TransactionSlice{Transactions: transactions}
 	return proto.Marshal(&transactionSlice)
 }
 
@@ -180,27 +179,27 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 	if e != nil {
 		network.Logger.Errorf("[peer]TransactionRequestMessage request time marshal error:%s\n", e.Error())
 	}
-	message := tas_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
 	return proto.Marshal(&message)
 }
 
-func transactionToPb(t *types.Transaction) *tas_pb.Transaction {
+func transactionToPb(t *types.Transaction) *tas_middleware_pb.Transaction {
 	var target []byte
 	if t.Target != nil {
 		target = t.Target.Bytes()
 	}
 
-	transaction := tas_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
 		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType}
 	return &transaction
 }
 
-func transactionsToPb(txs []*types.Transaction) []*tas_pb.Transaction {
+func transactionsToPb(txs []*types.Transaction) []*tas_middleware_pb.Transaction {
 	if txs == nil {
 		return nil
 	}
-	transactions := make([]*tas_pb.Transaction, 0)
+	transactions := make([]*tas_middleware_pb.Transaction, 0)
 	for _, t := range txs {
 		transaction := transactionToPb(t)
 		transactions = append(transactions, transaction)
@@ -218,16 +217,16 @@ func MarshalBlock(b *types.Block) ([]byte, error) {
 }
 
 func MarshalBlocks(bs []*types.Block) ([]byte, error) {
-	blocks := make([]*tas_pb.Block, 0)
+	blocks := make([]*tas_middleware_pb.Block, 0)
 	for _, b := range bs {
 		block := BlockToPb(b)
 		blocks = append(blocks, block)
 	}
-	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
+	blockSlice := tas_middleware_pb.BlockSlice{Blocks: blocks}
 	return proto.Marshal(&blockSlice)
 }
 
-func BlockHeaderToPb(h *types.BlockHeader) *tas_pb.BlockHeader {
+func BlockHeaderToPb(h *types.BlockHeader) *tas_middleware_pb.BlockHeader {
 	hashes := h.Transactions
 	hashBytes := make([][]byte, 0)
 
@@ -236,7 +235,7 @@ func BlockHeaderToPb(h *types.BlockHeader) *tas_pb.BlockHeader {
 			hashBytes = append(hashBytes, hash.Bytes())
 		}
 	}
-	txHashes := tas_pb.Hashes{Hashes: hashBytes}
+	txHashes := tas_middleware_pb.Hashes{Hashes: hashBytes}
 
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
@@ -258,23 +257,23 @@ func BlockHeaderToPb(h *types.BlockHeader) *tas_pb.BlockHeader {
 			eBytes = append(eBytes, etx.Bytes())
 		}
 	}
-	evictedTxs := tas_pb.Hashes{Hashes: eBytes}
+	evictedTxs := tas_middleware_pb.Hashes{Hashes: eBytes}
 
-	header := tas_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
+	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
 		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalQN: &h.TotalQN}
 	return &header
 }
 
-func BlockToPb(b *types.Block) *tas_pb.Block {
+func BlockToPb(b *types.Block) *tas_middleware_pb.Block {
 	if b == nil {
 		network.Logger.Errorf("[peer]Block is nil!")
 		return nil
 	}
 	header := BlockHeaderToPb(b.Header)
 	transactons := transactionsToPb(b.Transactions)
-	block := tas_pb.Block{Header: header, Transactions: transactons}
+	block := tas_middleware_pb.Block{Header: header, Transactions: transactons}
 	return &block
 }
 
@@ -286,11 +285,11 @@ func marshalChainBlockHashesReq(req *ChainBlockHashesReq) ([]byte, error) {
 	return proto.Marshal(cbhr)
 }
 
-func chainBlockHashesReqToPb(req *ChainBlockHashesReq) *tas_pb.ChainBlockHashesReq {
+func chainBlockHashesReqToPb(req *ChainBlockHashesReq) *tas_middleware_pb.ChainBlockHashesReq {
 	if req == nil {
 		return nil
 	}
-	cbhr := tas_pb.ChainBlockHashesReq{Height: &req.Height, Length: &req.Length}
+	cbhr := tas_middleware_pb.ChainBlockHashesReq{Height: &req.Height, Length: &req.Length}
 	return &cbhr
 }
 func marshalChainBlockHashes(cbh []*ChainBlockHash) ([]byte, error) {
@@ -298,20 +297,20 @@ func marshalChainBlockHashes(cbh []*ChainBlockHash) ([]byte, error) {
 		return nil, nil
 	}
 
-	chainBlockHashes := make([]*tas_pb.ChainBlockHash, 0)
+	chainBlockHashes := make([]*tas_middleware_pb.ChainBlockHash, 0)
 	for _, c := range cbh {
 		chainBlockHashes = append(chainBlockHashes, ChainBlockHashToPb(c))
 	}
-	r := tas_pb.ChainBlockHashSlice{ChainBlockHashes: chainBlockHashes}
+	r := tas_middleware_pb.ChainBlockHashSlice{ChainBlockHashes: chainBlockHashes}
 	return proto.Marshal(&r)
 }
 
-func ChainBlockHashToPb(cbh *ChainBlockHash) *tas_pb.ChainBlockHash {
+func ChainBlockHashToPb(cbh *ChainBlockHash) *tas_middleware_pb.ChainBlockHash {
 	if cbh == nil {
 		return nil
 	}
 
-	r := tas_pb.ChainBlockHash{Hash: cbh.Hash.Bytes(), Height: &cbh.Height}
+	r := tas_middleware_pb.ChainBlockHash{Hash: cbh.Hash.Bytes(), Height: &cbh.Height}
 	return &r
 }
 
@@ -320,7 +319,7 @@ func MarshalEntityRequestMessage(e *EntityRequestMessage) ([]byte, error) {
 	currentHash := e.SourceCurrentHash.Bytes()
 	sourceId := []byte(e.SourceId)
 
-	m := tas_pb.EntityRequestMessage{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash, SourceId: sourceId}
+	m := tas_middleware_pb.EntityRequestMessage{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash, SourceId: sourceId}
 	return proto.Marshal(&m)
 }
 
@@ -331,8 +330,8 @@ func MarshalEntityRequestMessage(e *EntityRequestMessage) ([]byte, error) {
 //	return proto.Marshal(member)
 //}
 
-func memberToPb(m *types.Member) *tas_pb.Member {
-	member := tas_pb.Member{Id: m.Id, PubKey: m.PubKey}
+func memberToPb(m *types.Member) *tas_middleware_pb.Member {
+	member := tas_middleware_pb.Member{Id: m.Id, PubKey: m.PubKey}
 	return &member
 }
 
@@ -341,12 +340,12 @@ func memberToPb(m *types.Member) *tas_pb.Member {
 //	return proto.Marshal(group)
 //}
 
-func GroupToPb(g *types.Group) *tas_pb.Group {
-	members := make([]*tas_pb.Member, 0)
+func GroupToPb(g *types.Group) *tas_middleware_pb.Group {
+	members := make([]*tas_middleware_pb.Member, 0)
 	for _, m := range g.Members {
 		member := memberToPb(&m)
 		members = append(members, member)
 	}
-	group := tas_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.Parent, Dummy: g.Dummy, Signature: g.Signature}
+	group := tas_middleware_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.Parent, Dummy: g.Dummy, Signature: g.Signature}
 	return &group
 }

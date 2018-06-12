@@ -1,5 +1,5 @@
 syntax = "proto2";
-package tas.pb;
+package tas.middleware.pb;
 
 message Message{
 

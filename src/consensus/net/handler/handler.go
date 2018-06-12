@@ -4,7 +4,6 @@ import (
 	"network/p2p"
 	"consensus/mediator"
 	"consensus/logical"
-	"pb"
 	"github.com/gogo/protobuf/proto"
 	"consensus/groupsig"
 	"common"
@@ -14,8 +13,8 @@ import (
 	"consensus/net"
 	"network"
 	"middleware/types"
+	"middleware/pb"
 )
-
 
 type ConsensusHandler struct{}
 
@@ -168,7 +167,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//		mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
 		//	})
 		//} else {
-			mediator.Proc.OnMessageBlock(*m)
+		mediator.Proc.OnMessageBlock(*m)
 		//}
 
 		//b := mediator.Proc.OnMessageBlock(*m)
@@ -198,7 +197,7 @@ func onGroupMemberReceived(grm logical.ConsensusGroupRawMessage) {
 
 //----------------------------------------------------------------------------------------------------------------------
 func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMessage, error) {
-	message := new(tas_pb.ConsensusGroupRawMessage)
+	message := new(tas_middleware_pb.ConsensusGroupRawMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusGroupRawMessage error:%s", e.Error())
@@ -220,7 +219,7 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMess
 }
 
 func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePieceMessage, error) {
-	m := new(tas_pb.ConsensusSharePieceMessage)
+	m := new(tas_middleware_pb.ConsensusSharePieceMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusSharePieceMessage error:%s", e.Error())
@@ -249,7 +248,7 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 }
 
 func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKeyMessage, error) {
-	m := new(tas_pb.ConsensusSignPubKeyMessage)
+	m := new(tas_middleware_pb.ConsensusSignPubKeyMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e.Error())
@@ -277,7 +276,7 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKey
 }
 
 func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInitedMessage, error) {
-	m := new(tas_pb.ConsensusGroupInitedMessage)
+	m := new(tas_middleware_pb.ConsensusGroupInitedMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusGroupInitedMessage error:%s", e.Error())
@@ -292,7 +291,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInit
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 func unMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessage, error) {
-	m := new(tas_pb.ConsensusCurrentMessage)
+	m := new(tas_middleware_pb.ConsensusCurrentMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusCurrentMessage error:%s", e.Error())
@@ -312,7 +311,7 @@ func unMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessag
 }
 
 func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, error) {
-	m := new(tas_pb.ConsensusBlockMessageBase)
+	m := new(tas_middleware_pb.ConsensusBlockMessageBase)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusCastMessage error:%s", e.Error())
@@ -332,7 +331,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 }
 
 func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage, error) {
-	m := new(tas_pb.ConsensusBlockMessageBase)
+	m := new(tas_middleware_pb.ConsensusBlockMessageBase)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshalConsensusVerifyMessage error:%s", e.Error())
@@ -352,7 +351,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 }
 
 func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, error) {
-	m := new(tas_pb.ConsensusBlockMessage)
+	m := new(tas_middleware_pb.ConsensusBlockMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]unMarshalConsensusBlockMessage error:%s", e.Error())
@@ -371,7 +370,7 @@ func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, e
 	return &message, nil
 }
 
-func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical.ConsensusGroupInitSummary {
+func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummary) *logical.ConsensusGroupInitSummary {
 	var beginTime time.Time
 	beginTime.UnmarshalBinary(m.BeginTime)
 
@@ -400,7 +399,7 @@ func pbToConsensusGroupInitSummary(m *tas_pb.ConsensusGroupInitSummary) *logical
 	return &message
 }
 
-func pbToSignData(s *tas_pb.SignData) *logical.SignData {
+func pbToSignData(s *tas_middleware_pb.SignData) *logical.SignData {
 
 	var sig groupsig.Signature
 	e := sig.Deserialize(s.DataSign)
@@ -419,7 +418,7 @@ func pbToSignData(s *tas_pb.SignData) *logical.SignData {
 	return &sign
 }
 
-func pbToSharePiece(s *tas_pb.SharePiece) *logical.SharePiece {
+func pbToSharePiece(s *tas_middleware_pb.SharePiece) *logical.SharePiece {
 	var share groupsig.Seckey
 	var pub groupsig.Pubkey
 
@@ -439,7 +438,7 @@ func pbToSharePiece(s *tas_pb.SharePiece) *logical.SharePiece {
 	return &sp
 }
 
-func pbToStaticGroup(s *tas_pb.StaticGroupInfo) *logical.StaticGroupInfo {
+func pbToStaticGroup(s *tas_middleware_pb.StaticGroupInfo) *logical.StaticGroupInfo {
 	var groupId groupsig.ID
 	groupId.Deserialize(s.GroupID)
 
@@ -459,7 +458,7 @@ func pbToStaticGroup(s *tas_pb.StaticGroupInfo) *logical.StaticGroupInfo {
 	return &groupInfo
 }
 
-func pbToPubKeyInfo(p *tas_pb.PubKeyInfo) *logical.PubKeyInfo {
+func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *logical.PubKeyInfo {
 	var id groupsig.ID
 	var pk groupsig.Pubkey
 

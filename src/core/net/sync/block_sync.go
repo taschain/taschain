@@ -6,8 +6,8 @@ import (
 	"sync"
 	"utility"
 	"network/p2p"
-	"pb"
 	"github.com/gogo/protobuf/proto"
+	"middleware/pb"
 )
 
 const (
@@ -175,7 +175,7 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 	if e == nil {
 		return nil, nil
 	}
-	blocks := make([]*tas_pb.Block, 0)
+	blocks := make([]*tas_middleware_pb.Block, 0)
 
 	if e.Blocks != nil {
 		for _, b := range e.Blocks {
@@ -186,9 +186,9 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 			blocks = append(blocks, pb)
 		}
 	}
-	blockSlice := tas_pb.BlockSlice{Blocks: blocks}
+	blockSlice := tas_middleware_pb.BlockSlice{Blocks: blocks}
 
-	cbh := make([]*tas_pb.ChainBlockHash, 0)
+	cbh := make([]*tas_middleware_pb.ChainBlockHash, 0)
 
 	if e.BlockHashes != nil {
 		for _, b := range e.BlockHashes {
@@ -199,8 +199,8 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 			cbh = append(cbh, pb)
 		}
 	}
-	cbhs := tas_pb.ChainBlockHashSlice{ChainBlockHashes: cbh}
+	cbhs := tas_middleware_pb.ChainBlockHashSlice{ChainBlockHashes: cbh}
 
-	message := tas_pb.BlockMessage{Blocks: &blockSlice, ChainBlockHash: &cbhs}
+	message := tas_middleware_pb.BlockMessage{Blocks: &blockSlice, ChainBlockHash: &cbhs}
 	return proto.Marshal(&message)
 }

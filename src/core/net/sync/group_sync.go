@@ -7,9 +7,9 @@ import (
 	"common"
 	"network/p2p"
 	"utility"
-	"pb"
 	"github.com/gogo/protobuf/proto"
 	"taslog"
+	"middleware/pb"
 )
 
 const (
@@ -33,7 +33,7 @@ type groupSyncer struct {
 }
 
 func InitGroupSyncer(config *common.ConfManager) {
-	logger = taslog.GetLoggerByName((*config).GetString("chain","database","d")+"_sync")
+	logger = taslog.GetLoggerByName((*config).GetString("chain", "database", "d") + "_sync")
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		GroupRequestCh: make(chan core.EntityRequestMessage), GroupArrivedCh: make(chan core.GroupArrivedMessage),}
 	go GroupSyncer.start()
@@ -161,16 +161,16 @@ func sendGroups(targetId string, groupEntity *core.GroupMessage) {
 
 //----------------------------------------------组同步------------------------------------------------------------------
 func marshalGroupMessage(e *core.GroupMessage) ([]byte, error) {
-	groups := make([]*tas_pb.Group, 0)
+	groups := make([]*tas_middleware_pb.Group, 0)
 
 	if e.Groups != nil {
 		for _, g := range e.Groups {
 			groups = append(groups, core.GroupToPb(g))
 		}
 	}
-	groupSlice := tas_pb.GroupSlice{Groups: groups}
+	groupSlice := tas_middleware_pb.GroupSlice{Groups: groups}
 
 	height := e.Height
-	message := tas_pb.GroupMessage{Groups: &groupSlice, Height: &height, Hash: e.Hash.Bytes()}
+	message := tas_middleware_pb.GroupMessage{Groups: &groupSlice, Height: &height, Hash: e.Hash.Bytes()}
 	return proto.Marshal(&message)
 }

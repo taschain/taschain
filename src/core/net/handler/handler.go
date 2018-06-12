@@ -3,7 +3,6 @@ package handler
 import (
 	"time"
 	"network/p2p"
-	"pb"
 	"github.com/gogo/protobuf/proto"
 	"common"
 	"core"
@@ -13,8 +12,8 @@ import (
 	"log"
 	"network"
 	"middleware/types"
+	"middleware/pb"
 )
-
 
 const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
@@ -223,7 +222,7 @@ func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
 //----------------------------------------------Transaction-------------------------------------------------------------
 
 func unMarshalTransaction(b []byte) (*types.Transaction, error) {
-	t := new(tas_pb.Transaction)
+	t := new(tas_middleware_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
 		network.Logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
@@ -234,7 +233,7 @@ func unMarshalTransaction(b []byte) (*types.Transaction, error) {
 }
 
 func UnMarshalTransactions(b []byte) ([]*types.Transaction, error) {
-	ts := new(tas_pb.TransactionSlice)
+	ts := new(tas_middleware_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
 		network.Logger.Errorf("[handler]Unmarshal transactions error:%s", error.Error())
@@ -246,7 +245,7 @@ func UnMarshalTransactions(b []byte) ([]*types.Transaction, error) {
 }
 
 func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessage, error) {
-	m := new(tas_pb.TransactionRequestMessage)
+	m := new(tas_middleware_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
 		network.Logger.Errorf("[handler]UnMarshal TransactionRequestMessage error:%s", e.Error())
@@ -269,7 +268,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	return &message, nil
 }
 
-func pbToTransaction(t *tas_pb.Transaction) *types.Transaction {
+func pbToTransaction(t *tas_middleware_pb.Transaction) *types.Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
 	transaction := types.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
@@ -278,7 +277,7 @@ func pbToTransaction(t *tas_pb.Transaction) *types.Transaction {
 	return &transaction
 }
 
-func pbToTransactions(txs []*tas_pb.Transaction) []*types.Transaction {
+func pbToTransactions(txs []*tas_middleware_pb.Transaction) []*types.Transaction {
 	if txs == nil {
 		return nil
 	}
@@ -292,7 +291,7 @@ func pbToTransactions(txs []*tas_pb.Transaction) []*types.Transaction {
 
 //--------------------------------------------------Block---------------------------------------------------------------
 func unMarshalBlock(bytes []byte) (*types.Block, error) {
-	b := new(tas_pb.Block)
+	b := new(tas_middleware_pb.Block)
 	error := proto.Unmarshal(bytes, b)
 	if error != nil {
 		network.Logger.Errorf("[handler]Unmarshal Block error:%s", error.Error())
@@ -319,7 +318,7 @@ func unMarshalBlock(bytes []byte) (*types.Block, error) {
 //	return result, nil
 //}
 
-func PbToBlockHeader(h *tas_pb.BlockHeader) *types.BlockHeader {
+func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *types.BlockHeader {
 
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
@@ -363,7 +362,7 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *types.BlockHeader {
 	return &header
 }
 
-func PbToBlock(b *tas_pb.Block) *types.Block {
+func PbToBlock(b *tas_middleware_pb.Block) *types.Block {
 	h := PbToBlockHeader(b.Header)
 	txs := pbToTransactions(b.Transactions)
 	block := types.Block{Header: h, Transactions: txs}
@@ -371,7 +370,7 @@ func PbToBlock(b *tas_pb.Block) *types.Block {
 }
 
 func unMarshalChainBlockHashesReq(byte []byte) (*core.ChainBlockHashesReq, error) {
-	b := new(tas_pb.ChainBlockHashesReq)
+	b := new(tas_middleware_pb.ChainBlockHashesReq)
 
 	error := proto.Unmarshal(byte, b)
 	if error != nil {
@@ -382,7 +381,7 @@ func unMarshalChainBlockHashesReq(byte []byte) (*core.ChainBlockHashesReq, error
 	return r, nil
 }
 
-func pbTochainBlockHashesReq(cbhr *tas_pb.ChainBlockHashesReq) *core.ChainBlockHashesReq {
+func pbTochainBlockHashesReq(cbhr *tas_middleware_pb.ChainBlockHashesReq) *core.ChainBlockHashesReq {
 	if cbhr == nil {
 		return nil
 	}
@@ -391,7 +390,7 @@ func pbTochainBlockHashesReq(cbhr *tas_pb.ChainBlockHashesReq) *core.ChainBlockH
 }
 
 func unMarshalChainBlockHashes(b []byte) ([]*core.ChainBlockHash, error) {
-	chainBlockHashSlice := new(tas_pb.ChainBlockHashSlice)
+	chainBlockHashSlice := new(tas_middleware_pb.ChainBlockHashSlice)
 	error := proto.Unmarshal(b, chainBlockHashSlice)
 	if error != nil {
 		network.Logger.Errorf("[handler]unMarshalChainBlockHashes error:%s\n", error.Error())
@@ -407,7 +406,7 @@ func unMarshalChainBlockHashes(b []byte) ([]*core.ChainBlockHash, error) {
 	return result, nil
 }
 
-func pbTochainBlockHash(cbh *tas_pb.ChainBlockHash) *core.ChainBlockHash {
+func pbTochainBlockHash(cbh *tas_middleware_pb.ChainBlockHash) *core.ChainBlockHash {
 	if cbh == nil {
 		return nil
 	}
@@ -427,7 +426,7 @@ func pbTochainBlockHash(cbh *tas_pb.ChainBlockHash) *core.ChainBlockHash {
 //	return m, nil
 //}
 
-func pbToMember(m *tas_pb.Member) *types.Member {
+func pbToMember(m *tas_middleware_pb.Member) *types.Member {
 	member := types.Member{Id: m.Id, PubKey: m.PubKey}
 	return &member
 }
@@ -444,7 +443,7 @@ func pbToMember(m *tas_pb.Member) *types.Member {
 //	return g, nil
 //}
 
-func pbToGroup(g *tas_pb.Group) *types.Group {
+func pbToGroup(g *tas_middleware_pb.Group) *types.Group {
 	members := make([]types.Member, 0)
 	for _, m := range g.Members {
 		member := pbToMember(m)
@@ -457,7 +456,7 @@ func pbToGroup(g *tas_pb.Group) *types.Group {
 //----------------------------------------------块同步------------------------------------------------------------------
 
 func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error) {
-	m := new(tas_pb.EntityRequestMessage)
+	m := new(tas_middleware_pb.EntityRequestMessage)
 
 	e := proto.Unmarshal(b, m)
 	if e != nil {
@@ -473,7 +472,7 @@ func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error)
 }
 
 func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
-	message := new(tas_pb.BlockMessage)
+	message := new(tas_middleware_pb.BlockMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		network.Logger.Errorf("[handler]Unmarshal BlockMessage error:%s", e.Error())
@@ -500,7 +499,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 
 //----------------------------------------------组同步------------------------------------------------------------------
 func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
-	message := new(tas_pb.GroupMessage)
+	message := new(tas_middleware_pb.GroupMessage)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		network.Logger.Errorf("[handler]Unmarshal GroupMessage error:%s", e.Error())
