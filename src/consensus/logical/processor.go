@@ -12,6 +12,7 @@ import (
 	"time"
 	"log"
 	"consensus/ticker"
+	"middleware/types"
 )
 
 //自己的出块信息
@@ -71,12 +72,12 @@ type Processer struct {
 	belongGroups map[string]JoinedGroup //当前ID参与了哪些(已上链，可铸块的)组, 组id_str->组内私密数据（组外不可见或加速缓存）
 	//////测试数据，代替屮逸的网络消息
 	GroupProcs map[string]*Processer
-	Ticker 			*ticker.GlobalTicker		//全局定时器, 组初始化完成后启动
+	Ticker     *ticker.GlobalTicker //全局定时器, 组初始化完成后启动
 
-	futureBlockMsg map[common.Hash][]*ConsensusBlockMessage		//存储缺少父块的块
+	futureBlockMsg  map[common.Hash][]*ConsensusBlockMessage //存储缺少父块的块
 	futureBlockLock sync.RWMutex
 
-	futureVerifyMsg	map[common.Hash][]*ConsensusBlockMessageBase	//存储缺失前一块的验证消息
+	futureVerifyMsg  map[common.Hash][]*ConsensusBlockMessageBase //存储缺失前一块的验证消息
 	futureVerifyLock sync.RWMutex
 
 	piece_count  int
@@ -84,11 +85,11 @@ type Processer struct {
 	load_data    int
 	save_data    int
 	//////链接口
-	MainChain core.BlockChainI
+	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
 	//锁
-	initLock sync.Mutex //组初始化锁
-	rwLock sync.RWMutex 	//读写锁
+	initLock sync.Mutex   //组初始化锁
+	rwLock   sync.RWMutex //读写锁
 }
 
 //取得组内成员的签名公钥
@@ -255,9 +256,9 @@ func (p Processer) Save() {
 }
 
 //立即触发一次检查自己是否下个铸块组
-func (p *Processer) triggerCastCheck()  {
-    //p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
-    p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
+func (p *Processer) triggerCastCheck() {
+	//p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
+	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
 //检查是否当前组铸块
@@ -288,7 +289,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 			return false
 		}
 
-		deltaHeight := uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
+		deltaHeight := uint64(d.Seconds())/uint64(MAX_GROUP_BLOCK_TIME) + 1
 		castHeight = top.Height + deltaHeight
 	}
 
@@ -325,7 +326,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 		bc.StartCast(castHeight, top.CurTime, top.Hash)
 
 		return true
-	} else  {	//自己不是下一个铸块组, 但是当前在铸块
+	} else { //自己不是下一个铸块组, 但是当前在铸块
 		for _, _bc := range p.bcs {
 			log.Printf("reset casting blockcontext: castingInfo=%v", _bc.castingInfo())
 			_bc.Reset()
@@ -336,7 +337,7 @@ func (p *Processer) checkSelfCastRoutine() bool {
 }
 
 func (p *Processer) getCastCheckRoutineName() string {
-    return "self_cast_check_" + p.getPrefix()
+	return "self_cast_check_" + p.getPrefix()
 }
 
 //初始化矿工数据（和组无关）
@@ -453,7 +454,7 @@ func (p Processer) IsMinerGroup(gid groupsig.ID) bool {
 	return ok
 }
 
-func (p *Processer) calcCastGroup(preBH *core.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processer) calcCastGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
 	data := preBH.Signature
 
@@ -472,7 +473,7 @@ func (p *Processer) calcCastGroup(preBH *core.BlockHeader, height uint64) *group
 }
 
 //验证块的组签名是否正确
-func (p *Processer) verifyGroupSign(b *core.Block, sd SignData) bool {
+func (p *Processer) verifyGroupSign(b *types.Block, sd SignData) bool {
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -481,7 +482,7 @@ func (p *Processer) verifyGroupSign(b *core.Block, sd SignData) bool {
 
 	groupInfo := p.getGroup(gid)
 	if !groupInfo.GroupID.IsValid() {
-		 panic("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
+		panic("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
 	}
 
 	log.Printf("verifyGroupSign: real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
@@ -500,7 +501,7 @@ func (p *Processer) verifyGroupSign(b *core.Block, sd SignData) bool {
 }
 
 //检查铸块组是否合法
-func (p *Processer) isCastGroupLeagal(bh *core.BlockHeader, preHeader *core.BlockHeader) (result bool) {
+func (p *Processer) isCastGroupLeagal(bh *types.BlockHeader, preHeader *types.BlockHeader) (result bool) {
 	//to do : 检查是否基于链上最高块的出块
 	defer func() {
 		log.Printf("isCastGroupLeagal result=%v.\n", result)
@@ -651,12 +652,10 @@ func (p *Processer) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
 	}
 }
 
-
-
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
+func (p *Processer) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
 	begin := time.Now()
 	defer func() {
 		log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
@@ -667,7 +666,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 	}
 	log.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 
-	if p.blockOnChain(bh) {	//已经上链
+	if p.blockOnChain(bh) { //已经上链
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
 		vctx.CastedUpdateStatus(int64(bh.QueueNumber))
 		return
@@ -682,7 +681,7 @@ func (p *Processer) SuccessNewBlock(bh *core.BlockHeader, vctx *VerifyContext, g
 
 	r := p.doAddOnChain(block)
 
-	if r != 0 && r != 1 {	//分叉调整或 上链失败都不走下面的逻辑
+	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
 		return
 	}
 	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
@@ -780,8 +779,8 @@ func (p Processer) getGroupPubKey(gid groupsig.ID) groupsig.Pubkey {
 	return g.GetPubKey()
 }
 
-func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
-	bh := new(core.BlockHeader)
+func genDummyBH(qn int, uid groupsig.ID) *types.BlockHeader {
+	bh := new(types.BlockHeader)
 	bh.PreTime = time.Now()
 	bh.Hash = rand.String2CommonHash("thiefox")
 	bh.Height = 2
@@ -808,8 +807,7 @@ func genDummyBH(qn int, uid groupsig.ID) *core.BlockHeader {
 	return bh
 }
 
-
-func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)  {
+func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData) {
 	//bbyte, _ := bh.CurTime.MarshalBinary()
 	//jbyte, _ := bh.CurTime.MarshalJSON()
 	//textbyte, _ := bh.CurTime.MarshalText()
@@ -832,7 +830,7 @@ func outputBlockHeaderAndSign(prefix string, bh *core.BlockHeader, si *SignData)
 }
 
 //当前节点成为KING，出块
-func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *core.BlockHeader {
+func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *types.BlockHeader {
 
 	height := vctx.castHeight
 
@@ -855,7 +853,6 @@ func (p Processer) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *c
 
 	log.Printf("AAAAAA castBlock bh %v\n", p.blockPreview(bh))
 	log.Printf("AAAAAA chain top bh %v\n", p.blockPreview(p.MainChain.QueryTopBlock()))
-
 
 	var si SignData
 	si.DataHash = bh.Hash

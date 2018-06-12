@@ -12,7 +12,7 @@ import (
 	"vm/ethdb"
 	"vm/common/hexutil"
 	"math/big"
-	"vm/core/types"
+	vtypes "vm/core/types"
 	"github.com/hashicorp/golang-lru"
 	"fmt"
 	"vm/common/math"
@@ -22,6 +22,7 @@ import (
 	"network/p2p"
 	"middleware"
 	"network"
+	"middleware/types"
 )
 
 const (
@@ -57,7 +58,7 @@ type BlockChain struct {
 	transactionPool *TransactionPool
 
 	//已上链的最新块
-	latestBlock   *BlockHeader
+	latestBlock   *types.BlockHeader
 	topBlocks     *lru.Cache
 	latestStateDB *state.StateDB
 
@@ -86,7 +87,7 @@ type BlockChain struct {
 
 type castingBlock struct {
 	state    *state.StateDB
-	receipts types.Receipts
+	receipts vtypes.Receipts
 }
 
 // 默认配置
@@ -245,7 +246,7 @@ func (chain *BlockChain) GetBlockMessage(height uint64, hash common.Hash) *Block
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
 		network.Logger.Debugf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!\n")
-		blocks := make([]*Block, 0)
+		blocks := make([]*types.Block, 0)
 
 		for i := height + 1; i <= localHeight; i++ {
 			bh := chain.queryBlockHeaderByHeight(i, true)
@@ -450,12 +451,12 @@ func (chain *BlockChain) Clear() error {
 	return err
 }
 
-func (chain *BlockChain) GenerateBlock(bh BlockHeader) *Block {
-	block := &Block{
+func (chain *BlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
+	block := &types.Block{
 		Header: &bh,
 	}
 
-	block.Transactions = make([]*Transaction, len(bh.Transactions))
+	block.Transactions = make([]*types.Transaction, len(bh.Transactions))
 	for i, hash := range bh.Transactions {
 		t, _ := chain.transactionPool.GetTransaction(hash)
 		if t == nil {
@@ -467,28 +468,28 @@ func (chain *BlockChain) GenerateBlock(bh BlockHeader) *Block {
 }
 
 //根据哈希取得某个交易
-func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*Transaction, error) {
+func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
 }
 
 //辅助方法族
 //查询最高块
-func (chain *BlockChain) QueryTopBlock() *BlockHeader {
+func (chain *BlockChain) QueryTopBlock() *types.BlockHeader {
 	chain.lock.RLock("QueryTopBlock")
 	defer chain.lock.RUnlock("QueryTopBlock")
 	return chain.latestBlock
 }
 
 //根据指定哈希查询块
-func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *BlockHeader {
+func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
-func (chain *BlockChain) queryBlockByHash(hash common.Hash) *Block {
+func (chain *BlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
-		var block *Block
+		var block *types.Block
 		err = json.Unmarshal(result, &block)
 		if err != nil || &block == nil {
 			return nil
@@ -499,7 +500,7 @@ func (chain *BlockChain) queryBlockByHash(hash common.Hash) *Block {
 	}
 }
 
-func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *BlockHeader {
+func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	block := chain.queryBlockByHash(hash)
 	if nil == block {
 		return nil
@@ -509,7 +510,7 @@ func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *BlockHeader {
 }
 
 // 根据指定高度查询块
-func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool) *BlockHeader {
+func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader {
 	var key []byte
 	switch height.(type) {
 	case []byte:
@@ -520,7 +521,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 			if h > (chain.latestBlock.Height - 1000) {
 				result, ok := chain.topBlocks.Get(h)
 				if ok && nil != result {
-					return result.(*BlockHeader)
+					return result.(*types.BlockHeader)
 				}
 
 			}
@@ -532,7 +533,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 	// 从持久化存储中查询
 	result, err := chain.blockHeight.Get(key)
 	if result != nil {
-		var header BlockHeader
+		var header types.BlockHeader
 		err = json.Unmarshal(result, &header)
 		if err != nil {
 			return nil
@@ -546,14 +547,14 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 
 // 根据指定高度查询块
 // 带有缓存
-func (chain *BlockChain) QueryBlockByHeight(height uint64) *BlockHeader {
+func (chain *BlockChain) QueryBlockByHeight(height uint64) *types.BlockHeader {
 	chain.lock.RLock("QueryBlockByHeight")
 	defer chain.lock.RUnlock("QueryBlockByHeight")
 
 	return chain.queryBlockHeaderByHeight(height, true)
 }
 
-func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+func (chain *BlockChain) CastingBlockAfter(latestBlock *types.BlockHeader, height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
@@ -561,10 +562,10 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 		return nil
 	}
 
-	block := new(Block)
+	block := new(types.Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
-	block.Header = &BlockHeader{
+	block.Header = &types.BlockHeader{
 		CurTime:     time.Now(), //todo:时区问题
 		Height:      height,
 		Nonce:       nonce,
@@ -628,14 +629,14 @@ func (chain *BlockChain) CastingBlockAfter(latestBlock *BlockHeader, height uint
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *Block {
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 	return chain.CastingBlockAfter(chain.latestBlock, height, nonce, queueNumber, castor, groupid)
 
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求;=2 当前链正在调整，无法检验
-func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
 	chain.lock.Lock("VerifyCastingBlock")
 	defer chain.lock.Unlock("VerifyCastingBlock")
 
@@ -645,7 +646,7 @@ func (chain *BlockChain) VerifyCastingBlock(bh BlockHeader) ([]common.Hash, int8
 	return chain.verifyCastingBlock(bh, nil)
 }
 
-func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) ([]common.Hash, int8, *state.StateDB, types.Receipts) {
+func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
 
 	log.Printf("[block] start to verifyCastingBlock, %x\n", bh.Hash)
 	// 校验父亲块
@@ -663,9 +664,9 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) 
 
 	// 验证交易
 	missing := make([]common.Hash, 0)
-	var transactions []*Transaction
+	var transactions []*types.Transaction
 	if nil == txs {
-		transactions = make([]*Transaction, len(bh.Transactions))
+		transactions = make([]*types.Transaction, len(bh.Transactions))
 		for i, hash := range bh.Transactions {
 			transaction, err := chain.transactionPool.GetTransaction(hash)
 			if err != nil {
@@ -705,7 +706,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) 
 		log.Printf("[block]state.new %d\n", preBlock.StateTree.Bytes())
 	}
 
-	b := new(Block)
+	b := new(types.Block)
 	b.Header = &bh
 	b.Transactions = transactions
 
@@ -735,7 +736,7 @@ func (chain *BlockChain) verifyCastingBlock(bh BlockHeader, txs []*Transaction) 
 //        1,链上已存在该块或链上存在QN值更大的相同高度块，丢弃该块
 //        2，未上链，缓存该块
 //        3 未上链，异步进行分叉调整
-func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
+func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 验证块是否已经在链上
 	existed := chain.queryBlockByHash(b.Header.Hash)
@@ -745,7 +746,7 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 
 	var (
 		state    *state.StateDB
-		receipts types.Receipts
+		receipts vtypes.Receipts
 		status   int8
 	)
 
@@ -810,14 +811,14 @@ func (chain *BlockChain) addBlockOnChain(b *Block) int8 {
 
 		solitaryBlock, r := chain.solitaryBlocks.Get(b.Header.Hash)
 		if r {
-			chain.addBlockOnChain(solitaryBlock.(*Block))
+			chain.addBlockOnChain(solitaryBlock.(*types.Block))
 		}
 	}
 	return status
 
 }
 
-func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
+func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
 
@@ -826,7 +827,7 @@ func (chain *BlockChain) AddBlockOnChain(b *Block) int8 {
 
 // 保存block到ldb
 // todo:错误回滚
-func (chain *BlockChain) saveBlock(b *Block) int8 {
+func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 	// 根据hash存block
 	blockJson, err := json.Marshal(b)
 	if err != nil {
@@ -867,7 +868,7 @@ func (chain *BlockChain) saveBlock(b *Block) int8 {
 
 // 链分叉，调整主链
 // todo:错误回滚
-func (chain *BlockChain) adjust(b *Block) {
+func (chain *BlockChain) adjust(b *types.Block) {
 	chain.lock.Lock("adjust")
 	defer chain.lock.Unlock("adjust")
 	localTotalQN := chain.TotalQN()
@@ -906,12 +907,12 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 }
 
 // 判断两个块所在的链的权重，取权重最大的块所在的链进行同步
-func (chain *BlockChain) weight(current *BlockHeader, candidate *BlockHeader) bool {
+func (chain *BlockChain) weight(current *types.BlockHeader, candidate *types.BlockHeader) bool {
 	return current.TotalQN > candidate.TotalQN
 }
 
 // 删除块
-func (chain *BlockChain) remove(header *BlockHeader) {
+func (chain *BlockChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
 	block := chain.queryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
@@ -949,16 +950,16 @@ func (chain *BlockChain) getStartIndex() uint64 {
 	return start
 }
 
-func (chain *BlockChain) GetTopBlocks() []*BlockHeader {
+func (chain *BlockChain) GetTopBlocks() []*types.BlockHeader {
 	chain.lock.RLock("GetTopBlocks")
 	defer chain.lock.RUnlock("GetTopBlocks")
 
 	start := chain.getStartIndex()
-	result := make([]*BlockHeader, chain.latestBlock.Height-start+1)
+	result := make([]*types.BlockHeader, chain.latestBlock.Height-start+1)
 
 	for i := start; i <= chain.latestBlock.Height; i++ {
 		bh, _ := chain.topBlocks.Get(i)
-		result[i-start] = bh.(*BlockHeader)
+		result[i-start] = bh.(*types.BlockHeader)
 	}
 
 	return result

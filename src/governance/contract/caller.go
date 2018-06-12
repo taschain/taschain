@@ -12,6 +12,7 @@ import (
 	"vm/crypto"
 	"math/big"
 	"errors"
+	"middleware/types"
 )
 
 /*
@@ -23,27 +24,26 @@ type CallMsg struct {
 	From     common.Address  // the sender of the 'transaction'
 	To       *common.Address // the destination contract (nil for contract creation)
 	Gas      uint64          // if 0, the call executes with near-infinite gas
-	GasPrice uint64        // wei <-> gas exchange ratio
-	Value    uint64        // amount of wei sent along with the call
+	GasPrice uint64          // wei <-> gas exchange ratio
+	Value    uint64          // amount of wei sent along with the call
 	Data     []byte          // input data, usually an ABI-encoded contract method invocation
 }
 
 type CallOpt struct {
-	msg *CallMsg
+	msg    *CallMsg
 	method string
-	args []interface{}
+	args   []interface{}
 }
 
-
 type CallContext struct {
-	bh      *tasCore.BlockHeader
-	bc *tasCore.BlockChain
-	state    vm.StateDB
+	bh    *types.BlockHeader
+	bc    *tasCore.BlockChain
+	state vm.StateDB
 }
 
 type BoundContract struct {
 	address common.Address
-	abi	abi.ABI
+	abi     abi.ABI
 	//code    []byte
 }
 type ResultProvider func() interface{}
@@ -51,7 +51,7 @@ type ResultProvider func() interface{}
 func newBoundContract(address common.Address, abi abi.ABI) *BoundContract {
 	return &BoundContract{
 		address: address,
-		abi: abi,
+		abi:     abi,
 		//code:    common.Hex2Bytes(codes),
 	}
 }
@@ -63,37 +63,37 @@ func BuildBoundContract(address common.Address, abis string) *BoundContract {
 
 func NewCallOpt(msg *CallMsg, method string, args ...interface{}) *CallOpt {
 	return &CallOpt{
-		msg: msg,
+		msg:    msg,
 		method: method,
-		args: args,
+		args:   args,
 	}
 }
 
 func NewDefaultCallMsg(from common.Address, to *common.Address, input []byte) *CallMsg {
 	return &CallMsg{
-		From: from,
-		To: to,
-		Value: 0,
-		Gas: math.MaxUint64,
+		From:     from,
+		To:       to,
+		Value:    0,
+		Gas:      math.MaxUint64,
 		GasPrice: 1,
-		Data: input,
+		Data:     input,
 	}
 }
 
 func NewSimulateCallMsg(from common.Address, to *common.Address, gas uint64) *CallMsg {
 	return &CallMsg{
-		From: from,
-		To: to,
-		Value: 0,
-		Gas: gas,
+		From:     from,
+		To:       to,
+		Value:    0,
+		Gas:      gas,
 		GasPrice: 1,
 	}
 }
 
-func NewCallContext(bh *tasCore.BlockHeader, bc *tasCore.BlockChain, db vm.StateDB) *CallContext {
+func NewCallContext(bh *types.BlockHeader, bc *tasCore.BlockChain, db vm.StateDB) *CallContext {
 	return &CallContext{
-		bh: bh,
-		bc: bc,
+		bh:    bh,
+		bc:    bc,
 		state: db,
 	}
 }
@@ -102,15 +102,15 @@ func ChainTopCallContext() *CallContext {
 	return NewCallContext(bc.QueryTopBlock(), bc, bc.LatestStateDB())
 }
 
-func call(ctx *CallContext, msg *CallMsg) ([]byte, *tasCore.Transaction, error) {
-	tx := &tasCore.Transaction{
-		Source: &msg.From,
-		Target: msg.To,
-		Nonce:	ctx.state.GetNonce(util.ToETHAddress(msg.From)),
-		Value: msg.Value,
+func call(ctx *CallContext, msg *CallMsg) ([]byte, *types.Transaction, error) {
+	tx := &types.Transaction{
+		Source:   &msg.From,
+		Target:   msg.To,
+		Nonce:    ctx.state.GetNonce(util.ToETHAddress(msg.From)),
+		Value:    msg.Value,
 		GasLimit: msg.Gas,
 		GasPrice: msg.GasPrice,
-		Data: msg.Data,
+		Data:     msg.Data,
 	}
 
 	gp := new(core.GasPool).AddGas(tx.GasLimit)
@@ -206,8 +206,6 @@ func SimulateDeployContract(ctx *CallContext, from string, abis string, codes st
 
 	code := common.Hex2Bytes(codes)
 
-	return Deploy(ctx, from , append(code, input...))
+	return Deploy(ctx, from, append(code, input...))
 
 }
-
-

@@ -4,9 +4,9 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/rand"
-	"core"
 	"strconv"
 	"time"
+	"middleware/types"
 )
 
 //组初始化消息族
@@ -158,7 +158,7 @@ func (msg ConsensusCurrentMessage) VerifySign(pk groupsig.Pubkey) bool {
 }
 
 type ConsensusBlockMessageBase struct {
-	BH core.BlockHeader
+	BH types.BlockHeader
 	//GroupID groupsig.ID
 	SI SignData
 }
@@ -196,7 +196,7 @@ type ConsensusVerifyMessage struct {
 
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {
-	Block   core.Block
+	Block   types.Block
 	GroupID groupsig.ID
 	SI      SignData
 }

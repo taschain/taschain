@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"common"
-	"core"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+	"middleware/types"
 )
 
 // 获取rpc接口的message,如果发生错误，error返回result中的错误提示
@@ -62,7 +62,7 @@ func genHash(hash string) []byte {
 	return common.Sha256(bytes3)
 }
 
-func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *core.Transaction {
+func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
 	sourcebyte := common.HexToAddress(source)
@@ -74,7 +74,7 @@ func genTx(price uint64, source string, target string, nonce uint64, value uint6
 		targetAddr = &targetbyte
 	}
 
-	return &core.Transaction{
+	return &types.Transaction{
 		Data:          data,
 		GasPrice:      price,
 		Source:        sourceAddr,

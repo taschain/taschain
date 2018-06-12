@@ -7,6 +7,7 @@ import (
 	"time"
 	"common"
 	"network"
+	"middleware/types"
 )
 
 
@@ -33,7 +34,7 @@ type EntityRequestMessage struct {
 }
 
 type BlockMessage struct {
-	Blocks      []*Block
+	Blocks      []*types.Block
 	BlockHashes []*ChainBlockHash
 }
 
@@ -76,7 +77,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 }
 
 //本地查询到交易，返回请求方
-func SendTransactions(txs []*Transaction, sourceId string) {
+func SendTransactions(txs []*types.Transaction, sourceId string) {
 	body, e := marshalTransactions(txs)
 	if e != nil {
 		network.Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
@@ -87,7 +88,7 @@ func SendTransactions(txs []*Transaction, sourceId string) {
 }
 
 //收到交易 全网扩散
-func BroadcastTransactions(txs []*Transaction) {
+func BroadcastTransactions(txs []*types.Transaction) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -161,7 +162,7 @@ func SendChainBlockHashes(targetNode string, cbh []*ChainBlockHash) {
 //	return proto.Marshal(transaction)
 //}
 
-func marshalTransactions(txs []*Transaction) ([]byte, error) {
+func marshalTransactions(txs []*types.Transaction) ([]byte, error) {
 	transactions := transactionsToPb(txs)
 	transactionSlice := tas_pb.TransactionSlice{Transactions: transactions}
 	return proto.Marshal(&transactionSlice)
@@ -183,7 +184,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 	return proto.Marshal(&message)
 }
 
-func transactionToPb(t *Transaction) *tas_pb.Transaction {
+func transactionToPb(t *types.Transaction) *tas_pb.Transaction {
 	var target []byte
 	if t.Target != nil {
 		target = t.Target.Bytes()
@@ -195,7 +196,7 @@ func transactionToPb(t *Transaction) *tas_pb.Transaction {
 	return &transaction
 }
 
-func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
+func transactionsToPb(txs []*types.Transaction) []*tas_pb.Transaction {
 	if txs == nil {
 		return nil
 	}
@@ -208,7 +209,7 @@ func transactionsToPb(txs []*Transaction) []*tas_pb.Transaction {
 }
 
 //--------------------------------------------------Block---------------------------------------------------------------
-func MarshalBlock(b *Block) ([]byte, error) {
+func MarshalBlock(b *types.Block) ([]byte, error) {
 	block := BlockToPb(b)
 	if block == nil {
 		return nil, nil
@@ -216,7 +217,7 @@ func MarshalBlock(b *Block) ([]byte, error) {
 	return proto.Marshal(block)
 }
 
-func MarshalBlocks(bs []*Block) ([]byte, error) {
+func MarshalBlocks(bs []*types.Block) ([]byte, error) {
 	blocks := make([]*tas_pb.Block, 0)
 	for _, b := range bs {
 		block := BlockToPb(b)
@@ -226,7 +227,7 @@ func MarshalBlocks(bs []*Block) ([]byte, error) {
 	return proto.Marshal(&blockSlice)
 }
 
-func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
+func BlockHeaderToPb(h *types.BlockHeader) *tas_pb.BlockHeader {
 	hashes := h.Transactions
 	hashBytes := make([][]byte, 0)
 
@@ -266,7 +267,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_pb.BlockHeader {
 	return &header
 }
 
-func BlockToPb(b *Block) *tas_pb.Block {
+func BlockToPb(b *types.Block) *tas_pb.Block {
 	if b == nil {
 		network.Logger.Errorf("[peer]Block is nil!")
 		return nil

@@ -1,12 +1,12 @@
 package global
 
 import (
-	"core"
 	"vm/core/vm"
-	"vm/core/types"
+	vtypes "vm/core/types"
 	"governance/contract"
 	"common"
 	"governance/util"
+	"middleware/types"
 )
 
 /*
@@ -16,33 +16,29 @@ import (
 */
 
 type ChainEventProcessorImpl struct {
-	
 }
 
 func NewChainEventProcessor() *ChainEventProcessorImpl {
 	return &ChainEventProcessorImpl{}
 }
 
-func (p *ChainEventProcessorImpl) AfterAllTransactionExecuted(b *core.Block, stateDB vm.StateDB, receipts types.Receipts) error {
+func (p *ChainEventProcessorImpl) AfterAllTransactionExecuted(b *types.Block, stateDB vm.StateDB, receipts vtypes.Receipts) error {
 	return afterExecute(b, stateDB, &receipts)
 }
 
-func (p *ChainEventProcessorImpl) BeforeExecuteTransaction(b *core.Block, db vm.StateDB, tx *core.Transaction) ([]byte, error) {
+func (p *ChainEventProcessorImpl) BeforeExecuteTransaction(b *types.Block, db vm.StateDB, tx *types.Transaction) ([]byte, error) {
 	if !isVote(tx) {
 		return tx.Data, nil
 	}
 	return getRealCode(b, db, tx.Data)
 }
 
-
-
-
-/** 
+/**
 * @Description: 根据目标名称以及输入获取真实部署的code 
 * @Param:  
 * @return:  
 */
-func getRealCode(b *core.Block, db vm.StateDB, input []byte) ([]byte, error) {
+func getRealCode(b *types.Block, db vm.StateDB, input []byte) ([]byte, error) {
 	gov := GetGOV()
 
 	callctx := contract.NewCallContext(b.Header, gov.BlockChain, db)
@@ -69,7 +65,7 @@ func getRealCode(b *core.Block, db vm.StateDB, input []byte) ([]byte, error) {
 }
 
 //更新本区块里每个账号的交易相关的信用信息
-func updateTransCredit(callctx *contract.CallContext, b *core.Block) error {
+func updateTransCredit(callctx *contract.CallContext, b *types.Block) error {
 	tmp := make(map[*common.Address]uint32)
 
 	//更新交易相关的信用信息
@@ -100,9 +96,8 @@ func getContractAddressByTxHash(hash common.Hash) common.Address {
 	return common.Address{}
 }
 
-
 //检查到达唱票区块的投票
-func checkStatVotes(callctx *contract.CallContext, b *core.Block) error {
+func checkStatVotes(callctx *contract.CallContext, b *types.Block) error {
 	ctx := GetGOV()
 
 	vap := gov.NewVoteAddrPoolInst(callctx)
@@ -138,8 +133,8 @@ func checkStatVotes(callctx *contract.CallContext, b *core.Block) error {
 				//TODO: 自定义投票, 暂不实现处理
 			} else {
 				meta := &contract.ParamMeta{
-					Value: cfg.PValue,
-					TxHash: h,
+					Value:       cfg.PValue,
+					TxHash:      h,
 					EffectBlock: cfg.EffectBlock,
 				}
 				ctx.ParamWrapper.addFuture(cfg.PIndex, paramStore, meta)
@@ -156,7 +151,7 @@ func checkStatVotes(callctx *contract.CallContext, b *core.Block) error {
 }
 
 //处理那些已经到达生效区块高度的投票的保证金, 以及参数正式生效
-func checkEffectVotes(callctx *contract.CallContext, b *core.Block) error {
+func checkEffectVotes(callctx *contract.CallContext, b *types.Block) error {
 	gov := GetGOV()
 
 	vap := gov.NewVoteAddrPoolInst(callctx)
@@ -208,11 +203,11 @@ func checkEffectVotes(callctx *contract.CallContext, b *core.Block) error {
 	return nil
 }
 
-func isVote(tx *core.Transaction) bool {
+func isVote(tx *types.Transaction) bool {
 	return tx.ExtraDataType == 1
 }
 
-func voteAddr(tx *core.Transaction, receipts *types.Receipts) common.Address {
+func voteAddr(tx *types.Transaction, receipts *vtypes.Receipts) common.Address {
 	for _, r := range *receipts {
 		if r.TxHash == util.ToETHHash(tx.Hash) {
 			return util.ToTASAddress(r.ContractAddress)
@@ -222,7 +217,7 @@ func voteAddr(tx *core.Transaction, receipts *types.Receipts) common.Address {
 	return common.Address{}
 }
 
-func handleVoteCreate(callctx *contract.CallContext, b *core.Block, receipts *types.Receipts) error {
+func handleVoteCreate(callctx *contract.CallContext, b *types.Block, receipts *vtypes.Receipts) error {
 	gov := GetGOV()
 
 	for _, tx := range b.Transactions {
@@ -235,10 +230,10 @@ func handleVoteCreate(callctx *contract.CallContext, b *core.Block, receipts *ty
 			vap := gov.NewVoteAddrPoolInst(callctx)
 
 			v := &contract.VoteAddr{
-				Addr: voteAddr(tx, receipts),
-				StatBlock: cfg.StatBlock,
+				Addr:        voteAddr(tx, receipts),
+				StatBlock:   cfg.StatBlock,
 				EffectBlock: cfg.EffectBlock,
-				TxHash: tx.Hash,
+				TxHash:      tx.Hash,
 			}
 			if ok, err := vap.AddVote(v); err != nil || !ok {
 				return gov.Logger.Warn("add vote fail", ok, err)
@@ -251,7 +246,7 @@ func handleVoteCreate(callctx *contract.CallContext, b *core.Block, receipts *ty
 }
 
 //执行后触发
-func afterExecute(b *core.Block, stateDB vm.StateDB, recepts *types.Receipts) error {
+func afterExecute(b *types.Block, stateDB vm.StateDB, recepts *vtypes.Receipts) error {
 	ctx := GetGOV()
 
 	//生成智能合约调用的上下文

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"vm/core"
 	"vm/common"
+	"middleware/types"
 )
 
 type Session struct {
@@ -30,7 +31,7 @@ type Session struct {
 	gp *core.GasPool
 }
 
-func NewSession(state vm.StateDB, tx *Transaction, gp *core.GasPool, realdata []byte) *Session {
+func NewSession(state vm.StateDB, tx *types.Transaction, gp *core.GasPool, realdata []byte) *Session {
 	session := &Session{
 		state:    state,
 		nonce:    tx.Nonce,

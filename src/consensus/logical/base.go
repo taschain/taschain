@@ -4,12 +4,12 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/rand"
-	"core"
 	"hash"
 	"math"
 	"strconv"
 	"time"
 	"taslog"
+	"middleware/types"
 )
 
 const NORMAL_FAILED int = -1
@@ -268,7 +268,7 @@ type ConsensusBlockSummary struct {
 }
 
 //根据区块头生成铸块共识摘要
-func GenConsensusSummary(bh *core.BlockHeader) ConsensusBlockSummary {
+func GenConsensusSummary(bh *types.BlockHeader) ConsensusBlockSummary {
 	var cs ConsensusBlockSummary
 	if cs.Castor.Deserialize(bh.Castor) != nil {
 		panic("ID Deserialize failed.")

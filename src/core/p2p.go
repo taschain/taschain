@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"bytes"
 	"encoding/binary"
+	"middleware/types"
 )
 
 var (
@@ -51,13 +52,13 @@ func InitCore() error {
 }
 
 //queryTracsactionFn 实现
-func (connector *BlockChainConnector) QueryTransaction(hs []common.Hash) ([]*Transaction, error) {
+func (connector *BlockChainConnector) QueryTransaction(hs []common.Hash) ([]*types.Transaction, error) {
 	if nil == hs || 0 == len(hs) {
 		return nil, nil
 	}
 
 	var err error
-	txs := make([]*Transaction, len(hs))
+	txs := make([]*types.Transaction, len(hs))
 	for i, hash := range hs {
 		txs[i], err = connector.chain.GetTransactionByHash(hash)
 	}
@@ -66,7 +67,7 @@ func (connector *BlockChainConnector) QueryTransaction(hs []common.Hash) ([]*Tra
 }
 
 //transactionArrivedNotifyBlockChainFn 实现
-func (connector *BlockChainConnector) TransactionArrived(ts []*Transaction) error {
+func (connector *BlockChainConnector) TransactionArrived(ts []*types.Transaction) error {
 	if nil == ts || 0 == len(ts) {
 		return fmt.Errorf("nil transactions")
 	}
@@ -75,7 +76,7 @@ func (connector *BlockChainConnector) TransactionArrived(ts []*Transaction) erro
 }
 
 //addNewBlockToChainFn 实现
-func (connector *BlockChainConnector) AddNewBlock(b *Block, sig []byte) {
+func (connector *BlockChainConnector) AddNewBlock(b *types.Block, sig []byte) {
 	if nil == b {
 		return
 	}
@@ -83,7 +84,7 @@ func (connector *BlockChainConnector) AddNewBlock(b *Block, sig []byte) {
 }
 
 //addTransactionToPoolFn 实现
-func (connector *BlockChainConnector) AddTransactionToPool(ts []*Transaction) {
+func (connector *BlockChainConnector) AddTransactionToPool(ts []*types.Transaction) {
 	connector.TransactionArrived(ts)
 }
 

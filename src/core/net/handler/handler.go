@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"network"
+	"middleware/types"
 )
 
 
@@ -134,24 +135,24 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	return nil
 }
 
-func mockTxs() []*core.Transaction {
+func mockTxs() []*types.Transaction {
 	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
 	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
 	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
 	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
 	t2 := genTestTx("tx1", 456, "222", "ddd", 0, 1)
-	s := []*core.Transaction{t1, t2}
+	s := []*types.Transaction{t1, t2}
 	return s
 }
 
-func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 
 	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
 	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
 
 	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
 	data := []byte("This is a transaction")
-	return &core.Transaction{
+	return &types.Transaction{
 		Data:     data,
 		Value:    value,
 		Nonce:    nonce,
@@ -164,7 +165,7 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 }
 
 //验证节点接收交易 或者接收来自客户端广播的交易
-func OnMessageTransaction(txs []*core.Transaction) error {
+func OnMessageTransaction(txs []*types.Transaction) error {
 	//验证节点接收交易 加入交易池
 
 	if nil == core.BlockChainImpl {
@@ -179,7 +180,7 @@ func OnMessageTransaction(txs []*core.Transaction) error {
 }
 
 //全网其他节点 接收block 进行验证
-func OnMessageNewBlock(b *core.Block) error {
+func OnMessageNewBlock(b *types.Block) error {
 	//接收到新的块 本地上链
 	if nil == core.BlockChainImpl {
 		return nil
@@ -221,18 +222,18 @@ func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
 
 //----------------------------------------------Transaction-------------------------------------------------------------
 
-func unMarshalTransaction(b []byte) (*core.Transaction, error) {
+func unMarshalTransaction(b []byte) (*types.Transaction, error) {
 	t := new(tas_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
 		network.Logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
-		return &core.Transaction{}, error
+		return &types.Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
 	return transaction, nil
 }
 
-func UnMarshalTransactions(b []byte) ([]*core.Transaction, error) {
+func UnMarshalTransactions(b []byte) ([]*types.Transaction, error) {
 	ts := new(tas_pb.TransactionSlice)
 	error := proto.Unmarshal(b, ts)
 	if error != nil {
@@ -268,20 +269,20 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	return &message, nil
 }
 
-func pbToTransaction(t *tas_pb.Transaction) *core.Transaction {
+func pbToTransaction(t *tas_pb.Transaction) *types.Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
-	transaction := core.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
+	transaction := types.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
 		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
 		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType}
 	return &transaction
 }
 
-func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
+func pbToTransactions(txs []*tas_pb.Transaction) []*types.Transaction {
 	if txs == nil {
 		return nil
 	}
-	result := make([]*core.Transaction, 0)
+	result := make([]*types.Transaction, 0)
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
 		result = append(result, transaction)
@@ -290,7 +291,7 @@ func pbToTransactions(txs []*tas_pb.Transaction) []*core.Transaction {
 }
 
 //--------------------------------------------------Block---------------------------------------------------------------
-func unMarshalBlock(bytes []byte) (*core.Block, error) {
+func unMarshalBlock(bytes []byte) (*types.Block, error) {
 	b := new(tas_pb.Block)
 	error := proto.Unmarshal(bytes, b)
 	if error != nil {
@@ -318,7 +319,7 @@ func unMarshalBlock(bytes []byte) (*core.Block, error) {
 //	return result, nil
 //}
 
-func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
+func PbToBlockHeader(h *tas_pb.BlockHeader) *types.BlockHeader {
 
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
@@ -355,17 +356,17 @@ func PbToBlockHeader(h *tas_pb.BlockHeader) *core.BlockHeader {
 		}
 	}
 
-	header := core.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
+	header := types.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
 		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN}
 	return &header
 }
 
-func PbToBlock(b *tas_pb.Block) *core.Block {
+func PbToBlock(b *tas_pb.Block) *types.Block {
 	h := PbToBlockHeader(b.Header)
 	txs := pbToTransactions(b.Transactions)
-	block := core.Block{Header: h, Transactions: txs}
+	block := types.Block{Header: h, Transactions: txs}
 	return &block
 }
 
@@ -479,7 +480,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 		return nil, e
 	}
 
-	blocks := make([]*core.Block, 0)
+	blocks := make([]*types.Block, 0)
 	if message.Blocks != nil && message.Blocks.Blocks != nil {
 		for _, b := range message.Blocks.Blocks {
 			blocks = append(blocks, PbToBlock(b))

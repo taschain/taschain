@@ -12,6 +12,7 @@ import (
 	"strings"
 	"log"
 	"math"
+	"middleware/types"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -86,7 +87,7 @@ func (api *GtasAPI) GroupHeight() (*Result, error) {
 }
 
 // Vote
-func (api *GtasAPI) Vote(from string,v *VoteConfig) (*Result, error) {
+func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 	config := v.ToGlobal()
 	walletManager.newVote(from, config)
 	return &Result{"success", ""}, nil
@@ -108,7 +109,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, 5)
 	transactions.Range(func(key, value interface{}) bool {
-		v:= value.(core.Transaction)
+		v := value.(types.Transaction)
 		transList = append(transList, Transactions{
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
@@ -134,7 +135,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	blockDetail["txs"] = len(bh.Transactions)
-	blockDetail["tps"] = math.Round(float64(len(bh.Transactions))/bh.CurTime.Sub(bh.PreTime).Seconds())
+	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 	return &Result{"success", blockDetail}, nil
 }
 

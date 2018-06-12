@@ -7,55 +7,16 @@ import (
 	"math/big"
 	"time"
 	"vm/core/state"
-	"vm/core/types"
+	vtypes "vm/core/types"
 	"vm/rlp"
 	"vm/trie"
-
 	c "vm/common"
+	"middleware/types"
 )
-
-//区块头结构
-type BlockHeader struct {
-	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
-	Height       uint64        // 本块的高度
-	PreHash      common.Hash   //上一块哈希
-	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
-	CurTime      time.Time     //当前铸块时间
-	Castor       []byte        //出块人ID
-	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Signature    []byte        // 组签名
-	Nonce        uint64        //盐
-	Transactions []common.Hash // 交易集哈希列表
-	TxTree       common.Hash   // 交易默克尔树根hash
-	ReceiptTree  common.Hash
-	StateTree    common.Hash
-	EvictedTxs   []common.Hash
-	ExtraData    []byte
-}
-
-func (bh *BlockHeader) GenHash() common.Hash {
-	sign := bh.Signature
-	hash := bh.Hash
-
-	bh.Signature = []byte{}
-	bh.Hash = common.Hash{}
-	blockByte, _ := json.Marshal(bh)
-	result := common.BytesToHash(common.Sha256(blockByte))
-	bh.Signature = sign
-	bh.Hash = hash
-	return result
-}
 
 var emptyHash = common.Hash{}
 
-type Block struct {
-	Header       *BlockHeader
-	Transactions []*Transaction
-}
-
-func calcTxTree(tx []*Transaction) common.Hash {
+func calcTxTree(tx []*types.Transaction) common.Hash {
 	if nil == tx || 0 == len(tx) {
 		return emptyHash
 	}
@@ -73,7 +34,7 @@ func calcTxTree(tx []*Transaction) common.Hash {
 	return common.BytesToHash(hash.Bytes())
 }
 
-func calcReceiptsTree(receipts types.Receipts) common.Hash {
+func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
 		return emptyHash
 	}
@@ -92,10 +53,10 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *Block {
-	block := new(Block)
+func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *types.Block {
+	block := new(types.Block)
 
-	block.Header = &BlockHeader{
+	block.Header = &types.BlockHeader{
 		ExtraData:   common.Sha256([]byte("tas")),
 		CurTime:     time.Date(2018, 5, 16, 10, 0, 0, 0, time.Local),
 		QueueNumber: 0,

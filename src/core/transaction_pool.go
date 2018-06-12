@@ -7,11 +7,13 @@ import (
 	"common"
 	"core/datasource"
 	"os"
-	"vm/core/types"
+
 	"encoding/json"
 	"sort"
 	"vm/common/hexutil"
 	"vm/ethdb"
+	vtypes "vm/core/types"
+	"middleware/types"
 	"middleware"
 )
 
@@ -54,18 +56,18 @@ type TransactionPool struct {
 	// 收到的待处理transaction
 	received sync.Map
 
-	sendingList []*Transaction
+	sendingList []*types.Transaction
 
 	// 当前received数组里，price最小的transaction
-	lowestPrice *Transaction
+	lowestPrice *types.Transaction
 
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed ethdb.Database
 }
 
 type ReceiptWrapper struct {
-	Receipt     *types.Receipt
-	Transaction *Transaction
+	Receipt     *vtypes.Receipt
+	Transaction *types.Transaction
 }
 
 func DefaultPoolConfig() *TransactionPoolConfig {
@@ -94,7 +96,7 @@ func NewTransactionPool() *TransactionPool {
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
 		received:    sync.Map{},
-		sendingList: make([]*Transaction, sendingListLength),
+		sendingList: make([]*types.Transaction, sendingListLength),
 		lowestPrice: nil,
 	}
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -122,22 +124,22 @@ func (pool *TransactionPool) GetReceived() sync.Map {
 }
 
 // 返回待处理的transaction数组
-func (pool *TransactionPool) GetTransactionsForCasting() []*Transaction {
-	txs := make([]*Transaction, 0)
+func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
+	txs := make([]*types.Transaction, 0)
 	pool.received.Range(func(key, value interface{}) bool {
-		txs = append(txs, value.(*Transaction))
+		txs = append(txs, value.(*types.Transaction))
 
 		return true
 	})
 
-	sort.Sort(Transactions(txs))
+	sort.Sort(types.Transactions(txs))
 	return txs
 }
 
 // 不加锁
-func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
+func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("AddTransactions")
+	defer pool.lock.Unlock("Add")
 
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
@@ -152,7 +154,7 @@ func (pool *TransactionPool) AddTransactions(txs []*Transaction) error {
 
 	return nil
 }
-func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
+func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("Add")
 	defer pool.lock.Unlock("Add")
 
@@ -161,7 +163,7 @@ func (pool *TransactionPool) Add(tx *Transaction) (bool, error) {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TransactionPool) addInner(tx *Transaction, isBroadcast bool) (bool, error) {
+func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -201,9 +203,9 @@ func (pool *TransactionPool) addInner(tx *Transaction, isBroadcast bool) (bool, 
 	if isBroadcast {
 		pool.sendingList = append(pool.sendingList, tx)
 		if sendingListLength == len(pool.sendingList) {
-			txs := make([]*Transaction, sendingListLength)
+			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*Transaction, sendingListLength)
+			pool.sendingList = make([]*types.Transaction, sendingListLength)
 			go BroadcastTransactions(txs)
 		}
 	}
@@ -229,12 +231,12 @@ func (pool *TransactionPool) remove(hash common.Hash) {
 
 }
 
-func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transaction, []common.Hash, error) {
+func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
 		return nil, nil, ErrNil
 	}
 
-	txs := make([]*Transaction, 0)
+	txs := make([]*types.Transaction, 0)
 	need := make([]common.Hash, 0)
 	var err error
 	for _, hash := range hashes {
@@ -252,14 +254,14 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*Transacti
 
 // 根据hash获取交易实例
 // 此处加锁
-func (pool *TransactionPool) GetTransaction(hash common.Hash) (*Transaction, error) {
+func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
 
 	// 先从received里获取
 	result, _ := pool.received.Load(hash)
 	if nil != result {
-		return result.(*Transaction), nil
+		return result.(*types.Transaction), nil
 	}
 
 	// 再从executed里获取
@@ -287,7 +289,7 @@ func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
 }
 
 // 校验transaction是否合法
-func (pool *TransactionPool) validate(tx *Transaction) error {
+func (pool *TransactionPool) validate(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
 	}
@@ -297,7 +299,7 @@ func (pool *TransactionPool) validate(tx *Transaction) error {
 
 // 直接加入未满的池子
 // 不需要加锁，sync.Map保证并发
-func (pool *TransactionPool) add(tx *Transaction) {
+func (pool *TransactionPool) add(tx *types.Transaction) {
 	pool.received.Store(tx.Hash, tx)
 	lowestPrice := pool.lowestPrice
 	if lowestPrice == nil || lowestPrice.GasPrice > tx.GasPrice {
@@ -308,7 +310,7 @@ func (pool *TransactionPool) add(tx *Transaction) {
 
 // 外部加锁
 // 加缓冲区
-func (pool *TransactionPool) addTxs(txs []*Transaction) {
+func (pool *TransactionPool) addTxs(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
@@ -318,7 +320,7 @@ func (pool *TransactionPool) addTxs(txs []*Transaction) {
 }
 
 // Add时候会调用，在外面加锁
-func (pool *TransactionPool) replace(tx *Transaction) {
+func (pool *TransactionPool) replace(tx *types.Transaction) {
 	// 替换
 	pool.received.Delete(pool.lowestPrice.Hash)
 	pool.received.Store(tx.Hash, tx)
@@ -326,7 +328,7 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 	// 更新lowest
 	lowest := tx
 	pool.received.Range(func(key, value interface{}) bool {
-		transaction := value.(*Transaction)
+		transaction := value.(*types.Transaction)
 		if transaction.GasPrice < lowest.GasPrice {
 			lowest = transaction
 		}
@@ -339,7 +341,7 @@ func (pool *TransactionPool) replace(tx *Transaction) {
 }
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
-func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transaction) {
+func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
@@ -359,7 +361,7 @@ func (pool *TransactionPool) AddExecuted(receipts types.Receipts, txs []*Transac
 	}
 }
 
-func getTransaction(txs []*Transaction, hash []byte, i int) *Transaction {
+func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transaction {
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
@@ -393,7 +395,7 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 }
 
 // 本身不需要加锁（ldb自己保证）
-func (pool *TransactionPool) RemoveExecuted(txs []*Transaction) {
+func (pool *TransactionPool) RemoveExecuted(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}

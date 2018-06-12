@@ -23,8 +23,7 @@ import (
 	_ "metrics"
 	_ "net/http/pprof"
 	"net/http"
-	"middleware"
-	"time"
+	"middleware/types"
 )
 
 const (
@@ -73,7 +72,6 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log")
 	err := gtas.fullInit()
 	if err != nil {
 		fmt.Println(err)
@@ -88,8 +86,8 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	}
 	if super {
 		keys1 := LoadPubKeyInfo("pubkeys1")
-		keys2 := LoadPubKeyInfo("pubkeys2")
-		keys3 := LoadPubKeyInfo("pubkeys3")
+		//keys2 := LoadPubKeyInfo("pubkeys2")
+		//keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
 			if len(p2p.Server.GetConnInfo()) >= 2 {
@@ -100,10 +98,10 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 				break
 			}
 		}
-		createGroup(keys3, "gtas3")
-		time.Sleep(time.Second * 15)
-		createGroup(keys2, "gtas2")
-		time.Sleep(time.Second * 15)
+		//createGroup(keys3, "gtas3")
+		//time.Sleep(time.Second * 15)
+		//createGroup(keys2, "gtas2")
+		//time.Sleep(time.Second * 15)
 		createGroup(keys1, "gtas1")
 
 	}
@@ -384,24 +382,24 @@ func NewGtas() *Gtas {
 	return &Gtas{}
 }
 
-func mockTxs() []*core.Transaction {
+func mockTxs() []*types.Transaction {
 	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
 	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
 	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
 	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
 	t2 := genTestTx("tx2", 456, "222", "ddd", 0, 1)
-	s := []*core.Transaction{t1, t2}
+	s := []*types.Transaction{t1, t2}
 	return s
 }
 
-func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *core.Transaction {
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 
 	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
 	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
 
 	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
 	data := []byte("This is a transaction")
-	return &core.Transaction{
+	return &types.Transaction{
 		Data:     data,
 		Value:    value,
 		Nonce:    nonce,

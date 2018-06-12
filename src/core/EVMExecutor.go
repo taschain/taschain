@@ -3,7 +3,7 @@ package core
 import (
 	"vm/common"
 	"vm/core/state"
-	"vm/core/types"
+	vtypes "vm/core/types"
 	"vm/core/vm"
 	"vm/crypto"
 	"vm/params"
@@ -12,6 +12,7 @@ import (
 	"vm/common/math"
 	"fmt"
 	c "common"
+	"middleware/types"
 )
 
 type EVMExecutor struct {
@@ -42,14 +43,14 @@ func NewEVMExecutor(bc *BlockChain) *EVMExecutor {
 	}
 }
 
-func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, processor VoteProcessor) (types.Receipts, []*Transaction, []c.Hash, *common.Hash, uint64) {
+func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *types.Block, processor VoteProcessor) (vtypes.Receipts, []*types.Transaction, []c.Hash, *common.Hash, uint64) {
 	var (
-		receipts types.Receipts
+		receipts vtypes.Receipts
 		usedGas  = new(uint64)
 		header   = block.Header
 		gp       = new(core.GasPool).AddGas(math.MaxUint64)
 	)
-	executedTxs := make([]*Transaction, 0)
+	executedTxs := make([]*types.Transaction, 0)
 	errTxs := make([]c.Hash, 0)
 
 	if 0 == len(block.Transactions) {
@@ -86,7 +87,7 @@ func (executor *EVMExecutor) Execute(statedb *state.StateDB, block *Block, proce
 
 }
 
-func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, header *BlockHeader, tx *Transaction, usedGas *uint64, cfg vm.Config, config *params.ChainConfig, realData []byte) (*types.Receipt, uint64, error) {
+func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, header *types.BlockHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config, config *params.ChainConfig, realData []byte) (*vtypes.Receipt, uint64, error) {
 
 	context := NewEVMContext(tx, header, executor.bc)
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
@@ -100,7 +101,7 @@ func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, h
 
 	*usedGas += gas
 
-	receipt := types.NewReceipt(nil, failed, *usedGas)
+	receipt := vtypes.NewReceipt(nil, failed, *usedGas)
 	receipt.TxHash = common.BytesToHash(tx.Hash.Bytes())
 	receipt.GasUsed = gas
 
@@ -109,12 +110,12 @@ func (executor *EVMExecutor) execute(statedb *state.StateDB, gp *core.GasPool, h
 	}
 
 	receipt.Logs = statedb.GetLogs(common.BytesToHash(tx.Hash.Bytes()))
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.Bloom = vtypes.CreateBloom(vtypes.Receipts{receipt})
 
 	return receipt, gas, err
 }
 
-func NewEVMContext(tx *Transaction, header *BlockHeader, chain *BlockChain) vm.Context {
+func NewEVMContext(tx *types.Transaction, header *types.BlockHeader, chain *BlockChain) vm.Context {
 	return vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -138,7 +139,7 @@ func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) 
 	db.AddBalance(recipient, amount)
 }
 
-func GetHashFn(ref *BlockHeader, chain *BlockChain) func(n uint64) common.Hash {
+func GetHashFn(ref *types.BlockHeader, chain *BlockChain) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
 		header := chain.QueryBlockByHeight(n)
 		if nil != header {

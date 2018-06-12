@@ -5,9 +5,9 @@ import (
 	"common"
 	"log"
 	"math"
-	"core"
 	"sync"
 	"math/big"
+	"middleware/types"
 )
 
 /*
@@ -38,7 +38,7 @@ type VerifyContext struct {
 
 	slots [MAX_SYNC_CASTORS]*SlotContext
 
-	castedQNs	[]int64		//自己铸过的qn
+	castedQNs []int64 //自己铸过的qn
 
 	blockCtx *BlockContext
 
@@ -51,7 +51,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, pr
 	return ctx
 }
 
-func (vc *VerifyContext) resetSlotContext()  {
+func (vc *VerifyContext) resetSlotContext() {
 	for i := 0; i < MAX_SYNC_CASTORS; i++ {
 		sc := new(SlotContext)
 		sc.reset()
@@ -81,23 +81,23 @@ func (vc *VerifyContext) isQNCasted(qn int64) bool {
 	return false
 }
 
-func (vc *VerifyContext) addCastedQN(qn int64)  {
-    vc.castedQNs = append(vc.castedQNs, qn)
+func (vc *VerifyContext) addCastedQN(qn int64) {
+	vc.castedQNs = append(vc.castedQNs, qn)
 }
 
-func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
-    vc.prevTime = preTime
-    vc.prevHash = preHash
-    vc.castHeight = castHeight
-    vc.signedMaxQN = INVALID_QN
-    vc.consensusStatus = CBCS_CURRENT
-    vc.blockCtx = bc
-    vc.castedQNs = make([]int64, 0)
+func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) {
+	vc.prevTime = preTime
+	vc.prevHash = preHash
+	vc.castHeight = castHeight
+	vc.signedMaxQN = INVALID_QN
+	vc.consensusStatus = CBCS_CURRENT
+	vc.blockCtx = bc
+	vc.castedQNs = make([]int64, 0)
 	vc.resetSlotContext()
 }
 
-func (vc *VerifyContext) setTimeout()  {
-    vc.consensusStatus = CBCS_TIMEOUT
+func (vc *VerifyContext) setTimeout() {
+	vc.consensusStatus = CBCS_TIMEOUT
 }
 
 func (vc *VerifyContext) baseOnGeneisBlock() bool {
@@ -114,12 +114,12 @@ func (vc *VerifyContext) getMaxCastTime() int64 {
 		max = math.MaxInt64
 	} else {
 		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-		if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
+		if preBH == nil { //TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
 			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
 			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
 			max = -1
 		} else {
-			max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
+			max = int64(vc.castHeight-preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
 		}
 
 	}
@@ -142,10 +142,10 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 	var qn int64
 	if vc.baseOnGeneisBlock() {
-		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
+		qn = max/int64(MAX_USER_CAST_TIME) - int64(diff)/int64(MAX_USER_CAST_TIME)
 	} else {
 		d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
-		qn = int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
+		qn = int64(MAX_QN) - d/int64(MAX_USER_CAST_TIME)
 	}
 
 	return qn
@@ -230,7 +230,7 @@ func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int32, ret QN_QUERY_SL
 	return -1, QQSR_NO_UNKNOWN
 }
 
-func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
+func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 	vc.rebase(bc, castHeight, preTime, preHash)
@@ -248,15 +248,14 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	}
 }
 
-
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *core.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	log.Printf("begin VerifyContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	qnDiff := vc.qnOfDiff(bh.CurTime.Sub(bh.PreTime).Seconds())
-	if qnDiff < 0 || uint64(qnDiff) != bh.QueueNumber {//计算的qn错误
+	if qnDiff < 0 || uint64(qnDiff) != bh.QueueNumber { //计算的qn错误
 		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, qnDiff, bh.QueueNumber)
 		return CMBR_IGNORE_QN_ERROR
 	}
@@ -315,7 +314,7 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 	vc.signedUpdateMinQN(qn)
 
 	switch vc.consensusStatus {
-	case CBCS_IDLE, CBCS_TIMEOUT, CBCS_MAX_QN_BLOCKED:	//不在铸块周期或已经铸出最大块
+	case CBCS_IDLE, CBCS_TIMEOUT, CBCS_MAX_QN_BLOCKED: //不在铸块周期或已经铸出最大块
 		return false
 	case CBCS_CASTING, CBCS_CURRENT, CBCS_BLOCKED:
 		if qn >= int64(MAX_QN) {
@@ -331,7 +330,7 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *core.BlockHeader, sd *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
@@ -368,7 +367,7 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 	}
 	allFinished := true
 	//所有的槽都失败或者已验证的, 可以删除
-	for _, slt := range vc.slots{
+	for _, slt := range vc.slots {
 		if !slt.IsFailed() && !slt.IsVerified() {
 			allFinished = false
 			break
@@ -388,7 +387,6 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 	}
 	return false
 }
-
 
 //计算当前铸块人位置和QN
 func (vc *VerifyContext) calcCastor() (int32, int64) {

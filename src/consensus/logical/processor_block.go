@@ -1,12 +1,12 @@
 package logical
 
 import (
-	"core"
 	"log"
 	"common"
 	"fmt"
 	"time"
 	"consensus/groupsig"
+	"middleware/types"
 )
 
 /*
@@ -61,7 +61,7 @@ func (p *Processer) removeFutureBlockMsgs(hash common.Hash) {
 	delete(p.futureBlockMsg, hash)
 }
 
-func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
+func (p *Processer) doAddOnChain(block *types.Block) (result int8) {
 	begin := time.Now()
 	defer func() {
 		log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
@@ -85,16 +85,16 @@ func (p *Processer) doAddOnChain(block *core.Block) (result int8) {
 
 }
 
-func (p *Processer) blockOnChain(bh *core.BlockHeader) bool {
+func (p *Processer) blockOnChain(bh *types.BlockHeader) bool {
 	exist := p.MainChain.QueryBlockByHash(bh.Hash)
-	if exist != nil {	//已经上链
+	if exist != nil { //已经上链
 		return true
 	}
 	return false
 }
 
-func (p *Processer) getBlockHeaderByHash(hash common.Hash) *core.BlockHeader {
-    b := p.MainChain.QueryBlockByHash(hash)
+func (p *Processer) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	b := p.MainChain.QueryBlockByHash(hash)
 	if b == nil {
 		//p.futureBlockLock.RLock()
 		//defer p.futureBlockLock.RUnlock()
@@ -158,6 +158,6 @@ func (p *Processer) removeFutureVerifyMsgs(hash common.Hash) {
 	delete(p.futureVerifyMsg, hash)
 }
 
-func (p *Processer) blockPreview(bh *core.BlockHeader) string {
-    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+func (p *Processer) blockPreview(bh *types.BlockHeader) string {
+	return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }

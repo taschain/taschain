@@ -9,9 +9,10 @@ import (
 	"time"
 	"log"
 	"sync/atomic"
+	"middleware/types"
 )
 
-func (p *Processer) genCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary {
+func (p *Processer) genCastGroupSummary(bh *types.BlockHeader) *CastGroupSummary {
 	var gid groupsig.ID
 	if err := gid.Deserialize(bh.GroupId); err != nil {
 		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
@@ -23,17 +24,17 @@ func (p *Processer) genCastGroupSummary(bh *core.BlockHeader) *CastGroupSummary 
 		return nil
 	}
 	cgs := &CastGroupSummary{
-		PreHash: bh.Hash,
-		PreTime: bh.PreTime,
+		PreHash:     bh.Hash,
+		PreTime:     bh.PreTime,
 		BlockHeight: bh.Height,
-		GroupID: gid,
-		Castor: castor,
+		GroupID:     gid,
+		Castor:      castor,
 	}
 	cgs.CastorPos = p.getMinerPos(cgs.GroupID, cgs.Castor)
 	return cgs
 }
 
-func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *CastGroupSummary)  {
+func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *CastGroupSummary) {
 	bh := &msg.BH
 	si := &msg.SI
 
@@ -88,7 +89,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 
 		gpk := p.getGroupPubKey(gid)
 		sign := slot.GetGroupSign()
-		if !slot.VerifyGroupSign(gpk) {	//组签名验证通过
+		if !slot.VerifyGroupSign(gpk) { //组签名验证通过
 			log.Printf("%v group pub key local check failed, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
 				GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 			return
@@ -107,7 +108,7 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		}
 
 	case CBMR_PIECE_NORMAL:
-		if 	atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) && !cgs.Castor.IsEqual(p.GetMinerID()) {
+		if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) && !cgs.Castor.IsEqual(p.GetMinerID()) {
 			var cvm ConsensusVerifyMessage
 			cvm.BH = *bh
 			//cvm.GroupID = gId
@@ -124,13 +125,13 @@ func (p *Processer) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 			}
 
 		}
-	case CBMR_PIECE_LOSINGTRANS:	//交易缺失
+	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 		log.Printf("%v lost trans!", mtype)
 
 	}
 }
 
-func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase)  {
+func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase) {
 	bh := &msg.BH
 	si := &msg.SI
 	log.Printf("Proc(%v) begin %v, height=%v, qn=%v\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber)
@@ -166,8 +167,6 @@ func (p *Processer) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 
 	p.doVerify(mtype, msg, cgs)
 
-
-
 	//case 1: //本地交易缺失
 	//	n := bc.UserCasted(ccm.BH, ccm.SI)
 	//	log.Printf("proc(%v) OMC UserCasted result=%v.\n", p.getPrefix(), n)
@@ -194,8 +193,8 @@ func (p *Processer) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
 }
 
-func (p *Processer) triggerFutureVerifyMsg(hash common.Hash)  {
-    futures := p.getFutureVerifyMsgs(hash)
+func (p *Processer) triggerFutureVerifyMsg(hash common.Hash) {
+	futures := p.getFutureVerifyMsgs(hash)
 	if futures == nil || len(futures) == 0 {
 		return
 	}
@@ -207,8 +206,7 @@ func (p *Processer) triggerFutureVerifyMsg(hash common.Hash)  {
 
 }
 
-
-func (p *Processer) receiveBlock(msg *ConsensusBlockMessage, preBH *core.BlockHeader) bool {
+func (p *Processer) receiveBlock(msg *ConsensusBlockMessage, preBH *types.BlockHeader) bool {
 	if p.isCastGroupLeagal(msg.Block.Header, preBH) { //铸块组合法
 		result := p.doAddOnChain(&msg.Block)
 		log.Printf("OMB onchain result %v\n", result)
@@ -222,7 +220,7 @@ func (p *Processer) receiveBlock(msg *ConsensusBlockMessage, preBH *core.BlockHe
 	return false
 }
 
-func (p *Processer) cleanVerifyContext(currentHeight uint64)  {
+func (p *Processer) cleanVerifyContext(currentHeight uint64) {
 	for _, bc := range p.bcs {
 		ctxs := bc.SafeGetVerifyContexts()
 		delCtx := make([]*VerifyContext, 0)
@@ -262,7 +260,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 	}
 	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
 		GetIDPrefix(cbm.GroupID), GetIDPrefix(gid), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
-
 
 	block := &cbm.Block
 	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
@@ -307,7 +304,6 @@ func (p *Processer) OnMessageBlock(cbm ConsensusBlockMessage) {
 		p.cleanVerifyContext(nowTop.Height)
 	}
 
-
 	log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return
 }
@@ -326,7 +322,6 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 		log.Printf("proc(%v) OMNT, first trans=%v.\n", p.getPrefix(), ths[0].Hex())
 	}
 
-
 	for gid, bc := range p.bcs {
 		slots := bc.receiveTrans(ths)
 		log.Printf("group %v lost trans slot size %v\n", gid, len(slots))
@@ -340,7 +335,7 @@ func (p *Processer) OnMessageNewTransactions(ths []common.Hash) {
 			sendMessage.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
 			if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) {
 				log.Printf("call network service SendVerifiedCast...\n")
-				logHalfway("OMNT", 0,0, p.getPrefix(), "SendVerifiedCast")
+				logHalfway("OMNT", 0, 0, p.getPrefix(), "SendVerifiedCast")
 				go SendVerifiedCast(&sendMessage)
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"consensus/groupsig"
 	"common"
 	"sync/atomic"
+	"middleware/types"
 )
 
 /*
@@ -20,19 +21,19 @@ type SLOT_STATUS int
 
 const (
 	SS_WAITING      int32 = iota //等待签名片段达到阈值
-	SS_BRAODCASTED                     //是否已经广播验证过
-	SS_RECOVERD                        //恢复出组签名
-	SS_VERIFIED                        //组签名用组公钥验证通过
-	SS_ONCHAIN                        //已上链
-	SS_FAILED_CHAIN                    //链反馈失败，不可逆
-	SS_FAILED                          //铸块过程中失败，不可逆
+	SS_BRAODCASTED               //是否已经广播验证过
+	SS_RECOVERD                  //恢复出组签名
+	SS_VERIFIED                  //组签名用组公钥验证通过
+	SS_ONCHAIN                   //已上链
+	SS_FAILED_CHAIN              //链反馈失败，不可逆
+	SS_FAILED                    //铸块过程中失败，不可逆
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
 	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
 	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
-	BH          core.BlockHeader              //出块头详细数据
+	BH          types.BlockHeader             //出块头详细数据
 	QueueNumber int64                         //铸块槽序号(<0无效)，等同于出块人序号。
 	King        groupsig.ID                   //出块者ID
 	MapWitness  map[string]groupsig.Signature //该铸块槽的见证人验证签名列表
@@ -85,7 +86,6 @@ func (sc SlotContext) MessageSize() int {
 	return len(sc.MapWitness)
 }
 
-
 //验证组签名
 //pk：组公钥
 //返回true验证通过，返回false失败。
@@ -116,7 +116,7 @@ func (sc *SlotContext) GenGroupSign() bool {
 	if sc.SlotStatus == SS_FAILED {
 		return false
 	}
-	if len(sc.MapWitness) >= GetGroupK()/* && sc.HasKingMessage() */{ //达到组签名恢复阈值，且当前节点收到了出块人消息
+	if len(sc.MapWitness) >= GetGroupK() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
 		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GetGroupK())
 		if gs != nil {
 			sc.GroupSign = *gs
@@ -131,32 +131,32 @@ func (sc *SlotContext) GenGroupSign() bool {
 }
 
 func (sc *SlotContext) IsVerified() bool {
-    return atomic.LoadInt32(&sc.SlotStatus) == SS_VERIFIED
+	return atomic.LoadInt32(&sc.SlotStatus) == SS_VERIFIED
 }
 
 type CAST_BLOCK_MESSAGE_RESULT int8 //出块和验证消息处理结果枚举
 
 const (
-	CBMR_PIECE_NORMAL                CAST_BLOCK_MESSAGE_RESULT = iota //收到一个分片，接收正常
-	CBMR_PIECE_LOSINGTRANS										//收到一个分片, 缺失交易
+	CBMR_PIECE_NORMAL         CAST_BLOCK_MESSAGE_RESULT = iota //收到一个分片，接收正常
+	CBMR_PIECE_LOSINGTRANS                                     //收到一个分片, 缺失交易
 	CBMR_THRESHOLD_SUCCESS                                     //收到一个分片且达到阈值，组签名成功
 	CBMR_THRESHOLD_FAILED                                      //收到一个分片且达到阈值，组签名失败
 	CBMR_IGNORE_REPEAT                                         //丢弃：重复收到该消息
 	CMBR_IGNORE_QN_BIG_QN                                      //丢弃：QN太大
 	CMBR_IGNORE_QN_FUTURE                                      //丢弃：未轮到该QN
-	CMBR_IGNORE_QN_ERROR                                         //丢弃：qn错误
-	CMBR_IGNORE_KING_ERROR                                        //丢弃：king错误
+	CMBR_IGNORE_QN_ERROR                                       //丢弃：qn错误
+	CMBR_IGNORE_KING_ERROR                                     //丢弃：king错误
 	CMBR_IGNORE_MAX_QN_SIGNED                                  //丢弃：该节点已向组外广播出更低QN值的块
 	CMBR_IGNORE_NOT_CASTING                                    //丢弃：未启动当前组铸块共识
 	CBMR_ERROR_ARG                                             //异常：参数异常
 	CBMR_ERROR_SIGN                                            //异常：签名验证异常
-	CBMR_STATUS_FAIL											//已经失败的
+	CBMR_STATUS_FAIL                                           //已经失败的
 	CMBR_ERROR_UNKNOWN                                         //异常：未知异常
 )
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh core.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if bh.GenHash() != si.DataHash {
 		panic("SlotContext::AcceptPiece arg failed, hash not samed 1.")
 	}
@@ -183,7 +183,7 @@ func (sc *SlotContext) AcceptPiece(bh core.BlockHeader, si SignData) CAST_BLOCK_
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
 		sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-		if len(sc.MapWitness) >= GetGroupK()/* && sc.HasKingMessage() */{ //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
+		if len(sc.MapWitness) >= GetGroupK() /* && sc.HasKingMessage() */ { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
 			if sc.GenGroupSign() {
 				return CBMR_THRESHOLD_SUCCESS
 			} else {
@@ -202,7 +202,7 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func newSlotContext(bh *core.BlockHeader, si *SignData) *SlotContext {
+func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
 	if bh.GenHash() != si.DataHash {
 		log.Printf("newSlotContext arg failed 1, bh.Gen()=%v, si_hash=%v.\n", GetHashPrefix(bh.GenHash()), GetHashPrefix(si.DataHash))
 		panic("newSlotContext arg failed, hash not samed 1.")
@@ -238,7 +238,7 @@ func newSlotContext(bh *core.BlockHeader, si *SignData) *SlotContext {
 func (sc *SlotContext) reset() {
 	sc.TimeRev = *new(time.Time)
 	//sc.HeaderHash = *new(common.Hash)
-	sc.BH = core.BlockHeader{}
+	sc.BH = types.BlockHeader{}
 	sc.QueueNumber = INVALID_QN
 	sc.SlotStatus = SS_WAITING
 	sc.King = *groupsig.NewIDFromInt(0)
