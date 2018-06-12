@@ -30,6 +30,9 @@ type groupSyncer struct {
 	HeightCh        chan core.EntityHeightMessage
 	GroupRequestCh  chan core.EntityRequestMessage
 	GroupArrivedCh  chan core.GroupArrivedMessage
+
+	firstSyncFinished bool
+
 }
 
 func InitGroupSyncer(config *common.ConfManager) {
@@ -37,6 +40,10 @@ func InitGroupSyncer(config *common.ConfManager) {
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan core.EntityHeightMessage),
 		GroupRequestCh: make(chan core.EntityRequestMessage), GroupArrivedCh: make(chan core.GroupArrivedMessage),}
 	go GroupSyncer.start()
+}
+
+func (gs *groupSyncer)FirstSyncFinished()bool{
+	return gs.firstSyncFinished
 }
 
 func (gs *groupSyncer) start() {
@@ -82,7 +89,13 @@ func (gs *groupSyncer) start() {
 			groups := bm.GroupEntity.Groups
 			if nil != groups && 0 != len(groups) {
 				for _, group := range groups {
-					core.GroupChainImpl.AddGroup(group, nil, nil)
+					error := core.GroupChainImpl.AddGroup(group, nil, nil)
+					if error != nil{
+						return
+					}
+				}
+				if !gs.firstSyncFinished {
+					gs.firstSyncFinished = true
 				}
 			}
 		case <-t.C:
@@ -108,6 +121,9 @@ func (gs *groupSyncer) syncGroup() {
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
 		//logger.Debugf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		if !gs.firstSyncFinished {
+			gs.firstSyncFinished = true
+		}
 		return
 	} else {
 		//logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)

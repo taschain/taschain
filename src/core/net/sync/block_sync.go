@@ -27,6 +27,8 @@ type blockSyncer struct {
 	TotalQNCh        chan core.EntityTotalQNMessage
 	BlockRequestCh   chan core.EntityRequestMessage
 	BlockArrivedCh   chan core.BlockArrivedMessage
+
+	firstSyncFinished bool
 }
 
 func InitBlockSyncer() {
@@ -34,6 +36,12 @@ func InitBlockSyncer() {
 		BlockRequestCh: make(chan core.EntityRequestMessage), BlockArrivedCh: make(chan core.BlockArrivedMessage),}
 	go BlockSyncer.start()
 }
+
+
+func (bs *blockSyncer)FirstSyncFinished()bool{
+	return bs.firstSyncFinished
+}
+
 
 func (bs *blockSyncer) start() {
 	bs.syncBlock()
@@ -83,6 +91,9 @@ func (bs *blockSyncer) start() {
 						core.BlockChainImpl.SetAdujsting(false)
 					}
 				}
+				if !bs.firstSyncFinished {
+					bs.firstSyncFinished = true
+				}
 			} else {
 				blockHashes := bm.BlockEntity.BlockHashes
 				if len(blockHashes) == 0 {
@@ -128,6 +139,9 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxTotalQNLock.Unlock()
 	if maxTotalQN <= localTotalQN {
 		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!\n", maxTotalQN, localTotalQN)
+		if !bs.firstSyncFinished {
+			bs.firstSyncFinished = true
+		}
 		return
 	} else {
 		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
