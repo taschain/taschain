@@ -542,12 +542,12 @@ func (p *Processer) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				}
 				if !PROC_TEST_MODE {
 					//组写入组链 add by 小熊
-					members := make([]core.Member, 0)
+					members := make([]types.Member, 0)
 					for _, miner := range mems {
-						member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+						member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
 						members = append(members, member)
 					}
-					group := core.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
+					group := types.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
 					e := p.GroupChain.AddGroup(&group, nil, nil)
 					if e != nil {
 						log.Printf("group inited add group error:%s\n", e.Error())
@@ -610,12 +610,12 @@ func (p *Processer) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 		}
 
 		//上链
-		members := make([]core.Member, 0)
+		members := make([]types.Member, 0)
 		for _, miner := range gim.GI.Members {
-			member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+			member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
 			members = append(members, member)
 		}
-		group := core.Group{Id: gim.GI.GroupID.Serialize(), Members: members, PubKey: gim.GI.GroupPK.Serialize(), Parent: gim.GI.GIS.ParentID.Serialize()}
+		group := types.Group{Id: gim.GI.GroupID.Serialize(), Members: members, PubKey: gim.GI.GroupPK.Serialize(), Parent: gim.GI.GIS.ParentID.Serialize()}
 		e := p.GroupChain.AddGroup(&group, nil, nil)
 		if e != nil {
 			log.Printf("OMGIED group inited add group error:%s\n", e.Error())

@@ -427,8 +427,8 @@ func pbTochainBlockHash(cbh *tas_pb.ChainBlockHash) *core.ChainBlockHash {
 //	return m, nil
 //}
 
-func pbToMember(m *tas_pb.Member) *core.Member {
-	member := core.Member{Id: m.Id, PubKey: m.PubKey}
+func pbToMember(m *tas_pb.Member) *types.Member {
+	member := types.Member{Id: m.Id, PubKey: m.PubKey}
 	return &member
 }
 
@@ -444,13 +444,13 @@ func pbToMember(m *tas_pb.Member) *core.Member {
 //	return g, nil
 //}
 
-func pbToGroup(g *tas_pb.Group) *core.Group {
-	members := make([]core.Member, 0)
+func pbToGroup(g *tas_pb.Group) *types.Group {
+	members := make([]types.Member, 0)
 	for _, m := range g.Members {
 		member := pbToMember(m)
 		members = append(members, *member)
 	}
-	group := core.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
+	group := types.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
 	return &group
 }
 
@@ -507,7 +507,7 @@ func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
 		return nil, e
 	}
 
-	groups := make([]*core.Group, 0)
+	groups := make([]*types.Group, 0)
 	if message.Groups.Groups != nil {
 		for _, g := range message.Groups.Groups {
 			groups = append(groups, pbToGroup(g))

@@ -9,6 +9,7 @@ import (
 	"common"
 	"vm/ethdb"
 	"core/datasource"
+	"middleware/types"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -79,7 +80,7 @@ func build(chain *GroupChain) {
 	count, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	if nil == count {
 		// 创始块
-		chain.save(genesisGroup(), false)
+		chain.save(types.GenesisGroup(), false)
 		return
 	}
 
@@ -111,7 +112,7 @@ func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
 
-func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Hash) ([]*Group, error) {
+func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Hash) ([]*types.Group, error) {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
@@ -121,7 +122,7 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Has
 
 	// todo: 校验currentHash
 
-	result := make([]*Group, chain.count-height)
+	result := make([]*types.Group, chain.count-height)
 	for i := height; i < chain.count; i++ {
 		group := chain.getGroupByHeight(i)
 		if nil != group {
@@ -132,7 +133,7 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Has
 	return result, nil
 }
 
-func (chain *GroupChain) getGroupByHeight(height uint64) *Group {
+func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
 	groupId, _ := chain.groups.Get(generateKey(height))
 	if nil != groupId {
 		return chain.getGroupById(groupId)
@@ -141,20 +142,20 @@ func (chain *GroupChain) getGroupByHeight(height uint64) *Group {
 	return nil
 }
 
-func (chain *GroupChain) GetGroupById(id []byte) *Group {
+func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
 	return chain.getGroupById(id)
 }
 
-func (chain *GroupChain) getGroupById(id []byte) *Group {
+func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 	data, _ := chain.groups.Get(id)
 	if nil == data || 0 == len(data) {
 		return nil
 	}
 
-	var group *Group
+	var group *types.Group
 	err := json.Unmarshal(data, &group)
 	if err != nil {
 		return nil
@@ -162,7 +163,7 @@ func (chain *GroupChain) getGroupById(id []byte) *Group {
 	return group
 }
 
-func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte) error {
+func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature []byte) error {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
@@ -193,7 +194,7 @@ func (chain *GroupChain) AddGroup(group *Group, sender []byte, signature []byte)
 	return chain.save(group, flag)
 }
 
-func (chain *GroupChain) save(group *Group, overWrite bool) error {
+func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 	data, err := json.Marshal(group)
 	if nil != err {
 		return err

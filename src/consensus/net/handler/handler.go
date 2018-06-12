@@ -13,6 +13,7 @@ import (
 	"core/net/handler"
 	"consensus/net"
 	"network"
+	"middleware/types"
 )
 
 
@@ -183,12 +184,12 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 
 //全网节点收到父亲节点广播的组信息，将组(没有组公钥的)上链
 func onGroupMemberReceived(grm logical.ConsensusGroupRawMessage) {
-	members := make([]core.Member, 0)
+	members := make([]types.Member, 0)
 	for _, m := range grm.MEMS {
-		mem := core.Member{Id: m.ID.Serialize(), PubKey: m.PK.Serialize()}
+		mem := types.Member{Id: m.ID.Serialize(), PubKey: m.PK.Serialize()}
 		members = append(members, mem)
 	}
-	group := core.Group{Dummy: grm.GI.DummyID.Serialize(), Members: members, Parent: grm.GI.ParentID.Serialize()}
+	group := types.Group{Dummy: grm.GI.DummyID.Serialize(), Members: members, Parent: grm.GI.ParentID.Serialize()}
 
 	sender := grm.SI.SignMember.Serialize()
 	signature := grm.SI.DataSign.Serialize()

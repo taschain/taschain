@@ -44,7 +44,7 @@ type BlockArrivedMessage struct {
 }
 
 type GroupMessage struct {
-	Groups []*Group
+	Groups []*types.Group
 	Height uint64      //起始高度
 	Hash   common.Hash //起始HASH
 }
@@ -331,7 +331,7 @@ func MarshalEntityRequestMessage(e *EntityRequestMessage) ([]byte, error) {
 //	return proto.Marshal(member)
 //}
 
-func memberToPb(m *Member) *tas_pb.Member {
+func memberToPb(m *types.Member) *tas_pb.Member {
 	member := tas_pb.Member{Id: m.Id, PubKey: m.PubKey}
 	return &member
 }
@@ -341,7 +341,7 @@ func memberToPb(m *Member) *tas_pb.Member {
 //	return proto.Marshal(group)
 //}
 
-func GroupToPb(g *Group) *tas_pb.Group {
+func GroupToPb(g *types.Group) *tas_pb.Group {
 	members := make([]*tas_pb.Member, 0)
 	for _, m := range g.Members {
 		member := memberToPb(&m)

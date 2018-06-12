@@ -601,13 +601,13 @@ func (p *Processer) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	log.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
 	log.Printf("call network service SendGroupInitMessage...\n")
 	//dummy 组写入组链 add by 小熊
-	members := make([]core.Member, 0)
+	members := make([]types.Member, 0)
 	for _, miner := range miners {
-		member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+		member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
 		members = append(members, member)
 	}
 	//此时组ID 跟组公钥是没有的
-	group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
+	group := types.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
 	err := p.GroupChain.AddGroup(&group, nil, nil)
 	if err != nil {
 		log.Printf("Add dummy group error:%s\n", err.Error())
