@@ -6,6 +6,7 @@ import (
 
 	c "vm/common"
 	"fmt"
+	"middleware/types"
 )
 
 func TestBlockChain_AddBlock(t *testing.T) {
@@ -237,7 +238,7 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 			t.Fatalf("fail to get lowest block from cache,%d", i)
 		}
 
-		bh := lowest.(*BlockHeader)
+		bh := lowest.(*types.BlockHeader)
 		if bh.Height != lowestLDB.Height || bh.Height != lowestCache.Height || lowestLDB.Height != lowestCache.Height {
 			t.Fatalf("fail to check block from cache to ldb,%d", i)
 		}
@@ -335,12 +336,12 @@ func TestBlockChain_StateTree(t *testing.T) {
 	fmt.Printf("state: %d\n", BlockChainImpl.latestBlock.StateTree)
 }
 
-func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *Transaction {
+func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 
 	sourcebyte := common.BytesToAddress(genHash(source))
 	targetbyte := common.BytesToAddress(genHash(target))
 
-	return &Transaction{
+	return &types.Transaction{
 		GasPrice: price,
 		Hash:     common.BytesToHash(genHash(hash)),
 		Source:   &sourcebyte,

@@ -3,13 +3,14 @@ package core
 import (
 	"testing"
 	"fmt"
+	"middleware/types"
 )
 
 func TestGroupChain_AddGroup(t *testing.T) {
 	ClearGroup(defaultGroupChainConfig())
 	initGroupChain()
 
-	first := genesisGroup()
+	first := types.GenesisGroup()
 	if nil == GroupChainImpl.getGroupById(first.Dummy) {
 		t.Fatalf("fail to put genesis")
 	}
@@ -18,7 +19,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	id1 := genHash("test1")
-	group1 := &Group{
+	group1 := &types.Group{
 		Id: id1,
 	}
 	GroupChainImpl.AddGroup(group1, nil, nil)
@@ -27,7 +28,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	id2 := genHash("test2")
-	group2 := &Group{
+	group2 := &types.Group{
 		Id:     id2,
 		Parent: id1,
 	}
@@ -37,7 +38,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	// 相同id，测试覆盖
-	group3 := &Group{
+	group3 := &types.Group{
 		Id:        id2,
 		Parent:    id1,
 		Signature: []byte{1, 2},
@@ -52,7 +53,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	}
 
 	// 相同Dummy，测试覆盖
-	group4 := &Group{
+	group4 := &types.Group{
 		Dummy:  []byte{1, 2, 3, 4, 5},
 		Parent: id1,
 	}
@@ -88,7 +89,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 }
 
 func TestGroupChain_init(t *testing.T) {
-	group := genesisGroup()
+	group := types.GenesisGroup()
 	if nil == group {
 		t.Fatalf("fail to genesisGroup")
 	}

@@ -14,7 +14,7 @@ message Message{
 
 message Transaction{
 
-    required bytes Data  = 1 ;
+    optional bytes Data  = 1 ;
 
     optional uint64 Value = 2;
 

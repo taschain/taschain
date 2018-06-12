@@ -4,7 +4,6 @@ import (
 	"common"
 	"core/datasource"
 	"encoding/binary"
-	"encoding/json"
 	"time"
 	"os"
 	"vm/core/state"
@@ -490,7 +489,7 @@ func (chain *BlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 
 	if result != nil {
 		var block *types.Block
-		err = json.Unmarshal(result, &block)
+		block, err = types.UnMarshalBlock(result)
 		if err != nil || &block == nil {
 			return nil
 		}
@@ -533,13 +532,13 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 	// 从持久化存储中查询
 	result, err := chain.blockHeight.Get(key)
 	if result != nil {
-		var header types.BlockHeader
-		err = json.Unmarshal(result, &header)
+		var header *types.BlockHeader
+		header, err = types.UnMarshalBlockHeader(result)
 		if err != nil {
 			return nil
 		}
 
-		return &header
+		return header
 	} else {
 		return nil
 	}
@@ -829,7 +828,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 // todo:错误回滚
 func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 	// 根据hash存block
-	blockJson, err := json.Marshal(b)
+	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
 		log.Printf("[block]fail to json Marshal, error:%s \n", err)
 		return -1
@@ -841,7 +840,7 @@ func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 	}
 
 	// 根据height存blockheader
-	headerJson, err := json.Marshal(b.Header)
+	headerJson, err := types.MarshalBlockHeader(b.Header)
 	if err != nil {
 
 		log.Printf("[block]fail to json Marshal header, error:%s \n", err)
