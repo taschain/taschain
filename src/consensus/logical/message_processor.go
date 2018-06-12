@@ -365,6 +365,21 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 	staticGroupInfo := NewSGIFromRawMessage(grm)
+	p.gg.AddDummyGroup(staticGroupInfo)
+	//dummy 组写入组链 add by 小熊
+	members := make([]core.Member, 0)
+	for _, miner := range grm.MEMS {
+		member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
+		members = append(members, member)
+	}
+	//此时组ID 跟组公钥是没有的
+	group := core.Group{Members: members, Dummy: grm.GI.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
+	err := p.GroupChain.AddGroup(&group, nil, nil)
+	if err != nil {
+		log.Printf("ERROR:add dummy group fail! dummyId=%v, err=%v", GetIDPrefix(grm.GI.DummyID), err.Error())
+		return
+	}
+
 	//非组内成员不走后续流程
 	if !staticGroupInfo.MemExist(p.GetMinerID()) {
 		return
@@ -388,20 +403,6 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 			locked = false
 		}
 
-		//dummy 组写入组链 add by 小熊
-		members := make([]core.Member, 0)
-		for _, miner := range grm.MEMS {
-			member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-			members = append(members, member)
-		}
-		//此时组ID 跟组公钥是没有的
-		group := core.Group{Members: members, Dummy: grm.GI.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
-		err := p.GroupChain.AddGroup(&group, nil, nil)
-		if err != nil {
-			log.Printf("ERROR:add dummy group fail! dummyId=%v, err=%v", GetIDPrefix(grm.GI.DummyID), err.Error())
-			return
-		}
-
 		var spm ConsensusSharePieceMessage
 		spm.GISHash = grm.GI.GenHash()
 		spm.DummyID = grm.GI.DummyID
@@ -413,7 +414,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 				spm.Share = piece
 				sb := spm.GenSign(ski)
 				log.Printf("OMGI spm.GenSign result=%v.\n", sb)
-				log.Printf("OMGI piece to ID(%v), share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
+				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				if !PROC_TEST_MODE {
 					log.Printf("call network service SendKeySharePiece...\n")
 					SendKeySharePiece(spm)
@@ -442,7 +443,7 @@ func (p *Processer) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processer) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
-	log.Printf("proc(%v)begin Processer::OMSP, sender=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
+	log.Printf("proc(%v)begin Processer::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
 	p.initLock.Lock()
 	locked := true
 	defer func() {

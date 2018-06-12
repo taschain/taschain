@@ -282,11 +282,11 @@ func (gg GlobalGroups) GetGroupSize() int {
 	return len(gg.groups)
 }
 
-func (gg *GlobalGroups) AddDummyGroup(g StaticGroupInfo) bool {
+func (gg *GlobalGroups) AddDummyGroup(g *StaticGroupInfo) bool {
 	var add bool
 	fmt.Printf("gg AddDummyGroup, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(g.GIS.DummyID), len(gg.dummy_groups))
 	if _, ok := gg.dummy_groups[g.GIS.DummyID.GetHexString()]; !ok {
-		gg.dummy_groups[g.GIS.DummyID.GetHexString()] = g
+		gg.dummy_groups[g.GIS.DummyID.GetHexString()] = *g
 		add = true
 	} else {
 		fmt.Printf("already exist this dummy group in gg.\n")

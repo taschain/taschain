@@ -154,7 +154,7 @@ func initDHT(kadDht *dht.IpfsDHT) (*dht.IpfsDHT, error) {
 
 	cfg := dht.DefaultBootstrapConfig
 	cfg.Queries = 3
-	cfg.Period = time.Duration(20 * time.Second)
+	cfg.Period = time.Duration(10 * time.Second)
 	cfg.Timeout = time.Second * 30
 	process, e := kadDht.BootstrapWithConfig(cfg)
 	if e != nil {
