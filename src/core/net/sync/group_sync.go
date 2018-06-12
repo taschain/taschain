@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"taslog"
 	"middleware/pb"
+	"middleware/types"
 )
 
 const (
@@ -165,7 +166,7 @@ func marshalGroupMessage(e *core.GroupMessage) ([]byte, error) {
 
 	if e.Groups != nil {
 		for _, g := range e.Groups {
-			groups = append(groups, core.GroupToPb(g))
+			groups = append(groups, types.GroupToPb(g))
 		}
 	}
 	groupSlice := tas_middleware_pb.GroupSlice{Groups: groups}

@@ -8,6 +8,7 @@ import (
 	"network/p2p"
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
+	"middleware/types"
 )
 
 const (
@@ -179,7 +180,7 @@ func marshalBlockMessage(e *core.BlockMessage) ([]byte, error) {
 
 	if e.Blocks != nil {
 		for _, b := range e.Blocks {
-			pb := core.BlockToPb(b)
+			pb := types.BlockToPb(b)
 			if pb == nil {
 				logger.Errorf("Block is nil while marshalBlockMessage")
 			}

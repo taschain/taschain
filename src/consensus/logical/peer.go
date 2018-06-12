@@ -7,6 +7,7 @@ import (
 	"core"
 	"network"
 	"middleware/pb"
+	"middleware/types"
 )
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -251,7 +252,7 @@ func marshalConsensusCurrentMessagee(m *ConsensusCurrentMessage) ([]byte, error)
 }
 
 func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
-	bh := core.BlockHeaderToPb(&m.BH)
+	bh := types.BlockHeaderToPb(&m.BH)
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
@@ -260,7 +261,7 @@ func marshalConsensusCastMessage(m *ConsensusCastMessage) ([]byte, error) {
 }
 
 func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
-	bh := core.BlockHeaderToPb(&m.BH)
+	bh := types.BlockHeaderToPb(&m.BH)
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
@@ -269,7 +270,7 @@ func marshalConsensusVerifyMessage(m *ConsensusVerifyMessage) ([]byte, error) {
 }
 
 func marshalConsensusBlockMessage(m *ConsensusBlockMessage) ([]byte, error) {
-	block := core.BlockToPb(&m.Block)
+	block := types.BlockToPb(&m.Block)
 	if block == nil {
 		network.Logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
 	}

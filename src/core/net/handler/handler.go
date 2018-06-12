@@ -29,14 +29,14 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 		}
 		OnTransactionRequest(m)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
-		m, e := UnMarshalTransactions(body)
+		m, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
 		return nil, OnMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
-		block, e := unMarshalBlock(body)
+		block, e := types.UnMarshalBlock(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
@@ -219,31 +219,6 @@ func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
 	}
 }
 
-//----------------------------------------------Transaction-------------------------------------------------------------
-
-func unMarshalTransaction(b []byte) (*types.Transaction, error) {
-	t := new(tas_middleware_pb.Transaction)
-	error := proto.Unmarshal(b, t)
-	if error != nil {
-		network.Logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
-		return &types.Transaction{}, error
-	}
-	transaction := pbToTransaction(t)
-	return transaction, nil
-}
-
-func UnMarshalTransactions(b []byte) ([]*types.Transaction, error) {
-	ts := new(tas_middleware_pb.TransactionSlice)
-	error := proto.Unmarshal(b, ts)
-	if error != nil {
-		network.Logger.Errorf("[handler]Unmarshal transactions error:%s", error.Error())
-		return nil, error
-	}
-
-	result := pbToTransactions(ts.Transactions)
-	return result, nil
-}
-
 func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessage, error) {
 	m := new(tas_middleware_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
@@ -268,38 +243,8 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	return &message, nil
 }
 
-func pbToTransaction(t *tas_middleware_pb.Transaction) *types.Transaction {
-	source := common.BytesToAddress(t.Source)
-	target := common.BytesToAddress(t.Target)
-	transaction := types.Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
-		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType}
-	return &transaction
-}
-
-func pbToTransactions(txs []*tas_middleware_pb.Transaction) []*types.Transaction {
-	if txs == nil {
-		return nil
-	}
-	result := make([]*types.Transaction, 0)
-	for _, t := range txs {
-		transaction := pbToTransaction(t)
-		result = append(result, transaction)
-	}
-	return result
-}
-
 //--------------------------------------------------Block---------------------------------------------------------------
-func unMarshalBlock(bytes []byte) (*types.Block, error) {
-	b := new(tas_middleware_pb.Block)
-	error := proto.Unmarshal(bytes, b)
-	if error != nil {
-		network.Logger.Errorf("[handler]Unmarshal Block error:%s", error.Error())
-		return nil, error
-	}
-	block := PbToBlock(b)
-	return block, nil
-}
+
 
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)
@@ -317,57 +262,6 @@ func unMarshalBlock(bytes []byte) (*types.Block, error) {
 //	}
 //	return result, nil
 //}
-
-func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *types.BlockHeader {
-
-	hashBytes := h.Transactions
-	hashes := make([]common.Hash, 0)
-
-	if hashBytes != nil {
-		for _, hashByte := range hashBytes.Hashes {
-			hash := common.BytesToHash(hashByte)
-			hashes = append(hashes, hash)
-		}
-	}
-
-	var preTime time.Time
-	e1 := preTime.UnmarshalBinary(h.PreTime)
-	if e1 != nil {
-		network.Logger.Errorf("[handler]pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
-		return nil
-	}
-
-	var curTime time.Time
-	curTime.UnmarshalBinary(h.CurTime)
-	e2 := curTime.UnmarshalBinary(h.CurTime)
-	if e2 != nil {
-		network.Logger.Errorf("[handler]pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
-		return nil
-	}
-
-	eTxs := h.EvictedTxs
-	evictedTxs := make([]common.Hash, 0)
-
-	if eTxs != nil {
-		for _, etx := range eTxs.Hashes {
-			hash := common.BytesToHash(etx)
-			evictedTxs = append(evictedTxs, hash)
-		}
-	}
-
-	header := types.BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
-		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN}
-	return &header
-}
-
-func PbToBlock(b *tas_middleware_pb.Block) *types.Block {
-	h := PbToBlockHeader(b.Header)
-	txs := pbToTransactions(b.Transactions)
-	block := types.Block{Header: h, Transactions: txs}
-	return &block
-}
 
 func unMarshalChainBlockHashesReq(byte []byte) (*core.ChainBlockHashesReq, error) {
 	b := new(tas_middleware_pb.ChainBlockHashesReq)
@@ -414,45 +308,6 @@ func pbTochainBlockHash(cbh *tas_middleware_pb.ChainBlockHash) *core.ChainBlockH
 	return &r
 }
 
-//--------------------------------------------------Group---------------------------------------------------------------
-//func unMarshalMember(b []byte) (*core.Member, error) {
-//	member := new(tas_pb.Member)
-//	e := proto.Unmarshal(b, member)
-//	if e != nil {
-//		logger.Errorf("UnMarshalMember error:%s\n", e.Error())
-//		return nil, e
-//	}
-//	m := pbToMember(member)
-//	return m, nil
-//}
-
-func pbToMember(m *tas_middleware_pb.Member) *types.Member {
-	member := types.Member{Id: m.Id, PubKey: m.PubKey}
-	return &member
-}
-
-//
-//func unMarshalGroup(b []byte) (*core.Group, error) {
-//	group := new(tas_pb.Group)
-//	e := proto.Unmarshal(b, group)
-//	if e != nil {
-//		logger.Errorf("UnMarshalGroup error:%s\n", e.Error())
-//		return nil, e
-//	}
-//	g := pbToGroup(group)
-//	return g, nil
-//}
-
-func pbToGroup(g *tas_middleware_pb.Group) *types.Group {
-	members := make([]types.Member, 0)
-	for _, m := range g.Members {
-		member := pbToMember(m)
-		members = append(members, *member)
-	}
-	group := types.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
-	return &group
-}
-
 //----------------------------------------------块同步------------------------------------------------------------------
 
 func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error) {
@@ -482,7 +337,7 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 	blocks := make([]*types.Block, 0)
 	if message.Blocks != nil && message.Blocks.Blocks != nil {
 		for _, b := range message.Blocks.Blocks {
-			blocks = append(blocks, PbToBlock(b))
+			blocks = append(blocks, types.PbToBlock(b))
 		}
 	}
 
@@ -509,7 +364,7 @@ func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
 	groups := make([]*types.Group, 0)
 	if message.Groups.Groups != nil {
 		for _, g := range message.Groups.Groups {
-			groups = append(groups, pbToGroup(g))
+			groups = append(groups, types.PbToGroup(g))
 		}
 	}
 

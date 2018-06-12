@@ -9,7 +9,6 @@ import (
 	"common"
 	"time"
 	"core"
-	"core/net/handler"
 	"consensus/net"
 	"network"
 	"middleware/types"
@@ -140,7 +139,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		mediator.Proc.OnMessageVerify(*m)
 
 	case p2p.TRANSACTION_GOT_MSG:
-		transactions, e := handler.UnMarshalTransactions(body)
+		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
 			return nil, e
@@ -318,7 +317,7 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 		return nil, e
 	}
 
-	bh := handler.PbToBlockHeader(m.Bh)
+	bh := types.PbToBlockHeader(m.Bh)
 	//var groupId groupsig.ID
 	//e1 := groupId.Deserialize(m.GroupID)
 	//if e1 != nil {
@@ -338,7 +337,7 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 		return nil, e
 	}
 
-	bh := handler.PbToBlockHeader(m.Bh)
+	bh := types.PbToBlockHeader(m.Bh)
 	//var groupId groupsig.ID
 	//e1 := groupId.Deserialize(m.GroupID)
 	//if e1 != nil {
@@ -357,7 +356,7 @@ func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, e
 		network.Logger.Errorf("[handler]unMarshalConsensusBlockMessage error:%s", e.Error())
 		return nil, e
 	}
-	block := handler.PbToBlock(m.Block)
+	block := types.PbToBlock(m.Block)
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(m.GroupID)
 	if e1 != nil {
