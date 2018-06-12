@@ -122,6 +122,8 @@ message Group{
 	optional  bytes Dummy = 5;
 
 	optional  bytes Signature  = 6;
+
+	required  uint64 BeginHeight   = 7;
 }
 
 message GroupSlice{

@@ -14,7 +14,6 @@ import (
 	"network"
 )
 
-
 const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
@@ -449,7 +448,7 @@ func pbToGroup(g *tas_pb.Group) *core.Group {
 		member := pbToMember(m)
 		members = append(members, *member)
 	}
-	group := core.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature}
+	group := core.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature, BeginHeight: *g.BeginHeight}
 	return &group
 }
 
