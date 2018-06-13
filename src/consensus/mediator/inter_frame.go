@@ -12,7 +12,7 @@ import (
 
 //所有私钥，公钥，地址，ID的对外格式均为“0xa19d...854e”的加前缀十六进制格式
 
-var Proc logical.Processer
+var Proc logical.Processor
 
 //创建一个矿工
 //id:矿工id，需要全网唯一性。

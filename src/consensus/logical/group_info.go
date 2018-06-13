@@ -87,27 +87,15 @@ func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
 }
 
 //由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm ConsensusGroupRawMessage) *StaticGroupInfo {
-	var sgi StaticGroupInfo
-	sgi.GIS = grm.GI
-	sgi.Members = make([]PubKeyInfo, 0)
-	sgi.MapCache = make(map[string]int, GROUP_MAX_MEMBERS)
+func NewSGIFromRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
+	sgi := &StaticGroupInfo{
+		GIS: grm.GI,
+		Members: make([]PubKeyInfo, 0),
+		MapCache: make(map[string]int),
+	}
 	for _, v := range grm.MEMS {
 		sgi.Members = append(sgi.Members, v)
 		sgi.MapCache[v.GetID().GetHexString()] = len(sgi.Members) - 1
-	}
-	return &sgi
-}
-
-//创建一个未经过组初始化共识的静态组结构（尚未共识生成组私钥、组公钥和组ID）
-//输入：组成员ID列表，该ID为组成员的私有ID（由该成员的交易私钥->公开地址处理而来），和组共识无关
-func CreateWithRawMembers(mems []PubKeyInfo) StaticGroupInfo {
-	var sgi StaticGroupInfo
-	sgi.Members = make([]PubKeyInfo, GROUP_MAX_MEMBERS)
-	sgi.MapCache = make(map[string]int, GROUP_MAX_MEMBERS)
-	for i := 0; i < len(mems); i++ {
-		sgi.Members = append(sgi.Members, mems[i])
-		sgi.MapCache[mems[i].GetID().GetHexString()] = len(sgi.Members) - 1
 	}
 	return sgi
 }
@@ -139,11 +127,11 @@ func (sgi *StaticGroupInfo) GetIDSByOrder() []groupsig.ID {
 	return ids
 }
 
-func (sgi *StaticGroupInfo) Addmember(m PubKeyInfo) {
+func (sgi *StaticGroupInfo) addMember(m *PubKeyInfo) {
 	if m.GetID().IsValid() {
 		_, ok := sgi.MapCache[m.GetID().GetHexString()]
 		if !ok {
-			sgi.Members = append(sgi.Members, m)
+			sgi.Members = append(sgi.Members, *m)
 			sgi.MapCache[m.GetID().GetHexString()] = len(sgi.Members) - 1
 		}
 	}
@@ -203,7 +191,7 @@ type JoinedGroup struct {
 	SeedKey groupsig.Seckey      //（组相关性的）私密私钥
 	SignKey groupsig.Seckey      //签名私钥
 	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
-	Members groupsig.PubkeyMapID //组成员（和组相关的）私密公钥列表，非成员签名公钥。
+	Members groupsig.PubkeyMapID //组成员签名公钥
 }
 
 func (jg *JoinedGroup) Init() {
@@ -219,14 +207,14 @@ func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	groups       []StaticGroupInfo
-	mapCache     map[string]int             //string(ID)->索引
-	ngg          NewGroupGenerator          //新组处理器(组外处理器)
-	dummy_groups map[string]StaticGroupInfo //未完成初始化的组(str(DUMMY ID)->组信息)
+	groups      []StaticGroupInfo
+	mapCache    map[string]int             //string(ID)->索引
+	ngg         NewGroupGenerator          //新组处理器(组外处理器)
+	//dummyGroups map[string]StaticGroupInfo //未完成初始化的组(str(DUMMY ID)->组信息)
 }
 
 func (gg *GlobalGroups) Load() bool {
-	fmt.Printf("begin GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v...\n", len(gg.groups), len(gg.mapCache), len(gg.dummy_groups))
+	fmt.Printf("begin GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v...\n", len(gg.groups), len(gg.mapCache), 1)
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	str := cc.GetString("GLOBAL_GROUPS", "")
 	if len(str) == 0 {
@@ -234,7 +222,7 @@ func (gg *GlobalGroups) Load() bool {
 	}
 	fmt.Printf("gg groups unmarshal str=%v.\n", str)
 	gg.groups = make([]StaticGroupInfo, 0)
-	var buf []byte = []byte(str)
+	var buf = []byte(str)
 	err := json.Unmarshal(buf, &gg.groups)
 	if err != nil {
 		fmt.Println("error:", err)
@@ -247,7 +235,7 @@ func (gg *GlobalGroups) Load() bool {
 		gg.mapCache[v.GroupID.GetHexString()] = k
 	}
 
-	fmt.Printf("end GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v.\n", len(gg.groups), len(gg.mapCache), len(gg.dummy_groups))
+	fmt.Printf("end GlobalGroups::Load, gc=%v, mcc=%v, dgc=%v.\n", len(gg.groups), len(gg.mapCache), 0)
 	return true
 }
 
@@ -274,7 +262,7 @@ func (gg GlobalGroups) Save() {
 func (gg *GlobalGroups) Init() {
 	gg.groups = make([]StaticGroupInfo, 0)
 	gg.mapCache = make(map[string]int, 0)
-	gg.dummy_groups = make(map[string]StaticGroupInfo, 0)
+	//gg.dummyGroups = make(map[string]StaticGroupInfo, 0)
 	gg.ngg.Init(gg)
 }
 
@@ -282,17 +270,17 @@ func (gg GlobalGroups) GetGroupSize() int {
 	return len(gg.groups)
 }
 
-func (gg *GlobalGroups) AddDummyGroup(g *StaticGroupInfo) bool {
-	var add bool
-	fmt.Printf("gg AddDummyGroup, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(g.GIS.DummyID), len(gg.dummy_groups))
-	if _, ok := gg.dummy_groups[g.GIS.DummyID.GetHexString()]; !ok {
-		gg.dummy_groups[g.GIS.DummyID.GetHexString()] = *g
-		add = true
-	} else {
-		fmt.Printf("already exist this dummy group in gg.\n")
-	}
-	return add
-}
+//func (gg *GlobalGroups) AddDummyGroup(g *StaticGroupInfo) bool {
+//	var add bool
+//	fmt.Printf("gg AddDummyGroup, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(g.GIS.DummyID), len(gg.dummyGroups))
+//	if _, ok := gg.dummyGroups[g.GIS.DummyID.GetHexString()]; !ok {
+//		gg.dummyGroups[g.GIS.DummyID.GetHexString()] = *g
+//		add = true
+//	} else {
+//		fmt.Printf("already exist this dummy group in gg.\n")
+//	}
+//	return add
+//}
 
 //增加一个合法铸块组
 func (gg *GlobalGroups) AddGroup(g StaticGroupInfo) bool {
@@ -389,15 +377,15 @@ func (gg GlobalGroups) GetGroupByID(id groupsig.ID) (g StaticGroupInfo, err erro
 	return
 }
 
-func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err error) {
-	fmt.Printf("gg GetGroupByDummyID, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(id), len(gg.dummy_groups))
-	if v, ok := gg.dummy_groups[id.GetHexString()]; ok {
-		g = v
-	} else {
-		err = fmt.Errorf("out of range")
-	}
-	return
-}
+//func (gg GlobalGroups) GetGroupByDummyID(id groupsig.ID) (g StaticGroupInfo, err error) {
+//	fmt.Printf("gg GetGroupByDummyID, dummy_id=%v, exist_dummy_groups=%v.\n", GetIDPrefix(id), len(gg.dummyGroups))
+//	if v, ok := gg.dummyGroups[id.GetHexString()]; ok {
+//		g = v
+//	} else {
+//		err = fmt.Errorf("out of range")
+//	}
+//	return
+//}
 
 //根据上一块哈希值，确定下一块由哪个组铸块
 func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
@@ -414,7 +402,7 @@ func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.I
 		ga = gg.groups[vgroups[index.Uint64()]].GroupID
 		return ga, nil
 	} else {
-		return ga, fmt.Errorf("SelectNextGroup failed, arg error.")
+		return ga, fmt.Errorf("selectNextGroup failed, arg error")
 	}
 }
 

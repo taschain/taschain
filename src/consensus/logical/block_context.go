@@ -33,7 +33,7 @@ type BlockContext struct {
 
 	lock sync.RWMutex
 
-	Proc    *Processer   //处理器
+	Proc    *Processor   //处理器
 	MinerID GroupMinerID //矿工ID和所属组ID
 	pos     int          //矿工在组内的排位
 }

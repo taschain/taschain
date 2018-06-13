@@ -13,6 +13,8 @@ import (
 	"core/net/handler"
 	"consensus/net"
 	"network"
+	"log"
+	"fmt"
 )
 
 
@@ -28,6 +30,10 @@ func memberExistIn(mems *[]logical.PubKeyInfo, id groupsig.ID) bool {
 }
 
 func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
+	if !mediator.Proc.Ready() {
+		log.Printf("message ingored because processor not ready. code=%v\n", code)
+		return nil, fmt.Errorf("processor not ready yet")
+	}
 	switch code {
 	case p2p.GROUP_MEMBER_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
