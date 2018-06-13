@@ -86,6 +86,7 @@ func TestGroupChain_AddGroup(t *testing.T) {
 	if nil == group {
 		t.Fatalf("fail to GetGroupById2")
 	}
+
 }
 
 func TestGroupChain_init(t *testing.T) {

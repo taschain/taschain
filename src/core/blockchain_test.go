@@ -65,7 +65,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 池子中交易的数量为0
-	if 0 != length(&txpool.received) {
+	if 0 != txpool.received.Len() {
 		t.Fatalf("fail to remove transactions after addBlock")
 	}
 

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"log"
 	"math"
-	"middleware/types"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -107,17 +106,14 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 // TransPool 查询缓冲区的交易信息。
 func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
-	transList := make([]Transactions, 0, 5)
-	transactions.Range(func(key, value interface{}) bool {
-		v := value.(types.Transaction)
+	transList := make([]Transactions, 0, len(transactions))
+	for _, v := range transactions {
 		transList = append(transList, Transactions{
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
 		})
-
-		return true
-	})
+	}
 
 	return &Result{"success", transList}, nil
 }

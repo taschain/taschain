@@ -922,6 +922,11 @@ func (chain *BlockChain) remove(header *types.BlockHeader) {
 		return
 	}
 	txs := block.Transactions
+	if 0==len(txs){
+		return
+	}
+	chain.transactionPool.lock.Lock("remove block")
+	defer chain.transactionPool.lock.Unlock("remove block")
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.addTxs(txs)
 }
