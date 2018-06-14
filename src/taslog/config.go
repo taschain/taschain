@@ -2,7 +2,7 @@ package taslog
 
 
 const(
- DefaultConfig = `<seelog minlevel="error">
+ DefaultConfig = `<seelog minlevel="debug">
 						<outputs formatid="default">
 							<rollingfile type="size" filename="./logs/default.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>
@@ -11,7 +11,7 @@ const(
 						</formats>
 					</seelog>`
 
- P2PConfig = `<seelog minlevel="error">
+ P2PConfig = `<seelog minlevel="debug">
 						<outputs formatid="default">
 							<rollingfile type="size" filename="./logs/p2p.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>

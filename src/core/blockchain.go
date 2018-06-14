@@ -311,7 +311,8 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction
 func (chain *BlockChain) QueryTopBlock() *types.BlockHeader {
 	chain.lock.RLock("QueryTopBlock")
 	defer chain.lock.RUnlock("QueryTopBlock")
-	return chain.latestBlock
+	result := *chain.latestBlock
+	return &result
 }
 
 //根据指定哈希查询块
@@ -363,7 +364,8 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 			if h > (chain.latestBlock.Height - 1000) {
 				result, ok := chain.topBlocks.Get(h)
 				if ok && nil != result {
-					return result.(*types.BlockHeader)
+					bh := result.(types.BlockHeader)
+					return &bh
 				}
 
 			}
@@ -581,23 +583,27 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	var lastestBlock  types.BlockHeader
+	lastestBlock =  *chain.queryBlockHeaderByHeight(chain.latestBlock.Height,true)
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if b.Header.TotalQN < chain.latestBlock.TotalQN ||b.Header.Hash == chain.latestBlock.Hash{
+	} else if b.Header.TotalQN < chain.latestBlock.TotalQN || b.Header.Hash == lastestBlock.Hash {
 		return 1
-	} else if b.Header.PreHash == chain.latestBlock.PreHash &&(b.Header.Height == chain.latestBlock.Height && b.Header.TotalQN > chain.latestBlock.TotalQN ||b.Header.Height < chain.latestBlock.Height ){
+	} else if b.Header.PreHash == chain.latestBlock.PreHash && (b.Header.Height == chain.latestBlock.Height && b.Header.TotalQN > chain.latestBlock.TotalQN || b.Header.Height < chain.latestBlock.Height) {
 		chain.remove(chain.latestBlock)
 		status = chain.saveBlock(b)
 	} else if b.Header.TotalQN == chain.latestBlock.TotalQN {
-		Logger.Debugf("Coming block hash:%x,v:%v",b.Header.Hash,b.Header.Hash)
-		Logger.Debugf("local latestBlock hash:%x,v:%v",chain.latestBlock.Hash,chain.latestBlock.Hash)
 
-		Logger.Debugf("Coming block info: %+v",b.Header)
-		Logger.Debugf("local latestBlock info:%+v",chain.latestBlock)
+		Logger.Debugf("Coming block info: %+v", b.Header)
+		Logger.Debugf("local latestBlock info:%+v", chain.latestBlock)
+		Logger.Debugf(" latestBlock info:%+v", lastestBlock)
 
-		Logger.Debugf("b.Header.Hash==chain.latestBlock.Hash:%t",b.Header.Hash==chain.latestBlock.Hash)
-		Logger.Debugf("b.Header ==chain.latestBlock:%t",b.Header ==chain.latestBlock)
+		Logger.Debugf("Coming block hash:%x,v:%v", b.Header.Hash, b.Header.Hash)
+		Logger.Debugf("local latestBlock hash:%x,v:%v", chain.latestBlock.Hash,chain.latestBlock.Hash)
+		Logger.Debugf("latestBlock hash:%x,v:%v", lastestBlock.Hash, lastestBlock.Hash)
 
+		Logger.Debugf("b.Header.Hash==chain.latestBlock.Hash:%t", b.Header.Hash == chain.latestBlock.Hash)
+		Logger.Debugf("b.Header.Hash == lastestBlock.Hash:%t", b.Header.Hash == lastestBlock.Hash)
 
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
@@ -651,7 +657,7 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 			var localNextBlock *types.BlockHeader
 			for i := nextHeight; i <= chain.Height(); i++ {
 				b := chain.QueryBlockByHeight(nextHeight)
-				if b!= nil{
+				if b != nil {
 					localNextBlock = b
 					break
 				}
@@ -730,7 +736,7 @@ func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 
 	// 持久化保存最新块信息
 	chain.latestBlock = b.Header
-	chain.topBlocks.Add(b.Header.Height, b.Header)
+	chain.topBlocks.Add(b.Header.Height, *b.Header)
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		fmt.Printf("[block]fail to put current, error:%s \n", err)
@@ -903,7 +909,7 @@ func (chain *BlockChain) GetTransactionPool() *TransactionPool {
 
 func (chain *BlockChain) buildCache(cache *lru.Cache) {
 	for i := chain.getStartIndex(); i < chain.latestBlock.Height; i++ {
-		chain.topBlocks.Add(i, chain.queryBlockHeaderByHeight(i, false))
+		chain.topBlocks.Add(i, *chain.queryBlockHeaderByHeight(i, false))
 	}
 
 }
