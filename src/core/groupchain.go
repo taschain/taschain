@@ -202,7 +202,7 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 	}
 
 	// todo: 半成品组，不能参与铸块
-	if group.Id != nil {
+	if group.Id != nil && !overWrite {
 		chain.now = append(chain.now, group.Id)
 	}
 

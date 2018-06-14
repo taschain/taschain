@@ -15,6 +15,7 @@ import (
 	vtypes "vm/core/types"
 	"middleware/types"
 	"middleware"
+	"container/heap"
 )
 
 var (
@@ -53,16 +54,15 @@ type TransactionPool struct {
 	// 读写锁
 	lock middleware.Loglock
 
-	// 收到的待处理transaction
-	received sync.Map
+	// 待上块的交易
+	received *container
 
 	sendingList []*types.Transaction
 
-	// 当前received数组里，price最小的transaction
-	lowestPrice *types.Transaction
-
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed ethdb.Database
+
+	batch ethdb.Batch
 }
 
 type ReceiptWrapper struct {
@@ -72,7 +72,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 10000,
+		maxReceivedPoolSize: 100000,
 		tx:                  "tx",
 	}
 }
@@ -95,17 +95,17 @@ func NewTransactionPool() *TransactionPool {
 	pool := &TransactionPool{
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
-		received:    sync.Map{},
 		sendingList: make([]*types.Transaction, sendingListLength),
-		lowestPrice: nil,
 	}
+	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+
 	executed, err := datasource.NewDatabase(pool.config.tx)
 	if err != nil {
 		//todo: rebuild executedPool
 		return nil
 	}
 	pool.executed = executed
-
+	pool.batch = pool.executed.NewBatch()
 	return pool
 }
 
@@ -116,22 +116,17 @@ func (pool *TransactionPool) Clear() {
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
-	pool.received = sync.Map{}
+	pool.batch.Reset()
+	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 }
 
-func (pool *TransactionPool) GetReceived() sync.Map {
-	return pool.received
+func (pool *TransactionPool) GetReceived() []*types.Transaction {
+	return pool.received.AsSlice()
 }
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	txs := make([]*types.Transaction, 0)
-	pool.received.Range(func(key, value interface{}) bool {
-		txs = append(txs, value.(*types.Transaction))
-
-		return true
-	})
-
+	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
 	return txs
 }
@@ -139,7 +134,7 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("Add")
+	defer pool.lock.Unlock("AddTransactions")
 
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
@@ -183,21 +178,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
 
-	// 池子满了
-	if length(&pool.received) >= pool.config.maxReceivedPoolSize {
-		// 如果price太低，丢弃
-		if pool.lowestPrice.GasPrice > tx.GasPrice {
-			//log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
-
-			return false, ErrUnderpriced
-		}
-
-		pool.replace(tx)
-
-	} else {
-		pool.add(tx)
-
-	}
+	pool.received.Push(tx)
 
 	// batch broadcast
 	if isBroadcast {
@@ -215,19 +196,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 // 从池子里移除一批交易
 func (pool *TransactionPool) Remove(transactions []common.Hash) {
-	if nil == transactions || 0 == len(transactions) {
-		return
-	}
-
-	for _, tx := range transactions {
-		pool.remove(tx)
-	}
-}
-
-// 从池子里移除某个交易
-func (pool *TransactionPool) remove(hash common.Hash) {
-
-	pool.received.Delete(hash)
+	pool.received.Remove(transactions)
 
 }
 
@@ -236,11 +205,14 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*types.Tra
 		return nil, nil, ErrNil
 	}
 
+	pool.lock.RLock("GetTransactions")
+	defer pool.lock.RUnlock("GetTransactions")
+
 	txs := make([]*types.Transaction, 0)
 	need := make([]common.Hash, 0)
 	var err error
 	for _, hash := range hashes {
-		tx, errInner := pool.GetTransaction(hash)
+		tx, errInner := pool.getTransaction(hash)
 		if nil == errInner {
 			txs = append(txs, tx)
 		} else {
@@ -258,10 +230,14 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transactio
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
 
+	return pool.getTransaction(hash)
+}
+
+func (pool *TransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
 	// 先从received里获取
-	result, _ := pool.received.Load(hash)
+	result := pool.received.Get(hash)
 	if nil != result {
-		return result.(*types.Transaction), nil
+		return result, nil
 	}
 
 	// 再从executed里获取
@@ -279,8 +255,8 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transactio
 // 3）todo：曾经收到过的，不合法的交易
 // 被add调用，外部加锁
 func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
-	result, _ := pool.received.Load(hash)
-	if result != nil {
+	result := pool.received.Contains(hash)
+	if result {
 		return true
 	}
 
@@ -297,47 +273,10 @@ func (pool *TransactionPool) validate(tx *types.Transaction) error {
 	return nil
 }
 
-// 直接加入未满的池子
-// 不需要加锁，sync.Map保证并发
-func (pool *TransactionPool) add(tx *types.Transaction) {
-	pool.received.Store(tx.Hash, tx)
-	lowestPrice := pool.lowestPrice
-	if lowestPrice == nil || lowestPrice.GasPrice > tx.GasPrice {
-		pool.lowestPrice = tx
-	}
-
-}
-
 // 外部加锁
 // 加缓冲区
 func (pool *TransactionPool) addTxs(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-	for _, tx := range txs {
-		pool.add(tx)
-	}
-}
-
-// Add时候会调用，在外面加锁
-func (pool *TransactionPool) replace(tx *types.Transaction) {
-	// 替换
-	pool.received.Delete(pool.lowestPrice.Hash)
-	pool.received.Store(tx.Hash, tx)
-
-	// 更新lowest
-	lowest := tx
-	pool.received.Range(func(key, value interface{}) bool {
-		transaction := value.(*types.Transaction)
-		if transaction.GasPrice < lowest.GasPrice {
-			lowest = transaction
-		}
-
-		return true
-	})
-
-	pool.lowestPrice = lowest
-
+	pool.received.PushTxs(txs)
 }
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
@@ -346,19 +285,22 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 		return
 	}
 
-	for i, receipt := range receipts {
-		hash := receipt.TxHash.Bytes()
-		receiptWrapper := &ReceiptWrapper{
-			Receipt:     receipt,
-			Transaction: getTransaction(txs, hash, i),
-		}
+	go func() {
+		for i, receipt := range receipts {
+			hash := receipt.TxHash.Bytes()
+			receiptWrapper := &ReceiptWrapper{
+				Receipt:     receipt,
+				Transaction: getTransaction(txs, hash, i),
+			}
 
-		receiptJson, err := json.Marshal(receiptWrapper)
-		if nil != err {
-			continue
+			receiptJson, err := json.Marshal(receiptWrapper)
+			if nil != err {
+				continue
+			}
+			pool.batch.Put(hash, receiptJson)
 		}
-		pool.executed.Put(hash, receiptJson)
-	}
+		pool.batch.Write()
+	}()
 }
 
 func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transaction {
@@ -404,11 +346,118 @@ func (pool *TransactionPool) RemoveExecuted(txs []*types.Transaction) {
 	}
 }
 
-func length(m *sync.Map) int {
-	count := 0
-	m.Range(func(key, value interface{}) bool {
-		count++
-		return true
-	})
-	return count
+type container struct {
+	lock   sync.RWMutex
+	txs    types.PriorityTransactions
+	txsMap map[common.Hash]*types.Transaction
+	limit  int
+	inited bool
+}
+
+func newContainer(l int) *container {
+	return &container{
+		lock:   sync.RWMutex{},
+		limit:  l,
+		txsMap: map[common.Hash]*types.Transaction{},
+		txs:    types.PriorityTransactions{},
+		inited: false,
+	}
+
+}
+
+func (c *container) Len() int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return len(c.txs)
+}
+
+func (c *container) Contains(key common.Hash) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.txsMap[key] != nil
+}
+
+func (c *container) Get(key common.Hash) *types.Transaction {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.txsMap[key]
+}
+
+func (c *container) AsSlice() []*types.Transaction {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	result := make([]*types.Transaction, c.txs.Len())
+	copy(result, c.txs)
+	return result
+}
+
+func (c *container) Push(tx *types.Transaction) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.add(tx)
+
+}
+
+func (c *container) PushTxs(txs []*types.Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, tx := range txs {
+		c.add(tx)
+	}
+
+}
+
+func (c *container) add(tx *types.Transaction) {
+	if c.txs.Len() < c.limit {
+		c.txs = append(c.txs, tx)
+		c.txsMap[tx.Hash] = tx
+		return
+	}
+
+	if !c.inited {
+		heap.Init(&c.txs)
+		c.inited = true
+
+	}
+
+	evicted := heap.Pop(&c.txs).(*types.Transaction)
+	delete(c.txsMap, evicted.Hash)
+	heap.Push(&c.txs, tx)
+	c.txsMap[tx.Hash] = tx
+}
+
+func (c *container) Remove(keys []common.Hash) {
+	if nil == keys || 0 == len(keys) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, key := range keys {
+		if c.txsMap[key] == nil {
+			return
+		}
+
+		delete(c.txsMap, key)
+		index := -1
+		for i, tx := range c.txs {
+			if tx.Hash == key {
+				index = i
+				break
+			}
+		}
+		heap.Remove(&c.txs, index)
+	}
+
 }

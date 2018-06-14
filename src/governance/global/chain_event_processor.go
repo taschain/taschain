@@ -66,23 +66,23 @@ func getRealCode(b *types.Block, db vm.StateDB, input []byte) ([]byte, error) {
 
 //更新本区块里每个账号的交易相关的信用信息
 func updateTransCredit(callctx *contract.CallContext, b *types.Block) error {
-	tmp := make(map[*common.Address]uint32)
+	tmp := make(map[common.Address]uint32)
 
 	//更新交易相关的信用信息
 	credit := GetGOV().NewTasCreditInst(callctx)
 	for _, tx := range b.Transactions {
-		if cnt, ok := tmp[tx.Source]; ok {
-			tmp[tx.Source] = cnt + 1
+		if cnt, ok := tmp[*tx.Source]; ok {
+			tmp[*tx.Source] = cnt + 1
 		} else {
-			tmp[tx.Source] = 1
+			tmp[*tx.Source] = 1
 		}
 	}
 
 	for addr, cnt := range tmp {
-		if err := credit.AddTransCnt(*addr, cnt); err != nil {
+		if err := credit.AddTransCnt(addr, cnt); err != nil {
 			return gov.Logger.Errorf("add trans cnt fail, addr %v, err %v", addr, err)
 		}
-		if err := credit.SetLatestTransBlock(*addr, b.Header.Height); err != nil {
+		if err := credit.SetLatestTransBlock(addr, b.Header.Height); err != nil {
 			return gov.Logger.Errorf("set latestransblock fail, addr %v, err %v", addr, err)
 		}
 	}

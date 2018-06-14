@@ -485,19 +485,12 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	// 验证交易
-	missing := make([]common.Hash, 0)
-	var transactions []*types.Transaction
+	var (
+		transactions []*types.Transaction
+		missing      []common.Hash
+	)
 	if nil == txs {
-		transactions = make([]*types.Transaction, len(bh.Transactions))
-		for i, hash := range bh.Transactions {
-			transaction, err := chain.transactionPool.GetTransaction(hash)
-			if err != nil {
-				missing = append(missing, hash)
-			} else {
-				transactions[i] = transaction
-			}
-
-		}
+		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Transactions)
 	} else {
 		transactions = txs
 	}
@@ -508,9 +501,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			TransactionHashes: missing,
 			RequestTime:       time.Now(),
 		}
-		BroadcastTransactionRequest(*m)
+		go BroadcastTransactionRequest(*m)
 		return missing, 1, nil, nil
 	}
+
 	txtree := calcTxTree(transactions).Bytes()
 	if hexutil.Encode(txtree) != hexutil.Encode(bh.TxTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree, bh.TxTree.Bytes())
@@ -894,6 +888,11 @@ func (chain *BlockChain) remove(header *types.BlockHeader) {
 		return
 	}
 	txs := block.Transactions
+	if 0 == len(txs) {
+		return
+	}
+	chain.transactionPool.lock.Lock("remove block")
+	defer chain.transactionPool.lock.Unlock("remove block")
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.addTxs(txs)
 }
