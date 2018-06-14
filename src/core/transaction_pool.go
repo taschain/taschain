@@ -61,6 +61,8 @@ type TransactionPool struct {
 
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed ethdb.Database
+
+	batch ethdb.Batch
 }
 
 type ReceiptWrapper struct {
@@ -70,7 +72,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 10000,
+		maxReceivedPoolSize: 100000,
 		tx:                  "tx",
 	}
 }
@@ -103,7 +105,7 @@ func NewTransactionPool() *TransactionPool {
 		return nil
 	}
 	pool.executed = executed
-
+	pool.batch = pool.executed.NewBatch()
 	return pool
 }
 
@@ -114,6 +116,7 @@ func (pool *TransactionPool) Clear() {
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
+	pool.batch.Reset()
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 }
 
@@ -131,7 +134,7 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("Add")
+	defer pool.lock.Unlock("AddTransactions")
 
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
@@ -175,7 +178,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
 
-	pool.add(tx)
+	pool.received.Push(tx)
 
 	// batch broadcast
 	if isBroadcast {
@@ -202,11 +205,14 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*types.Tra
 		return nil, nil, ErrNil
 	}
 
+	pool.lock.RLock("GetTransactions")
+	defer pool.lock.RUnlock("GetTransactions")
+
 	txs := make([]*types.Transaction, 0)
 	need := make([]common.Hash, 0)
 	var err error
 	for _, hash := range hashes {
-		tx, errInner := pool.GetTransaction(hash)
+		tx, errInner := pool.getTransaction(hash)
 		if nil == errInner {
 			txs = append(txs, tx)
 		} else {
@@ -224,6 +230,10 @@ func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transactio
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
 
+	return pool.getTransaction(hash)
+}
+
+func (pool *TransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
 	// 先从received里获取
 	result := pool.received.Get(hash)
 	if nil != result {
@@ -263,22 +273,10 @@ func (pool *TransactionPool) validate(tx *types.Transaction) error {
 	return nil
 }
 
-// 直接加入未满的池子
-// 不需要加锁，sync.Map保证并发
-func (pool *TransactionPool) add(tx *types.Transaction) {
-	pool.received.Push(tx)
-
-}
-
 // 外部加锁
 // 加缓冲区
 func (pool *TransactionPool) addTxs(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-	for _, tx := range txs {
-		pool.add(tx)
-	}
+	pool.received.PushTxs(txs)
 }
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
@@ -287,19 +285,22 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 		return
 	}
 
-	for i, receipt := range receipts {
-		hash := receipt.TxHash.Bytes()
-		receiptWrapper := &ReceiptWrapper{
-			Receipt:     receipt,
-			Transaction: getTransaction(txs, hash, i),
-		}
+	go func() {
+		for i, receipt := range receipts {
+			hash := receipt.TxHash.Bytes()
+			receiptWrapper := &ReceiptWrapper{
+				Receipt:     receipt,
+				Transaction: getTransaction(txs, hash, i),
+			}
 
-		receiptJson, err := json.Marshal(receiptWrapper)
-		if nil != err {
-			continue
+			receiptJson, err := json.Marshal(receiptWrapper)
+			if nil != err {
+				continue
+			}
+			pool.batch.Put(hash, receiptJson)
 		}
-		pool.executed.Put(hash, receiptJson)
-	}
+		pool.batch.Write()
+	}()
 }
 
 func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transaction {
@@ -398,6 +399,25 @@ func (c *container) Push(tx *types.Transaction) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	c.add(tx)
+
+}
+
+func (c *container) PushTxs(txs []*types.Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, tx := range txs {
+		c.add(tx)
+	}
+
+}
+
+func (c *container) add(tx *types.Transaction) {
 	if c.txs.Len() < c.limit {
 		c.txs = append(c.txs, tx)
 		c.txsMap[tx.Hash] = tx

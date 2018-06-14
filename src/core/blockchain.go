@@ -647,7 +647,6 @@ func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash
 
 func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
 
-	log.Printf("[block] start to verifyCastingBlock, %x\n", bh.Hash)
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
@@ -655,26 +654,16 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	//本地无父块，暂不处理
 	// todo:可以缓存，等父块到了再add
 	if preBlock == nil {
-
-		log.Printf("[block]fail to query preBlock, hash:%s \n", preHash)
-
 		return nil, -1, nil, nil
 	}
 
 	// 验证交易
-	missing := make([]common.Hash, 0)
-	var transactions []*types.Transaction
+	var (
+		transactions []*types.Transaction
+		missing      []common.Hash
+	)
 	if nil == txs {
-		transactions = make([]*types.Transaction, len(bh.Transactions))
-		for i, hash := range bh.Transactions {
-			transaction, err := chain.transactionPool.GetTransaction(hash)
-			if err != nil {
-				missing = append(missing, hash)
-			} else {
-				transactions[i] = transaction
-			}
-
-		}
+		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Transactions)
 	} else {
 		transactions = txs
 	}
@@ -685,9 +674,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			TransactionHashes: missing,
 			RequestTime:       time.Now(),
 		}
-		BroadcastTransactionRequest(*m)
+		go BroadcastTransactionRequest(*m)
 		return missing, 1, nil, nil
 	}
+
 	txtree := calcTxTree(transactions).Bytes()
 	if hexutil.Encode(txtree) != hexutil.Encode(bh.TxTree.Bytes()) {
 		log.Printf("[block]fail to verify txtree, hash1:%s hash2:%s \n", txtree, bh.TxTree.Bytes())
@@ -738,8 +728,8 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 验证块是否已经在链上
-	existed := chain.queryBlockByHash(b.Header.Hash)
-	if nil != existed {
+	existed, _ := chain.blocks.Has(b.Header.Hash.Bytes())
+	if existed {
 		return 1
 	}
 
@@ -761,7 +751,6 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		// 验证块是否有问题
 		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status != 0 {
-			log.Printf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
@@ -922,7 +911,7 @@ func (chain *BlockChain) remove(header *types.BlockHeader) {
 		return
 	}
 	txs := block.Transactions
-	if 0==len(txs){
+	if 0 == len(txs) {
 		return
 	}
 	chain.transactionPool.lock.Lock("remove block")
