@@ -30,7 +30,7 @@ type Node struct {
 }
 
 func InitSelfNode(config *common.ConfManager) (*Node, error) {
-	logger = taslog.GetLoggerByName((*config).GetString("chain","database","d")+"_p2p")
+	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	var privateKey common.PrivateKey
 
 	privateKeyStr := getPrivateKeyFromConfigFile(config)

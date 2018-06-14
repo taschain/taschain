@@ -28,7 +28,7 @@ var Logger taslog.Logger
 
 func InitNetwork(config *common.ConfManager) error {
 
-	Logger = taslog.GetLoggerByName((*config).GetString("chain","database","d")+"_p2p")
+	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 
 	node, e1 := makeSelfNode(config)
 	if e1 != nil {

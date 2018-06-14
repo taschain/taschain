@@ -9,7 +9,6 @@ import (
 	"core/net/sync"
 	"utility"
 	"fmt"
-	"log"
 	"network"
 	"middleware/types"
 	"middleware/pb"
@@ -24,84 +23,77 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
 		OnTransactionRequest(m)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
 		m, e := types.UnMarshalTransactions(body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		return nil, OnMessageTransaction(m)
+		return nil, onMessageTransaction(m)
 	case p2p.NEW_BLOCK_MSG:
 		block, e := types.UnMarshalBlock(body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		OnMessageNewBlock(block)
-
-	case p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
-		sync.BlockSyncer.TotalQNRequestCh <- sourceId
-	case p2p.BLOCK_CHAIN_TOTAL_QN_MSG:
-		totalQN := utility.ByteToUInt64(body)
-		s := core.EntityTotalQNMessage{TotalQN: totalQN, SourceId: sourceId}
-		sync.BlockSyncer.TotalQNCh <- s
-	case p2p.REQ_BLOCK_MSG:
-		m, e := unMarshalEntityRequestMessage(body)
-		if e != nil {
-			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
-			return nil, e
-		}
-		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
-		sync.BlockSyncer.BlockRequestCh <- s
-	case p2p.BLOCK_MSG:
-		m, e := unMarshalBlockMessage(body)
-		if e != nil {
-			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
-			return nil, e
-		}
-		s := core.BlockArrivedMessage{BlockEntity: *m, SourceId: sourceId}
-		sync.BlockSyncer.BlockArrivedCh <- s
+		onMessageNewBlock(block)
 
 	case p2p.REQ_GROUP_CHAIN_HEIGHT_MSG:
 		sync.GroupSyncer.HeightRequestCh <- sourceId
 	case p2p.GROUP_CHAIN_HEIGHT_MSG:
 		height := utility.ByteToUInt64(body)
-		s := core.EntityHeightMessage{Height: height, SourceId: sourceId}
-		sync.GroupSyncer.HeightCh <- s
+		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
+		sync.GroupSyncer.HeightCh <- ghi
 	case p2p.REQ_GROUP_MSG:
-		m, e := unMarshalEntityRequestMessage(body)
-		if e != nil {
-			network.Logger.Errorf("[handler]Discard REQ_GROUP_MSG because of unmarshal error:%s", e.Error())
-			return nil, e
-		}
-		s := core.EntityRequestMessage{SourceHeight: m.SourceHeight, SourceCurrentHash: m.SourceCurrentHash, SourceId: sourceId}
-		sync.GroupSyncer.GroupRequestCh <- s
+		baseHeight := utility.ByteToUInt64(body)
+		gri := sync.GroupRequestInfo{BaseHeight: baseHeight, SourceId: sourceId}
+		sync.GroupSyncer.GroupRequestCh <- gri
 	case p2p.GROUP_MSG:
-		m, e := unMarshalGroupMessage(body)
+		m, e := unMarshalGroups(body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		s := core.GroupArrivedMessage{GroupEntity: *m, SourceId: sourceId}
-		sync.GroupSyncer.GroupArrivedCh <- s
-	case p2p.BLOCK_CHAIN_HASHES_REQ:
-		cbhr, e := unMarshalChainBlockHashesReq(body)
+		sync.GroupSyncer.GroupCh <- m
+
+	case p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
+		sync.BlockSyncer.TotalQnRequestCh <- sourceId
+	case p2p.BLOCK_CHAIN_TOTAL_QN_MSG:
+		totalQn := utility.ByteToUInt64(body)
+		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
+		sync.BlockSyncer.TotalQnCh <- s
+	case p2p.REQ_BLOCK_INFO:
+		m, e := unMarshalBlockRequestInfo(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
+			return nil, e
+		}
+		onBlockInfoReq(*m, sourceId)
+	case p2p.BLOCK_INFO:
+		m, e := unMarshalBlockInfo(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
+			return nil, e
+		}
+		onBlockInfo(*m, sourceId)
+	case p2p.BLOCK_HASHES_REQ:
+		cbhr, e := unMarshalBlockHashesReq(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		OnChainBlockHashesReq(cbhr, sourceId)
-	case p2p.BLOCK_CHAIN_HASHES:
-		cbh, e := unMarshalChainBlockHashes(body)
+		onBlockHashesReq(cbhr, sourceId)
+	case p2p.BLOCK_HASHES:
+		cbh, e := unMarshalBlockHashes(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
 			return nil, e
 		}
-		OnChainBlockHashes(cbh, sourceId)
+		onBlockHashes(cbh, sourceId)
 	}
 	return nil, nil
 }
@@ -123,7 +115,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	}
 	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
-		network.Logger.Debugf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
+		core.Logger.Debugf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
 		m.TransactionHashes = need
 	}
 
@@ -134,88 +126,84 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	return nil
 }
 
-func mockTxs() []*types.Transaction {
-	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
-	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
-	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
-	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
-	t2 := genTestTx("tx1", 456, "222", "ddd", 0, 1)
-	s := []*types.Transaction{t1, t2}
-	return s
-}
-
-func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
-
-	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
-	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
-
-	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
-	data := []byte("This is a transaction")
-	return &types.Transaction{
-		Data:     data,
-		Value:    value,
-		Nonce:    nonce,
-		Source:   &sourcebyte,
-		Target:   &targetbyte,
-		GasPrice: price,
-		GasLimit: 3,
-		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
-	}
-}
-
 //验证节点接收交易 或者接收来自客户端广播的交易
-func OnMessageTransaction(txs []*types.Transaction) error {
+func onMessageTransaction(txs []*types.Transaction) error {
 	//验证节点接收交易 加入交易池
-
 	if nil == core.BlockChainImpl {
 		return nil
 	}
 	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
-		//log.Printf("[handler]OnMessageTransaction notify block error:%s", e.Error())
+		core.Logger.Errorf("[handler]OnMessageTransaction notify block error:%s", e.Error())
 		return e
 	}
 	return nil
 }
 
 //全网其他节点 接收block 进行验证
-func OnMessageNewBlock(b *types.Block) error {
+func onMessageNewBlock(b *types.Block) error {
 	//接收到新的块 本地上链
 	if nil == core.BlockChainImpl {
 		return nil
 	}
 	if core.BlockChainImpl.AddBlockOnChain(b) == -1 {
-		network.Logger.Errorf("[handler]Add new block to chain error \n")
+		core.Logger.Errorf("[handler]Add new block to chain error!")
 		return fmt.Errorf("fail to add block")
 	}
 	return nil
 }
 
-func OnChainBlockHashesReq(cbhr *core.ChainBlockHashesReq, sourceId string) {
+//----------------------------------------------链调整-------------------------------------------------------------
+
+func onBlockHashesReq(cbhr *core.BlockHashesReq, sourceId string) {
 	if cbhr == nil {
 		return
 	}
 	cbh := core.GetBlockHashesFromLocalChain(cbhr.Height, cbhr.Length)
-	core.SendChainBlockHashes(sourceId, cbh)
+	core.SendBlockHashes(sourceId, cbh)
 }
 
-func OnChainBlockHashes(cbhr []*core.ChainBlockHash, sourceId string) {
-	network.Logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
-	if cbhr == nil || len(cbhr) == 0 {
+func onBlockHashes(bhs []*core.BlockHash, sourceId string) {
+	core.Logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
+	core.BlockChainImpl.CompareChainPiece(bhs, sourceId)
+}
+
+func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
+	//收到块请求
+	core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
+	if nil == core.BlockChainImpl {
 		return
 	}
-	log.Printf("ChainBlockHash length is:%d", len(cbhr))
+	blockInfo := core.BlockChainImpl.GetBlockInfo(erm.SourceHeight, erm.SourceCurrentHash)
+	core.SendBlockInfo(sourceId, blockInfo)
+}
 
-	result, b := core.FindCommonAncestor(cbhr, 0, len(cbhr)-1)
-	if b {
-		//请求对应的块
-		network.Logger.Info("[BlockChain]OnChainBlockHashes:Got common ancestor! Height:%d\n", result.Height)
-		core.RequestBlockByHeight(sourceId, result.Height, result.Hash)
+func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
+	//收到块信息
+	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	if nil == core.BlockChainImpl {
+		return
+	}
+	blocks := blockInfo.Blocks
+	if blocks != nil && len(blocks) != 0 {
+		core.Logger.Debugf("[handler] onBlockInfo receive blocks,length:%d", len(blocks))
+		for i := 0; i < len(blocks); i++ {
+			block := blocks[i]
+			code := core.BlockChainImpl.AddBlockOnChain(block)
+			if code < 0 {
+				core.Logger.Errorf("fail to add block to block chain,code:%d", code)
+				return
+			}
+		}
+		//todo 如果将来改为发送多次 此处需要修改
+		core.BlockChainImpl.SetAdujsting(false)
+		if !core.BlockChainImpl.IsBlockSyncInit() {
+			core.BlockChainImpl.SetBlockSyncInit(true)
+		}
 	} else {
-		//继续索要HASH比较
-		cbhr := core.ChainBlockHashesReq{Height: cbhr[len(cbhr)-1].Height, Length: uint64(len(cbhr) * 10)}
-		network.Logger.Info("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d\n", sourceId, cbhr.Height, cbhr.Length)
-		core.RequestBlockChainHashes(sourceId, cbhr)
+		core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
+		chainPiece := blockInfo.ChainPiece
+		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
 	}
 }
 
@@ -245,7 +233,6 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 
 //--------------------------------------------------Block---------------------------------------------------------------
 
-
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)
 //	error := proto.Unmarshal(b, blockSlice)
@@ -263,55 +250,55 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 //	return result, nil
 //}
 
-func unMarshalChainBlockHashesReq(byte []byte) (*core.ChainBlockHashesReq, error) {
-	b := new(tas_middleware_pb.ChainBlockHashesReq)
+func unMarshalBlockHashesReq(byte []byte) (*core.BlockHashesReq, error) {
+	b := new(tas_middleware_pb.BlockHashesReq)
 
 	error := proto.Unmarshal(byte, b)
 	if error != nil {
 		network.Logger.Errorf("[handler]unMarshalChainBlockHashesReq error:%s", error.Error())
 		return nil, error
 	}
-	r := pbTochainBlockHashesReq(b)
+	r := pbToBlockHashesReq(b)
 	return r, nil
 }
 
-func pbTochainBlockHashesReq(cbhr *tas_middleware_pb.ChainBlockHashesReq) *core.ChainBlockHashesReq {
+func pbToBlockHashesReq(cbhr *tas_middleware_pb.BlockHashesReq) *core.BlockHashesReq {
 	if cbhr == nil {
 		return nil
 	}
-	r := core.ChainBlockHashesReq{Height: *cbhr.Height, Length: *cbhr.Height}
+	r := core.BlockHashesReq{Height: *cbhr.Height, Length: *cbhr.Length}
 	return &r
 }
 
-func unMarshalChainBlockHashes(b []byte) ([]*core.ChainBlockHash, error) {
-	chainBlockHashSlice := new(tas_middleware_pb.ChainBlockHashSlice)
-	error := proto.Unmarshal(b, chainBlockHashSlice)
+func unMarshalBlockHashes(b []byte) ([]*core.BlockHash, error) {
+	blockHashSlice := new(tas_middleware_pb.BlockHashSlice)
+	error := proto.Unmarshal(b, blockHashSlice)
 	if error != nil {
 		network.Logger.Errorf("[handler]unMarshalChainBlockHashes error:%s\n", error.Error())
 		return nil, error
 	}
-	chainBlockHashes := chainBlockHashSlice.ChainBlockHashes
-	result := make([]*core.ChainBlockHash, 0)
+	chainBlockHashes := blockHashSlice.BlockHashes
+	result := make([]*core.BlockHash, 0)
 
 	for _, b := range chainBlockHashes {
-		h := pbTochainBlockHash(b)
+		h := pbToBlockHash(b)
 		result = append(result, h)
 	}
 	return result, nil
 }
 
-func pbTochainBlockHash(cbh *tas_middleware_pb.ChainBlockHash) *core.ChainBlockHash {
+func pbToBlockHash(cbh *tas_middleware_pb.BlockHash) *core.BlockHash {
 	if cbh == nil {
 		return nil
 	}
-	r := core.ChainBlockHash{Height: *cbh.Height, Hash: common.BytesToHash(cbh.Hash)}
+	r := core.BlockHash{Height: *cbh.Height, Hash: common.BytesToHash(cbh.Hash)}
 	return &r
 }
 
 //----------------------------------------------块同步------------------------------------------------------------------
 
-func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error) {
-	m := new(tas_middleware_pb.EntityRequestMessage)
+func unMarshalBlockRequestInfo(b []byte) (*core.BlockRequestInfo, error) {
+	m := new(tas_middleware_pb.BlockRequestInfo)
 
 	e := proto.Unmarshal(b, m)
 	if e != nil {
@@ -321,13 +308,12 @@ func unMarshalEntityRequestMessage(b []byte) (*core.EntityRequestMessage, error)
 
 	sourceHeight := m.SourceHeight
 	sourceCurrentHash := common.BytesToHash(m.SourceCurrentHash)
-	sourceId := string(m.SourceId)
-	message := core.EntityRequestMessage{SourceHeight: *sourceHeight, SourceCurrentHash: sourceCurrentHash, SourceId: sourceId}
+	message := core.BlockRequestInfo{SourceHeight: *sourceHeight, SourceCurrentHash: sourceCurrentHash}
 	return &message, nil
 }
 
-func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
-	message := new(tas_middleware_pb.BlockMessage)
+func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
+	message := new(tas_middleware_pb.BlockInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		network.Logger.Errorf("[handler]Unmarshal BlockMessage error:%s", e.Error())
@@ -341,36 +327,30 @@ func unMarshalBlockMessage(b []byte) (*core.BlockMessage, error) {
 		}
 	}
 
-	cbh := make([]*core.ChainBlockHash, 0)
-	if message.ChainBlockHash != nil && message.ChainBlockHash.ChainBlockHashes != nil {
-		for _, b := range message.ChainBlockHash.ChainBlockHashes {
-			cbh = append(cbh, pbTochainBlockHash(b))
+	cbh := make([]*core.BlockHash, 0)
+	if message.BlockHashes != nil && message.BlockHashes.BlockHashes != nil {
+		for _, b := range message.BlockHashes.BlockHashes {
+			cbh = append(cbh, pbToBlockHash(b))
 		}
 	}
 
-	m := core.BlockMessage{Blocks: blocks, BlockHashes: cbh}
+	m := core.BlockInfo{Blocks: blocks, ChainPiece: cbh}
 	return &m, nil
 }
 
-//----------------------------------------------组同步------------------------------------------------------------------
-func unMarshalGroupMessage(b []byte) (*core.GroupMessage, error) {
-	message := new(tas_middleware_pb.GroupMessage)
+func unMarshalGroups(b []byte) ([]*types.Group, error) {
+	message := new(tas_middleware_pb.GroupSlice)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		network.Logger.Errorf("[handler]Unmarshal GroupMessage error:%s", e.Error())
+		core.Logger.Errorf("[handler]Unmarshal Groups error:%s", e.Error())
 		return nil, e
 	}
 
 	groups := make([]*types.Group, 0)
-	if message.Groups.Groups != nil {
-		for _, g := range message.Groups.Groups {
+	if message.Groups != nil {
+		for _, g := range message.Groups {
 			groups = append(groups, types.PbToGroup(g))
 		}
 	}
-
-	height := *message.Height
-	hash := common.BytesToHash(message.Hash)
-
-	m := core.GroupMessage{Groups: groups, Height: height, Hash: hash}
-	return &m, nil
+	return groups, nil
 }

@@ -122,6 +122,8 @@ message Group{
 	optional  bytes Dummy = 5;
 
 	optional  bytes Signature  = 6;
+
+	optional  uint64 BeginHeight  = 7;
 }
 
 message GroupSlice{
@@ -129,13 +131,12 @@ message GroupSlice{
 }
 
 
-message EntityRequestMessage{
+message BlockRequestInfo{
 
 	required uint64 SourceHeight  =1;
 
 	required bytes SourceCurrentHash =2;
 
-	required bytes SourceId =3;
 }
 
 
@@ -144,48 +145,31 @@ message Hashes{
     repeated bytes hashes = 1;
 }
 
-message ChainBlockHash{
+message BlockHash{
 
 	required  uint64 Height = 1;
 
 	required  bytes  Hash = 2;
 }
 
-message ChainBlockHashSlice{
+message BlockHashSlice{
 
-    repeated ChainBlockHash ChainBlockHashes = 1;
+    repeated BlockHash BlockHashes = 1;
 }
 
-message BlockMessage{
+message BlockInfo{
 
 	optional BlockSlice Blocks = 1;
 
-	optional ChainBlockHashSlice ChainBlockHash = 2;
+	optional BlockHashSlice BlockHashes = 2;
 }
 
-message EntityTotalQNMessage{
-
-	required uint64 TotalQN = 1;
-
-	required bytes SourceId = 2;
-}
-
-message ChainBlockHashesReq{
+message BlockHashesReq{
 
 	required  uint64 Height = 1;
 
 	required uint64 Length = 2;
 }
-
-message GroupMessage{
-
-	optional GroupSlice Groups = 1;
-
-	optional uint64 Height = 2;
-
-    optional bytes  Hash = 3;
-}
-
 
 
 message SignData{

@@ -49,6 +49,8 @@ type BlockChainI interface {
 	Clear() error
 	//是否正在调整分叉
 	IsAdujsting() bool
+
+	IsBlockSyncInit() bool
 }
 
 //组管理接口

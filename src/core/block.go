@@ -58,7 +58,7 @@ func GenesisBlock(stateDB *state.StateDB, triedb *trie.Database) *types.Block {
 
 	block.Header = &types.BlockHeader{
 		ExtraData:   common.Sha256([]byte("tas")),
-		CurTime:     time.Date(2018, 5, 16, 10, 0, 0, 0, time.Local),
+		CurTime:     time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
 		QueueNumber: 0,
 		TotalQN:     0,
 	}

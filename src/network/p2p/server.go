@@ -56,9 +56,9 @@ const (
 
 	BLOCK_CHAIN_TOTAL_QN_MSG uint32 = 0x0d
 
-	REQ_BLOCK_MSG uint32 = 0x0e
+	REQ_BLOCK_INFO uint32 = 0x0e
 
-	BLOCK_MSG uint32 = 0x0f
+	BLOCK_INFO uint32 = 0x0f
 
 	//-----------组同步---------------------------------
 	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x10
@@ -69,9 +69,9 @@ const (
 
 	GROUP_MSG uint32 = 0x13
 	//-----------块链调整---------------------------------
-	BLOCK_CHAIN_HASHES_REQ uint32 = 0x14
+	BLOCK_HASHES_REQ uint32 = 0x14
 
-	BLOCK_CHAIN_HASHES uint32 = 0x15
+	BLOCK_HASHES uint32 = 0x15
 )
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"
@@ -91,8 +91,8 @@ type server struct {
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
+	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-
 	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
 }
 
@@ -227,8 +227,8 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
-	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_MSG, BLOCK_MSG,
-		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_CHAIN_HASHES_REQ, BLOCK_CHAIN_HASHES:
+	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)

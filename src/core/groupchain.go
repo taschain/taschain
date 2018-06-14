@@ -34,6 +34,8 @@ type GroupChain struct {
 
 	// 读写锁
 	lock sync.RWMutex
+
+	isGroupSyncInit bool
 }
 
 func defaultGroupChainConfig() *GroupChainConfig {
@@ -61,6 +63,7 @@ func initGroupChain() error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
 		now:    *new([][]byte),
+		isGroupSyncInit: false,
 	}
 
 	var err error
@@ -112,15 +115,13 @@ func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
 
-func (chain *GroupChain) GetGroupsByHeight(height uint64, currentHash common.Hash) ([]*types.Group, error) {
+func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
 
 	if chain.count <= height {
 		return nil, fmt.Errorf("exceed local height")
 	}
-
-	// todo: 校验currentHash
 
 	result := make([]*types.Group, chain.count-height)
 	for i := height; i < chain.count; i++ {
@@ -211,7 +212,7 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 			chain.count++
 		}
 		chain.groups.Put([]byte(GROUP_STATUS_KEY), intToBytes(chain.count))
-		fmt.Printf("[group]put dummy succ.count: %d, now:%d, overwrite: %t, dummy id:%x \n", chain.count, len(chain.now),overWrite, group.Dummy)
+		fmt.Printf("[group]put dummy succ.count: %d, now:%d, overwrite: %t, dummy id:%x \n", chain.count, len(chain.now), overWrite, group.Dummy)
 		return chain.groups.Put(group.Dummy, data)
 	} else {
 		chain.groups.Put(generateKey(chain.count), group.Id)
@@ -219,11 +220,19 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 		if !overWrite {
 			chain.count++
 		}
-		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now),overWrite, group.Id)
+		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now), overWrite, group.Id)
 		return chain.groups.Put(group.Id, data)
 	}
 }
 
 func (chain *GroupChain) GetAllGroupID() [][]byte {
 	return chain.now
+}
+
+func (chain *GroupChain) SetGroupSyncInit(b bool) {
+	chain.isGroupSyncInit = b
+}
+
+func (chain *GroupChain) IsGroupSyncInit() bool {
+	return chain.isGroupSyncInit
 }
