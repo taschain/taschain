@@ -272,12 +272,19 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKey
 	e2 := pubkey.Deserialize(m.SignPK)
 	if e2 != nil {
 		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e2.Error())
-		return nil, e1
+		return nil, e2
 	}
 
 	signData := pbToSignData(m.SignData)
 
-	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData}
+	var sign groupsig.Signature
+	e3 := sign.Deserialize(m.GISSign)
+	if e3 != nil {
+		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e3.Error())
+		return nil, e3
+	}
+
+	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData, GISSign: sign}
 	return &message, nil
 }
 

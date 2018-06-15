@@ -418,7 +418,7 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 	//}
 	data := vc.blockCtx.getGroupSecret().secretSign
 	data = append(data, vc.prevHash.Bytes()...)
-	qnBytes := make([]byte, 0)
+	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
 	data = append(data, qnBytes...)
 	hash := rand.Data2CommonHash(data)
