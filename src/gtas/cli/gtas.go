@@ -76,7 +76,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log")
-	err := gtas.fullInit()
+	err := gtas.fullInit(super)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -238,7 +238,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit() error {
+func (gtas *Gtas) fullInit(isSuper bool) error {
 	var err error
 	// 椭圆曲线初始化
 	groupsig.Init(1)
@@ -252,7 +252,7 @@ func (gtas *Gtas) fullInit() error {
 	p2p.SetChainHandler(new(handler.ChainHandler))
 	p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
 
-	err = network.InitNetwork(configManager)
+	err = network.InitNetwork(configManager,isSuper)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,7 @@ const (
 
 var Logger taslog.Logger
 
-func InitNetwork(config *common.ConfManager) error {
+func InitNetwork(config *common.ConfManager, isSuper bool) error {
 
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 
@@ -35,14 +35,14 @@ func InitNetwork(config *common.ConfManager) error {
 		return e1
 	}
 
-	e2 := initServer(config, *node)
+	e2 := initServer(config, *node, isSuper)
 	if e2 != nil {
 		return e2
 	}
 	return nil
 }
 
-func initServer(config *common.ConfManager, node p2p.Node) error {
+func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
 
 	ctx := context.Background()
 	context.WithTimeout(ctx, p2p.ContextTimeOut)
@@ -56,9 +56,11 @@ func initServer(config *common.ConfManager, node p2p.Node) error {
 	dss := dssync.MutexWrap(ds.NewMapDatastore())
 	kadDht := dht.NewDHT(ctx, host, dss)
 
-	e2 := connectToSeed(ctx, &host, config, node)
-	if e2 != nil {
-		return e2
+	if !isSuper {
+		e2 := connectToSeed(ctx, &host, config, node)
+		if e2 != nil {
+			return e2
+		}
 	}
 	dht, e3 := initDHT(kadDht)
 	if e3 != nil {
@@ -132,9 +134,7 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 	if e1 != nil {
 		return e1
 	}
-	if node.GenMulAddrStr() == seedAddrStr {
-		return nil
-	}
+
 	seedMultiaddr, e2 := ma.NewMultiaddr(seedAddrStr)
 	if e2 != nil {
 		Logger.Error("[Network]SeedIdStr to seedMultiaddr error!\n" + e2.Error())
