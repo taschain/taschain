@@ -62,7 +62,8 @@ type TransactionPool struct {
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed ethdb.Database
 
-	batch ethdb.Batch
+	batch     ethdb.Batch
+	batchLock sync.Mutex
 }
 
 type ReceiptWrapper struct {
@@ -95,6 +96,7 @@ func NewTransactionPool() *TransactionPool {
 	pool := &TransactionPool{
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
+		batchLock:   sync.Mutex{},
 		sendingList: make([]*types.Transaction, sendingListLength),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
@@ -286,6 +288,9 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 	}
 
 	go func() {
+		pool.batchLock.Lock()
+		defer pool.batchLock.Unlock()
+
 		for i, receipt := range receipts {
 			hash := receipt.TxHash.Bytes()
 			receiptWrapper := &ReceiptWrapper{
@@ -298,8 +303,17 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 				continue
 			}
 			pool.batch.Put(hash, receiptJson)
+
+			if pool.batch.ValueSize() > 100*1024 {
+				pool.batch.Write()
+				pool.batch.Reset()
+			}
 		}
-		pool.batch.Write()
+
+		if pool.batch.ValueSize() > 0 {
+			pool.batch.Write()
+			pool.batch.Reset()
+		}
 	}()
 }
 

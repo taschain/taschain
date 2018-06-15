@@ -632,7 +632,6 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Transactions)
-		chain.transactionPool.Remove(b.Header.EvictedTxs)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
