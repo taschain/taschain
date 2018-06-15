@@ -334,6 +334,11 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 			continue
 		}
 		for _, slot := range slots { //对不再缺失交易集的插槽处理
+			_, ret := p.verifyBlock(&slot.BH)
+			if ret != 0 {
+				log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
+				continue
+			}
 			var sendMessage ConsensusVerifyMessage
 			sendMessage.BH = slot.BH
 			//sendMessage.GroupID = bc.MinerID.gid

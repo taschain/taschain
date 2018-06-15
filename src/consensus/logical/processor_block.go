@@ -179,3 +179,9 @@ func (p *Processor) prepareForCast(gid groupsig.ID)  {
 	p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
 	p.triggerCastCheck()
 }
+
+func (p *Processor) verifyBlock(bh *core.BlockHeader) ([]common.Hash, int8) {
+	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
+	return lostTransHash, ret
+}
