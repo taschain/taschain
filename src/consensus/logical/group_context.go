@@ -295,7 +295,7 @@ func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerIn
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已收到所有组成员的签名私钥
 func (gc *GroupContext) SignPKMessage(spkm ConsensusSignPubKeyMessage) int {
-	result := gc.node.SetSignPKPiece(spkm.SI.SignMember, spkm.SignPK)
+	result := gc.node.SetSignPKPiece(spkm.SI.SignMember, spkm.SignPK, spkm.GISSign, spkm.GISHash)
 	switch result {
 	case 1:
 	case 0:

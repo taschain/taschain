@@ -189,9 +189,10 @@ func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 type JoinedGroup struct {
 	GroupID groupsig.ID          //组ID
 	SeedKey groupsig.Seckey      //（组相关性的）私密私钥
-	SignKey groupsig.Seckey      //签名私钥
+	SignKey groupsig.Seckey      //矿工签名私钥
 	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
 	Members groupsig.PubkeyMapID //组成员签名公钥
+	GroupSec GroupSecret
 }
 
 func (jg *JoinedGroup) Init() {
@@ -201,6 +202,10 @@ func (jg *JoinedGroup) Init() {
 //取得组内某个成员的签名公钥
 func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
 	return jg.Members[mid.GetHexString()]
+}
+
+func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
+    jg.GroupSec.effectHeight = height
 }
 
 ///////////////////////////////////////////////////////////////////////////////

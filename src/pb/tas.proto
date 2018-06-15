@@ -258,6 +258,8 @@ message ConsensusSignPubKeyMessage{
     required bytes	SignPK  = 3;
 
     required SignData 	SignData = 4;
+
+    required bytes  GISSign = 5;
 }
 
 

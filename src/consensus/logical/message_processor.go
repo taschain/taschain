@@ -466,6 +466,8 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 
+
+
 	result := gc.PieceMessage(spm)
 	log.Printf("proc(%v) OMSP after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
 	p.piece_count++
@@ -541,6 +543,7 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
+		jg.setGroupSecretHeight(p.MainChain.QueryTopBlock().Height)
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
 			p.addInnerGroup(jg, true)
 			log.Printf("SUCCESS INIT GROUP: gid=%v, gpk=%v.\n", GetIDPrefix(jg.GroupID), GetPubKeyPrefix(jg.GroupPK))

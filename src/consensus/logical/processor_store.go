@@ -86,3 +86,11 @@ func (p *Processor) prepareMiner()  {
 func (p *Processor) Ready() bool {
     return p.ready
 }
+
+func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
+	if jg, ok := p.belongGroups[gid.GetHexString()]; ok {
+		return &jg.GroupSec
+	} else {
+		return nil
+	}
+}

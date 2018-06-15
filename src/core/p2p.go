@@ -25,7 +25,7 @@ func InitCore() error {
 	// 默认是debug模式
 	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
 	if isDebug {
-		//Clear()
+		Clear()
 	}
 
 	if nil == BlockChainImpl {

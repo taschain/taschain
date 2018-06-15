@@ -225,6 +225,7 @@ func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, e
 	dummyId := m.DummyID.Serialize()
 	signPK := m.SignPK.Serialize()
 	signData := signDataToPb(&m.SI)
+	sign := m.GISSign.Serialize()
 
 	message := tas_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData}
 	return proto.Marshal(&message)

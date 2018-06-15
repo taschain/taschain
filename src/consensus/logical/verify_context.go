@@ -8,6 +8,8 @@ import (
 	"core"
 	"sync"
 	"math/big"
+	"consensus/rand"
+	"encoding/binary"
 )
 
 /*
@@ -404,19 +406,35 @@ func (vc *VerifyContext) calcCastor() (int32, int64) {
 }
 
 func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
-	firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
-	//log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	//firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
+	////log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	//mem := vc.blockCtx.GroupMembers
+	//if firstKing >= 0 {
+	//	index := int32((qn + int64(firstKing)) % int64(mem))
+	//	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+	//	return index
+	//} else {
+	//	return -1
+	//}
+	data := vc.blockCtx.getGroupSecret().secretSign
+	data = append(data, vc.prevHash.Bytes()...)
+	qnBytes := make([]byte, 0)
+	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
+	data = append(data, qnBytes...)
+	hash := rand.Data2CommonHash(data)
+	biHash := hash.Big()
+
+	var index int32 = -1
 	mem := vc.blockCtx.GroupMembers
-	if firstKing >= 0 {
-		index := int32((qn + int64(firstKing)) % int64(mem))
-		log.Printf("real King pos(MOD mem_count)=%v.\n", index)
-		return index
-	} else {
-		return -1
+	if biHash.BitLen() > 0 {
+		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
+	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+	return index
 }
 
 //取得第一个铸块人在组内的位置
+//deprecated
 func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
 	var index int32 = -1
 	biHash := prevHash.Big()

@@ -109,17 +109,23 @@ type GroupNode struct {
 	minerSignedSecret groupsig.Seckey      //输出：矿工签名私钥（由秘密共享接收池聚合而来）
 	groupPubKey       groupsig.Pubkey      //输出：组公钥（由矿工签名公钥接收池聚合而来）
 	memberPubKeys     groupsig.PubkeyMapID //组成员签名公钥
+	groupSecretSignMap	map[string]groupsig.Signature	//组成员秘密签名
+	groupSecret		*GroupSecret	//输出: 由signMap恢复出组秘密签名
 }
 
 func (n GroupNode) GenInnerGroup() *JoinedGroup {
 	gpk := n.GetGroupPubKey()
-	return &JoinedGroup{
+	joinedGroup := &JoinedGroup{
 		GroupPK: gpk,
 		SignKey: n.getSignSecKey(),
 		Members: n.memberPubKeys,
 		GroupID: *groupsig.NewIDFromPubkey(gpk),
 		SeedKey: n.minerGroupSecret.GenSecKey(),
 	}
+	if n.groupSecret != nil {
+		joinedGroup.GroupSec = *n.groupSecret
+	}
+	return joinedGroup
 }
 
 //用户初始化
@@ -148,9 +154,10 @@ func (n *GroupNode) InitForGroup(h common.Hash) {
 	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(h)) //生成用户针对该组的私密种子
 	n.groupInitPool = *new(GroupInitPool)                                      //初始化秘密接收池
 	n.groupInitPool.init()
-	n.minerSignedSecret = *new(groupsig.Seckey) //初始化
-	n.groupPubKey = *new(groupsig.Pubkey)
+	n.minerSignedSecret = groupsig.Seckey{} //初始化
+	n.groupPubKey = groupsig.Pubkey{}
 	n.memberPubKeys = make(groupsig.PubkeyMapID, 0)
+	n.groupSecretSignMap = make(map[string]groupsig.Signature)
 	return
 }
 
@@ -162,8 +169,8 @@ func (n *GroupNode) InitForMinerStr(id string, secret string, gis ConsensusGroup
 
 	n.groupInitPool = *new(GroupInitPool)
 	n.groupInitPool.init()
-	n.minerSignedSecret = *new(groupsig.Seckey)
-	n.groupPubKey = *new(groupsig.Pubkey)
+	n.minerSignedSecret = groupsig.Seckey{}
+	n.groupPubKey = groupsig.Pubkey{}
 	return
 }
 
@@ -202,17 +209,25 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 
 //接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
-func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey) int {
+func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey, sign groupsig.Signature, hash common.Hash) int {
 	log.Printf("begin GroupNode::SetSignPKPiece...\n")
-	if v, ok := n.memberPubKeys[id.GetHexString()]; ok {
+	idHex := id.GetHexString()
+	n.groupSecretSignMap[idHex] = sign
+	if v, ok := n.memberPubKeys[idHex]; ok {
 		if v.IsEqual(signPk) {
 			return 0
 		} else {
 			return -1 //两次收到的数据不一致
 		}
 	} else {
-		n.memberPubKeys[id.GetHexString()] = signPk
+		n.memberPubKeys[idHex] = signPk
 		if len(n.memberPubKeys) == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的签名公钥
+			sign = *groupsig.RecoverSignatureByMapI(n.groupSecretSignMap, GetGroupK())
+			if !groupsig.VerifySig(n.groupPubKey, hash.Bytes(), sign) {
+				log.Printf("recover group secret sign failed!\n")
+				return -1
+			}
+			n.groupSecret = NewGroupSecret(sign, 0, hash)
 			return 1
 		}
 	}

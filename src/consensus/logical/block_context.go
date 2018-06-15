@@ -253,3 +253,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	}
 	return true
 }
+
+func (bc *BlockContext) getGroupSecret() *GroupSecret {
+    return bc.Proc.getGroupSecret(bc.MinerID.gid)
+}

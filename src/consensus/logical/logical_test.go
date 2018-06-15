@@ -607,7 +607,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
-	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息
+	sgiinfo := NewSGIFromRawMessage(&grm) //生成组信息
 	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
 		v.gg.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
@@ -724,4 +724,8 @@ func TestName(t *testing.T) {
 func TestTime(t *testing.T) {
 	log.Printf(time.Now().String())
 	log.Printf(time.Now().Format("2006-01-02 15:04:05.000"))
+}
+
+func TestPRG(t *testing.T) {
+	rand.r
 }
