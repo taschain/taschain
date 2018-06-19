@@ -70,9 +70,8 @@ func (bc *BlockContext) GetCurrentVerifyContext() *VerifyContext {
 	return bc.currentVerifyContext
 }
 
-func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader) (int32, *VerifyContext) {
-	expireTime := bh.PreTime
-	expireTime = expireTime.Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME))
+func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *types.BlockHeader) (int32, *VerifyContext) {
+	expireTime := GetCastExpireTime(bh.PreTime, bh.Height - preBH.Height)
 
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
@@ -204,6 +203,9 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 //定时器例行处理
 //如果返回false, 则关闭定时器
 func (bc *BlockContext) kingTickerRoutine() bool {
+	if !bc.Proc.Ready() {
+		return false
+	}
 	log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
 	vctx := bc.GetCurrentVerifyContext()

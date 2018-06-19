@@ -75,7 +75,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		return
 	}
 
-	_, vctx := bc.GetOrNewVerifyContext(bh)
+	_, vctx := bc.GetOrNewVerifyContext(bh, preBH)
 
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), verifyResult)

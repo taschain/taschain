@@ -726,6 +726,9 @@ func TestTime(t *testing.T) {
 	log.Printf(time.Now().Format("2006-01-02 15:04:05.000"))
 }
 
-func TestPRG(t *testing.T) {
-	rand.r
+func TestTimeAdd(t *testing.T) {
+	now := time.Now()
+	add := now.Add(time.Minute * 100)
+	
+	t.Log(now, add)
 }

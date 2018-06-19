@@ -162,6 +162,10 @@ func GetSignPrefix(sign groupsig.Signature) string {
 	}
 }
 
+func GetCastExpireTime(base time.Time, deltaHeight uint64) time.Time {
+	return base.Add(time.Second * time.Duration(deltaHeight * uint64(MAX_GROUP_BLOCK_TIME)))
+}
+
 func (p Processor) getPrefix() string {
 	return GetIDPrefix(p.GetMinerID())
 }
@@ -192,6 +196,9 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	defer func() {
 		log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
 	}()
+	if !p.Ready() {
+		return false
+	}
 
 	if len(p.belongGroups) == 0 || len(p.bcs) == 0 {
 		log.Printf("current node don't belong to anygroup!!")
@@ -219,11 +226,10 @@ func (p *Processor) checkSelfCastRoutine() bool {
 
 		deltaHeight := uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
 		castHeight = top.Height + deltaHeight
-		t := top.CurTime
-		expireTime = t.Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME * int(deltaHeight)))
+		expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
 	} else {
 		castHeight = uint64(1)
-		expireTime = time.Now().Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME))
+		expireTime = GetCastExpireTime(time.Now(), 1)
 	}
 
 	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v\n", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight, expireTime)
