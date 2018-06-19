@@ -7,6 +7,7 @@ import (
 	"time"
 	"consensus/groupsig"
 	"middleware/types"
+	"core"
 )
 
 /*
@@ -24,7 +25,7 @@ func findBlock(bs []*ConsensusBlockMessage, hash common.Hash) bool {
 	return false
 }
 
-func (p *Processer) addFutureBlockMsg(msg *ConsensusBlockMessage) {
+func (p *Processor) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	b := msg.Block
 	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash)
 	p.futureBlockLock.Lock()
@@ -42,7 +43,7 @@ func (p *Processer) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	}
 }
 
-func (p *Processer) getFutureBlockMsgs(hash common.Hash) []*ConsensusBlockMessage {
+func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*ConsensusBlockMessage {
 	p.futureBlockLock.RLock()
 	defer p.futureBlockLock.RUnlock()
 
@@ -55,13 +56,13 @@ func (p *Processer) getFutureBlockMsgs(hash common.Hash) []*ConsensusBlockMessag
 	}
 }
 
-func (p *Processer) removeFutureBlockMsgs(hash common.Hash) {
+func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
 	p.futureBlockLock.Lock()
 	defer p.futureBlockLock.Unlock()
 	delete(p.futureBlockMsg, hash)
 }
 
-func (p *Processer) doAddOnChain(block *types.Block) (result int8) {
+func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	begin := time.Now()
 	defer func() {
 		log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
@@ -73,7 +74,7 @@ func (p *Processer) doAddOnChain(block *types.Block) (result int8) {
 	log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
-	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.NewIdFromBytes(bh.Castor)))
+	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
 	if result == 0 {
 		p.triggerFutureVerifyMsg(block.Header.Hash)
@@ -85,7 +86,7 @@ func (p *Processer) doAddOnChain(block *types.Block) (result int8) {
 
 }
 
-func (p *Processer) blockOnChain(bh *types.BlockHeader) bool {
+func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
 	exist := p.MainChain.QueryBlockByHash(bh.Hash)
 	if exist != nil { //已经上链
 		return true
@@ -93,8 +94,8 @@ func (p *Processer) blockOnChain(bh *types.BlockHeader) bool {
 	return false
 }
 
-func (p *Processer) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	b := p.MainChain.QueryBlockByHash(hash)
+func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+    b := p.MainChain.QueryBlockByHash(hash)
 	if b == nil {
 		//p.futureBlockLock.RLock()
 		//defer p.futureBlockLock.RUnlock()
@@ -121,7 +122,7 @@ func findVerifyMsg(bs []*ConsensusBlockMessageBase, hash common.Hash) bool {
 	return false
 }
 
-func (p *Processer) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
+func (p *Processor) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
 	b := msg.BH
 	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, b.Hash, b.PreHash)
 	p.futureVerifyLock.Lock()
@@ -139,7 +140,7 @@ func (p *Processer) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
 	}
 }
 
-func (p *Processer) getFutureVerifyMsgs(hash common.Hash) []*ConsensusBlockMessageBase {
+func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*ConsensusBlockMessageBase {
 	p.futureVerifyLock.RLock()
 	defer p.futureVerifyLock.RUnlock()
 
@@ -152,12 +153,36 @@ func (p *Processer) getFutureVerifyMsgs(hash common.Hash) []*ConsensusBlockMessa
 	}
 }
 
-func (p *Processer) removeFutureVerifyMsgs(hash common.Hash) {
+func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 	p.futureVerifyLock.Lock()
 	defer p.futureVerifyLock.Unlock()
 	delete(p.futureVerifyMsg, hash)
 }
 
-func (p *Processer) blockPreview(bh *types.BlockHeader) string {
-	return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+func (p *Processor) blockPreview(bh *types.BlockHeader) string {
+    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+}
+
+func (p *Processor) prepareForCast(gid groupsig.ID)  {
+	bc := new(BlockContext)
+	bc.Proc = p
+	bc.Init(GroupMinerID{gid, p.GetMinerID()})
+	sgi, err := p.gg.GetGroupByID(gid)
+	if err != nil {
+		panic("prepareForCast GetGroupByID failed.\n")
+	}
+	bc.pos = sgi.GetMinerPos(p.GetMinerID())
+	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
+	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
+	b := p.AddBlockContext(bc)
+	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
+
+	p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
+	p.triggerCastCheck()
+}
+
+func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
+	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
+	return lostTransHash, ret
 }

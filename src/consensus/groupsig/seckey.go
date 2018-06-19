@@ -49,7 +49,7 @@ func (sec Seckey) GetBigInt() (s *big.Int) {
 
 func (sec Seckey) IsValid() bool {
 	bi := sec.GetBigInt()
-	return bi != big.NewInt(0)
+	return bi.Cmp(big.NewInt(0)) != 0
 }
 
 //返回十六进制字符串表示，不带前缀

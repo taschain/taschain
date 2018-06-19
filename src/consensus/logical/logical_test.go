@@ -319,7 +319,7 @@ func testGroupInit(t *testing.T) {
 
 //测试成为当前高度的铸块组
 func testBlockCurrent(t *testing.T) {
-	var proc Processer
+	var proc Processor
 	miner := NewMinerInfo("thiefox", "710208")
 	if !proc.Init(miner) {
 		return
@@ -345,7 +345,7 @@ func genAllNodes(gis ConsensusGroupInitSummary) map[groupsig.ID]GroupNode {
 }
 
 //测试一个组是否初始化完成
-func testGroupInited(procs map[string]*Processer, gid_s string, t *testing.T) {
+func testGroupInited(procs map[string]*Processor, gid_s string, t *testing.T) {
 	fmt.Printf("\nbegin testGroupInited...\n")
 	var gid groupsig.ID
 	if gid.SetHexString(gid_s) != nil {
@@ -524,33 +524,33 @@ func testLogicGroupInit(t *testing.T) {
 	return
 }
 
-func genAllProcessers() map[string]*Processer {
-	procs := make(map[string]*Processer, GROUP_MAX_MEMBERS)
+func genAllProcessers() map[string]*Processor {
+	procs := make(map[string]*Processor, GROUP_MAX_MEMBERS)
 
-	proc := new(Processer)
+	proc := new(Processor)
 	proc.Init(NewMinerInfo("thiefox", "710208"))
 	procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processer)
+	proc = new(Processor)
 	proc.Init(NewMinerInfo("siren", "850701"))
 	procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processer)
+	proc = new(Processor)
 	proc.Init(NewMinerInfo("juanzi", "123456"))
 	procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processer)
+	proc = new(Processor)
 	proc.Init(NewMinerInfo("wild children", "111111"))
 	procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processer)
+	proc = new(Processor)
 	proc.Init(NewMinerInfo("gebaini", "999999"))
 	procs[proc.GetMinerID().GetHexString()] = proc
 
 	return procs
 }
 
-func testGenesisGroup(procs map[string]*Processer, t *testing.T) {
+func testGenesisGroup(procs map[string]*Processor, t *testing.T) {
 	fmt.Printf("begin being genesis group member...\n")
 	pubs := make([]groupsig.Pubkey, 0)
 	for _, v := range procs {
@@ -578,7 +578,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	}
 
 	procs := genAllProcessers() //生成矿工进程
-	var first_proc *Processer
+	var first_proc *Processor
 	var mems []PubKeyInfo
 	var proc_index int
 	for _, v := range procs {
@@ -607,7 +607,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
-	sgiinfo := NewSGIFromRawMessage(grm) //生成组信息
+	sgiinfo := NewSGIFromRawMessage(&grm) //生成组信息
 	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
 		v.gg.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
@@ -674,8 +674,8 @@ func testLogicGroupInitEx(t *testing.T) {
 			sign_sk = g_info.SignKey
 			break //只处理第一个组
 		}
-		mi := v.getmi()
-		//func (p Processer) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
+		mi := v.getMinerInfo()
+		//func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 		//ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
 		sign_pk := groupsig.NewPubkeyFromSeckey(sign_sk)
 		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), GetPubKeyPrefix(*sign_pk))
@@ -724,4 +724,8 @@ func TestName(t *testing.T) {
 func TestTime(t *testing.T) {
 	log.Printf(time.Now().String())
 	log.Printf(time.Now().Format("2006-01-02 15:04:05.000"))
+}
+
+func TestPRG(t *testing.T) {
+	rand.r
 }

@@ -53,11 +53,10 @@ func (id ID) GetBigInt() *big.Int {
 }
 
 func (id ID) IsValid() bool {
-	/*
-		bi := id.GetBigInt()
-		return bi != big.NewInt(0)
-	*/
-	return id.GetHexString() != "0x0"
+
+	bi := id.GetBigInt()
+	return bi.Cmp(big.NewInt(0)) != 0
+
 }
 
 //把ID转换到十进制字符串
@@ -127,7 +126,7 @@ func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
 }
-func NewIdFromBytes(bs []byte) *ID {
+func DeserializeId(bs []byte) *ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
 		return nil

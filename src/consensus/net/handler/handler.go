@@ -13,6 +13,8 @@ import (
 	"network"
 	"middleware/types"
 	"middleware/pb"
+	"log"
+	"fmt"
 )
 
 type ConsensusHandler struct{}
@@ -27,6 +29,10 @@ func memberExistIn(mems *[]logical.PubKeyInfo, id groupsig.ID) bool {
 }
 
 func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
+	if !mediator.Proc.Ready() {
+		log.Printf("message ingored because processor not ready. code=%v\n", code)
+		return nil, fmt.Errorf("processor not ready yet")
+	}
 	switch code {
 	case p2p.GROUP_MEMBER_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
@@ -265,12 +271,19 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKey
 	e2 := pubkey.Deserialize(m.SignPK)
 	if e2 != nil {
 		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e2.Error())
-		return nil, e1
+		return nil, e2
 	}
 
 	signData := pbToSignData(m.SignData)
 
-	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData}
+	var sign groupsig.Signature
+	e3 := sign.Deserialize(m.GISSign)
+	if e3 != nil {
+		network.Logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e3.Error())
+		return nil, e3
+	}
+
+	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData, GISSign: sign}
 	return &message, nil
 }
 

@@ -60,7 +60,7 @@ func (pub Pubkey) GetBigInt() *big.Int {
 
 func (pub Pubkey) IsValid() bool {
 	bi := pub.GetBigInt()
-	return bi.Int64() != int64(0)
+	return bi.Cmp(big.NewInt(0)) != 0
 }
 
 //由公钥生成TAS地址
@@ -133,4 +133,12 @@ func SharePubkeyByInt(mpub []Pubkey, i int) *Pubkey {
 //以id+1作为ID，调用公钥分片生成函数
 func SharePubkeyByMembershipNumber(mpub []Pubkey, id int) *Pubkey {
 	return SharePubkey(mpub, *NewIDFromInt(id + 1))
+}
+
+func DeserializePubkeyBytes(bytes []byte) *Pubkey {
+	var pk Pubkey
+	if err := pk.Deserialize(bytes); err != nil {
+		return nil
+	}
+	return &pk
 }

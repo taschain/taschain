@@ -342,7 +342,7 @@ func TestIDStringConvert(t *testing.T){
 	fmt.Printf("id str:%s\n",s)
 	fmt.Printf("id str compare resylt:%t\n",str==s)
 }
-func TestMain(t *testing.T) {
+func TestMain1(t *testing.T) {
 	fmt.Printf("begin TestMain...\n")
 	t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
 	t.Log("CurveFp254BNb")
@@ -357,6 +357,22 @@ func TestMain(t *testing.T) {
 		test(t, bls.CurveFp382_2)
 	}
 	return
+}
+
+func TestID_Deserialize(t *testing.T) {
+	Init(1)
+	s := "abc"
+	id1 := DeserializeId([]byte(s))
+	id2 := NewIDFromString(s)
+	t.Log(id1.GetHexString(), id2.GetHexString(), id1.IsEqual(*id2))
+
+	t.Log([]byte(s))
+	t.Log(id1.Serialize(), id2.Serialize())
+	t.Log(id1.GetString(), id2.GetString())
+
+	b := id2.Serialize()
+	id3 := DeserializeId(b)
+	t.Log(id3.GetHexString())
 }
 
 

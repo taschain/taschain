@@ -8,6 +8,8 @@ import (
 	"sync"
 	"math/big"
 	"middleware/types"
+	"consensus/rand"
+	"encoding/binary"
 )
 
 /*
@@ -33,6 +35,7 @@ type VerifyContext struct {
 	prevHash    common.Hash
 	castHeight  uint64
 	signedMaxQN int64
+	expireTime	time.Time			//铸块超时时间
 
 	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 
@@ -45,9 +48,9 @@ type VerifyContext struct {
 	lock sync.Mutex
 }
 
-func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) *VerifyContext {
+func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) *VerifyContext {
 	ctx := &VerifyContext{}
-	ctx.rebase(bc, castHeight, preTime, preHash)
+	ctx.rebase(bc, castHeight, preTime, preHash, expire)
 	return ctx
 }
 
@@ -85,14 +88,15 @@ func (vc *VerifyContext) addCastedQN(qn int64) {
 	vc.castedQNs = append(vc.castedQNs, qn)
 }
 
-func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) {
-	vc.prevTime = preTime
-	vc.prevHash = preHash
-	vc.castHeight = castHeight
-	vc.signedMaxQN = INVALID_QN
-	vc.consensusStatus = CBCS_CURRENT
-	vc.blockCtx = bc
-	vc.castedQNs = make([]int64, 0)
+func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time)  {
+    vc.prevTime = preTime
+    vc.prevHash = preHash
+    vc.castHeight = castHeight
+    vc.expireTime = expire
+    vc.signedMaxQN = INVALID_QN
+    vc.consensusStatus = CBCS_CURRENT
+    vc.blockCtx = bc
+    vc.castedQNs = make([]int64, 0)
 	vc.resetSlotContext()
 }
 
@@ -100,32 +104,38 @@ func (vc *VerifyContext) setTimeout() {
 	vc.consensusStatus = CBCS_TIMEOUT
 }
 
-func (vc *VerifyContext) baseOnGeneisBlock() bool {
-	return vc.castHeight == 1
+//func (vc *VerifyContext) baseOnGeneisBlock() bool {
+//	return vc.castHeight == 1
+//}
+
+func (vc *VerifyContext) castExpire() bool {
+    return time.Now().After(vc.expireTime)
 }
 
-func (vc *VerifyContext) getMaxCastTime() int64 {
-	var max int64
-	defer func() {
-		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
-	}()
-
-	if vc.baseOnGeneisBlock() {
-		max = math.MaxInt64
-	} else {
-		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-		if preBH == nil { //TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
-			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
-			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
-			max = -1
-		} else {
-			max = int64(vc.castHeight-preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
-		}
-
-	}
-
-	return max
-}
+//func (vc *VerifyContext) getMaxCastTime() int64 {
+//	var max int64
+//	defer func() {
+//		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+//	}()
+//
+//	//if vc.baseOnGeneisBlock() {
+//	//	max = math.MaxInt64
+//	//} else {
+//	//	preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
+//	//	if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
+//	//		log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
+//	//		//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+//	//		max = -1
+//	//	} else {
+//	//		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
+//	//	}
+//	//
+//	//}
+//	//
+//	max = int64(vc.expireTime.Sub(vc.prevTime).Seconds())
+//
+//	return max
+//}
 
 //计算QN
 func (vc *VerifyContext) calcQN() int64 {
@@ -134,19 +144,14 @@ func (vc *VerifyContext) calcQN() int64 {
 }
 
 func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
-	max := vc.getMaxCastTime()
+	max := int64(vc.expireTime.Sub(vc.prevTime).Seconds())
 	if max < 0 {
 		return -1
 	}
 
 	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
-	var qn int64
-	if vc.baseOnGeneisBlock() {
-		qn = max/int64(MAX_USER_CAST_TIME) - int64(diff)/int64(MAX_USER_CAST_TIME)
-	} else {
-		d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
-		qn = int64(MAX_QN) - d/int64(MAX_USER_CAST_TIME)
-	}
+	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
+	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
 
 	return qn
 }
@@ -230,11 +235,11 @@ func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int32, ret QN_QUERY_SL
 	return -1, QQSR_NO_UNKNOWN
 }
 
-func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
-	vc.rebase(bc, castHeight, preTime, preHash)
-}
+//func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
+//	vc.lock.Lock()
+//	defer vc.lock.Unlock()
+//	vc.rebase(bc, castHeight, preTime, preHash)
+//}
 
 func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	vc.lock.Lock()
@@ -402,19 +407,35 @@ func (vc *VerifyContext) calcCastor() (int32, int64) {
 }
 
 func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
-	firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
-	//log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	//firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
+	////log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
+	//mem := vc.blockCtx.GroupMembers
+	//if firstKing >= 0 {
+	//	index := int32((qn + int64(firstKing)) % int64(mem))
+	//	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+	//	return index
+	//} else {
+	//	return -1
+	//}
+	data := vc.blockCtx.getGroupSecret().secretSign
+	data = append(data, vc.prevHash.Bytes()...)
+	qnBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
+	data = append(data, qnBytes...)
+	hash := rand.Data2CommonHash(data)
+	biHash := hash.Big()
+
+	var index int32 = -1
 	mem := vc.blockCtx.GroupMembers
-	if firstKing >= 0 {
-		index := int32((qn + int64(firstKing)) % int64(mem))
-		log.Printf("real King pos(MOD mem_count)=%v.\n", index)
-		return index
-	} else {
-		return -1
+	if biHash.BitLen() > 0 {
+		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
+	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
+	return index
 }
 
 //取得第一个铸块人在组内的位置
+//deprecated
 func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
 	var index int32 = -1
 	biHash := prevHash.Big()
