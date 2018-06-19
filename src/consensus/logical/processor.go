@@ -205,7 +205,10 @@ func (p *Processor) checkSelfCastRoutine() bool {
 
 	top := p.MainChain.QueryTopBlock()
 
-	castHeight := uint64(1)
+	var (
+		expireTime time.Time
+		castHeight uint64
+	)
 
 	if top.Height > 0 {
 		d := time.Since(top.CurTime)
@@ -215,9 +218,14 @@ func (p *Processor) checkSelfCastRoutine() bool {
 
 		deltaHeight := uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
 		castHeight = top.Height + deltaHeight
+		t := top.CurTime
+		expireTime = t.Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME * int(deltaHeight)))
+	} else {
+		castHeight = uint64(1)
+		expireTime = time.Now().Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME))
 	}
 
-	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight)
+	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v\n", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight, expireTime)
 
 	casting := false
 	for _, _bc := range p.bcs {
@@ -247,7 +255,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.StartCast(castHeight, top.CurTime, top.Hash)
+		bc.StartCast(castHeight, top.CurTime, top.Hash, expireTime)
 
 		return true
 	} else  {	//自己不是下一个铸块组, 但是当前在铸块

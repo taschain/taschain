@@ -77,11 +77,14 @@ func (bc *BlockContext) GetCurrentVerifyContext() *VerifyContext {
 }
 
 func (bc *BlockContext) GetOrNewVerifyContext(bh *core.BlockHeader) (int32, *VerifyContext) {
+	expireTime := bh.PreTime
+	expireTime = expireTime.Add(time.Second * time.Duration(MAX_GROUP_BLOCK_TIME))
+
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
 	if idx, vctx := bc.getVerifyContext(bh.Height, bh.PreHash); vctx == nil {
-		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash)
+		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash, expireTime)
 		bc.verifyContexts = append(bc.verifyContexts, vctx)
 		return int32(len(bc.verifyContexts)-1), vctx
 	} else {
@@ -176,7 +179,7 @@ func (bc *BlockContext) reset() {
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash) {
+func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) {
 
 	log.Printf("proc(%v) begin startCast...\n", preTime.Format(time.Stamp))
 	bc.lock.Lock()
@@ -195,7 +198,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
 		bc.currentVerifyContext = verifyCtx
 	} else {
-		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash)
+		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash, expire)
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}
@@ -228,9 +231,9 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	}
 
 	d := time.Since(vctx.prevTime) //上个铸块完成到现在的时间
-	max := vctx.getMaxCastTime()
+	//max := vctx.getMaxCastTime()
 
-	if int64(d.Seconds()) >= max { //超过了组最大铸块时间
+	if vctx.castExpire() { //超过了组最大铸块时间
 		log.Printf("proc(%v) end kingTickerRoutine, out of max group cast time, time=%v secs, castInfo=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.castingInfo())
 		//bc.reset()
 		vctx.setTimeout()

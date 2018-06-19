@@ -35,6 +35,7 @@ type VerifyContext struct {
 	prevHash    common.Hash
 	castHeight  uint64
 	signedMaxQN int64
+	expireTime	time.Time			//铸块超时时间
 
 	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 
@@ -47,9 +48,9 @@ type VerifyContext struct {
 	lock sync.Mutex
 }
 
-func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash) *VerifyContext {
+func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) *VerifyContext {
 	ctx := &VerifyContext{}
-	ctx.rebase(bc, castHeight, preTime, preHash)
+	ctx.rebase(bc, castHeight, preTime, preHash, expire)
 	return ctx
 }
 
@@ -87,10 +88,11 @@ func (vc *VerifyContext) addCastedQN(qn int64)  {
     vc.castedQNs = append(vc.castedQNs, qn)
 }
 
-func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
+func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time)  {
     vc.prevTime = preTime
     vc.prevHash = preHash
     vc.castHeight = castHeight
+    vc.expireTime = expire
     vc.signedMaxQN = INVALID_QN
     vc.consensusStatus = CBCS_CURRENT
     vc.blockCtx = bc
@@ -102,32 +104,38 @@ func (vc *VerifyContext) setTimeout()  {
     vc.consensusStatus = CBCS_TIMEOUT
 }
 
-func (vc *VerifyContext) baseOnGeneisBlock() bool {
-	return vc.castHeight == 1
+//func (vc *VerifyContext) baseOnGeneisBlock() bool {
+//	return vc.castHeight == 1
+//}
+
+func (vc *VerifyContext) castExpire() bool {
+    return time.Now().After(vc.expireTime)
 }
 
-func (vc *VerifyContext) getMaxCastTime() int64 {
-	var max int64
-	defer func() {
-		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
-	}()
-
-	if vc.baseOnGeneisBlock() {
-		max = math.MaxInt64
-	} else {
-		preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-		if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
-			log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
-			//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
-			max = -1
-		} else {
-			max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
-		}
-
-	}
-
-	return max
-}
+//func (vc *VerifyContext) getMaxCastTime() int64 {
+//	var max int64
+//	defer func() {
+//		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
+//	}()
+//
+//	//if vc.baseOnGeneisBlock() {
+//	//	max = math.MaxInt64
+//	//} else {
+//	//	preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
+//	//	if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
+//	//		log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
+//	//		//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
+//	//		max = -1
+//	//	} else {
+//	//		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
+//	//	}
+//	//
+//	//}
+//	//
+//	max = int64(vc.expireTime.Sub(vc.prevTime).Seconds())
+//
+//	return max
+//}
 
 //计算QN
 func (vc *VerifyContext) calcQN() int64 {
@@ -136,19 +144,14 @@ func (vc *VerifyContext) calcQN() int64 {
 }
 
 func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
-	max := vc.getMaxCastTime()
+	max := int64(vc.expireTime.Sub(vc.prevTime).Seconds())
 	if max < 0 {
 		return -1
 	}
 
 	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
-	var qn int64
-	if vc.baseOnGeneisBlock() {
-		qn = max / int64(MAX_USER_CAST_TIME) - int64(diff) / int64(MAX_USER_CAST_TIME)
-	} else {
-		d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
-		qn = int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
-	}
+	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
+	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
 
 	return qn
 }
@@ -232,11 +235,11 @@ func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int32, ret QN_QUERY_SL
 	return -1, QQSR_NO_UNKNOWN
 }
 
-func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
-	vc.rebase(bc, castHeight, preTime, preHash)
-}
+//func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
+//	vc.lock.Lock()
+//	defer vc.lock.Unlock()
+//	vc.rebase(bc, castHeight, preTime, preHash)
+//}
 
 func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	vc.lock.Lock()
