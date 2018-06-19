@@ -77,7 +77,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if sync.BlockSyncer.FirstSyncFinished() && sync.GroupSyncer.FirstSyncFinished() {
+		if core.BlockChainImpl.IsBlockSyncInit() && core.GroupChainImpl.IsGroupSyncInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
@@ -105,8 +105,8 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 
 	if super {
 		keys1 := LoadPubKeyInfo("pubkeys1")
-		//keys2 := LoadPubKeyInfo("pubkeys2")
-		//keys3 := LoadPubKeyInfo("pubkeys3")
+		keys2 := LoadPubKeyInfo("pubkeys2")
+		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
 			if len(p2p.Server.GetConnInfo()) >= 8 {
@@ -120,9 +120,9 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		}
 		time.Sleep(time.Second*10)	//等待每个节点初始化完成
 
-		createGroup(keys1, "gtas3")
+		createGroup(keys3, "gtas3")
 		time.Sleep(time.Second*4)
-		createGroup(keys1, "gtas2")
+		createGroup(keys2, "gtas2")
 		time.Sleep(time.Second*4)
 		createGroup(keys1, "gtas1")
 
