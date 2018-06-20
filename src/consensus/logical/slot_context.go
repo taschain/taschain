@@ -71,15 +71,24 @@ func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
 
 //用接收到的新交易更新缺失的交易集
 //返回接收前以及接收后是否不在缺失交易
-func (sc *SlotContext) ReceTrans(ths []common.Hash) (before, after bool) {
+func (sc *SlotContext) ReceTrans(ths []common.Hash) (bool) {
 	if len(sc.LosingTrans) == 0 { //已经无缺失
-		return true, true
+		return false
 	}
+	accept := false
 	for _, th := range ths {
-		delete(sc.LosingTrans, th)
+		if _, ok := sc.LosingTrans[th]; ok {
+			accept = true
+			break
+		}
+	}
+	if accept {
+		for _, th := range ths {
+			delete(sc.LosingTrans, th)
+		}
 	}
 	sc.TransFulled = len(sc.LosingTrans) == 0
-	return false, sc.TransFulled
+	return accept
 }
 
 func (sc SlotContext) MessageSize() int {
