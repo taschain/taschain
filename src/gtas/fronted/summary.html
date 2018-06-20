@@ -188,7 +188,7 @@
 
         function tryAddHost() {
             hosts = $("#HOSTS").val()
-            if (hosts != "__HOSTS__") {
+            if (!hosts.startsWith("__")) {
                 hosts.split(",").forEach(function (value) {
                     addTR(value)
                 })
