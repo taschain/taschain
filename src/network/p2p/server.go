@@ -115,11 +115,11 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
-		beginTime := time.Now()
+		//beginTime := time.Now()
 		s.send(b, id)
-		if (m.Code == CAST_VERIFY_MSG || m.Code == VARIFIED_CAST_MSG || m.Code == NEW_BLOCK_MSG) {
-			logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v", id, m.Code, common.Sha256(m.Body), len(b), b2, time.Since(beginTime).String())
-		}
+		//if (m.Code == CAST_VERIFY_MSG || m.Code == VARIFIED_CAST_MSG || m.Code == NEW_BLOCK_MSG) {
+		//	logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v", id, m.Code, common.Sha256(m.Body), len(b), b2, time.Since(beginTime).String())
+		//}
 	}()
 
 }
@@ -219,9 +219,9 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	if (*message.Code == CAST_VERIFY_MSG || *message.Code == VARIFIED_CAST_MSG || *message.Code == NEW_BLOCK_MSG) {
-		logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v", from, common.Sha256(message.Body), lengthByte)
-	}
+	//if (*message.Code == CAST_VERIFY_MSG || *message.Code == VARIFIED_CAST_MSG || *message.Code == NEW_BLOCK_MSG) {
+	//	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v", from, common.Sha256(message.Body), lengthByte)
+	//}
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,

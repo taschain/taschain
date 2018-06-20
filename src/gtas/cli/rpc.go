@@ -12,6 +12,7 @@ import (
 	"strings"
 	"log"
 	"math"
+	"consensus/groupsig"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -127,7 +128,10 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
 	blockDetail["queue_number"] = bh.QueueNumber
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
-	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
+	var castorId groupsig.ID
+	castorId.Deserialize(bh.Castor)
+	blockDetail["castor"] = castorId.GetString()
+	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	blockDetail["txs"] = len(bh.Transactions)

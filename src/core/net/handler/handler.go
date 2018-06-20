@@ -33,7 +33,14 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		return nil, onMessageTransaction(m)
+		if code == p2p.TRANSACTION_GOT_MSG {
+			core.Logger.Debugf("onMessageTransaction,time:%v", time.Now())
+		}
+		err := onMessageTransaction(m)
+		if code == p2p.TRANSACTION_GOT_MSG {
+			core.Logger.Debugf("onMessageTransaction end,time:%v", time.Now())
+		}
+		return nil, err
 	case p2p.NEW_BLOCK_MSG:
 		block, e := types.UnMarshalBlock(body)
 		if e != nil {
@@ -115,7 +122,6 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	}
 	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
 	if e == core.ErrNil {
-		core.Logger.Debugf("[handler]Local do not have transaction,broadcast this message!:%s", e.Error())
 		m.TransactionHashes = need
 	}
 
@@ -134,7 +140,6 @@ func onMessageTransaction(txs []*types.Transaction) error {
 	}
 	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
-		core.Logger.Errorf("[handler]OnMessageTransaction notify block error:%s", e.Error())
 		return e
 	}
 	return nil
