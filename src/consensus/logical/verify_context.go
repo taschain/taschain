@@ -352,8 +352,8 @@ func (vc *VerifyContext) ReceiveTrans(ths []common.Hash) []*SlotContext {
 	slots := make([]*SlotContext, 0)
 	for _, v := range vc.slots {
 		if v != nil && v.QueueNumber != INVALID_QN {
-			before, after := v.ReceTrans(ths)
-			if !before && after { //该插槽已不再有缺失的交易
+			accept := v.ReceTrans(ths)
+			if accept { //接受了该交易
 				slots = append(slots, v)
 			}
 		}

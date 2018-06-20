@@ -139,6 +139,23 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	return &Result{"success", blockDetail}, nil
 }
 
+func (api *GtasAPI) GetTopBlock() (*Result, error) {
+	bh := core.BlockChainImpl.QueryTopBlock()
+	blockDetail := make(map[string]interface{})
+	blockDetail["hash"] = bh.Hash.Hex()
+	blockDetail["height"] = bh.Height
+	blockDetail["pre_hash"] = bh.PreHash.Hex()
+	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
+	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
+	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
+	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
+	blockDetail["txs"] = len(bh.Transactions)
+	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
+	return &Result{"success", blockDetail}, nil
+}
+
 // startHTTP initializes and starts the HTTP RPC endpoint.
 func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
 	// Short circuit if the HTTP endpoint isn't being exposed

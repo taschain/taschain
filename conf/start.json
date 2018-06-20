@@ -1,0 +1,45 @@
+[
+  {
+    "host": "10.0.0.11",
+    "instants": [
+      {
+        "config": "tas1.ini",
+        "super": true
+      },
+      {
+        "config": "tas2.ini",
+        "super": false
+      },
+      {
+        "config": "tas3.ini",
+        "super": false
+      }
+    ]
+  },
+  {
+    "host": "10.0.0.12",
+    "instants": [
+      {
+        "config": "tas4.ini",
+        "super": true
+      },
+      {
+        "config": "tas5.ini",
+        "super": false
+      },
+      {
+        "config": "tas6.ini",
+        "super": false
+      }
+    ]
+  },
+  {
+    "host": "10.0.0.13",
+    "instants": [
+      {
+        "config": "tas7.ini",
+        "super": false
+      }
+    ]
+  }
+]

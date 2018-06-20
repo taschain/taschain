@@ -127,7 +127,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		}
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 		log.Printf("%v lost trans!", mtype)
-
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "lost trans count %v", len(slot.LosingTrans))
 	}
 }
 
@@ -329,19 +329,23 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 			continue
 		}
 		for _, slot := range slots { //对不再缺失交易集的插槽处理
-			_, ret := p.verifyBlock(&slot.BH)
-			if ret != 0 {
-				log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
-				continue
-			}
-			var sendMessage ConsensusVerifyMessage
-			sendMessage.BH = slot.BH
-			//sendMessage.GroupID = bc.MinerID.gid
-			sendMessage.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
-			if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) {
-				log.Printf("call network service SendVerifiedCast...\n")
-				logHalfway("OMNT", 0, 0, p.getPrefix(), "SendVerifiedCast")
-				go SendVerifiedCast(&sendMessage)
+			if !slot.TransFulled {
+				logHalfway("OMNT", slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "get trans, but still lost count %v", len(slot.LosingTrans))
+			} else {
+				_, ret := p.verifyBlock(&slot.BH)
+				if ret != 0 {
+					log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
+					continue
+				}
+				var sendMessage ConsensusVerifyMessage
+				sendMessage.BH = slot.BH
+				//sendMessage.GroupID = bc.MinerID.gid
+				sendMessage.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
+				if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) {
+					log.Printf("call network service SendVerifiedCast...\n")
+					logHalfway("OMNT", slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got! SendVerifiedCast")
+					go SendVerifiedCast(&sendMessage)
+				}
 			}
 		}
 	}
