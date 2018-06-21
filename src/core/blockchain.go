@@ -631,6 +631,8 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	if bhs == nil || len(bhs) == 0 {
 		return
 	}
+	chain.lock.Lock("CompareChainPiece")
+	defer chain.lock.Unlock("CompareChainPiece")
 	chain.SetAdujsting(true)
 	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
 	blockHash, hasCommonAncestor, index := FindCommonAncestor(bhs, 0, len(bhs)-1)
@@ -658,7 +660,6 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 			}
 		}
 		//删除自身链的结点
-		chain.lock.Lock("CompareChainPiece")
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
 			if header == nil {
@@ -674,7 +675,6 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 				break
 			}
 		}
-		chain.lock.Unlock("CompareChainPiece")
 
 		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash)
 	} else {
