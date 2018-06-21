@@ -38,6 +38,7 @@ def generateStartSh(data):
     hostports=[]
     for c in data:
         content = "#/bin/bash\n"
+        content += "if [ ! -d "logs" ]; then\n\tmkdir logs\nfi\n"
         host = c["host"]
         for inst in c["instants"]:
             (ct, p) = command(inst["config"], inst["super"])
