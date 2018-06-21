@@ -10,6 +10,7 @@ import (
 	"middleware/types"
 	"consensus/rand"
 	"encoding/binary"
+	"strconv"
 )
 
 /*
@@ -29,6 +30,30 @@ const (
 	CBCS_MAX_QN_BLOCKED                                    //组内最大铸块完成（已通知到组外），该高度铸块结束
 	CBCS_TIMEOUT                                           //组铸块超时
 )
+
+const (
+	TRANS_INVALID_SLOT	int8	= iota	//无效验证槽
+	TRANS_DENY					//拒绝该交易
+	TRANS_ACCEPT_NOT_FULL		//接受交易, 但仍缺失交易
+	TRANS_ACCEPT_FULL_THRESHOLD	//接受交易, 无缺失, 验证已达到门限
+	TRANS_ACCEPT_FULL_PIECE		//接受交易, 无缺失, 未达到门限
+)
+
+func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
+	switch ret {
+	case TRANS_INVALID_SLOT:
+		return "验证槽无效"
+	case TRANS_DENY:
+		return "不接收该批交易"
+	case TRANS_ACCEPT_NOT_FULL:
+		return "接收交易,但仍缺失"
+	case TRANS_ACCEPT_FULL_PIECE:
+		return "接收交易,等待分片"
+	case TRANS_ACCEPT_FULL_THRESHOLD:
+		return "接收交易,分片已到门限"
+	}
+	return strconv.FormatInt(int64(ret), 10)
+}
 
 type VerifyContext struct {
 	prevTime    time.Time
@@ -345,18 +370,26 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *SignData, summa
 
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
-//func (vc *VerifyContext) ReceiveTrans(ths []common.Hash) []*SlotContext {
-//	slots := make([]*SlotContext, 0)
-//	for _, v := range vc.slots {
-//		if v != nil && v.QueueNumber != INVALID_QN {
-//			accept := v.AcceptTrans(ths)
-//			if accept { //接受了该交易
-//				slots = append(slots, v)
-//			}
-//		}
-//	}
-//	return slots
-//}
+func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 {
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
+
+	if slot.QueueNumber == INVALID_QN {
+		return TRANS_INVALID_SLOT
+	}
+	accept := slot.AcceptTrans(ths)
+	if !accept {
+		return TRANS_DENY
+	}
+	if !slot.TransFulled {
+		return TRANS_ACCEPT_NOT_FULL
+	}
+	if slot.thresholdWitnessGot() {
+		return TRANS_ACCEPT_FULL_THRESHOLD
+	} else {
+		return TRANS_ACCEPT_FULL_PIECE
+	}
+}
 
 //判断该context是否可以删除
 func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
