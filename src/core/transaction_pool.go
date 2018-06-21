@@ -179,7 +179,6 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		return false, nil
 	}
 
-
 	pool.received.Push(tx)
 
 	// batch broadcast
