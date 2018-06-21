@@ -637,12 +637,13 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
 	blockHash, hasCommonAncestor, index := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d", blockHash.Height)
+		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height,chain.Height())
 		if chain.forkCode == 2 {
 			nextHeight := blockHash.Height + 1
 			var localNextBlock *types.BlockHeader
 			for i := nextHeight; i <= chain.Height(); i++ {
-				b := chain.QueryBlockByHeight(i)
+				b := chain.queryBlockHeaderByHeight(i,true)
+				Logger.Debugf("[BlockChain] height:%d,block== nil:%t",i,b==nil)
 				if b != nil {
 					localNextBlock = b
 					break
