@@ -24,8 +24,10 @@ import (
 	_ "net/http/pprof"
 	"net/http"
 	"middleware"
+	"time"
 	"middleware/types"
 	"runtime"
+	"log"
 )
 
 const (
@@ -72,6 +74,17 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	fmt.Println(msg)
 }
 
+func (gtas *Gtas) waitingUtilSyncFinished() {
+	log.Println("waiting for block and group sync finished....")
+	for {
+		if core.BlockChainImpl.IsBlockSyncInit() && core.GroupChainImpl.IsGroupSyncInit() {
+			break
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
+	log.Println("block and group sync finished!!")
+}
+
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log")
@@ -87,29 +100,39 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			return
 		}
 	}
+	gtas.waitingUtilSyncFinished()
+	ok := mediator.StartMiner()
+
 	if super {
 		keys1 := LoadPubKeyInfo("pubkeys1")
-		//keys2 := LoadPubKeyInfo("pubkeys2")
-		//keys3 := LoadPubKeyInfo("pubkeys3")
+		keys2 := LoadPubKeyInfo("pubkeys2")
+		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 2 {
+			if len(p2p.Server.GetConnInfo()) >= 8 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
 				}
 				break
 			}
+			time.Sleep(time.Millisecond * 100)
 		}
-		//createGroup(keys3, "gtas3")
-		//time.Sleep(time.Second * 15)
-		//createGroup(keys2, "gtas2")
-		//time.Sleep(time.Second * 15)
+		time.Sleep(time.Second*10)	//等待每个节点初始化完成
+
+		createGroup(keys3, "gtas3")
+		time.Sleep(time.Second*4)
+		createGroup(keys2, "gtas2")
+		time.Sleep(time.Second*4)
 		createGroup(keys1, "gtas1")
 
 	}
-	gtas.inited = true
 
+
+	gtas.inited = true
+	if !ok {
+		return
+	}
 }
 
 func createGroup(keys []logical.PubKeyInfo, name string) {
@@ -277,10 +300,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	if !ok {
 		return errors.New("consensus module error")
 	}
-	ok = mediator.StartMiner()
-	if !ok {
-		return errors.New("start miner error")
-	}
+
 	mediator.Proc.BeginGenesisGroupMember()
 	return nil
 }

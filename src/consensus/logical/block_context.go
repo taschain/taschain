@@ -12,23 +12,23 @@ import (
 ///////////////////////////////////////////////////////////////////////////////
 //组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
 type BlockContext struct {
-	Version uint
+	Version         uint
 	//PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
 	//CCTimer         time.Ticker                 //共识定时器
 	//TickerRunning	bool
 	//SignedMaxQN     int64                       //组内已铸出的最大QN值的块
 	//PrevHash        common.Hash                 //上一块哈希值
 	//CastHeight      uint64                      //待铸块高度
-	GroupMembers uint //组成员数量
+	GroupMembers    uint                        //组成员数量
 	//Threshold       uint                           //百分比（0-100）
 	//Slots [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
-	verifyContexts []*VerifyContext
+	verifyContexts	[]*VerifyContext
 
 	currentVerifyContext *VerifyContext //当前铸块的verifycontext
 
 	lock sync.RWMutex
 
-	Proc    *Processer   //处理器
+	Proc    *Processor   //处理器
 	MinerID GroupMinerID //矿工ID和所属组ID
 	pos     int          //矿工在组内的排位
 }
@@ -70,12 +70,14 @@ func (bc *BlockContext) GetCurrentVerifyContext() *VerifyContext {
 	return bc.currentVerifyContext
 }
 
-func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader) (int32, *VerifyContext) {
+func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *types.BlockHeader) (int32, *VerifyContext) {
+	expireTime := GetCastExpireTime(bh.PreTime, bh.Height - preBH.Height)
+
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
 	if idx, vctx := bc.getVerifyContext(bh.Height, bh.PreHash); vctx == nil {
-		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash)
+		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash, expireTime)
 		bc.verifyContexts = append(bc.verifyContexts, vctx)
 		return int32(len(bc.verifyContexts) - 1), vctx
 	} else {
@@ -169,7 +171,7 @@ func (bc *BlockContext) reset() {
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash) {
+func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) {
 
 	log.Printf("proc(%v) begin startCast...\n", preTime.Format(time.Stamp))
 	bc.lock.Lock()
@@ -187,7 +189,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
 		bc.currentVerifyContext = verifyCtx
 	} else {
-		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash)
+		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash, expire)
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}
@@ -201,6 +203,9 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 //定时器例行处理
 //如果返回false, 则关闭定时器
 func (bc *BlockContext) kingTickerRoutine() bool {
+	if !bc.Proc.Ready() {
+		return false
+	}
 	log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
 	vctx := bc.GetCurrentVerifyContext()
@@ -219,9 +224,9 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	}
 
 	d := time.Since(vctx.prevTime) //上个铸块完成到现在的时间
-	max := vctx.getMaxCastTime()
+	//max := vctx.getMaxCastTime()
 
-	if int64(d.Seconds()) >= max { //超过了组最大铸块时间
+	if vctx.castExpire() { //超过了组最大铸块时间
 		log.Printf("proc(%v) end kingTickerRoutine, out of max group cast time, time=%v secs, castInfo=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.castingInfo())
 		//bc.reset()
 		vctx.setTimeout()
@@ -243,4 +248,8 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 		return true
 	}
 	return true
+}
+
+func (bc *BlockContext) getGroupSecret() *GroupSecret {
+    return bc.Proc.getGroupSecret(bc.MinerID.gid)
 }
