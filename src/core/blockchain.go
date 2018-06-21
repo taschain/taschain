@@ -582,6 +582,8 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	Logger.Errorf("[BlockChain]coming block hash:%v,height:%d,totalQN:%d,pre hash:%v",b.Header.Hash,b.Header.Height,b.Header.TotalQN,b.Header.PreHash)
+	Logger.Errorf("[BlockChain]chain's latestBlock hash:%v,height:%d,totalQN:%d",chain.latestBlock.Hash,chain.latestBlock.Height,chain.latestBlock.TotalQN,chain.latestBlock.PreHash)
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
 	} else if b.Header.TotalQN < chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
