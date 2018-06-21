@@ -27,7 +27,7 @@ func findBlock(bs []*ConsensusBlockMessage, hash common.Hash) bool {
 
 func (p *Processor) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	b := msg.Block
-	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash)
+	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, GetHashPrefix(b.Header.Hash))
 	p.futureBlockLock.Lock()
 	defer p.futureBlockLock.Unlock()
 
@@ -124,7 +124,7 @@ func findVerifyMsg(bs []*ConsensusBlockMessageBase, hash common.Hash) bool {
 
 func (p *Processor) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
 	b := msg.BH
-	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, b.Hash, b.PreHash)
+	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, GetHashPrefix(b.Hash), GetHashPrefix(b.PreHash))
 	p.futureVerifyLock.Lock()
 	defer p.futureVerifyLock.Unlock()
 

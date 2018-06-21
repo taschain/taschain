@@ -304,7 +304,6 @@ func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
 			}
 			log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 			for _, msg := range futureMsgs {
-				log.Printf("receive cached future block msg: bh=%v, preHeader=%v\n", msg.Block.Header, preHeader)
 				tbh := msg.Block.Header
 				logHalfway("OMB", tbh.Height, tbh.QueueNumber, GetIDPrefix(msg.SI.SignMember), "trigger cached future block")
 				p.receiveBlock(msg, preHeader)
@@ -344,34 +343,36 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 	for _, bc := range p.bcs {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
-			vctx.lock.Lock()
 			for _, slot := range vctx.slots {
-				if slot.QueueNumber == INVALID_QN {
-					continue
-				}
-				accept := slot.AcceptTrans(ths)
-				if !accept {
-					continue
-				}
-				if !slot.TransFulled {
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "get trans, total trans count %v, but still lost count %v", len(slot.BH.Transactions), len(slot.LosingTrans))
-				} else {
+				ret := vctx.AcceptTrans(slot, ths)
+				switch ret {
+				case TRANS_INVALID_SLOT, TRANS_DENY:
+
+				case TRANS_ACCEPT_NOT_FULL:
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v,total trans count %v, still lost count %v", TRANS_ACCEPT_RESULT_DESC(ret), len(slot.BH.Transactions), len(slot.LosingTrans))
+
+				case TRANS_ACCEPT_FULL_PIECE:
 					_, ret := p.verifyBlock(&slot.BH)
 					if ret != 0 {
 						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
 						log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 						continue
 					}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, trans count=%v", len(slot.BH.Transactions))
-					castor := groupsig.DeserializeId(slot.BH.Castor)
-					if slot.thresholdWitnessGot() {
-						p.thresholdPieceVerify(mtype, GetIDPrefix(*castor), bc.MinerID.gid, vctx, slot, &slot.BH)
-					} else {
-						p.normalPieceVerify(mtype, GetIDPrefix(*castor), bc.MinerID.gid, slot, &slot.BH)
-					}
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v", TRANS_ACCEPT_RESULT_DESC(ret))
+					p.normalPieceVerify(mtype, GetIDPrefix(*groupsig.DeserializeId(slot.BH.Castor)), bc.MinerID.gid, slot, &slot.BH)
+
+				case TRANS_ACCEPT_FULL_THRESHOLD:
+					//_, ret := p.verifyBlock(&slot.BH)
+					//if ret != 0 {
+					//	logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
+					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
+					//	continue
+					//}
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v", TRANS_ACCEPT_RESULT_DESC(ret))
+					p.thresholdPieceVerify(mtype, GetIDPrefix(*groupsig.DeserializeId(slot.BH.Castor)), bc.MinerID.gid, vctx, slot, &slot.BH)
 				}
+
 			}
-			vctx.lock.Unlock()
 		}
 	}
 
