@@ -28,7 +28,7 @@ def command(conf, isSuper):
 
     slp = 1
     if isSuper:
-        slp = 3
+        slp = 5
 
     content = "%s\nsleep %d" % (content, slp)
 
