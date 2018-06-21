@@ -658,7 +658,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	return
 
 	//铸块测试
-	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CMBR_IGNORE_KING_ERROR)
+	fmt.Printf("\n\nbegin group cast test, time=%v, init_piece_status=%v...\n", time.Now().Format(time.Stamp), CBMR_IGNORE_KING_ERROR)
 	var ccm ConsensusCurrentMessage
 	pre_hash := sha1.Sum([]byte("tas root block"))
 	ccm.PreHash = common.BytesToHash(pre_hash[:])

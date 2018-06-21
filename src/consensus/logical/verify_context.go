@@ -262,14 +262,14 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	qnDiff := vc.qnOfDiff(bh.CurTime.Sub(bh.PreTime).Seconds())
 	if qnDiff < 0 || uint64(qnDiff) != bh.QueueNumber { //计算的qn错误
 		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, qnDiff, bh.QueueNumber)
-		return CMBR_IGNORE_QN_ERROR
+		return CBMR_IGNORE_QN_ERROR
 	}
 
 	calcKingPos := vc.getCastorPosByQN(qnDiff)
 	receiveKingPos := summary.CastorPos
 	if calcKingPos != receiveKingPos { //该qn对应的king错误
 		log.Printf("proc(%v) acceptCV failed(king pos ERROR), receive king pos=%v, calc king pos=%v.\n", idPrefix, receiveKingPos, calcKingPos)
-		return CMBR_IGNORE_KING_ERROR
+		return CBMR_IGNORE_KING_ERROR
 	}
 	//if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
 	//	log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
@@ -281,13 +281,13 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	//}
 
 	if !vc.needHandleQN(int64(bh.QueueNumber)) { //该组已经铸出过QN值更大的块
-		return CMBR_IGNORE_MAX_QN_SIGNED
+		return CBMR_IGNORE_MAX_QN_SIGNED
 	}
 
 	i, info := vc.consensusFindSlot(int64(bh.QueueNumber))
 	log.Printf("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
 	if i < 0 { //没有找到有效的插槽
-		return CMBR_IGNORE_QN_BIG_QN
+		return CBMR_IGNORE_QN_BIG_QN
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
@@ -307,7 +307,7 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 		log.Printf("proc(%v) bc::slot[%v] AcceptPiece result=%v, msg_count=%v.\n", idPrefix, i, result, vc.slots[i].MessageSize())
 		return result
 	}
-	return CMBR_ERROR_UNKNOWN
+	return CBMR_ERROR_UNKNOWN
 }
 
 //完成某个铸块槽的铸块（上链，组外广播）后，更新组的当前高度铸块状态
@@ -345,21 +345,18 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *SignData, summa
 
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
-func (vc *VerifyContext) ReceiveTrans(ths []common.Hash) []*SlotContext {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
-
-	slots := make([]*SlotContext, 0)
-	for _, v := range vc.slots {
-		if v != nil && v.QueueNumber != INVALID_QN {
-			accept := v.ReceTrans(ths)
-			if accept { //接受了该交易
-				slots = append(slots, v)
-			}
-		}
-	}
-	return slots
-}
+//func (vc *VerifyContext) ReceiveTrans(ths []common.Hash) []*SlotContext {
+//	slots := make([]*SlotContext, 0)
+//	for _, v := range vc.slots {
+//		if v != nil && v.QueueNumber != INVALID_QN {
+//			accept := v.AcceptTrans(ths)
+//			if accept { //接受了该交易
+//				slots = append(slots, v)
+//			}
+//		}
+//	}
+//	return slots
+//}
 
 //判断该context是否可以删除
 func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {

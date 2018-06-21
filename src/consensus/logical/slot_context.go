@@ -8,6 +8,7 @@ import (
 	"common"
 	"sync/atomic"
 	"middleware/types"
+	"strconv"
 )
 
 /*
@@ -71,7 +72,7 @@ func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
 
 //用接收到的新交易更新缺失的交易集
 //返回接收前以及接收后是否不在缺失交易
-func (sc *SlotContext) ReceTrans(ths []common.Hash) (bool) {
+func (sc *SlotContext) AcceptTrans(ths []common.Hash) (bool) {
 	if len(sc.LosingTrans) == 0 { //已经无缺失
 		return false
 	}
@@ -125,7 +126,7 @@ func (sc *SlotContext) GenGroupSign() bool {
 	if sc.SlotStatus == SS_FAILED {
 		return false
 	}
-	if len(sc.MapWitness) >= GetGroupK() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
+	if sc.thresholdWitnessGot() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
 		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GetGroupK())
 		if gs != nil {
 			sc.GroupSign = *gs
@@ -151,17 +152,35 @@ const (
 	CBMR_THRESHOLD_SUCCESS                                     //收到一个分片且达到阈值，组签名成功
 	CBMR_THRESHOLD_FAILED                                      //收到一个分片且达到阈值，组签名失败
 	CBMR_IGNORE_REPEAT                                         //丢弃：重复收到该消息
-	CMBR_IGNORE_QN_BIG_QN                                      //丢弃：QN太大
-	CMBR_IGNORE_QN_FUTURE                                      //丢弃：未轮到该QN
-	CMBR_IGNORE_QN_ERROR                                       //丢弃：qn错误
-	CMBR_IGNORE_KING_ERROR                                     //丢弃：king错误
-	CMBR_IGNORE_MAX_QN_SIGNED                                  //丢弃：该节点已向组外广播出更低QN值的块
-	CMBR_IGNORE_NOT_CASTING                                    //丢弃：未启动当前组铸块共识
-	CBMR_ERROR_ARG                                             //异常：参数异常
-	CBMR_ERROR_SIGN                                            //异常：签名验证异常
+	CBMR_IGNORE_QN_BIG_QN                                      //丢弃：QN太大
+	CBMR_IGNORE_QN_ERROR                                       //丢弃：qn错误
+	CBMR_IGNORE_KING_ERROR                                     //丢弃：king错误
+	CBMR_IGNORE_MAX_QN_SIGNED                                  //丢弃：该节点已向组外广播出更低QN值的块
 	CBMR_STATUS_FAIL                                           //已经失败的
-	CMBR_ERROR_UNKNOWN                                         //异常：未知异常
+	CBMR_ERROR_UNKNOWN                                         //异常：未知异常
 )
+
+func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
+	switch ret {
+	case CBMR_PIECE_NORMAL:
+		return "正常分片"
+	case CBMR_PIECE_LOSINGTRANS:
+		return "交易缺失"
+	case CBMR_THRESHOLD_SUCCESS:
+		return "达到门限值组签名成功"
+	case CBMR_THRESHOLD_FAILED:
+		return "达到门限值但组签名失败"
+	case CBMR_IGNORE_QN_BIG_QN, CBMR_IGNORE_QN_ERROR:
+		return "qn错误"
+	case CBMR_IGNORE_KING_ERROR:
+		return "king错误"
+	case CBMR_IGNORE_MAX_QN_SIGNED:
+		return "已出更大qn"
+	case CBMR_STATUS_FAIL:
+		return "失败状态"
+	}
+	return strconv.FormatInt(int64(ret), 10)
+}
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
@@ -192,7 +211,10 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
 		sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-		if len(sc.MapWitness) >= GetGroupK() /* && sc.HasKingMessage() */ { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
+		if !sc.TransFulled {
+			return CBMR_PIECE_LOSINGTRANS
+		}
+		if sc.thresholdWitnessGot() /* && sc.HasKingMessage() */ { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
 			if sc.GenGroupSign() {
 				return CBMR_THRESHOLD_SUCCESS
 			} else {
@@ -202,7 +224,11 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK
 			return CBMR_PIECE_NORMAL
 		}
 	}
-	return CMBR_ERROR_UNKNOWN
+	return CBMR_ERROR_UNKNOWN
+}
+
+func (sc *SlotContext) thresholdWitnessGot() bool {
+    return len(sc.MapWitness) >= GetGroupK()
 }
 
 //判断某个成员是否为插槽的出块人

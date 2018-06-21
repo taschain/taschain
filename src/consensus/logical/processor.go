@@ -792,11 +792,14 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 	nonce := time.Now().Unix()
 	gid := bc.MinerID.gid
 
+	logStart("CASTBLOCK", height, uint64(qn), p.getPrefix(), "开始铸块")
+
 	//调用鸠兹的铸块处理
 	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
 		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
+		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
 		return nil
 	}
 
@@ -812,18 +815,13 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 	log.Printf("castor sign bh result = %v.\n", b)
 
 	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
-		var tmp_id groupsig.ID
-		if tmp_id.Deserialize(bh.Castor) != nil {
-			panic("ID Deserialize failed.")
-		}
-		log.Printf("success cast block, height= %v, castor= %v.\n", bh.Height, GetIDPrefix(tmp_id))
 		//发送该出块消息
 		var ccm ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
 		outputBlockHeaderAndSign("castBlock", bh, &ccm.SI)
-
+		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast")
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendCastVerify...\n")
 			log.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
