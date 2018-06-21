@@ -34,18 +34,22 @@ def command(conf, isSuper):
 
     return (content, rpcport+seq)
 
-def generateStartSh(data):
+def generateFiles(data):
     hostports=[]
     for c in data:
+        include_list = "gtas\n"
         content = "#/bin/bash\n"
-        content += "if [ ! -d "logs" ]; then\n\tmkdir logs\nfi\n"
+        content += "if [ ! -d 'logs' ]; then\n\tmkdir logs\nfi\n"
         host = c["host"]
         for inst in c["instants"]:
+            include_list += inst["config"] + "\n"
             (ct, p) = command(inst["config"], inst["super"])
             content += ct + "\n\n"
             hostports.append("%s:%d" %(host, p))
         fn = startShName(host)
         write(fn, content)
+        include_list += fn + "\n"
+        write("include_list_" + host, include_list)
     write("host_port", ",".join(hostports))
 
 def getHosts(data):
@@ -81,7 +85,7 @@ if __name__ == "__main__":
         print startShName(p)
     else:
         data = load(sys.argv[1])
-        generateStartSh(data)
+        generateFiles(data)
         getHosts(data)
 
 
