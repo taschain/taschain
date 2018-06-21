@@ -115,15 +115,15 @@ func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
-func (bc *BlockContext) receiveTrans(ths []common.Hash) []*SlotContext {
-	slots := make([]*SlotContext, 0)
-
-	for _, v := range bc.SafeGetVerifyContexts() {
-		fullSlots := v.ReceiveTrans(ths)
-		slots = append(slots, fullSlots...)
-	}
-	return slots
-}
+//func (bc *BlockContext) receiveTrans(ths []common.Hash) []*SlotContext {
+//	slots := make([]*SlotContext, 0)
+//
+//	for _, v := range bc.SafeGetVerifyContexts() {
+//		fullSlots := v.ReceiveTrans(ths)
+//		slots = append(slots, fullSlots...)
+//	}
+//	return slots
+//}
 
 type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
 
