@@ -109,7 +109,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 8 {
+			if len(p2p.Server.GetConnInfo()) >= 20 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -118,7 +118,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			}
 			time.Sleep(time.Millisecond * 100)
 		}
-		time.Sleep(time.Second*10)	//等待每个节点初始化完成
+		time.Sleep(time.Second*20)	//等待每个节点初始化完成
 
 		createGroup(keys3, "gtas3")
 		time.Sleep(time.Second*4)
