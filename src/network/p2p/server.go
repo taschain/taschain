@@ -235,8 +235,9 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	case TRANSACTION_GOT_MSG:
 		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
-			consensusHandler.HandlerMessage(*code, message.Body, from)
+			return
 		}
+		consensusHandler.HandlerMessage(*code, message.Body, from)
 	}
 }
 

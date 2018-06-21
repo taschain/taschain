@@ -49,7 +49,6 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
-	Logger.Debugf("BroadcastTransactionRequest,time:%v",time.Now())
 	conns := p2p.Server.Host.Network().Conns()
 	for _, conn := range conns {
 		id := conn.RemotePeer()
