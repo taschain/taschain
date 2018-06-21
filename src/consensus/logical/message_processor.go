@@ -131,7 +131,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	}
 }
 
-func (p *Processor) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase)  {
+func (p *Processor) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase) {
 	bh := &msg.BH
 	si := &msg.SI
 	log.Printf("Proc(%v) begin %v, height=%v, qn=%v\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber)
@@ -193,8 +193,8 @@ func (p *Processor) OnMessageVerify(cvm ConsensusVerifyMessage) {
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
 }
 
-func (p *Processor) triggerFutureVerifyMsg(hash common.Hash)  {
-    futures := p.getFutureVerifyMsgs(hash)
+func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
+	futures := p.getFutureVerifyMsgs(hash)
 	if futures == nil || len(futures) == 0 {
 		return
 	}
@@ -220,7 +220,7 @@ func (p *Processor) receiveBlock(msg *ConsensusBlockMessage, preBH *types.BlockH
 	return false
 }
 
-func (p *Processor) cleanVerifyContext(currentHeight uint64)  {
+func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 	for _, bc := range p.bcs {
 		ctxs := bc.SafeGetVerifyContexts()
 		delCtx := make([]*VerifyContext, 0)
@@ -329,21 +329,6 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 			continue
 		}
 		for _, slot := range slots { //对不再缺失交易集的插槽处理
-<<<<<<< HEAD
-			_, ret := p.verifyBlock(&slot.BH)
-			if ret != 0 {
-				log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
-				continue
-			}
-			var sendMessage ConsensusVerifyMessage
-			sendMessage.BH = slot.BH
-			//sendMessage.GroupID = bc.MinerID.gid
-			sendMessage.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(bc.MinerID.gid)})
-			if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) {
-				log.Printf("call network service SendVerifiedCast...\n")
-				logHalfway("OMNT", 0, 0, p.getPrefix(), "SendVerifiedCast")
-				go SendVerifiedCast(&sendMessage)
-=======
 			if !slot.TransFulled {
 				logHalfway("OMNT", slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "get trans, but still lost count %v", len(slot.LosingTrans))
 			} else {
@@ -361,7 +346,6 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					logHalfway("OMNT", slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got! SendVerifiedCast")
 					go SendVerifiedCast(&sendMessage)
 				}
->>>>>>> 001814219001fbef611462da5da4d99a3a144186
 			}
 		}
 	}
@@ -400,7 +384,6 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 			return
 		}
 	}
-
 
 	//非组内成员不走后续流程
 	if !staticGroupInfo.MemExist(p.GetMinerID()) {
@@ -481,8 +464,6 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 
-
-
 	result := gc.PieceMessage(spm)
 	log.Printf("proc(%v) OMSP after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
 	p.piece_count++
@@ -497,7 +478,7 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg := ConsensusSignPubKeyMessage{
 					GISHash: spm.GISHash,
 					DummyID: spm.DummyID,
-					SignPK: *groupsig.NewPubkeyFromSeckey(jg.SignKey),
+					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
 				}
 
 				msg.GenGISSign(jg.SignKey)
