@@ -37,7 +37,7 @@ def command(conf, isSuper):
 def generateFiles(data):
     hostports=[]
     for c in data:
-        include_list = "gtas\n"
+        include_list = "gtas\n" + "stop.sh\n"
         content = "#/bin/bash\n"
         content += "if [ ! -d 'logs' ]; then\n\tmkdir logs\nfi\n"
         host = c["host"]
