@@ -118,7 +118,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			}
 			time.Sleep(time.Millisecond * 100)
 		}
-		time.Sleep(time.Second*10)	//等待每个节点初始化完成
+		time.Sleep(time.Second*20)	//等待每个节点初始化完成
 
 		createGroup(keys3, "gtas3")
 		time.Sleep(time.Second*4)
