@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"common"
 	"core/datasource"
@@ -177,7 +176,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	if pool.isTransactionExisted(hash) {
 
 		//log.Trace("Discarding already known transaction", "hash", hash)
-		return false, fmt.Errorf("known transaction: %x", hash)
+		return false, nil
 	}
 
 	pool.received.Push(tx)

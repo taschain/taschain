@@ -459,7 +459,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		receipts: receipts,
 	})
 
-	Logger.Debugf("[BlockChain]cast block success. blockheader: %x", block.Header.Hash)
+	//Logger.Debugf("[BlockChain]cast block success. blockheader: %x,cost time:%v", block.Header.Hash, time.Since(beginTime).String())
 	return block
 }
 
