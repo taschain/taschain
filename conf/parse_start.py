@@ -28,7 +28,7 @@ def command(conf, isSuper):
 
     slp = 1
     if isSuper:
-        slp = 3
+        slp = 5
 
     content = "%s\nsleep %d" % (content, slp)
 
@@ -37,7 +37,7 @@ def command(conf, isSuper):
 def generateFiles(data):
     hostports=[]
     for c in data:
-        include_list = "gtas\n"
+        include_list = "gtas\n" + "stop.sh\n"
         content = "#/bin/bash\n"
         content += "if [ ! -d 'logs' ]; then\n\tmkdir logs\nfi\n"
         host = c["host"]
