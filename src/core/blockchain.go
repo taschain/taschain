@@ -640,7 +640,7 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 			nextHeight := blockHash.Height + 1
 			var localNextBlock *types.BlockHeader
 			for i := nextHeight; i <= chain.Height(); i++ {
-				b := chain.QueryBlockByHeight(nextHeight)
+				b := chain.QueryBlockByHeight(i)
 				if b != nil {
 					localNextBlock = b
 					break
