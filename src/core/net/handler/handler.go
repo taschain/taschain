@@ -115,7 +115,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 	if nil == core.BlockChainImpl {
 		return nil
 	}
-	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.TransactionHashes)
+	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
 	if e == core.ErrNil {
 		m.TransactionHashes = need
 	}
