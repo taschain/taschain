@@ -428,7 +428,8 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd SignData) bool {
 
 	groupInfo := p.getGroup(gid)
 	if !groupInfo.GroupID.IsValid() {
-		panic("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
+		log.Printf("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
+		return false
 	}
 
 	log.Printf("verifyGroupSign: real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
