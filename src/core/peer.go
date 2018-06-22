@@ -57,7 +57,7 @@ type BlockInfo struct {
 
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
-	Logger.Debugf("[BlockChain]Request Transaction from %s,count%d,hash:%x", castorId, len(m.TransactionHashes), m.CurrentBlockHash)
+	Logger.Debugf("[BlockChain]Request Transaction from %s,count%d,hash:%x,time:%v", castorId, len(m.TransactionHashes), m.CurrentBlockHash,time.Now())
 	if castorId == "" {
 		return
 	}
