@@ -63,7 +63,7 @@ func InitConsensus() {
 	SSSS_THRESHOLD = cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD)
 	//MAX_GROUP_BLOCK_TIME = cc.GetInt("MAX_GROUP_BLOCK_TIME", 60 * 60 * 24 * 30)
 	MAX_USER_CAST_TIME = cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME)
-	MAX_QN = (MAX_GROUP_BLOCK_TIME - 1) / MAX_USER_CAST_TIME //组内能出的最大QN值
+	MAX_QN = (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME //组内能出的最大QN值
 	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("chain", "database", ""))
 	return
 }
