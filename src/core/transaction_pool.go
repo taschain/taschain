@@ -38,7 +38,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 20
+	sendingListLength = 5
 )
 
 // 配置文件
