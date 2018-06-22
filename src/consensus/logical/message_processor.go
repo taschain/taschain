@@ -347,7 +347,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 				ret := vctx.AcceptTrans(slot, ths)
 				switch ret {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
-
+					break
 				case TRANS_ACCEPT_NOT_FULL:
 					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
