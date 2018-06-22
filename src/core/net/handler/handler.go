@@ -33,7 +33,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		OnTransactionRequest(m)
+		OnTransactionRequest(m, sourceId)
 	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
 		m, e := types.UnMarshalTransactions(body)
 		if e != nil {
@@ -109,7 +109,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 //-----------------------------------------------铸币-------------------------------------------------------------------
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
-func OnTransactionRequest(m *core.TransactionRequestMessage) error {
+func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
 
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
@@ -121,7 +121,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage) error {
 	}
 
 	if nil != transactions && 0 != len(transactions) {
-		core.SendTransactions(transactions, m.SourceId)
+		core.SendTransactions(transactions, sourceId)
 	}
 
 	return nil
@@ -195,7 +195,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 				core.Logger.Errorf("fail to add block to block chain,code:%d", code)
 				return
 			}
-			if code == 2{
+			if code == 2 {
 				return
 			}
 		}
@@ -224,14 +224,8 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 		txHashes = append(txHashes, common.BytesToHash(txHash))
 	}
 
-	sourceId := string(m.SourceId)
-
-	var requestTime time.Time
-	e1 := requestTime.UnmarshalBinary(m.RequestTime)
-	if e1 != nil {
-		network.Logger.Errorf("[handler]MarshalTransactionRequestMessage request time unmarshal error:%s", e1.Error())
-	}
-	message := core.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
+	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
+	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
 	return &message, nil
 }
 
