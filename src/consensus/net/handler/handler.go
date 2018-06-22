@@ -155,7 +155,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			txHashes = append(txHashes, tx.Hash)
 		}
 		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("[BlockChain]consensus handler TRANSACTION_GOT_MSG from %d,count:%d",sourceId,len(txHashes))
+			core.Logger.Debugf("[BlockChain]consensus handler TRANSACTION_GOT_MSG from %s,count:%d,time:%v",sourceId,len(txHashes),time.Now())
 		}
 		mediator.Proc.OnMessageNewTransactions(txHashes)
 	case p2p.NEW_BLOCK_MSG:

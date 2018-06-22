@@ -41,7 +41,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			return nil, nil
 		}
 		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("[BlockChain]core handler TRANSACTION_GOT_MSG from %s,count%d", sourceId, len(m))
+			core.Logger.Debugf("[BlockChain]core handler TRANSACTION_GOT_MSG from: %s,count:%d,time:%v", sourceId, len(m),time.Now())
 		}
 		err := onMessageTransaction(m)
 		return nil, err
@@ -113,7 +113,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	core.Logger.Debugf("[BlockChain]OnTransactionRequestn from %s,count%d,hash:%x", sourceId, len(m.TransactionHashes), m.TransactionHashes)
+	core.Logger.Debugf("[BlockChain]OnTransactionRequestn from %s,count%d,hash:%x,time:%v", sourceId, len(m.TransactionHashes), m.CurrentBlockHash,time.Now())
 
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
