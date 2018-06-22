@@ -138,6 +138,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
+		return
 	}
 
 	result = fmt.Sprintf("验证结果 %v, 当前分片数 %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness))
