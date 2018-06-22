@@ -453,7 +453,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		receipts: receipts,
 	})
 
-	//Logger.Debugf("[BlockChain]cast block success. blockheader: %x,cost time:%v", block.Header.Hash, time.Since(beginTime).String())
+	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
 	return block
 }
 
@@ -485,7 +485,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		missing      []common.Hash
 	)
 	if nil == txs {
-		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Transactions)
+		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
 	} else {
 		transactions = txs
 	}
@@ -602,7 +602,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
-		chain.transactionPool.Remove(b.Header.Transactions)
+		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)

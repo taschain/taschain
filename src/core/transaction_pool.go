@@ -15,6 +15,7 @@ import (
 	"middleware/types"
 	"middleware"
 	"container/heap"
+	"github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -54,8 +55,8 @@ type TransactionPool struct {
 	lock middleware.Loglock
 
 	// 待上块的交易
-	received *container
-
+	received    *container
+	reserved    *lru.Cache
 	sendingList []*types.Transaction
 
 	// 已经在块上的交易 key ：txhash value： receipt
@@ -99,6 +100,7 @@ func NewTransactionPool() *TransactionPool {
 		sendingList: make([]*types.Transaction, sendingListLength),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
 	if err != nil {
@@ -130,6 +132,11 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
 	return txs
+}
+
+// 返回待处理的transaction数组
+func (pool *TransactionPool) ReserveTransactions(hash common.Hash, txs []*types.Transaction) {
+	pool.reserved.Add(hash, txs)
 }
 
 // 不加锁
@@ -196,24 +203,36 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 }
 
 // 从池子里移除一批交易
-func (pool *TransactionPool) Remove(transactions []common.Hash) {
+func (pool *TransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
 	pool.received.Remove(transactions)
+	pool.reserved.Remove(hash)
 
 }
 
-func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
+func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
 		return nil, nil, ErrNil
 	}
 
 	pool.lock.RLock("GetTransactions")
 	defer pool.lock.RUnlock("GetTransactions")
+	reservedRaw, _ := pool.reserved.Get(reservedHash)
+	var reserved []*types.Transaction
+	if nil != reservedRaw {
+		reserved = reservedRaw.([]*types.Transaction)
+	}
 
 	txs := make([]*types.Transaction, 0)
 	need := make([]common.Hash, 0)
 	var err error
 	for _, hash := range hashes {
-		tx, errInner := pool.getTransaction(hash)
+
+		tx, errInner := getTx(reserved, hash)
+
+		if tx == nil {
+			tx, errInner = pool.getTransaction(hash)
+		}
+
 		if nil == errInner {
 			txs = append(txs, tx)
 		} else {
@@ -223,6 +242,19 @@ func (pool *TransactionPool) GetTransactions(hashes []common.Hash) ([]*types.Tra
 	}
 
 	return txs, need, err
+}
+
+func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction, error) {
+	if nil == reserved {
+		return nil, nil
+	}
+
+	for _, tx := range reserved {
+		if tx.Hash == hash {
+			return tx, nil
+		}
+	}
+	return nil, nil
 }
 
 // 根据hash获取交易实例

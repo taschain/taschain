@@ -190,16 +190,6 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 	fmt.Printf("2: %d\n", b2.Header.Nonce)
 	fmt.Printf("3: %d\n", b3.Header.Nonce)
 
-	message := BlockChainImpl.GetBlockMessage(1, common.Hash{})
-	if nil == message || nil == message.Blocks {
-		t.Fatalf("fail to get BlockMessage from 1")
-	}
-
-	blocks := message.Blocks
-	if nil == blocks[0] || nil == blocks[1] || 1256 != blocks[0].Header.Nonce || 1257 != blocks[1].Header.Nonce {
-		t.Fatalf("fail to get BlockMessage from 1")
-	}
-
 }
 
 func TestBlockChain_GetTopBlocks(t *testing.T) {
@@ -243,21 +233,6 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 			t.Fatalf("fail to check block from cache to ldb,%d", i)
 		}
 	}
-
-	top := BlockChainImpl.GetTopBlocks()
-	if top == nil || len(top) != 1000 {
-		t.Fatalf("fail to get top blocks")
-	}
-
-	for i = 0; i < 1000; i++ {
-		if top[i] == nil {
-
-			t.Fatalf("fail to get top blocks, missing: %d", i)
-
-		}
-
-	}
-
 }
 
 func TestBlockChain_StateTree(t *testing.T) {
