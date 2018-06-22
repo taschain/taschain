@@ -135,6 +135,10 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), verifyResult)
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
+	if slot == nil {
+		result = "找不到合适的验证槽, 放弃验证"
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
+	}
 
 	result = fmt.Sprintf("验证结果 %v, 当前分片数 %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness))
 	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
@@ -344,12 +348,13 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 	for _, bc := range p.bcs {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
 			for _, slot := range vctx.slots {
-				ret := vctx.AcceptTrans(slot, ths)
-				switch ret {
+				acceptRet := vctx.AcceptTrans(slot, ths)
+				log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
+				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
 					break
 				case TRANS_ACCEPT_NOT_FULL:
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
 				case TRANS_ACCEPT_FULL_PIECE:
 					_, ret := p.verifyBlock(&slot.BH)
@@ -357,7 +362,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
 						log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					} else {
-						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret))
+						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.MapWitness))
 						p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
 					}
 
@@ -368,7 +373,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					//	continue
 					//}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret))
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet))
 					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, vctx, slot, &slot.BH)
 				}
 
