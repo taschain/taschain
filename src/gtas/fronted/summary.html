@@ -18,7 +18,7 @@
             border-color: #666666;
             border-collapse: collapse;
             width: 90%;
-            margin-left: 10%;
+            margin-left: 5%;
             margin-bottom: 5%;
             margin-top: 2%;
         }
@@ -38,6 +38,8 @@
 
     </style>
     <script type="application/javascript">
+
+        var statMap =new Map()
 
         function del_tr(obj) {
             $(obj).parent().parent().remove()
@@ -115,20 +117,36 @@
                 data: JSON.stringify(params),
                 success: function (rdata) {
                     if (rdata.result !== undefined){
+                        stat = statMap.get(host)
+                        if (stat == null || stat == undefined) {
+                            stat = {total_txs: 0, total_cost: 0}
+                        }
                         d = rdata.result.data
+
+                        pre = new Date(d.pre_time).getTime()
+                        cur = new Date(d.cur_time).getTime()
+                        if (d.txs > 0) {
+                            stat.total_cost += (cur - pre)/1000
+                            stat.total_txs += d.txs
+                        }
+                        statMap.set(host, stat)
+
                         tps = tr.children("td[name='tps']")
                         txs = tr.children("td[name='txs']")
                         h = tr.children("td[name='block_height']")
                         cost = tr.children("td[name='cost']")
                         qn = tr.children("td[name='qn']")
+                        aver_tps = tr.children("td[name='aver_tps']")
+
                         h.text(d.height)
                         tps.text(d.tps)
                         txs.text(d.txs)
-                        pre = new Date(d.pre_time)
-                        cur = new Date(d.cur_time)
                         cst = (cur - pre) / 1000.0
                         cost.text(cst)
                         qn.text(d.queue_number)
+                        aver = stat.total_txs/ stat.total_cost
+                        aver_tps.text(aver.toFixed(1))
+
                     }
                 },
                 error: function () {
@@ -181,6 +199,7 @@
             tr += "<td name='txs'></td>"
             tr += "<td name='cost'></td>"
             tr += "<td name='qn'></td>"
+            tr += "<td name='aver_tps'></td>"
             tr += "<td><a href='javascript:void(0);' onclick='refresh($(this))'>刷新</a>&nbsp;<a href='javascript:void(0);' onclick='del_tr($(this))'>删除</a>&nbsp;<a href='javascript:void(0);' onclick='jump($(this))'>查看</a></td>"
             tr += "</tr>"
             $("#t_body").append(tr)
@@ -209,18 +228,19 @@
 </head>
 <body>
     <input type="hidden" id="HOSTS" value="__HOSTS__">
-    <div style="width: 60%; text-align: center; margin: 20px">
-        <span style="margin: 10%; width: 200px"><button id="add">添加监控</button></span>
+    <div style="width: 95%; text-align: center;">
+        <span style="margin-top: 10%; width: 200px"><button id="add">添加监控</button></span>
         <table class="gridtable">
             <thead>
                 <tr>
-                    <th width="30%">IP端口</th>
+                    <th width="20%">IP端口</th>
                     <th width="10%">块高</th>
                     <th width="10%">组高</th>
                     <th width="10%">tps</th>
                     <th width="10%">txs</th>
                     <th width="10%">出块时长</th>
                     <th width="10%">qn</th>
+                    <th width="10%">aver_tps</th>
                     <th width="10%">操作</th>
                 </tr>
             </thead>

@@ -80,8 +80,6 @@ type BlockChain struct {
 
 	isAdujsting bool
 
-	forkCode int //分叉状态，2表示 totalQn 相等状态下的分叉，1表示本地totalQn 较小时候的分叉
-
 	lastBlockHash *BlockHash
 
 	isBlockSyncInit bool
@@ -190,9 +188,6 @@ func initBlockChain() error {
 	return nil
 }
 
-func (chain *BlockChain) GetForkCode() int {
-	return chain.forkCode
-}
 
 func (chain *BlockChain) SetBlockSyncInit(b bool) {
 	chain.isBlockSyncInit = b
@@ -582,27 +577,15 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
-	Logger.Errorf("[BlockChain]coming block hash:%v,height:%d,totalQN:%d,pre hash:%v",b.Header.Hash,b.Header.Height,b.Header.TotalQN,b.Header.PreHash)
-	Logger.Errorf("[BlockChain]chain's latestBlock hash:%v,height:%d,totalQN:%d",chain.latestBlock.Hash,chain.latestBlock.Height,chain.latestBlock.TotalQN,chain.latestBlock.PreHash)
+	Logger.Errorf("[BlockChain]coming block hash:%v,height:%d,totalQN:%d,pre hash:%v", b.Header.Hash, b.Header.Height, b.Header.TotalQN, b.Header.PreHash)
+	Logger.Errorf("[BlockChain]chain's latestBlock hash:%v,height:%d,totalQN:%d", chain.latestBlock.Hash, chain.latestBlock.Height, chain.latestBlock.TotalQN, chain.latestBlock.PreHash)
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if b.Header.TotalQN < chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
-	} else if b.Header.PreHash == chain.latestBlock.PreHash && (b.Header.Height == chain.latestBlock.Height && b.Header.TotalQN > chain.latestBlock.TotalQN || b.Header.Height < chain.latestBlock.Height) {
+	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.remove(chain.latestBlock)
 		status = chain.saveBlock(b)
-	} else if b.Header.TotalQN == chain.latestBlock.TotalQN {
-		var castorId groupsig.ID
-		error := castorId.Deserialize(b.Header.Castor)
-		if error != nil {
-			Logger.Errorf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-			return -1
-		}
-
-		chain.forkCode = 2
-		cbhr := BlockHashesReq{Height: b.Header.Height, Length: CHAIN_BLOCK_HASH_INIT_LENGTH}
-		RequestBlockHashes(castorId.GetString(), cbhr)
-		status = 2
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		var castorId groupsig.ID
@@ -611,7 +594,6 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 			log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
 			return -1
 		}
-		chain.forkCode = 1
 		RequestBlockInfoByHeight(castorId.GetString(), chain.latestBlock.Height, chain.latestBlock.Hash)
 		status = 2
 	}
@@ -637,31 +619,9 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	defer chain.lock.Unlock("CompareChainPiece")
 	chain.SetAdujsting(true)
 	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, index := FindCommonAncestor(bhs, 0, len(bhs)-1)
+	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height,chain.Height())
-		if chain.forkCode == 2 {
-			nextHeight := blockHash.Height + 1
-			var localNextBlock *types.BlockHeader
-			for i := nextHeight; i <= chain.Height(); i++ {
-				b := chain.queryBlockHeaderByHeight(i,true)
-				Logger.Debugf("[BlockChain] height:%d,block== nil:%t",i,b==nil)
-				if b != nil {
-					localNextBlock = b
-					break
-				}
-			}
-
-			var comingNextBlock *BlockHash
-			if index == 0 {
-				comingNextBlock = chain.lastBlockHash
-			} else {
-				comingNextBlock = bhs[index-1]
-			}
-			if localNextBlock.QueueNumber > comingNextBlock.Qn {
-				return
-			}
-		}
+		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		//删除自身链的结点
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
