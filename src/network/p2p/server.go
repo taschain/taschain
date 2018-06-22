@@ -150,7 +150,7 @@ func (s *server) send(b []byte, id string) {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
 		return
 	}
-	defer stream.Close()
+	//defer stream.Close()
 
 	l := len(b)
 	r, err := stream.Write(b)

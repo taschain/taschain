@@ -125,7 +125,9 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 }
 
 func makeHost(n net.Network) (host.Host) {
-	host := basichost.New(n)
+	opt := basichost.HostOpts{}
+	opt.NegotiationTimeout = -1
+	host := basichost.New(n, opt)
 	return host
 }
 
