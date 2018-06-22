@@ -188,7 +188,6 @@ func initBlockChain() error {
 	return nil
 }
 
-
 func (chain *BlockChain) SetBlockSyncInit(b bool) {
 	chain.isBlockSyncInit = b
 }
@@ -554,6 +553,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
+
 	var (
 		state    *state.StateDB
 		receipts vtypes.Receipts
@@ -577,8 +577,6 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
-	Logger.Errorf("[BlockChain]coming block hash:%v,height:%d,totalQN:%d,pre hash:%v", b.Header.Hash, b.Header.Height, b.Header.TotalQN, b.Header.PreHash)
-	Logger.Errorf("[BlockChain]chain's latestBlock hash:%v,height:%d,totalQN:%d", chain.latestBlock.Hash, chain.latestBlock.Height, chain.latestBlock.TotalQN, chain.latestBlock.PreHash)
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
 	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
@@ -588,12 +586,16 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		status = chain.saveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
+		if chain.isAdujsting {
+			return 2
+		}
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
 			log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
 			return -1
 		}
+		chain.SetAdujsting(true)
 		RequestBlockInfoByHeight(castorId.GetString(), chain.latestBlock.Height, chain.latestBlock.Hash)
 		status = 2
 	}
@@ -617,7 +619,6 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	}
 	chain.lock.Lock("CompareChainPiece")
 	defer chain.lock.Unlock("CompareChainPiece")
-	chain.SetAdujsting(true)
 	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
 	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
@@ -698,9 +699,6 @@ func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInfo {
 	chain.lock.RLock("GetBlockInfo")
 	defer chain.lock.RUnlock("GetBlockInfo")
-	if chain.isAdujsting {
-		return nil
-	}
 	localHeight := chain.latestBlock.Height
 
 	bh := chain.QueryBlockByHeight(height)
@@ -727,9 +725,9 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
 		var bhs []*BlockHash
 		if height >= localHeight {
-			bhs = GetBlockHashesFromLocalChain(localHeight-1, CHAIN_BLOCK_HASH_INIT_LENGTH)
+			bhs = chain.getBlockHashesFromLocalChain(localHeight-1, CHAIN_BLOCK_HASH_INIT_LENGTH)
 		} else {
-			bhs = GetBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
+			bhs = chain.getBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
 		}
 		return &BlockInfo{ChainPiece: bhs,}
 	}
@@ -738,10 +736,13 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 //从当前链上获取block hash
 //height 起始高度
 //length 起始高度向下算非空块的长度
-func GetBlockHashesFromLocalChain(height uint64, length uint64) []*BlockHash {
-	if BlockChainImpl.isAdujsting {
-		return nil
-	}
+func (chain *BlockChain) GetBlockHashesFromLocalChain(height uint64, length uint64) []*BlockHash {
+	chain.lock.RLock("GetBlockHashesFromLocalChain")
+	defer chain.lock.RUnlock("GetBlockHashesFromLocalChain")
+	return chain.getBlockHashesFromLocalChain(height, length)
+}
+
+func (chain *BlockChain) getBlockHashesFromLocalChain(height uint64, length uint64) []*BlockHash {
 	var i uint64
 	r := make([]*BlockHash, 0)
 	for i = 0; i < length; {
@@ -758,7 +759,6 @@ func GetBlockHashesFromLocalChain(height uint64, length uint64) []*BlockHash {
 	}
 	return r
 }
-
 func FindCommonAncestor(bhs []*BlockHash, l int, r int) (*BlockHash, bool, int) {
 
 	if l > r || r < 0 || l >= len(bhs) {

@@ -152,7 +152,7 @@ func onBlockHashesReq(cbhr *core.BlockHashesReq, sourceId string) {
 	if cbhr == nil {
 		return
 	}
-	cbh := core.GetBlockHashesFromLocalChain(cbhr.Height, cbhr.Length)
+	cbh := core.BlockChainImpl.GetBlockHashesFromLocalChain(cbhr.Height, cbhr.Length)
 	core.SendBlockHashes(sourceId, cbh)
 }
 
@@ -173,18 +173,22 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 
 func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	//收到块信息
-	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
 	blocks := blockInfo.Blocks
 	if blocks != nil && len(blocks) != 0 {
-		core.Logger.Debugf("[handler] onBlockInfo receive blocks,length:%d", len(blocks))
+		//core.Logger.Debugf("[handler] onBlockInfo receive blocks,length:%d", len(blocks))
 		for i := 0; i < len(blocks); i++ {
 			block := blocks[i]
 			code := core.BlockChainImpl.AddBlockOnChain(block)
 			if code < 0 {
+				core.BlockChainImpl.SetAdujsting(false)
 				core.Logger.Errorf("fail to add block to block chain,code:%d", code)
+				return
+			}
+			if code == 2{
 				return
 			}
 		}
@@ -194,7 +198,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 	} else {
-		core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
+		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
 		chainPiece := blockInfo.ChainPiece
 		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
 	}
