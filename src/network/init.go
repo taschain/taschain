@@ -145,6 +145,14 @@ func connectToSeed(ctx context.Context, host *host.Host, config *common.ConfMana
 	e3 := (*host).Connect(ctx, seedPeerInfo)
 	if e3 != nil {
 		Logger.Error("[Network]Host connect to seed error!\n" + e3.Error())
+		for i := 1; i <= 3; i++ {
+			time.Sleep(time.Second * 5)
+			Logger.Infof("[Network]Try to connect to seed:no %d\n", i)
+			e := (*host).Connect(ctx, seedPeerInfo)
+			if e == nil {
+				break
+			}
+		}
 		return e3
 	}
 	return nil
