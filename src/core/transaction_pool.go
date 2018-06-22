@@ -136,6 +136,9 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) ReserveTransactions(hash common.Hash, txs []*types.Transaction) {
+	if 0 == len(txs) {
+		return
+	}
 	pool.reserved.Add(hash, txs)
 }
 
