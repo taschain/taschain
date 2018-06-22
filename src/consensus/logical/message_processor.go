@@ -94,7 +94,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	if p.blockOnChain(bh) {
 		log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
 		result = "已经上链"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin: %v", result)
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
 	}
 
@@ -111,13 +111,13 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	if preBH == nil {
 		p.addFutureVerifyMsg(msg)
 		result = "父块未到达"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin: %v", result)
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
 	}
 
 	if !p.isCastGroupLegal(bh, preBH) {
 		result = "非法的铸块组"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin: %v", result)
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		log.Printf("not the casting group!bh=%v, preBH=%v", bh, preBH)
 		return
 	}
@@ -125,7 +125,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	bc := p.GetBlockContext(gid.GetHexString())
 	if bc == nil {
 		result = "未获取到blockcontext"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin: %v", result)
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		log.Printf("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
 		return
 	}
@@ -136,8 +136,8 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), verifyResult)
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 
-	result = fmt.Sprintf("UserVerified result:%v - %v", verifyResult, CBMR_RESULT_DESC(verifyResult))
-	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "doVerify begin: %v", result)
+	result = fmt.Sprintf("验证结果 %v, 当前分片数 %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness))
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
@@ -149,7 +149,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 		log.Printf("%v lost trans!", mtype)
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "total trans count %v, lost trans count %v", len(bh.Transactions), len(slot.LosingTrans))
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(bh.PreHash), len(bh.Transactions), len(slot.LosingTrans))
 	}
 }
 
@@ -349,17 +349,17 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
 
 				case TRANS_ACCEPT_NOT_FULL:
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v,total trans count %v, still lost count %v", TRANS_ACCEPT_RESULT_DESC(ret), len(slot.BH.Transactions), len(slot.LosingTrans))
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
 				case TRANS_ACCEPT_FULL_PIECE:
 					_, ret := p.verifyBlock(&slot.BH)
 					if ret != 0 {
 						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
 						log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
-						continue
+					} else {
+						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret))
+						p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
 					}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v", TRANS_ACCEPT_RESULT_DESC(ret))
-					p.normalPieceVerify(mtype, GetIDPrefix(*groupsig.DeserializeId(slot.BH.Castor)), bc.MinerID.gid, slot, &slot.BH)
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					//_, ret := p.verifyBlock(&slot.BH)
@@ -368,8 +368,8 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					//	continue
 					//}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "acceptTrans %v", TRANS_ACCEPT_RESULT_DESC(ret))
-					p.thresholdPieceVerify(mtype, GetIDPrefix(*groupsig.DeserializeId(slot.BH.Castor)), bc.MinerID.gid, vctx, slot, &slot.BH)
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(ret))
+					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, vctx, slot, &slot.BH)
 				}
 
 			}

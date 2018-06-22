@@ -178,6 +178,8 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "已出更大qn"
 	case CBMR_STATUS_FAIL:
 		return "失败状态"
+	case CBMR_IGNORE_REPEAT:
+		return "重复消息"
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }

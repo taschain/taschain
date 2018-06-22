@@ -374,7 +374,7 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
-	if slot.QueueNumber == INVALID_QN {
+	if slot.QueueNumber == int64(INVALID_QN) {
 		return TRANS_INVALID_SLOT
 	}
 	accept := slot.AcceptTrans(ths)

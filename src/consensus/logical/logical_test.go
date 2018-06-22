@@ -732,3 +732,18 @@ func TestTimeAdd(t *testing.T) {
 	
 	t.Log(now, add)
 }
+
+func TestSwitch(t *testing.T) {
+	a := TRANS_INVALID_SLOT
+	switch a {
+	case TRANS_INVALID_SLOT, TRANS_DENY:
+		log.Println("TRANS_INVALID_SLOT full")
+		break
+	case TRANS_ACCEPT_NOT_FULL:
+		log.Println("TRANS_ACCEPT_NOT_FULL full")
+	case TRANS_ACCEPT_FULL_PIECE:
+		log.Println("TRANS_ACCEPT_FULL_PIECE full")
+	case TRANS_ACCEPT_FULL_THRESHOLD:
+		log.Println("TRANS_ACCEPT_FULL_THRESHOLD full")
+	}
+}
