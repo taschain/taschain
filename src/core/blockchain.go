@@ -608,6 +608,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+		BroadcastBlockOnChain(b)
 	}
 	return status
 
