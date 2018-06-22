@@ -38,24 +38,24 @@ type BlockInfo struct {
 }
 
 //对外广播自身上过链的block 全网广播
-func BroadcastBlockOnChain(b *types.Block) {
-	body, e := types.MarshalBlock(b)
-	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
-		return
-	}
-	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
-
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
-
-}
+//func BroadcastBlockOnChain(b *types.Block) {
+//	body, e := types.MarshalBlock(b)
+//	if e != nil {
+//		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+//		return
+//	}
+//	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
+//
+//	conns := p2p.Server.Host.Network().Conns()
+//	for _, conn := range conns {
+//		id := conn.RemotePeer()
+//
+//		if id != "" {
+//			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+//		}
+//	}
+//
+//}
 
 //验证节点 交易集缺失，索要、特定交易 全网广播
 func BroadcastTransactionRequest(m TransactionRequestMessage) {

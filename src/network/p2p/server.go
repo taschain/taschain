@@ -74,7 +74,7 @@ const (
 	BLOCK_HASHES uint32 = 0x15
 
 	//广播自身上链过的BLOCK
-	ON_CHAIN_BLOCK_MSG uint32 = 0X16
+	//ON_CHAIN_BLOCK_MSG uint32 = 0X16
 )
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"
@@ -231,7 +231,7 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
-		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES,ON_CHAIN_BLOCK_MSG:
+		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)

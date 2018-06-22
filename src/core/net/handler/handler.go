@@ -20,13 +20,13 @@ type ChainHandler struct{}
 
 func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
 	switch code {
-	case p2p.ON_CHAIN_BLOCK_MSG:
-		m, e := types.UnMarshalBlock(body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard ON_CHAIN_BLOCK_MSG because of unmarshal error:%s", e.Error())
-			return nil, nil
-		}
-		onMessageNewBlock(m)
+	//case p2p.ON_CHAIN_BLOCK_MSG:
+	//	m, e := types.UnMarshalBlock(body)
+	//	if e != nil {
+	//		core.Logger.Errorf("[handler]Discard ON_CHAIN_BLOCK_MSG because of unmarshal error:%s", e.Error())
+	//		return nil, nil
+	//	}
+	//	onMessageNewBlock(m)
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
