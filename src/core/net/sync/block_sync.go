@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 5 * time.Second
+	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 1 * time.Second
 
-	BLOCK_SYNC_INTERVAL = 60 * time.Second
+	BLOCK_SYNC_INTERVAL = 5 * time.Second
 )
 
 var BlockSyncer blockSyncer

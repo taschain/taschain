@@ -39,9 +39,7 @@ message TransactionRequestMessage{
 
     repeated bytes TransactionHashes = 1;
 
-    required bytes SourceId = 2;
-
-    required bytes RequestTime = 3;
+    required bytes CurrentBlockHash = 2;
 }
 
 message TransactionSlice{

@@ -3,17 +3,14 @@ package core
 import (
 	"github.com/gogo/protobuf/proto"
 	"network/p2p"
-	"time"
 	"common"
-	"network"
 	"middleware/types"
 	"middleware/pb"
 )
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
-	SourceId          string
-	RequestTime       time.Time
+	CurrentBlockHash  common.Hash
 }
 
 type BlockHashesReq struct {
@@ -37,10 +34,30 @@ type BlockInfo struct {
 	ChainPiece []*BlockHash
 }
 
-//验证节点 交易集缺失，索要、特定交易 全网广播
-func BroadcastTransactionRequest(m TransactionRequestMessage) {
-	if m.SourceId == "" {
-		m.SourceId = p2p.Server.SelfNetInfo.Id
+//对外广播自身上过链的block 全网广播
+//func BroadcastBlockOnChain(b *types.Block) {
+//	body, e := types.MarshalBlock(b)
+//	if e != nil {
+//		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+//		return
+//	}
+//	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
+//
+//	conns := p2p.Server.Host.Network().Conns()
+//	for _, conn := range conns {
+//		id := conn.RemotePeer()
+//
+//		if id != "" {
+//			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+//		}
+//	}
+//
+//}
+
+//验证节点 交易集缺失，向CASTOR索要特定交易
+func RequestTransaction(m TransactionRequestMessage, castorId string) {
+	if castorId == "" {
+		return
 	}
 
 	body, e := marshalTransactionRequestMessage(&m)
@@ -49,13 +66,7 @@ func BroadcastTransactionRequest(m TransactionRequestMessage) {
 		return
 	}
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-		}
-	}
+	p2p.Server.SendMessage(message, castorId)
 }
 
 //本地查询到交易，返回请求方
@@ -145,13 +156,8 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 		txHashes = append(txHashes, txHash.Bytes())
 	}
 
-	sourceId := []byte(m.SourceId)
-
-	requestTime, e := m.RequestTime.MarshalBinary()
-	if e != nil {
-		network.Logger.Errorf("[peer]TransactionRequestMessage request time marshal error:%s\n", e.Error())
-	}
-	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, SourceId: sourceId, RequestTime: requestTime}
+	currentBlockHash := m.CurrentBlockHash.Bytes()
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
 	return proto.Marshal(&message)
 }
 

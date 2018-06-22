@@ -72,6 +72,9 @@ const (
 	BLOCK_HASHES_REQ uint32 = 0x14
 
 	BLOCK_HASHES uint32 = 0x15
+
+	//广播自身上链过的BLOCK
+	//ON_CHAIN_BLOCK_MSG uint32 = 0X16
 )
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"

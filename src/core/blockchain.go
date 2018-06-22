@@ -491,12 +491,20 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	if 0 != len(missing) {
-		//广播，索取交易
+
+		var castorId groupsig.ID
+		error := castorId.Deserialize(bh.Castor)
+		if error != nil {
+			log.Printf("[BlockChain]Give up request txs because of groupsig id deserialize error:%s", error.Error())
+			return nil, 1, nil, nil
+		}
+
+		//向CASTOR索取交易
 		m := &TransactionRequestMessage{
 			TransactionHashes: missing,
-			RequestTime:       time.Now(),
+			CurrentBlockHash:  bh.Hash,
 		}
-		go BroadcastTransactionRequest(*m)
+		RequestTransaction(*m, castorId.GetString())
 		return missing, 1, nil, nil
 	}
 
