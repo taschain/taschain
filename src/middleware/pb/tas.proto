@@ -191,7 +191,10 @@ message ConsensusGroupInitSummary{
 
 	required  bytes   DummyID = 4;
 
-	required bytes    BeginTime =5;
+	required uint64    Members =5;
+	required bytes    BeginTime =6;
+	required bytes    MemberHash =7;
+	required bytes    Extends =8;
 }
 
 message PubKeyInfo{
