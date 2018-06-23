@@ -230,12 +230,12 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
-	case REQ_TRANSACTION_MSG, TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
+	case REQ_TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
 		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES:
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
-	case TRANSACTION_GOT_MSG:
+	case TRANSACTION_MSG,TRANSACTION_GOT_MSG:
 		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
 			return

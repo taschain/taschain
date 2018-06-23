@@ -193,13 +193,15 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
-		pool.sendingList = append(pool.sendingList, tx)
-		if sendingListLength == len(pool.sendingList) {
-			txs := make([]*types.Transaction, sendingListLength)
-			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, sendingListLength)
-			go BroadcastTransactions(txs)
-		}
+		txs := []*types.Transaction{tx}
+		go BroadcastTransactions(txs)
+		//pool.sendingList = append(pool.sendingList, tx)
+		//if sendingListLength == len(pool.sendingList) {
+		//	txs := make([]*types.Transaction, sendingListLength)
+		//	copy(txs, pool.sendingList)
+		//	pool.sendingList = make([]*types.Transaction, sendingListLength)
+		//	go BroadcastTransactions(txs)
+		//}
 	}
 
 	return true, nil

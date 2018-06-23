@@ -153,7 +153,6 @@ func (bc *BlockContext) Reset() {
 //铸块上下文复位，在某个高度轮到当前组铸块时调用。
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
-	log.Printf("begin BlockContext::Reset...\n")
 
 	bc.Version = CONSENSUS_VERSION
 	//bc.PreTime = *new(time.Time)
@@ -172,8 +171,6 @@ func (bc *BlockContext) reset() {
 
 //开始铸块
 func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) {
-
-	log.Printf("proc(%v) begin startCast...\n", preTime.Format(time.Stamp))
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 

@@ -464,10 +464,14 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
+	Logger.Debugf("Begin VerifyCastingBlock height:%d,qn:%d,hash:%x,time:%v",bh.Height,bh.QueueNumber,bh.Hash,time.Now())
+	beginTime := time.Now()
 	chain.lock.Lock("VerifyCastingBlock")
 	defer chain.lock.Unlock("VerifyCastingBlock")
 
-	return chain.verifyCastingBlock(bh, nil)
+	miss, result, state, receipt := chain.verifyCastingBlock(bh, nil)
+	Logger.Debugf("VerifyCastingBlock height:%d,qn:%d,verify resultl:%d,cost:%v",bh.Height,bh.QueueNumber,result,time.Since(beginTime))
+	return miss, result, state, receipt
 }
 
 func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
@@ -504,7 +508,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
 		}
-		RequestTransaction(*m, castorId.GetString())
+		go RequestTransaction(*m, castorId.GetString())
 		return missing, 1, nil, nil
 	}
 

@@ -57,7 +57,6 @@ func (sc *SlotContext) IsFailed() bool {
 }
 
 func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
-	log.Printf("slot begin InitLostingTrans, cur_count=%v, input_count=%v...\n", len(sc.LosingTrans), len(ths))
 	if sc.TransFulled {
 		panic("SlotContext::InitLostingTrans failed, transFulled=true")
 	}
@@ -66,7 +65,6 @@ func (sc *SlotContext) InitLostingTrans(ths []common.Hash) {
 		sc.LosingTrans[v] = 0
 	}
 	sc.TransFulled = len(sc.LosingTrans) == 0
-	log.Printf("slot end InitLostingTrans, cur_count=%v, fulled=%v.\n", len(sc.LosingTrans), sc.TransFulled)
 	return
 }
 
@@ -198,15 +196,11 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK
 		panic("CastContext::Verified failed, too many members or map nil.")
 	}
 	if si.DataHash != sc.BH.Hash {
-		log.Printf("SlotContext::AcceptPiece failed, hash diff.\n")
-		log.Printf("exist hash=%v.\n", GetHashPrefix(sc.BH.Hash))
-		log.Printf("recv hash=%v.\n", GetHashPrefix(si.DataHash))
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
 	v, ok := sc.MapWitness[si.GetID().GetHexString()]
 	if ok { //已经收到过该成员的验签
 		if !v.IsEqual(si.DataSign) {
-			log.Printf("DIFF ERROR: sender=%v, exist_sign=%v, new_sign=%v.\n", GetIDPrefix(si.GetID()), v.GetHexString(), si.DataSign.GetHexString())
 			panic("CastContext::Verified failed, one member's two sign diff.")
 		}
 		//忽略
@@ -241,11 +235,9 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
 func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
 	if bh.GenHash() != si.DataHash {
-		log.Printf("newSlotContext arg failed 1, bh.Gen()=%v, si_hash=%v.\n", GetHashPrefix(bh.GenHash()), GetHashPrefix(si.DataHash))
 		panic("newSlotContext arg failed, hash not samed 1.")
 	}
 	if bh.Hash != si.DataHash {
-		log.Printf("newSlotContext arg failed 2, bh_hash=%v, si_hash=%v.\n", GetHashPrefix(bh.Hash), GetHashPrefix(si.DataHash))
 		//log.Printf("King=%v, sender=%v.\n", bh.Castor)
 		panic("newSlotContext arg failed, hash not samed 2")
 	}
@@ -263,7 +255,6 @@ func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
 
 	if !PROC_TEST_MODE {
 		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
-		log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ccr)
 		sc.InitLostingTrans(ltl)
 		if ccr == -1 {
 			sc.SlotStatus = SS_FAILED_CHAIN
