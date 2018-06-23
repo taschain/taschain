@@ -13,9 +13,9 @@ import (
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
 	"time"
-	"io/ioutil"
 	"common"
 	"middleware/pb"
+	"sync"
 )
 
 const (
@@ -91,12 +91,16 @@ type server struct {
 	Host host.Host
 
 	Dht *dht.IpfsDHT
+
+	streams map[string]inet.Stream
+
+	streamMapLock sync.RWMutex
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{Host: host, Dht: dht, SelfNetInfo: node}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]inet.Stream)}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -118,11 +122,7 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
-		//beginTime := time.Now()
 		s.send(b, id)
-		//if (m.Code == CAST_VERIFY_MSG || m.Code == VARIFIED_CAST_MSG || m.Code == NEW_BLOCK_MSG) {
-		//	logger.Debugf("[p2p] Send message to:%s,code:%d,message body hash is:%x,body length:%d,body length byte:%v,cost time:%v", id, m.Code, common.Sha256(m.Body), len(b), b2, time.Since(beginTime).String())
-		//}
 	}()
 
 }
@@ -134,23 +134,26 @@ func (s *server) send(b []byte, id string) {
 	}
 	ctx := context.Background()
 	context.WithTimeout(ctx, ContextTimeOut)
-	//peerInfo, error := s.Dht.FindPeer(ctx, ConvertToPeerID(id))
-	//if error != nil || string(peerInfo.ID) == "" {
-	//	logger.Errorf("dht find peer error:%s,peer id:%s", error.Error(), id)
-	//} else {
-	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	//}
 
 	c, cancel := context.WithCancel(context.Background())
 	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	if e != nil {
-		logger.Errorf("New stream for %s error:%s", id, e.Error())
-		return
+	s.streamMapLock.RLock()
+	stream := s.streams[id]
+	s.streamMapLock.RUnlock()
+	if stream == nil {
+		var e error
+		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e != nil {
+			logger.Errorf("New stream for %s error:%s", id, e.Error())
+			return
+		}
+		s.streamMapLock.Lock()
+		s.streams[id] = stream
+		s.streamMapLock.Unlock()
 	}
-	defer stream.Close()
+
 
 	l := len(b)
 	r, err := stream.Write(b)
@@ -172,16 +175,16 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
-	handleStream(stream)
+	go func() {
+		for {
+			handleStream(stream)
+		}
+	}()
 }
 func handleStream(stream inet.Stream) {
-
-	beginTime := time.Now()
-	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("Stream  read error:%s", e1.Error())
 		return
 	}
 	if h != 3 {
@@ -195,7 +198,7 @@ func handleStream(stream inet.Stream) {
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if err != nil {
-		logger.Errorf("Stream  read error:%s", err.Error())
+		logger.Errorf("Stream  read4 error:%s", err.Error())
 		return
 	}
 	if n != 4 {
@@ -203,28 +206,47 @@ func handleStream(stream inet.Stream) {
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
-	b, err1 := ioutil.ReadAll(stream)
-	if err1 != nil {
-		logger.Errorf("Stream  read error:%s", err1.Error())
-		return
-	}
-	if len(b) != pkgLength {
-		logger.Errorf("Stream  should read %d byte,but received %d bytes,cost time:%v", pkgLength, len(b), time.Since(beginTime).String())
-		return
-	}
+	b := make([]byte, pkgLength)
 
-	Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
+	e := readMessageBody(stream, b, 0)
+	if e != nil {
+		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
+		return
+	}
+	go Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
 }
 
+func readMessageBody(stream inet.Stream, body []byte, index int) error {
+	if index == 0 {
+		n, err1 := stream.Read(body)
+		if err1 != nil {
+			return err1
+		}
+		if n != len(body) {
+			return readMessageBody(stream, body, n)
+		}
+		return nil
+	} else {
+		b := make([]byte, len(body)-index)
+		n, err2 := stream.Read(b)
+		if err2 != nil {
+			return err2
+		}
+		copy(body[index:], b[:])
+		if n != len(b) {
+			return readMessageBody(stream, body, index+n)
+		}
+		return nil
+	}
+
+}
 func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	message := new(tas_middleware_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 	}
-	//if (*message.Code == CAST_VERIFY_MSG || *message.Code == VARIFIED_CAST_MSG || *message.Code == NEW_BLOCK_MSG) {
-	//	logger.Debugf("[p2p] Receive message from:%s,message body hash is:%x,body length is:%v", from, common.Sha256(message.Body), lengthByte)
-	//}
+
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
@@ -235,7 +257,7 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 		chainHandler.HandlerMessage(*code, message.Body, from)
 	case NEW_BLOCK_MSG:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
-	case TRANSACTION_MSG,TRANSACTION_GOT_MSG:
+	case TRANSACTION_MSG, TRANSACTION_GOT_MSG:
 		_, e := chainHandler.HandlerMessage(*code, message.Body, from)
 		if e != nil {
 			return
