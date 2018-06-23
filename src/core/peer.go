@@ -6,7 +6,6 @@ import (
 	"common"
 	"middleware/types"
 	"middleware/pb"
-	"time"
 )
 
 type TransactionRequestMessage struct {
@@ -57,7 +56,6 @@ type BlockInfo struct {
 
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
-	Logger.Debugf("[BlockChain]Request Transaction from %s,count%d,hash:%x,time:%v", castorId, len(m.TransactionHashes), m.CurrentBlockHash,time.Now())
 	if castorId == "" {
 		return
 	}
@@ -73,7 +71,6 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 
 //本地查询到交易，返回请求方
 func SendTransactions(txs []*types.Transaction, sourceId string) {
-	Logger.Debugf("[BlockChain]SendTransactions to %s,count%d,time:%v", sourceId, len(txs),time.Now())
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
