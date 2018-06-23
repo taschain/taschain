@@ -45,19 +45,15 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 		log.Printf("%v group pub key local check failed, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
 			GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 		return
-	} else {
-		//log.Printf("%v group pub key local check OK, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
-		//	GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 	}
+
 	bh.Signature = sign.Serialize()
-	log.Printf("proc(%v) %v SUCCESS CAST GROUP BLOCK, height=%v, qn=%v!!!\n", mtype, p.getPrefix(), bh.Height, bh.QueueNumber)
 
 	if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
 		p.SuccessNewBlock(bh, vctx, gid) //上链和组外广播
 		//log.Printf("%v remove verifycontext from bccontext! remain size=%v\n", mtype, len(bc.verifyContexts))
-	} else {
-		log.Printf("%v already broadcast new block! slotStatus=%v\n", mtype, slot.SlotStatus)
 	}
+
 }
 
 func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, slot *SlotContext, bh *types.BlockHeader)  {
@@ -72,7 +68,6 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
 			go SendVerifiedCast(&cvm)
 		} else {
-			log.Printf("proc(%v) OMC BEGIN SEND OnMessageVerify 2 ALL PROCS...\n", p.getPrefix())
 			for _, v := range p.GroupProcs {
 				v.OnMessageVerify(cvm)
 			}
@@ -88,8 +83,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	sender := GetIDPrefix(si.SignMember)
 	result := ""
 
-	log.Printf("%v message bh %v\n", mtype, p.blockPreview(bh))
-	log.Printf("%v chain top bh %v\n", mtype, p.blockPreview(p.MainChain.QueryTopBlock()))
+	log.Printf("%v message bh %v, top bh %v\n", mtype, p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	if p.blockOnChain(bh) {
 		log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
@@ -153,7 +147,6 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		p.normalPieceVerify(mtype, sender, gid, slot, bh)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
-		log.Printf("%v lost trans!", mtype)
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(bh.PreHash), len(bh.Transactions), len(slot.LosingTrans))
 	}
 }
@@ -161,12 +154,10 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 func (p *Processor) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBase) {
 	bh := &msg.BH
 	si := &msg.SI
-	log.Printf("Proc(%v) begin %v, height=%v, qn=%v\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber)
+
 	logStart(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember), "")
 
-	begin := time.Now()
 	defer func() {
-		log.Printf("%v begin at %v, cost %v\n", mtype, begin.String(), time.Since(begin).String())
 		logEnd(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember))
 	}()
 
@@ -175,18 +166,15 @@ func (p *Processor) verifyCastMessage(mtype string, msg *ConsensusBlockMessageBa
 		log.Printf("[ERROR]%v gen castGroupSummary fail!\n", mtype)
 		return
 	}
-	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype,
-		GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
+	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype, GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(si.SignMember) {
-		log.Printf("%v receive self msg, ingore! \n", mtype)
 		return
 	}
 
 	outputBlockHeaderAndSign(mtype, bh, si)
 
-	log.Printf("proc(%v) %v verifyCast, sender=%v, height=%v, pre_time=%v...\n", p.getPrefix(), mtype, GetIDPrefix(si.GetID()), cgs.BlockHeight, cgs.PreTime.Format(time.Stamp))
 	if !p.verifyCastSign(cgs, si) {
 		log.Printf("%v verify failed!\n", mtype)
 		return
@@ -216,6 +204,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	p.removeFutureVerifyMsgs(hash)
 
 	for _, msg := range futures {
+		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.QueueNumber, GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
 		p.doVerify("FUTURE_VERIFY", msg, nil)
 	}
 
@@ -224,7 +213,6 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 func (p *Processor) receiveBlock(msg *ConsensusBlockMessage, preBH *types.BlockHeader) bool {
 	if p.isCastGroupLegal(msg.Block.Header, preBH) { //铸块组合法
 		result := p.doAddOnChain(&msg.Block)
-		log.Printf("OMB onchain result %v\n", result)
 		if result == 0 || result == 1 {
 			return true
 		}
@@ -253,12 +241,10 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
-	begin := time.Now()
 	bh := cbm.Block.Header
 	logStart("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember), "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 	result := ""
 	defer func() {
-		log.Printf("OMB begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 		logHalfway("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember), "OMB result %v", result)
 		logEnd("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember))
 	}()
@@ -270,7 +256,6 @@ func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
 	}
 	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
 		result = "自己发的消息, 忽略"
-		fmt.Println("OMB receive self msg, ingored!")
 		return
 	}
 	var gid groupsig.ID
@@ -293,7 +278,6 @@ func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
 
 	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
 	if preHeader == nil {
-		log.Printf("OMB receive future block!, bh=%v, topHash=%v, topHeight=%v\n", p.blockPreview(block.Header), GetHashPrefix(topBH.Hash), topBH.Height)
 		p.addFutureBlockMsg(&cbm)
 		result = "父块未到达"
 		return
@@ -342,9 +326,6 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 	}()
 
 	log.Printf("proc(%v) begin %v, trans count=%v...\n", p.getPrefix(),mtype, len(ths))
-	if len(ths) > 0 {
-		log.Printf("proc(%v) %v, first trans=%v.\n", p.getPrefix(), mtype, ths[0].Hex())
-	}
 
 	for _, bc := range p.bcs {
 		for _, vctx := range bc.SafeGetVerifyContexts() {

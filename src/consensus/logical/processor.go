@@ -15,47 +15,6 @@ import (
 	"core/datasource"
 )
 
-//自己的出块信息
-//type SelfCastInfo struct {
-//	block_qns map[uint64][]uint //当前节点已经出过的块(高度->出块QN列表)
-//}
-//
-//func (sci *SelfCastInfo) Init() {
-//	sci.block_qns = make(map[uint64][]uint, 0)
-//}
-//
-//func (sci *SelfCastInfo) FindQN(height uint64, newQN uint) bool {
-//	qns, ok := sci.block_qns[height]
-//	if ok {
-//		for _, qn := range qns {
-//			if qn == newQN { //该newQN已存在
-//				return true
-//			}
-//		}
-//		return false
-//	} else {
-//		return false
-//	}
-//}
-//
-////如该QN已存在，则返回false
-//func (sci *SelfCastInfo) AddQN(height uint64, newQN uint) bool {
-//	qns, ok := sci.block_qns[height]
-//	if ok {
-//		for _, qn := range qns {
-//			if qn == newQN { //该newQN已存在
-//				return false
-//			}
-//		}
-//		sci.block_qns[height] = append(sci.block_qns[height], newQN)
-//		return true
-//	} else {
-//		sci.block_qns[height] = []uint{newQN}
-//		return true
-//	}
-//	return false
-//}
-
 var PROC_TEST_MODE bool
 
 //见证人处理器
@@ -346,21 +305,6 @@ func (p *Processor) GetBlockContext(gid string) *BlockContext {
 	}
 }
 
-////取得当前在铸块中的组数据
-////该函数最多返回一个bc，或者=nil。不允许同时返回多个bc，实际也不会发生这种情况。
-//func (p *Processor) GetCastingBC() *BlockContext {
-//	var bc *BlockContext
-//	for _, v := range p.bcs {
-//		if v.IsCasting() {
-//			if bc != nil {
-//				panic("Processor::GetCastingBC failed, same time more than one casting group.")
-//			}
-//			bc = v
-//			//break    //TO DO : 验证正确后打开
-//		}
-//	}
-//	return bc
-//}
 
 //取得矿工ID（和组无关）
 func (p Processor) GetMinerID() groupsig.ID {
@@ -432,7 +376,6 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd SignData) bool {
 		return false
 	}
 
-	log.Printf("verifyGroupSign: real cast group is expect group(=%v), VerifySign...\n", GetIDPrefix(gid))
 	//检查组签名是否正确
 	var gSign groupsig.Signature
 	if gSign.Deserialize(bh.Signature) != nil {
@@ -592,14 +535,11 @@ func (p *Processor) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
 		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
 		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
 		if si.VerifySign(signPk) { //消息合法
-			log.Printf("message verify sign OK, find gid=%v blockContext...\n", GetIDPrefix(cgs.GroupID))
 			return true
 		} else {
-			log.Printf("ERROR, message verify failed, data_hash=%v.\n", GetHashPrefix(si.DataHash))
 			return false
 		}
 	} else {
-		log.Printf("message sender's signPk not in joined groups, ignored.\n")
 		return false
 	}
 }
@@ -616,7 +556,6 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
 	}
-	log.Printf("proc(%v) begin SuccessNewBlock, group=%v, qn=%v...\n", p.getPrefix(), GetIDPrefix(gid), bh.QueueNumber)
 
 	if p.blockOnChain(bh) { //已经上链
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
@@ -644,12 +583,10 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	ski := SecKeyInfo{p.GetMinerID(), p.mi.GetDefaultSecKey()}
 	cbm.GenSign(ski)
 	if !PROC_TEST_MODE {
-		log.Printf("call network service BroadcastNewBlock...\n")
 		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		go BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
 	}
-	log.Printf("proc(%v) end SuccessNewBlock.\n", p.getPrefix())
 	return
 }
 
@@ -671,10 +608,8 @@ func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, king
 	}
 
 	sgi := p.getGroup(gid)
-	pos := p.getMinerPos(gid, p.GetMinerID()) //取得当前节点在组中的排位
 
 	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(kingIndex))))
-	log.Printf("Current node=%v, pos_index in group=%v.\n", p.getPrefix(), pos)
 	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		log.Printf("curent node IS KING!\n")
 		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
@@ -806,14 +741,11 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 	bh := block.Header
 
-	log.Printf("AAAAAA castBlock bh %v\n", p.blockPreview(bh))
-	log.Printf("AAAAAA chain top bh %v\n", p.blockPreview(p.MainChain.QueryTopBlock()))
+	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	var si SignData
 	si.DataHash = bh.Hash
 	si.SignMember = p.GetMinerID()
-	b := si.GenSign(p.getSignKey(gid)) //组成员签名私钥片段签名
-	log.Printf("castor sign bh result = %v.\n", b)
 
 	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
 		//发送该出块消息
@@ -821,14 +753,11 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		ccm.BH = *bh
 		//ccm.GroupID = gid
 		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
-		outputBlockHeaderAndSign("castBlock", bh, &ccm.SI)
+
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 		if !PROC_TEST_MODE {
-			log.Printf("call network service SendCastVerify...\n")
-			log.Printf("cast block info hash=%v, height=%v, prehash=%v, pretime=%v, castor=%v", GetHashPrefix(bh.Hash), bh.Height, GetHashPrefix(bh.PreHash), bh.PreTime, GetIDPrefix(p.GetMinerID()))
 			go SendCastVerify(&ccm)
 		} else {
-			log.Printf("call proc.OnMessageCast direct...\n")
 			for _, proc := range p.GroupProcs {
 				proc.OnMessageCast(ccm)
 			}
@@ -840,7 +769,6 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 	}
 	//个人铸块完成的同时也是个人验证完成（第一个验证者）
 	//更新共识上下文
-	log.Printf("end Processor::castBlock.\n")
 	return bh
 }
 
