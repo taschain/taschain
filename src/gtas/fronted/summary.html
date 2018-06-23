@@ -148,7 +148,8 @@
                         qn.text(d.queue_number)
                         aver = stat.total_txs/ stat.total_cost
                         aver_tps.text(aver.toFixed(1))
-
+                        tx_pool_count.text(d.tx_pool_count)
+                        tx_pool_total.text(d.tx_pool_total)
                     }
                 },
                 error: function () {
