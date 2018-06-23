@@ -174,7 +174,6 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 		return -1
 	}
 
-	log.Printf("qnOfDiff, time_begin=%v, diff=%v, max=%v.\n", vc.prevTime.Format(time.Stamp), diff, max)
 	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
 	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
 
@@ -242,16 +241,13 @@ func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int32, ret QN_QUERY_SL
 
 	i := vc.findCastSlot(qn)
 	if i >= 0 { //该qn的槽已存在
-		log.Printf("exist slot qn=%v, msg_count=%v.\n", qn, vc.slots[i].MessageSize())
 		return i, QQSR_EXIST_SLOT
 	} else {
 		i = vc.findEmptySlot()
 		if i >= 0 { //找到空槽
-			log.Printf("found empty slot_index=%v.\n", i)
 			return i, QQSR_EMPTY_SLOT
 		} else {
 			i, minQN = vc.findMinQNSlot() //取得最小槽
-			log.Printf("slot fulled, exist minQN=%v, slot_index=%v, new_qn=%v.\n", minQN, i, qn)
 			if qn > minQN { //最小槽的QN比新的QN小, 替换之
 				return i, QQSR_REPLACE_SLOT
 			}
@@ -282,28 +278,17 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
 func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
-	log.Printf("begin VerifyContext::acceptCV, height=%v, qn=%v...\n", bh.Height, bh.QueueNumber)
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	calcQN := vc.calcQN(bh.CurTime)
 	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
-		log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
 		return CBMR_IGNORE_QN_ERROR
 	}
 
 	calcKingPos := vc.getCastorPosByQN(calcQN)
 	receiveKingPos := summary.CastorPos
 	if calcKingPos != receiveKingPos { //该qn对应的king错误
-		log.Printf("proc(%v) acceptCV failed(king pos ERROR), receive king pos=%v, calc king pos=%v.\n", idPrefix, receiveKingPos, calcKingPos)
 		return CBMR_IGNORE_KING_ERROR
 	}
-	//if calcQN < 0 || bh.QueueNumber < 0 { //时间窗口异常
-	//	log.Printf("proc(%v) acceptCV failed(time windwos ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-	//	return CBMR_ERROR_ARG
-	//}
-	//if uint64(calcQN) > bh.QueueNumber { //未轮到该QN出块
-	//	log.Printf("proc(%v) acceptCV failed(qn ERROR), calcQN=%v, qn=%v.\n", idPrefix, calcQN, bh.QueueNumber)
-	//	return CMBR_IGNORE_QN_FUTURE
-	//}
 
 	if !vc.needHandleQN(int64(bh.QueueNumber)) { //该组已经铸出过QN值更大的块
 		return CBMR_IGNORE_MAX_QN_SIGNED
@@ -316,7 +301,6 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		log.Printf("proc(%v) put new_qn=%v in slot[%v], REPLACE=%v.\n", idPrefix, bh.QueueNumber, i, info == QQSR_REPLACE_SLOT)
 		vc.slots[i] = newSlotContext(bh, si)
 		if vc.slots[i].TransFulled {
 			return CBMR_PIECE_NORMAL
@@ -329,7 +313,6 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 			return CBMR_STATUS_FAIL
 		}
 		result := vc.slots[i].AcceptPiece(*bh, *si)
-		log.Printf("proc(%v) bc::slot[%v] AcceptPiece result=%v, msg_count=%v.\n", idPrefix, i, result, vc.slots[i].MessageSize())
 		return result
 	}
 	return CBMR_ERROR_UNKNOWN
@@ -337,7 +320,6 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 
 //完成某个铸块槽的铸块（上链，组外广播）后，更新组的当前高度铸块状态
 func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
-	log.Printf("castedUpdateStatus before status=%v, qn=%v\n", vc.consensusStatus, qn)
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
@@ -459,7 +441,6 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
-	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
 	return index
 }
 

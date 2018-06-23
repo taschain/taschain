@@ -32,10 +32,8 @@ func (p *Processor) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	defer p.futureBlockLock.Unlock()
 
 	if bs, ok := p.futureBlockMsg[b.Header.PreHash]; ok {
-		if !findBlock(bs, b.Header.Hash) {
-			bs = append(bs, msg)
-			p.futureBlockMsg[b.Header.PreHash] = bs
-		}
+		bs = append(bs, msg)
+		p.futureBlockMsg[b.Header.PreHash] = bs
 	} else {
 		bs := make([]*ConsensusBlockMessage, 0)
 		bs = append(bs, msg)
@@ -96,20 +94,6 @@ func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
     b := p.MainChain.QueryBlockByHash(hash)
-	if b == nil {
-		//p.futureBlockLock.RLock()
-		//defer p.futureBlockLock.RUnlock()
-		//END:
-		//for _, bm := range p.futureBlockMsg {
-		//	for _, msg := range bm {
-		//		if msg.Block.Header.Hash == hash {
-		//			b = msg.Block.Header
-		//			log.Printf("getBlockHeaderByHash: got from future blockMsg! hash=%v, height=%v\n", b.Hash, b.Height)
-		//			break END
-		//		}
-		//	}
-		//}
-	}
 	return b
 }
 
@@ -129,10 +113,8 @@ func (p *Processor) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
 	defer p.futureVerifyLock.Unlock()
 
 	if bs, ok := p.futureVerifyMsg[b.PreHash]; ok {
-		if !findVerifyMsg(bs, b.Hash) {
-			bs = append(bs, msg)
-			p.futureVerifyMsg[b.PreHash] = bs
-		}
+		bs = append(bs, msg)
+		p.futureVerifyMsg[b.PreHash] = bs
 	} else {
 		bs := make([]*ConsensusBlockMessageBase, 0)
 		bs = append(bs, msg)
