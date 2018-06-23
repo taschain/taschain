@@ -218,3 +218,16 @@ func (msg ConsensusBlockMessage) VerifySign(pk groupsig.Pubkey) bool {
 	}
 	return msg.SI.VerifySign(pk)
 }
+
+//====================================父组建组共识消息================================
+
+type ConsensusCreateGroupRawMessage struct {
+	GI   ConsensusGroupInitSummary //组初始化共识
+	IDs []groupsig.ID              //组成员列表，该次序不可变更，影响组内铸块排位。
+	SI   SignData                  //矿工（父亲组成员）个人签名
+}
+
+type ConsensusCreateGroupSignMessage struct {
+	GI 	ConsensusGroupInitSummary
+	SI 	SignData
+}

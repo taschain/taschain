@@ -24,6 +24,8 @@ type Processor struct {
 	bcs map[string]*BlockContext //组ID->组铸块上下文
 	gg  GlobalGroups             //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
+	groupManager *GroupManager
+
 	//sci SelfCastInfo //当前节点的出块信息（包括当前节点在不同高度不同QN值所有成功和不成功的出块）。组内成员动态数据。
 	//////和组无关的矿工信息
 	mi *MinerInfo
@@ -250,6 +252,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	p.jgs.Init()
 	p.belongGroups = make(map[string]JoinedGroup, 0)
 	p.bcs = make(map[string]*BlockContext, 0)
+	p.groupManager = newGroupManager()
 
 	db, err := datasource.NewDatabase(STORE_PREFIX)
 	if err != nil {
@@ -457,7 +460,7 @@ func (p *Processor) GenGenesisGroupSummary() ConsensusGroupInitSummary {
 //创建一个新建组。由（且有创建组权限的）父亲组节点发起。
 //miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
 //gn：组名。
-func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
+func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID, gn string) int {
 	if len(miners) != GROUP_MAX_MEMBERS {
 		log.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
 		return -1
@@ -466,9 +469,11 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	//gis.ParentID = p.GetMinerID()
 
 	//todo future bug
-	parentID := groupsig.DeserializeId([]byte("genesis group dummy"))
+	if parentId == nil {
+		parentId = groupsig.DeserializeId([]byte("genesis group dummy"))
+	}
 
-	gis.ParentID = *parentID
+	gis.ParentID = *parentId
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 
 	if p.GroupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
@@ -492,26 +497,12 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	var grm ConsensusGroupRawMessage
 	grm.MEMS = make([]PubKeyInfo, len(miners))
 	copy(grm.MEMS[:], miners[:])
+	gis.MemberHash = genMemberHash(grm.MEMS)
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
 	log.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
 	log.Printf("call network service SendGroupInitMessage...\n")
-	//dummy 组写入组链 add by 小熊
-	//members := make([]core.Member, 0)
-	//for _, miner := range miners {
-	//	member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-	//	members = append(members, member)
-	//}
-	////此时组ID 跟组公钥是没有的
-	//group := core.Group{Members: members, Dummy: gis.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
-	//err := p.GroupChain.AddGroup(&group, nil, nil)
-	//if err != nil {
-	//	log.Printf("Add dummy group error:%s\n", err.Error())
-	//} else {
-	//	log.Printf("Add dummy to chain success! count: %d, now: %d", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
-	//}
-	//log.Printf("Waiting 60s for dummy group sync...\n")
-	//time.Sleep(30 * time.Second)
+
 	SendGroupInitMessage(grm)
 	return 0
 }
@@ -664,34 +655,6 @@ func (p Processor) getGroupPubKey(gid groupsig.ID) groupsig.Pubkey {
 		panic("GetSelfGroup failed.")
 	}
 	return g.GetPubKey()
-}
-
-func genDummyBH(qn int, uid groupsig.ID) *types.BlockHeader {
-	bh := new(types.BlockHeader)
-	bh.PreTime = time.Now()
-	bh.Hash = rand.String2CommonHash("thiefox")
-	bh.Height = 2
-	bh.PreHash = rand.String2CommonHash("TASchain")
-	bh.QueueNumber = uint64(qn)
-	bh.Nonce = 123
-	bh.Castor = uid.Serialize()
-	sleep_d, err := time.ParseDuration("20ms")
-	if err == nil {
-		time.Sleep(sleep_d)
-	} else {
-		panic("time.ParseDuration failed.")
-	}
-	bh.CurTime = time.Now()
-
-	hash := bh.GenHash()
-	bh.Hash = hash
-	log.Printf("bh.Hash=%v.\n", GetHashPrefix(bh.Hash))
-	hash2 := bh.GenHash()
-	if hash != hash2 {
-		log.Printf("bh GenHash twice failed, first=%v, second=%v.\n", GetHashPrefix(hash), GetHashPrefix(hash2))
-		panic("bh GenHash twice failed, hash diff.")
-	}
-	return bh
 }
 
 func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData) {

@@ -303,7 +303,20 @@ type ConsensusGroupInitSummary struct {
 	DummyID   groupsig.ID //父亲组给的伪ID
 	Members   uint64      //成员数量
 	BeginTime time.Time   //初始化开始时间（必须在指定时间窗口内完成初始化）
+	MemberHash	common.Hash	//成员数据哈希
 	Extends   string      //带外数据
+}
+
+func genMemberHash(mems []PubKeyInfo) common.Hash {
+    data := make([]byte, 0)
+	for _, m := range mems {
+		data = append(data, m.ID.Serialize()...)
+	}
+	return rand.Data2CommonHash(data)
+}
+
+func (gis *ConsensusGroupInitSummary) checkMemberHash(mems []PubKeyInfo) bool {
+    return gis.MemberHash == genMemberHash(mems)
 }
 
 //生成测试数据
@@ -339,6 +352,7 @@ func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
 	buf += gis.DummyID.GetHexString()
 	buf += strconv.FormatUint(gis.Members, 16)
 	buf += gis.BeginTime.Format(time.ANSIC)
+	buf += gis.MemberHash.String()
 	if len(gis.Extends) <= 1024 {
 		buf += gis.Extends
 	} else {

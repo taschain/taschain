@@ -184,6 +184,9 @@ func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 	return m
 }
 
+func (sgi *StaticGroupInfo) CastQualified(height uint64) bool {
+	return sgi.BeginHeight <= height
+}
 ///////////////////////////////////////////////////////////////////////////////
 //当前节点参与的铸块组（已初始化完成）
 type JoinedGroup struct {
@@ -398,7 +401,7 @@ func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.I
 	value := h.Big()
 	var vgroups = make([]int,0)
 	for i := 0; i<gg.GetGroupSize(); i++ {
-		if gg.groups[i].BeginHeight <= height {
+		if gg.groups[i].CastQualified(height) {
 			vgroups = append(vgroups, i)
 		}
 	}
@@ -413,8 +416,8 @@ func (gg GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.I
 
 //取得当前铸块组信息
 //pre_hash : 上一个铸块哈希
-func (gg GlobalGroups) GetCastGroup(pre_h common.Hash,height uint64) (g StaticGroupInfo) {
-	gid, e := gg.SelectNextGroup(pre_h, height)
+func (gg GlobalGroups) GetCastGroup(preHS common.Hash,height uint64) (g StaticGroupInfo) {
+	gid, e := gg.SelectNextGroup(preHS, height)
 	if e == nil {
 		g, e = gg.GetGroupByID(gid)
 	}

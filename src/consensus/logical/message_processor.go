@@ -380,6 +380,13 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		}
 	}()
 
+	if !grm.GI.checkMemberHash(grm.MEMS) {
+		panic("grm member hash diff!")
+	}
+	if grm.SI.DataHash != grm.GI.GenHash() {
+		panic("grm gis hash diff")
+	}
+
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 	staticGroupInfo := NewSGIFromRawMessage(&grm)
 	if p.gg.ngg.addInitingGroup(CreateInitingGroup(staticGroupInfo)) {
@@ -463,6 +470,8 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
+
+
 	p.initLock.Lock()
 	locked := true
 	defer func() {
@@ -615,6 +624,13 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
+
+	if !gim.GI.GIS.checkMemberHash(gim.GI.Members) {
+		panic("gim member hash diff!")
+	}
+	if gim.SI.DataHash != gim.GI.GenHash() {
+		panic("grm gis hash diff")
+	}
 
 	p.initLock.Lock()
 	defer p.initLock.Unlock()
