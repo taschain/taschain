@@ -298,6 +298,7 @@ func (cs ConsensusBlockSummary) GenHash() hash.Hash {
 //组初始化共识摘要
 type ConsensusGroupInitSummary struct {
 	ParentID  groupsig.ID //父亲组ID
+	Signature groupsig.Signature	//父亲组签名
 	Authority uint64      //权限相关数据（父亲组赋予）
 	Name      [64]byte    //父亲组取的名字
 	DummyID   groupsig.ID //父亲组给的伪ID
@@ -308,9 +309,18 @@ type ConsensusGroupInitSummary struct {
 }
 
 func genMemberHash(mems []PubKeyInfo) common.Hash {
-    data := make([]byte, 0)
+    ids := make([]groupsig.ID, 0)
 	for _, m := range mems {
-		data = append(data, m.ID.Serialize()...)
+		ids = append(ids, m.ID)
+	}
+	return genMemberHashByIds(ids)
+}
+
+
+func genMemberHashByIds(ids []groupsig.ID) common.Hash {
+	data := make([]byte, 0)
+	for _, m := range ids {
+		data = append(data, m.Serialize()...)
 	}
 	return rand.Data2CommonHash(data)
 }

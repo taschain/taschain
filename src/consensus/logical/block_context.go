@@ -77,7 +77,7 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	defer bc.lock.Unlock()
 
 	if idx, vctx := bc.getVerifyContext(bh.Height, bh.PreHash); vctx == nil {
-		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash, expireTime)
+		vctx = newVerifyContext(bc, bh.Height, expireTime, preBH)
 		bc.verifyContexts = append(bc.verifyContexts, vctx)
 		return int32(len(bc.verifyContexts) - 1), vctx
 	} else {
@@ -170,7 +170,7 @@ func (bc *BlockContext) reset() {
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) {
+func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -182,11 +182,11 @@ func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash 
 	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
 	//bc.resetSlotContext()
 
-	if _, verifyCtx := bc.getVerifyContext(castHeight, preHash); verifyCtx != nil {
+	if _, verifyCtx := bc.getVerifyContext(castHeight, baseBH.Hash); verifyCtx != nil {
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
 		bc.currentVerifyContext = verifyCtx
 	} else {
-		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash, expire)
+		verifyCtx = newVerifyContext(bc, castHeight, expire, baseBH)
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}

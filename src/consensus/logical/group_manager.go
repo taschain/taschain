@@ -6,6 +6,10 @@ import (
 	"time"
 	"core"
 	"consensus/rand"
+	"middleware/types"
+	"encoding/binary"
+	"math/big"
+	"fmt"
 )
 
 /*
@@ -14,8 +18,14 @@ import (
 **  Description: 组生命周期, 包括建组, 解散组
 */
 
+const (
+	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 20	//启动建组的块高度差
+)
+
 type GroupManager struct {
 	groupChain core.GroupChain
+	mainChain	core.BlockChain
+	processor *Processor
 }
 
 func newGroupManager() *GroupManager {
@@ -30,19 +40,82 @@ func (gm *GroupManager) createNextDummyGroup(miners []PubKeyInfo, parent *Static
 		log.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
 		return -1
 	}
+	
+	return 0
+}
+
+//检查当前用户是否是属于建组的组, 返回组id
+func (gm *GroupManager) checkCreateGroup() (bool, *StaticGroupInfo, *types.BlockHeader) {
+	topHeight := gm.mainChain.QueryTopBlock().Height
+	//todo 应该使用链接口, 取链上倒数第n块
+	var theBH *types.BlockHeader
+	h := topHeight - CHECK_CREATE_GROUP_HEIGHT_AFTER
+	for theBH == nil {
+		theBH = gm.mainChain.QueryBlockByHeight(h)
+		h--
+	}
+
+	castGID := groupsig.DeserializeId(theBH.GroupId)
+	if gm.processor.IsMinerGroup(*castGID) {
+		sgi := gm.processor.getGroup(*castGID)
+		if sgi.CastQualified(topHeight) && gm.checkKing(theBH, &sgi) {
+			log.Printf("checkCreateNextGroup, topHeight=%v, theBH height=%v, king=%v\n", topHeight, theBH.Height, gm.processor.getPrefix())
+			return true, &sgi, theBH
+		}
+	}
+
+	return false, nil, nil
+
+}
+
+
+//检查当前用户是否是建组发起人
+func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo) bool {
+	data := gm.processor.getGroupSecret(group.GroupID).secretSign
+	data = append(data, bh.Signature...)
+	hash := rand.Data2CommonHash(data)
+	biHash := hash.Big()
+
+	var index int32 = -1
+	mem := len(group.Members)
+	if biHash.BitLen() > 0 {
+		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
+	}
+	log.Printf("checkCreateNextGroup king index=%v, id=%v\n", index, GetIDPrefix(group.GetCastor(int(index))))
+	if index < 0 {
+		return false
+	}
+	return int32(group.GetMinerPos(gm.processor.GetMinerID())) == index
+}
+
+//todo 从链上获取所有候选者
+func (this *GroupManager) getAllCandidates() []groupsig.ID {
+    
+}
+
+func (this *GroupManager) selectCandidates() []groupsig.ID {
+
+}
+
+func (gm *GroupManager) CreateNextGroupRoutine()  {
+    create, group, bh := gm.checkCreateGroup()
+	if !create {
+		return
+	}
+
 	var gis ConsensusGroupInitSummary
 
-	gis.ParentID = parent.GroupID
+	gis.ParentID = group.GroupID
 
-	gn := rand.Data2CommonHash([]byte(gis.ParentID.GetHexString() + time.Now().String())).String()
+	gn := rand.Data2CommonHash([]byte(fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height))).String()
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		log.Printf("CreateDummyGroup ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
-		return 0
+		log.Printf("CreateNextGroupRoutine ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
+		return
 	}
 
-	log.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
+	log.Printf("CreateNextGroupRoutine, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
 	if len(gn) <= 64 {
 		copy(gis.Name[:], gn[:])
@@ -55,18 +128,19 @@ func (gm *GroupManager) createNextDummyGroup(miners []PubKeyInfo, parent *Static
 	}
 	gis.Members = uint64(GROUP_MAX_MEMBERS)
 	gis.Extends = "Dummy"
-	var grm ConsensusGroupRawMessage
-	grm.MEMS = make([]PubKeyInfo, len(miners))
-	copy(grm.MEMS[:], miners[:])
-	grm.GI = gis
-	grm.SI = GenSignData(grm.GI.GenHash(), gm.GetMinerID(), gm.getMinerInfo().GetDefaultSecKey())
-	log.Printf("proc(%v) Create New Group, send network msg to members...\n", gm.getPrefix())
-	log.Printf("call network service SendGroupInitMessage...\n")
 
-	SendGroupInitMessage(grm)
-	return 0
-}
+	memIds := gm.selectCandidates()
+	gis.MemberHash = genMemberHashByIds(memIds)
 
-func (gm *GroupManager) CreateNextGroup()  {
+	msg := ConsensusCreateGroupRawMessage{
+		GI: gis,
+		IDs: memIds,
+	}
+	msg.GenSign(SecKeyInfo{ID: gm.processor.GetMinerID(), SK: gm.processor.getMinerSignKey(group.GroupID)})
 
+
+	log.Printf("proc(%v) start Create Group consensus, send network msg to members...\n", gm.processor.getPrefix())
+	log.Printf("call network service SendCreateGroupRawMessage...\n")
+
+	SendCreateGroupRawMessage(&msg)
 }

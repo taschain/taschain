@@ -227,6 +227,17 @@ type ConsensusCreateGroupRawMessage struct {
 	SI   SignData                  //矿工（父亲组成员）个人签名
 }
 
+func (msg *ConsensusCreateGroupRawMessage) GenSign(ski SecKeyInfo)  {
+    msg.SI = GenSignData(msg.GI.GenHash(), ski.ID, ski.SK)
+}
+
+func (msg ConsensusCreateGroupRawMessage) VerifySign(pk groupsig.Pubkey) bool {
+	if !msg.SI.GetID().IsValid() {
+		return false
+	}
+	return msg.SI.VerifySign(pk)
+}
+
 type ConsensusCreateGroupSignMessage struct {
 	GI 	ConsensusGroupInitSummary
 	SI 	SignData

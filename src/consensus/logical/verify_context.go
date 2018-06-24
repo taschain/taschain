@@ -11,6 +11,7 @@ import (
 	"consensus/rand"
 	"encoding/binary"
 	"strconv"
+	"consensus/groupsig"
 )
 
 /*
@@ -58,6 +59,7 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 type VerifyContext struct {
 	prevTime    time.Time
 	prevHash    common.Hash
+	prevSign	[]byte
 	castHeight  uint64
 	signedMaxQN int64
 	expireTime	time.Time			//铸块超时时间
@@ -73,9 +75,9 @@ type VerifyContext struct {
 	lock sync.Mutex
 }
 
-func newVerifyContext(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) *VerifyContext {
+func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader) *VerifyContext {
 	ctx := &VerifyContext{}
-	ctx.rebase(bc, castHeight, preTime, preHash, expire)
+	ctx.rebase(bc, castHeight, expire, preBH)
 	return ctx
 }
 
@@ -113,10 +115,11 @@ func (vc *VerifyContext) addCastedQN(qn int64) {
 	vc.castedQNs = append(vc.castedQNs, qn)
 }
 
-func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time)  {
-    vc.prevTime = preTime
-    vc.prevHash = preHash
+func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader)  {
+    vc.prevTime = preBH.CurTime
+    vc.prevHash = preBH.Hash
     vc.castHeight = castHeight
+    vc.prevSign = preBH.Signature
     vc.expireTime = expire
     vc.signedMaxQN = INVALID_QN
     vc.consensusStatus = CBCS_CURRENT
@@ -429,7 +432,7 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 	//	return -1
 	//}
 	data := vc.blockCtx.getGroupSecret().secretSign
-	data = append(data, vc.prevHash.Bytes()...)
+	data = append(data, vc.prevSign...)
 	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
 	data = append(data, qnBytes...)

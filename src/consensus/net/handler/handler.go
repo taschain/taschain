@@ -409,8 +409,11 @@ func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummar
 		network.Logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e2.Error())
 		return nil
 	}
+
+	mhash := common.Hash{}
+	mhash.SetBytes(m.MemberHash)
 	message := logical.ConsensusGroupInitSummary{ParentID: parentId, Authority: *m.Authority,
-		Name: name, DummyID: dummyID, BeginTime: beginTime}
+		Name: name, DummyID: dummyID, BeginTime: beginTime, Members: *m.Members, MemberHash: mhash, Extends:string(m.Extends)}
 	return &message
 }
 

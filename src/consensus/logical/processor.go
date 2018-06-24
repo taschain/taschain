@@ -223,7 +223,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.StartCast(castHeight, top.CurTime, top.Hash, expireTime)
+		bc.StartCast(castHeight, expireTime, top)
 
 		return true
 	} else { //自己不是下一个铸块组, 但是当前在铸块

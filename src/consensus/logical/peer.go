@@ -192,6 +192,37 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 	}
 }
 
+//====================================建组前共识=======================
+
+//开始建组
+func SendCreateGroupRawMessage(msg *ConsensusCreateGroupRawMessage) {
+	body, e := marshalConsensusCreateGroupRawMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
+
+	var groupId = msg.GI.ParentID
+
+	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
+	groupBroadcast(m, groupId)
+}
+
+func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
+	body, e := marshalConsensusCreateGroupSignMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
+
+	var groupId = msg.GI.ParentID
+
+	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
+	groupBroadcast(m, groupId)
+}
+
 //----------------------------------------------组初始化---------------------------------------------------------------
 
 func marshalConsensusGroupRawMessage(m *ConsensusGroupRawMessage) ([]byte, error) {
@@ -294,7 +325,8 @@ func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_middleware
 		name = append(name, b)
 	}
 	message := tas_middleware_pb.ConsensusGroupInitSummary{ParentID: m.ParentID.Serialize(), Authority: &m.Authority,
-		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime}
+		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime, Members:&m.Members, MemberHash:m.MemberHash.Bytes(),
+		Signature: m.Signature.Serialize(), Extends:[]byte(m.Extends)}
 	return &message
 }
 
@@ -330,4 +362,27 @@ func pubKeyInfoToPb(p *PubKeyInfo) *tas_middleware_pb.PubKeyInfo {
 
 	pkInfo := tas_middleware_pb.PubKeyInfo{ID: id, PublicKey: pk}
 	return &pkInfo
+}
+
+func marshalConsensusCreateGroupRawMessage(msg *ConsensusCreateGroupRawMessage) ([]byte, error) {
+	gi := consensusGroupInitSummaryToPb(&msg.GI)
+
+	sign := signDataToPb(&msg.SI)
+
+	ids := make([][]byte, 0)
+	for _, id := range msg.IDs {
+		ids = append(ids, id.Serialize())
+	}
+
+	message := tas_middleware_pb.ConsensusCreateGroupRawMessage{ConsensusGroupInitSummary: gi, Ids: ids, Sign: sign}
+	return proto.Marshal(&message)
+}
+
+func marshalConsensusCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) ([]byte, error) {
+	gi := consensusGroupInitSummaryToPb(&msg.GI)
+
+	sign := signDataToPb(&msg.SI)
+
+	message := tas_middleware_pb.ConsensusCreateGroupSignMessage{ConsensusGroupInitSummary: gi, Sign: sign}
+	return proto.Marshal(&message)
 }

@@ -194,7 +194,9 @@ message ConsensusGroupInitSummary{
 	required uint64    Members =5;
 	required bytes    BeginTime =6;
 	required bytes    MemberHash =7;
-	required bytes    Extends =8;
+	required bytes    Signature =8;
+
+	required bytes    Extends =9;
 }
 
 message PubKeyInfo{
@@ -295,4 +297,21 @@ message ConsensusBlockMessage{
     optional bytes GroupID = 2;
 
     required SignData SignData = 3;
+}
+
+
+message ConsensusCreateGroupRawMessage{
+    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
+
+    repeated  bytes Ids  = 2;
+
+    required SignData sign = 3;
+
+}
+
+message ConsensusCreateGroupSignMessage{
+    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
+
+    required SignData sign = 2;
+
 }

@@ -94,3 +94,12 @@ func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
 		return nil
 	}
 }
+
+func (p *Processor) getMinerSignKey(gid groupsig.ID) groupsig.Seckey {
+    if jg, ok := p.belongGroups[gid.GetHexString()]; !ok {
+    	return groupsig.Seckey{}
+	} else {
+		return jg.SignKey
+	}
+
+}
