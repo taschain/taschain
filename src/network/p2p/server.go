@@ -140,30 +140,44 @@ func (s *server) send(b []byte, id string) {
 	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	s.streamMapLock.Lock()
-	stream := s.streams[id]
-	if stream == nil {
-		var e error
-		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-		if e != nil {
-			logger.Errorf("New stream for %s error:%s", id, e.Error())
-			s.streamMapLock.Unlock()
-			return
-		}
-		s.streams[id] = stream
+	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	if e != nil {
+		logger.Errorf("New stream for %s error:%s", id, e.Error())
+		return
 	}
-
 	l := len(b)
 	r, err := stream.Write(b)
 	if err != nil {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
 		stream.Close()
-		s.streams[id] = nil
-		s.streamMapLock.Unlock()
 		s.send(b, id)
 		return
 	}
-	s.streamMapLock.Unlock()
+
+	//s.streamMapLock.Lock()
+	//stream := s.streams[id]
+	//if stream == nil {
+	//	var e error
+	//	stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	//	if e != nil {
+	//		logger.Errorf("New stream for %s error:%s", id, e.Error())
+	//		s.streamMapLock.Unlock()
+	//		return
+	//	}
+	//	s.streams[id] = stream
+	//}
+	//
+	//l := len(b)
+	//r, err := stream.Write(b)
+	//if err != nil {
+	//	logger.Errorf("Write stream for %s error:%s", id, err.Error())
+	//	stream.Close()
+	//	s.streams[id] = nil
+	//	s.streamMapLock.Unlock()
+	//	s.send(b, id)
+	//	return
+	//}
+	//s.streamMapLock.Unlock()
 
 	if r != l {
 		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
@@ -178,20 +192,21 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
-	go func() {
-		for {
-			e := handleStream(stream)
-			if e != nil {
-				stream.Close()
-				break
-			}
-		}
-	}()
-	//handleStream(stream)
+	//go func() {
+	//	for {
+	//		e := handleStream(stream)
+	//		if e != nil {
+	//			stream.Close()
+	//			break
+	//		}
+	//	}
+	//}()
+	go handleStream(stream)
 }
 func handleStream(stream inet.Stream) error {
 	id := ConvertToID(stream.Conn().RemotePeer())
 	reader := bufio.NewReader(stream)
+	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
