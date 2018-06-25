@@ -16,7 +16,7 @@ import (
 	"common"
 	"middleware/pb"
 	"sync"
-	"io/ioutil"
+	"bufio"
 )
 
 const (
@@ -140,38 +140,86 @@ func (s *server) send(b []byte, id string) {
 	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	//s.streamMapLock.RLock()
-	//stream := s.streams[id]
-	//s.streamMapLock.RUnlock()
-	//if stream == nil {
-	//	var e error
-	//	stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	//	if e != nil {
-	//		logger.Errorf("New stream for %s error:%s", id, e.Error())
+	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	//if e != nil {
+	//	logger.Errorf("New stream for %s error:%s", id, e.Error())
+	//	return
+	//}
+	//l := len(b)
+	//if l < 1024 {
+	//	r, err := stream.Write(b)
+	//	if err != nil {
+	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
+	//		stream.Close()
+	//		s.send(b, id)
 	//		return
 	//	}
-	//	s.streamMapLock.Lock()
-	//	s.streams[id] = stream
-	//	s.streamMapLock.Unlock()
+	//	if r != l {
+	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+	//		return
+	//	}
+	//} else {
+	//	writer := bufio.NewWriterSize(stream, 1024)
+	//	r, err := writer.Write(b)
+	//	if err != nil {
+	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
+	//		stream.Close()
+	//		s.send(b, id)
+	//		return
+	//	}
+	//	if r != l {
+	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+	//		return
+	//	}
 	//}
 
-	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	if e != nil {
-		logger.Errorf("New stream for %s error:%s", id, e.Error())
-		return
-	}
-	defer stream.Close()
-	l := len(b)
-	r, err := stream.Write(b)
-	if err != nil {
-		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-		return
+	s.streamMapLock.Lock()
+	stream := s.streams[id]
+	if stream == nil {
+		var e error
+		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e != nil {
+			logger.Errorf("New stream for %s error:%s", id, e.Error())
+			s.streamMapLock.Unlock()
+			return
+		}
+		s.streams[id] = stream
 	}
 
-	if r != l {
-		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-		return
+	l := len(b)
+	if l < 1024 {
+		r, err := stream.Write(b)
+		if err != nil {
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
+			s.streams[id] = nil
+			s.streamMapLock.Unlock()
+			s.send(b, id)
+			return
+		}
+		s.streamMapLock.Unlock()
+		if r != l {
+			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+			return
+		}
+	}else{
+		writer := bufio.NewWriterSize(stream, 1024)
+		r, err := writer.Write(b)
+		if err != nil {
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
+			s.streams[id] = nil
+			s.streamMapLock.Unlock()
+			s.send(b, id)
+			return
+		}
+		s.streamMapLock.Unlock()
+		if r != l {
+			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+			return
+		}
 	}
+
 }
 
 func (s *server) sendSelf(b []byte, id string) {
@@ -181,76 +229,77 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
-	//go func() {
-	//	for {
-	//		handleStream(stream)
-	//	}
-	//}()
-	handleStream(stream)
+	go func() {
+		for {
+			e := handleStream(stream)
+			if e != nil {
+				stream.Close()
+				break
+			}
+		}
+	}()
+	//go handleStream(stream)
 }
-func handleStream(stream inet.Stream) {
-	defer stream.Close()
+func handleStream(stream inet.Stream) error {
+	id := ConvertToID(stream.Conn().RemotePeer())
+	reader := bufio.NewReader(stream)
+	//defer stream.Close()
 	headerBytes := make([]byte, 3)
-	h, e1 := stream.Read(headerBytes)
+	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
-		return
+		logger.Errorf("steam read 3 from %d error:%d!", id, e1.Error())
+		return e1
 	}
 	if h != 3 {
-		return
+		logger.Errorf("Stream  should read %d byte, but received %d bytes", 3, h)
+		return nil
 	}
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-		return
+		logger.Errorf("validate header error from %s! ", id)
+		return nil
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := stream.Read(pkgLengthBytes)
+	n, err := reader.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read4 error:%s", err.Error())
-		return
+		return nil
 	}
 	if n != 4 {
 		logger.Errorf("Stream  should read %d byte, but received %d bytes", 4, n)
-		return
+		return nil
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
-	//b := make([]byte, pkgLength)
-	//e := readMessageBody(stream, b, 0)
-	//if e != nil {
-	//	logger.Errorf("Stream  readMessageBody error:%s", e.Error())
-	//	return
-	//}
-	b, err1 := ioutil.ReadAll(stream)
-	if err1 != nil {
-		logger.Errorf("Stream  read error:%s", err1.Error())
-		return
+	b := make([]byte, pkgLength)
+	e := readMessageBody(reader, b, 0)
+	if e != nil {
+		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
+		return e
 	}
-	if len(b) != pkgLength {
-		logger.Errorf("Stream  should read %d byte,but received %d bytes", pkgLength, len(b))
-		return
-	}
-	go Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
+	go Server.handleMessage(b, id, pkgLengthBytes)
+	return nil
 }
 
-func readMessageBody(stream inet.Stream, body []byte, index int) error {
+func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
 	if index == 0 {
-		n, err1 := stream.Read(body)
+		n, err1 := reader.Read(body)
 		if err1 != nil {
 			return err1
 		}
 		if n != len(body) {
-			return readMessageBody(stream, body, n)
+			return readMessageBody(reader, body, n)
 		}
 		return nil
 	} else {
 		b := make([]byte, len(body)-index)
-		n, err2 := stream.Read(b)
+		n, err2 := reader.Read(b)
 		if err2 != nil {
 			return err2
 		}
 		copy(body[index:], b[:])
 		if n != len(b) {
-			return readMessageBody(stream, body, index+n)
+			return readMessageBody(reader, body, index+n)
 		}
 		return nil
 	}

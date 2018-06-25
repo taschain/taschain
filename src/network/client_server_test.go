@@ -5,6 +5,8 @@ import (
 	"common"
 	"network/p2p"
 	"time"
+	"math/rand"
+	"taslog"
 )
 
 func mockSeedServer() {
@@ -29,12 +31,13 @@ func TestServerNet(t *testing.T) {
 	mockSeedServer()
 
 	time.Sleep(15 * time.Second)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		m := mockMessage()
 		p2p.Server.SendMessage(m, clientId)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(100*time.Millisecond)
 	}
-	time.Sleep(1 * time.Minute)
+	taslog.Close()
+	time.Sleep(3 * time.Minute)
 }
 
 func TestClientNet(t *testing.T) {
@@ -46,7 +49,7 @@ func mockMessage() p2p.Message {
 	code := p2p.GROUP_INIT_MSG
 	sign := []byte{1, 2, 3, 4, 5, 6, 7}
 
-	r := 2*1024*1024
+	r := rand.Intn(100000000)
 	body := make([]byte, r)
 	for i := 0; i < r; i++ {
 		body[i] = 8
