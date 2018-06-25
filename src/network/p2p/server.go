@@ -187,39 +187,20 @@ func (s *server) send(b []byte, id string) {
 	}
 
 	l := len(b)
-	if l < 1024 {
-		r, err := stream.Write(b)
-		if err != nil {
-			logger.Errorf("Write stream for %s error:%s", id, err.Error())
-			stream.Close()
-			s.streams[id] = nil
-			s.streamMapLock.Unlock()
-			s.send(b, id)
-			return
-		}
+	r, err := stream.Write(b)
+	if err != nil {
+		logger.Errorf("Write stream for %s error:%s", id, err.Error())
+		stream.Close()
+		s.streams[id] = nil
 		s.streamMapLock.Unlock()
-		if r != l {
-			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-			return
-		}
-	}else{
-		writer := bufio.NewWriterSize(stream, 1024)
-		r, err := writer.Write(b)
-		if err != nil {
-			logger.Errorf("Write stream for %s error:%s", id, err.Error())
-			stream.Close()
-			s.streams[id] = nil
-			s.streamMapLock.Unlock()
-			s.send(b, id)
-			return
-		}
-		s.streamMapLock.Unlock()
-		if r != l {
-			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-			return
-		}
+		s.send(b, id)
+		return
 	}
-
+	s.streamMapLock.Unlock()
+	if r != l {
+		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+		return
+	}
 }
 
 func (s *server) sendSelf(b []byte, id string) {
