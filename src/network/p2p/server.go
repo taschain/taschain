@@ -16,6 +16,7 @@ import (
 	"common"
 	"middleware/pb"
 	"sync"
+	"bufio"
 )
 
 const (
@@ -189,10 +190,10 @@ func swarmStreamHandler(stream inet.Stream) {
 	//handleStream(stream)
 }
 func handleStream(stream inet.Stream) error {
-	//reader := bufio.NewReader(stream)
 	id := ConvertToID(stream.Conn().RemotePeer())
+	reader := bufio.NewReader(stream)
 	headerBytes := make([]byte, 3)
-	h, e1 := stream.Read(headerBytes)
+	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
 		logger.Errorf("steam read 3 from %d error:%d!", id, e1.Error())
 		return e1
@@ -208,7 +209,7 @@ func handleStream(stream inet.Stream) error {
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := stream.Read(pkgLengthBytes)
+	n, err := reader.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read4 error:%s", err.Error())
 		return nil
@@ -219,34 +220,34 @@ func handleStream(stream inet.Stream) error {
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
-	e := readMessageBody(stream, b, 0)
+	e := readMessageBody(reader, b, 0)
 	if e != nil {
 		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
 		return e
 	}
-	go Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
+	go Server.handleMessage(b, id, pkgLengthBytes)
 	return nil
 }
 
-func readMessageBody(stream inet.Stream, body []byte, index int) error {
+func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
 	if index == 0 {
-		n, err1 := stream.Read(body)
+		n, err1 := reader.Read(body)
 		if err1 != nil {
 			return err1
 		}
 		if n != len(body) {
-			return readMessageBody(stream, body, n)
+			return readMessageBody(reader, body, n)
 		}
 		return nil
 	} else {
 		b := make([]byte, len(body)-index)
-		n, err2 := stream.Read(b)
+		n, err2 := reader.Read(b)
 		if err2 != nil {
 			return err2
 		}
 		copy(body[index:], b[:])
 		if n != len(b) {
-			return readMessageBody(stream, body, index+n)
+			return readMessageBody(reader, body, index+n)
 		}
 		return nil
 	}
