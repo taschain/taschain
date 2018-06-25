@@ -131,7 +131,7 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	txs := pool.received.AsSlice()
+	//txs := pool.received.AsSlice()
 	var result []*types.Transaction
 	if pool.received.txs.Len() > 500 {
 		result = make([]*types.Transaction, 500)
