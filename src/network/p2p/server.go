@@ -159,7 +159,6 @@ func (s *server) send(b []byte, id string) {
 	//	return
 	//}
 	//defer stream.Close()
-	//writer := bufio.NewWriter(stream)
 	l := len(b)
 	r, err := stream.Write(b)
 	if err != nil {
@@ -212,7 +211,7 @@ func handleStream(stream inet.Stream) error {
 	}
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-		logger.Errorf("validate header error! ")
+		logger.Errorf("validate header error from %s! ",ConvertToID(stream.Conn().RemotePeer()))
 		return nil
 	}
 
