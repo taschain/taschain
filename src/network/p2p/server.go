@@ -12,7 +12,6 @@ import (
 	"strings"
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
-	"time"
 	"common"
 	"middleware/pb"
 	"sync"
@@ -80,7 +79,7 @@ const (
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"
 
-var ContextTimeOut = time.Minute * 5
+var ContextTimeOut = -1
 
 var logger taslog.Logger
 
@@ -133,12 +132,8 @@ func (s *server) send(b []byte, id string) {
 		s.sendSelf(b, id)
 		return
 	}
-	ctx := context.Background()
-	context.WithTimeout(ctx, ContextTimeOut)
+	c := context.Background()
 
-	c, cancel := context.WithCancel(context.Background())
-	context.WithTimeout(c, ContextTimeOut)
-	defer cancel()
 
 	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 	//if e != nil {
