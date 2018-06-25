@@ -166,7 +166,7 @@ func (s *server) send(b []byte, id string) {
 		stream.Close()
 		s.streams[id] = nil
 		s.streamMapLock.Unlock()
-		s.send(b,id)
+		s.send(b, id)
 		return
 	}
 	s.streamMapLock.Unlock()
@@ -176,7 +176,6 @@ func (s *server) send(b []byte, id string) {
 		return
 	}
 }
-
 
 func (s *server) sendSelf(b []byte, id string) {
 	pkgBodyBytes := b[7:]
@@ -199,10 +198,11 @@ func swarmStreamHandler(stream inet.Stream) {
 func handleStream(stream inet.Stream) error {
 	//defer stream.Close()
 	reader := bufio.NewReader(stream)
+	id := ConvertToID(stream.Conn().RemotePeer())
 	headerBytes := make([]byte, 3)
 	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("steam read 3 from %d error:%d,! " ,ConvertToID(stream.Conn().RemotePeer()),e1.Error())
+		logger.Errorf("steam read 3 from %d error:%d!", id, e1.Error())
 		return e1
 	}
 	if h != 3 {
@@ -211,7 +211,7 @@ func handleStream(stream inet.Stream) error {
 	}
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-		logger.Errorf("validate header error from %s! ",ConvertToID(stream.Conn().RemotePeer()))
+		logger.Errorf("validate header error from %s! ", id)
 		return nil
 	}
 
