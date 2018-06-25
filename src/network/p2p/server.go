@@ -147,6 +147,7 @@ func (s *server) send(b []byte, id string) {
 		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e != nil {
 			logger.Errorf("New stream for %s error:%s", id, e.Error())
+			s.streamMapLock.Unlock()
 			return
 		}
 		s.streams[id] = stream
@@ -165,6 +166,7 @@ func (s *server) send(b []byte, id string) {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
 		stream.Close()
 		s.streams[id] = nil
+		s.streamMapLock.Unlock()
 		s.send(b,id)
 		return
 	}
