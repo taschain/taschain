@@ -45,7 +45,6 @@ func InitNetwork(config *common.ConfManager, isSuper bool) error {
 func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
 
 	ctx := context.Background()
-	context.WithTimeout(ctx, p2p.ContextTimeOut)
 	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
