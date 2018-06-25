@@ -132,6 +132,14 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
+	var result []*types.Transaction
+	if pool.received.txs.Len() > 500 {
+		result = make([]*types.Transaction, 500)
+		copy(result, pool.received.txs[:500])
+	} else {
+		result = make([]*types.Transaction, pool.received.txs.Len())
+		copy(result, pool.received.txs)
+	}
 	sort.Sort(types.Transactions(txs))
 	return txs
 }
@@ -439,16 +447,8 @@ func (c *container) AsSlice() []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//result := make([]*types.Transaction, c.txs.Len())
-	//copy(result, c.txs)
-	var result []*types.Transaction
-	if c.txs.Len() > 1000 {
-		result = make([]*types.Transaction, 1000)
-		copy(result, c.txs[:1000])
-	} else {
-		result = make([]*types.Transaction, c.txs.Len())
-		copy(result, c.txs)
-	}
+	result := make([]*types.Transaction, c.txs.Len())
+	copy(result, c.txs)
 	return result
 }
 
