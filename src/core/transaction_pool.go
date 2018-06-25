@@ -140,8 +140,8 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 		result = make([]*types.Transaction, pool.received.txs.Len())
 		copy(result, pool.received.txs)
 	}
-	sort.Sort(types.Transactions(txs))
-	return txs
+	sort.Sort(types.Transactions(result))
+	return result
 }
 
 // 返回待处理的transaction数组

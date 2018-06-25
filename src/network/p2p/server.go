@@ -136,7 +136,6 @@ func (s *server) send(b []byte, id string) {
 
 
 	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	defer stream.Close()
 	if e != nil {
 		logger.Errorf("New stream for %s error:%s", id, e.Error())
 		return
@@ -146,11 +145,13 @@ func (s *server) send(b []byte, id string) {
 		r, err := stream.Write(b)
 		if err != nil {
 			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
 			s.send(b, id)
 			return
 		}
 		if r != l {
 			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+			stream.Close()
 			return
 		}
 	} else {
@@ -158,11 +159,13 @@ func (s *server) send(b []byte, id string) {
 		r, err := writer.Write(b)
 		if err != nil {
 			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
 			s.send(b, id)
 			return
 		}
 		if r != l {
 			logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+			stream.Close()
 			return
 		}
 	}
