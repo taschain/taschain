@@ -5,7 +5,6 @@ import (
 	"common"
 	"network/p2p"
 	"time"
-	"math/rand"
 )
 
 func mockSeedServer() {
@@ -47,7 +46,7 @@ func mockMessage() p2p.Message {
 	code := p2p.GROUP_INIT_MSG
 	sign := []byte{1, 2, 3, 4, 5, 6, 7}
 
-	r := rand.Intn(100000)
+	r := 2*1024*1024
 	body := make([]byte, r)
 	for i := 0; i < r; i++ {
 		body[i] = 8
