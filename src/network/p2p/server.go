@@ -140,11 +140,9 @@ func (s *server) send(b []byte, id string) {
 	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	s.streamMapLock.RLock()
+	s.streamMapLock.Lock()
 	stream := s.streams[id]
-	s.streamMapLock.RUnlock()
 	if stream == nil {
-		s.streamMapLock.Lock()
 		var e error
 		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e != nil {
@@ -152,7 +150,6 @@ func (s *server) send(b []byte, id string) {
 			return
 		}
 		s.streams[id] = stream
-		s.streamMapLock.Unlock()
 	}
 
 	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
@@ -167,12 +164,11 @@ func (s *server) send(b []byte, id string) {
 	if err != nil {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
 		stream.Close()
-		s.streamMapLock.Lock()
 		s.streams[id] = nil
-		s.streamMapLock.Unlock()
 		s.send(b,id)
 		return
 	}
+	s.streamMapLock.Unlock()
 
 	if r != l {
 		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
@@ -205,7 +201,7 @@ func handleStream(stream inet.Stream) error {
 	headerBytes := make([]byte, 3)
 	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("steam read 3 from %d error:%d,! " ,stream.Conn().RemotePeer(),e1.Error())
+		logger.Errorf("steam read 3 from %d error:%d,! " ,ConvertToID(stream.Conn().RemotePeer()),e1.Error())
 		return e1
 	}
 	if h != 3 {
@@ -249,7 +245,7 @@ func handleStream(stream inet.Stream) error {
 	return nil
 }
 
-func readMessageBody(reader bufio.Reader, body []byte, index int) error {
+func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
 	if index == 0 {
 		n, err1 := reader.Read(body)
 		if err1 != nil {
