@@ -20,13 +20,6 @@ type ChainHandler struct{}
 
 func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
 	switch code {
-	//case p2p.ON_CHAIN_BLOCK_MSG:
-	//	m, e := types.UnMarshalBlock(body)
-	//	if e != nil {
-	//		core.Logger.Errorf("[handler]Discard ON_CHAIN_BLOCK_MSG because of unmarshal error:%s", e.Error())
-	//		return nil, nil
-	//	}
-	//	onMessageNewBlock(m)
 	case p2p.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(body)
 		if e != nil {
@@ -39,9 +32,6 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
-		}
-		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("[BlockChain]core handler TRANSACTION_GOT_MSG from: %s,count:%d,time:%v", sourceId, len(m),time.Now())
 		}
 		err := onMessageTransaction(m)
 		return nil, err
@@ -113,7 +103,6 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	core.Logger.Debugf("[BlockChain]OnTransactionRequestn from %s,count%d,hash:%x,time:%v", sourceId, len(m.TransactionHashes), m.CurrentBlockHash,time.Now())
 
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
@@ -168,13 +157,13 @@ func onBlockHashesReq(cbhr *core.BlockHashesReq, sourceId string) {
 }
 
 func onBlockHashes(bhs []*core.BlockHash, sourceId string) {
-	core.Logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
+	//core.Logger.Debugf("Get OnChainBlockHashes from:%s", sourceId)
 	core.BlockChainImpl.CompareChainPiece(bhs, sourceId)
 }
 
 func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	//收到块请求
-	core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}

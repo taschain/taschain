@@ -16,6 +16,7 @@ import (
 	"common"
 	"middleware/pb"
 	"sync"
+	"io/ioutil"
 )
 
 const (
@@ -139,22 +140,27 @@ func (s *server) send(b []byte, id string) {
 	context.WithTimeout(c, ContextTimeOut)
 	defer cancel()
 
-	s.streamMapLock.RLock()
-	stream := s.streams[id]
-	s.streamMapLock.RUnlock()
-	if stream == nil {
-		var e error
-		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-		if e != nil {
-			logger.Errorf("New stream for %s error:%s", id, e.Error())
-			return
-		}
-		s.streamMapLock.Lock()
-		s.streams[id] = stream
-		s.streamMapLock.Unlock()
+	//s.streamMapLock.RLock()
+	//stream := s.streams[id]
+	//s.streamMapLock.RUnlock()
+	//if stream == nil {
+	//	var e error
+	//	stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	//	if e != nil {
+	//		logger.Errorf("New stream for %s error:%s", id, e.Error())
+	//		return
+	//	}
+	//	s.streamMapLock.Lock()
+	//	s.streams[id] = stream
+	//	s.streamMapLock.Unlock()
+	//}
+
+	stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	if e != nil {
+		logger.Errorf("New stream for %s error:%s", id, e.Error())
+		return
 	}
-
-
+	defer stream.Close()
 	l := len(b)
 	r, err := stream.Write(b)
 	if err != nil {
@@ -175,13 +181,15 @@ func (s *server) sendSelf(b []byte, id string) {
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
-	go func() {
-		for {
-			handleStream(stream)
-		}
-	}()
+	//go func() {
+	//	for {
+	//		handleStream(stream)
+	//	}
+	//}()
+	handleStream(stream)
 }
 func handleStream(stream inet.Stream) {
+	defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
 	if e1 != nil {
@@ -206,11 +214,19 @@ func handleStream(stream inet.Stream) {
 		return
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
-	b := make([]byte, pkgLength)
-
-	e := readMessageBody(stream, b, 0)
-	if e != nil {
-		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
+	//b := make([]byte, pkgLength)
+	//e := readMessageBody(stream, b, 0)
+	//if e != nil {
+	//	logger.Errorf("Stream  readMessageBody error:%s", e.Error())
+	//	return
+	//}
+	b, err1 := ioutil.ReadAll(stream)
+	if err1 != nil {
+		logger.Errorf("Stream  read error:%s", err1.Error())
+		return
+	}
+	if len(b) != pkgLength {
+		logger.Errorf("Stream  should read %d byte,but received %d bytes", pkgLength, len(b))
 		return
 	}
 	go Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)

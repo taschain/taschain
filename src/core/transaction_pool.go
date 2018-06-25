@@ -39,7 +39,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 5
+	sendingListLength = 20
 )
 
 // 配置文件
@@ -64,6 +64,8 @@ type TransactionPool struct {
 
 	batch     ethdb.Batch
 	batchLock sync.Mutex
+
+	totalReceived uint64
 }
 
 type ReceiptWrapper struct {
@@ -173,7 +175,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	if tx == nil {
 		return false, ErrNil
 	}
-
+	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
 		//log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
@@ -510,4 +512,8 @@ func (c *container) Remove(keys []common.Hash) {
 		heap.Remove(&c.txs, index)
 	}
 
+}
+
+func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
+	return p.totalReceived
 }

@@ -137,6 +137,8 @@
                         cost = tr.children("td[name='cost']")
                         qn = tr.children("td[name='qn']")
                         aver_tps = tr.children("td[name='aver_tps']")
+                        tx_pool_count = tr.children("td[name='tx_pool_count']")
+                        tx_pool_total = tr.children("td[name='tx_pool_total']")
 
                         h.text(d.height)
                         tps.text(d.tps)
@@ -146,7 +148,8 @@
                         qn.text(d.queue_number)
                         aver = stat.total_txs/ stat.total_cost
                         aver_tps.text(aver.toFixed(1))
-
+                        tx_pool_count.text(d.tx_pool_count)
+                        tx_pool_total.text(d.tx_pool_total)
                     }
                 },
                 error: function () {
@@ -200,6 +203,8 @@
             tr += "<td name='cost'></td>"
             tr += "<td name='qn'></td>"
             tr += "<td name='aver_tps'></td>"
+            tr += "<td name='tx_pool_count'></td>"
+            tr += "<td name='tx_pool_total'></td>"
             tr += "<td><a href='javascript:void(0);' onclick='refresh($(this))'>刷新</a>&nbsp;<a href='javascript:void(0);' onclick='del_tr($(this))'>删除</a>&nbsp;<a href='javascript:void(0);' onclick='jump($(this))'>查看</a></td>"
             tr += "</tr>"
             $("#t_body").append(tr)
@@ -241,6 +246,8 @@
                     <th width="10%">出块时长</th>
                     <th width="10%">qn</th>
                     <th width="10%">aver_tps</th>
+                    <th width="10%">tx_pool_count</th>
+                    <th width="10%">tx_pool_total</th>
                     <th width="10%">操作</th>
                 </tr>
             </thead>
