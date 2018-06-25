@@ -222,7 +222,7 @@ func handleStream(stream inet.Stream) error {
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("steam read 3 from %d error:%d!", id, e1.Error())
+		logger.Errorf("steam read 3 from %s error:%s!", id, e1.Error())
 		return e1
 	}
 	if h != 3 {
