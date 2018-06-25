@@ -164,6 +164,11 @@ func (s *server) send(b []byte, id string) {
 	r, err := stream.Write(b)
 	if err != nil {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
+		stream.Reset()
+		s.streamMapLock.Lock()
+		s.streams[id] = nil
+		s.streamMapLock.Unlock()
+		s.send(b,id)
 		return
 	}
 
@@ -172,6 +177,7 @@ func (s *server) send(b []byte, id string) {
 		return
 	}
 }
+
 
 func (s *server) sendSelf(b []byte, id string) {
 	pkgBodyBytes := b[7:]
@@ -182,45 +188,49 @@ func (s *server) sendSelf(b []byte, id string) {
 func swarmStreamHandler(stream inet.Stream) {
 	go func() {
 		for {
-			handleStream(stream)
+			e := handleStream(stream)
+			if e != nil {
+				stream.Reset()
+				break
+			}
 		}
 	}()
 	//handleStream(stream)
 }
-func handleStream(stream inet.Stream) {
+func handleStream(stream inet.Stream) error {
 	//defer stream.Close()
 	headerBytes := make([]byte, 3)
 	h, e1 := stream.Read(headerBytes)
-	if e1 != nil{
-		logger.Errorf("steam errpr1! "+e1.Error())
-		return
+	if e1 != nil {
+		logger.Errorf("steam errpr1! " + e1.Error())
+		return e1
 	}
 	if h != 3 {
 		logger.Errorf("Stream  should read %d byte, but received %d bytes", 3, h)
-		return
+		return nil
 	}
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
 		logger.Errorf("validate header error! ")
-		return
+		return nil
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := stream.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read4 error:%s", err.Error())
-		return
+		return nil
 	}
 	if n != 4 {
 		logger.Errorf("Stream  should read %d byte, but received %d bytes", 4, n)
-		return
+		return nil
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
 	e := readMessageBody(stream, b, 0)
 	if e != nil {
 		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
-		return
+		return e
 	}
 	//b, err1 := ioutil.ReadAll(stream)
 	//if err1 != nil {
@@ -233,6 +243,7 @@ func handleStream(stream inet.Stream) {
 	//}
 
 	go Server.handleMessage(b, ConvertToID(stream.Conn().RemotePeer()), pkgLengthBytes)
+	return nil
 }
 
 func readMessageBody(stream inet.Stream, body []byte, index int) error {
