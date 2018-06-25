@@ -12,11 +12,9 @@ import (
 	"strings"
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
-	"time"
 	"common"
 	"middleware/pb"
 	"sync"
-	"bufio"
 )
 
 const (
@@ -80,7 +78,7 @@ const (
 
 var ProtocolTAS protocol.ID = "/tas/1.0.0"
 
-var ContextTimeOut = time.Minute * 5
+var ContextTimeOut = -1
 
 var logger taslog.Logger
 
@@ -133,12 +131,8 @@ func (s *server) send(b []byte, id string) {
 		s.sendSelf(b, id)
 		return
 	}
-	ctx := context.Background()
-	context.WithTimeout(ctx, ContextTimeOut)
+	c := context.Background()
 
-	c, cancel := context.WithCancel(context.Background())
-	context.WithTimeout(c, ContextTimeOut)
-	defer cancel()
 
 	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 	//if e != nil {
@@ -223,12 +217,12 @@ func swarmStreamHandler(stream inet.Stream) {
 }
 func handleStream(stream inet.Stream) error {
 	id := ConvertToID(stream.Conn().RemotePeer())
-	reader := bufio.NewReader(stream)
+	//reader := bufio.NewReader(stream)
 	//defer stream.Close()
 	headerBytes := make([]byte, 3)
-	h, e1 := reader.Read(headerBytes)
+	h, e1 := stream.Read(headerBytes)
 	if e1 != nil {
-		logger.Errorf("steam read 3 from %d error:%d!", id, e1.Error())
+		logger.Errorf("steam read 3 from %s error:%s!", id, e1.Error())
 		return e1
 	}
 	if h != 3 {
@@ -242,7 +236,7 @@ func handleStream(stream inet.Stream) error {
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := reader.Read(pkgLengthBytes)
+	n, err := stream.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read4 error:%s", err.Error())
 		return nil
@@ -253,7 +247,7 @@ func handleStream(stream inet.Stream) error {
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
-	e := readMessageBody(reader, b, 0)
+	e := readMessageBody(stream, b, 0)
 	if e != nil {
 		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
 		return e
@@ -262,25 +256,25 @@ func handleStream(stream inet.Stream) error {
 	return nil
 }
 
-func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
+func readMessageBody(stream inet.Stream, body []byte, index int) error {
 	if index == 0 {
-		n, err1 := reader.Read(body)
+		n, err1 := stream.Read(body)
 		if err1 != nil {
 			return err1
 		}
 		if n != len(body) {
-			return readMessageBody(reader, body, n)
+			return readMessageBody(stream, body, n)
 		}
 		return nil
 	} else {
 		b := make([]byte, len(body)-index)
-		n, err2 := reader.Read(b)
+		n, err2 := stream.Read(b)
 		if err2 != nil {
 			return err2
 		}
 		copy(body[index:], b[:])
 		if n != len(b) {
-			return readMessageBody(reader, body, index+n)
+			return readMessageBody(stream, body, index+n)
 		}
 		return nil
 	}

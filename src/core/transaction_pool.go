@@ -442,8 +442,16 @@ func (c *container) AsSlice() []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	result := make([]*types.Transaction, c.txs.Len())
-	copy(result, c.txs)
+	//result := make([]*types.Transaction, c.txs.Len())
+	//copy(result, c.txs)
+	var result []*types.Transaction
+	if c.txs.Len() > 1000 {
+		result = make([]*types.Transaction, 1000)
+		copy(result, c.txs[:1000])
+	} else {
+		result = make([]*types.Transaction, c.txs.Len())
+		copy(result, c.txs)
+	}
 	return result
 }
 
