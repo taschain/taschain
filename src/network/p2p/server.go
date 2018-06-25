@@ -146,7 +146,8 @@ func (s *server) send(b []byte, id string) {
 		return
 	}
 	l := len(b)
-	r, err := stream.Write(b)
+	writer := bufio.NewWriter(stream)
+	r, err := writer.Write(b)
 	if err != nil {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
 		stream.Close()
