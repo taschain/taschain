@@ -143,13 +143,13 @@ func (s *server) send(b []byte, id string) {
 	stream := s.streams[id]
 	s.streamMapLock.RUnlock()
 	if stream == nil {
+		s.streamMapLock.Lock()
 		var e error
 		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e != nil {
 			logger.Errorf("New stream for %s error:%s", id, e.Error())
 			return
 		}
-		s.streamMapLock.Lock()
 		s.streams[id] = stream
 		s.streamMapLock.Unlock()
 	}
@@ -164,7 +164,7 @@ func (s *server) send(b []byte, id string) {
 	r, err := stream.Write(b)
 	if err != nil {
 		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-		stream.Reset()
+		stream.Close()
 		s.streamMapLock.Lock()
 		s.streams[id] = nil
 		s.streamMapLock.Unlock()
@@ -190,7 +190,7 @@ func swarmStreamHandler(stream inet.Stream) {
 		for {
 			e := handleStream(stream)
 			if e != nil {
-				stream.Reset()
+				stream.Close()
 				break
 			}
 		}
