@@ -47,7 +47,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	Logger.Debugf("REQ_TRANSACTION_MSG for %s,%d-%d,tx_len",castorId,m.BlockHeight,m.BlockQn,len(m.TransactionHashes))
+	Logger.Debugf("send REQ_TRANSACTION_MSG for %s,%d-%d,tx_len:%d",castorId,m.BlockHeight,m.BlockQn,len(m.TransactionHashes))
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
 	p2p.Server.SendMessage(message, castorId)
 }

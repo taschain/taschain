@@ -127,7 +127,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
 		//})
-		network.Logger.Debugf("receive CAST_VERIFY_MSG,%d-%d",m.BH.Height, m.BH.QueueNumber)
+		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s,%d-%d",sourceId,m.BH.Height, m.BH.QueueNumber)
 		mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
@@ -141,7 +141,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 		//	mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
 		//})
-		network.Logger.Debugf("receive VARIFIED_CAST_MSG,%d-%d",m.BH.Height, m.BH.QueueNumber)
+		network.Logger.Debugf("receive VARIFIED_CAST_MSG from %s,%d-%d",sourceId,m.BH.Height, m.BH.QueueNumber)
 		mediator.Proc.OnMessageVerify(*m)
 
 	case p2p.TRANSACTION_MSG,p2p.TRANSACTION_GOT_MSG:

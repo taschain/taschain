@@ -476,7 +476,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
-		return nil, 3, nil, nil
+		return nil, 2, nil, nil
 	}
 
 	// 验证交易
