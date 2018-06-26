@@ -15,6 +15,7 @@ import (
 	"common"
 	"middleware/pb"
 	"sync"
+	"bufio"
 )
 
 const (
@@ -150,6 +151,7 @@ func (s *server) send(b []byte, id string) {
 	//	}
 	//	if r != l {
 	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+	//		stream.Close()
 	//		return
 	//	}
 	//} else {
@@ -163,6 +165,7 @@ func (s *server) send(b []byte, id string) {
 	//	}
 	//	if r != l {
 	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
+	//		stream.Close()
 	//		return
 	//	}
 	//}
@@ -217,10 +220,10 @@ func swarmStreamHandler(stream inet.Stream) {
 }
 func handleStream(stream inet.Stream) error {
 	id := ConvertToID(stream.Conn().RemotePeer())
-	//reader := bufio.NewReader(stream)
+	reader := bufio.NewReader(stream)
 	//defer stream.Close()
 	headerBytes := make([]byte, 3)
-	h, e1 := stream.Read(headerBytes)
+	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
 		logger.Errorf("steam read 3 from %s error:%s!", id, e1.Error())
 		return e1
@@ -236,7 +239,7 @@ func handleStream(stream inet.Stream) error {
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := stream.Read(pkgLengthBytes)
+	n, err := reader.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("Stream  read4 error:%s", err.Error())
 		return nil
@@ -247,7 +250,7 @@ func handleStream(stream inet.Stream) error {
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
-	e := readMessageBody(stream, b, 0)
+	e := readMessageBody(reader, b, 0)
 	if e != nil {
 		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
 		return e
@@ -256,25 +259,25 @@ func handleStream(stream inet.Stream) error {
 	return nil
 }
 
-func readMessageBody(stream inet.Stream, body []byte, index int) error {
+func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
 	if index == 0 {
-		n, err1 := stream.Read(body)
+		n, err1 := reader.Read(body)
 		if err1 != nil {
 			return err1
 		}
 		if n != len(body) {
-			return readMessageBody(stream, body, n)
+			return readMessageBody(reader, body, n)
 		}
 		return nil
 	} else {
 		b := make([]byte, len(body)-index)
-		n, err2 := stream.Read(b)
+		n, err2 := reader.Read(b)
 		if err2 != nil {
 			return err2
 		}
 		copy(body[index:], b[:])
 		if n != len(b) {
-			return readMessageBody(stream, body, index+n)
+			return readMessageBody(reader, body, index+n)
 		}
 		return nil
 	}
