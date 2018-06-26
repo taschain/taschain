@@ -16,6 +16,7 @@ import (
 	"middleware/pb"
 	"sync"
 	"bufio"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
 const (
@@ -94,6 +95,8 @@ type server struct {
 
 	streams map[string]inet.Stream
 
+	streamWriters map[string]*bufio.Writer
+
 	streamMapLock sync.RWMutex
 }
 
@@ -134,66 +137,58 @@ func (s *server) send(b []byte, id string) {
 	}
 	c := context.Background()
 
-
-	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	//if e != nil {
-	//	logger.Errorf("New stream for %s error:%s", id, e.Error())
-	//	return
-	//}
-	//l := len(b)
-	//if l < 1024 {
-	//	r, err := stream.Write(b)
-	//	if err != nil {
-	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-	//		stream.Close()
-	//		s.send(b, id)
-	//		return
-	//	}
-	//	if r != l {
-	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-	//		stream.Close()
-	//		return
-	//	}
-	//} else {
-	//	writer := bufio.NewWriterSize(stream, 1024)
-	//	r, err := writer.Write(b)
-	//	if err != nil {
-	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-	//		stream.Close()
-	//		s.send(b, id)
-	//		return
-	//	}
-	//	if r != l {
-	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-	//		stream.Close()
-	//		return
-	//	}
-	//}
+	peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
+	if e != nil || string(peerInfo.ID) == "" {
+		logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
+	} else {
+		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	}
 
 	s.streamMapLock.Lock()
 	stream := s.streams[id]
+	var e1 error
 	if stream == nil {
-		var e error
-		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-		if e != nil {
-			logger.Errorf("New stream for %s error:%s", id, e.Error())
+		stream, e1 = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e1 != nil {
+			logger.Errorf("New stream for %s error:%s", id, e1.Error())
 			s.streamMapLock.Unlock()
-			s.send(b, id)
 			return
 		}
 		s.streams[id] = stream
 	}
 
 	l := len(b)
-	r, err := stream.Write(b)
-	if err != nil {
-		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-		stream.Close()
-		s.streams[id] = nil
-		s.streamMapLock.Unlock()
-		s.send(b, id)
-		return
+	var r int
+	var err error
+	if l < 4096 {
+		r, err = stream.Write(b)
+		if err != nil {
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
+			s.streams[id] = nil
+			s.streamMapLock.Unlock()
+			s.send(b, id)
+			return
+		}
+	} else {
+		writer := s.streamWriters[id]
+		if writer == nil {
+			if s.streamWriters[id] == nil {
+				s.streamWriters[id] = bufio.NewWriter(stream)
+			}
+		}
+		r, err = writer.Write(b)
+		if err != nil {
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			stream.Close()
+			s.streams[id] = nil
+			s.streamWriters[id] = nil
+			s.streamMapLock.Unlock()
+			s.send(b, id)
+			return
+		}
 	}
+
 	s.streamMapLock.Unlock()
 	if r != l {
 		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
@@ -209,20 +204,18 @@ func (s *server) sendSelf(b []byte, id string) {
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
 	go func() {
+		reader := bufio.NewReader(stream)
+		id := ConvertToID(stream.Conn().RemotePeer())
 		for {
-			e := handleStream(stream)
+			e := handleStream(reader, id)
 			if e != nil {
 				stream.Close()
 				break
 			}
 		}
 	}()
-	//go handleStream(stream)
 }
-func handleStream(stream inet.Stream) error {
-	id := ConvertToID(stream.Conn().RemotePeer())
-	reader := bufio.NewReader(stream)
-	//defer stream.Close()
+func handleStream(reader *bufio.Reader, id string) error {
 	headerBytes := make([]byte, 3)
 	h, e1 := reader.Read(headerBytes)
 	if e1 != nil {
