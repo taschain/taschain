@@ -31,7 +31,7 @@ func TestServerNet(t *testing.T) {
 	mockSeedServer()
 
 	time.Sleep(15 * time.Second)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100000000; i++ {
 		m := mockMessage()
 		p2p.Server.SendMessage(m, clientId)
 		time.Sleep(100*time.Millisecond)

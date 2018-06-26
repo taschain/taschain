@@ -165,8 +165,7 @@ func (s *server) send(b []byte, id string) {
 		return
 	}
 	s.streamMapLock.Unlock()
-	fmt.Printf("send to %s, size:%d\n", id, len(b))
-
+	//fmt.Printf("send to %s, size:%d\n", id, len(b))
 }
 
 func (s *server) writePackage(stream inet.Stream, body []byte, id string) error {
@@ -264,8 +263,8 @@ func handleStream(reader *bufio.Reader, id string) error {
 		return e
 	}
 
-	fmt.Printf("revceive from %s, byte len:%d\n", id, len(b))
-	//go Server.handleMessage(b, id)
+	//fmt.Printf("revceive from %s, byte len:%d\n", id, len(b))
+	go Server.handleMessage(b, id)
 	return nil
 }
 
