@@ -178,6 +178,7 @@ func (s *server) send(b []byte, id string) {
 		if e != nil {
 			logger.Errorf("New stream for %s error:%s", id, e.Error())
 			s.streamMapLock.Unlock()
+			s.send(b, id)
 			return
 		}
 		s.streams[id] = stream
@@ -211,7 +212,7 @@ func swarmStreamHandler(stream inet.Stream) {
 		for {
 			e := handleStream(stream)
 			if e != nil {
-				stream.Reset()
+				stream.Close()
 				break
 			}
 		}
