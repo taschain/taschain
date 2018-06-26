@@ -61,8 +61,8 @@ func ClearGroup(config *GroupChainConfig) {
 
 func initGroupChain() error {
 	chain := &GroupChain{
-		config: getGroupChainConfig(),
-		now:    *new([][]byte),
+		config:          getGroupChainConfig(),
+		now:             *new([][]byte),
 		isGroupSyncInit: false,
 	}
 
@@ -113,6 +113,14 @@ func (chain *GroupChain) Count() uint64 {
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
+}
+
+func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
+	return []byte{}
+}
+
+func (chain *GroupChain) GetCandidates() []types.Member {
+	return []types.Member{}
 }
 
 func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
