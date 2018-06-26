@@ -102,32 +102,14 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		})
 
 	case p2p.CURRENT_GROUP_CAST_MSG:
-		//m, e := unMarshalConsensusCurrentMessage(body)
-		//if e != nil {
-		//	logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
-		//	return nil, e
-		//}
-		//
-		////machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
-		////stateMsg := net.NewStateMsg(code, m, sourceId, "")
-		////machine.Transform(stateMsg, func(msg interface{}) {
-		////	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
-		////})
-		//
-		//mediator.Proc.OnMessageCurrent(*m)
+
+
 	case p2p.CAST_VERIFY_MSG:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		//fmt.Println("Get CAST_VERIFY_MSG!")
-		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
-		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
-		//})
-
 		mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
@@ -135,12 +117,6 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			network.Logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-
-		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
-		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-		//	mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
-		//})
 
 		mediator.Proc.OnMessageVerify(*m)
 
@@ -165,25 +141,25 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
-		//b := &m.Block
-		//belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
-		//if belongGroup {
-		//	machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
-		//	key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
-		//	machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
-		//		mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
-		//	})
-		//} else {
 		mediator.Proc.OnMessageBlock(*m)
-		//}
+		return nil, nil
+	case p2p.CREATE_GROUP_RAW:
+		m, e := unMarshalConsensusCreateGroupRawMessage(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupRawMessage because of unmarshal error%s", e.Error())
+			return nil, e
+		}
 
-		//b := mediator.Proc.OnMessageBlock(*m)
-		//bytes, e1 := core.MarshalBlock(b)
-		//if e1 != nil {
-		//	logger.Errorf("Discard ConsensusBlockMessage because of marshal block error%s", e1.Error())
-		//	return nil, e1
-		//}
+		mediator.Proc.OnMessageCreateGroupRaw(*m)
+		return nil, nil
+	case p2p.CREATE_GROUP_SIGN:
+		m, e := unMarshalConsensusCreateGroupSignMessage(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupSignMessage because of unmarshal error%s", e.Error())
+			return nil, e
+		}
+
+		mediator.Proc.OnMessageCreateGroupSign(*m)
 		return nil, nil
 	}
 	return nil, nil
@@ -410,10 +386,16 @@ func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummar
 		return nil
 	}
 
+	var sign groupsig.Signature
+	if err := sign.Deserialize(m.Signature); err != nil {
+		network.Logger.Errorf("[handler]groupsig.Signature Deserialize error:%s", err.Error())
+		return nil
+	}
+
 	mhash := common.Hash{}
 	mhash.SetBytes(m.MemberHash)
 	message := logical.ConsensusGroupInitSummary{ParentID: parentId, Authority: *m.Authority,
-		Name: name, DummyID: dummyID, BeginTime: beginTime, Members: *m.Members, MemberHash: mhash, Extends:string(m.Extends)}
+		Name: name, DummyID: dummyID, BeginTime: beginTime, Members: *m.Members, MemberHash: mhash, Extends:string(m.Extends), Signature: sign}
 	return &message
 }
 
@@ -494,4 +476,43 @@ func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *logical.PubKeyInfo {
 
 	pkInfo := logical.PubKeyInfo{ID: id, PK: pk}
 	return &pkInfo
+}
+
+func unMarshalConsensusCreateGroupRawMessage(b []byte) (*logical.ConsensusCreateGroupRawMessage, error) {
+	message := new(tas_middleware_pb.ConsensusCreateGroupRawMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]UnMarshalConsensusCreateGroupRawMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
+
+	sign := pbToSignData(message.Sign)
+
+	ids := make([]groupsig.ID, 0)
+
+	for _, idByte := range message.Ids {
+		id := groupsig.DeserializeId(idByte)
+		ids = append(ids, *id)
+	}
+
+	m := logical.ConsensusCreateGroupRawMessage{GI: *gi, IDs: ids, SI: *sign}
+	return &m, nil
+}
+
+func unMarshalConsensusCreateGroupSignMessage(b []byte) (*logical.ConsensusCreateGroupSignMessage, error) {
+	message := new(tas_middleware_pb.ConsensusCreateGroupSignMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]UnMarshalConsensusCreateGroupSignMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
+
+	sign := pbToSignData(message.Sign)
+
+	m := logical.ConsensusCreateGroupSignMessage{GI: *gi, SI: *sign}
+	return &m, nil
 }

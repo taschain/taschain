@@ -386,6 +386,12 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	if grm.SI.DataHash != grm.GI.GenHash() {
 		panic("grm gis hash diff")
 	}
+	parentGroup := p.getGroup(grm.GI.ParentID)
+	gpk := parentGroup.GroupPK
+	if !groupsig.VerifySig(gpk, grm.SI.DataHash.Bytes(), grm.GI.Signature) {
+		log.Printf("OMGI verify parent groupsig fail!\n")
+		return
+	}
 
 	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 	staticGroupInfo := NewSGIFromRawMessage(&grm)
@@ -571,34 +577,18 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
+				msg.GI.BeginHeight = gc.gis.BeginCastHeight
+				msg.GI.DismissHeight = gc.gis.DismissHeight
 				msg.GI.Members = make([]PubKeyInfo, len(gc.mems))
 				copy(msg.GI.Members, gc.mems)
 
-				pTop := p.MainChain.QueryTopBlock()
-				if 0 == pTop.Height {
-					msg.GI.BeginHeight = 1
-				} else {
-					msg.GI.BeginHeight = pTop.Height + uint64(GROUP_INIT_IDLE_HEIGHT)
-				}
 				msg.GenSign(ski)
 				if locked {
 					p.initLock.Unlock()
 					locked = false
 				}
 				if !PROC_TEST_MODE {
-					////组写入组链 add by 小熊
-					//members := make([]core.Member, 0)
-					//for _, miner := range mems {
-					//	member := core.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-					//	members = append(members, member)
-					//}
-					//group := core.Group{Id: msg.GI.GroupID.Serialize(), Members: members, PubKey: msg.GI.GroupPK.Serialize(), Parent: msg.GI.GIS.ParentID.Serialize()}
-					//e := p.GroupChain.AddGroup(&group, nil, nil)
-					//if e != nil {
-					//	log.Printf("group inited add group error:%s\n", e.Error())
-					//} else {
-					//	log.Printf("group inited add group success. count: %d, now: %d\n", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
-					//}
+
 					log.Printf("call network service BroadcastGroupInfo...\n")
 					BroadcastGroupInfo(msg)
 				} else {
@@ -630,6 +620,17 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	}
 	if gim.SI.DataHash != gim.GI.GenHash() {
 		panic("grm gis hash diff")
+	}
+	parentGroup := p.getGroup(gim.GI.GIS.ParentID)
+	gpk := parentGroup.GroupPK
+	if !groupsig.VerifySig(gpk, gim.GI.GIS.GenHash().Bytes(), gim.GI.GIS.Signature) {
+		log.Printf("OMGIED verify parent groupsig fail! dummyId=%v\n", GetIDPrefix(gim.GI.GIS.DummyID))
+		return
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if gim.GI.GetReadyTimeout(topHeight) {
+		log.Printf("OMGIED getReadyTimeout dummyId=%v\n", GetIDPrefix(gim.GI.GIS.DummyID))
+		return
 	}
 
 	p.initLock.Lock()
@@ -679,4 +680,61 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	}
 	log.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	return
+}
+
+
+func (p *Processor) OnMessageCreateGroupRaw(msg ConsensusCreateGroupRawMessage)  {
+	log.Printf("Proc(%v) OMCGR begin, dummyId=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+
+	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
+		return
+	}
+	gpk := p.GetMemberSignPubKey(GroupMinerID{gid:msg.GI.ParentID, uid:msg.SI.SignMember})
+	if !gpk.IsValid() {
+		return
+	}
+	if !msg.SI.VerifySign(gpk) {
+		return
+	}
+	if p.groupManager.OnMessageCreateGroupRaw(&msg) {
+		signMsg := &ConsensusCreateGroupSignMessage{
+			GI: msg.GI,
+			Launcher: msg.SI.SignMember,
+		}
+		signMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getSignKey(msg.GI.ParentID)})
+		log.Printf("ConsensusCreateGroupRawMessage SendCreateGroupSignMessage... ")
+		SendCreateGroupSignMessage(signMsg)
+	}
+}
+
+func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage)  {
+	log.Printf("Proc(%v) OMCGS begin, dummyId=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
+		return
+	}
+	gpk := p.GetMemberSignPubKey(GroupMinerID{gid:msg.GI.ParentID, uid:msg.SI.SignMember})
+	if !gpk.IsValid() {
+		return
+	}
+	if !msg.SI.VerifySign(gpk) {
+		return
+	}
+	if p.groupManager.OnMessageCreateGroupSign(&msg) {
+		creatingGroup := p.groupManager.createContext.getCreatingGroup(msg.GI.DummyID)
+		mems := make([]PubKeyInfo, len(creatingGroup.ids))
+		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
+		for i, id := range creatingGroup.ids {
+			mems[i] = PubKeyInfo{ID: id, PK: pubkeys[i]}
+		}
+		initMsg := &ConsensusGroupRawMessage{
+			GI: msg.GI,
+			MEMS: mems,
+		}
+
+		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
+		initMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()})
+		SendGroupInitMessage(*initMsg)
+
+		p.groupManager.removeCreatingGroup(msg.GI.DummyID)
+	}
 }

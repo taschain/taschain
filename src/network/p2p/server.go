@@ -73,6 +73,11 @@ const (
 
 	BLOCK_HASHES uint32 = 0x15
 
+	//---------------------组创建确认-----------------------
+	CREATE_GROUP_RAW uint32 = 0x16
+
+	CREATE_GROUP_SIGN uint32 = 0x17
+
 	//广播自身上链过的BLOCK
 	//ON_CHAIN_BLOCK_MSG uint32 = 0X16
 )
@@ -228,7 +233,7 @@ func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
-		VARIFIED_CAST_MSG:
+		VARIFIED_CAST_MSG, CREATE_GROUP_RAW, CREATE_GROUP_SIGN:
 		consensusHandler.HandlerMessage(*code, message.Body, from)
 	case REQ_TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
 		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES:

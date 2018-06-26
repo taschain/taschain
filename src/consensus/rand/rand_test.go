@@ -42,3 +42,13 @@ func TestMathRand2(t *testing.T) {
 	t.Log(rand.Uint64())
 	t.Log(rand.Uint64())
 }
+
+func TestRandSeq(t *testing.T) {
+	rand := RandFromBytes([]byte("abc"))
+	t.Log(rand.RandomPerm(10, 3))
+	t.Log(rand.RandomPerm(10, 3))
+	t.Log(rand.RandomPerm(120, 3))
+	t.Log(rand.RandomPerm(120, 15))
+	t.Log(rand.RandomPerm(120, 15))
+	t.Log(rand.RandomPerm(120, 16))
+}

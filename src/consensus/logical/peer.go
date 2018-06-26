@@ -201,11 +201,10 @@ func SendCreateGroupRawMessage(msg *ConsensusCreateGroupRawMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
+	m := p2p.Message{Code: p2p.CREATE_GROUP_RAW, Body: body}
 
 	var groupId = msg.GI.ParentID
 
-	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
@@ -215,12 +214,9 @@ func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
+	m := p2p.Message{Code: p2p.CREATE_GROUP_SIGN, Body: body}
 
-	var groupId = msg.GI.ParentID
-
-	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
-	groupBroadcast(m, groupId)
+	p2p.Server.SendMessage(m, msg.Launcher.GetString())
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------
@@ -320,7 +316,7 @@ func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_middleware
 		return nil
 	}
 
-	name := []byte{}
+	name := make([]byte, 0)
 	for _, b := range m.Name {
 		name = append(name, b)
 	}

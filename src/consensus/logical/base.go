@@ -305,6 +305,9 @@ type ConsensusGroupInitSummary struct {
 	Members   uint64      //成员数量
 	BeginTime time.Time   //初始化开始时间（必须在指定时间窗口内完成初始化）
 	MemberHash	common.Hash	//成员数据哈希
+	GetReadyHeight	uint64	//准备就绪的高度,即组建成的最大高度, 超过该高度后, 组建成也无效
+	BeginCastHeight	uint64	//可以开始铸块的高度
+	DismissHeight	uint64	//解散的高度
 	Extends   string      //带外数据
 }
 
@@ -354,19 +357,39 @@ func (gis *ConsensusGroupInitSummary) IsExpired() bool {
 	}
 }
 
+func (gis *ConsensusGroupInitSummary) ReadyTimeout(height uint64) bool {
+	return gis.GetReadyHeight <= height
+}
+
 //生成哈希
 func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
-	buf := gis.ParentID.GetHexString()
-	buf += strconv.FormatUint(gis.Authority, 16)
-	buf += string(gis.Name[:])
-	buf += gis.DummyID.GetHexString()
-	buf += strconv.FormatUint(gis.Members, 16)
-	buf += gis.BeginTime.Format(time.ANSIC)
-	buf += gis.MemberHash.String()
+	//buf := gis.ParentID.GetHexString()
+	//buf += strconv.FormatUint(gis.Authority, 16)
+	//buf += string(gis.Name[:])
+	//buf += gis.DummyID.GetHexString()
+	//buf += strconv.FormatUint(gis.Members, 16)
+	//buf += gis.BeginTime.Format(time.ANSIC)
+	//buf += gis.MemberHash.String()
+	//buf +=
+	//if len(gis.Extends) <= 1024 {
+	//	buf += gis.Extends
+	//} else {
+	//	buf += gis.Extends[:1024]
+	//}
+	buf := gis.ParentID.Serialize()
+	buf = strconv.AppendUint(buf, gis.Authority, 16)
+	buf = append(buf, []byte(gis.Name[:])...)
+	buf = append(buf, gis.DummyID.Serialize()...)
+	buf = strconv.AppendUint(buf, gis.Members, 16)
+	buf = gis.BeginTime.AppendFormat(buf, time.ANSIC)
+	buf = append(buf, gis.MemberHash.Bytes()...)
+	buf = strconv.AppendUint(buf, gis.GetReadyHeight, 16)
+	buf = strconv.AppendUint(buf, gis.BeginCastHeight, 16)
+	buf = strconv.AppendUint(buf, gis.DismissHeight, 16)
 	if len(gis.Extends) <= 1024 {
-		buf += gis.Extends
+		buf = append(buf, []byte(gis.Extends[:])...)
 	} else {
-		buf += gis.Extends[:1024]
+		buf = append(buf, []byte(gis.Extends[:1024])...)
 	}
 	return rand.Data2CommonHash([]byte(buf))
 }

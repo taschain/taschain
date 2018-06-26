@@ -211,6 +211,10 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
 func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey, sign groupsig.Signature, hash common.Hash) int {
 	log.Printf("begin GroupNode::SetSignPKPiece...\n")
+	if !groupsig.VerifySig(signPk, hash.Bytes(), sign) {
+		log.Printf("verify miner signPubkey fail, id=%v\n", GetIDPrefix(id))
+		return -1
+	}
 	idHex := id.GetHexString()
 	n.groupSecretSignMap[idHex] = sign
 	if v, ok := n.memberPubKeys[idHex]; ok {

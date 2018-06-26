@@ -76,6 +76,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	if result == 0 {
 		p.triggerFutureVerifyMsg(block.Header.Hash)
+		p.groupManager.CreateNextGroupRoutine()
 	} else if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
 	}

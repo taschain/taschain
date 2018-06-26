@@ -28,6 +28,7 @@ type StaticGroupInfo struct {
 	MapCache map[string]int            //用ID查找成员信息(成员ID->members中的索引)
 	GIS      ConsensusGroupInitSummary //组的初始化凭证
 	BeginHeight uint64             	   //组开始参与铸块的高度
+	DismissHeight uint64				//组解散的高度
 }
 
 //取得某个矿工在组内的排位
@@ -99,6 +100,7 @@ func NewSGIFromRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
 	}
 	return sgi
 }
+
 
 func (sgi *StaticGroupInfo) GetLen() int {
 	return len(sgi.Members)
@@ -185,8 +187,18 @@ func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
 }
 
 func (sgi *StaticGroupInfo) CastQualified(height uint64) bool {
-	return sgi.BeginHeight <= height
+	return sgi.BeginHeight <= height && height < sgi.DismissHeight
 }
+
+//是否已解散
+func (sgi *StaticGroupInfo) Dismissed(height uint64) bool {
+	return height >= sgi.DismissHeight
+}
+
+func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
+    return sgi.GIS.ReadyTimeout(height)
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //当前节点参与的铸块组（已初始化完成）
 type JoinedGroup struct {
@@ -430,4 +442,14 @@ func (gg GlobalGroups) IsCastGroup(pre_h common.Hash, pub_key groupsig.Pubkey, h
 	g := gg.GetCastGroup(pre_h, height)
 	result = g.GroupPK == pub_key
 	return
+}
+
+func (gg *GlobalGroups) GetQualifiedGroups(height uint64) []*StaticGroupInfo {
+	gs := make([]*StaticGroupInfo, 0)
+	for _, g := range gg.groups {
+		if g.CastQualified(height) {
+			gs = append(gs, &g)
+		}
+	}
+	return gs
 }

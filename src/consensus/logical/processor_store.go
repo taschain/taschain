@@ -95,11 +95,7 @@ func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
 	}
 }
 
-func (p *Processor) getMinerSignKey(gid groupsig.ID) groupsig.Seckey {
-    if jg, ok := p.belongGroups[gid.GetHexString()]; !ok {
-    	return groupsig.Seckey{}
-	} else {
-		return jg.SignKey
-	}
-
+func (p *Processor) getCurrentQualifiedGroups() []*StaticGroupInfo {
+    topBH := p.MainChain.QueryTopBlock()
+    return p.gg.GetQualifiedGroups(topBH.Height)
 }
