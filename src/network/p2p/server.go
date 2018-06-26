@@ -236,23 +236,23 @@ func handleStream(reader *bufio.Reader, id string) error {
 	}
 	if h != 3 {
 		logger.Errorf("stream  should read %d byte, but received %d bytes", 3, h)
-		return nil
+		return fmt.Errorf("stream read 3 error")
 	}
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
 		logger.Errorf("stream validate header error from %s! ", id)
-		return nil
+		return fmt.Errorf("validate header error")
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
 	n, err := reader.Read(pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("stream  read4 error:%s", err.Error())
-		return nil
+		return err
 	}
 	if n != 4 {
 		logger.Errorf("stream  should read %d byte, but received %d bytes", 4, n)
-		return nil
+		return fmt.Errorf("stream read 4 error")
 	}
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
