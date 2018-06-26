@@ -159,7 +159,13 @@ func (s *server) send(b []byte, id string) {
 
 	if e2 != nil {
 		stream.Close()
-		s.streams[id] = nil
+		stream, e1 = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e1 != nil {
+			logger.Errorf("New stream for %s error:%s", id, e1.Error())
+			s.streamMapLock.Unlock()
+			return
+		}
+		s.streams[id] = stream
 		s.streamMapLock.Unlock()
 		s.send(b, id)
 		return
@@ -195,7 +201,7 @@ func (s *server) writePackage(stream inet.Stream, body []byte, id string) error 
 				return err
 			}
 			if r != len(a) {
-				logger.Errorf("stream should write %d byte ,bu write %d bytes", PACKAGE_MAX_SIZE, r)
+				logger.Errorf("stream should write %d byte ,but write %d bytes", PACKAGE_MAX_SIZE, r)
 				return fmt.Errorf("stream write length error")
 			}
 			left += PACKAGE_MAX_SIZE
@@ -229,15 +235,12 @@ func swarmStreamHandler(stream inet.Stream) {
 }
 func handleStream(reader *bufio.Reader, id string) error {
 	headerBytes := make([]byte, 3)
-	h, e1 := reader.Read(headerBytes)
+	e1 := readPackage(reader,headerBytes)
 	if e1 != nil {
 		logger.Errorf("stream read 3 from %s error:%s!", id, e1.Error())
 		return e1
 	}
-	if h != 3 {
-		logger.Errorf("stream  should read %d byte, but received %d bytes", 3, h)
-		return fmt.Errorf("stream read 3 error")
-	}
+
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
 		logger.Errorf("stream validate header error from %s! ", id)
@@ -245,15 +248,12 @@ func handleStream(reader *bufio.Reader, id string) error {
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := reader.Read(pkgLengthBytes)
+	err := readPackage(reader,pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("stream  read4 error:%s", err.Error())
 		return err
 	}
-	if n != 4 {
-		logger.Errorf("stream  should read %d byte, but received %d bytes", 4, n)
-		return fmt.Errorf("stream read 4 error")
-	}
+
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
 
