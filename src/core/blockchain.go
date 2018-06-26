@@ -137,7 +137,7 @@ func initBlockChain() error {
 	}
 
 	var err error
-	chain.blockCache, err = lru.New(1000)
+	chain.blockCache, err = lru.New(20)
 	chain.topBlocks, _ = lru.New(1000)
 	if err != nil {
 		return err
