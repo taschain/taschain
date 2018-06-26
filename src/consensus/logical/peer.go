@@ -147,7 +147,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]send VARIFIED_CAST_MSG %d-%d", cvm.BH.Height, cvm.BH.Hash)
+	network.Logger.Debugf("[peer]send VARIFIED_CAST_MSG %d-%d", cvm.BH.Height, cvm.BH.QueueNumber)
 	groupBroadcast(m, groupId)
 }
 
