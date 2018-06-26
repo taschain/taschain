@@ -503,6 +503,8 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		m := &TransactionRequestMessage{
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
+			BlockHeight:bh.Height,
+			BlockQn:bh.QueueNumber,
 		}
 		go RequestTransaction(*m, castorId.GetString())
 		return missing, 1, nil, nil
