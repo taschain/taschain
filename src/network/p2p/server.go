@@ -211,7 +211,7 @@ func swarmStreamHandler(stream inet.Stream) {
 		for {
 			e := handleStream(stream)
 			if e != nil {
-				stream.Close()
+				stream.Reset()
 				break
 			}
 		}
