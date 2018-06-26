@@ -103,7 +103,7 @@ type server struct {
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]inet.Stream)}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]inet.Stream),streamWriters: make(map[string]*bufio.Writer)}
 }
 
 func (s *server) SendMessage(m Message, id string) {
