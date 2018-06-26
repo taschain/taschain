@@ -129,7 +129,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, ccm.BH.Height, ccm.BH.Hash)
+	network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d",ccm.BH.Height, ccm.BH.QueueNumber)
 	groupBroadcast(m, groupId)
 }
 
@@ -147,7 +147,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cvm.BH.Height, cvm.BH.Hash)
+	network.Logger.Debugf("[peer]send VARIFIED_CAST_MSG %d-%d", cvm.BH.Height, cvm.BH.Hash)
 	groupBroadcast(m, groupId)
 }
 
