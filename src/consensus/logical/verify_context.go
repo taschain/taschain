@@ -11,7 +11,6 @@ import (
 	"consensus/rand"
 	"encoding/binary"
 	"strconv"
-	"consensus/groupsig"
 )
 
 /*

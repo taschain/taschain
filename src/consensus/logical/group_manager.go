@@ -36,7 +36,7 @@ type GroupManager struct {
 	createContext *CreateGroupContext
 }
 
-func newGroupManager(processor *Processor) *GroupManager {
+func NewGroupManager(processor *Processor) *GroupManager {
 	return &GroupManager{
 		processor: processor,
 		mainChain: processor.MainChain,
@@ -66,14 +66,11 @@ func (gm *GroupManager) createNextDummyGroup(miners []PubKeyInfo, parent *Static
 }
 
 //检查当前用户是否是属于建组的组, 返回组id
-func (gm *GroupManager) checkCreateGroup() (bool, *StaticGroupInfo, *types.BlockHeader) {
-	topHeight := gm.mainChain.QueryTopBlock().Height
-	//todo 应该使用链接口, 取链上倒数第n块
-	var theBH *types.BlockHeader
-	h := topHeight - CHECK_CREATE_GROUP_HEIGHT_AFTER
-	for theBH == nil {
-		theBH = gm.mainChain.QueryBlockByHeight(h)
-		h--
+func (gm *GroupManager) checkCreateGroup(topHeight uint64) (bool, *StaticGroupInfo, *types.BlockHeader) {
+	blockHeight := topHeight - CHECK_CREATE_GROUP_HEIGHT_AFTER
+	theBH := gm.mainChain.QueryBlockByHeight(blockHeight)
+	if theBH == nil {
+		return false, nil, nil
 	}
 
 	castGID := groupsig.DeserializeId(theBH.GroupId)
@@ -81,7 +78,7 @@ func (gm *GroupManager) checkCreateGroup() (bool, *StaticGroupInfo, *types.Block
 		sgi := gm.processor.getGroup(*castGID)
 		if sgi.CastQualified(topHeight) {
 			log.Printf("checkCreateNextGroup, topHeight=%v, theBH height=%v, king=%v\n", topHeight, theBH.Height, gm.processor.getPrefix())
-			return true, &sgi, theBH
+			return true, sgi, theBH
 		}
 	}
 
@@ -122,13 +119,13 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 
 func (gm *GroupManager) selectCandidates(randSeed common.Hash) (bool, []groupsig.ID) {
 	allCandidates := gm.getAllCandidates()
-	groups := gm.processor.getCurrentQualifiedGroups()
+	groups := gm.processor.getCurrentAvailableGroups()
 
 	candidates := make([]groupsig.ID, 0)
 	for _, id := range allCandidates {
 		joinedNum := 0
 		for _, g := range groups {
-			if g.GetPosition(id) >= 0 {
+			if g.MemExist(id) {
 				joinedNum++
 			}
 		}
@@ -168,8 +165,11 @@ func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
 }
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
+	topBH := gm.mainChain.QueryTopBlock()
+	topHeight := topBH.Height
+
+	create, group, bh := gm.checkCreateGroup(topHeight)
 	//不是当前组铸
-    create, group, bh := gm.checkCreateGroup()
 	if !create {
 		return
 	}
@@ -191,8 +191,6 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		return
 	}
 
-	topBH := gm.processor.MainChain.QueryTopBlock()
-	topHeight := topBH.Height
 
 	log.Printf("CreateNextGroupRoutine, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
@@ -246,7 +244,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMess
 		log.Printf("ConsensusCreateGroupRawMessage memberHash diff\n")
 		return false
 	}
-	create, group, bh := gm.checkCreateGroup()
+	create, group, bh := gm.checkCreateGroup(gis.TopHeight)
 	if !create {
 		log.Printf("ConsensusCreateGroupRawMessage current group is not the next CastGroup!")
 		return false
@@ -301,5 +299,24 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *ConsensusCreateGroupSignMe
 		return false
 	}
 	accept := gm.createContext.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
-	return accept == PIECE_THRESHOLD
+	if accept == PIECE_THRESHOLD {
+		sign := groupsig.RecoverSignatureByMapI(creating.pieces, GetGroupK())
+		msg.GI.Signature = *sign
+		return true
+	}
+	return false
+}
+
+func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
+	group := ConvertStaticGroup2CoreGroup(sgi, isDummy)
+	err := gm.groupChain.AddGroup(group, nil, nil)
+	if err != nil {
+		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, GetIDPrefix(sgi.GIS.DummyID), err.Error())
+		return
+	}
+	if isDummy {
+		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", GetIDPrefix(sgi.GIS.DummyID), gm.groupChain.Count())
+	} else {
+		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", GetIDPrefix(sgi.GroupID), gm.groupChain.Count())
+	}
 }

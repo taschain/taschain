@@ -3,8 +3,7 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
-	//"consensus/net"
-	"core"
+
 	"fmt"
 	"time"
 	"log"
@@ -116,7 +115,7 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		return
 	}
 
-	bc := p.GetBlockContext(gid.GetHexString())
+	bc := p.GetBlockContext(gid)
 	if bc == nil {
 		result = "未获取到blockcontext"
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
@@ -224,7 +223,7 @@ func (p *Processor) receiveBlock(msg *ConsensusBlockMessage, preBH *types.BlockH
 }
 
 func (p *Processor) cleanVerifyContext(currentHeight uint64) {
-	for _, bc := range p.bcs {
+	p.blockContexts.forEach(func(bc *BlockContext) bool {
 		ctxs := bc.SafeGetVerifyContexts()
 		delCtx := make([]*VerifyContext, 0)
 		for _, ctx := range ctxs {
@@ -236,7 +235,8 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 			log.Printf("cleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
 		}
 		bc.RemoveVerifyContexts(delCtx)
-	}
+		return true
+	})
 }
 
 //收到铸块上链消息(组外矿工节点处理)
@@ -327,14 +327,14 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 	log.Printf("proc(%v) begin %v, trans count=%v...\n", p.getPrefix(),mtype, len(ths))
 
-	for _, bc := range p.bcs {
+	p.blockContexts.forEach(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
 			for _, slot := range vctx.slots {
 				acceptRet := vctx.AcceptTrans(slot, ths)
 				log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
-					break
+
 				case TRANS_ACCEPT_NOT_FULL:
 					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
@@ -361,7 +361,8 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 			}
 		}
-	}
+		return true
+	})
 
 	return
 }
@@ -372,13 +373,6 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
-	p.initLock.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			p.initLock.Unlock()
-		}
-	}()
 
 	if !grm.GI.checkMemberHash(grm.MEMS) {
 		panic("grm member hash diff!")
@@ -387,37 +381,33 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		panic("grm gis hash diff")
 	}
 	parentGroup := p.getGroup(grm.GI.ParentID)
+	if !parentGroup.CastQualified(grm.GI.TopHeight) {
+		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), grm.GI.TopHeight)
+		return
+	}
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, grm.SI.DataHash.Bytes(), grm.GI.Signature) {
 		log.Printf("OMGI verify parent groupsig fail!\n")
 		return
 	}
 
-	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-	staticGroupInfo := NewSGIFromRawMessage(&grm)
-	if p.gg.ngg.addInitingGroup(CreateInitingGroup(staticGroupInfo)) {
+	staticGroupInfo := new(StaticGroupInfo)
+	staticGroupInfo.GIS = grm.GI
+	staticGroupInfo.Members = grm.MEMS
+
+	if p.globalGroups.AddInitingGroup(CreateInitingGroup(&grm)) {
+		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 		//dummy 组写入组链 add by 小熊
-		members := make([]types.Member, 0)
-		for _, miner := range grm.MEMS {
-			member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-			members = append(members, member)
-		}
-		//此时组ID 跟组公钥是没有的
-		group := types.Group{Members: members, Dummy: grm.GI.DummyID.Serialize(), Parent: []byte("genesis group dummy")}
-		err := p.GroupChain.AddGroup(&group, nil, nil)
-		if err != nil {
-			log.Printf("ERROR:add dummy group fail! dummyId=%v, err=%v", GetIDPrefix(grm.GI.DummyID), err.Error())
-			return
-		}
+		p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
 	//非组内成员不走后续流程
 	if !staticGroupInfo.MemExist(p.GetMinerID()) {
 		return
 	}
-	//p.gg.AddDummyGroup(sgi)
+	//p.globalGroups.AddDummyGroup(sgi)
 
-	groupContext := p.jgs.ConfirmGroupFromRaw(&grm, p.mi)
+	groupContext := p.joiningGroups.ConfirmGroupFromRaw(&grm, p.mi)
 	if groupContext == nil {
 		panic("Processor::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
@@ -427,11 +417,6 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		log.Printf("begin GenSharePieces in OMGI...\n")
 		shares := groupContext.GenSharePieces() //生成秘密分享
 		log.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
-
-		if locked {
-			p.initLock.Unlock()
-			locked = false
-		}
 
 		spm := ConsensusSharePieceMessage{
 			GISHash: grm.GI.GenHash(),
@@ -477,24 +462,18 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
 
-
-	p.initLock.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			p.initLock.Unlock()
-		}
-	}()
-
-	gc := p.jgs.GetGroup(spm.DummyID)
+	gc := p.joiningGroups.GetGroup(spm.DummyID)
 	if gc == nil {
 		panic("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
 		return
 	}
+	if gc.gis.GenHash() != spm.GISHash {
+		log.Printf("OMSPK failed, gisHash diff.\n")
+		return
+	}
 
 	result := gc.PieceMessage(spm)
-	log.Printf("proc(%v) OMSP after gc.PieceMessage, piecc_count=%v, gc result=%v.\n", p.getPrefix(), p.piece_count, result)
-	p.piece_count++
+	log.Printf("proc(%v) OMSP after gc.PieceMessage, gc result=%v.\n", p.getPrefix(), result)
 
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()
@@ -509,6 +488,7 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
 				}
 
+				//对GISHash做自己的签名
 				msg.GenGISSign(jg.SignKey)
 				if !msg.VerifyGISSign(msg.SignPK) {
 					panic("verify GISSign with group member sign pub key failed.")
@@ -517,10 +497,7 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 				msg.GenSign(ski)
 				//todo : 组内广播签名公钥
 				log.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
-				if locked {
-					p.initLock.Unlock()
-					locked = false
-				}
+
 				if !PROC_TEST_MODE {
 					log.Printf("OMSP call network service SendSignPubKey...\n")
 					SendSignPubKey(msg)
@@ -544,32 +521,30 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
-	p.initLock.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			p.initLock.Unlock()
-		}
-	}()
-	/* 待小熊增加GISSign成员的流化后打开
-	if !spkm.VerifyGISSign(spkm.SignPK) {
-		panic("OMSP verify GISSign with sign pub key failed.")
-	}
-	*/
 
-	gc := p.jgs.GetGroup(spkm.DummyID)
+	gc := p.joiningGroups.GetGroup(spkm.DummyID)
 	if gc == nil {
 		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
 		return
 	}
+	if gc.gis.GenHash() != spkm.GISHash {
+		log.Printf("OMSPK failed, gisHash diff.\n")
+		return
+	}
+	if !spkm.VerifyGISSign(spkm.SignPK) {
+		panic("OMSP verify GISSign with sign pub key failed.")
+	}
+
 	log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
-	result := gc.SignPKMessage(spkm)
+	result := gc.SignPKMessage(&spkm)
 	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
+
 		jg.setGroupSecretHeight(p.MainChain.QueryTopBlock().Height)
+
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
-			p.addInnerGroup(jg, true)
+			p.joinGroup(jg, true)
 			log.Printf("SUCCESS INIT GROUP: gid=%v, gpk=%v.\n", GetIDPrefix(jg.GroupID), GetPubKeyPrefix(jg.GroupPK))
 			{
 				var msg ConsensusGroupInitedMessage
@@ -577,16 +552,9 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
-				msg.GI.BeginHeight = gc.gis.BeginCastHeight
-				msg.GI.DismissHeight = gc.gis.DismissHeight
-				msg.GI.Members = make([]PubKeyInfo, len(gc.mems))
-				copy(msg.GI.Members, gc.mems)
 
 				msg.GenSign(ski)
-				if locked {
-					p.initLock.Unlock()
-					locked = false
-				}
+
 				if !PROC_TEST_MODE {
 
 					log.Printf("call network service BroadcastGroupInfo...\n")
@@ -601,7 +569,7 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 		} else {
 			panic("Processor::OnMessageSharePiece failed, aggr key error.")
 		}
-		p.jgs.RemoveGroup(spkm.DummyID)
+		p.joiningGroups.RemoveGroup(spkm.DummyID)
 	}
 
 	log.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
@@ -615,67 +583,65 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 
-	if !gim.GI.GIS.checkMemberHash(gim.GI.Members) {
-		panic("gim member hash diff!")
-	}
+	dummyId := gim.GI.GIS.DummyID
+
+
 	if gim.SI.DataHash != gim.GI.GenHash() {
 		panic("grm gis hash diff")
 	}
 	parentGroup := p.getGroup(gim.GI.GIS.ParentID)
+	if !parentGroup.CastQualified(gim.GI.GIS.TopHeight) {
+		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), gim.GI.GIS.TopHeight)
+		return
+	}
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, gim.GI.GIS.GenHash().Bytes(), gim.GI.GIS.Signature) {
-		log.Printf("OMGIED verify parent groupsig fail! dummyId=%v\n", GetIDPrefix(gim.GI.GIS.DummyID))
+		log.Printf("OMGIED verify parent groupsig fail! dummyId=%v\n", GetIDPrefix(dummyId))
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
-	if gim.GI.GetReadyTimeout(topHeight) {
-		log.Printf("OMGIED getReadyTimeout dummyId=%v\n", GetIDPrefix(gim.GI.GIS.DummyID))
+
+	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
+	if initingGroup == nil {
+		log.Printf("initingGroup not found!dummyId=%v\n", GetIDPrefix(dummyId))
 		return
 	}
-
-	p.initLock.Lock()
-	defer p.initLock.Unlock()
-
-	var ngmd NewGroupMemberData
-	ngmd.h = gim.GI.GIS.GenHash()
-	ngmd.gid = gim.GI.GroupID
-	ngmd.gpk = gim.GI.GroupPK
-	var mid GroupMinerID
-	mid.gid = gim.GI.GIS.DummyID
-	mid.uid = gim.SI.SignMember
-	result := p.gg.GroupInitedMessage(mid, ngmd)
-	p.inited_count++
-	log.Printf("proc(%v) OMGIED gg.GroupInitedMessage result=%v, inited_count=%v.\n", p.getPrefix(), result, p.inited_count)
-	if result < 0 {
-		panic("OMGIED gg.GroupInitedMessage failed because of return value.")
+	if !initingGroup.MemberExist(gim.SI.SignMember) {
+		return
 	}
+	if initingGroup.gis.GenHash() != gim.SI.DataHash {
+		log.Printf("gisHash diff from initingGroup, dummyId=%v\n", GetIDPrefix(dummyId))
+		return
+	}
+	if !gim.GI.GIS.checkMemberHash(initingGroup.mems) {
+		panic("gim member hash diff!")
+	}
+
+	result := p.globalGroups.GroupInitedMessage(&gim.GI, gim.SI.SignMember, topHeight)
+
+	log.Printf("proc(%v) OMGIED globalGroups.GroupInitedMessage result=%v.\n", p.getPrefix(), result)
+
 	switch result {
-	case 1: //收到组内相同消息>=阈值，可上链
+	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
-		b := p.gg.AddGroup(gim.GI)
-		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", b, p.gg.GetGroupSize())
+		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
+		add := p.globalGroups.AddStaticGroup(staticGroup)
+		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
 
-		//上链
-		members := make([]types.Member, 0)
-		for _, miner := range gim.GI.Members {
-			member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-			members = append(members, member)
-		}
-		group := types.Group{Id: gim.GI.GroupID.Serialize(), Members: members, PubKey: gim.GI.GroupPK.Serialize(), Parent: gim.GI.GIS.ParentID.Serialize()}
-		e := p.GroupChain.AddGroup(&group, nil, nil)
-		if e != nil {
-			log.Printf("OMGIED group inited add group error:%s\n", e.Error())
-		} else {
-			log.Printf("OMGIED group inited add group success. count: %d, now: %d\n", core.GroupChainImpl.Count(), len(core.GroupChainImpl.GetAllGroupID()))
+		if add {
+			p.groupManager.AddGroupOnChain(staticGroup, false)
+
+			if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID) == nil {
+				p.prepareForCast(gim.GI.GroupID)
+			}
 		}
 
-		if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID.GetHexString()) == nil {
-			p.prepareForCast(gim.GI.GroupID)
-		}
+		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
 
-	case -1: //该组初始化异常，且无法恢复
-		//to do : 从待初始化组中删除
-	case 0:
+	case INIT_FAIL: //该组初始化异常，且无法恢复
+		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
+
+	case INITING:
 		//继续等待下一包数据
 	}
 	log.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
@@ -712,14 +678,19 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
-	gpk := p.GetMemberSignPubKey(GroupMinerID{gid:msg.GI.ParentID, uid:msg.SI.SignMember})
-	if !gpk.IsValid() {
+	mpk := p.GetMemberSignPubKey(GroupMinerID{gid:msg.GI.ParentID, uid:msg.SI.SignMember})
+	if !mpk.IsValid() {
 		return
 	}
-	if !msg.SI.VerifySign(gpk) {
+	if !msg.SI.VerifySign(mpk) {
 		return
 	}
 	if p.groupManager.OnMessageCreateGroupSign(&msg) {
+		gpk := p.getGroup(msg.GI.ParentID).GroupPK
+		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), msg.GI.Signature) {
+			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
+			return
+		}
 		creatingGroup := p.groupManager.createContext.getCreatingGroup(msg.GI.DummyID)
 		mems := make([]PubKeyInfo, len(creatingGroup.ids))
 		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)

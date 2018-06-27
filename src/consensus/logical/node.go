@@ -209,14 +209,14 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share SharePiece) int {
 
 //接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
-func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey, sign groupsig.Signature, hash common.Hash) int {
+func (n *GroupNode) SetSignPKPiece(spkm *ConsensusSignPubKeyMessage) int {
 	log.Printf("begin GroupNode::SetSignPKPiece...\n")
-	if !groupsig.VerifySig(signPk, hash.Bytes(), sign) {
-		log.Printf("verify miner signPubkey fail, id=%v\n", GetIDPrefix(id))
-		return -1
-	}
-	idHex := id.GetHexString()
-	n.groupSecretSignMap[idHex] = sign
+	idHex := spkm.SI.SignMember.GetHexString()
+	signPk := spkm.SignPK
+	gisHash := spkm.GISHash
+	gisSign := spkm.GISSign
+	n.groupSecretSignMap[idHex] = gisSign
+
 	if v, ok := n.memberPubKeys[idHex]; ok {
 		if v.IsEqual(signPk) {
 			return 0
@@ -226,12 +226,12 @@ func (n *GroupNode) SetSignPKPiece(id groupsig.ID, signPk groupsig.Pubkey, sign 
 	} else {
 		n.memberPubKeys[idHex] = signPk
 		if len(n.memberPubKeys) == GROUP_MAX_MEMBERS { //已经收到所有组内成员发送的签名公钥
-			sign = *groupsig.RecoverSignatureByMapI(n.groupSecretSignMap, GetGroupK())
-			if !groupsig.VerifySig(n.groupPubKey, hash.Bytes(), sign) {
-				log.Printf("recover group secret sign failed!\n")
+			gisSign = *groupsig.RecoverSignatureByMapI(n.groupSecretSignMap, GetGroupK())
+			if !groupsig.VerifySig(n.groupPubKey, gisHash.Bytes(), gisSign) {
+				log.Printf("recover group secret gisSign failed!\n")
 				return -1
 			}
-			n.groupSecret = NewGroupSecret(sign, 0, hash)
+			n.groupSecret = NewGroupSecret(gisSign, 0, gisHash)
 			return 1
 		}
 	}

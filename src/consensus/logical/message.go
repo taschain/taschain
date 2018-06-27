@@ -79,6 +79,7 @@ func (msg *ConsensusSignPubKeyMessage) GenGISSign(sk groupsig.Seckey) {
 	msg.GISSign = groupsig.Sign(sk, msg.GISHash.Bytes())
 }
 
+
 func (msg *ConsensusSignPubKeyMessage) VerifyGISSign(pk groupsig.Pubkey) bool {
 	return groupsig.VerifySig(pk, msg.GISHash.Bytes(), msg.GISSign)
 }
@@ -104,7 +105,7 @@ func (msg ConsensusSignPubKeyMessage) VerifySign(pk groupsig.Pubkey) bool {
 
 //向组外广播该组已经初始化完成(组外节点要收到门限个消息相同，才进行上链)
 type ConsensusGroupInitedMessage struct {
-	GI StaticGroupInfo //组初始化完成后的上链组信息（辅助map不用传输和上链）
+	GI StaticGroupSummary //组初始化完成后的上链组信息（辅助map不用传输和上链）
 	SI SignData        //用户个人签名
 }
 

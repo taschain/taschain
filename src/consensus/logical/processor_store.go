@@ -57,18 +57,18 @@ func (p *Processor) prepareMiner()  {
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
-		sgi := StaticGroupInfo{
-			GroupID: *groupsig.DeserializeId(coreGroup.Id),
-			GroupPK: *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
+		sgi := &StaticGroupInfo{
+			GroupID:     *groupsig.DeserializeId(coreGroup.Id),
+			GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 			BeginHeight: coreGroup.BeginHeight,
-			Members: make([]PubKeyInfo, 0),
-			MapCache: make(map[string]int),
+			Members:     make([]PubKeyInfo, 0),
+			MemIndex:    make(map[string]int),
 		}
 		for _, mem := range coreGroup.Members {
 			pkInfo := &PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}
 			sgi.addMember(pkInfo)
 		}
-		if !p.gg.AddGroup(sgi) {
+		if !p.globalGroups.AddStaticGroup(sgi) {
 			continue
 		}
 		if sgi.MemExist(p.GetMinerID()) {
@@ -77,7 +77,7 @@ func (p *Processor) prepareMiner()  {
 			if jg == nil {
 				panic("cannot find joinedgroup infos! gid=" + GetIDPrefix(*gid))
 			}
-			p.addInnerGroup(jg, false)
+			p.joinGroup(jg, false)
 			p.prepareForCast(*gid)
 		}
 	}
@@ -87,15 +87,8 @@ func (p *Processor) Ready() bool {
     return p.ready
 }
 
-func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
-	if jg, ok := p.belongGroups[gid.GetHexString()]; ok {
-		return &jg.GroupSec
-	} else {
-		return nil
-	}
-}
 
-func (p *Processor) getCurrentQualifiedGroups() []*StaticGroupInfo {
+func (p *Processor) getCurrentAvailableGroups() []*StaticGroupInfo {
     topBH := p.MainChain.QueryTopBlock()
-    return p.gg.GetQualifiedGroups(topBH.Height)
+    return p.globalGroups.GetAvailableGroups(topBH.Height)
 }

@@ -89,7 +89,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		belongGroup := memberExistIn(&m.GI.Members, mediator.Proc.GetMinerID())
+		belongGroup := mediator.Proc.ExistInDummyGroup(m.GI.GIS.DummyID)
 		var machine net.StateMachineTransform
 		if belongGroup { //组内状态机
 			machine = net.TimeSeq.GetInsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
@@ -274,7 +274,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInit
 		return nil, e
 	}
 
-	gi := pbToStaticGroup(m.StaticGroupInfo)
+	gi := pbToStaticGroup(m.StaticGroupSummary)
 	si := pbToSignData(m.Sign)
 	message := logical.ConsensusGroupInitedMessage{GI: *gi, SI: *si}
 	return &message, nil
@@ -394,8 +394,21 @@ func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummar
 
 	mhash := common.Hash{}
 	mhash.SetBytes(m.MemberHash)
-	message := logical.ConsensusGroupInitSummary{ParentID: parentId, Authority: *m.Authority,
-		Name: name, DummyID: dummyID, BeginTime: beginTime, Members: *m.Members, MemberHash: mhash, Extends:string(m.Extends), Signature: sign}
+	message := logical.ConsensusGroupInitSummary{
+		ParentID: parentId,
+		Authority: *m.Authority,
+		Name: name,
+		DummyID: dummyID,
+		BeginTime: beginTime,
+		Members: *m.Members,
+		MemberHash: mhash,
+		Signature: sign,
+		GetReadyHeight: *m.GetReadyHeight,
+		BeginCastHeight: *m.BeginCastHeight,
+		DismissHeight: *m.DismissHeight,
+		TopHeight: *m.TopHeight,
+		Extends:string(m.Extends),
+	}
 	return &message
 }
 
@@ -438,23 +451,16 @@ func pbToSharePiece(s *tas_middleware_pb.SharePiece) *logical.SharePiece {
 	return &sp
 }
 
-func pbToStaticGroup(s *tas_middleware_pb.StaticGroupInfo) *logical.StaticGroupInfo {
+func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *logical.StaticGroupSummary {
 	var groupId groupsig.ID
 	groupId.Deserialize(s.GroupID)
 
 	var groupPk groupsig.Pubkey
 	groupPk.Deserialize(s.GroupPK)
 
-	members := make([]logical.PubKeyInfo, 0)
-	for _, m := range s.Members {
-		member := pbToPubKeyInfo(m)
-		members = append(members, *member)
-	}
-
 	gis := pbToConsensusGroupInitSummary(s.Gis)
 
-	beginHeight := *s.BeginHeight
-	groupInfo := logical.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, GIS: *gis, BeginHeight: beginHeight}
+	groupInfo := logical.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, GIS: *gis}
 	return &groupInfo
 }
 

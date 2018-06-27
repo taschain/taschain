@@ -122,6 +122,11 @@ message Group{
 	optional  bytes Signature  = 6;
 
 	optional  uint64 BeginHeight  = 7;
+
+    optional  uint64  DismissHeight = 8;
+    optional  uint64    Authority = 9;
+    optional  bytes     Name = 10;
+    optional  bytes     Extends = 11;
 }
 
 message GroupSlice{
@@ -195,8 +200,11 @@ message ConsensusGroupInitSummary{
 	required bytes    BeginTime =6;
 	required bytes    MemberHash =7;
 	required bytes    Signature =8;
-
-	required bytes    Extends =9;
+    required uint64     GetReadyHeight=9;
+	required uint64     BeginCastHeight=10;
+	required uint64     DismissHeight=11;
+	required uint64     TopHeight=12;
+	required bytes    Extends =13;
 }
 
 message PubKeyInfo{
@@ -245,26 +253,24 @@ message ConsensusSignPubKeyMessage{
     required SignData 	SignData = 4;
 
     required bytes  GISSign = 5;
+
 }
 
 
 
-message StaticGroupInfo{
+message StaticGroupSummary{
 
     required bytes GroupID  = 1;
 
     required bytes GroupPK  = 2;
 
-    repeated PubKeyInfo  members = 3;
+    required ConsensusGroupInitSummary Gis  = 3;
 
-    required ConsensusGroupInitSummary Gis  = 4;
-
-    required uint64 BeginHeight  = 5;
 }
 
 message ConsensusGroupInitedMessage{
 
-    required StaticGroupInfo StaticGroupInfo = 1;
+    required StaticGroupSummary StaticGroupSummary = 1;
 
     required SignData Sign = 2;
 }

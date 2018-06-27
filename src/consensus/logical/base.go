@@ -305,6 +305,7 @@ type ConsensusGroupInitSummary struct {
 	Members   uint64      //成员数量
 	BeginTime time.Time   //初始化开始时间（必须在指定时间窗口内完成初始化）
 	MemberHash	common.Hash	//成员数据哈希
+	TopHeight		uint64	//当前块高
 	GetReadyHeight	uint64	//准备就绪的高度,即组建成的最大高度, 超过该高度后, 组建成也无效
 	BeginCastHeight	uint64	//可以开始铸块的高度
 	DismissHeight	uint64	//解散的高度
@@ -386,10 +387,31 @@ func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
 	buf = strconv.AppendUint(buf, gis.GetReadyHeight, 16)
 	buf = strconv.AppendUint(buf, gis.BeginCastHeight, 16)
 	buf = strconv.AppendUint(buf, gis.DismissHeight, 16)
+	buf = strconv.AppendUint(buf, gis.TopHeight, 16)
 	if len(gis.Extends) <= 1024 {
 		buf = append(buf, []byte(gis.Extends[:])...)
 	} else {
 		buf = append(buf, []byte(gis.Extends[:1024])...)
 	}
 	return rand.Data2CommonHash([]byte(buf))
+}
+
+type StaticGroupSummary struct {
+	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
+	GroupPK  groupsig.Pubkey           //组公钥
+	//Members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
+	GIS 	ConsensusGroupInitSummary
+}
+
+func (sgs *StaticGroupSummary) GenHash() common.Hash {
+	str := sgs.GroupID.GetHexString()
+	str += sgs.GroupPK.GetHexString()
+	//for _, v := range sgs.Members {
+	//	str += v.ID.GetHexString()
+	//	str += v.PK.GetHexString()
+	//}
+	gisHash := sgs.GIS.GenHash()
+	str += gisHash.Str()
+	hash := rand.Data2CommonHash([]byte(str))
+	return hash
 }

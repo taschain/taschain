@@ -610,7 +610,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	sgiinfo := NewSGIFromRawMessage(&grm) //生成组信息
 	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
-		v.gg.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
+		v.globalGroups.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
 	}
 
 	//启动所有节点进行初始化

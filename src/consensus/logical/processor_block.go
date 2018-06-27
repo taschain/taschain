@@ -8,6 +8,7 @@ import (
 	"consensus/groupsig"
 	"middleware/types"
 	"core"
+	"sync"
 )
 
 /*
@@ -15,49 +16,58 @@ import (
 **  Date: 2018/5/16 下午7:44
 **  Description: 
 */
+type FutureMessageHolder struct {
+	messages sync.Map
+}
 
-func findBlock(bs []*ConsensusBlockMessage, hash common.Hash) bool {
-	for _, b := range bs {
-		if b.Block.Header.Hash == hash {
-			return true
-		}
+func NewFutureMessageHolder() *FutureMessageHolder {
+	return &FutureMessageHolder{
+		messages: sync.Map{},
 	}
-	return false
+}
+func (holder *FutureMessageHolder) addMessage(hash common.Hash, msg interface{}) {
+	if vs, ok := holder.messages.Load(hash); ok {
+		vsSlice := vs.([]interface{})
+		vsSlice = append(vsSlice, msg)
+		holder.messages.Store(hash, vsSlice)
+	} else {
+		slice := make([]interface{}, 0)
+		slice = append(slice, msg)
+		holder.messages.Store(hash, slice)
+	}
+}
+
+func (holder *FutureMessageHolder) getMessages(hash common.Hash) []interface{} {
+    if vs, ok := holder.messages.Load(hash); ok {
+    	return vs.([]interface{})
+	}
+	return nil
+}
+
+func (holder *FutureMessageHolder) remove(hash common.Hash) {
+	holder.messages.Delete(hash)
 }
 
 func (p *Processor) addFutureBlockMsg(msg *ConsensusBlockMessage) {
 	b := msg.Block
 	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, GetHashPrefix(b.Header.Hash))
-	p.futureBlockLock.Lock()
-	defer p.futureBlockLock.Unlock()
 
-	if bs, ok := p.futureBlockMsg[b.Header.PreHash]; ok {
-		bs = append(bs, msg)
-		p.futureBlockMsg[b.Header.PreHash] = bs
-	} else {
-		bs := make([]*ConsensusBlockMessage, 0)
-		bs = append(bs, msg)
-		p.futureBlockMsg[b.Header.PreHash] = bs
-	}
+	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
 }
 
 func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*ConsensusBlockMessage {
-	p.futureBlockLock.RLock()
-	defer p.futureBlockLock.RUnlock()
-
-	if t, ok := p.futureBlockMsg[hash]; ok {
-		ret := make([]*ConsensusBlockMessage, len(t))
-		copy(ret, t)
-		return t
-	} else {
-		return nil
+	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
+		ret := make([]*ConsensusBlockMessage, len(vs))
+		for idx, m := range vs {
+			ret[idx] = m.(*ConsensusBlockMessage)
+		}
+		return ret
 	}
+	return nil
 }
 
 func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
-	p.futureBlockLock.Lock()
-	defer p.futureBlockLock.Unlock()
-	delete(p.futureBlockMsg, hash)
+	p.futureBlockMsgs.remove(hash)
 }
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
@@ -98,48 +108,26 @@ func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return b
 }
 
-func findVerifyMsg(bs []*ConsensusBlockMessageBase, hash common.Hash) bool {
-	for _, b := range bs {
-		if b.BH.Hash == hash {
-			return true
-		}
-	}
-	return false
-}
-
 func (p *Processor) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
 	b := msg.BH
 	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, GetHashPrefix(b.Hash), GetHashPrefix(b.PreHash))
-	p.futureVerifyLock.Lock()
-	defer p.futureVerifyLock.Unlock()
 
-	if bs, ok := p.futureVerifyMsg[b.PreHash]; ok {
-		bs = append(bs, msg)
-		p.futureVerifyMsg[b.PreHash] = bs
-	} else {
-		bs := make([]*ConsensusBlockMessageBase, 0)
-		bs = append(bs, msg)
-		p.futureVerifyMsg[b.PreHash] = bs
-	}
+	p.futureVerifyMsgs.addMessage(b.PreHash, msg)
 }
 
 func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*ConsensusBlockMessageBase {
-	p.futureVerifyLock.RLock()
-	defer p.futureVerifyLock.RUnlock()
-
-	if t, ok := p.futureVerifyMsg[hash]; ok {
-		ret := make([]*ConsensusBlockMessageBase, len(t))
-		copy(ret, t)
-		return t
-	} else {
-		return nil
+	if vs := p.futureVerifyMsgs.getMessages(hash); vs != nil {
+		ret := make([]*ConsensusBlockMessageBase, len(vs))
+		for idx, m := range vs {
+			ret[idx] = m.(*ConsensusBlockMessageBase)
+		}
+		return ret
 	}
+	return nil
 }
 
 func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
-	p.futureVerifyLock.Lock()
-	defer p.futureVerifyLock.Unlock()
-	delete(p.futureVerifyMsg, hash)
+	p.futureVerifyMsgs.remove(hash)
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
@@ -150,7 +138,7 @@ func (p *Processor) prepareForCast(gid groupsig.ID)  {
 	bc := new(BlockContext)
 	bc.Proc = p
 	bc.Init(GroupMinerID{gid, p.GetMinerID()})
-	sgi, err := p.gg.GetGroupByID(gid)
+	sgi, err := p.globalGroups.GetGroupByID(gid)
 	if err != nil {
 		panic("prepareForCast GetGroupByID failed.\n")
 	}
@@ -158,7 +146,7 @@ func (p *Processor) prepareForCast(gid groupsig.ID)  {
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
-	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, len(p.bcs))
+	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
 	p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
 	p.triggerCastCheck()

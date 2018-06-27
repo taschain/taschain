@@ -259,7 +259,7 @@ func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, e
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {
 	gi := staticGroupInfoToPb(&m.GI)
 	si := signDataToPb(&m.SI)
-	message := tas_middleware_pb.ConsensusGroupInitedMessage{StaticGroupInfo: gi, Sign: si}
+	message := tas_middleware_pb.ConsensusGroupInitedMessage{StaticGroupSummary: gi, Sign: si}
 	return proto.Marshal(&message)
 }
 
@@ -320,9 +320,20 @@ func consensusGroupInitSummaryToPb(m *ConsensusGroupInitSummary) *tas_middleware
 	for _, b := range m.Name {
 		name = append(name, b)
 	}
-	message := tas_middleware_pb.ConsensusGroupInitSummary{ParentID: m.ParentID.Serialize(), Authority: &m.Authority,
-		Name: name, DummyID: m.DummyID.Serialize(), BeginTime: beginTime, Members:&m.Members, MemberHash:m.MemberHash.Bytes(),
-		Signature: m.Signature.Serialize(), Extends:[]byte(m.Extends)}
+	message := tas_middleware_pb.ConsensusGroupInitSummary{
+		ParentID: m.ParentID.Serialize(),
+		Authority: &m.Authority,
+		Name: name,
+		DummyID: m.DummyID.Serialize(),
+		BeginTime: beginTime,
+		Members:&m.Members,
+		MemberHash:m.MemberHash.Bytes(),
+		GetReadyHeight: &m.GetReadyHeight,
+		BeginCastHeight: &m.BeginCastHeight,
+		DismissHeight: &m.DismissHeight,
+		Signature: m.Signature.Serialize(),
+		TopHeight: &m.TopHeight,
+		Extends:[]byte(m.Extends)}
 	return &message
 }
 
@@ -336,19 +347,13 @@ func sharePieceToPb(s *SharePiece) *tas_middleware_pb.SharePiece {
 	return &share
 }
 
-func staticGroupInfoToPb(s *StaticGroupInfo) *tas_middleware_pb.StaticGroupInfo {
+func staticGroupInfoToPb(s *StaticGroupSummary) *tas_middleware_pb.StaticGroupSummary {
 	groupId := s.GroupID.Serialize()
 	groupPk := s.GroupPK.Serialize()
-	members := make([]*tas_middleware_pb.PubKeyInfo, 0)
-	for _, m := range s.Members {
-		member := pubKeyInfoToPb(&m)
-		members = append(members, member)
-	}
+
 	gis := consensusGroupInitSummaryToPb(&s.GIS)
 
-	beginHeight := &s.BeginHeight
-
-	groupInfo := tas_middleware_pb.StaticGroupInfo{GroupID: groupId, GroupPK: groupPk, Members: members, Gis: gis, BeginHeight: beginHeight}
+	groupInfo := tas_middleware_pb.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, Gis: gis}
 	return &groupInfo
 }
 
