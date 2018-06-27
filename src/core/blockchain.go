@@ -21,6 +21,7 @@ import (
 	"middleware"
 	"middleware/types"
 	"taslog"
+	"network"
 )
 
 const (
@@ -385,7 +386,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 	beginTime := time.Now()
-	defer Logger.Debugf("casting block %d-%d cost %v", height, queueNumber, time.Since(beginTime))
+	defer network.Logger.Debugf("casting block %d-%d cost %v", height, queueNumber, time.Since(beginTime))
 	latestBlock := chain.latestBlock
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
