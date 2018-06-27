@@ -108,7 +108,7 @@ type syncStream struct {
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]*syncStream)}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]*syncStream), streamMapLock: sync.RWMutex{}}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -162,7 +162,7 @@ func (s *server) send(b []byte, id string) {
 		}
 		s.streamMapLock.Lock()
 		if s.streams[id] == nil {
-			s.streams[id] = &syncStream{stream: stream,}
+			s.streams[id] = &syncStream{stream: stream, lock: sync.RWMutex{}}
 		}
 		s.streamMapLock.Unlock()
 
