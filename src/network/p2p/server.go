@@ -166,9 +166,8 @@ func (s *server) send(b []byte, id string) {
 			ss = s.streams[id]
 		}
 		s.streamMapLock.Unlock()
-
 	}
-	ss.lock.Lock()
+	(*ss).lock.Lock()
 	e2 := s.writePackage(ss.stream, b, id)
 
 	if e2 != nil {
@@ -178,12 +177,12 @@ func (s *server) send(b []byte, id string) {
 			logger.Errorf("New stream for %s error:%s", id, e1.Error())
 			return
 		}
-		ss.stream = stream
+		s.streams[id].stream = stream
 		ss.lock.Unlock()
 		s.send(b, id)
 		return
 	}
-	ss.lock.Unlock()
+	(*ss).lock.Unlock()
 	//fmt.Printf("send to %s, size:%d\n", id, len(b))
 }
 
