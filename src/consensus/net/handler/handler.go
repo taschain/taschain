@@ -128,7 +128,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
 		//})
 
-		//network.Logger.Debugf("receive CAST_VERIFY_MSG from %s,%d-%d",sourceId,m.BH.Height, m.BH.QueueNumber)
+		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s,%d-%d,time cost:%v", sourceId, m.BH.Height, m.BH.QueueNumber, time.Since(m.BH.CurTime))
 		mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
@@ -143,10 +143,10 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//	mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
 		//})
 
-		//network.Logger.Debugf("receive VARIFIED_CAST_MSG from %s,%d-%d",sourceId,m.BH.Height, m.BH.QueueNumber)
+		network.Logger.Debugf("receive VARIFIED_CAST_MSG from %s,%d-%d,cost time:%v", sourceId, m.BH.Height, m.BH.QueueNumber, time.Since(m.BH.CurTime))
 		mediator.Proc.OnMessageVerify(*m)
 
-	case p2p.TRANSACTION_MSG,p2p.TRANSACTION_GOT_MSG:
+	case p2p.TRANSACTION_MSG, p2p.TRANSACTION_GOT_MSG:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
@@ -163,7 +163,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber,sourceId,len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
+		network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber, sourceId, len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
 
 		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
 		//b := &m.Block

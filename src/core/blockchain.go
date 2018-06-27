@@ -386,7 +386,6 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 	beginTime := time.Now()
-	defer network.Logger.Debugf("casting block %d-%d cost %v", height, queueNumber, time.Since(beginTime))
 	latestBlock := chain.latestBlock
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
@@ -411,6 +410,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
+	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
