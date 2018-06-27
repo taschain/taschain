@@ -160,7 +160,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("broad block %d-%d ,body size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
+	network.Logger.Debugf("%s broad block %d-%d ,body size %d",p2p.Server.SelfNetInfo.Id, cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
 
 	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)
