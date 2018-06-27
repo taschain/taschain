@@ -34,7 +34,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			return nil, nil
 		}
 		if code == p2p.TRANSACTION_GOT_MSG {
-			core.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
+			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
 		return nil, err

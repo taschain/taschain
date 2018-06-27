@@ -561,7 +561,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
-	defer Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost", time.Since(b.Header.CurTime))
+	defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }
