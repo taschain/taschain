@@ -16,8 +16,9 @@ import (
 	"middleware/pb"
 	"sync"
 	"bufio"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"fmt"
+	"time"
+	"network"
 )
 
 const (
@@ -124,7 +125,11 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
+		beginTime := time.Now()
 		s.send(b, id)
+		if m.Code == CAST_VERIFY_MSG {
+			network.Logger.Debugf("send CAST_VERIFY_MSG to %s, byte:%d,send message cost time %v", id, len(b), time.Since(beginTime))
+		}
 	}()
 
 }
@@ -136,12 +141,12 @@ func (s *server) send(b []byte, id string) {
 	}
 	c := context.Background()
 
-	peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
-	if e != nil || string(peerInfo.ID) == "" {
-		logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
-	} else {
-		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	}
+	//peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
+	//if e != nil || string(peerInfo.ID) == "" {
+	//	logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
+	//} else {
+	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	//}
 
 	s.streamMapLock.Lock()
 	stream := s.streams[id]
@@ -216,7 +221,7 @@ func (s *server) writePackage(stream inet.Stream, body []byte, id string) error 
 
 func (s *server) sendSelf(b []byte, id string) {
 	pkgBodyBytes := b[7:]
-	s.handleMessage(pkgBodyBytes, id, )
+	s.handleMessage(pkgBodyBytes, id, time.Now())
 }
 
 //TODO 考虑读写超时
@@ -235,7 +240,7 @@ func swarmStreamHandler(stream inet.Stream) {
 }
 func handleStream(reader *bufio.Reader, id string) error {
 	headerBytes := make([]byte, 3)
-	e1 := readPackage(reader,headerBytes)
+	e1 := readPackage(reader, headerBytes)
 	if e1 != nil {
 		logger.Errorf("stream read 3 from %s error:%s!", id, e1.Error())
 		return e1
@@ -248,7 +253,7 @@ func handleStream(reader *bufio.Reader, id string) error {
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	err := readPackage(reader,pkgLengthBytes)
+	err := readPackage(reader, pkgLengthBytes)
 	if err != nil {
 		logger.Errorf("stream  read4 error:%s", err.Error())
 		return err
@@ -264,7 +269,7 @@ func handleStream(reader *bufio.Reader, id string) error {
 	}
 
 	//fmt.Printf("revceive from %s, byte len:%d\n", id, len(b))
-	go Server.handleMessage(b, id)
+	go Server.handleMessage(b, id, time.Now())
 	return nil
 }
 
@@ -322,13 +327,17 @@ func readAll(reader *bufio.Reader, body []byte, index int) error {
 
 }
 
-func (s *server) handleMessage(b []byte, from string) {
+func (s *server) handleMessage(b []byte, from string, beginTime time.Time) {
 	message := new(tas_middleware_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
+		return
 	}
 
+	if *message.Code == CAST_VERIFY_MSG {
+		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s ,byte:%d,read message cost time %v", from, len(b), time.Since(beginTime))
+	}
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,

@@ -116,6 +116,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//
 		//mediator.Proc.OnMessageCurrent(*m)
 	case p2p.CAST_VERIFY_MSG:
+		beginTime:= time.Now()
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
@@ -128,7 +129,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
 		//})
 
-		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s,%d-%d,time cost:%v", sourceId, m.BH.Height, m.BH.QueueNumber, time.Since(m.BH.CurTime))
+		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s,%d-%d,time cost:%v,unmarshal cost:%v", sourceId, m.BH.Height, m.BH.QueueNumber, time.Since(m.BH.CurTime),time.Since(beginTime))
 		mediator.Proc.OnMessageCast(*m)
 	case p2p.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
