@@ -33,9 +33,9 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d",sourceId,len(m))
-		}
+		//if code == p2p.TRANSACTION_GOT_MSG{
+		//	core.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d",sourceId,len(m))
+		//}
 		err := onMessageTransaction(m)
 		return nil, err
 	case p2p.NEW_BLOCK_MSG:
