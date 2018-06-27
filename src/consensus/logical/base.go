@@ -51,8 +51,8 @@ const MAX_SYNC_CASTORS = 3                  //最多同时支持几个铸块验�
 const INVALID_QN = -1                       //无效的队列序号
 //const GROUP_MIN_WITNESSES = GROUP_MAX_MEMBERS * SSSS_THRESHOLD / 100 //阈值绝对值
 const TIMER_INTEVAL_SECONDS time.Duration = time.Second * 2          //定时器间隔
-var MAX_GROUP_BLOCK_TIME int = 20                                //组铸块最大允许时间=10s
-var MAX_USER_CAST_TIME int = 4                                   //个人出块最大允许时间=2s
+var MAX_GROUP_BLOCK_TIME int = 50                                //组铸块最大允许时间=10s
+var MAX_USER_CAST_TIME int = 10                                   //个人出块最大允许时间=2s
 var MAX_QN int = -1 //组内能出的最大QN值
 
 var consensusLogger taslog.Logger
