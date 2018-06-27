@@ -133,9 +133,9 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 	//txs := pool.received.AsSlice()
 	var result []*types.Transaction
-	if pool.received.txs.Len() > 1000 {
-		result = make([]*types.Transaction, 1000)
-		copy(result, pool.received.txs[:1000])
+	if pool.received.txs.Len() > 5000 {
+		result = make([]*types.Transaction, 5000)
+		copy(result, pool.received.txs[:5000])
 	} else {
 		result = make([]*types.Transaction, pool.received.txs.Len())
 		copy(result, pool.received.txs)
