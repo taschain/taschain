@@ -163,6 +163,7 @@ func (s *server) send(b []byte, id string) {
 		s.streamMapLock.Lock()
 		if s.streams[id] == nil {
 			s.streams[id] = &syncStream{stream: stream, lock: sync.RWMutex{}}
+			ss = s.streams[id]
 		}
 		s.streamMapLock.Unlock()
 
