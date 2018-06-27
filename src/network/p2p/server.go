@@ -153,7 +153,9 @@ func (s *server) send(b []byte, id string) {
 	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	//}
 
+	s.streamMapLock.RLock()
 	ss := s.streams[id]
+	s.streamMapLock.RUnlock()
 	if ss == nil {
 		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e1 != nil {
