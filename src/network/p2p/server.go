@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"fmt"
 	"time"
-	"network"
 )
 
 const (
@@ -128,7 +127,7 @@ func (s *server) SendMessage(m Message, id string) {
 		beginTime := time.Now()
 		s.send(b, id)
 		if m.Code == CAST_VERIFY_MSG {
-			network.Logger.Debugf("send CAST_VERIFY_MSG to %s, byte:%d,send message cost time %v", id, len(b), time.Since(beginTime))
+			logger.Debugf("send CAST_VERIFY_MSG to %s, byte:%d,send message cost time %v", id, len(b), time.Since(beginTime))
 		}
 	}()
 
@@ -336,7 +335,7 @@ func (s *server) handleMessage(b []byte, from string, beginTime time.Time) {
 	}
 
 	if *message.Code == CAST_VERIFY_MSG {
-		network.Logger.Debugf("receive CAST_VERIFY_MSG from %s ,byte:%d,read message cost time %v", from, len(b), time.Since(beginTime))
+		logger.Debugf("receive CAST_VERIFY_MSG from %s ,byte:%d,read message cost time %v", from, len(b), time.Since(beginTime))
 	}
 	code := message.Code
 	switch *code {
