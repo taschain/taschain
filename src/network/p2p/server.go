@@ -164,10 +164,12 @@ func (s *server) send(b []byte, id string) {
 		if s.streams[id] == nil {
 			s.streams[id] = &syncStream{stream: stream, lock: sync.RWMutex{}}
 			ss = s.streams[id]
+		} else {
+			ss = s.streams[id]
 		}
 		s.streamMapLock.Unlock()
 	}
-	(*ss).lock.Lock()
+	ss.lock.Lock()
 	e2 := s.writePackage(ss.stream, b, id)
 
 	if e2 != nil {
@@ -182,7 +184,7 @@ func (s *server) send(b []byte, id string) {
 		s.send(b, id)
 		return
 	}
-	(*ss).lock.Unlock()
+	ss.lock.Unlock()
 	//fmt.Printf("send to %s, size:%d\n", id, len(b))
 }
 
