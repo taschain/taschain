@@ -94,15 +94,21 @@ type server struct {
 
 	Dht *dht.IpfsDHT
 
-	streams map[string]inet.Stream
+	streams map[string]*syncStream
 
 	streamMapLock sync.RWMutex
+}
+
+type syncStream struct {
+	stream inet.Stream
+
+	lock sync.RWMutex
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]inet.Stream)}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]*syncStream)}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -147,34 +153,36 @@ func (s *server) send(b []byte, id string) {
 	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	//}
 
-	s.streamMapLock.Lock()
-	stream := s.streams[id]
-	var e1 error
-	if stream == nil {
-		stream, e1 = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+	ss := s.streams[id]
+	if ss == nil {
+		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e1 != nil {
 			logger.Errorf("New stream for %s error:%s", id, e1.Error())
-			s.streamMapLock.Unlock()
 			return
 		}
-		s.streams[id] = stream
+		s.streamMapLock.Lock()
+		if s.streams[id] == nil {
+			s.streams[id] = &syncStream{stream: stream,}
+		}
+		s.streamMapLock.Unlock()
+
 	}
-	e2 := s.writePackage(stream, b, id)
+	ss.lock.Lock()
+	e2 := s.writePackage(ss.stream, b, id)
 
 	if e2 != nil {
-		stream.Close()
-		stream, e1 = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		ss.stream.Close()
+		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e1 != nil {
 			logger.Errorf("New stream for %s error:%s", id, e1.Error())
-			s.streamMapLock.Unlock()
 			return
 		}
-		s.streams[id] = stream
-		s.streamMapLock.Unlock()
+		ss.stream = stream
+		ss.lock.Unlock()
 		s.send(b, id)
 		return
 	}
-	s.streamMapLock.Unlock()
+	ss.lock.Unlock()
 	//fmt.Printf("send to %s, size:%d\n", id, len(b))
 }
 
@@ -194,12 +202,13 @@ func (s *server) writePackage(stream inet.Stream, body []byte, id string) error 
 			return fmt.Errorf("stream write length error")
 		}
 	} else {
+		writer := bufio.NewWriter(stream)
 		n := l / PACKAGE_MAX_SIZE
 		left, right := 0, PACKAGE_MAX_SIZE
 		for i := 0; i <= n; i++ {
 			a := make([]byte, right-left)
 			copy(a, body[left:right])
-			r, err = stream.Write(a)
+			r, err = writer.Write(a)
 			if err != nil {
 				logger.Errorf("Write stream for %s error:%s", id, err.Error())
 				return err
