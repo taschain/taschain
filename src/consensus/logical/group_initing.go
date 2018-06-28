@@ -64,11 +64,6 @@ func (ngc *InitingGroup) receive(id groupsig.ID, pk groupsig.Pubkey) int32 {
 	if status != INITING {
 		return status
 	}
-	if ngc.gis.IsExpired() { //该组初始化共识已超时
-		log.Printf("ReceiveData failed, group initing timeout.\n")
-		atomic.CompareAndSwapInt32(&ngc.status, INITING, INIT_FAIL)
-		return INIT_FAIL
-	}
 
 	ngc.lock.Lock()
 	defer ngc.lock.Unlock()
@@ -87,7 +82,8 @@ func (ngc *InitingGroup) receiveSize() int {
 
 //找出收到最多的相同值
 func (ngc *InitingGroup) convergence() bool {
-	log.Printf("begin Convergence, K=%v, mems=%v.\n", GetGroupK(), len(ngc.mems))
+	threshold := GetGroupK(int(ngc.gis.Members))
+	log.Printf("begin Convergence, K=%v, mems=%v.\n", threshold, len(ngc.mems))
 
 	type countData struct {
 		count int
@@ -120,7 +116,7 @@ func (ngc *InitingGroup) convergence() bool {
 		}
 	}
 
-	if maxCnt >= GetGroupK() && atomic.CompareAndSwapInt32(&ngc.status, INITING, INIT_SUCCESS){
+	if maxCnt >= threshold && atomic.CompareAndSwapInt32(&ngc.status, INITING, INIT_SUCCESS){
 		log.Printf("found max maxCnt gpk=%v, maxCnt=%v.\n", GetPubKeyPrefix(gpk), maxCnt)
 		ngc.gpk = gpk
 		return true
@@ -204,11 +200,9 @@ func (ngg *NewGroupGenerator) ReceiveData(sgs *StaticGroupSummary, sender groups
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//组初始化共识状态
-type GROUP_INIT_STATUS int
 
 const (
-	GIS_RAW    GROUP_INIT_STATUS = iota //组处于原始状态（知道有哪些人是一组的，但是组公钥和组ID尚未生成）
+	GIS_RAW    int32 = iota //组处于原始状态（知道有哪些人是一组的，但是组公钥和组ID尚未生成）
 	GIS_PIECE                           //没有收到父亲组的组初始化消息，而先收到了组成员发给我的秘密分享
 	GIS_SHARED                          //当前节点已经生成秘密分享片段，并发送给组内成员
 	GIS_INITED                          //组公钥和ID已生成，可以进行铸块
@@ -218,7 +212,7 @@ const (
 //判断一个消息是否合法，在外层验证
 //判断一个消息是否来自组内，由GroupContext验证
 type GroupContext struct {
-	is   GROUP_INIT_STATUS         //组初始化状态
+	is   int32         //组初始化状态
 	node GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
 	mems []PubKeyInfo              //组内成员ID列表（由父亲组指定）
 	gis  ConsensusGroupInitSummary //组初始化信息（由父亲组指定）
@@ -228,7 +222,7 @@ func (gc *GroupContext) GetNode() *GroupNode {
 	return &gc.node
 }
 
-func (gc GroupContext) GetGroupStatus() GROUP_INIT_STATUS {
+func (gc GroupContext) GetGroupStatus() int32 {
 	return gc.is
 }
 
@@ -277,7 +271,7 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerInfo) *GroupContext {
-	if len(grm.MEMS) != GROUP_MAX_MEMBERS {
+	if len(grm.MEMS) != GetGroupMemberNum() || len(grm.MEMS) != int(grm.GI.Members) {
 		log.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
 	}
@@ -292,6 +286,7 @@ func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerIn
 	copy(gc.mems[:], grm.MEMS[:])
 	gc.gis = grm.GI
 	gc.is = GIS_RAW
+	gc.node.memberNum = len(gc.mems)
 	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
 	gc.node.InitForGroup(grm.GI.GenHash())
 	return gc
@@ -332,7 +327,7 @@ func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
 //生成发送给组内成员的秘密分享
 func (gc *GroupContext) GenSharePieces() ShareMapID {
 	shares := make(ShareMapID, 0)
-	if len(gc.mems) == GROUP_MAX_MEMBERS && gc.is == GIS_RAW {
+	if len(gc.mems) == int(gc.gis.Members) && atomic.CompareAndSwapInt32(&gc.is, GIS_RAW, GIS_SHARED) {
 		secs := gc.node.GenSharePiece(gc.getIDs())
 		var piece SharePiece
 		piece.Pub = gc.node.GetSeedPubKey()
@@ -340,7 +335,6 @@ func (gc *GroupContext) GenSharePieces() ShareMapID {
 			piece.Share = v
 			shares[k] = piece
 		}
-		gc.is = GIS_SHARED
 	} else {
 		log.Printf("GenSharePieces failed, mems=%v, status=%v.\n", len(gc.mems), gc.is)
 	}

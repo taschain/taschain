@@ -42,6 +42,7 @@ type SlotContext struct {
 	SlotStatus  int32
 	LosingTrans map[common.Hash]int //本地缺失的交易集
 	TransFulled bool                //针对该区块头的交易集在本地链上已全部存在
+	threshold 	int
 }
 
 func (sc *SlotContext) isAllTransExist() bool {
@@ -125,7 +126,7 @@ func (sc *SlotContext) GenGroupSign() bool {
 		return false
 	}
 	if sc.thresholdWitnessGot() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
-		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, GetGroupK())
+		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, sc.threshold)
 		if gs != nil {
 			sc.GroupSign = *gs
 			sc.SlotStatus = SS_RECOVERD
@@ -192,9 +193,6 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK
 		panic("SlotContext::AcceptPiece arg failed, hash not samed 2.")
 	}
 
-	if len(sc.MapWitness) > GROUP_MAX_MEMBERS || sc.MapWitness == nil {
-		panic("CastContext::Verified failed, too many members or map nil.")
-	}
 	if si.DataHash != sc.BH.Hash {
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
@@ -224,7 +222,7 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK
 }
 
 func (sc *SlotContext) thresholdWitnessGot() bool {
-    return len(sc.MapWitness) >= GetGroupK()
+    return len(sc.MapWitness) >= sc.threshold
 }
 
 //判断某个成员是否为插槽的出块人
@@ -233,7 +231,7 @@ func (sc SlotContext) IsKing(member groupsig.ID) bool {
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
+func newSlotContext(bh *types.BlockHeader, si *SignData, threshold int) *SlotContext {
 	if bh.GenHash() != si.DataHash {
 		panic("newSlotContext arg failed, hash not samed 1.")
 	}
@@ -242,6 +240,7 @@ func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
 		panic("newSlotContext arg failed, hash not samed 2")
 	}
 	sc := new(SlotContext)
+	sc.threshold = threshold
 	sc.TimeRev = time.Now()
 	sc.SlotStatus = SS_WAITING
 	sc.BH = *bh
@@ -263,7 +262,7 @@ func newSlotContext(bh *types.BlockHeader, si *SignData) *SlotContext {
 	return sc
 }
 
-func (sc *SlotContext) reset() {
+func (sc *SlotContext) reset(threshold int) {
 	sc.TimeRev = *new(time.Time)
 	//sc.HeaderHash = *new(common.Hash)
 	sc.BH = types.BlockHeader{}
@@ -272,6 +271,7 @@ func (sc *SlotContext) reset() {
 	sc.King = *groupsig.NewIDFromInt(0)
 	sc.MapWitness = make(map[string]groupsig.Signature)
 	sc.LosingTrans = make(map[common.Hash]int)
+	sc.threshold = threshold
 	return
 }
 

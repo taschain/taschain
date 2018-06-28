@@ -83,7 +83,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 func (vc *VerifyContext) resetSlotContext() {
 	for i := 0; i < MAX_SYNC_CASTORS; i++ {
 		sc := new(SlotContext)
-		sc.reset()
+		sc.reset(vc.blockCtx.GroupMembers)
 		vc.slots[i] = sc
 	}
 }
@@ -303,7 +303,7 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		vc.slots[i] = newSlotContext(bh, si)
+		vc.slots[i] = newSlotContext(bh, si, vc.blockCtx.GroupMembers)
 		if vc.slots[i].TransFulled {
 			return CBMR_PIECE_NORMAL
 		} else {

@@ -69,8 +69,8 @@ func InitConsensus() {
 }
 
 //取得门限值
-func GetGroupK() int {
-	return int(math.Ceil(float64(GROUP_MAX_MEMBERS*SSSS_THRESHOLD) / 100))
+func GetGroupK(cnt int) int {
+	return int(math.Ceil(float64(cnt*SSSS_THRESHOLD) / 100))
 }
 
 //获取组成员个数
@@ -344,7 +344,7 @@ func genDummyGIS(parent MinerInfo, group_name string) ConsensusGroupInitSummary 
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
-	gis.Members = uint64(GROUP_MAX_MEMBERS)
+	gis.Members = uint64(GetGroupMemberNum())
 	gis.Extends = "Dummy"
 	return gis
 }

@@ -19,7 +19,7 @@ type BlockContext struct {
 	//SignedMaxQN     int64                       //组内已铸出的最大QN值的块
 	//PrevHash        common.Hash                 //上一块哈希值
 	//CastHeight      uint64                      //待铸块高度
-	GroupMembers    uint                        //组成员数量
+	GroupMembers    int                        //组成员数量
 	//Threshold       uint                           //百分比（0-100）
 	//Slots [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
 	verifyContexts	[]*VerifyContext
@@ -163,7 +163,7 @@ func (bc *BlockContext) reset() {
 	//bc.PrevHash = common.Hash{}
 	//bc.CastHeight = 0
 	bc.currentVerifyContext = nil
-	bc.GroupMembers = uint(GROUP_MAX_MEMBERS)
+	bc.GroupMembers = GetGroupMemberNum()
 
 	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
 	log.Printf("end BlockContext::Reset.\n")

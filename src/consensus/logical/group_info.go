@@ -62,18 +62,8 @@ func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	if v, ok := sgi.MemIndex[id.GetHexString()]; ok {
 		pos = v
 		//双重验证
-		found := false
-		for k, item := range sgi.Members {
-			if item.GetID().GetHexString() == id.GetHexString() {
-				found = true
-				if pos != k {
-					panic("double check failed 1.\n")
-				}
-				break
-			}
-		}
-		if !found {
-			panic("double check failed 2.\n")
+		if !sgi.Members[pos].ID.IsEqual(id) {
+			panic("double check fail!id=" + id.GetHexString())
 		}
 	}
 	return pos
@@ -239,16 +229,6 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	if len(g.Members) != len(g.MemIndex) {
-		//重构cache
-		g.MemIndex = make(map[string]int, len(g.Members))
-		for i, v := range g.Members {
-			if !v.PK.IsValid() {
-				panic("GlobalGroups::AddStaticGroup failed, group member has no pub key.")
-			}
-			g.MemIndex[v.GetID().GetHexString()] = i
-		}
-	}
 	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)

@@ -455,9 +455,10 @@ func testGroupInited(procs map[string]*Processor, gid_s string, t *testing.T) {
 }
 
 //测试逻辑功能
-func testLogicGroupInit(t *testing.T) {
+func TestLogicGroupInit(t *testing.T) {
+	groupsig.Init(1)
 	fmt.Printf("\nbegin testLogicGroupInit...\n")
-	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GROUP_MAX_MEMBERS, GetGroupK())
+	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GetGroupMemberNum(), GetGroupK(GetGroupMemberNum()))
 	//初始化
 	fmt.Printf("begin init data...\n")
 	root := NewMinerInfo("root", "TASchain")
@@ -498,7 +499,7 @@ func testLogicGroupInit(t *testing.T) {
 		}
 	}
 	for k, v := range nodes {
-		v.BeingValidMiner()
+		v.beingValidMiner()
 		fmt.Printf("node=%v, aggr group pub key=%v.\n", k.GetHexString(), v.GetGroupPubKey().GetHexString())
 		nodes[k] = v
 	}
@@ -512,8 +513,8 @@ func testLogicGroupInit(t *testing.T) {
 		ids = append(ids, k)
 		secs = append(secs, v.getSignSecKey())
 	}
-	ids = ids[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
-	secs = secs[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
+	ids = ids[RECOVER_BEGIN : GetGroupK(GetGroupMemberNum())+RECOVER_BEGIN]
+	secs = secs[RECOVER_BEGIN : GetGroupK(GetGroupMemberNum())+RECOVER_BEGIN]
 	fmt.Printf("secs len=%v, ids len=%v.\n", len(secs), len(ids))
 	gsk2 := *groupsig.RecoverSeckey(secs, ids)
 	gpk2 := *groupsig.NewPubkeyFromSeckey(gsk2)
@@ -525,7 +526,7 @@ func testLogicGroupInit(t *testing.T) {
 }
 
 func genAllProcessers() map[string]*Processor {
-	procs := make(map[string]*Processor, GROUP_MAX_MEMBERS)
+	procs := make(map[string]*Processor, GetGroupMemberNum())
 
 	proc := new(Processor)
 	proc.Init(NewMinerInfo("thiefox", "710208"))
@@ -607,10 +608,9 @@ func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
-	sgiinfo := NewSGIFromRawMessage(&grm) //生成组信息
 	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
-		v.globalGroups.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
+		v.globalGroups.AddInitingGroup(CreateInitingGroup(&grm))
 	}
 
 	//启动所有节点进行初始化

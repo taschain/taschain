@@ -53,17 +53,6 @@ func (gm *GroupManager) removeCreatingGroup(id groupsig.ID)  {
     gm.createContext.removeGroup(id)
 }
 
-//创建一个新建组。由（且有创建组权限的）父亲组节点发起。
-//miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
-//gn：组名。
-func (gm *GroupManager) createNextDummyGroup(miners []PubKeyInfo, parent *StaticGroupInfo) int {
-	if len(miners) != GROUP_MAX_MEMBERS {
-		log.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
-		return -1
-	}
-	
-	return 0
-}
 
 //检查当前用户是否是属于建组的组, 返回组id
 func (gm *GroupManager) checkCreateGroup(topHeight uint64) (bool, *StaticGroupInfo, *types.BlockHeader) {
@@ -191,7 +180,6 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		return
 	}
 
-
 	log.Printf("CreateNextGroupRoutine, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
 	gis.Authority = 777
 	if len(gn) <= 64 {
@@ -207,7 +195,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
-	gis.Members = uint64(GROUP_MAX_MEMBERS)
+	gis.Members = uint64(GetGroupMemberNum())
 	gis.Extends = "Dummy"
 
 	randSeed := rand.Data2CommonHash(bh.Signature)
@@ -300,7 +288,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *ConsensusCreateGroupSignMe
 	}
 	accept := gm.createContext.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	if accept == PIECE_THRESHOLD {
-		sign := groupsig.RecoverSignatureByMapI(creating.pieces, GetGroupK())
+		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold())
 		msg.GI.Signature = *sign
 		return true
 	}

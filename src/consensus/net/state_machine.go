@@ -130,7 +130,7 @@ func newStateMachine(id string) *StateMachine {
 func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId + "-outsidegroup")
 	machine.addNode(newStateNode(p2p.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(p2p.GROUP_INIT_DONE_MSG), logical.GetGroupK())
+	machine.addNode(newStateNode(p2p.GROUP_INIT_DONE_MSG), logical.GetGroupK(logical.GetGroupMemberNum()))
 	return machine
 }
 
@@ -157,7 +157,7 @@ func newBlockCastStateMachine(id string) *StateMachine {
 	machine := newStateMachine(id)
 	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
 	machine.addNode(newStateNode(p2p.CAST_VERIFY_MSG), 1)
-	machine.addNode(newStateNode(p2p.VARIFIED_CAST_MSG), logical.GetGroupK() - 1)
+	machine.addNode(newStateNode(p2p.VARIFIED_CAST_MSG), logical.GetGroupK(logical.GetGroupMemberNum()) - 1)
 	machine.addNode(newStateNode(p2p.NEW_BLOCK_MSG), 1)
 	return machine
 }

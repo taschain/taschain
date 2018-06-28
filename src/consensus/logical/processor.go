@@ -157,44 +157,13 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 	return result
 }
 
-//生成创世组成员信息
-func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
-	gis := p.GenGenesisGroupSummary()
-	temp_mi := p.getMinerInfo()
-	temp_mgs := NewMinerGroupSecret(temp_mi.GenSecretForGroup(gis.GenHash()))
-	gsk_piece := temp_mgs.GenSecKey()
-	gpk_piece := *groupsig.NewPubkeyFromSeckey(gsk_piece)
-	pki := PubKeyInfo{p.GetMinerID(), gpk_piece}
-	log.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
-	return pki
-}
-
-func (p *Processor) GenGenesisGroupSummary() ConsensusGroupInitSummary {
-	var gis ConsensusGroupInitSummary
-	//gis.ParentID = P.GetMinerID()
-	gis.DummyID = *groupsig.NewIDFromString("Trust Among Strangers")
-	gis.Authority = 777
-	gn := "TAS genesis group"
-	if len(gn) <= 64 {
-		copy(gis.Name[:], gn[:])
-	} else {
-		copy(gis.Name[:], gn[:64])
-	}
-	//gis.BeginTime = time.Date(2018, time.May, 4, 18, 00, 00, 00, time.Local)
-	unix_time := time.Now().Unix()
-	unix_time = unix_time - 100
-	gis.BeginTime = time.Unix(unix_time, 0)
-	gis.Extends = "room 1003, BLWJXXJS6KYHX"
-	gis.Members = uint64(GROUP_MAX_MEMBERS)
-	return gis
-}
 
 //创建一个新建组。由（且有创建组权限的）父亲组节点发起。
 //miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
 //gn：组名。
 func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID, gn string) int {
-	if len(miners) != GROUP_MAX_MEMBERS {
-		log.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
+	if len(miners) != GetGroupMemberNum() {
+		log.Printf("create group error, group max members=%v, real=%v.\n", GetGroupMemberNum(), len(miners))
 		return -1
 	}
 	var gis ConsensusGroupInitSummary
@@ -224,7 +193,7 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID,
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
-	gis.Members = uint64(GROUP_MAX_MEMBERS)
+	gis.Members = uint64(GetGroupMemberNum())
 	gis.Extends = "Dummy"
 	var grm ConsensusGroupRawMessage
 	grm.MEMS = make([]PubKeyInfo, len(miners))

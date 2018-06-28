@@ -47,6 +47,14 @@ func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) 
 	return true
 }
 
+func (cg *CreatingGroup) reachThresholdPiece() bool {
+    return len(cg.pieces) >= GetGroupK(int(cg.gis.Members))
+}
+
+func (cg *CreatingGroup) threshold() int {
+	return GetGroupK(int(cg.gis.Members))
+}
+
 func (ctx *CreateGroupContext) addCreatingGroup(group *CreatingGroup)  {
     ctx.lock.Lock()
     defer ctx.lock.Unlock()
@@ -61,7 +69,7 @@ func (ctx *CreateGroupContext) acceptPiece(dummyId groupsig.ID, from groupsig.ID
 		return PIECE_GROUP_NOTFOUND
 	} else {
 		cg.acceptPiece(from, sign)
-		if len(cg.pieces) >= GetGroupK() {
+		if cg.reachThresholdPiece() {
 			return PIECE_THRESHOLD
 		} else {
 			return PIECE_NORMAL
