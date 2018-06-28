@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"fmt"
 	"time"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
 const (
@@ -147,12 +146,12 @@ func (s *server) send(b []byte, id string) {
 	}
 	c := context.Background()
 
-	peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
-	if e != nil || string(peerInfo.ID) == "" {
-		logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
-	} else {
-		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	}
+	//peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
+	//if e != nil || string(peerInfo.ID) == "" {
+	//	logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
+	//} else {
+	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	//}
 
 	s.streamMapLock.RLock()
 	ss := s.streams[id]
@@ -183,12 +182,12 @@ func (s *server) send(b []byte, id string) {
 			return
 		}
 		s.streams[id].stream = stream
+		ss.stream = stream
 		ss.lock.Unlock()
 		s.send(b, id)
 		return
 	}
 	ss.lock.Unlock()
-	//fmt.Printf("send to %s, size:%d\n", id, len(b))
 }
 
 func (s *server) writePackage(stream inet.Stream, body []byte, id string) error {
@@ -207,7 +206,6 @@ func (s *server) writePackage(stream inet.Stream, body []byte, id string) error 
 			return fmt.Errorf("stream write length error")
 		}
 	} else {
-		//writer := bufio.NewWriter(stream)
 		n := l / PACKAGE_MAX_SIZE
 		left, right := 0, PACKAGE_MAX_SIZE
 		for i := 0; i <= n; i++ {
