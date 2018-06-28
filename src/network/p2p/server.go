@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"time"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
 const (
