@@ -100,7 +100,7 @@ type server struct {
 }
 
 type syncStream struct {
-	stream inet.Stream
+	stream *inet.Stream
 
 	lock sync.RWMutex
 }
@@ -164,7 +164,7 @@ func (s *server) send(b []byte, id string) {
 		}
 		s.streamMapLock.Lock()
 		if s.streams[id] == nil {
-			s.streams[id] = &syncStream{stream: stream, lock: sync.RWMutex{}}
+			s.streams[id] = &syncStream{stream: &stream, lock: sync.RWMutex{}}
 			ss = s.streams[id]
 		} else {
 			ss = s.streams[id]
@@ -175,14 +175,14 @@ func (s *server) send(b []byte, id string) {
 	e2 := s.writePackage(ss.stream, b, id)
 
 	if e2 != nil {
-		ss.stream.Close()
+		(*ss.stream).Close()
 		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
 		if e1 != nil {
 			logger.Errorf("New stream for %s error:%s", id, e1.Error())
 			return
 		}
-		s.streams[id].stream = stream
-		ss.stream = stream
+		ss.stream = &stream
+		s.streams[id] = ss
 		ss.lock.Unlock()
 		s.send(b, id)
 		return
