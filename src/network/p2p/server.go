@@ -206,13 +206,13 @@ func (s *server) writePackage(stream inet.Stream, body []byte, id string) error 
 			return fmt.Errorf("stream write length error")
 		}
 	} else {
-		writer := bufio.NewWriter(stream)
+		//writer := bufio.NewWriter(stream)
 		n := l / PACKAGE_MAX_SIZE
 		left, right := 0, PACKAGE_MAX_SIZE
 		for i := 0; i <= n; i++ {
 			a := make([]byte, right-left)
 			copy(a, body[left:right])
-			r, err = writer.Write(a)
+			r, err = stream.Write(a)
 			if err != nil {
 				logger.Errorf("Write stream for %s error:%s", id, err.Error())
 				return err
