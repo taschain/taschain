@@ -146,12 +146,12 @@ func (s *server) send(b []byte, id string) {
 	}
 	c := context.Background()
 
-	//peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
-	//if e != nil || string(peerInfo.ID) == "" {
-	//	logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
-	//} else {
-	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	//}
+	peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
+	if e != nil || string(peerInfo.ID) == "" {
+		logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
+	} else {
+		s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
+	}
 
 	s.streamMapLock.RLock()
 	ss := s.streams[id]
