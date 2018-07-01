@@ -32,7 +32,7 @@ func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
 }
 
 func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
-	jg.GroupSec.effectHeight = height
+	jg.GroupSec.EffectHeight = height
 }
 
 type BelongGroups struct {

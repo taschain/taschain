@@ -602,7 +602,7 @@ func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("grm.MEMS size=%v, mems size=%v.\n", len(grm.MEMS), len(mems))
 	//grm.GI = genDummyGIS(root, "64-2")
 
-	grm.GI = first_proc.GenGenesisGroupSummary()
+	grm.GI = GenGenesisGroupSummary()
 
 	//grm.SI = GenSignData(grm.GI.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
