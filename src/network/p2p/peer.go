@@ -109,7 +109,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIP string, publicIP stri
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendDataToAll(packet *bytes.Buffer) {
-	fmt.Printf("SendDataToAll  peer size:%v\n", len(pm.peers))
+	//fmt.Printf("SendDataToAll  peer size:%v\n", len(pm.peers))
 
 	for _, p := range pm.peers {
 		if p.seesionID > 0 {

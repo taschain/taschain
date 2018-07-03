@@ -679,7 +679,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
 	id := fromID.B58String()
 	fmt.Printf("from:%v  len:%v \n", id, len(data))
-	Server.handleMessage(data,id)
+	Server.handleMessage(data,id,time.Now())
 	return nil
 }
 

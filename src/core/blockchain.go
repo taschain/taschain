@@ -21,6 +21,7 @@ import (
 	"middleware"
 	"middleware/types"
 	"taslog"
+	"network"
 )
 
 const (
@@ -384,6 +385,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
+	beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
@@ -408,6 +410,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
+	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -476,7 +479,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
-		return nil, 3, nil, nil
+		return nil, 2, nil, nil
 	}
 
 	// 验证交易
@@ -503,6 +506,8 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		m := &TransactionRequestMessage{
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
+			BlockHeight:       bh.Height,
+			BlockQn:           bh.QueueNumber,
 		}
 		go RequestTransaction(*m, castorId.GetString())
 		return missing, 1, nil, nil
@@ -556,6 +561,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
+	defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }

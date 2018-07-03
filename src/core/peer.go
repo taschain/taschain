@@ -4,13 +4,21 @@ import (
 	"common"
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
+
 	"middleware/types"
 	"network/p2p"
+
+	"time"
+	"network"
+
+
 )
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
 	CurrentBlockHash  common.Hash
+	BlockHeight       uint64
+	BlockQn           uint64
 }
 
 type BlockHashesReq struct {
@@ -55,6 +63,7 @@ type BlockInfo struct {
 //
 //}
 
+
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
 	if castorId == "" {
@@ -66,17 +75,19 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
+	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
 	p2p.Server.SendMessage(message, castorId)
 }
 
 //本地查询到交易，返回请求方
-func SendTransactions(txs []*types.Transaction, sourceId string) {
+func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uint64, blockQn uint64) {
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
+	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
 	p2p.Server.SendMessage(message, sourceId)
 }
@@ -160,7 +171,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 	}
 
 	currentBlockHash := m.CurrentBlockHash.Bytes()
-	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: &m.BlockHeight, BlockQn: &m.BlockQn}
 	return proto.Marshal(&message)
 }
 
