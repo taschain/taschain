@@ -7,6 +7,13 @@ import (
 	"github.com/libp2p/go-libp2p-peer"
 	"log"
 	"taslog"
+	"math/rand"
+	"time"
+	"fmt"
+	"encoding/hex"
+	"strings"
+	"errors"
+	b58 "github.com/mr-tron/base58/base58"
 )
 
 const (
@@ -17,17 +24,219 @@ const (
 	PRIVATE_KEY = "private_key"
 )
 
+
+// Node Kad 节点
 type Node struct {
+
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
+	ID      NodeID
+	IP     	net.IP
+	Port    int
+	NatType int
 
-	Id string
 
-	Ip string
+	// kad
 
-	TcpPort int
+	sha     []byte
+	addedAt time.Time
+	fails  int
+	bondAt time.Time
+
 }
+
+const nodeIDBits = 272
+
+// NodeID 节点ID类型
+type NodeID [nodeIDBits / 8]byte
+
+// 十六进制的ID
+func (n NodeID) String() string {
+	return fmt.Sprintf("%x", n[:])
+}
+
+func (n NodeID)B58String() string {
+	b58String :=b58.Encode(n[:])
+	return b58String
+}
+
+// NewNode 新建节点
+func NewNode(id NodeID, ip net.IP, Port int) *Node {
+	if ipv4 := ip.To4(); ipv4 != nil {
+		ip = ipv4
+	}
+	return &Node{
+		IP:   ip,
+		Port: Port,
+		ID:   id,
+		sha:  SHA256Hash(id[:]),
+	}
+}
+
+func (n *Node) addr() *net.UDPAddr {
+	return &net.UDPAddr{IP: n.IP, Port: int(n.Port)}
+}
+
+// Incomplete returns true for nodes with no IP address.
+func (n *Node) Incomplete() bool {
+	return n.IP == nil
+}
+
+// checks whether n is a valid complete node.
+func (n *Node) validateComplete() error {
+	if n.Incomplete() {
+		return errors.New("incomplete node")
+	}
+	if n.Port == 0 {
+		return errors.New("missing port")
+	}
+
+	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
+		return errors.New("invalid IP (multicast/unspecified)")
+	}
+	return nil
+}
+
+// BytesID converts a byte slice to a NodeID
+func BytesID(b []byte) (NodeID, error) {
+	var id NodeID
+	if len(b) != len(id) {
+		return id, fmt.Errorf("wrong length, want %d bytes", len(id))
+	}
+	copy(id[:], b)
+	return id, nil
+}
+
+// MustBytesID converts a byte slice to a NodeID.
+// It panics if the byte slice is not a valid NodeID.
+func MustBytesID(b []byte) NodeID {
+	id, err := BytesID(b)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+// HexID converts a hex string to a NodeID.
+// The string may be prefixed with 0x.
+func HexID(in string) (NodeID, error) {
+	var id NodeID
+	b, err := hex.DecodeString(strings.TrimPrefix(in, "0x"))
+	if err != nil {
+		return id, err
+	} else if len(b) != len(id) {
+		return id, fmt.Errorf("wrong length, want %d hex chars", len(id)*2)
+	}
+	copy(id[:], b)
+	return id, nil
+}
+
+// MustHexID converts a hex string to a NodeID.
+// It panics if the string is not a valid NodeID.
+func MustHexID(in string) NodeID {
+	id, err := HexID(in)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+func MustB58ID(in string) NodeID {
+	id, err := b58.Decode(in)
+	if err != nil {
+		panic(err)
+	}
+	return MustBytesID(id)
+}
+
+// distcmp compares the distances a->target and b->target.
+// Returns -1 if a is closer to target, 1 if b is closer to target
+// and 0 if they are equal.
+func distcmp(target, a, b []byte) int {
+	for i := range target {
+		da := a[i] ^ target[i]
+		db := b[i] ^ target[i]
+		if da > db {
+			return 1
+		} else if da < db {
+			return -1
+		}
+	}
+	return 0
+}
+
+// table of leading zero counts for bytes [0..255]
+var lzcount = [256]int{
+	8, 7, 6, 6, 5, 5, 5, 5,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	3, 3, 3, 3, 3, 3, 3, 3,
+	3, 3, 3, 3, 3, 3, 3, 3,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+}
+
+// logdist returns the logarithmic distance between a and b, log2(a ^ b).
+func logdist(a, b []byte) int {
+	lz := 0
+	for i := range a {
+		x := a[i] ^ b[i]
+		if x == 0 {
+			lz += 8
+		} else {
+			lz += lzcount[x]
+			break
+		}
+	}
+	return len(a)*8 - lz
+}
+
+// hashAtDistance returns a random hash such that logdist(a, b) == n
+func hashAtDistance(a []byte, n int) (b []byte) {
+	if n == 0 {
+		return a
+	}
+	// flip bit at position n, fill the rest with random bits
+	b = a
+	pos := len(a) - n/8 - 1
+	bit := byte(0x01) << (byte(n%8) - 1)
+	if bit == 0 {
+		pos++
+		bit = 0x80
+	}
+	b[pos] = a[pos]&^bit | ^a[pos]&bit // TODO: randomize end bits
+	for i := pos + 1; i < len(a); i++ {
+		b[i] = byte(rand.Intn(255))
+	}
+	return b
+}
+
 
 func InitSelfNode(config *common.ConfManager) (*Node, error) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
@@ -45,7 +254,7 @@ func InitSelfNode(config *common.ConfManager) (*Node, error) {
 	ip := getLocalIp()
 	port := getAvailableTCPPort(ip, BASE_PORT)
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
 	logger.Debug(n.String())
 	return &n, nil
 }
@@ -90,7 +299,7 @@ func getAvailableTCPPort(ip string, port int) int {
 		return -1
 	}
 
-	listener, e := net.Listen("tcp", ip+":"+strconv.Itoa(port))
+	listener, e := net.ListenPacket("udp", ip+":"+strconv.Itoa(port))
 	if e != nil {
 		//listener.Close()
 		port++
@@ -102,7 +311,7 @@ func getAvailableTCPPort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip + "\nTcp port is:" + strconv.Itoa(s.TcpPort)
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.ID.B58String() + "\nIP is:" + s.IP.String() + "\nTcp port is:" + strconv.Itoa(s.Port)
 	return str
 }
 
@@ -117,7 +326,7 @@ func savePrivateKey(privateKeyStr string, config *common.ConfManager) {
 }
 
 func (s Node) GenMulAddrStr() string {
-	return ToMulAddrStr(s.Ip, "tcp", s.TcpPort)
+	return ToMulAddrStr(s.IP.String(), "tcp", s.Port)
 }
 
 //"/ip4/127.0.0.1/udp/1234"
@@ -153,5 +362,5 @@ func NewSelfNetInfo(privateKeyStr string) *Node {
 	id := GetIdFromPublicKey(publicKey)
 	ip := getLocalIp()
 	port := getAvailableTCPPort(ip, BASE_PORT)
-	return &Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: ip, TcpPort: port}
+	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
 }

@@ -1,11 +1,11 @@
 package core
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"network/p2p"
 	"common"
-	"middleware/types"
+	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
+	"middleware/types"
+	"network/p2p"
 )
 
 type TransactionRequestMessage struct {
@@ -43,14 +43,15 @@ type BlockInfo struct {
 //	}
 //	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
 //
-//	conns := p2p.Server.Host.Network().Conns()
-//	for _, conn := range conns {
-//		id := conn.RemotePeer()
+//	// conns := p2p.Server.Host.Network().Conns()
+//	// for _, conn := range conns {
+//	// 	id := conn.RemotePeer()
 //
-//		if id != "" {
-//			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-//		}
-//	}
+//	// 	if id != "" {
+//	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+//	// 	}
+//	// }
+//	p2p.Server.SendMessageToAll(m)
 //
 //}
 
@@ -93,15 +94,17 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
+	//todo
 	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
 
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
+	// 	}
+	// }
+	p2p.Server.SendMessageToAll(message)
 }
 
 //向某一节点请求Block信息

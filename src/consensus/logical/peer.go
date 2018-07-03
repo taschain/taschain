@@ -2,12 +2,12 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"network/p2p"
-	"github.com/gogo/protobuf/proto"
 	"core"
-	"network"
+	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
+	"network"
+	"network/p2p"
 )
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -21,13 +21,14 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 	}
 	m := p2p.Message{Code: p2p.GROUP_MEMBER_MSG, Body: body}
 
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+	// 	}
+	// }
+	p2p.Server.SendMessageToAll(m)
 }
 
 //广播 组初始化消息  全网广播
@@ -38,15 +39,16 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+	// 	}
+	// }
+	p2p.Server.SendMessageToAll(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.B58String())
 
 }
 
@@ -82,15 +84,16 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_DONE_MSG, Body: body}
 
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+	// 	}
+	// }
+	p2p.Server.SendMessageToAll(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.B58String())
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -161,14 +164,16 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
 
 	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
 
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+	// 	}
+	// }
+
+	p2p.Server.SendMessageToAll(m)
 
 }
 
@@ -226,7 +231,7 @@ func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, e
 	signData := signDataToPb(&m.SI)
 	sign := m.GISSign.Serialize()
 
-	message := tas_middleware_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData, GISSign:sign}
+	message := tas_middleware_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData, GISSign: sign}
 	return proto.Marshal(&message)
 }
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {

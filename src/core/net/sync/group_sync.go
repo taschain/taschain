@@ -1,16 +1,16 @@
 package sync
 
 import (
-	"core"
-	"sync"
-	"time"
 	"common"
-	"network/p2p"
-	"utility"
+	"core"
 	"github.com/gogo/protobuf/proto"
-	"taslog"
 	"middleware/pb"
 	"middleware/types"
+	"network/p2p"
+	"sync"
+	"taslog"
+	"time"
+	"utility"
 )
 
 const (
@@ -46,7 +46,7 @@ type groupSyncer struct {
 func InitGroupSyncer() {
 	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan GroupHeightInfo),
-		GroupRequestCh: make(chan GroupRequestInfo), GroupCh: make(chan []*types.Group),}
+		GroupRequestCh: make(chan GroupRequestInfo), GroupCh: make(chan []*types.Group)}
 	go GroupSyncer.start()
 }
 
@@ -138,13 +138,14 @@ func (gs *groupSyncer) syncGroup() {
 //广播索要组链高度
 func requestGroupChainHeight() {
 	message := p2p.Message{Code: p2p.REQ_GROUP_CHAIN_HEIGHT_MSG}
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
+	// 	}
+	// }
+	p2p.Server.SendMessageToAll(message)
 }
 
 //返回自身组链高度

@@ -1,13 +1,13 @@
 package sync
 
 import (
-	"time"
-	"core"
-	"sync"
-	"utility"
-	"network/p2p"
-	"taslog"
 	"common"
+	"core"
+	"network/p2p"
+	"sync"
+	"taslog"
+	"time"
+	"utility"
 )
 
 const (
@@ -36,7 +36,7 @@ func InitBlockSyncer() {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	}
-	BlockSyncer = blockSyncer{neighborMaxTotalQn: 0, TotalQnRequestCh: make(chan string), TotalQnCh: make(chan TotalQnInfo),}
+	BlockSyncer = blockSyncer{neighborMaxTotalQn: 0, TotalQnRequestCh: make(chan string), TotalQnCh: make(chan TotalQnInfo)}
 	go BlockSyncer.start()
 }
 
@@ -84,7 +84,7 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxTotalQnLock.Unlock()
 	if maxTotalQN <= localTotalQN {
 		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
-		if !core.BlockChainImpl.IsBlockSyncInit(){
+		if !core.BlockChainImpl.IsBlockSyncInit() {
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 		return
@@ -101,14 +101,17 @@ func (bs *blockSyncer) syncBlock() {
 
 //广播索要链的QN值
 func requestBlockChainTotalQn() {
+	//todo
 	message := p2p.Message{Code: p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG}
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-		}
-	}
+	// conns := p2p.Server.Host.Network().Conns()
+	// for _, conn := range conns {
+	// 	id := conn.RemotePeer()
+	// 	if id != "" {
+	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
+	// 	}
+	// }
+
+	p2p.Server.SendMessageToAll(message)
 }
 
 //返回自身链QN值
