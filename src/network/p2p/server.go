@@ -163,7 +163,7 @@ func (s *server) SendMessageToAll(m Message) {
 		//s.send(b, id)
 
 		GetNetCore().SendDataToAll(bytes)
-		s.sendSelf(bytes, s.SelfNetInfo.ID.B58String() )
+		//s.sendSelf(bytes, s.SelfNetInfo.ID.B58String() )
 	//}()
 
 }
@@ -221,7 +221,6 @@ func (s *server) sendSelf(b []byte, id string) {
 	//fmt.Printf("sendSelf , len:%d",len(b))
 
 	s.handleMessage(b, id,time.Now())
-
 }
 
 //TODO 考虑读写超时
@@ -335,7 +334,7 @@ func (s *server) handleMessage(b []byte, from string, beginTime time.Time) {
 		return
 	}
 
-//	fmt.Printf("message.Code:%v body:%v from:%v \n ", *message.Code,message.Body,from)
+	//fmt.Printf("message.Code:%v body:%v from:%v \n ", *message.Code,message.Body,from)
 
 	if *message.Code == CAST_VERIFY_MSG {
 		logger.Debugf("receive CAST_VERIFY_MSG from %s ,byte:%d,read message cost time %v", from, len(b), time.Since(beginTime))
@@ -388,7 +387,8 @@ func (s *server) GetConnInfo() []ConnInfo {
 	//}
 	peers := GetNetCore().PM.peers;
 
-//	fmt.Printf("GetConnInfo count：%v \n ", len(result))
+	//fmt.Printf("GetConnInfo count：%v \n ", len(result))
+
 	for _, p := range peers {
 		if p.seesionID > 0 {
 			c := ConnInfo{Id: p.ID.B58String(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}

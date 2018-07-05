@@ -238,7 +238,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 }
 
 
-func InitSelfNode(config *common.ConfManager) (*Node, error) {
+func InitSelfNode(config *common.ConfManager,isSuper bool) (*Node, error) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	var privateKey common.PrivateKey
 
@@ -252,7 +252,11 @@ func InitSelfNode(config *common.ConfManager) (*Node, error) {
 	publicKey := privateKey.GetPubKey()
 	id := GetIdFromPublicKey(publicKey)
 	ip := getLocalIp()
-	port := getAvailableTCPPort(ip, BASE_PORT)
+	basePort := BASE_PORT;
+	if !isSuper {
+		basePort += 16;
+	}
+	port := getAvailableTCPPort(ip, basePort)
 
 	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
 	logger.Debug(n.String())

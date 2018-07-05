@@ -2,9 +2,9 @@ package p2p
 
 import (
 	"bytes"
-	fmt "fmt"
 	"net"
 	"time"
+	"fmt"
 )
 
 //Peer 节点连接对象
@@ -59,15 +59,16 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		pm.peers[netID] = p
 
 	} else if ok && p.seesionID == 0 && expired(p.expiration) && toaddr != nil {
+		//fmt.Printf("reconnect ID：%v  len: %v\n ", netID, packet.Len())
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		//P2PConnect(netID, "47.96.186.139", 70)
 		P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
-
+		p.sendList = append(p.sendList, packet)
 	} else if ok && p.seesionID > 0 {
-		fmt.Printf("P2PSend %v len: %v\n ", p.seesionID, packet.Len())
+	//	fmt.Printf("P2PSend %v len: %v\n ", p.seesionID, packet.Len())
 		P2PSend(p.seesionID, packet.Bytes())
 	} else {
-		fmt.Printf("error : write data ID：%v  len: %v\n ", netID, packet.Len())
+		fmt.Printf("error : write data ID：%v  net id:%v len: %v\n ", toid.B58String(), netID, packet.Len())
 	}
 	return nil
 }
@@ -80,7 +81,7 @@ func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
 		p = &Peer{ID: NodeID{}, seesionID: session, sendList: make([]*bytes.Buffer, 0)}
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.peers[id] = p
-	} else {
+	} else if session >0{
 		p.seesionID = session
 	}
 	if p != nil {
@@ -109,7 +110,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIP string, publicIP stri
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendDataToAll(packet *bytes.Buffer) {
-	//fmt.Printf("SendDataToAll  peer size:%v\n", len(pm.peers))
+//	fmt.Printf("SendDataToAll  peer size:%v\n", len(pm.peers))
 
 	for _, p := range pm.peers {
 		if p.seesionID > 0 {

@@ -37,7 +37,7 @@ void* p2p_api(const char* api)
     static void* p2p_core = 0;
     if (p2p_core == 0)
     {
-        p2p_core = dlopen("/Users/lavrock/code/tas/bin/p2p_core.dylib", RTLD_LAZY);
+        p2p_core = dlopen("./p2p_core.dylib", RTLD_LAZY);
 
     }
     //printf("dlopen %d,%d\n",p2p_core,errno);

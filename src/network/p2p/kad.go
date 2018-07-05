@@ -30,7 +30,8 @@ const (
 	maxFindnodeFailures = 5  // 节点最大失败数量
 
 	refreshInterval    = 30 * time.Minute
-	revalidateInterval = 30 * time.Second
+	revalidateInterval = 30 * time.Minute
+	checkInterval= 	3 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 3000 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -364,6 +365,7 @@ func (kad *Kad) loop() {
 	var (
 		revalidate     = time.NewTimer(kad.nextRevalidateTime())
 		refresh        = time.NewTicker(refreshInterval)
+		check        = time.NewTicker(checkInterval)
 		copyNodes      = time.NewTicker(copyNodesInterval)
 		revalidateDone = make(chan struct{})
 		refreshDone    = make(chan struct{})           // where doRefresh reports completion
@@ -398,6 +400,8 @@ loop:
 			waiting, refreshDone = nil, nil
 		case <-revalidate.C:
 			go kad.doRevalidate(revalidateDone)
+		case <-check.C:
+			go kad.doCheck()
 		case <-revalidateDone:
 			revalidate.Reset(kad.nextRevalidateTime())
 		case <-copyNodes.C:
@@ -426,7 +430,7 @@ loop:
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
 
-	fmt.Printf("doRefresh  \n")
+	//fmt.Printf("doRefresh  \n")
 
 	// Load nodes from the database and insert
 	// them. This should yield a few previously seen nodes that are
@@ -452,7 +456,7 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 func (kad *Kad) loadSeedNodes(bond bool) {
 	seeds := make([]*Node, 0, 16)
 	//kad.db.querySeeds(seedCount, seedMaxAge)
-	fmt.Printf("loadSeedNodes...\n")
+	//fmt.Printf("loadSeedNodes...\n")
 
 	seeds = append(seeds, kad.nursery...)
 	if bond {
@@ -466,11 +470,20 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 	}
 }
 
+
+func (kad *Kad) doCheck() {
+	//fmt.Printf("doCheck ... bucket size:%v \n", kad.len())
+
+	if kad.len() <= len(kad.nursery){
+		kad.refresh()
+	}
+}
+
 // doRevalidate checks that the last node in a random bucket is still live
 // and replaces or deletes the node if it isn't.
 func (kad *Kad) doRevalidate(done chan<- struct{}) {
 	defer func() { done <- struct{}{} }()
-	fmt.Printf("doRevalidate ... bucket size:%v \n", kad.len())
+	//fmt.Printf("doRevalidate ... bucket size:%v \n", kad.len())
 	kad.Print()
 	last, bi := kad.nodeToRevalidate()
 	last =nil;
@@ -548,7 +561,7 @@ func (kad *Kad) copyBondedNodes() {
 // closest returns the n nodes in the table that are closest to the
 // given id. The caller must hold kad.mutex.
 func (kad *Kad) closest(target []byte, nresults int) *nodesByDistance {
-	fmt.Printf("kad closest ... bucket size:%v \n", kad.len())
+	//fmt.Printf("kad closest ... bucket size:%v \n", kad.len())
 
 	// This is a very wasteful way to find the closest nodes but
 	// obviously correct. I believe that tree-based buckets would make
@@ -583,7 +596,7 @@ func (kad *Kad) Print() {
 // those nodes for which bonding has probably succeeded.
 func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 
-	fmt.Printf("bondall   %v...\n", kad.len())
+	//fmt.Printf("bondall   %v...\n", kad.len())
 
 	rc := make(chan *Node, len(nodes))
 	for i := range nodes {
@@ -711,7 +724,7 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr,
 		// waitping will simply time out.
 		kad.net.waitping(id)
 	}
-	fmt.Printf("bond  Bonding succeeded,SendDataToAll %v \n", addr)
+	//fmt.Printf("bond  Bonding succeeded,SendDataToAll %v \n", addr)
 
 	// Bonding succeeded, update the node database.
 	w.n = NewNode(id, addr.IP, addr.Port)
@@ -747,7 +760,7 @@ func (kad *Kad) bucket(sha []byte) *bucket {
 // The caller must not hold kad.mutex.
 func (kad *Kad) add(new *Node) {
 
-	fmt.Printf("Kad add node id:%v\n", new.ID.B58String())
+	//fmt.Printf("Kad add node id:%v\n", new.ID.B58String())
 
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()

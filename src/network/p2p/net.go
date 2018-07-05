@@ -35,7 +35,7 @@ var (
 const (
 	respTimeout    = 500 * time.Millisecond
 	expiration     = 20 * time.Second
-	connectTimeout = 8 * time.Second
+	connectTimeout = 3 * time.Second
 
 	ntpFailureThreshold = 32               // Continuous timeouts after which to check NTP
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
@@ -223,7 +223,7 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]
 				//log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
 				continue
 			}
-			fmt.Printf("find node:%v, %v, %v\n",n.ID.B58String(),n.IP,n.Port)
+			//fmt.Printf("find node:%v, %v, %v\n",n.ID.B58String(),n.IP,n.Port)
 			nodes = append(nodes, n)
 		}
 		return nreceived >= bucketSize
@@ -529,7 +529,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		p.recvBuffer = bytes.NewBuffer(p.recvBuffer.Bytes()[packetSize:])
 	}
 
-	fmt.Printf("handleMessage : msgType: %v \n", msgType)
+	//fmt.Printf("handleMessage : msgType: %v \n", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -649,7 +649,7 @@ func (nc *NetCore) handleFindNode(req *FindNode, fromID NodeID) error {
 		//if netutil.CheckRelayIP(from.IP, n.IP) == nil {
 		node := nodeToRPC(n)
 		p.Nodes = append(p.Nodes, &node)
-		fmt.Printf("handleFindNode id:%v      ip:%v   port:%v\n ", node.ID, node.IP, node.Port)
+		//fmt.Printf("handleFindNode id:%v      ip:%v   port:%v\n ", node.ID, node.IP, node.Port)
 
 		//}
 		if len(p.Nodes) == maxNeighbors {
@@ -678,7 +678,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
 	id := fromID.B58String()
-	fmt.Printf("from:%v  len:%v \n", id, len(data))
+	//fmt.Printf("from:%v  len:%v \n", id, len(data))
 	Server.handleMessage(data,id,time.Now())
 	return nil
 }

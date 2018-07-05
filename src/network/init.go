@@ -25,7 +25,7 @@ func InitNetwork(config *common.ConfManager, isSuper bool) error {
 
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 
-	node, e1 := makeSelfNode(config)
+	node, e1 := makeSelfNode(config,isSuper)
 	if e1 != nil {
 		return e1
 	}
@@ -97,8 +97,8 @@ func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
 	//p2p.GetNetCore().GM.AddGroup("testGroup", groupMembers)
 	return nil
 }
-func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
-	node, error := p2p.InitSelfNode(config)
+func makeSelfNode(config *common.ConfManager,isSuper bool) (*p2p.Node, error) {
+	node, error := p2p.InitSelfNode(config,isSuper)
 	if error != nil {
 		Logger.Error("[Network]InitSelfNode error!\n" + error.Error())
 		return nil, error
@@ -187,6 +187,6 @@ func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 
 func getSeedInfo(config *common.ConfManager) (string, string, error) {
 	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "Qmdeh5r5kT2je77JNYKTsQi6ncckpLa9aFnr6xYQaGAxaw")
-	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.66/tcp/1122")
+	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.193/tcp/1122")
 	return seedIdStr, seedAddrStr, nil
 }
