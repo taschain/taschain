@@ -50,8 +50,8 @@ func CreateInitingGroup(raw *ConsensusGroupRawMessage) *InitingGroup {
 	}
 }
 
-func (ngc *InitingGroup) MemberExist(id groupsig.ID) bool {
-	for _, mem := range ngc.mems {
+func (ig *InitingGroup) MemberExist(id groupsig.ID) bool {
+	for _, mem := range ig.mems {
 		if mem.ID.IsEqual(id) {
 			return true
 		}
@@ -59,31 +59,31 @@ func (ngc *InitingGroup) MemberExist(id groupsig.ID) bool {
 	return false
 }
 
-func (ngc *InitingGroup) receive(id groupsig.ID, pk groupsig.Pubkey) int32 {
-	status := atomic.LoadInt32(&ngc.status)
+func (ig *InitingGroup) receive(id groupsig.ID, pk groupsig.Pubkey) int32 {
+	status := atomic.LoadInt32(&ig.status)
 	if status != INITING {
 		return status
 	}
 
-	ngc.lock.Lock()
-	defer ngc.lock.Unlock()
+	ig.lock.Lock()
+	defer ig.lock.Unlock()
 
-	ngc.receivedGPKs[id.GetHexString()] = pk
-	ngc.convergence()
-	return ngc.status
+	ig.receivedGPKs[id.GetHexString()] = pk
+	ig.convergence()
+	return ig.status
 }
 
-func (ngc *InitingGroup) receiveSize() int {
-	ngc.lock.RLock()
-	defer ngc.lock.RUnlock()
+func (ig *InitingGroup) receiveSize() int {
+	ig.lock.RLock()
+	defer ig.lock.RUnlock()
 
-	return len(ngc.receivedGPKs)
+	return len(ig.receivedGPKs)
 }
 
 //找出收到最多的相同值
-func (ngc *InitingGroup) convergence() bool {
-	threshold := GetGroupK(int(ngc.gis.Members))
-	log.Printf("begin Convergence, K=%v, mems=%v.\n", threshold, len(ngc.mems))
+func (ig *InitingGroup) convergence() bool {
+	threshold := GetGroupK(int(ig.gis.Members))
+	log.Printf("begin Convergence, K=%v, mems=%v.\n", threshold, len(ig.mems))
 
 	type countData struct {
 		count int
@@ -92,7 +92,7 @@ func (ngc *InitingGroup) convergence() bool {
 	countMap := make(map[string]*countData, 0)
 
 	//统计出现次数
-	for _, v := range ngc.receivedGPKs {
+	for _, v := range ig.receivedGPKs {
 		ps := v.GetHexString()
 		if k, ok := countMap[ps]; ok {
 			k.count++
@@ -116,9 +116,9 @@ func (ngc *InitingGroup) convergence() bool {
 		}
 	}
 
-	if maxCnt >= threshold && atomic.CompareAndSwapInt32(&ngc.status, INITING, INIT_SUCCESS){
+	if maxCnt >= threshold && atomic.CompareAndSwapInt32(&ig.status, INITING, INIT_SUCCESS){
 		log.Printf("found max maxCnt gpk=%v, maxCnt=%v.\n", GetPubKeyPrefix(gpk), maxCnt)
-		ngc.gpk = gpk
+		ig.gpk = gpk
 		return true
 	}
 	return false
@@ -167,7 +167,7 @@ func (ngg *NewGroupGenerator) removeInitingGroup(dummyId groupsig.ID)  {
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
 func (ngg *NewGroupGenerator) ReceiveData(sgs *StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
 	id := sgs.GIS.DummyID
-	log.Printf("ngg ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id))
+	log.Printf("generator ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id))
 	initingGroup := ngg.getInitingGroup(id)
 
 	if initingGroup == nil { //不存在该组

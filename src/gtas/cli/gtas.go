@@ -104,12 +104,12 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	ok := mediator.StartMiner()
 
 	if super {
-		keys1 := LoadPubKeyInfo("pubkeys1")
+		//keys1 := LoadPubKeyInfo("pubkeys1")
 		//keys2 := LoadPubKeyInfo("pubkeys2")
 		//keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 2 {
+			if len(p2p.Server.GetConnInfo()) >= logical.GetGroupMemberNum() - 1 {
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -120,11 +120,11 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		}
 		time.Sleep(time.Second*20)	//等待每个节点初始化完成
 
-		createGroup(keys1, "gtas3")
-		time.Sleep(time.Second*4)
-		createGroup(keys1, "gtas2")
-		time.Sleep(time.Second*4)
-		createGroup(keys1, "gtas1")
+		//createGroup(keys1, "gtas3")
+		//time.Sleep(time.Second*4)
+		//createGroup(keys1, "gtas2")
+		//time.Sleep(time.Second*4)
+		//createGroup(keys1, "gtas1")
 
 	}
 

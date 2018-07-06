@@ -196,17 +196,17 @@ func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	groups []*StaticGroupInfo
-	gIndex map[string]int     //string(ID)->索引
-	ngg    *NewGroupGenerator //新组处理器(组外处理器)
-	lock sync.RWMutex
+	groups    []*StaticGroupInfo
+	gIndex    map[string]int     //string(ID)->索引
+	generator *NewGroupGenerator //新组处理器(组外处理器)
+	lock      sync.RWMutex
 }
 
 func NewGlobalGroups() *GlobalGroups {
 	return &GlobalGroups{
-		groups: make([]*StaticGroupInfo, 0),
-		gIndex: make(map[string]int),
-		ngg: CreateNewGroupGenerator(),
+		groups:    make([]*StaticGroupInfo, 0),
+		gIndex:    make(map[string]int),
+		generator: CreateNewGroupGenerator(),
 	}
 }
 
@@ -217,11 +217,11 @@ func (gg *GlobalGroups) GetGroupSize() int {
 }
 
 func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
-    return gg.ngg.addInitingGroup(g)
+    return gg.generator.addInitingGroup(g)
 }
 
 func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
-	gg.ngg.removeInitingGroup(dummyId)
+	gg.generator.removeInitingGroup(dummyId)
 }
 
 //增加一个合法铸块组
@@ -248,7 +248,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 }
 
 func (gg *GlobalGroups) GroupInitedMessage(sgs *StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
-	return gg.ngg.ReceiveData(sgs, sender, height)
+	return gg.generator.ReceiveData(sgs, sender, height)
 }
 
 //检查某个用户是否某个组成员
@@ -323,7 +323,7 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 }
 
 func (gg *GlobalGroups) GetInitingGroup(dummyId groupsig.ID) *InitingGroup {
-    return gg.ngg.getInitingGroup(dummyId)
+    return gg.generator.getInitingGroup(dummyId)
 }
 
 func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {

@@ -9,7 +9,7 @@ import (
 )
 
 // ID -- id for secret sharing, represented by big.Int
-//秘密共享的ID，64位int，共256位
+//秘密共享的ID，64字节int，共256位
 type ID struct {
 	//	value big.Int
 	value bls.ID
@@ -17,8 +17,7 @@ type ID struct {
 
 //判断2个ID是否相同
 func (id ID) IsEqual(rhs ID) bool {
-	// TODO : add IsEqual to bls.ID
-	return id.value.GetHexString() == rhs.value.GetHexString() //hex string
+	return id.value.IsEqual(&rhs.value) //hex string
 }
 
 //把big.Int转换到ID

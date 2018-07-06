@@ -134,8 +134,8 @@ func (n GroupNode) GenInnerGroup() *JoinedGroup {
 }
 
 //用户初始化
-func (n *GroupNode) InitUser(sk_str string) {
-	n.privateKey = common.GenerateKey(sk_str)
+func (n *GroupNode) InitUser(skStr string) {
+	n.privateKey = common.GenerateKey(skStr)
 	pk := n.privateKey.GetPubKey()
 	n.address = pk.GetAddress()
 }

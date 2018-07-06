@@ -7,45 +7,79 @@ import (
 	"encoding/json"
 	"core"
 	"common"
+	"github.com/libp2p/go-libp2p-peer"
+	"network/p2p"
+	"fmt"
+	"io/ioutil"
+	"os"
 )
 
-func processors() map[string]*Processor {
-	procs := make(map[string]*Processor, GetGroupMemberNum())
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/aliyun`
 
+func GetIdFromPublicKey(p common.PublicKey) string {
+	pubKey := &p2p.Pubkey{PublicKey: p}
+	pID, e := peer.IDFromPublicKey(pubKey)
+	if e != nil {
+		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
+		panic("GetIdFromPublicKey error!")
+	}
+	id := pID.Pretty()
+	return id
+}
+
+func initProcessor(conf string) *Processor {
+	cm := common.NewConfINIManager(conf)
+	scm := cm.GetSectionManager("network")
+	privateKey := common.HexStringToSecKey(scm.GetString("private_key", ""))
+	pk := privateKey.GetPubKey()
+	id := GetIdFromPublicKey(pk)
 	proc := new(Processor)
-	proc.Init(NewMinerInfo("thiefox", "710208"))
-	procs[proc.GetMinerID().GetHexString()] = proc
+	proc.Init(NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
+	return proc
+}
 
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("siren", "850701"))
-	procs[proc.GetMinerID().GetHexString()] = proc
+func processors() (map[string]*Processor, map[string]int) {
+	maxProcNum := 3
+	procs := make(map[string]*Processor, maxProcNum)
+	indexs := make(map[string]int, maxProcNum)
 
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("juanzi", "123456"))
-	procs[proc.GetMinerID().GetHexString()] = proc
+	for i := 1; i <= maxProcNum; i++ {
+		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", CONF_PATH_PREFIX, i))
+		procs[proc.GetMinerID().GetHexString()] = proc
+		indexs[proc.getPrefix()] = i
+	}
 
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("wild children", "111111"))
-	procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("gebaini", "999999"))
-	procs[proc.GetMinerID().GetHexString()] = proc
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("siren", "850701"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
+	//
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("juanzi", "123456"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
+	//
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("wild children", "111111"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
+	//
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("gebaini", "999999"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
+	//
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("wenqin", "2342245"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
+	//
+	//proc = new(Processor)
+	//proc.Init(NewMinerInfo("baozhu", "23420949"))
+	//procs[proc.GetMinerID().GetHexString()] = proc
 
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("wenqin", "2342245"))
-	procs[proc.GetMinerID().GetHexString()] = proc
-
-	proc = new(Processor)
-	proc.Init(NewMinerInfo("baozhu", "23420949"))
-	procs[proc.GetMinerID().GetHexString()] = proc
-
-	return procs
+	return procs, indexs
 }
 
 func TestGenesisGroup(t *testing.T) {
 	groupsig.Init(1)
-	common.InitConf("/Users/pxf/workspace/tas/conf/aliyun_3g21n/tas1.ini")
+	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	// block初始化
 	err := core.InitCore()
 	if err != nil {
@@ -53,7 +87,7 @@ func TestGenesisGroup(t *testing.T) {
 	}
 	InitConsensus()
 
-	procs := processors()
+	procs, indexs := processors()
 
 	mems := make([]PubKeyInfo, 0)
 	for _, proc := range procs {
@@ -159,24 +193,41 @@ func TestGenesisGroup(t *testing.T) {
 		}
 	}
 
+	write := false
 	for id, p := range procs {
+		index := indexs[p.getPrefix()]
+
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 
-		log.Println("=======", id, "============")
-		sgiByte, _ := json.Marshal(sgi)
-		log.Println(string(sgiByte))
-
-		log.Println("-----------------------")
-
 		jgByte, _ := json.Marshal(jg)
-		log.Println(string(jgByte))
+
+		if !write {
+			write = true
+			log.Println("=======", id, "============")
+			sgiByte, _ := json.Marshal(sgi)
+
+			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
+
+			log.Println(string(sgiByte))
+			log.Println("-----------------------")
+			log.Println(string(jgByte))
+		}
+
+
 		log.Println()
+
+		ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
 
 		var sig groupsig.Signature
 		sig.Deserialize(jg.GroupSec.SecretSign)
 		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
 	}
 
+
+
+}
+
+func writeGroup(p *Processor) {
 
 }

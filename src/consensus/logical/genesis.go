@@ -6,7 +6,7 @@ import (
 	"vm/common/math"
 	"encoding/json"
 	"io/ioutil"
-	"common"
+	"strings"
 )
 
 /*
@@ -29,12 +29,12 @@ func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
 	//log.Printf("\nBegin Genesis Group Member, ID=%v, gpk_piece=%v.\n", GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 	//return pki
 	sgi := genGenesisStaticGroupInfo()
-	p.globalGroups.AddStaticGroup(sgi)
+	//p.globalGroups.AddStaticGroup(sgi)
 	p.groupManager.AddGroupOnChain(sgi, false)
-	if p.IsMinerGroup(sgi.GroupID) {//当前节点是创世组成员
-		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_group_file", "genesis_group.config")
+	if sgi.MemExist(p.GetMinerID()) {//当前节点是创世组成员
+		f := consensusConfManager.GetString("genesis_jg_conf", "genesis_jg.config")
 		jg := loadGenesisJoinedGroup(f, sgi)
-		p.joinGroup(jg, false)
+		p.saveJoinedGroup(jg)
 	}
 	return PubKeyInfo{}
 }
@@ -64,8 +64,18 @@ func GenGenesisGroupSummary() ConsensusGroupInitSummary {
 }
 
 func genGenesisStaticGroupInfo() *StaticGroupInfo {
+	f := consensusConfManager.GetString("genesis_sgi_conf", "genesis_sgi.config")
+	sgiData := []byte(GENESIS_GROUP_INFO)
+	if strings.TrimSpace(f) != "" {
+		data, err := ioutil.ReadFile(f)
+		if err != nil {
+			panic(err)
+		}
+		sgiData = data
+	}
+
 	var group = new(StaticGroupInfo)
-	err := json.Unmarshal([]byte(GENESIS_GROUP_INFO), group)
+	err := json.Unmarshal(sgiData, group)
 	if err != nil {
 		panic(err)
 	}

@@ -56,6 +56,7 @@ var MAX_USER_CAST_TIME int = 2                                   //个人出块�
 var MAX_QN int = -1 //组内能出的最大QN值
 
 var consensusLogger taslog.Logger
+var consensusConfManager common.SectionConfManager
 
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager("consensus")
@@ -65,6 +66,7 @@ func InitConsensus() {
 	MAX_USER_CAST_TIME = cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME)
 	MAX_QN = (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME //组内能出的最大QN值
 	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("chain", "database", ""))
+	consensusConfManager = cc
 	return
 }
 
