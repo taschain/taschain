@@ -172,7 +172,7 @@ func (s *server) send(b []byte, id string) {
 		s.streamMapLock.Unlock()
 	}
 	ss.lock.Lock()
-	e2 := s.writePackage(ss.stream, b, id)
+	e2 := s.writePackage(*ss.stream, b, id)
 
 	if e2 != nil {
 		(*ss.stream).Close()
