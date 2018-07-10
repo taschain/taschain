@@ -42,6 +42,14 @@ func (sig *Signature) Deserialize(b []byte) error {
 	return sig.value.Deserialize(b)
 }
 
+func DeserializeSign(b []byte) *Signature {
+	var sign = &Signature{}
+	if err := sign.Deserialize(b); err != nil {
+		return nil
+	}
+	return sign
+}
+
 //把签名转换为字节切片
 func (sig Signature) Serialize() []byte {
 	return sig.value.Serialize()

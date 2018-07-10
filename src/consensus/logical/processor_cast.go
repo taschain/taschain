@@ -17,7 +17,7 @@ import (
 */
 
 type CastBlockContexts struct {
-	contexts sync.Map
+	contexts sync.Map	//string -> *BlockContext
 }
 
 func NewCastBlockContexts() *CastBlockContexts {
@@ -27,14 +27,13 @@ func NewCastBlockContexts() *CastBlockContexts {
 }
 
 func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-    _, load := bctx.contexts.LoadOrStore(bc.MinerID.gid.GetHexString(), *bc)
+    _, load := bctx.contexts.LoadOrStore(bc.MinerID.gid.GetHexString(), bc)
     return !load
 }
 
 func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
 	v, _ := bctx.contexts.Load(gid.GetHexString())
-	bc := v.(BlockContext)
-	return &bc
+	return v.(*BlockContext)
 }
 
 func (bctx *CastBlockContexts) contextSize() int32 {
@@ -48,8 +47,8 @@ func (bctx *CastBlockContexts) contextSize() int32 {
 
 func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
     bctx.contexts.Range(func(key, value interface{}) bool {
-    	v := value.(BlockContext)
-		return f(&v)
+    	v := value.(*BlockContext)
+		return f(v)
 	})
 }
 
@@ -118,20 +117,20 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	var (
 		expireTime time.Time
 		castHeight uint64
+		deltaHeight uint64
 	)
+	d := time.Since(top.CurTime)
+	if d < 0 {
+		return false
+	}
+
+	deltaHeight = uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
+	expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
 
 	if top.Height > 0 {
-		d := time.Since(top.CurTime)
-		if d < 0 {
-			return false
-		}
-
-		deltaHeight := uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
 		castHeight = top.Height + deltaHeight
-		expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
 	} else {
 		castHeight = uint64(1)
-		expireTime = GetCastExpireTime(time.Now(), 1)
 	}
 
 	log.Printf("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v\n", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight, expireTime)

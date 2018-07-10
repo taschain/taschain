@@ -39,6 +39,10 @@ func (bc *BlockContext) Init(mid GroupMinerID) {
 	bc.reset()
 }
 
+func (bc *BlockContext) threshold() int {
+    return GetGroupK(bc.GroupMembers)
+}
+
 func (bc *BlockContext) getKingCheckRoutineName() string {
 	return "king_check_routine_" + GetIDPrefix(bc.MinerID.gid)
 }
@@ -174,17 +178,13 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	//bc.PreTime = prevTime //上一块的铸块成功时间
-	//bc.ConsensusStatus = CBCS_CURRENT
-	//bc.SignedMaxQN = INVALID_QN //等待第一个有效铸块
-	//bc.PrevHash = prevHash
-	//bc.CastHeight = castHeight
-	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
-	//bc.resetSlotContext()
-
 	if _, verifyCtx := bc.getVerifyContext(castHeight, baseBH.Hash); verifyCtx != nil {
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
+		if !verifyCtx.isCasting() {
+			verifyCtx.rebase(bc, castHeight, expire, baseBH)
+		}
 		bc.currentVerifyContext = verifyCtx
+
 	} else {
 		verifyCtx = newVerifyContext(bc, castHeight, expire, baseBH)
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)

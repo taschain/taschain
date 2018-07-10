@@ -63,6 +63,12 @@ func (p *Processor) prepareMiner()  {
 			BeginHeight: coreGroup.BeginHeight,
 			Members:     make([]PubKeyInfo, 0),
 			MemIndex:    make(map[string]int),
+			DismissHeight: coreGroup.DismissHeight,
+			ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
+			Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
+			Authority:     coreGroup.Authority,
+			Name:          coreGroup.Name,
+			Extends:       coreGroup.Extends,
 		}
 		for _, mem := range coreGroup.Members {
 			pkInfo := &PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}

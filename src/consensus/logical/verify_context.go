@@ -48,9 +48,9 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 	case TRANS_ACCEPT_NOT_FULL:
 		return "接收交易,但仍缺失"
 	case TRANS_ACCEPT_FULL_PIECE:
-		return "接收交易,等待分片"
+		return "交易收齐,等待分片"
 	case TRANS_ACCEPT_FULL_THRESHOLD:
-		return "接收交易,分片已到门限"
+		return "交易收齐,分片已到门限"
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }
@@ -83,7 +83,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 func (vc *VerifyContext) resetSlotContext() {
 	for i := 0; i < MAX_SYNC_CASTORS; i++ {
 		sc := new(SlotContext)
-		sc.reset(vc.blockCtx.GroupMembers)
+		sc.reset(vc.blockCtx.threshold())
 		vc.slots[i] = sc
 	}
 }
@@ -119,11 +119,11 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time
     vc.prevHash = preBH.Hash
     vc.castHeight = castHeight
     vc.prevSign = preBH.Signature
-    vc.expireTime = expire
     vc.signedMaxQN = INVALID_QN
-    vc.consensusStatus = CBCS_CURRENT
     vc.blockCtx = bc
-    vc.castedQNs = make([]int64, 0)
+	vc.expireTime = expire
+	vc.consensusStatus = CBCS_CURRENT
+	vc.castedQNs = make([]int64, 0)
 	vc.resetSlotContext()
 }
 
@@ -175,10 +175,10 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	if max < 0 {
 		return -1
 	}
-
 	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
 	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
 
+	log.Printf("qnOfDiff diff %v, pre %v, d %v, qn=%v\n", int(diff), vc.prevTime, d, qn)
 	return qn
 }
 
@@ -283,6 +283,7 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	calcQN := vc.calcQN(bh.CurTime)
 	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
+		log.Printf("calcQN %v, receiveQN %v\n", calcQN, bh.QueueNumber)
 		return CBMR_IGNORE_QN_ERROR
 	}
 
@@ -303,12 +304,16 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		vc.slots[i] = newSlotContext(bh, si, vc.blockCtx.GroupMembers)
-		if vc.slots[i].TransFulled {
-			return CBMR_PIECE_NORMAL
-		} else {
-			return CBMR_PIECE_LOSINGTRANS
+		vc.slots[i] = newSlotContext(bh, si, vc.blockCtx.threshold())
+		if vc.slots[i].IsFailed() {
+			return CBMR_STATUS_FAIL
 		}
+		return CBMR_PIECE_NORMAL
+		//if vc.slots[i].transFulled {
+		//	return CBMR_PIECE_NORMAL
+		//} else {
+		//	return CBMR_PIECE_LOSINGTRANS
+		//}
 
 	} else { //该QN值对应的插槽已存在
 		if vc.slots[i].IsFailed() {
@@ -365,7 +370,7 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	if !accept {
 		return TRANS_DENY
 	}
-	if !slot.TransFulled {
+	if !slot.IsTransFull() {
 		return TRANS_ACCEPT_NOT_FULL
 	}
 	if slot.thresholdWitnessGot() {

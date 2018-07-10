@@ -48,7 +48,7 @@ func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) 
 }
 
 func (cg *CreatingGroup) reachThresholdPiece() bool {
-    return len(cg.pieces) >= GetGroupK(int(cg.gis.Members))
+    return len(cg.pieces) >= cg.threshold()
 }
 
 func (cg *CreatingGroup) threshold() int {

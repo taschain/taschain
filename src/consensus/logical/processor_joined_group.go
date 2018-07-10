@@ -36,7 +36,7 @@ func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
 }
 
 type BelongGroups struct {
-	groups sync.Map
+	groups sync.Map	//idHex -> *JoinedGroup
 }
 
 func NewBelongGroups() *BelongGroups {
@@ -47,8 +47,7 @@ func NewBelongGroups() *BelongGroups {
 
 func (bg *BelongGroups) getJoinedGroup(id groupsig.ID) *JoinedGroup {
     if ret, ok := bg.groups.Load(id.GetHexString()); ok {
-    	g := ret.(JoinedGroup)
-    	return &g
+    	return ret.(*JoinedGroup)
 	}
 	return nil
 }
@@ -65,14 +64,14 @@ func (bg *BelongGroups) groupSize() int32 {
 func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
     m := make(map[string]JoinedGroup)
     bg.groups.Range(func(key, value interface{}) bool {
-		m[key.(string)] = value.(JoinedGroup)
+		m[key.(string)] = *(value.(*JoinedGroup))
 		return true
 	})
     return m
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
-	bg.groups.Store(jg.GroupID.GetHexString(), *jg)
+	bg.groups.Store(jg.GroupID.GetHexString(), jg)
 }
 
 func (bg *BelongGroups) leaveGroup(gid groupsig.ID)  {

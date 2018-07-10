@@ -134,13 +134,17 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 		return
 	}
 
-	result = fmt.Sprintf("%v, 当前分片数 %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness))
+	result = fmt.Sprintf("%v, 当前分片数 %v, %v, %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness), slot.thresholdWitnessGot(), slot.threshold)
 	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		log.Printf("proc(%v) %v msg_count reach threshold!\n", mtype, p.getPrefix())
-		p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, bh)
+		if slot.IsTransFull() {
+			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, bh)
+		} else {
+			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 收到所有分片, 但缺失交易, 总共交易%v, 缺失%v", GetHashPrefix(bh.PreHash), len(bh.Transactions), slot.lostTransSize())
+		}
 
 	case CBMR_PIECE_NORMAL:
 		p.normalPieceVerify(mtype, sender, gid, slot, bh)
@@ -339,14 +343,14 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
 				case TRANS_ACCEPT_FULL_PIECE:
-					_, ret := p.verifyBlock(&slot.BH)
-					if ret != 0 {
-						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
-						log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
-					} else {
-						logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.MapWitness))
-						p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
-					}
+					//_, ret := p.verifyBlock(&slot.BH)
+					//if ret != 0 {
+					//	logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
+					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
+					//} else {
+					//	p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
+					//}
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.MapWitness))
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					//_, ret := p.verifyBlock(&slot.BH)

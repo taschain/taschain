@@ -127,7 +127,7 @@ func (ig *InitingGroup) convergence() bool {
 
 //组生成器，父亲组节点或全网节点组外处理器（非组内初始化共识器）
 type NewGroupGenerator struct {
-	groups     sync.Map //组ID（dummyID）->组创建共识
+	groups     sync.Map //组ID（dummyID）->组创建共识 string -> *InitingGroup
 	//groups     map[string]*InitingGroup //组ID（dummyID）->组创建共识
 }
 
@@ -139,19 +139,18 @@ func CreateNewGroupGenerator() *NewGroupGenerator {
 
 func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	dummyId := initingGroup.gis.DummyID
-	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), *initingGroup)
+	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), initingGroup)
 	if load {
 		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummyId))
 	} else {
-		log.Printf("add initing group %p ok, dummyId=%v.\n", &initingGroup, GetIDPrefix(dummyId))
+		log.Printf("add initing group %p ok, dummyId=%v.\n", initingGroup, GetIDPrefix(dummyId))
 	}
 	return !load
 }
 
 func (ngg *NewGroupGenerator) getInitingGroup(dummyId groupsig.ID) *InitingGroup {
     if v, ok := ngg.groups.Load(dummyId.GetHexString()); ok {
-    	g := v.(InitingGroup)
-    	return &g
+    	return v.(*InitingGroup)
 	}
 	return nil
 }
@@ -349,7 +348,7 @@ func (gc *GroupContext) GetGroupInfo() *JoinedGroup {
 //未初始化完成的加入组
 type JoiningGroups struct {
 	groups sync.Map
-	//groups map[string]*GroupContext //group dummy id->GroupContext
+	//groups map[string]*GroupContext //group dummy id->*GroupContext
 }
 
 func NewJoiningGroups() *JoiningGroups {

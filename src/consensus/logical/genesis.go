@@ -33,7 +33,7 @@ func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
 	p.groupManager.AddGroupOnChain(sgi, false)
 	if sgi.MemExist(p.GetMinerID()) {//当前节点是创世组成员
 		f := consensusConfManager.GetString("genesis_jg_conf", "genesis_jg.config")
-		jg := loadGenesisJoinedGroup(f, sgi)
+		jg := readGenesisJoinedGroup(f, sgi)
 		p.saveJoinedGroup(jg)
 	}
 	return PubKeyInfo{}
@@ -74,7 +74,7 @@ func genGenesisStaticGroupInfo() *StaticGroupInfo {
 		sgiData = data
 	}
 
-	var group = new(StaticGroupInfo)
+	group := new(StaticGroupInfo)
 	err := json.Unmarshal(sgiData, group)
 	if err != nil {
 		panic(err)
@@ -87,7 +87,7 @@ func genGenesisStaticGroupInfo() *StaticGroupInfo {
 	return group
 }
 
-func loadGenesisJoinedGroup(file string, sgi *StaticGroupInfo) *JoinedGroup {
+func readGenesisJoinedGroup(file string, sgi *StaticGroupInfo) *JoinedGroup {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic("read genesis joinedGroup file failed!err=" + err.Error())

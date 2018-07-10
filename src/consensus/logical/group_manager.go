@@ -58,7 +58,7 @@ func (gm *GroupManager) removeCreatingGroup(id groupsig.ID)  {
 func (gm *GroupManager) checkCreateGroup(topHeight uint64) (bool, *StaticGroupInfo, *types.BlockHeader) {
 	blockHeight := topHeight - CHECK_CREATE_GROUP_HEIGHT_AFTER
 	theBH := gm.mainChain.QueryBlockByHeight(blockHeight)
-	if theBH == nil {
+	if theBH == nil || theBH.GroupId == nil || len(theBH.GroupId) == 0 {
 		return false, nil, nil
 	}
 
@@ -172,7 +172,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 
 	gis.ParentID = group.GroupID
 
-	gn := rand.Data2CommonHash([]byte(fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height))).String()
+	gn := rand.Data2CommonHash([]byte(fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height))).Str()
 	gis.DummyID = *groupsig.NewIDFromString(gn)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {

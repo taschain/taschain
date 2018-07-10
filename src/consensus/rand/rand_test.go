@@ -4,6 +4,9 @@ import (
 	"testing"
 	"math/big"
 	"math/rand"
+	"unsafe"
+	"sync/atomic"
+	"log"
 )
 
 /*
@@ -51,4 +54,20 @@ func TestRandSeq(t *testing.T) {
 	t.Log(rand.RandomPerm(120, 15))
 	t.Log(rand.RandomPerm(120, 15))
 	t.Log(rand.RandomPerm(120, 16))
+}
+
+func TestAtomic(t *testing.T) {
+	var b  = false
+	pointer := unsafe.Pointer(&b)
+	v := atomic.LoadPointer(&pointer)
+	v1 := (*bool)(v)
+	log.Println(*v1)
+
+	n := true
+	p2 := unsafe.Pointer(&b)
+	atomic.StorePointer(&p2, unsafe.Pointer(&n))
+
+	v = atomic.LoadPointer(&p2)
+	v2 := (*bool)(v)
+	log.Println(*v2)
 }
