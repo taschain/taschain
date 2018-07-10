@@ -111,7 +111,8 @@ func (p *Processor) doVerify(mtype string, msg *ConsensusBlockMessageBase, cgs *
 	if !p.isCastGroupLegal(bh, preBH) {
 		result = "非法的铸块组"
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
-		log.Printf("not the casting group!bh=%v, preBH=%v", bh, preBH)
+		log.Printf("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
+		panic("cast !!")
 		return
 	}
 
@@ -395,18 +396,16 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 		return
 	}
 
-	staticGroupInfo := new(StaticGroupInfo)
-	staticGroupInfo.GIS = grm.GI
-	staticGroupInfo.Members = grm.MEMS
 
 	if p.globalGroups.AddInitingGroup(CreateInitingGroup(&grm)) {
 		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 		//dummy 组写入组链 add by 小熊
+		staticGroupInfo := NewDummySGIFromGroupRawMessage(&grm)
 		p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
 	//非组内成员不走后续流程
-	if !staticGroupInfo.MemExist(p.GetMinerID()) {
+	if !grm.MemberExist(p.GetMinerID()) {
 		return
 	}
 	//p.globalGroups.AddDummyGroup(sgi)
@@ -613,7 +612,8 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 	if !initingGroup.MemberExist(gim.SI.SignMember) {
 		return
 	}
-	if initingGroup.gis.GenHash() != gim.SI.DataHash {
+
+	if initingGroup.gis.GenHash() != gim.GI.GIS.GenHash() {
 		log.Printf("gisHash diff from initingGroup, dummyId=%v\n", GetIDPrefix(dummyId))
 		return
 	}
@@ -627,8 +627,8 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
-		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
 		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
+		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK), staticGroup.BeginHeight, staticGroup.DismissHeight)
 		add := p.globalGroups.AddStaticGroup(staticGroup)
 		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
 
@@ -654,7 +654,7 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 
 
 func (p *Processor) OnMessageCreateGroupRaw(msg ConsensusCreateGroupRawMessage)  {
-	log.Printf("Proc(%v) OMCGR begin, dummyId=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+	log.Printf("Proc(%v) OMCGR begin, dummyId=%v sender=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
 
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
@@ -672,13 +672,13 @@ func (p *Processor) OnMessageCreateGroupRaw(msg ConsensusCreateGroupRawMessage) 
 			Launcher: msg.SI.SignMember,
 		}
 		signMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getSignKey(msg.GI.ParentID)})
-		log.Printf("ConsensusCreateGroupRawMessage SendCreateGroupSignMessage... ")
+		log.Printf("OMCGR SendCreateGroupSignMessage... ")
 		SendCreateGroupSignMessage(signMsg)
 	}
 }
 
 func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage)  {
-	log.Printf("Proc(%v) OMCGS begin, dummyId=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+	log.Printf("Proc(%v) OMCGS begin, dummyId=%v, sender=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
@@ -695,7 +695,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
 			return
 		}
-		creatingGroup := p.groupManager.createContext.getCreatingGroup(msg.GI.DummyID)
+		creatingGroup := p.groupManager.creatingGroups.getCreatingGroup(msg.GI.DummyID)
 		mems := make([]PubKeyInfo, len(creatingGroup.ids))
 		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
 		for i, id := range creatingGroup.ids {

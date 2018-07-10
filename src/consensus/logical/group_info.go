@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sync"
 	"sort"
+	"log"
 )
 
 type STATIC_GROUP_STATUS int
@@ -33,6 +34,18 @@ type StaticGroupInfo struct {
 	Authority     uint64      //权限相关数据（父亲组赋予）
 	Name          string    //父亲组取的名字
 	Extends       string      //带外数据
+}
+
+func NewDummySGIFromGroupRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
+	sgi := &StaticGroupInfo{
+		GIS:           grm.GI,
+		Members:       grm.MEMS,
+		MemIndex:      make(map[string]int),
+	}
+	for index, mem := range sgi.Members {
+		sgi.MemIndex[mem.ID.GetHexString()] = index
+	}
+	return sgi
 }
 
 func NewSGIFromStaticGroupSummary(summary *StaticGroupSummary, group *InitingGroup) *StaticGroupInfo {
@@ -283,12 +296,17 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 //根据上一块哈希值，确定下一块由哪个组铸块
 func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
 	qualifiedGS := gg.GetCastQualifiedGroups(height)
+	log.Printf("SelectNextGroup qualifiedGroup at %v hash %v size %v\n", height, GetHashPrefix(h), len(qualifiedGS))
+	for idx, g := range qualifiedGS {
+		log.Printf("Group %v: %v %v, %v\n", idx, GetIDPrefix(g.GroupID), g.BeginHeight, g.DismissHeight)
+	}
 
 	var ga groupsig.ID
 	value := h.Big()
 
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
+		log.Printf("SelectNextGroup index %v value %v\n", index, value)
 		ga = qualifiedGS[index.Int64()].GroupID
 		return ga, nil
 	} else {

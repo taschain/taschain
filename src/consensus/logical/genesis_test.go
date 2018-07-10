@@ -77,6 +77,24 @@ func processors() (map[string]*Processor, map[string]int) {
 	return procs, indexs
 }
 
+func TestGenIdPubkey(t *testing.T) {
+	groupsig.Init(1)
+	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
+	InitConsensus()
+	procs, _ := processors()
+	idPubs := make([]PubKeyInfo, 0)
+	for _, p := range procs {
+		idPubs = append(idPubs, p.getPubkeyInfo())
+	}
+
+
+	bs, err := json.Marshal(idPubs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Println(string(bs))
+}
+
 func TestGenesisGroup(t *testing.T) {
 	groupsig.Init(1)
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
@@ -91,7 +109,7 @@ func TestGenesisGroup(t *testing.T) {
 
 	mems := make([]PubKeyInfo, 0)
 	for _, proc := range procs {
-		mems = append(mems, proc.GetMinerInfo())
+		mems = append(mems, proc.getPubkeyInfo())
 	}
 	gis := GenGenesisGroupSummary()
 	gis.MemberHash = genMemberHash(mems)
@@ -223,6 +241,8 @@ func TestGenesisGroup(t *testing.T) {
 		sig.Deserialize(jg.GroupSec.SecretSign)
 		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
 	}
+
+
 
 
 

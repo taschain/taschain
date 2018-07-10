@@ -94,7 +94,6 @@ func (p *Processor) Ready() bool {
 }
 
 
-func (p *Processor) getCurrentAvailableGroups() []*StaticGroupInfo {
-    topBH := p.MainChain.QueryTopBlock()
-    return p.globalGroups.GetAvailableGroups(topBH.Height)
+func (p *Processor) getAvailableGroupsAt(height uint64) []*StaticGroupInfo {
+    return p.globalGroups.GetAvailableGroups(height)
 }

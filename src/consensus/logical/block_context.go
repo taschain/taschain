@@ -250,3 +250,11 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 func (bc *BlockContext) getGroupSecret() *GroupSecret {
     return bc.Proc.getGroupSecret(bc.MinerID.gid)
 }
+
+func (bc *BlockContext) registerTicker()  {
+	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
+}
+
+func (bc *BlockContext) removeTicker()  {
+	bc.Proc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
+}

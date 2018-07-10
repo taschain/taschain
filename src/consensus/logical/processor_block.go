@@ -79,8 +79,8 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	bh := block.Header
 
-	log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
-	log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
+	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
+	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
 	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
@@ -148,7 +148,7 @@ func (p *Processor) prepareForCast(gid groupsig.ID)  {
 	b := p.AddBlockContext(bc)
 	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
-	p.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
+	bc.registerTicker()
 	p.triggerCastCheck()
 }
 
