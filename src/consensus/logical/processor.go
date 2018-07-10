@@ -273,7 +273,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 //预留接口
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
-	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
+	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 50)
 	p.prepareMiner()
 	p.ready = true
 	return true

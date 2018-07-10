@@ -16,10 +16,12 @@ import (
 	"middleware/pb"
 	"sync"
 	"bufio"
+	"fmt"
+	"time"
 )
 
 const (
-	PACKAGE_MAX_SIZE = 1024 * 1024
+	PACKAGE_MAX_SIZE = 4 * 1024
 
 	PACKAGE_LENGTH_SIZE = 4
 
@@ -92,15 +94,21 @@ type server struct {
 
 	Dht *dht.IpfsDHT
 
-	streams map[string]inet.Stream
+	streams map[string]*syncStream
 
 	streamMapLock sync.RWMutex
+}
+
+type syncStream struct {
+	stream *inet.Stream
+
+	lock sync.RWMutex
 }
 
 func InitServer(host host.Host, dht *dht.IpfsDHT, node *Node) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]inet.Stream)}
+	Server = server{Host: host, Dht: dht, SelfNetInfo: node, streams: make(map[string]*syncStream), streamMapLock: sync.RWMutex{}}
 }
 
 func (s *server) SendMessage(m Message, id string) {
@@ -122,7 +130,11 @@ func (s *server) SendMessage(m Message, id string) {
 		copy(b[3:7], b2)
 		copy(b[7:], bytes)
 
+		beginTime := time.Now()
 		s.send(b, id)
+		if m.Code == CAST_VERIFY_MSG {
+			logger.Debugf("send CAST_VERIFY_MSG to %s, byte:%d,send message cost time %v", id, len(b), time.Since(beginTime))
+		}
 	}()
 
 }
@@ -134,140 +146,181 @@ func (s *server) send(b []byte, id string) {
 	}
 	c := context.Background()
 
-
-	//stream, e := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	//if e != nil {
-	//	logger.Errorf("New stream for %s error:%s", id, e.Error())
-	//	return
-	//}
-	//l := len(b)
-	//if l < 1024 {
-	//	r, err := stream.Write(b)
-	//	if err != nil {
-	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-	//		stream.Close()
-	//		s.send(b, id)
-	//		return
-	//	}
-	//	if r != l {
-	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-	//		stream.Close()
-	//		return
-	//	}
+	//peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
+	//if e != nil || string(peerInfo.ID) == "" {
+	//	logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
 	//} else {
-	//	writer := bufio.NewWriterSize(stream, 1024)
-	//	r, err := writer.Write(b)
-	//	if err != nil {
-	//		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-	//		stream.Close()
-	//		s.send(b, id)
-	//		return
-	//	}
-	//	if r != l {
-	//		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-	//		stream.Close()
-	//		return
-	//	}
+	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
 	//}
 
-	s.streamMapLock.Lock()
-	stream := s.streams[id]
-	if stream == nil {
-		var e error
-		stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-		if e != nil {
-			logger.Errorf("New stream for %s error:%s", id, e.Error())
-			s.streamMapLock.Unlock()
-			s.send(b, id)
+	s.streamMapLock.RLock()
+	ss := s.streams[id]
+	s.streamMapLock.RUnlock()
+	if ss == nil {
+		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e1 != nil {
+			logger.Errorf("New stream for %s error:%s", id, e1.Error())
 			return
 		}
-		s.streams[id] = stream
-	}
-
-	l := len(b)
-	r, err := stream.Write(b)
-	if err != nil {
-		logger.Errorf("Write stream for %s error:%s", id, err.Error())
-		stream.Close()
-		s.streams[id] = nil
+		s.streamMapLock.Lock()
+		if s.streams[id] == nil {
+			s.streams[id] = &syncStream{stream: &stream, lock: sync.RWMutex{}}
+			ss = s.streams[id]
+		} else {
+			ss = s.streams[id]
+		}
 		s.streamMapLock.Unlock()
+	}
+	ss.lock.Lock()
+	e2 := s.writePackage(*ss.stream, b, id)
+
+	if e2 != nil {
+		(*ss.stream).Close()
+		stream, e1 := s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
+		if e1 != nil {
+			logger.Errorf("New stream for %s error:%s", id, e1.Error())
+			return
+		}
+		ss.stream = &stream
+		s.streams[id] = ss
+		ss.lock.Unlock()
 		s.send(b, id)
 		return
 	}
-	s.streamMapLock.Unlock()
-	if r != l {
-		logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-		return
+	ss.lock.Unlock()
+}
+
+func (s *server) writePackage(stream inet.Stream, body []byte, id string) error {
+	l := len(body)
+	var r int
+	var err error
+	if l < PACKAGE_MAX_SIZE {
+		r, err = stream.Write(body)
+		if err != nil {
+			logger.Errorf("Write stream for %s error:%s", id, err.Error())
+			return err
+		}
+
+		if r != l {
+			logger.Errorf("stream should write %d byte ,bu write %d bytes", l, r)
+			return fmt.Errorf("stream write length error")
+		}
+	} else {
+		n := l / PACKAGE_MAX_SIZE
+		left, right := 0, PACKAGE_MAX_SIZE
+		for i := 0; i <= n; i++ {
+			a := make([]byte, right-left)
+			copy(a, body[left:right])
+			r, err = stream.Write(a)
+			if err != nil {
+				logger.Errorf("Write stream for %s error:%s", id, err.Error())
+				return err
+			}
+			if r != len(a) {
+				logger.Errorf("stream should write %d byte ,but write %d bytes", PACKAGE_MAX_SIZE, r)
+				return fmt.Errorf("stream write length error")
+			}
+			left += PACKAGE_MAX_SIZE
+			right += PACKAGE_MAX_SIZE
+			if right > l {
+				right = l
+			}
+		}
 	}
+	return nil
 }
 
 func (s *server) sendSelf(b []byte, id string) {
 	pkgBodyBytes := b[7:]
-	s.handleMessage(pkgBodyBytes, id, b[3:7])
+	s.handleMessage(pkgBodyBytes, id, time.Now())
 }
 
 //TODO 考虑读写超时
 func swarmStreamHandler(stream inet.Stream) {
 	go func() {
+		reader := bufio.NewReader(stream)
+		id := ConvertToID(stream.Conn().RemotePeer())
 		for {
-			e := handleStream(stream)
+			e := handleStream(reader, id)
 			if e != nil {
 				stream.Close()
 				break
 			}
 		}
 	}()
-	//go handleStream(stream)
 }
-func handleStream(stream inet.Stream) error {
-	id := ConvertToID(stream.Conn().RemotePeer())
-	reader := bufio.NewReader(stream)
-	//defer stream.Close()
+func handleStream(reader *bufio.Reader, id string) error {
 	headerBytes := make([]byte, 3)
-	h, e1 := reader.Read(headerBytes)
+	e1 := readPackage(reader, headerBytes)
 	if e1 != nil {
-		logger.Errorf("steam read 3 from %s error:%s!", id, e1.Error())
+		logger.Errorf("stream read 3 from %s error:%s!", id, e1.Error())
 		return e1
 	}
-	if h != 3 {
-		logger.Errorf("Stream  should read %d byte, but received %d bytes", 3, h)
-		return nil
-	}
+
 	//校验 header
 	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-		logger.Errorf("validate header error from %s! ", id)
-		return nil
+		logger.Errorf("stream validate header error from %s! ", id)
+		return fmt.Errorf("validate header error")
 	}
 
 	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	n, err := reader.Read(pkgLengthBytes)
+	err := readPackage(reader, pkgLengthBytes)
 	if err != nil {
-		logger.Errorf("Stream  read4 error:%s", err.Error())
-		return nil
+		logger.Errorf("stream  read4 error:%s", err.Error())
+		return err
 	}
-	if n != 4 {
-		logger.Errorf("Stream  should read %d byte, but received %d bytes", 4, n)
-		return nil
-	}
+
 	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
 	b := make([]byte, pkgLength)
-	e := readMessageBody(reader, b, 0)
+
+	e := readPackage(reader, b)
 	if e != nil {
-		logger.Errorf("Stream  readMessageBody error:%s", e.Error())
+		logger.Errorf("stream  readPackage error:%s", e.Error())
 		return e
 	}
-	go Server.handleMessage(b, id, pkgLengthBytes)
+
+	//fmt.Printf("revceive from %s, byte len:%d\n", id, len(b))
+	go Server.handleMessage(b, id, time.Now())
 	return nil
 }
 
-func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
+func readPackage(reader *bufio.Reader, body []byte) error {
+	l := len(body)
+	if l < PACKAGE_MAX_SIZE {
+		err1 := readAll(reader, body, 0)
+		if err1 != nil {
+			logger.Errorf("stream  read error:%s", err1.Error())
+			return err1
+		}
+	} else {
+		c := l / PACKAGE_MAX_SIZE
+		left, right := 0, PACKAGE_MAX_SIZE
+		for i := 0; i <= c; i++ {
+			a := make([]byte, right-left)
+			err1 := readAll(reader, a, 0)
+			if err1 != nil {
+				logger.Errorf("stream read error:%s", err1.Error())
+				return err1
+			}
+			copy(body[left:right], a)
+			left += PACKAGE_MAX_SIZE
+			right += PACKAGE_MAX_SIZE
+			if right > l {
+				right = l
+			}
+		}
+	}
+	return nil
+}
+
+func readAll(reader *bufio.Reader, body []byte, index int) error {
 	if index == 0 {
 		n, err1 := reader.Read(body)
 		if err1 != nil {
 			return err1
 		}
 		if n != len(body) {
-			return readMessageBody(reader, body, n)
+			return readAll(reader, body, n)
 		}
 		return nil
 	} else {
@@ -278,19 +331,24 @@ func readMessageBody(reader *bufio.Reader, body []byte, index int) error {
 		}
 		copy(body[index:], b[:])
 		if n != len(b) {
-			return readMessageBody(reader, body, index+n)
+			return readAll(reader, body, index+n)
 		}
 		return nil
 	}
 
 }
-func (s *server) handleMessage(b []byte, from string, lengthByte []byte) {
+
+func (s *server) handleMessage(b []byte, from string, beginTime time.Time) {
 	message := new(tas_middleware_pb.Message)
 	error := proto.Unmarshal(b, message)
 	if error != nil {
 		logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
+		return
 	}
 
+	if *message.Code == CAST_VERIFY_MSG {
+		logger.Debugf("receive CAST_VERIFY_MSG from %s ,byte:%d,read message cost time %v", from, len(b), time.Since(beginTime))
+	}
 	code := message.Code
 	switch *code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,

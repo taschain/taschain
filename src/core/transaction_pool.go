@@ -133,9 +133,9 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 	//txs := pool.received.AsSlice()
 	var result []*types.Transaction
-	if pool.received.txs.Len() > 500 {
-		result = make([]*types.Transaction, 500)
-		copy(result, pool.received.txs[:500])
+	if pool.received.txs.Len() > 5000 {
+		result = make([]*types.Transaction, 5000)
+		copy(result, pool.received.txs[:5000])
 	} else {
 		result = make([]*types.Transaction, pool.received.txs.Len())
 		copy(result, pool.received.txs)
@@ -203,15 +203,15 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
-		txs := []*types.Transaction{tx}
-		go BroadcastTransactions(txs)
-		//pool.sendingList = append(pool.sendingList, tx)
-		//if sendingListLength == len(pool.sendingList) {
-		//	txs := make([]*types.Transaction, sendingListLength)
-		//	copy(txs, pool.sendingList)
-		//	pool.sendingList = make([]*types.Transaction, sendingListLength)
-		//	go BroadcastTransactions(txs)
-		//}
+		//txs := []*types.Transaction{tx}
+		//go BroadcastTransactions(txs)
+		pool.sendingList = append(pool.sendingList, tx)
+		if sendingListLength == len(pool.sendingList) {
+			txs := make([]*types.Transaction, sendingListLength)
+			copy(txs, pool.sendingList)
+			pool.sendingList = make([]*types.Transaction, sendingListLength)
+			go BroadcastTransactions(txs)
+		}
 	}
 
 	return true, nil

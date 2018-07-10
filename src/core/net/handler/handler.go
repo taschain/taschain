@@ -33,8 +33,8 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil, nil
 		}
-		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d",sourceId,len(m))
+		if code == p2p.TRANSACTION_GOT_MSG {
+			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
 		return nil, err
@@ -106,7 +106,7 @@ func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string)
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockQn,len(m.TransactionHashes))
+	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockQn,len(m.TransactionHashes))
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
 		return nil

@@ -8,6 +8,7 @@ import (
 	"network"
 	"middleware/pb"
 	"middleware/types"
+	"time"
 )
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -129,7 +130,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d",ccm.BH.Height, ccm.BH.QueueNumber)
+	network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime))
 	groupBroadcast(m, groupId)
 }
 
@@ -147,17 +148,19 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]send VARIFIED_CAST_MSG %d-%d", cvm.BH.Height, cvm.BH.Hash)
+	network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.Id, cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
 	groupBroadcast(m, groupId)
 }
 
 //对外广播经过组签名的block 全网广播
 func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
+	network.Logger.Debugf("broad block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
+	network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.Id, cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
 
 	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)
@@ -226,7 +229,7 @@ func marshalConsensusSignPubKeyMessage(m *ConsensusSignPubKeyMessage) ([]byte, e
 	signData := signDataToPb(&m.SI)
 	sign := m.GISSign.Serialize()
 
-	message := tas_middleware_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData, GISSign:sign}
+	message := tas_middleware_pb.ConsensusSignPubKeyMessage{GISHash: hash, DummyID: dummyId, SignPK: signPK, SignData: signData, GISSign: sign}
 	return proto.Marshal(&message)
 }
 func marshalConsensusGroupInitedMessage(m *ConsensusGroupInitedMessage) ([]byte, error) {
