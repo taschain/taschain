@@ -32,8 +32,10 @@ func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
 }
 
 func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
-	v, _ := bctx.contexts.Load(gid.GetHexString())
-	return v.(*BlockContext)
+	if v, ok := bctx.contexts.Load(gid.GetHexString()); ok {
+		return v.(*BlockContext)
+	}
+	return nil
 }
 
 func (bctx *CastBlockContexts) contextSize() int32 {
@@ -43,6 +45,17 @@ func (bctx *CastBlockContexts) contextSize() int32 {
 		return true
 	})
 	return size
+}
+
+func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
+	for _, id := range gids {
+		log.Println("removeContexts ", GetIDPrefix(id))
+		bc := bctx.getBlockContext(id)
+		if bc != nil {
+			bc.removeTicker()
+			bctx.contexts.Delete(id.GetHexString())
+		}
+	}
 }
 
 func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
@@ -75,6 +88,7 @@ func (p *Processor) getCleanGroupRoutineName() string {
 func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
 	p.Ticker.RegisterRoutine(p.getCleanGroupRoutineName(), p.cleanDismissGroupRoutine, 2)
+	p.Ticker.StartTickerRoutine(p.getCleanGroupRoutineName(), false)
 	p.prepareMiner()
 	p.ready = true
 	return true

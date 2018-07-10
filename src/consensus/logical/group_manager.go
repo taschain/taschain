@@ -22,57 +22,65 @@ const (
 	EPOCH uint64 = 16
 	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 20	//启动建组的块高度差
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
-	CANDIDATES_MIN_RATIO = 2	//最小的候选人相对于组成员数量的倍数
+	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
 	GROUP_GET_READY_GAP = EPOCH	//组准备就绪(建成组)的间隔为1个epoch
-	GROUP_CAST_QUALIFY_GAP = EPOCH * 4	//组准备就绪后, 等待可以铸块的间隔为4个epoch
-	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
+	GROUP_CAST_QUALIFY_GAP = EPOCH * 1	//组准备就绪后, 等待可以铸块的间隔为4个epoch
+	GROUP_CAST_DURATION = EPOCH * 2	//组铸块的周期为100个epoch
 )
 
 type GroupManager struct {
-	groupChain *core.GroupChain
-	mainChain	core.BlockChainI
-	processor *Processor
-	createContext *CreateGroupContext
+	groupChain     *core.GroupChain
+	mainChain      core.BlockChainI
+	processor      *Processor
+	creatingGroups *CreatingGroups
 }
 
 func NewGroupManager(processor *Processor) *GroupManager {
 	return &GroupManager{
-		processor: processor,
-		mainChain: processor.MainChain,
-		groupChain: processor.GroupChain,
-		createContext: &CreateGroupContext{groups: make(map[string]*CreatingGroup)},
+		processor:      processor,
+		mainChain:      processor.MainChain,
+		groupChain:     processor.GroupChain,
+		creatingGroups: &CreatingGroups{},
 	}
 }
 
 func (gm *GroupManager) addCreatingGroup(group *CreatingGroup)  {
-    gm.createContext.addCreatingGroup(group)
+    gm.creatingGroups.addCreatingGroup(group)
 }
 
 func (gm *GroupManager) removeCreatingGroup(id groupsig.ID)  {
-    gm.createContext.removeGroup(id)
+    gm.creatingGroups.removeGroup(id)
 }
 
 
 //检查当前用户是否是属于建组的组, 返回组id
-func (gm *GroupManager) checkCreateGroup(topHeight uint64) (bool, *StaticGroupInfo, *types.BlockHeader) {
+func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, theBH *types.BlockHeader) {
+	defer func() {
+		log.Printf("checkCreateNextGroup topHeight=%v, create %v\n", topHeight, create)
+	}()
 	blockHeight := topHeight - CHECK_CREATE_GROUP_HEIGHT_AFTER
-	theBH := gm.mainChain.QueryBlockByHeight(blockHeight)
+	if blockHeight % EPOCH != 0 {
+		return
+	}
+	theBH = gm.mainChain.QueryBlockByHeight(blockHeight)
 	if theBH == nil || theBH.GroupId == nil || len(theBH.GroupId) == 0 {
-		return false, nil, nil
+		create = false
+		return
 	}
 
 	castGID := groupsig.DeserializeId(theBH.GroupId)
 	if gm.processor.IsMinerGroup(*castGID) {
-		sgi := gm.processor.getGroup(*castGID)
+		sgi = gm.processor.getGroup(*castGID)
 		if sgi.CastQualified(topHeight) {
 			log.Printf("checkCreateNextGroup, topHeight=%v, theBH height=%v, king=%v\n", topHeight, theBH.Height, gm.processor.getPrefix())
-			return true, sgi, theBH
+			create = true
+			return
 		}
 	}
 
-	return false, nil, nil
-
+	create = false
+	return
 }
 
 
@@ -103,12 +111,17 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 		id := groupsig.DeserializeId(mem.Id)
 		ids = append(ids, *id)
 	}
+	sgi := gm.processor.globalGroups.groups[0]
+	for _, mem := range sgi.Members {
+		ids = append(ids, mem.ID)
+	}
 	return ids
 }
 
-func (gm *GroupManager) selectCandidates(randSeed common.Hash) (bool, []groupsig.ID) {
+func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (bool, []groupsig.ID) {
 	allCandidates := gm.getAllCandidates()
-	groups := gm.processor.getCurrentAvailableGroups()
+	groups := gm.processor.getAvailableGroupsAt(height)
+	log.Printf("selectCandidates available groupsize %v\n", len(groups))
 
 	candidates := make([]groupsig.ID, 0)
 	for _, id := range allCandidates {
@@ -118,7 +131,7 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash) (bool, []groupsig
 				joinedNum++
 			}
 		}
-		if joinedNum < MINER_MAX_JOINED_GROUP {
+		if joinedNum <= MINER_MAX_JOINED_GROUP {
 			candidates = append(candidates, id)
 		}
 	}
@@ -141,14 +154,17 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash) (bool, []groupsig
 
 func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
 	pubs := make([]groupsig.Pubkey, len(ids))
+	sgi := gm.processor.globalGroups.groups[0]
 	for i, id := range ids {
-		pkByte := gm.groupChain.GetMemberPubkeyByID(id.Serialize())
-		pk := groupsig.DeserializePubkeyBytes(pkByte)
-		if pk == nil {
-			log.Printf("get pubkey fail, id=%v\n", GetIDPrefix(id))
-			panic("get pubkey nil")
+		//pkByte := gm.groupChain.GetMemberPubkeyByID(id.Serialize())
+		//pk := groupsig.DeserializePubkeyBytes(pkByte)
+		//if pk == nil {
+		//	log.Printf("get pubkey fail, id=%v\n", GetIDPrefix(id))
+		//	panic("get pubkey nil")
+		//}
+		if mem, ok := sgi.GetMember(id); ok {
+			pubs[i] = mem.PK
 		}
-		pubs[i] = *pk
 	}
     return pubs
 }
@@ -188,6 +204,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		copy(gis.Name[:], gn[:64])
 	}
 	gis.BeginTime = time.Now()
+	gis.TopHeight = topHeight
 	gis.GetReadyHeight = topHeight + GROUP_GET_READY_GAP
 	gis.BeginCastHeight = gis.GetReadyHeight + GROUP_CAST_QUALIFY_GAP
 	gis.DismissHeight = gis.BeginCastHeight + GROUP_CAST_DURATION
@@ -199,7 +216,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	gis.Extends = "Dummy"
 
 	randSeed := rand.Data2CommonHash(bh.Signature)
-	enough, memIds := gm.selectCandidates(randSeed)
+	enough, memIds := gm.selectCandidates(randSeed, topHeight)
 	if !enough {
 		return
 	}
@@ -221,6 +238,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMessage) bool {
+	log.Printf("OnMessageCreateGroupRaw dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		log.Printf("ConsensusCreateGroupRawMessage hash diff\n")
@@ -244,7 +262,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMess
 	}
 
 	randSeed := rand.Data2CommonHash(bh.Signature)
-	enough, memIds := gm.selectCandidates(randSeed)
+	enough, memIds := gm.selectCandidates(randSeed, gis.TopHeight)
 	if !enough {
 		return false
 	}
@@ -264,13 +282,14 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMess
 }
 
 func (gm *GroupManager) OnMessageCreateGroupSign(msg *ConsensusCreateGroupSignMessage) bool {
+	log.Printf("ConsensusCreateGroupSignMessage dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		log.Printf("OnMessageCreateGroupSign hash diff\n")
 		return false
 	}
 
-	creating := gm.createContext.getCreatingGroup(gis.DummyID)
+	creating := gm.creatingGroups.getCreatingGroup(gis.DummyID)
 	if creating == nil {
 		log.Printf("OnMessageCreateGroupSign get creating group nil!\n")
 		return false
@@ -286,9 +305,9 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *ConsensusCreateGroupSignMe
 		log.Printf("OnMessageCreateGroupSign gis expired!\n")
 		return false
 	}
-	accept := gm.createContext.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
+	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	if accept == PIECE_THRESHOLD {
-		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold())
+		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
 		msg.GI.Signature = *sign
 		return true
 	}

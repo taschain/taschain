@@ -36,6 +36,15 @@ func (msg ConsensusGroupRawMessage) VerifySign(pk groupsig.Pubkey) bool {
 	return msg.SI.VerifySign(pk)
 }
 
+func (msg *ConsensusGroupRawMessage) MemberExist(id groupsig.ID) bool {
+	for _, mem := range msg.MEMS {
+		if mem.ID.IsEqual(id) {
+			return true
+		}
+	}
+	return false
+}
+
 //向所有组内成员发送秘密片段消息（不同成员不同）
 type ConsensusSharePieceMessage struct {
 	GISHash common.Hash //组初始化共识（ConsensusGroupInitSummary）的哈希

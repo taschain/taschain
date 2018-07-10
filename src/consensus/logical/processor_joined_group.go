@@ -74,8 +74,10 @@ func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
 }
 
-func (bg *BelongGroups) leaveGroup(gid groupsig.ID)  {
-	bg.groups.Delete(gid.GetHexString())
+func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
+	for _, gid := range gids {
+		bg.groups.Delete(gid.GetHexString())
+	}
 }
 
 //取得组内成员的签名公钥
@@ -145,10 +147,7 @@ func (p *Processor) cleanDismissGroupRoutine() bool {
 	ids := p.globalGroups.DismissGroups(topHeight)
 	log.Printf("cleanDismissGroupRoutine: clean group %v\n", len(ids))
 	p.globalGroups.RemoveGroups(ids)
-	for _, id := range ids {
-		if p.IsMinerGroup(id) {
-			p.belongGroups.leaveGroup(id)
-		}
-	}
+	p.blockContexts.removeContexts(ids)
+	p.belongGroups.leaveGroups(ids)
 	return true
 }

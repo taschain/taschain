@@ -178,7 +178,7 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
 	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
 
-	log.Printf("qnOfDiff diff %v, pre %v, d %v, qn=%v\n", int(diff), vc.prevTime, d, qn)
+	//log.Printf("qnOfDiff diff %v, pre %v, d %v, qn=%v\n", int(diff), vc.prevTime, d, qn)
 	return qn
 }
 
