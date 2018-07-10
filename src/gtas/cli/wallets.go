@@ -71,8 +71,8 @@ func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
 	address := pub.GetAddress()
 	privKeyStr, walletAddress = pub.GetHexString(), address.GetHexString()
 	// 加入本地钱包
-	*ws = append(*ws, wallet{privKeyStr, walletAddress})
-	ws.store()
+	//*ws = append(*ws, wallet{privKeyStr, walletAddress})
+	//ws.store()
 	return
 }
 
