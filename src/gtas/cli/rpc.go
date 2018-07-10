@@ -22,13 +22,13 @@ type GtasAPI struct {
 
 // T 交易接口
 func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	err := walletManager.transaction(from, to, amount, code)
+	hash, err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
 	return &Result{
 		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
-		Data:    "",
+		Data:    hash.String(),
 	}, nil
 }
 
