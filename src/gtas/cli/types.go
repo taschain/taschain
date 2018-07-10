@@ -30,6 +30,7 @@ type RPCResObj struct {
 
 // 缓冲池交易列表中的transactions
 type Transactions struct {
+	Hash string `json:"hash"`
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Value  string `json:"value"`

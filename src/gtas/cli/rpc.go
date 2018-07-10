@@ -110,6 +110,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
+			Hash:v.Hash.String(),
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
