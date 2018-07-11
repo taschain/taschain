@@ -68,7 +68,7 @@ func GetPubKeyById(id []byte) ([]byte, error) {
 	return redis.Bytes(r, err)
 }
 
-func GetPubKeyByIds(ids [][]byte) (map[string]string, error) {
+func GetPubKeyByIds(ids [][]byte) ([][]byte, error) {
 	conn,err := getRedisConnection()
 	if err != nil {
 		fmt.Println("Connect to redis error", err)
@@ -81,5 +81,5 @@ func GetPubKeyByIds(ids [][]byte) (map[string]string, error) {
 		args[i] = ids[i - 1]
 	}
 	r,err := conn.Do("hmget", args)
-	return redis.StringMap(r, err)
+	return redis.ByteSlices(r, err)
 }

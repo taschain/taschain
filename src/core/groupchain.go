@@ -121,6 +121,11 @@ func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
 	return pubKey
 }
 
+func (chain *GroupChain) GetMemberPubkeyByIDs(ids [][]byte) [][]byte {
+	result, _ := network.GetPubKeyByIds(ids)
+	return result
+}
+
 func (chain *GroupChain) GetCandidates() ([][]byte, error) {
 	return network.GetAllNodeIds()
 }
