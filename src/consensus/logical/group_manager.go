@@ -105,10 +105,10 @@ func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo)
 
 //todo 从链上获取所有候选者
 func (gm *GroupManager) getAllCandidates() []groupsig.ID {
-    memBytes := gm.groupChain.GetCandidates()
+    memBytes, _ := gm.groupChain.GetCandidates()
     ids := make([]groupsig.ID, 0)
 	for _, mem := range memBytes {
-		id := groupsig.DeserializeId(mem.Id)
+		id := groupsig.DeserializeId(mem)
 		ids = append(ids, *id)
 	}
 	sgi := gm.processor.globalGroups.groups[0]

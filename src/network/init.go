@@ -93,6 +93,7 @@ func makeSelfNode(config *common.ConfManager) (*p2p.Node, error) {
 		Logger.Error("[Network]InitSelfNode error!\n" + error.Error())
 		return nil, error
 	}
+	NodeOnline(node)
 	return node, nil
 }
 

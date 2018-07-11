@@ -10,6 +10,7 @@ import (
 	"vm/ethdb"
 	"core/datasource"
 	"middleware/types"
+	"network"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -116,11 +117,12 @@ func (chain *GroupChain) Close() {
 }
 
 func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
-	return []byte{}
+	pubKey, _ := network.GetPubKeyById(string(id))
+	return pubKey
 }
 
-func (chain *GroupChain) GetCandidates() []types.Member {
-	return []types.Member{}
+func (chain *GroupChain) GetCandidates() ([][]byte, error) {
+	return network.GetAllNodeIds()
 }
 
 func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {

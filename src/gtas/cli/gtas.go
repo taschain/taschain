@@ -149,6 +149,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	core.BlockChainImpl.Close()
 	taslog.Close()
 	if gtas.inited {
+		network.NodeOffline(p2p.Server.SelfNetInfo.Id)
 		fmt.Println("exit success")
 		quit <- true
 	} else {
