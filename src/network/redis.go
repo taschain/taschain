@@ -4,7 +4,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"common"
 	"fmt"
-	"network/p2p"
 	"taslog"
 )
 
@@ -19,7 +18,7 @@ func getRedisConnection() (redis.Conn, error) {
 	return redis.Dial("tcp", redisIp + ":" + redisPort)
 }
 
-func NodeOnline(node *p2p.Node) error{
+func NodeOnline(id []byte, pubKey []byte) error{
 	logger := taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	conn,err := getRedisConnection()
 	if err != nil {
@@ -28,13 +27,13 @@ func NodeOnline(node *p2p.Node) error{
 	}
 	defer conn.Close()
 
-	conn.Do("hset", HMAP_KEY, node.Id, node.PublicKey.ToBytes())
-	conn.Do("sadd", SET_KEY, node.Id)
-	logger.Info("node %s online, write to redis", node.Id)
+	conn.Do("hset", HMAP_KEY, id, pubKey)
+	conn.Do("sadd", SET_KEY, id)
+	logger.Info("node %s online, write to redis", string(id))
 	return nil
 }
 
-func NodeOffline(id string) error {
+func NodeOffline(id []byte) error {
 	conn,err := getRedisConnection()
 	if err != nil {
 		fmt.Println("Connect to redis error", err)
@@ -58,7 +57,7 @@ func GetAllNodeIds() ([][]byte, error) {
 	return redis.ByteSlices(r, err)
 }
 
-func GetPubKeyById(id string) ([]byte, error) {
+func GetPubKeyById(id []byte) ([]byte, error) {
 	conn,err := getRedisConnection()
 	if err != nil {
 		fmt.Println("Connect to redis error", err)
@@ -67,4 +66,20 @@ func GetPubKeyById(id string) ([]byte, error) {
 	defer conn.Close()
 	r,err := conn.Do("hget", HMAP_KEY, id)
 	return redis.Bytes(r, err)
+}
+
+func GetPubKeyByIds(ids [][]byte) (map[string]string, error) {
+	conn,err := getRedisConnection()
+	if err != nil {
+		fmt.Println("Connect to redis error", err)
+		return nil, err
+	}
+	defer conn.Close()
+	args := make([]interface{},len(ids) + 1)
+	args[0] = HMAP_KEY
+	for i := 1; i <= len(ids); i++{
+		args[i] = ids[i - 1]
+	}
+	r,err := conn.Do("hmget", args)
+	return redis.StringMap(r, err)
 }

@@ -117,7 +117,7 @@ func (chain *GroupChain) Close() {
 }
 
 func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
-	pubKey, _ := network.GetPubKeyById(string(id))
+	pubKey, _ := network.GetPubKeyById(id)
 	return pubKey
 }
 

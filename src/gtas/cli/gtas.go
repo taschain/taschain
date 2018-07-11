@@ -149,7 +149,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	core.BlockChainImpl.Close()
 	taslog.Close()
 	if gtas.inited {
-		network.NodeOffline(p2p.Server.SelfNetInfo.Id)
+		network.NodeOffline(mediator.Proc.GetMinerID().Serialize())
 		fmt.Println("exit success")
 		quit <- true
 	} else {
@@ -296,6 +296,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
+	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	ShowPubKeyInfo(minerInfo, id)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
