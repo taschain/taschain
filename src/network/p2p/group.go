@@ -2,7 +2,7 @@ package p2p
 
 import (
 	"bytes"
-	fmt "fmt"
+	"fmt"
 	"net"
 	"time"
 )

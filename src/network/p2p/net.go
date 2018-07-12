@@ -102,7 +102,7 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 	// if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
 	// 	return nil, errors.New("not contained in netrestrict whitelist")
 	// }
-	n := NewNode(MustB58ID(rn.ID), net.ParseIP(rn.IP), int(rn.Port))
+	n := NewNode(common.StringToAddress(rn.ID), net.ParseIP(rn.IP), int(rn.Port))
 	err := n.validateComplete()
 	return n, err
 }
@@ -143,7 +143,7 @@ func MakeEndPoint(addr *net.UDPAddr, tcpPort int32) RpcEndPoint {
 }
 
 func nodeToRPC(n *Node) RpcNode {
-	return RpcNode{ID: n.ID.B58String(), IP: n.IP.String(), Port: int32(n.Port)}
+	return RpcNode{ID: n.ID.Str(), IP: n.IP.String(), Port: int32(n.Port)}
 }
 
 //Init 初始化
@@ -160,7 +160,7 @@ func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
 	nc.GM = newGroupManager()
 	realaddr := cfg.ListenAddr
 
-	fmt.Printf("KAD ID %v \n", nc.id.B58String())
+	fmt.Printf("KAD ID %v \n", nc.id.Str())
 	fmt.Printf("P2PConfig %v \n", nc.nid)
 	fmt.Printf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
 	P2PConfig(nc.nid)
@@ -357,7 +357,7 @@ func (nc *NetCore) loop() {
 const (
 	typeSize = 4
 	lenSize  = 4
-	idSize   = nodeIDBits / 8
+	idSize   = common.AddressLength
 	headSize = typeSize + lenSize + idSize
 )
 
@@ -677,7 +677,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 }
 
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
-	id := fromID.B58String()
+	id := fromID.Str()
 	//fmt.Printf("from:%v  len:%v \n", id, len(data))
 	Server.handleMessage(data,id,time.Now())
 	return nil

@@ -287,7 +287,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := p2p.Server.SelfNetInfo.ID.B58String()
+	id := p2p.Server.SelfNetInfo.ID.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)

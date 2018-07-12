@@ -21,14 +21,6 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_MEMBER_MSG, Body: body}
-
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-	// 	}
-	// }
 	p2p.Server.SendMessageToAll(m)
 }
 
@@ -40,16 +32,9 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-	// 	}
-	// }
 	p2p.Server.SendMessageToAll(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.B58String())
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.GetHexString())
 
 }
 
@@ -85,16 +70,9 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 	}
 	m := p2p.Message{Code: p2p.GROUP_INIT_DONE_MSG, Body: body}
 
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-	// 	}
-	// }
 	p2p.Server.SendMessageToAll(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.B58String())
+	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.GetHexString())
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -151,7 +129,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.ID.B58String(), cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
+	network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.ID.Str(), cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
 	groupBroadcast(m, groupId)
 }
 
@@ -163,7 +141,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.B58String(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
+	network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.Str(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
 
 	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)

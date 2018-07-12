@@ -4,16 +4,12 @@ import (
 	"common"
 	"net"
 	"strconv"
-	"github.com/libp2p/go-libp2p-peer"
 	"log"
 	"taslog"
 	"math/rand"
 	"time"
 	"fmt"
-	"encoding/hex"
-	"strings"
 	"errors"
-	b58 "github.com/mr-tron/base58/base58"
 )
 
 const (
@@ -24,41 +20,24 @@ const (
 	PRIVATE_KEY = "private_key"
 )
 
+type NodeID =  common.Address
 
 // Node Kad 节点
 type Node struct {
-
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
-	ID      NodeID
-	IP     	net.IP
-	Port    int
-	NatType int
-
+	ID        NodeID
+	IP        net.IP
+	Port      int
+	NatType   int
 
 	// kad
 
 	sha     []byte
 	addedAt time.Time
-	fails  int
-	bondAt time.Time
-
-}
-
-const nodeIDBits = 272
-
-// NodeID 节点ID类型
-type NodeID [nodeIDBits / 8]byte
-
-// 十六进制的ID
-func (n NodeID) String() string {
-	return fmt.Sprintf("%x", n[:])
-}
-
-func (n NodeID)B58String() string {
-	b58String :=b58.Encode(n[:])
-	return b58String
+	fails   int
+	bondAt  time.Time
 }
 
 // NewNode 新建节点
@@ -116,38 +95,6 @@ func MustBytesID(b []byte) NodeID {
 		panic(err)
 	}
 	return id
-}
-
-// HexID converts a hex string to a NodeID.
-// The string may be prefixed with 0x.
-func HexID(in string) (NodeID, error) {
-	var id NodeID
-	b, err := hex.DecodeString(strings.TrimPrefix(in, "0x"))
-	if err != nil {
-		return id, err
-	} else if len(b) != len(id) {
-		return id, fmt.Errorf("wrong length, want %d hex chars", len(id)*2)
-	}
-	copy(id[:], b)
-	return id, nil
-}
-
-// MustHexID converts a hex string to a NodeID.
-// It panics if the string is not a valid NodeID.
-func MustHexID(in string) NodeID {
-	id, err := HexID(in)
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
-func MustB58ID(in string) NodeID {
-	id, err := b58.Decode(in)
-	if err != nil {
-		panic(err)
-	}
-	return MustBytesID(id)
 }
 
 // distcmp compares the distances a->target and b->target.
@@ -237,8 +184,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 	return b
 }
 
-
-func InitSelfNode(config *common.ConfManager,isSuper bool) (*Node, error) {
+func InitSelfNode(config *common.ConfManager, isSuper bool) (*Node, error) {
 	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	var privateKey common.PrivateKey
 
@@ -250,30 +196,19 @@ func InitSelfNode(config *common.ConfManager,isSuper bool) (*Node, error) {
 		privateKey = *common.HexStringToSecKey(privateKeyStr)
 	}
 	publicKey := privateKey.GetPubKey()
-	id := GetIdFromPublicKey(publicKey)
+	id := publicKey.GetAddress()
 	ip := getLocalIp()
-	basePort := BASE_PORT;
+	basePort := BASE_PORT
 	if !isSuper {
-		basePort += 16;
+		basePort += 16
 	}
 	port := getAvailableTCPPort(ip, basePort)
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
-	logger.Debug(n.String())
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: NodeID(id), IP: net.ParseIP(ip), Port: port}
+	fmt.Print(n.String())
 	return &n, nil
 }
 
-//adpat to lib2p2. The whole p2p network use this id to be the only identity
-func GetIdFromPublicKey(p common.PublicKey) string {
-	pubKey := &Pubkey{PublicKey: p}
-	pID, e := peer.IDFromPublicKey(pubKey)
-	if e != nil {
-		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
-		panic("GetIdFromPublicKey error!")
-	}
-	id := ConvertToID(pID)
-	return id
-}
 
 //内网IP
 func getLocalIp() string {
@@ -315,7 +250,7 @@ func getAvailableTCPPort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.ID.B58String() + "\nIP is:" + s.IP.String() + "\nTcp port is:" + strconv.Itoa(s.Port)
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.ID.GetHexString() + "\nIP is:" + s.IP.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
 	return str
 }
 
@@ -339,18 +274,6 @@ func ToMulAddrStr(ip string, protocol string, port int) string {
 	return addr
 }
 
-func ConvertToID(p peer.ID) string {
-	return p.Pretty()
-}
-
-func ConvertToPeerID(i string) peer.ID {
-	id, e := peer.IDB58Decode(i)
-	if e != nil {
-		log.Printf("[Network]ConvertToPeerID error:%s", e.Error())
-		panic("ConvertToPeerID error!")
-	}
-	return id
-}
 
 //only for test
 //used to mock a new client
@@ -363,8 +286,8 @@ func NewSelfNetInfo(privateKeyStr string) *Node {
 		privateKey = *common.HexStringToSecKey(privateKeyStr)
 	}
 	publicKey := privateKey.GetPubKey()
-	id := GetIdFromPublicKey(publicKey)
+	id := publicKey.GetAddress()
 	ip := getLocalIp()
 	port := getAvailableTCPPort(ip, BASE_PORT)
-	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
+	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: id, IP: net.ParseIP(ip), Port: port}
 }

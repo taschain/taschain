@@ -68,7 +68,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 	//	fmt.Printf("P2PSend %v len: %v\n ", p.seesionID, packet.Len())
 		P2PSend(p.seesionID, packet.Bytes())
 	} else {
-		fmt.Printf("error : write data ID：%v  net id:%v len: %v\n ", toid.B58String(), netID, packet.Len())
+		fmt.Printf("error : write data ID：%v  net id:%v len: %v\n ", toid.Str(), netID, packet.Len())
 	}
 	return nil
 }
