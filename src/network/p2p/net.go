@@ -137,7 +137,7 @@ func MakeEndPoint(addr *net.UDPAddr, tcpPort int32) RpcEndPoint {
 }
 
 func nodeToRPC(n *Node) RpcNode {
-	return RpcNode{ID: n.ID.Str(), IP: n.IP.String(), Port: int32(n.Port)}
+	return RpcNode{ID: n.ID.GetHexString(), IP: n.IP.String(), Port: int32(n.Port)}
 }
 
 //Init 初始化
@@ -716,7 +716,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 }
 
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
-	id := fromID.Str()
+	id := fromID.GetHexString()
 	//fmt.Printf("from:%v  len:%v \n", id, len(data))
 	Server.handleMessage(data,id,time.Now())
 	return nil

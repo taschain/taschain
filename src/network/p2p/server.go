@@ -1,13 +1,11 @@
 package p2p
 
 import (
-	//"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 
 	"strings"
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
-	//"common"
 	"middleware/pb"
 
 	"strconv"
@@ -92,7 +90,7 @@ func InitServer(seeds []*Node, self *Node) {
 	//logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Server = server{SelfNetInfo: self}
 
-	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP: self.IP, Port: self.Port}, Bootnodes: seeds, Unhandled: make(chan<- ReadPacket)}
+	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP: self.IP, Port: self.Port}, Bootnodes: seeds}
 
 	GetNetCore().Init(netConfig)
 
@@ -130,7 +128,7 @@ func (s *server) SendMessageToAll(m Message) {
 func (s *server) AddGroup(groupID string, members []string) *Group {
 	nodes := []NodeID{}
 	for _,id:= range (members) {
-		nodes = append(nodes,MustB58ID(id))
+		nodes = append(nodes,common.StringToAddress(id))
 	}
 
 	return GetNetCore().GM.AddGroup(groupID,nodes)
@@ -143,7 +141,7 @@ func (s *server) RemoveGroup(ID string) {
 
 func (s *server) send(b []byte, id string) {
 
-	if id == s.SelfNetInfo.ID.Str() {
+	if id == s.SelfNetInfo.ID.GetHexString() {
 		s.sendSelf(b, id)
 		return
 	}
@@ -198,7 +196,7 @@ func (s *server) GetConnInfo() []ConnInfo {
 	peers := GetNetCore().PM.peers;
 	for _, p := range peers {
 		if p.seesionID > 0 && p.IP != nil && p.Port > 0{
-			c := ConnInfo{Id: p.ID.B58String(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}
+			c := ConnInfo{Id: p.ID.GetHexString(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}
 
 			//fmt.Printf("id:%v ip：%v port:%v \n ", c.Id,c.Ip,c.TcpPort)
 			result = append(result, c)

@@ -193,7 +193,7 @@ func (pm *PeerManager) print() {
 	fmt.Printf("PeerManager Print peer size:%v\n", len(pm.peers))
 
 	for _, p := range pm.peers {
-		fmt.Printf("id:%v session:%v  ip:%v  port:%v\n", p.ID.B58String(),p.seesionID,p.IP,p.Port)
+		fmt.Printf("id:%v session:%v  ip:%v  port:%v\n", p.ID.GetHexString(),p.seesionID,p.IP,p.Port)
 	}
 	return
 }

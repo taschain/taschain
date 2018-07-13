@@ -300,5 +300,5 @@ func NewSelfNetInfo(privateKeyStr string) *Node {
 	id := publicKey.GetAddress()
 	ip := getLocalIp()
 	port := getAvailablePort(ip, BASE_PORT)
-	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
+	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: id, IP: net.ParseIP(ip), Port: port}
 }
