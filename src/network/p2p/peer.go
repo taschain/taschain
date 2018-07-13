@@ -117,7 +117,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		//	fmt.Printf("ip:%v port:%v\n ", toaddr.IP.String(), uint16(toaddr.Port))
 		//}
 
-		if toaddr != nil && !p.connecting {
+		if toaddr != nil && !toaddr.IP.IsUnspecified() && toaddr.Port>0  && !p.connecting {
 			//P2PConnect(netID, "47.96.186.139", 70)
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
