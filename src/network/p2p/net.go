@@ -81,9 +81,9 @@ type reply struct {
 
 //NetCoreNodeID NodeID 转网络id
 func NetCoreNodeID(id NodeID) uint64 {
-	h := fnv.New32()
+	h := fnv.New64a()
 	h.Write(id[:])
-	return uint64(h.Sum32())
+	return uint64(h.Sum64())
 }
 
 //NodeFromRPC rpc节点转换
@@ -155,7 +155,7 @@ func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
 	nc.GM = newGroupManager()
 	realaddr := cfg.ListenAddr
 
-	fmt.Printf("KAD ID %v \n", nc.id.Str())
+	fmt.Printf("KAD ID %v \n", nc.id.GetHexString())
 	fmt.Printf("P2PConfig %v \n", nc.nid)
 	fmt.Printf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
 	P2PConfig(nc.nid)
@@ -516,7 +516,7 @@ func encodePacket(id NodeID, ptype MessageType, req proto.Message) (msg *bytes.B
 	b := new(bytes.Buffer)
 
 	pdata, err := proto.Marshal(req)
-	//fmt.Printf("decodePacket id %v \n ", id)
+	//fmt.Printf("encodePacket id %v \n ", id)
 
 	// fmt.Printf("encodePacket : msgType: %v \n ", ptype)
 	if err != nil {
@@ -562,7 +562,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
 
-	//fmt.Printf("handleMessage : msgType: %v \n", msgType)
+	fmt.Printf("handleMessage : msgType: %v \n", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:

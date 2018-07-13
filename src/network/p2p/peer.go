@@ -105,6 +105,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		p = &Peer{ID: toid, seesionID: 0, sendList: make([]*bytes.Buffer, 0)}
 		p.sendList = append(p.sendList, packet)
 		p.expiration = 0
+		p.connecting = false
 		pm.addPeer(netID,p)
 	}
 	if  p.seesionID > 0 {
@@ -112,12 +113,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		P2PSend(p.seesionID, packet.Bytes())
 	} else {
 
-		//fmt.Printf("write data need connect ID：%v  len: %v\n ", netID, packet.Len())
-		//if toaddr != nil {
-		//	fmt.Printf("ip:%v port:%v\n ", toaddr.IP.String(), uint16(toaddr.Port))
-		//}
-
-		if toaddr != nil && !toaddr.IP.IsUnspecified() && toaddr.Port>0  && !p.connecting {
+		if toaddr != nil && toaddr.IP != nil && toaddr.Port>0  && !p.connecting {
 			//P2PConnect(netID, "47.96.186.139", 70)
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
@@ -127,7 +123,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 
 			P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
 
-			//fmt.Printf("connect :ID：%v  ip:%v port:%v\n ", netID, toaddr.IP.String(), uint16(toaddr.Port))
+			fmt.Printf("connect :ID：%v  ip:%v port:%v\n ", netID, toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -143,8 +139,9 @@ func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
 		pm.addPeer(id,p)
 	} else if session >0{
 		p.seesionID = session
-		p.connecting = false
 	}
+	p.connecting = false
+
 	if p != nil {
 		for i := 0; i < len(p.sendList); i++ {
 			P2PSend(p.seesionID, p.sendList[i].Bytes())
