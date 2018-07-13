@@ -13,6 +13,7 @@ import (
 	"middleware/types"
 	"vm/ethdb"
 	"core/datasource"
+	"network/p2p"
 )
 
 var PROC_TEST_MODE bool
@@ -462,6 +463,14 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 		log.Printf("create group error, group max members=%v, real=%v.\n", GROUP_MAX_MEMBERS, len(miners))
 		return -1
 	}
+
+	//创建p2p组网络
+	ids := []string{}
+	for _,miner := range (miners) {
+		ids = append(ids,miner.GetID().GetString())
+	}
+	p2p.Server.AddGroup(gn,ids)
+
 	var gis ConsensusGroupInitSummary
 	//gis.ParentID = p.GetMinerID()
 

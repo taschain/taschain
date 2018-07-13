@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash"
 	"hash/fnv"
 	"net"
 	"sync"
@@ -51,6 +50,7 @@ type NetCore struct {
 	nid         uint64
 	addpending  chan *pending
 	gotreply    chan reply
+	unhandle   chan *Peer
 
 	closing chan struct{}
 
@@ -78,17 +78,12 @@ type reply struct {
 	matched chan<- bool
 }
 
-// ReadPacket is sent to the unhandled channel when it could not be processed
-type ReadPacket struct {
-	Data []byte
-	Addr *net.UDPAddr
-}
 
 //NetCoreNodeID NodeID 转网络id
-func NetCoreNodeID(id NodeID) hash.Hash64 {
-	h := fnv.New64a()
+func NetCoreNodeID(id NodeID) uint64 {
+	h := fnv.New32()
 	h.Write(id[:])
-	return h
+	return uint64(h.Sum32())
 }
 
 //NodeFromRPC rpc节点转换
@@ -130,7 +125,6 @@ type Config struct {
 	//NetRestrict  *netutil.Netlist  // network whitelist
 	ID        NodeID
 	Bootnodes []*Node           // list of bootstrap nodes
-	Unhandled chan<- ReadPacket // unhandled packets are sent on this channel
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -154,8 +148,9 @@ func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
 	nc.closing = make(chan struct{})
 	nc.gotreply = make(chan reply)
 	nc.addpending = make(chan *pending)
+	nc.unhandle = make(chan *Peer)
 
-	nc.nid = NetCoreNodeID(cfg.ID).Sum64()
+	nc.nid = NetCoreNodeID(cfg.ID)
 	nc.PM = newPeerManager()
 	nc.GM = newGroupManager()
 	realaddr := cfg.ListenAddr
@@ -164,6 +159,8 @@ func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
 	fmt.Printf("P2PConfig %v \n", nc.nid)
 	fmt.Printf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
 	P2PConfig(nc.nid)
+
+
 	P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
 	//P2PProxy("47.96.186.139", uint16(70))
 
@@ -174,12 +171,18 @@ func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
 	}
 	nc.kad = kad
 	go nc.loop()
+	go nc.decodeLoop()
+
 	return nc, nil
 }
 
 // 关闭
 func (nc *NetCore) close() {
 	close(nc.closing)
+}
+
+func (nc *NetCore)  print() {
+	//nc.PM.print()
 }
 
 // ping sends a ping message to the given node and waits for a reply.
@@ -189,9 +192,11 @@ func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
 	req := &Ping{
 		Version:    Version,
 		From:       &nc.ourEndPoint,
-		To:         &to, // TODO: maybe use known TCP port from DB
+		To:         &to,
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
+	//fmt.Printf("ping node:%v, %v, %v\n",toid.B58String(),to.IP,to.Port)
+
 	packet, hash, err := encodePacket(nc.id, MessageType_MessagePing, req)
 	if err != nil {
 		fmt.Printf("net encodePacket err  %v\n", err)
@@ -204,6 +209,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
 
 	return <-errc
 }
+
 
 func (nc *NetCore) waitping(from NodeID) error {
 	return <-nc.pending(from, MessageType_MessagePing, func(interface{}) bool { return true })
@@ -261,6 +267,25 @@ func (nc *NetCore) handleReply(from NodeID, ptype MessageType, req interface{}) 
 	}
 }
 
+
+
+func (nc *NetCore) decodeLoop() {
+
+	for {
+		select {
+		case peer:=<-nc.unhandle:
+			for {
+				//fmt.Printf("handleMessage : id:%v \n ", peer.ID.B58String())
+				err := nc.handleMessage(peer)
+				if err != nil || peer.isEmpty() {
+					break
+				}
+			}
+		}
+	}
+}
+
+
 // loop runs in its own goroutine. it keeps track of
 // the refresh timer and the pending reply queue.
 func (nc *NetCore) loop() {
@@ -305,7 +330,6 @@ func (nc *NetCore) loop() {
 				el.Value.(*pending).errc <- errClosed
 			}
 			return
-
 		case p := <-nc.addpending:
 			p.deadline = time.Now().Add(respTimeout)
 			plist.PushBack(p)
@@ -332,7 +356,6 @@ func (nc *NetCore) loop() {
 
 		case now := <-timeout.C:
 			nextTimeout = nil
-
 			// Notify and remove callbacks whose deadline is in the past.
 			for el := plist.Front(); el != nil; el = el.Next() {
 				p := el.Value.(*pending)
@@ -428,7 +451,17 @@ func (nc *NetCore) SendData(toid NodeID, toaddr *net.UDPAddr, data []byte) ([]by
 func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
 	nc.PM.OnConnected(id, session, p2pType)
+	p := nc.PM.peerByNetID(id)
+
+	nc.ping(p.ID,&net.UDPAddr{IP:p.IP, Port: p.Port})
 }
+
+//OnConnected 处理接受连接的回调
+func (nc *NetCore) OnAccepted(id uint64, session uint32, p2pType uint32) {
+
+	nc.PM.OnConnected(id, session, p2pType)
+}
+
 
 //OnDisconnected 处理连接断开的回调
 func (nc *NetCore) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
@@ -445,7 +478,7 @@ func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) 
 //OnRecved 数据回调
 func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 
-	//fmt.Printf("OnRecved :id:%v mynid:%v\n ", id, nc.nid)
+	//fmt.Printf("OnRecved : netID:%v session:%v len :%v\n ", netID, session,len(data))
 
 	p := nc.PM.peerByNetID(netID)
 	if p == nil {
@@ -453,19 +486,11 @@ func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 		p = newPeer(NodeID{}, 0)
 		nc.PM.addPeer(netID, p)
 	}
-	if p.recvBuffer == nil {
-		p.recvBuffer = bytes.NewBuffer(data)
-	} else {
-		p.recvBuffer.Write(data)
-	}
-	for {
-		//fmt.Printf("handleMessage : id:%v mynid:%v\n ", id, nc.nid)
-		err := nc.handleMessage(p)
-		if err != nil || p.recvBuffer == nil {
-			break
-		}
-	}
+	p.addData(data)
+
+	nc.unhandle<-p
 }
+
 
 func encodeDataPacket(id NodeID, data []byte) (msg *bytes.Buffer, hash []byte, err error) {
 	ptype := MessageType_MessageData
@@ -515,18 +540,26 @@ func encodePacket(id NodeID, ptype MessageType, req proto.Message) (msg *bytes.B
 }
 
 func (nc *NetCore) handleMessage(p *Peer) error {
-	msgType, packetSize, msg, data, err := decodePacket(p)
-	fromID := p.ID
+	buf := p.getData()
+	if buf == nil || buf.Len() == 0 {
+		return nil
+	}
+	msgType, fromID, packetSize, msg, data, err := decodePacket(buf)
+
 
 	if err != nil {
+		if err == errPacketTooSmall {
+			p.addDataToHead(buf.Bytes())
+		}
+
 		//log.Debug("Bad discv4 packet", "addr", from, "err", err)
 		return err
 	}
-
-	if int(packetSize) == p.recvBuffer.Len() {
-		p.recvBuffer = nil
-	} else {
-		p.recvBuffer = bytes.NewBuffer(p.recvBuffer.Bytes()[packetSize:])
+	if fromID != p.ID {
+		p.ID = fromID
+	}
+	if int(packetSize) < buf.Len() {
+		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
 
 	//fmt.Printf("handleMessage : msgType: %v \n", msgType)
@@ -548,18 +581,18 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	return nil
 }
 
-func decodePacket(p *Peer) (MessageType, int, proto.Message, []byte, error) {
-	buf := p.recvBuffer.Bytes()
+func decodePacket(buffer *bytes.Buffer) (MessageType,NodeID, int, proto.Message, []byte, error) {
+	buf := buffer.Bytes()
 	msgType := MessageType(binary.BigEndian.Uint32(buf[:typeSize]))
-	p.ID = MustBytesID(buf[typeSize : typeSize+idSize])
+	ID := MustBytesID(buf[typeSize : typeSize+idSize])
 	msgLen := binary.BigEndian.Uint32(buf[typeSize+idSize : typeSize+idSize+lenSize])
 	packetSize := int(msgLen + headSize)
 
-	// fmt.Printf("decodePacket id %v \n ", p.ID.String())
-	// fmt.Printf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
+	//fmt.Printf("decodePacket id %v \n ",ID.B58String())
+	//fmt.Printf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
 
-	if p.recvBuffer.Len() < packetSize {
-		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
+	if buffer.Len() < packetSize {
+		return MessageType_MessageNone,ID, 0, nil, nil, errPacketTooSmall
 	}
 	data := buf[headSize : headSize+msgLen]
 	var req proto.Message
@@ -575,7 +608,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message, []byte, error) {
 	case MessageType_MessageData:
 		req = nil
 	default:
-		return msgType, packetSize, nil, data, fmt.Errorf("unknown type: %d", msgType)
+		return msgType, ID,packetSize, nil, data, fmt.Errorf("unknown type: %d", msgType)
 	}
 
 	var err error
@@ -584,18 +617,20 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message, []byte, error) {
 	}
 	//fmt.Printf("decodePacket end\n ")
 
-	return msgType, packetSize, req, data, err
+	return msgType, ID, packetSize, req, data, err
 }
 
 func (nc *NetCore) handlePing(req *Ping, fromID NodeID) error {
 
-	fmt.Printf("handlePing from ip:%v %v to ip:%v %v \n ", req.From.IP, req.From.Port, req.To.IP, req.To.Port)
+	//fmt.Printf("handlePing from ip:%v %v to ip:%v %v \n ", req.From.IP, req.From.Port, req.To.IP, req.To.Port)
 
 	if expired(req.Expiration) {
 		return errExpired
 	}
 	p := nc.PM.peerByID(fromID)
 	if p != nil {
+		//fmt.Printf("update  ip \n ")
+
 		p.IP = net.ParseIP(req.From.IP)
 		p.Port =  int(req.From.Port)
 	}
@@ -607,6 +642,8 @@ func (nc *NetCore) handlePing(req *Ping, fromID NodeID) error {
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 	if !nc.handleReply(fromID, MessageType_MessagePing, req) {
+		//fmt.Printf("handlePing bond\n")
+
 		// Note: we're ignoring the provided IP address right now
 		go nc.kad.bond(true, fromID, &from, int(req.From.Port))
 	}
@@ -648,7 +685,9 @@ func (nc *NetCore) handleFindNode(req *FindNode, fromID NodeID) error {
 	for _, n := range closest {
 		//if netutil.CheckRelayIP(from.IP, n.IP) == nil {
 		node := nodeToRPC(n)
-		p.Nodes = append(p.Nodes, &node)
+		if len(node.IP) >0 && node.Port >0 {
+			p.Nodes = append(p.Nodes, &node)
+		}
 		//fmt.Printf("handleFindNode id:%v      ip:%v   port:%v\n ", node.ID, node.IP, node.Port)
 
 		//}

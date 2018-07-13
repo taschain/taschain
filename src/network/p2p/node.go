@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	BASE_PORT = 1122
+	BASE_PORT = 22000
+	SUPER_BASE_PORT = 1122
 
 	BASE_SECTION = "network"
 
@@ -24,21 +25,26 @@ type NodeID =  common.Address
 
 // Node Kad 节点
 type Node struct {
+
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
-	ID        NodeID
-	IP        net.IP
-	Port      int
-	NatType   int
+	ID      NodeID
+	IP     	net.IP
+	Port    int
+	NatType int
+
 
 	// kad
 
 	sha     []byte
 	addedAt time.Time
-	fails   int
-	bondAt  time.Time
+	fails  int
+	bondAt time.Time
+	bonded bool
+
 }
+
 
 // NewNode 新建节点
 func NewNode(id NodeID, ip net.IP, Port int) *Node {
@@ -164,7 +170,7 @@ func logdist(a, b []byte) int {
 	return len(a)*8 - lz
 }
 
-// hashAtDistance returns a random hash such that logdist(a, b) == n
+// hashAtDistance 返回一个距离相同的随机哈希 logdist(a, b) == n
 func hashAtDistance(a []byte, n int) (b []byte) {
 	if n == 0 {
 		return a
@@ -199,10 +205,12 @@ func InitSelfNode(config *common.ConfManager, isSuper bool) (*Node, error) {
 	id := publicKey.GetAddress()
 	ip := getLocalIp()
 	basePort := BASE_PORT
+	port := SUPER_BASE_PORT;
 	if !isSuper {
 		basePort += 16
+		port = getAvailablePort(ip, BASE_PORT)
 	}
-	port := getAvailableTCPPort(ip, basePort)
+
 
 	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: NodeID(id), IP: net.ParseIP(ip), Port: port}
 	fmt.Print(n.String())
@@ -228,7 +236,7 @@ func getLocalIp() string {
 	return ""
 }
 
-func getAvailableTCPPort(ip string, port int) int {
+func getAvailablePort(ip string, port int) int {
 	if port < 1024 {
 		port = BASE_PORT
 	}
@@ -238,13 +246,16 @@ func getAvailableTCPPort(ip string, port int) int {
 		return -1
 	}
 
-	listener, e := net.ListenPacket("udp", ip+":"+strconv.Itoa(port))
-	if e != nil {
-		//listener.Close()
-		port++
-		return getAvailableTCPPort(ip, port)
-	}
-	listener.Close()
+	rand.Seed(time.Now().UnixNano())
+	port += rand.Intn(1000)
+	//listener, e := net.ListenPacket("udp", ip+":"+strconv.Itoa(port))
+	//if e != nil {
+	//	//listener.Close()
+	//	port++
+	//	return getAvailablePort(ip, port)
+	//}
+	//listener.Close()
+
 	return port
 }
 
@@ -288,6 +299,6 @@ func NewSelfNetInfo(privateKeyStr string) *Node {
 	publicKey := privateKey.GetPubKey()
 	id := publicKey.GetAddress()
 	ip := getLocalIp()
-	port := getAvailableTCPPort(ip, BASE_PORT)
-	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: id, IP: net.ParseIP(ip), Port: port}
+	port := getAvailablePort(ip, BASE_PORT)
+	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: MustB58ID(id), IP: net.ParseIP(ip), Port: port}
 }

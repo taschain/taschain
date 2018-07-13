@@ -22,7 +22,7 @@ func OnP2PListened(ip string, port uint16, latency uint64) {
 //export OnP2PAccepted
 func OnP2PAccepted(id uint64, session uint32, p2p_type uint32) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PAccepted", id, session, p2p_type)
-	GetNetCore().OnConnected(id, session, p2p_type)
+	GetNetCore().OnAccepted(id, session, p2p_type)
 }
 
 //export OnP2PConnected

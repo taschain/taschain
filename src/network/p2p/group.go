@@ -67,11 +67,12 @@ func newGroupManager() *GroupManager {
 func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
+	//go gm.doRefresh()
 	return g
 }
 
 //RemoveGroup 移除组
-func (gm *GroupManager) RemoveGroup(ID string, members []NodeID) {
+func (gm *GroupManager) RemoveGroup(ID string) {
 	//todo
 }
 
