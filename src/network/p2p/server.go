@@ -107,7 +107,7 @@ func InitServer(seeds []*Node,  self *Node) {
 	Server = server{SelfNetInfo:self}
 
 
-	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP:self.IP, Port: self.Port}, Bootnodes: seeds, Unhandled: make(chan<- ReadPacket)}
+	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP:self.IP, Port: self.Port}, Bootnodes: seeds}
 	GetNetCore().Init(netConfig)
 
 }
@@ -166,6 +166,21 @@ func (s *server) SendMessageToAll(m Message) {
 		//s.sendSelf(bytes, s.SelfNetInfo.ID.B58String() )
 	//}()
 
+}
+
+//AddGroup 添加组
+func (s *server) AddGroup(groupID string, members []string) *Group {
+	nodes := []NodeID{}
+	for _,id:= range (members) {
+		nodes = append(nodes,MustB58ID(id))
+	}
+
+	return GetNetCore().GM.AddGroup(groupID,nodes)
+}
+
+//RemoveGroup 移除组
+func (s *server) RemoveGroup(ID string) {
+	GetNetCore().GM.RemoveGroup(ID)
 }
 
 func (s *server) send(b []byte, id string) {
@@ -390,7 +405,7 @@ func (s *server) GetConnInfo() []ConnInfo {
 	//fmt.Printf("GetConnInfo count：%v \n ", len(result))
 
 	for _, p := range peers {
-		if p.seesionID > 0 {
+		if p.seesionID > 0 && p.IP != nil && p.Port > 0{
 			c := ConnInfo{Id: p.ID.B58String(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}
 
 			//fmt.Printf("id:%v ip：%v port:%v \n ", c.Id,c.Ip,c.TcpPort)
