@@ -295,7 +295,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
-	ShowPubKeyInfo(minerInfo, id)
+	ShowPubKeyInfo(minerInfo)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
@@ -327,11 +327,9 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo, id string) {
+func ShowPubKeyInfo(info logical.MinerInfo, ) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("PubKey: %s;\nID: %s;\nIDHex:%s;\n", pubKey, id, groupsig.NewIDFromString(id).GetHexString())
-	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
-	fmt.Printf("pubkey_info json: %s", js)
+	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 }
 
 func NewGtas() *Gtas {
