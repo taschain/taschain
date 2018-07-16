@@ -1,4 +1,4 @@
-package p2p
+package network
 
 import (
 	"bytes"
@@ -105,15 +105,6 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 var netCore *NetCore
 var lock = &sync.Mutex{}
 
-// GetNetCore 网络核心类单例
-func GetNetCore() *NetCore {
-	lock.Lock()
-	defer lock.Unlock()
-	if netCore == nil {
-		netCore = &NetCore{}
-	}
-	return netCore
-}
 
 // Config holds Table-related settings.
 type Config struct {
@@ -141,7 +132,7 @@ func nodeToRPC(n *Node) RpcNode {
 }
 
 //Init 初始化
-func (nc *NetCore) Init(cfg Config) (*NetCore, error) {
+func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 
 	nc.priv = cfg.PrivateKey
 	nc.id = cfg.ID
@@ -718,7 +709,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
 	id := fromID.GetHexString()
 	//fmt.Printf("from:%v  len:%v \n", id, len(data))
-	Server.handleMessage(data,id,time.Now())
+	Network.handleMessage(data,id)
 	return nil
 }
 

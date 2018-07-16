@@ -6,7 +6,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
-	"network/p2p"
+	"network"
 	"sync"
 	"taslog"
 	"time"
@@ -137,29 +137,22 @@ func (gs *groupSyncer) syncGroup() {
 
 //广播索要组链高度
 func requestGroupChainHeight() {
-	message := p2p.Message{Code: p2p.REQ_GROUP_CHAIN_HEIGHT_MSG}
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-	// 	}
-	// }
-	p2p.Server.SendMessageToAll(message)
+	message := network.Message{Code: network.REQ_GROUP_CHAIN_HEIGHT_MSG}
+	network.Network.Broadcast(message)
 }
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localHeight uint64) {
 	body := utility.UInt64ToByte(localHeight)
-	message := p2p.Message{Code: p2p.GROUP_CHAIN_HEIGHT_MSG, Body: body}
-	p2p.Server.SendMessage(message, targetId)
+	message := network.Message{Code: network.GROUP_CHAIN_HEIGHT_MSG, Body: body}
+	network.Network.Send(targetId,message)
 }
 
 //向某一节点请求Block
 func requestGroupByHeight(id string, localGroupHeight uint64) {
 	body := utility.UInt64ToByte(localGroupHeight)
-	message := p2p.Message{Code: p2p.REQ_GROUP_MSG, Body: body}
-	p2p.Server.SendMessage(message, id)
+	message := network.Message{Code: network.REQ_GROUP_MSG, Body: body}
+	network.Network.Send(id,message)
 }
 
 //本地查询之后将结果返回
@@ -169,8 +162,8 @@ func sendGroups(targetId string, groups []*types.Group) {
 		logger.Errorf("[GroupSyncer]"+"sendGroups marshal groups error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.GROUP_MSG, Body: body}
-	p2p.Server.SendMessage(message, targetId)
+	message := network.Message{Code: network.GROUP_MSG, Body: body}
+	network.Network.Send(targetId,message)
 }
 
 func marshalGroups(e []*types.Group) ([]byte, error) {

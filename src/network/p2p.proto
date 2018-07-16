@@ -1,5 +1,5 @@
 syntax = "proto3";
-package p2p;
+package network;
 
 enum MessageType 
 { 

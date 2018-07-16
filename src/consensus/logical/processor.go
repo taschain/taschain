@@ -4,7 +4,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"sync"
-	//"consensus/net"
 	"consensus/rand"
 	"core"
 	"time"
@@ -13,7 +12,7 @@ import (
 	"middleware/types"
 	"vm/ethdb"
 	"core/datasource"
-	"network/p2p"
+	"network"
 )
 
 var PROC_TEST_MODE bool
@@ -469,7 +468,7 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	for _,miner := range (miners) {
 		ids = append(ids,miner.GetID().GetString())
 	}
-	p2p.Server.AddGroup(gn,ids)
+	network.Network.AddGroup(gn,ids)
 
 	var gis ConsensusGroupInitSummary
 	//gis.ParentID = p.GetMinerID()

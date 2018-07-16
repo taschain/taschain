@@ -15,7 +15,7 @@ It has these top-level messages:
 	FindNode
 	Neighbors
 */
-package p2p
+package network
 
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"

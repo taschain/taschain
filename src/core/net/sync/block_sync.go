@@ -3,7 +3,7 @@ package sync
 import (
 	"common"
 	"core"
-	"network/p2p"
+	"network"
 	"sync"
 	"taslog"
 	"time"
@@ -101,22 +101,13 @@ func (bs *blockSyncer) syncBlock() {
 
 //广播索要链的QN值
 func requestBlockChainTotalQn() {
-	//todo
-	message := p2p.Message{Code: p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG}
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-	// 	}
-	// }
-
-	p2p.Server.SendMessageToAll(message)
+	message := network.Message{Code: network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG}
+	network.Network.Broadcast(message)
 }
 
 //返回自身链QN值
 func sendBlockTotalQn(targetId string, localTotalQN uint64) {
 	body := utility.UInt64ToByte(localTotalQN)
-	message := p2p.Message{Code: p2p.BLOCK_CHAIN_TOTAL_QN_MSG, Body: body}
-	p2p.Server.SendMessage(message, targetId)
+	message := network.Message{Code: network.BLOCK_CHAIN_TOTAL_QN_MSG, Body: body}
+	network.Network.Send(targetId,message)
 }

@@ -1,12 +1,10 @@
-package p2p
+package network
 
-import "C"
-//import "fmt"
-
+import "fmt"
 //export OnP2PRecved
 func OnP2PRecved(id uint64, session uint32, data []byte) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PRecved", id, session, len(data))
-	GetNetCore().OnRecved(id, session, data)
+	Network.netCore.OnRecved(id, session, data)
 }
 
 //export OnP2PChecked
@@ -22,17 +20,17 @@ func OnP2PListened(ip string, port uint16, latency uint64) {
 //export OnP2PAccepted
 func OnP2PAccepted(id uint64, session uint32, p2p_type uint32) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PAccepted", id, session, p2p_type)
-	GetNetCore().OnAccepted(id, session, p2p_type)
+	Network.netCore.OnAccepted(id, session, p2p_type)
 }
 
 //export OnP2PConnected
 func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PConnected", id, session, p2p_type)
-	GetNetCore().OnConnected(id, session, p2p_type)
+	Network.netCore.OnConnected(id, session, p2p_type)
 }
 
 //export OnP2PDisconnected
 func OnP2PDisconnected(id uint64, session uint32, p2p_code uint32) {
 	fmt.Printf("%v %v %v %v\n", "OnP2PDisconnected", id, session, p2p_code)
-	GetNetCore().OnDisconnected(id, session, p2p_code)
+	Network.netCore.OnDisconnected(id, session, p2p_code)
 }

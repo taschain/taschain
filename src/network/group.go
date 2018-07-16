@@ -1,4 +1,4 @@
-package p2p
+package network
 
 import (
 	"bytes"
@@ -31,14 +31,14 @@ func (g *Group) doRefresh() {
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
-		if id == GetNetCore().id {
+		if id == Network.netCore.id {
 			continue
 		}
 		node, ok := g.nodes[id]
 		if node != nil && ok {
 			continue
 		}
-		node = GetNetCore().kad.Resolve(id)
+		node = Network.netCore.kad.Resolve(id)
 		if node != nil {
 			g.nodes[id] = node
 		//	fmt.Printf("Group Resolve id：%v ip: %v  port:%v\n", id, node.IP, node.Port)
@@ -121,7 +121,7 @@ func (gm *GroupManager) SendDataToGroup(id string, packet *bytes.Buffer) {
 
 			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.IP, node.Port)
 
-			GetNetCore().PM.write(node.ID, &net.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet)
+			Network.netCore.PM.write(node.ID, &net.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet)
 		}
 	}
 	return

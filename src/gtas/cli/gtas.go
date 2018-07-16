@@ -8,8 +8,6 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"network"
 	"os"
-
-	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
 	"consensus/mediator"
@@ -109,9 +107,9 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 8{
+			if len(network.Network.ConnInfo()) >= 8{
 				fmt.Println("Connection:")
-				for _, c := range p2p.Server.GetConnInfo() {
+				for _, c := range network.Network.ConnInfo() {
 					fmt.Println(c.Id)
 				}
 				break
@@ -270,11 +268,8 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return err
 	}
 
-	//TODO 初始化日志， network初始化
-	p2p.SetChainHandler(new(handler.ChainHandler))
-	p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
 
-	err = network.InitNetwork(configManager,isSuper)
+	err = network.Init(*configManager,isSuper,new(handler.ChainHandler),new(chandler.ConsensusHandler))
 	if err != nil {
 		return err
 	}
@@ -287,7 +282,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := p2p.Server.SelfNetInfo.ID.GetHexString()
+	id := network.Network.Self.ID.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)

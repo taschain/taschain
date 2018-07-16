@@ -2,14 +2,13 @@ package handler
 
 import (
 	"time"
-	"network/p2p"
+	"network"
 	"github.com/gogo/protobuf/proto"
 	"common"
 	"core"
 	"core/net/sync"
 	"utility"
 	"fmt"
-	"network"
 	"middleware/types"
 	"middleware/pb"
 )
@@ -18,88 +17,88 @@ const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
 
-func (c *ChainHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
-	switch code {
-	case p2p.REQ_TRANSACTION_MSG:
-		m, e := unMarshalTransactionRequestMessage(body)
+func (c *ChainHandler) Handle(sourceId string, msg network.Message)error {
+	switch msg.Code {
+	case network.REQ_TRANSACTION_MSG:
+		m, e := unMarshalTransactionRequestMessage(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
-			return nil, nil
+			return nil
 		}
 		OnTransactionRequest(m, sourceId)
-	case p2p.TRANSACTION_GOT_MSG, p2p.TRANSACTION_MSG:
-		m, e := types.UnMarshalTransactions(body)
+	case network.TRANSACTION_GOT_MSG, network.TRANSACTION_MSG:
+		m, e := types.UnMarshalTransactions(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
-			return nil, nil
+			return nil
 		}
-		if code == p2p.TRANSACTION_GOT_MSG {
+		if msg.Code == network.TRANSACTION_GOT_MSG {
 			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
-		return nil, err
-	case p2p.NEW_BLOCK_MSG:
-		block, e := types.UnMarshalBlock(body)
+		return err
+	case network.NEW_BLOCK_MSG:
+		block, e := types.UnMarshalBlock(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
-			return nil, nil
+			return nil
 		}
 		onMessageNewBlock(block)
 
-	case p2p.REQ_GROUP_CHAIN_HEIGHT_MSG:
+	case network.REQ_GROUP_CHAIN_HEIGHT_MSG:
 		sync.GroupSyncer.HeightRequestCh <- sourceId
-	case p2p.GROUP_CHAIN_HEIGHT_MSG:
-		height := utility.ByteToUInt64(body)
+	case network.GROUP_CHAIN_HEIGHT_MSG:
+		height := utility.ByteToUInt64(msg.Body)
 		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
 		sync.GroupSyncer.HeightCh <- ghi
-	case p2p.REQ_GROUP_MSG:
-		baseHeight := utility.ByteToUInt64(body)
+	case network.REQ_GROUP_MSG:
+		baseHeight := utility.ByteToUInt64(msg.Body)
 		gri := sync.GroupRequestInfo{BaseHeight: baseHeight, SourceId: sourceId}
 		sync.GroupSyncer.GroupRequestCh <- gri
-	case p2p.GROUP_MSG:
-		m, e := unMarshalGroups(body)
+	case network.GROUP_MSG:
+		m, e := unMarshalGroups(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
-			return nil, e
+			return  e
 		}
 		sync.GroupSyncer.GroupCh <- m
 
-	case p2p.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
+	case network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
 		sync.BlockSyncer.TotalQnRequestCh <- sourceId
-	case p2p.BLOCK_CHAIN_TOTAL_QN_MSG:
-		totalQn := utility.ByteToUInt64(body)
+	case network.BLOCK_CHAIN_TOTAL_QN_MSG:
+		totalQn := utility.ByteToUInt64(msg.Body)
 		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
 		sync.BlockSyncer.TotalQnCh <- s
-	case p2p.REQ_BLOCK_INFO:
-		m, e := unMarshalBlockRequestInfo(body)
+	case network.REQ_BLOCK_INFO:
+		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
-			return nil, e
+			return e
 		}
 		onBlockInfoReq(*m, sourceId)
-	case p2p.BLOCK_INFO:
-		m, e := unMarshalBlockInfo(body)
+	case network.BLOCK_INFO:
+		m, e := unMarshalBlockInfo(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
-			return nil, e
+			return e
 		}
 		onBlockInfo(*m, sourceId)
-	case p2p.BLOCK_HASHES_REQ:
-		cbhr, e := unMarshalBlockHashesReq(body)
+	case network.BLOCK_HASHES_REQ:
+		cbhr, e := unMarshalBlockHashesReq(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
-			return nil, e
+			return  e
 		}
 		onBlockHashesReq(cbhr, sourceId)
-	case p2p.BLOCK_HASHES:
-		cbh, e := unMarshalBlockHashes(body)
+	case network.BLOCK_HASHES:
+		cbh, e := unMarshalBlockHashes(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
-			return nil, e
+			return  e
 		}
 		onBlockHashes(cbh, sourceId)
 	}
-	return nil, nil
+	return nil
 }
 
 //-----------------------------------------------铸币-------------------------------------------------------------------

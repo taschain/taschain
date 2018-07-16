@@ -2,15 +2,12 @@ package network
 
 import (
 	"taslog"
-	//ma "github.com/multiformats/go-multiaddr"
-	//pstore "github.com/libp2p/go-libp2p-peerstore"
-	//"github.com/libp2p/go-libp2p-kad-dht"
-	//"context"
-	//"github.com/libp2p/go-libp2p-peer"
-	"network/p2p"
 	"common"
 
 	"net"
+	"strings"
+	"strconv"
+	"errors"
 )
 
 const (
@@ -19,51 +16,54 @@ const (
 	SEED_ADDRESS_KEY = "seed_address"
 )
 
+var Network network
+
 var Logger taslog.Logger
 
-func InitNetwork(config *common.ConfManager, isSuper bool) error {
 
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler) error {
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 
-	node, e1 := makeSelfNode(config, isSuper)
-	if e1 != nil {
-		return e1
+	self,err:= InitSelfNode(config, isSuper)
+	if err != nil {
+		Logger.Errorf("[Network]InitSelfNode error:",err.Error())
+		return err
 	}
 
-	e2 := initServer(config, *node, isSuper)
-	if e2 != nil {
-		return e2
-	}
-	return nil
-}
-
-func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
-
-	seedId, seedAddr, _ := getSeedInfo(config)
-	seedIp, seedPort, err := p2p.GetIPPortFromAddr(seedAddr)
-	seeds := make([]*p2p.Node, 0, 16)
+	seedId, seedIp,seedPort, err := getSeedInfo(config)
+	seeds := make([]*Node, 0, 16)
 	if err == nil {
-
-		bnNode := p2p.NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
-		if bnNode.ID != node.ID && !isSuper{
+		bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
+		if bnNode.ID != self.ID && !isSuper {
 			seeds = append(seeds, bnNode)
 		}
 	}
-	p2p.InitServer(seeds, &node)
+	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP: self.IP, Port: self.Port}, Bootnodes: seeds}
+
+	var netcore NetCore
+	n,_ := netcore.InitNetCore(netConfig)
+
+	Network = network{Self:self,netCore:n,consensusHandler:consensusHandler,chainHandler:chainHandler}
 	return nil
 }
 
-func makeSelfNode(config *common.ConfManager, isSuper bool) (*p2p.Node, error) {
-	node, error := p2p.InitSelfNode(config, isSuper)
-	if error != nil {
-		Logger.Error("[Network]InitSelfNode error!\n" + error.Error())
-		return nil, error
-	}
-	return node, nil
+
+
+func getSeedInfo(config common.ConfManager) (id string, ip string, port int, e error) {
+	id = config.GetString(BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
+	seedAddr := config.GetString(BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.193/tcp/1122")
+
+	ip, port, e = getIPPortFromAddr(seedAddr)
+	return
 }
 
-func getSeedInfo(config *common.ConfManager) (string, string, error) {
-	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
-	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.193/tcp/1122")
-	return seedIdStr, seedAddrStr, nil
+func getIPPortFromAddr(addr string) (string, int, error) {
+	//addr /ip4/127.0.0.1/udp/1234"
+	split := strings.Split(addr, "/")
+	if len(split) != 5 {
+		return "", 0, errors.New("wrong addr")
+	}
+	ip := split[2]
+	port, _ := strconv.Atoi(split[4])
+	return ip, port, nil
 }

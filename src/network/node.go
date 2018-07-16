@@ -1,4 +1,4 @@
-package p2p
+package network
 
 import (
 	"common"
@@ -190,8 +190,8 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 	return b
 }
 
-func InitSelfNode(config *common.ConfManager, isSuper bool) (*Node, error) {
-	logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
+	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	var privateKey common.PrivateKey
 
 	privateKeyStr := getPrivateKeyFromConfigFile(config)
@@ -265,14 +265,14 @@ func (s *Node) String() string {
 	return str
 }
 
-func getPrivateKeyFromConfigFile(config *common.ConfManager) (privateKeyStr string) {
-	privateKey := (*config).GetString(BASE_SECTION, PRIVATE_KEY, "")
+func getPrivateKeyFromConfigFile(config common.ConfManager) (privateKeyStr string) {
+	privateKey := config.GetString(BASE_SECTION, PRIVATE_KEY, "")
 	return privateKey
 }
 
 // insert into config file
-func savePrivateKey(privateKeyStr string, config *common.ConfManager) {
-	(*config).SetString(BASE_SECTION, PRIVATE_KEY, privateKeyStr)
+func savePrivateKey(privateKeyStr string, config common.ConfManager) {
+	config.SetString(BASE_SECTION, PRIVATE_KEY, privateKeyStr)
 }
 
 func (s Node) GenMulAddrStr() string {

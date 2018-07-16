@@ -1,7 +1,7 @@
 package net
 
 import (
-	"network/p2p"
+	"network"
 	"consensus/logical"
 	"sync"
 	"taslog"
@@ -129,8 +129,8 @@ func newStateMachine(id string) *StateMachine {
 */
 func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId + "-outsidegroup")
-	machine.addNode(newStateNode(p2p.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(p2p.GROUP_INIT_DONE_MSG), logical.GetGroupK())
+	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
+	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), logical.GetGroupK())
 	return machine
 }
 
@@ -141,10 +141,10 @@ func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 */ 
 func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId)
-	machine.addNode(newStateNode(p2p.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(p2p.KEY_PIECE_MSG), logical.GetGroupMemberNum())
-	machine.addNode(newStateNode(p2p.SIGN_PUBKEY_MSG), logical.GetGroupMemberNum())
-	machine.addNode(newStateNode(p2p.GROUP_INIT_DONE_MSG), 1)
+	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
+	machine.addNode(newStateNode(network.KEY_PIECE_MSG), logical.GetGroupMemberNum())
+	machine.addNode(newStateNode(network.SIGN_PUBKEY_MSG), logical.GetGroupMemberNum())
+	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), 1)
 	return machine
 }
 
@@ -156,9 +156,9 @@ func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
 func newBlockCastStateMachine(id string) *StateMachine {
 	machine := newStateMachine(id)
 	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
-	machine.addNode(newStateNode(p2p.CAST_VERIFY_MSG), 1)
-	machine.addNode(newStateNode(p2p.VARIFIED_CAST_MSG), logical.GetGroupK() - 1)
-	machine.addNode(newStateNode(p2p.NEW_BLOCK_MSG), 1)
+	machine.addNode(newStateNode(network.CAST_VERIFY_MSG), 1)
+	machine.addNode(newStateNode(network.VARIFIED_CAST_MSG), logical.GetGroupK() - 1)
+	machine.addNode(newStateNode(network.NEW_BLOCK_MSG), 1)
 	return machine
 }
 
@@ -214,7 +214,7 @@ func (bsm *BlockStateMachines) setCurrentMsgNode(msg *StateMsg, handlerFunc Stat
 }
 
 func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
-	if msg.code == p2p.CURRENT_GROUP_CAST_MSG {
+	if msg.code == network.CURRENT_GROUP_CAST_MSG {
 		if bsm.currentMsgNode == nil {
 			bsm.setCurrentMsgNode(msg, handleFunc)
 			bsm.lock.Lock()

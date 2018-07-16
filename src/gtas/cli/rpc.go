@@ -5,7 +5,7 @@ import (
 	"vm/rpc"
 
 	"fmt"
-	"network/p2p"
+	"network"
 	"strconv"
 	"core"
 	"encoding/hex"
@@ -95,12 +95,12 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		fmt.Println(err)
-	//	}
-	//}()
-	nodes := p2p.Server.GetConnInfo()
+
+	nodes :=network.Network.ConnInfo()
+	conns := make([]ConnInfo,0)
+	for _,n := range nodes{
+		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
+	}
 	return &Result{"", nodes}, nil
 }
 

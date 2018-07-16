@@ -4,14 +4,9 @@ import (
 	"common"
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
-
 	"middleware/types"
-	"network/p2p"
-
 	"time"
 	"network"
-
-
 )
 
 type TransactionRequestMessage struct {
@@ -76,8 +71,8 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		return
 	}
 	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
-	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
-	p2p.Server.SendMessage(message, castorId)
+	message := network.Message{Code: network.REQ_TRANSACTION_MSG, Body: body}
+	network.Network.Send(castorId,message)
 }
 
 //本地查询到交易，返回请求方
@@ -88,8 +83,8 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 		return
 	}
 	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
-	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
-	p2p.Server.SendMessage(message, sourceId)
+	message := network.Message{Code: network.TRANSACTION_GOT_MSG, Body: body}
+	network.Network.Send(sourceId,message)
 }
 
 //收到交易 全网扩散
@@ -105,17 +100,8 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
-	//todo
-	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
-
-	// conns := p2p.Server.Host.Network().Conns()
-	// for _, conn := range conns {
-	// 	id := conn.RemotePeer()
-	// 	if id != "" {
-	// 		p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-	// 	}
-	// }
-	p2p.Server.SendMessageToAll(message)
+	message := network.Message{Code: network.TRANSACTION_MSG, Body: body}
+	network.Network.Broadcast(message)
 }
 
 //向某一节点请求Block信息
@@ -126,8 +112,8 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 		Logger.Errorf("[peer]RequestBlockInfoByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.REQ_BLOCK_INFO, Body: body}
-	p2p.Server.SendMessage(message, id)
+	message := network.Message{Code: network.REQ_BLOCK_INFO, Body: body}
+	network.Network.Send(id,message)
 }
 
 //本地查询之后将结果返回
@@ -137,8 +123,8 @@ func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
 		Logger.Errorf("[peer]SendBlockInfo marshal BlockEntity error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_INFO, Body: body}
-	p2p.Server.SendMessage(message, targetId)
+	message := network.Message{Code: network.BLOCK_INFO, Body: body}
+	network.Network.Send(targetId,message)
 }
 
 //向目标结点索要 block hash
@@ -148,8 +134,8 @@ func RequestBlockHashes(targetNode string, bhr BlockHashesReq) {
 		Logger.Errorf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_HASHES_REQ, Body: body}
-	p2p.Server.SendMessage(message, targetNode)
+	message := network.Message{Code: network.BLOCK_HASHES_REQ, Body: body}
+	network.Network.Send(targetNode,message)
 }
 
 //向目标结点发送 block hash
@@ -159,8 +145,8 @@ func SendBlockHashes(targetNode string, bhs []*BlockHash) {
 		Logger.Errorf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_HASHES, Body: body}
-	p2p.Server.SendMessage(message, targetNode)
+	message := network.Message{Code: network.BLOCK_HASHES, Body: body}
+	network.Network.Send(targetNode,message)
 }
 
 //--------------------------------------------------Transaction---------------------------------------------------------------
