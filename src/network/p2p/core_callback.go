@@ -1,7 +1,7 @@
 package p2p
 
 import "C"
-import "fmt"
+//import "fmt"
 
 //export OnP2PRecved
 func OnP2PRecved(id uint64, session uint32, data []byte) {
@@ -27,7 +27,7 @@ func OnP2PAccepted(id uint64, session uint32, p2p_type uint32) {
 
 //export OnP2PConnected
 func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
-	fmt.Printf("%v %v %v %v\n", "OnP2PConnected", id, session, p2p_type)
+	//fmt.Printf("%v %v %v %v\n", "OnP2PConnected", id, session, p2p_type)
 	GetNetCore().OnConnected(id, session, p2p_type)
 }
 

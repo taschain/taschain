@@ -195,7 +195,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
 		To:         &to,
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	//fmt.Printf("ping node:%v, %v, %v\n",toid.B58String(),to.IP,to.Port)
+	//fmt.Printf("ping node:%v, %v, %v\n",toid.GetHexString(),to.IP,to.Port)
 
 	packet, hash, err := encodePacket(nc.id, MessageType_MessagePing, req)
 	if err != nil {
@@ -229,7 +229,7 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]
 				//log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
 				continue
 			}
-			//fmt.Printf("find node:%v, %v, %v\n",n.ID.B58String(),n.IP,n.Port)
+			//fmt.Printf("find node:%v, %v, %v\n",n.ID.GetHexString(),n.IP,n.Port)
 			nodes = append(nodes, n)
 		}
 		return nreceived >= bucketSize
@@ -562,7 +562,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
 
-	fmt.Printf("handleMessage : msgType: %v \n", msgType)
+	//fmt.Printf("handleMessage : msgType: %v \n", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -588,7 +588,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType,NodeID, int, proto.Message,
 	msgLen := binary.BigEndian.Uint32(buf[typeSize+idSize : typeSize+idSize+lenSize])
 	packetSize := int(msgLen + headSize)
 
-	//fmt.Printf("decodePacket id %v \n ",ID.B58String())
+	//fmt.Printf("decodePacket id %v \n ",ID.GetHexString())
 	//fmt.Printf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
 
 	if buffer.Len() < packetSize {

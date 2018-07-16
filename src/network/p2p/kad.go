@@ -29,7 +29,7 @@ const (
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 	maxFindnodeFailures = 5  // 节点最大失败数量
 
-	refreshInterval    =3 * time.Second
+	refreshInterval    =30 * time.Second
 	revalidateInterval = 30 * time.Minute
 	checkInterval= 	3 * time.Second
 	copyNodesInterval  = 30 * time.Second
@@ -474,9 +474,9 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 
 func (kad *Kad) doCheck() {
 	//fmt.Printf("doCheck ... bucket size:%v \n", kad.len())
-	if kad.len() <= len(kad.nursery){
+	//if kad.len() <= len(kad.nursery) * 3{
 		kad.refresh()
-	}
+	///}
 	kad.net.print()
 
 }
