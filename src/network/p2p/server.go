@@ -128,7 +128,7 @@ func (s *server) SendMessageToAll(m Message) {
 func (s *server) AddGroup(groupID string, members []string) *Group {
 	nodes := []NodeID{}
 	for _,id:= range (members) {
-		nodes = append(nodes,common.StringToAddress(id))
+		nodes = append(nodes,common.HexStringToAddress(id))
 	}
 
 	return GetNetCore().GM.AddGroup(groupID,nodes)
@@ -145,7 +145,7 @@ func (s *server) send(b []byte, id string) {
 		s.sendSelf(b, id)
 		return
 	}
-	GetNetCore().SendData(common.StringToAddress(id), nil, b)
+	GetNetCore().SendData(common.HexStringToAddress(id), nil, b)
 }
 
 func (s *server) sendSelf(b []byte, id string) {

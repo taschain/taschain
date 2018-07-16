@@ -97,7 +97,7 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 	// if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
 	// 	return nil, errors.New("not contained in netrestrict whitelist")
 	// }
-	n := NewNode(common.StringToAddress(rn.ID), net.ParseIP(rn.IP), int(rn.Port))
+	n := NewNode(common.HexStringToAddress(rn.ID), net.ParseIP(rn.IP), int(rn.Port))
 	err := n.validateComplete()
 	return n, err
 }

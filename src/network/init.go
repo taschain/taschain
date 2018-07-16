@@ -44,7 +44,7 @@ func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
 	seeds := make([]*p2p.Node, 0, 16)
 	if err == nil {
 
-		bnNode := p2p.NewNode(common.StringToAddress(seedId), net.ParseIP(seedIp), seedPort)
+		bnNode := p2p.NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
 		if bnNode.ID != node.ID && !isSuper{
 			seeds = append(seeds, bnNode)
 		}

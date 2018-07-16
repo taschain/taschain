@@ -285,20 +285,3 @@ func ToMulAddrStr(ip string, protocol string, port int) string {
 	return addr
 }
 
-
-//only for test
-//used to mock a new client
-func NewSelfNetInfo(privateKeyStr string) *Node {
-	var privateKey common.PrivateKey
-
-	if privateKeyStr == "" {
-		privateKey = common.GenerateKey("")
-	} else {
-		privateKey = *common.HexStringToSecKey(privateKeyStr)
-	}
-	publicKey := privateKey.GetPubKey()
-	id := publicKey.GetAddress()
-	ip := getLocalIp()
-	port := getAvailablePort(ip, BASE_PORT)
-	return &Node{PrivateKey: privateKey, PublicKey: publicKey, ID: id, IP: net.ParseIP(ip), Port: port}
-}
