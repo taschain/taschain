@@ -198,6 +198,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 		//todo 如果将来改为发送多次 此处需要修改
 		core.BlockChainImpl.SetAdujsting(false)
 		if !core.BlockChainImpl.IsBlockSyncInit() {
+			fmt.Print("on block info set block sync true\n")
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 	} else {

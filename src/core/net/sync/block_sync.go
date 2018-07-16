@@ -8,6 +8,7 @@ import (
 	"network/p2p"
 	"taslog"
 	"common"
+	"fmt"
 )
 
 const (
@@ -85,6 +86,7 @@ func (bs *blockSyncer) syncBlock() {
 	if maxTotalQN <= localTotalQN {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !core.BlockChainImpl.IsBlockSyncInit(){
+			fmt.Print("maxTotalQN <= localTotalQN set block sync true\n")
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 		return
