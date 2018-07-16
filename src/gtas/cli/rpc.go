@@ -13,6 +13,7 @@ import (
 	"log"
 	"math"
 	"consensus/groupsig"
+	"common"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -21,19 +22,18 @@ type GtasAPI struct {
 
 // T 交易接口
 func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	err := walletManager.transaction(from, to, amount, code)
+	hash, err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
 	return &Result{
 		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
-		Data:    "",
+		Data:    hash.String(),
 	}, nil
 }
 
 // Balance 查询余额接口
 func (api *GtasAPI) Balance(account string) (*Result, error) {
-	// TODO 查询余额接口
 	balance, err := walletManager.getBalance(account)
 	if err != nil {
 		return nil, err
@@ -110,6 +110,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
+			Hash:v.Hash.String(),
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
@@ -117,6 +118,19 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	}
 
 	return &Result{"success", transList}, nil
+}
+
+func(api *GtasAPI) GetTransaction(hash string) (*Result, error) {
+	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
+	if err != nil {
+		return nil, err
+	}
+	detail := make(map[string]interface{})
+	detail["hash"] = hash
+	detail["source"] = transaction.Source.Hash().Hex()
+	detail["target"] = transaction.Target.Hash().Hex()
+	detail["value"] = transaction.Value
+	return &Result{"success", detail}, nil
 }
 
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
@@ -134,6 +148,11 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
+	trans := make([]string, len(bh.Transactions))
+	for i := range bh.Transactions {
+		trans[i] = bh.Transactions[i].String()
+	}
+	blockDetail["transactions"] = trans
 	blockDetail["txs"] = len(bh.Transactions)
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 	return &Result{"success", blockDetail}, nil
@@ -153,6 +172,9 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	blockDetail["txs"] = len(bh.Transactions)
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
+
+	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
+	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
 	return &Result{"success", blockDetail}, nil
 }
 

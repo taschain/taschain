@@ -120,7 +120,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 
 		mediator.Proc.OnMessageVerify(*m)
 
-	case p2p.TRANSACTION_MSG,p2p.TRANSACTION_GOT_MSG:
+	case p2p.TRANSACTION_MSG, p2p.TRANSACTION_GOT_MSG:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
@@ -130,9 +130,6 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		for _, tx := range transactions {
 			txHashes = append(txHashes, tx.Hash)
 		}
-		if code == p2p.TRANSACTION_GOT_MSG{
-			core.Logger.Debugf("[BlockChain]consensus handler TRANSACTION_GOT_MSG from %s,count:%d,time:%v",sourceId,len(txHashes),time.Now())
-		}
 		mediator.Proc.OnMessageNewTransactions(txHashes)
 	case p2p.NEW_BLOCK_MSG:
 		m, e := unMarshalConsensusBlockMessage(body)
@@ -140,6 +137,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
+		network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber, sourceId, len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
 
 		mediator.Proc.OnMessageBlock(*m)
 		return nil, nil

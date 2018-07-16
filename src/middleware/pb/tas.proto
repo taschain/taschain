@@ -40,6 +40,10 @@ message TransactionRequestMessage{
     repeated bytes TransactionHashes = 1;
 
     required bytes CurrentBlockHash = 2;
+
+    required uint64 BlockHeight = 3;
+
+    required uint64 BlockQn = 4;
 }
 
 message TransactionSlice{

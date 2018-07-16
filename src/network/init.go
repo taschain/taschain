@@ -45,7 +45,6 @@ func InitNetwork(config *common.ConfManager, isSuper bool) error {
 func initServer(config *common.ConfManager, node p2p.Node, isSuper bool) error {
 
 	ctx := context.Background()
-	context.WithTimeout(ctx, p2p.ContextTimeOut)
 	network, e1 := makeSwarm(ctx, node)
 	if e1 != nil {
 		return e1
@@ -127,7 +126,7 @@ func makeSwarm(ctx context.Context, self p2p.Node) (net.Network, error) {
 func makeHost(n net.Network) (host.Host) {
 	opt := basichost.HostOpts{}
 	opt.NegotiationTimeout = -1
-	host := basichost.New(n, opt)
+	host := basichost.New(n)
 	return host
 }
 

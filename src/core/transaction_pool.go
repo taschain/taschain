@@ -39,7 +39,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 5
+	sendingListLength = 1
 )
 
 // 配置文件
@@ -64,6 +64,8 @@ type TransactionPool struct {
 
 	batch     ethdb.Batch
 	batchLock sync.Mutex
+
+	totalReceived uint64
 }
 
 type ReceiptWrapper struct {
@@ -129,9 +131,17 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	txs := pool.received.AsSlice()
-	sort.Sort(types.Transactions(txs))
-	return txs
+	//txs := pool.received.AsSlice()
+	var result []*types.Transaction
+	if pool.received.txs.Len() > 5000 {
+		result = make([]*types.Transaction, 5000)
+		copy(result, pool.received.txs[:5000])
+	} else {
+		result = make([]*types.Transaction, pool.received.txs.Len())
+		copy(result, pool.received.txs)
+	}
+	sort.Sort(types.Transactions(result))
+	return result
 }
 
 // 返回待处理的transaction数组
@@ -170,7 +180,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	if tx == nil {
 		return false, ErrNil
 	}
-
+	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
 		//log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
@@ -507,4 +517,8 @@ func (c *container) Remove(keys []common.Hash) {
 		heap.Remove(&c.txs, index)
 	}
 
+}
+
+func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
+	return p.totalReceived
 }

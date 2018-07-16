@@ -21,6 +21,7 @@ import (
 	"middleware"
 	"middleware/types"
 	"taslog"
+	"network"
 )
 
 const (
@@ -384,6 +385,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
+	beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
@@ -408,6 +410,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
+	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -464,14 +467,10 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
-	Logger.Debugf("Begin VerifyCastingBlock height:%d,qn:%d,hash:%x,time:%v",bh.Height,bh.QueueNumber,bh.Hash,time.Now())
-	beginTime := time.Now()
 	chain.lock.Lock("VerifyCastingBlock")
 	defer chain.lock.Unlock("VerifyCastingBlock")
 
-	miss, result, state, receipt := chain.verifyCastingBlock(bh, nil)
-	Logger.Debugf("VerifyCastingBlock height:%d,qn:%d,verify resultl:%d,cost:%v",bh.Height,bh.QueueNumber,result,time.Since(beginTime))
-	return miss, result, state, receipt
+	return chain.verifyCastingBlock(bh, nil)
 }
 
 func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *state.StateDB, vtypes.Receipts) {
@@ -480,7 +479,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
-		return nil, 3, nil, nil
+		return nil, 2, nil, nil
 	}
 
 	// 验证交易
@@ -507,6 +506,8 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		m := &TransactionRequestMessage{
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
+			BlockHeight:       bh.Height,
+			BlockQn:           bh.QueueNumber,
 		}
 		go RequestTransaction(*m, castorId.GetString())
 		return missing, 1, nil, nil
@@ -560,6 +561,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
+	defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }

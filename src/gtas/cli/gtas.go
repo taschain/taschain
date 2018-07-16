@@ -20,7 +20,6 @@ import (
 	"consensus/groupsig"
 	"taslog"
 	"core/net/sync"
-	_ "metrics"
 	_ "net/http/pprof"
 	"net/http"
 	"middleware"

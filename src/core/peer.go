@@ -7,11 +7,14 @@ import (
 	"middleware/types"
 	"middleware/pb"
 	"time"
+	"network"
 )
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
 	CurrentBlockHash  common.Hash
+	BlockHeight       uint64
+	BlockQn           uint64
 }
 
 type BlockHashesReq struct {
@@ -35,29 +38,8 @@ type BlockInfo struct {
 	ChainPiece []*BlockHash
 }
 
-//对外广播自身上过链的block 全网广播
-//func BroadcastBlockOnChain(b *types.Block) {
-//	body, e := types.MarshalBlock(b)
-//	if e != nil {
-//		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
-//		return
-//	}
-//	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
-//
-//	conns := p2p.Server.Host.Network().Conns()
-//	for _, conn := range conns {
-//		id := conn.RemotePeer()
-//
-//		if id != "" {
-//			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-//		}
-//	}
-//
-//}
-
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
-	Logger.Debugf("[BlockChain]Request Transaction from %s,count%d,hash:%x,time:%v", castorId, len(m.TransactionHashes), m.CurrentBlockHash,time.Now())
 	if castorId == "" {
 		return
 	}
@@ -67,18 +49,19 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
+	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
 	p2p.Server.SendMessage(message, castorId)
 }
 
 //本地查询到交易，返回请求方
-func SendTransactions(txs []*types.Transaction, sourceId string) {
-	Logger.Debugf("[BlockChain]SendTransactions to %s,count%d,time:%v", sourceId, len(txs),time.Now())
+func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uint64, blockQn uint64) {
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
+	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
 	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
 	p2p.Server.SendMessage(message, sourceId)
 }
@@ -160,7 +143,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 	}
 
 	currentBlockHash := m.CurrentBlockHash.Bytes()
-	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: &m.BlockHeight, BlockQn: &m.BlockQn}
 	return proto.Marshal(&message)
 }
 
