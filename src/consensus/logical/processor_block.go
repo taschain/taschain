@@ -87,6 +87,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	if result == 0 {
 		p.triggerFutureVerifyMsg(block.Header.Hash)
 		p.groupManager.CreateNextGroupRoutine()
+		p.cleanVerifyContext(bh.Height)
 	} else if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
 	}
@@ -138,10 +139,8 @@ func (p *Processor) prepareForCast(gid groupsig.ID)  {
 	bc := new(BlockContext)
 	bc.Proc = p
 	bc.Init(GroupMinerID{gid, p.GetMinerID()})
-	sgi, err := p.globalGroups.GetGroupByID(gid)
-	if err != nil {
-		panic("prepareForCast GetGroupByID failed.\n")
-	}
+	sgi := p.getGroup(gid)
+
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext

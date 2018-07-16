@@ -70,7 +70,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	p.MainChain = core.BlockChainImpl
 	p.GroupChain = core.GroupChainImpl
 	p.mi = &mi
-	p.globalGroups = NewGlobalGroups()
+	p.globalGroups = NewGlobalGroups(p.GroupChain)
 	p.joiningGroups = NewJoiningGroups()
 	p.belongGroups = NewBelongGroups()
 	p.blockContexts = NewCastBlockContexts()
@@ -141,9 +141,9 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 		return false
 	}
 
-	groupInfo, err := p.globalGroups.GetGroupByID(*selectGroupId) //取得合法的铸块组
-	if err != nil {
-		log.Printf("isCastGroupLeagal: getGroupById error, id=%v, err=%v", GetIDPrefix(*selectGroupId), err)
+	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
+	if groupInfo == nil {
+		log.Printf("isCastGroupLeagal: getGroupById nil, id=%v\n", GetIDPrefix(*selectGroupId))
 		return false
 	}
 
@@ -215,10 +215,7 @@ func (p *Processor) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
 		log.Printf("beingCastGroup failed, node not in this group.\n")
 		return false
 	}
-	_, err := p.globalGroups.GetGroupByID(cgs.GroupID)
-	if err != nil {
-		panic("globalGroups.GetGroupByID failed.")
-	}
+
 	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
 	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
 
@@ -296,20 +293,21 @@ func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey 
 
 //取得特定的组
 func (p Processor) getGroup(gid groupsig.ID) *StaticGroupInfo {
-	g, err := p.globalGroups.GetGroupByID(gid)
-	if err != nil {
+	if g, err := p.globalGroups.GetGroupByID(gid); err != nil {
 		panic("GetSelfGroup failed.")
+	} else {
+		return g
 	}
-	return g
 }
 
 //取得一个铸块组的公钥(processer初始化时从链上加载)
 func (p Processor) getGroupPubKey(gid groupsig.ID) groupsig.Pubkey {
-	g, err := p.globalGroups.GetGroupByID(gid)
-	if err != nil {
+	if g, err := p.globalGroups.GetGroupByID(gid); err != nil {
 		panic("GetSelfGroup failed.")
+	} else {
+		return g.GetPubKey()
 	}
-	return g.GetPubKey()
+
 }
 
 func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData) {
@@ -334,18 +332,6 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData
 	//}
 }
 
-
-//判断某个ID和当前节点是否同一组
-//uid：远程节点ID，inited：组是否已初始化完成
-func (p Processor) isSameGroup(gid groupsig.ID, uid groupsig.ID, inited bool) bool {
-	if inited {
-		return p.getGroup(gid).MemExist(uid) && p.getGroup(gid).MemExist(p.GetMinerID())
-	} else {
-		//return p.gc.MemExist(uid)
-		//to do : 增加判断
-		return false
-	}
-}
 
 func (p *Processor) ExistInDummyGroup(dummyId groupsig.ID) bool {
 	initingGroup := p.globalGroups.GetInitingGroup(dummyId)

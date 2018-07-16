@@ -98,7 +98,7 @@ func (vc *VerifyContext) isCasting() bool {
 }
 
 func (vc *VerifyContext) maxQNCasted() bool {
-	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED
+	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED || vc.signedMaxQN >= int64(MAX_QN)
 }
 
 func (vc *VerifyContext) isQNCasted(qn int64) bool {
@@ -435,7 +435,11 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 	//} else {
 	//	return -1
 	//}
-	data := vc.blockCtx.getGroupSecret().SecretSign
+	secret := vc.blockCtx.getGroupSecret()
+	if secret == nil {
+		 return -1
+	}
+	data := secret.SecretSign
 	data = append(data, vc.prevSign...)
 	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))

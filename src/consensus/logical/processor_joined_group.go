@@ -149,5 +149,8 @@ func (p *Processor) cleanDismissGroupRoutine() bool {
 	p.globalGroups.RemoveGroups(ids)
 	p.blockContexts.removeContexts(ids)
 	p.belongGroups.leaveGroups(ids)
+	for _, gid := range ids {
+		p.storage.Delete(gid.Serialize())
+	}
 	return true
 }

@@ -61,7 +61,7 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 		var cvm ConsensusVerifyMessage
 		cvm.BH = *bh
 		//cvm.GroupID = gId
-		cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+		cvm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)}, &cvm)
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendVerifiedCast...\n")
 			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
@@ -229,17 +229,7 @@ func (p *Processor) receiveBlock(msg *ConsensusBlockMessage, preBH *types.BlockH
 
 func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 	p.blockContexts.forEach(func(bc *BlockContext) bool {
-		ctxs := bc.SafeGetVerifyContexts()
-		delCtx := make([]*VerifyContext, 0)
-		for _, ctx := range ctxs {
-			if ctx.ShouldRemove(currentHeight) {
-				delCtx = append(delCtx, ctx)
-			}
-		}
-		for _, ctx := range delCtx {
-			log.Printf("cleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
-		}
-		bc.RemoveVerifyContexts(delCtx)
+		bc.CleanVerifyContext(currentHeight)
 		return true
 	})
 }
@@ -313,7 +303,6 @@ func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
 	nowTop := p.MainChain.QueryTopBlock()
 	if topBH.Hash != nowTop.Hash {
 		p.triggerCastCheck()
-		p.cleanVerifyContext(nowTop.Height)
 	}
 
 	log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
@@ -336,14 +325,15 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
 			for _, slot := range vctx.slots {
 				acceptRet := vctx.AcceptTrans(slot, ths)
-				log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
 
 				case TRANS_ACCEPT_NOT_FULL:
+					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), len(slot.LosingTrans))
 
 				case TRANS_ACCEPT_FULL_PIECE:
+					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 					//_, ret := p.verifyBlock(&slot.BH)
 					//if ret != 0 {
 					//	logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
@@ -360,6 +350,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					//	continue
 					//}
+					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet))
 					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, vctx, slot, &slot.BH)
 				}
@@ -432,7 +423,7 @@ func (p *Processor) OnMessageGroupInit(grm ConsensusGroupRawMessage) {
 			if id != "0x0" && piece.IsValid() {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
-				sb := spm.GenSign(ski)
+				sb := spm.GenSign(ski, &spm)
 				log.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				if !PROC_TEST_MODE {
@@ -497,7 +488,7 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 					panic("verify GISSign with group member sign pub key failed.")
 				}
 
-				msg.GenSign(ski)
+				msg.GenSign(ski, &msg)
 				//todo : 组内广播签名公钥
 				log.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
 
@@ -556,7 +547,7 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
 
-				msg.GenSign(ski)
+				msg.GenSign(ski, &msg)
 
 				if !PROC_TEST_MODE {
 
@@ -671,7 +662,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg ConsensusCreateGroupRawMessage) 
 			GI: msg.GI,
 			Launcher: msg.SI.SignMember,
 		}
-		signMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getSignKey(msg.GI.ParentID)})
+		signMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getSignKey(msg.GI.ParentID)}, signMsg)
 		log.Printf("OMCGR SendCreateGroupSignMessage... ")
 		SendCreateGroupSignMessage(signMsg)
 	}
@@ -690,7 +681,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		return
 	}
 	if p.groupManager.OnMessageCreateGroupSign(&msg) {
-		gpk := p.getGroup(msg.GI.ParentID).GroupPK
+		gpk := p.getGroupPubKey(msg.GI.ParentID)
 		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), msg.GI.Signature) {
 			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
 			return
@@ -698,6 +689,9 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		creatingGroup := p.groupManager.creatingGroups.getCreatingGroup(msg.GI.DummyID)
 		mems := make([]PubKeyInfo, len(creatingGroup.ids))
 		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
+		if len(pubkeys) != len(creatingGroup.ids) {
+			panic("get all pubkey failed")
+		}
 		for i, id := range creatingGroup.ids {
 			mems[i] = PubKeyInfo{ID: id, PK: pubkeys[i]}
 		}
@@ -707,7 +701,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		}
 
 		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
-		initMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()})
+		initMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()}, initMsg)
 		SendGroupInitMessage(*initMsg)
 
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)

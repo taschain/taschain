@@ -47,6 +47,8 @@ func (p *Processor) prepareMiner()  {
 	if len(rets) == 0 {
 		return
 	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+
 	log.Printf("prepareMiner get groups from groupchain, len=%v\n", len(rets))
 	for _, gidBytes := range rets {
 		coreGroup := p.GroupChain.GetGroupById(gidBytes)
@@ -57,18 +59,9 @@ func (p *Processor) prepareMiner()  {
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
-		sgi := &StaticGroupInfo{
-			GroupID:     *groupsig.DeserializeId(coreGroup.Id),
-			GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
-			BeginHeight: coreGroup.BeginHeight,
-			Members:     make([]PubKeyInfo, 0),
-			MemIndex:    make(map[string]int),
-			DismissHeight: coreGroup.DismissHeight,
-			ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
-			Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
-			Authority:     coreGroup.Authority,
-			Name:          coreGroup.Name,
-			Extends:       coreGroup.Extends,
+		sgi := NewSGIFromCoreGroup(coreGroup)
+		if !sgi.CastQualified(topHeight) {
+			continue
 		}
 		for _, mem := range coreGroup.Members {
 			pkInfo := &PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}

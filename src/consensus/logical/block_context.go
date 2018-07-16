@@ -89,32 +89,29 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	}
 }
 
-func (bc *BlockContext) RemoveVerifyContexts(vctx []*VerifyContext) {
-	if vctx == nil || len(vctx) == 0 {
-		return
-	}
+func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	for _, ctx := range vctx {
-		idx, _ := bc.getVerifyContext(ctx.castHeight, ctx.prevHash)
-		if idx < 0 {
-			continue
+	newCtxs := make([]*VerifyContext, 0)
+	for _, ctx := range bc.verifyContexts {
+		if !ctx.ShouldRemove(height) {
+			newCtxs = append(newCtxs, ctx)
+		} else {
+			if bc.currentVerifyContext == ctx {
+				bc.reset()
+			}
+			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
 		}
-		if ctx == bc.currentVerifyContext {
-			bc.reset()
-		}
-		bc.verifyContexts = append(bc.verifyContexts[:idx], bc.verifyContexts[idx+1:]...)
 	}
+	bc.verifyContexts = newCtxs
 }
 
 func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	ret := make([]*VerifyContext, len(bc.verifyContexts))
-	copy(ret, bc.verifyContexts)
-	return ret
+	return bc.verifyContexts
 }
 
 //（网络接收）新到交易集通知

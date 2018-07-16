@@ -19,8 +19,8 @@ import (
 */
 
 const (
-	EPOCH uint64 = 16
-	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 20	//启动建组的块高度差
+	EPOCH uint64 = 4
+	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 10	//启动建组的块高度差
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
@@ -111,10 +111,15 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 		id := groupsig.DeserializeId(mem)
 		ids = append(ids, *id)
 	}
-	sgi := gm.processor.globalGroups.groups[0]
-	for _, mem := range sgi.Members {
-		ids = append(ids, mem.ID)
+	str := ""
+	for _, id := range ids {
+		str += GetIDPrefix(id) + ","
 	}
+	log.Printf("=============getAllCandidates %v\n", str)
+	//sgi := gm.processor.globalGroups.groups[0]
+	//for _, mem := range sgi.Members {
+	//	ids = append(ids, mem.ID)
+	//}
 	return ids
 }
 
@@ -149,22 +154,35 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (b
 	for i := 0; i < len(result); i++ {
 		result[i] = candidates[seqs[i]]
 	}
+	str := ""
+	for _, id := range result {
+		str += GetIDPrefix(id) + ","
+	}
+	log.Printf("=============selectCandidates %v\n", str)
 	return true, result
 }
 
 func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
-	pubs := make([]groupsig.Pubkey, len(ids))
-	sgi := gm.processor.globalGroups.groups[0]
-	for i, id := range ids {
-		//pkByte := gm.groupChain.GetMemberPubkeyByID(id.Serialize())
-		//pk := groupsig.DeserializePubkeyBytes(pkByte)
-		//if pk == nil {
-		//	log.Printf("get pubkey fail, id=%v\n", GetIDPrefix(id))
-		//	panic("get pubkey nil")
-		//}
-		if mem, ok := sgi.GetMember(id); ok {
-			pubs[i] = mem.PK
+	pubs := make([]groupsig.Pubkey, 0)
+
+	idBytes := make([][]byte, 0)
+	for _, id := range ids {
+		idBytes = append(idBytes, id.Serialize())
+	}
+
+	pubBytes := gm.groupChain.GetMemberPubkeyByIDs(idBytes)
+	log.Printf("=============getPubkeyByIds idsize %v, puksize %v\n", len(idBytes), len(pubBytes))
+	for idx, pbyte := range pubBytes {
+		if pbyte == nil || len(pbyte) == 0 {
+			s := fmt.Sprintf("get pubkey bytes failed, idbytes=%v, id=%v, ret=%v", idBytes[idx], GetIDPrefix(ids[idx]), pbyte)
+			panic(s)
 		}
+		pk := groupsig.DeserializePubkeyBytes(pbyte)
+		if pk == nil {
+			s := fmt.Sprintf("deserialize pubkey bytes failed, bytes=%v", pbyte)
+			panic(s)
+		}
+		pubs = append(pubs, *pk)
 	}
     return pubs
 }
@@ -226,7 +244,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		GI: gis,
 		IDs: memIds,
 	}
-	msg.GenSign(SecKeyInfo{ID: gm.processor.GetMinerID(), SK: gm.processor.getSignKey(group.GroupID)})
+	msg.GenSign(SecKeyInfo{ID: gm.processor.GetMinerID(), SK: gm.processor.getSignKey(group.GroupID)}, &msg)
 
 	creatingGroup := newCreateGroup(&gis, memIds)
 	gm.addCreatingGroup(creatingGroup)

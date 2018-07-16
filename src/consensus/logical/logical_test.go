@@ -679,7 +679,7 @@ func testLogicGroupInitEx(t *testing.T) {
 		//ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
 		sign_pk := groupsig.NewPubkeyFromSeckey(sign_sk)
 		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), GetPubKeyPrefix(*sign_pk))
-		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk})
+		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk}, &ccm)
 		break
 	}
 

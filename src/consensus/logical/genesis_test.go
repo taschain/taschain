@@ -182,14 +182,15 @@ func TestGenesisGroup(t *testing.T) {
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
 				p.joinGroup(jg, true)
-				var msg ConsensusGroupInitedMessage
+				var msg = new(ConsensusGroupInitedMessage)
 				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
 
-				msg.GenSign(ski)
-				initedMsgs[id] = &msg
+				msg.GenSign(ski, msg)
+
+				initedMsgs[id] = msg
 			}
 		}
 	}

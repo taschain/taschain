@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sort"
-	"log"
+	"core"
+	"middleware/types"
 )
 
 type STATIC_GROUP_STATUS int
@@ -69,6 +69,21 @@ func NewSGIFromStaticGroupSummary(summary *StaticGroupSummary, group *InitingGro
 	return sgi
 }
 
+func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
+	return &StaticGroupInfo{
+		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
+		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
+		BeginHeight: coreGroup.BeginHeight,
+		Members:     make([]PubKeyInfo, 0),
+		MemIndex:    make(map[string]int),
+		DismissHeight: coreGroup.DismissHeight,
+		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
+		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
+		Authority:     coreGroup.Authority,
+		Name:          coreGroup.Name,
+		Extends:       coreGroup.Extends,
+	}
+}
 //取得某个矿工在组内的排位
 func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	pos := -1
@@ -209,17 +224,19 @@ func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
+	chain 		*core.GroupChain
 	groups    []*StaticGroupInfo
 	gIndex    map[string]int     //string(ID)->索引
 	generator *NewGroupGenerator //新组处理器(组外处理器)
 	lock      sync.RWMutex
 }
 
-func NewGlobalGroups() *GlobalGroups {
+func NewGlobalGroups(chain *core.GroupChain) *GlobalGroups {
 	return &GlobalGroups{
 		groups:    make([]*StaticGroupInfo, 0),
 		gIndex:    make(map[string]int),
 		generator: CreateNewGroupGenerator(),
+		chain: 		chain,
 	}
 }
 
@@ -282,7 +299,7 @@ func (gg *GlobalGroups) getGroupByIndex(i int) (g *StaticGroupInfo, err error) {
 	return
 }
 
-func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err error) {
+func (gg *GlobalGroups) getGroupFromCache(id groupsig.ID) (g *StaticGroupInfo, err error) {
 	gg.lock.RLock()
 	defer gg.lock.RUnlock()
 
@@ -293,20 +310,30 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 	return
 }
 
+func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err error) {
+	if g, err = gg.getGroupFromCache(id); err != nil {
+		return
+	} else {
+		if g == nil {
+			chainGroup := gg.chain.GetGroupById(id.Serialize())
+			g = NewSGIFromCoreGroup(chainGroup)
+		}
+	}
+	if g == nil {
+		g = &StaticGroupInfo{}
+	}
+	return
+}
+
 //根据上一块哈希值，确定下一块由哪个组铸块
 func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
 	qualifiedGS := gg.GetCastQualifiedGroups(height)
-	log.Printf("SelectNextGroup qualifiedGroup at %v hash %v size %v\n", height, GetHashPrefix(h), len(qualifiedGS))
-	for idx, g := range qualifiedGS {
-		log.Printf("Group %v: %v %v, %v\n", idx, GetIDPrefix(g.GroupID), g.BeginHeight, g.DismissHeight)
-	}
 
 	var ga groupsig.ID
 	value := h.Big()
 
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
-		log.Printf("SelectNextGroup index %v value %v\n", index, value)
 		ga = qualifiedGS[index.Int64()].GroupID
 		return ga, nil
 	} else {
@@ -364,17 +391,21 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
+	removeIdMap := make(map[string]bool)
+	for _, gid := range gids {
+		removeIdMap[gid.GetHexString()] = true
+	}
+
 	newGS := make([]*StaticGroupInfo, 0)
-	for _, g := range gids {
-		delete(gg.gIndex, g.GetHexString())
+	for _, g := range gg.groups {
+		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
+			newGS = append(newGS, g)
+		}
 	}
-	idxs := make([]int, 0)
-	for _, idx := range gg.gIndex {
-		idxs = append(idxs, idx)
-	}
-	sort.Ints(idxs)
-	for _, idx := range idxs {
-		newGS = append(newGS, gg.groups[idx])
+	indexMap := make(map[string]int)
+	for idx, g := range newGS {
+		indexMap[g.GroupID.GetHexString()] = idx
 	}
 	gg.groups = newGS
+	gg.gIndex = indexMap
 }

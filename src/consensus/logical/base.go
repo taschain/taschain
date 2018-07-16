@@ -4,12 +4,10 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/rand"
-	"hash"
 	"math"
 	"strconv"
 	"time"
 	"taslog"
-	"middleware/types"
 )
 
 const NORMAL_FAILED int = -1
@@ -102,11 +100,11 @@ func (sd SignData) IsEqual(rhs SignData) bool {
 }
 
 func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
-	var sd SignData
-	sd.DataHash = h
-	sd.DataSign = groupsig.Sign(sk, h.Bytes())
-	sd.SignMember = id
-	return sd
+	return SignData{
+		DataHash: h,
+		DataSign: groupsig.Sign(sk, h.Bytes()),
+		SignMember: id,
+	}
 }
 
 /*
@@ -136,11 +134,7 @@ func (sd *SignData) GenSign(sk groupsig.Seckey) bool {
 
 //用pk验证签名，验证通过返回true，否则false。
 func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
-	b := pk.IsValid()
-	if b {
-		b = groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
-	}
-	return b
+	return pk.IsValid() && groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
 }
 
 //是否已有签名数据
@@ -261,42 +255,6 @@ type CastGroupSummary struct {
 	CastorPos	int32
 }
 
-//铸块共识摘要
-type ConsensusBlockSummary struct {
-	Castor      groupsig.ID //铸块人
-	DataHash    common.Hash //待共识的区块头哈希
-	QueueNumber int64       //出块序号
-	CastTime    time.Time   //铸块时间（铸块人的出块时间）
-}
-
-//根据区块头生成铸块共识摘要
-func GenConsensusSummary(bh *types.BlockHeader) ConsensusBlockSummary {
-	var cs ConsensusBlockSummary
-	if cs.Castor.Deserialize(bh.Castor) != nil {
-		panic("ID Deserialize failed.")
-	}
-	cs.DataHash = bh.GenHash()
-	cs.QueueNumber = int64(bh.QueueNumber)
-	cs.CastTime = bh.CurTime
-	return cs
-}
-
-func (cs ConsensusBlockSummary) IsValid() bool {
-	return cs.Castor.IsValid() && cs.DataHash.IsValid() && cs.QueueNumber >= 0 && !cs.CastTime.IsZero()
-}
-
-func (cs ConsensusBlockSummary) IsKing(uid groupsig.ID) bool {
-	return uid == cs.Castor
-}
-
-func (cs ConsensusBlockSummary) GenHash() hash.Hash {
-	buf := cs.Castor.GetHexString()
-	buf += cs.DataHash.Hex()
-	buf += strconv.FormatInt(cs.QueueNumber, 16)
-	buf += cs.CastTime.Format(time.ANSIC)
-	return rand.HashBytes([]byte(buf))
-}
-
 //组初始化共识摘要
 type ConsensusGroupInitSummary struct {
 	ParentID  groupsig.ID //父亲组ID
@@ -366,19 +324,6 @@ func (gis *ConsensusGroupInitSummary) ReadyTimeout(height uint64) bool {
 
 //生成哈希
 func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
-	//buf := gis.ParentID.GetHexString()
-	//buf += strconv.FormatUint(gis.Authority, 16)
-	//buf += string(gis.Name[:])
-	//buf += gis.DummyID.GetHexString()
-	//buf += strconv.FormatUint(gis.Members, 16)
-	//buf += gis.BeginTime.Format(time.ANSIC)
-	//buf += gis.MemberHash.String()
-	//buf +=
-	//if len(gis.Extends) <= 1024 {
-	//	buf += gis.Extends
-	//} else {
-	//	buf += gis.Extends[:1024]
-	//}
 	buf := gis.ParentID.Serialize()
 	buf = strconv.AppendUint(buf, gis.Authority, 16)
 	buf = append(buf, []byte(gis.Name[:])...)
@@ -406,14 +351,11 @@ type StaticGroupSummary struct {
 }
 
 func (sgs *StaticGroupSummary) GenHash() common.Hash {
-	str := sgs.GroupID.GetHexString()
-	str += sgs.GroupPK.GetHexString()
-	//for _, v := range sgs.Members {
-	//	str += v.ID.GetHexString()
-	//	str += v.PK.GetHexString()
-	//}
+	buf := sgs.GroupID.Serialize()
+	buf = append(buf, sgs.GroupPK.Serialize()...)
+
 	gisHash := sgs.GIS.GenHash()
-	str += gisHash.Str()
-	hash := rand.Data2CommonHash([]byte(str))
+	buf = append(buf, gisHash.Bytes()...)
+	hash := rand.Data2CommonHash(buf)
 	return hash
 }

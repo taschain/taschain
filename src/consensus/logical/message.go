@@ -9,31 +9,47 @@ import (
 	"middleware/types"
 )
 
-//组初始化消息族
-//组初始化消息族的SI用矿工公钥验签（和组无关）
+type ISignedMessage interface {
+	GenSign(ski SecKeyInfo, hasher Hasher) bool
+	VerifySign(pk groupsig.Pubkey) bool
+}
+
+type Hasher interface {
+	GenHash() common.Hash
+}
+
+type BaseSignedMessage struct {
+	SI SignData
+}
+
+
+func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
+	if !ski.IsValid() {
+		return false
+	}
+	sign.SI = GenSignData(hasher.GenHash(), ski.GetID(), ski.SK)
+	return true
+}
+
+func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) bool {
+	if !sign.SI.GetID().IsValid() {
+		return false
+	}
+	return sign.SI.VerifySign(pk)
+}
+
 
 //收到父亲组的启动组初始化消息
 //to do : 组成员ID列表在哪里提供
 type ConsensusGroupRawMessage struct {
 	GI   ConsensusGroupInitSummary //组初始化共识
 	MEMS []PubKeyInfo              //组成员列表，该次序不可变更，影响组内铸块排位。
-	SI   SignData                  //矿工（父亲组成员）个人签名
+	//SI   SignData                  //矿工（父亲组成员）个人签名
+	BaseSignedMessage
 }
 
-func (msg *ConsensusGroupRawMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	msg.SI.SignMember = ski.GetID()
-	msg.SI.DataHash = msg.GI.GenHash()
-	return msg.SI.GenSign(ski.SK)
-}
-
-func (msg ConsensusGroupRawMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
+func (msg *ConsensusGroupRawMessage) GenHash() common.Hash {
+	return msg.GI.GenHash()
 }
 
 func (msg *ConsensusGroupRawMessage) MemberExist(id groupsig.ID) bool {
@@ -51,37 +67,26 @@ type ConsensusSharePieceMessage struct {
 	DummyID groupsig.ID //父亲组指定的新组（哑元）ID，即ConsensusGroupInitSummary的DummyID
 	Dest    groupsig.ID //接收者（矿工）的ID
 	Share   SharePiece  //消息明文（由传输层用接收者公钥对消息进行加密和解密）
-	SI      SignData    //矿工个人签名
+	//SI      SignData    //矿工个人签名
+	BaseSignedMessage
 }
 
-func (msg *ConsensusSharePieceMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	buf := msg.GISHash.Str()
-	buf += msg.DummyID.GetHexString()
-	buf += msg.Dest.GetHexString()
-	buf += msg.Share.Pub.GetHexString()
-	buf += msg.Share.Share.GetHexString()
-	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
-	msg.SI.SignMember = ski.GetID()
-	return msg.SI.GenSign(ski.SK)
+func (msg *ConsensusSharePieceMessage) GenHash() common.Hash {
+	buf := msg.GISHash.Bytes()
+	buf = append(buf, msg.DummyID.Serialize()...)
+	buf = append(buf, msg.Dest.Serialize()...)
+	buf = append(buf, msg.Share.Pub.Serialize()...)
+	buf = append(buf, msg.Share.Share.Serialize()...)
+	return rand.Data2CommonHash(buf)
 }
-
-func (msg ConsensusSharePieceMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
-}
-
 //向组内成员发送签名公钥消息（所有成员相同）
 type ConsensusSignPubKeyMessage struct {
 	GISHash common.Hash //组初始化共识的哈希
 	DummyID groupsig.ID
 	SignPK  groupsig.Pubkey    //组成员签名公钥
 	GISSign groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
-	SI      SignData           //矿工个人签名
+	//SI      SignData           //矿工个人签名
+	BaseSignedMessage
 }
 
 func (msg *ConsensusSignPubKeyMessage) GenGISSign(sk groupsig.Seckey) {
@@ -93,45 +98,23 @@ func (msg *ConsensusSignPubKeyMessage) VerifyGISSign(pk groupsig.Pubkey) bool {
 	return groupsig.VerifySig(pk, msg.GISHash.Bytes(), msg.GISSign)
 }
 
-func (msg *ConsensusSignPubKeyMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	buf := msg.GISHash.Str()
-	buf += msg.DummyID.GetHexString()
-	buf += msg.SignPK.GetHexString()
-	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
-	msg.SI.SignMember = ski.GetID()
-	return msg.SI.GenSign(ski.SK)
+func (msg *ConsensusSignPubKeyMessage) GenHash() common.Hash {
+	buf := msg.GISHash.Bytes()
+	buf = append(buf, msg.DummyID.Serialize()...)
+	buf = append(buf, msg.SignPK.Serialize()...)
+	return rand.Data2CommonHash(buf)
 }
 
-func (msg ConsensusSignPubKeyMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
-}
 
 //向组外广播该组已经初始化完成(组外节点要收到门限个消息相同，才进行上链)
 type ConsensusGroupInitedMessage struct {
 	GI StaticGroupSummary //组初始化完成后的上链组信息（辅助map不用传输和上链）
-	SI SignData        //用户个人签名
+	//SI SignData        //用户个人签名
+	BaseSignedMessage
 }
 
-func (msg *ConsensusGroupInitedMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	msg.SI.SignMember = ski.GetID()
-	msg.SI.DataHash = msg.GI.GenHash()
-	return msg.SI.GenSign(ski.SK)
-}
-
-func (msg ConsensusGroupInitedMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
+func (msg *ConsensusGroupInitedMessage) GenHash() common.Hash {
+	return msg.GI.GenHash()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,54 +127,25 @@ type ConsensusCurrentMessage struct {
 	PreHash     common.Hash //上一块哈希
 	PreTime     time.Time   //上一块完成时间
 	BlockHeight uint64      //铸块高度
-	SI          SignData    //签名者即为发现者
+	BaseSignedMessage
 }
 
-func (msg *ConsensusCurrentMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
+func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 	buf := msg.PreHash.Str()
 	buf += string(msg.GroupID[:])
 	buf += msg.PreTime.String()
 	buf += strconv.FormatUint(msg.BlockHeight, 10)
-	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
-	msg.SI.SignMember = ski.ID
-	return msg.SI.GenSign(ski.SK)
-}
-
-func (msg ConsensusCurrentMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
+	return rand.Data2CommonHash([]byte(buf))
 }
 
 type ConsensusBlockMessageBase struct {
 	BH types.BlockHeader
 	//GroupID groupsig.ID
-	SI SignData
+	BaseSignedMessage
 }
 
-func (msg *ConsensusBlockMessageBase) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	/*
-		buf := msg.BH.GenHash().Str()
-		buf += msg.GroupID.GetHexString()
-		msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
-	*/
-	msg.SI.DataHash = msg.BH.GenHash()
-	msg.SI.SignMember = ski.ID
-	return msg.SI.GenSign(ski.SK)
-}
-
-func (msg ConsensusBlockMessageBase) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
+func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
+	return msg.BH.GenHash()
 }
 
 //出块消息 - 由成为KING的组成员发出
@@ -208,59 +162,35 @@ type ConsensusVerifyMessage struct {
 type ConsensusBlockMessage struct {
 	Block   types.Block
 	GroupID groupsig.ID
-	SI      SignData
+	BaseSignedMessage
 }
 
-func (msg *ConsensusBlockMessage) GenSign(ski SecKeyInfo) bool {
-	if !ski.IsValid() {
-		return false
-	}
-	buf := msg.Block.Header.GenHash().Str()
-	buf += msg.GroupID.GetHexString()
-	msg.SI.DataHash = rand.Data2CommonHash([]byte(buf))
-	msg.SI.SignMember = ski.ID
-	return msg.SI.GenSign(ski.SK)
+func (msg *ConsensusBlockMessage) GenHash() common.Hash {
+	buf := msg.Block.Header.GenHash().Bytes()
+	buf = append(buf, msg.GroupID.Serialize()...)
+	return rand.Data2CommonHash(buf)
 }
 
-func (msg ConsensusBlockMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
-}
 
 //====================================父组建组共识消息================================
 
 type ConsensusCreateGroupRawMessage struct {
 	GI   ConsensusGroupInitSummary //组初始化共识
 	IDs []groupsig.ID              //组成员列表，该次序不可变更，影响组内铸块排位。
-	SI   SignData                  //矿工（父亲组成员）个人签名
+	BaseSignedMessage
 }
 
-func (msg *ConsensusCreateGroupRawMessage) GenSign(ski SecKeyInfo)  {
-    msg.SI = GenSignData(msg.GI.GenHash(), ski.ID, ski.SK)
+func (msg *ConsensusCreateGroupRawMessage) GenHash() common.Hash {
+    return msg.GI.GenHash()
 }
 
-func (msg *ConsensusCreateGroupRawMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
-}
 
 type ConsensusCreateGroupSignMessage struct {
 	GI 	ConsensusGroupInitSummary
-	SI 	SignData
+	BaseSignedMessage
 	Launcher groupsig.ID
 }
 
-func (msg *ConsensusCreateGroupSignMessage) GenSign(ski SecKeyInfo)  {
-	msg.SI = GenSignData(msg.GI.GenHash(), ski.ID, ski.SK)
-}
-
-func (msg *ConsensusCreateGroupSignMessage) VerifySign(pk groupsig.Pubkey) bool {
-	if !msg.SI.GetID().IsValid() {
-		return false
-	}
-	return msg.SI.VerifySign(pk)
+func (msg *ConsensusCreateGroupSignMessage) GenHash() common.Hash {
+	return msg.GI.GenHash()
 }

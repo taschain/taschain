@@ -252,7 +252,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	cbm.Block = *block
 	cbm.GroupID = gid
 	ski := SecKeyInfo{p.GetMinerID(), p.mi.GetDefaultSecKey()}
-	cbm.GenSign(ski)
+	cbm.GenSign(ski, &cbm)
 	if !PROC_TEST_MODE {
 		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		go BroadcastNewBlock(&cbm)
@@ -298,7 +298,7 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		var ccm ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)})
+		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)}, &ccm)
 
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 		if !PROC_TEST_MODE {

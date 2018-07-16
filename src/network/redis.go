@@ -13,7 +13,7 @@ const (
 )
 
 func getRedisConnection() (redis.Conn, error) {
-	redisIp := common.GlobalConf.GetString("test", "redis_ip", "127.0.0.1")
+	redisIp := common.GlobalConf.GetString("test", "redis_ip", "118.31.60.210")
 	redisPort := common.GlobalConf.GetString("test", "redis_port", "6379")
 	return redis.Dial("tcp", redisIp + ":" + redisPort)
 }

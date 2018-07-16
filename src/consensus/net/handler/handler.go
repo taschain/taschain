@@ -198,7 +198,8 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*logical.ConsensusGroupRawMess
 		ids = append(ids, *pkInfo)
 	}
 
-	m := logical.ConsensusGroupRawMessage{GI: *gi, MEMS: ids, SI: *sign}
+	base := logical.BaseSignedMessage{SI: *sign}
+	m := logical.ConsensusGroupRawMessage{GI: *gi, MEMS: ids, BaseSignedMessage: base}
 	return &m, nil
 }
 
@@ -227,7 +228,8 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*logical.ConsensusSharePiece
 	share := pbToSharePiece(m.SharePiece)
 	sign := pbToSignData(m.Sign)
 
-	message := logical.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, Share: *share, SI: *sign}
+	base := logical.BaseSignedMessage{SI: *sign}
+	message := logical.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, Share: *share, BaseSignedMessage: base}
 	return &message, nil
 }
 
@@ -262,7 +264,8 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*logical.ConsensusSignPubKey
 		return nil, e3
 	}
 
-	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, SI: *signData, GISSign: sign}
+	base := logical.BaseSignedMessage{SI: *signData}
+	message := logical.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, BaseSignedMessage: base, GISSign: sign}
 	return &message, nil
 }
 
@@ -276,7 +279,9 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*logical.ConsensusGroupInit
 
 	gi := pbToStaticGroup(m.StaticGroupSummary)
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusGroupInitedMessage{GI: *gi, SI: *si}
+
+	base := logical.BaseSignedMessage{SI: *si}
+	message := logical.ConsensusGroupInitedMessage{GI: *gi, BaseSignedMessage: base}
 	return &message, nil
 }
 
@@ -296,8 +301,9 @@ func unMarshalConsensusCurrentMessage(b []byte) (*logical.ConsensusCurrentMessag
 	PreTime.UnmarshalBinary(m.PreTime)
 
 	BlockHeight := m.BlockHeight
-	SI := pbToSignData(m.Sign)
-	message := logical.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: *BlockHeight, SI: *SI}
+	si := pbToSignData(m.Sign)
+	base := logical.BaseSignedMessage{SI: *si}
+	message := logical.ConsensusCurrentMessage{GroupID: GroupID, PreHash: PreHash, PreTime: PreTime, BlockHeight: *BlockHeight, BaseSignedMessage: base}
 	return &message, nil
 }
 
@@ -317,7 +323,9 @@ func unMarshalConsensusCastMessage(b []byte) (*logical.ConsensusCastMessage, err
 	//	return nil, e1
 	//}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, SI: *si}}
+
+	base := logical.BaseSignedMessage{SI: *si}
+	message := logical.ConsensusCastMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, BaseSignedMessage: base}}
 	return &message, nil
 }
 
@@ -337,7 +345,8 @@ func unMarshalConsensusVerifyMessage(b []byte) (*logical.ConsensusVerifyMessage,
 	//	return nil, e1
 	//}
 	si := pbToSignData(m.Sign)
-	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, SI: *si}}
+	base := logical.BaseSignedMessage{SI: *si}
+	message := logical.ConsensusVerifyMessage{ConsensusBlockMessageBase: logical.ConsensusBlockMessageBase{BH: *bh, BaseSignedMessage: base}}
 	return &message, nil
 }
 
@@ -357,7 +366,8 @@ func unMarshalConsensusBlockMessage(b []byte) (*logical.ConsensusBlockMessage, e
 	}
 
 	signData := pbToSignData(m.SignData)
-	message := logical.ConsensusBlockMessage{Block: *block, GroupID: groupId, SI: *signData}
+	base := logical.BaseSignedMessage{SI: *signData}
+	message := logical.ConsensusBlockMessage{Block: *block, GroupID: groupId, BaseSignedMessage: base}
 	return &message, nil
 }
 
@@ -502,8 +512,8 @@ func unMarshalConsensusCreateGroupRawMessage(b []byte) (*logical.ConsensusCreate
 		id := groupsig.DeserializeId(idByte)
 		ids = append(ids, *id)
 	}
-
-	m := logical.ConsensusCreateGroupRawMessage{GI: *gi, IDs: ids, SI: *sign}
+	base := logical.BaseSignedMessage{SI: *sign}
+	m := logical.ConsensusCreateGroupRawMessage{GI: *gi, IDs: ids, BaseSignedMessage: base}
 	return &m, nil
 }
 
@@ -518,7 +528,7 @@ func unMarshalConsensusCreateGroupSignMessage(b []byte) (*logical.ConsensusCreat
 	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
 
 	sign := pbToSignData(message.Sign)
-
-	m := logical.ConsensusCreateGroupSignMessage{GI: *gi, SI: *sign}
+	base := logical.BaseSignedMessage{SI: *sign}
+	m := logical.ConsensusCreateGroupSignMessage{GI: *gi, BaseSignedMessage: base}
 	return &m, nil
 }
