@@ -63,7 +63,7 @@ func makeSelfNode(config *common.ConfManager, isSuper bool) (*p2p.Node, error) {
 }
 
 func getSeedInfo(config *common.ConfManager) (string, string, error) {
-	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "Qmdeh5r5kT2je77JNYKTsQi6ncckpLa9aFnr6xYQaGAxaw")
+	seedIdStr := (*config).GetString(p2p.BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
 	seedAddrStr := (*config).GetString(p2p.BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.193/tcp/1122")
 	return seedIdStr, seedAddrStr, nil
 }
