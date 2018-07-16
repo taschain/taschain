@@ -47,14 +47,14 @@ func (bs *blockSyncer) start() {
 		select {
 		case sourceId := <-bs.TotalQnRequestCh:
 			//收到块高度请求
-			//logger.Debugf("[BlockSyncer] TotalQnRequestCh get message from:%s", sourceId)
+			logger.Debugf("[BlockSyncer] TotalQnRequestCh get message from:%s", sourceId)
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN())
 		case h := <-bs.TotalQnCh:
 			//收到来自其他节点的块链高度
-			//logger.Debugf("[BlockSyncer] TotalQnCh get message from:%s,it's totalQN is:%d", h.SourceId, h.TotalQn)
+			logger.Debugf("[BlockSyncer] TotalQnCh get message from:%s,it's totalQN is:%d", h.SourceId, h.TotalQn)
 			bs.maxTotalQnLock.Lock()
 			if h.TotalQn > bs.neighborMaxTotalQn {
 				bs.neighborMaxTotalQn = h.TotalQn
@@ -62,7 +62,7 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxTotalQnLock.Unlock()
 		case <-t.C:
-			//logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
+			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			bs.syncBlock()
 		}
 	}
@@ -83,13 +83,13 @@ func (bs *blockSyncer) syncBlock() {
 	bestNodeId := bs.bestNodeId
 	bs.maxTotalQnLock.Unlock()
 	if maxTotalQN <= localTotalQN {
-		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
+		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !core.BlockChainImpl.IsBlockSyncInit(){
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 		return
 	} else {
-		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
+		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
 		if core.BlockChainImpl.IsAdujsting() {
 			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
