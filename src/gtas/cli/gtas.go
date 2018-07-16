@@ -105,11 +105,11 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 
 	if super {
 		keys1 := LoadPubKeyInfo("pubkeys1")
-		//keys2 := LoadPubKeyInfo("pubkeys2")
-		//keys3 := LoadPubKeyInfo("pubkeys3")
+		keys2 := LoadPubKeyInfo("pubkeys2")
+		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(p2p.Server.GetConnInfo()) >= 2 {
+			if len(p2p.Server.GetConnInfo()) >= 8{
 				fmt.Println("Connection:")
 				for _, c := range p2p.Server.GetConnInfo() {
 					fmt.Println(c.Id)
@@ -120,11 +120,11 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		}
 		time.Sleep(time.Second*8)	//等待每个节点初始化完成
 
-		//createGroup(keys3, "gtas3")
-		//time.Sleep(time.Second*4)
-		//createGroup(keys2, "gtas2")
-		//time.Sleep(time.Second*4)
-		createGroup(keys1, "gtas")
+		createGroup(keys3, "gtas3")
+		time.Sleep(time.Second*4)
+		createGroup(keys2, "gtas2")
+		time.Sleep(time.Second*4)
+		createGroup(keys1, "gtas1")
 
 	}
 
@@ -287,7 +287,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := p2p.Server.SelfNetInfo.ID.B58String()
+	id := p2p.Server.SelfNetInfo.ID.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
@@ -295,7 +295,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
-	ShowPubKeyInfo(minerInfo, id)
+	ShowPubKeyInfo(minerInfo)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
@@ -327,11 +327,9 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo, id string) {
+func ShowPubKeyInfo(info logical.MinerInfo, ) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("PubKey: %s;\nID: %s;\nIDHex:%s;\n", pubKey, id, groupsig.NewIDFromString(id).GetHexString())
-	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
-	fmt.Printf("pubkey_info json: %s", js)
+	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 }
 
 func NewGtas() *Gtas {

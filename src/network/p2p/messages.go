@@ -2,9 +2,10 @@ package p2p
 
 import (
 	"net"
+	"common"
 )
 
 type packet interface {
-	handle(nc *NetCore, from *net.UDPAddr, fromID NodeID, mac []byte) error
+	handle(nc *NetCore, from *net.UDPAddr, fromID common.Address, mac []byte) error
 	name() string
 }

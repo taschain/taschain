@@ -29,11 +29,11 @@ const (
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 	maxFindnodeFailures = 5  // 节点最大失败数量
 
-	refreshInterval    = 30 * time.Minute
+	refreshInterval    =30 * time.Second
 	revalidateInterval = 30 * time.Minute
 	checkInterval= 	3 * time.Second
 	copyNodesInterval  = 30 * time.Second
-	nodeBondExpiration = 3000 * time.Second
+	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
 	seedCount          = 30
 	seedMaxAge         = 5 * 24 * time.Hour
@@ -83,11 +83,12 @@ type transport interface {
 	waitping(NodeID) error
 	findnode(toid NodeID, addr *net.UDPAddr, target NodeID) ([]*Node, error)
 	close()
+	print()
 	SendDataToAll(data []byte)
 	SendDataToGroup(id string, data []byte)
 }
 
-// 桶 用来储存发现的节点，节点1️以他们的最后活动时间排序
+// 用来储存发现的节点，节点1️以他们的最后活动时间排序
 // 最后活跃的节点出现在最前面.
 type bucket struct {
 	entries      []*Node // 活动节点
@@ -473,10 +474,11 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 
 func (kad *Kad) doCheck() {
 	//fmt.Printf("doCheck ... bucket size:%v \n", kad.len())
-
-	if kad.len() <= len(kad.nursery){
+	//if kad.len() <= len(kad.nursery) * 3{
 		kad.refresh()
-	}
+	///}
+	kad.net.print()
+
 }
 
 // doRevalidate checks that the last node in a random bucket is still live
@@ -649,17 +651,20 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 	node = kad.Find(id)
 	age := nodeBondExpiration
 	fails := 0
+	bonded :=  false
 	if node != nil {
 		age = time.Since(node.bondAt)
 		fails = int(node.fails)
 		node.bondAt = time.Now()
+		bonded = node.bonded
+
 	}
 
 	//fmt.Printf("bond  age  id: %v \n", age)
 
 	var result error
-	if fails > 0 || age >= nodeBondExpiration {
-		//log.Trace("Starting bonding ping/pong", "id", id, "known", node != nil, "failcount", fails, "age", age)
+	if !bonded && ( fails > 0 || age >= nodeBondExpiration) {
+	//		//log.Trace("Starting bonding ping/pong", "id", id, "known", node != nil, "failcount", fails, "age", age)
 		//fmt.Printf("bond  begin \n")
 
 		kad.bondmu.Lock()
@@ -698,8 +703,7 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 	if node != nil {
 
 		//fmt.Printf("bond  add node  size:%v  id: %v  \n", kad.len(), node.ID)
-
-		node.bondAt = time.Now()
+		node.bonded = true;
 
 		kad.add(node)
 		//kad.db.updateFindFails(id, 0)
@@ -735,7 +739,7 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr,
 // database accordingly.
 func (kad *Kad) ping(id NodeID, addr *net.UDPAddr) error {
 	//kad.db.updateLastPing(id, time.Now())
-	fmt.Printf("ping ...\n")
+	//fmt.Printf("ping ...\n")
 	if err := kad.net.ping(id, addr); err != nil {
 		return err
 	}

@@ -1,25 +1,18 @@
 package p2p
 
 import (
-	inet "github.com/libp2p/go-libp2p-net"
-
-	"utility"
-
-	//"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/golang/protobuf/proto"
 
 	"strings"
 	"taslog"
 	"github.com/libp2p/go-libp2p-protocol"
-	//"common"
 	"middleware/pb"
-	//"sync"
-	"bufio"
+
 	"strconv"
 	"errors"
 	"net"
-	"fmt"
 	"time"
+	"common"
 )
 
 const (
@@ -91,23 +84,14 @@ var Server server
 
 type server struct {
 	SelfNetInfo *Node
-
-	//Host host.Host
-	//
-	//Dht *dht.IpfsDHT
-	//
-	//streams map[string]inet.Stream
-	//
-	//streamMapLock sync.RWMutex
 }
 
-func InitServer(seeds []*Node,  self *Node) {
+func InitServer(seeds []*Node, self *Node) {
 	//logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-	//host.SetStreamHandler(ProtocolTAS, swarmStreamHandler)
-	Server = server{SelfNetInfo:self}
+	Server = server{SelfNetInfo: self}
 
+	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP: self.IP, Port: self.Port}, Bootnodes: seeds}
 
-	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP:self.IP, Port: self.Port}, Bootnodes: seeds, Unhandled: make(chan<- ReadPacket)}
 	GetNetCore().Init(netConfig)
 
 }
@@ -119,212 +103,55 @@ func (s *server) SendMessage(m Message, id string) {
 			logger.Errorf("[Network]Marshal message error:%s", e.Error())
 			return
 		}
-
-		//length := len(bytes)
-		//b2 := utility.UInt32ToByte(uint32(length))
-		//
-		////"TAS"的byte
-		//header := []byte{84, 65, 83}
-		//
-		//b := make([]byte, len(bytes)+len(b2)+3)
-		//copy(b[:3], header[:])
-		//copy(b[3:7], b2)
-		//copy(b[7:], bytes)
-		beginTime := time.Now()
-
 		s.send(bytes, id)
-
-		if m.Code == CAST_VERIFY_MSG {
-			logger.Debugf("send CAST_VERIFY_MSG to %s, byte:%d,send message cost time %v", id, len(bytes), time.Since(beginTime))
-		}
 	}()
 
 }
 
 func (s *server) SendMessageToAll(m Message) {
 	//go func() {
-		bytes, e := MarshalMessage(m)
-		if e != nil {
-			logger.Errorf("[Network]Marshal message error:%s", e.Error())
-			return
-		}
+	bytes, e := MarshalMessage(m)
+	if e != nil {
+		logger.Errorf("[Network]Marshal message error:%s", e.Error())
+		return
+	}
 
-		//length := len(bytes)
-		//b2 := utility.UInt32ToByte(uint32(length))
-		//
-		////"TAS"的byte
-		//header := []byte{84, 65, 83}
-		//
-		//b := make([]byte, len(bytes)+len(b2)+3)
-		//copy(b[:3], header[:])
-		//copy(b[3:7], b2)
-		//copy(b[7:], bytes)
+	//s.send(b, id)
 
-		//s.send(b, id)
-
-		GetNetCore().SendDataToAll(bytes)
-		//s.sendSelf(bytes, s.SelfNetInfo.ID.B58String() )
+	GetNetCore().SendDataToAll(bytes)
+	//s.sendSelf(bytes, s.SelfNetInfo.ID.B58String() )
 	//}()
 
 }
 
+//AddGroup 添加组
+func (s *server) AddGroup(groupID string, members []string) *Group {
+	nodes := []NodeID{}
+	for _,id:= range (members) {
+		nodes = append(nodes,common.HexStringToAddress(id))
+	}
+
+	return GetNetCore().GM.AddGroup(groupID,nodes)
+}
+
+//RemoveGroup 移除组
+func (s *server) RemoveGroup(ID string) {
+	GetNetCore().GM.RemoveGroup(ID)
+}
+
 func (s *server) send(b []byte, id string) {
 
-
-	if id == s.SelfNetInfo.ID.B58String() {
+	if id == s.SelfNetInfo.ID.GetHexString() {
 		s.sendSelf(b, id)
 		return
 	}
-	GetNetCore().SendData(MustB58ID(id),nil,b)
-	//c := context.Background()
-
-	//peerInfo, e := s.Dht.FindPeer(c, ConvertToPeerID(id))
-	//if e != nil || string(peerInfo.ID) == "" {
-	//	logger.Errorf("dht find peer error:%s,peer id:%s", e.Error(), id)
-	//} else {
-	//	s.Host.Network().Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, pstore.PermanentAddrTTL)
-	//}
-	//
-	//s.streamMapLock.Lock()
-	//stream := s.streams[id]
-	//if stream == nil {
-	//	var e error
-	//	stream, e = s.Host.NewStream(c, ConvertToPeerID(id), ProtocolTAS)
-	//	if e != nil {
-	//		logger.Errorf("New stream for %s error:%s", id, e.Error())
-	//		s.streamMapLock.Unlock()
-	//		s.send(b, id)
-	//		return
-	//	}
-	//	s.streams[id] = stream
-	//}
-	//
-	//l := len(b)
-	//r, err := stream.Write(b)
-	//if err != nil {
-	//	logger.Errorf("Write stream for %s error:%s", id, err.Error())
-	//	stream.Close()
-	//	s.streams[id] = nil
-	//	s.streamMapLock.Unlock()
-	//	s.send(b, id)
-	//	return
-	//}
-	//s.streamMapLock.Unlock()
-	//if r != l {
-	//	logger.Errorf("Stream  should write %d byte ,bu write %d bytes", l, r)
-	//	return
-	//}
-
+	GetNetCore().SendData(common.HexStringToAddress(id), nil, b)
 }
 
 func (s *server) sendSelf(b []byte, id string) {
-	//fmt.Printf("sendSelf , len:%d",len(b))
 
-	s.handleMessage(b, id,time.Now())
+	s.handleMessage(b, id, time.Now())
 }
-
-//TODO 考虑读写超时
-func swarmStreamHandler(stream inet.Stream) {
-	go func() {
-		reader := bufio.NewReader(stream)
-		id := ConvertToID(stream.Conn().RemotePeer())
-		for {
-			e := handleStream(reader, id)
-			if e != nil {
-				stream.Close()
-				break
-			}
-		}
-	}()
-}
-func handleStream(reader *bufio.Reader, id string) error {
-	headerBytes := make([]byte, 3)
-	e1 := readPackage(reader, headerBytes)
-	if e1 != nil {
-		logger.Errorf("stream read 3 from %s error:%s!", id, e1.Error())
-		return e1
-	}
-
-	//校验 header
-	if !(headerBytes[0] == byte(84) && headerBytes[1] == byte(65) && headerBytes[2] == byte(83)) {
-		logger.Errorf("stream validate header error from %s! ", id)
-		return fmt.Errorf("validate header error")
-	}
-
-	pkgLengthBytes := make([]byte, PACKAGE_LENGTH_SIZE)
-	err := readPackage(reader, pkgLengthBytes)
-	if err != nil {
-		logger.Errorf("stream  read4 error:%s", err.Error())
-		return err
-	}
-
-	pkgLength := int(utility.ByteToUInt32(pkgLengthBytes))
-	b := make([]byte, pkgLength)
-
-	e := readPackage(reader, b)
-	if e != nil {
-		logger.Errorf("stream  readPackage error:%s", e.Error())
-		return e
-	}
-	//fmt.Printf("revceive from %s, byte len:%d\n", id, len(b))
-	go Server.handleMessage(b, id, time.Now())
-	return nil
-}
-
-func readPackage(reader *bufio.Reader, body []byte) error {
-	l := len(body)
-	if l < PACKAGE_MAX_SIZE {
-		err1 := readAll(reader, body, 0)
-		if err1 != nil {
-			logger.Errorf("stream  read error:%s", err1.Error())
-			return err1
-		}
-	} else {
-		c := l / PACKAGE_MAX_SIZE
-		left, right := 0, PACKAGE_MAX_SIZE
-		for i := 0; i <= c; i++ {
-			a := make([]byte, right-left)
-			err1 := readAll(reader, a, 0)
-			if err1 != nil {
-				logger.Errorf("stream read error:%s", err1.Error())
-				return err1
-			}
-			copy(body[left:right], a)
-			left += PACKAGE_MAX_SIZE
-			right += PACKAGE_MAX_SIZE
-			if right > l {
-				right = l
-			}
-		}
-	}
-	return nil
-}
-
-func readAll(reader *bufio.Reader, body []byte, index int) error {
-	if index == 0 {
-		n, err1 := reader.Read(body)
-		if err1 != nil {
-			return err1
-		}
-		if n != len(body) {
-			return readAll(reader, body, n)
-		}
-		return nil
-	} else {
-		b := make([]byte, len(body)-index)
-		n, err2 := reader.Read(b)
-		if err2 != nil {
-			return err2
-		}
-		copy(body[index:], b[:])
-		if n != len(b) {
-			return readAll(reader, body, index+n)
-		}
-		return nil
-	}
-
-}
-
 
 func (s *server) handleMessage(b []byte, from string, beginTime time.Time) {
 	message := new(tas_middleware_pb.Message)
@@ -364,34 +191,12 @@ type ConnInfo struct {
 	TcpPort string `json:"tcp_port"`
 }
 
-
-
 func (s *server) GetConnInfo() []ConnInfo {
-	//conns := s.Host.Network().Conns()
 	result := []ConnInfo{}
-	//for _, conn := range conns {
-	//	id := ConvertToID(conn.RemotePeer())
-	//	if id == "" {
-	//		continue
-	//	}
-	//	addr := conn.RemoteMultiaddr().String()
-	//	//addr /ip4/127.0.0.1/udp/1234"
-	//	split := strings.Split(addr, "/")
-	//	if len(split) != 5 {
-	//		continue
-	//	}
-	//	ip := split[2]
-	//	port := split[4]
-	//	c := ConnInfo{Id: id, Ip: ip, TcpPort: port}
-	//	result = append(result, c)
-	//}
 	peers := GetNetCore().PM.peers;
-
-	//fmt.Printf("GetConnInfo count：%v \n ", len(result))
-
 	for _, p := range peers {
-		if p.seesionID > 0 {
-			c := ConnInfo{Id: p.ID.B58String(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}
+		if p.seesionID > 0 && p.IP != nil && p.Port > 0{
+			c := ConnInfo{Id: p.ID.GetHexString(), Ip: p.IP.String(), TcpPort: strconv.Itoa(p.Port)}
 
 			//fmt.Printf("id:%v ip：%v port:%v \n ", c.Id,c.Ip,c.TcpPort)
 			result = append(result, c)
@@ -399,19 +204,17 @@ func (s *server) GetConnInfo() []ConnInfo {
 	}
 
 
-
 	return result
 }
 
-
-func  GetIPPortFromAddr(addr string) (string, int,error) {
-		//addr /ip4/127.0.0.1/udp/1234"
-		split := strings.Split(addr, "/")
-		if len(split) != 5 {
-			return "",0,errors.New("wrong addr")
-		}
-		ip := split[2]
-		port,_ := strconv.Atoi(split[4])
-		return ip,port,nil
+func GetIPPortFromAddr(addr string) (string, int, error) {
+	//addr /ip4/127.0.0.1/udp/1234"
+	split := strings.Split(addr, "/")
+	if len(split) != 5 {
+		return "", 0, errors.New("wrong addr")
+	}
+	ip := split[2]
+	port, _ := strconv.Atoi(split[4])
+	return ip, port, nil
 
 }
