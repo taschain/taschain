@@ -86,7 +86,7 @@ func (bs *blockSyncer) syncBlock() {
 	if maxTotalQN <= localTotalQN {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !core.BlockChainImpl.IsBlockSyncInit(){
-			fmt.Print("maxTotalQN <= localTotalQN set block sync true\n")
+			fmt.Printf("maxTotalQN <= localTotalQN set block sync true,local block height:%d\n",core.BlockChainImpl.Height())
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 		return

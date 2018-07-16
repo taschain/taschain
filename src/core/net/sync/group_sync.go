@@ -11,6 +11,7 @@ import (
 	"taslog"
 	"middleware/pb"
 	"middleware/types"
+	"fmt"
 )
 
 const (
@@ -98,6 +99,7 @@ func (gs *groupSyncer) start() {
 					}
 				}
 				if !core.GroupChainImpl.IsGroupSyncInit() {
+					fmt.Printf("after add grouop on chain, set group sync true,local group height:%d\n",core.GroupChainImpl.Count())
 					core.GroupChainImpl.SetGroupSyncInit(true)
 				}
 			}
@@ -123,13 +125,14 @@ func (gs *groupSyncer) syncGroup() {
 	bestNodeId := gs.bestNodeId
 	gs.maxHeightLock.Unlock()
 	if maxHeight <= localHeight {
-		//logger.Debugf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		logger.Debugf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
 		if !core.GroupChainImpl.IsGroupSyncInit() {
+			fmt.Print("maxHeight <= localHeight set group sync true\n")
 			core.GroupChainImpl.SetGroupSyncInit(true)
 		}
 		return
 	} else {
-		//logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
+		logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNodeId)
 		requestGroupByHeight(bestNodeId, localHeight)
 	}
 
