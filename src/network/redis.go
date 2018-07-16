@@ -80,6 +80,6 @@ func GetPubKeyByIds(ids [][]byte) ([][]byte, error) {
 	for i := 1; i <= len(ids); i++{
 		args[i] = ids[i - 1]
 	}
-	r,err := conn.Do("hmget", args)
+	r,err := conn.Do("hmget", args...)
 	return redis.ByteSlices(r, err)
 }
