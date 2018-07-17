@@ -33,7 +33,7 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
 	network.Network.Broadcast(m)
 	//发给自己
-	//p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.GetHexString())
+	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
 
 }
 
@@ -71,7 +71,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 
 	network.Network.Broadcast(m)
 	//发给自己
-	//p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.ID.GetHexString())
+	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -142,7 +142,6 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	}
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
-
 	network.Network.Broadcast(m)
 }
 
@@ -162,7 +161,6 @@ func groupBroadcast(m network.Message, groupId groupsig.ID) {
 		}
 		//network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, id.GetString(),common.Sha256(m.Body))
 		network.Network.Send(id.GetString(),m)
-
 	}
 }
 
