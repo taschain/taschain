@@ -127,7 +127,6 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 
 	}
 
-
 	gtas.inited = true
 	if !ok {
 		return
@@ -274,16 +273,17 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	p2p.SetChainHandler(new(handler.ChainHandler))
 	p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
 
-	err = network.InitNetwork(configManager,isSuper)
+	err = network.InitNetwork(configManager, isSuper)
 	if err != nil {
 		return err
 	}
 
-	for{
-		if len(p2p.Server.GetConnInfo())>0{
+	for {
+		if len(p2p.Server.GetConnInfo()) > 0 {
 			break
 		}
 	}
+	time.Sleep(3 * time.Second)
 	sync.InitGroupSyncer()
 	sync.InitBlockSyncer()
 
