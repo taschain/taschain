@@ -50,11 +50,11 @@ func InitGroupSyncer() {
 	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan GroupHeightInfo),
 		GroupRequestCh: make(chan GroupRequestInfo), GroupCh: make(chan []*types.Group), rcvTotalQnCount: 0}
+	go GroupSyncer.syncGroup(true)
 	go GroupSyncer.start()
 }
 
 func (gs *groupSyncer) start() {
-	go gs.syncGroup(true)
 	t := time.NewTicker(GROUP_SYNC_INTERVAL)
 	for {
 		select {
@@ -110,10 +110,10 @@ func (gs *groupSyncer) start() {
 			}
 		case <-t.C:
 			if !core.GroupChainImpl.IsGroupSyncInit() {
-				return
+				break
 			}
 			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
-			go gs.syncGroup(false)
+			gs.syncGroup(false)
 		}
 	}
 }
@@ -124,7 +124,6 @@ func (gs *groupSyncer) syncGroup(init bool) {
 			requestGroupChainHeight()
 			t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 			<-t.C
-			fmt.Printf("gs.rcvTotalQnCount:%d\n", gs.rcvTotalQnCount)
 			if gs.rcvTotalQnCount > 0 {
 				break
 			}

@@ -40,11 +40,11 @@ func InitBlockSyncer() {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	}
 	BlockSyncer = blockSyncer{neighborMaxTotalQn: 0, TotalQnRequestCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), rcvTotalQnCount: 0}
+	go BlockSyncer.syncBlock(true)
 	go BlockSyncer.start()
 }
 
 func (bs *blockSyncer) start() {
-	go bs.syncBlock(true)
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
 		select {
@@ -58,7 +58,7 @@ func (bs *blockSyncer) start() {
 		case h := <-bs.TotalQnCh:
 			//收到来自其他节点的块链高度
 			if !core.BlockChainImpl.IsBlockSyncInit() {
-				bs.rcvTotalQnCount = bs.rcvTotalQnCount +1
+				bs.rcvTotalQnCount = bs.rcvTotalQnCount + 1
 			}
 			logger.Debugf("[BlockSyncer] TotalQnCh get message from:%s,it's totalQN is:%d", h.SourceId, h.TotalQn)
 			bs.maxTotalQnLock.Lock()
@@ -69,10 +69,10 @@ func (bs *blockSyncer) start() {
 			bs.maxTotalQnLock.Unlock()
 		case <-t.C:
 			if !core.BlockChainImpl.IsBlockSyncInit() {
-				return
+				break
 			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-			go bs.syncBlock(false)
+			bs.syncBlock(false)
 		}
 	}
 }
@@ -83,7 +83,6 @@ func (bs *blockSyncer) syncBlock(init bool) {
 			requestBlockChainTotalQn()
 			t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
 			<-t.C
-			fmt.Printf("bs.rcvTotalQnCount:%d\n",bs.rcvTotalQnCount)
 			if bs.rcvTotalQnCount > 0 {
 				break
 			}
