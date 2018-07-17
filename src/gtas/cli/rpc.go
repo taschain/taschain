@@ -14,6 +14,8 @@ import (
 	"math"
 	"consensus/groupsig"
 	"common"
+	"consensus/mediator"
+	"consensus/logical"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -176,6 +178,50 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
 	return &Result{"success", blockDetail}, nil
+}
+
+func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
+	groups := mediator.Proc.GetAvailableGroupsAt(height)
+	return &Result{"success", len(groups)}, nil
+}
+
+func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
+	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
+	if err != nil {
+		return &Result{"fail", err.Error()}, nil
+	}
+	ret := make([]map[string]interface{}, 0)
+	h := height
+	for _, g := range groups {
+		gmap := make(map[string]interface{})
+		gmap["height"] = h
+		h++
+		if g.Id != nil && len(g.Id) != 0 {
+			gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
+			gmap["dummy"] = false
+			gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+			gmap["begin_height"] = g.BeginHeight
+			gmap["dismiss_height"] = g.DismissHeight
+			mems := make([]string, 0)
+			for _, mem := range g.Members {
+				mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
+			}
+			gmap["members"] = mems
+		} else {
+			gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
+			gmap["dummy"] = true
+			gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+			gmap["begin_height"] = g.BeginHeight
+			gmap["dismiss_height"] = g.DismissHeight
+			mems := make([]string, 0)
+			for _, mem := range g.Members {
+				mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
+			}
+			gmap["members"] = mems
+		}
+		ret = append(ret, gmap)
+	}
+	return &Result{"success", ret}, nil
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.

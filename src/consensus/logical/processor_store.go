@@ -87,6 +87,6 @@ func (p *Processor) Ready() bool {
 }
 
 
-func (p *Processor) getAvailableGroupsAt(height uint64) []*StaticGroupInfo {
+func (p *Processor) GetAvailableGroupsAt(height uint64) []*StaticGroupInfo {
     return p.globalGroups.GetAvailableGroups(height)
 }

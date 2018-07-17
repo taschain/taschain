@@ -26,7 +26,7 @@ const (
 
 	GROUP_GET_READY_GAP = EPOCH	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 1	//组准备就绪后, 等待可以铸块的间隔为4个epoch
-	GROUP_CAST_DURATION = EPOCH * 2	//组铸块的周期为100个epoch
+	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
 )
 
 type GroupManager struct {
@@ -125,7 +125,7 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 
 func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (bool, []groupsig.ID) {
 	allCandidates := gm.getAllCandidates()
-	groups := gm.processor.getAvailableGroupsAt(height)
+	groups := gm.processor.GetAvailableGroupsAt(height)
 	log.Printf("selectCandidates available groupsize %v\n", len(groups))
 
 	candidates := make([]groupsig.ID, 0)

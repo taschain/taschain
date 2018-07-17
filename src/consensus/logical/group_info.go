@@ -316,7 +316,9 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 	} else {
 		if g == nil {
 			chainGroup := gg.chain.GetGroupById(id.Serialize())
-			g = NewSGIFromCoreGroup(chainGroup)
+			if chainGroup != nil {
+				g = NewSGIFromCoreGroup(chainGroup)
+			}
 		}
 	}
 	if g == nil {
