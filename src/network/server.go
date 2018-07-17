@@ -76,10 +76,10 @@ func (n *network) Send(targetId string, msg Message) error {
 		return err
 	}
 	if targetId == n.Self.ID.GetHexString() {
-		n.sendSelf(bytes)
+		go n.sendSelf(bytes)
 		return nil
 	}
-	n.netCore.SendData(common.HexStringToAddress(targetId), nil, bytes)
+	go n.netCore.SendData(common.HexStringToAddress(targetId), nil, bytes)
 	return nil
 }
 

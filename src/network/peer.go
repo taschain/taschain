@@ -178,7 +178,7 @@ func (pm *PeerManager) SendDataToAll(packet *bytes.Buffer) {
 	for _, p := range pm.peers {
 		if p.seesionID > 0 {
 			//pm.write(p.ID, nil, packet)
-			P2PSend(p.seesionID, packet.Bytes())
+			go P2PSend(p.seesionID, packet.Bytes())
 
 		}
 	}

@@ -114,7 +114,7 @@ func (gm *GroupManager) SendDataToGroup(id string, packet *bytes.Buffer) {
 
 			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.IP, node.Port)
 
-			Network.netCore.PM.write(node.ID, &net.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet)
+			go Network.netCore.PM.write(node.ID, &net.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet)
 		}
 	}
 	return
