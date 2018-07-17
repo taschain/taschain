@@ -101,7 +101,7 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	for _,n := range nodes{
 		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
 	}
-	return &Result{"", nodes}, nil
+	return &Result{"", conns}, nil
 }
 
 // TransPool 查询缓冲区的交易信息。
