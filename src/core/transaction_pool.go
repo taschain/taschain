@@ -131,17 +131,20 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	//txs := pool.received.AsSlice()
-	var result []*types.Transaction
-	if pool.received.txs.Len() > 5000 {
-		result = make([]*types.Transaction, 5000)
-		copy(result, pool.received.txs[:5000])
-	} else {
-		result = make([]*types.Transaction, pool.received.txs.Len())
-		copy(result, pool.received.txs)
-	}
-	sort.Sort(types.Transactions(result))
-	return result
+	txs := pool.received.AsSlice()
+	sort.Sort(types.Transactions(txs))
+	return txs
+
+	//var result []*types.Transaction
+	//if pool.received.txs.Len() > 5000 {
+	//	result = make([]*types.Transaction, 5000)
+	//	copy(result, pool.received.txs[:5000])
+	//} else {
+	//	result = make([]*types.Transaction, pool.received.txs.Len())
+	//	copy(result, pool.received.txs)
+	//}
+	//sort.Sort(types.Transactions(result))
+	//return result
 }
 
 // 返回待处理的transaction数组
@@ -200,15 +203,15 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
-		//txs := []*types.Transaction{tx}
-		//go BroadcastTransactions(txs)
-		pool.sendingList = append(pool.sendingList, tx)
-		if sendingListLength == len(pool.sendingList) {
-			txs := make([]*types.Transaction, sendingListLength)
-			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, sendingListLength)
-			go BroadcastTransactions(txs)
-		}
+		txs := []*types.Transaction{tx}
+		go BroadcastTransactions(txs)
+		//pool.sendingList = append(pool.sendingList, tx)
+		//if sendingListLength == len(pool.sendingList) {
+		//	txs := make([]*types.Transaction, sendingListLength)
+		//	copy(txs, pool.sendingList)
+		//	pool.sendingList = make([]*types.Transaction, sendingListLength)
+		//	go BroadcastTransactions(txs)
+		//}
 	}
 
 	return true, nil
