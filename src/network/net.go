@@ -444,7 +444,7 @@ func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 	nc.PM.OnConnected(id, session, p2pType)
 	p := nc.PM.peerByNetID(id)
 
-	nc.ping(p.ID,&net.UDPAddr{IP:p.IP, Port: p.Port})
+	go nc.ping(p.ID,&net.UDPAddr{IP:p.IP, Port: p.Port})
 }
 
 //OnConnected 处理接受连接的回调
@@ -468,25 +468,28 @@ func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) 
 
 //OnRecved 数据回调
 func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
+	nc.recvData(netID,session,data)
+}
 
-	//fmt.Printf("OnRecved : netID:%v session:%v len :%v\n ", netID, session,len(data))
+func (nc *NetCore) recvData(netID uint64, session uint32, data []byte) {
 
 	p := nc.PM.peerByNetID(netID)
 	if p == nil {
-		//fmt.Printf("OnConnected : no peer id:%v mynid:%v\n ", id, nc.nid)
 		p = newPeer(NodeID{}, 0)
 		nc.PM.addPeer(netID, p)
 	}
+
 	p.addData(data)
 
 	nc.unhandle<-p
+
 }
 
 
 func encodeDataPacket(id NodeID, data []byte) (msg *bytes.Buffer, hash []byte, err error) {
 	ptype := MessageType_MessageData
 	b := new(bytes.Buffer)
-	//fmt.Printf("encodeDataPacket id %v \n ", id)
+
 
 	length := len(data)
 	err = binary.Write(b, binary.BigEndian, uint32(ptype))
@@ -565,7 +568,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	case MessageType_MessageNeighbors:
 		nc.handleNeighbors(msg.(*Neighbors), fromID)
 	case MessageType_MessageData:
-		nc.handleData(data, fromID)
+		go nc.handleData(data, fromID)
 	default:
 		return fmt.Errorf("unknown type: %d", msgType)
 	}
@@ -709,7 +712,7 @@ func (nc *NetCore) handleNeighbors(req *Neighbors, fromID NodeID) error {
 func (nc *NetCore) handleData(data []byte, fromID NodeID) error {
 	id := fromID.GetHexString()
 	//fmt.Printf("from:%v  len:%v \n", id, len(data))
-	Network.handleMessage(data,id)
+	 Network.handleMessage(data,id)
 	return nil
 }
 

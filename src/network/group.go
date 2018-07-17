@@ -67,7 +67,7 @@ func newGroupManager() *GroupManager {
 func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
-	//go gm.doRefresh()
+	go gm.doRefresh()
 	return g
 }
 
@@ -98,14 +98,7 @@ func (gm *GroupManager) doRefresh() {
 	//fmt.Printf("groupManager doRefresh \n")
 
 	for _, group := range gm.groups {
-
 		group.doRefresh()
-
-		//hello := ""
-		//for i := 0; i < 6; i++ {
-		//	hello += "GROUP"
-		//}
-		//GetNetCore().SendDataToGroup(group.ID, []byte(hello))
 	}
 }
 

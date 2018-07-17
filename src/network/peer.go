@@ -112,11 +112,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		//fmt.Printf("P2PSend %v len: %v\n ", p.seesionID, packet.Len())
 		P2PSend(p.seesionID, packet.Bytes())
 	} else {
-		// fmt.Printf("write data need connectID:%v  NET ID：%v  len: %v\n ",toid, netID, packet.Len())
-		// if toaddr != nil {
-		// 	fmt.Printf("ip:%v port:%v\n ", toaddr.IP.String(), uint16(toaddr.Port))
-		// }
-
 
 		if toaddr != nil && toaddr.IP != nil && toaddr.Port>0  && !p.connecting {
 			//P2PConnect(netID, "47.96.186.139", 70)
@@ -127,8 +122,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 			p.sendList = append(p.sendList, packet)
 
 			P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
-
-			//fmt.Printf("connect :ID：%v  ip:%v port:%v\n ", netID, toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -177,8 +170,11 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIP string, publicIP stri
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendDataToAll(packet *bytes.Buffer) {
 //	fmt.Printf("SendDataToAll  peer size:%v\n", len(pm.peers))
+
+
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
+	
 	for _, p := range pm.peers {
 		if p.seesionID > 0 {
 			//pm.write(p.ID, nil, packet)
@@ -186,6 +182,7 @@ func (pm *PeerManager) SendDataToAll(packet *bytes.Buffer) {
 
 		}
 	}
+
 	return
 }
 

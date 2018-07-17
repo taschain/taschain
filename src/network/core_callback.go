@@ -1,6 +1,6 @@
 package network
-
-import "fmt"
+import "C"
+//import "fmt"
 //export OnP2PRecved
 func OnP2PRecved(id uint64, session uint32, data []byte) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PRecved", id, session, len(data))
@@ -31,6 +31,6 @@ func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
 
 //export OnP2PDisconnected
 func OnP2PDisconnected(id uint64, session uint32, p2p_code uint32) {
-	fmt.Printf("%v %v %v %v\n", "OnP2PDisconnected", id, session, p2p_code)
+	//fmt.Printf("%v %v %v %v\n", "OnP2PDisconnected", id, session, p2p_code)
 	Network.netCore.OnDisconnected(id, session, p2p_code)
 }
