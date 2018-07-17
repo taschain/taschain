@@ -110,7 +110,7 @@ func (gs *groupSyncer) start() {
 			}
 		case <-t.C:
 			if !core.GroupChainImpl.IsGroupSyncInit() {
-				break
+				continue
 			}
 			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
 			gs.syncGroup(false)

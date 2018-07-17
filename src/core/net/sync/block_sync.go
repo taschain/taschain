@@ -69,7 +69,7 @@ func (bs *blockSyncer) start() {
 			bs.maxTotalQnLock.Unlock()
 		case <-t.C:
 			if !core.BlockChainImpl.IsBlockSyncInit() {
-				break
+				continue
 			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			bs.syncBlock(false)
