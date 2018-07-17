@@ -278,12 +278,6 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return err
 	}
 
-	for {
-		if len(p2p.Server.GetConnInfo()) > 0 {
-			break
-		}
-	}
-	time.Sleep(3 * time.Second)
 	sync.InitGroupSyncer()
 	sync.InitBlockSyncer()
 

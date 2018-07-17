@@ -31,18 +31,20 @@ type blockSyncer struct {
 
 	TotalQnRequestCh chan string
 	TotalQnCh        chan TotalQnInfo
+
+	rcvTotalQnCount int
 }
 
 func InitBlockSyncer() {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	}
-	BlockSyncer = blockSyncer{neighborMaxTotalQn: 0, TotalQnRequestCh: make(chan string), TotalQnCh: make(chan TotalQnInfo),}
+	BlockSyncer = blockSyncer{neighborMaxTotalQn: 0, TotalQnRequestCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), rcvTotalQnCount: 0}
 	go BlockSyncer.start()
 }
 
 func (bs *blockSyncer) start() {
-	bs.syncBlock()
+	go bs.syncBlock(true)
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
 		select {
@@ -55,6 +57,9 @@ func (bs *blockSyncer) start() {
 			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN())
 		case h := <-bs.TotalQnCh:
 			//收到来自其他节点的块链高度
+			if !core.BlockChainImpl.IsBlockSyncInit() {
+				bs.rcvTotalQnCount = bs.rcvTotalQnCount +1
+			}
 			logger.Debugf("[BlockSyncer] TotalQnCh get message from:%s,it's totalQN is:%d", h.SourceId, h.TotalQn)
 			bs.maxTotalQnLock.Lock()
 			if h.TotalQn > bs.neighborMaxTotalQn {
@@ -63,17 +68,32 @@ func (bs *blockSyncer) start() {
 			}
 			bs.maxTotalQnLock.Unlock()
 		case <-t.C:
+			if !core.BlockChainImpl.IsBlockSyncInit() {
+				return
+			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-			bs.syncBlock()
+			go bs.syncBlock(false)
 		}
 	}
 }
 
-func (bs *blockSyncer) syncBlock() {
-	go requestBlockChainTotalQn()
-	t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
+func (bs *blockSyncer) syncBlock(init bool) {
+	if init {
+		for {
+			requestBlockChainTotalQn()
+			t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
+			<-t.C
+			fmt.Printf("bs.rcvTotalQnCount:%d\n",bs.rcvTotalQnCount)
+			if bs.rcvTotalQnCount > 0 {
+				break
+			}
+		}
+	} else {
+		requestBlockChainTotalQn()
+		t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
 
-	<-t.C
+		<-t.C
+	}
 	//获取本地块链高度
 	if nil == core.BlockChainImpl {
 		return
@@ -85,8 +105,8 @@ func (bs *blockSyncer) syncBlock() {
 	bs.maxTotalQnLock.Unlock()
 	if maxTotalQN <= localTotalQN {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
-		if !core.BlockChainImpl.IsBlockSyncInit(){
-			fmt.Printf("maxTotalQN <= localTotalQN set block sync true,local block height:%d\n",core.BlockChainImpl.Height())
+		if !core.BlockChainImpl.IsBlockSyncInit() {
+			fmt.Printf("maxTotalQN <= localTotalQN set block sync true,local block height:%d\n", core.BlockChainImpl.Height())
 			core.BlockChainImpl.SetBlockSyncInit(true)
 		}
 		return

@@ -42,30 +42,35 @@ type groupSyncer struct {
 	HeightCh        chan GroupHeightInfo
 	GroupRequestCh  chan GroupRequestInfo
 	GroupCh         chan []*types.Group
+
+	rcvTotalQnCount int
 }
 
 func InitGroupSyncer() {
 	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
 	GroupSyncer = groupSyncer{HeightRequestCh: make(chan string), HeightCh: make(chan GroupHeightInfo),
-		GroupRequestCh: make(chan GroupRequestInfo), GroupCh: make(chan []*types.Group),}
+		GroupRequestCh: make(chan GroupRequestInfo), GroupCh: make(chan []*types.Group), rcvTotalQnCount: 0}
 	go GroupSyncer.start()
 }
 
 func (gs *groupSyncer) start() {
-	gs.syncGroup()
+	go gs.syncGroup(true)
 	t := time.NewTicker(GROUP_SYNC_INTERVAL)
 	for {
 		select {
 		case sourceId := <-gs.HeightRequestCh:
 			//收到组高度请求
-			//logger.Debugf("[GroupSyncer]GroupSyncer HeightRequestCh get message from:%s", sourceId)
+			logger.Debugf("[GroupSyncer]GroupSyncer HeightRequestCh get message from:%s", sourceId)
 			if nil == core.GroupChainImpl {
 				return
 			}
 			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的组链高度
-			//logger.Debugf("[GroupSyncer]GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			logger.Debugf("[GroupSyncer]GroupSyncer HeightCh get message from:%s,it's height is:%d", h.SourceId, h.Height)
+			if !core.GroupChainImpl.IsGroupSyncInit() {
+				gs.rcvTotalQnCount = gs.rcvTotalQnCount + 1
+			}
 			gs.maxHeightLock.Lock()
 			if h.Height > gs.neighborMaxHeight {
 				gs.neighborMaxHeight = h.Height
@@ -99,22 +104,37 @@ func (gs *groupSyncer) start() {
 					}
 				}
 				if !core.GroupChainImpl.IsGroupSyncInit() {
-					fmt.Printf("after add grouop on chain, set group sync true,local group height:%d\n",core.GroupChainImpl.Count())
+					fmt.Printf("after add grouop on chain, set group sync true,local group height:%d\n", core.GroupChainImpl.Count())
 					core.GroupChainImpl.SetGroupSyncInit(true)
 				}
 			}
 		case <-t.C:
-			//logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
-			gs.syncGroup()
+			if !core.GroupChainImpl.IsGroupSyncInit() {
+				return
+			}
+			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
+			go gs.syncGroup(false)
 		}
 	}
 }
 
-func (gs *groupSyncer) syncGroup() {
-	go requestGroupChainHeight()
-	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
+func (gs *groupSyncer) syncGroup(init bool) {
+	if init {
+		for {
+			requestGroupChainHeight()
+			t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
+			<-t.C
+			fmt.Printf("gs.rcvTotalQnCount:%d\n", gs.rcvTotalQnCount)
+			if gs.rcvTotalQnCount > 0 {
+				break
+			}
+		}
+	} else {
+		requestGroupChainHeight()
+		t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
-	<-t.C
+		<-t.C
+	}
 	//logger.Debugf("[GroupSyncer]group height request  time up!")
 	if nil == core.GroupChainImpl {
 		return
