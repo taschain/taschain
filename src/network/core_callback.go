@@ -1,6 +1,5 @@
 package network
 import "C"
-//import "fmt"
 //export OnP2PRecved
 func OnP2PRecved(id uint64, session uint32, data []byte) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PRecved", id, session, len(data))
