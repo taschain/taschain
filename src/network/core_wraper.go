@@ -26,6 +26,7 @@ void* p2p_api(const char* api)
     }
     return (void*)dlsym(p2p_core, api);
 }
+#cgo LDFLAGS:-ldl
 #endif
 
 #ifdef __drawin__
