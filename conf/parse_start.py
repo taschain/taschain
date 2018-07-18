@@ -49,6 +49,7 @@ def generateFiles(data):
         fn = startShName(host)
         write(fn, content)
         include_list += fn + "\n"
+        include_list += "p2p_core.so\n"
         write("include_list_" + host, include_list)
     write("host_port", ",".join(hostports))
 
