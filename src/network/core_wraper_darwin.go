@@ -1,14 +1,16 @@
 package network
 /*
 #include <dlfcn.h>
-
+#include <stdio.h>
 void* p2p_api(const char* api)
 {
     static void* p2p_core = 0;
     if (p2p_core == 0)
     {
         p2p_core = dlopen("./p2p_core.dylib", RTLD_LAZY);
-
+ 		if (p2p_core == 0){
+        	printf("p2p_core load lib failed !\n");
+        }
     }
     return (void*)dlsym(p2p_core, api);
 }
