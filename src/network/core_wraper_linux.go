@@ -1,21 +1,7 @@
 package network
 /*
-//#define __linux__
+#cgo LDFLAGS:-ldl
 
-#ifdef __windows__
-#include <Windows.h>
-void* p2p_api(const char* api)
-{
-    static HMODULE p2p_core = 0;
-    if (p2p_core == 0)
-    {
-        p2p_core = LoadLibrary("p2p_core.dll");
-    }
-    return (void*)GetProcAddress(p2p_core, api);
-}
-#endif
-
-#ifdef __linux__
 #include <dlfcn.h>
 void* p2p_api(const char* api)
 {
@@ -26,25 +12,6 @@ void* p2p_api(const char* api)
     }
     return (void*)dlsym(p2p_core, api);
 }
-#cgo LDFLAGS:-ldl
-#endif
-
-#ifdef __drawin__
-#include <dlfcn.h>
-#include <errno.h>
-
-void* p2p_api(const char* api)
-{
-    static void* p2p_core = 0;
-    if (p2p_core == 0)
-    {
-        p2p_core = dlopen("./p2p_core.dylib", RTLD_LAZY);
-
-    }
-    //printf("dlopen %d,%d\n",p2p_core,errno);
-    return (void*)dlsym(p2p_core, api);
-}
-#endif
 
 #include <stdint.h>
 #include <string.h>
