@@ -1,6 +1,6 @@
 package network
 /*
-#define __linux__
+//#define __linux__
 
 #ifdef __windows__
 #include <Windows.h>
