@@ -50,21 +50,33 @@ echo 'romote hosts: '$hosts
 host_arr=(${hosts//,/ })
 for host in ${host_arr[@]}
 do
- echo $host'  booting...'
   #ssh to remote host,stop previous program and clean logs and database
-  ssh $user@${host} "mkdir -p $remote_home/$run;mkdir -p $remote_home/$run/tools;cd $remote_home/$run/tools;bash -x stop.sh; cd $remote_home/$run; rm -rf d*; rm -rf logs/*;exit"
+  if [ $clear_data = true ]; then
+  	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;rm -rf d*; rm -rf logs/*;exit"
+  else
+  	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;exit"
+  fi
 
+  if [ $stop_only = true ]; then
+  	continue
+  fi
+
+  cd ${WORKSPACE}/$run_dir/tools
   #sync config file to host
   start_sh=`python parse_start.py $host`
   echo 'start sync config file to host:'$host
-  rsync -rvatz --progress --include-from=include_list_$host --exclude=/* .. $user@${host}:$remote_home/$run
+  rsync -rvatz --progress --include-from=include_list_$host --exclude=/* . $user@${host}:$remote_home/$run_dir
+
+  cd ..
+  rsync -rvatz --progress --include-from=tools/include_list_$host --exclude=/* . $user@${host}:$remote_home/$run_dir
+
+  echo $host'  booting...'
   #ssh to remote host to start to run new program
-  ssh $user@${host} "cd $remote_home/$run; bash -x $start_sh;exit"
+  ssh $user@${host} "cd $remote_home/$run_dir; bash -x $start_sh;exit"
 
   echo $host' started'
 done
 
-$stop_only && exit
 
 
 #改回原来的BUILD_ID值
