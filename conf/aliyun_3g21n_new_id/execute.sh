@@ -11,7 +11,7 @@ echo 'build id is: '$OLD_BUILD_ID
 rm -f ./gtas
 echo 'building gtas...'
 go build -o ./gtas ./src/gtas/main.go
-echo 'gtas build finished.'
+echo -e 'gtas build finished.\n\n'
 
 
 run_dir='run'
@@ -44,23 +44,26 @@ cp conf/$config_dir/stop.sh $run_dir/tools
 #生成各个实例的启停脚本并获取部署的机器ip
 cd $run_dir/tools
 hosts=`python parse_start.py start.json`
-echo 'romote hosts: '$hosts
+echo -e 'romote hosts: '$hosts'\n\n'
 
 
 host_arr=(${hosts//,/ })
 for host in ${host_arr[@]}
 do
+  echo -e 'stoping host: '$host
   #ssh to remote host,stop previous program and clean logs and database
   if [ $clear_data = true ]; then
   	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;rm -rf d*; rm -rf logs/*;exit"
   else
   	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;exit"
   fi
+  echo -e '\n\n'
+done
+$stop_only && exit
 
-  if [ $stop_only = true ]; then
-  	continue
-  fi
 
+for host in ${host_arr[@]}
+do
   cd ${WORKSPACE}/$run_dir/tools
   #sync config file to host
   start_sh=`python parse_start.py $host`
@@ -70,18 +73,17 @@ do
   cd ..
   rsync -rvatz --progress --include-from=tools/include_list_$host --exclude=/* . $user@${host}:$remote_home/$run_dir
 
-  echo $host'  booting...'
+  echo -e '\n'$host'  booting...\n'
   #ssh to remote host to start to run new program
   ssh $user@${host} "cd $remote_home/$run_dir; bash -x $start_sh;exit"
 
-  echo $host' started'
+  echo -e $host' started\n\n'
 done
-
 
 
 #改回原来的BUILD_ID值
 BUILD_ID=$OLD_BUILD_ID
 
-hp=`cat host_port`
+hp=`cat ${WORKSPACE}/$run_dir/tools/host_port`
 sed -i "s/__HOSTS__/$hp/g" $log_dir/$html
 echo http://logs.taschain.com/file/${html}
