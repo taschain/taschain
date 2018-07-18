@@ -152,8 +152,8 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 	P2PConfig(nc.nid)
 
 
-	P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
-	//P2PProxy("47.96.186.139", uint16(70))
+	//P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
+	P2PProxy("47.98.212.107", uint16(70))
 
 	nc.ourEndPoint = MakeEndPoint(realaddr, int32(realaddr.Port))
 	kad, err := newKad(nc, cfg.ID, realaddr, cfg.NodeDBPath, cfg.Bootnodes)
@@ -169,6 +169,7 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 
 // 关闭
 func (nc *NetCore) close() {
+	P2PClose()
 	close(nc.closing)
 }
 
@@ -473,6 +474,8 @@ func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 
 func (nc *NetCore) recvData(netID uint64, session uint32, data []byte) {
 
+	start := time.Now()
+
 	p := nc.PM.peerByNetID(netID)
 	if p == nil {
 		p = newPeer(NodeID{}, 0)
@@ -482,6 +485,11 @@ func (nc *NetCore) recvData(netID uint64, session uint32, data []byte) {
 	p.addData(data)
 
 	nc.unhandle<-p
+
+	diff := time.Now().Sub(start)
+	if diff > 500 *time.Millisecond {
+		fmt.Printf("Recv timeout:%v\n", diff)
+	}
 
 }
 

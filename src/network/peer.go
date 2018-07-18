@@ -114,14 +114,15 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 	} else {
 
 		if toaddr != nil && toaddr.IP != nil && toaddr.Port>0  && !p.connecting {
-			//P2PConnect(netID, "47.96.186.139", 70)
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
 			p.IP = toaddr.IP
 			p.Port = toaddr.Port
 			p.sendList = append(p.sendList, packet)
 
-			P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
+			//P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
+			P2PConnect(netID, "47.98.212.107", 70)
+
 		}
 	}
 
