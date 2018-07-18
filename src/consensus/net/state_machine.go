@@ -130,7 +130,7 @@ func newStateMachine(id string) *StateMachine {
 func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId + "-outsidegroup")
 	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), logical.GetGroupK())
+	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), logical.GetGroupK(logical.GetGroupMemberNum()))
 	return machine
 }
 

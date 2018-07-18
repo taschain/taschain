@@ -57,6 +57,10 @@ const (
 	BLOCK_HASHES_REQ uint32 = 0x14
 
 	BLOCK_HASHES uint32 = 0x15
+	//---------------------组创建确认-----------------------
+	CREATE_GROUP_RAW uint32 = 0x16
+
+	CREATE_GROUP_SIGN uint32 = 0x17
 )
 
 type network struct {

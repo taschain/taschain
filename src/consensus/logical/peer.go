@@ -173,7 +173,7 @@ func SendCreateGroupRawMessage(msg *ConsensusCreateGroupRawMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CREATE_GROUP_RAW, Body: body}
+	m := network.Message{Code: network.CREATE_GROUP_RAW, Body: body}
 
 	var groupId = msg.GI.ParentID
 
@@ -186,9 +186,9 @@ func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CREATE_GROUP_SIGN, Body: body}
+	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	p2p.Server.SendMessage(m, msg.Launcher.GetString())
+	network.Network.Send(msg.Launcher.GetString(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

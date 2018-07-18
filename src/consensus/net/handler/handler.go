@@ -106,22 +106,6 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 
 	case network.CAST_VERIFY_MSG:
-	case network.CURRENT_GROUP_CAST_MSG:
-		//m, e := unMarshalConsensusCurrentMessage(body)
-		//if e != nil {
-		//	logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
-		//	return nil, e
-		//}
-		//
-		////machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
-		////stateMsg := net.NewStateMsg(code, m, sourceId, "")
-		////machine.Transform(stateMsg, func(msg interface{}) {
-		////	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
-		////})
-		//
-		//mediator.Proc.OnMessageCurrent(*m)
-	case network.CAST_VERIFY_MSG:
-		beginTime:= time.Now()
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
