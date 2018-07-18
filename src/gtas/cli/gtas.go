@@ -107,7 +107,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(network.Network.ConnInfo()) >=8 {
+			if len(network.Network.ConnInfo()) >=20 {
 				fmt.Println("Connection:")
 				for _, c := range network.Network.ConnInfo() {
 					fmt.Println(c.Id)
