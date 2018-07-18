@@ -23,8 +23,8 @@ def command(conf, isSuper):
     s = ""
     if isSuper:
         s = "--super"
-    content = "if [ -e pid_tas%d.txt ];then\n\tkill -9 `cat pid_tas%d.txt`\nfi" % (seq, seq)
-    content = "%s\nnohup ./gtas miner --config %s --rpc --rpcport %d %s --pprof %d > logs/stdout_%s.log 2>&1 & echo $! > pid_tas%d.txt" % (content, conf, rpcport+seq, s, pprofport+seq, seq, seq)
+    content = "if [ -e pid/pid_tas%d.txt ];then\n\tkill -9 `cat pid/pid_tas%d.txt`\nfi" % (seq, seq)
+    content = "%s\nnohup ./gtas miner --config %s --rpc --rpcport %d %s --pprof %d > logs/stdout_%s.log 2>&1 & echo $! > pid/pid_tas%d.txt" % (content, conf, rpcport+seq, s, pprofport+seq, seq, seq)
 
     slp = 1
     if isSuper:
@@ -39,7 +39,7 @@ def generateFiles(data):
     for c in data:
         include_list = "gtas\n" + "stop.sh\n"
         content = "#/bin/bash\n"
-        content += "if [ ! -d 'logs' ]; then\n\tmkdir logs\nfi\n"
+        content += "if [ ! -d 'logs' ]; then\n\tmkdir logs\nfi\nif [ ! -d 'pid' ]; then\n\tmkdir pid\nfi\n"
         host = c["host"]
         for inst in c["instants"]:
             include_list += inst["config"] + "\n"

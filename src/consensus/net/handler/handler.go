@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"network/p2p"
+	"network"
 	"consensus/mediator"
 	"consensus/logical"
 	"github.com/gogo/protobuf/proto"
@@ -10,7 +10,6 @@ import (
 	"time"
 	"core"
 	"consensus/net"
-	"network"
 	"middleware/types"
 	"middleware/pb"
 	"log"
@@ -28,24 +27,26 @@ func memberExistIn(mems *[]logical.PubKeyInfo, id groupsig.ID) bool {
 	return false
 }
 
-func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId string) ([]byte, error) {
+func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
+	code := msg.Code
+	body := msg.Body
 	if !mediator.Proc.Ready() {
 		log.Printf("message ingored because processor not ready. code=%v\n", code)
-		return nil, fmt.Errorf("processor not ready yet")
+		return fmt.Errorf("processor not ready yet")
 	}
 	switch code {
-	case p2p.GROUP_MEMBER_MSG:
+	case network.GROUP_MEMBER_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
-			return nil, e
+			return e
 		}
 		onGroupMemberReceived(*m)
-	case p2p.GROUP_INIT_MSG:
+	case network.GROUP_INIT_MSG:
 		m, e := unMarshalConsensusGroupRawMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
-			return nil, e
+			return e
 		}
 
 		belongGroup := memberExistIn(&m.MEMS, mediator.Proc.GetMinerID())
@@ -60,33 +61,33 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			mediator.Proc.OnMessageGroupInit(*msg.(*logical.ConsensusGroupRawMessage))
 		})
 		//mediator.Proc.OnMessageGroupInit(*m)
-	case p2p.KEY_PIECE_MSG:
+	case network.KEY_PIECE_MSG:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
-			return nil, e
+			return e
 		}
 		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSharePiece(*msg.(*logical.ConsensusSharePieceMessage))
 		})
 		//mediator.Proc.OnMessageSharePiece(*m)
-	case p2p.SIGN_PUBKEY_MSG:
+	case network.SIGN_PUBKEY_MSG:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
-			return nil, e
+			return  e
 		}
 		machine := net.TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
 		machine.Transform(net.NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
 			mediator.Proc.OnMessageSignPK(*msg.(*logical.ConsensusSignPubKeyMessage))
 		})
 		//mediator.Proc.OnMessageSignPK(*m)
-	case p2p.GROUP_INIT_DONE_MSG:
+	case network.GROUP_INIT_DONE_MSG:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 
 		belongGroup := mediator.Proc.ExistInDummyGroup(m.GI.GIS.DummyID)
@@ -101,66 +102,82 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			mediator.Proc.OnMessageGroupInited(*msg.(*logical.ConsensusGroupInitedMessage))
 		})
 
-	case p2p.CURRENT_GROUP_CAST_MSG:
+	case network.CURRENT_GROUP_CAST_MSG:
 
 
-	case p2p.CAST_VERIFY_MSG:
+	case network.CAST_VERIFY_MSG:
+	case network.CURRENT_GROUP_CAST_MSG:
+		//m, e := unMarshalConsensusCurrentMessage(body)
+		//if e != nil {
+		//	logger.Errorf("Discard ConsensusCurrentMessage because of unmarshal error%s", e.Error())
+		//	return nil, e
+		//}
+		//
+		////machine := net.TimeSeq.GetBlockStateMachine(m.GroupID, m.BlockHeight)
+		////stateMsg := net.NewStateMsg(code, m, sourceId, "")
+		////machine.Transform(stateMsg, func(msg interface{}) {
+		////	mediator.Proc.OnMessageCurrent(*msg.(*logical.ConsensusCurrentMessage))
+		////})
+		//
+		//mediator.Proc.OnMessageCurrent(*m)
+	case network.CAST_VERIFY_MSG:
+		beginTime:= time.Now()
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 		mediator.Proc.OnMessageCast(*m)
-	case p2p.VARIFIED_CAST_MSG:
+	case network.VARIFIED_CAST_MSG:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 
 		mediator.Proc.OnMessageVerify(*m)
 
-	case p2p.TRANSACTION_MSG, p2p.TRANSACTION_GOT_MSG:
+	case network.TRANSACTION_MSG, network.TRANSACTION_GOT_MSG:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 		var txHashes []common.Hash
 		for _, tx := range transactions {
 			txHashes = append(txHashes, tx.Hash)
 		}
 		mediator.Proc.OnMessageNewTransactions(txHashes)
-	case p2p.NEW_BLOCK_MSG:
+	case network.NEW_BLOCK_MSG:
 		m, e := unMarshalConsensusBlockMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return  e
 		}
 		network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber, sourceId, len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
 
 		mediator.Proc.OnMessageBlock(*m)
-		return nil, nil
-	case p2p.CREATE_GROUP_RAW:
+		return nil
+	case network.CREATE_GROUP_RAW:
 		m, e := unMarshalConsensusCreateGroupRawMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupRawMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 
 		mediator.Proc.OnMessageCreateGroupRaw(*m)
-		return nil, nil
-	case p2p.CREATE_GROUP_SIGN:
+		return nil
+	case network.CREATE_GROUP_SIGN:
 		m, e := unMarshalConsensusCreateGroupSignMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupSignMessage because of unmarshal error%s", e.Error())
-			return nil, e
+			return e
 		}
 
 		mediator.Proc.OnMessageCreateGroupSign(*m)
-		return nil, nil
+		return nil
 	}
-	return nil, nil
+	return nil
 }
 
 //全网节点收到父亲节点广播的组信息，将组(没有组公钥的)上链
