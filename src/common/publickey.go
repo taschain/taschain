@@ -1,12 +1,13 @@
 package common
 
 import (
+	"common/ecies"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha1"
 	"encoding/hex"
 	"io"
-	"common/ecies"
+	secp "vm/crypto/secp256k1"
 )
 
 //用户公钥
@@ -15,8 +16,9 @@ type PublicKey struct {
 }
 
 //公钥验证函数
-func (pk PublicKey) Verify(hash []byte, s *Sign) bool {
-	return ecdsa.Verify(&pk.PubKey, hash, &s.r, &s.s)
+func (pk PublicKey) Verify(hash []byte, signature []byte) bool {
+	pubkey := elliptic.Marshal(secp.S256(), pk.PubKey.X, pk.PubKey.Y)
+	return secp.VerifySignature(pubkey, hash, signature)
 }
 
 //由公钥萃取地址函数
@@ -43,7 +45,7 @@ func (pk PublicKey) ToBytes() []byte {
 //从字节切片转换到公钥
 func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	pk = new(PublicKey)
-	pk.PubKey.Curve = getDefaultCurve()
+	pk.PubKey.Curve = secp.S256()
 	//fmt.Printf("begin pub key unmarshal, len=%v, data=%v.\n", len(data), data)
 	x, y := elliptic.Unmarshal(pk.PubKey.Curve, data)
 	if x == nil || y == nil {

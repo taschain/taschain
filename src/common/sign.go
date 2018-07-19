@@ -2,6 +2,7 @@ package common
 
 import (
 	"math/big"
+	//"vm/ecdsa-go"
 	"vm/common"
 )
 
@@ -12,9 +13,9 @@ type Sign struct {
 
 //数据签名结构 for message casting
 type SignData struct {
-	DataHash   common.Hash        //哈希值
-	DataSign   Sign				 //签名
-	Id		   string            //用户ID
+	DataHash common.Hash //哈希值
+	DataSign Sign        //签名
+	Id       string      //用户ID
 }
 
 //签名构造函数
@@ -45,14 +46,4 @@ func (s Sign) Bytes() []byte {
 	copy(r, rb)
 	copy(r[len(rb):], sb)
 	return r
-}
-
-func BytesToSign(b []byte) *Sign {
-	var r, s big.Int
-	br := b[:32]
-	r = *r.SetBytes(br)
-
-	sr := b[32:]
-	s = *s.SetBytes(sr)
-	return &Sign{r, s}
 }

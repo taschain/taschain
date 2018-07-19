@@ -21,7 +21,7 @@ type Privkey struct {
 }
 
 func (pub *Pubkey) Verify(data []byte, sig []byte) (bool, error) {
-	return pub.PublicKey.Verify(data, common.BytesToSign(sig)), nil
+	return pub.PublicKey.Verify(data, sig), nil
 }
 
 func (pub *Pubkey) Bytes() ([]byte, error) {
@@ -50,7 +50,7 @@ func UnmarshalEcdsaPublicKey(b []byte) (crypto.PubKey, error) {
 }
 
 func (prv *Privkey) Sign(b []byte) ([]byte, error) {
-	return prv.PrivateKey.Sign(b).Bytes(), nil
+	return prv.PrivateKey.Sign(b)
 }
 
 func (prv *Privkey) GetPublic() crypto.PubKey {

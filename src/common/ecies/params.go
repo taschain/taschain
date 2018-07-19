@@ -12,11 +12,12 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"hash"
+	secp "vm/crypto/secp256k1"
 )
 
 // The default curve for this package is the NIST P256 curve, which
 // provides security equivalent to AES-128.
-var DefaultCurve = elliptic.P256()
+var DefaultCurve = secp.S256()
 
 var (
 	ErrUnsupportedECDHAlgorithm   = fmt.Errorf("ecies: unsupported ECDH algorithm")
@@ -72,6 +73,7 @@ var (
 )
 
 var paramsFromCurve = map[elliptic.Curve]*ECIESParams{
+	secp.S256():     ECIES_AES128_SHA256,
 	elliptic.P256(): ECIES_AES128_SHA256,
 	elliptic.P384(): ECIES_AES256_SHA384,
 	elliptic.P521(): ECIES_AES256_SHA512,

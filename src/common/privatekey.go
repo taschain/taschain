@@ -9,23 +9,31 @@ import (
 	"math/big"
 	"strings"
 	"common/ecies"
+	math "vm/common/math"
+	secp "vm/crypto/secp256k1"
 )
 
 type PrivateKey struct {
 	PrivKey ecdsa.PrivateKey
 }
 
-//私钥签名函数
-func (pk PrivateKey) Sign(hash []byte) Sign {
-	var sign Sign
-	r, s, err := ecdsa.Sign(rand.Reader, &pk.PrivKey, hash)
-	if err == nil {
-		sign.Set(r, s)
-	} else {
+func zeroBytes(bytes []byte) {
+	for i := range bytes {
+		bytes[i] = 0
+	}
+}
+
+//私钥签名函数, 输出字节流.
+func (pk PrivateKey) Sign(hash []byte) ([]byte, error) {
+	//var seckey []byte
+	seckey := math.PaddedBigBytes(pk.PrivKey.D, pk.PrivKey.Params().BitSize/8)
+	defer zeroBytes(seckey)
+	sign, err := secp.Sign(hash, seckey)
+	if err != nil {
 		panic(fmt.Sprintf("Sign Failed, reason : %v.\n", err.Error()))
 	}
 
-	return sign
+	return sign, err
 }
 
 //私钥生成函数
@@ -37,7 +45,7 @@ func GenerateKey(s string) PrivateKey {
 		r = rand.Reader
 	}
 	var pk PrivateKey
-	_pk, err := ecdsa.GenerateKey(getDefaultCurve(), r)
+	_pk, err := ecdsa.GenerateKey(secp.S256(), r)
 	if err == nil {
 		pk.PrivKey = *_pk
 	} else {
