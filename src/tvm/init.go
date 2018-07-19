@@ -3,7 +3,7 @@ package tvm
 /*
 #cgo LDFLAGS: -L ../../lib/darwin_amd64 -lmicropython
 #cgo CFLAGS:  -I ../../include
-#include <tvm.h>
+#include "tvm.h"
 #include <stdio.h>
 
 // The gateway function
@@ -14,10 +14,10 @@ int callOnMeGo_cgo(int in)
 	return callOnMeGo(in);
 }
 
-void wrap_testAry(int i)
+void wrap_testAry(void* p)
 {
-    void go_testAry(int);
-    go_testAry(i);
+    void go_testAry(void*);
+    go_testAry(p);
 }
 
 

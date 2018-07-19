@@ -3,7 +3,6 @@ package tvm
 /*
 #cgo CFLAGS:  -I ../../include
 
-#include "tvm.h"
 
 //int callOnMeGo_cgo(int in); // Forward declaration.
 */
