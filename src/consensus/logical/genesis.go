@@ -31,11 +31,6 @@ func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
 	sgi := genGenesisStaticGroupInfo()
 	//p.globalGroups.AddStaticGroup(sgi)
 	p.groupManager.AddGroupOnChain(sgi, false)
-	if sgi.MemExist(p.GetMinerID()) {//当前节点是创世组成员
-		f := consensusConfManager.GetString("genesis_jg_conf", "genesis_jg.config")
-		jg := readGenesisJoinedGroup(f, sgi)
-		p.saveJoinedGroup(jg)
-	}
 	return PubKeyInfo{}
 }
 

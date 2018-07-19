@@ -4,6 +4,9 @@ import (
 	"sync"
 	"consensus/groupsig"
 	"log"
+	"encoding/json"
+	"io/ioutil"
+	"os"
 )
 
 /*
@@ -37,12 +40,51 @@ func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
 
 type BelongGroups struct {
 	groups sync.Map	//idHex -> *JoinedGroup
+	storeFile string
 }
 
-func NewBelongGroups() *BelongGroups {
+func NewBelongGroups(file string) *BelongGroups {
 	return &BelongGroups{
 		groups: sync.Map{},
+		storeFile: file,
 	}
+}
+
+func (bg *BelongGroups) commit() bool {
+    gs := make([]*JoinedGroup, 0)
+    bg.groups.Range(func(key, value interface{}) bool {
+		jg := value.(*JoinedGroup)
+		gs = append(gs, jg)
+		return true
+	})
+	buf, err := json.Marshal(gs)
+	if err != nil {
+		panic("BelongGroups::store Marshal failed ." + err.Error())
+	}
+	err = ioutil.WriteFile(bg.storeFile, buf, os.ModePerm)
+	if err != nil {
+		log.Println("store belongGroups fail", err)
+		return false
+	}
+	return true
+}
+
+func (bg *BelongGroups) load() bool {
+    data, err := ioutil.ReadFile(bg.storeFile)
+	if err != nil {
+		log.Printf("load file %v fail, err %v", bg.storeFile, err.Error())
+		return false
+	}
+	var gs []*JoinedGroup
+	err = json.Unmarshal(data, &gs)
+	if err != nil {
+		log.Printf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
+		return false
+	}
+	for _, jg := range gs {
+		bg.addJoinedGroup(jg)
+	}
+	return true
 }
 
 func (bg *BelongGroups) getJoinedGroup(id groupsig.ID) *JoinedGroup {
@@ -78,6 +120,7 @@ func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
 	for _, gid := range gids {
 		bg.groups.Delete(gid.GetHexString())
 	}
+	bg.commit()
 }
 
 //取得组内成员的签名公钥
@@ -106,7 +149,7 @@ func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {
-			p.saveJoinedGroup(g)
+			p.belongGroups.commit()
 		}
 	} else {
 		log.Printf("Error::Processor::joinGroup failed, already exist.\n")
@@ -149,8 +192,5 @@ func (p *Processor) cleanDismissGroupRoutine() bool {
 	p.globalGroups.RemoveGroups(ids)
 	p.blockContexts.removeContexts(ids)
 	p.belongGroups.leaveGroups(ids)
-	for _, gid := range ids {
-		p.storage.Delete(gid.Serialize())
-	}
 	return true
 }

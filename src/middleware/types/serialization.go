@@ -215,7 +215,7 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 		Id: g.Id,
 		Members: members,
 		PubKey: g.PubKey,
-		Parent: g.PubKey,
+		Parent: g.Parent,
 		Dummy: g.Dummy,
 		Signature: g.Signature,
 		BeginHeight: *g.BeginHeight,

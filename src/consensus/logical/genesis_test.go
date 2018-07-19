@@ -16,6 +16,19 @@ import (
 
 const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/aliyun`
 
+func TestBelongGroups(t *testing.T) {
+	groupsig.Init(1)
+	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
+	InitConsensus()
+	belongs := NewBelongGroups("/Users/pxf/workspace/tas_develop/tas/conf/aliyun/joined_group.config.1")
+	belongs.load()
+	gs := belongs.getAllGroups()
+	for _, g := range gs {
+		log.Println(GetIDPrefix(g.GroupID))
+	}
+	t.Log(belongs)
+}
+
 func GetIdFromPublicKey(p common.PublicKey) string {
 	pubKey := &p2p.Pubkey{PublicKey: p}
 	pID, e := peer.IDFromPublicKey(pubKey)
@@ -45,6 +58,7 @@ func processors() (map[string]*Processor, map[string]int) {
 
 	for i := 1; i <= maxProcNum; i++ {
 		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", CONF_PATH_PREFIX, i))
+		proc.belongGroups.storeFile = fmt.Sprintf("%v/joined_group.config.%v", CONF_PATH_PREFIX, i)
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
 	}
@@ -105,7 +119,7 @@ func TestGenesisGroup(t *testing.T) {
 	}
 	InitConsensus()
 
-	procs, indexs := processors()
+	procs, _ := processors()
 
 	mems := make([]PubKeyInfo, 0)
 	for _, proc := range procs {
@@ -214,7 +228,7 @@ func TestGenesisGroup(t *testing.T) {
 
 	write := false
 	for id, p := range procs {
-		index := indexs[p.getPrefix()]
+		//index := indexs[p.getPrefix()]
 
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
@@ -236,7 +250,7 @@ func TestGenesisGroup(t *testing.T) {
 
 		log.Println()
 
-		ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
+		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
 
 		var sig groupsig.Signature
 		sig.Deserialize(jg.GroupSec.SecretSign)

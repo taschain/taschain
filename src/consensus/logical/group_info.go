@@ -39,6 +39,7 @@ type StaticGroupInfo struct {
 func NewDummySGIFromGroupRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
 		GIS:           grm.GI,
+		ParentId: 		grm.GI.ParentID,
 		Members:       grm.MEMS,
 		MemIndex:      make(map[string]int),
 	}

@@ -784,6 +784,11 @@ const HTMLTEM = `<!DOCTYPE html>
                     if (rdata.result !== undefined){
                         let block_height = $("#group_height");
                         block_height.text(rdata.result.data)
+                        if (groups.length > 0 && rdata.result.data < groups[groups.length - 1]["height"]) {
+                            groups = []
+                            groupIds.clear()
+                            syncGroup(0)
+                        }
                     }
                     if (rdata.error !== undefined){
                         // $("#t_error").text(rdata.error.message)
@@ -882,6 +887,9 @@ const HTMLTEM = `<!DOCTYPE html>
                         // $("#t_error").text(rdata.error.message)
                     }
                 },
+                error: function (err) {
+                    console.log(err)
+                }
             });
         }
 
@@ -893,10 +901,12 @@ const HTMLTEM = `<!DOCTYPE html>
         syncGroupHeight();
         syncGroup(0)
         setInterval(function () {
-            syncBlockHeight();
             if (groups.length > 0) {
                 syncGroup(groups[groups.length-1]["height"]+1)
+            } else {
+                syncGroup(0)
             }
+            syncBlockHeight();
         }, 1000);
         ref = setInterval(function(){
             syncNodes();

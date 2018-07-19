@@ -86,7 +86,11 @@ func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *St
 
 //检查当前用户是否是建组发起人
 func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo) groupsig.ID {
-	data := gm.processor.getGroupSecret(group.GroupID).SecretSign
+	secret := gm.processor.getGroupSecret(group.GroupID)
+	if secret == nil {
+		return groupsig.ID{}
+	}
+	data := secret.SecretSign
 	data = append(data, bh.Signature...)
 	hash := rand.Data2CommonHash(data)
 	biHash := hash.Big()

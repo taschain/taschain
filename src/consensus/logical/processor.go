@@ -8,8 +8,6 @@ import (
 	"log"
 	"consensus/ticker"
 	"middleware/types"
-	"vm/ethdb"
-	"core/datasource"
 )
 
 var PROC_TEST_MODE bool
@@ -34,7 +32,7 @@ type Processor struct {
 	futureBlockMsgs 	*FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs 	*FutureMessageHolder //存储缺失前一块的验证消息
 
-	storage 	ethdb.Database
+	//storage 	ethdb.Database
 	ready 		bool //是否已初始化完成
 
 	//////链接口
@@ -72,16 +70,16 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	p.mi = &mi
 	p.globalGroups = NewGlobalGroups(p.GroupChain)
 	p.joiningGroups = NewJoiningGroups()
-	p.belongGroups = NewBelongGroups()
+	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
 	p.blockContexts = NewCastBlockContexts()
 	p.groupManager = NewGroupManager(p)
 
-	db, err := datasource.NewDatabase(STORE_PREFIX)
-	if err != nil {
-		log.Printf("NewDatabase error %v\n", err)
-		return false
-	}
-	p.storage = db
+	//db, err := datasource.NewDatabase(STORE_PREFIX)
+	//if err != nil {
+	//	log.Printf("NewDatabase error %v\n", err)
+	//	return false
+	//}
+	//p.storage = db
 	//p.sci.Init()
 
 	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
@@ -126,35 +124,33 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd SignData) bool {
 }
 
 //检查铸块组是否合法
-func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (result bool) {
+func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
 	//to do : 检查是否基于链上最高块的出块
 	//defer func() {
 	//	log.Printf("isCastGroupLeagal result=%v.\n", result)
 	//}()
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
-		panic("isCastGroupLeagal, group id Deserialize failed.")
+		panic("isCastGroupLegal, group id Deserialize failed.")
 	}
 
 	selectGroupId := p.calcCastGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
 		return false
 	}
-
-	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
-	if groupInfo == nil {
-		log.Printf("isCastGroupLeagal: getGroupById nil, id=%v\n", GetIDPrefix(*selectGroupId))
+	if !selectGroupId.IsEqual(gid) {
+		log.Printf("isCastGroupLegal failed, expect group=%v, receive cast group=%v.\n", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
+		log.Printf("qualified group num is %v\n", len(p.GetCastQualifiedGroups(bh.Height)))
 		return false
 	}
 
-	if groupInfo.GroupID.IsEqual(gid) {
-		return true
-	} else {
-		log.Printf("isCastGroupLeagal failed, expect group=%v, real cast group=%v.\n", GetIDPrefix(groupInfo.GroupID), GetIDPrefix(gid))
-		//panic("isBHCastLegal failed, not expect group")  非法铸块组 直接跳过就行了吧?
+	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
+	if !groupInfo.GroupID.IsValid() {
+		log.Printf("selectedGroup is not valid, expect gid=%v, real gid=%v\n", GetIDPrefix(*selectGroupId), GetIDPrefix(groupInfo.GroupID))
+		return false
 	}
 
-	return result
+	return true
 }
 
 

@@ -1,9 +1,10 @@
 package logical
 
 import (
-	"encoding/json"
 	"consensus/groupsig"
 	"log"
+	"strings"
+	"common"
 )
 
 /*
@@ -12,34 +13,12 @@ import (
 **  Description: 
 */
 
-var STORE_PREFIX = "consensus_store"
-
-func (p *Processor) saveJoinedGroup(jg *JoinedGroup) {
-	buf, err := json.Marshal(jg)
-	if err != nil {
-		panic("Processor::Save Marshal failed ." + err.Error())
+func (p *Processor) genBelongGroupStoreFile() string {
+	storeFile := consensusConfManager.GetString("joined_group_store", "")
+	if strings.TrimSpace(storeFile) == "" {
+		storeFile = "joined_group.config." + common.GlobalConf.GetString("chain", "database", "")
 	}
-	p.storage.Put(jg.GroupID.Serialize(), buf)
-}
-
-
-func (p *Processor) loadJoinedGroup(gid *groupsig.ID) *JoinedGroup {
-	ret, err := p.storage.Get(gid.Serialize())
-	if err != nil {
-		log.Printf("loadJoinedGroup fail, err=%v\n", err.Error())
-		return nil
-	}
-	if ret == nil {
-		return nil
-	}
-
-	var jg = new(JoinedGroup)
-	err = json.Unmarshal(ret, jg)
-	if err != nil {
-		log.Printf("loadJoinedGroup unmarshal fail, err=%v\n", err.Error())
-		return nil
-	}
-	return jg
+	return storeFile
 }
 
 func (p *Processor) prepareMiner()  {
@@ -49,17 +28,22 @@ func (p *Processor) prepareMiner()  {
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
 
-	log.Printf("prepareMiner get groups from groupchain, len=%v\n", len(rets))
+	storeFile := p.genBelongGroupStoreFile()
+
+	belongs := NewBelongGroups(storeFile)
+	belongs.load()
+
+	log.Printf("prepareMiner get groups from groupchain, len=%v, belongGroup len=%v\n", len(rets), belongs.groupSize())
 	for _, gidBytes := range rets {
 		coreGroup := p.GroupChain.GetGroupById(gidBytes)
 		if coreGroup == nil {
 			panic("buildGlobalGroups getGroupById failed! gid=" + string(gidBytes))
 		}
-		log.Printf("coreGroup %+v, gid=%v\n", coreGroup, gidBytes)
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
 		sgi := NewSGIFromCoreGroup(coreGroup)
+		log.Printf("load group=%v\n", GetIDPrefix(sgi.GroupID))
 		if !sgi.CastQualified(topHeight) {
 			continue
 		}
@@ -71,13 +55,14 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		if sgi.MemExist(p.GetMinerID()) {
-			gid := &sgi.GroupID
-			jg := p.loadJoinedGroup(gid)
+			gid := sgi.GroupID
+			jg := belongs.getJoinedGroup(gid)
 			if jg == nil {
-				panic("cannot find joinedgroup infos! gid=" + GetIDPrefix(*gid))
+				log.Println("cannot find joinedgroup infos! gid=" + GetIDPrefix(gid))
+				continue
 			}
 			p.joinGroup(jg, false)
-			p.prepareForCast(*gid)
+			p.prepareForCast(gid)
 		}
 	}
 }
@@ -89,4 +74,15 @@ func (p *Processor) Ready() bool {
 
 func (p *Processor) GetAvailableGroupsAt(height uint64) []*StaticGroupInfo {
     return p.globalGroups.GetAvailableGroups(height)
+}
+
+
+func (p *Processor) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
+	return p.globalGroups.GetCastQualifiedGroups(height)
+}
+
+func (p *Processor) Finalize() {
+	if p.belongGroups != nil {
+		p.belongGroups.commit()
+	}
 }

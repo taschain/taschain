@@ -16,6 +16,7 @@ import (
 	"common"
 	"consensus/mediator"
 	"consensus/logical"
+	"middleware/types"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -181,8 +182,28 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 }
 
 func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
-	groups := mediator.Proc.GetAvailableGroupsAt(height)
+	groups := mediator.Proc.GetCastQualifiedGroups(height)
 	return &Result{"success", len(groups)}, nil
+}
+
+func convertGroup(g *types.Group) map[string]interface{} {
+	gmap := make(map[string]interface{})
+	if g.Id != nil && len(g.Id) != 0 {
+		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
+		gmap["dummy"] = false
+	} else {
+		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
+		gmap["dummy"] = true
+	}
+	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+	gmap["begin_height"] = g.BeginHeight
+	gmap["dismiss_height"] = g.DismissHeight
+	mems := make([]string, 0)
+	for _, mem := range g.Members {
+		mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
+	}
+	gmap["members"] = mems
+	return gmap
 }
 
 func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
@@ -193,32 +214,9 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 	ret := make([]map[string]interface{}, 0)
 	h := height
 	for _, g := range groups {
-		gmap := make(map[string]interface{})
+		gmap := convertGroup(g)
 		gmap["height"] = h
 		h++
-		if g.Id != nil && len(g.Id) != 0 {
-			gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
-			gmap["dummy"] = false
-			gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
-			gmap["begin_height"] = g.BeginHeight
-			gmap["dismiss_height"] = g.DismissHeight
-			mems := make([]string, 0)
-			for _, mem := range g.Members {
-				mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
-			}
-			gmap["members"] = mems
-		} else {
-			gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
-			gmap["dummy"] = true
-			gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
-			gmap["begin_height"] = g.BeginHeight
-			gmap["dismiss_height"] = g.DismissHeight
-			mems := make([]string, 0)
-			for _, mem := range g.Members {
-				mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
-			}
-			gmap["members"] = mems
-		}
 		ret = append(ret, gmap)
 	}
 	return &Result{"success", ret}, nil

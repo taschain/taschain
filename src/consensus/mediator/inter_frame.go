@@ -46,6 +46,7 @@ func StartMiner() bool {
 
 //结束矿工进程，不再参与铸块。
 func StopMiner() {
+	Proc.Finalize()
 	return
 }
 

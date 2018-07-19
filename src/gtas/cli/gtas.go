@@ -146,6 +146,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	fmt.Println("exiting...")
 	core.BlockChainImpl.Close()
 	taslog.Close()
+	mediator.StopMiner()
 	if gtas.inited {
 		network.NodeOffline(mediator.Proc.GetMinerID().Serialize())
 		fmt.Println("exit success")
