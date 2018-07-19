@@ -7,6 +7,7 @@ import (
 
 	"strconv"
 	"common"
+	"fmt"
 )
 
 const (
@@ -144,7 +145,7 @@ func (n *network) handleMessage(b []byte, from string) {
 		return
 	}
 
-	//fmt.Printf("message.Code:%v body:%v from:%v \n ", *message.Code,message.Body,from)
+	fmt.Printf("message.Code:%v body:%v from:%v \n ", message.Code,message.Body,from)
 	code := message.Code
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
