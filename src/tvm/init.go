@@ -14,16 +14,21 @@ int callOnMeGo_cgo(int in)
 	return callOnMeGo(in);
 }
 
+void wrap_testAry(int i)
+{
+    void go_testAry(int);
+    go_testAry(i);
+}
+
 
 */
 import "C"
-import (
-	"unsafe"
-)
+import "unsafe"
 
 func VmTest() {
 	C.tvm_start()
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
+	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
 	C.tvm_execute(C.CString("import tas\ntas.test()"))
 	//fmt.Printf("Go.main(): calling C function with callback to us\n")
 	//C.some_c_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))

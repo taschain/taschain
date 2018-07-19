@@ -10,28 +10,10 @@ package tvm
 import "C"
 import (
 	"fmt"
-	"unsafe"
 )
-//export callBack
-func callBack(function *C.char, cArray *C.char, length C.int) {
-	params := C.GoStringN(cArray, length)
-	switch function {
-	case "test":
-		testNoString(params)
-	default:
-		panic("")
-	}
-}
-//export callBackString
-func callBackString(function *C.char, cArray unsafe.Pointer, length C.int) string{
-	params := C.GoBytes(cArray, length)
-	switch function {
-	case "test":
-		return testString(params)
-	default:
-		panic("")
-	}
-}
+
+
+
 
 func testString(params []byte) string{
 	return "testString"
