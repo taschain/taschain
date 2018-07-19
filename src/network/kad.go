@@ -703,7 +703,7 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 	if node != nil {
 
 		//fmt.Printf("bond  add node  size:%v  id: %v  \n", kad.len(), node.Id)
-		//kad.add(node)
+		kad.add(node)
 		//kad.db.updateFindFails(id, 0)
 	}
 	return node, result
