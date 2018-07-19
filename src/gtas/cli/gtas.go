@@ -291,6 +291,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
+	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo,id)
 	ok = mediator.ConsensusInit(minerInfo)
