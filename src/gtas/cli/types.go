@@ -40,3 +40,9 @@ type PubKeyInfo struct {
 	PubKey string `json:"pub_key"`
 	ID string `json:"id"`
 }
+
+type ConnInfo struct {
+	Id      string `json:"id"`
+	Ip      string `json:"ip"`
+	TcpPort string `json:"tcp_port"`
+}

@@ -2,12 +2,11 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"network/p2p"
-	"github.com/gogo/protobuf/proto"
 	"core"
-	"network"
+	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
+	"network"
 	"time"
 )
 
@@ -20,15 +19,8 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 		network.Logger.Errorf("[peer]Discard BroadcastMembersInfo because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.GROUP_MEMBER_MSG, Body: body}
-
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	m := network.Message{Code: network.GROUP_MEMBER_MSG, Body: body}
+	network.Network.Broadcast(m)
 }
 
 //广播 组初始化消息  全网广播
@@ -38,16 +30,10 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.GROUP_INIT_MSG, Body: body}
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
+	network.Network.Broadcast(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
 
 }
 
@@ -59,8 +45,8 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 	id := spm.Dest.GetString()
-	m := p2p.Message{Code: p2p.KEY_PIECE_MSG, Body: body}
-	p2p.Server.SendMessage(m, id)
+	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
+	network.Network.Send(id,m)
 }
 
 //组内广播签名公钥
@@ -70,7 +56,7 @@ func SendSignPubKey(spkm ConsensusSignPubKeyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.SIGN_PUBKEY_MSG, Body: body}
+	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
 	groupBroadcast(m, spkm.DummyID)
 }
 
@@ -81,17 +67,11 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusGroupInitedMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.GROUP_INIT_DONE_MSG, Body: body}
+	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
 
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
+	network.Network.Broadcast(m)
 	//发给自己
-	p2p.Server.SendMessage(m, p2p.Server.SelfNetInfo.Id)
+	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -105,7 +85,7 @@ func SendCurrentGroupCast(ccm *ConsensusCurrentMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of marshal error::%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CURRENT_GROUP_CAST_MSG, Body: body}
+	m := network.Message{Code: network.CURRENT_GROUP_CAST_MSG, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.GroupID)
 	if e1 != nil {
@@ -122,7 +102,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CAST_VERIFY_MSG, Body: body}
+	m := network.Message{Code: network.CAST_VERIFY_MSG, Body: body}
 
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
@@ -141,14 +121,14 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.VARIFIED_CAST_MSG, Body: body}
+	m := network.Message{Code: network.VARIFIED_CAST_MSG, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(cvm.BH.GroupId)
 	if e1 != nil {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.Id, cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
+	//network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.ID.GetHexString(), cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
 	groupBroadcast(m, groupId)
 }
 
@@ -160,23 +140,13 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.Id, cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
-	m := p2p.Message{Code: p2p.NEW_BLOCK_MSG, Body: body}
-
-	//network.Logger.Debugf("[peer]groupBroadcast message! code:%d,block height:%d,block hash:%x", m.Code, cbm.Block.Header.Height, cbm.Block.Header.Hash)
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-
-		if id != "" {
-			p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-		}
-	}
-
+	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
+	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
+	network.Network.Broadcast(m)
 }
 
 //组内广播
-func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
+func groupBroadcast(m network.Message, groupId groupsig.ID) {
 	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
 	if group == nil {
 		network.Logger.Errorf("[peer] groupBroadcast Get nil group by id:%s\n", groupId.GetString())
@@ -190,8 +160,7 @@ func groupBroadcast(m p2p.Message, groupId groupsig.ID) {
 			return
 		}
 		//network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, id.GetString(),common.Sha256(m.Body))
-		p2p.Server.SendMessage(m, id.GetString())
-
+		network.Network.Send(id.GetString(),m)
 	}
 }
 
@@ -204,7 +173,7 @@ func SendCreateGroupRawMessage(msg *ConsensusCreateGroupRawMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CREATE_GROUP_RAW, Body: body}
+	m := network.Message{Code: network.CREATE_GROUP_RAW, Body: body}
 
 	var groupId = msg.GI.ParentID
 
@@ -217,9 +186,9 @@ func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := p2p.Message{Code: p2p.CREATE_GROUP_SIGN, Body: body}
+	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	p2p.Server.SendMessage(m, msg.Launcher.GetString())
+	network.Network.Send(msg.Launcher.GetString(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

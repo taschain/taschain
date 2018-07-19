@@ -9,7 +9,6 @@ import (
 	"network"
 	"os"
 
-	"network/p2p"
 	"core/net/handler"
 	chandler "consensus/net/handler"
 	"consensus/mediator"
@@ -270,11 +269,8 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return err
 	}
 
-	//TODO 初始化日志， network初始化
-	p2p.SetChainHandler(new(handler.ChainHandler))
-	p2p.SetConsensusHandler(new(chandler.ConsensusHandler))
 
-	err = network.InitNetwork(configManager, isSuper)
+	err = network.Init(*configManager,isSuper,new(handler.ChainHandler),new(chandler.ConsensusHandler))
 	if err != nil {
 		return err
 	}
@@ -288,7 +284,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := p2p.Server.SelfNetInfo.Id
+	id := network.Network.Self.ID.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
@@ -296,8 +292,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	}
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
-	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
-	ShowPubKeyInfo(minerInfo, id)
+	ShowPubKeyInfo(minerInfo,id)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
@@ -329,11 +324,11 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo, id string) {
+func ShowPubKeyInfo(info logical.MinerInfo,id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("PubKey: %s;\nID: %s;\nIDHex:%s;\n", pubKey, id, groupsig.NewIDFromString(id).GetHexString())
+	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
-	fmt.Printf("pubkey_info json: %s", js)
+	fmt.Printf("pubkey_info json: %s\n", js)
 }
 
 func NewGtas() *Gtas {

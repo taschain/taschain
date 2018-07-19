@@ -8,6 +8,9 @@ import (
 	"log"
 	"consensus/ticker"
 	"middleware/types"
+	"vm/ethdb"
+	"core/datasource"
+	"network"
 )
 
 var PROC_TEST_MODE bool
@@ -162,6 +165,14 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID,
 		log.Printf("create group error, group max members=%v, real=%v.\n", GetGroupMemberNum(), len(miners))
 		return -1
 	}
+
+	//创建p2p组网络
+	ids := []string{}
+	for _,miner := range (miners) {
+		ids = append(ids,miner.GetID().GetString())
+	}
+	network.Network.AddGroup(gn,ids)
+
 	var gis ConsensusGroupInitSummary
 	//gis.ParentID = p.GetMinerID()
 

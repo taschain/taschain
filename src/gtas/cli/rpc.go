@@ -5,7 +5,7 @@ import (
 	"vm/rpc"
 
 	"fmt"
-	"network/p2p"
+	"network"
 	"strconv"
 	"core"
 	"encoding/hex"
@@ -98,13 +98,13 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		fmt.Println(err)
-	//	}
-	//}()
-	nodes := p2p.Server.GetConnInfo()
-	return &Result{"", nodes}, nil
+
+	nodes :=network.Network.ConnInfo()
+	conns := make([]ConnInfo,0)
+	for _,n := range nodes{
+		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
+	}
+	return &Result{"", conns}, nil
 }
 
 // TransPool 查询缓冲区的交易信息。
@@ -113,7 +113,6 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
-			Hash:v.Hash.String(),
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),

@@ -1,0 +1,50 @@
+syntax = "proto3";
+package network;
+
+enum MessageType 
+{ 
+    MessageNone = 0;
+    MessagePing = 1;
+	MessagePong = 2;
+	MessageFindnode = 3;
+	MessageNeighbors = 4;
+    MessageData = 5;
+    
+};
+
+message RpcNode  {
+    string IP = 1; 
+    int32 Port = 2;
+    string ID =3;
+}
+
+message RpcEndPoint  {
+	string IP = 1; 
+    int32 Port = 2;
+}
+
+
+message Ping{
+	int32 Version =1;
+    RpcEndPoint From =2;
+    RpcEndPoint To =3;    
+	uint64 Expiration =4;
+}
+
+
+message Pong{
+	RpcEndPoint To =1;
+    bytes ReplyToken =2;    
+	uint64 Expiration =3;
+}
+
+message FindNode {
+    bytes Target =1;
+    uint64 Expiration =2;
+}
+
+message Neighbors {
+    repeated RpcNode Nodes =1;
+    uint64 Expiration =2;
+}
+
