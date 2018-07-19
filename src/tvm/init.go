@@ -13,6 +13,8 @@ int callOnMeGo_cgo(int in)
 	int callOnMeGo(int);
 	return callOnMeGo(in);
 }
+
+
 */
 import "C"
 import (
