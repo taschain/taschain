@@ -34,11 +34,11 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	seeds := make([]*Node, 0, 16)
 	if err == nil {
 		bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
-		if bnNode.ID != self.ID && !isSuper {
+		if bnNode.Id != self.Id && !isSuper {
 			seeds = append(seeds, bnNode)
 		}
 	}
-	netConfig := Config{PrivateKey: &self.PrivateKey, ID: self.ID, ListenAddr: &net.UDPAddr{IP: self.IP, Port: self.Port}, Bootnodes: seeds}
+	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds,NatTraversalEnable:false}
 
 	var netcore NetCore
 	n,_ := netcore.InitNetCore(netConfig)

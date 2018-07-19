@@ -11,15 +11,20 @@ enum MessageType
     MessageData = 5;
     
 };
-
+enum DataType
+{
+    DataNormal = 0;
+    DataGroup = 1;
+	DataGlobal= 2;
+};
 message RpcNode  {
-    string IP = 1; 
+    string Ip = 1;
     int32 Port = 2;
-    string ID =3;
+    string Id =3;
 }
 
 message RpcEndPoint  {
-	string IP = 1; 
+	string Ip = 1;
     int32 Port = 2;
 }
 
@@ -47,4 +52,11 @@ message Neighbors {
     repeated RpcNode Nodes =1;
     uint64 Expiration =2;
 }
+
+message Data {
+    DataType  dataType =1;
+    string groupId =2;
+    uint64 Expiration =3;
+}
+
 

@@ -87,6 +87,7 @@ func (p*Peer ) isEmpty() bool{
 type PeerManager struct {
 	peers map[uint64]*Peer //key为网络ID
 	mutex sync.Mutex
+	natTraversalEnable bool
 }
 
 func newPeerManager() *PeerManager {
@@ -120,8 +121,11 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 			p.Port = toaddr.Port
 			p.sendList = append(p.sendList, packet)
 
-			//P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
-			P2PConnect(netID, "47.98.212.107", 70)
+			if pm.natTraversalEnable {
+				P2PConnect(netID, "47.98.212.107", 70)
+			} else {
+				P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
+			}
 
 		}
 	}

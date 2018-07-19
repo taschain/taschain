@@ -284,7 +284,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := network.Network.Self.ID.GetHexString()
+	id := network.Network.Self.Id.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
