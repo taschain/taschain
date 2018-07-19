@@ -126,7 +126,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 			} else {
 				P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-
+			fmt.Printf("P2PConnect：ID: %v IP: %v Port:%v\n ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 

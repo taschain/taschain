@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"common"
 	"fmt"
-	"crypto/sha256"
 )
 
 const (
