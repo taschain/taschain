@@ -70,6 +70,7 @@ func (bg *BelongGroups) commit() bool {
 }
 
 func (bg *BelongGroups) load() bool {
+	log.Println("load belongGroups from", bg.storeFile)
     data, err := ioutil.ReadFile(bg.storeFile)
 	if err != nil {
 		log.Printf("load file %v fail, err %v", bg.storeFile, err.Error())
@@ -81,6 +82,7 @@ func (bg *BelongGroups) load() bool {
 		log.Printf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
 		return false
 	}
+	log.Println("load belongGroups size", bg.groupSize())
 	for _, jg := range gs {
 		bg.addJoinedGroup(jg)
 	}

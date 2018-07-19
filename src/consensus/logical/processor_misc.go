@@ -31,7 +31,9 @@ func (p *Processor) prepareMiner()  {
 	storeFile := p.genBelongGroupStoreFile()
 
 	belongs := NewBelongGroups(storeFile)
-	belongs.load()
+	if !belongs.load() {
+
+	}
 
 	log.Printf("prepareMiner get groups from groupchain, len=%v, belongGroup len=%v\n", len(rets), belongs.groupSize())
 	for _, gidBytes := range rets {
