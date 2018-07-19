@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"sync/atomic"
 )
 
 /*
@@ -41,16 +42,21 @@ func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
 type BelongGroups struct {
 	groups sync.Map	//idHex -> *JoinedGroup
 	storeFile string
+	dirty	int32
 }
 
 func NewBelongGroups(file string) *BelongGroups {
 	return &BelongGroups{
 		groups: sync.Map{},
 		storeFile: file,
+		dirty: 0,
 	}
 }
 
 func (bg *BelongGroups) commit() bool {
+	if atomic.LoadInt32(&bg.dirty) != 1 {
+		return false
+	}
     gs := make([]*JoinedGroup, 0)
     bg.groups.Range(func(key, value interface{}) bool {
 		jg := value.(*JoinedGroup)
@@ -66,6 +72,7 @@ func (bg *BelongGroups) commit() bool {
 		log.Println("store belongGroups fail", err)
 		return false
 	}
+	atomic.CompareAndSwapInt32(&bg.dirty, 1, 0)
 	return true
 }
 
@@ -116,12 +123,14 @@ func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
+	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 }
 
 func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
 	for _, gid := range gids {
 		bg.groups.Delete(gid.GetHexString())
 	}
+	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 	bg.commit()
 }
 
