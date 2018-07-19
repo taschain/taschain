@@ -8,8 +8,6 @@ import (
 	"log"
 	"consensus/ticker"
 	"middleware/types"
-	"vm/ethdb"
-	"core/datasource"
 	"network"
 )
 

@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"core"
 	"common"
-	"github.com/libp2p/go-libp2p-peer"
-	"network/p2p"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,24 +26,24 @@ func TestBelongGroups(t *testing.T) {
 	}
 	t.Log(belongs)
 }
-
-func GetIdFromPublicKey(p common.PublicKey) string {
-	pubKey := &p2p.Pubkey{PublicKey: p}
-	pID, e := peer.IDFromPublicKey(pubKey)
-	if e != nil {
-		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
-		panic("GetIdFromPublicKey error!")
-	}
-	id := pID.Pretty()
-	return id
-}
+//
+//func GetIdFromPublicKey(p common.PublicKey) string {
+//	pubKey := &p2p.Pubkey{PublicKey: p}
+//	pID, e := peer.IDFromPublicKey(pubKey)
+//	if e != nil {
+//		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
+//		panic("GetIdFromPublicKey error!")
+//	}
+//	id := pID.Pretty()
+//	return id
+//}
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	scm := cm.GetSectionManager("network")
 	privateKey := common.HexStringToSecKey(scm.GetString("private_key", ""))
 	pk := privateKey.GetPubKey()
-	id := GetIdFromPublicKey(pk)
+	id := pk.GetAddress().GetHexString()
 	proc := new(Processor)
 	proc.Init(NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
 	return proc
