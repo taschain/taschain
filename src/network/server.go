@@ -75,7 +75,7 @@ func (n *network) Send(targetId string, msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	if targetId == n.Self.ID.GetHexString() {
+	if targetId == n.Self.Id.GetHexString() {
 		go n.sendSelf(bytes)
 		return nil
 	}
@@ -130,7 +130,7 @@ func (n *network) RemoveGroup(ID string) {
 }
 
 func (n *network) sendSelf(b []byte) {
-	n.handleMessage(b, n.Self.ID.GetHexString())
+	n.handleMessage(b, n.Self.Id.GetHexString())
 }
 
 func (n *network) handleMessage(b []byte, from string) {

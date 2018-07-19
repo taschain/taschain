@@ -22,7 +22,7 @@ func newGroup(ID string, members []NodeID) *Group {
 }
 
 func (g *Group) addGroup(node *Node) {
-	g.nodes[node.ID] = node
+	g.nodes[node.Id] = node
 }
 
 func (g *Group) doRefresh() {
@@ -112,9 +112,9 @@ func (gm *GroupManager) SendDataToGroup(id string, packet *bytes.Buffer) {
 	for _, node := range g.nodes {
 		if node != nil {
 
-			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.IP, node.Port)
+			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.Ip, node.Port)
 
-			go Network.netCore.PM.write(node.ID, &net.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet)
+			go Network.netCore.PM.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
 	}
 	return

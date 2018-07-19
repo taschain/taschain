@@ -33,7 +33,7 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
 	network.Network.Broadcast(m)
 	//发给自己
-	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
+	network.Network.Send(network.Network.Self.Id.GetHexString(),m)
 
 }
 
@@ -71,7 +71,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 
 	network.Network.Broadcast(m)
 	//发给自己
-	network.Network.Send(network.Network.Self.ID.GetHexString(),m)
+	network.Network.Send(network.Network.Self.Id.GetHexString(),m)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------

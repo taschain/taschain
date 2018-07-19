@@ -29,8 +29,8 @@ type Node struct {
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
-	ID      NodeID
-	IP     	net.IP
+	Id      NodeID
+	Ip     	net.IP
 	Port    int
 	NatType int
 
@@ -52,20 +52,20 @@ func NewNode(id NodeID, ip net.IP, Port int) *Node {
 		ip = ipv4
 	}
 	return &Node{
-		IP:   ip,
+		Ip:   ip,
 		Port: Port,
-		ID:   id,
+		Id:   id,
 		sha:  SHA256Hash(id[:]),
 	}
 }
 
 func (n *Node) addr() *net.UDPAddr {
-	return &net.UDPAddr{IP: n.IP, Port: int(n.Port)}
+	return &net.UDPAddr{IP: n.Ip, Port: int(n.Port)}
 }
 
 // Incomplete returns true for nodes with no IP address.
 func (n *Node) Incomplete() bool {
-	return n.IP == nil
+	return n.Ip == nil
 }
 
 // checks whether n is a valid complete node.
@@ -77,7 +77,7 @@ func (n *Node) validateComplete() error {
 		return errors.New("missing port")
 	}
 
-	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
+	if n.Ip.IsMulticast() || n.Ip.IsUnspecified() {
 		return errors.New("invalid IP (multicast/unspecified)")
 	}
 	return nil
@@ -212,7 +212,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 	}
 
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, ID: NodeID(id), IP: net.ParseIP(ip), Port: port}
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: NodeID(id), Ip: net.ParseIP(ip), Port: port}
 	fmt.Print(n.String())
 	return &n, nil
 }
@@ -261,7 +261,7 @@ func getAvailablePort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.ID.GetHexString() + "\nIP is:" + s.IP.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
 	return str
 }
 
@@ -276,7 +276,7 @@ func savePrivateKey(privateKeyStr string, config common.ConfManager) {
 }
 
 func (s Node) GenMulAddrStr() string {
-	return ToMulAddrStr(s.IP.String(), "tcp", s.Port)
+	return ToMulAddrStr(s.Ip.String(), "tcp", s.Port)
 }
 
 //"/ip4/127.0.0.1/udp/1234"

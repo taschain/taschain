@@ -57,7 +57,7 @@ type NetCore struct {
 	kad *Kad
 	PM  *PeerManager  //节点连接管理器
 	GM  *GroupManager //组管理器
-
+	natTraversalEnable bool;
 }
 
 type pending struct {
@@ -97,7 +97,7 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 	// if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
 	// 	return nil, errors.New("not contained in netrestrict whitelist")
 	// }
-	n := NewNode(common.HexStringToAddress(rn.ID), net.ParseIP(rn.IP), int(rn.Port))
+	n := NewNode(common.HexStringToAddress(rn.Id), net.ParseIP(rn.Ip), int(rn.Port))
 	err := n.validateComplete()
 	return n, err
 }
@@ -108,14 +108,12 @@ var lock = &sync.Mutex{}
 
 // Config holds Table-related settings.
 type Config struct {
-	// These settings are required and configure the UDP listener:
 	PrivateKey *common.PrivateKey
-	// These settings are optional:
 	ListenAddr *net.UDPAddr // local address announced in the DHT
 	NodeDBPath string       // if set, the node database is stored at this filesystem location
-	//NetRestrict  *netutil.Netlist  // network whitelist
-	ID        NodeID
+	Id        NodeID
 	Bootnodes []*Node           // list of bootstrap nodes
+	NatTraversalEnable 	bool
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -124,25 +122,26 @@ func MakeEndPoint(addr *net.UDPAddr, tcpPort int32) RpcEndPoint {
 	if ip == nil {
 		ip = addr.IP.To16()
 	}
-	return RpcEndPoint{IP: ip.String(), Port: int32(addr.Port)}
+	return RpcEndPoint{Ip: ip.String(), Port: int32(addr.Port)}
 }
 
 func nodeToRPC(n *Node) RpcNode {
-	return RpcNode{ID: n.ID.GetHexString(), IP: n.IP.String(), Port: int32(n.Port)}
+	return RpcNode{Id:n.Id.GetHexString(), Ip: n.Ip.String(), Port: int32(n.Port)}
 }
 
 //Init 初始化
 func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 
 	nc.priv = cfg.PrivateKey
-	nc.id = cfg.ID
+	nc.id = cfg.Id
 	nc.closing = make(chan struct{})
 	nc.gotreply = make(chan reply)
 	nc.addpending = make(chan *pending)
 	nc.unhandle = make(chan *Peer)
-
-	nc.nid = NetCoreNodeID(cfg.ID)
+	nc.natTraversalEnable = cfg.NatTraversalEnable
+	nc.nid = NetCoreNodeID(cfg.Id)
 	nc.PM = newPeerManager()
+	nc.PM.natTraversalEnable = cfg.NatTraversalEnable
 	nc.GM = newGroupManager()
 	realaddr := cfg.ListenAddr
 
@@ -152,11 +151,14 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 	P2PConfig(nc.nid)
 
 
-	//P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
-	P2PProxy("47.98.212.107", uint16(70))
+	if nc.natTraversalEnable {
+		P2PProxy("47.98.212.107", uint16(70))
+	}else {
+		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
+	}
 
 	nc.ourEndPoint = MakeEndPoint(realaddr, int32(realaddr.Port))
-	kad, err := newKad(nc, cfg.ID, realaddr, cfg.NodeDBPath, cfg.Bootnodes)
+	kad, err := newKad(nc, cfg.Id, realaddr, cfg.NodeDBPath, cfg.Bootnodes)
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +386,7 @@ var (
 
 func init() {
 	p := Neighbors{Expiration: ^uint64(0)}
-	maxSizeNode := RpcNode{IP: make(net.IP, 16).String(), Port: ^int32(0)}
+	maxSizeNode := RpcNode{Ip: make(net.IP, 16).String(), Port: ^int32(0)}
 	for n := 0; ; n++ {
 		p.Nodes = append(p.Nodes, &maxSizeNode)
 		pdata, err := proto.Marshal(&p)
@@ -633,10 +635,10 @@ func (nc *NetCore) handlePing(req *Ping, fromID NodeID) error {
 	if p != nil {
 		//fmt.Printf("update  ip \n ")
 
-		p.IP = net.ParseIP(req.From.IP)
+		p.IP = net.ParseIP(req.From.Ip)
 		p.Port =  int(req.From.Port)
 	}
-	from := net.UDPAddr{IP: net.ParseIP(req.From.IP), Port: int(req.From.Port)}
+	from := net.UDPAddr{IP: net.ParseIP(req.From.Ip), Port: int(req.From.Port)}
 	to := MakeEndPoint(&from, req.From.Port)
 	nc.Send(fromID, &from, MessageType_MessagePong, &Pong{
 		To:         &to,
@@ -687,7 +689,7 @@ func (nc *NetCore) handleFindNode(req *FindNode, fromID NodeID) error {
 	for _, n := range closest {
 		//if netutil.CheckRelayIP(from.IP, n.IP) == nil {
 		node := nodeToRPC(n)
-		if len(node.IP) >0 && node.Port >0 {
+		if len(node.Ip) >0 && node.Port >0 {
 			p.Nodes = append(p.Nodes, &node)
 		}
 		//fmt.Printf("handleFindNode id:%v      ip:%v   port:%v\n ", node.ID, node.IP, node.Port)

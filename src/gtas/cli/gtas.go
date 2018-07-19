@@ -107,7 +107,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 		keys3 := LoadPubKeyInfo("pubkeys3")
 		fmt.Println("Waiting node to connect...")
 		for {
-			if len(network.Network.ConnInfo()) >=20 {
+			if len(network.Network.ConnInfo()) >=8 {
 				fmt.Println("Connection:")
 				for _, c := range network.Network.ConnInfo() {
 					fmt.Println(c.Id)
@@ -282,7 +282,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := network.Network.Self.ID.GetHexString()
+	id := network.Network.Self.Id.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
