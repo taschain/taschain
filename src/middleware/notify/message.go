@@ -9,6 +9,6 @@ type BlockMessage struct {
 func (m *BlockMessage) GetRaw() []byte {
 	return []byte{}
 }
-func (m *BlockMessage) GetData() struct{} {
-	return struct{}{}
+func (m *BlockMessage) GetData() interface{} {
+	return m.Block
 }

@@ -4,7 +4,7 @@ import "sync"
 
 type Message interface {
 	GetRaw() []byte
-	GetData() struct{}
+	GetData() interface{}
 }
 
 type DummyMessage struct {
@@ -12,7 +12,7 @@ type DummyMessage struct {
 func (d *DummyMessage) GetRaw() []byte {
 	return []byte{}
 }
-func (d *DummyMessage) GetData() struct{} {
+func (d *DummyMessage) GetData() interface{} {
 	return struct{}{}
 }
 
