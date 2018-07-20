@@ -7,6 +7,7 @@ import (
 
 	"strconv"
 	"common"
+	"fmt"
 )
 
 const (
@@ -93,7 +94,7 @@ func (n *network) Multicast(groupId string, msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendDataToGroup(groupId,bytes)
+	n.netCore.SendDataToGroup(groupId, bytes)
 	return nil
 }
 
@@ -144,7 +145,7 @@ func (n *network) handleMessage(b []byte, from string) {
 		return
 	}
 
-	//fmt.Printf("message.Code:%v body:%v from:%v \n ", message.Code,message.Body,from)
+	fmt.Printf("rcv %s from %s ", message.Hash(), from)
 	code := message.Code
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
@@ -177,4 +178,13 @@ func unMarshalMessage(b []byte) (*Message, error) {
 	}
 	m := Message{Code: *message.Code, Body: message.Body}
 	return &m, nil
+}
+
+func (m Message) Hash() string {
+	hash := sha256.New()
+	bytes, err := marshalMessage(m)
+	if err != nil {
+		return ""
+	}
+	return string(hash.Sum(bytes))
 }
