@@ -7,7 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"io"
-	secp "common/secp256k1"
+	secp "vm/crypto/secp256k1"
 )
 
 //用户公钥
