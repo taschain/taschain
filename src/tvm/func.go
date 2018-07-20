@@ -22,22 +22,15 @@ func go_testAry(ary unsafe.Pointer) {
 	//var identifier unsafe.Pointer
 	//identifier = C.CBytes(ary)
 
-	intary :=  (*[5]unsafe.Pointer)(ary)
+	intary :=  (*[2]unsafe.Pointer)(ary)
 
 	fmt.Println(intary)
 
-	for i := 0; i < 5; i++ {
-		//var hdr reflect.SliceHeader
-		//hdr.Data = uintptr(intary[i])
-		//hdr.Len = (int)(unsafe.Sizeof(int(0)))
-
-		testInt := *(*int)(intary[i])
-
-		fmt.Println(testInt)
-
-
-	}
-
+	testInt := *(*int)(intary[0])
+	fmt.Println(testInt)
 	C.free(unsafe.Pointer(intary[0]))
 
+	testStr := C.GoString((*C.char)(intary[1]))
+	fmt.Println(testStr)
+	C.free(unsafe.Pointer(intary[1]))
 }
