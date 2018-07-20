@@ -6,9 +6,9 @@
 #define TVM_TVM_H
 
 
-//#ifdef __cplusplus
-//extern "C" {
-//#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 void tvm_start(void);
 void tvm_test(void);
 void tvm_execute(char *str);
@@ -20,7 +20,11 @@ void tvm_set_testAry_func(testAry_fcn);
 callback_fcn func;
 testAry_fcn testAry;
 
-//#ifdef __cplusplus
-//}
-//#endif
+typedef void (*TransferFunc)(const char*, const char*, int);
+TransferFunc transferFunc;
+void setTransferFunc(TransferFunc);
+
+#ifdef __cplusplus
+}
+#endif
 #endif //TVM_TVM_H

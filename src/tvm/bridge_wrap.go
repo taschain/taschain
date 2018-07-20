@@ -22,6 +22,12 @@ void wrap_testAry(void* p)
     go_testAry(p);
 }
 
+void wrap_transfer(const char* p1, const char* p2, int p3)
+{
+    void transfer(const char*, const char*, int);
+    transfer(p1, p2, p3);
+}
+
 */
 import "C"
 import (
@@ -31,6 +37,7 @@ import (
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
+	C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
 }
 
 func tvm_init() {
