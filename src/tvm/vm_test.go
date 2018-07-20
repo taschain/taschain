@@ -1,7 +1,15 @@
 package tvm
 
-import "testing"
+
+import (
+	"testing"
+)
+
 
 func TestVmTest(t *testing.T) {
 	VmTest()
+}
+
+func TestVmTestContract(t *testing.T) {
+	VmTestContract()
 }
