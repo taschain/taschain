@@ -34,6 +34,20 @@ func VmTest() {
 	//C.some_c_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 }
 
+func VmTestContract() {
+	C.tvm_start()
+	script := `
+from TasAccount import *
 
+def apply():
+    myAccount = TasAccount()
+    myAccount.address = "myAddress"
+    otherAccount = "otherAddress"
+    myAccount.transfer(otherAccount, 50)
+
+apply()
+`
+	C.tvm_execute(C.CString(script))
+}
 
 
