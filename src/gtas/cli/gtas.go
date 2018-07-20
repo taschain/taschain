@@ -263,6 +263,10 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	var err error
 	// 椭圆曲线初始化
 	groupsig.Init(1)
+
+	// 初始化中间件
+	middleware.InitMiddleware()
+
 	// block初始化
 	err = core.InitCore()
 	if err != nil {

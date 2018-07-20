@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+var BUS *Bus
+
 type Bus struct {
 	topics map[string]Topic
 	lock   sync.RWMutex
@@ -54,4 +56,3 @@ func (bus *Bus) Publish(id string, message Message) {
 
 	topic.Handle(message)
 }
-
