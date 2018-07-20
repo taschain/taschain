@@ -624,7 +624,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
 
-		notify.BUS.Publish(notify.BLOCK_ADD_SUCC, &notify.BlockMessage{Block: b,})
+		notify.BUS.Publish(notify.BLOCK_ADD_SUCC, &notify.BlockMessage{Block: *b,})
 	}
 	return status
 
