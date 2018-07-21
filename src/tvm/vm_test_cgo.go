@@ -32,3 +32,32 @@ apply()
 `
 	tvm_execute(script)
 }
+
+func VmTestClass() {
+	tvm_init()
+
+	script := `
+
+from tas import *
+
+test()
+
+tasa = tasaccount()
+
+print(tasa)
+
+#print(tasa.hello())
+
+print("start")
+
+print(tasa.desc)
+
+tasa.desc = "asdfsadf"
+
+print(tasa.desc)
+
+print("end")
+
+`
+	tvm_execute(script)
+}

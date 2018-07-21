@@ -24,6 +24,7 @@ typedef void (*TransferFunc)(const char*, const char*, int);
 TransferFunc transferFunc;
 void setTransferFunc(TransferFunc);
 
+
 #ifdef __cplusplus
 }
 #endif

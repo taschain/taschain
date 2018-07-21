@@ -13,3 +13,7 @@ func TestVmTest(t *testing.T) {
 func TestVmTestContract(t *testing.T) {
 	VmTestContract()
 }
+
+func TestVmTestClass(t *testing.T) {
+	VmTestClass()
+}
