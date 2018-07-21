@@ -10,12 +10,13 @@ func VmTestContract() {
 	tvm_init()
 
 	script := `
+import tas
 class TasAccount():
 
     address = ""
 
     def transfer(self, toAddress, amount):
-        print("From {0} Send to {1} amout: {2}".format(self.address, toAddress, amount))
+       tas.transfer(self.address, toAddress, amount)
 `
 
 	tvm_execute(script)
