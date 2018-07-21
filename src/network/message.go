@@ -56,3 +56,18 @@ func (mm *MessageManager) isForwarded(messageId uint64) bool  {
 	_,ok := mm.messages[messageId]
 	return ok
 }
+
+func (mm *MessageManager) clear()   {
+	mm.mutex.Lock()
+	defer mm.mutex.Unlock()
+	now := time.Now()
+	MessageCacheTime  := 3*time.Minute
+
+	for mid,t := range(mm.messages ) {
+		if now.Sub(t) > MessageCacheTime {
+			delete(mm.messages,mid)
+		}
+	}
+
+	return
+}

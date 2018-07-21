@@ -33,6 +33,7 @@ var (
 // Timeouts
 const (
 	respTimeout    = 500 * time.Millisecond
+	clearMessageCacheTimeout  = time.Minute
 	expiration     = 20 * time.Second
 	connectTimeout = 3 * time.Second
 
@@ -289,12 +290,14 @@ func (nc *NetCore) loop() {
 	var (
 		plist        = list.New()
 		timeout      = time.NewTimer(0)
+		clearMessageCache      = time.NewTicker(clearMessageCacheTimeout)
 		nextTimeout  *pending // head of plist when timeout was last reset
 		contTimeouts = 0      // number of continuous timeouts to do NTP checks
 		ntpWarnTime  = time.Unix(0, 0)
 	)
 	<-timeout.C // ignore first timeout
 	defer timeout.Stop()
+	defer clearMessageCache.Stop()
 
 	resetTimeout := func() {
 		if plist.Front() == nil || nextTimeout == plist.Front().Value {
@@ -370,6 +373,10 @@ func (nc *NetCore) loop() {
 				}
 				contTimeouts = 0
 			}
+
+		case <-clearMessageCache.C:
+			nc.messageManager.clear()
+
 		}
 	}
 }
