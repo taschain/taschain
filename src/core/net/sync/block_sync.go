@@ -54,6 +54,7 @@ func (bs *blockSyncer) SetInit(init bool){
 }
 
 func (bs *blockSyncer) start() {
+	go bs.loop()
 	logger.Debug("[BlockSyncer]Wait for connecting...")
 	for {
 		requestBlockChainTotalQn()
@@ -64,7 +65,6 @@ func (bs *blockSyncer) start() {
 			break
 		}
 	}
-	go bs.loop()
 	bs.sync()
 }
 

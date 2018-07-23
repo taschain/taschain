@@ -67,6 +67,7 @@ func (gs *groupSyncer) IsInit() bool {
 
 func (gs *groupSyncer) start() {
 	logger.Debug("[GroupSyncer]Wait for connecting...")
+	go gs.loop()
 	for {
 		requestGroupChainHeight()
 		t := time.NewTimer(INIT_INTERVAL)
@@ -76,7 +77,6 @@ func (gs *groupSyncer) start() {
 			break
 		}
 	}
-	go gs.loop()
 	gs.sync()
 }
 
