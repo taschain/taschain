@@ -9,8 +9,8 @@ import (
 	"math/big"
 	"strings"
 	"common/ecies"
-	math "vm/common/math"
-	secp "vm/crypto/secp256k1"
+	"vm/common/math"
+	secp "common/secp256k1"
 )
 
 type PrivateKey struct {

@@ -2,8 +2,6 @@ package common
 
 import (
 	"math/big"
-	//"vm/ecdsa-go"
-	"vm/common"
 )
 
 type Sign struct {
@@ -13,7 +11,7 @@ type Sign struct {
 
 //数据签名结构 for message casting
 type SignData struct {
-	DataHash common.Hash //哈希值
+	DataHash Hash //哈希值
 	DataSign Sign        //签名
 	Id       string      //用户ID
 }

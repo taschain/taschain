@@ -24,8 +24,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"vm/common/math"
 	"vm/crypto/randentropy"
+	"vm/common/math"
 )
 
 const TestCount = 1000

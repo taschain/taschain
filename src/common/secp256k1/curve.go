@@ -35,9 +35,8 @@ import (
 	"crypto/elliptic"
 	"math/big"
 	"unsafe"
-
 	"vm/common/math"
-)
+	)
 
 /*
 #include "libsecp256k1/include/secp256k1.h"

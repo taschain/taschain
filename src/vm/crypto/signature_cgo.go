@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"vm/common/math"
-	"vm/crypto/secp256k1"
+	"common/secp256k1"
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.

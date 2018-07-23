@@ -12,7 +12,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"hash"
-	secp "vm/crypto/secp256k1"
+	secp "common/secp256k1"
 )
 
 // The default curve for this package is the NIST P256 curve, which
