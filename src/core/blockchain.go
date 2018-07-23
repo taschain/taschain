@@ -22,6 +22,7 @@ import (
 	"middleware/types"
 	"taslog"
 	"network"
+	"middleware/notify"
 )
 
 const (
@@ -611,6 +612,8 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
+		notify.BUS.Publish(notify.BLOCK_ADD_SUCC, &notify.BlockMessage{Block: *b,})
 	}
 	return status
 
