@@ -82,8 +82,6 @@ type BlockChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
-
-	isBlockSyncInit bool
 }
 
 type castingBlock struct {
@@ -134,7 +132,6 @@ func initBlockChain() error {
 		lock:            middleware.NewLoglock("chain"),
 		init:            true,
 		isAdujsting:     false,
-		isBlockSyncInit: false,
 	}
 
 	var err error
@@ -187,14 +184,6 @@ func initBlockChain() error {
 
 	BlockChainImpl = chain
 	return nil
-}
-
-func (chain *BlockChain) SetBlockSyncInit(b bool) {
-	chain.isBlockSyncInit = b
-}
-
-func (chain *BlockChain) IsBlockSyncInit() bool {
-	return chain.isBlockSyncInit
 }
 
 func (chain *BlockChain) SetLastBlockHash(bh *BlockHash) {
@@ -653,7 +642,6 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 				break
 			}
 		}
-
 		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash)
 	} else {
 		chain.SetLastBlockHash(bhs[0])
@@ -718,22 +706,30 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 	bh := chain.QueryBlockByHeight(height)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
-		Logger.Debugf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!")
-		blocks := make([]*types.Block, 0)
-
-		for i := height + 1; i <= localHeight; i++ {
+		Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
+		var b *types.Block
+		for i := height + 1; i <= chain.Height(); i++ {
 			bh := chain.queryBlockHeaderByHeight(i, true)
 			if nil == bh {
 				continue
 			}
-			b := chain.queryBlockByHash(bh.Hash)
+			b = chain.queryBlockByHash(bh.Hash)
 			if nil == b {
 				continue
 			}
-
-			blocks = append(blocks, b)
+			break
 		}
-		return &BlockInfo{Blocks: blocks,}
+		if b == nil{
+			return nil
+		}
+
+		var isTopBlock bool
+		if b.Header.Height == chain.Height(){
+			isTopBlock = true
+		}else {
+			isTopBlock = false
+		}
+		return &BlockInfo{Block: b,IsTopBlock:isTopBlock}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
@@ -743,7 +739,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 		} else {
 			bhs = chain.getBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
 		}
-		return &BlockInfo{ChainPiece: bhs,}
+		return &BlockInfo{ChainPiece: bhs}
 	}
 }
 

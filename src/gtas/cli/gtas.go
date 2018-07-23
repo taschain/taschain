@@ -75,7 +75,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if core.BlockChainImpl.IsBlockSyncInit() && core.GroupChainImpl.IsGroupSyncInit() {
+		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit(){
 			break
 		}
 		time.Sleep(time.Millisecond * 500)

@@ -133,6 +133,13 @@ message Group{
     optional  bytes     Extends = 11;
 }
 
+
+message GroupInfo{
+    required Group Group = 1;
+
+    required bool IsTopGroup = 2;
+}
+
 message GroupSlice{
     repeated Group Groups = 1;
 }
@@ -159,16 +166,18 @@ message BlockHash{
 	required  bytes  Hash = 2;
 }
 
-message BlockHashSlice{
+message BlockChainPiece{
 
     repeated BlockHash BlockHashes = 1;
 }
 
 message BlockInfo{
 
-	optional BlockSlice Blocks = 1;
+	optional Block Block = 1;
 
-	optional BlockHashSlice BlockHashes = 2;
+	optional BlockChainPiece ChainPiece = 2;
+
+	optional bool IsTopBlock = 3;
 }
 
 message BlockHashesReq{

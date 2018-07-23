@@ -7,7 +7,8 @@ import (
 
 	"strconv"
 	"common"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
 )
 
 const (
@@ -145,7 +146,7 @@ func (n *network) handleMessage(b []byte, from string) {
 		return
 	}
 
-	fmt.Printf("rcv %s from %s ", message.Hash(), from)
+	//Logger.Debugf("rcv %s from %s\n", message.Hash(), from)
 	code := message.Code
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
@@ -186,5 +187,5 @@ func (m Message) Hash() string {
 	if err != nil {
 		return ""
 	}
-	return string(hash.Sum(bytes))
+	return hex.EncodeToString(hash.Sum(bytes))
 }

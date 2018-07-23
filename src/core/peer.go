@@ -33,7 +33,8 @@ type BlockRequestInfo struct {
 }
 
 type BlockInfo struct {
-	Blocks     []*types.Block
+	Block    *types.Block
+	IsTopBlock bool
 	ChainPiece []*BlockHash
 }
 
@@ -187,7 +188,7 @@ func marshalBlockHashes(cbh []*BlockHash) ([]byte, error) {
 	for _, c := range cbh {
 		blockHashes = append(blockHashes, blockHashToPb(c))
 	}
-	r := tas_middleware_pb.BlockHashSlice{BlockHashes: blockHashes}
+	r := tas_middleware_pb.BlockChainPiece{BlockHashes: blockHashes}
 	return proto.Marshal(&r)
 }
 
@@ -212,21 +213,16 @@ func marshalBlockInfo(e *BlockInfo) ([]byte, error) {
 	if e == nil {
 		return nil, nil
 	}
-	blocks := make([]*tas_middleware_pb.Block, 0)
 
-	if e.Blocks != nil {
-		for _, b := range e.Blocks {
-			pb := types.BlockToPb(b)
-			if pb == nil {
-				Logger.Errorf("Block is nil while marshalBlockMessage")
-			}
-			blocks = append(blocks, pb)
+	var block *tas_middleware_pb.Block
+	if e.Block != nil {
+		block = types.BlockToPb(e.Block)
+		if block == nil {
+			Logger.Errorf("Block is nil while marshalBlockMessage")
 		}
 	}
-	blockSlice := tas_middleware_pb.BlockSlice{Blocks: blocks}
 
 	cbh := make([]*tas_middleware_pb.BlockHash, 0)
-
 	if e.ChainPiece != nil {
 		for _, b := range e.ChainPiece {
 			pb := blockHashToPb(b)
@@ -236,8 +232,8 @@ func marshalBlockInfo(e *BlockInfo) ([]byte, error) {
 			cbh = append(cbh, pb)
 		}
 	}
-	cbhs := tas_middleware_pb.BlockHashSlice{BlockHashes: cbh}
+	cbhs := tas_middleware_pb.BlockChainPiece{BlockHashes: cbh}
 
-	message := tas_middleware_pb.BlockInfo{Blocks: &blockSlice, BlockHashes: &cbhs}
+	message := tas_middleware_pb.BlockInfo{Block: block, IsTopBlock:&e.IsTopBlock,ChainPiece:&cbhs}
 	return proto.Marshal(&message)
 }

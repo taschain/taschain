@@ -17,7 +17,7 @@ const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
 
 type ChainHandler struct{}
 
-func (c *ChainHandler) Handle(sourceId string, msg network.Message)error {
+func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	switch msg.Code {
 	case network.REQ_TRANSACTION_MSG:
 		m, e := unMarshalTransactionRequestMessage(msg.Body)
@@ -46,25 +46,26 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message)error {
 		onMessageNewBlock(block)
 
 	case network.REQ_GROUP_CHAIN_HEIGHT_MSG:
-		sync.GroupSyncer.HeightRequestCh <- sourceId
+		sync.GroupSyncer.ReqHeightCh <- sourceId
 	case network.GROUP_CHAIN_HEIGHT_MSG:
 		height := utility.ByteToUInt64(msg.Body)
 		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
 		sync.GroupSyncer.HeightCh <- ghi
 	case network.REQ_GROUP_MSG:
 		baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := sync.GroupRequestInfo{BaseHeight: baseHeight, SourceId: sourceId}
-		sync.GroupSyncer.GroupRequestCh <- gri
+		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
+		sync.GroupSyncer.ReqGroupCh <- gri
 	case network.GROUP_MSG:
-		m, e := unMarshalGroups(msg.Body)
+		m, e := unMarshalGroupInfo(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
-			return  e
+			return e
 		}
-		sync.GroupSyncer.GroupCh <- m
+		m.SourceId = sourceId
+		sync.GroupSyncer.GroupCh <- *m
 
 	case network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
-		sync.BlockSyncer.TotalQnRequestCh <- sourceId
+		sync.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BLOCK_CHAIN_TOTAL_QN_MSG:
 		totalQn := utility.ByteToUInt64(msg.Body)
 		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
@@ -87,14 +88,14 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message)error {
 		cbhr, e := unMarshalBlockHashesReq(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
-			return  e
+			return e
 		}
 		onBlockHashesReq(cbhr, sourceId)
 	case network.BLOCK_HASHES:
 		cbh, e := unMarshalBlockHashes(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
-			return  e
+			return e
 		}
 		onBlockHashes(cbh, sourceId)
 	}
@@ -179,26 +180,26 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	blocks := blockInfo.Blocks
-	if blocks != nil && len(blocks) != 0 {
-		//core.Logger.Debugf("[handler] onBlockInfo receive blocks,length:%d", len(blocks))
-		for i := 0; i < len(blocks); i++ {
-			block := blocks[i]
-			code := core.BlockChainImpl.AddBlockOnChain(block)
-			if code < 0 {
-				core.BlockChainImpl.SetAdujsting(false)
-				core.Logger.Errorf("fail to add block to block chain,code:%d", code)
-				return
-			}
-			if code == 2 {
-				return
-			}
+	block := blockInfo.Block
+	if block != nil{
+		code := core.BlockChainImpl.AddBlockOnChain(block)
+		if code < 0 {
+			core.BlockChainImpl.SetAdujsting(false)
+			core.Logger.Errorf("fail to add block to block chain,code:%d", code)
+			return
 		}
-		//todo 如果将来改为发送多次 此处需要修改
-		core.BlockChainImpl.SetAdujsting(false)
-		if !core.BlockChainImpl.IsBlockSyncInit() {
-			fmt.Print("on block info set block sync true\n")
-			core.BlockChainImpl.SetBlockSyncInit(true)
+		if code == 2 {
+			return
+		}
+
+		if !blockInfo.IsTopBlock{
+			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash)
+		}else {
+			core.BlockChainImpl.SetAdujsting(false)
+			if !sync.BlockSyncer.IsInit(){
+				core.Logger.Errorf("Block sync finished,loal block height:%d\n",core.BlockChainImpl.Height())
+				sync.BlockSyncer.SetInit(true)
+			}
 		}
 	} else {
 		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
@@ -265,7 +266,7 @@ func pbToBlockHashesReq(cbhr *tas_middleware_pb.BlockHashesReq) *core.BlockHashe
 }
 
 func unMarshalBlockHashes(b []byte) ([]*core.BlockHash, error) {
-	blockHashSlice := new(tas_middleware_pb.BlockHashSlice)
+	blockHashSlice := new(tas_middleware_pb.BlockChainPiece)
 	error := proto.Unmarshal(b, blockHashSlice)
 	if error != nil {
 		network.Logger.Errorf("[handler]unMarshalChainBlockHashes error:%s\n", error.Error())
@@ -314,21 +315,18 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 		return nil, e
 	}
 
-	blocks := make([]*types.Block, 0)
-	if message.Blocks != nil && message.Blocks.Blocks != nil {
-		for _, b := range message.Blocks.Blocks {
-			blocks = append(blocks, types.PbToBlock(b))
-		}
+	var block *types.Block
+	if message.Block != nil{
+		block = types.PbToBlock(message.Block)
 	}
 
 	cbh := make([]*core.BlockHash, 0)
-	if message.BlockHashes != nil && message.BlockHashes.BlockHashes != nil {
-		for _, b := range message.BlockHashes.BlockHashes {
+	if message.ChainPiece != nil && message.ChainPiece.BlockHashes != nil {
+		for _, b := range message.ChainPiece.BlockHashes {
 			cbh = append(cbh, pbToBlockHash(b))
 		}
 	}
-
-	m := core.BlockInfo{Blocks: blocks, ChainPiece: cbh}
+	m := core.BlockInfo{Block:block,IsTopBlock:*message.IsTopBlock, ChainPiece: cbh}
 	return &m, nil
 }
 
@@ -347,4 +345,15 @@ func unMarshalGroups(b []byte) ([]*types.Group, error) {
 		}
 	}
 	return groups, nil
+}
+
+func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
+	message := new(tas_middleware_pb.GroupInfo)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
+		return nil, e
+	}
+	groupInfo := sync.GroupInfo{Group: types.PbToGroup(message.Group), IsTopGroup: *message.IsTopGroup}
+	return &groupInfo, nil
 }
