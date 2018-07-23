@@ -35,7 +35,6 @@ import (
 	"crypto/elliptic"
 	"math/big"
 	"unsafe"
-	"vm/common/math"
 	)
 
 /*
@@ -230,8 +229,8 @@ func (BitCurve *BitCurve) ScalarMult(Bx, By *big.Int, scalar []byte) (*big.Int, 
 
 	// Do the multiplication in C, updating point.
 	point := make([]byte, 64)
-	math.ReadBits(Bx, point[:32])
-	math.ReadBits(By, point[32:])
+	ReadBits(Bx, point[:32])
+	ReadBits(By, point[32:])
 	pointPtr := (*C.uchar)(unsafe.Pointer(&point[0]))
 	scalarPtr := (*C.uchar)(unsafe.Pointer(&scalar[0]))
 	res := C.secp256k1_ext_scalar_mul(context, pointPtr, scalarPtr)
@@ -263,8 +262,8 @@ func (BitCurve *BitCurve) Marshal(x, y *big.Int) []byte {
 	byteLen := (BitCurve.BitSize + 7) >> 3
 	ret := make([]byte, 1+2*byteLen)
 	ret[0] = 4 // uncompressed point flag
-	math.ReadBits(x, ret[1:1+byteLen])
-	math.ReadBits(y, ret[1+byteLen:])
+	ReadBits(x, ret[1:1+byteLen])
+	ReadBits(y, ret[1+byteLen:])
 	return ret
 }
 

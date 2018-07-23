@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"vm/crypto/randentropy"
-	"vm/common/math"
 )
 
 const TestCount = 1000
@@ -36,7 +35,7 @@ func generateKeyPair() (pubkey, privkey []byte) {
 		panic(err)
 	}
 	pubkey = elliptic.Marshal(S256(), key.X, key.Y)
-	return pubkey, math.PaddedBigBytes(key.D, 32)
+	return pubkey, PaddedBigBytes(key.D, 32)
 }
 
 func randSig() []byte {

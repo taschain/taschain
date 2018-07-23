@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"strings"
 	"common/ecies"
-	"vm/common/math"
 	secp "common/secp256k1"
 )
 
@@ -26,7 +25,7 @@ func zeroBytes(bytes []byte) {
 //私钥签名函数, 输出字节流.
 func (pk PrivateKey) Sign(hash []byte) ([]byte, error) {
 	//var seckey []byte
-	seckey := math.PaddedBigBytes(pk.PrivKey.D, pk.PrivKey.Params().BitSize/8)
+	seckey := secp.PaddedBigBytes(pk.PrivKey.D, pk.PrivKey.Params().BitSize/8)
 	defer zeroBytes(seckey)
 	sign, err := secp.Sign(hash, seckey)
 	if err != nil {
