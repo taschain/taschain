@@ -280,21 +280,6 @@ func (p *Processor) OnMessageBlock(cbm ConsensusBlockMessage) {
 
 	ret := p.receiveBlock(&cbm, preHeader)
 	if ret {
-		preHeader = block.Header
-		for {
-			futureMsgs := p.getFutureBlockMsgs(preHeader.Hash)
-			if futureMsgs == nil || len(futureMsgs) == 0 {
-				break
-			}
-			log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
-			for _, msg := range futureMsgs {
-				tbh := msg.Block.Header
-				logHalfway("OMB", tbh.Height, tbh.QueueNumber, GetIDPrefix(msg.SI.SignMember), "trigger cached future block")
-				p.receiveBlock(msg, preHeader)
-			}
-			p.removeFutureBlockMsgs(preHeader.Hash)
-			preHeader = p.MainChain.QueryTopBlock()
-		}
 		result = "上链成功"
 	} else {
 		result = "上链失败"

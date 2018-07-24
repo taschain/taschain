@@ -9,18 +9,19 @@ import (
 	"consensus/ticker"
 	"middleware/types"
 	"network"
+	"middleware/notify"
 )
 
 var PROC_TEST_MODE bool
 
 //见证人处理器
 type Processor struct {
-	joiningGroups		*JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
+	joiningGroups *JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
-	blockContexts		*CastBlockContexts //组ID->组铸块上下文
-	globalGroups         *GlobalGroups             //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
+	blockContexts *CastBlockContexts //组ID->组铸块上下文
+	globalGroups  *GlobalGroups      //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
-	groupManager 		*GroupManager
+	groupManager *GroupManager
 
 	//////和组无关的矿工信息
 	mi *MinerInfo
@@ -28,20 +29,18 @@ type Processor struct {
 	belongGroups *BelongGroups //当前ID参与了哪些(已上链，可铸块的)组, 组id_str->组内私密数据（组外不可见或加速缓存）
 	//////测试数据，代替屮逸的网络消息
 	GroupProcs map[string]*Processor
-	Ticker 			*ticker.GlobalTicker		//全局定时器, 组初始化完成后启动
+	Ticker     *ticker.GlobalTicker //全局定时器, 组初始化完成后启动
 
-	futureBlockMsgs 	*FutureMessageHolder //存储缺少父块的块
-	futureVerifyMsgs 	*FutureMessageHolder //存储缺失前一块的验证消息
+	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
+	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 
 	//storage 	ethdb.Database
-	ready 		bool //是否已初始化完成
+	ready bool //是否已初始化完成
 
 	//////链接口
 	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
-
 }
-
 
 func (p Processor) getPrefix() string {
 	return GetIDPrefix(p.GetMinerID())
@@ -59,7 +58,6 @@ func (p Processor) getPubkeyInfo() PubKeyInfo {
 func (p *Processor) setProcs(gps map[string]*Processor) {
 	p.GroupProcs = gps
 }
-
 
 //初始化矿工数据（和组无关）
 func (p *Processor) Init(mi MinerInfo) bool {
@@ -87,9 +85,10 @@ func (p *Processor) Init(mi MinerInfo) bool {
 
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
+
+	notify.BUS.Subscribe(notify.BLOCK_ADD_SUCC, &blockAddEventHandler{p: p,})
 	return true
 }
-
 
 //取得矿工ID（和组无关）
 func (p Processor) GetMinerID() groupsig.ID {
@@ -154,7 +153,6 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 	return true
 }
 
-
 //创建一个新建组。由（且有创建组权限的）父亲组节点发起。
 //miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
 //gn：组名。
@@ -166,10 +164,10 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID,
 
 	//创建p2p组网络
 	ids := []string{}
-	for _,miner := range (miners) {
-		ids = append(ids,miner.GetID().GetString())
+	for _, miner := range (miners) {
+		ids = append(ids, miner.GetID().GetString())
 	}
-	network.Network.AddGroup(gn,ids)
+	network.Network.AddGroup(gn, ids)
 
 	var gis ConsensusGroupInitSummary
 	//gis.ParentID = p.GetMinerID()
@@ -337,11 +335,10 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData
 	//}
 }
 
-
 func (p *Processor) ExistInDummyGroup(dummyId groupsig.ID) bool {
 	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
 	if initingGroup == nil {
 		return false
 	}
-    return initingGroup.MemberExist(p.GetMinerID())
+	return initingGroup.MemberExist(p.GetMinerID())
 }
