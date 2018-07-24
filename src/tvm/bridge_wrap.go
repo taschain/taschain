@@ -32,6 +32,7 @@ void wrap_transfer(const char* p1, const char* p2, int p3)
 import "C"
 import (
 	"unsafe"
+	"vm/core/state"
 )
 
 func bridge_init() {
@@ -40,11 +41,21 @@ func bridge_init() {
 	C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
 }
 
-func tvm_init() {
-	C.tvm_start()
-	bridge_init()
+
+type Tvm struct {
+	state *state.StateDB
 }
 
-func tvm_execute(script string) {
+func NewTvm(state *state.StateDB)*Tvm {
+	tvm := Tvm{}
+	tvm.state = state
+
+	C.tvm_start()
+	bridge_init()
+
+	return &tvm
+}
+
+func (tvm *Tvm)Execute(script string) {
 	C.tvm_execute(C.CString(script))
 }

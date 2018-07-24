@@ -1,13 +1,14 @@
 package tvm
 
 func VmTest() {
-	tvm_init()
 
-	tvm_execute("import tas\ntas.test()")
+	tvm := NewTvm(nil)
+
+	tvm.Execute("import tas\ntas.test()")
 }
 
 func VmTestContract() {
-	tvm_init()
+	tvm := NewTvm(nil)
 
 	script := `
 import tas
@@ -19,7 +20,7 @@ class TasAccount():
        tas.transfer(self.address, toAddress, amount)
 `
 
-	tvm_execute(script)
+	tvm.Execute(script)
 
 	script = `
 
@@ -31,11 +32,11 @@ def apply():
 
 apply()
 `
-	tvm_execute(script)
+	tvm.Execute(script)
 }
 
 func VmTestClass() {
-	tvm_init()
+	tvm := NewTvm(nil)
 
 	script := `
 
@@ -53,12 +54,12 @@ print("start")
 
 print(tasa.desc)
 
-tasa.desc = "asdfsadf"
+tasa.desc = 123
 
 print(tasa.desc)
 
 print("end")
 
 `
-	tvm_execute(script)
+	tvm.Execute(script)
 }
