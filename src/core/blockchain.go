@@ -123,7 +123,7 @@ func getBlockChainConfig() *BlockChainConfig {
 
 func initBlockChain() error {
 
-	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("client", "index", ""))
+	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &BlockChain{
 		config:          getBlockChainConfig(),

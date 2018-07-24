@@ -5,65 +5,47 @@ import (
 	"common"
 
 	"net"
-	"strings"
-	"strconv"
-	"errors"
 )
 
 const (
 	SEED_ID_KEY = "seed_id"
 
-	SEED_ADDRESS_KEY = "seed_address"
+	SEED_IP_KEY = "seed_ip"
+
+	SEED_PORT_KEY = "seed_port"
 )
 
 var Network network
 
 var Logger taslog.Logger
 
-
 func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler) error {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 
-	self,err:= InitSelfNode(config, isSuper)
+	self, err := InitSelfNode(config, isSuper)
 	if err != nil {
-		Logger.Errorf("[Network]InitSelfNode error:",err.Error())
+		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
 		return err
 	}
 
-	seedId, seedIp,seedPort, err := getSeedInfo(config)
+	seedId, seedIp, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
-	if err == nil {
-		bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
-		if bnNode.Id != self.Id && !isSuper {
-			seeds = append(seeds, bnNode)
-		}
+	bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
+	if bnNode.Id != self.Id && !isSuper {
+		seeds = append(seeds, bnNode)
 	}
-	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds,NatTraversalEnable:false}
+	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: false}
 
 	var netcore NetCore
-	n,_ := netcore.InitNetCore(netConfig)
+	n, _ := netcore.InitNetCore(netConfig)
 
-	Network = network{Self:self,netCore:n,consensusHandler:consensusHandler,chainHandler:chainHandler}
+	Network = network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
 	return nil
 }
 
-
-
-func getSeedInfo(config common.ConfManager) (id string, ip string, port int, e error) {
+func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
 	id = config.GetString(BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
-	seedAddr := config.GetString(BASE_SECTION, SEED_ADDRESS_KEY, "/ip4/10.0.0.193/tcp/1122")
-
-	ip, port, e = getIPPortFromAddr(seedAddr)
+	ip = config.GetString(BASE_SECTION, SEED_IP_KEY, "10.0.0.66")
+	port = config.GetInt(BASE_SECTION, SEED_PORT_KEY, 1122)
 	return
-}
-
-func getIPPortFromAddr(addr string) (string, int, error) {
-	//addr /ip4/127.0.0.1/udp/1234"
-	split := strings.Split(addr, "/")
-	if len(split) != 5 {
-		return "", 0, errors.New("wrong addr")
-	}
-	ip := split[2]
-	port, _ := strconv.Atoi(split[4])
-	return ip, port, nil
 }

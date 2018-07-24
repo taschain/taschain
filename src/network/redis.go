@@ -19,7 +19,7 @@ func getRedisConnection() (redis.Conn, error) {
 }
 
 func NodeOnline(id []byte, pubKey []byte) error{
-	logger := taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	logger := taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	conn,err := getRedisConnection()
 	if err != nil {
 		fmt.Println("Connect to redis error", err)

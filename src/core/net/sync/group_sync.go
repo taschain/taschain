@@ -55,7 +55,7 @@ type groupSyncer struct {
 }
 
 func InitGroupSyncer() {
-	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
+	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	GroupSyncer = groupSyncer{ReqHeightCh: make(chan string), HeightCh: make(chan GroupHeightInfo),
 		ReqGroupCh: make(chan GroupRequestInfo), GroupCh: make(chan GroupInfo), maxHeight: 0, init: false, replyCount: 0}
 	go GroupSyncer.start()

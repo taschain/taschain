@@ -191,7 +191,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 }
 
 func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	var privateKey common.PrivateKey
 
 	privateKeyStr := getPrivateKeyFromConfigFile(config)
