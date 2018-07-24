@@ -39,7 +39,7 @@ type blockSyncer struct {
 
 func InitBlockSyncer() {
 	if logger == nil {
-		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("client", "index", ""))
+		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
 	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0}
 	go BlockSyncer.start()

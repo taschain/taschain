@@ -199,7 +199,8 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		mems = append(mems, logical.GetIDPrefix(*groupsig.DeserializeId(mem.Id)))
+		memberStr :=  groupsig.DeserializeId(mem.Id).GetString()
+		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
 	return gmap

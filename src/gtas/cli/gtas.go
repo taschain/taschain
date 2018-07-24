@@ -26,6 +26,7 @@ import (
 	"middleware/types"
 	"runtime"
 	"log"
+	"strconv"
 )
 
 const (
@@ -35,6 +36,14 @@ const (
 	RemoteHost = "127.0.0.1"
 	// RemotePort 默认端口
 	RemotePort = 8088
+
+	instanceSection = "instance"
+
+	indexKey = "index"
+
+	chainSection = "chain"
+
+	databaseKey = "database"
 )
 
 var configManager = &common.GlobalConf
@@ -100,45 +109,19 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 	}
 	gtas.waitingUtilSyncFinished()
 	ok := mediator.StartMiner()
-
-	if super {
-		//keys1 := LoadPubKeyInfo("pubkeys1")
-		//keys2 := LoadPubKeyInfo("pubkeys2")
-		//keys3 := LoadPubKeyInfo("pubkeys3")
-		//fmt.Println("Waiting node to connect...")
-		//for {
-		//	if len(p2p.Server.GetConnInfo()) >= logical.GetGroupMemberNum() - 1 {
-		//		fmt.Println("Connection:")
-		//		for _, c := range p2p.Server.GetConnInfo() {
-		//			fmt.Println(c.Id)
-		//		}
-		//		break
-		//	}
-		//	time.Sleep(time.Millisecond * 100)
-		//}
-		//time.Sleep(time.Second*20)	//等待每个节点初始化完成
-
-		//createGroup(keys1, "gtas3")
-		//time.Sleep(time.Second*4)
-		//createGroup(keys1, "gtas2")
-		//time.Sleep(time.Second*4)
-		//createGroup(keys1, "gtas1")
-
-	}
-
 	gtas.inited = true
 	if !ok {
 		return
 	}
 }
 
-func createGroup(keys []logical.PubKeyInfo, name string) {
-	zero := mediator.CreateGroup(keys, name)
-	if zero != 0 {
-		fmt.Printf("create %s group failed\n", name)
-	}
-	fmt.Printf("create %s group success\n", name)
-}
+//func createGroup(keys []logical.PubKeyInfo, name string) {
+//	zero := mediator.CreateGroup(keys, name)
+//	if zero != 0 {
+//		fmt.Printf("create %s group failed\n", name)
+//	}
+//	fmt.Printf("create %s group success\n", name)
+//}
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	<-ctrlC
@@ -199,6 +182,7 @@ func (gtas *Gtas) Run() {
 	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
+	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -212,6 +196,11 @@ func (gtas *Gtas) Run() {
 		runtime.SetMutexProfileFraction(1)
 	}()
 	gtas.simpleInit(*configFile)
+
+	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
+	databaseValue := "d"+strconv.Itoa(*instanceIndex)
+	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
+
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
@@ -340,15 +329,7 @@ func NewGtas() *Gtas {
 	return &Gtas{}
 }
 
-func mockTxs() []*types.Transaction {
-	//source byte: 138,170,12,235,193,42,59,204,152,26,146,154,213,207,129,10,9,14,17,174
-	//target byte: 93,174,34,35,176,3,97,163,150,23,122,156,180,16,255,97,242,0,21,173
-	//hash : 112,155,85,189,61,160,245,168,56,18,91,208,238,32,197,191,221,124,171,161,115,145,45,66,129,202,232,22,183,154,32,27
-	t1 := genTestTx("tx1", 123, "111", "abc", 0, 1)
-	t2 := genTestTx("tx2", 456, "222", "ddd", 0, 1)
-	s := []*types.Transaction{t1, t2}
-	return s
-}
+
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 

@@ -71,19 +71,19 @@ func HexStringToSecKey(s string) (sk *PrivateKey) {
 }
 
 func (pk *PrivateKey) ToBytes() []byte {
-	fmt.Printf("begin seckey ToBytes...\n")
+	//fmt.Printf("begin seckey ToBytes...\n")
 	pubk := pk.GetPubKey() //取得公钥
 	buf := pubk.ToBytes()  //公钥序列化
-	fmt.Printf("pub key tobytes, len=%v, data=%v.\n", len(buf), buf)
+	//fmt.Printf("pub key tobytes, len=%v, data=%v.\n", len(buf), buf)
 	d := pk.PrivKey.D.Bytes() //D序列化
 	buf = append(buf, d...)   //叠加公钥和D的序列化
-	fmt.Printf("sec key tobytes, len=%v, data=%v.\n", len(buf), buf)
-	fmt.Printf("end seckey ToBytes.\n")
+	//fmt.Printf("sec key tobytes, len=%v, data=%v.\n", len(buf), buf)
+	//fmt.Printf("end seckey ToBytes.\n")
 	return buf
 }
 
 func BytesToSecKey(data []byte) (sk *PrivateKey) {
-	fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
+	//fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
 	if len(data) < SecKeyLength {
 		return nil
 	}

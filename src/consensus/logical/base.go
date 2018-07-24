@@ -41,7 +41,7 @@ ID长度（即地址）：48*8=384位。底层同私钥结构。
 */
 const CONSENSUS_VERSION = 1                 //共识版本号
 var SSSS_THRESHOLD int = 51                 //1-100
-var GROUP_MAX_MEMBERS int = 5               //一个组最大的成员数量
+var GROUP_MAX_MEMBERS int = 3               //一个组最大的成员数量
 const GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
 const GROUP_INIT_IDLE_HEIGHT = 10           //组初始化完成后，到开始参与铸块时，需等待的时间（以块高为单位）
 const MAX_UNKNOWN_BLOCKS = 5                //内存保存最大不能上链的未来块（中间块没有收到）
@@ -63,7 +63,7 @@ func InitConsensus() {
 	//MAX_GROUP_BLOCK_TIME = cc.GetInt("MAX_GROUP_BLOCK_TIME", 60 * 60 * 24 * 30)
 	MAX_USER_CAST_TIME = cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME)
 	MAX_QN = (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME //组内能出的最大QN值
-	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("chain", "database", ""))
+	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("instance", "index", ""))
 	consensusConfManager = cc
 	return
 }
