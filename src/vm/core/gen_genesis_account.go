@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math/big"
 
-	"vm/common"
 	"vm/common/hexutil"
 	"vm/common/math"
 )
@@ -26,9 +25,9 @@ func (g GenesisAccount) MarshalJSON() ([]byte, error) {
 	enc.Code = g.Code
 	if g.Storage != nil {
 		enc.Storage = make(map[storageJSON]storageJSON, len(g.Storage))
-		for k, v := range g.Storage {
-			enc.Storage[storageJSON(k)] = storageJSON(v)
-		}
+		//for k, v := range g.Storage {
+		//	enc.Storage[storageJSON(k)] = storageJSON(v)
+		//}
 	}
 	enc.Balance = (*math.HexOrDecimal256)(g.Balance)
 	enc.Nonce = math.HexOrDecimal64(g.Nonce)
@@ -52,10 +51,10 @@ func (g *GenesisAccount) UnmarshalJSON(input []byte) error {
 		g.Code = *dec.Code
 	}
 	if dec.Storage != nil {
-		g.Storage = make(map[common.Hash]common.Hash, len(dec.Storage))
-		for k, v := range dec.Storage {
-			g.Storage[common.Hash(k)] = common.Hash(v)
-		}
+		g.Storage = make(map[string][]byte, len(dec.Storage))
+		//for k, v := range dec.Storage {
+		//	g.Storage[common.Hash(k)] = common.Hash(v)
+		//}
 	}
 	if dec.Balance == nil {
 		return errors.New("missing required field 'balance' for GenesisAccount")

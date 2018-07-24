@@ -35,7 +35,7 @@ func (self Code) String() string {
 	return string(self) //strings.Join(Disassemble(self), " ")
 }
 
-type Storage map[common.Hash]common.Hash
+type Storage map[string][]byte
 
 func (self Storage) String() (str string) {
 	for key, value := range self {
@@ -169,32 +169,32 @@ func (c *stateObject) getTrie(db Database) Trie {
 }
 
 // GetState returns a value in account storage.
-func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
+func (self *stateObject) GetState(db Database, key string) []byte {
 	value, exists := self.cachedStorage[key]
 	if exists {
 		return value
 	}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
+	enc, err := self.getTrie(db).TryGet([]byte(key))
 	if err != nil {
 		self.setError(err)
-		return common.Hash{}
+		return nil
 	}
 	if len(enc) > 0 {
 		_, content, _, err := rlp.Split(enc)
 		if err != nil {
 			self.setError(err)
 		}
-		value.SetBytes(content)
+		value = content
 	}
-	if (value != common.Hash{}) {
+	if (value != nil) {
 		self.cachedStorage[key] = value
 	}
 	return value
 }
 
 // SetState updates a value in account storage.
-func (self *stateObject) SetState(db Database, key, value common.Hash) {
+func (self *stateObject) SetState(db Database, key string, value []byte) {
 	self.db.journal = append(self.db.journal, storageChange{
 		account:  &self.address,
 		key:      key,
@@ -203,7 +203,7 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 	self.setState(key, value)
 }
 
-func (self *stateObject) setState(key, value common.Hash) {
+func (self *stateObject) setState(key string, value []byte) {
 	self.cachedStorage[key] = value
 	self.dirtyStorage[key] = value
 
@@ -218,13 +218,13 @@ func (self *stateObject) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
-		if (value == common.Hash{}) {
-			self.setError(tr.TryDelete(key[:]))
+		if (value == nil) {
+			self.setError(tr.TryDelete([]byte(key)))
 			continue
 		}
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
-		self.setError(tr.TryUpdate(key[:], v))
+		self.setError(tr.TryUpdate([]byte(key), v))
 	}
 	return tr
 }

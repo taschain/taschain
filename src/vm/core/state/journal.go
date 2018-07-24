@@ -53,7 +53,8 @@ type (
 	}
 	storageChange struct {
 		account       *common.Address
-		key, prevalue common.Hash
+		key string
+		prevalue []byte
 	}
 	codeChange struct {
 		account            *common.Address

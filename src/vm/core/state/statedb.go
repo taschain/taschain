@@ -235,12 +235,12 @@ func (self *StateDB) GetCodeHash(addr common.Address) common.Hash {
 	return common.BytesToHash(stateObject.CodeHash())
 }
 
-func (self *StateDB) GetState(a common.Address, b common.Hash) common.Hash {
+func (self *StateDB) GetState(a common.Address, b string) []byte {
 	stateObject := self.getStateObject(a)
 	if stateObject != nil {
 		return stateObject.GetState(self.db, b)
 	}
-	return common.Hash{}
+	return nil
 }
 
 // Database retrieves the low level database supporting the lower level trie ops.
@@ -308,7 +308,7 @@ func (self *StateDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (self *StateDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
+func (self *StateDB) SetState(addr common.Address, key string , value []byte) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(self.db, key, value)
@@ -435,7 +435,7 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
+func (db *StateDB) ForEachStorage(addr common.Address, cb func(key string, value []byte) bool) {
 	so := db.getStateObject(addr)
 	if so == nil {
 		return
@@ -449,9 +449,9 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 	it := trie.NewIterator(so.getTrie(db.db).NodeIterator(nil))
 	for it.Next() {
 		// ignore cached values
-		key := common.BytesToHash(db.trie.GetKey(it.Key))
+		key := string(db.trie.GetKey(it.Key))
 		if _, ok := so.cachedStorage[key]; !ok {
-			cb(key, common.BytesToHash(it.Value))
+			cb(key, it.Value)
 		}
 	}
 }

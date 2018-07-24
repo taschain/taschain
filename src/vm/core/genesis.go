@@ -18,8 +18,7 @@ package core
 
 import (
 	"bytes"
-	"encoding/hex"
-	"encoding/json"
+	//"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -34,6 +33,7 @@ import (
 	"vm/log"
 	"vm/params"
 	"vm/rlp"
+	"encoding/json"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -79,7 +79,7 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
 	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Storage    map[string][]byte `json:"storage,omitempty"`
 	Balance    *big.Int                    `json:"balance" gencodec:"required"`
 	Nonce      uint64                      `json:"nonce,omitempty"`
 	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
@@ -107,18 +107,18 @@ type genesisAccountMarshaling struct {
 
 // storageJSON represents a 256 bit byte array, but allows less than 256 bits when
 // unmarshaling from hex.
-type storageJSON common.Hash
+type storageJSON string
 
 func (h *storageJSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
 	if len(text) > 64 {
 		return fmt.Errorf("too many hex characters in storage key/value %q", text)
 	}
-	offset := len(h) - len(text)/2 // pad on the left
-	if _, err := hex.Decode(h[offset:], text); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("invalid hex storage key/value %q", text)
-	}
+	//offset := len(h) - len(text)/2 // pad on the left
+	//if _, err := hex.Decode(h[offset:], text); err != nil {
+	//	fmt.Println(err)
+	//	return fmt.Errorf("invalid hex storage key/value %q", text)
+	//}
 	return nil
 }
 

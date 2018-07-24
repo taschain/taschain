@@ -507,16 +507,17 @@ func opMstore8(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 }
 
 func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	loc := common.BigToHash(stack.pop())
-	val := evm.StateDB.GetState(contract.Address(), loc).Big()
-	stack.push(val)
+	loc := stack.pop()
+	val := big.Int{}
+	val.SetBytes(evm.StateDB.GetState(contract.Address(), loc.String()))
+	stack.push(&val)
 	return nil, nil
 }
 
 func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	loc := common.BigToHash(stack.pop())
+	loc := stack.pop()
 	val := stack.pop()
-	evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
+	evm.StateDB.SetState(contract.Address(), loc.String(), val.Bytes())
 
 	evm.interpreter.intPool.put(val)
 	return nil, nil

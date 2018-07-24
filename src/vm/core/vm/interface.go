@@ -42,8 +42,8 @@ type StateDB interface {
 	AddRefund(uint64)
 	GetRefund() uint64
 
-	GetState(common.Address, common.Hash) common.Hash
-	SetState(common.Address, common.Hash, common.Hash)
+	GetState(common.Address, string) []byte
+	SetState(common.Address, string, []byte)
 
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
@@ -61,7 +61,7 @@ type StateDB interface {
 	AddLog(*types.Log)
 	AddPreimage(common.Hash, []byte)
 
-	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
+	ForEachStorage(common.Address, func(string, []byte) bool)
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM EVM
