@@ -71,3 +71,16 @@ func TestStateDB_GetCode(t *testing.T) {
 	sta := state.GetCode(common.BytesToAddress([]byte("2")))
 	fmt.Println(sta)
 }
+
+func TestStateDB_Snapshot(t *testing.T) {
+	db, _ := ethdb.NewLDBDatabase("/Users/Kaede/TasProject/work/test", 0, 0)
+	defer db.Close()
+	triedb := NewDatabase(db)
+	state, _ := New(common.HexToHash("0x355a590eca935afe17bf722df599b2c41279665f7ad391900ac2b4bed7fe2403"), triedb)
+	fmt.Println(string(state.Dump()))
+	snapshot := state.Snapshot()
+	state.SetState(common.BytesToAddress([]byte("1")), "aa", []byte{1,1,1})
+	state.RevertToSnapshot(snapshot)
+	sta := state.GetState(common.BytesToAddress([]byte("1")), "aa")
+	fmt.Println(sta)
+}
