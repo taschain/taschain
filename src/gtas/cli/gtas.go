@@ -27,6 +27,7 @@ import (
 	"runtime"
 	"log"
 	"strconv"
+	"math/rand"
 )
 
 const (
@@ -84,7 +85,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit(){
+		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
@@ -93,9 +94,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr string, rpcPort uint) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log")
-	err := gtas.fullInit(super)
+	err := gtas.fullInit(super, testMode)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -183,6 +184,8 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
+	//在测试模式下  REDIS 前缀随机生成，P2P的NAT关闭
+	testMode := mineCmd.Flag("test", "test mode").Bool()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -198,8 +201,15 @@ func (gtas *Gtas) Run() {
 	gtas.simpleInit(*configFile)
 
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
-	databaseValue := "d"+strconv.Itoa(*instanceIndex)
+	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
+
+	if *testMode {
+		prefix := getRandomPrefix(10)
+		common.GlobalConf.SetString("test", "prefix", prefix)
+	} else {
+		common.GlobalConf.SetString("test", "prefix", "aliyun")
+	}
 
 	switch command {
 	case voteCmd.FullCommand():
@@ -222,7 +232,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, *super, addrRpc.String(), *portRpc)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *portRpc)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -248,7 +258,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool) error {
 	var err error
 	// 椭圆曲线初始化
 	groupsig.Init(1)
@@ -262,8 +272,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return err
 	}
 
-
-	err = network.Init(*configManager,isSuper,new(handler.ChainHandler),new(chandler.ConsensusHandler))
+	err = network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode)
 	if err != nil {
 		return err
 	}
@@ -286,7 +295,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	minerInfo := logical.NewMinerInfo(id, secret)
 	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
-	ShowPubKeyInfo(minerInfo,id)
+	ShowPubKeyInfo(minerInfo, id)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
@@ -318,7 +327,7 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo,id string) {
+func ShowPubKeyInfo(info logical.MinerInfo, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
@@ -328,8 +337,6 @@ func ShowPubKeyInfo(info logical.MinerInfo,id string) {
 func NewGtas() *Gtas {
 	return &Gtas{}
 }
-
-
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 
@@ -348,4 +355,15 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		GasLimit: 3,
 		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
 	}
+}
+
+func getRandomPrefix(l int) string {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	bytess := []byte(str)
+	result := []byte{}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < l; i++ {
+		result = append(result, bytess[r.Intn(len(bytess))])
+	}
+	return string(result)
 }
