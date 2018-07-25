@@ -27,7 +27,6 @@ import (
 	"runtime"
 	"log"
 	"strconv"
-	"math/rand"
 )
 
 const (
@@ -45,6 +44,8 @@ const (
 	chainSection = "chain"
 
 	databaseKey = "database"
+
+	redis_prefix = "aliyun"
 )
 
 var configManager = &common.GlobalConf
@@ -184,7 +185,7 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
-	//在测试模式下  REDIS 前缀随机生成，P2P的NAT关闭
+	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
@@ -204,13 +205,7 @@ func (gtas *Gtas) Run() {
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
-
-	if *testMode {
-		prefix := getRandomPrefix(10)
-		common.GlobalConf.SetString("test", "prefix", prefix)
-	} else {
-		common.GlobalConf.SetString("test", "prefix", "aliyun")
-	}
+	common.GlobalConf.SetString("test", "prefix", redis_prefix)
 
 	switch command {
 	case voteCmd.FullCommand():
@@ -356,15 +351,4 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		GasLimit: 3,
 		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
 	}
-}
-
-func getRandomPrefix(l int) string {
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	bytess := []byte(str)
-	result := []byte{}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < l; i++ {
-		result = append(result, bytess[r.Intn(len(bytess))])
-	}
-	return string(result)
 }
