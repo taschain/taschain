@@ -32,51 +32,58 @@ rm -rf $run_dir
 mkdir $run_dir
 
 mv gtas $run_dir/
-cp -r conf/$config_dir/tas*.ini $run_dir/
 cp -r lib/linux/p2p_core.so $run_dir/
+cp conf/$config_dir/stop.sh $run_dir/
+cp conf/$config_dir/start.sh $run_dir/
+cp conf/$config_dir/host_list $run_dir
+cp conf/$config_dir/sync_list $run_dir
 
-#prepare tools
-mkdir $run_dir/tools
-cp -r conf/$config_dir/start.json $run_dir/tools
-cp conf/$config_dir/parse_start.py $run_dir/tools
-cp conf/$config_dir/stop.sh $run_dir/tools
 
-#生成各个实例的启停脚本并获取部署的机器ip
-cd $run_dir/tools
-hosts=`python parse_start.py start.json`
+mkdir $run_dir/genesis_config
+cp -r conf/$config_dir/tas*.ini $run_dir/genesis_config
+
+cd $run_dir
+hosts=`cat host_list`
 echo -e 'romote hosts: '$hosts'\n'
 
-
 host_arr=(${hosts//,/ })
+
 for host in ${host_arr[@]}
 do
   echo -e 'stoping host: '$host
   #ssh to remote host,stop previous program and clean logs and database
+  ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;rm -rf *;exit"
   if [ $clear_data = true ]; then
-  	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;rm -rf d*; rm -rf logs/*;exit"
-  else
-  	ssh $user@${host} "mkdir -p $remote_home/$run_dir;cd $remote_home/$run_dir;bash -x stop.sh;exit"
+  	ssh $user@${host} "cd $remote_home/$run_dir;rm -rf d*; rm -rf logs/*;exit"
+  fi
+  if [ $clear_ini = true ]; then
+    ssh $user@${host} "cd $remote_home/$run_dir;rm -rf tas*.ini; rm -rf joined_group.config*;exit"
   fi
   echo -e '\n'
 done
 $stop_only && exit
 
-
+instance_index=1
+instance_count=7
+host_count=1
 for host in ${host_arr[@]}
 do
-  cd ${WORKSPACE}/$run_dir/tools
+  #echo -e 'instance_index: '$instance_index',instance_count:'$instance_count',host_count:'$host_count
+  if [ $host_count -eq 1 ];then
+      cd genesis_config
+      rsync  -rvatz --progress . $user@${host}:$remote_home/$run_dir
+      cd ..
+  fi
+  host_count=$(($host_count+1))
   #sync config file to host
-  start_sh=`python parse_start.py $host`
   echo 'start sync config file to host:'$host
-  rsync -rvatz --progress --include-from=include_list_$host --exclude=/* . $user@${host}:$remote_home/$run_dir
-
-  cd ..
-  rsync -rvatz --progress --include-from=tools/include_list_$host --exclude=/* . $user@${host}:$remote_home/$run_dir
+  rsync -rvatz --progress --include-from=sync_list --exclude=/* . $user@${host}:$remote_home/$run_dir
 
   echo -e '\n'$host'  booting...'
   #ssh to remote host to start to run new program
-  ssh $user@${host} "cd $remote_home/$run_dir; bash -x $start_sh;exit"
+  ssh $user@${host} "cd $remote_home/$run_dir;bash -x start.sh $instance_index $instance_count;exit"
 
+  instance_index=$(($instance_index+$instance_count))
   echo -e $host' started\n\n'
 done
 
