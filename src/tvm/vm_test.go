@@ -17,3 +17,7 @@ func TestVmTestContract(t *testing.T) {
 func TestVmTestClass(t *testing.T) {
 	VmTestClass()
 }
+
+func TestVmTestABI(t *testing.T) {
+	VmTestABI()
+}
