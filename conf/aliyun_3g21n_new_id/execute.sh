@@ -41,7 +41,7 @@ cp conf/$config_dir/sync_list $run_dir
 rm -rf $run_dir/genesis_config
 mkdir $run_dir/genesis_config
 cp -r conf/$config_dir/tas*.ini $run_dir/genesis_config
-cp -r conf/$config_dir/joined_group.config.* $run_dir/genesis_config
+cp -r conf/$config_dir/joined_group.config* $run_dir/genesis_config
 
 
 cd $run_dir
