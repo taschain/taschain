@@ -63,3 +63,18 @@ print("end")
 `
 	tvm.Execute(script)
 }
+
+func VmTestABI() {
+	tvm := NewTvm(nil)
+
+	tvm.Execute(`
+def Test(a, b, c, d):
+    print(a)
+    print(b)
+    print(c)
+    print(d)
+`)
+
+	str := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
+	tvm.ExecuteABIJson(str)
+}

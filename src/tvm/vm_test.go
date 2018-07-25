@@ -135,3 +135,7 @@ func(b BlockChain) ForEachStorage(common.Address, func(common.Hash, common.Hash)
 func MockBlockChain() {
 
 }
+
+func TestVmTestABI(t *testing.T) {
+	VmTestABI()
+}
