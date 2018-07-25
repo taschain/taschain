@@ -1,15 +1,15 @@
 syntax = "proto3";
 package network;
 
-enum MessageType 
-{ 
+enum MessageType
+{
     MessageNone = 0;
     MessagePing = 1;
 	MessagePong = 2;
 	MessageFindnode = 3;
 	MessageNeighbors = 4;
     MessageData = 5;
-    
+
 };
 enum DataType
 {
@@ -29,34 +29,37 @@ message RpcEndPoint  {
 }
 
 
-message Ping{
+message MsgPing{
 	int32 Version =1;
     RpcEndPoint From =2;
-    RpcEndPoint To =3;    
-	uint64 Expiration =4;
+    RpcEndPoint To =3;
+    bytes  NodeId=4;
+	uint64 Expiration =5;
 }
 
 
-message Pong{
+message MsgPong{
 	RpcEndPoint To =1;
-    bytes ReplyToken =2;    
+    bytes ReplyToken =2;
 	uint64 Expiration =3;
 }
 
-message FindNode {
+message MsgFindNode {
     bytes Target =1;
     uint64 Expiration =2;
 }
 
-message Neighbors {
+message MsgNeighbors {
     repeated RpcNode Nodes =1;
     uint64 Expiration =2;
 }
 
-message Data {
+message MsgData {
     DataType  dataType =1;
     string groupId =2;
     uint64 Expiration =3;
+    uint64 messageId = 4;
+    bytes  data=5;
 }
 
 

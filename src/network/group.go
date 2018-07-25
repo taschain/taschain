@@ -102,19 +102,19 @@ func (gm *GroupManager) doRefresh() {
 	}
 }
 
-//SendDataToGroup 向所有已经连接的组内节点发送自定义数据包
-func (gm *GroupManager) SendDataToGroup(id string, packet *bytes.Buffer) {
-	fmt.Printf("SendDataToGroup  id:%v\n", id)
+//SendGroup 向所有已经连接的组内节点发送自定义数据包
+func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
+	fmt.Printf("SendGroup  id:%v\n", id)
 	g := gm.groups[id]
 	if g == nil {
-		fmt.Printf("SendDataToGroup not find group\n")
+		fmt.Printf("SendGroup not find group\n")
 	}
 	for _, node := range g.nodes {
 		if node != nil {
 
-			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.Ip, node.Port)
+			fmt.Printf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
 
-			go Network.netCore.PM.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+			go Network.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
 	}
 	return

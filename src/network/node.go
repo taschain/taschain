@@ -34,7 +34,6 @@ type Node struct {
 	Port    int
 	NatType int
 
-
 	// kad
 
 	sha     []byte
@@ -42,9 +41,7 @@ type Node struct {
 	fails  int
 	bondAt time.Time
 	bonded bool
-
 }
-
 
 // NewNode 新建节点
 func NewNode(id NodeID, ip net.IP, Port int) *Node {
