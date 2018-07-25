@@ -22,16 +22,12 @@ const (
 	nBuckets          = hashBits / 15       // kad桶数量
 	bucketMinDistance = hashBits - nBuckets // 最近桶的对数距离
 
-	// IP 地址限制.
-	// bucketIPLimit, bucketSubnet = 2, 24
-	// tableIPLimit, tableSubnet   = 10, 24
-
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 	maxFindnodeFailures = 5  // 节点最大失败数量
 
 	refreshInterval    =30 * time.Second
 	revalidateInterval = 30 * time.Minute
-	checkInterval= 	3 * time.Second
+	checkInterval	= 	3 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -64,7 +60,6 @@ type Kad struct {
 	bonding   map[NodeID]*bondproc
 	bondslots chan struct{} // limits total number of active bonding processes
 
-	nodeAddedHook func(*Node) // for testing
 
 	net  transport
 	self *Node // metadata of the local node
@@ -84,8 +79,6 @@ type transport interface {
 	findnode(toid NodeID, addr *net.UDPAddr, target NodeID) ([]*Node, error)
 	close()
 	print()
-	SendDataToAll(data []byte)
-	SendDataToGroup(id string, data []byte)
 }
 
 // 用来储存发现的节点，节点1️以他们的最后活动时间排序
@@ -148,6 +141,7 @@ func (kad *Kad) seedRand() {
 func (kad *Kad) Self() *Node {
 	return kad.self
 }
+
 
 // ReadRandomNodes fills the given slice with random nodes from the
 // table. It will not write the same node more than once. The nodes in
@@ -364,19 +358,15 @@ func (kad *Kad) refresh() <-chan struct{} {
 // loop schedules refresh, revalidate runs and coordinates shutdown.
 func (kad *Kad) loop() {
 	var (
-		revalidate     = time.NewTimer(kad.nextRevalidateTime())
 		refresh        = time.NewTicker(refreshInterval)
 		check        = time.NewTicker(checkInterval)
 		copyNodes      = time.NewTicker(copyNodesInterval)
-		revalidateDone = make(chan struct{})
 		refreshDone    = make(chan struct{})           // where doRefresh reports completion
 		waiting        = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
 	)
 	defer refresh.Stop()
-	defer revalidate.Stop()
 	defer copyNodes.Stop()
 
-	// Start initial refresh.
 	go kad.doRefresh(refreshDone)
 
 loop:
@@ -399,12 +389,8 @@ loop:
 				close(ch)
 			}
 			waiting, refreshDone = nil, nil
-		case <-revalidate.C:
-			go kad.doRevalidate(revalidateDone)
 		case <-check.C:
 			go kad.doCheck()
-		case <-revalidateDone:
-			revalidate.Reset(kad.nextRevalidateTime())
 		case <-copyNodes.C:
 			go kad.copyBondedNodes()
 		case <-kad.closeReq:
@@ -421,32 +407,17 @@ loop:
 	for _, ch := range waiting {
 		close(ch)
 	}
-	//	kad.db.close()
 	close(kad.closed)
 }
 
-// doRefresh performs a lookup for a random target to keep buckets
-// full. seed nodes are inserted if the table is empty (initial
-// bootstrap or discarded faulty peers).
+
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
 
-	//fmt.Printf("doRefresh  \n")
-
-	// Load nodes from the database and insert
-	// them. This should yield a few previously seen nodes that are
-	// (hopefully) still alive.
 	kad.loadSeedNodes(true)
 
-	// Run self lookup to discover new neighbor nodes.
 	kad.lookup(kad.self.Id, false)
 
-	// The Kademlia paper specifies that the bucket refresh should
-	// perform a lookup in the least recently used bucket. We cannot
-	// adhere to this because the findnode target is a 512bit value
-	// (not hash-sized) and it is not easily possible to generate a
-	// sha3 preimage that falls into a chosen bucket.
-	// We perform a few lookups with a random target instead.
 	for i := 0; i < 3; i++ {
 		var target NodeID
 		crand.Read(target[:])
@@ -456,8 +427,6 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 
 func (kad *Kad) loadSeedNodes(bond bool) {
 	seeds := make([]*Node, 0, 16)
-	//kad.db.querySeeds(seedCount, seedMaxAge)
-	//fmt.Printf("loadSeedNodes...\n")
 
 	seeds = append(seeds, kad.nursery...)
 	if bond {
@@ -465,8 +434,6 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 	}
 	for i := range seeds {
 		seed := seeds[i]
-		// age := log.Lazy{Fn: func() interface{} { return time.Since(kad.db.bondTime(seed.Id)) }}
-		// log.Debug("Found seed node in database", "id", seed.Id, "addr", seed.addr(), "age", age)
 		kad.add(seed)
 	}
 }
@@ -481,71 +448,7 @@ func (kad *Kad) doCheck() {
 
 }
 
-// doRevalidate checks that the last node in a random bucket is still live
-// and replaces or deletes the node if it isn't.
-func (kad *Kad) doRevalidate(done chan<- struct{}) {
-	defer func() { done <- struct{}{} }()
-	//fmt.Printf("doRevalidate ... bucket size:%v \n", kad.len())
-	kad.Print()
-	last, bi := kad.nodeToRevalidate()
-	last =nil;
-	//n := 12
-	//
-	//hello := ""
-	//for i := 0; i < n; i++ {
-	//	hello += "KAD"
-	//}
-	//kad.net.SendDataToAll([]byte(hello))
-	if last == nil {
-		// No non-empty bucket found.
-		return
-	}
 
-	// Ping the selected node and wait for a pong.
-	err := kad.ping(last.Id, last.addr())
-
-	kad.mutex.Lock()
-	defer kad.mutex.Unlock()
-	b := kad.buckets[bi]
-	if err == nil {
-		// The node responded, move it to the front.
-		//log.Debug("Revalidated node", "b", bi, "id", last.Id)
-		b.bump(last)
-		return
-	}
-	// No reply received, pick a replacement or delete the node if there aren't
-	// any replacements.
-	if r := kad.replace(b, last); r != nil {
-		//log.Debug("Replaced dead node", "b", bi, "id", last.Id, "ip", last.Ip, "r", r.Id, "rip", r.Ip)
-	} else {
-		//log.Debug("Removed dead node", "b", bi, "id", last.Id, "ip", last.Ip)
-	}
-}
-
-// nodeToRevalidate returns the last node in a random, non-empty bucket.
-func (kad *Kad) nodeToRevalidate() (n *Node, bi int) {
-	kad.mutex.Lock()
-	defer kad.mutex.Unlock()
-
-	for _, bi = range kad.rand.Perm(len(kad.buckets)) {
-		b := kad.buckets[bi]
-		if len(b.entries) > 0 {
-			last := b.entries[len(b.entries)-1]
-			return last, bi
-		}
-	}
-	return nil, 0
-}
-
-func (kad *Kad) nextRevalidateTime() time.Duration {
-	kad.mutex.Lock()
-	defer kad.mutex.Unlock()
-
-	return time.Duration(kad.rand.Int63n(int64(revalidateInterval)))
-}
-
-// copyBondedNodes adds nodes from the table to the database if they have been in the table
-// longer then minTableTime.
 func (kad *Kad) copyBondedNodes() {
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
@@ -560,14 +463,9 @@ func (kad *Kad) copyBondedNodes() {
 	}
 }
 
-// closest returns the n nodes in the table that are closest to the
-// given id. The caller must hold kad.mutex.
-func (kad *Kad) closest(target []byte, nresults int) *nodesByDistance {
-	//fmt.Printf("kad closest ... bucket size:%v \n", kad.len())
 
-	// This is a very wasteful way to find the closest nodes but
-	// obviously correct. I believe that tree-based buckets would make
-	// this easier to implement efficiently.
+func (kad *Kad) closest(target []byte, nresults int) *nodesByDistance {
+
 	close := &nodesByDistance{target: target}
 	for _, b := range kad.buckets {
 		for _, n := range b.entries {
@@ -594,11 +492,8 @@ func (kad *Kad) Print() {
 	return
 }
 
-// bondall bonds with all given nodes concurrently and returns
-// those nodes for which bonding has probably succeeded.
-func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 
-	//fmt.Printf("bondall   %v...\n", kad.len())
+func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 
 	rc := make(chan *Node, len(nodes))
 	for i := range nodes {
@@ -615,28 +510,9 @@ func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 	return result
 }
 
-// bond ensures the local node has a bond with the given remote node.
-// It also attempts to insert the node into the table if bonding succeeds.
-// The caller must not hold kad.mutex.
-//
-// A bond is must be established before sending findnode requests.
-// Both sides must have completed a ping/pong exchange for a bond to
-// exist. The total number of active bonding processes is limited in
-// order to restrain network use.
-//
-// bond is meant to operate idempotently in that bonding with a remote
-// node which still remembers a previously established bond will work.
-// The remote node will simply not send a ping back, causing waitping
-// to time out.
-//
-// If pinged is true, the remote node has just pinged us and one half
-// of the process can be skipped.
 func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node, error) {
 
-	//fmt.Printf("bond self: %v  id:%v\n", kad.self.Id, id)
-
 	if id == kad.self.Id {
-		//fmt.Printf("bond  is self \n")
 		return nil, errors.New("is self")
 	}
 	if pinged && !kad.isInitDone() {
@@ -644,9 +520,6 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 		return nil, errors.New("still initializing")
 	}
 
-	//Start bonding if we haven't seen this node for a while or if it failed findnode too often.
-	//node, fails := kad.db.node(id), kad.db.findFails(id)ƒ
-	//
 	var node *Node
 	node = kad.Find(id)
 	age := nodeBondExpiration
@@ -657,28 +530,16 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 		fails = int(node.fails)
 		node.bondAt = time.Now()
 		bonded = node.bonded
-
 	}
-
-	//fmt.Printf("bond  age  id: %v \n", age)
 
 	var result error
 	if !bonded && ( fails > 0 || age >= nodeBondExpiration) {
-	//		//log.Trace("Starting bonding ping/pong", "id", id, "known", node != nil, "failcount", fails, "age", age)
-		//fmt.Printf("bond  begin \n")
-
 		kad.bondmu.Lock()
 		w := kad.bonding[id]
 		if w != nil {
-			//fmt.Printf("bond is bonding \n")
-
-			// Wait for an existing bonding process to complete.
 			kad.bondmu.Unlock()
 			<-w.done
 		} else {
-			// Register a new bonding process.
-			//fmt.Printf("new bonding process. \n")
-
 			w = &bondproc{done: make(chan struct{})}
 			kad.bonding[id] = w
 			kad.bondmu.Unlock()
@@ -688,24 +549,18 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 			kad.bondmu.Lock()
 			delete(kad.bonding, id)
 			kad.bondmu.Unlock()
-			//fmt.Printf("new bonding process finish. \n")
-
 		}
 		// Retrieve the bonding results
 		result = w.err
 		if result == nil {
 			node = w.n
 		}
+		if node != nil {
+			node.bonded = true
+			kad.add(node)
+		}
 	}
-	// Add the node to the table even if the bonding ping/pong
-	// fails. It will be relaced quickly if it continues to be
-	// unresponsive.
-	if node != nil {
 
-		//fmt.Printf("bond  add node  size:%v  id: %v  \n", kad.len(), node.Id)
-		kad.add(node)
-		//kad.db.updateFindFails(id, 0)
-	}
 	return node, result
 	//return nil, nil
 }
@@ -721,14 +576,8 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr,
 		return
 	}
 	if !pinged {
-		// Give the remote node a chance to ping us before we start
-		// sending findnode requests. If they still remember us,
-		// waitping will simply time out.
 		kad.net.waitping(id)
 	}
-	//fmt.Printf("bond  Bonding succeeded,SendDataToAll %v \n", addr)
-
-	// Bonding succeeded, update the node database.
 	w.n = NewNode(id, addr.IP, addr.Port)
 	close(w.done)
 }
@@ -745,6 +594,14 @@ func (kad *Kad) ping(id NodeID, addr *net.UDPAddr) error {
 	return nil
 }
 
+func (kad *Kad) hasBond(id NodeID) bool {
+	node := kad.Find(id)
+
+	if node != nil {
+		return node.bonded
+	}
+	return false
+}
 // bucket returns the bucket for the given node ID hash.
 func (kad *Kad) bucket(sha []byte) *bucket {
 	d := logdist(kad.self.sha, sha)
@@ -886,9 +743,7 @@ func (kad *Kad) bumpOrAdd(b *bucket, n *Node) bool {
 	b.entries, _ = pushNode(b.entries, n, bucketSize)
 	b.replacements = deleteNode(b.replacements, n)
 	n.addedAt = time.Now()
-	if kad.nodeAddedHook != nil {
-		kad.nodeAddedHook(n)
-	}
+
 	return true
 }
 

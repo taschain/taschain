@@ -10,11 +10,11 @@
 	It has these top-level messages:
 		RpcNode
 		RpcEndPoint
-		Ping
-		Pong
-		FindNode
-		Neighbors
-		Data
+		MsgPing
+		MsgPong
+		MsgFindNode
+		MsgNeighbors
+		MsgData
 */
 package network
 
@@ -148,166 +148,190 @@ func (m *RpcEndPoint) GetPort() int32 {
 	return 0
 }
 
-type Ping struct {
+type MsgPing struct {
 	Version    int32        `protobuf:"varint,1,opt,name=Version,proto3" json:"Version,omitempty"`
 	From       *RpcEndPoint `protobuf:"bytes,2,opt,name=From" json:"From,omitempty"`
 	To         *RpcEndPoint `protobuf:"bytes,3,opt,name=To" json:"To,omitempty"`
-	Expiration uint64       `protobuf:"varint,4,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
+	NodeId     []byte       `protobuf:"bytes,4,opt,name=NodeId,proto3" json:"NodeId,omitempty"`
+	Expiration uint64       `protobuf:"varint,5,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
 }
 
-func (m *Ping) Reset()                    { *m = Ping{} }
-func (m *Ping) String() string            { return proto.CompactTextString(m) }
-func (*Ping) ProtoMessage()               {}
-func (*Ping) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{2} }
+func (m *MsgPing) Reset()                    { *m = MsgPing{} }
+func (m *MsgPing) String() string            { return proto.CompactTextString(m) }
+func (*MsgPing) ProtoMessage()               {}
+func (*MsgPing) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{2} }
 
-func (m *Ping) GetVersion() int32 {
+func (m *MsgPing) GetVersion() int32 {
 	if m != nil {
 		return m.Version
 	}
 	return 0
 }
 
-func (m *Ping) GetFrom() *RpcEndPoint {
+func (m *MsgPing) GetFrom() *RpcEndPoint {
 	if m != nil {
 		return m.From
 	}
 	return nil
 }
 
-func (m *Ping) GetTo() *RpcEndPoint {
+func (m *MsgPing) GetTo() *RpcEndPoint {
 	if m != nil {
 		return m.To
 	}
 	return nil
 }
 
-func (m *Ping) GetExpiration() uint64 {
+func (m *MsgPing) GetNodeId() []byte {
+	if m != nil {
+		return m.NodeId
+	}
+	return nil
+}
+
+func (m *MsgPing) GetExpiration() uint64 {
 	if m != nil {
 		return m.Expiration
 	}
 	return 0
 }
 
-type Pong struct {
+type MsgPong struct {
 	To         *RpcEndPoint `protobuf:"bytes,1,opt,name=To" json:"To,omitempty"`
 	ReplyToken []byte       `protobuf:"bytes,2,opt,name=ReplyToken,proto3" json:"ReplyToken,omitempty"`
 	Expiration uint64       `protobuf:"varint,3,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
 }
 
-func (m *Pong) Reset()                    { *m = Pong{} }
-func (m *Pong) String() string            { return proto.CompactTextString(m) }
-func (*Pong) ProtoMessage()               {}
-func (*Pong) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{3} }
+func (m *MsgPong) Reset()                    { *m = MsgPong{} }
+func (m *MsgPong) String() string            { return proto.CompactTextString(m) }
+func (*MsgPong) ProtoMessage()               {}
+func (*MsgPong) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{3} }
 
-func (m *Pong) GetTo() *RpcEndPoint {
+func (m *MsgPong) GetTo() *RpcEndPoint {
 	if m != nil {
 		return m.To
 	}
 	return nil
 }
 
-func (m *Pong) GetReplyToken() []byte {
+func (m *MsgPong) GetReplyToken() []byte {
 	if m != nil {
 		return m.ReplyToken
 	}
 	return nil
 }
 
-func (m *Pong) GetExpiration() uint64 {
+func (m *MsgPong) GetExpiration() uint64 {
 	if m != nil {
 		return m.Expiration
 	}
 	return 0
 }
 
-type FindNode struct {
+type MsgFindNode struct {
 	Target     []byte `protobuf:"bytes,1,opt,name=Target,proto3" json:"Target,omitempty"`
 	Expiration uint64 `protobuf:"varint,2,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
 }
 
-func (m *FindNode) Reset()                    { *m = FindNode{} }
-func (m *FindNode) String() string            { return proto.CompactTextString(m) }
-func (*FindNode) ProtoMessage()               {}
-func (*FindNode) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{4} }
+func (m *MsgFindNode) Reset()                    { *m = MsgFindNode{} }
+func (m *MsgFindNode) String() string            { return proto.CompactTextString(m) }
+func (*MsgFindNode) ProtoMessage()               {}
+func (*MsgFindNode) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{4} }
 
-func (m *FindNode) GetTarget() []byte {
+func (m *MsgFindNode) GetTarget() []byte {
 	if m != nil {
 		return m.Target
 	}
 	return nil
 }
 
-func (m *FindNode) GetExpiration() uint64 {
+func (m *MsgFindNode) GetExpiration() uint64 {
 	if m != nil {
 		return m.Expiration
 	}
 	return 0
 }
 
-type Neighbors struct {
+type MsgNeighbors struct {
 	Nodes      []*RpcNode `protobuf:"bytes,1,rep,name=Nodes" json:"Nodes,omitempty"`
 	Expiration uint64     `protobuf:"varint,2,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
 }
 
-func (m *Neighbors) Reset()                    { *m = Neighbors{} }
-func (m *Neighbors) String() string            { return proto.CompactTextString(m) }
-func (*Neighbors) ProtoMessage()               {}
-func (*Neighbors) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{5} }
+func (m *MsgNeighbors) Reset()                    { *m = MsgNeighbors{} }
+func (m *MsgNeighbors) String() string            { return proto.CompactTextString(m) }
+func (*MsgNeighbors) ProtoMessage()               {}
+func (*MsgNeighbors) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{5} }
 
-func (m *Neighbors) GetNodes() []*RpcNode {
+func (m *MsgNeighbors) GetNodes() []*RpcNode {
 	if m != nil {
 		return m.Nodes
 	}
 	return nil
 }
 
-func (m *Neighbors) GetExpiration() uint64 {
+func (m *MsgNeighbors) GetExpiration() uint64 {
 	if m != nil {
 		return m.Expiration
 	}
 	return 0
 }
 
-type Data struct {
+type MsgData struct {
 	DataType   DataType `protobuf:"varint,1,opt,name=dataType,proto3,enum=network.DataType" json:"dataType,omitempty"`
 	GroupId    string   `protobuf:"bytes,2,opt,name=groupId,proto3" json:"groupId,omitempty"`
 	Expiration uint64   `protobuf:"varint,3,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
+	MessageId  uint64   `protobuf:"varint,4,opt,name=messageId,proto3" json:"messageId,omitempty"`
+	Data       []byte   `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (m *Data) Reset()                    { *m = Data{} }
-func (m *Data) String() string            { return proto.CompactTextString(m) }
-func (*Data) ProtoMessage()               {}
-func (*Data) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{6} }
+func (m *MsgData) Reset()                    { *m = MsgData{} }
+func (m *MsgData) String() string            { return proto.CompactTextString(m) }
+func (*MsgData) ProtoMessage()               {}
+func (*MsgData) Descriptor() ([]byte, []int) { return fileDescriptorP2P, []int{6} }
 
-func (m *Data) GetDataType() DataType {
+func (m *MsgData) GetDataType() DataType {
 	if m != nil {
 		return m.DataType
 	}
 	return DataType_DataNormal
 }
 
-func (m *Data) GetGroupId() string {
+func (m *MsgData) GetGroupId() string {
 	if m != nil {
 		return m.GroupId
 	}
 	return ""
 }
 
-func (m *Data) GetExpiration() uint64 {
+func (m *MsgData) GetExpiration() uint64 {
 	if m != nil {
 		return m.Expiration
 	}
 	return 0
 }
 
+func (m *MsgData) GetMessageId() uint64 {
+	if m != nil {
+		return m.MessageId
+	}
+	return 0
+}
+
+func (m *MsgData) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*RpcNode)(nil), "network.RpcNode")
 	proto.RegisterType((*RpcEndPoint)(nil), "network.RpcEndPoint")
-	proto.RegisterType((*Ping)(nil), "network.Ping")
-	proto.RegisterType((*Pong)(nil), "network.Pong")
-	proto.RegisterType((*FindNode)(nil), "network.FindNode")
-	proto.RegisterType((*Neighbors)(nil), "network.Neighbors")
-	proto.RegisterType((*Data)(nil), "network.Data")
+	proto.RegisterType((*MsgPing)(nil), "network.MsgPing")
+	proto.RegisterType((*MsgPong)(nil), "network.MsgPong")
+	proto.RegisterType((*MsgFindNode)(nil), "network.MsgFindNode")
+	proto.RegisterType((*MsgNeighbors)(nil), "network.MsgNeighbors")
+	proto.RegisterType((*MsgData)(nil), "network.MsgData")
 	proto.RegisterEnum("network.MessageType", MessageType_name, MessageType_value)
 	proto.RegisterEnum("network.DataType", DataType_name, DataType_value)
 }
@@ -375,7 +399,7 @@ func (m *RpcEndPoint) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *Ping) Marshal() (dAtA []byte, err error) {
+func (m *MsgPing) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -385,7 +409,7 @@ func (m *Ping) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Ping) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgPing) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -415,15 +439,21 @@ func (m *Ping) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
+	if len(m.NodeId) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintP2P(dAtA, i, uint64(len(m.NodeId)))
+		i += copy(dAtA[i:], m.NodeId)
+	}
 	if m.Expiration != 0 {
-		dAtA[i] = 0x20
+		dAtA[i] = 0x28
 		i++
 		i = encodeVarintP2P(dAtA, i, uint64(m.Expiration))
 	}
 	return i, nil
 }
 
-func (m *Pong) Marshal() (dAtA []byte, err error) {
+func (m *MsgPong) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -433,7 +463,7 @@ func (m *Pong) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Pong) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgPong) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -462,7 +492,7 @@ func (m *Pong) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *FindNode) Marshal() (dAtA []byte, err error) {
+func (m *MsgFindNode) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -472,7 +502,7 @@ func (m *FindNode) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *FindNode) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgFindNode) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -491,7 +521,7 @@ func (m *FindNode) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *Neighbors) Marshal() (dAtA []byte, err error) {
+func (m *MsgNeighbors) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -501,7 +531,7 @@ func (m *Neighbors) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Neighbors) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgNeighbors) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -526,7 +556,7 @@ func (m *Neighbors) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *Data) Marshal() (dAtA []byte, err error) {
+func (m *MsgData) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -536,7 +566,7 @@ func (m *Data) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Data) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgData) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -556,6 +586,17 @@ func (m *Data) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x18
 		i++
 		i = encodeVarintP2P(dAtA, i, uint64(m.Expiration))
+	}
+	if m.MessageId != 0 {
+		dAtA[i] = 0x20
+		i++
+		i = encodeVarintP2P(dAtA, i, uint64(m.MessageId))
+	}
+	if len(m.Data) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintP2P(dAtA, i, uint64(len(m.Data)))
+		i += copy(dAtA[i:], m.Data)
 	}
 	return i, nil
 }
@@ -599,7 +640,7 @@ func (m *RpcEndPoint) Size() (n int) {
 	return n
 }
 
-func (m *Ping) Size() (n int) {
+func (m *MsgPing) Size() (n int) {
 	var l int
 	_ = l
 	if m.Version != 0 {
@@ -613,13 +654,17 @@ func (m *Ping) Size() (n int) {
 		l = m.To.Size()
 		n += 1 + l + sovP2P(uint64(l))
 	}
+	l = len(m.NodeId)
+	if l > 0 {
+		n += 1 + l + sovP2P(uint64(l))
+	}
 	if m.Expiration != 0 {
 		n += 1 + sovP2P(uint64(m.Expiration))
 	}
 	return n
 }
 
-func (m *Pong) Size() (n int) {
+func (m *MsgPong) Size() (n int) {
 	var l int
 	_ = l
 	if m.To != nil {
@@ -636,7 +681,7 @@ func (m *Pong) Size() (n int) {
 	return n
 }
 
-func (m *FindNode) Size() (n int) {
+func (m *MsgFindNode) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Target)
@@ -649,7 +694,7 @@ func (m *FindNode) Size() (n int) {
 	return n
 }
 
-func (m *Neighbors) Size() (n int) {
+func (m *MsgNeighbors) Size() (n int) {
 	var l int
 	_ = l
 	if len(m.Nodes) > 0 {
@@ -664,7 +709,7 @@ func (m *Neighbors) Size() (n int) {
 	return n
 }
 
-func (m *Data) Size() (n int) {
+func (m *MsgData) Size() (n int) {
 	var l int
 	_ = l
 	if m.DataType != 0 {
@@ -676,6 +721,13 @@ func (m *Data) Size() (n int) {
 	}
 	if m.Expiration != 0 {
 		n += 1 + sovP2P(uint64(m.Expiration))
+	}
+	if m.MessageId != 0 {
+		n += 1 + sovP2P(uint64(m.MessageId))
+	}
+	l = len(m.Data)
+	if l > 0 {
+		n += 1 + l + sovP2P(uint64(l))
 	}
 	return n
 }
@@ -918,7 +970,7 @@ func (m *RpcEndPoint) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Ping) Unmarshal(dAtA []byte) error {
+func (m *MsgPing) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -941,10 +993,10 @@ func (m *Ping) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Ping: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgPing: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Ping: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgPing: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1033,6 +1085,37 @@ func (m *Ping) Unmarshal(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeId", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowP2P
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthP2P
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeId = append(m.NodeId[:0], dAtA[iNdEx:postIndex]...)
+			if m.NodeId == nil {
+				m.NodeId = []byte{}
+			}
+			iNdEx = postIndex
+		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Expiration", wireType)
 			}
@@ -1072,7 +1155,7 @@ func (m *Ping) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Pong) Unmarshal(dAtA []byte) error {
+func (m *MsgPong) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1095,10 +1178,10 @@ func (m *Pong) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Pong: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgPong: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Pong: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgPong: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1205,7 +1288,7 @@ func (m *Pong) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *FindNode) Unmarshal(dAtA []byte) error {
+func (m *MsgFindNode) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1228,10 +1311,10 @@ func (m *FindNode) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: FindNode: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgFindNode: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: FindNode: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgFindNode: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1305,7 +1388,7 @@ func (m *FindNode) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Neighbors) Unmarshal(dAtA []byte) error {
+func (m *MsgNeighbors) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1328,10 +1411,10 @@ func (m *Neighbors) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Neighbors: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgNeighbors: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Neighbors: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgNeighbors: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1405,7 +1488,7 @@ func (m *Neighbors) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Data) Unmarshal(dAtA []byte) error {
+func (m *MsgData) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1428,10 +1511,10 @@ func (m *Data) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Data: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgData: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Data: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgData: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1501,6 +1584,56 @@ func (m *Data) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageId", wireType)
+			}
+			m.MessageId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowP2P
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MessageId |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowP2P
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthP2P
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
+			if m.Data == nil {
+				m.Data = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipP2P(dAtA[iNdEx:])
@@ -1630,33 +1763,36 @@ var (
 func init() { proto.RegisterFile("p2p.proto", fileDescriptorP2P) }
 
 var fileDescriptorP2P = []byte{
-	// 447 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0x4d, 0x8b, 0xd3, 0x40,
-	0x18, 0xc7, 0x3b, 0x69, 0xba, 0x6d, 0x9e, 0xae, 0xdd, 0x71, 0x5c, 0x24, 0xa7, 0x50, 0x8a, 0x48,
-	0x58, 0xb0, 0x60, 0x3d, 0x79, 0xf0, 0xb2, 0xec, 0x0b, 0x3d, 0x58, 0xca, 0x18, 0xbc, 0x4f, 0x37,
-	0x43, 0x0c, 0x9b, 0x9d, 0x67, 0x98, 0x8c, 0xe8, 0x82, 0x1f, 0xc2, 0xa3, 0x1f, 0xc9, 0xa3, 0x1f,
-	0x41, 0xea, 0x17, 0x91, 0x19, 0x93, 0x12, 0xb6, 0x48, 0xf7, 0x36, 0xcf, 0xdb, 0xef, 0xff, 0x7f,
-	0x9e, 0x36, 0x10, 0xe9, 0x85, 0x9e, 0x6b, 0x83, 0x16, 0xd9, 0x50, 0x49, 0xfb, 0x05, 0xcd, 0xed,
-	0xec, 0x1d, 0x0c, 0xb9, 0xbe, 0x59, 0x61, 0x2e, 0xd9, 0x04, 0x82, 0xa5, 0x8e, 0xc9, 0x94, 0xa4,
-	0x11, 0x0f, 0x96, 0x9a, 0x31, 0x08, 0xd7, 0x68, 0x6c, 0x1c, 0x4c, 0x49, 0x3a, 0xe0, 0xfe, 0xed,
-	0x7b, 0xf2, 0xb8, 0xdf, 0xf4, 0xe4, 0xb3, 0xd7, 0x30, 0xe6, 0xfa, 0xe6, 0x52, 0xe5, 0x6b, 0x2c,
-	0x95, 0x7d, 0x0c, 0x62, 0xf6, 0x9d, 0x40, 0xb8, 0x2e, 0x55, 0xc1, 0x62, 0x18, 0x7e, 0x94, 0xa6,
-	0x2e, 0x51, 0xf9, 0x89, 0x01, 0x6f, 0x43, 0x96, 0x42, 0x78, 0x65, 0xf0, 0xce, 0x8f, 0x8d, 0x17,
-	0xa7, 0xf3, 0xc6, 0xec, 0xbc, 0x23, 0xc5, 0x7d, 0x07, 0x7b, 0x01, 0x41, 0x86, 0xde, 0xcf, 0xff,
-	0xfa, 0x82, 0x0c, 0x59, 0x02, 0x70, 0xf9, 0x55, 0x97, 0x46, 0x58, 0x27, 0x16, 0x4e, 0x49, 0x1a,
-	0xf2, 0x4e, 0x66, 0x56, 0x39, 0x9b, 0xaa, 0x68, 0x68, 0xe4, 0x30, 0x8d, 0x4b, 0x5d, 0xdd, 0x67,
-	0x78, 0x2b, 0x95, 0xf7, 0x78, 0xcc, 0x3b, 0x99, 0x07, 0x6a, 0xfd, 0x3d, 0xb5, 0x73, 0x18, 0x5d,
-	0x95, 0x2a, 0xf7, 0x37, 0x7f, 0x0e, 0x47, 0x99, 0x30, 0x85, 0xb4, 0x5e, 0xf5, 0x98, 0x37, 0xd1,
-	0x03, 0x46, 0xb0, 0xc7, 0xf8, 0x00, 0xd1, 0x4a, 0x96, 0xc5, 0xa7, 0x0d, 0x9a, 0x9a, 0xbd, 0x84,
-	0x81, 0x83, 0xd5, 0x31, 0x99, 0xf6, 0xd3, 0xf1, 0x82, 0x76, 0x9d, 0xbb, 0x02, 0xff, 0x57, 0x3e,
-	0x08, 0x45, 0x08, 0x2f, 0x84, 0x15, 0xec, 0x15, 0x8c, 0x72, 0x61, 0x45, 0x76, 0xaf, 0xa5, 0xb7,
-	0x35, 0x59, 0x3c, 0xdd, 0x21, 0x2f, 0x9a, 0x02, 0xdf, 0xb5, 0xb8, 0xdf, 0xb1, 0x30, 0xf8, 0x59,
-	0x2f, 0x73, 0xcf, 0x8c, 0x78, 0x1b, 0x1e, 0xba, 0xc4, 0xd9, 0x37, 0x18, 0xbf, 0x97, 0x75, 0x2d,
-	0x0a, 0xe9, 0x41, 0x27, 0xbb, 0x70, 0x85, 0x4a, 0xd2, 0x5e, 0x27, 0xe1, 0xfe, 0x30, 0x94, 0x74,
-	0x13, 0xa8, 0x0a, 0x1a, 0xb0, 0x67, 0x70, 0xd2, 0x24, 0xdc, 0x49, 0x15, 0xe6, 0x92, 0xf6, 0xd9,
-	0x29, 0xd0, 0x96, 0xd3, 0xde, 0x88, 0x86, 0x9d, 0x59, 0xb7, 0x03, 0x1d, 0x9c, 0xbd, 0x85, 0x51,
-	0xbb, 0x0d, 0x9b, 0x00, 0xb8, 0xf7, 0x0a, 0xcd, 0x9d, 0xa8, 0x68, 0x8f, 0x3d, 0x81, 0xc8, 0xc5,
-	0xd7, 0x6e, 0x11, 0x4a, 0xda, 0xf2, 0x75, 0x85, 0x1b, 0x51, 0xd1, 0xe0, 0x9c, 0xfe, 0xdc, 0x26,
-	0xe4, 0xd7, 0x36, 0x21, 0xbf, 0xb7, 0x09, 0xf9, 0xf1, 0x27, 0xe9, 0x6d, 0x8e, 0xfc, 0x77, 0xf5,
-	0xe6, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1b, 0x8e, 0x74, 0x3a, 0x64, 0x03, 0x00, 0x00,
+	// 494 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xc1, 0x6a, 0xdb, 0x40,
+	0x10, 0xf5, 0xca, 0xb2, 0x1d, 0x8f, 0x5d, 0x67, 0xbb, 0x0d, 0x41, 0x87, 0x22, 0x84, 0x29, 0x45,
+	0x04, 0x6a, 0xa8, 0x7b, 0xea, 0xa1, 0x97, 0x12, 0x27, 0xf8, 0x60, 0x63, 0x16, 0x91, 0xbb, 0x1c,
+	0x2d, 0x5b, 0x11, 0x7b, 0x67, 0x59, 0xa9, 0xb4, 0x81, 0x7e, 0x48, 0x3f, 0xa0, 0xb7, 0xfe, 0x48,
+	0x8f, 0xfd, 0x84, 0xe2, 0xfe, 0x48, 0xd9, 0xb5, 0xe4, 0x8a, 0x84, 0xe2, 0xde, 0x76, 0x66, 0xde,
+	0xbe, 0xf7, 0x46, 0x6f, 0x05, 0x7d, 0x3d, 0xd5, 0x13, 0x6d, 0xb0, 0x44, 0xd6, 0x53, 0xa2, 0xfc,
+	0x84, 0xe6, 0x6e, 0xfc, 0x0e, 0x7a, 0x5c, 0xdf, 0x2e, 0x31, 0x13, 0x6c, 0x04, 0xde, 0x5c, 0x07,
+	0x24, 0x22, 0x71, 0x9f, 0x7b, 0x73, 0xcd, 0x18, 0xf8, 0x2b, 0x34, 0x65, 0xe0, 0x45, 0x24, 0xee,
+	0x70, 0x77, 0x76, 0x98, 0x2c, 0x68, 0x57, 0x98, 0x6c, 0xfc, 0x1a, 0x06, 0x5c, 0xdf, 0xce, 0x54,
+	0xb6, 0xc2, 0x5c, 0x95, 0xff, 0x43, 0x31, 0xfe, 0x4e, 0xa0, 0xb7, 0x28, 0xe4, 0x2a, 0x57, 0x92,
+	0x05, 0xd0, 0xbb, 0x11, 0xa6, 0xc8, 0x51, 0xb9, 0x4b, 0x1d, 0x5e, 0x97, 0x2c, 0x06, 0xff, 0xca,
+	0xe0, 0xd6, 0xdd, 0x1c, 0x4c, 0xcf, 0x26, 0x95, 0xdf, 0x49, 0x43, 0x8d, 0x3b, 0x04, 0x7b, 0x01,
+	0x5e, 0x82, 0xce, 0xd2, 0xbf, 0x70, 0x5e, 0x82, 0xec, 0x1c, 0xba, 0x76, 0xc9, 0x79, 0x16, 0xf8,
+	0x11, 0x89, 0x87, 0xbc, 0xaa, 0x58, 0x08, 0x30, 0xfb, 0xac, 0x73, 0x93, 0x96, 0xd6, 0x44, 0x27,
+	0x22, 0xb1, 0xcf, 0x1b, 0x9d, 0x31, 0xee, 0xcd, 0xa2, 0x92, 0x95, 0x10, 0x39, 0x22, 0x14, 0x02,
+	0x70, 0xa1, 0x37, 0xf7, 0x09, 0xde, 0x09, 0xe5, 0xec, 0x0f, 0x79, 0xa3, 0xf3, 0x40, 0xb0, 0xfd,
+	0x48, 0x70, 0x06, 0x83, 0x45, 0x21, 0xaf, 0x72, 0x95, 0xb9, 0x50, 0xce, 0xa1, 0x9b, 0xa4, 0x46,
+	0x8a, 0xd2, 0x09, 0x0f, 0x79, 0x55, 0x3d, 0xa0, 0xf1, 0x1e, 0xd1, 0xdc, 0xc0, 0x70, 0x51, 0xc8,
+	0xa5, 0xc8, 0xe5, 0x87, 0x35, 0x9a, 0x82, 0xbd, 0x84, 0x8e, 0xe5, 0x2b, 0x02, 0x12, 0xb5, 0xe3,
+	0xc1, 0x94, 0x36, 0xfd, 0xdb, 0x01, 0xdf, 0x8f, 0x8f, 0xf2, 0x7e, 0xdb, 0xa7, 0x77, 0x99, 0x96,
+	0x29, 0x7b, 0x05, 0x27, 0x59, 0x5a, 0xa6, 0xc9, 0xbd, 0x16, 0xce, 0xdd, 0x68, 0xfa, 0xf4, 0x40,
+	0x7b, 0x59, 0x0d, 0xf8, 0x01, 0x62, 0xc3, 0x96, 0x06, 0x3f, 0xea, 0x79, 0xe6, 0x78, 0xfb, 0xbc,
+	0x2e, 0x8f, 0x7d, 0x13, 0xf6, 0x1c, 0xfa, 0x5b, 0x51, 0x14, 0xa9, 0xac, 0xf3, 0xf3, 0xf9, 0xdf,
+	0x86, 0x7d, 0x64, 0x56, 0xc3, 0x85, 0x37, 0xe4, 0xee, 0x7c, 0xf1, 0x05, 0x06, 0x8b, 0x3d, 0xc0,
+	0x49, 0x9f, 0x1e, 0xca, 0x25, 0x2a, 0x41, 0x5b, 0x8d, 0x86, 0x7d, 0x87, 0x94, 0x34, 0x1b, 0xa8,
+	0x24, 0xf5, 0xd8, 0x33, 0x38, 0xad, 0x1a, 0x36, 0x0b, 0x85, 0x99, 0xa0, 0x6d, 0x76, 0x06, 0xb4,
+	0xe6, 0xa9, 0xbf, 0x2c, 0xf5, 0x1b, 0x77, 0xed, 0xd6, 0xb4, 0x73, 0xf1, 0x16, 0x4e, 0xea, 0xfd,
+	0xd9, 0x08, 0xc0, 0x9e, 0x97, 0x68, 0xb6, 0xe9, 0x86, 0xb6, 0xd8, 0x13, 0xe8, 0xdb, 0xfa, 0xda,
+	0xae, 0x4e, 0x49, 0x3d, 0xbe, 0xde, 0xe0, 0x3a, 0xdd, 0x50, 0xef, 0x3d, 0xfd, 0xb1, 0x0b, 0xc9,
+	0xcf, 0x5d, 0x48, 0x7e, 0xed, 0x42, 0xf2, 0xf5, 0x77, 0xd8, 0x5a, 0x77, 0xdd, 0x1f, 0xfb, 0xe6,
+	0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9d, 0x7c, 0x28, 0xad, 0xbe, 0x03, 0x00, 0x00,
 }

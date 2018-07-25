@@ -85,7 +85,7 @@ func (n *network) Send(targetId string, msg Message) error {
 		go n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.SendData(common.HexStringToAddress(targetId), nil, bytes)
+	go n.netCore.Send(common.HexStringToAddress(targetId), nil, bytes)
 	return nil
 }
 
@@ -95,7 +95,9 @@ func (n *network) Multicast(groupId string, msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendDataToGroup(groupId, bytes)
+
+	n.netCore.SendGroup(groupId,bytes)
+
 	return nil
 }
 
@@ -105,16 +107,16 @@ func (n *network) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendDataToAll(bytes)
+	n.netCore.SendAll(bytes)
 	return nil
 }
 
 func (n *network) ConnInfo() []Conn {
 	result := make([]Conn, 0)
-	peers := n.netCore.PM.peers
+	peers := n.netCore.peerManager.peers
 	for _, p := range peers {
-		if p.seesionID > 0 && p.IP != nil && p.Port > 0 {
-			c := Conn{Id: p.ID.GetHexString(), Ip: p.IP.String(), Port: strconv.Itoa(p.Port)}
+		if p.seesionId > 0 && p.Ip != nil && p.Port > 0 {
+			c := Conn{Id: p.Id.GetHexString(), Ip: p.Ip.String(), Port: strconv.Itoa(p.Port)}
 			result = append(result, c)
 		}
 	}
@@ -122,17 +124,17 @@ func (n *network) ConnInfo() []Conn {
 }
 
 //AddGroup 添加组
-func (n *network) AddGroup(groupID string, members []string) *Group {
+func (n *network) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
 	}
-	return n.netCore.GM.AddGroup(groupID, nodes)
+	return n.netCore.groupManager.AddGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
 func (n *network) RemoveGroup(ID string) {
-	n.netCore.GM.RemoveGroup(ID)
+	n.netCore.groupManager.RemoveGroup(ID)
 }
 
 func (n *network) sendSelf(b []byte) {
