@@ -135,11 +135,8 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
     return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }
 
-func (p *Processor) prepareForCast(gid groupsig.ID)  {
-	bc := new(BlockContext)
-	bc.Proc = p
-	bc.Init(GroupMinerID{gid, p.GetMinerID()})
-	sgi := p.getGroup(gid)
+func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
+	bc := NewBlockContext(p, sgi)
 
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)

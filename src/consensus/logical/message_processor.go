@@ -627,7 +627,7 @@ func (p *Processor) OnMessageGroupInited(gim ConsensusGroupInitedMessage) {
 			p.groupManager.AddGroupOnChain(staticGroup, false)
 
 			if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID) == nil {
-				p.prepareForCast(gim.GI.GroupID)
+				p.prepareForCast(staticGroup)
 			}
 		}
 

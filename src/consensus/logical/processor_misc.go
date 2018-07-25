@@ -64,7 +64,7 @@ func (p *Processor) prepareMiner()  {
 				continue
 			}
 			p.joinGroup(jg, false)
-			p.prepareForCast(gid)
+			p.prepareForCast(sgi)
 		}
 	}
 }

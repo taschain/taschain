@@ -33,10 +33,16 @@ type BlockContext struct {
 	pos     int          //矿工在组内的排位
 }
 
-func (bc *BlockContext) Init(mid GroupMinerID) {
-	bc.MinerID = mid
-	bc.verifyContexts = make([]*VerifyContext, 0)
+func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
+	bc := &BlockContext{
+		Proc: p,
+		MinerID: GroupMinerID{gid: sgi.GroupID, uid: p.GetMinerID()},
+		verifyContexts: make([]*VerifyContext, 0),
+		GroupMembers: len(sgi.Members),
+		Version: CONSENSUS_VERSION,
+	}
 	bc.reset()
+	return bc
 }
 
 func (bc *BlockContext) threshold() int {
@@ -155,7 +161,6 @@ func (bc *BlockContext) Reset() {
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
 
-	bc.Version = CONSENSUS_VERSION
 	//bc.PreTime = *new(time.Time)
 	//bc.CCTimer.Stop() //关闭定时器
 	//bc.TickerRunning = false
@@ -164,7 +169,7 @@ func (bc *BlockContext) reset() {
 	//bc.PrevHash = common.Hash{}
 	//bc.CastHeight = 0
 	bc.currentVerifyContext = nil
-	bc.GroupMembers = GetGroupMemberNum()
+	//bc.GroupMembers = GetGroupMemberNum()
 
 	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
 	log.Printf("end BlockContext::Reset.\n")
