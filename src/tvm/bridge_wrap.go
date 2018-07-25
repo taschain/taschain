@@ -28,32 +28,185 @@ void wrap_transfer(const char* p1, const char* p2, int p3)
     transfer(p1, p2, p3);
 }
 
+void wrap_create_account(const char* address)
+{
+	void CreateAccount(const char*);
+	CreateAccount(address);
+}
+
+void wrap_sub_balance(const char* address, const char* value)
+{
+	void SubBalance(const char*, const char*);
+	SubBalance(address, value);
+}
+
+void wrap_add_balance(const char* address, const char* value)
+{
+	void AddBalance(const char*, const char*);
+	AddBalance(address, value);
+}
+
+char* wrap_get_balance(const char* address)
+{
+	char* GetBalance(const char*);
+	return GetBalance(address);
+}
+
+unsigned long long wrap_get_nonce(const char* address)
+{
+	unsigned long long GetNonce(const char*);
+	return GetNonce(address);
+}
+
+void wrap_set_nonce(const char* address, unsigned long long nonce)
+{
+	void SetNonce(const char*, unsigned long long);
+	SetNonce(address, nonce);
+}
+
+char* wrap_get_code_hash(char* address)
+{
+	char* GetCodeHash(char*);
+	return GetCodeHash(address);
+}
+
+char* wrap_get_code(char* address)
+{
+	char* GetCode(char*);
+	return GetCode(address);
+}
+
+void wrap_set_code(char* address, char* code)
+{
+	void SetCode(char*, char*);
+	SetCode(address, code);
+}
+
+int wrap_get_code_size(char* address)
+{
+	int GetCodeSize(char*);
+	return GetCodeSize(address);
+}
+
+void wrap_add_refund(unsigned long long refund)
+{
+	void AddRefund(unsigned long long);
+	AddRefund(refund);
+}
+
+unsigned long long wrap_get_refund()
+{
+	unsigned long long GetRefund();
+	return GetRefund();
+}
+
+char* wrap_get_state(char* address, char* hash)
+{
+	char* GetState(char*, char*);
+	return GetState(address, hash);
+}
+
+void wrap_set_state(char* address, char* hash, char* state)
+{
+	void SetState(char*, char*, char*);
+	SetState(address, hash, state);
+}
+
+_Bool wrap_suicide(char* address)
+{
+	_Bool Suicide(char*);
+	return Suicide(address);
+}
+
+_Bool wrap_has_suicide(char* address)
+{
+	_Bool HasSuicided(char*);
+	return HasSuicided(address);
+}
+
+_Bool wrap_exists(char* address)
+{
+	_Bool Exist(char*);
+	return Exist(address);
+}
+
+_Bool wrap_empty(char* address)
+{
+	_Bool Empty(char*);
+	return Empty(address);
+}
+
+void wrap_revert_to_snapshot(int i)
+{
+	void RevertToSnapshot(int);
+	RevertToSnapshot(i);
+}
+
+int wrap_snapshot()
+{
+	int Snapshot();
+	return Snapshot();
+}
+
+void wrap_add_preimage(char* hash, char* preimage)
+{
+	void AddPreimage(char*, char*);
+	AddPreimage(hash, preimage);
+}
+
+
+
 */
 import "C"
 import (
 	"unsafe"
-	"vm/core/state"
+	"vm/core/vm"
 )
+
+var tvm *Tvm
 
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
 	C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
+	C.create_account = (C.Function1)(unsafe.Pointer(C.wrap_create_account))
+	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
+	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
+	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
+	C.get_nonce = (C.Function3)(unsafe.Pointer( C.wrap_get_nonce))
+	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
+	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
+	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
+	C.set_code = (C.Function5)(unsafe.Pointer(C.wrap_set_code))
+	C.get_code_size = (C.Function7)(unsafe.Pointer(C.wrap_get_code_size))
+	C.add_refund = (C.Function8)(unsafe.Pointer(C.wrap_add_refund))
+	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
+	C.get_state = (C.Function10)(unsafe.Pointer(C.wrap_get_state))
+	C.set_state = (C.Function11)(unsafe.Pointer(C.wrap_set_state))
+	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
+	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
+	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
+	C.empty = (C.Function4)(unsafe.Pointer(C.wrap_empty))
+	C.revert_to_snapshot = (C.Function12)(unsafe.Pointer(C.wrap_revert_to_snapshot))
+	C.snapshot = (C.Function13)(unsafe.Pointer(C.wrap_snapshot))
+	C.add_preimage = (C.Function5)(unsafe.Pointer(C.wrap_add_preimage))
 }
 
 
 type Tvm struct {
-	state *state.StateDB
+	state vm.StateDB
 }
 
-func NewTvm(state *state.StateDB)*Tvm {
-	tvm := Tvm{}
+func NewTvm(state vm.StateDB)*Tvm {
+	if tvm == nil {
+		tvm = &Tvm{}
+	}
 	tvm.state = state
 
 	C.tvm_start()
 	bridge_init()
 
-	return &tvm
+	return tvm
 }
 
 func (tvm *Tvm)Execute(script string) {

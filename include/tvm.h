@@ -23,6 +23,46 @@ testAry_fcn testAry;
 typedef void (*TransferFunc)(const char*, const char*, int);
 TransferFunc transferFunc;
 void setTransferFunc(TransferFunc);
+/*********************************************************************************************/
+typedef void (*Function1) (const char*);
+typedef char* (*Function2) (const char*);
+typedef unsigned long long (*Function3) (const char*);
+typedef _Bool (*Function4) (const char*);
+typedef void (*Function5) (const char*, const char*);
+typedef void (*Function6) (const char*, unsigned long long);
+typedef int (*Function7) (const char*);
+typedef void (*Function8) (unsigned long long);
+typedef unsigned long long (*Function9) ();
+typedef char* (*Function10) (char*, char*);
+typedef void (*Function11) (char*, char*, char*);
+typedef void (*Function12) (int);
+typedef int (*Function13)();
+
+
+
+Function1 create_account;
+Function5 sub_balance;
+Function5 add_balance;
+Function2 get_balance;
+Function3 get_nonce;
+Function6 set_nonce;
+Function2 get_code_hash;
+Function2 get_code;
+Function5 set_code;
+Function7 get_code_size;
+Function8 add_refund;
+Function9 get_refund;
+Function10 get_state;
+Function11 set_state;
+Function4 suicide;
+Function4 has_suicide;
+Function4 exists;
+Function4 empty;
+Function12 revert_to_snapshot;
+Function13 snapshot;
+Function5 add_preimage;
+
+
 
 
 #ifdef __cplusplus
