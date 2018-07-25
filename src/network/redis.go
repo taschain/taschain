@@ -26,9 +26,9 @@ func NodeOnline(id []byte, pubKey []byte) error{
 		return err
 	}
 	defer conn.Close()
-
-	conn.Do("hset", HMAP_KEY, id, pubKey)
-	conn.Do("sadd", SET_KEY, id)
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	conn.Do("hset", prefix+HMAP_KEY, id, pubKey)
+	conn.Do("sadd", prefix+SET_KEY, id)
 	logger.Info("node %s online, write to redis", string(id))
 	return nil
 }
@@ -40,9 +40,9 @@ func NodeOffline(id []byte) error {
 		return err
 	}
 	defer conn.Close()
-
-	conn.Do("hdel", HMAP_KEY, id)
-	conn.Do("srem", SET_KEY, id)
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	conn.Do("hdel", prefix+HMAP_KEY, id)
+	conn.Do("srem", prefix+SET_KEY, id)
 	return nil
 }
 
@@ -53,7 +53,8 @@ func GetAllNodeIds() ([][]byte, error) {
 		return nil, err
 	}
 	defer conn.Close()
-	r,err :=conn.Do("smembers", SET_KEY)
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	r,err :=conn.Do("smembers", prefix+SET_KEY)
 	return redis.ByteSlices(r, err)
 }
 
@@ -64,7 +65,8 @@ func GetPubKeyById(id []byte) ([]byte, error) {
 		return nil, err
 	}
 	defer conn.Close()
-	r,err := conn.Do("hget", HMAP_KEY, id)
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	r,err := conn.Do("hget", prefix+HMAP_KEY, id)
 	return redis.Bytes(r, err)
 }
 
@@ -76,7 +78,8 @@ func GetPubKeyByIds(ids [][]byte) ([][]byte, error) {
 	}
 	defer conn.Close()
 	args := make([]interface{},len(ids) + 1)
-	args[0] = HMAP_KEY
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	args[0] = prefix+HMAP_KEY
 	for i := 1; i <= len(ids); i++{
 		args[i] = ids[i - 1]
 	}
