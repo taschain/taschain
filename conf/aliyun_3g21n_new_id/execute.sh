@@ -38,9 +38,11 @@ cp conf/$config_dir/start.sh $run_dir/
 cp conf/$config_dir/host_list $run_dir
 cp conf/$config_dir/sync_list $run_dir
 
-
+rm -rf $run_dir/genesis_config
 mkdir $run_dir/genesis_config
 cp -r conf/$config_dir/tas*.ini $run_dir/genesis_config
+cp -r conf/$config_dir/joined_group.config.* $run_dir/genesis_config
+
 
 cd $run_dir
 hosts=`cat host_list`
@@ -64,11 +66,12 @@ done
 $stop_only && exit
 
 instance_index=1
+#每台机器部署实例数量
 instance_count=7
 host_count=1
+
 for host in ${host_arr[@]}
 do
-  #echo -e 'instance_index: '$instance_index',instance_count:'$instance_count',host_count:'$host_count
   if [ $host_count -eq 1 ];then
       cd genesis_config
       rsync  -rvatz --progress . $user@${host}:$remote_home/$run_dir
@@ -83,6 +86,13 @@ do
   #ssh to remote host to start to run new program
   ssh $user@${host} "cd $remote_home/$run_dir;bash -x start.sh $instance_index $instance_count;exit"
 
+
+  for((i=instance_index;i<instance_index+instance_count;i++))
+  do
+      port=$[8100+$i]
+      echo -n "${host}:${port},">> instance_info
+  done
+
   instance_index=$(($instance_index+$instance_count))
   echo -e $host' started\n\n'
 done
@@ -91,6 +101,7 @@ done
 #改回原来的BUILD_ID值
 BUILD_ID=$OLD_BUILD_ID
 
-hp=`cat ${WORKSPACE}/$run_dir/tools/host_port`
-sed -i "s/__HOSTS__/$hp/g" $log_dir/$html
+instance_list=`cat instance_info`
+instance_list=${instance_list%?}
+sed -i "s/__HOSTS__/$instance_list/g" $log_dir/$html
 echo http://logs.taschain.com/page/${html}

@@ -13,6 +13,13 @@ const (
 	SEED_IP_KEY = "seed_ip"
 
 	SEED_PORT_KEY = "seed_port"
+
+
+	SEED_DEFAULT_ID = "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"
+
+	SEED_DEFAULT_IP = "47.106.39.118"
+
+	SEED_DEFAULT_PORT = 1122
 )
 
 var Network network
@@ -34,7 +41,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
 	}
-	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: false}
+	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: true}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
@@ -44,8 +51,8 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 }
 
 func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
-	id = config.GetString(BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
-	ip = config.GetString(BASE_SECTION, SEED_IP_KEY, "10.0.0.66")
-	port = config.GetInt(BASE_SECTION, SEED_PORT_KEY, 1122)
+	id = config.GetString(BASE_SECTION, SEED_ID_KEY, SEED_DEFAULT_ID)
+	ip = config.GetString(BASE_SECTION, SEED_IP_KEY, SEED_DEFAULT_IP)
+	port = config.GetInt(BASE_SECTION, SEED_PORT_KEY, SEED_DEFAULT_PORT)
 	return
 }
