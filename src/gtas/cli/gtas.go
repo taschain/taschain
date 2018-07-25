@@ -94,9 +94,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log")
-	err := gtas.fullInit(super, testMode)
+	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -186,6 +186,7 @@ func (gtas *Gtas) Run() {
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	//在测试模式下  REDIS 前缀随机生成，P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
+	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -232,7 +233,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *portRpc)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -258,7 +259,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	var err error
 	// 椭圆曲线初始化
 	groupsig.Init(1)
@@ -272,7 +273,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool) error {
 		return err
 	}
 
-	err = network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode)
+	err = network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode, seedIp)
 	if err != nil {
 		return err
 	}

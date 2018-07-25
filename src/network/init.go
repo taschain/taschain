@@ -25,7 +25,7 @@ var Network network
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool) error {
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string) error {
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 
 	self, err := InitSelfNode(config, isSuper)
@@ -34,7 +34,10 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 		return err
 	}
 
-	seedId, seedIp, seedPort := getSeedInfo(config)
+	if seedIp == ""{
+		seedIp = SEED_DEFAULT_IP
+	}
+	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
 	bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
 	if bnNode.Id != self.Id && !isSuper {
