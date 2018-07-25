@@ -8,6 +8,7 @@ import (
 	"sync"
 	"core"
 	"middleware/types"
+	"log"
 )
 
 type STATIC_GROUP_STATUS int
@@ -323,6 +324,10 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
+		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", GetIDPrefix(id))
+		for _, g := range gg.groups {
+			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", GetIDPrefix(g.GroupID))
+		}
 		g = &StaticGroupInfo{}
 	}
 	return
