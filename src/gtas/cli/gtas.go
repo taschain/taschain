@@ -45,7 +45,7 @@ const (
 
 	databaseKey = "database"
 
-	redis_prefix = "pxf_"
+	redis_prefix = "aliyun_"
 )
 
 var configManager = &common.GlobalConf
