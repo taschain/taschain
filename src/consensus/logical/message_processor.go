@@ -696,8 +696,11 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		if len(pubkeys) != len(creatingGroup.ids) {
 			panic("get all pubkey failed")
 		}
+
+
 		for i, id := range creatingGroup.ids {
 			mems[i] = PubKeyInfo{ID: id, PK: pubkeys[i]}
+			idStrs = append(idStrs, id.GetString())
 		}
 		initMsg := &ConsensusGroupRawMessage{
 			GI: msg.GI,
@@ -706,6 +709,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 
 		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
 		initMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()}, initMsg)
+
 		SendGroupInitMessage(*initMsg)
 
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)

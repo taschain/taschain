@@ -256,6 +256,14 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 
 	SendCreateGroupRawMessage(&msg)
+
+	idStrs := make([]string, 0)
+	for _, ms := range memIds {
+		idStrs = append(idStrs, ms.GetString())
+	}
+
+	//提前建立组网络
+	gm.processor.Server.BuildGroupNet(msg.GI.DummyID.GetString(), idStrs)
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMessage) bool {
