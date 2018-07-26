@@ -7,7 +7,6 @@ import (
 	"middleware/pb"
 	"middleware/types"
 	"network"
-	"time"
 )
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -110,7 +109,7 @@ func SendCastVerify(ccm *ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime))
+	//network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime))
 	groupBroadcast(m, groupId)
 }
 
@@ -134,7 +133,7 @@ func SendVerifiedCast(cvm *ConsensusVerifyMessage) {
 
 //对外广播经过组签名的block 全网广播
 func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
-	network.Logger.Debugf("broad block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
+	//network.Logger.Debugf("broad block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
