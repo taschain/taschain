@@ -45,7 +45,7 @@ const (
 
 	databaseKey = "database"
 
-	redis_prefix = "aliyun"
+	redis_prefix = "aliyun_"
 )
 
 var configManager = &common.GlobalConf
@@ -108,6 +108,10 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 			fmt.Println(err)
 			return
 		}
+	}
+	if super {
+		//超级节点启动前先把Redis数据清空
+		network.CleanRedisData()
 	}
 	gtas.waitingUtilSyncFinished()
 	ok := mediator.StartMiner()
