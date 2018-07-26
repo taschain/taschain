@@ -139,3 +139,7 @@ func MockBlockChain() {
 func TestVmTestABI(t *testing.T) {
 	VmTestABI()
 }
+
+func TestVmTestException(t *testing.T) {
+	VmTestException()
+}
