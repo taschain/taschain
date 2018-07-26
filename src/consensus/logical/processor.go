@@ -40,6 +40,8 @@ type Processor struct {
 	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
 
+	Server network.Server
+
 }
 
 
@@ -84,7 +86,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	//p.sci.Init()
 
 	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
-
+	p.Server = network.Network
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	return true

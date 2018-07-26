@@ -21,7 +21,7 @@ const (
 	SEED_DEFAULT_PORT = 1122
 )
 
-var Network network
+var Network *network
 
 var Logger taslog.Logger
 
@@ -55,7 +55,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	Network = network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	Network = &network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
 	return nil
 }
 

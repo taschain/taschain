@@ -52,7 +52,7 @@ func StopMiner() {
 
 //创建一个待初始化的新组
 //返回0成功，返回<0异常。
-func CreateGroup(miners []logical.PubKeyInfo, gn string) int {
-	n := Proc.CreateDummyGroup(miners, nil, gn)
-	return n
-}
+//func CreateGroup(miners []logical.PubKeyInfo, gn string) int {
+//	n := Proc.CreateDummyGroup(miners, nil, gn)
+//	return n
+//}

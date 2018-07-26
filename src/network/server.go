@@ -124,7 +124,15 @@ func (n *network) ConnInfo() []Conn {
 	return result
 }
 
-//AddGroup 添加组
+func (n *network)BuildGroupNet(groupId string, members []string) error{
+	nodes := make([]NodeID, 0)
+	for _, id := range members {
+		nodes = append(nodes, common.HexStringToAddress(id))
+	}
+	n.netCore.groupManager.AddGroup(groupId, nodes)
+    return nil
+}
+
 func (n *network) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
