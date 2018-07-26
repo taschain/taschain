@@ -3,8 +3,8 @@ package network
 import (
 	"github.com/gomodule/redigo/redis"
 	"common"
-	"fmt"
 	"taslog"
+	"log"
 )
 
 const (
@@ -22,7 +22,7 @@ func NodeOnline(id []byte, pubKey []byte) error{
 	logger := taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	conn,err := getRedisConnection()
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
+		log.Println("Connect to redis error", err)
 		return err
 	}
 	defer conn.Close()
@@ -36,7 +36,7 @@ func NodeOnline(id []byte, pubKey []byte) error{
 func NodeOffline(id []byte) error {
 	conn,err := getRedisConnection()
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
+		log.Println("Connect to redis error", err)
 		return err
 	}
 	defer conn.Close()
@@ -49,7 +49,7 @@ func NodeOffline(id []byte) error {
 func GetAllNodeIds() ([][]byte, error) {
 	conn,err := getRedisConnection()
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
+		log.Println("Connect to redis error", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -61,7 +61,7 @@ func GetAllNodeIds() ([][]byte, error) {
 func GetPubKeyById(id []byte) ([]byte, error) {
 	conn,err := getRedisConnection()
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
+		log.Println("Connect to redis error", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -73,7 +73,7 @@ func GetPubKeyById(id []byte) ([]byte, error) {
 func GetPubKeyByIds(ids [][]byte) ([][]byte, error) {
 	conn,err := getRedisConnection()
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
+		log.Println("Connect to redis error", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -85,4 +85,18 @@ func GetPubKeyByIds(ids [][]byte) ([][]byte, error) {
 	}
 	r,err := conn.Do("hmget", args...)
 	return redis.ByteSlices(r, err)
+}
+
+func CleanRedisData() {
+	conn,err := getRedisConnection()
+	if err != nil {
+		log.Println("Connect to redis error", err)
+		return
+	}
+	defer conn.Close()
+	prefix := common.GlobalConf.GetString("test", "prefix", "")
+	_, err = conn.Do("del", prefix+HMAP_KEY, prefix + SET_KEY)
+	if err != nil {
+		log.Printf("exec redis del command fail %v", err)
+	}
 }
