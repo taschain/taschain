@@ -9,6 +9,7 @@ import (
 	"common"
 	"crypto/sha256"
 	"encoding/hex"
+	"time"
 )
 
 const (
@@ -142,14 +143,15 @@ func (n *network) sendSelf(b []byte) {
 }
 
 func (n *network) handleMessage(b []byte, from string) {
+	begin:= time.Now()
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
 
-	//Logger.Debugf("rcv %s from %s\n", message.Hash(), from)
 	code := message.Code
+	defer Logger.Debugf("code:%d,cost time:%v",code,time.Since(begin))
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG, CREATE_GROUP_RAW, CREATE_GROUP_SIGN:

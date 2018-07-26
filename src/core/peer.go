@@ -5,7 +5,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
-	"time"
 	"network"
 )
 
@@ -71,7 +70,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.REQ_TRANSACTION_MSG, Body: body}
 	network.Network.Send(castorId,message)
 }
@@ -83,7 +82,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
+	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
 	message := network.Message{Code: network.TRANSACTION_GOT_MSG, Body: body}
 	network.Network.Send(sourceId,message)
 }
