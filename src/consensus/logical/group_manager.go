@@ -234,7 +234,6 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
 		panic("create group init summary failed")
 	}
-	gis.Members = uint64(GetGroupMemberNum())
 	gis.Extends = "Dummy"
 
 	randSeed := rand.Data2CommonHash(bh.Signature)
@@ -242,7 +241,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	if !enough {
 		return
 	}
-	gis.MemberHash = genMemberHashByIds(memIds)
+	gis.withMemberIds(memIds)
 
 	msg := ConsensusCreateGroupRawMessage{
 		GI: gis,

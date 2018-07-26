@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/aliyun_3g21n_new_id/`
 
 func TestBelongGroups(t *testing.T) {
 	groupsig.Init(1)
@@ -50,7 +50,7 @@ func initProcessor(conf string) *Processor {
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := 7
+	maxProcNum := 3
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
@@ -124,13 +124,15 @@ func TestGenesisGroup(t *testing.T) {
 		mems = append(mems, proc.getPubkeyInfo())
 	}
 	gis := GenGenesisGroupSummary()
-	gis.MemberHash = genMemberHash(mems)
+	gis.withMemberPubs(mems)
 	grm := &ConsensusGroupRawMessage{
 		GI: gis,
 		MEMS: mems,
 	}
 
 	procSpms := make(map[string][]*ConsensusSharePieceMessage)
+
+	GROUP_MAX_MEMBERS = len(mems)
 
 	for _, p := range procs {
 		staticGroupInfo := new(StaticGroupInfo)
