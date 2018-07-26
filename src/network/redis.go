@@ -97,7 +97,6 @@ func CleanRedisData() {
 	defer conn.Close()
 	prefix := common.GlobalConf.GetString("test", "prefix", "")
 	_, err = conn.Do("del", prefix+HMAP_KEY, prefix + SET_KEY)
-	fmt.Printf("redis del:%s,%s",prefix+HMAP_KEY,prefix + SET_KEY)
 	if err != nil {
 		log.Printf("exec redis del command fail %v", err)
 	}
