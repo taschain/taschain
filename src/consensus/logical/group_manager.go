@@ -249,7 +249,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 	msg.GenSign(SecKeyInfo{ID: gm.processor.GetMinerID(), SK: gm.processor.getSignKey(group.GroupID)}, &msg)
 
-	creatingGroup := newCreateGroup(&gis, memIds)
+	creatingGroup := newCreateGroup(&gis, memIds, group)
 	gm.addCreatingGroup(creatingGroup)
 
 	log.Printf("proc(%v) start Create Group consensus, send network msg to members...\n", gm.processor.getPrefix())
@@ -327,6 +327,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *ConsensusCreateGroupSignMe
 		return false
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
+	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
 	if accept == PIECE_THRESHOLD {
 		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
 		msg.GI.Signature = *sign

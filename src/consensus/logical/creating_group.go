@@ -22,6 +22,7 @@ const (
 
 type CreatingGroup struct {
 	gis *ConsensusGroupInitSummary
+	creator *StaticGroupInfo
 	ids []groupsig.ID
 	threshold int
 	pieces map[string]groupsig.Signature
@@ -34,12 +35,13 @@ type CreatingGroups struct {
 	//lock sync.RWMutex
 }
 
-func newCreateGroup(gis *ConsensusGroupInitSummary, ids []groupsig.ID) *CreatingGroup {
+func newCreateGroup(gis *ConsensusGroupInitSummary, ids []groupsig.ID, creator *StaticGroupInfo) *CreatingGroup {
 	return &CreatingGroup{
 		gis: gis,
 		ids: ids,
 		pieces: make(map[string]groupsig.Signature),
-		threshold: GetGroupK(int(gis.Members)),
+		creator: creator,
+		threshold: GetGroupK(len(creator.Members)),
 	}
 }
 
