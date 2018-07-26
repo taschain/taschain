@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/aliyun_3g21n_new_id/`
+const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
 
 func TestBelongGroups(t *testing.T) {
 	groupsig.Init(1)
