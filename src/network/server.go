@@ -98,7 +98,7 @@ func (n *network) Multicast(groupId string, msg Message) error {
 	}
 
 	n.netCore.SendGroup(groupId,bytes)
-
+	n.sendSelf(bytes)
 	return nil
 }
 
@@ -109,6 +109,7 @@ func (n *network) Broadcast(msg Message) error {
 		return err
 	}
 	n.netCore.SendAll(bytes)
+	n.sendSelf(bytes)
 	return nil
 }
 

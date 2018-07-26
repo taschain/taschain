@@ -2,7 +2,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"core"
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
@@ -19,7 +18,7 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := network.Message{Code: network.GROUP_MEMBER_MSG, Body: body}
-	network.Network.Broadcast(m)
+	network.GetNetInstance().Broadcast(m)
 }
 
 //广播 组初始化消息  全网广播
@@ -30,10 +29,7 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
-	network.Network.Broadcast(m)
-	//发给自己
-	network.Network.Send(network.Network.Self.Id.GetHexString(),m)
-
+	network.GetNetInstance().Broadcast(m)
 }
 
 //组内广播密钥   for each定向发送 组内广播
@@ -43,9 +39,8 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
 		return
 	}
-	id := spm.Dest.GetString()
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
-	network.Network.Send(id,m)
+	network.GetNetInstance().Multicast(spm.DummyID.GetString(),m)
 }
 
 //组内广播签名公钥
@@ -68,9 +63,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 	}
 	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
 
-	network.Network.Broadcast(m)
-	//发给自己
-	network.Network.Send(network.Network.Self.Id.GetHexString(),m)
+	network.GetNetInstance().Broadcast(m)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -141,26 +134,12 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	}
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
-	network.Network.Broadcast(m)
+	network.GetNetInstance().Broadcast(m)
 }
 
 //组内广播
 func groupBroadcast(m network.Message, groupId groupsig.ID) {
-	group := core.GroupChainImpl.GetGroupById(groupId.Serialize())
-	if group == nil {
-		network.Logger.Errorf("[peer] groupBroadcast Get nil group by id:%s\n", groupId.GetString())
-		return
-	}
-	for _, member := range group.Members {
-		var id groupsig.ID
-		e := id.Deserialize(member.Id)
-		if e != nil {
-			network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of groupsig id deserialize error:%s", e.Error())
-			return
-		}
-		//network.Logger.Debugf("[peer] Send messsage %d to id %s,message body hash:%x", m.Code, id.GetString(),common.Sha256(m.Body))
-		network.Network.Send(id.GetString(),m)
-	}
+	network.GetNetInstance().Multicast(groupId.GetString(),m)
 }
 
 //====================================建组前共识=======================
@@ -187,7 +166,7 @@ func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
 	}
 	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	network.Network.Send(msg.Launcher.GetString(),m)
+	network.GetNetInstance().Send(msg.Launcher.GetString(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

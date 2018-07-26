@@ -177,21 +177,21 @@ func (gs *groupSyncer) loop() {
 //广播索要组链高度
 func requestGroupChainHeight() {
 	message := network.Message{Code: network.REQ_GROUP_CHAIN_HEIGHT_MSG}
-	network.Network.Broadcast(message)
+	network.GetNetInstance().Broadcast(message)
 }
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localHeight uint64) {
 	body := utility.UInt64ToByte(localHeight)
 	message := network.Message{Code: network.GROUP_CHAIN_HEIGHT_MSG, Body: body}
-	network.Network.Send(targetId, message)
+	network.GetNetInstance().Send(targetId, message)
 }
 
 //向某一节点请求Group
 func requestGroupByHeight(id string, groupHeight uint64) {
 	body := utility.UInt64ToByte(groupHeight)
 	message := network.Message{Code: network.REQ_GROUP_MSG, Body: body}
-	network.Network.Send(id, message)
+	network.GetNetInstance().Send(id, message)
 }
 
 //本地查询之后将结果返回
@@ -203,7 +203,7 @@ func sendGroup(targetId string, group *types.Group, isTopGroup bool) {
 		return
 	}
 	message := network.Message{Code: network.GROUP_MSG, Body: body}
-	network.Network.Send(targetId, message)
+	network.GetNetInstance().Send(targetId, message)
 }
 
 func marshalGroup(e *types.Group) ([]byte, error) {

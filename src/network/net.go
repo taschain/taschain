@@ -723,7 +723,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		}
 	}
 	if needHandle {
-		Network.handleMessage(req.Data,id)
+		netInstance.handleMessage(req.Data,id)
 	}
 	return nil
 }

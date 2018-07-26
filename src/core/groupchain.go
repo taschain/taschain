@@ -210,7 +210,6 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 
 	}
 	// todo: 通过父亲节点公钥校验本组的合法性
-
 	return chain.save(group, flag)
 }
 

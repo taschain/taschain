@@ -99,7 +99,7 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
-	nodes :=network.Network.ConnInfo()
+	nodes :=network.GetNetInstance().ConnInfo()
 	conns := make([]ConnInfo,0)
 	for _,n := range nodes{
 		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})

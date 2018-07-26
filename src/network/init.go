@@ -21,19 +21,19 @@ const (
 	SEED_DEFAULT_PORT = 1122
 )
 
-var Network *network
+var netInstance *network
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string) error {
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string)(id string,err error){
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 
 	self, err := InitSelfNode(config, isSuper)
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
-		return err
+		return "",err
 	}
-
+	id = self.Id.GetHexString()
 	if seedIp == ""{
 		seedIp = SEED_DEFAULT_IP
 	}
@@ -55,10 +55,15 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	Network = &network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
-	return nil
+	netInstance = &network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	return
 }
 
+
+
+func GetNetInstance()Server{
+	return netInstance
+}
 
 func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
 	id = config.GetString(BASE_SECTION, SEED_ID_KEY, SEED_DEFAULT_ID)

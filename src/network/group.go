@@ -31,14 +31,14 @@ func (g *Group) doRefresh() {
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
-		if id == Network.netCore.id {
+		if id == netInstance.netCore.id {
 			continue
 		}
 		node, ok := g.nodes[id]
 		if node != nil && ok {
 			continue
 		}
-		node = Network.netCore.kad.Resolve(id)
+		node = netInstance.netCore.kad.Resolve(id)
 		if node != nil {
 			g.nodes[id] = node
 		//	fmt.Printf("Group Resolve id：%v ip: %v  port:%v\n", id, node.IP, node.Port)
@@ -114,7 +114,7 @@ func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
 
 			fmt.Printf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
 
-			go Network.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+			go netInstance.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
 	}
 	return

@@ -700,7 +700,6 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 
 		for i, id := range creatingGroup.ids {
 			mems[i] = PubKeyInfo{ID: id, PK: pubkeys[i]}
-			idStrs = append(idStrs, id.GetString())
 		}
 		initMsg := &ConsensusGroupRawMessage{
 			GI: msg.GI,

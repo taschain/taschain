@@ -86,7 +86,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	//p.sci.Init()
 
 	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
-	p.Server = network.Network
+	p.Server = network.GetNetInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	return true
@@ -157,63 +157,6 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 }
 
 
-//创建一个新建组。由（且有创建组权限的）父亲组节点发起。
-//miners：待成组的矿工信息。ID，（和组无关的）矿工公钥。
-//gn：组名。
-func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID, gn string) int {
-	if len(miners) != GetGroupMemberNum() {
-		log.Printf("create group error, group max members=%v, real=%v.\n", GetGroupMemberNum(), len(miners))
-		return -1
-	}
-
-	//创建p2p组网络
-	ids := []string{}
-	for _,miner := range (miners) {
-		ids = append(ids,miner.GetID().GetString())
-	}
-	network.Network.AddGroup(gn,ids)
-
-	var gis ConsensusGroupInitSummary
-	//gis.ParentID = p.GetMinerID()
-
-	//todo future bug
-	if parentId == nil {
-		parentId = groupsig.DeserializeId([]byte("genesis group dummy"))
-	}
-
-	gis.ParentID = *parentId
-	gis.DummyID = *groupsig.NewIDFromString(gn)
-
-	if p.GroupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		log.Printf("CreateDummyGroup ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
-		return 0
-	}
-
-	log.Printf("create group, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
-	gis.Authority = 777
-	if len(gn) <= 64 {
-		copy(gis.Name[:], gn[:])
-	} else {
-		copy(gis.Name[:], gn[:64])
-	}
-	gis.BeginTime = time.Now()
-	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
-		panic("create group init summary failed")
-	}
-	gis.Members = uint64(GetGroupMemberNum())
-	gis.Extends = "Dummy"
-	var grm ConsensusGroupRawMessage
-	grm.MEMS = make([]PubKeyInfo, len(miners))
-	copy(grm.MEMS[:], miners[:])
-	gis.withMemberPubs(grm.MEMS)
-	grm.GI = gis
-	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
-	log.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
-	log.Printf("call network service SendGroupInitMessage...\n")
-
-	SendGroupInitMessage(grm)
-	return 0
-}
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
 func (p *Processor) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {

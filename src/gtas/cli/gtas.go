@@ -269,7 +269,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	err = network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode, seedIp)
+	id,err := network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode, seedIp)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		network.CleanRedisData()
 	}
 
-	id := network.Network.Self.Id.GetHexString()
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
