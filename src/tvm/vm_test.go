@@ -7,12 +7,16 @@ import (
 	"vm/common"
 	"vm/core/types"
 	"fmt"
+	"vm/core/state"
+
+	"vm/ethdb"
 )
 
 
 func TestVmTest(t *testing.T) {
-	a := &BlockChain{}
-	vm := NewTvm(a)
+	db, _ := ethdb.NewMemDatabase()
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	vm := NewTvm(statedb)
 	vm.Execute("import tas\ntas.test()")
 }
 
