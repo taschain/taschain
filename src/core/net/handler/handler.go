@@ -326,7 +326,12 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 			cbh = append(cbh, pbToBlockHash(b))
 		}
 	}
-	m := core.BlockInfo{Block:block,IsTopBlock:*message.IsTopBlock, ChainPiece: cbh}
+
+	var topBlock bool
+	if message.IsTopBlock !=nil{
+		topBlock = *(message.IsTopBlock)
+	}
+	m := core.BlockInfo{Block:block,IsTopBlock:topBlock, ChainPiece: cbh}
 	return &m, nil
 }
 
