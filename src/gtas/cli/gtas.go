@@ -45,7 +45,7 @@ const (
 
 	databaseKey = "database"
 
-	redis_prefix = "aliyun_"
+	redis_prefix = "alilyun_"
 )
 
 var configManager = &common.GlobalConf
@@ -109,10 +109,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 			return
 		}
 	}
-	if super {
-		//超级节点启动前先把Redis数据清空
-		network.CleanRedisData()
-	}
+
 	gtas.waitingUtilSyncFinished()
 	ok := mediator.StartMiner()
 	gtas.inited = true
@@ -284,6 +281,11 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	ok := global.InitGov(core.BlockChainImpl)
 	if !ok {
 		return errors.New("gov module error")
+	}
+
+	if isSuper {
+		//超级节点启动前先把Redis数据清空
+		network.CleanRedisData()
 	}
 
 	id := network.Network.Self.Id.GetHexString()

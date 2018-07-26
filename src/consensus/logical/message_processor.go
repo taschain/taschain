@@ -458,7 +458,7 @@ func (p *Processor) OnMessageSharePiece(spm ConsensusSharePieceMessage) {
 
 	gc := p.joiningGroups.GetGroup(spm.DummyID)
 	if gc == nil {
-		panic("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
+		log.Printf("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
 		return
 	}
 	if gc.gis.GenHash() != spm.GISHash {
@@ -681,12 +681,16 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		return
 	}
 	if p.groupManager.OnMessageCreateGroupSign(&msg) {
+		creatingGroup := p.groupManager.creatingGroups.getCreatingGroup(msg.GI.DummyID)
+		if creatingGroup == nil {
+			log.Printf("Proc(%v) OMCGS creatingGroup not found!dummyId=%v", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+			return
+		}
 		gpk := p.getGroupPubKey(msg.GI.ParentID)
 		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), msg.GI.Signature) {
 			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
 			return
 		}
-		creatingGroup := p.groupManager.creatingGroups.getCreatingGroup(msg.GI.DummyID)
 		mems := make([]PubKeyInfo, len(creatingGroup.ids))
 		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
 		if len(pubkeys) != len(creatingGroup.ids) {

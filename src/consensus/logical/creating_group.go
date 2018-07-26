@@ -15,7 +15,10 @@ const (
 	PIECE_GROUP_NOTFOUND int8 = 0
 	PIECE_NORMAL = 1
 	PIECE_THRESHOLD = 2
+	PIECE_DENY_DIFF = 3
+	PIECE_DENY_DUP = 4
 )
+
 
 type CreatingGroup struct {
 	gis *ConsensusGroupInitSummary
@@ -46,23 +49,28 @@ func (cg *CreatingGroup) getPieces() map[string]groupsig.Signature {
     return cg.pieces
 }
 
-func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) bool {
+func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) int8 {
 	cg.lock.Lock()
 	defer cg.lock.Unlock()
 
 	if s, ok := cg.pieces[from.GetHexString()]; ok {
 		if !sign.IsEqual(s) {
 			panic("sign diff!")
+			return PIECE_DENY_DIFF
+		} else {
+			return PIECE_DENY_DUP
 		}
 	} else {
 		cg.pieces[from.GetHexString()] = sign
+		if cg.reachThresholdPiece() {
+			return PIECE_THRESHOLD
+		} else {
+			return PIECE_NORMAL
+		}
 	}
-	return true
 }
 
 func (cg *CreatingGroup) reachThresholdPiece() bool {
-	cg.lock.RLock()
-	defer cg.lock.RUnlock()
     return len(cg.pieces) >= cg.threshold
 }
 
@@ -74,12 +82,7 @@ func (cgs *CreatingGroups) acceptPiece(dummyId groupsig.ID, from groupsig.ID, si
 	if cg := cgs.getCreatingGroup(dummyId); cg == nil {
 		return PIECE_GROUP_NOTFOUND
 	} else {
-		cg.acceptPiece(from, sign)
-		if cg.reachThresholdPiece() {
-			return PIECE_THRESHOLD
-		} else {
-			return PIECE_NORMAL
-		}
+		return cg.acceptPiece(from, sign)
 	}
 }
 

@@ -222,6 +222,33 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 	return &Result{"success", ret}, nil
 }
 
+
+func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
+	height := core.BlockChainImpl.Height()
+	return api.GetWorkGroup(height)
+}
+
+
+func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
+	groups := mediator.Proc.GetCastQualifiedGroups(height)
+	ret := make([]map[string]interface{}, 0)
+
+	for _, g := range groups {
+		gmap := make(map[string]interface{})
+		gmap["id"] = logical.GetIDPrefix(g.GroupID)
+		gmap["parent"] = logical.GetIDPrefix(g.GroupID)
+		mems := make([]string, 0)
+		for _, mem := range g.Members {
+			mems = append(mems, logical.GetIDPrefix(mem.ID))
+		}
+		gmap["group_members"] = mems
+		gmap["begin_height"] = g.BeginHeight
+		gmap["dismiss_height"] = g.DismissHeight
+		ret = append(ret, gmap)
+	}
+	return &Result{"success", ret}, nil
+}
+
 // startHTTP initializes and starts the HTTP RPC endpoint.
 func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
