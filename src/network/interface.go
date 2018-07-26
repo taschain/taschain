@@ -18,11 +18,13 @@ type MsgHandler interface {
 
 type Server interface {
 
-	Send(targetId string, msg Message) error
+	Send(id string, msg Message) error
 
 	Multicast(groupId string, msg Message) error
 
 	Broadcast(msg Message) error
+
+	BuildGroupNet(groupId string, members []string) error
 
 	ConnInfo() []Conn
 }
