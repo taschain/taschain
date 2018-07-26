@@ -203,7 +203,7 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, parentId *groupsig.ID,
 	var grm ConsensusGroupRawMessage
 	grm.MEMS = make([]PubKeyInfo, len(miners))
 	copy(grm.MEMS[:], miners[:])
-	gis.MemberHash = genMemberHash(grm.MEMS)
+	gis.withMemberPubs(grm.MEMS)
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
 	log.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())

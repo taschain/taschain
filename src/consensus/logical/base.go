@@ -289,6 +289,16 @@ func genMemberHashByIds(ids []groupsig.ID) common.Hash {
 	return rand.Data2CommonHash(data)
 }
 
+func (gis *ConsensusGroupInitSummary) withMemberPubs(mems []PubKeyInfo) {
+    gis.Members = uint64(len(mems))
+    gis.MemberHash = genMemberHash(mems)
+}
+
+func (gis *ConsensusGroupInitSummary) withMemberIds(mems []groupsig.ID) {
+	gis.Members = uint64(len(mems))
+	gis.MemberHash = genMemberHashByIds(mems)
+}
+
 func (gis *ConsensusGroupInitSummary) checkMemberHash(mems []PubKeyInfo) bool {
     return gis.MemberHash == genMemberHash(mems)
 }
