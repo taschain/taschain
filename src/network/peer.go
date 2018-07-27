@@ -110,7 +110,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 		pm.addPeer(netID,p)
 	}
 	if  p.seesionId > 0 {
-		//fmt.Printf("P2PSend %v len: %v\n ", p.seesionId, packet.Len())
+		Logger.Infof("P2PSend %v len: %v\n ", p.seesionId, packet.Len())
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
@@ -126,7 +126,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 			} else {
 				P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			//fmt.Printf("P2PConnect：ID: %v IP: %v Port:%v\n ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("[P2P]Connect：ID: %v IP: %v Port:%v\n ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -135,6 +135,9 @@ func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buf
 
 //OnConnected 处理连接成功的回调
 func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
+
+	Logger.Infof("OnConnected netid :%v session:%v\n ", id,session)
+
 	p := pm.peerByNetID(id)
 	if p == nil {
 		p = &Peer{Id: NodeID{}, seesionId: session, sendList: make([]*bytes.Buffer, 0)}
@@ -158,7 +161,7 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		//fmt.Printf("OnDisconnected ip:%v port:%v\n ", p.Ip,p.Port)
+		Logger.Infof("OnDisconnected ip:%v port:%v\n ", p.Ip,p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
