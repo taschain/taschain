@@ -40,7 +40,7 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
-	network.GetNetInstance().Multicast(spm.DummyID.GetHexString(),m)
+	network.GetNetInstance().Send(spm.Dest.GetString(),m)
 }
 
 //组内广播签名公钥
