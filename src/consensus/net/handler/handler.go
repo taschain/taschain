@@ -164,7 +164,7 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return nil, e
 		}
-		network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber, sourceId, len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
+		//network.Logger.Debugf("receive block %d-%d from %s,tx count:%d,cast and verify and io cost %v", m.Block.Header.Height, m.Block.Header.QueueNumber, sourceId, len(m.Block.Header.Transactions), time.Since(m.Block.Header.CurTime))
 
 		//todo 此处为啥需要返回b, 接口显得不统一, 不好处理
 		//b := &m.Block
