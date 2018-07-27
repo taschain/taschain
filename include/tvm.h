@@ -33,8 +33,8 @@ typedef void (*Function6) (const char*, unsigned long long);
 typedef int (*Function7) (const char*);
 typedef void (*Function8) (unsigned long long);
 typedef unsigned long long (*Function9) ();
-typedef char* (*Function10) (char*, char*);
-typedef void (*Function11) (char*, char*, char*);
+typedef char* (*Function10) (const char*, const char*);
+typedef void (*Function11) (const char*, const char*, const char*);
 typedef void (*Function12) (int);
 typedef int (*Function13)();
 
