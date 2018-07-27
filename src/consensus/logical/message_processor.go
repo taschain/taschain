@@ -553,6 +553,7 @@ func (p *Processor) OnMessageSignPK(spkm ConsensusSignPubKeyMessage) {
 
 					log.Printf("call network service BroadcastGroupInfo...\n")
 					BroadcastGroupInfo(msg)
+					p.OnMessageGroupInited(msg)
 				} else {
 					log.Printf("test mode, call OnMessageGroupInited direct...\n")
 					for _, proc := range p.GroupProcs {
@@ -710,7 +711,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg ConsensusCreateGroupSignMessage
 		initMsg.GenSign(SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()}, initMsg)
 
 		SendGroupInitMessage(*initMsg)
-
+		p.OnMessageGroupInit(*initMsg)
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)
 	}
 }
