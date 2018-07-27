@@ -78,3 +78,11 @@ def Test(a, b, c, d):
 	str := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
 	tvm.ExecuteABIJson(str)
 }
+
+func VmTestException() {
+	tvm := NewTvm(nil)
+
+	tvm.Execute(`
+i am error
+`)
+}
