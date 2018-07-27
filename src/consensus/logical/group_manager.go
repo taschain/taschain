@@ -160,7 +160,8 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (b
 	}
 	str := ""
 	for _, id := range result {
-		str += GetIDPrefix(id) + ","
+		str := id.GetString()
+		str += str[0:6] + "-" + str[len(str)-6:] + ","
 	}
 	log.Printf("=============selectCandidates %v\n", str)
 	return true, result
