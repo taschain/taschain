@@ -88,3 +88,35 @@ func (p *Processor) Finalize() {
 		p.belongGroups.commit()
 	}
 }
+
+func (p *Processor) releaseRoutine() bool {
+	topHeight := p.MainChain.QueryTopBlock().Height
+	ids := p.globalGroups.DismissGroups(topHeight)
+	log.Printf("releaseRoutine: clean group %v\n", len(ids))
+	p.globalGroups.RemoveGroups(ids)
+	p.blockContexts.removeContexts(ids)
+	p.belongGroups.leaveGroups(ids)
+	for _, gid := range ids {
+		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", GetIDPrefix(gid))
+		p.Server.DissolveGroupNet(gid.GetString())
+	}
+
+    //释放超时未建成组的组网络和相应的dummy组
+	p.joiningGroups.forEach(func(gc *GroupContext) bool {
+		if gc.gis.IsExpired() || gc.gis.ReadyTimeout(topHeight) {
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joiningGroups gid ", GetIDPrefix(gc.gis.DummyID))
+			p.Server.DissolveGroupNet(gc.gis.DummyID.GetString())
+			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
+		}
+		return true
+	})
+	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
+		if cg.gis.IsExpired() || cg.gis.ReadyTimeout(topHeight) {
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", GetIDPrefix(cg.gis.DummyID))
+			p.Server.DissolveGroupNet(cg.gis.DummyID.GetString())
+			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
+		}
+		return true
+	})
+	return true
+}

@@ -99,3 +99,9 @@ func (cgs *CreatingGroups) getCreatingGroup(dummyId groupsig.ID) *CreatingGroup 
 func (cgs *CreatingGroups) removeGroup(dummyId groupsig.ID)  {
 	cgs.groups.Delete(dummyId.GetHexString())
 }
+
+func (cgs *CreatingGroups) forEach(f func(cg *CreatingGroup) bool) {
+    cgs.groups.Range(func(key, value interface{}) bool {
+		return f(value.(*CreatingGroup))
+	})
+}

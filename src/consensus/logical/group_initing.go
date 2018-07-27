@@ -383,3 +383,8 @@ func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
 func (jgs *JoiningGroups) RemoveGroup(gid groupsig.ID)  {
     jgs.groups.Delete(gid.GetHexString())
 }
+func (jgs *JoiningGroups) forEach(f func(gc *GroupContext) bool) {
+    jgs.groups.Range(func(key, value interface{}) bool {
+		return f(value.(*GroupContext))
+	})
+}

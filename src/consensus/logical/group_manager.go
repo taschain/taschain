@@ -354,6 +354,11 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 	if isDummy {
 		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", GetIDPrefix(sgi.GIS.DummyID), gm.groupChain.Count())
 	} else {
+		mems := make([]string, 0)
+		for _, mem := range sgi.Members {
+			mems = append(mems, mem.ID.GetString())
+		}
+		gm.processor.Server.BuildGroupNet(sgi.GroupID.GetString(), mems)
 		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", GetIDPrefix(sgi.GroupID), gm.groupChain.Count())
 	}
 }

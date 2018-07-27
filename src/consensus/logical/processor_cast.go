@@ -79,16 +79,16 @@ func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
 	return p.blockContexts.getBlockContext(gid)
 }
 
-func (p *Processor) getCleanGroupRoutineName() string {
-	return "clean_dismiss_group_" + p.getPrefix()
+func (p *Processor) getReleaseRoutineName() string {
+	return "release_routine_" + p.getPrefix()
 }
 
 //预留接口
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
-	p.Ticker.RegisterRoutine(p.getCleanGroupRoutineName(), p.cleanDismissGroupRoutine, 2)
-	p.Ticker.StartTickerRoutine(p.getCleanGroupRoutineName(), false)
+	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
+	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
 	p.prepareMiner()
 	p.ready = true
 	return true

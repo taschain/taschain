@@ -196,12 +196,3 @@ func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
 	}
 }
 
-func (p *Processor) cleanDismissGroupRoutine() bool {
-	topHeight := p.MainChain.QueryTopBlock().Height
-	ids := p.globalGroups.DismissGroups(topHeight)
-	log.Printf("cleanDismissGroupRoutine: clean group %v\n", len(ids))
-	p.globalGroups.RemoveGroups(ids)
-	p.blockContexts.removeContexts(ids)
-	p.belongGroups.leaveGroups(ids)
-	return true
-}
