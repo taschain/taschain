@@ -263,7 +263,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 
 	//提前建立组网络
-	gm.processor.Server.BuildGroupNet(msg.GI.DummyID.GetString(), idStrs)
+	gm.processor.Server.BuildGroupNet(msg.GI.DummyID.GetHexString(), idStrs)
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *ConsensusCreateGroupRawMessage) bool {

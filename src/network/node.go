@@ -271,14 +271,3 @@ func getPrivateKeyFromConfigFile(config common.ConfManager) (privateKeyStr strin
 func savePrivateKey(privateKeyStr string, config common.ConfManager) {
 	config.SetString(BASE_SECTION, PRIVATE_KEY, privateKeyStr)
 }
-
-func (s Node) GenMulAddrStr() string {
-	return ToMulAddrStr(s.Ip.String(), "tcp", s.Port)
-}
-
-//"/ip4/127.0.0.1/udp/1234"
-func ToMulAddrStr(ip string, protocol string, port int) string {
-	addr := "/ip4/" + ip + "/" + protocol + "/" + strconv.Itoa(port)
-	return addr
-}
-

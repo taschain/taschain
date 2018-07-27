@@ -40,7 +40,7 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
-	network.GetNetInstance().Multicast(spm.DummyID.GetString(),m)
+	network.GetNetInstance().Multicast(spm.DummyID.GetHexString(),m)
 }
 
 //组内广播签名公钥
@@ -139,7 +139,7 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 
 //组内广播
 func groupBroadcast(m network.Message, groupId groupsig.ID) {
-	network.GetNetInstance().Multicast(groupId.GetString(),m)
+	network.GetNetInstance().Multicast(groupId.GetHexString(),m)
 }
 
 //====================================建组前共识=======================
