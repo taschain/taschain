@@ -358,7 +358,7 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 		for _, mem := range sgi.Members {
 			mems = append(mems, mem.ID.GetString())
 		}
-		gm.processor.Server.BuildGroupNet(sgi.GroupID.GetString(), mems)
+		gm.processor.Server.BuildGroupNet(sgi.GroupID.GetHexString(), mems)
 		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", GetIDPrefix(sgi.GroupID), gm.groupChain.Count())
 	}
 }
