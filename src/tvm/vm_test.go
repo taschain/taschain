@@ -17,7 +17,12 @@ func TestVmTest(t *testing.T) {
 	db, _ := ethdb.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	vm := NewTvm(statedb)
-	vm.Execute("import tas\ntas.test()")
+	script := `import account
+account.createAccount("0x1234")
+account.addBalance("0x1234", 12345611)
+a = account.getBalance("0x1234")
+print(a)`
+	vm.Execute(script)
 }
 
 func TestVmTestContract(t *testing.T) {
