@@ -24,7 +24,10 @@ type Server interface {
 
 	Broadcast(msg Message) error
 
-	BuildGroupNet(groupId string, members []string) error
-
 	ConnInfo() []Conn
+
+	BuildGroupNet(groupId string, members []string)
+
+	DissolveGroupNet(groupId string)
+
 }
