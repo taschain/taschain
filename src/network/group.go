@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"sync"
 )
 
 // Group 组对象
@@ -12,6 +13,7 @@ type Group struct {
 	ID      string
 	members []NodeID
 	nodes   map[NodeID]*Node
+	mutex sync.Mutex
 }
 
 func newGroup(ID string, members []NodeID) *Group {
@@ -22,10 +24,15 @@ func newGroup(ID string, members []NodeID) *Group {
 }
 
 func (g *Group) addGroup(node *Node) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
 	g.nodes[node.Id] = node
 }
 
 func (g *Group) doRefresh() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 
 	//fmt.Printf("Group doRefresh id： %v\n", g.ID)
 
@@ -49,9 +56,26 @@ func (g *Group) doRefresh() {
 	}
 }
 
+func (g *Group) Send( packet *bytes.Buffer) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+
+	for _, node := range g.nodes {
+		if node != nil {
+
+			fmt.Printf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
+
+			go netInstance.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+		}
+	}
+	return
+}
+
 //GroupManager 组管理
 type GroupManager struct {
 	groups map[string]*Group
+	mutex sync.Mutex
 }
 
 func newGroupManager() *GroupManager {
@@ -65,6 +89,9 @@ func newGroupManager() *GroupManager {
 
 //AddGroup 添加组
 func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
+
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
 	go gm.doRefresh()
@@ -76,7 +103,7 @@ func (gm *GroupManager) RemoveGroup(ID string) {
 	//todo
 }
 
-// loop schedules refresh.
+
 func (gm *GroupManager) loop() {
 
 	const refreshInterval = 1 * time.Second
@@ -96,6 +123,8 @@ func (gm *GroupManager) loop() {
 
 func (gm *GroupManager) doRefresh() {
 	//fmt.Printf("groupManager doRefresh \n")
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
 
 	for _, group := range gm.groups {
 		group.doRefresh()
@@ -104,18 +133,15 @@ func (gm *GroupManager) doRefresh() {
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
 func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
+
 	fmt.Printf("SendGroup  id:%v\n", id)
 	g := gm.groups[id]
 	if g == nil {
 		fmt.Printf("SendGroup not find group\n")
 	}
-	for _, node := range g.nodes {
-		if node != nil {
+	g.Send(packet)
 
-			fmt.Printf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
-
-			go netInstance.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
-		}
-	}
 	return
 }
