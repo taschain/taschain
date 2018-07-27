@@ -2,16 +2,15 @@ package network
 
 import (
 	"common"
-	"network/p2p"
 	"testing"
 	"fmt"
 )
 
 
 func TestNodeOnline(t *testing.T)  {
-	common.InitConf("/Users/Kaede/TasProject/tas1.ini")
-	node, _ := p2p.InitSelfNode(&common.GlobalConf)
-	NodeOnline([]byte(node.Id), node.PublicKey.ToBytes())
+	//common.InitConf("/Users/Kaede/TasProject/tas1.ini")
+	//node, _ := network.InitSelfNode(&common.GlobalConf)
+	//NodeOnline([]byte(node.Id), node.PublicKey.ToBytes())
 }
 
 func TestGetAllNodeIds(t *testing.T) {

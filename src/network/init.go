@@ -45,7 +45,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 
 func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
 	id = config.GetString(BASE_SECTION, SEED_ID_KEY, "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b")
-	ip = config.GetString(BASE_SECTION, SEED_IP_KEY, "10.0.0.66")
+	ip = config.GetString(BASE_SECTION, SEED_IP_KEY, "10.0.0.77")
 	port = config.GetInt(BASE_SECTION, SEED_PORT_KEY, 1122)
 	return
 }
