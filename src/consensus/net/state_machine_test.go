@@ -2,7 +2,6 @@ package net
 
 import (
 	"testing"
-	"network/p2p"
 	"fmt"
 	"taslog"
 )

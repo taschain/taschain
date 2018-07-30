@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strings"
+	"consensus/model"
 )
 
 /*
@@ -19,7 +20,7 @@ const GENESIS_GROUP_INFO = `{"GroupID":"0xa85a46d7fde553e2dbfe19750faee0144d3616
 
 
 //生成创世组成员信息
-func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
+func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
 	//gis := GenGenesisGroupSummary()
 	//temp_mi := p.getMinerInfo()
 	//temp_mgs := NewMinerGroupSecret(temp_mi.GenSecretForGroup(gis.GenHash()))
@@ -31,11 +32,11 @@ func (p *Processor) BeginGenesisGroupMember() PubKeyInfo {
 	sgi := genGenesisStaticGroupInfo()
 	//p.globalGroups.AddStaticGroup(sgi)
 	p.groupManager.AddGroupOnChain(sgi, false)
-	return PubKeyInfo{}
+	return model.PubKeyInfo{}
 }
 
-func GenGenesisGroupSummary() ConsensusGroupInitSummary {
-	var gis ConsensusGroupInitSummary
+func GenGenesisGroupSummary() model.ConsensusGroupInitSummary {
+	var gis model.ConsensusGroupInitSummary
 	//gis.ParentID = P.GetMinerID()
 	gis.DummyID = *groupsig.NewIDFromString("Trust Among Strangers")
 	gis.Authority = 777
@@ -48,7 +49,7 @@ func GenGenesisGroupSummary() ConsensusGroupInitSummary {
 	gis.BeginTime = time.Date(2018, time.June, 28, 18, 00, 00, 00, time.UTC)
 	//gis.BeginTime = time.Unix(unix_time, 0)
 	gis.Extends = "room 1003, BLWJXXJS6KYHX"
-	gis.Members = uint64(GetGroupMemberNum())
+	gis.Members = uint64(model.Param.GetGroupMemberNum())
 
 	gis.BeginTime = time.Now()
 	gis.GetReadyHeight = 1

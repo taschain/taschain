@@ -2,7 +2,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"consensus/rand"
 	"crypto/sha1"
 	"fmt"
 	"testing"
@@ -16,7 +15,7 @@ const TEST_MEMBERS = 5
 const TEST_THRESHOLD = 3
 
 type test_node_data struct {
-	seed     rand.Rand         //私密种子
+	seed     util.Rand         //私密种子
 	sk       groupsig.Seckey   //个人私钥(由私密种子和组公开信息衍生生成)
 	shares   []groupsig.Seckey //秘密共享接收池
 	sign_sk  groupsig.Seckey   //组成员签名私钥（由秘密共享接收池聚合而来）
@@ -32,7 +31,7 @@ func (tnd *test_node_data) AddPubPiece(pk groupsig.Pubkey) {
 }
 
 //生成某个成员针对组的私钥，用于生成秘密。
-func GenU4GSecKey(us rand.Rand, gs rand.Rand) *groupsig.Seckey {
+func GenU4GSecKey(us util.Rand, gs util.Rand) *groupsig.Seckey {
 	u4g_seed := us.DerivedRand(gs[:])
 	return groupsig.NewSeckeyFromRand(u4g_seed.Deri(0))
 }
@@ -56,7 +55,7 @@ func SetSharePiece(dest groupsig.ID, node *test_node_data, src groupsig.ID, shar
 }
 
 //某个成员生成针对全组所有成员的全部秘密共享片段
-func GenSharePiece(uid groupsig.ID, info test_node_data, group_seed rand.Rand, mems *map[groupsig.ID]test_node_data) (groupsig.SeckeyMapID, []groupsig.Pubkey) {
+func GenSharePiece(uid groupsig.ID, info test_node_data, group_seed util.Rand, mems *map[groupsig.ID]test_node_data) (groupsig.SeckeyMapID, []groupsig.Pubkey) {
 	//fmt.Printf("\nbegin GenSharePiece, uid=%v.\n", uid.GetHexString())
 	shares := make(groupsig.SeckeyMapID)
 	//var pubs []groupsig.Pubkey
@@ -111,7 +110,7 @@ func testGroupInit(t *testing.T) {
 	}
 
 	gis_hash := gis.GenHash() //组初始化共识的哈希值（尝试以这个作为共享秘密的基。如不行再以成员ID合并作为基，但这样没法支持缩扩容。）
-	gis_rand := rand.RandFromBytes(gis_hash.Bytes())
+	gis_rand := util.RandFromBytes(gis_hash.Bytes())
 
 	//组成员信息
 	users := make(map[groupsig.ID]test_node_data)
@@ -119,27 +118,27 @@ func testGroupInit(t *testing.T) {
 	node.shares = make([]groupsig.Seckey, TEST_MEMBERS)
 
 	user := *groupsig.NewIDFromString("thiefox")
-	node.seed = rand.RandFromString("710208")
+	node.seed = util.RandFromString("710208")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("siren")
-	node.seed = rand.RandFromString("850701")
+	node.seed = util.RandFromString("850701")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("juanzi")
-	node.seed = rand.RandFromString("123456")
+	node.seed = util.RandFromString("123456")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("wild children")
-	node.seed = rand.RandFromString("111111")
+	node.seed = util.RandFromString("111111")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("gebaini")
-	node.seed = rand.RandFromString("999999")
+	node.seed = util.RandFromString("999999")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 

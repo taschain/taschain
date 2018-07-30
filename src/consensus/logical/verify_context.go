@@ -8,9 +8,10 @@ import (
 	"sync"
 	"math/big"
 	"middleware/types"
-	"consensus/rand"
 	"encoding/binary"
 	"strconv"
+	"consensus/model"
+	"consensus/base"
 )
 
 /*
@@ -65,7 +66,7 @@ type VerifyContext struct {
 
 	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
 
-	slots [MAX_SYNC_CASTORS]*SlotContext
+	slots [model.MAX_CAST_SLOT]*SlotContext
 
 	castedQNs []int64 //自己铸过的qn
 
@@ -81,7 +82,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 }
 
 func (vc *VerifyContext) resetSlotContext() {
-	for i := 0; i < MAX_SYNC_CASTORS; i++ {
+	for i := 0; i < model.MAX_CAST_SLOT; i++ {
 		sc := new(SlotContext)
 		sc.reset(vc.blockCtx.threshold())
 		vc.slots[i] = sc
@@ -98,7 +99,7 @@ func (vc *VerifyContext) isCasting() bool {
 }
 
 func (vc *VerifyContext) maxQNCasted() bool {
-	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED || vc.signedMaxQN >= int64(MAX_QN)
+	return vc.consensusStatus == CBCS_MAX_QN_BLOCKED || vc.signedMaxQN >= int64(model.Param.MaxQN)
 }
 
 func (vc *VerifyContext) isQNCasted(qn int64) bool {
@@ -119,7 +120,7 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time
     vc.prevHash = preBH.Hash
     vc.castHeight = castHeight
     vc.prevSign = preBH.Signature
-    vc.signedMaxQN = INVALID_QN
+    vc.signedMaxQN =  model.INVALID_QN
     vc.blockCtx = bc
 	vc.expireTime = expire
 	vc.consensusStatus = CBCS_CURRENT
@@ -175,8 +176,8 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	if max < 0 {
 		return -1
 	}
-	d := int64(diff) + int64(MAX_GROUP_BLOCK_TIME) - max
-	qn := int64(MAX_QN) - d / int64(MAX_USER_CAST_TIME)
+	d := int64(diff) + int64(model.Param.MaxGroupCastTime) - max
+	qn := int64(model.Param.MaxQN) - d / int64(model.Param.MaxUserCastTime)
 
 	//log.Printf("qnOfDiff diff %v, pre %v, d %v, qn=%v\n", int(diff), vc.prevTime, d, qn)
 	return qn
@@ -211,7 +212,7 @@ func (vc *VerifyContext) findMinQNSlot() (int32, int64) {
 //如果还有空槽，返回空槽序号。如果没有空槽，返回-1.
 func (vc *VerifyContext) findEmptySlot() int32 {
 	for i, v := range vc.slots {
-		if v.QueueNumber == INVALID_QN {
+		if v.QueueNumber ==  model.INVALID_QN {
 			return int32(i)
 		}
 	}
@@ -221,7 +222,7 @@ func (vc *VerifyContext) findEmptySlot() int32 {
 //检查是否要处理某个铸块槽
 //返回true需要处理，返回false可以丢弃。
 func (vc *VerifyContext) needHandleQN(qn int64) bool {
-	if vc.signedMaxQN == INVALID_QN { //当前该组还没有铸出过块
+	if vc.signedMaxQN == model.INVALID_QN { //当前该组还没有铸出过块
 		return true
 	} else { //当前该组已经有成功的铸块（来自某个铸块槽）
 		return qn > vc.signedMaxQN
@@ -279,7 +280,7 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	calcQN := vc.calcQN(bh.CurTime)
 	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
@@ -336,7 +337,7 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 	case CBCS_IDLE, CBCS_TIMEOUT, CBCS_MAX_QN_BLOCKED: //不在铸块周期或已经铸出最大块
 		return false
 	case CBCS_CASTING, CBCS_CURRENT, CBCS_BLOCKED:
-		if qn >= int64(MAX_QN) {
+		if qn >= int64(model.Param.MaxQN) {
 			vc.consensusStatus = CBCS_MAX_QN_BLOCKED
 		} else {
 			vc.consensusStatus = CBCS_BLOCKED
@@ -349,7 +350,7 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *SignData, summary *CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
@@ -363,7 +364,7 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
-	if slot.QueueNumber == int64(INVALID_QN) {
+	if slot.QueueNumber == int64(model.INVALID_QN) {
 		return TRANS_INVALID_SLOT
 	}
 	accept := slot.AcceptTrans(ths)
@@ -401,7 +402,7 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 		return true
 	}
 	//铸过块, 且高度已经低于10块的, 可以删除
-	if vc.signedMaxQN != INVALID_QN && vc.castHeight+10 < topHeight {
+	if vc.signedMaxQN != model.INVALID_QN && vc.castHeight+10 < topHeight {
 		return true
 	}
 
@@ -444,7 +445,7 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
 	data = append(data, qnBytes...)
-	hash := rand.Data2CommonHash(data)
+	hash := base.Data2CommonHash(data)
 	biHash := hash.Big()
 
 	var index int32 = -1

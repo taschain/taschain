@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"core"
 	"unsafe"
+	"consensus/model"
 )
 
 /*
@@ -198,7 +199,7 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if bh.GenHash() != si.DataHash {
 		panic("SlotContext::AcceptPiece arg failed, hash not samed 1.")
 	}
@@ -240,7 +241,7 @@ func (sc *SlotContext) thresholdWitnessGot() bool {
 
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func newSlotContext(bh *types.BlockHeader, si *SignData, threshold int) *SlotContext {
+func newSlotContext(bh *types.BlockHeader, si *model.SignData, threshold int) *SlotContext {
 	if bh.GenHash() != si.DataHash {
 		panic("newSlotContext arg failed, hash not samed 1.")
 	}
@@ -269,7 +270,7 @@ func newSlotContext(bh *types.BlockHeader, si *SignData, threshold int) *SlotCon
 func (sc *SlotContext) reset(threshold int) {
 	sc.TimeRev = time.Time{}
 	//sc.HeaderHash = *new(common.Hash)
-	sc.QueueNumber = INVALID_QN
+	sc.QueueNumber = model.INVALID_QN
 	sc.transFulled = new(bool)
 	sc.SlotStatus = SS_WAITING
 	sc.MapWitness = make(map[string]groupsig.Signature)
@@ -279,7 +280,7 @@ func (sc *SlotContext) reset(threshold int) {
 }
 
 func (sc SlotContext) IsValid() bool {
-	return sc.QueueNumber > INVALID_QN
+	return sc.QueueNumber > model.INVALID_QN
 }
 
 /*

@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"common"
+	"consensus/model"
 )
 
 /*
@@ -50,7 +51,7 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		for _, mem := range coreGroup.Members {
-			pkInfo := &PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}
+			pkInfo := &model.PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}
 			sgi.addMember(pkInfo)
 		}
 		if !p.globalGroups.AddStaticGroup(sgi) {
@@ -98,22 +99,22 @@ func (p *Processor) releaseRoutine() bool {
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
 		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", GetIDPrefix(gid))
-		p.Server.DissolveGroupNet(gid.GetString())
+		p.NetServer.ReleaseGroupNet(gid)
 	}
 
     //释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
-		if gc.gis.IsExpired() || gc.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joiningGroups gid ", GetIDPrefix(gc.gis.DummyID))
-			p.Server.DissolveGroupNet(gc.gis.DummyID.GetString())
+		if gc.gis.ReadyTimeout(topHeight) {
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", GetIDPrefix(gc.gis.DummyID))
+			p.NetServer.ReleaseGroupNet(gc.gis.DummyID)
 			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
 		}
 		return true
 	})
 	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
-		if cg.gis.IsExpired() || cg.gis.ReadyTimeout(topHeight) {
+		if cg.gis.ReadyTimeout(topHeight) {
 			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", GetIDPrefix(cg.gis.DummyID))
-			p.Server.DissolveGroupNet(cg.gis.DummyID.GetString())
+			p.NetServer.ReleaseGroupNet(cg.gis.DummyID)
 			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
 		}
 		return true

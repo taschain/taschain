@@ -2,13 +2,12 @@ package net
 
 import (
 	"network"
-	"consensus/logical"
 	"sync"
 	"taslog"
 	"vm/common/math"
 	"fmt"
 	"common"
-	"consensus/mediator"
+	"consensus/model"
 )
 
 
@@ -32,12 +31,12 @@ type StateMachine struct {
 	lock sync.Mutex
 }
 
-type BlockStateMachines struct {
-	height uint64
-	currentMsgNode *StateNode
-	kingMachines map[string]*StateMachine
-	lock sync.Mutex
-}
+//type BlockStateMachines struct {
+//	height uint64
+//	currentMsgNode *StateNode
+//	kingMachines map[string]*StateMachine
+//	lock sync.Mutex
+//}
 
 type StateMsg struct {
 	code uint32
@@ -56,7 +55,7 @@ type StateNode struct {
 
 type TimeSequence struct {
 	groupMachines map[string]*StateMachine
-	blockMachines map[string]*BlockStateMachines
+	//blockMachines map[string]*BlockStateMachines
 	finishCh chan string
 	lock sync.Mutex
 }
@@ -65,12 +64,12 @@ var TimeSeq TimeSequence
 
 var logger taslog.Logger
 
-func init() {
-	logger = taslog.GetLoggerByName("state_machine")
+func InitStateMachine() {
+	logger = taslog.GetLoggerByName("state_machine" + common.GlobalConf.GetString("instance", "index", ""))
 
 	TimeSeq = TimeSequence{
 		groupMachines: make(map[string]*StateMachine),
-		blockMachines: make(map[string]*BlockStateMachines),
+		//blockMachines: make(map[string]*BlockStateMachines),
 		finishCh: make(chan string),
 	}
 
@@ -81,15 +80,15 @@ func init() {
 			TimeSeq.lock.Lock()
 
 			delete(TimeSeq.groupMachines, id)
-			for _, ms := range TimeSeq.blockMachines {
-				delete(ms.kingMachines, id)
-			}
-			for gid, ms := range TimeSeq.blockMachines {
-				if len(ms.kingMachines) == 0 && ms.currentMsgNode == nil {
-					delete(TimeSeq.blockMachines, gid)
-					logger.Info("cacscade delete block machines, id=", gid)
-				}
-			}
+			//for _, ms := range TimeSeq.blockMachines {
+			//	delete(ms.kingMachines, id)
+			//}
+			//for gid, ms := range TimeSeq.blockMachines {
+			//	if len(ms.kingMachines) == 0 && ms.currentMsgNode == nil {
+			//		delete(TimeSeq.blockMachines, gid)
+			//		logger.Info("cacscade delete block machines, id=", gid)
+			//	}
+			//}
 
 			TimeSeq.lock.Unlock()
 		}
@@ -118,7 +117,6 @@ func newStateNodeEx(msg *StateMsg) *StateNode {
 
 func newStateMachine(id string) *StateMachine {
 	init := newStateNode(math.MaxUint32)
-	id = logical.GetIDPrefix(mediator.Proc.GetMinerID()) + "-" + id
 	return &StateMachine{Id: id, Current:init, Head:init}
 }
 
@@ -130,7 +128,7 @@ func newStateMachine(id string) *StateMachine {
 func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId + "-outsidegroup")
 	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), logical.GetGroupK(logical.GetGroupMemberNum()))
+	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), model.Param.GetThreshold())
 	return machine
 }
 
@@ -142,25 +140,25 @@ func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
 func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
 	machine := newStateMachine(dummyId)
 	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(network.KEY_PIECE_MSG), logical.GetGroupMemberNum())
-	machine.addNode(newStateNode(network.SIGN_PUBKEY_MSG), logical.GetGroupMemberNum())
+	machine.addNode(newStateNode(network.KEY_PIECE_MSG), model.Param.GetGroupMemberNum())
+	machine.addNode(newStateNode(network.SIGN_PUBKEY_MSG), model.Param.GetGroupMemberNum())
 	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), 1)
 	return machine
 }
 
-/** 
-* @Description: 组内某个king铸块状态机 
-* @Param:  
-* @return:
-*/ 
-func newBlockCastStateMachine(id string) *StateMachine {
-	machine := newStateMachine(id)
-	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
-	machine.addNode(newStateNode(network.CAST_VERIFY_MSG), 1)
-	machine.addNode(newStateNode(network.VARIFIED_CAST_MSG), logical.GetGroupK(logical.GetGroupMemberNum()) - 1)
-	machine.addNode(newStateNode(network.NEW_BLOCK_MSG), 1)
-	return machine
-}
+///**
+//* @Description: 组内某个king铸块状态机
+//* @Param:
+//* @return:
+//*/
+//func newBlockCastStateMachine(id string) *StateMachine {
+//	machine := newStateMachine(id)
+//	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
+//	machine.addNode(newStateNode(network.CAST_VERIFY_MSG), 1)
+//	machine.addNode(newStateNode(network.VARIFIED_CAST_MSG), logical.GetGroupK(logical.GetGroupMemberNum()) - 1)
+//	machine.addNode(newStateNode(network.NEW_BLOCK_MSG), 1)
+//	return machine
+//}
 
 func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
 	state := newStateNodeEx(msg)
@@ -194,47 +192,47 @@ func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool
 	}
 }
 
-func (bsm *BlockStateMachines) getMachineByKey(key string) *StateMachine {
-    bsm.lock.Lock()
-    defer bsm.lock.Unlock()
-	if m, ok := bsm.kingMachines[key]; !ok {
-		m = newBlockCastStateMachine(key)
-		bsm.kingMachines[key] = m
-		return m
-	} else {
-		return m
-	}
-}
-
-func (bsm *BlockStateMachines) setCurrentMsgNode(msg *StateMsg, handlerFunc StateHandleFunc)  {
-    bsm.lock.Lock()
-    defer bsm.lock.Unlock()
-	bsm.currentMsgNode = newStateNodeEx(msg)
-	bsm.currentMsgNode.Handler = handlerFunc
-}
-
-func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
-	if msg.code == network.CURRENT_GROUP_CAST_MSG {
-		if bsm.currentMsgNode == nil {
-			bsm.setCurrentMsgNode(msg, handleFunc)
-			bsm.lock.Lock()
-			defer bsm.lock.Unlock()
-			for _, m := range bsm.kingMachines {
-				m.Transform(msg, handleFunc)
-			}
-		}
-	} else {
-		machine := bsm.getMachineByKey(msg.key)
-
-		if bsm.currentMsgNode != nil {
-			if future := machine.future(bsm.currentMsgNode); future {
-				machine.Transform(bsm.currentMsgNode.State, bsm.currentMsgNode.Handler)
-			}
-		}
-		machine.Transform(msg, handleFunc)
-	}
-	return true
-}
+//func (bsm *BlockStateMachines) getMachineByKey(key string) *StateMachine {
+//    bsm.lock.Lock()
+//    defer bsm.lock.Unlock()
+//	if m, ok := bsm.kingMachines[key]; !ok {
+//		m = newBlockCastStateMachine(key)
+//		bsm.kingMachines[key] = m
+//		return m
+//	} else {
+//		return m
+//	}
+//}
+//
+//func (bsm *BlockStateMachines) setCurrentMsgNode(msg *StateMsg, handlerFunc StateHandleFunc)  {
+//    bsm.lock.Lock()
+//    defer bsm.lock.Unlock()
+//	bsm.currentMsgNode = newStateNodeEx(msg)
+//	bsm.currentMsgNode.Handler = handlerFunc
+//}
+//
+//func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
+//	if msg.code == network.CURRENT_GROUP_CAST_MSG {
+//		if bsm.currentMsgNode == nil {
+//			bsm.setCurrentMsgNode(msg, handleFunc)
+//			bsm.lock.Lock()
+//			defer bsm.lock.Unlock()
+//			for _, m := range bsm.kingMachines {
+//				m.Transform(msg, handleFunc)
+//			}
+//		}
+//	} else {
+//		machine := bsm.getMachineByKey(msg.key)
+//
+//		if bsm.currentMsgNode != nil {
+//			if future := machine.future(bsm.currentMsgNode); future {
+//				machine.Transform(bsm.currentMsgNode.State, bsm.currentMsgNode.Handler)
+//			}
+//		}
+//		machine.Transform(msg, handleFunc)
+//	}
+//	return true
+//}
 
 func (m *StateMachine) future(node *StateNode) bool {
     m.lock.Lock()
@@ -350,27 +348,27 @@ func GenerateBlockMachineKey(groupId []byte, height uint64, kingId []byte) strin
 	return fmt.Sprintf("%s-%d-%s", common.Bytes2Hex(groupId), height, common.Bytes2Hex(kingId))
 }
 
-func (this *TimeSequence) GetBlockStateMachine(groupId []byte, height uint64) StateMachineTransform {
-	id := fmt.Sprintf("%s-%d", common.Bytes2Hex(groupId), height)
-	this.lock.Lock()
-	defer this.lock.Unlock()
-
-	if ms, ok := this.blockMachines[id]; ok {
-		return ms
-		//if m, ok2 := ms.kingMachines[key]; ok2 {
-		//	machine = m
-		//} else {
-		//	machine = newBlockCastStateMachine(key)
-		//	ms.kingMachines[key] = machine
-		//}
-	} else {
-		ms = &BlockStateMachines{
-			height: height,
-			kingMachines: make(map[string]*StateMachine),
-		}
-		//machine = newBlockCastStateMachine(key)
-		//ms.kingMachines[key] = machine
-		this.blockMachines[id] = ms
-		return ms
-	}
-}
+//func (this *TimeSequence) GetBlockStateMachine(groupId []byte, height uint64) StateMachineTransform {
+//	id := fmt.Sprintf("%s-%d", common.Bytes2Hex(groupId), height)
+//	this.lock.Lock()
+//	defer this.lock.Unlock()
+//
+//	if ms, ok := this.blockMachines[id]; ok {
+//		return ms
+//		//if m, ok2 := ms.kingMachines[key]; ok2 {
+//		//	machine = m
+//		//} else {
+//		//	machine = newBlockCastStateMachine(key)
+//		//	ms.kingMachines[key] = machine
+//		//}
+//	} else {
+//		ms = &BlockStateMachines{
+//			height: height,
+//			kingMachines: make(map[string]*StateMachine),
+//		}
+//		//machine = newBlockCastStateMachine(key)
+//		//ms.kingMachines[key] = machine
+//		this.blockMachines[id] = ms
+//		return ms
+//	}
+//}

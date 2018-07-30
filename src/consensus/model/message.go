@@ -1,9 +1,9 @@
-package logical
+package model
 
 import (
 	"common"
 	"consensus/groupsig"
-	"consensus/rand"
+	"consensus/base"
 	"strconv"
 	"time"
 	"middleware/types"
@@ -77,7 +77,7 @@ func (msg *ConsensusSharePieceMessage) GenHash() common.Hash {
 	buf = append(buf, msg.Dest.Serialize()...)
 	buf = append(buf, msg.Share.Pub.Serialize()...)
 	buf = append(buf, msg.Share.Share.Serialize()...)
-	return rand.Data2CommonHash(buf)
+	return base.Data2CommonHash(buf)
 }
 //向组内成员发送签名公钥消息（所有成员相同）
 type ConsensusSignPubKeyMessage struct {
@@ -102,7 +102,7 @@ func (msg *ConsensusSignPubKeyMessage) GenHash() common.Hash {
 	buf := msg.GISHash.Bytes()
 	buf = append(buf, msg.DummyID.Serialize()...)
 	buf = append(buf, msg.SignPK.Serialize()...)
-	return rand.Data2CommonHash(buf)
+	return base.Data2CommonHash(buf)
 }
 
 
@@ -135,7 +135,7 @@ func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 	buf += string(msg.GroupID[:])
 	buf += msg.PreTime.String()
 	buf += strconv.FormatUint(msg.BlockHeight, 10)
-	return rand.Data2CommonHash([]byte(buf))
+	return base.Data2CommonHash([]byte(buf))
 }
 
 type ConsensusBlockMessageBase struct {
@@ -168,7 +168,7 @@ type ConsensusBlockMessage struct {
 func (msg *ConsensusBlockMessage) GenHash() common.Hash {
 	buf := msg.Block.Header.GenHash().Bytes()
 	buf = append(buf, msg.GroupID.Serialize()...)
-	return rand.Data2CommonHash(buf)
+	return base.Data2CommonHash(buf)
 }
 
 
