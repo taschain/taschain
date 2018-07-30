@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"vm/common/math"
+	"consensus/model"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -28,19 +29,19 @@ const (
 //组外矿工节点处理器
 type InitingGroup struct {
 	//sgi    StaticGroupInfo               //共识数据（基准）和组成员列表
-	gis		ConsensusGroupInitSummary
+	gis		model.ConsensusGroupInitSummary
 	//mems   map[string]NewGroupMemberData //接收到的组成员共识结果（成员ID->组ID和组公钥）
 	receivedGPKs map[string]groupsig.Pubkey
 	lock 	sync.RWMutex
 
-	mems   []PubKeyInfo //接收到的组成员共识结果（成员ID->组ID和组公钥）
+	mems   []model.PubKeyInfo //接收到的组成员共识结果（成员ID->组ID和组公钥）
 	status int32                           //-1,组初始化失败（超时或无法达成共识，不可逆）；=0，组初始化中；=1，组初始化成功
 	gpk    groupsig.Pubkey               //输出：生成的组公钥
 }
 
 //创建一个初始化中的组
-func CreateInitingGroup(raw *ConsensusGroupRawMessage) *InitingGroup {
-	mems := make([]PubKeyInfo, len(raw.MEMS))
+func CreateInitingGroup(raw *model.ConsensusGroupRawMessage) *InitingGroup {
+	mems := make([]model.PubKeyInfo, len(raw.MEMS))
 	copy(mems, raw.MEMS)
 	return &InitingGroup{
 		gis: raw.GI,
@@ -82,7 +83,7 @@ func (ig *InitingGroup) receiveSize() int {
 
 //找出收到最多的相同值
 func (ig *InitingGroup) convergence() bool {
-	threshold := GetGroupK(int(ig.gis.Members))
+	threshold := model.Param.GetGroupK(int(ig.gis.Members))
 	log.Printf("begin Convergence, K=%v, mems=%v.\n", threshold, len(ig.mems))
 
 	type countData struct {
@@ -164,7 +165,7 @@ func (ngg *NewGroupGenerator) removeInitingGroup(dummyId groupsig.ID)  {
 //uid：组成员的公开id（和组无关）
 //ngmd：组的初始化共识结果
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
-func (ngg *NewGroupGenerator) ReceiveData(sgs *StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
+func (ngg *NewGroupGenerator) ReceiveData(sgs *model.StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
 	id := sgs.GIS.DummyID
 	log.Printf("generator ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id))
 	initingGroup := ngg.getInitingGroup(id)
@@ -172,7 +173,7 @@ func (ngg *NewGroupGenerator) ReceiveData(sgs *StaticGroupSummary, sender groups
 	if initingGroup == nil { //不存在该组
 		return INIT_NOTFOUND
 	}
-	if initingGroup.gis.IsExpired() || initingGroup.gis.ReadyTimeout(height) { //该组初始化共识已超时
+	if initingGroup.gis.ReadyTimeout(height) { //该组初始化共识已超时
 		log.Printf("ReceiveData failed, group initing timeout.\n")
 		atomic.CompareAndSwapInt32(&initingGroup.status, INITING, INIT_FAIL)
 		return INIT_FAIL
@@ -213,8 +214,8 @@ const (
 type GroupContext struct {
 	is   int32         //组初始化状态
 	node GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
-	mems []PubKeyInfo              //组内成员ID列表（由父亲组指定）
-	gis  ConsensusGroupInitSummary //组初始化信息（由父亲组指定）
+	mems []model.PubKeyInfo              //组内成员ID列表（由父亲组指定）
+	gis  model.ConsensusGroupInitSummary //组初始化信息（由父亲组指定）
 }
 
 func (gc *GroupContext) GetNode() *GroupNode {
@@ -225,7 +226,7 @@ func (gc GroupContext) GetGroupStatus() int32 {
 	return gc.is
 }
 
-func (gc GroupContext) getMembers() []PubKeyInfo {
+func (gc GroupContext) getMembers() []model.PubKeyInfo {
 	return gc.mems
 }
 
@@ -260,7 +261,7 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //}
 
 //从秘密分享消息创建GroupContext结构
-func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi MinerInfo) *GroupContext {
+func CreateGroupContextWithPieceMessage(spm model.ConsensusSharePieceMessage, mi model.MinerInfo) *GroupContext {
 	gc := new(GroupContext)
 	gc.is = GIS_PIECE
 	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
@@ -269,8 +270,8 @@ func CreateGroupContextWithPieceMessage(spm ConsensusSharePieceMessage, mi Miner
 }
 
 //从组初始化消息创建GroupContext结构
-func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerInfo) *GroupContext {
-	if len(grm.MEMS) != GetGroupMemberNum() || len(grm.MEMS) != int(grm.GI.Members) {
+func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
+	if len(grm.MEMS) != model.Param.GetGroupMemberNum() || len(grm.MEMS) != int(grm.GI.Members) {
 		log.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
 	}
@@ -281,7 +282,7 @@ func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerIn
 		}
 	}
 	gc := new(GroupContext)
-	gc.mems = make([]PubKeyInfo, len(grm.MEMS))
+	gc.mems = make([]model.PubKeyInfo, len(grm.MEMS))
 	copy(gc.mems[:], grm.MEMS[:])
 	gc.gis = grm.GI
 	gc.is = GIS_RAW
@@ -293,7 +294,7 @@ func CreateGroupContextWithRawMessage(grm *ConsensusGroupRawMessage, mi *MinerIn
 
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已收到所有组成员的签名私钥
-func (gc *GroupContext) SignPKMessage(spkm *ConsensusSignPubKeyMessage) int {
+func (gc *GroupContext) SignPKMessage(spkm *model.ConsensusSignPubKeyMessage) int {
 	result := gc.node.SetSignPKPiece(spkm)
 	switch result {
 	case 1:
@@ -306,7 +307,7 @@ func (gc *GroupContext) SignPKMessage(spkm *ConsensusSignPubKeyMessage) int {
 
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
-func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
+func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int {
 	/*可能父亲组消息还没到，先收到组成员的piece消息
 	if !gc.MemExist(spm.si.SignMember) { //非组内成员
 		return -1
@@ -324,11 +325,11 @@ func (gc *GroupContext) PieceMessage(spm ConsensusSharePieceMessage) int {
 }
 
 //生成发送给组内成员的秘密分享
-func (gc *GroupContext) GenSharePieces() ShareMapID {
-	shares := make(ShareMapID, 0)
+func (gc *GroupContext) GenSharePieces() model.ShareMapID {
+	shares := make(model.ShareMapID, 0)
 	if len(gc.mems) == int(gc.gis.Members) && atomic.CompareAndSwapInt32(&gc.is, GIS_RAW, GIS_SHARED) {
 		secs := gc.node.GenSharePiece(gc.getIDs())
-		var piece SharePiece
+		var piece model.SharePiece
 		piece.Pub = gc.node.GetSeedPubKey()
 		for k, v := range secs {
 			piece.Share = v
@@ -357,7 +358,7 @@ func NewJoiningGroups() *JoiningGroups {
 	}
 }
 
-func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *ConsensusGroupRawMessage, mi *MinerInfo) *GroupContext {
+func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
 	if v := jgs.GetGroup(grm.GI.DummyID); v != nil {
 		gs := v.GetGroupStatus()
 		log.Printf("found initing group info BY RAW, status=%v...\n", gs)

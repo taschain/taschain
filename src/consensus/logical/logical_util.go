@@ -1,17 +1,21 @@
 package logical
 
 import (
-	"consensus/groupsig"
+	"fmt"
 	"time"
-	"common"
 	"middleware/types"
+	"consensus/model"
+	"consensus/groupsig"
+	"common"
 )
 
 /*
 **  Creator: pxf
-**  Date: 2018/6/25 下午4:14
+**  Date: 2018/6/8 上午9:52
 **  Description: 
 */
+const TIMESTAMP_LAYOUT = "2006-01-02/15:04:05.000"
+
 
 func GetSecKeyPrefix(sk groupsig.Seckey) string {
 	str := sk.GetHexString()
@@ -63,8 +67,33 @@ func GetSignPrefix(sign groupsig.Signature) string {
 	}
 }
 
+func logStart(mtype string, height uint64, qn uint64, sender string, format string, params ...interface{}) {
+	var s string
+	if params == nil || len(params) == 0 {
+		s = format
+	} else {
+		s = fmt.Sprintf(format, params...)
+	}
+	consensusLogger.Infof("%v,%v-begin,#%v-%v#,%v,%v", time.Now().Format(TIMESTAMP_LAYOUT), mtype, height, qn, sender, s)
+}
+
+func logEnd(mtype string, height uint64, qn uint64, sender string) {
+	consensusLogger.Infof("%v,%v-end,#%v-%v#,%v,%v", time.Now().Format(TIMESTAMP_LAYOUT), mtype, height, qn, sender, "")
+}
+
+
+func logHalfway(mtype string, height uint64, qn uint64, sender string, format string, params ...interface{}) {
+	var s string
+	if params == nil || len(params) == 0 {
+		s = format
+	} else {
+		s = fmt.Sprintf(format, params...)
+	}
+	consensusLogger.Infof("%v,%v-half,#%v-%v#,%v,%v", time.Now().Format(TIMESTAMP_LAYOUT), mtype, height, qn, sender, s)
+}
+
 func GetCastExpireTime(base time.Time, deltaHeight uint64) time.Time {
-	return base.Add(time.Second * time.Duration(deltaHeight * uint64(MAX_GROUP_BLOCK_TIME)))
+	return base.Add(time.Second * time.Duration(deltaHeight * uint64(model.Param.MaxGroupCastTime)))
 }
 
 func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo, isDummy bool) *types.Group {

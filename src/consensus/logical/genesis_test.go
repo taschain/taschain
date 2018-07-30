@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"consensus/model"
 )
 
 const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
@@ -45,7 +46,7 @@ func initProcessor(conf string) *Processor {
 	pk := privateKey.GetPubKey()
 	id := pk.GetAddress().GetHexString()
 	proc := new(Processor)
-	proc.Init(NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
+	proc.Init(model.NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
 	return proc
 }
 
@@ -94,7 +95,7 @@ func TestGenIdPubkey(t *testing.T) {
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
 	procs, _ := processors()
-	idPubs := make([]PubKeyInfo, 0)
+	idPubs := make([]model.PubKeyInfo, 0)
 	for _, p := range procs {
 		idPubs = append(idPubs, p.getPubkeyInfo())
 	}
@@ -119,20 +120,20 @@ func TestGenesisGroup(t *testing.T) {
 
 	procs, _ := processors()
 
-	mems := make([]PubKeyInfo, 0)
+	mems := make([]model.PubKeyInfo, 0)
 	for _, proc := range procs {
 		mems = append(mems, proc.getPubkeyInfo())
 	}
 	gis := GenGenesisGroupSummary()
-	gis.withMemberPubs(mems)
-	grm := &ConsensusGroupRawMessage{
+	gis.WithMemberPubs(mems)
+	grm := &model.ConsensusGroupRawMessage{
 		GI: gis,
 		MEMS: mems,
 	}
 
-	procSpms := make(map[string][]*ConsensusSharePieceMessage)
+	procSpms := make(map[string][]*model.ConsensusSharePieceMessage)
 
-	GROUP_MAX_MEMBERS = len(mems)
+	model.Param.GroupMember = len(mems)
 
 	for _, p := range procs {
 		staticGroupInfo := new(StaticGroupInfo)
@@ -150,12 +151,12 @@ func TestGenesisGroup(t *testing.T) {
 		for id, share := range shares {
 			spms := procSpms[id]
 			if spms == nil {
-				spms = make([]*ConsensusSharePieceMessage, 0)
+				spms = make([]*model.ConsensusSharePieceMessage, 0)
 				procSpms[id] = spms
 			}
 			var dest groupsig.ID
 			dest.SetHexString(id)
-			spm := &ConsensusSharePieceMessage{
+			spm := &model.ConsensusSharePieceMessage{
 				GISHash: grm.GI.GenHash(),
 				DummyID: grm.GI.DummyID,
 				Dest: dest,
@@ -167,16 +168,16 @@ func TestGenesisGroup(t *testing.T) {
 		}
 	}
 
-	spks := make(map[string]*ConsensusSignPubKeyMessage)
+	spks := make(map[string]*model.ConsensusSignPubKeyMessage)
 
 	for id, spms := range procSpms {
 		p := procs[id]
 		for _, spm := range spms {
 			gc := p.joiningGroups.GetGroup(spm.DummyID)
-			ret := gc.PieceMessage(*spm)
+			ret := gc.PieceMessage(spm)
 			if ret == 1 {
 				jg := gc.GetGroupInfo()
-				msg := &ConsensusSignPubKeyMessage{
+				msg := &model.ConsensusSignPubKeyMessage{
 					GISHash: spm.GISHash,
 					DummyID: spm.DummyID,
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
@@ -188,7 +189,7 @@ func TestGenesisGroup(t *testing.T) {
 		}
 	}
 
-	initedMsgs := make(map[string]*ConsensusGroupInitedMessage)
+	initedMsgs := make(map[string]*model.ConsensusGroupInitedMessage)
 
 	for id, p := range procs {
 		for _, spkm := range spks {
@@ -196,8 +197,8 @@ func TestGenesisGroup(t *testing.T) {
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
 				p.joinGroup(jg, true)
-				var msg = new(ConsensusGroupInitedMessage)
-				ski := SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
+				var msg = new(model.ConsensusGroupInitedMessage)
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK

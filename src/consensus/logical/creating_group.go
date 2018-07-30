@@ -3,6 +3,7 @@ package logical
 import (
 	"consensus/groupsig"
 	"sync"
+	"consensus/model"
 )
 
 /*
@@ -21,7 +22,7 @@ const (
 
 
 type CreatingGroup struct {
-	gis *ConsensusGroupInitSummary
+	gis *model.ConsensusGroupInitSummary
 	creator *StaticGroupInfo
 	ids []groupsig.ID
 	threshold int
@@ -35,13 +36,13 @@ type CreatingGroups struct {
 	//lock sync.RWMutex
 }
 
-func newCreateGroup(gis *ConsensusGroupInitSummary, ids []groupsig.ID, creator *StaticGroupInfo) *CreatingGroup {
+func newCreateGroup(gis *model.ConsensusGroupInitSummary, ids []groupsig.ID, creator *StaticGroupInfo) *CreatingGroup {
 	return &CreatingGroup{
 		gis: gis,
 		ids: ids,
 		pieces: make(map[string]groupsig.Signature),
 		creator: creator,
-		threshold: GetGroupK(len(creator.Members)),
+		threshold: model.Param.GetGroupK(len(creator.Members)),
 	}
 }
 

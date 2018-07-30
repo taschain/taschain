@@ -10,9 +10,8 @@ import (
 	"os"
 
 	"core/net/handler"
-	chandler "consensus/net/handler"
+	chandler "consensus/net"
 	"consensus/mediator"
-	"consensus/logical"
 	"governance/global"
 
 	"encoding/json"
@@ -27,6 +26,7 @@ import (
 	"runtime"
 	"log"
 	"strconv"
+	"consensus/model"
 	"redis"
 )
 
@@ -270,7 +270,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	id,err := network.Init(*configManager, isSuper, new(handler.ChainHandler), new(chandler.ConsensusHandler), testMode, seedIp)
+	id,err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		secret = getRandomString(5)
 		(*configManager).SetString(Section, "secret", secret)
 	}
-	minerInfo := logical.NewMinerInfo(id, secret)
+	minerInfo := model.NewMinerInfo(id, secret)
 	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
@@ -307,15 +307,15 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	return nil
 }
 
-func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
-	infos := []PubKeyInfo{}
+func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
+	var infos []PubKeyInfo
 	keys := (*configManager).GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
-	pubKeyInfos := []logical.PubKeyInfo{}
+	var pubKeyInfos []model.PubKeyInfo
 	for _, v := range infos {
 		var pub = groupsig.Pubkey{}
 		fmt.Println(v.PubKey)
@@ -324,12 +324,12 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 			fmt.Println(err)
 			return nil
 		}
-		pubKeyInfos = append(pubKeyInfos, logical.PubKeyInfo{*groupsig.NewIDFromString(v.ID), pub})
+		pubKeyInfos = append(pubKeyInfos, model.NewPubKeyInfo(*groupsig.NewIDFromString(v.ID), pub))
 	}
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo, id string) {
+func ShowPubKeyInfo(info model.MinerInfo, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})

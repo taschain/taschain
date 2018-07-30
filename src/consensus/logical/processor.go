@@ -8,7 +8,8 @@ import (
 	"log"
 	"consensus/ticker"
 	"middleware/types"
-	"network"
+	"consensus/model"
+	"consensus/net"
 )
 
 var PROC_TEST_MODE bool
@@ -23,7 +24,7 @@ type Processor struct {
 	groupManager 		*GroupManager
 
 	//////和组无关的矿工信息
-	mi *MinerInfo
+	mi *model.MinerInfo
 	//////加入(成功)的组信息(矿工节点数据)
 	belongGroups *BelongGroups //当前ID参与了哪些(已上链，可铸块的)组, 组id_str->组内私密数据（组外不可见或加速缓存）
 	//////测试数据，代替屮逸的网络消息
@@ -40,7 +41,7 @@ type Processor struct {
 	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
 
-	Server network.Server
+	NetServer net.NetworkServer
 
 }
 
@@ -50,12 +51,12 @@ func (p Processor) getPrefix() string {
 }
 
 //私密函数，用于测试，正式版本不提供
-func (p Processor) getMinerInfo() *MinerInfo {
+func (p Processor) getMinerInfo() *model.MinerInfo {
 	return p.mi
 }
 
-func (p Processor) getPubkeyInfo() PubKeyInfo {
-	return PubKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultPubKey()}
+func (p Processor) getPubkeyInfo() model.PubKeyInfo {
+	return model.NewPubKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultPubKey())
 }
 
 func (p *Processor) setProcs(gps map[string]*Processor) {
@@ -64,7 +65,7 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 
 
 //初始化矿工数据（和组无关）
-func (p *Processor) Init(mi MinerInfo) bool {
+func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.ready = false
 	p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
@@ -76,7 +77,7 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
 	p.blockContexts = NewCastBlockContexts()
 	p.groupManager = NewGroupManager(p)
-
+	p.NetServer = net.NewNetworkServer()
 	//db, err := datasource.NewDatabase(STORE_PREFIX)
 	//if err != nil {
 	//	log.Printf("NewDatabase error %v\n", err)
@@ -86,7 +87,6 @@ func (p *Processor) Init(mi MinerInfo) bool {
 	//p.sci.Init()
 
 	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
-	p.Server = network.GetNetInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	return true
@@ -99,7 +99,7 @@ func (p Processor) GetMinerID() groupsig.ID {
 }
 
 //验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(b *types.Block, sd SignData) bool {
+func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -159,14 +159,14 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *CastGroupSummary, si *SignData) bool {
+func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, si *model.SignData) bool {
 
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
 		log.Printf("beingCastGroup failed, node not in this group.\n")
 		return false
 	}
 
-	gmi := GroupMinerID{cgs.GroupID, si.GetID()}
+	gmi := model.NewGroupMinerID(cgs.GroupID, si.GetID())
 	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
 
 	if signPk.IsValid() { //该用户和我是同一组
@@ -192,7 +192,7 @@ func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
 func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
 	//p.castLock.Lock()
 	//defer p.castLock.Unlock()
-	gid := bc.MinerID.gid
+	gid := bc.MinerID.Gid
 	height := vctx.castHeight
 
 	log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
@@ -260,7 +260,7 @@ func (p Processor) getGroupPubKey(gid groupsig.ID) groupsig.Pubkey {
 
 }
 
-func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *SignData) {
+func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *model.SignData) {
 	//bbyte, _ := bh.CurTime.MarshalBinary()
 	//jbyte, _ := bh.CurTime.MarshalJSON()
 	//textbyte, _ := bh.CurTime.MarshalText()

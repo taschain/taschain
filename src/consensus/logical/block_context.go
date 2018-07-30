@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"middleware/types"
+	"consensus/model"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -29,28 +30,28 @@ type BlockContext struct {
 	lock sync.RWMutex
 
 	Proc    *Processor   //处理器
-	MinerID GroupMinerID //矿工ID和所属组ID
+	MinerID model.GroupMinerID //矿工ID和所属组ID
 	pos     int          //矿工在组内的排位
 }
 
 func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 	bc := &BlockContext{
 		Proc: p,
-		MinerID: GroupMinerID{gid: sgi.GroupID, uid: p.GetMinerID()},
+		MinerID: *model.NewGroupMinerID(sgi.GroupID, p.GetMinerID()),
 		verifyContexts: make([]*VerifyContext, 0),
 		GroupMembers: len(sgi.Members),
-		Version: CONSENSUS_VERSION,
+		Version: model.CONSENSUS_VERSION,
 	}
 	bc.reset()
 	return bc
 }
 
 func (bc *BlockContext) threshold() int {
-    return GetGroupK(bc.GroupMembers)
+    return model.Param.GetGroupK(bc.GroupMembers)
 }
 
 func (bc *BlockContext) getKingCheckRoutineName() string {
-	return "king_check_routine_" + GetIDPrefix(bc.MinerID.gid)
+	return "king_check_routine_" + GetIDPrefix(bc.MinerID.Gid)
 }
 
 func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
@@ -238,7 +239,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 			log.Printf("kingTickerRoutine: calcCastor index =%v\n", index)
 			return false
 		}
-		if vctx.signedMaxQN != INVALID_QN && qn <= vctx.signedMaxQN { //已经铸出了更大的qn
+		if vctx.signedMaxQN != model.INVALID_QN && qn <= vctx.signedMaxQN { //已经铸出了更大的qn
 			log.Printf("kingTickerRoutine: already cast maxer qn! height=%v, signMaxQN=%v, calcQn=%v\n", vctx.castHeight, vctx.signedMaxQN, qn)
 			return false
 		}
@@ -250,11 +251,11 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 }
 
 func (bc *BlockContext) getGroupSecret() *GroupSecret {
-    return bc.Proc.getGroupSecret(bc.MinerID.gid)
+    return bc.Proc.getGroupSecret(bc.MinerID.Gid)
 }
 
 func (bc *BlockContext) registerTicker()  {
-	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(MAX_USER_CAST_TIME))
+	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(model.Param.MaxUserCastTime))
 }
 
 func (bc *BlockContext) removeTicker()  {
