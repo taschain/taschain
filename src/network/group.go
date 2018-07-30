@@ -2,7 +2,6 @@ package network
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"time"
 	"sync"
@@ -33,8 +32,10 @@ func (g *Group) addGroup(node *Node) {
 func (g *Group) doRefresh() {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-
-	//fmt.Printf("Group doRefresh id： %v\n", g.ID)
+	if len(g.nodes) ==  len(g.members) {
+		return
+	}
+	Logger.Debugf("Group doRefresh id： %v\n", g.ID)
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
@@ -48,10 +49,10 @@ func (g *Group) doRefresh() {
 		node = netInstance.netCore.kad.Resolve(id)
 		if node != nil {
 			g.nodes[id] = node
-		//	fmt.Printf("Group Resolve id：%v ip: %v  port:%v\n", id, node.IP, node.Port)
+			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v\n", id, node.Ip, node.Port)
+			go netInstance.netCore.ping(node.Id,&net.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
-		//	fmt.Printf("Group Resolve id：%v  nothing!!!\n", id)
-
+			Logger.Debugf("Group Resolve id：%v  nothing!!!\n", id)
 		}
 	}
 }
@@ -64,7 +65,7 @@ func (g *Group) Send( packet *bytes.Buffer) {
 	for _, node := range g.nodes {
 		if node != nil {
 
-			fmt.Printf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
+			Logger.Debugf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
 
 			go netInstance.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
@@ -91,6 +92,8 @@ func newGroupManager() *GroupManager {
 func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
+
+	Logger.Debugf("AddGroup node id:%v len:%v\n", ID,len(members))
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
@@ -136,10 +139,11 @@ func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	fmt.Printf("SendGroup  id:%v\n", id)
+	Logger.Debugf("SendGroup  id:%v\n", id)
 	g := gm.groups[id]
 	if g == nil {
-		fmt.Printf("SendGroup not find group\n")
+		Logger.Debugf("SendGroup not find group\n")
+		return
 	}
 	g.Send(packet)
 

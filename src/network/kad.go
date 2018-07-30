@@ -23,16 +23,12 @@ const (
 	bucketMinDistance = hashBits - nBuckets // 最近桶的对数距离
 
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
-	maxFindnodeFailures = 5  // 节点最大失败数量
 
 	refreshInterval    =30 * time.Second
-	revalidateInterval = 30 * time.Minute
 	checkInterval	= 	3 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
-	seedCount          = 30
-	seedMaxAge         = 5 * 24 * time.Hour
 )
 
 // SHA256Hash 计算哈希
@@ -89,11 +85,6 @@ type bucket struct {
 }
 
 func newKad(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string, bootnodes []*Node) (*Kad, error) {
-	// If no node database was given, use an in-memory one
-	//db, err := newNodeDB(nodeDBPath, Version, ourID)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	kad := &Kad{
 		net:        t,
 		self:       NewNode(ourID, ourAddr.IP, ourAddr.Port),
@@ -119,10 +110,6 @@ func newKad(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string, 
 	}
 	kad.seedRand()
 	kad.loadSeedNodes(false)
-	// Start the background expiration goroutine after loading seeds so that the search for
-	// seed nodes also considers older nodes that would otherwise be removed by the
-	// expiration.
-	//kad.db.ensureExpirer()
 	go kad.loop()
 	return kad, nil
 }
@@ -136,16 +123,12 @@ func (kad *Kad) seedRand() {
 	kad.mutex.Unlock()
 }
 
-// Self returns the local node.
-// The returned node should not be modified by the caller.
+
 func (kad *Kad) Self() *Node {
 	return kad.self
 }
 
 
-// ReadRandomNodes fills the given slice with random nodes from the
-// table. It will not write the same node more than once. The nodes in
-// the slice are copies and can be modified by the caller.
 func (kad *Kad) ReadRandomNodes(buf []*Node) (n int) {
 	if !kad.isInitDone() {
 		return 0
@@ -413,7 +396,7 @@ loop:
 
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
-
+	kad.Print()
 	kad.loadSeedNodes(true)
 
 	kad.lookup(kad.self.Id, false)

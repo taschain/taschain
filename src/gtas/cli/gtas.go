@@ -27,6 +27,7 @@ import (
 	"log"
 	"strconv"
 	"consensus/model"
+	"redis"
 )
 
 const (
@@ -45,7 +46,7 @@ const (
 
 	databaseKey = "database"
 
-	redis_prefix = "alilyun_"
+	redis_prefix = "aliyun_"
 )
 
 var configManager = &common.GlobalConf
@@ -133,7 +134,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-		network.NodeOffline(mediator.Proc.GetMinerID().Serialize())
+		redis.NodeOffline(mediator.Proc.GetMinerID().Serialize())
 		fmt.Println("exit success")
 		quit <- true
 	} else {
@@ -285,7 +286,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 
 	if isSuper {
 		//超级节点启动前先把Redis数据清空
-		network.CleanRedisData()
+		redis.CleanRedisData()
 	}
 
 	secret := (*configManager).GetString(Section, "secret", "")
@@ -294,7 +295,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewMinerInfo(id, secret)
-	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
+	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok = mediator.ConsensusInit(minerInfo)

@@ -148,9 +148,9 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 	nc.messageManager = newMessageManager(nc.id)
 	realaddr := cfg.ListenAddr
 
-	fmt.Printf("KAD ID %v \n", nc.id.GetHexString())
-	fmt.Printf("P2PConfig %v \n", nc.nid)
-	fmt.Printf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
+	Logger.Debugf("KAD ID %v \n", nc.id.GetHexString())
+	Logger.Debugf("P2PConfig %v \n", nc.nid)
+	Logger.Debugf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
 	P2PConfig(nc.nid)
 
 
@@ -498,7 +498,7 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
-		fmt.Printf("Recv timeout:%v\n", diff)
+		Logger.Infof("Recv timeout:%v\n", diff)
 	}
 
 }
@@ -556,7 +556,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	if int(packetSize) < buf.Len() {
 		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
-	//fmt.Printf("handleMessage : msgType: %v \n", msgType)
+	Logger.Infof("handleMessage : msgType: %v \n", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -574,7 +574,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	case MessageType_MessageData:
 		go nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromId)
 	default:
-		return fmt.Errorf("unknown type: %d", msgType)
+		return Logger.Errorf("unknown type: %d", msgType)
 	}
 	return nil
 }
@@ -585,8 +585,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 	msgLen := binary.BigEndian.Uint32(buf[typeSize : typeSize+lenSize])
 	packetSize := int(msgLen + headSize)
 
-	//fmt.Printf("decodePacket id %v \n ",ID.GetHexString())
-	//fmt.Printf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
+	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
 
 	if buffer.Len() < packetSize {
 		return MessageType_MessageNone,0, nil, errPacketTooSmall
@@ -613,14 +612,12 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 		err = proto.Unmarshal(data, req)
 	}
 
-	//fmt.Printf("decodePacket end\n ")
-
 	return msgType, packetSize, req, err
 }
 
 func (nc *NetCore) handlePing(req *MsgPing,fromId NodeID ) error {
 
-	//fmt.Printf("handlePing from ip:%v %v to ip:%v %v \n ", req.From.IP, req.From.Port, req.To.IP, req.To.Port)
+	Logger.Infof("handlePing from ip:%v %v to ip:%v %v \n ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
 
 	if expired(req.Expiration) {
 		return errExpired
@@ -640,7 +637,7 @@ func (nc *NetCore) handlePing(req *MsgPing,fromId NodeID ) error {
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 	if !nc.handleReply(fromId, MessageType_MessagePing, req) {
-		//fmt.Printf("handlePing bond\n")
+		Logger.Infof("handlePing bond\n")
 
 		// Note: we're ignoring the provided IP address right now
 		go nc.kad.bond(true, fromId, &from, int(req.From.Port))
@@ -704,7 +701,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 	id := fromId.GetHexString()
-	//fmt.Printf("data from:%v  len:%v DataType:%v messageId:%X\n", id, len(req.Data),req.DataType,req.MessageId)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X\n", id, len(req.Data),req.DataType,req.MessageId)
 	needHandle := false
 	if req.DataType == DataType_DataNormal {
 		needHandle = true
