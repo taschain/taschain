@@ -167,7 +167,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	ns.net.SendWithGroupRely(msg.Launcher.String(),msg.GI.DummyID.String(),m)
+	ns.net.SendWithGroupRely(msg.Launcher.String(),msg.GI.ParentID.String(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------
