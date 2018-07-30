@@ -100,6 +100,10 @@ func (n *network) Multicast(groupId string, msg Message) error {
 	n.netCore.SendGroup(groupId,bytes)
 	return nil
 }
+//todo by 文杰
+func (n *network)SendByGroup(id string, groupId string,msg Message)error{
+	return nil
+}
 
 func (n *network) Broadcast(msg Message) error {
 	bytes, err := marshalMessage(msg)

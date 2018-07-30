@@ -20,6 +20,8 @@ type Server interface {
 
 	Send(id string, msg Message) error
 
+	SendByGroup(id string, groupId string,msg Message)error
+
 	Multicast(groupId string, msg Message) error
 
 	Broadcast(msg Message) error
