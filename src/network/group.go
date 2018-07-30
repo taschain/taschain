@@ -35,7 +35,7 @@ func (g *Group) doRefresh() {
 	if len(g.nodes) ==  len(g.members) {
 		return
 	}
-	Logger.Debugf("Group doRefresh id： %v\n", g.ID)
+	Logger.Debugf("Group doRefresh id： %v", g.ID)
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
@@ -49,10 +49,10 @@ func (g *Group) doRefresh() {
 		node = net.netCore.kad.resolve(id)
 		if node != nil {
 			g.nodes[id] = node
-			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v\n", id, node.Ip, node.Port)
+			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v", id, node.Ip, node.Port)
 			go net.netCore.ping(node.Id,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
-			Logger.Debugf("Group Resolve id：%v  nothing!!!\n", id)
+			Logger.Debugf("Group Resolve id：%v  nothing!!!", id)
 		}
 	}
 }
@@ -65,7 +65,7 @@ func (g *Group) Send( packet *bytes.Buffer) {
 	for _, node := range g.nodes {
 		if node != nil {
 
-			Logger.Debugf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
+			Logger.Debugf("SendGroup node ip:%v port:%v", node.Ip, node.Port)
 
 			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
@@ -93,7 +93,7 @@ func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("AddGroup node id:%s len:%v\n", ID,len(members))
+	Logger.Debugf("AddGroup node id:%v len:%v", ID,len(members))
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
@@ -125,7 +125,7 @@ func (gm *GroupManager) loop() {
 }
 
 func (gm *GroupManager) doRefresh() {
-	//fmt.Printf("groupManager doRefresh \n")
+	//fmt.Printf("groupManager doRefresh ")
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
@@ -139,10 +139,10 @@ func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("SendGroup  id:%v\n", id)
+	Logger.Debugf("SendGroup  id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
-		Logger.Debugf("SendGroup not find group\n")
+		Logger.Debugf("SendGroup not find group")
 		return
 	}
 	g.Send(packet)

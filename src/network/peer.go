@@ -4,7 +4,6 @@ import (
 	"bytes"
 	nnet "net"
 	"time"
-	"fmt"
 	"sync"
 )
 
@@ -195,10 +194,10 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 func (pm *PeerManager) print() {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	fmt.Printf("PeerManager Print peer size:%v\n", len(pm.peers))
+	Logger.Infof("PeerManager Print peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		fmt.Printf("id:%v session:%v  ip:%v  port:%v\n", p.Id.GetHexString(),p.seesionId,p.Ip,p.Port)
+		Logger.Infof("id:%v session:%v  ip:%v  port:%v", p.Id.GetHexString(),p.seesionId,p.Ip,p.Port)
 	}
 	return
 }

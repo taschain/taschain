@@ -373,7 +373,7 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 
 
 func (kad *Kad) doCheck() {
-	//fmt.Printf("doCheck ... bucket size:%v \n", kad.len())
+	//fmt.Printf("doCheck ... bucket size:%v ", kad.len())
 	//if kad.len() <= len(kad.nursery) * 3{
 		kad.refresh()
 	///}
@@ -419,7 +419,7 @@ func (kad *Kad) len() (n int) {
 func (kad *Kad) print() {
 	for _, b := range kad.buckets {
 		for _, n := range b.entries {
-			fmt.Printf("----- kad ---  addr: IP:%v    Port:%v...\n", n.Ip, n.Port)
+			fmt.Printf("----- kad ---  addr: IP:%v    Port:%v...", n.Ip, n.Port)
 		}
 	}
 	return

@@ -138,9 +138,9 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 	nc.messageManager = newMessageManager(nc.id)
 	realaddr := cfg.ListenAddr
 
-	Logger.Debugf("KAD ID %v \n", nc.id.GetHexString())
-	Logger.Debugf("P2PConfig %v \n", nc.nid)
-	Logger.Debugf("P2PListen %v %v\n", realaddr.IP.String(), uint16(realaddr.Port))
+	Logger.Debugf("KAD ID %v ", nc.id.GetHexString())
+	Logger.Debugf("P2PConfig %v ", nc.nid)
+	Logger.Debugf("P2PListen %v %v", realaddr.IP.String(), uint16(realaddr.Port))
 	P2PConfig(nc.nid)
 
 
@@ -183,11 +183,11 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		NodeId:nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	Logger.Info("ping node:%v, %v, %v\n",toid.GetHexString(),to.Ip,to.Port)
+	Logger.Info("ping node:%v, %v, %v",toid.GetHexString(),to.Ip,to.Port)
 
 	packet, hash, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
-		fmt.Printf("net encodePacket err  %v\n", err)
+		fmt.Printf("net encodePacket err  %v", err)
 		return err
 	}
 	errc := nc.pending(toid, MessageType_MessagePong, func(p interface{}) bool {
@@ -214,7 +214,7 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([
 			if err != nil {
 				continue
 			}
-			//fmt.Printf("find node:%v, %v, %v\n",n.ID.GetHexString(),n.IP,n.Port)
+			//fmt.Printf("find node:%v, %v, %v",n.ID.GetHexString(),n.IP,n.Port)
 			nodes = append(nodes, n)
 		}
 		return nreceived >= bucketSize
@@ -396,15 +396,26 @@ func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
 }
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
+
+	Logger.Infof("SendGroupMember: node id:%v member id :%v", id,memberId)
+
 	p := nc.peerManager.peerByID(memberId)
 	if p != nil &&  p.seesionId > 0 {
+		Logger.Infof("node id:%v connected send packet",memberId)
 		nc.Send(memberId,nil,data)
 	} else {
-		packet, _, err := nc.encodeDataPacket(data,DataType_DataGroup,id,&memberId)
-		if err != nil {
-			return
-		}
-		nc.groupManager.SendGroup(id, packet)
+		node := net.netCore.kad.find(memberId)
+		if node != nil {
+			Logger.Infof("node id:%v connected send packet",memberId)
+
+			go nc.Send(memberId,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)},data)
+		} else {
+			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId)
+			if err != nil {
+				return
+			}
+			nc.groupManager.SendGroup(id, packet)
+			}
 	}
 	return
 }
@@ -466,7 +477,7 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
-		Logger.Infof("Recv timeout:%v\n", diff)
+		Logger.Infof("Recv timeout:%v", diff)
 	}
 }
 
@@ -527,7 +538,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	if int(packetSize) < buf.Len() {
 		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
-	Logger.Infof("handleMessage : msgType: %v \n", msgType)
+	Logger.Infof("handleMessage : msgType: %v ", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -608,7 +619,7 @@ func (nc *NetCore) handlePing(req *MsgPing,fromId NodeID ) error {
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 	if !nc.handleReply(fromId, MessageType_MessagePing, req) {
-		Logger.Infof("handlePing bond\n")
+		Logger.Infof("handlePing bond")
 
 		// Note: we're ignoring the provided IP address right now
 		go nc.kad.bond(true, fromId, &from, int(req.From.Port))
@@ -666,7 +677,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X\n", id, len(req.Data),req.DataType,req.MessageId)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X", id, len(req.Data),req.DataType,req.MessageId)
 	needHandle := false
 	if req.DataType == DataType_DataNormal {
 		needHandle = true
@@ -675,7 +686,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		nodeId := NodeID{};
 		nodeId.SetBytes(req.NodeId)
 		if !forwarded && (len(req.NodeId) == 0 || nodeId == nc.id) {
-			Logger.Infof("forwarded message DataType:%v messageId:%X nodeId：%v\n", req.DataType,req.MessageId,req.NodeId)
+			Logger.Infof("forwarded message DataType:%v messageId:%X nodeId：%v", req.DataType,req.MessageId,req.NodeId)
 			needHandle = true
 			dataBuffer :=bytes.NewBuffer(packet)
 			nc.messageManager.forward(req.MessageId)
