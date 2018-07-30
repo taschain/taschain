@@ -74,6 +74,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 
 	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
 	ns.net.Multicast(spkm.DummyID.GetHexString(),m)
+	logger.Debugf("SendSignPubKey hash:%s",m.Hash())
 }
 
 //组初始化完成 广播组信息 全网广播

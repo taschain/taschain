@@ -182,9 +182,14 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 
 	code := message.Code
-	if code == KEY_PIECE_MSG {
+	if code == KEY_PIECE_MSG{
 		Logger.Debugf("Receive key piece form%s,hash:%s", from, message.Hash())
 	}
+
+	if code ==  SIGN_PUBKEY_MSG{
+		Logger.Debugf("Receive SIGN_PUBKEY_MSG form%s,hash:%s", from, message.Hash())
+	}
+
 	defer Logger.Debugf("code:%d,cost time:%v", code, time.Since(begin))
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
