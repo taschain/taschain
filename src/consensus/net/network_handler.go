@@ -77,6 +77,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			c.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
 		})
 	case network.SIGN_PUBKEY_MSG:
+		logger.Debugf("Receive SIGN_PUBKEY_MSG form:%s", sourceId)
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
