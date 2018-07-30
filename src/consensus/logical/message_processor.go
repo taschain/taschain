@@ -436,6 +436,11 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				log.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				if !PROC_TEST_MODE {
+					if spm.Dest.String() == p.mi.MinerID.String(){
+						//给自己发
+						p.OnMessageSharePiece(spm)
+						continue
+					}
 					log.Printf("call network service SendKeySharePiece...\n")
 					p.NetServer.SendKeySharePiece(spm)
 				} else {
