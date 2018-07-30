@@ -90,14 +90,14 @@ func (n *server) Send(targetId string, msg Message) error {
 	return nil
 }
 
-func (n *server)SendWithGroupRely(id string, groupId string,msg Message)error{
+func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId,bytes,common.HexStringToAddress(id))
+	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
 	return nil
 }
 
@@ -108,17 +108,17 @@ func (n *server) Multicast(groupId string, msg Message) error {
 		return err
 	}
 
-	n.netCore.SendGroup(groupId,bytes,true)
+	n.netCore.SendGroup(groupId, bytes, true)
 	return nil
 }
 
-func (n *server)TransmitToNeighbor(msg Message) error{
+func (n *server) TransmitToNeighbor(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes,false)
+	n.netCore.SendAll(bytes, false)
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (n *server) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes,true)
+	n.netCore.SendAll(bytes, true)
 	return nil
 }
 
@@ -144,7 +144,7 @@ func (n *server) ConnInfo() []Conn {
 	return result
 }
 
-func (n *server)BuildGroupNet(groupId string, members []string){
+func (n *server) BuildGroupNet(groupId string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
@@ -152,7 +152,7 @@ func (n *server)BuildGroupNet(groupId string, members []string){
 	n.netCore.groupManager.AddGroup(groupId, nodes)
 }
 
-func (n *server)DissolveGroupNet(groupId string){
+func (n *server) DissolveGroupNet(groupId string) {
 	n.netCore.groupManager.RemoveGroup(groupId)
 }
 
@@ -174,7 +174,7 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	begin:= time.Now()
+	begin := time.Now()
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
@@ -182,7 +182,10 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 
 	code := message.Code
-	defer Logger.Debugf("code:%d,cost time:%v",code,time.Since(begin))
+	if code == KEY_PIECE_MSG {
+		Logger.Debugf("Receive key piece form%s,hash:%s", from, message.Hash())
+	}
+	defer Logger.Debugf("code:%d,cost time:%v", code, time.Since(begin))
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG, CREATE_GROUP_RAW, CREATE_GROUP_SIGN:
