@@ -99,8 +99,9 @@ func newPeerManager() *PeerManager {
 	return pm
 }
 
+
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
-	netID := NetCoreNodeID(toid)
+	netID := netCoreNodeID(toid)
 	p := pm.peerByNetID(netID)
 	if p == nil {
 		p = &Peer{Id: toid, seesionId: 0, sendList: make([]*bytes.Buffer, 0)}
@@ -204,7 +205,7 @@ func (pm *PeerManager) print() {
 
 
 func (pm *PeerManager) peerByID(id NodeID) *Peer {
-	netID := NetCoreNodeID(id)
+	netID := netCoreNodeID(id)
 
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()

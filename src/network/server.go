@@ -97,7 +97,7 @@ func (n *server)SendWithGroupRely(id string, groupId string,msg Message)error{
 		return err
 	}
 
-	n.netCore.SendGroup(groupId,bytes,false)
+	n.netCore.SendGroupMember(groupId,bytes,common.HexStringToAddress(id))
 	return nil
 }
 

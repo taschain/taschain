@@ -76,20 +76,22 @@ type reply struct {
 }
 
 
-//NetCoreNodeID NodeID 转网络id
-func NetCoreNodeID(id NodeID) uint64 {
+//netCoreNodeID NodeID 转网络id
+func netCoreNodeID(id NodeID) uint64 {
 	h := fnv.New64a()
 	h.Write(id[:])
 	return uint64(h.Sum64())
 }
 
-//NodeFromRPC rpc节点转换
-func (nc *NetCore) NodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) {
+
+//nodeFromRPC rpc节点转换
+func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) {
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
 	}
 
-	n := NewNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
+	n := newNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
+
 	err := n.validateComplete()
 	return n, err
 }
@@ -129,7 +131,7 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 	nc.addpending = make(chan *pending)
 	nc.unhandle = make(chan *Peer)
 	nc.natTraversalEnable = cfg.NatTraversalEnable
-	nc.nid = NetCoreNodeID(cfg.Id)
+	nc.nid = netCoreNodeID(cfg.Id)
 	nc.peerManager = newPeerManager()
 	nc.peerManager.natTraversalEnable = cfg.NatTraversalEnable
 	nc.groupManager = newGroupManager()
@@ -208,7 +210,7 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([
 		reply := r.(*MsgNeighbors)
 		for _, rn := range reply.Nodes {
 			nreceived++
-			n, err := nc.NodeFromRPC(toaddr, *rn)
+			n, err := nc.nodeFromRPC(toaddr, *rn)
 			if err != nil {
 				continue
 			}
@@ -529,7 +531,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 
 	switch msgType {
 	case MessageType_MessagePing:
-		fromId =  MustBytesID(msg.(*MsgPing).NodeId)
+		fromId =  common.BytesToAddress(msg.(*MsgPing).NodeId)
 		if fromId != p.Id {
 			p.Id = fromId
 		}

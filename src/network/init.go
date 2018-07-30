@@ -39,7 +39,9 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	}
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
-	bnNode := NewNode(common.HexStringToAddress(seedId), nnet.ParseIP(seedIp), seedPort)
+
+	bnNode := newNode(common.HexStringToAddress(seedId), nnet.ParseIP(seedIp), seedPort)
+
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
 	}

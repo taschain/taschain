@@ -31,8 +31,8 @@ const (
 	seedMinTableTime   = 5 * time.Minute
 )
 
-// SHA256Hash 计算哈希
-func SHA256Hash(data []byte) []byte {
+// getSha256Hash 计算哈希
+func makeSha256Hash(data []byte) []byte {
 	h := sha256.New()
 	h.Write(data)
 	return h.Sum(nil)
@@ -50,16 +50,16 @@ type Kad struct {
 	closeReq   chan struct{}
 	closed     chan struct{}
 
-	bondmu    sync.Mutex
-	bonding   map[NodeID]*bondproc
-	bondslots chan struct{}
+	bondMutex    sync.Mutex
+	bonding   map[NodeID]*bondProc
+	bondSlots chan struct{}
 
 
 	net  transport
 	self *Node
 }
 
-type bondproc struct {
+type bondProc struct {
 	err  error
 	n    *Node
 	done chan struct{}
@@ -85,9 +85,9 @@ type bucket struct {
 func newKad(t transport, ourID NodeID, ourAddr *nnet.UDPAddr, nodeDBPath string, bootnodes []*Node) (*Kad, error) {
 	kad := &Kad{
 		net:        t,
-		self:       NewNode(ourID, ourAddr.IP, ourAddr.Port),
-		bonding:    make(map[NodeID]*bondproc),
-		bondslots:  make(chan struct{}, maxBondingPingPongs),
+		self:       newNode(ourID, ourAddr.IP, ourAddr.Port),
+		bonding:    make(map[NodeID]*bondProc),
+		bondSlots:  make(chan struct{}, maxBondingPingPongs),
 		refreshReq: make(chan chan struct{}),
 		initDone:   make(chan struct{}),
 		closeReq:   make(chan struct{}),
@@ -97,8 +97,8 @@ func newKad(t transport, ourID NodeID, ourAddr *nnet.UDPAddr, nodeDBPath string,
 	if err := kad.setFallbackNodes(bootnodes); err != nil {
 		return nil, err
 	}
-	for i := 0; i < cap(kad.bondslots); i++ {
-		kad.bondslots <- struct{}{}
+	for i := 0; i < cap(kad.bondSlots); i++ {
+		kad.bondSlots <- struct{}{}
 	}
 	for i := range kad.buckets {
 		kad.buckets[i] = &bucket{
@@ -125,7 +125,7 @@ func (kad *Kad) Self() *Node {
 }
 
 
-func (kad *Kad) ReadRandomNodes(buf []*Node) (n int) {
+func (kad *Kad) readRandomNodes(buf []*Node) (n int) {
 	if !kad.isInitDone() {
 		return 0
 	}
@@ -177,7 +177,7 @@ func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 	kad.nursery = make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
 		cpy := *n
-		cpy.sha = SHA256Hash(n.Id[:])
+		cpy.sha = makeSha256Hash(n.Id[:])
 		kad.nursery = append(kad.nursery, &cpy)
 	}
 	return nil
@@ -193,8 +193,8 @@ func (kad *Kad) isInitDone() bool {
 }
 
 //Find 只在桶里查找
-func (kad *Kad) Find(targetID NodeID) *Node {
-	hash := SHA256Hash(targetID[:])
+func (kad *Kad) find(targetID NodeID) *Node {
+	hash := makeSha256Hash(targetID[:])
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
 	kad.mutex.Unlock()
@@ -206,8 +206,8 @@ func (kad *Kad) Find(targetID NodeID) *Node {
 }
 
 
-func (kad *Kad) Resolve(targetID NodeID) *Node {
-	hash := SHA256Hash(targetID[:])
+func (kad *Kad) resolve(targetID NodeID) *Node {
+	hash := makeSha256Hash(targetID[:])
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
 	kad.mutex.Unlock()
@@ -230,7 +230,7 @@ func (kad *Kad) Lookup(targetID NodeID) []*Node {
 
 func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 	var (
-		target         = SHA256Hash(targetID[:])
+		target         = makeSha256Hash(targetID[:])
 		asked          = make(map[NodeID]bool)
 		seen           = make(map[NodeID]bool)
 		reply          = make(chan []*Node, alpha)
@@ -346,7 +346,7 @@ loop:
 
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
-	kad.Print()
+	kad.print()
 	kad.loadSeedNodes(true)
 
 	kad.lookup(kad.self.Id, false)
@@ -416,7 +416,7 @@ func (kad *Kad) len() (n int) {
 }
 
 //Print 打印桶成员信息
-func (kad *Kad) Print() {
+func (kad *Kad) print() {
 	for _, b := range kad.buckets {
 		for _, n := range b.entries {
 			fmt.Printf("----- kad ---  addr: IP:%v    Port:%v...\n", n.Ip, n.Port)
@@ -454,7 +454,7 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *nnet.UDPAddr, port int) (*Nod
 	}
 
 	var node *Node
-	node = kad.Find(id)
+	node = kad.find(id)
 	age := nodeBondExpiration
 	fails := 0
 	bonded :=  false
@@ -467,21 +467,21 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *nnet.UDPAddr, port int) (*Nod
 
 	var result error
 	if !bonded && ( fails > 0 || age >= nodeBondExpiration) {
-		kad.bondmu.Lock()
+		kad.bondMutex.Lock()
 		w := kad.bonding[id]
 		if w != nil {
-			kad.bondmu.Unlock()
+			kad.bondMutex.Unlock()
 			<-w.done
 		} else {
-			w = &bondproc{done: make(chan struct{})}
+			w = &bondProc{done: make(chan struct{})}
 			kad.bonding[id] = w
-			kad.bondmu.Unlock()
+			kad.bondMutex.Unlock()
 			// Do the ping/pong. The result goes into w.
 			kad.pingpong(w, pinged, id, addr, port)
 			// Unregister the process after it's done.
-			kad.bondmu.Lock()
+			kad.bondMutex.Lock()
 			delete(kad.bonding, id)
-			kad.bondmu.Unlock()
+			kad.bondMutex.Unlock()
 		}
 		// Retrieve the bonding results
 		result = w.err
@@ -497,9 +497,9 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *nnet.UDPAddr, port int) (*Nod
 	return node, result
 }
 
-func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *nnet.UDPAddr, tcpPort int) {
-	<-kad.bondslots
-	defer func() { kad.bondslots <- struct{}{} }()
+func (kad *Kad) pingpong(w *bondProc, pinged bool, id NodeID, addr *nnet.UDPAddr, tcpPort int) {
+	<-kad.bondSlots
+	defer func() { kad.bondSlots <- struct{}{} }()
 
 	if w.err = kad.ping(id, addr); w.err != nil {
 		close(w.done)
@@ -508,7 +508,7 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *nnet.UDPAddr
 	if !pinged {
 		kad.net.waitping(id)
 	}
-	w.n = NewNode(id, addr.IP, addr.Port)
+	w.n = newNode(id, addr.IP, addr.Port)
 	close(w.done)
 }
 
@@ -520,7 +520,7 @@ func (kad *Kad) ping(id NodeID, addr *nnet.UDPAddr) error {
 }
 
 func (kad *Kad) hasBond(id NodeID) bool {
-	node := kad.Find(id)
+	node := kad.find(id)
 
 	if node != nil {
 		return node.bonded
@@ -529,7 +529,7 @@ func (kad *Kad) hasBond(id NodeID) bool {
 }
 
 func (kad *Kad) bucket(sha []byte) *bucket {
-	d := logdist(kad.self.sha, sha)
+	d := logDistance(kad.self.sha, sha)
 	if d <= bucketMinDistance {
 		return kad.buckets[0]
 	}
@@ -668,7 +668,7 @@ type nodesByDistance struct {
 
 func (h *nodesByDistance) push(n *Node, maxElems int) {
 	ix := sort.Search(len(h.entries), func(i int) bool {
-		return distcmp(h.target, h.entries[i].sha, n.sha) > 0
+		return distanceCompare(h.target, h.entries[i].sha, n.sha) > 0
 	})
 	if len(h.entries) < maxElems {
 		h.entries = append(h.entries, n)

@@ -46,7 +46,7 @@ func (g *Group) doRefresh() {
 		if node != nil && ok {
 			continue
 		}
-		node = net.netCore.kad.Resolve(id)
+		node = net.netCore.kad.resolve(id)
 		if node != nil {
 			g.nodes[id] = node
 			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v\n", id, node.Ip, node.Port)

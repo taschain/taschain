@@ -14,6 +14,7 @@ import (
 
 const (
 	BASE_PORT = 22000
+
 	SUPER_BASE_PORT = 1122
 
 	BASE_SECTION = "network"
@@ -43,16 +44,17 @@ type Node struct {
 	bonded bool
 }
 
-// NewNode 新建节点
-func NewNode(id NodeID, ip nnet.IP, Port int) *Node {
+
+// newNode 新建节点
+func newNode(id NodeID, ip nnet.IP, port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
 	}
 	return &Node{
 		Ip:   ip,
-		Port: Port,
+		Port: port,
 		Id:   id,
-		sha:  SHA256Hash(id[:]),
+		sha:  makeSha256Hash(id[:]),
 	}
 }
 
@@ -60,12 +62,10 @@ func (n *Node) addr() *nnet.UDPAddr {
 	return &nnet.UDPAddr{IP: n.Ip, Port: int(n.Port)}
 }
 
-// Incomplete returns true for nodes with no IP address.
 func (n *Node) Incomplete() bool {
 	return n.Ip == nil
 }
 
-// checks whether n is a valid complete node.
 func (n *Node) validateComplete() error {
 	if n.Incomplete() {
 		return errors.New("incomplete node")
@@ -80,30 +80,8 @@ func (n *Node) validateComplete() error {
 	return nil
 }
 
-// BytesID converts a byte slice to a NodeID
-func BytesID(b []byte) (NodeID, error) {
-	var id NodeID
-	if len(b) != len(id) {
-		return id, fmt.Errorf("wrong length, want %d bytes", len(id))
-	}
-	copy(id[:], b)
-	return id, nil
-}
 
-// MustBytesID converts a byte slice to a NodeID.
-// It panics if the byte slice is not a valid NodeID.
-func MustBytesID(b []byte) NodeID {
-	id, err := BytesID(b)
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
-// distcmp compares the distances a->target and b->target.
-// Returns -1 if a is closer to target, 1 if b is closer to target
-// and 0 if they are equal.
-func distcmp(target, a, b []byte) int {
+func distanceCompare(target, a, b []byte) int {
 	for i := range target {
 		da := a[i] ^ target[i]
 		db := b[i] ^ target[i]
@@ -116,8 +94,7 @@ func distcmp(target, a, b []byte) int {
 	return 0
 }
 
-// table of leading zero counts for bytes [0..255]
-var lzcount = [256]int{
+var  leadingZeroCount = [256]int{
 	8, 7, 6, 6, 5, 5, 5, 5,
 	4, 4, 4, 4, 4, 4, 4, 4,
 	3, 3, 3, 3, 3, 3, 3, 3,
@@ -152,27 +129,25 @@ var lzcount = [256]int{
 	0, 0, 0, 0, 0, 0, 0, 0,
 }
 
-// logdist returns the logarithmic distance between a and b, log2(a ^ b).
-func logdist(a, b []byte) int {
+func logDistance(a, b []byte) int {
 	lz := 0
 	for i := range a {
 		x := a[i] ^ b[i]
 		if x == 0 {
 			lz += 8
 		} else {
-			lz += lzcount[x]
+			lz += leadingZeroCount[x]
 			break
 		}
 	}
 	return len(a)*8 - lz
 }
 
-// hashAtDistance 返回一个距离相同的随机哈希 logdist(a, b) == n
 func hashAtDistance(a []byte, n int) (b []byte) {
 	if n == 0 {
 		return a
 	}
-	// flip bit at position n, fill the rest with random bits
+
 	b = a
 	pos := len(a) - n/8 - 1
 	bit := byte(0x01) << (byte(n%8) - 1)
@@ -180,7 +155,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 		pos++
 		bit = 0x80
 	}
-	b[pos] = a[pos]&^bit | ^a[pos]&bit // TODO: randomize end bits
+	b[pos] = a[pos]&^bit | ^a[pos]&bit
 	for i := pos + 1; i < len(a); i++ {
 		b[i] = byte(rand.Intn(255))
 	}
