@@ -36,15 +36,10 @@ const (
 	clearMessageCacheTimeout  = time.Minute
 	expiration     = 20 * time.Second
 	connectTimeout = 3 * time.Second
-
-	ntpFailureThreshold = 32               // Continuous timeouts after which to check NTP
-	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
-	driftThreshold      = 1 * time.Second  // Allowed clock drift before warning user
 )
 
 //NetCore p2p网络传输类
 type NetCore struct {
-	//netrestrict *netutil.Netlist
 	priv        *common.PrivateKey
 	ourEndPoint RpcEndPoint
 	id          NodeID
@@ -93,12 +88,7 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
 	}
-	// if err := netutil.CheckRelayIP(sender.IP, rn.IP); err != nil {
-	// 	return nil, err
-	// }
-	// if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
-	// 	return nil, errors.New("not contained in netrestrict whitelist")
-	// }
+
 	n := NewNode(common.HexStringToAddress(rn.Id), net.ParseIP(rn.Ip), int(rn.Port))
 	err := n.validateComplete()
 	return n, err
@@ -107,14 +97,12 @@ func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
 var netCore *NetCore
 var lock = &sync.Mutex{}
 
-
-// Config holds Table-related settings.
 type Config struct {
 	PrivateKey *common.PrivateKey
-	ListenAddr *net.UDPAddr // local address announced in the DHT
-	NodeDBPath string       // if set, the node database is stored at this filesystem location
+	ListenAddr *net.UDPAddr
+	NodeDBPath string
 	Id        NodeID
-	Bootnodes []*Node           // list of bootstrap nodes
+	Bootnodes []*Node
 	NatTraversalEnable 	bool
 }
 
@@ -182,7 +170,7 @@ func (nc *NetCore)  print() {
 	//nc.peerManager.print()
 }
 
-// ping sends a ping message to the given node and waits for a reply.
+
 func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
 
 	to := MakeEndPoint(toaddr, 0)
@@ -193,7 +181,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
 		NodeId:nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	//fmt.Printf("ping node:%v, %v, %v\n",toid.GetHexString(),to.IP,to.Port)
+	Logger.Info("ping node:%v, %v, %v\n",toid.GetHexString(),to.Ip,to.Port)
 
 	packet, hash, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
@@ -213,8 +201,6 @@ func (nc *NetCore) waitping(from NodeID) error {
 	return <-nc.pending(from, MessageType_MessagePing, func(interface{}) bool { return true })
 }
 
-// findnode sends a findnode request to the given node and waits until
-// the node has sent up to k neighbors.
 func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]*Node, error) {
 	nodes := make([]*Node, 0, bucketSize)
 	nreceived := 0
@@ -224,7 +210,6 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]
 			nreceived++
 			n, err := nc.NodeFromRPC(toaddr, *rn)
 			if err != nil {
-				//log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
 				continue
 			}
 			//fmt.Printf("find node:%v, %v, %v\n",n.ID.GetHexString(),n.IP,n.Port)
@@ -240,14 +225,11 @@ func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]
 	return nodes, err
 }
 
-// pending adds a reply callback to the pending reply queue.
-// see the documentation of type pending for a detailed explanation.
 func (nc *NetCore) pending(id NodeID, ptype MessageType, callback func(interface{}) bool) <-chan error {
 	ch := make(chan error, 1)
 	p := &pending{from: id, ptype: ptype, callback: callback, errc: ch}
 	select {
 	case nc.addpending <- p:
-		// loop will handle it
 	case <-nc.closing:
 		ch <- errClosed
 	}
@@ -266,14 +248,12 @@ func (nc *NetCore) handleReply(from NodeID, ptype MessageType, req interface{}) 
 }
 
 
-
 func (nc *NetCore) decodeLoop() {
 
 	for {
 		select {
 		case peer:=<-nc.unhandle:
 			for {
-				//fmt.Printf("handleMessage : id:%v \n ", peer.ID.B58String())
 				err := nc.handleMessage(peer)
 				if err != nil || peer.isEmpty() {
 					break
@@ -284,16 +264,13 @@ func (nc *NetCore) decodeLoop() {
 }
 
 
-// loop runs in its own goroutine. it keeps track of
-// the refresh timer and the pending reply queue.
 func (nc *NetCore) loop() {
 	var (
 		plist        = list.New()
 		timeout      = time.NewTimer(0)
 		clearMessageCache      = time.NewTicker(clearMessageCacheTimeout)
-		nextTimeout  *pending // head of plist when timeout was last reset
-		contTimeouts = 0      // number of continuous timeouts to do NTP checks
-		ntpWarnTime  = time.Unix(0, 0)
+		nextTimeout  *pending
+		contTimeouts = 0
 	)
 	<-timeout.C // ignore first timeout
 	defer timeout.Stop()
@@ -303,7 +280,6 @@ func (nc *NetCore) loop() {
 		if plist.Front() == nil || nextTimeout == plist.Front().Value {
 			return
 		}
-		// Start the timer so it fires when the next pending reply has expired.
 		now := time.Now()
 		for el := plist.Front(); el != nil; el = el.Next() {
 			nextTimeout = el.Value.(*pending)
@@ -311,9 +287,7 @@ func (nc *NetCore) loop() {
 				timeout.Reset(dist)
 				return
 			}
-			// Remove pending replies whose deadline is too far in the
-			// future. These can occur if the system clock jumped
-			// backwards after the deadline was assigned.
+
 			nextTimeout.errc <- errClockWarp
 			plist.Remove(el)
 		}
@@ -340,15 +314,10 @@ func (nc *NetCore) loop() {
 				p := el.Value.(*pending)
 				if p.from == r.from && p.ptype == r.ptype {
 					matched = true
-					// Remove the matcher if its callback indicates
-					// that all replies have been received. This is
-					// required for packet types that expect multiple
-					// reply packets.
 					if p.callback(r.data) {
 						p.errc <- nil
 						plist.Remove(el)
 					}
-					// Reset the continuous timeout counter (time drift detection)
 					contTimeouts = 0
 				}
 			}
@@ -356,7 +325,6 @@ func (nc *NetCore) loop() {
 
 		case now := <-timeout.C:
 			nextTimeout = nil
-			// Notify and remove callbacks whose deadline is in the past.
 			for el := plist.Front(); el != nil; el = el.Next() {
 				p := el.Value.(*pending)
 				if now.After(p.deadline) || now.Equal(p.deadline) {
@@ -364,14 +332,6 @@ func (nc *NetCore) loop() {
 					plist.Remove(el)
 					contTimeouts++
 				}
-			}
-			// If we've accumulated too many timeouts, do an NTP time sync check
-			if contTimeouts > ntpFailureThreshold {
-				if time.Since(ntpWarnTime) >= ntpWarningCooldown {
-					ntpWarnTime = time.Now()
-					//go checkClockDrift()
-				}
-				contTimeouts = 0
 			}
 
 		case <-clearMessageCache.C:
@@ -390,24 +350,10 @@ const (
 var (
 	headSpace = make([]byte, headSize)
 
-	maxNeighbors int
 )
 
 func init() {
-	p := MsgNeighbors{Expiration: ^uint64(0)}
-	maxSizeNode := RpcNode{Ip: make(net.IP, 16).String(), Port: ^int32(0)}
-	for n := 0; ; n++ {
-		p.Nodes = append(p.Nodes, &maxSizeNode)
-		pdata, err := proto.Marshal(&p)
 
-		if err != nil {
-			panic("cannot encode: " + err.Error())
-		}
-		if headSize+len(pdata)+1 >= 1280 {
-			maxNeighbors = n
-			break
-		}
-	}
 }
 
 //Send 发送包
@@ -420,9 +366,12 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *net.UDPAddr, ptype MessageTy
 }
 
 //SendAll 向所有已经连接的节点发送自定义数据包
-func (nc *NetCore) SendAll(data []byte) {
-
-	packet, _, err := nc.encodeDataPacket(data,DataType_DataGlobal,"")
+func (nc *NetCore) SendAll(data []byte, broadcast bool) {
+	dataType := DataType_DataNormal
+	if broadcast {
+		dataType = DataType_DataGlobal
+	}
+	packet, _, err := nc.encodeDataPacket(data,dataType,"",nil)
 	if err != nil {
 		return
 	}
@@ -431,9 +380,12 @@ func (nc *NetCore) SendAll(data []byte) {
 }
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
-func (nc *NetCore) SendGroup(id string, data []byte) {
-
-	packet, _, err := nc.encodeDataPacket(data,DataType_DataGroup,id)
+func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
+	dataType := DataType_DataNormal
+	if broadcast {
+		dataType = DataType_DataGroup
+	}
+	packet, _, err := nc.encodeDataPacket(data,dataType,id,nil)
 	if err != nil {
 		return
 	}
@@ -441,9 +393,23 @@ func (nc *NetCore) SendGroup(id string, data []byte) {
 	return
 }
 
+func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
+	p := nc.peerManager.peerByID(memberId)
+	if p != nil &&  p.seesionId > 0 {
+		nc.Send(memberId,nil,data)
+	} else {
+		packet, _, err := nc.encodeDataPacket(data,DataType_DataGroup,id,&memberId)
+		if err != nil {
+			return
+		}
+		nc.groupManager.SendGroup(id, packet)
+	}
+	return
+}
+
 //SendData 发送自定义数据包C
 func (nc *NetCore) Send(toid NodeID, toaddr *net.UDPAddr, data []byte) ([]byte, error) {
-	packet, hash, err := nc.encodeDataPacket(data,DataType_DataNormal,"")
+	packet, hash, err := nc.encodeDataPacket(data,DataType_DataNormal,"",nil)
 	if err != nil {
 		return hash, err
 	}
@@ -500,16 +466,19 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 	if diff > 500 *time.Millisecond {
 		Logger.Infof("Recv timeout:%v\n", diff)
 	}
-
 }
 
-
-func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId string) (msg *bytes.Buffer, hash []byte, err error) {
+func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId string,nodeId *NodeID) (msg *bytes.Buffer, hash []byte, err error) {
+	nodeIdBytes :=  make([]byte, 0)
+	if nodeId != nil {
+		nodeIdBytes = nodeId.Bytes()
+	}
 	msgData := &MsgData{
 		Data:  data,
 		DataType: dataType,
 		GroupId:groupId,
 		MessageId:nc.messageManager.genMessageId(),
+		NodeId:nodeIdBytes,
 		Expiration: uint64(time.Now().Add(expiration).Unix())}
 
 	return nc.encodePacket(MessageType_MessageData,msgData)
@@ -675,12 +644,6 @@ func (nc *NetCore) handleFindNode(req *MsgFindNode, fromId NodeID) error {
 		if len(node.Ip) >0 && node.Port >0 {
 			p.Nodes = append(p.Nodes, &node)
 		}
-
-		//if len(p.Nodes) == maxNeighbors {
-		//	nc.SendMessage(fromId, nil, MessageType_MessageNeighbors, &p)
-		//	p.Nodes = p.Nodes[:0]
-		//	sent = true
-		//}
 	}
 	if len(p.Nodes) > 0 {
 		nc.SendMessage(fromId, nil, MessageType_MessageNeighbors, &p)
@@ -707,8 +670,10 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		needHandle = true
 	} else {
 		forwarded := nc.messageManager.isForwarded(req.MessageId)
-		if !forwarded {
-			//fmt.Printf("forwarded message DataType:%v messageId:%X\n", req.DataType,req.MessageId)
+		nodeId := NodeID{};
+		nodeId.SetBytes(req.NodeId)
+		if !forwarded && (len(req.NodeId) == 0 || nodeId == nc.id) {
+			Logger.Infof("forwarded message DataType:%v messageId:%X nodeId：%v\n", req.DataType,req.MessageId,req.NodeId)
 			needHandle = true
 			dataBuffer :=bytes.NewBuffer(packet)
 			nc.messageManager.forward(req.MessageId)

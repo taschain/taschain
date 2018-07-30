@@ -97,11 +97,19 @@ func (n *network) Multicast(groupId string, msg Message) error {
 		return err
 	}
 
-	n.netCore.SendGroup(groupId,bytes)
+	n.netCore.SendGroup(groupId,bytes,true)
 	return nil
 }
+
 //todo by 文杰
 func (n *network)SendByGroup(id string, groupId string,msg Message)error{
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+
+	n.netCore.SendGroupMember(groupId,bytes,common.HexStringToAddress(id))
 	return nil
 }
 
@@ -111,7 +119,7 @@ func (n *network) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes)
+	n.netCore.SendAll(bytes,true)
 	return nil
 }
 
@@ -135,11 +143,9 @@ func (n *network)BuildGroupNet(groupId string, members []string){
 	n.netCore.groupManager.AddGroup(groupId, nodes)
 }
 
-
 func (n *network)DissolveGroupNet(groupId string){
 	n.netCore.groupManager.RemoveGroup(groupId)
 }
-
 
 func (n *network) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
