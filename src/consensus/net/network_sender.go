@@ -24,13 +24,13 @@ func NewNetworkServer() NetworkServer {
 func (ns *NetworkServerImpl) BuildGroupNet(gid groupsig.ID, mems []groupsig.ID) {
 	memStrs := make([]string, len(mems))
 	for idx, mem := range mems {
-		memStrs[idx] = mem.GetString()
+		memStrs[idx] = mem.String()
 	}
-	ns.Server.BuildGroupNet(gid.GetString(), memStrs)
+	ns.Server.BuildGroupNet(gid.String(), memStrs)
 }
 
 func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
-	ns.Server.DissolveGroupNet(gid.GetString())
+	ns.Server.DissolveGroupNet(gid.String())
 }
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
@@ -58,7 +58,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 		return
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
-	ns.Server.Multicast(spm.DummyID.GetString(),m)
+	ns.Server.Multicast(spm.DummyID.String(),m)
 }
 
 //组内广播签名公钥
@@ -72,7 +72,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	MessageHandler.processor.OnMessageSignPK(spkm)
 
 	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
-	ns.Server.Multicast(spkm.DummyID.GetString(),m)
+	ns.Server.Multicast(spkm.DummyID.String(),m)
 }
 
 //组初始化完成 广播组信息 全网广播
@@ -109,7 +109,7 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 		return
 	}
 	//network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime))
-	ns.Server.Multicast(groupId.GetString(),m)
+	ns.Server.Multicast(groupId.String(),m)
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -127,7 +127,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 		return
 	}
 	//network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.ID.GetHexString(), cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
-	ns.Server.Multicast(groupId.GetString(),m)
+	ns.Server.Multicast(groupId.String(),m)
 }
 
 //对外广播经过组签名的block 全网广播
@@ -156,7 +156,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 	m := network.Message{Code: network.CREATE_GROUP_RAW, Body: body}
 
 	var groupId = msg.GI.ParentID
-	ns.Server.Multicast(groupId.GetString(),m)
+	ns.Server.Multicast(groupId.String(),m)
 }
 
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage) {
@@ -167,7 +167,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	ns.Server.Send(msg.Launcher.GetString(),m)
+	ns.Server.Send(msg.Launcher.String(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

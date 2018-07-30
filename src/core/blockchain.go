@@ -498,7 +498,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			BlockHeight:       bh.Height,
 			BlockQn:           bh.QueueNumber,
 		}
-		go RequestTransaction(*m, castorId.GetString())
+		go RequestTransaction(*m, castorId.String())
 		return missing, 1, nil, nil
 	}
 
@@ -599,7 +599,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.GetString(), chain.latestBlock.Height, chain.latestBlock.Hash)
+		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
 		status = 2
 	}
 
