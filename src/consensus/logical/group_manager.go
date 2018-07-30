@@ -247,9 +247,6 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
-
-	//提前建立组网络
-	gm.processor.NetServer.BuildGroupNet(msg.GI.DummyID, memIds)
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {

@@ -406,6 +406,14 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	if groupContext == nil {
 		panic("Processor::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
+
+	//提前建立组网络
+	members := make([]groupsig.ID,0)
+	for _,m := range grm.MEMS{
+		members = append(members,m.ID)
+	}
+	p.NetServer.BuildGroupNet(grm.GI.DummyID, members)
+
 	gs := groupContext.GetGroupStatus()
 	log.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	if gs == GIS_RAW {

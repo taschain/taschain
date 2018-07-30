@@ -93,7 +93,7 @@ func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("AddGroup node id:%v len:%v\n", ID,len(members))
+	Logger.Debugf("AddGroup node id:%s len:%v\n", ID,len(members))
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
