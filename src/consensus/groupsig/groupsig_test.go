@@ -338,7 +338,7 @@ func TestIDStringConvert(t *testing.T){
 	Init(1)
 	str := "QmWJZdSV23by4xzYSz8SEmcfdo38N27WgxSefoy179pnoK"
 	id := NewIDFromString(str)
-	s:= id.GetString()
+	s:= id.String()
 	fmt.Printf("id str:%s\n",s)
 	fmt.Printf("id str compare resylt:%t\n",str==s)
 }
@@ -368,11 +368,25 @@ func TestID_Deserialize(t *testing.T) {
 
 	t.Log([]byte(s))
 	t.Log(id1.Serialize(), id2.Serialize())
-	t.Log(id1.GetString(), id2.GetString())
+	t.Log(id1.String(), id2.String())
 
 	b := id2.Serialize()
 	id3 := DeserializeId(b)
 	t.Log(id3.GetHexString())
 }
 
+func TestNewIDFromString(t *testing.T) {
+	Init(1)
+	id := NewIDFromString("0x123abc")
+	t.Log(id.String(), ",===", id.GetHexString())
 
+	//bi := new(big.Int).SetBytes([]byte("abc"))
+	//id2 := NewIDFromBigInt(bi)
+	//
+	//var id3 ID
+	//id3.SetHexString(PREFIX + bi.Text(16))
+
+	//t.Log(id2.GetHexString(), id3.GetHexString())
+
+
+}

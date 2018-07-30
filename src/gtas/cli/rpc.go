@@ -146,7 +146,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	var castorId groupsig.ID
 	castorId.Deserialize(bh.Castor)
-	blockDetail["castor"] = castorId.GetString()
+	blockDetail["castor"] = castorId.String()
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
@@ -199,7 +199,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr :=  groupsig.DeserializeId(mem.Id).GetString()
+		memberStr :=  groupsig.DeserializeId(mem.Id).String()
 		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems

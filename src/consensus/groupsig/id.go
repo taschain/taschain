@@ -122,8 +122,11 @@ func NewIDFromPubkey(pk Pubkey) *ID {
 
 //从字符串生成ID 传入的STRING必须保证离散性
 func NewIDFromString(s string) *ID {
-	bi := new(big.Int).SetBytes([]byte(s))
-	return NewIDFromBigInt(bi)
+	//bi := new(big.Int).SetBytes([]byte(s))
+	hex := common.Bytes2Hex([]byte(s))
+	var id ID
+	id.value.SetHexString(hex)
+	return &id
 }
 func DeserializeId(bs []byte) *ID {
 	var id ID
@@ -133,8 +136,10 @@ func DeserializeId(bs []byte) *ID {
 	return &id
 }
 
-func (id ID) GetString() string {
-	bigInt := id.GetBigInt()
-	b := bigInt.Bytes()
-	return string(b)
+func (id ID) String() string {
+	hex := id.value.GetHexString()
+	bs := common.Hex2Bytes(hex)
+	//bigInt := id.GetBigInt()
+	//b := bigInt.Bytes()
+	return string(bs)
 }
