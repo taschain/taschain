@@ -18,7 +18,7 @@ func BroadcastMembersInfo(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := network.Message{Code: network.GROUP_MEMBER_MSG, Body: body}
-	network.GetNetInstance().Broadcast(m)
+	network.GetNetInstance().Broadcast(m,true)
 }
 
 //广播 组初始化消息  全网广播
@@ -29,7 +29,7 @@ func SendGroupInitMessage(grm ConsensusGroupRawMessage) {
 		return
 	}
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
-	network.GetNetInstance().Broadcast(m)
+	network.GetNetInstance().Broadcast(m,true)
 }
 
 //组内广播密钥   for each定向发送 组内广播
@@ -40,7 +40,7 @@ func SendKeySharePiece(spm ConsensusSharePieceMessage) {
 		return
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
-	network.GetNetInstance().Send(spm.Dest.GetHexString(),m)
+	network.GetNetInstance().SendByGroup(spm.Dest.GetString(),spm.DummyID.GetHexString(),m)
 }
 
 //组内广播签名公钥
@@ -63,7 +63,7 @@ func BroadcastGroupInfo(cgm ConsensusGroupInitedMessage) {
 	}
 	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
 
-	network.GetNetInstance().Broadcast(m)
+	network.GetNetInstance().Broadcast(m,true)
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
@@ -134,12 +134,12 @@ func BroadcastNewBlock(cbm *ConsensusBlockMessage) {
 	}
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
-	network.GetNetInstance().Broadcast(m)
+	network.GetNetInstance().Broadcast(m,true)
 }
 
 //组内广播
 func groupBroadcast(m network.Message, groupId groupsig.ID) {
-	network.GetNetInstance().Multicast(groupId.GetHexString(),m)
+	network.GetNetInstance().Multicast(groupId.GetHexString(),m,true)
 }
 
 //====================================建组前共识=======================
@@ -166,7 +166,7 @@ func SendCreateGroupSignMessage(msg *ConsensusCreateGroupSignMessage) {
 	}
 	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	network.GetNetInstance().Send(msg.Launcher.GetString(),m)
+	network.GetNetInstance().SendByGroup(msg.Launcher.GetString(),msg.GI.DummyID.GetHexString(),m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

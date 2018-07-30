@@ -90,14 +90,14 @@ func (n *network) Send(targetId string, msg Message) error {
 	return nil
 }
 
-func (n *network) Multicast(groupId string, msg Message) error {
+func (n *network) Multicast(groupId string, msg Message,isBroadcast bool) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId,bytes,true)
+	n.netCore.SendGroup(groupId,bytes,isBroadcast)
 	return nil
 }
 
@@ -113,13 +113,13 @@ func (n *network)SendByGroup(id string, groupId string,msg Message)error{
 	return nil
 }
 
-func (n *network) Broadcast(msg Message) error {
+func (n *network) Broadcast(msg Message,isBroadcast bool) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes,true)
+	n.netCore.SendAll(bytes,isBroadcast)
 	return nil
 }
 

@@ -22,9 +22,9 @@ type Server interface {
 
 	SendByGroup(id string, groupId string,msg Message)error
 
-	Multicast(groupId string, msg Message) error
+	Multicast(groupId string, msg Message,isBroadcast bool) error
 
-	Broadcast(msg Message) error
+	Broadcast(msg Message,isBroadcast bool) error
 
 	ConnInfo() []Conn
 
