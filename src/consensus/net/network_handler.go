@@ -477,7 +477,7 @@ func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *model.PubKeyInfo {
 		return nil
 	}
 
-	pkInfo := model.PubKeyInfo{ID: id, PK: pk}
+	pkInfo := model.NewPubKeyInfo(id, pk)
 	return &pkInfo
 }
 

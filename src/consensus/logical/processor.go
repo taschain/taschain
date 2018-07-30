@@ -56,7 +56,7 @@ func (p Processor) getMinerInfo() *model.MinerInfo {
 }
 
 func (p Processor) getPubkeyInfo() model.PubKeyInfo {
-	return model.PubKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultPubKey()}
+	return model.NewPubKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultPubKey())
 }
 
 func (p *Processor) setProcs(gps map[string]*Processor) {

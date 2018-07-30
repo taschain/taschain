@@ -43,6 +43,9 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 		network.Logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
+	//给自己发
+	MessageHandler.processor.OnMessageGroupInit(grm)
+
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
 	ns.Server.Broadcast(m)
 }
@@ -65,6 +68,9 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 		network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
 		return
 	}
+	//给自己发
+	MessageHandler.processor.OnMessageSignPK(spkm)
+
 	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
 	ns.Server.Multicast(spkm.DummyID.GetString(),m)
 }
@@ -76,6 +82,10 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 		network.Logger.Errorf("[peer]Discard send ConsensusGroupInitedMessage because of marshal error:%s", e.Error())
 		return
 	}
+
+	//给自己发
+	MessageHandler.processor.OnMessageGroupInited(cgm)
+
 	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
 
 	ns.Server.Broadcast(m)

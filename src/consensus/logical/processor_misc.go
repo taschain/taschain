@@ -51,8 +51,8 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		for _, mem := range coreGroup.Members {
-			pkInfo := &model.PubKeyInfo{ID: *groupsig.DeserializeId(mem.Id), PK: *groupsig.DeserializePubkeyBytes(mem.PubKey)}
-			sgi.addMember(pkInfo)
+			pkInfo := model.NewPubKeyInfo(*groupsig.DeserializeId(mem.Id), *groupsig.DeserializePubkeyBytes(mem.PubKey))
+			sgi.addMember(&pkInfo)
 		}
 		if !p.globalGroups.AddStaticGroup(sgi) {
 			continue

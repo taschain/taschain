@@ -86,6 +86,13 @@ type PubKeyInfo struct {
 	PK groupsig.Pubkey
 }
 
+func NewPubKeyInfo(id groupsig.ID, pk groupsig.Pubkey) PubKeyInfo {
+	return PubKeyInfo{
+		ID:id,
+		PK:pk,
+	}
+}
+
 func (p PubKeyInfo) IsValid() bool {
 	return p.ID.IsValid() && p.PK.IsValid()
 }
@@ -98,6 +105,13 @@ func (p PubKeyInfo) GetID() groupsig.ID {
 type SecKeyInfo struct {
 	ID groupsig.ID
 	SK groupsig.Seckey
+}
+
+func NewSecKeyInfo(id groupsig.ID, sk groupsig.Seckey) SecKeyInfo {
+	return SecKeyInfo{
+		ID:id,
+		SK:sk,
+	}
 }
 
 func (s SecKeyInfo) IsValid() bool {

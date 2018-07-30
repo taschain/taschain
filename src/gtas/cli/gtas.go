@@ -308,14 +308,14 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 }
 
 func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
-	infos := []PubKeyInfo{}
+	var infos []PubKeyInfo
 	keys := (*configManager).GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
-	pubKeyInfos := []model.PubKeyInfo{}
+	var pubKeyInfos []model.PubKeyInfo
 	for _, v := range infos {
 		var pub = groupsig.Pubkey{}
 		fmt.Println(v.PubKey)
@@ -324,7 +324,7 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 			fmt.Println(err)
 			return nil
 		}
-		pubKeyInfos = append(pubKeyInfos, model.PubKeyInfo{*groupsig.NewIDFromString(v.ID), pub})
+		pubKeyInfos = append(pubKeyInfos, model.NewPubKeyInfo(*groupsig.NewIDFromString(v.ID), pub))
 	}
 	return pubKeyInfos
 }

@@ -62,7 +62,7 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 		var cvm model.ConsensusVerifyMessage
 		cvm.BH = *bh
 		//cvm.GroupID = gId
-		cvm.GenSign(model.SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)}, &cvm)
+		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), &cvm)
 		if !PROC_TEST_MODE {
 			log.Printf("call network service SendVerifiedCast...\n")
 			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
@@ -417,7 +417,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 			GISHash: grm.GI.GenHash(),
 			DummyID: grm.GI.DummyID,
 		}
-		ski := model.SecKeyInfo{ID: p.mi.GetMinerID(), SK: p.mi.GetDefaultSecKey()}
+		ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 		spm.SI.SignMember = p.GetMinerID()
 
 		for id, piece := range shares {
@@ -457,6 +457,10 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
 
+	if !spm.Dest.IsEqual(p.GetMinerID()) {
+		return
+	}
+
 	gc := p.joiningGroups.GetGroup(spm.DummyID)
 	if gc == nil {
 		log.Printf("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
@@ -476,7 +480,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
 			log.Printf("OMSP SUCCESS gen sign sec key and group pub key, msk=%v, gpk=%v.\n", GetSecKeyPrefix(jg.SignKey), GetPubKeyPrefix(jg.GroupPK))
 			{
-				ski := model.SecKeyInfo{ID: p.mi.GetMinerID(), SK: p.mi.GetDefaultSecKey()}
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 				msg := &model.ConsensusSignPubKeyMessage{
 					GISHash: spm.GISHash,
 					DummyID: spm.DummyID,
@@ -543,7 +547,7 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 			log.Printf("SUCCESS INIT GROUP: gid=%v, gpk=%v.\n", GetIDPrefix(jg.GroupID), GetPubKeyPrefix(jg.GroupPK))
 			{
 				var msg model.ConsensusGroupInitedMessage
-				ski := model.SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
@@ -663,7 +667,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			GI: msg.GI,
 			Launcher: msg.SI.SignMember,
 		}
-		signMsg.GenSign(model.SecKeyInfo{ID: p.GetMinerID(), SK: p.getSignKey(msg.GI.ParentID)}, signMsg)
+		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(msg.GI.ParentID)), signMsg)
 		log.Printf("OMCGR SendCreateGroupSignMessage... ")
 		p.NetServer.SendCreateGroupSignMessage(signMsg)
 	}
@@ -700,7 +704,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 
 		for i, id := range creatingGroup.ids {
-			mems[i] = model.PubKeyInfo{ID: id, PK: pubkeys[i]}
+			mems[i] = model.NewPubKeyInfo(id, pubkeys[i])
 		}
 		initMsg := &model.ConsensusGroupRawMessage{
 			GI: msg.GI,
@@ -708,7 +712,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		}
 
 		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
-		initMsg.GenSign(model.SecKeyInfo{ID: p.GetMinerID(), SK: p.getMinerInfo().GetDefaultSecKey()}, initMsg)
+		initMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey()), initMsg)
 
 		p.NetServer.SendGroupInitMessage(initMsg)
 

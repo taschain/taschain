@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"consensus/model"
-	"consensus/base"
 )
 
 const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
@@ -199,7 +198,7 @@ func TestGenesisGroup(t *testing.T) {
 				jg := gc.GetGroupInfo()
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
-				ski := model.SecKeyInfo{p.mi.GetMinerID(), p.mi.GetDefaultSecKey()}
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 				msg.GI.GIS = gc.gis
 				msg.GI.GroupID = jg.GroupID
 				msg.GI.GroupPK = jg.GroupPK
