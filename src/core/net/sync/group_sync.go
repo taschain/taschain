@@ -177,7 +177,7 @@ func (gs *groupSyncer) loop() {
 //广播索要组链高度
 func requestGroupChainHeight() {
 	message := network.Message{Code: network.REQ_GROUP_CHAIN_HEIGHT_MSG}
-	network.GetNetInstance().Broadcast(message,false)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //返回自身组链高度

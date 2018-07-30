@@ -2,7 +2,7 @@ package network
 
 import (
 	"common"
-	"net"
+	nnet "net"
 	"strconv"
 	"log"
 	"taslog"
@@ -30,7 +30,7 @@ type Node struct {
 
 	PublicKey common.PublicKey
 	Id      NodeID
-	Ip     	net.IP
+	Ip     	nnet.IP
 	Port    int
 	NatType int
 
@@ -44,7 +44,7 @@ type Node struct {
 }
 
 // NewNode 新建节点
-func NewNode(id NodeID, ip net.IP, Port int) *Node {
+func NewNode(id NodeID, ip nnet.IP, Port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
 	}
@@ -56,8 +56,8 @@ func NewNode(id NodeID, ip net.IP, Port int) *Node {
 	}
 }
 
-func (n *Node) addr() *net.UDPAddr {
-	return &net.UDPAddr{IP: n.Ip, Port: int(n.Port)}
+func (n *Node) addr() *nnet.UDPAddr {
+	return &nnet.UDPAddr{IP: n.Ip, Port: int(n.Port)}
 }
 
 // Incomplete returns true for nodes with no IP address.
@@ -209,7 +209,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 	}
 
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: NodeID(id), Ip: net.ParseIP(ip), Port: port}
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: NodeID(id), Ip: nnet.ParseIP(ip), Port: port}
 	fmt.Print(n.String())
 	return &n, nil
 }
@@ -217,14 +217,14 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 
 //内网IP
 func getLocalIp() string {
-	addrs, err := net.InterfaceAddrs()
+	addrs, err := nnet.InterfaceAddrs()
 
 	if err != nil {
 	}
 
 	for _, address := range addrs {
 		// 检查ip地址判断是否回环地址
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+		if ipnet, ok := address.(*nnet.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
 			}

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	mrand "math/rand"
-	"net"
+	nnet "net"
 	"sort"
 	"sync"
 	"time"
@@ -68,9 +68,9 @@ type bondproc struct {
 // transport 使用UDP实现通信.
 // 这只是一个接口我们不用打开UDP套接字，生成私有key就能测试
 type transport interface {
-	ping(NodeID, *net.UDPAddr) error
+	ping(NodeID, *nnet.UDPAddr) error
 	waitping(NodeID) error
-	findnode(toid NodeID, addr *net.UDPAddr, target NodeID) ([]*Node, error)
+	findnode(toid NodeID, addr *nnet.UDPAddr, target NodeID) ([]*Node, error)
 	close()
 	print()
 }
@@ -82,7 +82,7 @@ type bucket struct {
 	replacements []*Node // 备用补充节点
 }
 
-func newKad(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string, bootnodes []*Node) (*Kad, error) {
+func newKad(t transport, ourID NodeID, ourAddr *nnet.UDPAddr, nodeDBPath string, bootnodes []*Node) (*Kad, error) {
 	kad := &Kad{
 		net:        t,
 		self:       NewNode(ourID, ourAddr.IP, ourAddr.Port),
@@ -443,7 +443,7 @@ func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 	return result
 }
 
-func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node, error) {
+func (kad *Kad) bond(pinged bool, id NodeID, addr *nnet.UDPAddr, port int) (*Node, error) {
 
 	if id == kad.self.Id {
 		return nil, errors.New("is self")
@@ -497,7 +497,7 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 	return node, result
 }
 
-func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort int) {
+func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *nnet.UDPAddr, tcpPort int) {
 	<-kad.bondslots
 	defer func() { kad.bondslots <- struct{}{} }()
 
@@ -512,7 +512,7 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr,
 	close(w.done)
 }
 
-func (kad *Kad) ping(id NodeID, addr *net.UDPAddr) error {
+func (kad *Kad) ping(id NodeID, addr *nnet.UDPAddr) error {
 	if err := kad.net.ping(id, addr); err != nil {
 		return err
 	}
@@ -570,12 +570,12 @@ func (kad *Kad) delete(node *Node) {
 	kad.deleteInBucket(kad.bucket(node.sha), node)
 }
 
-func (kad *Kad) addIP(b *bucket, ip net.IP) bool {
+func (kad *Kad) addIP(b *bucket, ip nnet.IP) bool {
 
 	return true
 }
 
-func (kad *Kad) removeIP(b *bucket, ip net.IP) {
+func (kad *Kad) removeIP(b *bucket, ip nnet.IP) {
 
 }
 

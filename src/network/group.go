@@ -2,7 +2,7 @@ package network
 
 import (
 	"bytes"
-	"net"
+	nnet "net"
 	"time"
 	"sync"
 )
@@ -39,18 +39,18 @@ func (g *Group) doRefresh() {
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
-		if id == netInstance.netCore.id {
+		if id == net.netCore.id {
 			continue
 		}
 		node, ok := g.nodes[id]
 		if node != nil && ok {
 			continue
 		}
-		node = netInstance.netCore.kad.Resolve(id)
+		node = net.netCore.kad.Resolve(id)
 		if node != nil {
 			g.nodes[id] = node
 			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v\n", id, node.Ip, node.Port)
-			go netInstance.netCore.ping(node.Id,&net.UDPAddr{IP: node.Ip, Port: int(node.Port)})
+			go net.netCore.ping(node.Id,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
 			Logger.Debugf("Group Resolve id：%v  nothing!!!\n", id)
 		}
@@ -67,7 +67,7 @@ func (g *Group) Send( packet *bytes.Buffer) {
 
 			Logger.Debugf("SendGroup node ip:%v port:%v\n", node.Ip, node.Port)
 
-			go netInstance.netCore.peerManager.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		}
 	}
 	return

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"net"
+	nnet "net"
 	"sync"
 	"time"
 
@@ -84,12 +84,12 @@ func NetCoreNodeID(id NodeID) uint64 {
 }
 
 //NodeFromRPC rpc节点转换
-func (nc *NetCore) NodeFromRPC(sender *net.UDPAddr, rn RpcNode) (*Node, error) {
+func (nc *NetCore) NodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) {
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
 	}
 
-	n := NewNode(common.HexStringToAddress(rn.Id), net.ParseIP(rn.Ip), int(rn.Port))
+	n := NewNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
 	err := n.validateComplete()
 	return n, err
 }
@@ -99,7 +99,7 @@ var lock = &sync.Mutex{}
 
 type Config struct {
 	PrivateKey *common.PrivateKey
-	ListenAddr *net.UDPAddr
+	ListenAddr *nnet.UDPAddr
 	NodeDBPath string
 	Id        NodeID
 	Bootnodes []*Node
@@ -107,7 +107,7 @@ type Config struct {
 }
 
 //MakeEndPoint 创建节点描述对象
-func MakeEndPoint(addr *net.UDPAddr, tcpPort int32) RpcEndPoint {
+func MakeEndPoint(addr *nnet.UDPAddr, tcpPort int32) RpcEndPoint {
 	ip := addr.IP.To4()
 	if ip == nil {
 		ip = addr.IP.To16()
@@ -171,7 +171,7 @@ func (nc *NetCore)  print() {
 }
 
 
-func (nc *NetCore) ping(toid NodeID, toaddr *net.UDPAddr) error {
+func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
 	to := MakeEndPoint(toaddr, 0)
 	req := &MsgPing{
@@ -201,7 +201,7 @@ func (nc *NetCore) waitping(from NodeID) error {
 	return <-nc.pending(from, MessageType_MessagePing, func(interface{}) bool { return true })
 }
 
-func (nc *NetCore) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]*Node, error) {
+func (nc *NetCore) findnode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([]*Node, error) {
 	nodes := make([]*Node, 0, bucketSize)
 	nreceived := 0
 	errc := nc.pending(toid, MessageType_MessageNeighbors, func(r interface{}) bool {
@@ -357,7 +357,7 @@ func init() {
 }
 
 //Send 发送包
-func (nc *NetCore) SendMessage(toid NodeID, toaddr *net.UDPAddr, ptype MessageType, req proto.Message) ([]byte, error) {
+func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageType, req proto.Message) ([]byte, error) {
 	packet, hash, err := nc.encodePacket(ptype, req)
 	if err != nil {
 		return hash, err
@@ -408,7 +408,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 }
 
 //SendData 发送自定义数据包C
-func (nc *NetCore) Send(toid NodeID, toaddr *net.UDPAddr, data []byte) ([]byte, error) {
+func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte, error) {
 	packet, hash, err := nc.encodeDataPacket(data,DataType_DataNormal,"",nil)
 	if err != nil {
 		return hash, err
@@ -422,7 +422,7 @@ func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 	nc.peerManager.OnConnected(id, session, p2pType)
 	p := nc.peerManager.peerByNetID(id)
 
-	go nc.ping(p.Id,&net.UDPAddr{IP:p.Ip, Port: p.Port})
+	go nc.ping(p.Id,&nnet.UDPAddr{IP:p.Ip, Port: p.Port})
 }
 
 //OnConnected 处理接受连接的回调
@@ -439,7 +439,7 @@ func (nc *NetCore) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
 
 //OnChecked 网络类型检查
 func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) {
-	nc.ourEndPoint = MakeEndPoint(&net.UDPAddr{IP: net.ParseIP(publicIP), Port: 8686}, 8686)
+	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 8686}, 8686)
 	nc.peerManager.OnChecked(p2pType, privateIP, publicIP)
 }
 
@@ -595,10 +595,10 @@ func (nc *NetCore) handlePing(req *MsgPing,fromId NodeID ) error {
 	if p != nil {
 		//fmt.Printf("update  ip \n ")
 
-		p.Ip = net.ParseIP(req.From.Ip)
+		p.Ip = nnet.ParseIP(req.From.Ip)
 		p.Port =  int(req.From.Port)
 	}
-	from := net.UDPAddr{IP: net.ParseIP(req.From.Ip), Port: int(req.From.Port)}
+	from := nnet.UDPAddr{IP: nnet.ParseIP(req.From.Ip), Port: int(req.From.Port)}
 	to := MakeEndPoint(&from, req.From.Port)
 	nc.SendMessage(fromId, &from, MessageType_MessagePong, &MsgPong{
 		To:         &to,
@@ -685,7 +685,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		}
 	}
 	if needHandle {
-		netInstance.handleMessage(req.Data,id)
+		net.handleMessage(req.Data,id)
 	}
 	return nil
 }

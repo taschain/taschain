@@ -2,7 +2,7 @@ package network
 
 import (
 	"bytes"
-	"net"
+	nnet "net"
 	"time"
 	"fmt"
 	"sync"
@@ -12,7 +12,7 @@ import (
 type Peer struct {
 	Id         NodeID
 	seesionId  uint32
-	Ip     	net.IP
+	Ip     	nnet.IP
 	Port    int
 	sendList   []*bytes.Buffer
 	dataBuffer *bytes.Buffer
@@ -99,7 +99,7 @@ func newPeerManager() *PeerManager {
 	return pm
 }
 
-func (pm *PeerManager) write(toid NodeID, toaddr *net.UDPAddr, packet *bytes.Buffer) error {
+func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
 	netID := NetCoreNodeID(toid)
 	p := pm.peerByNetID(netID)
 	if p == nil {

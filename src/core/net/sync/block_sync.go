@@ -134,7 +134,7 @@ func (bs *blockSyncer) loop() {
 //广播索要链的QN值
 func requestBlockChainTotalQn() {
 	message := network.Message{Code: network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG}
-	network.GetNetInstance().Broadcast(message,false)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //返回自身链QN值

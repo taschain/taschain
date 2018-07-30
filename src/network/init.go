@@ -4,7 +4,7 @@ import (
 	"taslog"
 	"common"
 
-	"net"
+	nnet "net"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 	seedDefaultPort = 1122
 )
 
-var netInstance *network
+var net *server
 
 var Logger taslog.Logger
 
@@ -39,7 +39,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	}
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
-	bnNode := NewNode(common.HexStringToAddress(seedId), net.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(common.HexStringToAddress(seedId), nnet.ParseIP(seedIp), seedPort)
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
 	}
@@ -50,19 +50,19 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	} else {
 		natEnable = true
 	}
-	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &net.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: natEnable}
+	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &nnet.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	netInstance = &network{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
 	return
 }
 
 
 
-func GetNetInstance()Server{
-	return netInstance
+func GetNetInstance()Network{
+	return net
 }
 
 func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {

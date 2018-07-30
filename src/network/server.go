@@ -66,7 +66,7 @@ const (
 	CREATE_GROUP_SIGN uint32 = 0x17
 )
 
-type network struct {
+type server struct {
 	Self *Node
 
 	netCore *NetCore
@@ -76,7 +76,7 @@ type network struct {
 	chainHandler MsgHandler
 }
 
-func (n *network) Send(targetId string, msg Message) error {
+func (n *server) Send(targetId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
@@ -90,40 +90,49 @@ func (n *network) Send(targetId string, msg Message) error {
 	return nil
 }
 
-func (n *network) Multicast(groupId string, msg Message,isBroadcast bool) error {
+func (n *server)SendWithGroupRely(id string, groupId string,msg Message)error{
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId,bytes,isBroadcast)
+	n.netCore.SendGroup(groupId,bytes,false)
 	return nil
 }
 
-//todo by 文杰
-func (n *network)SendByGroup(id string, groupId string,msg Message)error{
+func (n *server) Multicast(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId,bytes,common.HexStringToAddress(id))
+	n.netCore.SendGroup(groupId,bytes,true)
 	return nil
 }
 
-func (n *network) Broadcast(msg Message,isBroadcast bool) error {
+func (n *server)TransmitToNeighbor(msg Message) error{
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes,isBroadcast)
+	n.netCore.SendAll(bytes,false)
 	return nil
 }
 
-func (n *network) ConnInfo() []Conn {
+func (n *server) Broadcast(msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes,true)
+	return nil
+}
+
+func (n *server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
 	peers := n.netCore.peerManager.peers
 	for _, p := range peers {
@@ -135,7 +144,7 @@ func (n *network) ConnInfo() []Conn {
 	return result
 }
 
-func (n *network)BuildGroupNet(groupId string, members []string){
+func (n *server)BuildGroupNet(groupId string, members []string){
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
@@ -143,11 +152,11 @@ func (n *network)BuildGroupNet(groupId string, members []string){
 	n.netCore.groupManager.AddGroup(groupId, nodes)
 }
 
-func (n *network)DissolveGroupNet(groupId string){
+func (n *server)DissolveGroupNet(groupId string){
 	n.netCore.groupManager.RemoveGroup(groupId)
 }
 
-func (n *network) AddGroup(groupId string, members []string) *Group {
+func (n *server) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
@@ -156,15 +165,15 @@ func (n *network) AddGroup(groupId string, members []string) *Group {
 }
 
 //RemoveGroup 移除组
-func (n *network) RemoveGroup(ID string) {
+func (n *server) RemoveGroup(ID string) {
 	n.netCore.groupManager.RemoveGroup(ID)
 }
 
-func (n *network) sendSelf(b []byte) {
+func (n *server) sendSelf(b []byte) {
 	n.handleMessage(b, n.Self.Id.GetHexString())
 }
 
-func (n *network) handleMessage(b []byte, from string) {
+func (n *server) handleMessage(b []byte, from string) {
 	begin:= time.Now()
 	message, error := unMarshalMessage(b)
 	if error != nil {

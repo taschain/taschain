@@ -7,7 +7,7 @@ func OnP2PRecved(id uint64, session uint32, data []byte) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PRecved", id, session, len(data))
 	start := time.Now()
 
-	netInstance.netCore.OnRecved(id, session, data)
+	net.netCore.OnRecved(id, session, data)
 
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
@@ -28,7 +28,7 @@ func OnP2PListened(ip string, port uint16, latency uint64) {
 //export OnP2PAccepted
 func OnP2PAccepted(id uint64, session uint32, p2p_type uint32) {
 	//fmt.Printf("%v %v %v %v\n", "OnP2PAccepted", id, session, p2p_type)
-	netInstance.netCore.OnAccepted(id, session, p2p_type)
+	net.netCore.OnAccepted(id, session, p2p_type)
 }
 
 //export OnP2PConnected
@@ -36,7 +36,7 @@ func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
 	start := time.Now()
 
 	fmt.Printf("%v %v %v %v\n", "OnP2PConnected", id, session, p2p_type)
-	netInstance.netCore.OnConnected(id, session, p2p_type)
+	net.netCore.OnConnected(id, session, p2p_type)
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
 		fmt.Printf("OnP2PConnected timeout:%v\n", diff)
@@ -48,7 +48,7 @@ func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
 func OnP2PDisconnected(id uint64, session uint32, p2p_code uint32) {
 	start := time.Now()
 	fmt.Printf("%v %v %v %v\n", "OnP2PDisconnected", id, session, p2p_code)
-	netInstance.netCore.OnDisconnected(id, session, p2p_code)
+	net.netCore.OnDisconnected(id, session, p2p_code)
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
 		fmt.Printf("OnP2PDisconnected timeout:%v\n", diff)
