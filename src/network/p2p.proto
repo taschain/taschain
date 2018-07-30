@@ -28,7 +28,6 @@ message RpcEndPoint  {
     int32 Port = 2;
 }
 
-
 message MsgPing{
 	int32 Version =1;
     RpcEndPoint From =2;
@@ -36,7 +35,6 @@ message MsgPing{
     bytes  NodeId=4;
 	uint64 Expiration =5;
 }
-
 
 message MsgPong{
 	RpcEndPoint To =1;
@@ -59,7 +57,8 @@ message MsgData {
     string groupId =2;
     uint64 Expiration =3;
     uint64 messageId = 4;
-    bytes  data=5;
+    bytes  NodeId=5;
+    bytes  data=6;
 }
 
 

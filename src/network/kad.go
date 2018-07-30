@@ -45,8 +45,6 @@ type Kad struct {
 	nursery []*Node           // 启动节点列表
 	rand    *mrand.Rand       // 随机数生成器
 
-	//db *nodeDB //已知节点缓存数据库
-
 	refreshReq chan chan struct{}
 	initDone   chan struct{}
 	closeReq   chan struct{}
@@ -54,11 +52,11 @@ type Kad struct {
 
 	bondmu    sync.Mutex
 	bonding   map[NodeID]*bondproc
-	bondslots chan struct{} // limits total number of active bonding processes
+	bondslots chan struct{}
 
 
 	net  transport
-	self *Node // metadata of the local node
+	self *Node
 }
 
 type bondproc struct {
@@ -95,7 +93,6 @@ func newKad(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string, 
 		closeReq:   make(chan struct{}),
 		closed:     make(chan struct{}),
 		rand:       mrand.New(mrand.NewSource(0)),
-		// ips:        netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit},
 	}
 	if err := kad.setFallbackNodes(bootnodes); err != nil {
 		return nil, err
@@ -105,7 +102,6 @@ func newKad(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string, 
 	}
 	for i := range kad.buckets {
 		kad.buckets[i] = &bucket{
-			// ips: netutil.DistinctNetSet{Subnet: bucketSubnet, Limit: bucketIPLimit},
 		}
 	}
 	kad.seedRand()
@@ -136,7 +132,6 @@ func (kad *Kad) ReadRandomNodes(buf []*Node) (n int) {
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
 
-	// Find all non-empty buckets and get a fresh slice of their entries.
 	var buckets [][]*Node
 	for _, b := range kad.buckets {
 		if len(b.entries) > 0 {
@@ -146,12 +141,10 @@ func (kad *Kad) ReadRandomNodes(buf []*Node) (n int) {
 	if len(buckets) == 0 {
 		return 0
 	}
-	// Shuffle the buckets.
 	for i := len(buckets) - 1; i > 0; i-- {
 		j := kad.rand.Intn(len(buckets))
 		buckets[i], buckets[j] = buckets[j], buckets[i]
 	}
-	// Move head of each bucket into buf, removing buckets that become empty.
 	var i, j int
 	for ; i < len(buf); i, j = i+1, (j+1)%len(buckets) {
 		b := buckets[j]
@@ -167,19 +160,14 @@ func (kad *Kad) ReadRandomNodes(buf []*Node) (n int) {
 	return i + 1
 }
 
-// Close terminates the network listener and flushes the node database.
 func (kad *Kad) Close() {
 	select {
 	case <-kad.closed:
-		// already closed.
 	case kad.closeReq <- struct{}{}:
-		<-kad.closed // wait for refreshLoop to end.
+		<-kad.closed
 	}
 }
 
-// setFallbackNodes sets the initial points of contact. These nodes
-// are used to connect to the network if the table is empty and there
-// are no known nodes in the database.
 func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 	for _, n := range nodes {
 		if err := n.validateComplete(); err != nil {
@@ -189,15 +177,12 @@ func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 	kad.nursery = make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
 		cpy := *n
-		// Recompute cpy.sha because the node might not have been
-		// created by NewNode or ParseNode.
-		//cpy.sha = crypto.Keccak256Hash(n.Id[:])
+		cpy.sha = SHA256Hash(n.Id[:])
 		kad.nursery = append(kad.nursery, &cpy)
 	}
 	return nil
 }
 
-// isInitDone returns whether the table's initial seeding procedure has completed.
 func (kad *Kad) isInitDone() bool {
 	select {
 	case <-kad.initDone:
@@ -209,9 +194,6 @@ func (kad *Kad) isInitDone() bool {
 
 //Find 只在桶里查找
 func (kad *Kad) Find(targetID NodeID) *Node {
-	// If the node is present in the local table, no
-	// network interaction is required.
-	//hash := crypto.Keccak256Hash(targetID[:])
 	hash := SHA256Hash(targetID[:])
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
@@ -223,12 +205,8 @@ func (kad *Kad) Find(targetID NodeID) *Node {
 	return nil
 }
 
-// Resolve searches for a specific node with the given ID.
-// It returns nil if the node could not be found.
+
 func (kad *Kad) Resolve(targetID NodeID) *Node {
-	// If the node is present in the local table, no
-	// network interaction is required.
-	//hash := crypto.Keccak256Hash(targetID[:])
 	hash := SHA256Hash(targetID[:])
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
@@ -246,11 +224,6 @@ func (kad *Kad) Resolve(targetID NodeID) *Node {
 	return nil
 }
 
-// Lookup performs a network search for nodes close
-// to the given target. It approaches the target by querying
-// nodes that are closer to it on each iteration.
-// The given target does not need to be an actual node
-// identifier.
 func (kad *Kad) Lookup(targetID NodeID) []*Node {
 	return kad.lookup(targetID, true)
 }
@@ -265,58 +238,36 @@ func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 		result         *nodesByDistance
 	)
 
-	//fmt.Printf("lookup  id:%v \n", targetID)
-
-	// don't query further if we hit ourself.
-	// unlikely to happen often in practice.
 	asked[kad.self.Id] = true
 
 	for {
 		kad.mutex.Lock()
-		// generate initial result set
 		result = kad.closest(target, bucketSize)
 		kad.mutex.Unlock()
 		if len(result.entries) > 0 || !refreshIfEmpty {
 			break
 		}
-		// The result set is empty, all nodes were dropped, refresh.
-		// We actually wait for the refresh to complete here. The very
-		// first query will hit this case and run the bootstrapping
-		// logic.
 		<-kad.refresh()
 		refreshIfEmpty = false
 	}
 
 	for {
-		// ask the alpha closest nodes that we haven't asked yet
 		for i := 0; i < len(result.entries) && pendingQueries < alpha; i++ {
 			n := result.entries[i]
 			if !asked[n.Id] {
 				asked[n.Id] = true
 				pendingQueries++
 				go func() {
-					// Find potential neighbors to bond with
 					r, err := kad.net.findnode(n.Id, n.addr(), targetID)
 					if err != nil {
-						// Bump the failure counter to detect and evacuate non-bonded entries
-						// fails := kad.db.findFails(n.Id) + 1
-						// kad.db.updateFindFails(n.Id, fails)
-						// log.Trace("Bumping findnode failure counter", "id", n.Id, "failcount", fails)
-
-						// if fails >= maxFindnodeFailures {
-						// 	log.Trace("Too many findnode failures, dropping", "id", n.Id, "failcount", fails)
-						// 	kad.delete(n)
-						// }
 					}
 					reply <- kad.bondall(r)
 				}()
 			}
 		}
 		if pendingQueries == 0 {
-			// we have asked all closest nodes, stop the search
 			break
 		}
-		// wait for the next reply
 		for _, n := range <-reply {
 			if n != nil && !seen[n.Id] {
 				seen[n.Id] = true
@@ -338,7 +289,6 @@ func (kad *Kad) refresh() <-chan struct{} {
 	return done
 }
 
-// loop schedules refresh, revalidate runs and coordinates shutdown.
 func (kad *Kad) loop() {
 	var (
 		refresh        = time.NewTicker(refreshInterval)
@@ -545,15 +495,12 @@ func (kad *Kad) bond(pinged bool, id NodeID, addr *net.UDPAddr, port int) (*Node
 	}
 
 	return node, result
-	//return nil, nil
 }
 
 func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort int) {
-	// Request a bonding slot to limit network usage
 	<-kad.bondslots
 	defer func() { kad.bondslots <- struct{}{} }()
 
-	// Ping the remote side and wait for a pong.
 	if w.err = kad.ping(id, addr); w.err != nil {
 		close(w.done)
 		return
@@ -565,15 +512,10 @@ func (kad *Kad) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr,
 	close(w.done)
 }
 
-// ping a remote endpoint and wait for a reply, also updating the node
-// database accordingly.
 func (kad *Kad) ping(id NodeID, addr *net.UDPAddr) error {
-	//kad.db.updateLastPing(id, time.Now())
-	//fmt.Printf("ping ...\n")
 	if err := kad.net.ping(id, addr); err != nil {
 		return err
 	}
-	//kad.db.updateBondTime(id, time.Now())
 	return nil
 }
 
@@ -585,7 +527,7 @@ func (kad *Kad) hasBond(id NodeID) bool {
 	}
 	return false
 }
-// bucket returns the bucket for the given node ID hash.
+
 func (kad *Kad) bucket(sha []byte) *bucket {
 	d := logdist(kad.self.sha, sha)
 	if d <= bucketMinDistance {
@@ -594,28 +536,18 @@ func (kad *Kad) bucket(sha []byte) *bucket {
 	return kad.buckets[d-bucketMinDistance-1]
 }
 
-// add attempts to add the given node its corresponding bucket. If the
-// bucket has space available, adding the node succeeds immediately.
-// Otherwise, the node is added if the least recently active node in
-// the bucket does not respond to a ping packet.
-//
-// The caller must not hold kad.mutex.
-func (kad *Kad) add(new *Node) {
 
-	//fmt.Printf("Kad add node id:%v\n", new.Id.B58String())
+func (kad *Kad) add(new *Node) {
 
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
 
 	b := kad.bucket(new.sha)
 	if !kad.bumpOrAdd(b, new) {
-		// Node is not in table. Add it to the replacement list.
 		kad.addReplacement(b, new)
 	}
 }
 
-// stuff adds nodes the table to the end of their corresponding bucket
-// if the bucket is not full. The caller must not hold kad.mutex.
 func (kad *Kad) stuff(nodes []*Node) {
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
@@ -631,8 +563,6 @@ func (kad *Kad) stuff(nodes []*Node) {
 	}
 }
 
-// delete removes an entry from the node table (used to evacuate
-// failed/non-bonded discovery peers).
 func (kad *Kad) delete(node *Node) {
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
@@ -641,33 +571,18 @@ func (kad *Kad) delete(node *Node) {
 }
 
 func (kad *Kad) addIP(b *bucket, ip net.IP) bool {
-	// if netutil.IsLAN(ip) {
-	// 	return true
-	// }
-	// if !kad.Ips.Add(ip) {
-	// 	log.Debug("IP exceeds table limit", "ip", ip)
-	// 	return false
-	// }
-	// if !b.Ips.Add(ip) {
-	// 	log.Debug("IP exceeds bucket limit", "ip", ip)
-	// 	kad.Ips.Remove(ip)
-	// 	return false
-	// }
+
 	return true
 }
 
 func (kad *Kad) removeIP(b *bucket, ip net.IP) {
-	// if netutil.IsLAN(ip) {
-	// 	return
-	// }
-	// kad.Ips.Remove(ip)
-	// b.Ips.Remove(ip)
+
 }
 
 func (kad *Kad) addReplacement(b *bucket, n *Node) {
 	for _, e := range b.replacements {
 		if e.Id == n.Id {
-			return // already in list
+			return
 		}
 	}
 	if !kad.addIP(b, n.Ip) {
@@ -680,15 +595,10 @@ func (kad *Kad) addReplacement(b *bucket, n *Node) {
 	}
 }
 
-// replace removes n from the replacement list and replaces 'last' with it if it is the
-// last entry in the bucket. If 'last' isn't the last entry, it has either been replaced
-// with someone else or became active.
 func (kad *Kad) replace(b *bucket, last *Node) *Node {
 	if len(b.entries) == 0 || b.entries[len(b.entries)-1].Id != last.Id {
-		// Entry has moved, don't replace it.
 		return nil
 	}
-	// Still the last entry.
 	if len(b.replacements) == 0 {
 		kad.deleteInBucket(b, last)
 		return nil
@@ -700,8 +610,6 @@ func (kad *Kad) replace(b *bucket, last *Node) *Node {
 	return r
 }
 
-// bump moves the given node to the front of the bucket entry list
-// if it is contained in that list.
 func (b *bucket) bump(n *Node) bool {
 	for i := range b.entries {
 		if b.entries[i].Id == n.Id {
@@ -714,8 +622,6 @@ func (b *bucket) bump(n *Node) bool {
 	return false
 }
 
-// bumpOrAdd moves n to the front of the bucket entry list or adds it if the list isn't
-// full. The return value is true if n is in the bucket.
 func (kad *Kad) bumpOrAdd(b *bucket, n *Node) bool {
 	if b.bump(n) {
 		return true
@@ -735,7 +641,7 @@ func (kad *Kad) deleteInBucket(b *bucket, n *Node) {
 	kad.removeIP(b, n.Ip)
 }
 
-// pushNode adds n to the front of list, keeping at most max items.
+
 func pushNode(list []*Node, n *Node, max int) ([]*Node, *Node) {
 	if len(list) < max {
 		list = append(list, nil)
@@ -746,7 +652,6 @@ func pushNode(list []*Node, n *Node, max int) ([]*Node, *Node) {
 	return list, removed
 }
 
-// deleteNode removes n from list.
 func deleteNode(list []*Node, n *Node) []*Node {
 	for i := range list {
 		if list[i].Id == n.Id {
@@ -756,14 +661,11 @@ func deleteNode(list []*Node, n *Node) []*Node {
 	return list
 }
 
-// nodesByDistance is a list of nodes, ordered by
-// distance to target.
 type nodesByDistance struct {
 	entries []*Node
 	target  []byte
 }
 
-// push adds the given node to the list, keeping the total size below maxElems.
 func (h *nodesByDistance) push(n *Node, maxElems int) {
 	ix := sort.Search(len(h.entries), func(i int) bool {
 		return distcmp(h.target, h.entries[i].sha, n.sha) > 0
@@ -772,11 +674,7 @@ func (h *nodesByDistance) push(n *Node, maxElems int) {
 		h.entries = append(h.entries, n)
 	}
 	if ix == len(h.entries) {
-		// farther away than all nodes we already have.
-		// if there was room for it, the node is now the last element.
 	} else {
-		// slide existing entries down to make room
-		// this will overwrite the entry we just appended.
 		copy(h.entries[ix+1:], h.entries[ix:])
 		h.entries[ix] = n
 	}
