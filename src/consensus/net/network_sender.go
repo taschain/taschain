@@ -59,6 +59,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
 	ns.net.SendWithGroupRely(spm.Dest.String(),spm.DummyID.GetHexString(),m)
+	logger.Debugf("SendKeySharePiece hash:%s",m.Hash())
 }
 
 //组内广播签名公钥
