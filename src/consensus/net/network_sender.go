@@ -43,21 +43,37 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 		network.Logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	//给自己发
-	MessageHandler.processor.OnMessageGroupInit(grm)
 
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
-	ns.net.Broadcast(m)
+	//给自己发
+	logger.Info("SendGroupInitMessage to self....")
+	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
+	logger.Info("SendGroupInitMessage to self finished....")
+
+
+	e = ns.net.Broadcast(m)
+	if e != nil {
+		logger.Error("SendGroupInitMessage broadcast fail", e)
+	} else {
+		logger.Info("SendGroupInitMessage broadcast success")
+	}
+	logger.Debugf("SendGroupInitMessage hash:%s", m.Hash())
 }
 
 //组内广播密钥   for each定向发送 组内广播
 func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMessage) {
+
 	body, e := marshalConsensusSharePieceMessage(spm)
 	if e != nil {
 		network.Logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
+	if spm.SI.SignMember.IsEqual(spm.Dest) {
+		go MessageHandler.Handle(spm.SI.SignMember.String(), m)
+		return
+	}
+
 	ns.net.SendWithGroupRely(spm.Dest.String(),spm.DummyID.GetHexString(),m)
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s",spm.Dest.String(),m.Hash())
 }
@@ -69,10 +85,11 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 		network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	//给自己发
-	MessageHandler.processor.OnMessageSignPK(spkm)
 
 	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
+	//给自己发
+	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
+
 	ns.net.Multicast(spkm.DummyID.GetHexString(),m)
 	logger.Debugf("SendSignPubKey hash:%s",m.Hash())
 }
@@ -85,10 +102,9 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 		return
 	}
 
-	//给自己发
-	MessageHandler.processor.OnMessageGroupInited(cgm)
-
 	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
+	//给自己发
+	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
 	ns.net.Broadcast(m)
 }

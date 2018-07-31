@@ -387,6 +387,7 @@ func TestNewIDFromString(t *testing.T) {
 	//id3.SetHexString(PREFIX + bi.Text(16))
 
 	//t.Log(id2.GetHexString(), id3.GetHexString())
-
+	id2 := NewIDFromInt(23)
+	t.Log(id2.String(), id2.GetHexString())
 
 }

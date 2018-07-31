@@ -435,12 +435,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				sb := spm.GenSign(ski, spm)
 				log.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
+				logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "sharepiece to %v", GetIDPrefix(spm.Dest))
 				if !PROC_TEST_MODE {
-					if spm.Dest.String() == p.mi.MinerID.String(){
-						//给自己发
-						p.OnMessageSharePiece(spm)
-						continue
-					}
 					log.Printf("call network service SendKeySharePiece...\n")
 					p.NetServer.SendKeySharePiece(spm)
 				} else {
@@ -487,6 +483,8 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	result := gc.PieceMessage(spm)
 	log.Printf("proc(%v) OMSP after gc.PieceMessage, gc result=%v.\n", p.getPrefix(), result)
 
+	logKeyword("OMSP", GetIDPrefix(spm.DummyID), GetIDPrefix(spm.SI.SignMember), "收到piece数 %v", gc.node.groupInitPool.GetSize())
+
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()
 		//这时还没有所有组成员的签名公钥
@@ -509,6 +507,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 				msg.GenSign(ski, msg)
 				//todo : 组内广播签名公钥
 				log.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
+				logKeyword("OMSP", GetIDPrefix(spm.DummyID), GetIDPrefix(spm.SI.SignMember), "SendSignPubKey %v", p.getPrefix())
 
 				if !PROC_TEST_MODE {
 					log.Printf("OMSP call network service SendSignPubKey...\n")
@@ -550,6 +549,9 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
 	result := gc.SignPKMessage(spkm)
 	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
+
+	logKeyword("OMSPK", GetIDPrefix(spkm.DummyID), GetIDPrefix(spkm.SI.SignMember), "收到签名公钥数 %v", len(gc.node.memberPubKeys))
+
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
 
@@ -566,6 +568,8 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 				msg.GI.GroupPK = jg.GroupPK
 
 				msg.GenSign(ski, &msg)
+
+				logKeyword("OMSPK", GetIDPrefix(spkm.DummyID), GetIDPrefix(spkm.SI.SignMember), "BroadcastGroupInfo %v", GetIDPrefix(jg.GroupID))
 
 				if !PROC_TEST_MODE {
 
@@ -630,9 +634,15 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		panic("gim member hash diff!")
 	}
 
-	result := p.globalGroups.GroupInitedMessage(&gim.GI, gim.SI.SignMember, topHeight)
+	var result int32
+	if !initingGroup.MemberExist(p.GetMinerID()) {
+		result = p.globalGroups.GroupInitedMessage(&gim.GI, gim.SI.SignMember, topHeight)
 
-	log.Printf("proc(%v) OMGIED globalGroups.GroupInitedMessage result=%v.\n", p.getPrefix(), result)
+		log.Printf("proc(%v) OMGIED globalGroups.GroupInitedMessage result=%v.\n", p.getPrefix(), result)
+		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "收到消息数量 %v", initingGroup.receiveSize())
+	} else {
+		result = INIT_SUCCESS
+	}
 
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
@@ -640,6 +650,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK), staticGroup.BeginHeight, staticGroup.DismissHeight)
 		add := p.globalGroups.AddStaticGroup(staticGroup)
 		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
+		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "组上链 id=%v", GetIDPrefix(staticGroup.GroupID))
 
 		if add {
 			p.groupManager.AddGroupOnChain(staticGroup, false)
@@ -652,6 +663,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
 
 	case INIT_FAIL: //该组初始化异常，且无法恢复
+		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "初始化失败")
 		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
 
 	case INITING:
@@ -681,8 +693,12 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			Launcher: msg.SI.SignMember,
 		}
 		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(msg.GI.ParentID)), signMsg)
+		logKeyword("OMCGR", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "SendCreateGroupSignMessage id=%v", p.getPrefix())
 		log.Printf("OMCGR SendCreateGroupSignMessage... ")
 		p.NetServer.SendCreateGroupSignMessage(signMsg)
+	} else {
+		logKeyword("OMCGR", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "groupManager.OnMessageCreateGroupRaw fail")
+
 	}
 }
 
@@ -727,6 +743,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
 		initMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey()), initMsg)
 
+		logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "SendGroupInitMessage")
 		p.NetServer.SendGroupInitMessage(initMsg)
 
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)

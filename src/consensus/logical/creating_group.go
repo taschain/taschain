@@ -4,6 +4,7 @@ import (
 	"consensus/groupsig"
 	"sync"
 	"consensus/model"
+	"strconv"
 )
 
 /*
@@ -20,6 +21,22 @@ const (
 	PIECE_DENY_DUP = 4
 )
 
+func PIECE_RESULT(ret int8) string {
+	switch ret {
+	case PIECE_GROUP_NOTFOUND:
+		return "找不到组信息"
+	case PIECE_NORMAL:
+		return "正常签名分片"
+	case PIECE_THRESHOLD:
+		return "收到阈值个分片"
+	case PIECE_DENY_DIFF:
+		return "收到重复分片，前后不一致"
+	case PIECE_DENY_DUP:
+		return "重复分片"
+	default:
+		return strconv.FormatInt(int64(ret), 10)
+	}
+}
 
 type CreatingGroup struct {
 	gis *model.ConsensusGroupInitSummary

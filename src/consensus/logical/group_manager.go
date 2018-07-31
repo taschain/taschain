@@ -11,6 +11,7 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/base"
+	"strings"
 )
 
 /*
@@ -201,8 +202,9 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 
 	gis.ParentID = group.GroupID
 
-	gn := base.Data2CommonHash([]byte(fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height))).Str()
-	gis.DummyID = *groupsig.NewIDFromString(gn)
+	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height)
+	bi := base.Data2CommonHash([]byte(gn)).Big()
+	gis.DummyID = *groupsig.NewIDFromBigInt(bi)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
 		log.Printf("CreateNextGroupRoutine ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
@@ -245,6 +247,11 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 
 	log.Printf("proc(%v) start Create Group consensus, send network msg to members...\n", gm.processor.getPrefix())
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
+	memIdStrs := make([]string, 0)
+	for _, mem := range memIds {
+		memIdStrs = append(memIdStrs, GetIDPrefix(mem))
+	}
+	logKeyword("CreateGroupRoutine", GetIDPrefix(gis.DummyID), gm.processor.getPrefix(), "parent %v, members %v", GetIDPrefix(gis.ParentID), strings.Join(memIdStrs, ","))
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
@@ -320,6 +327,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
+	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, 分片数 %v", PIECE_RESULT(accept), len(creating.getPieces()))
 	if accept == PIECE_THRESHOLD {
 		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
 		msg.GI.Signature = *sign
