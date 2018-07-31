@@ -65,8 +65,7 @@ type bondProc struct {
 	done chan struct{}
 }
 
-// transport 使用UDP实现通信.
-// 这只是一个接口我们不用打开UDP套接字，生成私有key就能测试
+
 type transport interface {
 	ping(NodeID, *nnet.UDPAddr) error
 	waitping(NodeID) error
@@ -75,8 +74,6 @@ type transport interface {
 	print()
 }
 
-// 用来储存发现的节点，节点1️以他们的最后活动时间排序
-// 最后活跃的节点出现在最前面.
 type bucket struct {
 	entries      []*Node // 活动节点
 	replacements []*Node // 备用补充节点
@@ -171,7 +168,7 @@ func (kad *Kad) Close() {
 func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 	for _, n := range nodes {
 		if err := n.validateComplete(); err != nil {
-			return fmt.Errorf("bad bootstrap/fallback node %v (%v)", n, err)
+			return fmt.Errorf("bad bootstrap node %v (%v)", n, err)
 		}
 	}
 	kad.nursery = make([]*Node, 0, len(nodes))
@@ -346,7 +343,6 @@ loop:
 
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
-	kad.print()
 	kad.loadSeedNodes(true)
 
 	kad.lookup(kad.self.Id, false)
@@ -377,8 +373,6 @@ func (kad *Kad) doCheck() {
 	//if kad.len() <= len(kad.nursery) * 3{
 		kad.refresh()
 	///}
-	kad.net.print()
-
 }
 
 
@@ -414,17 +408,6 @@ func (kad *Kad) len() (n int) {
 	}
 	return n
 }
-
-//Print 打印桶成员信息
-func (kad *Kad) print() {
-	for _, b := range kad.buckets {
-		for _, n := range b.entries {
-			fmt.Printf("----- kad ---  addr: IP:%v    Port:%v...", n.Ip, n.Port)
-		}
-	}
-	return
-}
-
 
 func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 

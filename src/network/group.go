@@ -9,33 +9,28 @@ import (
 
 // Group 组对象
 type Group struct {
-	ID      string
+	id      string
 	members []NodeID
 	nodes   map[NodeID]*Node
 	mutex sync.Mutex
 }
 
-func newGroup(ID string, members []NodeID) *Group {
+func newGroup(id string, members []NodeID) *Group {
 
-	g := &Group{ID: ID, members: members, nodes: make(map[NodeID]*Node)}
+	g := &Group{id: id, members: members, nodes: make(map[NodeID]*Node)}
 
 	return g
 }
 
-func (g *Group) addGroup(node *Node) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-
+func (g *Group) addNode(node *Node) {
 	g.nodes[node.Id] = node
 }
 
 func (g *Group) doRefresh() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	if len(g.nodes) ==  len(g.members) {
 		return
 	}
-	Logger.Debugf("Group doRefresh id： %v", g.ID)
+	Logger.Debugf("Group doRefresh id： %v", g.id)
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
@@ -57,10 +52,7 @@ func (g *Group) doRefresh() {
 	}
 }
 
-func (g *Group) Send( packet *bytes.Buffer) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-
+func (g *Group) send( packet *bytes.Buffer) {
 
 	for _, node := range g.nodes {
 		if node != nil {
@@ -89,7 +81,7 @@ func newGroupManager() *GroupManager {
 }
 
 //AddGroup 添加组
-func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
+func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
@@ -102,7 +94,7 @@ func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
 }
 
 //RemoveGroup 移除组
-func (gm *GroupManager) RemoveGroup(ID string) {
+func (gm *GroupManager) removeGroup(ID string) {
 	//todo
 }
 
@@ -135,7 +127,7 @@ func (gm *GroupManager) doRefresh() {
 }
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
-func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
+func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
@@ -145,7 +137,7 @@ func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
 		Logger.Debugf("SendGroup not find group")
 		return
 	}
-	g.Send(packet)
+	g.send(packet)
 
 	return
 }

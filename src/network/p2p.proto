@@ -57,8 +57,9 @@ message MsgData {
     string groupId =2;
     uint64 Expiration =3;
     uint64 messageId = 4;
-    bytes  NodeId=5;
-    bytes  data=6;
+    bytes  DestNodeId=5;
+    bytes  SrcNodeId=6;
+    bytes  data=7;
 }
 
 

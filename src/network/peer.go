@@ -27,34 +27,26 @@ func newPeer(Id NodeID, seesionId uint32) *Peer {
 	return p
 }
 
-
-
 func (p*Peer ) addData(data []byte) {
 
 
 	p.mutex.Lock()
 	if p.dataBuffer == nil {
-		//fmt.Printf("addData Id：%v  len: %v\n ", p.Id.B58String(), len(data))
 		p.dataBuffer = bytes.NewBuffer(nil)
 		p.dataBuffer.Write(data)
 	} else {
-		//fmt.Printf("addData Id：%v  len: %v old len :%v\n ", p.Id.B58String(), len(data),p.dataBuffer.Len())
 		p.dataBuffer.Write(data)
 	}
 
 	p.mutex.Unlock()
 }
 
-func (p*Peer ) addDataToHead(data []byte) {
+func (p *Peer ) addDataToHead(data []byte) {
 	p.mutex.Lock()
 	if p.dataBuffer == nil {
-		//fmt.Printf("addDataToHead Id：%v  len: %v\n ", p.Id.B58String(), len(data))
-
 		p.dataBuffer = bytes.NewBuffer(nil)
 		p.dataBuffer.Write(data)
 	} else {
-		//fmt.Printf("addDataToHead Id：%v  len: %v old len :%v\n ", p.Id.B58String(), len(data),p.dataBuffer.Len())
-
 		newBuf :=  bytes.NewBuffer(nil)
 		newBuf.Write(data)
 		newBuf.Write(p.dataBuffer.Bytes())
@@ -100,14 +92,14 @@ func newPeerManager() *PeerManager {
 
 
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
-	netID := netCoreNodeID(toid)
-	p := pm.peerByNetID(netID)
+	netId := netCoreNodeID(toid)
+	p := pm.peerByNetID(netId)
 	if p == nil {
 		p = &Peer{Id: toid, seesionId: 0, sendList: make([]*bytes.Buffer, 0)}
 		p.sendList = append(p.sendList, packet)
 		p.expiration = 0
 		p.connecting = false
-		pm.addPeer(netID,p)
+		pm.addPeer(netId,p)
 	}
 	if  p.seesionId > 0 {
 		Logger.Infof("P2PSend %v len: %v\n ", p.seesionId, packet.Len())
@@ -122,9 +114,9 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			p.sendList = append(p.sendList, packet)
 
 			if pm.natTraversalEnable {
-				P2PConnect(netID, "47.98.212.107", 70)
+				P2PConnect(netId, "47.98.212.107", 70)
 			} else {
-				P2PConnect(netID, toaddr.IP.String(), uint16(toaddr.Port))
+				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
 			Logger.Infof("[P2P]Connect：ID: %v IP: %v Port:%v\n ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
@@ -171,8 +163,8 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 }
 
 //OnChecked 网络类型检查
-func (pm *PeerManager) OnChecked(p2pType uint32, privateIP string, publicIP string) {
-	//nc.ourEndPoint = MakeEndPoint(&net.UDPAddr{Ip: net.ParseIP(publicIP), Port: 8686}, 8686)
+func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp string) {
+	//nc.ourEndPoint = MakeEndPoint(&net.UDPAddr{Ip: net.ParseIP(publicIp), Port: 8686}, 8686)
 }
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
@@ -214,16 +206,16 @@ func (pm *PeerManager) peerByID(id NodeID) *Peer {
 }
 
 
-func (pm *PeerManager) peerByNetID(netID uint64) *Peer {
+func (pm *PeerManager) peerByNetID(netId uint64) *Peer {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	p, _ := pm.peers[netID]
+	p, _ := pm.peers[netId]
 	return p
 }
 
-func (pm *PeerManager) addPeer(netID uint64, peer *Peer) {
+func (pm *PeerManager) addPeer(netId uint64, peer *Peer) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	pm.peers[netID] = peer
+	pm.peers[netId] = peer
 
 }

@@ -391,7 +391,7 @@ func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
 	if err != nil {
 		return
 	}
-	nc.groupManager.SendGroup(id, packet)
+	nc.groupManager.sendGroup(id, packet)
 	return
 }
 
@@ -414,7 +414,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 			if err != nil {
 				return
 			}
-			nc.groupManager.SendGroup(id, packet)
+			nc.groupManager.sendGroup(id, packet)
 			}
 	}
 	return
@@ -491,7 +491,8 @@ func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId strin
 		DataType: dataType,
 		GroupId:groupId,
 		MessageId:nc.messageManager.genMessageId(),
-		NodeId:nodeIdBytes,
+		DestNodeId:nodeIdBytes,
+		SrcNodeId:nc.id.Bytes(),
 		Expiration: uint64(time.Now().Add(expiration).Unix())}
 
 	return nc.encodePacket(MessageType_MessageData,msgData)
@@ -678,28 +679,36 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 	id := fromId.GetHexString()
 	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X", id, len(req.Data),req.DataType,req.MessageId)
-	needHandle := false
 	if req.DataType == DataType_DataNormal {
-		needHandle = true
+		net.handleMessage(req.Data,id)
 	} else {
 		forwarded := nc.messageManager.isForwarded(req.MessageId)
-		nodeId := NodeID{};
-		nodeId.SetBytes(req.NodeId)
-		if !forwarded && (len(req.NodeId) == 0 || nodeId == nc.id) {
-			Logger.Infof("forwarded message DataType:%v messageId:%X nodeId：%v", req.DataType,req.MessageId,req.NodeId)
-			needHandle = true
-			dataBuffer :=bytes.NewBuffer(packet)
+		destNodeId := NodeID{};
+		destNodeId.SetBytes(req.DestNodeId)
+		srcNodeId := NodeID{};
+		srcNodeId.SetBytes(req.SrcNodeId)
+		Logger.Infof("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType,req.MessageId, destNodeId.GetHexString(),srcNodeId.GetHexString())
+
+		if !forwarded  {
 			nc.messageManager.forward(req.MessageId)
-			if req.DataType == DataType_DataGroup {
-				nc.groupManager.SendGroup(req.GroupId,dataBuffer)
-			} else if req.DataType == DataType_DataGlobal {
-				nc.peerManager.SendAll(dataBuffer)
+			//需处理
+			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
+				net.handleMessage(req.Data, srcNodeId.GetHexString())
 			}
+			//需广播
+			if(len(req.DestNodeId) == 0 || destNodeId != nc.id) {
+
+				dataBuffer :=bytes.NewBuffer(packet)
+				if req.DataType == DataType_DataGroup {
+					nc.groupManager.sendGroup(req.GroupId,dataBuffer)
+				} else if req.DataType == DataType_DataGlobal {
+					nc.peerManager.SendAll(dataBuffer)
+				}
+			}
+
 		}
 	}
-	if needHandle {
-		net.handleMessage(req.Data,id)
-	}
+
 	return nil
 }
 

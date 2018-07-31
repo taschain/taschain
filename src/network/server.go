@@ -148,11 +148,11 @@ func (n *server) BuildGroupNet(groupId string, members []string) {
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
 	}
-	n.netCore.groupManager.AddGroup(groupId, nodes)
+	n.netCore.groupManager.addGroup(groupId, nodes)
 }
 
 func (n *server) DissolveGroupNet(groupId string) {
-	n.netCore.groupManager.RemoveGroup(groupId)
+	n.netCore.groupManager.removeGroup(groupId)
 }
 
 func (n *server) AddGroup(groupId string, members []string) *Group {
@@ -160,12 +160,12 @@ func (n *server) AddGroup(groupId string, members []string) *Group {
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
 	}
-	return n.netCore.groupManager.AddGroup(groupId, nodes)
+	return n.netCore.groupManager.addGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
 func (n *server) RemoveGroup(ID string) {
-	n.netCore.groupManager.RemoveGroup(ID)
+	n.netCore.groupManager.removeGroup(ID)
 }
 
 func (n *server) sendSelf(b []byte) {
