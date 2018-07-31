@@ -11,6 +11,7 @@ import (
 	"core/datasource"
 	"middleware/types"
 	"redis"
+	"middleware/notify"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -60,8 +61,8 @@ func ClearGroup(config *GroupChainConfig) {
 
 func initGroupChain() error {
 	chain := &GroupChain{
-		config:          getGroupChainConfig(),
-		now:             *new([][]byte),
+		config: getGroupChainConfig(),
+		now:    *new([][]byte),
 	}
 
 	var err error
@@ -145,7 +146,6 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error
 	}
 	return result, nil
 }
-
 
 func (chain *GroupChain) GetGroupByHeight(height uint64) (*types.Group) {
 	chain.lock.RLock()
@@ -239,6 +239,8 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 			chain.count++
 		}
 		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now), overWrite, group.Id)
+
+		notify.BUS.Publish(notify.GROUP_ADD_SUCC, &notify.GroupMessage{Group: *group,})
 		return chain.groups.Put(group.Id, data)
 	}
 }
@@ -246,5 +248,3 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 func (chain *GroupChain) GetAllGroupID() [][]byte {
 	return chain.now
 }
-
-
