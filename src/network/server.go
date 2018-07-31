@@ -7,9 +7,8 @@ import (
 
 	"strconv"
 	"common"
-	"crypto/sha256"
-	"encoding/hex"
 	"time"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -187,7 +186,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 
 	if code ==  SIGN_PUBKEY_MSG{
-		Logger.Debugf("Receive SIGN_PUBKEY_MSG form%s,hash:%s", from, message.Hash())
+		Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
 	}
 
 	defer Logger.Debugf("code:%d,cost time:%v", code, time.Since(begin))
@@ -225,10 +224,17 @@ func unMarshalMessage(b []byte) (*Message, error) {
 }
 
 func (m Message) Hash() string {
-	hash := sha256.New()
 	bytes, err := marshalMessage(m)
 	if err != nil {
 		return ""
 	}
-	return hex.EncodeToString(hash.Sum(bytes))
+
+	var h common.Hash
+	sha3Hash := sha3.Sum256(bytes)
+	if len(sha3Hash) == common.HashLength {
+		copy(h[:], sha3Hash[:])
+	} else {
+		panic("Data2Hash failed, size error.")
+	}
+	return h.String()
 }
