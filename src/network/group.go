@@ -68,7 +68,7 @@ func (g *Group) send( packet *bytes.Buffer) {
 //GroupManager 组管理
 type GroupManager struct {
 	groups map[string]*Group
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 func newGroupManager() *GroupManager {
@@ -118,8 +118,8 @@ func (gm *GroupManager) loop() {
 
 func (gm *GroupManager) doRefresh() {
 	//fmt.Printf("groupManager doRefresh ")
-	gm.mutex.Lock()
-	defer gm.mutex.Unlock()
+	gm.mutex.RLock()
+	defer gm.mutex.RUnlock()
 
 	for _, group := range gm.groups {
 		group.doRefresh()
@@ -128,8 +128,8 @@ func (gm *GroupManager) doRefresh() {
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
 func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
-	gm.mutex.Lock()
-	defer gm.mutex.Unlock()
+	gm.mutex.RLock()
+	defer gm.mutex.RUnlock()
 
 	Logger.Debugf("SendGroup  id:%v", id)
 	g := gm.groups[id]
