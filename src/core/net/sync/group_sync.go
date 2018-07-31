@@ -142,9 +142,7 @@ func (gs *groupSyncer) loop() {
 			} else {
 				isTopGroup = false
 			}
-			logger.Debugf("[GroupSyncer]Request height:%d,local group height is:%d,isTopGroup:%t", gri.Height, topHeight, isTopGroup)
 			sendGroup(gri.SourceId, group, isTopGroup)
-			logger.Debugf("[GroupSyncer]Send group back to %s,group id:%d,isTopGroup:%v",gri.SourceId, group.Id, isTopGroup)
 		case groupInfo := <-gs.GroupCh:
 			//收到组信息
 			logger.Debugf("[GroupSyncer]Receive group :%d", groupInfo.Group.Id)
@@ -157,7 +155,6 @@ func (gs *groupSyncer) loop() {
 			} else {
 				if !groupInfo.IsTopGroup {
 					localHeight := core.GroupChainImpl.Count()
-					logger.Debugf("[GroupSyncer]After add group on chain,local height:%d",localHeight)
 					requestGroupByHeight(groupInfo.SourceId, localHeight+1)
 				} else {
 					if !gs.init {

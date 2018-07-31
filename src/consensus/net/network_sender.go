@@ -7,6 +7,7 @@ import (
 	"middleware/types"
 	"network"
 	"consensus/model"
+	"time"
 )
 
 type NetworkServerImpl struct {
@@ -126,8 +127,8 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	//network.Logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime))
 	ns.net.Multicast(groupId.GetHexString(),m)
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime),m.Hash())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
