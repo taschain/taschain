@@ -37,7 +37,7 @@ type GroupRequestInfo struct {
 type GroupInfo struct {
 	Group      *types.Group
 	IsTopGroup bool
-	SourceId string
+	SourceId   string
 }
 
 type groupSyncer struct {
@@ -137,27 +137,30 @@ func (gs *groupSyncer) loop() {
 			}
 			var isTopGroup bool
 			topHeight := core.GroupChainImpl.Count()
-			if gri.Height == topHeight{
+			if gri.Height == topHeight {
 				isTopGroup = true
-			}else {
+			} else {
 				isTopGroup = false
 			}
-			sendGroup(gri.SourceId, group,isTopGroup)
+			logger.Debugf("[GroupSyncer]Request height:%d,local group height is:%d,isTopGroup:%t", gri.Height, topHeight, isTopGroup)
+			sendGroup(gri.SourceId, group, isTopGroup)
+			logger.Debugf("[GroupSyncer]Send group back to %s,group id:%s,isTopGroup:%v",gri.SourceId, group.Id, isTopGroup)
 		case groupInfo := <-gs.GroupCh:
 			//收到组信息
-			logger.Debugf("[GroupSyncer]Receive group :%d", groupInfo.Group.Id)
+			logger.Debugf("[GroupSyncer]Receive group :%v", groupInfo.Group.Id)
 
 			e := core.GroupChainImpl.AddGroup(groupInfo.Group, nil, nil)
 			if e != nil {
 				logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 				//TODO  上链失败 异常处理
 				continue
-			}else {
-				if !groupInfo.IsTopGroup{
+			} else {
+				if !groupInfo.IsTopGroup {
 					localHeight := core.GroupChainImpl.Count()
+					logger.Debugf("[GroupSyncer]After add group on chain,local height:%d",localHeight)
 					requestGroupByHeight(groupInfo.SourceId, localHeight+1)
-				} else{
-					if!gs.init {
+				} else {
+					if !gs.init {
 						fmt.Printf("group sync init finish,local group height:%d\n", core.GroupChainImpl.Count())
 						gs.init = true
 						continue
@@ -196,7 +199,7 @@ func requestGroupByHeight(id string, groupHeight uint64) {
 
 //本地查询之后将结果返回
 func sendGroup(targetId string, group *types.Group, isTopGroup bool) {
-	groupInfo := GroupInfo{Group:group,IsTopGroup:isTopGroup}
+	groupInfo := GroupInfo{Group: group, IsTopGroup: isTopGroup}
 	body, e := marshalGroupInfo(groupInfo)
 	if e != nil {
 		logger.Errorf("[GroupSyncer]"+"sendGroup marshal group error:%s", e.Error())
