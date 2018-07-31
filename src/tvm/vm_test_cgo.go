@@ -91,6 +91,7 @@ func VmTestToken(){
 	tvm := NewTvm(nil)
 
 	tvm.Execute(`
+import account
 class Storage(object):
     data = {}
     @staticmethod
@@ -129,16 +130,18 @@ class Address(object):
         return True
 
     def balance(self):
-        # TODO 获取地址里的余额
-        return 0
+        #获取地址里的余额
+		leftSum = account.getBalance(self.value)
+        return leftSum
 
     def transfer(self, _value):
-        # TODO 转账到合约
+        #转账到合约
+		account.transfer(self.value, this, _value )
         pass
 
 
-# TODO 当前合约的地址
-this = Address("")
+# 当前合约的地址
+this = account.contractAddr(Msg.sender);
 
 
 class Msg(object):
@@ -148,8 +151,7 @@ class Msg(object):
 
 #调用者是否为合约创建者
 def owner():
-    # TODO
-    b = True
+    b = account.isContractCreater(Msg.sender)
     if b:
         return True
     else:
@@ -312,7 +314,8 @@ class MyAdvancedToken(TokenERC20):
     def buy(self):
         amount = Msg.value / self.buy_price
         self._transfer(this, Msg.sender, amount)
-        # TODO 扣钱
+        #扣钱
+		account.subBlance(Msg.sender, amount)
 
     def sell(self, amount):
         require(this.balance() >= amount * self.sell_price)
