@@ -37,7 +37,7 @@ type GroupRequestInfo struct {
 type GroupInfo struct {
 	Group      *types.Group
 	IsTopGroup bool
-	SourceId string
+	SourceId   string
 }
 
 type groupSyncer struct {
@@ -137,12 +137,14 @@ func (gs *groupSyncer) loop() {
 			}
 			var isTopGroup bool
 			topHeight := core.GroupChainImpl.Count()
-			if gri.Height == topHeight{
+			if gri.Height == topHeight {
 				isTopGroup = true
-			}else {
+			} else {
 				isTopGroup = false
 			}
-			sendGroup(gri.SourceId, group,isTopGroup)
+			logger.Debugf("[GroupSyncer]Request height:%d,local group height is:%d,isTopGroup:%t", gri.Height, topHeight, isTopGroup)
+			sendGroup(gri.SourceId, group, isTopGroup)
+			logger.Debugf("[GroupSyncer]Send group back to %s,group id:%d,isTopGroup:%v",gri.SourceId, group.Id, isTopGroup)
 		case groupInfo := <-gs.GroupCh:
 			//收到组信息
 			logger.Debugf("[GroupSyncer]Receive group :%d", groupInfo.Group.Id)
@@ -152,12 +154,13 @@ func (gs *groupSyncer) loop() {
 				logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 				//TODO  上链失败 异常处理
 				continue
-			}else {
-				if !groupInfo.IsTopGroup{
+			} else {
+				if !groupInfo.IsTopGroup {
 					localHeight := core.GroupChainImpl.Count()
+					logger.Debugf("[GroupSyncer]After add group on chain,local height:%d",localHeight)
 					requestGroupByHeight(groupInfo.SourceId, localHeight+1)
-				} else{
-					if!gs.init {
+				} else {
+					if !gs.init {
 						fmt.Printf("group sync init finish,local group height:%d\n", core.GroupChainImpl.Count())
 						gs.init = true
 						continue
@@ -177,33 +180,33 @@ func (gs *groupSyncer) loop() {
 //广播索要组链高度
 func requestGroupChainHeight() {
 	message := network.Message{Code: network.REQ_GROUP_CHAIN_HEIGHT_MSG}
-	network.Network.Broadcast(message)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localHeight uint64) {
 	body := utility.UInt64ToByte(localHeight)
 	message := network.Message{Code: network.GROUP_CHAIN_HEIGHT_MSG, Body: body}
-	network.Network.Send(targetId, message)
+	network.GetNetInstance().Send(targetId, message)
 }
 
 //向某一节点请求Group
 func requestGroupByHeight(id string, groupHeight uint64) {
 	body := utility.UInt64ToByte(groupHeight)
 	message := network.Message{Code: network.REQ_GROUP_MSG, Body: body}
-	network.Network.Send(id, message)
+	network.GetNetInstance().Send(id, message)
 }
 
 //本地查询之后将结果返回
 func sendGroup(targetId string, group *types.Group, isTopGroup bool) {
-	groupInfo := GroupInfo{Group:group,IsTopGroup:isTopGroup}
+	groupInfo := GroupInfo{Group: group, IsTopGroup: isTopGroup}
 	body, e := marshalGroupInfo(groupInfo)
 	if e != nil {
 		logger.Errorf("[GroupSyncer]"+"sendGroup marshal group error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.GROUP_MSG, Body: body}
-	network.Network.Send(targetId, message)
+	network.GetNetInstance().Send(targetId, message)
 }
 
 func marshalGroup(e *types.Group) ([]byte, error) {

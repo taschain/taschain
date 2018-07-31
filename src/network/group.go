@@ -2,9 +2,9 @@ package network
 
 import (
 	"bytes"
-	"fmt"
-	"net"
+	nnet "net"
 	"time"
+	"sync"
 )
 
 // Group 组对象
@@ -12,6 +12,7 @@ type Group struct {
 	ID      string
 	members []NodeID
 	nodes   map[NodeID]*Node
+	mutex sync.Mutex
 }
 
 func newGroup(ID string, members []NodeID) *Group {
@@ -22,36 +23,60 @@ func newGroup(ID string, members []NodeID) *Group {
 }
 
 func (g *Group) addGroup(node *Node) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
 	g.nodes[node.Id] = node
 }
 
 func (g *Group) doRefresh() {
-
-	//fmt.Printf("Group doRefresh id： %v\n", g.ID)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	if len(g.nodes) ==  len(g.members) {
+		return
+	}
+	Logger.Debugf("Group doRefresh id： %v", g.ID)
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
-		if id == Network.netCore.id {
+		if id == net.netCore.id {
 			continue
 		}
 		node, ok := g.nodes[id]
 		if node != nil && ok {
 			continue
 		}
-		node = Network.netCore.kad.Resolve(id)
+		node = net.netCore.kad.resolve(id)
 		if node != nil {
 			g.nodes[id] = node
-		//	fmt.Printf("Group Resolve id：%v ip: %v  port:%v\n", id, node.IP, node.Port)
+			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v", id, node.Ip, node.Port)
+			go net.netCore.ping(node.Id,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
-		//	fmt.Printf("Group Resolve id：%v  nothing!!!\n", id)
-
+			Logger.Debugf("Group Resolve id：%v  nothing!!!", id)
 		}
 	}
+}
+
+func (g *Group) Send( packet *bytes.Buffer) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+
+	for _, node := range g.nodes {
+		if node != nil {
+
+			Logger.Debugf("SendGroup node ip:%v port:%v", node.Ip, node.Port)
+
+			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+		}
+	}
+	return
 }
 
 //GroupManager 组管理
 type GroupManager struct {
 	groups map[string]*Group
+	mutex sync.Mutex
 }
 
 func newGroupManager() *GroupManager {
@@ -65,6 +90,11 @@ func newGroupManager() *GroupManager {
 
 //AddGroup 添加组
 func (gm *GroupManager) AddGroup(ID string, members []NodeID) *Group {
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
+
+	Logger.Debugf("AddGroup node id:%v len:%v", ID,len(members))
+
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
 	go gm.doRefresh()
@@ -76,7 +106,7 @@ func (gm *GroupManager) RemoveGroup(ID string) {
 	//todo
 }
 
-// loop schedules refresh.
+
 func (gm *GroupManager) loop() {
 
 	const refreshInterval = 1 * time.Second
@@ -95,27 +125,27 @@ func (gm *GroupManager) loop() {
 }
 
 func (gm *GroupManager) doRefresh() {
-	//fmt.Printf("groupManager doRefresh \n")
+	//fmt.Printf("groupManager doRefresh ")
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
 
 	for _, group := range gm.groups {
 		group.doRefresh()
 	}
 }
 
-//SendDataToGroup 向所有已经连接的组内节点发送自定义数据包
-func (gm *GroupManager) SendDataToGroup(id string, packet *bytes.Buffer) {
-	fmt.Printf("SendDataToGroup  id:%v\n", id)
+//SendGroup 向所有已经连接的组内节点发送自定义数据包
+func (gm *GroupManager) SendGroup(id string, packet *bytes.Buffer) {
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
+
+	Logger.Debugf("SendGroup  id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
-		fmt.Printf("SendDataToGroup not find group\n")
+		Logger.Debugf("SendGroup not find group")
+		return
 	}
-	for _, node := range g.nodes {
-		if node != nil {
+	g.Send(packet)
 
-			fmt.Printf("SendDataToGroup node ip:%v port:%v\n", node.Ip, node.Port)
-
-			go Network.netCore.PM.write(node.Id, &net.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
-		}
-	}
 	return
 }

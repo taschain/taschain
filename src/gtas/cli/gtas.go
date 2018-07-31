@@ -10,9 +10,8 @@ import (
 	"os"
 
 	"core/net/handler"
-	chandler "consensus/net/handler"
+	chandler "consensus/net"
 	"consensus/mediator"
-	"consensus/logical"
 	"governance/global"
 
 	"encoding/json"
@@ -27,6 +26,8 @@ import (
 	"runtime"
 	"log"
 	"strconv"
+	"consensus/model"
+	"redis"
 )
 
 const (
@@ -44,6 +45,8 @@ const (
 	chainSection = "chain"
 
 	databaseKey = "database"
+
+	redis_prefix = "aliyun_"
 )
 
 var configManager = &common.GlobalConf
@@ -84,7 +87,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit(){
+		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
@@ -93,9 +96,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log")
-	err := gtas.fullInit(super)
+	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -107,6 +110,7 @@ func (gtas *Gtas) miner(rpc, super bool, rpcAddr string, rpcPort uint) {
 			return
 		}
 	}
+
 	gtas.waitingUtilSyncFinished()
 	ok := mediator.StartMiner()
 	gtas.inited = true
@@ -130,7 +134,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-		network.NodeOffline(mediator.Proc.GetMinerID().Serialize())
+		redis.NodeOffline(mediator.Proc.GetMinerID().Serialize())
 		fmt.Println("exit success")
 		quit <- true
 	} else {
@@ -183,6 +187,9 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
+	//在测试模式下 P2P的NAT关闭
+	testMode := mineCmd.Flag("test", "test mode").Bool()
+	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -198,8 +205,9 @@ func (gtas *Gtas) Run() {
 	gtas.simpleInit(*configFile)
 
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
-	databaseValue := "d"+strconv.Itoa(*instanceIndex)
+	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
+	common.GlobalConf.SetString("test", "prefix", redis_prefix)
 
 	switch command {
 	case voteCmd.FullCommand():
@@ -222,7 +230,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, *super, addrRpc.String(), *portRpc)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -248,7 +256,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	var err error
 	// 椭圆曲线初始化
 	groupsig.Init(1)
@@ -262,8 +270,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return err
 	}
 
-
-	err = network.Init(*configManager,isSuper,new(handler.ChainHandler),new(chandler.ConsensusHandler))
+	id,err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
 	if err != nil {
 		return err
 	}
@@ -277,16 +284,20 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 		return errors.New("gov module error")
 	}
 
-	id := network.Network.Self.Id.GetHexString()
+	if isSuper {
+		//超级节点启动前先把Redis数据清空
+		redis.CleanRedisData()
+	}
+
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
 		(*configManager).SetString(Section, "secret", secret)
 	}
-	minerInfo := logical.NewMinerInfo(id, secret)
-	network.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
+	minerInfo := model.NewMinerInfo(id, secret)
+	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
-	ShowPubKeyInfo(minerInfo,id)
+	ShowPubKeyInfo(minerInfo, id)
 	ok = mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
@@ -296,15 +307,15 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	return nil
 }
 
-func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
-	infos := []PubKeyInfo{}
+func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
+	var infos []PubKeyInfo
 	keys := (*configManager).GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
-	pubKeyInfos := []logical.PubKeyInfo{}
+	var pubKeyInfos []model.PubKeyInfo
 	for _, v := range infos {
 		var pub = groupsig.Pubkey{}
 		fmt.Println(v.PubKey)
@@ -313,12 +324,12 @@ func LoadPubKeyInfo(key string) ([]logical.PubKeyInfo) {
 			fmt.Println(err)
 			return nil
 		}
-		pubKeyInfos = append(pubKeyInfos, logical.PubKeyInfo{*groupsig.NewIDFromString(v.ID), pub})
+		pubKeyInfos = append(pubKeyInfos, model.NewPubKeyInfo(*groupsig.NewIDFromString(v.ID), pub))
 	}
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info logical.MinerInfo,id string) {
+func ShowPubKeyInfo(info model.MinerInfo, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
@@ -328,8 +339,6 @@ func ShowPubKeyInfo(info logical.MinerInfo,id string) {
 func NewGtas() *Gtas {
 	return &Gtas{}
 }
-
-
 
 func genTestTx(hash string, price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 

@@ -5,7 +5,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
 	"middleware/types"
-	"time"
 	"network"
 )
 
@@ -71,9 +70,9 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.REQ_TRANSACTION_MSG, Body: body}
-	network.Network.Send(castorId,message)
+	network.GetNetInstance().Send(castorId,message)
 }
 
 //本地查询到交易，返回请求方
@@ -83,9 +82,9 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
+	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
 	message := network.Message{Code: network.TRANSACTION_GOT_MSG, Body: body}
-	network.Network.Send(sourceId,message)
+	network.GetNetInstance().Send(sourceId,message)
 }
 
 //收到交易 全网扩散
@@ -102,7 +101,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		return
 	}
 	message := network.Message{Code: network.TRANSACTION_MSG, Body: body}
-	network.Network.Broadcast(message)
+	network.GetNetInstance().Broadcast(message)
 }
 
 //向某一节点请求Block信息
@@ -114,7 +113,7 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 		return
 	}
 	message := network.Message{Code: network.REQ_BLOCK_INFO, Body: body}
-	network.Network.Send(id,message)
+	network.GetNetInstance().Send(id,message)
 }
 
 //本地查询之后将结果返回
@@ -125,7 +124,7 @@ func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
 		return
 	}
 	message := network.Message{Code: network.BLOCK_INFO, Body: body}
-	network.Network.Send(targetId,message)
+	network.GetNetInstance().Send(targetId,message)
 }
 
 //向目标结点索要 block hash
@@ -136,7 +135,7 @@ func RequestBlockHashes(targetNode string, bhr BlockHashesReq) {
 		return
 	}
 	message := network.Message{Code: network.BLOCK_HASHES_REQ, Body: body}
-	network.Network.Send(targetNode,message)
+	network.GetNetInstance().Send(targetNode,message)
 }
 
 //向目标结点发送 block hash
@@ -147,7 +146,7 @@ func SendBlockHashes(targetNode string, bhs []*BlockHash) {
 		return
 	}
 	message := network.Message{Code: network.BLOCK_HASHES, Body: body}
-	network.Network.Send(targetNode,message)
+	network.GetNetInstance().Send(targetNode,message)
 }
 
 //--------------------------------------------------Transaction---------------------------------------------------------------

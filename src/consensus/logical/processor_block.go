@@ -9,6 +9,7 @@ import (
 	"middleware/types"
 	"core"
 	"sync"
+	"consensus/model"
 )
 
 /*
@@ -48,18 +49,18 @@ func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
 
-func (p *Processor) addFutureBlockMsg(msg *ConsensusBlockMessage) {
+func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
 	b := msg.Block
 	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, GetHashPrefix(b.Header.Hash))
 
 	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
 }
 
-func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*ConsensusBlockMessage {
+func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
 	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
-		ret := make([]*ConsensusBlockMessage, len(vs))
+		ret := make([]*model.ConsensusBlockMessage, len(vs))
 		for idx, m := range vs {
-			ret[idx] = m.(*ConsensusBlockMessage)
+			ret[idx] = m.(*model.ConsensusBlockMessage)
 		}
 		return ret
 	}
@@ -109,18 +110,18 @@ func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return b
 }
 
-func (p *Processor) addFutureVerifyMsg(msg *ConsensusBlockMessageBase) {
+func (p *Processor) addFutureVerifyMsg(msg *model.ConsensusBlockMessageBase) {
 	b := msg.BH
 	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, GetHashPrefix(b.Hash), GetHashPrefix(b.PreHash))
 
 	p.futureVerifyMsgs.addMessage(b.PreHash, msg)
 }
 
-func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*ConsensusBlockMessageBase {
+func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*model.ConsensusBlockMessageBase {
 	if vs := p.futureVerifyMsgs.getMessages(hash); vs != nil {
-		ret := make([]*ConsensusBlockMessageBase, len(vs))
+		ret := make([]*model.ConsensusBlockMessageBase, len(vs))
 		for idx, m := range vs {
-			ret[idx] = m.(*ConsensusBlockMessageBase)
+			ret[idx] = m.(*model.ConsensusBlockMessageBase)
 		}
 		return ret
 	}
@@ -135,11 +136,8 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
     return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }
 
-func (p *Processor) prepareForCast(gid groupsig.ID)  {
-	bc := new(BlockContext)
-	bc.Proc = p
-	bc.Init(GroupMinerID{gid, p.GetMinerID()})
-	sgi := p.getGroup(gid)
+func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
+	bc := NewBlockContext(p, sgi)
 
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)

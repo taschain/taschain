@@ -8,6 +8,8 @@ import (
 	"sync"
 	"core"
 	"middleware/types"
+	"log"
+	"consensus/model"
 )
 
 type STATIC_GROUP_STATUS int
@@ -24,9 +26,9 @@ const (
 type StaticGroupInfo struct {
 	GroupID       groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK       groupsig.Pubkey           //组公钥
-	Members       []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
+	Members       []model.PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
 	MemIndex      map[string]int            //用ID查找成员信息(成员ID->members中的索引)
-	GIS           ConsensusGroupInitSummary //组的初始化凭证
+	GIS           model.ConsensusGroupInitSummary //组的初始化凭证
 	BeginHeight   uint64                    //组开始参与铸块的高度
 	DismissHeight uint64                    //组解散的高度
 	ParentId      groupsig.ID
@@ -36,7 +38,7 @@ type StaticGroupInfo struct {
 	Extends       string      //带外数据
 }
 
-func NewDummySGIFromGroupRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
+func NewDummySGIFromGroupRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
 		GIS:           grm.GI,
 		ParentId: 		grm.GI.ParentID,
@@ -49,7 +51,7 @@ func NewDummySGIFromGroupRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupI
 	return sgi
 }
 
-func NewSGIFromStaticGroupSummary(summary *StaticGroupSummary, group *InitingGroup) *StaticGroupInfo {
+func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *InitingGroup) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
 		GroupID:       summary.GroupID,
 		GroupPK:       summary.GroupPK,
@@ -75,7 +77,7 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
 		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 		BeginHeight: coreGroup.BeginHeight,
-		Members:     make([]PubKeyInfo, 0),
+		Members:     make([]model.PubKeyInfo, 0),
 		MemIndex:    make(map[string]int),
 		DismissHeight: coreGroup.DismissHeight,
 		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
@@ -103,25 +105,11 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 	return sgi.GroupPK
 }
 
-func (sgi *StaticGroupInfo) GetGroupStatus() STATIC_GROUP_STATUS {
-	s := SGS_UNKNOWN
-	if len(sgi.Members) > 0 && sgi.GroupPK.IsValid() {
-		s = SGS_CASTOR
-	} else {
-		if sgi.GIS.IsExpired() {
-			s = SGS_INIT_TIMEOUT
-		} else {
-			s = SGS_INITING
-		}
-	}
-	return s
-}
-
 //由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm *ConsensusGroupRawMessage) *StaticGroupInfo {
+func NewSGIFromRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
 		GIS:      grm.GI,
-		Members:  make([]PubKeyInfo, 0),
+		Members:  make([]model.PubKeyInfo, 0),
 		MemIndex: make(map[string]int),
 	}
 	for _, v := range grm.MEMS {
@@ -150,7 +138,7 @@ func (sgi *StaticGroupInfo) GroupConsensusInited(pk groupsig.Pubkey, id groupsig
 	return true
 }
 
-func (sgi *StaticGroupInfo) addMember(m *PubKeyInfo) {
+func (sgi *StaticGroupInfo) addMember(m *model.PubKeyInfo) {
 	if m.GetID().IsValid() {
 		_, ok := sgi.MemIndex[m.GetID().GetHexString()]
 		if !ok {
@@ -171,7 +159,7 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 
 //ok:是否组内成员
 //m:组内成员矿工公钥
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m PubKeyInfo, ok bool) {
+func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
 	var i int
 	i, ok = sgi.MemIndex[uid.GetHexString()]
 	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
@@ -278,7 +266,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	return false
 }
 
-func (gg *GlobalGroups) GroupInitedMessage(sgs *StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
+func (gg *GlobalGroups) GroupInitedMessage(sgs *model.StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
 	return gg.generator.ReceiveData(sgs, sender, height)
 }
 
@@ -323,6 +311,10 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
+		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", GetIDPrefix(id))
+		for _, g := range gg.groups {
+			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", GetIDPrefix(g.GroupID))
+		}
 		g = &StaticGroupInfo{}
 	}
 	return

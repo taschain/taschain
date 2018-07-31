@@ -3,11 +3,11 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
-	"consensus/rand"
 	"fmt"
 	"log"
 	"math/big"
 	"unsafe"
+	"consensus/base"
 )
 
 // Curve and Field order
@@ -114,7 +114,7 @@ func NewSeckeyFromLittleEndian(b []byte) *Seckey {
 }
 
 //由随机数构建私钥
-func NewSeckeyFromRand(seed rand.Rand) *Seckey {
+func NewSeckeyFromRand(seed base.Rand) *Seckey {
 	//把随机数转换成字节切片（小端模式）后构建私钥
 	return NewSeckeyFromLittleEndian(seed.Bytes())
 }

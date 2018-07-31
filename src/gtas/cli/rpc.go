@@ -99,7 +99,7 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
-	nodes :=network.Network.ConnInfo()
+	nodes :=network.GetNetInstance().ConnInfo()
 	conns := make([]ConnInfo,0)
 	for _,n := range nodes{
 		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
@@ -146,7 +146,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	var castorId groupsig.ID
 	castorId.Deserialize(bh.Castor)
-	blockDetail["castor"] = castorId.GetString()
+	blockDetail["castor"] = castorId.String()
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
@@ -199,7 +199,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr :=  groupsig.DeserializeId(mem.Id).GetString()
+		memberStr :=  groupsig.DeserializeId(mem.Id).String()
 		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
@@ -217,6 +217,33 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 		gmap := convertGroup(g)
 		gmap["height"] = h
 		h++
+		ret = append(ret, gmap)
+	}
+	return &Result{"success", ret}, nil
+}
+
+
+func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
+	height := core.BlockChainImpl.Height()
+	return api.GetWorkGroup(height)
+}
+
+
+func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
+	groups := mediator.Proc.GetCastQualifiedGroups(height)
+	ret := make([]map[string]interface{}, 0)
+
+	for _, g := range groups {
+		gmap := make(map[string]interface{})
+		gmap["id"] = logical.GetIDPrefix(g.GroupID)
+		gmap["parent"] = logical.GetIDPrefix(g.GroupID)
+		mems := make([]string, 0)
+		for _, mem := range g.Members {
+			mems = append(mems, logical.GetIDPrefix(mem.ID))
+		}
+		gmap["group_members"] = mems
+		gmap["begin_height"] = g.BeginHeight
+		gmap["dismiss_height"] = g.DismissHeight
 		ret = append(ret, gmap)
 	}
 	return &Result{"success", ret}, nil

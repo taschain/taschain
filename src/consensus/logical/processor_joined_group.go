@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync/atomic"
+	"consensus/model"
 )
 
 /*
@@ -135,9 +136,9 @@ func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
 }
 
 //取得组内成员的签名公钥
-func (p Processor) GetMemberSignPubKey(gmi GroupMinerID) (pk groupsig.Pubkey) {
-	if jg := p.belongGroups.getJoinedGroup(gmi.gid); jg != nil {
-		pk = jg.GetMemSignPK(gmi.uid)
+func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey) {
+	if jg := p.belongGroups.getJoinedGroup(gmi.Gid); jg != nil {
+		pk = jg.GetMemSignPK(gmi.Uid)
 	}
 	return
 }
@@ -196,12 +197,3 @@ func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
 	}
 }
 
-func (p *Processor) cleanDismissGroupRoutine() bool {
-	topHeight := p.MainChain.QueryTopBlock().Height
-	ids := p.globalGroups.DismissGroups(topHeight)
-	log.Printf("cleanDismissGroupRoutine: clean group %v\n", len(ids))
-	p.globalGroups.RemoveGroups(ids)
-	p.blockContexts.removeContexts(ids)
-	p.belongGroups.leaveGroups(ids)
-	return true
-}

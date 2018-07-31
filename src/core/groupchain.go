@@ -10,7 +10,7 @@ import (
 	"vm/ethdb"
 	"core/datasource"
 	"middleware/types"
-	"network"
+	"redis"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -114,17 +114,17 @@ func (chain *GroupChain) Close() {
 }
 
 func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
-	pubKey, _ := network.GetPubKeyById(id)
+	pubKey, _ := redis.GetPubKeyById(id)
 	return pubKey
 }
 
 func (chain *GroupChain) GetMemberPubkeyByIDs(ids [][]byte) [][]byte {
-	result, _ := network.GetPubKeyByIds(ids)
+	result, _ := redis.GetPubKeyByIds(ids)
 	return result
 }
 
 func (chain *GroupChain) GetCandidates() ([][]byte, error) {
-	return network.GetAllNodeIds()
+	return redis.GetAllNodeIds()
 }
 
 func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
@@ -210,7 +210,6 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 
 	}
 	// todo: 通过父亲节点公钥校验本组的合法性
-
 	return chain.save(group, flag)
 }
 

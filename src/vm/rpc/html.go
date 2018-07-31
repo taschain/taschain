@@ -26,6 +26,7 @@ const HTMLTEM = `<!DOCTYPE html>
             <li>投票</li>
             <li>查询块信息</li>
             <li>查询组信息</li>
+            <li>查询工作组</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -364,6 +365,21 @@ const HTMLTEM = `<!DOCTYPE html>
             <div class="layui-tab-item">
                 <table id="group_detail" lay-filter="block_detail"></table>
             </div>
+            <div class="layui-tab-item">
+                <table class="layui-table">
+                    <tr>
+                        <td width="40%">
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="根据高度查询工作组信息" id="query_wg_input">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_wg_btn">查询</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <table id="work_group_detail" lay-filter="block_detail"></table>
+            </div>
         </div>
     </div>
 </div>
@@ -383,6 +399,7 @@ const HTMLTEM = `<!DOCTYPE html>
         host_ele.text(HOST);
         var blocks = [];
         var groups = [];
+        var workGroups = [];
         var groupIds = new Set();
         var table = layui.table;
 
@@ -402,6 +419,16 @@ const HTMLTEM = `<!DOCTYPE html>
             ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},{field:'parent', title: '父亲组', width:140},
                 {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
                 {field:'members', title: '成员列表'}]] //设置表头
+            ,data: groups
+            ,page: true
+            ,limit:15
+        });
+
+        var work_group_table = table.render({
+            elem: '#work_group_detail' //指定原始表格元素选择器（推荐id选择器）
+            ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},
+                {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
+                {field:'group_members', title: '成员列表'}]] //设置表头
             ,data: groups
             ,page: true
             ,limit:15
@@ -870,7 +897,7 @@ const HTMLTEM = `<!DOCTYPE html>
                 },
                 data: JSON.stringify(params),
                 success: function (rdata) {
-                    if (rdata.result !== undefined && rdata.result.message == 'success'){
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
                         retArr = rdata.result.data
                         for(i = 0; i < retArr.length; i++) {
                             if (!groupIds.has(retArr[i]["group_id"])) {
@@ -880,6 +907,47 @@ const HTMLTEM = `<!DOCTYPE html>
                         }
                         group_table.reload({
                                     data: groups
+                                }
+                        )
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
+
+        $("#query_wg_btn").click(function () {
+            var h = $("#query_wg_input").val()
+            if (h == null || h == undefined || h == '') {
+                alert("请输入查询高度")
+                return
+            }
+			queryWorkGroup(parseInt(h))
+        })
+        //查询工作组
+        function queryWorkGroup(height) {
+            let params = {
+                "method": "GTAS_getWorkGroup",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
+                        retArr = rdata.result.data
+                        work_group_table.reload({
+                                    data: retArr
                                 }
                         )
                     }

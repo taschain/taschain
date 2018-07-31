@@ -5,9 +5,10 @@ import (
 	"time"
 	"middleware/types"
 	"consensus/groupsig"
-	"consensus/rand"
 	"common"
 	"sync"
+	"consensus/model"
+	"consensus/base"
 )
 
 /*
@@ -27,7 +28,7 @@ func NewCastBlockContexts() *CastBlockContexts {
 }
 
 func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-    _, load := bctx.contexts.LoadOrStore(bc.MinerID.gid.GetHexString(), bc)
+    _, load := bctx.contexts.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
     return !load
 }
 
@@ -69,7 +70,7 @@ func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
 //增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processor) AddBlockContext(bc *BlockContext) bool {
 	var add = p.blockContexts.addBlockContext(bc)
-	log.Printf("AddBlockContext, gid=%v, result=%v\n.", GetIDPrefix(bc.MinerID.gid), add)
+	log.Printf("AddBlockContext, gid=%v, result=%v\n.", GetIDPrefix(bc.MinerID.Gid), add)
 	return add
 }
 
@@ -79,16 +80,16 @@ func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
 	return p.blockContexts.getBlockContext(gid)
 }
 
-func (p *Processor) getCleanGroupRoutineName() string {
-	return "clean_dismiss_group_" + p.getPrefix()
+func (p *Processor) getReleaseRoutineName() string {
+	return "release_routine_" + p.getPrefix()
 }
 
 //预留接口
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
-	p.Ticker.RegisterRoutine(p.getCleanGroupRoutineName(), p.cleanDismissGroupRoutine, 2)
-	p.Ticker.StartTickerRoutine(p.getCleanGroupRoutineName(), false)
+	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
+	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
 	p.prepareMiner()
 	p.ready = true
 	return true
@@ -138,7 +139,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	deltaHeight = uint64(d.Seconds()) / uint64(MAX_GROUP_BLOCK_TIME) + 1
+	deltaHeight = uint64(d.Seconds()) / uint64(model.Param.MaxGroupCastTime) + 1
 	expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
 
 	if top.Height > 0 {
@@ -202,7 +203,7 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 
 	deltaHeight := height - preBH.Height
 	for ; deltaHeight > 0; deltaHeight -- {
-		hash = rand.Data2CommonHash(data)
+		hash = base.Data2CommonHash(data)
 		data = hash.Bytes()
 	}
 
@@ -248,14 +249,14 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	}
 	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
 
-	var cbm ConsensusBlockMessage
+	var cbm model.ConsensusBlockMessage
 	cbm.Block = *block
 	cbm.GroupID = gid
-	ski := SecKeyInfo{p.GetMinerID(), p.mi.GetDefaultSecKey()}
+	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	cbm.GenSign(ski, &cbm)
 	if !PROC_TEST_MODE {
 		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
-		go BroadcastNewBlock(&cbm)
+		p.NetServer.BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
 	}
 	return
@@ -272,7 +273,7 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 	//hash = bh.Hash //TO DO:替换成出块头的哈希
 	//to do : change nonce
 	nonce := time.Now().Unix()
-	gid := bc.MinerID.gid
+	gid := bc.MinerID.Gid
 
 	logStart("CASTBLOCK", height, uint64(qn), p.getPrefix(), "开始铸块")
 
@@ -289,23 +290,23 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
-	var si SignData
+	var si model.SignData
 	si.DataHash = bh.Hash
 	si.SignMember = p.GetMinerID()
 
 	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
 		//发送该出块消息
-		var ccm ConsensusCastMessage
+		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(SecKeyInfo{p.GetMinerID(), p.getSignKey(gid)}, &ccm)
+		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), &ccm)
 
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 		if !PROC_TEST_MODE {
-			go SendCastVerify(&ccm)
+			p.NetServer.SendCastVerify(&ccm)
 		} else {
 			for _, proc := range p.GroupProcs {
-				proc.OnMessageCast(ccm)
+				proc.OnMessageCast(&ccm)
 			}
 		}
 	} else {

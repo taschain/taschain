@@ -2,12 +2,12 @@ package groupsig
 
 import (
 	"consensus/bls"
-	"consensus/rand"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 	"unsafe"
+	"consensus/base"
 )
 
 type Expect struct {
@@ -19,7 +19,7 @@ type Expect struct {
 func testPubkey(t *testing.T) {
 	fmt.Printf("\nbegin test pub key...\n")
 	t.Log("testPubkey")
-	r := rand.NewRand() //生成随机数
+	r := base.NewRand() //生成随机数
 
 	fmt.Printf("size of rand = %v\n.", len(r))
 	sec := NewSeckeyFromRand(r.Deri(1)) //以r的衍生随机数生成私钥
@@ -132,7 +132,7 @@ func testAggregation(t *testing.T) {
 	//    m := 5
 	n := 3
 	//    groupPubkeys := make([]Pubkey, m)
-	r := rand.NewRand()                      //生成随机数基
+	r := base.NewRand()                      //生成随机数基
 	seckeyContributions := make([]Seckey, n) //私钥切片
 	for i := 0; i < n; i++ {
 		seckeyContributions[i] = *NewSeckeyFromRand(r.Deri(i)) //以r为基，i为递增量生成n个相关性私钥
@@ -158,7 +158,7 @@ func testAggregateSeckeys(t *testing.T) {
 	fmt.Printf("\nbegin testAggregateSeckeys...\n")
 	t.Log("begin testAggregateSeckeys")
 	n := 100
-	r := rand.NewRand() //创建随机数基r
+	r := base.NewRand() //创建随机数基r
 	secs := make([]Seckey, n)
 	fmt.Printf("begin init 100 sec key...\n")
 	for i := 0; i < n; i++ {
@@ -218,7 +218,7 @@ func testRecoverSeckey(t *testing.T) {
 	fmt.Printf("\nbegin testRecoverSeckey...\n")
 	t.Log("testRecoverSeckey")
 	n := 50
-	r := rand.NewRand() //生成随机数基
+	r := base.NewRand() //生成随机数基
 
 	secs := make([]Seckey, n) //私钥切片
 	ids := make([]ID, n)      //ID切片
@@ -258,7 +258,7 @@ func testShareSeckey(t *testing.T) {
 	t.Log("testShareSeckey")
 	n := 100
 	msec := make([]Seckey, n)
-	r := rand.NewRand()
+	r := base.NewRand()
 	for i := 0; i < n; i++ {
 		msec[i] = *NewSeckeyFromRand(r.Deri(i)) //生成100个随机私钥（bls库初始化函数）
 	}
@@ -338,7 +338,7 @@ func TestIDStringConvert(t *testing.T){
 	Init(1)
 	str := "QmWJZdSV23by4xzYSz8SEmcfdo38N27WgxSefoy179pnoK"
 	id := NewIDFromString(str)
-	s:= id.GetString()
+	s:= id.String()
 	fmt.Printf("id str:%s\n",s)
 	fmt.Printf("id str compare resylt:%t\n",str==s)
 }
@@ -368,11 +368,26 @@ func TestID_Deserialize(t *testing.T) {
 
 	t.Log([]byte(s))
 	t.Log(id1.Serialize(), id2.Serialize())
-	t.Log(id1.GetString(), id2.GetString())
+	t.Log(id1.String(), id2.String())
 
 	b := id2.Serialize()
 	id3 := DeserializeId(b)
 	t.Log(id3.GetHexString())
 }
 
+func TestNewIDFromString(t *testing.T) {
+	Init(1)
+	id := NewIDFromString("0x123abc")
+	t.Log(id.String(), ",===", id.GetHexString())
 
+	//bi := new(big.Int).SetBytes([]byte("abc"))
+	//id2 := NewIDFromBigInt(bi)
+	//
+	//var id3 ID
+	//id3.SetHexString(PREFIX + bi.Text(16))
+
+	//t.Log(id2.GetHexString(), id3.GetHexString())
+	id2 := NewIDFromInt(23)
+	t.Log(id2.String(), id2.GetHexString())
+
+}

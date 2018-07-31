@@ -9,6 +9,7 @@ import (
 	"common"
 	"crypto/sha256"
 	"encoding/hex"
+	"time"
 )
 
 const (
@@ -65,7 +66,7 @@ const (
 	CREATE_GROUP_SIGN uint32 = 0x17
 )
 
-type network struct {
+type server struct {
 	Self *Node
 
 	netCore *NetCore
@@ -75,7 +76,7 @@ type network struct {
 	chainHandler MsgHandler
 }
 
-func (n *network) Send(targetId string, msg Message) error {
+func (n *server) Send(targetId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
@@ -85,69 +86,111 @@ func (n *network) Send(targetId string, msg Message) error {
 		go n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.SendData(common.HexStringToAddress(targetId), nil, bytes)
+	go n.netCore.Send(common.HexStringToAddress(targetId), nil, bytes)
 	return nil
 }
 
-func (n *network) Multicast(groupId string, msg Message) error {
+func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendDataToGroup(groupId, bytes)
+
+	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
 	return nil
 }
 
-func (n *network) Broadcast(msg Message) error {
+func (n *server) Multicast(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendDataToAll(bytes)
+
+	n.netCore.SendGroup(groupId, bytes, true)
 	return nil
 }
 
-func (n *network) ConnInfo() []Conn {
+func (n *server) TransmitToNeighbor(msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes, false)
+	return nil
+}
+
+func (n *server) Broadcast(msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes, true)
+	return nil
+}
+
+func (n *server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
-	peers := n.netCore.PM.peers
+	peers := n.netCore.peerManager.peers
 	for _, p := range peers {
-		if p.seesionID > 0 && p.IP != nil && p.Port > 0 {
-			c := Conn{Id: p.ID.GetHexString(), Ip: p.IP.String(), Port: strconv.Itoa(p.Port)}
+		if p.seesionId > 0 && p.Ip != nil && p.Port > 0 {
+			c := Conn{Id: p.Id.GetHexString(), Ip: p.Ip.String(), Port: strconv.Itoa(p.Port)}
 			result = append(result, c)
 		}
 	}
 	return result
 }
 
-//AddGroup 添加组
-func (n *network) AddGroup(groupID string, members []string) *Group {
+func (n *server) BuildGroupNet(groupId string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, common.HexStringToAddress(id))
 	}
-	return n.netCore.GM.AddGroup(groupID, nodes)
+	n.netCore.groupManager.AddGroup(groupId, nodes)
+}
+
+func (n *server) DissolveGroupNet(groupId string) {
+	n.netCore.groupManager.RemoveGroup(groupId)
+}
+
+func (n *server) AddGroup(groupId string, members []string) *Group {
+	nodes := make([]NodeID, 0)
+	for _, id := range members {
+		nodes = append(nodes, common.HexStringToAddress(id))
+	}
+	return n.netCore.groupManager.AddGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
-func (n *network) RemoveGroup(ID string) {
-	n.netCore.GM.RemoveGroup(ID)
+func (n *server) RemoveGroup(ID string) {
+	n.netCore.groupManager.RemoveGroup(ID)
 }
 
-func (n *network) sendSelf(b []byte) {
+func (n *server) sendSelf(b []byte) {
 	n.handleMessage(b, n.Self.Id.GetHexString())
 }
 
-func (n *network) handleMessage(b []byte, from string) {
+func (n *server) handleMessage(b []byte, from string) {
+	begin := time.Now()
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
 
-	//Logger.Debugf("rcv %s from %s\n", message.Hash(), from)
 	code := message.Code
+	if code == KEY_PIECE_MSG{
+		Logger.Debugf("Receive key piece form%s,hash:%s", from, message.Hash())
+	}
+
+	if code ==  SIGN_PUBKEY_MSG{
+		Logger.Debugf("Receive SIGN_PUBKEY_MSG form%s,hash:%s", from, message.Hash())
+	}
+
+	defer Logger.Debugf("code:%d,cost time:%v", code, time.Since(begin))
 	switch code {
 	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
 		VARIFIED_CAST_MSG, CREATE_GROUP_RAW, CREATE_GROUP_SIGN:

@@ -32,9 +32,9 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil
 		}
-		if msg.Code == network.TRANSACTION_GOT_MSG {
-			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
-		}
+		//if msg.Code == network.TRANSACTION_GOT_MSG {
+		//	network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
+		//}
 		err := onMessageTransaction(m)
 		return err
 	case network.NEW_BLOCK_MSG:
@@ -326,7 +326,12 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 			cbh = append(cbh, pbToBlockHash(b))
 		}
 	}
-	m := core.BlockInfo{Block:block,IsTopBlock:*message.IsTopBlock, ChainPiece: cbh}
+
+	var topBlock bool
+	if message.IsTopBlock !=nil{
+		topBlock = *(message.IsTopBlock)
+	}
+	m := core.BlockInfo{Block:block,IsTopBlock:topBlock, ChainPiece: cbh}
 	return &m, nil
 }
 
