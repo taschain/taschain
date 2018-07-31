@@ -155,3 +155,7 @@ func TestVmTestABI(t *testing.T) {
 func TestVmTestException(t *testing.T) {
 	VmTestException()
 }
+
+func TestVmTestToken(t *testing.T) {
+	VmTestToken()
+}
