@@ -377,8 +377,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 		//dummy 组写入组链 add by 小熊
-		staticGroupInfo := NewDummySGIFromGroupRawMessage(grm)
-		p.groupManager.AddGroupOnChain(staticGroupInfo, true)
+		//staticGroupInfo := NewDummySGIFromGroupRawMessage(grm)
+		//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
 	//非组内成员不走后续流程
@@ -577,6 +577,19 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	return
 }
 
+func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
+	add := p.globalGroups.AddStaticGroup(staticGroup)
+	log.Printf("Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
+
+	if add {
+		p.groupManager.AddGroupOnChain(staticGroup, false)
+
+		if p.IsMinerGroup(staticGroup.GroupID) && p.GetBlockContext(staticGroup.GroupID) == nil {
+			p.prepareForCast(staticGroup)
+		}
+	}
+}
+
 //全网节点收到某组已初始化完成消息（在一个时间窗口内收到该组51%成员的消息相同，才确认上链）
 //最终版本修改为父亲节点进行验证（51%）和上链
 //全网节点处理函数->to do : 调整为父亲组节点处理函数
@@ -633,17 +646,9 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
 		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK), staticGroup.BeginHeight, staticGroup.DismissHeight)
-		add := p.globalGroups.AddStaticGroup(staticGroup)
-		log.Printf("OMGIED Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
+
+		p.acceptGroup(staticGroup)
 		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "组上链 id=%v", GetIDPrefix(staticGroup.GroupID))
-
-		if add {
-			p.groupManager.AddGroupOnChain(staticGroup, false)
-
-			if p.IsMinerGroup(gim.GI.GroupID) && p.GetBlockContext(gim.GI.GroupID) == nil {
-				p.prepareForCast(staticGroup)
-			}
-		}
 
 		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
 

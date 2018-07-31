@@ -37,3 +37,17 @@ func (h *blockAddEventHandler) Handle(message notify.Message) {
 	}
 
 }
+
+type groupAddEventHandler struct {
+	p *Processor
+}
+
+func (h *groupAddEventHandler) Handle(message notify.Message) {
+	group := message.GetData().(types.Group)
+	sgi := NewSGIFromCoreGroup(&group)
+	log.Printf("groupAddEventHandler receive message, groupId=%v\n", GetIDPrefix(sgi.GroupID))
+	h.p.globalGroups.AddStaticGroup(sgi)
+}
+
+
+

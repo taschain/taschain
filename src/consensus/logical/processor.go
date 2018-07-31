@@ -89,6 +89,7 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
 	notify.BUS.Subscribe(notify.BLOCK_ADD_SUCC, &blockAddEventHandler{p: p,})
+	notify.BUS.Subscribe(notify.GROUP_ADD_SUCC, &groupAddEventHandler{p: p})
 	return true
 }
 
