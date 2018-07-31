@@ -327,9 +327,15 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 	var ga groupsig.ID
 	value := h.Big()
 
+	gids := make([]string, 0)
+	for _, g := range qualifiedGS {
+		gids = append(gids, GetIDPrefix(g.GroupID))
+	}
+
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
+		log.Printf("SelectNextGroup qualified groups %v, index %v\n", gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")
