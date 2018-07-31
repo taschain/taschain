@@ -181,6 +181,14 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 
 	code := message.Code
+	if code == KEY_PIECE_MSG{
+		Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
+	}
+
+	if code == SIGN_PUBKEY_MSG{
+		Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
+	}
+
 	if code == CAST_VERIFY_MSG{
 		Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
 	}
