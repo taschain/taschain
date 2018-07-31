@@ -215,6 +215,11 @@ func NewTvm(state vm.StateDB)*Tvm {
 }
 
 func (tvm *Tvm)Execute(script string) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	C.tvm_execute(C.CString(script))
 }
 
