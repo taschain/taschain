@@ -144,10 +144,10 @@ func (gs *groupSyncer) loop() {
 			}
 			logger.Debugf("[GroupSyncer]Request height:%d,local group height is:%d,isTopGroup:%t", gri.Height, topHeight, isTopGroup)
 			sendGroup(gri.SourceId, group, isTopGroup)
-			logger.Debugf("[GroupSyncer]Send group back to %s,group id:%s,isTopGroup:%v",gri.SourceId, group.Id, isTopGroup)
+			logger.Debugf("[GroupSyncer]Send group back to %s,group id:%d,isTopGroup:%v",gri.SourceId, group.Id, isTopGroup)
 		case groupInfo := <-gs.GroupCh:
 			//收到组信息
-			logger.Debugf("[GroupSyncer]Receive group :%v", groupInfo.Group.Id)
+			logger.Debugf("[GroupSyncer]Receive group :%d", groupInfo.Group.Id)
 
 			e := core.GroupChainImpl.AddGroup(groupInfo.Group, nil, nil)
 			if e != nil {
