@@ -381,6 +381,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 		//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
+	logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "", "")
+
 	//非组内成员不走后续流程
 	if !grm.MemberExist(p.GetMinerID()) {
 		return
