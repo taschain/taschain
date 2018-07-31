@@ -127,8 +127,10 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	ns.net.Multicast(groupId.GetHexString(),m)
 	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime),m.Hash())
+	begin:= time.Now()
+	ns.net.Multicast(groupId.GetHexString(),m)
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(begin),m.Hash())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -145,8 +147,10 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	//network.Logger.Debugf("[peer]%s send VARIFIED_CAST_MSG %d-%d,time cost:%v", p2p.Server.SelfNetInfo.ID.GetHexString(), cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime))
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime),m.Hash())
+	begin:= time.Now()
 	ns.net.Multicast(groupId.GetHexString(),m)
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(begin),m.Hash())
 }
 
 //对外广播经过组签名的block 全网广播
