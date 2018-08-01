@@ -108,6 +108,8 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
 	ns.net.Broadcast(m)
+	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s",m.Hash())
+
 }
 
 //-----------------------------------------------------------------组铸币----------------------------------------------
