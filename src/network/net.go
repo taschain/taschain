@@ -687,7 +687,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		destNodeId.SetBytes(req.DestNodeId)
 		srcNodeId := NodeID{};
 		srcNodeId.SetBytes(req.SrcNodeId)
-		Logger.Infof("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType,req.MessageId, destNodeId.GetHexString(),srcNodeId.GetHexString())
 
 		if !forwarded  {
 			nc.messageManager.forward(req.MessageId)
@@ -697,6 +696,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 			}
 			//需广播
 			if(len(req.DestNodeId) == 0 || destNodeId != nc.id) {
+				Logger.Infof("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType,req.MessageId, destNodeId.GetHexString(),srcNodeId.GetHexString())
 
 				dataBuffer :=bytes.NewBuffer(packet)
 				if req.DataType == DataType_DataGroup {
