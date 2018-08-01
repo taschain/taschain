@@ -206,7 +206,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 
 	if code == GROUP_INIT_DONE_MSG {
-		Logger.Debugf("Receive GROUP_INIT_MSG from %s,hash:%s", from, message.Hash())
+		Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
 	}
 
 	defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
