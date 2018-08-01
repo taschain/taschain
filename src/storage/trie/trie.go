@@ -1,30 +1,13 @@
-// Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
-// Package trie implements Merkle Patricia Tries.
 package trie
 
 import (
 	"bytes"
 	"fmt"
 
-	"storage/common"
-	"storage/crypto"
-	"storage/log"
+	"common"
+	"taslog"
 	"github.com/rcrowley/go-metrics"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -32,7 +15,9 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
 	// emptyState is the known hash of an empty state trie entry.
-	emptyState = crypto.Keccak256Hash(nil)
+	emptyState = sha3.Sum256(nil)
+
+	log = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 var (

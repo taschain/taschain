@@ -23,8 +23,8 @@ import (
 	"storage/core/types"
 )
 
-// StateDB is an EVM database for full state querying.
-type StateDB interface {
+// AccountDB is an EVM database for full state querying.
+type AccountDB interface {
 	CreateAccount(common.Address)
 
 	SubBalance(common.Address, *big.Int)
@@ -42,8 +42,8 @@ type StateDB interface {
 	AddRefund(uint64)
 	GetRefund() uint64
 
-	GetState(common.Address, string) []byte
-	SetState(common.Address, string, []byte)
+	GetData(common.Address, string) []byte
+	SetData(common.Address, string, []byte)
 
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
@@ -59,7 +59,4 @@ type StateDB interface {
 	Snapshot() int
 
 	AddLog(*types.Log)
-	AddPreimage(common.Hash, []byte)
-
-	//ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
 }
