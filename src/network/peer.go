@@ -92,6 +92,9 @@ func newPeerManager() *PeerManager {
 
 
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
+
+	begin := time.Now()
+
 	netId := netCoreNodeID(toid)
 	p := pm.peerByNetID(netId)
 	if p == nil {
@@ -102,7 +105,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId,p)
 	}
 	if  p.seesionId > 0 {
-		Logger.Infof("P2PSend %v len: %v ", p.seesionId, packet.Len())
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
@@ -118,9 +120,11 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			Logger.Infof("[P2P]Connect：ID: %v IP: %v Port:%v ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("Connect：ID: %v IP: %v Port:%v ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
+
+	Logger.Infof("PeerManager.write  cost time：%v",  time.Since(begin))
 
 	return nil
 }

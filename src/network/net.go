@@ -568,7 +568,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 	msgLen := binary.BigEndian.Uint32(buf[typeSize : typeSize+lenSize])
 	packetSize := int(msgLen + headSize)
 
-	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v\n ", packetSize, msgType, msgLen, len(buf))
+	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, len(buf))
 
 	if buffer.Len() < packetSize {
 		return MessageType_MessageNone,0, nil, errPacketTooSmall
@@ -600,7 +600,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 
 func (nc *NetCore) handlePing(req *MsgPing,fromId NodeID ) error {
 
-	Logger.Infof("handlePing from ip:%v %v to ip:%v %v \n ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
+	Logger.Infof("handlePing from ip:%v %v to ip:%v %v ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
 
 	if expired(req.Expiration) {
 		return errExpired
