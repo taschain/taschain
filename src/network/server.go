@@ -193,10 +193,6 @@ func (n *server) handleMessage(b []byte, from string) {
 		Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
 	}
 
-	if code == GROUP_INIT_DONE_MSG {
-		Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
-	}
-
 	if code == NEW_BLOCK_MSG {
 		Logger.Debugf("Receive NEW_BLOCK_MSG from %s,hash:%s", from, message.Hash())
 	}

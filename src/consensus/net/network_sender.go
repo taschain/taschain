@@ -75,8 +75,9 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 		return
 	}
 
+	begin:= time.Now()
 	ns.net.SendWithGroupRely(spm.Dest.String(),spm.DummyID.GetHexString(),m)
-	logger.Debugf("SendKeySharePiece to id:%s,hash:%s",spm.Dest.String(),m.Hash())
+	logger.Debugf("SendKeySharePiece to id:%s,hash:%s,cost time:%v",spm.Dest.String(),m.Hash(),time.Since(begin))
 }
 
 //组内广播签名公钥
@@ -91,8 +92,9 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	//给自己发
 	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
 
+	begin:= time.Now()
 	ns.net.Multicast(spkm.DummyID.GetHexString(),m)
-	logger.Debugf("SendSignPubKey hash:%s",m.Hash())
+	logger.Debugf("SendSignPubKey hash:%s,cost time:%v",m.Hash(),time.Since(begin))
 }
 
 //组初始化完成 广播组信息 全网广播
