@@ -12,7 +12,6 @@ type Group struct {
 	id      string
 	members []NodeID
 	nodes   map[NodeID]*Node
-	mutex sync.Mutex
 }
 
 func newGroup(id string, members []NodeID) *Group {
@@ -27,12 +26,15 @@ func (g *Group) addNode(node *Node) {
 }
 
 func (g *Group) doRefresh() {
-	if len(g.nodes) ==  len(g.members) {
+	memberSize := len(g.members)
+	nodeSize :=len(g.nodes) 
+
+	if nodeSize ==  memberSize {
 		return
 	}
-	Logger.Debugf("Group doRefresh id： %v", g.id)
+	Logger.Debugf("Group doRefresh  id： %v", g.id)
 
-	for i := 0; i < len(g.members); i++ {
+	for i := 0; i < memberSize; i++ {
 		id := g.members[i]
 		if id == net.netCore.id {
 			continue
@@ -41,25 +43,46 @@ func (g *Group) doRefresh() {
 		if node != nil && ok {
 			continue
 		}
-		node = net.netCore.kad.resolve(id)
+		node = net.netCore.kad.find(id)
 		if node != nil {
 			g.nodes[id] = node
-			Logger.Debugf("Group Resolve id：%v ip: %v  port:%v", id, node.Ip, node.Port)
-			go net.netCore.ping(node.Id,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
+			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+			go net.netCore.ping(node.Id ,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
-			Logger.Debugf("Group Resolve id：%v  nothing!!!", id)
+			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
+			go net.netCore.kad.resolve(id)
 		}
 	}
 }
 
 func (g *Group) send( packet *bytes.Buffer) {
-
 	for _, node := range g.nodes {
 		if node != nil {
 
 			Logger.Debugf("SendGroup node ip:%v port:%v", node.Ip, node.Port)
 
 			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+		}
+	}
+
+	for i := 0; i < len(g.members); i++ {
+		id := g.members[i]
+		if id == net.netCore.id {
+			continue
+		}
+		node, ok := g.nodes[id]
+		if node != nil && ok {
+			Logger.Debugf("sendGroup node is connected : : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+		}
+		node = net.netCore.kad.find(id)
+		if node != nil {
+			g.nodes[id] = node
+			Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+		} else {
+			Logger.Debugf("sendGroup node not connected  & can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
+			go net.netCore.kad.resolve(id)
 		}
 	}
 	return
@@ -122,7 +145,7 @@ func (gm *GroupManager) doRefresh() {
 	defer gm.mutex.RUnlock()
 
 	for _, group := range gm.groups {
-		group.doRefresh()
+		go group.doRefresh()
 	}
 }
 
