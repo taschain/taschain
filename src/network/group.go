@@ -56,14 +56,6 @@ func (g *Group) doRefresh() {
 }
 
 func (g *Group) send( packet *bytes.Buffer) {
-	for _, node := range g.nodes {
-		if node != nil {
-
-			Logger.Debugf("SendGroup node ip:%v port:%v", node.Ip, node.Port)
-
-			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
-		}
-	}
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
@@ -74,15 +66,16 @@ func (g *Group) send( packet *bytes.Buffer) {
 		if node != nil && ok {
 			Logger.Debugf("sendGroup node is connected : : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
-		}
-		node = net.netCore.kad.find(id)
-		if node != nil {
-			g.nodes[id] = node
-			Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-			go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 		} else {
-			Logger.Debugf("sendGroup node not connected  & can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
-			go net.netCore.kad.resolve(id)
+			node = net.netCore.kad.find(id)
+			if node != nil {
+				g.nodes[id] = node
+				Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+			} else {
+				Logger.Debugf("sendGroup node not connected  & can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
+				go net.netCore.kad.resolve(id)
+			}
 		}
 	}
 	return
