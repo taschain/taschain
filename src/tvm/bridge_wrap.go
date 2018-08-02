@@ -161,11 +161,11 @@ void wrap_add_preimage(char* hash, char* preimage)
 import "C"
 import (
 	"unsafe"
-	"vm/core/vm"
 	"encoding/json"
 	"fmt"
 	"bytes"
 	"strconv"
+	"storage/core/vm"
 )
 
 var tvm *Tvm
@@ -199,10 +199,10 @@ func bridge_init() {
 
 
 type Tvm struct {
-	state vm.StateDB
+	state vm.AccountDB
 }
 
-func NewTvm(state vm.StateDB)*Tvm {
+func NewTvm(state vm.AccountDB)*Tvm {
 	if tvm == nil {
 		tvm = &Tvm{}
 	}
