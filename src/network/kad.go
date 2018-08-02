@@ -24,7 +24,7 @@ const (
 
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 
-	refreshInterval    = 30 * time.Second
+	refreshInterval    = 5 * time.Minute
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
