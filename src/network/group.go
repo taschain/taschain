@@ -3,20 +3,21 @@ package network
 import (
 	"bytes"
 	nnet "net"
-	"time"
 	"sync"
+	"time"
 )
 
 // Group 组对象
 type Group struct {
-	id      string
-	members []NodeID
-	nodes   map[NodeID]*Node
+	id             string
+	members        []NodeID
+	nodes          map[NodeID]*Node
+	resolvingNodes map[NodeID]time.Time
 }
 
 func newGroup(id string, members []NodeID) *Group {
 
-	g := &Group{id: id, members: members, nodes: make(map[NodeID]*Node)}
+	g := &Group{id: id, members: members, nodes: make(map[NodeID]*Node),resolvingNodes: make(map[NodeID]time.Time)}
 
 	return g
 }
@@ -27,9 +28,9 @@ func (g *Group) addNode(node *Node) {
 
 func (g *Group) doRefresh() {
 	memberSize := len(g.members)
-	nodeSize :=len(g.nodes) 
+	nodeSize := len(g.nodes)
 
-	if nodeSize ==  memberSize {
+	if nodeSize == memberSize {
 		return
 	}
 	Logger.Debugf("Group doRefresh  id： %v", g.id)
@@ -47,15 +48,25 @@ func (g *Group) doRefresh() {
 		if node != nil {
 			g.nodes[id] = node
 			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-			go net.netCore.ping(node.Id ,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
+			go net.netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
 			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
-			go net.netCore.kad.resolve(id)
+			g.resolve(id)
 		}
 	}
 }
 
-func (g *Group) send( packet *bytes.Buffer) {
+func (g *Group) resolve(id NodeID) {
+	resolveTimeout := 3 * time.Minute
+	t, ok := g.resolvingNodes[id]
+	if ok && time.Since(t) < resolveTimeout {
+		return
+	}
+	g.resolvingNodes[id] = time.Now()
+	go net.netCore.kad.resolve(id)
+}
+
+func (g *Group) send(packet *bytes.Buffer) {
 
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
@@ -74,7 +85,7 @@ func (g *Group) send( packet *bytes.Buffer) {
 				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
 				Logger.Debugf("sendGroup node not connected  & can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
-				go net.netCore.kad.resolve(id)
+				g.resolve(id)
 			}
 		}
 	}
@@ -84,7 +95,7 @@ func (g *Group) send( packet *bytes.Buffer) {
 //GroupManager 组管理
 type GroupManager struct {
 	groups map[string]*Group
-	mutex sync.RWMutex
+	mutex  sync.RWMutex
 }
 
 func newGroupManager() *GroupManager {
@@ -101,7 +112,7 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("AddGroup node id:%v len:%v", ID,len(members))
+	Logger.Debugf("AddGroup node id:%v len:%v", ID, len(members))
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
@@ -114,10 +125,9 @@ func (gm *GroupManager) removeGroup(ID string) {
 	//todo
 }
 
-
 func (gm *GroupManager) loop() {
 
-	const refreshInterval = 1 * time.Second
+	const refreshInterval = 5 * time.Second
 
 	var (
 		refresh = time.NewTicker(refreshInterval)
