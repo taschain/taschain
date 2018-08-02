@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"storage/common"
+	"common"
 	"storage/core/types"
 )
 

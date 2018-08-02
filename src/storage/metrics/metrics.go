@@ -1,19 +1,3 @@
-// Copyright 2015 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 // Package metrics provides general system and process level metrics collection.
 package metrics
 
@@ -26,7 +10,6 @@ import (
 	"taslog"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
-	"vm/log"
 )
 
 // MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
@@ -44,7 +27,7 @@ var logger = taslog.GetLogger(taslog.DefaultConfig)
 func init() {
 	for _, arg := range os.Args {
 		if flag := strings.TrimLeft(arg, "-"); flag == MetricsEnabledFlag || flag == DashboardEnabledFlag {
-			log.Info("Enabling metrics collection")
+			logger.Info("Enabling metrics collection")
 			Enabled = true
 		}
 	}
@@ -105,7 +88,7 @@ func CollectProcessMetrics(refresh time.Duration) {
 		diskWrites = metrics.GetOrRegisterMeter("system/disk/writecount", metrics.DefaultRegistry)
 		diskWriteBytes = metrics.GetOrRegisterMeter("system/disk/writedata", metrics.DefaultRegistry)
 	} else {
-		log.Debug("Failed to read disk metrics", "err", err)
+		logger.Debug("Failed to read disk metrics", "err", err)
 	}
 	// Iterate loading the different stats and updating the meters
 	for i := 1; ; i++ {

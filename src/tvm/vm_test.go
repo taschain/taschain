@@ -1,18 +1,17 @@
 package tvm
 
-
 import (
 	"testing"
-	"vm/common"
-	"vm/core/state"
 
-	"vm/ethdb"
+	"storage/tasdb"
+	"storage/core"
+	"common"
 )
 
 func TestVmTest(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
-	vm := NewTvm(statedb)
+	db, _ := tasdb.NewMemDatabase()
+	state, _ := core.New(common.Hash{}, core.NewDatabase(db))
+	vm := NewTvm(state)
 	script := `import tas
 import account
 account.create_account("0x2234")
