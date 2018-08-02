@@ -31,6 +31,7 @@ const (
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 3	//组准备就绪后, 等待可以铸块的间隔为4个epoch
 	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
+
 )
 
 type ConsensusParam struct {

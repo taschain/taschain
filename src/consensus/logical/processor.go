@@ -84,7 +84,7 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	//p.storage = db
 	//p.sci.Init()
 
-	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
+	p.Ticker = ticker.GetTickerInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 

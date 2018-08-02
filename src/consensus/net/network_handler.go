@@ -21,7 +21,11 @@ var MessageHandler = new(ConsensusHandler)
 
 func (c *ConsensusHandler) Init(proc MessageProcessor) {
     c.processor = proc
-    InitStateMachine()
+    InitStateMachines()
+}
+
+func (c *ConsensusHandler) Processor() MessageProcessor {
+    return c.processor
 }
 
 func memberExistIn(mems *[]model.PubKeyInfo, id groupsig.ID) bool {
@@ -57,25 +61,21 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 		belongGroup := memberExistIn(&m.MEMS, c.processor.GetMinerID())
 
-		var machine StateMachineTransform
+		var machines *StateMachines
 		if belongGroup {
-			machine = TimeSeq.GetInsideGroupStateMachine(m.GI.DummyID.GetHexString())
+			machines = &GroupInsideMachines
 		} else {
-			machine = TimeSeq.GetOutsideGroupStateMachine(m.GI.DummyID.GetHexString())
+			machines = &GroupOutsideMachines
 		}
-		machine.Transform(NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
-			c.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
-		})
+		machines.GetMachine(m.GI.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 	case network.KEY_PIECE_MSG:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		machine := TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
-		machine.Transform(NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
-			c.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
-		})
+		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+
 	case network.SIGN_PUBKEY_MSG:
 		logger.Debugf("Receive SIGN_PUBKEY_MSG from:%s", sourceId)
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
@@ -83,10 +83,8 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			network.Logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return  e
 		}
-		machine := TimeSeq.GetInsideGroupStateMachine(m.DummyID.GetHexString())
-		machine.Transform(NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
-			c.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
-		})
+		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+
 	case network.GROUP_INIT_DONE_MSG:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
@@ -95,16 +93,13 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		}
 
 		belongGroup := c.processor.ExistInDummyGroup(m.GI.GIS.DummyID)
-		var machine StateMachineTransform
-		if belongGroup { //组内状态机
-			machine = TimeSeq.GetInsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
-		} else { //组外状态机
-			machine = TimeSeq.GetOutsideGroupStateMachine(m.GI.GIS.DummyID.GetHexString())
+		var machines *StateMachines
+		if belongGroup {
+			machines = &GroupInsideMachines
+		} else {
+			machines = &GroupOutsideMachines
 		}
-
-		machine.Transform(NewStateMsg(code, m, sourceId, ""), func(msg interface{}) {
-			c.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
-		})
+		machines.GetMachine(m.GI.GIS.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 
 	case network.CURRENT_GROUP_CAST_MSG:
 
