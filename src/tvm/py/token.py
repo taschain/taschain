@@ -1,3 +1,4 @@
+
 class Storage(object):
     data = {}
     @staticmethod
@@ -15,19 +16,25 @@ class Storage(object):
     @staticmethod
     def load(obj):
         for k in Storage.data:
-            obj.__dict__[k] = Storage.data[k]
+            setattr(obj, k, Storage.data[k])
+        print("Load:", Storage.data)
 
     @staticmethod
     def save(obj):
         for k in obj.__dict__:
             Storage.put(k, obj.__dict__[k])
+        print("Save:", Storage.data)
+
 
 def require(b):
     if not b:
-        raise (Exception, "")
+        raise Exception("")
 
 
-class Address(str):
+class Address(object):
+    def __init__(self, address):
+        self.value = address
+
     def invalid(self):
         # TODO 检查是否合法地址
         return True
@@ -40,19 +47,42 @@ class Address(str):
         # TODO 转账到合约
         pass
 
+    def __hash__(self):
+        return hash(self.value)
+
+    def __eq__(self, other):
+        return self.value == other.value
 
 
 this = Address("")
+
 owner = Address("")
 
+
 class Msg(object):
-    sender = Address("")
-    value = 0
+    _sender = Address("")
+    _value = 0
+
+    @staticmethod
+    def sender():
+        return Msg._sender
+
+    @staticmethod
+    def set_sender(address):
+        Msg._sender = address
+
+    @staticmethod
+    def value():
+        return Msg._value
+
+    @staticmethod
+    def set_value(value):
+        Msg._value = value
 
 
 #调用者是否为合约创建者
 def check_owner():
-    if owner == Msg.sender:
+    if owner == Msg.sender():
         return True
     else:
         raise Exception("只有合约owner可以操作")
@@ -89,7 +119,7 @@ class TokenERC20(object):
         self.symbol = ""
         self.totalSupply = 0
 
-        self.balanceOf = BalanceDict()
+        self.balanceOf = {}
         self.allowance = {}
     '''
     // This generates a public event on the blockchain that will notify clients
@@ -103,10 +133,10 @@ class TokenERC20(object):
     '''
 
     def _transfer(self, _from, _to, _value):
-        # if _to not in self.balanceOf:
-        #     self.balanceOf[_to] = 0
-        # if _from not in self.balanceOf:
-        #     self.balanceOf[_from] = 0
+        if _to not in self.balanceOf:
+            self.balanceOf[_to] = 0
+        if _from not in self.balanceOf:
+            self.balanceOf[_from] = 0
         # 接收账户地址是否合法
         require(_to.invalid())
         # 账户余额是否满足转账金额
@@ -201,13 +231,15 @@ class MyAdvancedToken(TokenERC20):
 
     def _transfer(self, _from, _to, _value):
         require(_to.invalid)
+        if _from not in self.balanceOf:
+            self.balanceOf[_from] = 0
         require(self.balanceOf[_from] >= _value)
         require(_value > 0)
         # require((_from not in self.frozenAccount) or (not self.frozenAccount[_from]))
         # require((_to not in self.frozenAccount) or (not self.frozenAccount[_to]))
         self.balanceOf[_from] -= _value
-        # if _to not in self.balanceOf:
-        #     self.balanceOf[_to] = 0
+        if _to not in self.balanceOf:
+            self.balanceOf[_to] = 0
         self.balanceOf[_to] += _value
         Event.emit("Transfer", _from, _to, _value)
 
@@ -244,9 +276,11 @@ class MyAdvancedToken(TokenERC20):
 #
 #
 
+
 if __name__ == '__main__':
-    Msg.sender = Address("0xabcdefghijk")
-    Msg.value = 0
+
+    Msg.set_sender(Address("0xabcdefghijk"))
+    Msg.set_value(0)
 
     # 部署合约
     myAdvancedToken = MyAdvancedToken()
@@ -262,6 +296,7 @@ if __name__ == '__main__':
     # Test 1
     myAdvancedToken = MyAdvancedToken()
     Storage.load(myAdvancedToken)
+    print("jyi:", myAdvancedToken.symbol)
     myAdvancedToken.set_prices(100, 100)
     Storage.save(myAdvancedToken)
     # Test 2
@@ -269,7 +304,7 @@ if __name__ == '__main__':
     Storage.load(myAdvancedToken)
     myAdvancedToken.transfer(Address("0xbcbcbcbcbc"), 50)
     Storage.save(myAdvancedToken)
-    print(myAdvancedToken.balanceOf.data)
+    print(myAdvancedToken.balanceOf)
 
 
 
