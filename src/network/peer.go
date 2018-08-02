@@ -111,8 +111,10 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port>0) || pm.natTraversalEnable)  && !p.connecting {
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
-			p.Ip = toaddr.IP
-			p.Port = toaddr.Port
+			if toaddr != nil {
+				p.Ip = toaddr.IP
+				p.Port = toaddr.Port
+			}
 			p.sendList = append(p.sendList, packet)
 
 			if pm.natTraversalEnable {
