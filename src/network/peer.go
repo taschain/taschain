@@ -122,7 +122,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			Logger.Infof("Connect：ID: %v IP: %v Port:%v ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("Connect：ID: %v ", toid.GetHexString())
 		}
 	}
 
