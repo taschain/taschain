@@ -148,7 +148,7 @@ func (gm *GroupManager) doRefresh() {
 	defer gm.mutex.RUnlock()
 
 	for _, group := range gm.groups {
-		go group.doRefresh()
+		group.doRefresh()
 	}
 }
 
