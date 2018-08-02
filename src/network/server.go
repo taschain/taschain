@@ -184,7 +184,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d", from, message.Code, len(b))
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b),message.Hash())
 
 	code := message.Code
 	if code == KEY_PIECE_MSG {
