@@ -24,8 +24,7 @@ const (
 
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 
-	refreshInterval    =30 * time.Second
-	checkInterval	= 	3 * time.Second
+	refreshInterval    = 5 * time.Minute
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -289,7 +288,6 @@ func (kad *Kad) refresh() <-chan struct{} {
 func (kad *Kad) loop() {
 	var (
 		refresh        = time.NewTicker(refreshInterval)
-		check        = time.NewTicker(checkInterval)
 		copyNodes      = time.NewTicker(copyNodesInterval)
 		refreshDone    = make(chan struct{})           // where doRefresh reports completion
 		waiting        = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
@@ -319,8 +317,6 @@ loop:
 				close(ch)
 			}
 			waiting, refreshDone = nil, nil
-		case <-check.C:
-			go kad.doCheck()
 		case <-copyNodes.C:
 			go kad.copyBondedNodes()
 		case <-kad.closeReq:
@@ -365,14 +361,6 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 		seed := seeds[i]
 		kad.add(seed)
 	}
-}
-
-
-func (kad *Kad) doCheck() {
-	//fmt.Printf("doCheck ... bucket size:%v ", kad.len())
-	//if kad.len() <= len(kad.nursery) * 3{
-		kad.refresh()
-	///}
 }
 
 
