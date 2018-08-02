@@ -98,7 +98,7 @@ func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error
 	}
 
 	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
-	Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code,len(msg.Body)+4)
+	Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	}
 
 	n.netCore.SendGroup(groupId, bytes, true)
-	Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code,len(msg.Body)+4)
+	Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
-	Logger.Debugf("Receive message from %s,msg size:%d", from, len(b))
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d", from, message.Code, len(b))
 
 	code := message.Code
 	if code == KEY_PIECE_MSG {
