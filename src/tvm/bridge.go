@@ -88,7 +88,7 @@ func SetNonce(addressC *C.char, nonce C.ulonglong) {
 func GetCodeHash(addressC *C.char) *C.char {
 	address := common.StringToAddress(C.GoString(addressC))
 	hash := tvm.state.GetCodeHash(address)
-	return C.CString(hash)
+	return C.CString(hash.String())
 }
 
 //export GetCode
@@ -127,7 +127,7 @@ func GetState(addressC *C.char, hashC *C.char) *C.char {
 	address := common.StringToAddress(C.GoString(addressC))
 	hash := C.GoString(hashC)
 	state := tvm.state.GetData(address, hash)
-	return C.CString(state)
+	return C.CString(string(state))
 }
 
 //export SetState
