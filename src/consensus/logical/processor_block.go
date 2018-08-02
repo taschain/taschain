@@ -4,7 +4,6 @@ import (
 	"log"
 	"common"
 	"fmt"
-	"time"
 	"consensus/groupsig"
 	"middleware/types"
 	"core"
@@ -72,10 +71,10 @@ func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
 }
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
-	begin := time.Now()
-	defer func() {
-		log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	}()
+	//begin := time.Now()
+	//defer func() {
+	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
+	//}()
 	result = p.MainChain.AddBlockOnChain(block)
 
 	bh := block.Header

@@ -149,14 +149,14 @@ func (n *GroupNode) ImportUser(sk common.PrivateKey, addr common.Address) {
 
 //矿工初始化(和组无关)
 func (n *GroupNode) InitForMiner(id groupsig.ID, secret base.Rand) {
-	log.Printf("begin GroupNode::InitForMiner...\n")
+	//log.Printf("begin GroupNode::InitForMiner...\n")
 	n.minerInfo.Init(id, secret)
 	return
 }
 
 //加入某个组初始化
 func (n *GroupNode) InitForGroup(h common.Hash) {
-	log.Printf("begin GroupNode::InitForGroup...\n")
+	//log.Printf("begin GroupNode::InitForGroup...\n")
 	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(h)) //生成用户针对该组的私密种子
 	n.groupInitPool = *newGroupInitPool()                               //初始化秘密接收池
 	n.minerSignedSecret = groupsig.Seckey{} //初始化
@@ -200,7 +200,7 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	log.Printf("begin GroupNode::SetInitPiece...\n")
+	//log.Printf("begin GroupNode::SetInitPiece...\n")
 	if n.groupInitPool.ReceiveData(id, share) == -1 {
 		return -1
 	}
@@ -217,7 +217,7 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
 //接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
 func (n *GroupNode) SetSignPKPiece(spkm *model.ConsensusSignPubKeyMessage) int {
-	log.Printf("begin GroupNode::SetSignPKPiece...\n")
+	//log.Printf("begin GroupNode::SetSignPKPiece...\n")
 	idHex := spkm.SI.SignMember.GetHexString()
 	signPk := spkm.SignPK
 	gisHash := spkm.GISHash

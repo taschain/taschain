@@ -83,10 +83,10 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	sender := GetIDPrefix(si.SignMember)
 	result := ""
 
-	log.Printf("%v message bh %v, top bh %v\n", mtype, p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
+	//log.Printf("%v message bh %v, top bh %v\n", mtype, p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	if p.blockOnChain(bh) {
-		log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
+		//log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
 		result = "已经上链"
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
@@ -246,7 +246,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	}()
 
 	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
-		log.Printf("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
+		//log.Printf("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
 		result = "已经在链上"
 		return
 	}
@@ -291,7 +291,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		p.triggerCastCheck()
 	}
 
-	log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
+	//log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return
 }
 
@@ -404,9 +404,9 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	gs := groupContext.GetGroupStatus()
 	log.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	if gs == GIS_RAW {
-		log.Printf("begin GenSharePieces in OMGI...\n")
+		//log.Printf("begin GenSharePieces in OMGI...\n")
 		shares := groupContext.GenSharePieces() //生成秘密分享
-		log.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
+		//log.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
 
 		spm := &model.ConsensusSharePieceMessage{
 			GISHash: grm.GI.GenHash(),
@@ -419,8 +419,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 			if id != "0x0" && piece.IsValid() {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
-				sb := spm.GenSign(ski, spm)
-				log.Printf("OMGI spm.GenSign result=%v.\n", sb)
+				spm.GenSign(ski, spm)
+				//log.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "sharepiece to %v", GetIDPrefix(spm.Dest))
 				if !PROC_TEST_MODE {
@@ -440,12 +440,12 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				panic("GenSharePieces data not IsValid.\n")
 			}
 		}
-		log.Printf("end GenSharePieces.\n")
+		//log.Printf("end GenSharePieces.\n")
 	} else {
 		log.Printf("group(%v) status=%v, ignore init message.\n", GetIDPrefix(grm.GI.DummyID), gs)
 	}
 
-	log.Printf("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
+	//log.Printf("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	return
 }
 
@@ -512,7 +512,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		}
 	}
 
-	log.Printf("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
+	//log.Printf("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
 
@@ -533,7 +533,7 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		panic("OMSP verify GISSign with sign pub key failed.")
 	}
 
-	log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
+	//log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
 	result := gc.SignPKMessage(spkm)
 	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
 
@@ -575,7 +575,7 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		p.joiningGroups.RemoveGroup(spkm.DummyID)
 	}
 
-	log.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
+	//log.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
 
@@ -661,7 +661,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	case INITING:
 		//继续等待下一包数据
 	}
-	log.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
+	//log.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	return
 }
 

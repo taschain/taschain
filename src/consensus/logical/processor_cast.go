@@ -108,10 +108,10 @@ func (p *Processor) triggerCastCheck()  {
 
 //检查是否当前组铸块
 func (p *Processor) checkSelfCastRoutine() bool {
-	begin := time.Now()
-	defer func() {
-		log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
-	}()
+	//begin := time.Now()
+	//defer func() {
+	//	log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
+	//}()
 	if !p.Ready() {
 		return false
 	}
@@ -220,10 +220,10 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
-	begin := time.Now()
-	defer func() {
-		log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	}()
+	//begin := time.Now()
+	//defer func() {
+	//	log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
+	//}()
 
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
