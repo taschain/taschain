@@ -17,6 +17,7 @@ const (
 	alpha           = 3  // 并发限制
 	bucketSize      = 16 // kad桶大小
 	maxReplacements = 10 // kad 预备桶成员大小
+	maxSetupCheckCount = 12
 
 	hashBits          = 256
 	nBuckets          = hashBits / 15       // kad桶数量
@@ -25,6 +26,7 @@ const (
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 
 	refreshInterval    = 5 * time.Minute
+	checkInterval	= 	12 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -56,6 +58,8 @@ type Kad struct {
 
 	net  transport
 	self *Node
+
+	setupCheckCount int
 }
 
 type bondProc struct {
@@ -298,6 +302,7 @@ func (kad *Kad) refresh() <-chan struct{} {
 func (kad *Kad) loop() {
 	var (
 		refresh        = time.NewTicker(refreshInterval)
+		check        = time.NewTicker(checkInterval)
 		copyNodes      = time.NewTicker(copyNodesInterval)
 		refreshDone    = make(chan struct{})           // where doRefresh reports completion
 		waiting        = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
@@ -322,6 +327,14 @@ loop:
 				refreshDone = make(chan struct{})
 				go kad.doRefresh(refreshDone)
 			}
+		case <-check.C:
+			if kad.setupCheckCount >  maxSetupCheckCount {
+				check.Stop()
+			} else {
+				kad.setupCheckCount = kad.setupCheckCount +1
+				go kad.doCheck()
+			}
+
 		case <-refreshDone:
 			for _, ch := range waiting {
 				close(ch)
@@ -360,6 +373,16 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 		kad.lookup(target, false)
 	}
 }
+
+
+func (kad *Kad) doCheck() {
+
+	Logger.Debugf("doCheck ... bucket size:%v ", kad.len())
+	//if kad.len() <= len(kad.nursery) * 3{
+	kad.refresh()
+	///}
+}
+
 
 func (kad *Kad) loadSeedNodes(bond bool) {
 	seeds := make([]*Node, 0, 16)
