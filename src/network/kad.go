@@ -24,7 +24,7 @@ const (
 
 	maxBondingPingPongs = 16 // 最大ping/pong数量限制
 
-	refreshInterval    = 5 * time.Minute
+	refreshInterval    = 30 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -104,6 +104,16 @@ func newKad(t transport, ourID NodeID, ourAddr *nnet.UDPAddr, nodeDBPath string,
 	kad.loadSeedNodes(false)
 	go kad.loop()
 	return kad, nil
+}
+
+//print 打印桶成员信息
+func (kad *Kad) print() {
+	for i, b := range kad.buckets {
+		for _, n := range b.entries {
+			Logger.Debugf(" [kad] bucket:%v id:%v  addr: IP:%v    Port:%v...", i,n.Id.GetHexString(),n.Ip, n.Port)
+		}
+	}
+	return
 }
 
 func (kad *Kad) seedRand() {
@@ -339,6 +349,7 @@ loop:
 
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
+	kad.print()
 	kad.loadSeedNodes(true)
 
 	kad.lookup(kad.self.Id, false)
