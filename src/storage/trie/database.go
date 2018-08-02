@@ -1,28 +1,11 @@
-// Copyright 2018 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package trie
 
 import (
 	"sync"
 	"time"
 
-	"storage/common"
 	"storage/tasdb"
-	"storage/log"
+	"common"
 )
 
 // secureKeyLength is the length of the above prefix + 32byte hash.
@@ -44,7 +27,6 @@ type Database struct {
 	diskdb tasdb.Database // Persistent storage for matured trie nodes
 
 	nodes     map[common.Hash]*cachedNode // Data and references relationships of a node
-	seckeybuf [secureKeyLength]byte       // Ephemeral buffer for calculating preimage keys
 
 	gctime  time.Duration      // Time spent on garbage collection since last commit
 	gcnodes uint64             // Nodes garbage collected since last commit

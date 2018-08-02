@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"storage/common/hexutil"
-	"storage/crypto"
+	"golang.org/x/crypto/sha3"
 )
 
 type bytesBacked interface {
@@ -82,14 +81,14 @@ func (b Bloom) TestBytes(test []byte) bool {
 }
 
 // MarshalText encodes b as a hex string with 0x prefix.
-func (b Bloom) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(b[:]).MarshalText()
-}
-
-// UnmarshalText b as a hex string with 0x prefix.
-func (b *Bloom) UnmarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedText("Bloom", input, b[:])
-}
+//func (b Bloom) MarshalText() ([]byte, error) {
+//	return hexutil.Bytes(b[:]).MarshalText()
+//}
+//
+//// UnmarshalText b as a hex string with 0x prefix.
+//func (b *Bloom) UnmarshalText(input []byte) error {
+//	return hexutil.UnmarshalFixedText("Bloom", input, b[:])
+//}
 
 func CreateBloom(receipts Receipts) Bloom {
 	bin := new(big.Int)
@@ -113,13 +112,13 @@ func LogsBloom(logs []*Log) *big.Int {
 }
 
 func bloom9(b []byte) *big.Int {
-	b = crypto.Keccak256(b[:])
+	bi := sha3.Sum256(b[:])
 
 	r := new(big.Int)
 
 	for i := 0; i < 6; i += 2 {
 		t := big.NewInt(1)
-		b := (uint(b[i+1]) + (uint(b[i]) << 8)) & 2047
+		b := (uint(bi[i+1]) + (uint(bi[i]) << 8)) & 2047
 		r.Or(r, t.Lsh(t, b))
 	}
 

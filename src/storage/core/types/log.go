@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"io"
 
-	"storage/common"
-	"storage/common/hexutil"
+	"common"
 	"storage/serialize"
 )
 
@@ -57,10 +56,10 @@ type Log struct {
 }
 
 type logMarshaling struct {
-	Data        hexutil.Bytes
-	BlockNumber hexutil.Uint64
-	TxIndex     hexutil.Uint
-	Index       hexutil.Uint
+	Data        []byte
+	BlockNumber uint64
+	TxIndex     uint
+	Index       uint
 }
 
 type rlpLog struct {

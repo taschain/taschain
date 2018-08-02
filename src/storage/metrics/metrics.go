@@ -23,9 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"storage/log"
+	"taslog"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
+	"vm/log"
 )
 
 // MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
@@ -34,6 +35,8 @@ const DashboardEnabledFlag = "dashboard"
 
 // Enabled is the flag specifying if metrics are enable or not.
 var Enabled = false
+var logger = taslog.GetLogger(taslog.DefaultConfig)
+
 
 // Init enables or disables the metrics system. Since we need this to run before
 // any other code gets to create meters and timers, we'll actually do an ugly hack

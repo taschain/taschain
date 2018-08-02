@@ -22,8 +22,7 @@ import (
 	"io"
 	"unsafe"
 
-	"storage/common"
-	"storage/common/hexutil"
+	"common"
 	"storage/serialize"
 )
 
@@ -58,10 +57,10 @@ type Receipt struct {
 }
 
 type receiptMarshaling struct {
-	PostState         hexutil.Bytes
-	Status            hexutil.Uint
-	CumulativeGasUsed hexutil.Uint64
-	GasUsed           hexutil.Uint64
+	PostState         []byte
+	Status            uint
+	CumulativeGasUsed uint64
+	GasUsed           uint64
 }
 
 // receiptRLP is the consensus encoding of a receipt.
