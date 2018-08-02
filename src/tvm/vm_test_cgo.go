@@ -16,7 +16,7 @@ func Read0(filename string)  (string){
 func VmTest() {
 
 	tvm := NewTvm(nil)
-	tvm.Execute(Read0("py/token.py"))
+	tvm.Execute(Read0("py/token/contract_token_test.py"))
 }
 
 func VmTestContract() {
