@@ -75,17 +75,18 @@ type server struct {
 	chainHandler MsgHandler
 }
 
-func (n *server) Send(targetId string, msg Message) error {
+func (n *server) Send(id string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	if targetId == n.Self.Id.GetHexString() {
+	if id == n.Self.Id.GetHexString() {
 		go n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(common.HexStringToAddress(targetId), nil, bytes)
+	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
+	Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -97,6 +98,7 @@ func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error
 	}
 
 	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
+	Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code,len(msg.Body)+4)
 	return nil
 }
 
@@ -108,6 +110,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	}
 
 	n.netCore.SendGroup(groupId, bytes, true)
+	Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code,len(msg.Body)+4)
 	return nil
 }
 
@@ -118,6 +121,7 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		return err
 	}
 	n.netCore.SendAll(bytes, false)
+	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -128,6 +132,7 @@ func (n *server) Broadcast(msg Message) error {
 		return err
 	}
 	n.netCore.SendAll(bytes, true)
+	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -179,6 +184,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
+	Logger.Debugf("Receive message from %s,msg size:%s", false, len(b))
 
 	code := message.Code
 	if code == KEY_PIECE_MSG {
