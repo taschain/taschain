@@ -173,7 +173,7 @@ func (bc *BlockContext) reset() {
 	//bc.GroupMembers = GetGroupMemberNum()
 
 	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
-	log.Printf("end BlockContext::Reset.\n")
+	//log.Printf("end BlockContext::Reset.\n")
 }
 
 //开始铸块
@@ -196,7 +196,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 
 	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
 	//bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
-	log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
+	//log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
 	return
 }
 
@@ -206,7 +206,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	if !bc.Proc.Ready() {
 		return false
 	}
-	log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
+	//log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
 	vctx := bc.GetCurrentVerifyContext()
 	if vctx == nil {
@@ -244,7 +244,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 			return false
 		}
 		bc.Proc.kingCheckAndCast(bc, vctx, index, qn)
-		log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
+		//log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}
 	return true

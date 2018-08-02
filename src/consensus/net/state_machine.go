@@ -4,371 +4,280 @@ import (
 	"network"
 	"sync"
 	"taslog"
-	"vm/common/math"
-	"fmt"
 	"common"
 	"consensus/model"
+	"time"
+	"consensus/ticker"
+	"fmt"
 )
 
 
-/**
-** 	1. 每个组内或全网广播的消息是否都会给自己发
-**	2. 消息时序确认, 全网广播的消息是否不需要前序消息先到达? 如收到NewBlock消息,是否不需要Current, verify, verified消息
- */
-const (
-	MTYPE_GROUP = 1
-	MTYPE_BLOCK = 2
-)
+type stateHandleFunc func(msg interface{})
 
-type StateMachineTransform interface {
-	Transform(msg *StateMsg, handlerFunc StateHandleFunc) bool
+type stateNode struct {
+	code    uint32
+	repeat  int
+	current int
+	data    []*StateMsg
+	handler stateHandleFunc
+	next    *stateNode
+}
+
+type StateMsg struct {
+	Code uint32
+	Data interface{}
+	Id 	string
 }
 
 type StateMachine struct {
 	Id 	string
-	Current *StateNode
-	Head *StateNode
+	Current *stateNode
+	Head *stateNode
+	Time time.Time
 	lock sync.Mutex
 }
 
-//type BlockStateMachines struct {
-//	height uint64
-//	currentMsgNode *StateNode
-//	kingMachines map[string]*StateMachine
-//	lock sync.Mutex
-//}
-
-type StateMsg struct {
-	code uint32
-	msg interface{}
-	sid string
-	key string
+type StateMachines struct {
+	name 	string
+	machines sync.Map
+	generator StateMachineGenerator
+	//machines map[string]*StateMachine
 }
 
-type StateHandleFunc func(msg interface{})
-
-type StateNode struct {
-	State   *StateMsg
-	Handler StateHandleFunc
-	Next    *StateNode
-}
-
-type TimeSequence struct {
-	groupMachines map[string]*StateMachine
-	//blockMachines map[string]*BlockStateMachines
-	finishCh chan string
-	lock sync.Mutex
-}
-
-var TimeSeq TimeSequence
+var GroupInsideMachines StateMachines
+var GroupOutsideMachines StateMachines
 
 var logger taslog.Logger
 
-func InitStateMachine() {
+func InitStateMachines() {
 	logger = taslog.GetLoggerByName("state_machine" + common.GlobalConf.GetString("instance", "index", ""))
 
-	TimeSeq = TimeSequence{
-		groupMachines: make(map[string]*StateMachine),
-		//blockMachines: make(map[string]*BlockStateMachines),
-		finishCh: make(chan string),
+	GroupInsideMachines = StateMachines{
+		name: "GroupInsideMachines",
+		generator: &groupInsideMachineGenerator{},
 	}
 
-	go func() {
-		for {
-			id := <- TimeSeq.finishCh
-			logger.Info("state machine finished, id=", id)
-			TimeSeq.lock.Lock()
+	GroupOutsideMachines = StateMachines{
+		name: "GroupOutsideMachines",
+		generator: &groupOutsideMachineGenerator{},
+	}
 
-			delete(TimeSeq.groupMachines, id)
-			//for _, ms := range TimeSeq.blockMachines {
-			//	delete(ms.kingMachines, id)
-			//}
-			//for gid, ms := range TimeSeq.blockMachines {
-			//	if len(ms.kingMachines) == 0 && ms.currentMsgNode == nil {
-			//		delete(TimeSeq.blockMachines, gid)
-			//		logger.Info("cacscade delete block machines, id=", gid)
-			//	}
-			//}
-
-			TimeSeq.lock.Unlock()
-		}
-	}()
+	GroupInsideMachines.startCleanRoutine()
+	GroupOutsideMachines.startCleanRoutine()
 }
 
-func NewStateMsg(code uint32, msg interface{}, sid string, key string) *StateMsg {
+func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 	return &StateMsg{
-		code: code,
-		msg: msg,
-		sid: sid,
-		key: key,
-	}
-}
-func newStateNode(st uint32) *StateNode {
-	return &StateNode{
-		State: NewStateMsg(st, nil, "", ""),
+		Code:code,
+		Data:data,
+		Id:id,
 	}
 }
 
-func newStateNodeEx(msg *StateMsg) *StateNode {
-	return &StateNode{
-		State: msg,
+func newStateNode(st uint32, r int, h stateHandleFunc) *stateNode {
+	return &stateNode{
+		code: st,
+		repeat: r,
+		data: make([]*StateMsg, 0),
+		handler:h,
 	}
 }
+
 
 func newStateMachine(id string) *StateMachine {
-	init := newStateNode(math.MaxUint32)
-	return &StateMachine{Id: id, Current:init, Head:init}
-}
-
-/** 
-* @Description: 组创建组外状态机 
-* @Param:  
-* @return:  
-*/
-func newOutsideGroupCreateStateMachine(dummyId string) *StateMachine {
-	machine := newStateMachine(dummyId + "-outsidegroup")
-	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), model.Param.GetThreshold())
-	return machine
-}
-
-/** 
-* @Description: 组创建组内状态机 
-* @Param:  
-* @return:  
-*/ 
-func newInsideGroupCreateStateMachine(dummyId string) *StateMachine {
-	machine := newStateMachine(dummyId)
-	machine.addNode(newStateNode(network.GROUP_INIT_MSG), 1)
-	machine.addNode(newStateNode(network.KEY_PIECE_MSG), model.Param.GetGroupMemberNum())
-	machine.addNode(newStateNode(network.SIGN_PUBKEY_MSG), model.Param.GetGroupMemberNum())
-	machine.addNode(newStateNode(network.GROUP_INIT_DONE_MSG), 1)
-	return machine
-}
-
-///**
-//* @Description: 组内某个king铸块状态机
-//* @Param:
-//* @return:
-//*/
-//func newBlockCastStateMachine(id string) *StateMachine {
-//	machine := newStateMachine(id)
-//	//machine.addNode(newStateNode(p2p.CURRENT_GROUP_CAST_MSG), 1)
-//	machine.addNode(newStateNode(network.CAST_VERIFY_MSG), 1)
-//	machine.addNode(newStateNode(network.VARIFIED_CAST_MSG), logical.GetGroupK(logical.GetGroupMemberNum()) - 1)
-//	machine.addNode(newStateNode(network.NEW_BLOCK_MSG), 1)
-//	return machine
-//}
-
-func (m *StateMachine) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
-	state := newStateNodeEx(msg)
-	state.Handler = handleFunc
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	defer func() {
-		if !m.Finish() {
-			logger.Debugf("machine %v wating state %v", m.Id, m.Current.Next.State.code)
-		}
-	}()
-
-	if m.canTransform(state) {	//状态可以转换
-		m.prepareNext(state)
-		m.transform() //执行状态转换
-		return true
-	} else if future, st := m.futureState(state); future {
-		if st == nil {
-			logger.Debugf("machine %v future reducdant state received, ingored! %v", m.Id, state.State)
-		} else {
-			logger.Debugf("machine %v future state received, cached! %v", m.Id, state.State)
-			st.State = state.State // 后续消息先到达,不能转换, 消息先缓存
-			st.Handler = handleFunc
-		}
-		return false
-	} else {
-		logger.Debugf("machine %v prev state received, handle %v", m.Id, state.State)
-		handleFunc(msg.msg) //重复消息或者是某些超过门限后的消息, 怎么处理?
-		return false
+	return &StateMachine{
+		Id: id,
+		Time: time.Now(),
 	}
 }
 
-//func (bsm *BlockStateMachines) getMachineByKey(key string) *StateMachine {
-//    bsm.lock.Lock()
-//    defer bsm.lock.Unlock()
-//	if m, ok := bsm.kingMachines[key]; !ok {
-//		m = newBlockCastStateMachine(key)
-//		bsm.kingMachines[key] = m
-//		return m
-//	} else {
-//		return m
-//	}
-//}
-//
-//func (bsm *BlockStateMachines) setCurrentMsgNode(msg *StateMsg, handlerFunc StateHandleFunc)  {
-//    bsm.lock.Lock()
-//    defer bsm.lock.Unlock()
-//	bsm.currentMsgNode = newStateNodeEx(msg)
-//	bsm.currentMsgNode.Handler = handlerFunc
-//}
-//
-//func (bsm *BlockStateMachines) Transform(msg *StateMsg, handleFunc StateHandleFunc) bool {
-//	if msg.code == network.CURRENT_GROUP_CAST_MSG {
-//		if bsm.currentMsgNode == nil {
-//			bsm.setCurrentMsgNode(msg, handleFunc)
-//			bsm.lock.Lock()
-//			defer bsm.lock.Unlock()
-//			for _, m := range bsm.kingMachines {
-//				m.Transform(msg, handleFunc)
-//			}
-//		}
-//	} else {
-//		machine := bsm.getMachineByKey(msg.key)
-//
-//		if bsm.currentMsgNode != nil {
-//			if future := machine.future(bsm.currentMsgNode); future {
-//				machine.Transform(bsm.currentMsgNode.State, bsm.currentMsgNode.Handler)
-//			}
-//		}
-//		machine.Transform(msg, handleFunc)
-//	}
-//	return true
-//}
-
-func (m *StateMachine) future(node *StateNode) bool {
-    m.lock.Lock()
-    defer m.lock.Unlock()
-    if ok, _ := m.futureState(node); ok {
-    	return true
-	}
-	return false
+func (n *stateNode) notEmpty() bool {
+    return len(n.data) > 0
 }
 
-func (m *StateMachine) futureState(state *StateNode) (bool, *StateNode) {
+func (n *stateNode) state() string {
+    return fmt.Sprintf("%v[%v/%v]", n.code, n.current, n.repeat)
+}
+
+func (n *stateNode) dataIndex(id string) int {
+	for idx, d := range n.data {
+		if d.Id == id {
+			return idx
+		}
+	}
+    return -1
+}
+
+func (n *stateNode) addData(stateMsg *StateMsg) (int, bool) {
+    idx := n.dataIndex(stateMsg.Id)
+	if idx >= 0 {
+		return idx, false
+	}
+	n.data = append(n.data, stateMsg)
+	return len(n.data)-1, true
+}
+
+func (n *stateNode) finished() bool {
+    return n.current >= n.repeat
+}
+
+
+func (m *StateMachine) findTail() *stateNode {
 	p := m.Head
-	future := false
-	for p != nil && p.State.code != state.State.code {
-		if p == m.Current {
-			future = true
-		}
-		p = p.Next
-	}
-	if p == nil {
-		logger.Warnf("illegal msg found! current state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
-	}
-	future = future && p != nil
-
-	for p != nil && p.State.code == state.State.code && p.State.msg != nil && p.State.sid != state.State.sid {
-		p = p.Next
-	}
-
-	return future, p
-}
-
-func (m *StateMachine) canTransform(state *StateNode) bool {
-	if m.Finish() {
-		return false
-	}
-	return state.State.code == m.Current.Next.State.code
-}
-
-func (m *StateMachine) prepareNext(state *StateNode) {
-	m.Current.Next.State = state.State
-	m.Current.Next.Handler = state.Handler
-}
-
-func (m *StateMachine) transform() bool {
-	for !m.Finish() && m.Current.Next.State.msg != nil {
-		m.Current = m.Current.Next
-		if m.Current.State.msg != nil {
-			logger.Debugf("machine %v handle state %v %v", m.Id, m.Current.State)
-			m.Current.Handler(m.Current.State.msg)
-		}
-	}
-	return true
-}
-
-func (m *StateMachine) Finish() bool {
-    ret := m.Current.Next == nil
-	if ret {
-		TimeSeq.finishCh <- m.Id
-	}
-	return ret
-}
-
-func (m *StateMachine) findTail() *StateNode {
-    p := m.Head
-	for p.Next != nil {
-		p = p.Next
+	for p != nil && p.next != nil {
+		p = p.next
 	}
 	return p
 }
 
-func (m *StateMachine) addNode(node *StateNode, repeat int) {
+func (m *StateMachine) appendNode(node *stateNode) {
 	if node == nil {
 		panic("cannot add nil node to the state machine!")
 	}
+
 	tail := m.findTail()
-	for repeat > 0 {
-		tmp := *node
-		tail.Next = &tmp
-		tail = &tmp
-		repeat--
-	}
-}
-
-func (this *TimeSequence) GetInsideGroupStateMachine(dummyId string) StateMachineTransform {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-
-	if m, ok := this.groupMachines[dummyId]; ok {
-		return m
+	if tail == nil {
+		m.Current = node
+		m.Head = node
 	} else {
-		m = newInsideGroupCreateStateMachine(dummyId)
-		this.groupMachines[dummyId] = m
-		return m
+		tail.next = node
 	}
-
 }
 
-func (this *TimeSequence) GetOutsideGroupStateMachine(dummyId string) StateMachineTransform {
-	this.lock.Lock()
-	defer this.lock.Unlock()
 
-	if m, ok := this.groupMachines[dummyId]; ok {
-		return m
+func (m *StateMachine) findNode(code uint32) *stateNode {
+    p := m.Head
+	for p != nil && p.code != code {
+		p = p.next
+	}
+	return p
+}
+
+
+func (m *StateMachine) finish() bool {
+	return m.Current.next == nil && m.Current.finished()
+}
+
+func (m *StateMachine) expire() bool {
+    return int(time.Since(m.Time).Seconds()) >= model.Param.GroupInitMaxSeconds
+}
+
+func (m *StateMachine) transform() {
+	node := m.Current
+
+	for node.current < len(node.data) {
+		node.handler(node.data[node.current].Data)
+		node.data[node.current].Data = true	//释放内存
+		node.current++
+		logger.Debugf("machine %v handling current state %v", m.Id, node.state())
+	}
+
+	if m.Current.finished() && m.Current.next != nil {
+		m.Current = m.Current.next
+		if len(node.data) > 0 {
+			m.transform()
+		}
+	}
+}
+
+func (m *StateMachine) Transform(msg *StateMsg) bool {
+	node := m.findNode(msg.Code)
+	if node == nil {
+		return false
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	defer func() {
+		if !m.finish() {
+			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, m.Current.code, m.Current.current, m.Current.repeat)
+		}
+	}()
+
+	if m.finish() {
+		return false
+	}
+
+	if node.code < m.Current.code {	//已经执行过的状态
+		logger.Debugf("machine %v handle pre state %v, current state %v", m.Id, node.code, m.Current.state())
+		node.handler(msg.Data)
+	} else if node.code == m.Current.code {	//进行中的状态
+		idx, _ := node.addData(msg)
+		if idx < node.current {
+			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.Id, node.code, m.Current.state())
+			return false
+		}
+		m.transform()
+	} else {	//未来的状态
+		logger.Debugf("machine %v cache future state %v, current state %v", m.Id, node.code, m.Current.state())
+		node.addData(msg)
+	}
+	return true
+}
+
+type StateMachineGenerator interface {
+	Generate(id string) *StateMachine
+}
+
+type groupInsideMachineGenerator struct {}
+type groupOutsideMachineGenerator struct {}
+
+func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
+	machine := newStateMachine(id)
+	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
+	}))
+	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, model.Param.GetThreshold(), func(msg interface{}) {
+		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
+	}))
+	return machine
+}
+
+func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
+	machine := newStateMachine(id)
+	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
+	}))
+	machine.appendNode(newStateNode(network.KEY_PIECE_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+		MessageHandler.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
+	}))
+	machine.appendNode(newStateNode(network.SIGN_PUBKEY_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
+	}))
+	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, 1, func(msg interface{}) {
+		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
+	}))
+	return machine
+}
+
+func (stm *StateMachines) startCleanRoutine()  {
+    ticker.GetTickerInstance().RegisterRoutine(stm.name, stm.cleanRoutine, 2)
+    ticker.GetTickerInstance().StartTickerRoutine(stm.name, false)
+}
+
+func (stm *StateMachines) cleanRoutine() bool {
+	stm.machines.Range(func(key, value interface{}) bool {
+		m := value.(*StateMachine)
+		if m.finish() {
+			logger.Infof("%v state machine finished, id=%v", stm.name, m.Id)
+			stm.machines.Delete(m.Id)
+		}
+		if m.expire() {
+			logger.Infof("%v state machine expire, id=%v", stm.name, m.Id)
+			stm.machines.Delete(m.Id)
+		}
+		return true
+	})
+	return true
+}
+
+
+func (stm *StateMachines) GetMachine(id string) *StateMachine {
+	if v, ok := stm.machines.Load(id); ok {
+		return v.(*StateMachine)
 	} else {
-		m = newOutsideGroupCreateStateMachine(dummyId)
-		this.groupMachines[dummyId] = m
-		return m
+		m := stm.generator.Generate(id)
+		v, _ = stm.machines.LoadOrStore(id, m)
+		return v.(*StateMachine)
 	}
-
 }
-
-func GenerateBlockMachineKey(groupId []byte, height uint64, kingId []byte) string {
-	return fmt.Sprintf("%s-%d-%s", common.Bytes2Hex(groupId), height, common.Bytes2Hex(kingId))
-}
-
-//func (this *TimeSequence) GetBlockStateMachine(groupId []byte, height uint64) StateMachineTransform {
-//	id := fmt.Sprintf("%s-%d", common.Bytes2Hex(groupId), height)
-//	this.lock.Lock()
-//	defer this.lock.Unlock()
-//
-//	if ms, ok := this.blockMachines[id]; ok {
-//		return ms
-//		//if m, ok2 := ms.kingMachines[key]; ok2 {
-//		//	machine = m
-//		//} else {
-//		//	machine = newBlockCastStateMachine(key)
-//		//	ms.kingMachines[key] = machine
-//		//}
-//	} else {
-//		ms = &BlockStateMachines{
-//			height: height,
-//			kingMachines: make(map[string]*StateMachine),
-//		}
-//		//machine = newBlockCastStateMachine(key)
-//		//ms.kingMachines[key] = machine
-//		this.blockMachines[id] = ms
-//		return ms
-//	}
-//}

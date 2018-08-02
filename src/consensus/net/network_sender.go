@@ -47,18 +47,11 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
 	//给自己发
-	logger.Info("SendGroupInitMessage to self....")
 	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
-	logger.Info("SendGroupInitMessage to self finished....")
-
 
 	e = ns.net.Broadcast(m)
-	if e != nil {
-		logger.Error("SendGroupInitMessage broadcast fail", e)
-	} else {
-		logger.Info("SendGroupInitMessage broadcast success")
-	}
-	logger.Debugf("SendGroupInitMessage hash:%s", m.Hash())
+
+	logger.Debugf("SendGroupInitMessage hash:%s,  dummyId %v", m.Hash(), grm.GI.DummyID.GetHexString())
 }
 
 //组内广播密钥   for each定向发送 组内广播
@@ -77,7 +70,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 
 	begin:= time.Now()
 	ns.net.SendWithGroupRely(spm.Dest.String(),spm.DummyID.GetHexString(),m)
-	logger.Debugf("SendKeySharePiece to id:%s,hash:%s,cost time:%v",spm.Dest.String(),m.Hash(),time.Since(begin))
+	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v",spm.Dest.String(),m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
 }
 
 //组内广播签名公钥
@@ -94,7 +87,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 
 	begin:= time.Now()
 	ns.net.Multicast(spkm.DummyID.GetHexString(),m)
-	logger.Debugf("SendSignPubKey hash:%s,cost time:%v",m.Hash(),time.Since(begin))
+	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v",m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
 }
 
 //组初始化完成 广播组信息 全网广播
@@ -110,7 +103,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
 	ns.net.Broadcast(m)
-	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s",m.Hash())
+	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v",m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
 

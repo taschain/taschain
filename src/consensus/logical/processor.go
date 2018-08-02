@@ -84,7 +84,7 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	//p.storage = db
 	//p.sci.Init()
 
-	p.Ticker = ticker.NewGlobalTicker(p.getPrefix())
+	p.Ticker = ticker.GetTickerInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
@@ -193,14 +193,14 @@ func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, king
 	gid := bc.MinerID.Gid
 	height := vctx.castHeight
 
-	log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
+	//log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
 	if kingIndex < 0 || qn < 0 {
 		return
 	}
 
 	sgi := p.getGroup(gid)
 
-	log.Printf("time=%v, Current KING=%v.\n", time.Now().Format(time.Stamp), GetIDPrefix(sgi.GetCastor(int(kingIndex))))
+	log.Printf("time=%v, Current kingIndex=%v, KING=%v, qn=%v.\n", time.Now().Format(time.Stamp), kingIndex, GetIDPrefix(sgi.GetCastor(int(kingIndex))), qn)
 	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
 		log.Printf("curent node IS KING!\n")
 		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快

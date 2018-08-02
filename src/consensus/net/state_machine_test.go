@@ -2,84 +2,53 @@ package net
 
 import (
 	"testing"
-	"fmt"
 	"taslog"
-	"network"
+	"log"
 )
 
-func InputGroupMachine(code uint32, msg string, sourceId string, machine StateMachineTransform)  {
-	machine.Transform(NewStateMsg(code, msg, sourceId, ""), func(m interface{}) {
-		fmt.Println("msg:", m)
-	})
-}
-func InputBlockMachine(code uint32, msg string, sourceId string, groupId string, height uint64, kingId string, machine StateMachineTransform)  {
-	key := fmt.Sprintf("%s-%d-%s", groupId, height, kingId)
-	machine.Transform(NewStateMsg(code, msg, sourceId, key), func(m interface{}) {
-		fmt.Println("handle msg:", key, m)
-	})
-}
-func outputMachine(m *StateMachine) {
-	st := make([]uint32, 0)
-	p := m.Head
-	for p != nil {
-		st = append(st, p.State.code)
-		fmt.Println(p.State)
-		p = p.Next
-	}
-	fmt.Println(st)
+type TestMachineGenerator struct {
+
 }
 
-func TestTimeSequence_GetStateMachine(t *testing.T) {
-	machine := TimeSeq.GetInsideGroupStateMachine("g1")
-	outputMachine(machine.(*StateMachine))
-	//outputMachine(machine.(*StateMachine))
-	t.Log(machine)
+func (t *TestMachineGenerator) Generate(id string) *StateMachine {
+	machine := newStateMachine(id)
+	machine.appendNode(newStateNode(1, 1, func(msg interface{}) {
+		log.Println(1, msg)
+	}))
+	machine.appendNode(newStateNode(2, 4, func(msg interface{}) {
+		log.Println(2, msg)
+	}))
+	machine.appendNode(newStateNode(3, 4, func(msg interface{}) {
+		log.Println(3, msg)
+	}))
+	machine.appendNode(newStateNode(4, 1, func(msg interface{}) {
+		log.Println(4, msg)
+	}))
+	return machine
 }
 
 func TestStateMachine_GroupMachine(t *testing.T) {
-	machine := TimeSeq.GetInsideGroupStateMachine("m1")
-	InputGroupMachine(network.GROUP_INIT_DONE_MSG, "done 1", "u2", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 5", "u5", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 52", "u5", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 534", "u5", machine)
-	InputGroupMachine(network.KEY_PIECE_MSG, "sharepiece 1", "u1", machine)
-	InputGroupMachine(network.KEY_PIECE_MSG, "sharepiece 2", "u2", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 1", "u1", machine)
-	InputGroupMachine(network.KEY_PIECE_MSG, "sharepiece 5", "u5", machine)
-	InputGroupMachine(network.KEY_PIECE_MSG, "sharepiece 4", "u4", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 4444", "u4", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 2", "u2", machine)
-	InputGroupMachine(network.KEY_PIECE_MSG, "sharepiece 3", "u3", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 3", "u3", machine)
-	InputGroupMachine(network.GROUP_INIT_MSG, "init 1", "u1", machine)
-	InputGroupMachine(network.SIGN_PUBKEY_MSG, "pubkey 42", "u4", machine)
+	logger = taslog.GetLoggerByName("test_machine.log")
+	testMachines := StateMachines{
+		name: "GroupOutsideMachines",
+		generator: &TestMachineGenerator{},
+	}
 
-	outputMachine(machine.(*StateMachine))
+	machine := testMachines.GetMachine("abc")
+	machine.Transform(NewStateMsg(2, "sharepiece 1", "u1"))
+	machine.Transform(NewStateMsg(2, "sharepiece 2", "u2"))
+	machine.Transform(NewStateMsg(2, "sharepiece 4", "u4"))
+	machine.Transform(NewStateMsg(2, "sharepiece 5", "u5"))
+	machine.Transform(NewStateMsg(2, "sharepiece 3", "u3"))
+	machine.Transform(NewStateMsg(3, "pub 4", "u4"))
+	machine.Transform(NewStateMsg(3, "pub 3", "u3"))
+	machine.Transform(NewStateMsg(1, "init 2", "u4"))
+	machine.Transform(NewStateMsg(3, "pub 2", "u2"))
+	machine.Transform(NewStateMsg(1, "init 1", "u2"))
+	machine.Transform(NewStateMsg(3, "pub 1", "u1"))
+	machine.Transform(NewStateMsg(4, "done 1", "u1"))
+
+	log.Println("finished ", machine.finish())
+
 	taslog.Close()
 }
-
-//func TestStateMachine_BlockMachine(t *testing.T) {
-//	groupId := "block1"
-//	height := uint64(1)
-//	kingId := "king1"
-//	kingId2 := "king2"
-//	kingId3 := "king3"
-//
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 1", "u1", groupId, height, kingId, machine)
-//	//InputBlockMachine(network.CAST_VERIFY_MSG, "cast verify 1", "u1", groupId, height, kingId,  machine)
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 2", "u3", groupId, height, kingId, machine)
-//	//InputBlockMachine(network.NEW_BLOCK_MSG, "newblock 1", "u3", groupId, height, kingId2, machine)
-//	//InputBlockMachine(network.NEW_BLOCK_MSG, "newblock 1", "u1", groupId, height, kingId, machine)
-//	//
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 1", "u4", groupId, height, kingId2, machine)
-//	//InputBlockMachine(network.CAST_VERIFY_MSG, "cast verify 1", "u3", groupId, height, kingId2,  machine)
-//	//InputBlockMachine(network.CAST_VERIFY_MSG, "cast verify 1", "u5", groupId, height, kingId3,  machine)
-//	//InputBlockMachine(network.NEW_BLOCK_MSG, "newblock 1", "u5", groupId, height, kingId3, machine)
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 2", "u6", groupId, height, kingId3, machine)
-//	//
-//	//InputBlockMachine(network.CURRENT_GROUP_CAST_MSG, "current 1", "u1", groupId, height, kingId, machine)
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 1", "u5", groupId, height, kingId3, machine)
-//	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 2", "u3", groupId, height, kingId2, machine)
-//	//
-//	//taslog.Close()
-//}
