@@ -1,6 +1,7 @@
 
 class Storage(object):
     data = {}
+
     @staticmethod
     def get(key):
         return Storage.data[key]
@@ -17,7 +18,7 @@ class Storage(object):
     def load(obj):
         for k in Storage.data:
             setattr(obj, k, Storage.data[k])
-        print("Load:", Storage.data)
+        # print("Load:", Storage.data)
 
     @staticmethod
     def save(obj):
@@ -47,6 +48,12 @@ class Address(object):
         # TODO 转账到合约
         pass
 
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
+
     def __hash__(self):
         return hash(self.value)
 
@@ -60,29 +67,29 @@ owner = Address("")
 
 
 class Msg(object):
-    _sender = Address("")
-    _value = 0
+    sender = Address("")
+    value = 0
 
-    @staticmethod
-    def sender():
-        return Msg._sender
-
-    @staticmethod
-    def set_sender(address):
-        Msg._sender = address
-
-    @staticmethod
-    def value():
-        return Msg._value
-
-    @staticmethod
-    def set_value(value):
-        Msg._value = value
+    # @staticmethod
+    # def sender():
+    #     return Msg._sender
+    #
+    # @staticmethod
+    # def set_sender(address):
+    #     Msg._sender = address
+    #
+    # @staticmethod
+    # def value():
+    #     return Msg._value
+    #
+    # @staticmethod
+    # def set_value(value):
+    #     Msg._value = value
 
 
 #调用者是否为合约创建者
 def check_owner():
-    if owner == Msg.sender():
+    if owner == Msg.sender:
         return True
     else:
         raise Exception("只有合约owner可以操作")
@@ -91,12 +98,11 @@ def check_owner():
 class Event(object):
     @staticmethod
     def emit(event_name, *param):
-        print(event_name, param)
-        #for item in param:
-            #print(item)
+        print("Event: ", event_name, param)
 
 #
 #
+
 
 class BalanceDict():
     def __init__(self):
@@ -113,6 +119,7 @@ class BalanceDict():
     def __delitem__(self, key):
         del self.data[key]
 
+
 class TokenERC20(object):
     def __init__(self):
         self.name = ""
@@ -121,16 +128,6 @@ class TokenERC20(object):
 
         self.balanceOf = {}
         self.allowance = {}
-    '''
-    // This generates a public event on the blockchain that will notify clients
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    // This generates a public event on the blockchain that will notify clients
-    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
-
-    // This notifies clients about the amount burnt
-    event Burn(address indexed from, uint256 value);
-    '''
 
     def _transfer(self, _from, _to, _value):
         if _to not in self.balanceOf:
@@ -211,9 +208,6 @@ class MyAdvancedToken(TokenERC20):
         self.totalSupply = 1000000
         self.balanceOf[Msg.sender] = self.totalSupply
 
-    #/* This generates a public event on the blockchain that will notify clients */
-    #event FrozenFunds(address target, bool frozen);
-
     # @property
     # def sell_price(self):
     #     self._sell_price = Storage.get("sell_price")
@@ -245,6 +239,8 @@ class MyAdvancedToken(TokenERC20):
 
     def mint_token(self, target, minted_amount):
         check_owner()
+        if target not in self.balanceOf:
+            self.balanceOf[target] = 0
         self.balanceOf[target] += minted_amount
         self.totalSupply += minted_amount
         Event.emit("Transfer", 0, this, minted_amount)
@@ -275,37 +271,6 @@ class MyAdvancedToken(TokenERC20):
 #
 #
 #
-
-
-if __name__ == '__main__':
-
-    Msg.set_sender(Address("0xabcdefghijk"))
-    Msg.set_value(0)
-
-    # 部署合约
-    myAdvancedToken = MyAdvancedToken()
-    myAdvancedToken.deploy()
-    Storage.save(myAdvancedToken)
-
-    # 执行合约
-    # [1] 初始化测试环境
-    this = Address("0x123456789")
-    owner = Address("0xabcdefghijk")
-    # [2] 执行合约
-
-    # Test 1
-    myAdvancedToken = MyAdvancedToken()
-    Storage.load(myAdvancedToken)
-    print("jyi:", myAdvancedToken.symbol)
-    myAdvancedToken.set_prices(100, 100)
-    Storage.save(myAdvancedToken)
-    # Test 2
-    myAdvancedToken = MyAdvancedToken()
-    Storage.load(myAdvancedToken)
-    myAdvancedToken.transfer(Address("0xbcbcbcbcbc"), 50)
-    Storage.save(myAdvancedToken)
-    print(myAdvancedToken.balanceOf)
-
 
 
 

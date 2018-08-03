@@ -20,7 +20,7 @@ func callOnMeGo(in int) int {
 //export go_testAry
 func go_testAry(ary unsafe.Pointer) {
 
-	intary :=  (*[2]unsafe.Pointer)(ary)
+	intary := (*[2]unsafe.Pointer)(ary)
 
 	fmt.Println(intary)
 
@@ -45,7 +45,7 @@ func CreateAccount(addressC *C.char) {
 }
 
 //export SubBalance
-func SubBalance(addressC *C.char,valueC *C.char) {
+func SubBalance(addressC *C.char, valueC *C.char) {
 	address := common.StringToAddress(C.GoString(addressC))
 	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
 	if !ok {
@@ -55,7 +55,7 @@ func SubBalance(addressC *C.char,valueC *C.char) {
 }
 
 //export AddBalance
-func AddBalance(addressC *C.char,valueC *C.char) {
+func AddBalance(addressC *C.char, valueC *C.char) {
 	address := common.StringToAddress(C.GoString(addressC))
 	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
 	if !ok {
@@ -99,7 +99,7 @@ func GetCode(addressC *C.char) *C.char {
 }
 
 //export SetCode
-func SetCode(addressC *C.char,codeC *C.char) {
+func SetCode(addressC *C.char, codeC *C.char) {
 	address := common.StringToAddress(C.GoString(addressC))
 	code := C.GoString(codeC)
 	tvm.state.SetCode(address, []byte(code))
@@ -127,15 +127,16 @@ func GetState(addressC *C.char, hashC *C.char) *C.char {
 	address := common.StringToAddress(C.GoString(addressC))
 	//hash := common.StringToHash(C.GoString(hashC))
 	state := tvm.state.GetData(address, C.GoString(hashC))
+
 	return C.CString(string(state))
 }
 
 //export SetState
 func SetState(addressC *C.char, hashC *C.char, stateC *C.char) {
 	address := common.StringToAddress(C.GoString(addressC))
-	//hash := common.StringToHash(C.GoString(hashC))
-	//state := common.StringToHash(C.GoString(stateC))
-	tvm.state.SetData(address, C.GoString(hashC), []byte(C.GoString(stateC)))
+	hash := C.GoString(hashC)
+	state := common.StringToHash(C.GoString(stateC))
+	tvm.state.SetData(address, hash, state.Bytes())
 }
 
 //export Suicide
@@ -173,8 +174,6 @@ func Snapshot() int {
 }
 
 //export AddPreimage
-func AddPreimage(hashC *C.char,preimageC *C.char) {
-	//hash := common.StringToHash(C.GoString(hashC))
-	//preimage := []byte(C.GoString(preimageC))
-	//tvm.state.AddPreimage(hash, preimage)
+func AddPreimage(hashC *C.char, preimageC *C.char) {
+
 }
