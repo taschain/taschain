@@ -160,7 +160,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
 	blockHash := cbm.Block.Header.Hash
-	ns.net.Broadcast(m, network.MsgDigest(&blockHash))
+
+	var digest network.MsgDigest
+	copy((*digest)[:],blockHash[:])
+
+	ns.net.Broadcast(m, digest)
 }
 
 //====================================建组前共识=======================
