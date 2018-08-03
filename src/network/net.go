@@ -368,12 +368,12 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 }
 
 //SendAll 向所有已经连接的节点发送自定义数据包
-func (nc *NetCore) SendAll(data []byte, broadcast bool) {
+func (nc *NetCore) SendAll(data []byte, broadcast bool, msgDigest MsgDigest) {
 	dataType := DataType_DataNormal
 	if broadcast {
 		dataType = DataType_DataGlobal
 	}
-	packet, _, err := nc.encodeDataPacket(data,dataType,"",nil)
+	packet, _, err := nc.encodeDataPacket(data,dataType,"",nil, msgDigest)
 	if err != nil {
 		return
 	}
@@ -387,7 +387,7 @@ func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
 	if broadcast {
 		dataType = DataType_DataGroup
 	}
-	packet, _, err := nc.encodeDataPacket(data,dataType,id,nil)
+	packet, _, err := nc.encodeDataPacket(data,dataType,id,nil,nil)
 	if err != nil {
 		return
 	}
@@ -410,7 +410,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
 			go nc.Send(memberId,&nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)},data)
 		} else {
-			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId)
+			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId,nil)
 			if err != nil {
 				return
 			}
@@ -422,7 +422,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
 //SendData 发送自定义数据包C
 func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte, error) {
-	packet, hash, err := nc.encodeDataPacket(data,DataType_DataNormal,"",nil)
+	packet, hash, err := nc.encodeDataPacket(data,DataType_DataNormal,"",nil,nil)
 	if err != nil {
 		return hash, err
 	}
@@ -481,10 +481,14 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 	}
 }
 
-func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId string,nodeId *NodeID) (msg *bytes.Buffer, hash []byte, err error) {
+func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId string,nodeId *NodeID,msgDigest MsgDigest) (msg *bytes.Buffer, hash []byte, err error) {
 	nodeIdBytes :=  make([]byte, 0)
 	if nodeId != nil {
 		nodeIdBytes = nodeId.Bytes()
+	}
+	bizMessageIdBytes :=  make([]byte, 0)
+	if msgDigest != nil {
+		bizMessageIdBytes = (*msgDigest)[:]
 	}
 	msgData := &MsgData{
 		Data:  data,
@@ -493,6 +497,7 @@ func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId strin
 		MessageId:nc.messageManager.genMessageId(),
 		DestNodeId:nodeIdBytes,
 		SrcNodeId:nc.id.Bytes(),
+		BizMessageId:bizMessageIdBytes,
 		Expiration: uint64(time.Now().Add(expiration).Unix())}
 
 	return nc.encodePacket(MessageType_MessageData,msgData)
@@ -678,18 +683,30 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X", id, len(req.Data),req.DataType,req.MessageId)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:", id, len(req.Data),req.DataType,req.MessageId,req.BizMessageId)
 	if req.DataType == DataType_DataNormal {
 		net.handleMessage(req.Data,id)
 	} else {
-		forwarded := nc.messageManager.isForwarded(req.MessageId)
-		destNodeId := NodeID{};
-		destNodeId.SetBytes(req.DestNodeId)
-		srcNodeId := NodeID{};
-		srcNodeId.SetBytes(req.SrcNodeId)
+		forwarded := false
+
+		if req.BizMessageId != nil  {
+			bizId := nc.messageManager.ByteToBizId(req.BizMessageId)
+			forwarded = nc.messageManager.isForwardedBiz(bizId)
+		} else {
+			forwarded = nc.messageManager.isForwarded(req.MessageId)
+		}
 
 		if !forwarded  {
+			destNodeId := NodeID{};
+			destNodeId.SetBytes(req.DestNodeId)
+			srcNodeId := NodeID{};
+			srcNodeId.SetBytes(req.SrcNodeId)
+
 			nc.messageManager.forward(req.MessageId)
+			if req.BizMessageId != nil {
+				bizId := nc.messageManager.ByteToBizId(req.BizMessageId)
+				nc.messageManager.forwardBiz(bizId)
+			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
 				net.handleMessage(req.Data, srcNodeId.GetHexString())

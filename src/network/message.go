@@ -7,9 +7,13 @@ import (
 )
 
 
+type  BizMessageId =  [32]byte
+
+
 //MessageManager 消息管理
 type MessageManager struct {
 	messages map[uint64]time.Time
+	bizMessages map[BizMessageId]time.Time
 	index uint32
 	id 	NodeID
 	forwardNodeId uint32
@@ -21,6 +25,7 @@ func newMessageManager(id NodeID) *MessageManager {
 
 	mm := &MessageManager{
 		messages: make( map[uint64]time.Time),
+		bizMessages:  make(map[BizMessageId]time.Time),
 	}
 	mm.id = id
 	mm.index = 0
@@ -30,6 +35,7 @@ func newMessageManager(id NodeID) *MessageManager {
 	return mm
 }
 
+//生成新的消息id
 func (mm *MessageManager) genMessageId() uint64 {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
@@ -57,6 +63,29 @@ func (mm *MessageManager) isForwarded(messageId uint64) bool  {
 	return ok
 }
 
+func (mm *MessageManager) forwardBiz(messageId BizMessageId)  {
+	mm.mutex.Lock()
+	defer mm.mutex.Unlock()
+
+	mm.bizMessages[messageId] = time.Now()
+}
+
+func (mm *MessageManager) isForwardedBiz(messageId BizMessageId) bool  {
+	mm.mutex.Lock()
+	defer mm.mutex.Unlock()
+
+	_,ok := mm.bizMessages[messageId]
+	return ok
+}
+
+func (mm *MessageManager) ByteToBizId(bid []byte) BizMessageId  {
+	var id [32]byte
+	for i :=0;i< len(bid) && i<32;i++ {
+		id[i] = bid[32]
+	}
+	return id
+}
+
 func (mm *MessageManager) clear()   {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
@@ -66,6 +95,12 @@ func (mm *MessageManager) clear()   {
 	for mid,t := range(mm.messages ) {
 		if now.Sub(t) > MessageCacheTime {
 			delete(mm.messages,mid)
+		}
+	}
+
+	for mid,t := range(mm.bizMessages ) {
+		if now.Sub(t) > MessageCacheTime {
+			delete(mm.bizMessages,mid)
 		}
 	}
 

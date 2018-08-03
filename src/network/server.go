@@ -120,18 +120,18 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, false)
+	n.netCore.SendAll(bytes, false,nil)
 	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) Broadcast(msg Message) error {
+func (n *server) Broadcast(msg Message ,msgDigest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true)
+	n.netCore.SendAll(bytes, true,msgDigest)
 	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
