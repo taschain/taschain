@@ -161,10 +161,8 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
 	blockHash := cbm.Block.Header.Hash
 
-	var digest network.MsgDigest
-	copy((*digest)[:],blockHash[:])
 
-	ns.net.Broadcast(m, digest)
+	ns.net.Broadcast(m, blockHash.Bytes())
 }
 
 //====================================建组前共识=======================

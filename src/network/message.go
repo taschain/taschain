@@ -6,8 +6,8 @@ import (
 	"sync"
 )
 
-
-type  BizMessageId =  [32]byte
+const BizMessageIdLength  = 32
+type  BizMessageId =  [BizMessageIdLength]byte
 
 
 //MessageManager 消息管理
@@ -79,9 +79,9 @@ func (mm *MessageManager) isForwardedBiz(messageId BizMessageId) bool  {
 }
 
 func (mm *MessageManager) ByteToBizId(bid []byte) BizMessageId  {
-	var id [32]byte
-	for i :=0;i< len(bid) && i<32;i++ {
-		id[i] = bid[32]
+	var id [BizMessageIdLength]byte
+	for i :=0;i< len(bid) && i<BizMessageIdLength;i++ {
+		id[i] = bid[i]
 	}
 	return id
 }

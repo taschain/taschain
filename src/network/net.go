@@ -488,7 +488,7 @@ func (nc *NetCore)encodeDataPacket( data []byte,dataType DataType, groupId strin
 	}
 	bizMessageIdBytes :=  make([]byte, 0)
 	if msgDigest != nil {
-		bizMessageIdBytes = (*msgDigest)[:]
+		bizMessageIdBytes = msgDigest[:]
 	}
 	msgData := &MsgData{
 		Data:  data,
@@ -683,7 +683,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:", id, len(req.Data),req.DataType,req.MessageId,req.BizMessageId)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%X", id, len(req.Data),req.DataType,req.MessageId,req.BizMessageId)
 	if req.DataType == DataType_DataNormal {
 		net.handleMessage(req.Data,id)
 	} else {
@@ -692,6 +692,8 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte,fromId NodeID) error {
 		if req.BizMessageId != nil  {
 			bizId := nc.messageManager.ByteToBizId(req.BizMessageId)
 			forwarded = nc.messageManager.isForwardedBiz(bizId)
+			Logger.Infof("BizMessageId:%X forwarded ：%v",req.BizMessageId,forwarded)
+
 		} else {
 			forwarded = nc.messageManager.isForwarded(req.MessageId)
 		}
