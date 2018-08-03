@@ -101,7 +101,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		return
 	}
 	message := network.Message{Code: network.TRANSACTION_MSG, Body: body}
-	network.GetNetInstance().Broadcast(message)
+	network.GetNetInstance().Broadcast(message,nil)
 }
 
 //向某一节点请求Block信息

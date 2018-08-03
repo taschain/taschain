@@ -12,6 +12,8 @@ type Conn struct {
 	Port string
 }
 
+type MsgDigest *[32]byte
+
 type MsgHandler interface {
 	Handle(sourceId string, msg Message) error
 }
@@ -32,7 +34,7 @@ type Network interface {
 	TransmitToNeighbor(msg Message) error
 
 	//Broadcast the message to all nodes
-	Broadcast(msg Message) error
+	Broadcast(msg Message,msgDigest MsgDigest) error
 
 	//Return all connections self has
 	ConnInfo() []Conn

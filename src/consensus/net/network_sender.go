@@ -49,7 +49,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	//给自己发
 	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
 
-	e = ns.net.Broadcast(m)
+	e = ns.net.Broadcast(m,nil)
 
 	logger.Debugf("SendGroupInitMessage hash:%s,  dummyId %v", m.Hash(), grm.GI.DummyID.GetHexString())
 }
@@ -102,7 +102,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.Broadcast(m)
+	ns.net.Broadcast(m,nil)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v",m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
@@ -160,7 +160,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
 	}
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
-	ns.net.Broadcast(m)
+	blockHash := cbm.Block.Header.Hash
+	var digest network.MsgDigest
+	copy((*digest)[:],blockHash[:])
+
+	ns.net.Broadcast(m,digest)
 }
 
 
