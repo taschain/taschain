@@ -11,7 +11,7 @@ extern "C" {
 #endif
 void tvm_start(void);
 void tvm_test(void);
-void tvm_execute(char *str);
+_Bool tvm_execute(char *str);
 typedef int (*callback_fcn)(int);
 typedef void (*testAry_fcn)(void*);
 void some_c_func(callback_fcn);
