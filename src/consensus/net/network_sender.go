@@ -36,7 +36,6 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
 
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
-
 //广播 组初始化消息  全网广播
 func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(grm)
@@ -49,7 +48,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	//给自己发
 	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
 
-	e = ns.net.Broadcast(m,nil)
+	e = ns.net.Broadcast(m, nil)
 
 	logger.Debugf("SendGroupInitMessage hash:%s,  dummyId %v", m.Hash(), grm.GI.DummyID.GetHexString())
 }
@@ -68,9 +67,9 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 		return
 	}
 
-	begin:= time.Now()
-	ns.net.SendWithGroupRely(spm.Dest.String(),spm.DummyID.GetHexString(),m)
-	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v",spm.Dest.String(),m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
+	begin := time.Now()
+	ns.net.SendWithGroupRely(spm.Dest.String(), spm.DummyID.GetHexString(), m)
+	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v", spm.Dest.String(), m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
 }
 
 //组内广播签名公钥
@@ -85,9 +84,9 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	//给自己发
 	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
 
-	begin:= time.Now()
-	ns.net.Multicast(spkm.DummyID.GetHexString(),m)
-	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v",m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
+	begin := time.Now()
+	ns.net.Multicast(spkm.DummyID.GetHexString(), m)
+	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
 }
 
 //组初始化完成 广播组信息 全网广播
@@ -102,8 +101,8 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.Broadcast(m,nil)
-	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v",m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
+	ns.net.Broadcast(m, nil)
+	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
 
@@ -124,10 +123,10 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime),m.Hash())
-	begin:= time.Now()
-	ns.net.Multicast(groupId.GetHexString(),m)
-	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(begin),m.Hash())
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(ccm.BH.CurTime), m.Hash())
+	begin := time.Now()
+	ns.net.Multicast(groupId.GetHexString(), m)
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(begin), m.Hash())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -144,10 +143,10 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime),m.Hash())
-	begin:= time.Now()
-	ns.net.Multicast(groupId.GetHexString(),m)
-	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(begin),m.Hash())
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(cvm.BH.CurTime), m.Hash())
+	begin := time.Now()
+	ns.net.Multicast(groupId.GetHexString(), m)
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(begin), m.Hash())
 }
 
 //对外广播经过组签名的block 全网广播
@@ -161,12 +160,8 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
 	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
 	blockHash := cbm.Block.Header.Hash
-	var digest network.MsgDigest
-	copy((*digest)[:],blockHash[:])
-
-	ns.net.Broadcast(m,digest)
+	ns.net.Broadcast(m, network.MsgDigest(&blockHash))
 }
-
 
 //====================================建组前共识=======================
 
@@ -180,7 +175,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 	m := network.Message{Code: network.CREATE_GROUP_RAW, Body: body}
 
 	var groupId = msg.GI.ParentID
-	ns.net.Multicast(groupId.GetHexString(),m)
+	ns.net.Multicast(groupId.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage) {
@@ -191,7 +186,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
 
-	ns.net.SendWithGroupRely(msg.Launcher.String(),msg.GI.ParentID.GetHexString(),m)
+	ns.net.SendWithGroupRely(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------
@@ -282,19 +277,19 @@ func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_midd
 		name = append(name, b)
 	}
 	message := tas_middleware_pb.ConsensusGroupInitSummary{
-		ParentID: m.ParentID.Serialize(),
-		Authority: &m.Authority,
-		Name: name,
-		DummyID: m.DummyID.Serialize(),
-		BeginTime: beginTime,
-		Members:&m.Members,
-		MemberHash:m.MemberHash.Bytes(),
-		GetReadyHeight: &m.GetReadyHeight,
+		ParentID:        m.ParentID.Serialize(),
+		Authority:       &m.Authority,
+		Name:            name,
+		DummyID:         m.DummyID.Serialize(),
+		BeginTime:       beginTime,
+		Members:         &m.Members,
+		MemberHash:      m.MemberHash.Bytes(),
+		GetReadyHeight:  &m.GetReadyHeight,
 		BeginCastHeight: &m.BeginCastHeight,
-		DismissHeight: &m.DismissHeight,
-		Signature: m.Signature.Serialize(),
-		TopHeight: &m.TopHeight,
-		Extends:[]byte(m.Extends)}
+		DismissHeight:   &m.DismissHeight,
+		Signature:       m.Signature.Serialize(),
+		TopHeight:       &m.TopHeight,
+		Extends:         []byte(m.Extends)}
 	return &message
 }
 

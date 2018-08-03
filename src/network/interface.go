@@ -12,7 +12,7 @@ type Conn struct {
 	Port string
 }
 
-type MsgDigest *[32]byte
+type MsgDigest = *[32]byte
 
 type MsgHandler interface {
 	Handle(sourceId string, msg Message) error
