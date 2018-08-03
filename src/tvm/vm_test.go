@@ -3,17 +3,17 @@ package tvm
 
 import (
 	"testing"
-	"vm/common"
-	"vm/core/state"
+	"common"
+	"storage/core"
 
-	"vm/ethdb"
+	"storage/tasdb"
 )
 
 func TestVmTest(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	db, _ := tasdb.NewMemDatabase()
+	statedb, _ := core.New(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(statedb)
-	script := `import tas
+	script := `
 import account
 account.create_account("0x2234")
 value = account.get_balance("0x1234")

@@ -7,7 +7,7 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
-	"vm/common"
+	"common"
 	"math/big"
 )
 
@@ -125,17 +125,17 @@ func GetRefund() C.ulonglong {
 //export GetState
 func GetState(addressC *C.char, hashC *C.char) *C.char {
 	address := common.StringToAddress(C.GoString(addressC))
-	hash := common.StringToHash(C.GoString(hashC))
-	state := tvm.state.GetState(address, hash)
-	return C.CString(state.String())
+	//hash := common.StringToHash(C.GoString(hashC))
+	state := tvm.state.GetData(address, C.GoString(hashC))
+	return C.CString(string(state))
 }
 
 //export SetState
 func SetState(addressC *C.char, hashC *C.char, stateC *C.char) {
 	address := common.StringToAddress(C.GoString(addressC))
-	hash := common.StringToHash(C.GoString(hashC))
-	state := common.StringToHash(C.GoString(stateC))
-	tvm.state.SetState(address, hash, state)
+	//hash := common.StringToHash(C.GoString(hashC))
+	//state := common.StringToHash(C.GoString(stateC))
+	tvm.state.SetData(address, C.GoString(hashC), []byte(C.GoString(stateC)))
 }
 
 //export Suicide
@@ -174,7 +174,7 @@ func Snapshot() int {
 
 //export AddPreimage
 func AddPreimage(hashC *C.char,preimageC *C.char) {
-	hash := common.StringToHash(C.GoString(hashC))
-	preimage := []byte(C.GoString(preimageC))
-	tvm.state.AddPreimage(hash, preimage)
+	//hash := common.StringToHash(C.GoString(hashC))
+	//preimage := []byte(C.GoString(preimageC))
+	//tvm.state.AddPreimage(hash, preimage)
 }

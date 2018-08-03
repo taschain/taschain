@@ -5,7 +5,6 @@ import (
 	"consensus/logical"
 	"sync"
 	"taslog"
-	"vm/common/math"
 	"fmt"
 	"common"
 	"consensus/mediator"
@@ -117,7 +116,7 @@ func newStateNodeEx(msg *StateMsg) *StateNode {
 }
 
 func newStateMachine(id string) *StateMachine {
-	init := newStateNode(math.MaxUint32)
+	init := newStateNode(common.MaxUint32)
 	id = logical.GetIDPrefix(mediator.Proc.GetMinerID()) + "-" + id
 	return &StateMachine{Id: id, Current:init, Head:init}
 }

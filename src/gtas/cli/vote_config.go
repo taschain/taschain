@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin/json"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"governance/global"
 	"reflect"
 	"strconv"
 	"strings"
@@ -31,24 +30,24 @@ func (v VoteConfig) Serialize() ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (v VoteConfig) ToGlobal() *global.VoteConfig {
-	return &global.VoteConfig{
-		TemplateName:        v.TemplateName,
-		PIndex:              v.PIndex,
-		PValue:              v.PValue,
-		Custom:              v.Custom,
-		Desc:                v.Desc,
-		DepositMin:          v.DepositMin,
-		TotalDepositMin:     v.TotalDepositMin,
-		VoterCntMin:         v.VoterCntMin,
-		ApprovalDepositMin:  v.ApprovalDepositMin,
-		ApprovalVoterCntMin: v.ApprovalVoterCntMin,
-		DeadlineBlock:       v.DeadlineBlock,
-		StatBlock:           v.StatBlock,
-		EffectBlock:         v.EffectBlock,
-		DepositGap:          v.DepositGap,
-	}
-}
+//func (v VoteConfig) ToGlobal() *global.VoteConfig {
+//	return &global.VoteConfig{
+//		TemplateName:        v.TemplateName,
+//		PIndex:              v.PIndex,
+//		PValue:              v.PValue,
+//		Custom:              v.Custom,
+//		Desc:                v.Desc,
+//		DepositMin:          v.DepositMin,
+//		TotalDepositMin:     v.TotalDepositMin,
+//		VoterCntMin:         v.VoterCntMin,
+//		ApprovalDepositMin:  v.ApprovalDepositMin,
+//		ApprovalVoterCntMin: v.ApprovalVoterCntMin,
+//		DeadlineBlock:       v.DeadlineBlock,
+//		StatBlock:           v.StatBlock,
+//		EffectBlock:         v.EffectBlock,
+//		DepositGap:          v.DepositGap,
+//	}
+//}
 
 // VoteConfigList 解析vote命令中的传入的config参数。
 type VoteConfigKvs [][2]string
