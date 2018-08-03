@@ -12,13 +12,13 @@ func TestVmTest(t *testing.T) {
 	db, _ := tasdb.NewMemDatabase()
 	state, _ := core.New(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(state)
-	script := `import tas
-import account
+	script := `import account
 account.create_account("0x2234")
-value = account.get_balance("0x1234")
-value = account.add_balance("0x1234",10)
-account.set_nonce("0x1234", -1)
-print("")
+account.add_balance("0x1234",100)
+print()
+account.sub_balance("0x1234",10)
+print(account.get_balance("0x1234"))
+account.set_nonce("0x1234", 255)
 print(account.get_nonce("0x1234"))
 #tas.test()`
 	vm.Execute(script)
