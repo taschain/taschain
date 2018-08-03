@@ -108,11 +108,13 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
-		if toaddr != nil && toaddr.IP != nil && toaddr.Port>0  && !p.connecting {
+		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port>0) || pm.natTraversalEnable)  && !p.connecting {
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
-			p.Ip = toaddr.IP
-			p.Port = toaddr.Port
+			if toaddr != nil {
+				p.Ip = toaddr.IP
+				p.Port = toaddr.Port
+			}
 			p.sendList = append(p.sendList, packet)
 
 			if pm.natTraversalEnable {
@@ -120,7 +122,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			Logger.Infof("Connect：ID: %v IP: %v Port:%v ",toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("Connect：ID: %v ", toid.GetHexString())
 		}
 	}
 
