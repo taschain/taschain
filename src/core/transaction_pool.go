@@ -206,7 +206,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		pool.sendingList = append(pool.sendingList, tx)
 
 		if sendingListLength == len(pool.sendingList) {
-			txs := make([]*types.Transaction, 0)
+			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
 			pool.sendingList = make([]*types.Transaction, 0)
 			Logger.Debugf("Broadcast txs,len:%d", len(txs))
