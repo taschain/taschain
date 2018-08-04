@@ -180,6 +180,14 @@ func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
 func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
+	if isBroadcast == true {
+		byte, err := types.MarshalTransaction(tx)
+		if err != nil {
+			Logger.Errorf("marshal tx error!", )
+			return false, err
+		}
+		Logger.Debugf("Get tx from sender,size:%d", len(byte))
+	}
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -210,7 +218,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
 			pool.sendingList = make([]*types.Transaction, sendingListLength)
-			Logger.Debugf("Broadcast txs,len:%d",len(txs))
+			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
 	}
