@@ -206,7 +206,10 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		return false, nil
 	}
 
+	Logger.Debugf("after valid exit tx,hash:%v", hash)
+
 	pool.received.Push(tx)
+	Logger.Debugf("after push  tx,hash:%v", hash)
 
 	// batch broadcast
 	if isBroadcast {
