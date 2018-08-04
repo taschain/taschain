@@ -11,7 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"common"
 	"bytes"
-	"vm/ethdb"
+	"storage/tasdb"
 )
 
 const (
@@ -36,7 +36,7 @@ type databaseConfig struct {
 	handler  int
 }
 
-func NewDatabase(prefix string) (ethdb.Database, error) {
+func NewDatabase(prefix string) (tasdb.Database, error) {
 	dbInner, err := getInstance()
 	if nil != err {
 		return nil, err
@@ -113,7 +113,7 @@ func (db *PrefixedDatabase) Delete(key []byte) error {
 	return db.db.Delete(generateKey(key, db.prefix))
 }
 
-func (db *PrefixedDatabase) NewBatch() ethdb.Batch {
+func (db *PrefixedDatabase) NewBatch() tasdb.Batch {
 
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
 }
@@ -301,7 +301,7 @@ func (db *LDBDatabase) Close() {
 	//}
 }
 
-func (db *LDBDatabase) NewBatch() ethdb.Batch {
+func (db *LDBDatabase) NewBatch() tasdb.Batch {
 	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
 }
 
@@ -392,7 +392,7 @@ func (db *MemDatabase) Delete(key []byte) error {
 
 func (db *MemDatabase) Close() {}
 
-func (db *MemDatabase) NewBatch() ethdb.Batch {
+func (db *MemDatabase) NewBatch() tasdb.Batch {
 	return &memBatch{db: db}
 }
 

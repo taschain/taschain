@@ -11,7 +11,7 @@ import (
 	"log"
 	"consensus/ticker"
 	"middleware/types"
-	"vm/ethdb"
+	"storage/tasdb"
 	"core/datasource"
 )
 
@@ -39,7 +39,7 @@ type Processor struct {
 	futureVerifyMsg  map[common.Hash][]*ConsensusBlockMessageBase //存储缺失前一块的验证消息
 	futureVerifyLock sync.RWMutex
 
-	storage 	ethdb.Database
+	storage 	tasdb.Database
 	ready 		bool //是否已初始化完成
 
 	piece_count  int

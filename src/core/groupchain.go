@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"os"
 	"common"
-	"vm/ethdb"
+	"storage/tasdb"
 	"core/datasource"
 	"middleware/types"
 )
@@ -25,7 +25,7 @@ type GroupChain struct {
 
 	// key id, value group
 	// key number, value id
-	groups ethdb.Database
+	groups tasdb.Database
 
 	// cache
 	now [][]byte
