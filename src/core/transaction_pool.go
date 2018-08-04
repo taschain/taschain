@@ -39,7 +39,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 50
+	sendingListLength = 10
 )
 
 // 配置文件
@@ -180,7 +180,7 @@ func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
 func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
-	if isBroadcast == true {
+	if isBroadcast {
 		byte, err := types.MarshalTransaction(tx)
 		if err != nil {
 			Logger.Errorf("marshal tx error!", )
@@ -194,8 +194,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
-		//log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
-
+		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
 		return false, err
 	}
 
@@ -203,7 +202,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 
-		//log.Trace("Discarding already known transaction", "hash", hash)
+		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
 
@@ -211,8 +210,6 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
-		//txs := []*types.Transaction{tx}
-		//go BroadcastTransactions(txs)
 		pool.sendingList = append(pool.sendingList, tx)
 		if sendingListLength == len(pool.sendingList) {
 			txs := make([]*types.Transaction, sendingListLength)
