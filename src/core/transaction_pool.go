@@ -210,7 +210,11 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
+		Logger.Debugf("rcv ok tx,hash:%v", hash)
+
 		pool.sendingList = append(pool.sendingList, tx)
+		Logger.Debugf("sendingListLength len:%d", len(pool.sendingList))
+
 		if sendingListLength == len(pool.sendingList) {
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
