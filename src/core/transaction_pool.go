@@ -99,7 +99,7 @@ func NewTransactionPool() *TransactionPool {
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
 		batchLock:   sync.Mutex{},
-		sendingList: make([]*types.Transaction, sendingListLength),
+		sendingList: make([]*types.Transaction, 0),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -180,14 +180,6 @@ func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
 func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
-	if isBroadcast {
-		byte, err := types.MarshalTransaction(tx)
-		if err != nil {
-			Logger.Errorf("marshal tx error!", )
-			return false, err
-		}
-		Logger.Debugf("Get tx from sender,size:%d", len(byte))
-	}
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -202,26 +194,21 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 
-		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		//Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
 
-	Logger.Debugf("after valid exit tx,hash:%v", hash)
 
 	pool.received.Push(tx)
-	Logger.Debugf("after push  tx,hash:%v", hash)
 
 	// batch broadcast
 	if isBroadcast {
-		Logger.Debugf("rcv ok tx,hash:%v", hash)
-
 		pool.sendingList = append(pool.sendingList, tx)
-		Logger.Debugf("sendingListLength len:%d", len(pool.sendingList))
 
 		if sendingListLength == len(pool.sendingList) {
-			txs := make([]*types.Transaction, sendingListLength)
+			txs := make([]*types.Transaction, 0)
 			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, sendingListLength)
+			pool.sendingList = make([]*types.Transaction, 0)
 			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
