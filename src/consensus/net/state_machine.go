@@ -174,7 +174,7 @@ func (m *StateMachine) transform() {
 
 	if m.Current.finished() && m.Current.next != nil {
 		m.Current = m.Current.next
-		if len(node.data) > 0 {
+		if len(m.Current.data) > 0 {
 			m.transform()
 		}
 	}
