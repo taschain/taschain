@@ -2,6 +2,8 @@ package common
 
 import (
 	"encoding/hex"
+	"bytes"
+	"encoding/binary"
 )
 
 func ToHex(b []byte) string {
@@ -94,4 +96,10 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	copy(padded[l-len(slice):], slice)
 
 	return padded
+}
+
+func Uint64ToByte(i uint64) []byte {
+	buf := bytes.NewBuffer([]byte{})
+	binary.Write(buf, binary.BigEndian, i)
+	return buf.Bytes()
 }
