@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"common"
-	"storage/core/types"
 )
 
 // AccountDB is an EVM database for full state querying.
@@ -41,6 +40,4 @@ type AccountDB interface {
 
 	RevertToSnapshot(int)
 	Snapshot() int
-
-	AddLog(*types.Log)
 }

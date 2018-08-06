@@ -494,7 +494,7 @@ func (p *Processor) CreateDummyGroup(miners []PubKeyInfo, gn string) int {
 	copy(grm.MEMS[:], miners[:])
 	grm.GI = gis
 	grm.SI = GenSignData(grm.GI.GenHash(), p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
-	log.Printf("proc(%v) Create New Group, send network msg to members...\n", p.getPrefix())
+	log.Printf("proc(%v) Create NewAccountDB Group, send network msg to members...\n", p.getPrefix())
 	log.Printf("call network service SendGroupInitMessage...\n")
 	//dummy 组写入组链 add by 小熊
 	//members := make([]core.Member, 0)

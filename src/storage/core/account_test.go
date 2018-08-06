@@ -69,7 +69,7 @@ func (s *StateSuite) TestDump(c *checker.C) {
 
 func (s *StateSuite) SetUpTest(c *checker.C) {
 	s.db, _ = tasdb.NewMemDatabase()
-	s.state, _ = New(common.Hash{}, NewDatabase(s.db))
+	s.state, _ = NewAccountDB(common.Hash{}, NewDatabase(s.db))
 }
 
 //func (s *StateSuite) TestNull(c *checker.C) {
@@ -115,7 +115,7 @@ func (s *StateSuite) SetUpTest(c *checker.C) {
 //// printing/logging in tests (-check.vv does not work)
 //func TestSnapshot2(t *testing.T) {
 //	db, _ := tasdb.NewMemDatabase()
-//	state, _ := New(common.Hash{}, NewDatabase(db))
+//	state, _ := NewAccountDB(common.Hash{}, NewDatabase(db))
 //
 //	stateobjaddr0 := toAddr([]byte("so0"))
 //	stateobjaddr1 := toAddr([]byte("so1"))

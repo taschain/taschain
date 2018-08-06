@@ -12,7 +12,6 @@ type transitionEntry interface {
 type transition []transitionEntry
 
 type (
-	// Changes to the account trie.
 	createObjectChange struct {
 		account *common.Address
 	}
@@ -21,11 +20,10 @@ type (
 	}
 	suicideChange struct {
 		account     *common.Address
-		prev        bool // whether account had already suicided
+		prev        bool
 		prevbalance *big.Int
 	}
 
-	// Changes to individual accounts.
 	balanceChange struct {
 		account *common.Address
 		prev    *big.Int
@@ -44,7 +42,6 @@ type (
 		prevcode, prevhash []byte
 	}
 
-	// Changes to other state values.
 	refundChange struct {
 		prev uint64
 	}
@@ -104,14 +101,4 @@ func (ch storageChange) undo(s *AccountDB) {
 
 func (ch refundChange) undo(s *AccountDB) {
 	s.refund = ch.prev
-}
-
-func (ch addLogChange) undo(s *AccountDB) {
-	logs := s.logs[ch.txhash]
-	if len(logs) == 1 {
-		delete(s.logs, ch.txhash)
-	} else {
-		s.logs[ch.txhash] = logs[:len(logs)-1]
-	}
-	s.logSize--
 }

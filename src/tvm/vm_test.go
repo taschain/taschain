@@ -10,7 +10,7 @@ import (
 
 func TestVmTest(t *testing.T) {
 	db, _ := tasdb.NewMemDatabase()
-	statedb, _ := core.New(common.Hash{}, core.NewDatabase(db))
+	statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(statedb)
 	script := `
 

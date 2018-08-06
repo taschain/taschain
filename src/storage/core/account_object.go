@@ -38,49 +38,31 @@ func (self Storage) Copy() Storage {
 	return cpy
 }
 
-// accountObject represents an Ethereum account which is being modified.
-//
-// The usage pattern is as follows:
-// First you need to obtain a state object.
-// Account values can be accessed and modified through the object.
-// Finally, call CommitTrie to write the modified storage trie into a database.
 type accountObject struct {
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
 	db       *AccountDB
 
-	// DB error.
-	// State objects are used by the consensus core and VM which are
-	// unable to deal with database-level errors. Any error that occurs
-	// during a database read is memoized here and will eventually be returned
-	// by AccountDB.Commit.
 	dbErr error
 
-	// Write caches.
-	trie Trie // storage trie, which becomes non-nil on first access
-	code Code // contract bytecode, which gets set when code is loaded
+	trie Trie
+	code Code
 
-	cachedStorage Storage // Storage entry cache to avoid duplicate reads
-	dirtyStorage  Storage // Storage entries that need to be flushed to disk
+	cachedStorage Storage
+	dirtyStorage  Storage
 
-	// Cache flags.
-	// When an object is marked suicided it will be delete from the trie
-	// during the "update" phase of the state transition.
-	dirtyCode bool // true if the code was updated
+	dirtyCode bool
 	suicided  bool
 	touched   bool
 	deleted   bool
-	onDirty   func(addr common.Address) // Callback method to mark a state object newly dirty
+	onDirty   func(addr common.Address)
 }
 
-// empty returns whether the account is considered empty.
 func (s *accountObject) empty() bool {
 	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash[:])
 }
 
-// Account is the Ethereum consensus representation of accounts.
-// These objects are stored in the main account trie.
 type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
@@ -88,8 +70,7 @@ type Account struct {
 	CodeHash []byte
 }
 
-// newObject creates a state object.
-func newObject(db *AccountDB, address common.Address, data Account, onDirty func(addr common.Address)) *accountObject {
+func newAccountObject(db *AccountDB, address common.Address, data Account, onDirty func(addr common.Address)) *accountObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -107,12 +88,10 @@ func newObject(db *AccountDB, address common.Address, data Account, onDirty func
 	}
 }
 
-// EncodeRLP implements rlp.Encoder.
 func (c *accountObject) Encode(w io.Writer) error {
 	return serialize.Encode(w, c.data)
 }
 
-// setError remembers the first non-nil error it is called with.
 func (self *accountObject) setError(err error) {
 	if self.dbErr == nil {
 		self.dbErr = err
@@ -128,7 +107,7 @@ func (self *accountObject) markSuicided() {
 }
 
 func (c *accountObject) touch() {
-	c.db.journal = append(c.db.journal, touchChange{
+	c.db.transitions = append(c.db.transitions, touchChange{
 		account:   &c.address,
 		prev:      c.touched,
 		prevDirty: c.onDirty == nil,
@@ -152,28 +131,26 @@ func (c *accountObject) getTrie(db Database) Trie {
 	return c.trie
 }
 
-// GetData returns a value in account storage.
 func (self *accountObject) GetData(db Database, key string) []byte {
 	value, exists := self.cachedStorage[key]
 	if exists {
 		return value
 	}
-	// Load from DB in case it is missing.
+
 	value, err := self.getTrie(db).TryGet([]byte(key))
 	if err != nil {
 		self.setError(err)
 		return nil
 	}
 
-	if (value != nil) {
+	if value != nil {
 		self.cachedStorage[key] = value
 	}
 	return value
 }
 
-// SetData updates a value in account storage.
 func (self *accountObject) SetData(db Database, key string, value []byte) {
-	self.db.journal = append(self.db.journal, storageChange{
+	self.db.transitions = append(self.db.transitions, storageChange{
 		account:  &self.address,
 		key:      key,
 		prevalue: self.GetData(db, key),
@@ -191,30 +168,26 @@ func (self *accountObject) setData(key string, value []byte) {
 	}
 }
 
-// updateTrie writes cached storage modifications into the object's storage trie.
 func (self *accountObject) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
-		if (value == nil) {
+		if value == nil {
 			self.setError(tr.TryDelete([]byte(key)))
 			continue
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		//v, _ := serialize.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+
 		self.setError(tr.TryUpdate([]byte(key), value[:]))
 	}
 	return tr
 }
 
-// UpdateRoot sets the trie root to the current root hash of
 func (self *accountObject) updateRoot(db Database) {
 	self.updateTrie(db)
 	self.data.Root = self.trie.Hash()
 }
 
-// CommitTrie the storage trie of the object to dwb.
-// This updates the trie root.
+
 func (self *accountObject) CommitTrie(db Database) error {
 	self.updateTrie(db)
 	if self.dbErr != nil {
@@ -227,11 +200,8 @@ func (self *accountObject) CommitTrie(db Database) error {
 	return err
 }
 
-// AddBalance removes amount from c's balance.
-// It is used to add funds to the destination account of a transfer.
 func (c *accountObject) AddBalance(amount *big.Int) {
-	// EIP158: We must check emptiness for the objects such that the account
-	// clearing (0,0,0 objects) can take effect.
+
 	if amount.Sign() == 0 {
 		if c.empty() {
 			c.touch()
@@ -242,8 +212,6 @@ func (c *accountObject) AddBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Add(c.Balance(), amount))
 }
 
-// SubBalance removes amount from c's balance.
-// It is used to remove funds from the origin account of a transfer.
 func (c *accountObject) SubBalance(amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -252,7 +220,7 @@ func (c *accountObject) SubBalance(amount *big.Int) {
 }
 
 func (self *accountObject) SetBalance(amount *big.Int) {
-	self.db.journal = append(self.db.journal, balanceChange{
+	self.db.transitions = append(self.db.transitions, balanceChange{
 		account: &self.address,
 		prev:    new(big.Int).Set(self.data.Balance),
 	})
@@ -267,13 +235,12 @@ func (self *accountObject) setBalance(amount *big.Int) {
 	}
 }
 
-// Return the gas back to the origin. Used by the Virtual machine or Closures
 func (c *accountObject) ReturnGas(gas *big.Int) {}
 
 func (self *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Address)) *accountObject {
-	accountObject := newObject(db, self.address, self.data, onDirty)
+	accountObject := newAccountObject(db, self.address, self.data, onDirty)
 	if self.trie != nil {
-		//accountObject.trie = db.db.CopyTrie(self.trie)
+		accountObject.trie = db.db.CopyTrie(self.trie)
 	}
 	accountObject.code = self.code
 	accountObject.dirtyStorage = self.dirtyStorage.Copy()
@@ -284,16 +251,10 @@ func (self *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Addr
 	return accountObject
 }
 
-//
-// Attribute accessors
-//
-
-// Returns the address of the contract/account
 func (c *accountObject) Address() common.Address {
 	return c.address
 }
 
-// Code returns the contract code associated with this object, if any.
 func (self *accountObject) Code(db Database) []byte {
 	if self.code != nil {
 		return self.code
@@ -311,7 +272,7 @@ func (self *accountObject) Code(db Database) []byte {
 
 func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
 	prevcode := self.Code(self.db.db)
-	self.db.journal = append(self.db.journal, codeChange{
+	self.db.transitions = append(self.db.transitions, codeChange{
 		account:  &self.address,
 		prevhash: self.CodeHash(),
 		prevcode: prevcode,
@@ -330,7 +291,7 @@ func (self *accountObject) setCode(codeHash common.Hash, code []byte) {
 }
 
 func (self *accountObject) SetNonce(nonce uint64) {
-	self.db.journal = append(self.db.journal, nonceChange{
+	self.db.transitions = append(self.db.transitions, nonceChange{
 		account: &self.address,
 		prev:    self.data.Nonce,
 	})
@@ -357,9 +318,6 @@ func (self *accountObject) Nonce() uint64 {
 	return self.data.Nonce
 }
 
-// Never called, but must be present to allow accountObject to be used
-// as a vm.Account interface that also satisfies the vm.ContractRef
-// interface. Interfaces are awesome.
 func (self *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }

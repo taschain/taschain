@@ -7,9 +7,7 @@ import (
 	"common"
 )
 
-/*
- * This is a test memory database. Do not use for any production it does not get persisted
- */
+
 type MemDatabase struct {
 	db   map[string][]byte
 	lock sync.RWMutex
