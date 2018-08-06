@@ -23,7 +23,7 @@ type Database struct {
 	gcnodes uint64
 	gcsize  common.StorageSize
 
-	nodesSize     common.StorageSize // Storage size of the nodes cache
+	nodesSize     common.StorageSize
 
 	lock sync.RWMutex
 }

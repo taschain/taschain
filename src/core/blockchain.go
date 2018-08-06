@@ -410,6 +410,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
+	log.Printf("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -445,6 +446,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
+	log.Printf("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	//block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
