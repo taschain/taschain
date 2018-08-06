@@ -4,6 +4,7 @@ import (
 	"sync"
 	"hash"
 	"crypto/sha256"
+	"bytes"
 )
 
 var hasherPool = sync.Pool{
@@ -21,4 +22,15 @@ func Sha256(blockByte []byte) []byte {
 	hasher.Write(blockByte)
 	return hasher.Sum(nil)
 
+}
+
+//BytesCombine 多个[]byte数组合并成一个[]byte
+func BytesCombine(pBytes ...[]byte) []byte {
+	len := len(pBytes)
+	s := make([][]byte, len)
+	for index := 0; index < len; index++ {
+		s[index] = pBytes[index]
+	}
+	sep := []byte("")
+	return bytes.Join(s, sep)
 }

@@ -19,12 +19,11 @@ import (
 	"common"
 )
 
-// Tests that updating a state trie does not leak any database writes prior to
-// actually committing the state.
+
 func TestUpdateLeaks(t *testing.T) {
 	// Create an empty state database
 	db, _ := tasdb.NewMemDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	state, _ := NewAccountDB(common.Hash{}, NewDatabase(db))
 
 	// Update it with some accounts
 	for i := byte(0); i < 255; i++ {
@@ -46,14 +45,13 @@ func TestUpdateLeaks(t *testing.T) {
 	}
 }
 
-// Tests that no intermediate state of an object is stored into the database,
-// only the one right before the commit.
+
 func TestIntermediateLeaks(t *testing.T) {
 	// Create two state databases, one transitioning to the final state, the other final from the beginning
 	transDb, _ := tasdb.NewMemDatabase()
 	finalDb, _ := tasdb.NewMemDatabase()
-	transState, _ := New(common.Hash{}, NewDatabase(transDb))
-	finalState, _ := New(common.Hash{}, NewDatabase(finalDb))
+	transState, _ := NewAccountDB(common.Hash{}, NewDatabase(transDb))
+	finalState, _ := NewAccountDB(common.Hash{}, NewDatabase(finalDb))
 
 	modify := func(state *AccountDB, addr common.Address, i, tweak byte) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
@@ -101,13 +99,10 @@ func TestIntermediateLeaks(t *testing.T) {
 	}
 }
 
-// TestCopy tests that copying a statedb object indeed makes the original and
-// the copy independent of each other. This test is a regression test against
-// https://vm/pull/15549.
 func TestCopy(t *testing.T) {
 	// Create a random state test to copy and modify "independently"
 	db, _ := tasdb.NewMemDatabase()
-	orig, _ := New(common.Hash{}, NewDatabase(db))
+	orig, _ := NewAccountDB(common.Hash{}, NewDatabase(db))
 
 	for i := byte(0); i < 255; i++ {
 		obj := orig.GetOrNewAccountObject(common.BytesToAddress([]byte{i}))
@@ -163,17 +158,6 @@ func TestSnapshotRandom(t *testing.T) {
 	}
 }
 
-// A snapshotTest checks that reverting AccountDB snapshots properly undoes all changes
-// captured by the snapshot. Instances of this test with pseudorandom content are created
-// by Generate.
-//
-// The test works as follows:
-//
-// A new state is created and all actions are applied to it. Several snapshots are taken
-// in between actions. The test then reverts each snapshot. For each snapshot the actions
-// leading up to it are replayed on a fresh, empty state. The behaviour of all public
-// accessor methods on the reverted state must match the return value of the equivalent
-// methods on the replayed state.
 type snapshotTest struct {
 	addrs     []common.Address // all account addresses
 	actions   []testAction     // modifications to the state
@@ -320,7 +304,7 @@ func (test *snapshotTest) run() bool {
 	// Run all actions and create snapshots.
 	var (
 		db, _        = tasdb.NewMemDatabase()
-		state, _     = New(common.Hash{}, NewDatabase(db))
+		state, _     = NewAccountDB(common.Hash{}, NewDatabase(db))
 		snapshotRevs = make([]int, len(test.snapshots))
 		sindex       = 0
 	)
@@ -334,7 +318,7 @@ func (test *snapshotTest) run() bool {
 	// Revert all snapshots in reverse order. Each revert must yield a state
 	// that is equivalent to fresh state with all actions up the snapshot applied.
 	for sindex--; sindex >= 0; sindex-- {
-		checkstate, _ := New(common.Hash{}, state.Database())
+		checkstate, _ := NewAccountDB(common.Hash{}, state.Database())
 		for _, action := range test.actions[:test.snapshots[sindex]] {
 			action.fn(action, checkstate)
 		}

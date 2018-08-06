@@ -169,13 +169,13 @@ func initBlockChain() error {
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
 		chain.buildCache(chain.topBlocks)
-		state, err := core.New(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
 		}
 	} else {
 		// 创始块
-		state, err := core.New(common.Hash{}, chain.stateCache)
+		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB())
@@ -264,7 +264,7 @@ func (chain *BlockChain) Clear() error {
 	chain.executor = NewTVMExecutor(chain)
 
 	// 创始块
-	state, err := core.New(common.Hash{}, chain.stateCache)
+	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB())
@@ -410,7 +410,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
-	state, err := core.New(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
+	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
 		buffer.WriteString("fail to new statedb, lateset height: ")
@@ -423,7 +423,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 
 	// Process block using the parent state as reference point.
-	_, _, statehash, _ := chain.executor.Execute(state, block, chain.voteProcessor)
+	statehash, err := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -519,7 +519,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	//执行交易
-	state, err := core.New(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
 		return nil, -1, nil, nil
@@ -531,7 +531,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Header = &bh
 	b.Transactions = transactions
 
-	_, _, statehash, _ := chain.executor.Execute(state, b, chain.voteProcessor)
+	statehash, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil

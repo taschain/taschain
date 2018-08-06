@@ -282,7 +282,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)
 	//if !ok {
-	//	return errors.New("gov module error")
+	//	return errors.NewAccountDB("gov module error")
 	//}
 
 	id := p2p.Server.SelfNetInfo.Id

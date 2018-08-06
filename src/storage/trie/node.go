@@ -49,22 +49,15 @@ type (
 	valueNode []byte
 )
 
-// EncodeRLP encodes a full node into the consensus RLP format.
-//func (n *fullNode) EncodeRLP(w io.Writer) error {
-//	return rlp.Encode(w, n.Children)
-//}
-
 func (n *fullNode) copy() *fullNode   { copy := *n; return &copy }
 func (n *shortNode) copy() *shortNode { copy := *n; return &copy }
 
-// nodeFlag contains caching-related metadata about a node.
 type nodeFlag struct {
 	hash  hashNode // cached hash of the node (may be nil)
 	gen   uint16   // cache generation counter
 	dirty bool     // whether the node has changes that must be written to the database
 }
 
-// canUnload tells whether a node can be unloaded.
 func (n *nodeFlag) canUnload(cachegen, cachelimit uint16) bool {
 	return !n.dirty && cachegen-n.gen >= cachelimit
 }
@@ -163,97 +156,6 @@ func decodeNode2(hash, buf []byte, cachegen uint16) (node, error)  {
 	return nil, fmt.Errorf("type mismatch")
 }
 
-//// decodeNode parses the RLP encoding of a trie node.
-//func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
-//	if len(buf) == 0 {
-//		return nil, io.ErrUnexpectedEOF
-//	}
-//	elems, _, err := rlp.SplitList(buf)
-//	if err != nil {
-//		return nil, fmt.Errorf("decode error: %v", err)
-//	}
-//	switch c, _ := rlp.CountValues(elems); c {
-//	case 2:
-//		n, err := decodeShort(hash, buf, elems, cachegen)
-//		return n, wrapError(err, "short")
-//	case 17:
-//		n, err := decodeFull(hash, buf, elems, cachegen)
-//		return n, wrapError(err, "full")
-//	default:
-//		return nil, fmt.Errorf("invalid number of list elements: %v", c)
-//	}
-//}
-//
-//func decodeShort(hash, buf, elems []byte, cachegen uint16) (node, error) {
-//	kbuf, rest, err := rlp.SplitString(elems)
-//	if err != nil {
-//		return nil, err
-//	}
-//	flag := nodeFlag{hash: hash, gen: cachegen}
-//	key := compactToHex(kbuf)
-//	if hasTerm(key) {
-//		// value node
-//		val, _, err := rlp.SplitString(rest)
-//		if err != nil {
-//			return nil, fmt.Errorf("invalid value node: %v", err)
-//		}
-//		return &shortNode{key, append(valueNode{}, val...), flag}, nil
-//	}
-//	r, _, err := decodeRef(rest, cachegen)
-//	if err != nil {
-//		return nil, wrapError(err, "val")
-//	}
-//	return &shortNode{key, r, flag}, nil
-//}
-//
-//func decodeFull(hash, buf, elems []byte, cachegen uint16) (*fullNode, error) {
-//	n := &fullNode{flags: nodeFlag{hash: hash, gen: cachegen}}
-//	for i := 0; i < 16; i++ {
-//		cld, rest, err := decodeRef(elems, cachegen)
-//		if err != nil {
-//			return n, wrapError(err, fmt.Sprintf("[%d]", i))
-//		}
-//		n.Children[i], elems = cld, rest
-//	}
-//	val, _, err := rlp.SplitString(elems)
-//	if err != nil {
-//		return n, err
-//	}
-//	if len(val) > 0 {
-//		n.Children[16] = append(valueNode{}, val...)
-//	}
-//	return n, nil
-//}
-//
-//const hashLen = len(common.Hash{})
-//
-//func decodeRef(buf []byte, cachegen uint16) (node, []byte, error) {
-//	kind, val, rest, err := rlp.Split(buf)
-//	if err != nil {
-//		return nil, buf, err
-//	}
-//	switch {
-//	case kind == rlp.List:
-//		// 'embedded' node reference. The encoding must be smaller
-//		// than a hash in order to be valid.
-//		if size := len(buf) - len(rest); size > hashLen {
-//			err := fmt.Errorf("oversized embedded node (size is %d bytes, want size < %d)", size, hashLen)
-//			return nil, buf, err
-//		}
-//		n, err := decodeNode(nil, buf, cachegen)
-//		return n, rest, err
-//	case kind == rlp.String && len(val) == 0:
-//		// empty node
-//		return nil, rest, nil
-//	case kind == rlp.String && len(val) == 32:
-//		return append(hashNode{}, val...), rest, nil
-//	default:
-//		return nil, nil, fmt.Errorf("invalid RLP string size %d (want 0 or 32)", len(val))
-//	}
-//}
-
-// wraps a decoding error with information about the path to the
-// invalid child node (for debugging encoding issues).
 type decodeError struct {
 	what  error
 	stack []string
