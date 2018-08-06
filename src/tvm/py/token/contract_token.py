@@ -60,6 +60,9 @@ class Address(object):
     def __eq__(self, other):
         return self.value == other.value
 
+    def contract_call(self):
+        pass
+
 
 this = Address("")
 
@@ -99,6 +102,20 @@ class Event(object):
     @staticmethod
     def emit(event_name, *param):
         print("Event: ", event_name, param)
+
+
+# def tokenRecipient(_sender, _value, _tokenContract, _extraData):
+#     require(_tokenContract == tokenContract);
+#     require(tokenContract.transferFrom(_sender, address(this), 1));
+#     uint256 payloadSize;
+#     uint256 payload;
+#     assembly
+#     {
+#     payloadSize: = mload(_extraData)
+#     payload: = mload(add(_extraData, 0x20))
+#     }
+#     payload = payload >> 8 * (32 - payloadSize);
+#     info[sender] = payload;
 
 #
 #
