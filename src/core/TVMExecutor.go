@@ -37,7 +37,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		} else if transaction.Target == nil{
 			createContract(accountdb, transaction)
 		} else {
-			amount := big.Int{}.SetUint64(transaction.Value)
+			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 			}
@@ -52,7 +52,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
-	amount := big.Int{}.SetUint64(transaction.Value)
+	amount := big.NewInt(int64(transaction.Value))
 	if !CanTransfer(accountdb, *transaction.Source, amount){
 		return common.Address{}, fmt.Errorf("balance not enough")
 	}
