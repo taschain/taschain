@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"vm/crypto/sha3"
+
+	"golang.org/x/crypto/sha3"
 )
 
 var logManager = map[string]seelog.LoggerInterface{}

@@ -9,9 +9,8 @@ import (
 
 	"encoding/json"
 	"sort"
-	"vm/common/hexutil"
-	"vm/ethdb"
-	vtypes "vm/core/types"
+	"storage/tasdb"
+	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
 	"container/heap"
@@ -60,9 +59,9 @@ type TransactionPool struct {
 	sendingList []*types.Transaction
 
 	// 已经在块上的交易 key ：txhash value： receipt
-	executed ethdb.Database
+	executed tasdb.Database
 
-	batch     ethdb.Batch
+	batch     tasdb.Batch
 	batchLock sync.Mutex
 
 	totalReceived uint64
@@ -364,12 +363,12 @@ func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transac
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
-	if hexutil.Encode(txs[i].Hash.Bytes()) == hexutil.Encode(hash) {
+	if common.ToHex(txs[i].Hash.Bytes()) == common.ToHex(hash) {
 		return txs[i]
 	}
 
 	for _, tx := range txs {
-		if hexutil.Encode(tx.Hash.Bytes()) == hexutil.Encode(hash) {
+		if common.ToHex(tx.Hash.Bytes()) == common.ToHex(hash) {
 			return tx
 		}
 	}

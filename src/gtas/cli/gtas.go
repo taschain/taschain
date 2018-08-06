@@ -14,7 +14,6 @@ import (
 	chandler "consensus/net/handler"
 	"consensus/mediator"
 	"consensus/logical"
-	"governance/global"
 
 	"encoding/json"
 	"consensus/groupsig"
@@ -281,10 +280,10 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	sync.InitBlockSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
-	ok := global.InitGov(core.BlockChainImpl)
-	if !ok {
-		return errors.New("gov module error")
-	}
+	//ok := global.InitGov(core.BlockChainImpl)
+	//if !ok {
+	//	return errors.New("gov module error")
+	//}
 
 	id := p2p.Server.SelfNetInfo.Id
 	secret := (*configManager).GetString(Section, "secret", "")
@@ -295,7 +294,7 @@ func (gtas *Gtas) fullInit(isSuper bool) error {
 	minerInfo := logical.NewMinerInfo(id, secret)
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
-	ok = mediator.ConsensusInit(minerInfo)
+	ok := mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
 	}

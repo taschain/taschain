@@ -214,8 +214,10 @@ func NewTvm(state vm.AccountDB)*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)Execute(script string) {
-	C.tvm_execute(C.CString(script))
+func (tvm *Tvm)Execute(script string) bool {
+	var c_bool C._Bool
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
 }
 
 type ABI struct {

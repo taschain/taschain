@@ -11,7 +11,7 @@ import (
 	"storage/serialize"
 	"golang.org/x/crypto/sha3"
 	"common"
-	"vm/log"
+	"taslog"
 )
 
 type revision struct {
@@ -25,6 +25,8 @@ var (
 
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = sha3.Sum256(nil)
+
+    logger = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 // StateDBs within the ethereum protocol are used to store anything
@@ -152,17 +154,17 @@ func (self *AccountDB) Empty(addr common.Address) bool {
 
 // Retrieve the balance from the given address or 0 if object not found
 func (self *AccountDB) GetBalance(addr common.Address) *big.Int {
-	stateObject := self.getAccountObject(addr)
-	if stateObject != nil {
-		return stateObject.Balance()
+	accountObject := self.getAccountObject(addr)
+	if accountObject != nil {
+		return accountObject.Balance()
 	}
 	return common.Big0
 }
 
 func (self *AccountDB) GetNonce(addr common.Address) uint64 {
-	stateObject := self.getAccountObject(addr)
-	if stateObject != nil {
-		return stateObject.Nonce()
+	accountObject := self.getAccountObject(addr)
+	if accountObject != nil {
+		return accountObject.Nonce()
 	}
 
 	return 0
@@ -339,7 +341,7 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 	}
 	var data Account
 	if err := serialize.DecodeBytes(enc, &data); err != nil {
-		log.Error("Failed to decode state object", "addr", addr, "err", err)
+		logger.Error("Failed to decode state object", "addr", addr, "err", err)
 		return nil
 	}
 	// Insert into the live set.
@@ -562,6 +564,6 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		}
 		return nil
 	})
-	log.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
+	logger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }

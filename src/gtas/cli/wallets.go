@@ -4,7 +4,6 @@ import (
 	"common"
 	"encoding/hex"
 	"encoding/json"
-	"governance/global"
 	"log"
 	"strings"
 	"core"
@@ -84,24 +83,24 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 	return balance.Int64(), nil
 }
 
-func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
-	if source == "" {
-		source = (*ws)[0].Address
-	}
-	abi, err := config.AbiEncode()
-	if err != nil {
-		return err
-	}
-	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
-	txpool := core.BlockChainImpl.GetTransactionPool()
-	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
-	transaction.Hash = transaction.GenHash()
-	_, err = txpool.Add(transaction)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+//func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
+//	if source == "" {
+//		source = (*ws)[0].Address
+//	}
+//	abi, err := config.AbiEncode()
+//	if err != nil {
+//		return err
+//	}
+//	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+//	txpool := core.BlockChainImpl.GetTransactionPool()
+//	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
+//	transaction.Hash = transaction.GenHash()
+//	_, err = txpool.Add(transaction)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 func newWallets() wallets {
 	var ws wallets

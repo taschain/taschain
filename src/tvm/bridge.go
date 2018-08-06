@@ -125,8 +125,9 @@ func GetRefund() C.ulonglong {
 //export GetState
 func GetState(addressC *C.char, hashC *C.char) *C.char {
 	address := common.StringToAddress(C.GoString(addressC))
-	hash := C.GoString(hashC)
-	state := tvm.state.GetData(address, hash)
+	//hash := common.StringToHash(C.GoString(hashC))
+	state := tvm.state.GetData(address, C.GoString(hashC))
+
 	return C.CString(string(state))
 }
 
