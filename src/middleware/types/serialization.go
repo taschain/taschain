@@ -211,7 +211,19 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 		member := pbToMember(m)
 		members = append(members, *member)
 	}
-	group := Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.PubKey, Dummy: g.Dummy, Signature: g.Signature, BeginHeight: *g.BeginHeight}
+	group := Group{
+		Id: g.Id,
+		Members: members,
+		PubKey: g.PubKey,
+		Parent: g.Parent,
+		Dummy: g.Dummy,
+		Signature: g.Signature,
+		BeginHeight: *g.BeginHeight,
+		DismissHeight: *g.DismissHeight,
+		Authority: *g.Authority,
+		Name: string(g.Name),
+		Extends: string(g.Extends),
+	}
 	return &group
 }
 
@@ -301,7 +313,19 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 		member := memberToPb(&m)
 		members = append(members, member)
 	}
-	group := tas_middleware_pb.Group{Id: g.Id, Members: members, PubKey: g.PubKey, Parent: g.Parent, Dummy: g.Dummy, Signature: g.Signature, BeginHeight: &g.BeginHeight}
+	group := tas_middleware_pb.Group{
+		Id: g.Id,
+		Members: members,
+		PubKey: g.PubKey,
+		Parent: g.Parent,
+		Dummy: g.Dummy,
+		Signature: g.Signature,
+		BeginHeight: &g.BeginHeight,
+		DismissHeight: &g.DismissHeight,
+		Authority: &g.Authority,
+		Name: []byte(g.Name),
+		Extends: []byte(g.Extends),
+	}
 	return &group
 }
 

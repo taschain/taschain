@@ -21,7 +21,7 @@ import (
 	"middleware"
 	"middleware/types"
 	"taslog"
-	"network"
+	"middleware/notify"
 )
 
 const (
@@ -82,8 +82,6 @@ type BlockChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
-
-	isBlockSyncInit bool
 }
 
 type castingBlock struct {
@@ -124,7 +122,7 @@ func getBlockChainConfig() *BlockChainConfig {
 
 func initBlockChain() error {
 
-	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("client", "index", ""))
+	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &BlockChain{
 		config:          getBlockChainConfig(),
@@ -134,7 +132,6 @@ func initBlockChain() error {
 		lock:            middleware.NewLoglock("chain"),
 		init:            true,
 		isAdujsting:     false,
-		isBlockSyncInit: false,
 	}
 
 	var err error
@@ -187,14 +184,6 @@ func initBlockChain() error {
 
 	BlockChainImpl = chain
 	return nil
-}
-
-func (chain *BlockChain) SetBlockSyncInit(b bool) {
-	chain.isBlockSyncInit = b
-}
-
-func (chain *BlockChain) IsBlockSyncInit() bool {
-	return chain.isBlockSyncInit
 }
 
 func (chain *BlockChain) SetLastBlockHash(bh *BlockHash) {
@@ -385,7 +374,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
-	beginTime := time.Now()
+	//beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
@@ -410,7 +399,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-	defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
+	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	state, err := state.New(c.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
@@ -509,7 +498,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			BlockHeight:       bh.Height,
 			BlockQn:           bh.QueueNumber,
 		}
-		go RequestTransaction(*m, castorId.GetString())
+		go RequestTransaction(*m, castorId.String())
 		return missing, 1, nil, nil
 	}
 
@@ -561,7 +550,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
-	defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
+	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }
@@ -610,7 +599,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.GetString(), chain.latestBlock.Height, chain.latestBlock.Hash)
+		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
 		status = 2
 	}
 
@@ -622,6 +611,8 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
+		notify.BUS.Publish(notify.BLOCK_ADD_SUCC, &notify.BlockMessage{Block: *b,})
 	}
 	return status
 
@@ -653,7 +644,6 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 				break
 			}
 		}
-
 		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash)
 	} else {
 		chain.SetLastBlockHash(bhs[0])
@@ -718,22 +708,30 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 	bh := chain.QueryBlockByHeight(height)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
-		Logger.Debugf("[BlockChain]GetBlockMessage:Self is on the same branch with request node!")
-		blocks := make([]*types.Block, 0)
-
-		for i := height + 1; i <= localHeight; i++ {
+		Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
+		var b *types.Block
+		for i := height + 1; i <= chain.Height(); i++ {
 			bh := chain.queryBlockHeaderByHeight(i, true)
 			if nil == bh {
 				continue
 			}
-			b := chain.queryBlockByHash(bh.Hash)
+			b = chain.queryBlockByHash(bh.Hash)
 			if nil == b {
 				continue
 			}
-
-			blocks = append(blocks, b)
+			break
 		}
-		return &BlockInfo{Blocks: blocks,}
+		if b == nil{
+			return nil
+		}
+
+		var isTopBlock bool
+		if b.Header.Height == chain.Height(){
+			isTopBlock = true
+		}else {
+			isTopBlock = false
+		}
+		return &BlockInfo{Block: b,IsTopBlock:isTopBlock}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
@@ -743,7 +741,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 		} else {
 			bhs = chain.getBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
 		}
-		return &BlockInfo{ChainPiece: bhs,}
+		return &BlockInfo{ChainPiece: bhs}
 	}
 }
 

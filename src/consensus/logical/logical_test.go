@@ -2,7 +2,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"consensus/rand"
 	"crypto/sha1"
 	"fmt"
 	"testing"
@@ -16,7 +15,7 @@ const TEST_MEMBERS = 5
 const TEST_THRESHOLD = 3
 
 type test_node_data struct {
-	seed     rand.Rand         //私密种子
+	seed     util.Rand         //私密种子
 	sk       groupsig.Seckey   //个人私钥(由私密种子和组公开信息衍生生成)
 	shares   []groupsig.Seckey //秘密共享接收池
 	sign_sk  groupsig.Seckey   //组成员签名私钥（由秘密共享接收池聚合而来）
@@ -32,7 +31,7 @@ func (tnd *test_node_data) AddPubPiece(pk groupsig.Pubkey) {
 }
 
 //生成某个成员针对组的私钥，用于生成秘密。
-func GenU4GSecKey(us rand.Rand, gs rand.Rand) *groupsig.Seckey {
+func GenU4GSecKey(us util.Rand, gs util.Rand) *groupsig.Seckey {
 	u4g_seed := us.DerivedRand(gs[:])
 	return groupsig.NewSeckeyFromRand(u4g_seed.Deri(0))
 }
@@ -56,7 +55,7 @@ func SetSharePiece(dest groupsig.ID, node *test_node_data, src groupsig.ID, shar
 }
 
 //某个成员生成针对全组所有成员的全部秘密共享片段
-func GenSharePiece(uid groupsig.ID, info test_node_data, group_seed rand.Rand, mems *map[groupsig.ID]test_node_data) (groupsig.SeckeyMapID, []groupsig.Pubkey) {
+func GenSharePiece(uid groupsig.ID, info test_node_data, group_seed util.Rand, mems *map[groupsig.ID]test_node_data) (groupsig.SeckeyMapID, []groupsig.Pubkey) {
 	//fmt.Printf("\nbegin GenSharePiece, uid=%v.\n", uid.GetHexString())
 	shares := make(groupsig.SeckeyMapID)
 	//var pubs []groupsig.Pubkey
@@ -111,7 +110,7 @@ func testGroupInit(t *testing.T) {
 	}
 
 	gis_hash := gis.GenHash() //组初始化共识的哈希值（尝试以这个作为共享秘密的基。如不行再以成员ID合并作为基，但这样没法支持缩扩容。）
-	gis_rand := rand.RandFromBytes(gis_hash.Bytes())
+	gis_rand := util.RandFromBytes(gis_hash.Bytes())
 
 	//组成员信息
 	users := make(map[groupsig.ID]test_node_data)
@@ -119,27 +118,27 @@ func testGroupInit(t *testing.T) {
 	node.shares = make([]groupsig.Seckey, TEST_MEMBERS)
 
 	user := *groupsig.NewIDFromString("thiefox")
-	node.seed = rand.RandFromString("710208")
+	node.seed = util.RandFromString("710208")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("siren")
-	node.seed = rand.RandFromString("850701")
+	node.seed = util.RandFromString("850701")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("juanzi")
-	node.seed = rand.RandFromString("123456")
+	node.seed = util.RandFromString("123456")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("wild children")
-	node.seed = rand.RandFromString("111111")
+	node.seed = util.RandFromString("111111")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
 	user = *groupsig.NewIDFromString("gebaini")
-	node.seed = rand.RandFromString("999999")
+	node.seed = util.RandFromString("999999")
 	node.sk = *GenU4GSecKey(node.seed, gis_rand)
 	users[user] = node
 
@@ -455,9 +454,10 @@ func testGroupInited(procs map[string]*Processor, gid_s string, t *testing.T) {
 }
 
 //测试逻辑功能
-func testLogicGroupInit(t *testing.T) {
+func TestLogicGroupInit(t *testing.T) {
+	groupsig.Init(1)
 	fmt.Printf("\nbegin testLogicGroupInit...\n")
-	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GROUP_MAX_MEMBERS, GetGroupK())
+	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GetGroupMemberNum(), GetGroupK(GetGroupMemberNum()))
 	//初始化
 	fmt.Printf("begin init data...\n")
 	root := NewMinerInfo("root", "TASchain")
@@ -498,7 +498,7 @@ func testLogicGroupInit(t *testing.T) {
 		}
 	}
 	for k, v := range nodes {
-		v.BeingValidMiner()
+		v.beingValidMiner()
 		fmt.Printf("node=%v, aggr group pub key=%v.\n", k.GetHexString(), v.GetGroupPubKey().GetHexString())
 		nodes[k] = v
 	}
@@ -512,8 +512,8 @@ func testLogicGroupInit(t *testing.T) {
 		ids = append(ids, k)
 		secs = append(secs, v.getSignSecKey())
 	}
-	ids = ids[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
-	secs = secs[RECOVER_BEGIN : GetGroupK()+RECOVER_BEGIN]
+	ids = ids[RECOVER_BEGIN : GetGroupK(GetGroupMemberNum())+RECOVER_BEGIN]
+	secs = secs[RECOVER_BEGIN : GetGroupK(GetGroupMemberNum())+RECOVER_BEGIN]
 	fmt.Printf("secs len=%v, ids len=%v.\n", len(secs), len(ids))
 	gsk2 := *groupsig.RecoverSeckey(secs, ids)
 	gpk2 := *groupsig.NewPubkeyFromSeckey(gsk2)
@@ -525,7 +525,7 @@ func testLogicGroupInit(t *testing.T) {
 }
 
 func genAllProcessers() map[string]*Processor {
-	procs := make(map[string]*Processor, GROUP_MAX_MEMBERS)
+	procs := make(map[string]*Processor, GetGroupMemberNum())
 
 	proc := new(Processor)
 	proc.Init(NewMinerInfo("thiefox", "710208"))
@@ -585,7 +585,7 @@ func testLogicGroupInitEx(t *testing.T) {
 		if first_proc == nil && v != nil {
 			first_proc = v
 		}
-		pki := v.GetMinerInfo()
+		pki := v.getPubkeyInfo()
 		fmt.Printf("proc(%v) miner_id=%v, pub_key=%v.\n", proc_index, GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 		proc_index++
 		mems = append(mems, pki)
@@ -601,16 +601,15 @@ func testLogicGroupInitEx(t *testing.T) {
 	fmt.Printf("grm.MEMS size=%v, mems size=%v.\n", len(grm.MEMS), len(mems))
 	//grm.GI = genDummyGIS(root, "64-2")
 
-	grm.GI = first_proc.GenGenesisGroupSummary()
+	grm.GI = GenGenesisGroupSummary()
 
 	//grm.SI = GenSignData(grm.GI.GenHash(), root.GetMinerID(), root.GetDefaultSecKey())
 	fmt.Printf("grm msg member size=%v.\n", len(grm.MEMS))
 
 	//通知所有节点这个待初始化的组合法
-	sgiinfo := NewSGIFromRawMessage(&grm) //生成组信息
 	//ngc := CreateInitingGroup(sgiinfo)
 	for _, v := range procs {
-		v.gg.ngg.addInitingGroup(CreateInitingGroup(sgiinfo))
+		v.globalGroups.AddInitingGroup(CreateInitingGroup(&grm))
 	}
 
 	//启动所有节点进行初始化
@@ -679,7 +678,7 @@ func testLogicGroupInitEx(t *testing.T) {
 		//ccm.GenSign(SecKeyInfo{mi.GetMinerID(), mi.GetDefaultSecKey()})
 		sign_pk := groupsig.NewPubkeyFromSeckey(sign_sk)
 		fmt.Printf("ccm sender's id=%v, sign_pk=%v.\n\n", GetIDPrefix(mi.GetMinerID()), GetPubKeyPrefix(*sign_pk))
-		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk})
+		ccm.GenSign(SecKeyInfo{mi.GetMinerID(), sign_sk}, &ccm)
 		break
 	}
 

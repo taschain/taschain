@@ -1,12 +1,10 @@
 package core
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"network/p2p"
 	"common"
-	"middleware/types"
+	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
-	"time"
+	"middleware/types"
 	"network"
 )
 
@@ -34,9 +32,32 @@ type BlockRequestInfo struct {
 }
 
 type BlockInfo struct {
-	Blocks     []*types.Block
+	Block    *types.Block
+	IsTopBlock bool
 	ChainPiece []*BlockHash
 }
+
+//对外广播自身上过链的block 全网广播
+//func BroadcastBlockOnChain(b *types.Block) {
+//	body, e := types.MarshalBlock(b)
+//	if e != nil {
+//		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+//		return
+//	}
+//	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
+//
+//	// conns := p2p.Server.Host.Network().Conns()
+//	// for _, conn := range conns {
+//	// 	id := conn.RemotePeer()
+//
+//	// 	if id != "" {
+//	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
+//	// 	}
+//	// }
+//	p2p.Server.SendMessageToAll(m)
+//
+//}
+
 
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
@@ -49,9 +70,9 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
-	message := p2p.Message{Code: p2p.REQ_TRANSACTION_MSG, Body: body}
-	p2p.Server.SendMessage(message, castorId)
+	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	message := network.Message{Code: network.REQ_TRANSACTION_MSG, Body: body}
+	network.GetNetInstance().Send(castorId,message)
 }
 
 //本地查询到交易，返回请求方
@@ -61,9 +82,9 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
-	message := p2p.Message{Code: p2p.TRANSACTION_GOT_MSG, Body: body}
-	p2p.Server.SendMessage(message, sourceId)
+	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
+	message := network.Message{Code: network.TRANSACTION_GOT_MSG, Body: body}
+	network.GetNetInstance().Send(sourceId,message)
 }
 
 //收到交易 全网扩散
@@ -79,15 +100,8 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.TRANSACTION_MSG, Body: body}
-
-	conns := p2p.Server.Host.Network().Conns()
-	for _, conn := range conns {
-		id := conn.RemotePeer()
-		if id != "" {
-			p2p.Server.SendMessage(message, p2p.ConvertToID(id))
-		}
-	}
+	message := network.Message{Code: network.TRANSACTION_MSG, Body: body}
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //向某一节点请求Block信息
@@ -98,8 +112,8 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 		Logger.Errorf("[peer]RequestBlockInfoByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.REQ_BLOCK_INFO, Body: body}
-	p2p.Server.SendMessage(message, id)
+	message := network.Message{Code: network.REQ_BLOCK_INFO, Body: body}
+	network.GetNetInstance().Send(id,message)
 }
 
 //本地查询之后将结果返回
@@ -109,8 +123,8 @@ func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
 		Logger.Errorf("[peer]SendBlockInfo marshal BlockEntity error:%s", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_INFO, Body: body}
-	p2p.Server.SendMessage(message, targetId)
+	message := network.Message{Code: network.BLOCK_INFO, Body: body}
+	network.GetNetInstance().Send(targetId,message)
 }
 
 //向目标结点索要 block hash
@@ -120,8 +134,8 @@ func RequestBlockHashes(targetNode string, bhr BlockHashesReq) {
 		Logger.Errorf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_HASHES_REQ, Body: body}
-	p2p.Server.SendMessage(message, targetNode)
+	message := network.Message{Code: network.BLOCK_HASHES_REQ, Body: body}
+	network.GetNetInstance().Send(targetNode,message)
 }
 
 //向目标结点发送 block hash
@@ -131,8 +145,8 @@ func SendBlockHashes(targetNode string, bhs []*BlockHash) {
 		Logger.Errorf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := p2p.Message{Code: p2p.BLOCK_HASHES, Body: body}
-	p2p.Server.SendMessage(message, targetNode)
+	message := network.Message{Code: network.BLOCK_HASHES, Body: body}
+	network.GetNetInstance().Send(targetNode,message)
 }
 
 //--------------------------------------------------Transaction---------------------------------------------------------------
@@ -173,7 +187,7 @@ func marshalBlockHashes(cbh []*BlockHash) ([]byte, error) {
 	for _, c := range cbh {
 		blockHashes = append(blockHashes, blockHashToPb(c))
 	}
-	r := tas_middleware_pb.BlockHashSlice{BlockHashes: blockHashes}
+	r := tas_middleware_pb.BlockChainPiece{BlockHashes: blockHashes}
 	return proto.Marshal(&r)
 }
 
@@ -198,21 +212,16 @@ func marshalBlockInfo(e *BlockInfo) ([]byte, error) {
 	if e == nil {
 		return nil, nil
 	}
-	blocks := make([]*tas_middleware_pb.Block, 0)
 
-	if e.Blocks != nil {
-		for _, b := range e.Blocks {
-			pb := types.BlockToPb(b)
-			if pb == nil {
-				Logger.Errorf("Block is nil while marshalBlockMessage")
-			}
-			blocks = append(blocks, pb)
+	var block *tas_middleware_pb.Block
+	if e.Block != nil {
+		block = types.BlockToPb(e.Block)
+		if block == nil {
+			Logger.Errorf("Block is nil while marshalBlockMessage")
 		}
 	}
-	blockSlice := tas_middleware_pb.BlockSlice{Blocks: blocks}
 
 	cbh := make([]*tas_middleware_pb.BlockHash, 0)
-
 	if e.ChainPiece != nil {
 		for _, b := range e.ChainPiece {
 			pb := blockHashToPb(b)
@@ -222,8 +231,8 @@ func marshalBlockInfo(e *BlockInfo) ([]byte, error) {
 			cbh = append(cbh, pb)
 		}
 	}
-	cbhs := tas_middleware_pb.BlockHashSlice{BlockHashes: cbh}
+	cbhs := tas_middleware_pb.BlockChainPiece{BlockHashes: cbh}
 
-	message := tas_middleware_pb.BlockInfo{Blocks: &blockSlice, BlockHashes: &cbhs}
+	message := tas_middleware_pb.BlockInfo{Block: block, IsTopBlock:&e.IsTopBlock,ChainPiece:&cbhs}
 	return proto.Marshal(&message)
 }

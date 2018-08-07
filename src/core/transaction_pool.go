@@ -39,7 +39,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 20
+	sendingListLength = 50
 )
 
 // 配置文件
@@ -99,7 +99,7 @@ func NewTransactionPool() *TransactionPool {
 		config:      getPoolConfig(),
 		lock:        middleware.NewLoglock("txpool"),
 		batchLock:   sync.Mutex{},
-		sendingList: make([]*types.Transaction, sendingListLength),
+		sendingList: make([]*types.Transaction, 0),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -131,17 +131,20 @@ func (pool *TransactionPool) GetReceived() []*types.Transaction {
 
 // 返回待处理的transaction数组
 func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	//txs := pool.received.AsSlice()
-	var result []*types.Transaction
-	if pool.received.txs.Len() > 5000 {
-		result = make([]*types.Transaction, 5000)
-		copy(result, pool.received.txs[:5000])
-	} else {
-		result = make([]*types.Transaction, pool.received.txs.Len())
-		copy(result, pool.received.txs)
-	}
-	sort.Sort(types.Transactions(result))
-	return result
+	txs := pool.received.AsSlice()
+	sort.Sort(types.Transactions(txs))
+	return txs
+
+	//var result []*types.Transaction
+	//if pool.received.txs.Len() > 5000 {
+	//	result = make([]*types.Transaction, 5000)
+	//	copy(result, pool.received.txs[:5000])
+	//} else {
+	//	result = make([]*types.Transaction, pool.received.txs.Len())
+	//	copy(result, pool.received.txs)
+	//}
+	//sort.Sort(types.Transactions(result))
+	//return result
 }
 
 // 返回待处理的transaction数组
@@ -186,8 +189,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
-		//log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
-
+		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
 		return false, err
 	}
 
@@ -195,21 +197,22 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 
-		//log.Trace("Discarding already known transaction", "hash", hash)
+		//Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
+
 
 	pool.received.Push(tx)
 
 	// batch broadcast
 	if isBroadcast {
-		//txs := []*types.Transaction{tx}
-		//go BroadcastTransactions(txs)
 		pool.sendingList = append(pool.sendingList, tx)
+
 		if sendingListLength == len(pool.sendingList) {
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, sendingListLength)
+			pool.sendingList = make([]*types.Transaction, 0)
+			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
 	}

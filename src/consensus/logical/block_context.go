@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"middleware/types"
+	"consensus/model"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -19,7 +20,7 @@ type BlockContext struct {
 	//SignedMaxQN     int64                       //组内已铸出的最大QN值的块
 	//PrevHash        common.Hash                 //上一块哈希值
 	//CastHeight      uint64                      //待铸块高度
-	GroupMembers    uint                        //组成员数量
+	GroupMembers    int                        //组成员数量
 	//Threshold       uint                           //百分比（0-100）
 	//Slots [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
 	verifyContexts	[]*VerifyContext
@@ -29,18 +30,28 @@ type BlockContext struct {
 	lock sync.RWMutex
 
 	Proc    *Processor   //处理器
-	MinerID GroupMinerID //矿工ID和所属组ID
+	MinerID model.GroupMinerID //矿工ID和所属组ID
 	pos     int          //矿工在组内的排位
 }
 
-func (bc *BlockContext) Init(mid GroupMinerID) {
-	bc.MinerID = mid
-	bc.verifyContexts = make([]*VerifyContext, 0)
+func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
+	bc := &BlockContext{
+		Proc: p,
+		MinerID: *model.NewGroupMinerID(sgi.GroupID, p.GetMinerID()),
+		verifyContexts: make([]*VerifyContext, 0),
+		GroupMembers: len(sgi.Members),
+		Version: model.CONSENSUS_VERSION,
+	}
 	bc.reset()
+	return bc
+}
+
+func (bc *BlockContext) threshold() int {
+    return model.Param.GetGroupK(bc.GroupMembers)
 }
 
 func (bc *BlockContext) getKingCheckRoutineName() string {
-	return "king_check_routine_" + GetIDPrefix(bc.MinerID.gid)
+	return "king_check_routine_" + GetIDPrefix(bc.MinerID.Gid)
 }
 
 func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
@@ -77,7 +88,7 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	defer bc.lock.Unlock()
 
 	if idx, vctx := bc.getVerifyContext(bh.Height, bh.PreHash); vctx == nil {
-		vctx = newVerifyContext(bc, bh.Height, bh.PreTime, bh.PreHash, expireTime)
+		vctx = newVerifyContext(bc, bh.Height, expireTime, preBH)
 		bc.verifyContexts = append(bc.verifyContexts, vctx)
 		return int32(len(bc.verifyContexts) - 1), vctx
 	} else {
@@ -85,32 +96,29 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	}
 }
 
-func (bc *BlockContext) RemoveVerifyContexts(vctx []*VerifyContext) {
-	if vctx == nil || len(vctx) == 0 {
-		return
-	}
+func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	for _, ctx := range vctx {
-		idx, _ := bc.getVerifyContext(ctx.castHeight, ctx.prevHash)
-		if idx < 0 {
-			continue
+	newCtxs := make([]*VerifyContext, 0)
+	for _, ctx := range bc.verifyContexts {
+		if !ctx.ShouldRemove(height) {
+			newCtxs = append(newCtxs, ctx)
+		} else {
+			if bc.currentVerifyContext == ctx {
+				bc.reset()
+			}
+			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
 		}
-		if ctx == bc.currentVerifyContext {
-			bc.reset()
-		}
-		bc.verifyContexts = append(bc.verifyContexts[:idx], bc.verifyContexts[idx+1:]...)
 	}
+	bc.verifyContexts = newCtxs
 }
 
 func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	ret := make([]*VerifyContext, len(bc.verifyContexts))
-	copy(ret, bc.verifyContexts)
-	return ret
+	return bc.verifyContexts
 }
 
 //（网络接收）新到交易集通知
@@ -154,7 +162,6 @@ func (bc *BlockContext) Reset() {
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
 
-	bc.Version = CONSENSUS_VERSION
 	//bc.PreTime = *new(time.Time)
 	//bc.CCTimer.Stop() //关闭定时器
 	//bc.TickerRunning = false
@@ -163,37 +170,33 @@ func (bc *BlockContext) reset() {
 	//bc.PrevHash = common.Hash{}
 	//bc.CastHeight = 0
 	bc.currentVerifyContext = nil
-	bc.GroupMembers = uint(GROUP_MAX_MEMBERS)
+	//bc.GroupMembers = GetGroupMemberNum()
 
 	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
-	log.Printf("end BlockContext::Reset.\n")
+	//log.Printf("end BlockContext::Reset.\n")
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, preTime time.Time, preHash common.Hash, expire time.Time) {
+func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	//bc.PreTime = prevTime //上一块的铸块成功时间
-	//bc.ConsensusStatus = CBCS_CURRENT
-	//bc.SignedMaxQN = INVALID_QN //等待第一个有效铸块
-	//bc.PrevHash = prevHash
-	//bc.CastHeight = castHeight
-	//bc.Slots = *new([MAX_SYNC_CASTORS]*SlotContext)
-	//bc.resetSlotContext()
-
-	if _, verifyCtx := bc.getVerifyContext(castHeight, preHash); verifyCtx != nil {
+	if _, verifyCtx := bc.getVerifyContext(castHeight, baseBH.Hash); verifyCtx != nil {
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
+		if !verifyCtx.isCasting() {
+			verifyCtx.rebase(bc, castHeight, expire, baseBH)
+		}
 		bc.currentVerifyContext = verifyCtx
+
 	} else {
-		verifyCtx = newVerifyContext(bc, castHeight, preTime, preHash, expire)
+		verifyCtx = newVerifyContext(bc, castHeight, expire, baseBH)
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}
 
 	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
 	//bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
-	log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
+	//log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
 	return
 }
 
@@ -203,7 +206,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	if !bc.Proc.Ready() {
 		return false
 	}
-	log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
+	//log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
 	vctx := bc.GetCurrentVerifyContext()
 	if vctx == nil {
@@ -236,17 +239,25 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 			log.Printf("kingTickerRoutine: calcCastor index =%v\n", index)
 			return false
 		}
-		if vctx.signedMaxQN != INVALID_QN && qn <= vctx.signedMaxQN { //已经铸出了更大的qn
+		if vctx.signedMaxQN != model.INVALID_QN && qn <= vctx.signedMaxQN { //已经铸出了更大的qn
 			log.Printf("kingTickerRoutine: already cast maxer qn! height=%v, signMaxQN=%v, calcQn=%v\n", vctx.castHeight, vctx.signedMaxQN, qn)
 			return false
 		}
 		bc.Proc.kingCheckAndCast(bc, vctx, index, qn)
-		log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
+		//log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
 		return true
 	}
 	return true
 }
 
 func (bc *BlockContext) getGroupSecret() *GroupSecret {
-    return bc.Proc.getGroupSecret(bc.MinerID.gid)
+    return bc.Proc.getGroupSecret(bc.MinerID.Gid)
+}
+
+func (bc *BlockContext) registerTicker()  {
+	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(model.Param.MaxUserCastTime))
+}
+
+func (bc *BlockContext) removeTicker()  {
+	bc.Proc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
 }

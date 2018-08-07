@@ -12,15 +12,15 @@ import (
 */
 
 type GroupSecret struct {
-	secretSign 		[]byte	//秘密签名
-	effectHeight	uint64			//生效高度
-	dataHash 		common.Hash		//签名的数据hash
+	SecretSign   []byte      //秘密签名
+	EffectHeight uint64      //生效高度
+	DataHash     common.Hash //签名的数据hash
 }
 
 func NewGroupSecret(sign groupsig.Signature, height uint64, hash common.Hash) *GroupSecret {
 	return &GroupSecret{
-		secretSign: sign.Serialize(),
-		effectHeight: height,
-		dataHash: hash,
+		SecretSign:   sign.Serialize(),
+		EffectHeight: height,
+		DataHash:     hash,
 	}
 }

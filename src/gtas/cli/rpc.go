@@ -5,7 +5,7 @@ import (
 	"vm/rpc"
 
 	"fmt"
-	"network/p2p"
+	"network"
 	"strconv"
 	"core"
 	"encoding/hex"
@@ -13,6 +13,10 @@ import (
 	"log"
 	"math"
 	"consensus/groupsig"
+	"common"
+	"consensus/mediator"
+	"consensus/logical"
+	"middleware/types"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -21,19 +25,18 @@ type GtasAPI struct {
 
 // T 交易接口
 func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	err := walletManager.transaction(from, to, amount, code)
+	hash, err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
 	return &Result{
 		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
-		Data:    "",
+		Data:    hash.String(),
 	}, nil
 }
 
 // Balance 查询余额接口
 func (api *GtasAPI) Balance(account string) (*Result, error) {
-	// TODO 查询余额接口
 	balance, err := walletManager.getBalance(account)
 	if err != nil {
 		return nil, err
@@ -95,13 +98,13 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		fmt.Println(err)
-	//	}
-	//}()
-	nodes := p2p.Server.GetConnInfo()
-	return &Result{"", nodes}, nil
+
+	nodes :=network.GetNetInstance().ConnInfo()
+	conns := make([]ConnInfo,0)
+	for _,n := range nodes{
+		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
+	}
+	return &Result{"", conns}, nil
 }
 
 // TransPool 查询缓冲区的交易信息。
@@ -119,6 +122,19 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return &Result{"success", transList}, nil
 }
 
+func(api *GtasAPI) GetTransaction(hash string) (*Result, error) {
+	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
+	if err != nil {
+		return nil, err
+	}
+	detail := make(map[string]interface{})
+	detail["hash"] = hash
+	detail["source"] = transaction.Source.Hash().Hex()
+	detail["target"] = transaction.Target.Hash().Hex()
+	detail["value"] = transaction.Value
+	return &Result{"success", detail}, nil
+}
+
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
 	blockDetail := make(map[string]interface{})
@@ -130,10 +146,15 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	var castorId groupsig.ID
 	castorId.Deserialize(bh.Castor)
-	blockDetail["castor"] = castorId.GetString()
+	blockDetail["castor"] = castorId.String()
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
+	trans := make([]string, len(bh.Transactions))
+	for i := range bh.Transactions {
+		trans[i] = bh.Transactions[i].String()
+	}
+	blockDetail["transactions"] = trans
 	blockDetail["txs"] = len(bh.Transactions)
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 	return &Result{"success", blockDetail}, nil
@@ -157,6 +178,75 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
 	return &Result{"success", blockDetail}, nil
+}
+
+func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
+	groups := mediator.Proc.GetCastQualifiedGroups(height)
+	return &Result{"success", len(groups)}, nil
+}
+
+func convertGroup(g *types.Group) map[string]interface{} {
+	gmap := make(map[string]interface{})
+	if g.Id != nil && len(g.Id) != 0 {
+		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
+		gmap["dummy"] = false
+	} else {
+		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
+		gmap["dummy"] = true
+	}
+	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+	gmap["begin_height"] = g.BeginHeight
+	gmap["dismiss_height"] = g.DismissHeight
+	mems := make([]string, 0)
+	for _, mem := range g.Members {
+		memberStr :=  groupsig.DeserializeId(mem.Id).GetHexString()
+		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
+	}
+	gmap["members"] = mems
+	return gmap
+}
+
+func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
+	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
+	if err != nil {
+		return &Result{"fail", err.Error()}, nil
+	}
+	ret := make([]map[string]interface{}, 0)
+	h := height
+	for _, g := range groups {
+		gmap := convertGroup(g)
+		gmap["height"] = h
+		h++
+		ret = append(ret, gmap)
+	}
+	return &Result{"success", ret}, nil
+}
+
+
+func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
+	height := core.BlockChainImpl.Height()
+	return api.GetWorkGroup(height)
+}
+
+
+func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
+	groups := mediator.Proc.GetCastQualifiedGroups(height)
+	ret := make([]map[string]interface{}, 0)
+
+	for _, g := range groups {
+		gmap := make(map[string]interface{})
+		gmap["id"] = logical.GetIDPrefix(g.GroupID)
+		gmap["parent"] = logical.GetIDPrefix(g.GroupID)
+		mems := make([]string, 0)
+		for _, mem := range g.Members {
+			mems = append(mems, logical.GetIDPrefix(mem.ID))
+		}
+		gmap["group_members"] = mems
+		gmap["begin_height"] = g.BeginHeight
+		gmap["dismiss_height"] = g.DismissHeight
+		ret = append(ret, gmap)
+	}
+	return &Result{"success", ret}, nil
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.

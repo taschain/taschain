@@ -9,7 +9,7 @@ import (
 )
 
 // ID -- id for secret sharing, represented by big.Int
-//秘密共享的ID，64位int，共256位
+//秘密共享的ID，64字节int，共256位
 type ID struct {
 	//	value big.Int
 	value bls.ID
@@ -17,8 +17,7 @@ type ID struct {
 
 //判断2个ID是否相同
 func (id ID) IsEqual(rhs ID) bool {
-	// TODO : add IsEqual to bls.ID
-	return id.value.GetHexString() == rhs.value.GetHexString() //hex string
+	return id.value.IsEqual(&rhs.value) //hex string
 }
 
 //把big.Int转换到ID
@@ -123,8 +122,11 @@ func NewIDFromPubkey(pk Pubkey) *ID {
 
 //从字符串生成ID 传入的STRING必须保证离散性
 func NewIDFromString(s string) *ID {
-	bi := new(big.Int).SetBytes([]byte(s))
-	return NewIDFromBigInt(bi)
+	//bi := new(big.Int).SetBytes([]byte(s))
+	hex := common.Bytes2Hex([]byte(s))
+	var id ID
+	id.value.SetHexString(hex)
+	return &id
 }
 func DeserializeId(bs []byte) *ID {
 	var id ID
@@ -134,8 +136,10 @@ func DeserializeId(bs []byte) *ID {
 	return &id
 }
 
-func (id ID) GetString() string {
-	bigInt := id.GetBigInt()
-	b := bigInt.Bytes()
-	return string(b)
+func (id ID) String() string {
+	hex := id.value.GetHexString()
+	bs := common.Hex2Bytes(hex)
+	//bigInt := id.GetBigInt()
+	//b := bigInt.Bytes()
+	return string(bs)
 }

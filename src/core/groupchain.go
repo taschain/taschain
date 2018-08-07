@@ -10,6 +10,8 @@ import (
 	"vm/ethdb"
 	"core/datasource"
 	"middleware/types"
+	"redis"
+	"middleware/notify"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -34,8 +36,6 @@ type GroupChain struct {
 
 	// 读写锁
 	lock sync.RWMutex
-
-	isGroupSyncInit bool
 }
 
 func defaultGroupChainConfig() *GroupChainConfig {
@@ -63,7 +63,6 @@ func initGroupChain() error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
 		now:    *new([][]byte),
-		isGroupSyncInit: false,
 	}
 
 	var err error
@@ -115,6 +114,20 @@ func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
 
+func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
+	pubKey, _ := redis.GetPubKeyById(id)
+	return pubKey
+}
+
+func (chain *GroupChain) GetMemberPubkeyByIDs(ids [][]byte) [][]byte {
+	result, _ := redis.GetPubKeyByIds(ids)
+	return result
+}
+
+func (chain *GroupChain) GetCandidates() ([][]byte, error) {
+	return redis.GetAllNodeIds()
+}
+
 func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
@@ -132,6 +145,12 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error
 
 	}
 	return result, nil
+}
+
+func (chain *GroupChain) GetGroupByHeight(height uint64) (*types.Group) {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+	return chain.getGroupByHeight(height)
 }
 
 func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
@@ -220,18 +239,12 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 			chain.count++
 		}
 		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now), overWrite, group.Id)
+
+		notify.BUS.Publish(notify.GROUP_ADD_SUCC, &notify.GroupMessage{Group: *group,})
 		return chain.groups.Put(group.Id, data)
 	}
 }
 
 func (chain *GroupChain) GetAllGroupID() [][]byte {
 	return chain.now
-}
-
-func (chain *GroupChain) SetGroupSyncInit(b bool) {
-	chain.isGroupSyncInit = b
-}
-
-func (chain *GroupChain) IsGroupSyncInit() bool {
-	return chain.isGroupSyncInit
 }

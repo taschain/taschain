@@ -3,9 +3,9 @@ package groupsig
 import (
 	"common"
 	"consensus/bls"
-	"consensus/rand"
 	"log"
 	"unsafe"
+	"consensus/base"
 )
 
 // types
@@ -28,18 +28,26 @@ type SignatureIMap map[string]Signature
 
 func (sig Signature) GetHash() common.Hash {
 	buf := sig.Serialize()
-	return rand.Data2CommonHash(buf)
+	return base.Data2CommonHash(buf)
 }
 
 //由签名生成随机数
-func (sig Signature) GetRand() rand.Rand {
+func (sig Signature) GetRand() base.Rand {
 	//先取得签名的字节切片（序列化），然后以字节切片为基生成随机数
-	return rand.RandFromBytes(sig.Serialize())
+	return base.RandFromBytes(sig.Serialize())
 }
 
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
 	return sig.value.Deserialize(b)
+}
+
+func DeserializeSign(b []byte) *Signature {
+	var sign = &Signature{}
+	if err := sign.Deserialize(b); err != nil {
+		return nil
+	}
+	return sign
 }
 
 //把签名转换为字节切片

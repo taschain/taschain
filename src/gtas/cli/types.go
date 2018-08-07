@@ -30,6 +30,7 @@ type RPCResObj struct {
 
 // 缓冲池交易列表中的transactions
 type Transactions struct {
+	Hash string `json:"hash"`
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Value  string `json:"value"`
@@ -38,4 +39,10 @@ type Transactions struct {
 type PubKeyInfo struct {
 	PubKey string `json:"pub_key"`
 	ID string `json:"id"`
+}
+
+type ConnInfo struct {
+	Id      string `json:"id"`
+	Ip      string `json:"ip"`
+	TcpPort string `json:"tcp_port"`
 }

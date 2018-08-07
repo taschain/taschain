@@ -50,7 +50,6 @@ type BlockChainI interface {
 	//是否正在调整分叉
 	IsAdujsting() bool
 
-	IsBlockSyncInit() bool
 }
 
 //组管理接口
