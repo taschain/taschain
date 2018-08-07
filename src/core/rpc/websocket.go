@@ -15,10 +15,6 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-// WebsocketHandler returns a handler that serves JSON-RPC to WebSocket connections.
-//
-// allowedOrigins should be a comma-separated list of allowed origin URLs.
-// To allow connections with any origin, pass "*".
 func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 	return websocket.Server{
 		Handshake: wsHandshakeValidator(allowedOrigins),
@@ -28,16 +24,10 @@ func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 	}
 }
 
-// NewWSServer creates a new websocket RPC server around an API provider.
-//
-// Deprecated: use Server.WebsocketHandler
 func NewWSServer(allowedOrigins []string, srv *Server) *http.Server {
 	return &http.Server{Handler: srv.WebsocketHandler(allowedOrigins)}
 }
 
-// wsHandshakeValidator returns a handler that verifies the origin during the
-// websocket upgrade process. When a '*' is specified as an allowed origins all
-// connections are accepted.
 func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http.Request) error {
 	origins := set.New()
 	allowAllOrigins := false
@@ -73,11 +63,6 @@ func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http
 	return f
 }
 
-// DialWebsocket creates a new RPC client that communicates with a JSON-RPC server
-// that is listening on the given endpoint.
-//
-// The context is used for the initial connection establishment. It does not
-// affect subsequent interactions with the client.
 func DialWebsocket(ctx context.Context, endpoint, origin string) (*Client, error) {
 	if origin == "" {
 		var err error
