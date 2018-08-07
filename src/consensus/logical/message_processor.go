@@ -379,7 +379,12 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 		log.Printf("OMGI verify parent groupsig fail!\n")
 		return
 	}
-
+	height := p.MainChain.QueryTopBlock().Height
+	if grm.GI.ReadyTimeout(height) {
+		log.Printf("OMGI gis expired! dummyId=%v, getReadyHeight=%v, now=%v\n", GetIDPrefix(grm.GI.DummyID), grm.GI.GetReadyHeight, height)
+		logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "超时，expect readyHeight %v, now %v", grm.GI.GetReadyHeight, height)
+		return
+	}
 
 	if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -470,7 +475,14 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		return
 	}
 	if gc.gis.GenHash() != spm.GISHash {
-		log.Printf("OMSPK failed, gisHash diff.\n")
+		log.Printf("OMSP failed, gisHash diff.\n")
+		return
+	}
+
+	height := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(height) {
+		log.Printf("OMSP gis expired! dummyId=%v, getReadyHeight=%v, now=%v\n", GetIDPrefix(spm.DummyID), gc.gis.GetReadyHeight, height)
+		logKeyword("OMSP", GetIDPrefix(gc.gis.DummyID), GetIDPrefix(spm.SI.SignMember), "超时，expect readyHeight %v, now %v", gc.gis.GetReadyHeight, height)
 		return
 	}
 
@@ -537,7 +549,14 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		return
 	}
 	if !spkm.VerifyGISSign(spkm.SignPK) {
-		panic("OMSP verify GISSign with sign pub key failed.")
+		panic("OMSPK verify GISSign with sign pub key failed.")
+	}
+
+	height := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(height) {
+		log.Printf("OMSPK gis expired! dummyId=%v, getReadyHeight=%v, now=%v\n", GetIDPrefix(gc.gis.DummyID), gc.gis.GetReadyHeight, height)
+		logKeyword("OMSPK", GetIDPrefix(gc.gis.DummyID), GetIDPrefix(spkm.SI.SignMember), "超时，expect readyHeight %v, now %v", gc.gis.GetReadyHeight, height)
+		return
 	}
 
 	//log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
@@ -617,6 +636,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), gim.GI.GIS.TopHeight)
 		return
 	}
+
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, gim.GI.GIS.GenHash().Bytes(), gim.GI.GIS.Signature) {
 		log.Printf("OMGIED verify parent groupsig fail! dummyId=%v\n", GetIDPrefix(dummyId))

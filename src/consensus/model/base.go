@@ -266,7 +266,7 @@ func (gis *ConsensusGroupInitSummary) IsExpired() bool {
 }
 
 func (gis *ConsensusGroupInitSummary) ReadyTimeout(height uint64) bool {
-	return gis.IsExpired() && gis.GetReadyHeight <= height
+	return gis.IsExpired() || gis.GetReadyHeight <= height
 }
 
 //生成哈希

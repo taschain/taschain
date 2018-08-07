@@ -264,6 +264,12 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		return false
 	}
 
+	topHeight := gm.processor.MainChain.QueryTopBlock().Height
+	if msg.GI.ReadyTimeout(topHeight) {
+		log.Printf("OnMessageCreateGroupRaw gis readyTimeout\n")
+		return false
+	}
+
 	memHash := model.GenMemberHashByIds(msg.IDs)
 	if memHash != gis.MemberHash {
 		log.Printf("ConsensusCreateGroupRawMessage memberHash diff\n")
