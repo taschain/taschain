@@ -33,8 +33,8 @@ func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Resu
 		}, nil
 	} else {
 		return &Result{
-			Message: fmt.Sprintf("Contract Hash: %s", contractAddr.Str()),
-			Data:    contractAddr.Str(),
+			Message: fmt.Sprintf("Contract Hash: %s", contractAddr.GetHexString()),
+			Data:    contractAddr.GetHexString(),
 		}, nil
 	}
 }
