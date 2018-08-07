@@ -22,14 +22,21 @@ type GtasAPI struct {
 
 // T 交易接口
 func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	hash, err := walletManager.transaction(from, to, amount, code)
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
-	return &Result{
-		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
-		Data:    hash.String(),
-	}, nil
+	if code == "" {
+		return &Result{
+			Message: fmt.Sprintf("Transaction hash: %s", hash.String()),
+			Data:    hash.String(),
+		}, nil
+	} else {
+		return &Result{
+			Message: fmt.Sprintf("Contract Hash: %s", contractAddr.GetHexString()),
+			Data:    contractAddr.GetHexString(),
+		}, nil
+	}
 }
 
 // Balance 查询余额接口

@@ -11,7 +11,6 @@ import (
 	"common"
 )
 
-// API describes the set of methods offered over the RPC interface
 type API struct {
 	Namespace string      // namespace under which the rpc methods of Service are exposed
 	Version   string      // api version for DApp's
@@ -19,7 +18,6 @@ type API struct {
 	Public    bool        // indication if the methods must be considered safe for public use
 }
 
-// callback is a method callback which was registered in the server
 type callback struct {
 	rcvr        reflect.Value  // receiver of method
 	method      reflect.Method // callback
@@ -29,7 +27,6 @@ type callback struct {
 	isSubscribe bool           // indication if the callback is a subscription
 }
 
-// service represents a registered object
 type service struct {
 	name          string        // name for service
 	typ           reflect.Type  // receiver type
@@ -51,7 +48,6 @@ type serviceRegistry map[string]*service // collection of services
 type callbacks map[string]*callback      // collection of RPC callbacks
 type subscriptions map[string]*callback  // collection of subscription callbacks
 
-// Server represents a RPC server
 type Server struct {
 	services serviceRegistry
 
@@ -60,7 +56,6 @@ type Server struct {
 	codecs   *set.Set
 }
 
-// rpcRequest represents a raw incoming RPC request
 type rpcRequest struct {
 	service  string
 	method   string
@@ -70,15 +65,12 @@ type rpcRequest struct {
 	err      Error // invalid batch element
 }
 
-// Error wraps RPC errors, which contain an error code in addition to the message.
 type Error interface {
 	Error() string  // returns the message
 	ErrorCode() int // returns the code
 }
 
-// ServerCodec implements reading, parsing and writing RPC messages for the server side of
-// a RPC session. Implementations must be go-routine safe since the codec can be called in
-// multiple go-routines concurrently.
+
 type ServerCodec interface {
 	// Read next request
 	ReadRequestHeaders() ([]rpcRequest, bool, Error)
@@ -108,12 +100,6 @@ const (
 	EarliestBlockNumber = BlockNumber(0)
 )
 
-// UnmarshalJSON parses the given JSON fragment into a BlockNumber. It supports:
-// - "latest", "earliest" or "pending" as string arguments
-// - the block number
-// Returned errors:
-// - an invalid block number error when the given argument isn't a known strings
-// - an out of range error when the given block number is either too little or too large
 func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 	input := strings.TrimSpace(string(data))
 	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {

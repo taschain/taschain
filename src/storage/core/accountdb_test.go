@@ -237,15 +237,6 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 			args:   make([]int64, 1),
 			noAddr: true,
 		},
-		{
-			name: "AddLog",
-			fn: func(a testAction, s *AccountDB) {
-				data := make([]byte, 2)
-				binary.BigEndian.PutUint16(data, uint16(a.args[0]))
-				s.AddLog(&types.Log{Address: addr, Data: data})
-			},
-			args: make([]int64, 1),
-		},
 	}
 	action := actions[r.Intn(len(actions))]
 	var nameargs []string

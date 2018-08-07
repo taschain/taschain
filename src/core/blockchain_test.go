@@ -4,13 +4,15 @@ import (
 	"testing"
 	"common"
 
-	c "vm/common"
 	"fmt"
 	"middleware/types"
+	"network"
+	"taslog"
 )
 
 func TestBlockChain_AddBlock(t *testing.T) {
-
+	common.InitConf("/Users/Kaede/TasProject/work/1g3n/test1.ini")
+	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -22,7 +24,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 1000000 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 1000000 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 
@@ -60,7 +62,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("add block1 failed")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 999999 {
 		t.Fatalf("fail to transfer 1 from 1  to 2")
 	}
 
@@ -79,7 +81,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("fail to add empty block")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999989 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 999989 {
 		t.Fatalf("fail to transfer 10 from 1 to 2")
 	}
 
@@ -106,6 +108,26 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//最新块是块3
 	blockHeader = BlockChainImpl.QueryTopBlock()
 	if nil == blockHeader || 3 != blockHeader.Height || blockHeader.Hash != block3.Header.Hash {
+		t.Fatalf("add block3 failed")
+	}
+
+	block4 := BlockChainImpl.CastingBlock(4, 126, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
+		t.Fatalf("fail to add empty block")
+	}
+	//最新块是块3
+	blockHeader = BlockChainImpl.QueryTopBlock()
+	if nil == blockHeader || 4 != blockHeader.Height || blockHeader.Hash != block4.Header.Hash {
+		t.Fatalf("add block3 failed")
+	}
+
+	block5 := BlockChainImpl.CastingBlock(5, 127, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block5) {
+		t.Fatalf("fail to add empty block")
+	}
+	//最新块是块5
+	blockHeader = BlockChainImpl.QueryTopBlock()
+	if nil == blockHeader || 5 != blockHeader.Height || blockHeader.Hash != block5.Header.Hash {
 		t.Fatalf("add block3 failed")
 	}
 
@@ -248,7 +270,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 100 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 100 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 

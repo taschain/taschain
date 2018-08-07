@@ -40,7 +40,7 @@ func (self Storage) Copy() Storage {
 
 type accountObject struct {
 	address  common.Address
-	addrHash common.Hash // hash of ethereum address of the account
+	addrHash common.Hash
 	data     Account
 	db       *AccountDB
 
@@ -66,7 +66,7 @@ func (s *accountObject) empty() bool {
 type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
-	Root     common.Hash // merkle root of the storage trie
+	Root     common.Hash
 	CodeHash []byte
 }
 

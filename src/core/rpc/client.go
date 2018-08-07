@@ -35,34 +35,18 @@ const (
 )
 
 const (
-	// Subscriptions are removed when the subscriber cannot keep up.
-	//
-	// This can be worked around by supplying a channel with sufficiently sized buffer,
-	// but this can be inconvenient and hard to explain in the docs. Another issue with
-	// buffered channels is that the buffer is static even though it might not be needed
-	// most of the time.
-	//
-	// The approach taken here is to maintain a per-subscription linked list buffer
-	// shrinks on demand. If the buffer reaches the size below, the subscription is
-	// dropped.
 	maxClientSubscriptionBuffer = 8000
 )
 
-// BatchElem is an element in a batch request.
 type BatchElem struct {
 	Method string
 	Args   []interface{}
-	// The result is unmarshaled into this field. Result must be set to a
-	// non-nil pointer value of the desired type, otherwise the response will be
-	// discarded.
+
 	Result interface{}
-	// Error is set if the server returns an error for this request, or if
-	// unmarshaling into Result fails. It is not set for I/O errors.
+
 	Error error
 }
 
-// A value of this type can a JSON-RPC request, notification, successful response or
-// error response. Which one it is depends on the fields.
 type jsonrpcMessage struct {
 	Version string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
@@ -89,15 +73,11 @@ func (msg *jsonrpcMessage) String() string {
 	return string(b)
 }
 
-// Client represents a connection to an RPC server.
 type Client struct {
 	idCounter   uint32
 	connectFunc func(ctx context.Context) (net.Conn, error)
 	isHTTP      bool
 
-	// writeConn is only safe to access outside dispatch, with the
-	// write lock held. The write lock is taken by sending on
-	// requestOp and released by sending on sendDone.
 	writeConn net.Conn
 
 	// for dispatch
@@ -115,8 +95,8 @@ type Client struct {
 type requestOp struct {
 	ids  []json.RawMessage
 	err  error
-	resp chan *jsonrpcMessage // receives up to len(ids) responses
-	sub  *ClientSubscription  // only set for EthSubscribe requests
+	resp chan *jsonrpcMessage
+	sub  *ClientSubscription
 }
 
 func (op *requestOp) wait(ctx context.Context) (*jsonrpcMessage, error) {
@@ -128,24 +108,10 @@ func (op *requestOp) wait(ctx context.Context) (*jsonrpcMessage, error) {
 	}
 }
 
-// Dial creates a new client for the given URL.
-//
-// The currently supported URL schemes are "http", "https", "ws" and "wss". If rawurl is a
-// file name with no URL scheme, a local socket connection is established using UNIX
-// domain sockets on supported platforms and named pipes on Windows. If you want to
-// configure transport options, use DialHTTP, DialWebsocket or DialIPC instead.
-//
-// For websocket connections, the origin is set to the local host name.
-//
-// The client reconnects automatically if the connection is lost.
 func Dial(rawurl string) (*Client, error) {
 	return DialContext(context.Background(), rawurl)
 }
 
-// DialContext creates a new RPC client, just like Dial.
-//
-// The context is used to cancel or time out the initial connection establishment. It does
-// not affect subsequent interactions with the client.
 func DialContext(ctx context.Context, rawurl string) (*Client, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
@@ -195,8 +161,6 @@ func (c *Client) nextID() json.RawMessage {
 	return []byte(strconv.FormatUint(uint64(id), 10))
 }
 
-// SupportedModules calls the rpc_modules method, retrieving the list of
-// APIs that are available on the server.
 func (c *Client) SupportedModules() (map[string]string, error) {
 	var result map[string]string
 	ctx, cancel := context.WithTimeout(context.Background(), subscribeTimeout)
@@ -205,7 +169,6 @@ func (c *Client) SupportedModules() (map[string]string, error) {
 	return result, err
 }
 
-// Close closes the client, aborting any in-flight requests.
 func (c *Client) Close() {
 	if c.isHTTP {
 		return
@@ -217,21 +180,11 @@ func (c *Client) Close() {
 	}
 }
 
-// Call performs a JSON-RPC call with the given arguments and unmarshals into
-// result if no error occurred.
-//
-// The result must be a pointer so that package json can unmarshal into it. You
-// can also pass nil, in which case the result is ignored.
 func (c *Client) Call(result interface{}, method string, args ...interface{}) error {
 	ctx := context.Background()
 	return c.CallContext(ctx, result, method, args...)
 }
 
-// CallContext performs a JSON-RPC call with the given arguments. If the context is
-// canceled before the call has successfully returned, CallContext returns immediately.
-//
-// The result must be a pointer so that package json can unmarshal into it. You
-// can also pass nil, in which case the result is ignored.
 func (c *Client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	msg, err := c.newMessage(method, args...)
 	if err != nil {
@@ -261,27 +214,11 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	}
 }
 
-// BatchCall sends all given requests as a single batch and waits for the server
-// to return a response for all of them.
-//
-// In contrast to Call, BatchCall only returns I/O errors. Any error specific to
-// a request is reported through the Error field of the corresponding BatchElem.
-//
-// Note that batch calls may not be executed atomically on the server side.
 func (c *Client) BatchCall(b []BatchElem) error {
 	ctx := context.Background()
 	return c.BatchCallContext(ctx, b)
 }
 
-// BatchCall sends all given requests as a single batch and waits for the server
-// to return a response for all of them. The wait duration is bounded by the
-// context's deadline.
-//
-// In contrast to CallContext, BatchCallContext only returns errors that have occurred
-// while sending the request. Any error specific to a request is reported through the
-// Error field of the corresponding BatchElem.
-//
-// Note that batch calls may not be executed atomically on the server side.
 func (c *Client) BatchCallContext(ctx context.Context, b []BatchElem) error {
 	msgs := make([]*jsonrpcMessage, len(b))
 	op := &requestOp{
@@ -344,18 +281,6 @@ func (c *Client) ShhSubscribe(ctx context.Context, channel interface{}, args ...
 	return c.Subscribe(ctx, "shh", channel, args...)
 }
 
-// Subscribe calls the "<namespace>_subscribe" method with the given arguments,
-// registering a subscription. Server notifications for the subscription are
-// sent to the given channel. The element type of the channel must match the
-// expected type of content returned by the subscription.
-//
-// The context argument cancels the RPC request that sets up the subscription but has no
-// effect on the subscription after Subscribe has returned.
-//
-// Slow subscribers will be dropped eventually. Client buffers up to 8000 notifications
-// before considering the subscriber dead. The subscription Err channel will receive
-// ErrSubscriptionQueueOverflow. Use a sufficiently large buffer on the channel or ensure
-// that the channel usually has at least one reader to prevent this issue.
 func (c *Client) Subscribe(ctx context.Context, namespace string, channel interface{}, args ...interface{}) (*ClientSubscription, error) {
 	// Check type of channel first.
 	chanVal := reflect.ValueOf(channel)
@@ -379,8 +304,6 @@ func (c *Client) Subscribe(ctx context.Context, namespace string, channel interf
 		sub:  newClientSubscription(c, namespace, chanVal),
 	}
 
-	// Send the subscription request.
-	// The arrival and validity of the response is signaled on sub.quit.
 	if err := c.send(ctx, op, msg); err != nil {
 		return nil, err
 	}
@@ -398,14 +321,9 @@ func (c *Client) newMessage(method string, paramsIn ...interface{}) (*jsonrpcMes
 	return &jsonrpcMessage{Version: "2.0", ID: c.nextID(), Method: method, Params: params}, nil
 }
 
-// send registers op with the dispatch loop, then sends msg on the connection.
-// if sending fails, op is deregistered.
 func (c *Client) send(ctx context.Context, op *requestOp, msg interface{}) error {
 	select {
 	case c.requestOp <- op:
-		//logger.Debug("", "msg", logger.Lazy{Fn: func() string {
-		//	return fmt.Sprint("sending ", msg)
-		//}})
 		err := c.write(ctx, msg)
 		c.sendDone <- err
 		return err
@@ -453,9 +371,6 @@ func (c *Client) reconnect(ctx context.Context) error {
 	}
 }
 
-// dispatch is the main loop of the client.
-// It sends read messages to waiting calls to Call and BatchCall
-// and subscription notifications to registered subscriptions.
 func (c *Client) dispatch(conn net.Conn) {
 	// Spawn the initial read loop.
 	go c.read(conn)
@@ -491,19 +406,10 @@ func (c *Client) dispatch(conn net.Conn) {
 			for _, msg := range batch {
 				switch {
 				case msg.isNotification():
-					//logger.Trace("", "msg", log.Lazy{Fn: func() string {
-					//	return fmt.Sprint("<-readResp: notification ", msg)
-					//}})
 					c.handleNotification(msg)
 				case msg.isResponse():
-					//log.Trace("", "msg", log.Lazy{Fn: func() string {
-					//	return fmt.Sprint("<-readResp: response ", msg)
-					//}})
 					c.handleResponse(msg)
 				default:
-					//log.Debug("", "msg", log.Lazy{Fn: func() string {
-					//	return fmt.Sprint("<-readResp: dropping weird message", msg)
-					//}})
 					// TODO: maybe close
 				}
 			}
@@ -536,26 +442,22 @@ func (c *Client) dispatch(conn net.Conn) {
 
 		case err := <-c.sendDone:
 			if err != nil {
-				// Remove response handlers for the last send. We remove those here
-				// because the error is already handled in Call or BatchCall. When the
-				// read loop goes down, it will signal all other current operations.
 				for _, id := range lastOp.ids {
 					delete(c.respWait, string(id))
 				}
 			}
-			// Listen for send ops again.
+
 			requestOpLock = c.requestOp
 			lastOp = nil
 		}
 	}
 }
 
-// closeRequestOps unblocks pending send ops and active subscriptions.
 func (c *Client) closeRequestOps(err error) {
 	didClose := make(map[*requestOp]bool)
 
 	for id, op := range c.respWait {
-		// Remove the op so that later calls will not close op.resp again.
+
 		delete(c.respWait, id)
 
 		if !didClose[op] {
@@ -595,14 +497,12 @@ func (c *Client) handleResponse(msg *jsonrpcMessage) {
 		return
 	}
 	delete(c.respWait, string(msg.ID))
-	// For normal responses, just forward the reply to Call/BatchCall.
+
 	if op.sub == nil {
 		op.resp <- msg
 		return
 	}
-	// For subscription responses, start the subscription if the server
-	// indicates success. EthSubscribe gets unblocked in either case through
-	// the op.resp channel.
+
 	defer close(op.resp)
 	if msg.Error != nil {
 		op.err = msg.Error
@@ -645,9 +545,6 @@ func (c *Client) read(conn net.Conn) error {
 	}
 }
 
-// Subscriptions.
-
-// A ClientSubscription represents a subscription established through EthSubscribe.
 type ClientSubscription struct {
 	client    *Client
 	etype     reflect.Type
@@ -675,20 +572,10 @@ func newClientSubscription(c *Client, namespace string, channel reflect.Value) *
 	return sub
 }
 
-// Err returns the subscription error channel. The intended use of Err is to schedule
-// resubscription when the client connection is closed unexpectedly.
-//
-// The error channel receives a value when the subscription has ended due
-// to an error. The received error is nil if Close has been called
-// on the underlying client and no other error has occurred.
-//
-// The error channel is closed when Unsubscribe is called on the subscription.
 func (sub *ClientSubscription) Err() <-chan error {
 	return sub.err
 }
 
-// Unsubscribe unsubscribes the notification and closes the error channel.
-// It can safely be called more than once.
 func (sub *ClientSubscription) Unsubscribe() {
 	sub.quitWithError(nil, true)
 	sub.errOnce.Do(func() { close(sub.err) })
@@ -696,9 +583,7 @@ func (sub *ClientSubscription) Unsubscribe() {
 
 func (sub *ClientSubscription) quitWithError(err error, unsubscribeServer bool) {
 	sub.quitOnce.Do(func() {
-		// The dispatch loop won't be able to execute the unsubscribe call
-		// if it is blocked on deliver. Close sub.quit first because it
-		// unblocks deliver.
+
 		close(sub.quit)
 		if unsubscribeServer {
 			sub.requestUnsubscribe()
