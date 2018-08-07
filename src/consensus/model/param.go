@@ -13,7 +13,7 @@ import (
 
 const (
 	SSSS_THRESHOLD int = 51                 //1-100
-	GROUP_MAX_MEMBERS int = 7               //一个组最大的成员数量
+	GROUP_MAX_MEMBERS int = 3               //一个组最大的成员数量
 	MAX_GROUP_BLOCK_TIME int = 10                                //组铸块最大允许时间=10s
 	MAX_USER_CAST_TIME int = 2                                   //个人出块最大允许时间=2s
 	MAX_CAST_SLOT	= 3						//最大验证槽个数
