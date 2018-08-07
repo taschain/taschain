@@ -30,6 +30,9 @@ var (
 	errClosed           = errors.New("socket closed")
 )
 
+const NatServerIp="47.98.212.107"
+const NatServerPort=70
+
 // Timeouts
 const (
 	respTimeout    = 500 * time.Millisecond
@@ -145,7 +148,7 @@ func (nc *NetCore) InitNetCore(cfg Config) (*NetCore, error) {
 
 
 	if nc.natTraversalEnable {
-		P2PProxy("47.98.212.107", uint16(70))
+		P2PProxy(NatServerIp, uint16(NatServerPort))
 	}else {
 		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
 	}

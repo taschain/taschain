@@ -118,7 +118,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			p.sendList = append(p.sendList, packet)
 
 			if pm.natTraversalEnable {
-				P2PConnect(netId, "47.98.212.107", 70)
+				P2PConnect(netId, NatServerIp, NatServerPort)
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
