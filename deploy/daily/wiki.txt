@@ -3,9 +3,17 @@
 
 1.copy该目录至运行环境
 2.修改main函数路径(build.sh main_dir参数)
-3.修改默认种子ip,设置为本地IP(修改start.sh --seed参数)
+3.修改默认种子ip,设置为本地IP(修改start.sh --seed参数),修改阿里云KEY前缀(修改start.sh --prefix参数)
 4.运行build.sh,构建项目，在当前目录下生成名为gtas的可执行文件
 5.启动多个实例，运行start.sh，start.sh n,n为启动实例的数量，例如启动9个实例：./start.sh 9 会生成编号从1到9的9个实例，启动完成后
 可以通过访问127.0.0.1:port 来查看分组和铸块情况（port是RPC端口，每个实例都会开启一个,从8101开始依次递增）
 
 文件说明：
+logs 日志文件
+d*数据库文件
+pid 实例运行进程信息
+joined_group.config.* 加入组信息
+
+gensis_sgi.config为创始组信息，创始组有三个成员，tas.ini为其配置文件
+
+如有疑问，请联系小熊

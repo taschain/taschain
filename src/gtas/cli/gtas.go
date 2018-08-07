@@ -119,14 +119,6 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 }
 
-//func createGroup(keys []logical.PubKeyInfo, name string) {
-//	zero := mediator.CreateGroup(keys, name)
-//	if zero != 0 {
-//		fmt.Printf("create %s group failed\n", name)
-//	}
-//	fmt.Printf("create %s group success\n", name)
-//}
-
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	<-ctrlC
 	fmt.Println("exiting...")
@@ -191,6 +183,8 @@ func (gtas *Gtas) Run() {
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
+	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
+
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
 	command, err := app.Parse(os.Args[1:])
@@ -207,7 +201,12 @@ func (gtas *Gtas) Run() {
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
-	common.GlobalConf.SetString("test", "prefix", redis_prefix)
+
+	if *prefix == "" {
+		common.GlobalConf.SetString("test", "prefix", redis_prefix)
+	} else {
+		common.GlobalConf.SetString("test", "prefix", *prefix)
+	}
 
 	switch command {
 	case voteCmd.FullCommand():
@@ -270,7 +269,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	id,err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
+	id, err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
 	if err != nil {
 		return err
 	}
