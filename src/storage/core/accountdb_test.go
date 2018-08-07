@@ -14,7 +14,6 @@ import (
 
 	check "gopkg.in/check.v1"
 
-	"storage/core/types"
 	"storage/tasdb"
 	"common"
 )
@@ -358,10 +357,6 @@ func (test *snapshotTest) checkEqual(state, checkstate *AccountDB) error {
 	if state.GetRefund() != checkstate.GetRefund() {
 		return fmt.Errorf("got GetRefund() == %d, want GetRefund() == %d",
 			state.GetRefund(), checkstate.GetRefund())
-	}
-	if !reflect.DeepEqual(state.GetLogs(common.Hash{}), checkstate.GetLogs(common.Hash{})) {
-		return fmt.Errorf("got GetLogs(common.Hash{}) == %v, want GetLogs(common.Hash{}) == %v",
-			state.GetLogs(common.Hash{}), checkstate.GetLogs(common.Hash{}))
 	}
 	return nil
 }
