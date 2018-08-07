@@ -12,11 +12,6 @@ const HTMLTEM = `<!DOCTYPE html>
 </head>
 <body>
 <div style="margin: 20px 5%" >
-    <div>
-        <label class="layui-label" id="host"></label>
-        <span class="layui-badge-dot" style="position: relative; top: -2px; left: -2px" id="online_flag"></span>
-        <button class="layui-btn layui-btn-xs" id="change_host">更换host</button>
-    </div>
     <div class="layui-tab" lay-filter="demo" style="margin: 20px 0">
         <ul class="layui-tab-title">
             <li class="layui-this">Dashboard</li>
@@ -25,6 +20,8 @@ const HTMLTEM = `<!DOCTYPE html>
             <li>查询余额</li>
             <li>投票</li>
             <li>查询块信息</li>
+            <li>查询组信息</li>
+            <li>查询工作组</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -36,6 +33,9 @@ const HTMLTEM = `<!DOCTYPE html>
                     </div>
                     <div class="layui-col-md2" style="font-size: 20px">
                         <span>当前组高：</span><span id="group_height">0</span>
+                    </div>
+                    <div class="layui-col-md2" style="font-size: 20px">
+                        <span>工作组数量：</span><span id="work_group_num">0</span>
                     </div>
                     <div class="layui-col-md4">
                     </div>
@@ -357,6 +357,24 @@ const HTMLTEM = `<!DOCTYPE html>
             <div class="layui-tab-item">
                 <table id="block_detail" lay-filter="block_detail"></table>
             </div>
+            <div class="layui-tab-item">
+                <table id="group_detail" lay-filter="block_detail"></table>
+            </div>
+            <div class="layui-tab-item">
+                <table class="layui-table">
+                    <tr>
+                        <td width="40%">
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="根据高度查询工作组信息" id="query_wg_input">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_wg_btn">查询</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <table id="work_group_detail" lay-filter="block_detail"></table>
+            </div>
         </div>
     </div>
 </div>
@@ -375,6 +393,9 @@ const HTMLTEM = `<!DOCTYPE html>
         var current_block_height = 0;
         host_ele.text(HOST);
         var blocks = [];
+        var groups = [];
+        var workGroups = [];
+        var groupIds = new Set();
         var table = layui.table;
 
 
@@ -382,10 +403,28 @@ const HTMLTEM = `<!DOCTYPE html>
             elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
             ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
                 {field:'pre_time', title: 'pre_time', width: 189},{field:'queue_number', title: 'queue_number'},
-                {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},
-				{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}, 
-				{field:'tps', title: 'tps'}, {field:'txs', title: 'txs'}]] //设置表头
+                {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
             ,data: blocks
+            ,page: true
+            ,limit:15
+        });
+
+        var group_table = table.render({
+            elem: '#group_detail' //指定原始表格元素选择器（推荐id选择器）
+            ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},{field:'parent', title: '父亲组', width:140},
+                {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
+                {field:'members', title: '成员列表'}]] //设置表头
+            ,data: groups
+            ,page: true
+            ,limit:15
+        });
+
+        var work_group_table = table.render({
+            elem: '#work_group_detail' //指定原始表格元素选择器（推荐id选择器）
+            ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},
+                {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
+                {field:'group_members', title: '成员列表'}]] //设置表头
+            ,data: groups
             ,page: true
             ,limit:15
         });
@@ -727,6 +766,7 @@ const HTMLTEM = `<!DOCTYPE html>
                             data: blocks
                         });
                     }
+                    syncWorkGroupNum(rdata.result.data)
                     let count = 0;
                     for(let i=current_block_height+1; i<=rdata.result.data; i++) {
                         syncBlock(i);
@@ -766,6 +806,38 @@ const HTMLTEM = `<!DOCTYPE html>
                     if (rdata.result !== undefined){
                         let block_height = $("#group_height");
                         block_height.text(rdata.result.data)
+                        if (groups.length > 0 && rdata.result.data < groups[groups.length - 1]["height"]) {
+                            groups = []
+                            groupIds.clear()
+                            syncGroup(0)
+                        }
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+            });
+        }
+
+        // 同步组高
+        function syncWorkGroupNum(height) {
+            let params = {
+                "method": "GTAS_workGroupNum",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined){
+                        let block_height = $("#work_group_num");
+                        block_height.text(rdata.result.data)
                     }
                     if (rdata.error !== undefined){
                         // $("#t_error").text(rdata.error.message)
@@ -804,12 +876,99 @@ const HTMLTEM = `<!DOCTYPE html>
             });
         }
 
+        // 同步组信息
+        function syncGroup(height) {
+            let params = {
+                "method": "GTAS_getGroupsAfter",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
+                        retArr = rdata.result.data
+                        for(i = 0; i < retArr.length; i++) {
+                            if (!groupIds.has(retArr[i]["group_id"])) {
+                                groups.push(retArr[i])
+                                groupIds.add(retArr[i]["group_id"])
+                            }
+                        }
+                        group_table.reload({
+                                    data: groups
+                                }
+                        )
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
+
+        $("#query_wg_btn").click(function () {
+            var h = $("#query_wg_input").val()
+            if (h == null || h == undefined || h == '') {
+                alert("请输入查询高度")
+                return
+            }
+			queryWorkGroup(parseInt(h))
+        })
+        //查询工作组
+        function queryWorkGroup(height) {
+            let params = {
+                "method": "GTAS_getWorkGroup",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
+                        retArr = rdata.result.data
+                        work_group_table.reload({
+                                    data: retArr
+                                }
+                        )
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
+
+
         // dashboard同步数据
         syncNodes();
         syncTrans();
         syncBlockHeight();
         syncGroupHeight();
+        syncGroup(0)
         setInterval(function () {
+            if (groups.length > 0) {
+                syncGroup(groups[groups.length-1]["height"]+1)
+            } else {
+                syncGroup(0)
+            }
             syncBlockHeight();
         }, 1000);
         ref = setInterval(function(){
