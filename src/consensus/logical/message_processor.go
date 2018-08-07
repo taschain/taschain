@@ -40,14 +40,14 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "gen group sign fail")
 		return
 	}
-	sign := slot.GetGroupSign()
-	if !slot.VerifyGroupSign(gpk) { //组签名验证通过
+	if !slot.VerifyGroupSign(gpk, vctx.prevRandSig) { //组签名验证通过
 		log.Printf("%v group pub key local check failed, gpk=%v, sign=%v, hash in slot=%v, hash in bh=%v.\n", mtype,
-			GetPubKeyPrefix(gpk), GetSignPrefix(sign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
+			GetPubKeyPrefix(gpk), GetSignPrefix(slot.BlockGSign), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash))
 		return
 	}
 
-	bh.Signature = sign.Serialize()
+	bh.Signature = slot.BlockGSign.Serialize()
+	bh.RandSig = slot.RandGSign.Serialize()
 
 	if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
 		p.SuccessNewBlock(bh, vctx, gid) //上链和组外广播
@@ -56,22 +56,19 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 
 }
 
-func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, slot *SlotContext, bh *types.BlockHeader)  {
+func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, slot *SlotContext, vctx *VerifyContext, bh *types.BlockHeader)  {
 	castor := groupsig.DeserializeId(bh.Castor)
 	if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_WAITING, SS_BRAODCASTED) && !castor.IsEqual(p.GetMinerID()) {
 		var cvm model.ConsensusVerifyMessage
 		cvm.BH = *bh
 		//cvm.GroupID = gId
-		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), &cvm)
-		if !PROC_TEST_MODE {
-			log.Printf("call network service SendVerifiedCast...\n")
-			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
-			p.NetServer.SendVerifiedCast(&cvm)
-		} else {
-			for _, v := range p.GroupProcs {
-				v.OnMessageVerify(&cvm)
-			}
-		}
+		sk := p.getMinerGroupSignKey(gid)
+		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), sk), &cvm)
+		cvm.GenRandSign(sk, vctx.prevRandSig)
+
+		log.Printf("call network service SendVerifiedCast...\n")
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
+		p.NetServer.SendVerifiedCast(&cvm)
 
 	}
 }
@@ -82,13 +79,15 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 
 	sender := GetIDPrefix(si.SignMember)
 	result := ""
+	defer func() {
+		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
+	}()
 
 	//log.Printf("%v message bh %v, top bh %v\n", mtype, p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	if p.blockOnChain(bh) {
 		//log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
 		result = "已经上链"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
 	}
 
@@ -105,13 +104,11 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	if preBH == nil {
 		p.addFutureVerifyMsg(msg)
 		result = "父块未到达"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
 	}
 
 	if !p.isCastGroupLegal(bh, preBH) {
 		result = "非法的铸块组"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		log.Printf("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
 		panic("cast !!")
 		return
@@ -120,8 +117,20 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
 		result = "未获取到blockcontext"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		log.Printf("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
+		return
+	}
+
+	jg := p.belongGroups.getJoinedGroup(gid)
+	if jg == nil {
+		result = "未获取到joinedGroup"
+		log.Printf("[ERROR]joinedgroup is nil, gid=%v", GetIDPrefix(gid))
+		return
+	}
+	pk := jg.GetMemSignPK(msg.SI.SignMember)
+	if !msg.VerifyRandSign(pk, preBH.RandSig) {
+		result = "随机数签名验证失败"
+		log.Printf("[ERROR]rand signature verify fail, uid=%v", GetIDPrefix(msg.SI.SignMember))
 		return
 	}
 
@@ -132,11 +141,10 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
 	}
 
-	result = fmt.Sprintf("%v, 当前分片数 %v, %v, %v", CBMR_RESULT_DESC(verifyResult), len(slot.MapWitness), slot.thresholdWitnessGot(), slot.threshold)
+	result = fmt.Sprintf("%v, 当前分片数 %v, %v, %v", CBMR_RESULT_DESC(verifyResult), len(slot.BlockWitness), slot.thresholdWitnessGot(), slot.threshold)
 	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 
 	switch verifyResult {
@@ -149,7 +157,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		}
 
 	case CBMR_PIECE_NORMAL:
-		p.normalPieceVerify(mtype, sender, gid, slot, bh)
+		p.normalPieceVerify(mtype, sender, gid, slot, vctx, bh)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(bh.PreHash), len(bh.Transactions), len(slot.LosingTrans))
@@ -216,6 +224,11 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 }
 
 func (p *Processor) receiveBlock(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
+	verify := p.verifyGroupSign(&msg.Block, msg.SI, preBH.RandSig)
+	if !verify {
+		log.Printf("OMB verifyGroupSign result=%v.\n", verify)
+		return false
+	}
 	if p.isCastGroupLegal(msg.Block.Header, preBH) { //铸块组合法
 		result := p.doAddOnChain(&msg.Block)
 		if result == 0 || result == 1 {
@@ -263,12 +276,6 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 
 	block := &cbm.Block
 	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
-	verify := p.verifyGroupSign(block, cbm.SI)
-	if !verify {
-		result = "组签名未通过"
-		log.Printf("OMB verifyGroupSign result=%v.\n", verify)
-		return
-	}
 
 	topBH := p.MainChain.QueryTopBlock()
 
@@ -327,7 +334,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					//} else {
 					//	p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
 					//}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.MapWitness))
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.BlockWitness))
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					//_, ret := p.verifyBlock(&slot.BH)
@@ -684,7 +691,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			GI: msg.GI,
 			Launcher: msg.SI.SignMember,
 		}
-		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(msg.GI.ParentID)), signMsg)
+		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(msg.GI.ParentID)), signMsg)
 		logKeyword("OMCGR", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "SendCreateGroupSignMessage id=%v", p.getPrefix())
 		log.Printf("OMCGR SendCreateGroupSignMessage... ")
 		p.NetServer.SendCreateGroupSignMessage(signMsg)

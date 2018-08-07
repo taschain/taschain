@@ -171,11 +171,18 @@ func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
 }
 
 //取得矿工在某个组的签名私钥
-func (p Processor) getSignKey(gid groupsig.ID) groupsig.Seckey {
+func (p Processor) getMinerGroupSignKey(gid groupsig.ID) groupsig.Seckey {
 	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
 		return jg.SignKey
 	}
 	return groupsig.Seckey{}
+}
+
+func (p *Processor) getMinerGroupPubkey(gid groupsig.ID) groupsig.Pubkey {
+	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
+		return jg.GetMemSignPK(p.GetMinerID())
+	}
+	return groupsig.Pubkey{}
 }
 
 //检测某个组是否矿工的铸块组（一个矿工可以参与多个组）

@@ -26,6 +26,7 @@ func (id GroupMinerID) IsValid() bool {
 	return id.Gid.IsValid() && id.Uid.IsValid()
 }
 
+
 //数据签名结构
 type SignData struct {
 	DataHash   common.Hash        //哈希值

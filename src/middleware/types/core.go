@@ -79,7 +79,8 @@ type BlockHeader struct {
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Signature    []byte        // 组签名
+	Signature    []byte        // 共识组签名
+	RandSig		 []byte			//随机数组签名
 	Nonce        uint64        //盐
 	Transactions []common.Hash // 交易集哈希列表
 	TxTree       common.Hash   // 交易默克尔树根hash

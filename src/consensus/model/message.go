@@ -148,6 +148,21 @@ func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
 	return msg.BH.GenHash()
 }
 
+func (msg *ConsensusBlockMessageBase) GenRandSign(sk groupsig.Seckey, rand []byte) bool {
+	sign := groupsig.Sign(sk, base.Data2CommonHash(rand).Bytes())
+    msg.BH.RandSig = sign.Serialize()
+	return true
+}
+
+func VerifyRandSign(pk groupsig.Pubkey, rand []byte, sign groupsig.Signature) bool {
+	return groupsig.VerifySig(pk, base.Data2CommonHash(rand).Bytes(), sign)
+}
+
+func (msg *ConsensusBlockMessageBase) VerifyRandSign(pk groupsig.Pubkey, rand []byte) bool {
+	sign := groupsig.DeserializeSign(msg.BH.RandSig)
+	return VerifyRandSign(pk, rand, *sign)
+}
+
 //出块消息 - 由成为KING的组成员发出
 type ConsensusCastMessage struct {
 	ConsensusBlockMessageBase

@@ -199,7 +199,7 @@ func (p *Processor) getCastCheckRoutineName() string {
 
 func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
-	data := preBH.Signature
+	data := preBH.RandSig
 
 	deltaHeight := height - preBH.Height
 	for ; deltaHeight > 0; deltaHeight -- {
@@ -299,16 +299,14 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), &ccm)
+		sk := p.getMinerGroupSignKey(gid)
+		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), sk), &ccm)
+		ccm.GenRandSign(sk, vctx.prevRandSig)
 
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
-		if !PROC_TEST_MODE {
-			p.NetServer.SendCastVerify(&ccm)
-		} else {
-			for _, proc := range p.GroupProcs {
-				proc.OnMessageCast(&ccm)
-			}
-		}
+
+		p.NetServer.SendCastVerify(&ccm)
+
 	} else {
 		log.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, vctx.prevHash, bh.PreHash)
 		//panic("bh Error or sign Error.")

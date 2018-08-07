@@ -59,6 +59,7 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 type VerifyContext struct {
 	prevTime    time.Time
 	prevHash    common.Hash
+	prevRandSig	[]byte
 	prevSign	[]byte
 	castHeight  uint64
 	signedMaxQN int64
@@ -120,6 +121,7 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time
     vc.prevHash = preBH.Hash
     vc.castHeight = castHeight
     vc.prevSign = preBH.Signature
+    vc.prevRandSig = preBH.RandSig
     vc.signedMaxQN =  model.INVALID_QN
     vc.blockCtx = bc
 	vc.expireTime = expire

@@ -240,7 +240,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		GI: gis,
 		IDs: memIds,
 	}
-	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(group.GroupID)), msg)
+	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getMinerGroupSignKey(group.GroupID)), msg)
 
 	creatingGroup := newCreateGroup(&gis, memIds, group)
 	gm.addCreatingGroup(creatingGroup)

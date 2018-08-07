@@ -386,7 +386,7 @@ func testGroupInited(procs map[string]*Processor, gid_s string, t *testing.T) {
 	id_pieces := make([]groupsig.ID, 0)     //组成员ID列表
 	pk_pieces := make([]groupsig.Pubkey, 0) //组成员签名公钥列表
 	for _, v := range procs {
-		sign_sk := v.getSignKey(gid)
+		sign_sk := v.getMinerGroupSignKey(gid)
 		sk_pieces = append(sk_pieces, sign_sk)
 		sign_pk := *groupsig.NewPubkeyFromSeckey(sign_sk)
 		pk_pieces = append(pk_pieces, sign_pk)
@@ -432,7 +432,7 @@ func testGroupInited(procs map[string]*Processor, gid_s string, t *testing.T) {
 	id_pieces = make([]groupsig.ID, 0)
 
 	for _, v := range procs {
-		sig_piece := groupsig.Sign(v.getSignKey(gid), plain)
+		sig_piece := groupsig.Sign(v.getMinerGroupSignKey(gid), plain)
 		sig_pieces = append(sig_pieces, sig_piece)
 		id_pieces = append(id_pieces, v.GetMinerID())
 	}

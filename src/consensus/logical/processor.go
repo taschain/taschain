@@ -99,7 +99,7 @@ func (p Processor) GetMinerID() groupsig.ID {
 }
 
 //验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
+func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData, rand []byte) bool {
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -121,6 +121,15 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
 	if !result {
 		log.Printf("[ERROR]verifyGroupSign::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
 			GetPubKeyPrefix(groupInfo.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(gSign), GetIDPrefix(gid))
+	}
+
+	rSign := groupsig.DeserializeSign(bh.RandSig)
+	if rSign == nil {
+		panic("deserialize randSig fail")
+	}
+	result = model.VerifyRandSign(groupInfo.GroupPK, rand, *rSign)
+	if !result {
+		log.Printf("[ERROR]verifyRandSign fail\n")
 	}
 	//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
 	return result
