@@ -21,15 +21,15 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]t.Receipt,error) {
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(false)
+		hash := accountdb.IntermediateRoot(true)
 		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
 		return hash, nil, nil
 	}
 
 	vm := tvm.NewTvm(accountdb)
-	receipts := make([]t.Receipt,len(block.Transactions))
+	receipts := make([]*t.Receipt,len(block.Transactions))
 	for i,transaction := range block.Transactions{
 		receipt := t.Receipt{}
 		if transaction.Target == nil{
@@ -47,14 +47,14 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			}
 		}
 		receipt.TxHash = transaction.Hash
-		receipts[i] = receipt
+		receipts[i] = &receipt
 	}
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
 
-	return accountdb.IntermediateRoot(false), receipts, nil
+	return accountdb.IntermediateRoot(true), receipts, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {

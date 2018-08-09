@@ -25,6 +25,7 @@ var indices = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b
 func init()  {
 	gob.Register(valueNode{})
 	gob.Register(hashNode{})
+	gob.Register(nodeFlag{})
 }
 
 type node interface {
@@ -77,8 +78,13 @@ func (n *shortNode) magic() byte { return magicShort }
 func (n hashNode) magic() byte   { return magicHash }
 func (n valueNode) magic() byte  { return magicValue }
 
-func (n *fullNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
-func (n *shortNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
+func (n *fullNode) encode(w io.Writer) error  {
+	return encode(w, n.magic(), n)
+}
+
+func (n *shortNode) encode(w io.Writer) error  {
+	return encode(w, n.magic(), n)
+}
 func (n hashNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 func (n valueNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 
@@ -108,13 +114,13 @@ func (n *fullNode) fstring(ind string) string {
 	return resp + fmt.Sprintf("\n%s] ", ind)
 }
 func (n *shortNode) fstring(ind string) string {
-	return fmt.Sprintf("{%x: %v} ", n.Key, n.Val.fstring(ind+"  "))
+	return fmt.Sprintf("{short %x: %v} ", n.Key, n.Val.fstring(ind+"  "))
 }
 func (n hashNode) fstring(ind string) string {
-	return fmt.Sprintf("<%x> ", []byte(n))
+	return fmt.Sprintf("hash <%x> ", []byte(n))
 }
 func (n valueNode) fstring(ind string) string {
-	return fmt.Sprintf("%x ", []byte(n))
+	return fmt.Sprintf("value %x ", []byte(n))
 }
 
 func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
@@ -138,11 +144,15 @@ func decodeNode2(hash, buf []byte, cachegen uint16) (node, error)  {
 		case magicFull:
 		var n fullNode
 			err := decoder.Decode(&n)
+			n.flags.hash = hash
+			n.flags.dirty = false
 			return &n,err
 		case magicShort:
 			var n shortNode
 			err := decoder.Decode(&n)
 			//n.Key = compactToHex(n.Key)
+			n.flags.hash = hash
+			n.flags.dirty = false
 			return &n,err
 		case magicHash:
 			var n hashNode
@@ -151,6 +161,9 @@ func decodeNode2(hash, buf []byte, cachegen uint16) (node, error)  {
 		case magicValue:
 			var n valueNode
 			err := decoder.Decode(&n)
+			if len(n) == 0{
+				return nil, err
+			}
 			return &n,err
 	}
 	return nil, fmt.Errorf("type mismatch")

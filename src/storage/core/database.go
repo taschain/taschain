@@ -38,6 +38,7 @@ type Trie interface {
 	TryDelete(key []byte) error
 	Commit(onleaf trie.LeafCallback) (common.Hash, error)
 	Hash() common.Hash
+	Fstring() string
 }
 
 func NewDatabase(db tasdb.Database) Database {

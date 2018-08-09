@@ -449,3 +449,9 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	logger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }
+
+func (s *AccountDB) Fstring(){
+	if s.trie != nil {
+		fmt.Print(s.trie.Fstring())
+	}
+}

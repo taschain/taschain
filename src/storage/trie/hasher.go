@@ -89,9 +89,9 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 				return original, original, err
 			}
 		}
-		if collapsed.Val == nil {
-			collapsed.Val = valueNode(nil)
-		}
+		//if collapsed.Val == nil {
+		//	collapsed.Val = valueNode(nil)
+		//}
 		return collapsed, cached, nil
 
 	case *fullNode:
@@ -104,14 +104,15 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 				if err != nil {
 					return original, original, err
 				}
-			} else {
-				collapsed.Children[i] = valueNode(nil) // Ensure that nil children are encoded as empty strings.
 			}
+			//else {
+			//	collapsed.Children[i] = valueNode(nil) // Ensure that nil children are encoded as empty strings.
+			//}
 		}
 		cached.Children[16] = n.Children[16]
-		if collapsed.Children[16] == nil {
-			collapsed.Children[16] = valueNode(nil)
-		}
+		//if collapsed.Children[16] == nil {
+		//	collapsed.Children[16] = valueNode(nil)
+		//}
 		return collapsed, cached, nil
 
 	default:
