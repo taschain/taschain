@@ -27,6 +27,7 @@ import (
 	"taslog"
 	"common"
 	"time"
+	"log"
 )
 
 // middleware模块统一logger
@@ -205,6 +206,8 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 			evictedTxs = append(evictedTxs, hash)
 		}
 	}
+
+	log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
 		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,

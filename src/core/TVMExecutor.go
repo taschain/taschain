@@ -18,6 +18,7 @@ package core
 import (
 	"middleware/types"
 	"common"
+	t "storage/core/types"
 	"storage/core"
 	"tvm"
 	"math/big"
@@ -35,35 +36,40 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,error) {
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]t.Receipt,error) {
 	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(true)
-		return hash,nil
+		hash := accountdb.IntermediateRoot(false)
+		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
+		return hash, nil, nil
 	}
 
 	vm := tvm.NewTvm(accountdb)
-	for _,transaction := range block.Transactions{
-		if len(transaction.Data) > 0 {
+	receipts := make([]t.Receipt,len(block.Transactions))
+	for i,transaction := range block.Transactions{
+		receipt := t.Receipt{}
+		if transaction.Target == nil{
+			receipt.ContractAddress,_ = createContract(accountdb, transaction)
+		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
 			if !vm.Execute(script){
 				accountdb.RevertToSnapshot(snapshot)
 			}
-		} else if transaction.Target == nil{
-			createContract(accountdb, transaction)
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 			}
 		}
+		receipt.TxHash = transaction.Hash
+		receipts[i] = receipt
 	}
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
 
-	return accountdb.IntermediateRoot(true), nil
+	return accountdb.IntermediateRoot(false), receipts, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {

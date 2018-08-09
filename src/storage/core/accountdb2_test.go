@@ -41,13 +41,14 @@ func TestAccountDB_SetData(t *testing.T) {
 	defer db.Close()
 	triedb := NewDatabase(db)
 	state, _ := NewAccountDB(common.Hash{}, triedb)
-	state.SetData(common.BytesToAddress([]byte("1")), "aa", []byte{1,2,3})
-
-	state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte{1})
-	snapshot := state.Snapshot()
-	state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte{2})
-	state.RevertToSnapshot(snapshot)
-	state.SetData(common.BytesToAddress([]byte("2")), "cc", []byte{1,2})
+	//state.SetData(common.BytesToAddress([]byte("1")), "aa", []byte{1,2,3})
+	//
+	//state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte{1})
+	//snapshot := state.Snapshot()
+	//state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte{2})
+	//state.RevertToSnapshot(snapshot)
+	//state.SetData(common.BytesToAddress([]byte("2")), "cc", []byte{1,2})
+	fmt.Println(state.IntermediateRoot(false).Hex())
 	root, _ := state.Commit(false)
 	fmt.Println(root.Hex())
 	triedb.TrieDB().Commit(root, false)
@@ -57,7 +58,7 @@ func TestAccountDB_GetData(t *testing.T) {
 	db, _ := tasdb.NewLDBDatabase("/Users/Kaede/TasProject/work/test", 0, 0)
 	defer db.Close()
 	triedb := NewDatabase(db)
-	state, _ := NewAccountDB(common.HexToHash("0x8df8e749765d8bca4db3e957c66369bb058e64108a25c69f3513430ceba79eff"), triedb)
+	state, _ := NewAccountDB(common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"), triedb)
 	//fmt.Println(string(state.Dump()))
 	sta := state.GetData(common.BytesToAddress([]byte("1")), "aa")
 	fmt.Println(sta)
@@ -65,6 +66,8 @@ func TestAccountDB_GetData(t *testing.T) {
 	fmt.Println(sta)
 	sta = state.GetData(common.BytesToAddress([]byte("2")), "cc")
 	fmt.Println(sta)
+	hash := state.IntermediateRoot(true)
+	fmt.Println(hash.Hex())
 }
 
 func TestAccountDB_SetCode(t *testing.T) {
