@@ -48,7 +48,4 @@ func TestContractCall(t *testing.T)  {
 	hash, receipts, _ := executor.Execute(state, &block, nil)
 	fmt.Println(hash.Hex())
 	fmt.Println(receipts[0].ContractAddress.GetHexString())
-	root, _ := state.Commit(false)
-	fmt.Println(root.Hex())
-	triedb.TrieDB().Commit(root, false)
 }

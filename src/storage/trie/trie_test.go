@@ -140,17 +140,21 @@ func testMissingNode(t *testing.T, memonly bool) {
 
 func TestInsert(t *testing.T) {
 	diskdb, _ := tasdb.NewMemDatabase()
+	//diskdb, _ := tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
 	triedb := NewDatabase(diskdb)
-	trie, _ := NewTrie(common.Hash{}, triedb)
+	trie, err := NewTrie(common.Hash{}, triedb)
+	//trie,err:= NewTrie(common.HexToHash("0xe8ec13f3fc46b18ff08bb2beb207319377f03603bc9146374ca294d82c29c195"), triedb)
 	//trie := newEmpty()
-
+	if err != nil {
+		panic(err)
+	}
 	updateString(trie, "doe", "reindeer")
-	updateString(trie, "dog", "puppy")
-	updateString(trie, "dogglesworth", "cat")
-	updateString(trie, "dogee", "cat11")
-	updateString(trie, "dogef", "cat12")
-	updateString(trie, "dogefff", "cat123")
-	trie.Update([]byte("dogeffa"), bytes.Repeat([]byte{'a'}, 33))
+	updateString(trie, "xog", "puppy")
+	updateString(trie, "xogglesworth", "cat")
+	updateString(trie, "togee", "cat11")
+	updateString(trie, "pogef", "cat12")
+	updateString(trie, "qogefff", "cat123")
+	//trie.Update([]byte("dogeffa"), bytes.Repeat([]byte{'a'}, 33))
 	//fmt.Println(string(trie.Get([]byte("doe"))))
 	//exp := common.HexToHash("8aad789dff2f538bca5d8ea56e8abe10f4c7ba3a5dea95fea4cd6e7c3a1168d3")
 	root := trie.Hash()
@@ -164,6 +168,10 @@ func TestInsert(t *testing.T) {
 	//exp = common.HexToHash("d23786fb4a010da3ce639d66d5e904a11dbc02746d1ce25029e53290cabf28ab")
 	root, _ = trie.Commit(nil)
 	triedb.Commit(root, false)
+	fmt.Println(root.Hex())
+	//diskdb.Close()
+	//diskdb, _ = tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
+
 	//if err != nil {
 	//	t.Fatalf("commit error: %v", err)
 	//}
@@ -172,7 +180,17 @@ func TestInsert(t *testing.T) {
 	//}
 
 	trie2, _ := NewTrie(root, NewDatabase(diskdb))
-	fmt.Println(string(trie2.Get([]byte("dogeffa"))))
+	root,_ = trie2.Commit(nil)
+	fmt.Println(root.Hex())
+	fmt.Println(string(getString(trie2,"qogefff")))
+	//diskdb.Close()
+	//diskdb, _ = tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
+	//
+	//trie3, _ := NewTrie(root, NewDatabase(diskdb))
+	//updateString(trie3, "adsfdasf", "cat123")
+	//root,_ = trie3.Commit(nil)
+	//fmt.Println(root.Hex())
+	//fmt.Println(string(trie2.Get([]byte("dogeffa"))))
 }
 
 func TestGet(t *testing.T) {
