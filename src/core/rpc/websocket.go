@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package rpc
 
 import (
@@ -13,6 +28,7 @@ import (
 
 	"golang.org/x/net/websocket"
 	"gopkg.in/fatih/set.v0"
+	"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
 )
 
 func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
