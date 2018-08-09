@@ -1,5 +1,11 @@
+import lib
+from lib.contract import Contract
+
+
 class Address(object):
+    this = ""
     def __init__(self, address):
+        self.data = lib.storage.get(address)
         self.value = address
 
     def invalid(self):
@@ -7,12 +13,14 @@ class Address(object):
         return True
 
     def balance(self):
-        # TODO 获取地址里的余额
-        return 0
+        return self.data.get_balance()
 
     def transfer(self, _value):
-        # TODO 转账到合约
-        pass
+        this_data = lib.storage.get(Address.this)
+        if this_data.get_balance() < _value:
+            raise Exception("")
+        this_data.set_balance(this_data.get_balance() - _value)
+        self.data.set_balance(self.data.get_balance() + _value)
 
     def __str__(self):
         return self.value
@@ -26,5 +34,14 @@ class Address(object):
     def __eq__(self, other):
         return self.value == other.value
 
-    def contract_call(self):
-        pass
+    def call(self, function_name, *args, **kwargs):
+        if not self.data.is_contract():
+            raise Exception()
+        env = {}
+        Address.this = self.value
+        env["this"] = Address(self.value)
+        env["Address"] = Address
+        env["block"] = lib.block
+        env["msg"] = lib.msg
+        con = Contract(self.value, env)
+        con.call(function_name, *args, **kwargs)
