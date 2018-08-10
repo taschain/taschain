@@ -9,6 +9,18 @@ import (
 )
 
 
+type EnumResult struct {
+	Code int
+	Desc string
+}
+
+func NewEnumResult(code int, desc string) *EnumResult {
+	return &EnumResult{
+		Code:code,
+		Desc:desc,
+	}
+}
+
 //矿工ID信息
 type GroupMinerID struct {
 	Gid groupsig.ID //组ID

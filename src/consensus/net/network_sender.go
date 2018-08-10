@@ -14,6 +14,7 @@ type NetworkServerImpl struct {
 	net network.Network
 }
 
+
 func NewNetworkServer() NetworkServer {
 	return &NetworkServerImpl{
 		net: network.GetNetInstance(),
@@ -191,6 +192,30 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	ns.net.SendWithGroupRely(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
+func (ns *NetworkServerImpl) SendPowResultMessage(msg *model.ConsensusPowResultMessage) {
+	body, e := marshalConsensusPowResultMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusPowResultMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.POW_RESULT, Body: body}
+
+	ns.net.Multicast(msg.GroupID.GetHexString(), m)
+}
+
+func (ns *NetworkServerImpl) SendPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) {
+	body, e := marshalConsensusPowConfirmMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusPowConfirmMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.POW_CONFIRM, Body: body}
+	go MessageHandler.Handle(msg.SI.SignMember.String(), m)
+
+	ns.net.Multicast(msg.GroupID.GetHexString(), m)
+}
+
+
 //----------------------------------------------组初始化---------------------------------------------------------------
 
 func marshalConsensusGroupRawMessage(m *model.ConsensusGroupRawMessage) ([]byte, error) {
@@ -343,5 +368,36 @@ func marshalConsensusCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignM
 	sign := signDataToPb(&msg.SI)
 
 	message := tas_middleware_pb.ConsensusCreateGroupSignMessage{ConsensusGroupInitSummary: gi, Sign: sign}
+	return proto.Marshal(&message)
+}
+
+func marshalConsensusPowResultMessage(msg *model.ConsensusPowResultMessage) ([]byte, error) {
+
+	sign := signDataToPb(&msg.SI)
+
+	message := tas_middleware_pb.ConsensusPowResultMessage{
+		Hash: msg.BlockHash.Bytes(),
+		Nonce: &msg.Nonce,
+		Sign: sign,
+	}
+	return proto.Marshal(&message)
+}
+
+func marshalConsensusPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) ([]byte, error) {
+
+	sign := signDataToPb(&msg.SI)
+	nonces :=  make([]*tas_middleware_pb.MinerNonce, len(msg.NonceSeq))
+	for idx, ns := range msg.NonceSeq {
+		nonces[idx] = &tas_middleware_pb.MinerNonce{
+			MinerID: ns.MinerID.Serialize(),
+			Nonce: &ns.Nonce,
+		}
+	}
+
+	message := tas_middleware_pb.ConsensusPowConfirmMessage{
+		Hash: msg.BlockHash.Bytes(),
+		NonceSeq: nonces,
+		Sign: sign,
+	}
 	return proto.Marshal(&message)
 }

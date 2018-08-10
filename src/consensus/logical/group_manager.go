@@ -132,7 +132,7 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (b
 				joinedNum++
 			}
 		}
-		if joinedNum <= model.Param.MinerMaxJoinGroup {
+		if joinedNum < model.Param.MinerMaxJoinGroup {
 			candidates = append(candidates, id)
 		}
 	}

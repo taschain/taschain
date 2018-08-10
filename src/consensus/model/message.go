@@ -209,3 +209,38 @@ type ConsensusCreateGroupSignMessage struct {
 func (msg *ConsensusCreateGroupSignMessage) GenHash() common.Hash {
 	return msg.GI.GenHash()
 }
+
+//===================================pow预算确认======================
+type ConsensusPowResultMessage struct {
+	BaseSignedMessage
+	GroupID 	groupsig.ID
+	BlockHash common.Hash
+	Nonce     uint64
+}
+
+func (msg *ConsensusPowResultMessage) GenHash() common.Hash {
+	data := msg.BlockHash.Bytes()
+	data = strconv.AppendUint(data, msg.Nonce, 10)
+	return base.Data2CommonHash(data)
+}
+
+type MinerNonce struct {
+	MinerID groupsig.ID
+	Nonce 	uint64
+}
+
+type ConsensusPowConfirmMessage struct {
+	BaseSignedMessage
+	GroupID 	groupsig.ID
+	BlockHash common.Hash
+	NonceSeq []MinerNonce
+}
+
+func (msg *ConsensusPowConfirmMessage) GenHash() common.Hash {
+	data := msg.BlockHash.Bytes()
+	for _, mn := range msg.NonceSeq {
+		data = append(data, mn.MinerID.Serialize()...)
+		data = strconv.AppendUint(data, mn.Nonce, 10)
+	}
+	return base.Data2CommonHash(data)
+}

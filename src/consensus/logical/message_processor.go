@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"middleware/types"
 	"consensus/model"
-)
+	)
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
 	var gid groupsig.ID
@@ -767,4 +767,33 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)
 	}
+}
+
+func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
+	sender := GetIDPrefix(msg.SI.SignMember)
+	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	mtype := "OMPR"
+	if bh == nil {
+		log.Printf("OMPR block not found! sender=%v, hash=%v\n", sender, GetHashPrefix(msg.BlockHash))
+		return
+	}
+	logStart(mtype, bh.Height, bh.QueueNumber, sender, "nonce %v", msg.Nonce)
+	log.Printf("%v, sender=%v, hash=%v, nonce=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), msg.Nonce)
+
+	gid := groupsig.DeserializeId(bh.GroupId)
+	if gid == nil {
+		panic("deserialize groupId fail")
+	}
+	if !msg.VerifySign(p.getMinerGroupPubkey(*gid)) {
+		panic("OMPR verify sign fail")
+	}
+
+	ret := p.worker.AcceptResult(msg.Nonce, msg.BlockHash, model.NewGroupMinerID(*gid, msg.SI.SignMember))
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "结果 %v", ret.Desc)
+
+}
+
+
+func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
+
 }

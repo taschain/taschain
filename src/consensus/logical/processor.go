@@ -11,6 +11,7 @@ import (
 	"consensus/model"
 	"consensus/net"
 	"middleware/notify"
+	"consensus/logical/pow"
 )
 
 var PROC_TEST_MODE bool
@@ -37,6 +38,8 @@ type Processor struct {
 
 	//storage 	ethdb.Database
 	ready bool //是否已初始化完成
+
+	worker	*pow.PowWorker
 
 	//////链接口
 	MainChain  core.BlockChainI
@@ -87,6 +90,9 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.Ticker = ticker.GetTickerInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
+
+	p.worker = pow.NewPowWorker()
+	go p.powWorkerLoop()
 
 	notify.BUS.Subscribe(notify.BLOCK_ADD_SUCC, &blockAddEventHandler{p: p,})
 	notify.BUS.Subscribe(notify.GROUP_ADD_SUCC, &groupAddEventHandler{p: p})

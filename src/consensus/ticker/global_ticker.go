@@ -69,9 +69,9 @@ func (gt *GlobalTicker) getRoutine(name string) *TickerRoutine {
 */
 func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	defer func() {
-		//if err := recover(); err != nil {
-		//	log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
-		//}
+		if err := recover(); err != nil {
+			log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
+		}
 	}()
 	t := gt.ticker
 	lastTicker := atomic.LoadUint64(&routine.lastTicker)

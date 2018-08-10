@@ -25,7 +25,7 @@ const (
 
 	EPOCH uint64 = 8
 	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 10	//启动建组的块高度差
-	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
+	MINER_MAX_JOINED_GROUP = 1	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch

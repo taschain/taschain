@@ -39,6 +39,10 @@ type MessageProcessor interface {
 	OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)
 
 	OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)
+
+	OnMessagePowResult(msg *model.ConsensusPowResultMessage)
+
+	OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage)
 }
 
 type NetworkServer interface {
@@ -60,6 +64,10 @@ type NetworkServer interface {
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 
 	SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage)
+
+	SendPowResultMessage(msg *model.ConsensusPowResultMessage)
+
+	SendPowConfirmMessage(msg *model.ConsensusPowConfirmMessage)
 
 	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
 

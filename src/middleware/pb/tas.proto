@@ -336,3 +336,20 @@ message ConsensusCreateGroupSignMessage{
     required SignData sign = 2;
 
 }
+
+message ConsensusPowResultMessage{
+    required bytes Hash = 1;
+    required uint64 Nonce = 2;
+    required SignData Sign = 3;
+}
+
+message MinerNonce{
+    required bytes MinerID = 1;
+    required uint64 Nonce = 2;
+}
+
+message ConsensusPowConfirmMessage{
+    required bytes Hash = 1;
+    repeated MinerNonce NonceSeq = 2;
+    required SignData Sign = 3;
+}
