@@ -37,11 +37,18 @@ class Address(object):
     def call(self, function_name, *args, **kwargs):
         if not self.data.is_contract():
             raise Exception()
-        env = {}
-        Address.this = self.value
-        env["this"] = Address(self.value)
-        env["Address"] = Address
-        env["block"] = lib.block
-        env["msg"] = lib.msg
-        con = Contract(self.value, env)
-        con.call(function_name, *args, **kwargs)
+        lib.storage.snapshot()
+        if getattr(self, "contract", None) is None:
+            env = {}
+            Address.this = self.value
+            env["this"] = Address(self.value)
+            env["Address"] = Address
+            env["block"] = lib.block
+            env["msg"] = lib.msg
+            self.contract = Contract(self.value, env)
+        try:
+            self.contract.call(function_name, *args, **kwargs)
+        except Exception as e:
+            print(e)
+            print("error of calling {f}!".format(f=function_name))
+            lib.storage.revert_to_snapshot()
