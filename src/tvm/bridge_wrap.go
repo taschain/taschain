@@ -181,6 +181,7 @@ import (
 	"bytes"
 	"strconv"
 	"storage/core/vm"
+	"middleware/types"
 )
 
 var tvm *Tvm
@@ -217,11 +218,11 @@ type Tvm struct {
 	state vm.AccountDB
 }
 
-func NewTvm(state vm.AccountDB)*Tvm {
+func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	if tvm == nil {
 		tvm = &Tvm{}
 	}
-	tvm.state = state
+	tvm.state = accountDB
 
 	C.tvm_start()
 	bridge_init()
@@ -229,7 +230,7 @@ func NewTvm(state vm.AccountDB)*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)Execute(script string) bool {
+func (tvm *Tvm)Execute(script string, height uint64, castor []byte, transaction *types.Transaction) bool {
 	var c_bool C._Bool
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
