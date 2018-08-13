@@ -1,11 +1,12 @@
-import lib
-from lib.contract import Contract
 
+from lib.base.contract import Contract
+import base
 
 class Address(object):
     this = ""
+
     def __init__(self, address):
-        self.data = lib.storage.get(address)
+        self.data = base.storage.get(address)
         self.value = address
 
     def invalid(self):
@@ -16,7 +17,7 @@ class Address(object):
         return self.data.get_balance()
 
     def transfer(self, _value):
-        this_data = lib.storage.get(Address.this)
+        this_data = base.storage.get(Address.this)
         if this_data.get_balance() < _value:
             raise Exception("")
         this_data.set_balance(this_data.get_balance() - _value)
@@ -37,18 +38,18 @@ class Address(object):
     def call(self, function_name, *args, **kwargs):
         if not self.data.is_contract():
             raise Exception()
-        lib.storage.snapshot()
+        base.storage.snapshot()
         if getattr(self, "contract", None) is None:
             env = {}
             Address.this = self.value
             env["this"] = Address(self.value)
             env["Address"] = Address
-            env["block"] = lib.block
-            env["msg"] = lib.msg
+            env["block"] = base.block
+            env["msg"] = base.msg
             self.contract = Contract(self.value, env)
         try:
             self.contract.call(function_name, *args, **kwargs)
         except Exception as e:
             print(e)
             print("error of calling {f}!".format(f=function_name))
-            lib.storage.revert_to_snapshot()
+            base.storage.revert_to_snapshot()

@@ -2,9 +2,12 @@ import pickle
 import signal
 import threading
 
-from lib.block import Block
-from lib.msg import Msg
-from lib.storage import Storage
+
+
+from base.block import Block
+from base.msg import Msg
+from base.storage import Storage
+from base.address import Address
 
 storage = None
 try:
@@ -20,6 +23,7 @@ block = Block()
 t = threading.Thread(target=block.run)
 t.start()
 msg = Msg("123", "123", "123")
+owner = Address("")
 
 
 def _exit(signum, frame):

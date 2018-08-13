@@ -1,5 +1,4 @@
-
-from lib import address
+from lib.base import address
 
 
 class TasDeploy(object):
