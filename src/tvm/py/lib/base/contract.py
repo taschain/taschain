@@ -1,12 +1,11 @@
-import lib
-
+import base
 
 
 
 class Contract(object):
 
     def __init__(self, addr, env):
-        self.data = lib.storage.get(addr)
+        self.data = base.storage.get(addr)
         self.addr = addr
         self.env = env
         exec(self.data.get_code(), self.env)
