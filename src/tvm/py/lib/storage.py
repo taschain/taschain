@@ -1,10 +1,11 @@
-import hashlib
-import time
+import copy
+
 
 class Storage(object):
     def __init__(self):
         self.data = {}
         self.count = 0
+        self.copy = {}
 
     def new_contract(self, code: str, class_name: str):
         address = AddressStorage(is_contract=True)
@@ -25,6 +26,12 @@ class Storage(object):
 
     def get(self, addr):
         return self.data.get(addr, AddressStorage())
+
+    def snapshot(self):
+        self.copy = copy.deepcopy(self.data)
+
+    def revert_to_snapshot(self):
+        self.data = copy.deepcopy(self.copy)
 
 
 class AddressStorage():
