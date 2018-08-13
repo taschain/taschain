@@ -1,11 +1,11 @@
 
-from lib import Address
+from lib import address
 
 
 class TasDeploy(object):
 
     def __init__(self):
-        self.from_address = Address("")
+        self.from_address = address("")
         self.contract_name = ""
         self.main_file = ""
         self.depends_file = ""

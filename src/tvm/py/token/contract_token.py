@@ -1,5 +1,5 @@
 
-from lib import Address
+from lib import address
 
 class Storage(object):
     data = {}
@@ -34,13 +34,13 @@ def require(b):
         raise Exception("")
 
 
-this = Address("")
+this = address("")
 
-owner = Address("")
+owner = address("")
 
 
 class Msg(object):
-    sender = Address("")
+    sender = address("")
     value = 0
 
     # @staticmethod
