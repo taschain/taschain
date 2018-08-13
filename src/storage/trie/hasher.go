@@ -44,10 +44,6 @@ func newHasher(cachegen, cachelimit uint16, onleaf LeafCallback) *hasher {
 	return h
 }
 
-func returnHasherToPool(h *hasher) {
-	hasherPool.Put(h)
-}
-
 func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 	if hash, dirty := n.cache(); hash != nil {
 		if db == nil {
@@ -87,53 +83,8 @@ func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 	return hashed, cached, nil
 }
 
-
-func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
-	var err error
-
-	switch n := original.(type) {
-	case *shortNode:
-
-		collapsed, cached := n.copy(), n.copy()
-
-		cached.Key = common.CopyBytes(n.Key)
-
-		if _, ok := n.Val.(valueNode); !ok {
-			collapsed.Val, cached.Val, err = h.hash(n.Val, db, false)
-			if err != nil {
-				return original, original, err
-			}
-		}
-		//if collapsed.Val == nil {
-		//	collapsed.Val = valueNode(nil)
-		//}
-		return collapsed, cached, nil
-
-	case *fullNode:
-
-		collapsed, cached := n.copy(), n.copy()
-
-		for i := 0; i < 16; i++ {
-			if n.Children[i] != nil {
-				collapsed.Children[i], cached.Children[i], err = h.hash(n.Children[i], db, false)
-				if err != nil {
-					return original, original, err
-				}
-			}
-			//else {
-			//	collapsed.Children[i] = valueNode(nil) // Ensure that nil children are encoded as empty strings.
-			//}
-		}
-		cached.Children[16] = n.Children[16]
-		//if collapsed.Children[16] == nil {
-		//	collapsed.Children[16] = valueNode(nil)
-		//}
-		return collapsed, cached, nil
-
-	default:
-
-		return n, original, nil
-	}
+func returnHasherToPool(h *hasher) {
+	hasherPool.Put(h)
 }
 
 func (h *hasher) store(n node, db *Database, force bool) (node, error) {
@@ -193,4 +144,52 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 		}
 	}
 	return hash, nil
+}
+
+func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
+	var err error
+
+	switch n := original.(type) {
+	case *shortNode:
+
+		collapsed, cached := n.copy(), n.copy()
+
+		cached.Key = common.CopyBytes(n.Key)
+
+		if _, ok := n.Val.(valueNode); !ok {
+			collapsed.Val, cached.Val, err = h.hash(n.Val, db, false)
+			if err != nil {
+				return original, original, err
+			}
+		}
+		//if collapsed.Val == nil {
+		//	collapsed.Val = valueNode(nil)
+		//}
+		return collapsed, cached, nil
+
+	case *fullNode:
+
+		collapsed, cached := n.copy(), n.copy()
+
+		for i := 0; i < 16; i++ {
+			if n.Children[i] != nil {
+				collapsed.Children[i], cached.Children[i], err = h.hash(n.Children[i], db, false)
+				if err != nil {
+					return original, original, err
+				}
+			}
+			//else {
+			//	collapsed.Children[i] = valueNode(nil) // Ensure that nil children are encoded as empty strings.
+			//}
+		}
+		cached.Children[16] = n.Children[16]
+		//if collapsed.Children[16] == nil {
+		//	collapsed.Children[16] = valueNode(nil)
+		//}
+		return collapsed, cached, nil
+
+	default:
+
+		return n, original, nil
+	}
 }

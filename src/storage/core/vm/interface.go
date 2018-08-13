@@ -19,6 +19,7 @@ import (
 	"math/big"
 
 	"common"
+	"middleware/types"
 )
 
 type AccountDB interface {
@@ -50,4 +51,11 @@ type AccountDB interface {
 
 	RevertToSnapshot(int)
 	Snapshot() int
+}
+
+type ChainReader interface {
+	Height() uint64
+	QueryTopBlock() *types.BlockHeader
+	QueryBlockByHash(hash common.Hash) *types.BlockHeader
+	QueryBlockByHeight(height uint64) *types.BlockHeader
 }

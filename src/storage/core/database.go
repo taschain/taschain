@@ -40,6 +40,8 @@ type Database interface {
 
 	CopyTrie(Trie) Trie
 
+	PushTrie(root common.Hash,t Trie)
+
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
@@ -58,28 +60,29 @@ type Trie interface {
 
 func NewDatabase(db tasdb.Database) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
+	csc2, _ := lru.New(maxPastTries)
 	return &storageDB{
 		db:            trie.NewDatabase(db),
 		codeSizeCache: csc,
+		pastTriesCache: csc2,
 	}
 }
 
 type storageDB struct {
 	db            *trie.Database
 	mu            sync.Mutex
-	pastTries     []*trie.Trie
-	codeSizeCache *lru.Cache
+	pastTriesCache    *lru.Cache
+	codeSizeCache 	  *lru.Cache
 }
 
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	for i := len(db.pastTries) - 1; i >= 0; i-- {
-		if db.pastTries[i].Hash() == root {
-			return db.pastTries[i], nil
-		}
+	if tr,ok := db.pastTriesCache.Get(root);ok{
+		return tr.(Trie),nil
 	}
+
 	tr, err := trie.NewTrie(root, db.db)
 	if err != nil {
 		return nil, err
@@ -87,16 +90,11 @@ func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	return tr, nil
 }
 
-func (db *storageDB) pushTrie(t *trie.Trie) {
+func (db *storageDB) PushTrie(root common.Hash, t Trie) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if len(db.pastTries) >= maxPastTries {
-		copy(db.pastTries, db.pastTries[1:])
-		db.pastTries[len(db.pastTries)-1] = t
-	} else {
-		db.pastTries = append(db.pastTries, t)
-	}
+	db.pastTriesCache.Add(root, t)
 }
 
 func (db *storageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {

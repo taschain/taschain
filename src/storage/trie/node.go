@@ -74,6 +74,11 @@ type nodeFlag struct {
 	dirty bool     // whether the node has changes that must be written to the database
 }
 
+func (n *fullNode) cache() (hashNode, bool)  { return n.flags.hash, n.flags.dirty }
+func (n *shortNode) cache() (hashNode, bool) { return n.flags.hash, n.flags.dirty }
+func (n hashNode) cache() (hashNode, bool)   { return nil, true }
+func (n valueNode) cache() (hashNode, bool)  { return nil, true }
+
 func (n *nodeFlag) canUnload(cachegen, cachelimit uint16) bool {
 	return !n.dirty && cachegen-n.gen >= cachelimit
 }
@@ -82,11 +87,6 @@ func (n *fullNode) canUnload(gen, limit uint16) bool  { return n.flags.canUnload
 func (n *shortNode) canUnload(gen, limit uint16) bool { return n.flags.canUnload(gen, limit) }
 func (n hashNode) canUnload(uint16, uint16) bool      { return false }
 func (n valueNode) canUnload(uint16, uint16) bool     { return false }
-
-func (n *fullNode) cache() (hashNode, bool)  { return n.flags.hash, n.flags.dirty }
-func (n *shortNode) cache() (hashNode, bool) { return n.flags.hash, n.flags.dirty }
-func (n hashNode) cache() (hashNode, bool)   { return nil, true }
-func (n valueNode) cache() (hashNode, bool)  { return nil, true }
 
 func (n *fullNode) magic() byte  { return magicFull }
 func (n *shortNode) magic() byte { return magicShort }
@@ -139,14 +139,14 @@ func (n valueNode) fstring(ind string) string {
 }
 
 func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
-	n, err := decodeNode2(hash, buf, cachegen)
+	n, err := decodeNode(hash, buf, cachegen)
 	if err != nil {
 		panic(fmt.Sprintf("node %x: %v", hash, err))
 	}
 	return n
 }
 
-func decodeNode2(hash, buf []byte, cachegen uint16) (node, error)  {
+func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 	if len(buf) == 0 {
 		return nil, io.ErrUnexpectedEOF
 	}

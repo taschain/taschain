@@ -44,6 +44,20 @@ func TestHexCompact(t *testing.T) {
 	}
 }
 
+func BenchmarkKeybytesToHex(b *testing.B) {
+	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
+	for i := 0; i < b.N; i++ {
+		keybytesToHex(testBytes)
+	}
+}
+
+func BenchmarkHexToKeybytes(b *testing.B) {
+	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
+	for i := 0; i < b.N; i++ {
+		hexToKeybytes(testBytes)
+	}
+}
+
 func TestHexKeybytes(t *testing.T) {
 	tests := []struct{ key, hexIn, hexOut []byte }{
 		{key: []byte{}, hexIn: []byte{16}, hexOut: []byte{16}},
@@ -85,19 +99,5 @@ func BenchmarkCompactToHex(b *testing.B) {
 	testBytes := []byte{0, 15, 1, 12, 11, 8, 16 /*term*/}
 	for i := 0; i < b.N; i++ {
 		compactToHex(testBytes)
-	}
-}
-
-func BenchmarkKeybytesToHex(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		keybytesToHex(testBytes)
-	}
-}
-
-func BenchmarkHexToKeybytes(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		hexToKeybytes(testBytes)
 	}
 }

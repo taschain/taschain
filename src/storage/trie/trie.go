@@ -84,6 +84,30 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
+func (t *Trie) Update(key, value []byte) {
+	if err := t.TryUpdate(key, value); err != nil {
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	}
+}
+
+func (t *Trie) TryUpdate(key, value []byte) error {
+	k := keybytesToHex(key)
+	if len(value) != 0 {
+		_, n, err := t.insert(t.root, nil, k, valueNode(value))
+		if err != nil {
+			return err
+		}
+		t.root = n
+	} else {
+		_, n, err := t.delete(t.root, nil, k)
+		if err != nil {
+			return err
+		}
+		t.root = n
+	}
+	return nil
+}
+
 func (t *Trie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
@@ -136,30 +160,6 @@ func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode
 	default:
 		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
 	}
-}
-
-func (t *Trie) Update(key, value []byte) {
-	if err := t.TryUpdate(key, value); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
-	}
-}
-
-func (t *Trie) TryUpdate(key, value []byte) error {
-	k := keybytesToHex(key)
-	if len(value) != 0 {
-		_, n, err := t.insert(t.root, nil, k, valueNode(value))
-		if err != nil {
-			return err
-		}
-		t.root = n
-	} else {
-		_, n, err := t.delete(t.root, nil, k)
-		if err != nil {
-			return err
-		}
-		t.root = n
-	}
-	return nil
 }
 
 func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error) {
@@ -329,6 +329,19 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
+func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
+	if t.db == nil {
+		panic("commit called on trie with nil database")
+	}
+	hash, cached, err := t.hashRoot(t.db, onleaf)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	t.root = cached
+	t.cachegen++
+	return common.BytesToHash(hash.(hashNode)), nil
+}
+
 func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 	if n, ok := n.(hashNode); ok {
 		return t.resolveHash(n, prefix)
@@ -354,19 +367,6 @@ func (t *Trie) Hash() common.Hash {
 	hash, cached, _ := t.hashRoot(nil, nil)
 	t.root = cached
 	return common.BytesToHash(hash.(hashNode))
-}
-
-func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
-	if t.db == nil {
-		panic("commit called on trie with nil database")
-	}
-	hash, cached, err := t.hashRoot(t.db, onleaf)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	t.root = cached
-	t.cachegen++
-	return common.BytesToHash(hash.(hashNode)), nil
 }
 
 func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
