@@ -4,8 +4,8 @@ const HTMLTEM = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-    <link rel="stylesheet" href="http://www.ysh0566.top/js/layui/css/layui.css">
+    <title>Title</title> 
+    <link rel="stylesheet" href="https://mvp.taschain.cn/static/layui/css/layui.css">
     <style type="text/css">
         .wallet_tr {word-wrap:break-word; word-break:break-all;}
     </style>
@@ -378,7 +378,7 @@ const HTMLTEM = `<!DOCTYPE html>
         </div>
     </div>
 </div>
-<script src="http://www.ysh0566.top/js/layui/layui.js"></script>
+<script src="https://mvp.taschain.cn/static/layui/layui.js"></script>
 <script>
 
     layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
@@ -386,7 +386,7 @@ const HTMLTEM = `<!DOCTYPE html>
         var form = layui.form;
         var layer = layui.layer;
         var $ = layui.$;
-        var HOST = "http://127.0.0.1:8088";
+        var HOST = "https://mvp.taschain.cn";
         var ref;
         var host_ele = $("#host");
         var online=false;
