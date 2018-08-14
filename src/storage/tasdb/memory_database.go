@@ -16,10 +16,10 @@
 package tasdb
 
 import (
-	"errors"
 	"sync"
 
 	"common"
+	"errors"
 )
 
 
@@ -40,6 +40,16 @@ func NewMemDatabaseWithCap(size int) (*MemDatabase, error) {
 	}, nil
 }
 
+func (db *MemDatabase) Get(key []byte) ([]byte, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	if entry, ok := db.db[string(key)]; ok {
+		return common.CopyBytes(entry), nil
+	}
+	return nil, errors.New("not found")
+}
+
 func (db *MemDatabase) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -54,16 +64,6 @@ func (db *MemDatabase) Has(key []byte) (bool, error) {
 
 	_, ok := db.db[string(key)]
 	return ok, nil
-}
-
-func (db *MemDatabase) Get(key []byte) ([]byte, error) {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
-
-	if entry, ok := db.db[string(key)]; ok {
-		return common.CopyBytes(entry), nil
-	}
-	return nil, errors.New("not found")
 }
 
 func (db *MemDatabase) Keys() [][]byte {

@@ -92,18 +92,6 @@ func (db *LDBDatabase) Path() string {
 	return db.fn
 }
 
-func (db *LDBDatabase) Put(key []byte, value []byte) error {
-
-	if db.putTimer != nil {
-		defer db.putTimer.UpdateSince(time.Now())
-	}
-
-	if db.writeMeter != nil {
-		db.writeMeter.Mark(int64(len(value)))
-	}
-	return db.db.Put(key, value, nil)
-}
-
 func (db *LDBDatabase) Has(key []byte) (bool, error) {
 	return db.db.Has(key, nil)
 }
@@ -129,6 +117,18 @@ func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 
 }
 
+func (db *LDBDatabase) Put(key []byte, value []byte) error {
+
+	if db.putTimer != nil {
+		defer db.putTimer.UpdateSince(time.Now())
+	}
+
+	if db.writeMeter != nil {
+		db.writeMeter.Mark(int64(len(value)))
+	}
+	return db.db.Put(key, value, nil)
+}
+
 func (db *LDBDatabase) Delete(key []byte) error {
 
 	if db.delTimer != nil {
@@ -140,26 +140,6 @@ func (db *LDBDatabase) Delete(key []byte) error {
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
 	return db.db.NewIterator(nil, nil)
-}
-
-func (db *LDBDatabase) Close() {
-
-	db.quitLock.Lock()
-	defer db.quitLock.Unlock()
-
-	if db.quitChan != nil {
-		errc := make(chan error)
-		db.quitChan <- errc
-		if err := <-errc; err != nil {
-			db.log.Error("Metrics collection failed", "err", err)
-		}
-	}
-	err := db.db.Close()
-	if err == nil {
-		db.log.Info("Database closed")
-	} else {
-		db.log.Error("Failed to close database", "err", err)
-	}
 }
 
 func (db *LDBDatabase) LDB() *leveldb.DB {
@@ -254,6 +234,26 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 	}
 }
 
+func (db *LDBDatabase) Close() {
+
+	db.quitLock.Lock()
+	defer db.quitLock.Unlock()
+
+	if db.quitChan != nil {
+		errc := make(chan error)
+		db.quitChan <- errc
+		if err := <-errc; err != nil {
+			db.log.Error("Metrics collection failed", "err", err)
+		}
+	}
+	err := db.db.Close()
+	if err == nil {
+		db.log.Info("Database closed")
+	} else {
+		db.log.Error("Failed to close database", "err", err)
+	}
+}
+
 func (db *LDBDatabase) NewBatch() Batch {
 	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
 }
@@ -295,16 +295,16 @@ func NewTable(db Database, prefix string) Database {
 	}
 }
 
+func (dt *table) Get(key []byte) ([]byte, error) {
+	return dt.db.Get(append([]byte(dt.prefix), key...))
+}
+
 func (dt *table) Put(key []byte, value []byte) error {
 	return dt.db.Put(append([]byte(dt.prefix), key...), value)
 }
 
 func (dt *table) Has(key []byte) (bool, error) {
 	return dt.db.Has(append([]byte(dt.prefix), key...))
-}
-
-func (dt *table) Get(key []byte) ([]byte, error) {
-	return dt.db.Get(append([]byte(dt.prefix), key...))
 }
 
 func (dt *table) Delete(key []byte) error {
@@ -328,18 +328,18 @@ func (dt *table) NewBatch() Batch {
 	return &tableBatch{dt.db.NewBatch(), dt.prefix}
 }
 
-func (tb *tableBatch) Put(key, value []byte) error {
-	return tb.batch.Put(append([]byte(tb.prefix), key...), value)
-}
-
 func (tb *tableBatch) Write() error {
 	return tb.batch.Write()
 }
 
-func (tb *tableBatch) ValueSize() int {
-	return tb.batch.ValueSize()
+func (tb *tableBatch) Put(key, value []byte) error {
+	return tb.batch.Put(append([]byte(tb.prefix), key...), value)
 }
 
 func (tb *tableBatch) Reset() {
 	tb.batch.Reset()
+}
+
+func (tb *tableBatch) ValueSize() int {
+	return tb.batch.ValueSize()
 }

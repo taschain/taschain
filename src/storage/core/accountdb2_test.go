@@ -25,20 +25,21 @@ import (
 func TestAccountDB_AddBalance(t *testing.T) {
 	// Create an empty state database
 	//db, _ := tasdb.NewMemDatabase()
-	db, _ := tasdb.NewLDBDatabase("/Volumes/Work/work/test", 0, 0)
+	db, _ := tasdb.NewLDBDatabase("/Users/Kaede/TasProject/work/test", 0, 0)
+	//db, _ := tasdb.NewLDBDatabase("/Volumes/Work/work/test", 0, 0)
 	defer db.Close()
 	triedb := NewDatabase(db)
 	//state, _ := NewAccountDB(common.Hash{}, triedb)
-	state, _ := NewAccountDB(common.HexToHash("0x90eb02dd621cd46ce57ffcde6d7099a20d08cc36d818bbcbfdd0a6d99196ae61"), triedb)
+	state, _ := NewAccountDB(common.HexToHash("0xb9642a136059a6723b481d43969bd3b2c749d440af17d1a49b056728f60e9033"), triedb)
 	state.Fstring()
 	//state.SetBalance(common.BytesToAddress([]byte("1")), big.NewInt(1000000))
 	//state.AddBalance(common.BytesToAddress([]byte("3")), big.NewInt(1))
 	//state.SubBalance(common.BytesToAddress([]byte("2")), big.NewInt(2))
-
-	state.SetData(common.BytesToAddress([]byte("1")), "aa", []byte{1,2,3})
+	//fmt.Println(state.GetData(common.BytesToAddress([]byte("1")),"ab"))
+	//state.SetData(common.BytesToAddress([]byte("1")), "ab", []byte{1,2,3})
 	balance := state.GetBalance(common.BytesToAddress([]byte("1")))
-	fmt.Println(balance)
-	balance = state.GetBalance(common.BytesToAddress([]byte("3")))
+	//
+	//balance = state.GetBalance(common.BytesToAddress([]byte("3")))
 	fmt.Println(balance)
 	//state.Fstring()
 	//fmt.Println(state.IntermediateRoot(true).Hex())

@@ -27,8 +27,10 @@ import (
 	"storage/tasdb"
 )
 
+var test_values = []string{"", "a", "1251", "\x00123\x00"}
+
 func newTestLDB() (*tasdb.LDBDatabase, func()) {
-	dirname, err := ioutil.TempDir(os.TempDir(), "ethdb_test_")
+	dirname, err := ioutil.TempDir(os.TempDir(), "tasdb_test_")
 	if err != nil {
 		panic("failed to create test file: " + err.Error())
 	}
@@ -42,8 +44,6 @@ func newTestLDB() (*tasdb.LDBDatabase, func()) {
 		os.RemoveAll(dirname)
 	}
 }
-
-var test_values = []string{"", "a", "1251", "\x00123\x00"}
 
 func TestLDB_PutGet(t *testing.T) {
 	db, remove := newTestLDB()

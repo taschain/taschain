@@ -58,30 +58,6 @@ func NewDatabase(diskdb tasdb.Database) *Database {
 	}
 }
 
-func (db *Database) DiskDB() DatabaseReader {
-	return db.diskdb
-}
-
-func (db *Database) Insert(hash common.Hash, blob []byte) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	db.insert(hash, blob)
-}
-
-
-func (db *Database) insert(hash common.Hash, blob []byte) {
-	if _, ok := db.nodes[hash]; ok {
-		return
-	}
-	db.nodes[hash] = &cachedNode{
-		blob:     common.CopyBytes(blob),
-		children: make(map[common.Hash]int),
-	}
-	db.nodesSize += common.StorageSize(common.HashLength + len(blob))
-}
-
-
 func (db *Database) Node(hash common.Hash) ([]byte, error) {
 
 	db.lock.RLock()
@@ -171,6 +147,29 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 		delete(db.nodes, child)
 		db.nodesSize -= common.StorageSize(common.HashLength + len(node.blob))
 	}
+}
+
+func (db *Database) DiskDB() DatabaseReader {
+	return db.diskdb
+}
+
+func (db *Database) Insert(hash common.Hash, blob []byte) {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	db.insert(hash, blob)
+}
+
+
+func (db *Database) insert(hash common.Hash, blob []byte) {
+	if _, ok := db.nodes[hash]; ok {
+		return
+	}
+	db.nodes[hash] = &cachedNode{
+		blob:     common.CopyBytes(blob),
+		children: make(map[common.Hash]int),
+	}
+	db.nodesSize += common.StorageSize(common.HashLength + len(blob))
 }
 
 func (db *Database) Commit(node common.Hash, report bool) error {

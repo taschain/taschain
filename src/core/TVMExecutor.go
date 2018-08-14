@@ -43,7 +43,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 
-	vm := tvm.NewTvm(accountdb)
+	vm := tvm.NewTvm(accountdb, BlockChainImpl)
 	receipts := make([]*t.Receipt,len(block.Transactions))
 	for i,transaction := range block.Transactions{
 		receipt := t.Receipt{}
@@ -52,7 +52,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
-			if !vm.Execute(script){
+			if !vm.Execute(script, block.Header.Height, block.Header.Castor, transaction){
 				accountdb.RevertToSnapshot(snapshot)
 			}
 		} else {
