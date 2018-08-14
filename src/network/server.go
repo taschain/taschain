@@ -114,6 +114,11 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	return nil
 }
 
+//todo  implment by 文杰
+func (n *server) SpreadOverGroup(groupId string, msg Message,groupMembers []string) error{
+	return nil
+}
+
 func (n *server) TransmitToNeighbor(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
@@ -125,14 +130,15 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 	return nil
 }
 
-func (n *server) Broadcast(msg Message ,msgDigest MsgDigest) error {
-	bytes, err := marshalMessage(msg)
-	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
-		return err
-	}
-	n.netCore.SendAll(bytes, true,msgDigest)
-	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+//todo  implment by 文杰
+func (n *server) Broadcast(msg Message ,relayCount uint) error {
+	//bytes, err := marshalMessage(msg)
+	//if err != nil {
+	//	Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+	//	return err
+	//}
+	//n.netCore.SendAll(bytes, true,msgDigest)
+	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
