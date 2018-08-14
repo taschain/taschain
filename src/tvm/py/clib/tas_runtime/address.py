@@ -1,12 +1,13 @@
 
-from lib.base.contract import Contract
-import base
+from clib.tas_runtime.contract import Contract
+from clib.tas_runtime import glovar
+
 
 class Address(object):
     this = ""
 
     def __init__(self, address):
-        self.data = base.storage.get(address)
+        self.data = glovar.storage.get(address)
         self.value = address
 
     def invalid(self):
@@ -17,7 +18,7 @@ class Address(object):
         return self.data.get_balance()
 
     def transfer(self, _value):
-        this_data = base.storage.get(Address.this)
+        this_data = glovar.storage.get(Address.this)
         if this_data.get_balance() < _value:
             raise Exception("")
         this_data.set_balance(this_data.get_balance() - _value)
@@ -38,18 +39,19 @@ class Address(object):
     def call(self, function_name, *args, **kwargs):
         if not self.data.is_contract():
             raise Exception()
-        base.storage.snapshot()
+            glovar.storage.snapshot()
         if getattr(self, "contract", None) is None:
             env = {}
             Address.this = self.value
             env["this"] = Address(self.value)
             env["Address"] = Address
-            env["block"] = base.block
-            env["msg"] = base.msg
+            env["block"] = glovar.block
+            env["msg"] = glovar.msg
             self.contract = Contract(self.value, env)
         try:
             self.contract.call(function_name, *args, **kwargs)
         except Exception as e:
-            print(e)
+            print(repr(e))
             print("error of calling {f}!".format(f=function_name))
-            base.storage.revert_to_snapshot()
+            glovar.storage.revert_to_snapshot()
+

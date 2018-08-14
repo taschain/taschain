@@ -3,12 +3,6 @@
 from base.utils import *
 from erc20.token_erc20 import *
 
-class Event(object):
-    @staticmethod
-    def emit(event_name, *param):
-        print("Event: ", event_name, param)
-
-
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);
 #     require(tokenContract.transferFrom(_sender, address(this), 1));
@@ -42,6 +36,7 @@ class BalanceDict():
         del self.data[key]
 
 class MyAdvancedToken(TokenERC20):
+
     def __init__(self):
         super(MyAdvancedToken, self).__init__()
 

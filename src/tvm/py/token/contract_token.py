@@ -1,4 +1,4 @@
-from lib.base import address
+from clib.tas_runtime import address
 
 
 class Storage(object):
