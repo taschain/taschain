@@ -1,70 +1,7 @@
-from clib.tas_runtime import address
 
 
-class Storage(object):
-    data = {}
-
-    @staticmethod
-    def get(key):
-        return Storage.data[key]
-
-    @staticmethod
-    def put(key, value):
-        Storage.data[key] = value
-
-    @staticmethod
-    def delete(key):
-        del Storage.data[key]
-
-    @staticmethod
-    def load(obj):
-        for k in Storage.data:
-            setattr(obj, k, Storage.data[k])
-        # print("Load:", Storage.data)
-
-    @staticmethod
-    def save(obj):
-        for k in obj.__dict__:
-            Storage.put(k, obj.__dict__[k])
-        print("Save:", Storage.data)
-
-
-def require(b):
-    if not b:
-        raise Exception("")
-
-
-this = address("")
-
-owner = address("")
-
-
-class Msg(object):
-    sender = address("")
-    value = 0
-
-    # @staticmethod
-    # def sender():
-    #     return Msg._sender
-    #
-    # @staticmethod
-    # def set_sender(address):
-    #     Msg._sender = address
-    #
-    # @staticmethod
-    # def value():
-    #     return Msg._value
-    #
-    # @staticmethod
-    # def set_value(value):
-    #     Msg._value = value
-
-
-class Event(object):
-    @staticmethod
-    def emit(event_name, *param):
-        print("Event: ", event_name, param)
-
+from base.utils import *
+from erc20.token_erc20 import *
 
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);
@@ -98,16 +35,14 @@ class BalanceDict():
     def __delitem__(self, key):
         del self.data[key]
 
-
-
-
 class MyAdvancedToken(TokenERC20):
+
     def __init__(self):
         super(MyAdvancedToken, self).__init__()
 
-        self.sell_price = 0
+        self.sell_price = 100
         #Storage.register("sell_price")
-        self.buy_price = 0
+        self.buy_price = 100
 
         self.frozenAccount = {}
 
@@ -120,7 +55,7 @@ class MyAdvancedToken(TokenERC20):
         self.name = "TAS"
         self.symbol = "%"
         self.totalSupply = 1000000
-        self.balanceOf[Msg.sender] = self.totalSupply
+        self.balanceOf[this] = self.totalSupply
 
     # @property
     # def sell_price(self):
@@ -171,27 +106,20 @@ class MyAdvancedToken(TokenERC20):
         self.buy_price = new_buy_price
 
     def buy(self):
-        amount = Msg.value / self.buy_price
-        self._transfer(this, Msg.sender, amount)
-        # TODO 扣钱
+        # 在call前已经完成扣款
+        amount = msg.value / self.buy_price
+        self._transfer(this, msg.sender, amount)
 
     def sell(self, amount):
         require(this.balance() >= amount * self.sell_price)
-        self._transfer(Msg.sender, this, amount)
-        Msg.sender.transfer(amount * self.sell_price)
+        self._transfer(msg.sender, this, amount)
+        msg.sender.transfer(amount * self.sell_price)
+
+    def test(self):
+        print(block.number())
 
 
 
-#
-#
-#
-
-
-
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    a = compile("a = 1",mode="single", filename="s.py")
+    print(a.co_code.decode("utf-8"))

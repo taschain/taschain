@@ -1,5 +1,10 @@
 
 
+
+print(dir())
+print(msg)
+print(this)
+
 class Recharge(object):
 
     def receive_approval(self, _from, _value, _token, _extraData):
