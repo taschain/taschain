@@ -55,7 +55,7 @@ type NetworkServer interface {
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 
-	BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
+	BroadcastNewBlock(cbm *model.ConsensusBlockMessage,nextCastGroupId string, groupMembers []string)
 
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 

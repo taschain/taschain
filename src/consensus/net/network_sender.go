@@ -150,19 +150,28 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 }
 
 //对外广播经过组签名的block 全网广播
-func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage) {
-	//network.Logger.Debugf("broad block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
+func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,nextCastGroupId string, groupMembers []string) {
+	network.Logger.Debugf("broad new block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
 		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
-	m := network.Message{Code: network.NewBlockMsg, Body: body}
-	//blockHash := cbm.Block.Header.Hash
+	blockMsg := network.Message{Code: network.NewBlockMsg, Body: body}
+	blockHash := cbm.Block.Header.Hash
+	ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
+	network.Logger.Debugf("spread block %d-%d over group:%s,body size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber,nextCastGroupId, len(body))
 
 
-	ns.net.TransmitToNeighbor(m)
+
+	body, e = types.MarshalBlockHeader(cbm.Block.Header)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+		return
+	}
+	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:body}
+	ns.net.TransmitToNeighbor(headerMsg)
+	network.Logger.Debugf("spread block %d-%d header over group:%s,header size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber,nextCastGroupId, len(body))
 }
 
 //====================================建组前共识=======================

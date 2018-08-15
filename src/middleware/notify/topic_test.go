@@ -12,10 +12,8 @@ func TestTopic_Subscribe(t *testing.T) {
 		Id: "test",
 	}
 
-	h1 := &handler1{}
-	topic.Subscribe(h1)
-	h2 := &handler2{}
-	topic.Subscribe(h2)
+	topic.Subscribe(handler1)
+	topic.Subscribe(handler2)
 	topic.Handle(&DummyMessage{})
 }
 
@@ -25,12 +23,10 @@ func TestTopic_UnSubscribe0(t *testing.T) {
 		Id: "test",
 	}
 
-	h1 := &handler1{}
-	topic.Subscribe(h1)
-	h2 := &handler2{}
-	topic.Subscribe(h2)
+	topic.Subscribe(handler1)
+	topic.Subscribe(handler2)
 
-	topic.UnSubscribe(h1)
+	topic.UnSubscribe(handler1)
 	topic.Handle(&DummyMessage{})
 }
 
@@ -41,14 +37,11 @@ func TestTopic_UnSubscribe1(t *testing.T) {
 		Id: "test",
 	}
 
-	h1 := &handler1{}
-	topic.Subscribe(h1)
-	h2 := &handler2{}
-	topic.Subscribe(h2)
-	h3 := &handler3{}
-	topic.Subscribe(h3)
+	topic.Subscribe(handler1)
+	topic.Subscribe(handler2)
+	topic.Subscribe(handler3)
 
-	topic.UnSubscribe(h2)
+	topic.UnSubscribe(handler2)
 	topic.Handle(&DummyMessage{})
 }
 
@@ -59,34 +52,24 @@ func TestTopic_UnSubscribe2(t *testing.T) {
 		Id: "test",
 	}
 
-	h1 := &handler1{}
-	topic.Subscribe(h1)
-	h2 := &handler2{}
-	topic.Subscribe(h2)
-	h3 := &handler3{}
-	topic.Subscribe(h3)
+	topic.Subscribe(handler1)
+	topic.Subscribe(handler2)
+	topic.Subscribe(handler3)
 
-	topic.UnSubscribe(h3)
+	topic.UnSubscribe(handler3)
 	topic.Handle(&DummyMessage{})
 }
 
-type handler1 struct {
-}
 
-func (h *handler1) Handle(message Message) {
+func handler1(message Message) {
 	fmt.Println("hello world")
 }
 
-type handler2 struct {
-}
 
-func (h *handler2) Handle(message Message) {
+func handler2(message Message) {
 	fmt.Println("hello world2")
 }
 
-type handler3 struct {
-}
-
-func (h *handler3) Handle(message Message) {
+func handler3(message Message) {
 	fmt.Println("hello world3")
 }
