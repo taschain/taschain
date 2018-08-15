@@ -312,10 +312,6 @@ message ConsensusBlockMessageBase{
 
 message ConsensusBlockMessage{
     required Block Block = 1;
-
-    optional bytes GroupID = 2;
-
-    required SignData SignData = 3;
 }
 
 

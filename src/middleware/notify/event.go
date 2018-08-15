@@ -1,7 +1,9 @@
 package notify
 
 const (
-	BLOCK_ADD_SUCC = "block_add_succ"
+	BlockAddSucc = "block_add_succ"
 
-	GROUP_ADD_SUCC = "group_add_succ"
+	GroupAddSucc = "group_add_succ"
+
+	NewBlock = "new_block"
 )

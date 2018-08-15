@@ -269,9 +269,7 @@ func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error
 	if block == nil {
 		network.Logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
 	}
-	id := m.GroupID.Serialize()
-	sign := signDataToPb(&m.SI)
-	message := tas_middleware_pb.ConsensusBlockMessage{Block: block, GroupID: id, SignData: sign}
+	message := tas_middleware_pb.ConsensusBlockMessage{Block: block}
 	return proto.Marshal(&message)
 }
 

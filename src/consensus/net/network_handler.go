@@ -334,16 +334,7 @@ func unMarshalConsensusBlockMessage(b []byte) (*model.ConsensusBlockMessage, err
 		return nil, e
 	}
 	block := types.PbToBlock(m.Block)
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(m.GroupID)
-	if e1 != nil {
-		network.Logger.Errorf("[handler]unMarshalConsensusBlockMessage error:%s", e1.Error())
-		return nil, e
-	}
-
-	signData := pbToSignData(m.SignData)
-	base := model.BaseSignedMessage{SI: *signData}
-	message := model.ConsensusBlockMessage{Block: *block, GroupID: groupId, BaseSignedMessage: base}
+	message := model.ConsensusBlockMessage{Block: *block}
 	return &message, nil
 }
 
