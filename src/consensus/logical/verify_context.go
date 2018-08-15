@@ -142,31 +142,6 @@ func (vc *VerifyContext) castExpire() bool {
     return time.Now().After(vc.expireTime)
 }
 
-//func (vc *VerifyContext) getMaxCastTime() int64 {
-//	var max int64
-//	defer func() {
-//		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
-//	}()
-//
-//	//if vc.baseOnGeneisBlock() {
-//	//	max = math.MaxInt64
-//	//} else {
-//	//	preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-//	//	if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
-//	//		log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
-//	//		//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
-//	//		max = -1
-//	//	} else {
-//	//		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
-//	//	}
-//	//
-//	//}
-//	//
-//	max = int64(vc.expireTime.Sub(vc.prevTime).Seconds())
-//
-//	return max
-//}
-
 //计算QN
 func (vc *VerifyContext) calcQN(timeEnd time.Time) int64 {
 	diff := timeEnd.Sub(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
