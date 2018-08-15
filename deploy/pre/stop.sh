@@ -2,6 +2,6 @@
 
 for file in ./pid/pid_tas*
 do
-    kill -9 `cat $file`
+    kill -3 `cat $file`
     rm -f $file
 done
