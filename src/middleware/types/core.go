@@ -86,6 +86,7 @@ type BlockHeader struct {
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
+	LevelNonces  []uint64
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
 }
@@ -106,6 +107,7 @@ type header struct {
 	StateTree    common.Hash
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
+	LevelNonces  []uint64
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
@@ -125,6 +127,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		StateTree:    bh.StateTree,
 		EvictedTxs:   bh.EvictedTxs,
 		ExtraData:    bh.ExtraData,
+		LevelNonces:  bh.LevelNonces,
 	}
 	blockByte, _ := json.Marshal(header)
 	result := common.BytesToHash(common.Sha256(blockByte))

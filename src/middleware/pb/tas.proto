@@ -51,7 +51,6 @@ message TransactionSlice{
     repeated Transaction transactions = 1;
 }
 
-
 message BlockHeader{
 
      optional bytes Hash  = 1 ;
@@ -89,6 +88,8 @@ message BlockHeader{
      optional bytes ExtraData  = 17 ;
 
      optional Hashes EvictedTxs  = 18;
+
+     repeated uint64 LevelNonces = 19;
 }
 
 message Block{

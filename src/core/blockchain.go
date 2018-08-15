@@ -373,7 +373,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
@@ -383,7 +383,10 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 
 	block := new(types.Block)
-
+	var nonces []uint64
+	for i,v := range levelNonces{
+		nonces[i] = common.LevelNonceToUint64(&v)
+	}
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
 	block.Header = &types.BlockHeader{
 		CurTime:     time.Now(), //todo:时区问题
@@ -393,6 +396,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		Castor:      castor,
 		GroupId:     groupid,
 		TotalQN:     latestBlock.TotalQN + queueNumber,
+		LevelNonces: nonces,
 	}
 
 	if latestBlock != nil {

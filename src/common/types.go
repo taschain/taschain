@@ -242,3 +242,16 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 }
 
 type Hash256 Hash
+
+type LevelNonce struct {
+	Index        uint16
+	Nonce		 uint64
+}
+
+func LevelNonceToUint64(levelNonce *LevelNonce) uint64  {
+	return uint64(levelNonce.Index) << 48 + levelNonce.Nonce
+}
+
+func Uint64ToLevelNonce(value uint64) *LevelNonce {
+	return &LevelNonce{Index:uint16(value >> 48), Nonce:value&0xffffffffffff}
+}
