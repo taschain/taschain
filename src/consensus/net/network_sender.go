@@ -44,11 +44,11 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 		return
 	}
 
-	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
+	m := network.Message{Code: network.GroupInitMsg, Body: body}
 	//给自己发
 	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
 
-	e = ns.net.Broadcast(m, nil)
+	e = ns.net.Broadcast(m, -1)
 
 	logger.Debugf("SendGroupInitMessage hash:%s,  dummyId %v", m.Hash(), grm.GI.DummyID.GetHexString())
 }
@@ -61,7 +61,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 		network.Logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.KEY_PIECE_MSG, Body: body}
+	m := network.Message{Code: network.KeyPieceMsg, Body: body}
 	if spm.SI.SignMember.IsEqual(spm.Dest) {
 		go MessageHandler.Handle(spm.SI.SignMember.String(), m)
 		return
@@ -80,7 +80,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 		return
 	}
 
-	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
+	m := network.Message{Code: network.SignPubkeyMsg, Body: body}
 	//给自己发
 	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
 
@@ -97,11 +97,11 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 		return
 	}
 
-	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
+	m := network.Message{Code: network.GroupInitDoneMsg, Body: body}
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.Broadcast(m, nil)
+	ns.net.TransmitToNeighbor(m)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
@@ -115,7 +115,7 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 		network.Logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.CAST_VERIFY_MSG, Body: body}
+	m := network.Message{Code: network.CastVerifyMsg, Body: body}
 
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
@@ -136,7 +136,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 		network.Logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.VARIFIED_CAST_MSG, Body: body}
+	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(cvm.BH.GroupId)
 	if e1 != nil {
@@ -158,11 +158,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage)
 		return
 	}
 	//network.Logger.Debugf("%s broad block %d-%d ,body size %d", p2p.Server.SelfNetInfo.ID.GetHexString(), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body))
-	m := network.Message{Code: network.NEW_BLOCK_MSG, Body: body}
-	blockHash := cbm.Block.Header.Hash
+	m := network.Message{Code: network.NewBlockMsg, Body: body}
+	//blockHash := cbm.Block.Header.Hash
 
 
-	ns.net.Broadcast(m, blockHash.Bytes())
+	ns.net.TransmitToNeighbor(m)
 }
 
 //====================================建组前共识=======================
@@ -174,7 +174,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.CREATE_GROUP_RAW, Body: body}
+	m := network.Message{Code: network.CreateGroupaRaw, Body: body}
 
 	var groupId = msg.GI.ParentID
 	ns.net.Multicast(groupId.GetHexString(), m)
@@ -186,7 +186,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.CREATE_GROUP_SIGN, Body: body}
+	m := network.Message{Code: network.CreateGroupSign, Body: body}
 
 	ns.net.SendWithGroupRely(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }

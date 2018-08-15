@@ -45,14 +45,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		return fmt.Errorf("processor not ready yet")
 	}
 	switch code {
-	case network.GROUP_MEMBER_MSG:
-		//m, e := unMarshalConsensusGroupRawMessage(body)
-		//if e != nil {
-		//	network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
-		//	return e
-		//}
-		//onGroupMemberReceived(*m)
-	case network.GROUP_INIT_MSG:
+	case network.GroupInitMsg:
 		m, e := unMarshalConsensusGroupRawMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusGroupRawMessage because of unmarshal error:%s", e.Error())
@@ -68,7 +61,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			machines = &GroupOutsideMachines
 		}
 		machines.GetMachine(m.GI.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
-	case network.KEY_PIECE_MSG:
+	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
@@ -76,7 +69,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		}
 		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 
-	case network.SIGN_PUBKEY_MSG:
+	case network.SignPubkeyMsg:
 		logger.Debugf("Receive SIGN_PUBKEY_MSG from:%s", sourceId)
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
@@ -85,7 +78,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		}
 		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 
-	case network.GROUP_INIT_DONE_MSG:
+	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
@@ -101,17 +94,17 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		}
 		machines.GetMachine(m.GI.GIS.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 
-	case network.CURRENT_GROUP_CAST_MSG:
+	case network.CurrentGroupCastMsg:
 
 
-	case network.CAST_VERIFY_MSG:
+	case network.CastVerifyMsg:
 		m, e := unMarshalConsensusCastMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCastMessage because of unmarshal error%s", e.Error())
 			return e
 		}
 		c.processor.OnMessageCast(m)
-	case network.VARIFIED_CAST_MSG:
+	case network.VerifiedCastMsg:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
@@ -120,7 +113,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 		c.processor.OnMessageVerify(m)
 
-	case network.TRANSACTION_MSG, network.TRANSACTION_GOT_MSG:
+	case network.TransactionMsg, network.TransactionGotMsg:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
@@ -131,7 +124,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			txHashes = append(txHashes, tx.Hash)
 		}
 		c.processor.OnMessageNewTransactions(txHashes)
-	case network.NEW_BLOCK_MSG:
+	case network.NewBlockMsg:
 		m, e := unMarshalConsensusBlockMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
@@ -139,7 +132,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		}
 		c.processor.OnMessageBlock(m)
 		return nil
-	case network.CREATE_GROUP_RAW:
+	case network.CreateGroupaRaw:
 		m, e := unMarshalConsensusCreateGroupRawMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupRawMessage because of unmarshal error%s", e.Error())
@@ -148,7 +141,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 		c.processor.OnMessageCreateGroupRaw(m)
 		return nil
-	case network.CREATE_GROUP_SIGN:
+	case network.CreateGroupSign:
 		m, e := unMarshalConsensusCreateGroupSignMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusCreateGroupSignMessage because of unmarshal error%s", e.Error())

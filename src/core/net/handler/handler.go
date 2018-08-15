@@ -19,14 +19,14 @@ type ChainHandler struct{}
 
 func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	switch msg.Code {
-	case network.REQ_TRANSACTION_MSG:
+	case network.ReqTransactionMsg:
 		m, e := unMarshalTransactionRequestMessage(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
 			return nil
 		}
 		OnTransactionRequest(m, sourceId)
-	case network.TRANSACTION_GOT_MSG, network.TRANSACTION_MSG:
+	case network.TransactionGotMsg, network.TransactionMsg:
 		m, e := types.UnMarshalTransactions(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
@@ -37,7 +37,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		//}
 		err := onMessageTransaction(m)
 		return err
-	case network.NEW_BLOCK_MSG:
+	case network.NewBlockMsg:
 		block, e := types.UnMarshalBlock(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
@@ -45,17 +45,17 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		onMessageNewBlock(block)
 
-	case network.REQ_GROUP_CHAIN_HEIGHT_MSG:
+	case network.ReqGroupChainHeightMsg:
 		sync.GroupSyncer.ReqHeightCh <- sourceId
-	case network.GROUP_CHAIN_HEIGHT_MSG:
+	case network.GroupChainHeightMsg:
 		height := utility.ByteToUInt64(msg.Body)
 		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
 		sync.GroupSyncer.HeightCh <- ghi
-	case network.REQ_GROUP_MSG:
+	case network.ReqGroupMsg:
 		baseHeight := utility.ByteToUInt64(msg.Body)
 		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
 		sync.GroupSyncer.ReqGroupCh <- gri
-	case network.GROUP_MSG:
+	case network.GroupMsg:
 		m, e := unMarshalGroupInfo(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
@@ -64,34 +64,34 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		m.SourceId = sourceId
 		sync.GroupSyncer.GroupCh <- *m
 
-	case network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
+	case network.ReqBlockChainTotalQnMsg:
 		sync.BlockSyncer.ReqTotalQnCh <- sourceId
-	case network.BLOCK_CHAIN_TOTAL_QN_MSG:
+	case network.BlockChainTotalQnMsg:
 		totalQn := utility.ByteToUInt64(msg.Body)
 		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
 		sync.BlockSyncer.TotalQnCh <- s
-	case network.REQ_BLOCK_INFO:
+	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockInfoReq(*m, sourceId)
-	case network.BLOCK_INFO:
+	case network.BlockInfo:
 		m, e := unMarshalBlockInfo(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockInfo(*m, sourceId)
-	case network.BLOCK_HASHES_REQ:
+	case network.BlockHashesReq:
 		cbhr, e := unMarshalBlockHashesReq(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockHashesReq(cbhr, sourceId)
-	case network.BLOCK_HASHES:
+	case network.BlockHashes:
 		cbh, e := unMarshalBlockHashes(msg.Body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())

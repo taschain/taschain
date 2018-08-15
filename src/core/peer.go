@@ -37,28 +37,6 @@ type BlockInfo struct {
 	ChainPiece []*BlockHash
 }
 
-//对外广播自身上过链的block 全网广播
-//func BroadcastBlockOnChain(b *types.Block) {
-//	body, e := types.MarshalBlock(b)
-//	if e != nil {
-//		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
-//		return
-//	}
-//	m := p2p.Message{Code: p2p.ON_CHAIN_BLOCK_MSG, Body: body}
-//
-//	// conns := p2p.Server.Host.Network().Conns()
-//	// for _, conn := range conns {
-//	// 	id := conn.RemotePeer()
-//
-//	// 	if id != "" {
-//	// 		p2p.Server.SendMessage(m, p2p.ConvertToID(id))
-//	// 	}
-//	// }
-//	p2p.Server.SendMessageToAll(m)
-//
-//}
-
-
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
 	if castorId == "" {
@@ -71,7 +49,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		return
 	}
 	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
-	message := network.Message{Code: network.REQ_TRANSACTION_MSG, Body: body}
+	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId,message)
 }
 
@@ -83,7 +61,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 		return
 	}
 	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
-	message := network.Message{Code: network.TRANSACTION_GOT_MSG, Body: body}
+	message := network.Message{Code: network.TransactionGotMsg, Body: body}
 	network.GetNetInstance().Send(sourceId,message)
 }
 
@@ -100,7 +78,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 		return
 	}
-	message := network.Message{Code: network.TRANSACTION_MSG, Body: body}
+	message := network.Message{Code: network.TransactionMsg, Body: body}
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
@@ -112,7 +90,7 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 		Logger.Errorf("[peer]RequestBlockInfoByHeight marshal EntityRequestMessage error:%s", e.Error())
 		return
 	}
-	message := network.Message{Code: network.REQ_BLOCK_INFO, Body: body}
+	message := network.Message{Code: network.ReqBlockInfo, Body: body}
 	network.GetNetInstance().Send(id,message)
 }
 
@@ -123,7 +101,7 @@ func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
 		Logger.Errorf("[peer]SendBlockInfo marshal BlockEntity error:%s", e.Error())
 		return
 	}
-	message := network.Message{Code: network.BLOCK_INFO, Body: body}
+	message := network.Message{Code: network.BlockInfo, Body: body}
 	network.GetNetInstance().Send(targetId,message)
 }
 
@@ -134,7 +112,7 @@ func RequestBlockHashes(targetNode string, bhr BlockHashesReq) {
 		Logger.Errorf("[peer]Discard RequestBlockChainHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := network.Message{Code: network.BLOCK_HASHES_REQ, Body: body}
+	message := network.Message{Code: network.BlockHashesReq, Body: body}
 	network.GetNetInstance().Send(targetNode,message)
 }
 
@@ -145,7 +123,7 @@ func SendBlockHashes(targetNode string, bhs []*BlockHash) {
 		Logger.Errorf("[peer]Discard sendChainBlockHashes because of marshal error:%s!", e.Error())
 		return
 	}
-	message := network.Message{Code: network.BLOCK_HASHES, Body: body}
+	message := network.Message{Code: network.BlockHashes, Body: body}
 	network.GetNetInstance().Send(targetNode,message)
 }
 

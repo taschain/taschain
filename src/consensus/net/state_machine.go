@@ -224,10 +224,10 @@ type groupOutsideMachineGenerator struct {}
 
 func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
-	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, model.Param.GetThreshold(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine
@@ -235,16 +235,16 @@ func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
 
 func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
-	machine.appendNode(newStateNode(network.KEY_PIECE_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.KeyPieceMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
 	}))
-	machine.appendNode(newStateNode(network.SIGN_PUBKEY_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.SignPubkeyMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
 	}))
-	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine

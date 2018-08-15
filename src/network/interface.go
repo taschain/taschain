@@ -1,5 +1,60 @@
 package network
 
+
+const (
+	//-----------组初始化---------------------------------
+
+	GroupInitMsg uint32 = 0x01
+
+	KeyPieceMsg uint32 = 0x02
+
+	SignPubkeyMsg uint32 = 0x03
+
+	GroupInitDoneMsg uint32 = 0x04
+
+	//-----------组铸币---------------------------------
+	CurrentGroupCastMsg uint32 = 0x05
+
+	CastVerifyMsg uint32 = 0x06
+
+	VerifiedCastMsg uint32 = 0x07
+
+	ReqTransactionMsg uint32 = 0x08
+
+	TransactionGotMsg uint32 = 0x09
+
+	TransactionMsg uint32 = 0x0a
+
+	NewBlockMsg uint32 = 0x0b
+
+	//-----------块同步---------------------------------
+	ReqBlockChainTotalQnMsg uint32 = 0x0c
+
+	BlockChainTotalQnMsg uint32 = 0x0d
+
+	ReqBlockInfo uint32 = 0x0e
+
+	BlockInfo uint32 = 0x0f
+
+	//-----------组同步---------------------------------
+	ReqGroupChainHeightMsg uint32 = 0x10
+
+	GroupChainHeightMsg uint32 = 0x11
+
+	ReqGroupMsg uint32 = 0x12
+
+	GroupMsg uint32 = 0x13
+	//-----------块链调整---------------------------------
+	BlockHashesReq uint32 = 0x14
+
+	BlockHashes uint32 = 0x15
+	//---------------------组创建确认-----------------------
+	CreateGroupaRaw uint32 = 0x16
+
+	CreateGroupSign uint32 = 0x17
+
+)
+
 type Message struct {
 	Code uint32
 
@@ -37,7 +92,8 @@ type Network interface {
 	TransmitToNeighbor(msg Message) error
 
 	//Broadcast the message to all nodes and they will also broadcast the message to their neighbor util relayCount
-	Broadcast(msg Message,relayCount uint) error
+	//if relayCount = -1,every node will relay this message to all connected node once
+	Broadcast(msg Message,relayCount int32) error
 
 	//Return all connections self has
 	ConnInfo() []Conn
