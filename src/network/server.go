@@ -63,7 +63,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 }
 
 //todo  implment by 文杰
-func (n *server) SpreadOverGroup(groupId string, msg Message,groupMembers []string) error{
+func (n *server) SpreadOverGroup(groupId string, groupMembers []string,msg Message,digest MsgDigest) error{
 	return nil
 }
 

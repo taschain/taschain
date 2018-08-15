@@ -27,31 +27,37 @@ const (
 
 	NewBlockMsg uint32 = 0x0b
 
+	NewBlockHeaderMsg uint32 = 0x0c
+
+	BlockBodyReqMsg uint32 = 0x0d
+
+	BlockBodyMsg uint32 = 0x0e
+
 	//-----------块同步---------------------------------
-	ReqBlockChainTotalQnMsg uint32 = 0x0c
+	ReqBlockChainTotalQnMsg uint32 = 0x0f
 
-	BlockChainTotalQnMsg uint32 = 0x0d
+	BlockChainTotalQnMsg uint32 = 0x10
 
-	ReqBlockInfo uint32 = 0x0e
+	ReqBlockInfo uint32 = 0x11
 
-	BlockInfo uint32 = 0x0f
+	BlockInfo uint32 = 0x12
 
 	//-----------组同步---------------------------------
-	ReqGroupChainHeightMsg uint32 = 0x10
+	ReqGroupChainHeightMsg uint32 = 0x13
 
-	GroupChainHeightMsg uint32 = 0x11
+	GroupChainHeightMsg uint32 = 0x14
 
-	ReqGroupMsg uint32 = 0x12
+	ReqGroupMsg uint32 = 0x15
 
-	GroupMsg uint32 = 0x13
+	GroupMsg uint32 = 0x16
 	//-----------块链调整---------------------------------
-	BlockHashesReq uint32 = 0x14
+	BlockHashesReq uint32 = 0x17
 
-	BlockHashes uint32 = 0x15
+	BlockHashes uint32 = 0x18
 	//---------------------组创建确认-----------------------
-	CreateGroupaRaw uint32 = 0x16
+	CreateGroupaRaw uint32 = 0x19
 
-	CreateGroupSign uint32 = 0x17
+	CreateGroupSign uint32 = 0x1a
 
 )
 
@@ -86,7 +92,7 @@ type Network interface {
 	Multicast(groupId string, msg Message) error
 
 	//Broadcast the message to the group which self do not belong to
-	SpreadOverGroup(groupId string, msg Message,groupMembers []string) error
+	SpreadOverGroup(groupId string, groupMembers []string,msg Message,digest MsgDigest) error
 
 	//Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error

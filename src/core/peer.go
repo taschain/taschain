@@ -79,7 +79,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		return
 	}
 	message := network.Message{Code: network.TransactionMsg, Body: body}
-	network.GetNetInstance().TransmitToNeighbor(message)
+	network.GetNetInstance().Broadcast(message,3)
 }
 
 //向某一节点请求Block信息
