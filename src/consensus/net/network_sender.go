@@ -20,13 +20,18 @@ func NewNetworkServer() NetworkServer {
 	}
 }
 
+
+func id2String(ids []groupsig.ID) []string {
+	idStrs := make([]string, len(ids))
+	for idx, id := range ids {
+		idStrs[idx] = id.String()
+	}
+	return idStrs
+}
 //------------------------------------组网络管理-----------------------
 
 func (ns *NetworkServerImpl) BuildGroupNet(gid groupsig.ID, mems []groupsig.ID) {
-	memStrs := make([]string, len(mems))
-	for idx, mem := range mems {
-		memStrs[idx] = mem.String()
-	}
+	memStrs := id2String(mems)
 	ns.net.BuildGroupNet(gid.GetHexString(), memStrs)
 }
 
@@ -150,7 +155,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 }
 
 //对外广播经过组签名的block 全网广播
-func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,nextCastGroupId string, groupMembers []string) {
+func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *NextGroup) {
 	network.Logger.Debugf("broad new block %d-%d ,tx count:%d,cast and verify cost %v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions), time.Since(cbm.Block.Header.CurTime))
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
@@ -159,6 +164,10 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	}
 	blockMsg := network.Message{Code: network.NewBlockMsg, Body: body}
 	blockHash := cbm.Block.Header.Hash
+
+	nextCastGroupId := group.Gid.GetHexString()
+	groupMembers := id2String(group.MemIds)
+
 	ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
 	network.Logger.Debugf("spread block %d-%d over group:%s,body size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber,nextCastGroupId, len(body))
 

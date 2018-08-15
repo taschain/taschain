@@ -161,13 +161,11 @@ type ConsensusVerifyMessage struct {
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {
 	Block   types.Block
-	GroupID groupsig.ID
-	BaseSignedMessage
 }
 
 func (msg *ConsensusBlockMessage) GenHash() common.Hash {
 	buf := msg.Block.Header.GenHash().Bytes()
-	buf = append(buf, msg.GroupID.Serialize()...)
+	buf = append(buf, msg.Block.Header.GroupId...)
 	return base.Data2CommonHash(buf)
 }
 

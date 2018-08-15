@@ -9,6 +9,7 @@ import (
 	"sync"
 	"consensus/model"
 	"consensus/base"
+	"consensus/net"
 )
 
 /*
@@ -220,10 +221,6 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	//}()
 
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
@@ -249,14 +246,22 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	}
 	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
 
-	var cbm model.ConsensusBlockMessage
-	cbm.Block = *block
-	cbm.GroupID = gid
-	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
-	cbm.GenSign(ski, &cbm)
+	cbm := &model.ConsensusBlockMessage{
+		Block: *block,
+	}
 	if !PROC_TEST_MODE {
 		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
-		p.NetServer.BroadcastNewBlock(&cbm)
+		nextId := p.calcCastGroup(bh, bh.Height+1)
+		group := p.getGroup(*nextId)
+		mems := make([]groupsig.ID, len(group.Members))
+		for idx, mem := range group.Members {
+			mems[idx] = mem.ID
+		}
+		next := &net.NextGroup{
+			Gid: *nextId,
+			MemIds: mems,
+		}
+		p.NetServer.BroadcastNewBlock(cbm, next)
 		p.triggerCastCheck()
 	}
 	return

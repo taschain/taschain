@@ -88,8 +88,9 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
-	notify.BUS.Subscribe(notify.BLOCK_ADD_SUCC, &blockAddEventHandler{p: p,})
-	notify.BUS.Subscribe(notify.GROUP_ADD_SUCC, &groupAddEventHandler{p: p})
+	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
+	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
+	notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 	return true
 }
 
@@ -99,7 +100,7 @@ func (p Processor) GetMinerID() groupsig.ID {
 }
 
 //验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
+func (p *Processor) verifyGroupSign(b *types.Block) bool {
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {

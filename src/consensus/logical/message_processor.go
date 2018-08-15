@@ -215,15 +215,15 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 
 }
 
-func (p *Processor) receiveBlock(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
-	if p.isCastGroupLegal(msg.Block.Header, preBH) { //铸块组合法
-		result := p.doAddOnChain(&msg.Block)
+func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
+	if p.isCastGroupLegal(block.Header, preBH) { //铸块组合法
+		result := p.doAddOnChain(block)
 		if result == 0 || result == 1 {
 			return true
 		}
 	} else {
 		//丢弃该块
-		log.Printf("OMB received invalid new block, height = %v.\n", msg.Block.Header.Height)
+		log.Printf("OMB received invalid new block, height = %v.\n", block.Header.Height)
 	}
 	return false
 }
@@ -238,11 +238,11 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	bh := cbm.Block.Header
-	logStart("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember), "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
+	logStart("OMB", bh.Height, bh.QueueNumber, "", "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 	result := ""
 	defer func() {
-		logHalfway("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember), "OMB result %v", result)
-		logEnd("OMB", bh.Height, bh.QueueNumber, GetIDPrefix(cbm.SI.SignMember))
+		logHalfway("OMB", bh.Height, bh.QueueNumber, "", "OMB result %v", result)
+		logEnd("OMB", bh.Height, bh.QueueNumber, "")
 	}()
 
 	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
@@ -250,27 +250,21 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		result = "已经在链上"
 		return
 	}
-	if p.GetMinerID().IsEqual(cbm.SI.SignMember) {
-		result = "自己发的消息, 忽略"
-		return
-	}
 	var gid groupsig.ID
 	if gid.Deserialize(cbm.Block.Header.GroupId) != nil {
 		panic("OMB Deserialize group_id failed")
 	}
-	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), sender=%v, height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(cbm.GroupID), GetIDPrefix(gid), GetIDPrefix(cbm.SI.GetID()), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
+	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), height=%v, qn=%v...\n", p.getPrefix(),
+		GetIDPrefix(gid), GetIDPrefix(gid), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
 
 	block := &cbm.Block
 	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
-	verify := p.verifyGroupSign(block, cbm.SI)
+	verify := p.verifyGroupSign(block)
 	if !verify {
 		result = "组签名未通过"
 		log.Printf("OMB verifyGroupSign result=%v.\n", verify)
 		return
 	}
-
-	topBH := p.MainChain.QueryTopBlock()
 
 	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
 	if preHeader == nil {
@@ -279,16 +273,11 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		return
 	}
 
-	ret := p.receiveBlock(cbm, preHeader)
+	ret := p.receiveBlock(block, preHeader)
 	if ret {
 		result = "上链成功"
 	} else {
 		result = "上链失败"
-	}
-
-	nowTop := p.MainChain.QueryTopBlock()
-	if topBH.Hash != nowTop.Hash {
-		p.triggerCastCheck()
 	}
 
 	//log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))

@@ -240,7 +240,7 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 		}
 		fmt.Printf("[group]put real one succ.count: %d, now:%d, overwrite: %t, id:%x \n", chain.count, len(chain.now), overWrite, group.Id)
 
-		notify.BUS.Publish(notify.GROUP_ADD_SUCC, &notify.GroupMessage{Group: *group,})
+		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 		return chain.groups.Put(group.Id, data)
 	}
 }
