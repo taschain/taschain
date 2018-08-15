@@ -244,3 +244,21 @@ func (msg *ConsensusPowConfirmMessage) GenHash() common.Hash {
 	}
 	return base.Data2CommonHash(data)
 }
+
+type ConsensusPowFinalMessage struct {
+	BaseSignedMessage
+	GroupID 	groupsig.ID
+	GSign 		groupsig.Signature
+	BlockHash common.Hash
+	NonceSeq []MinerNonce
+}
+
+func (msg *ConsensusPowFinalMessage) GenHash() common.Hash {
+	data := msg.BlockHash.Bytes()
+	data = append(data, msg.GSign.Serialize()...)
+	for _, mn := range msg.NonceSeq {
+		data = append(data, mn.MinerID.Serialize()...)
+		data = strconv.AppendUint(data, mn.Nonce, 10)
+	}
+	return base.Data2CommonHash(data)
+}

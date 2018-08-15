@@ -10,7 +10,8 @@ import (
 	"sync/atomic"
 	"middleware/types"
 	"consensus/model"
-	)
+		"consensus/logical/pow"
+)
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
 	var gid groupsig.ID
@@ -187,8 +188,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	}
 
 	outputBlockHeaderAndSign(mtype, bh, si)
-
-	if !p.verifyCastSign(cgs, si) {
+	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
+		log.Printf("beingCastGroup failed, node not in this group.\n")
+		return
+	}
+	gmi := model.NewGroupMinerID(cgs.GroupID, si.GetID())
+	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
+	if !msg.VerifySign(signPk) {
 		log.Printf("%v verify failed!\n", mtype)
 		return
 	}
@@ -780,11 +786,14 @@ func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 	logStart(mtype, bh.Height, bh.QueueNumber, sender, "nonce %v", msg.Nonce)
 	log.Printf("%v, sender=%v, hash=%v, nonce=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), msg.Nonce)
 
+	if msg.GenHash() != msg.SI.DataHash {
+		panic("msg hash diff!")
+	}
 	gid := groupsig.DeserializeId(bh.GroupId)
 	if gid == nil {
 		panic("deserialize groupId fail")
 	}
-	if !msg.VerifySign(p.getMinerGroupPubkey(*gid)) {
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
 		panic("OMPR verify sign fail")
 	}
 
@@ -795,5 +804,82 @@ func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 
 
 func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
+	sender := GetIDPrefix(msg.SI.SignMember)
+	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	mtype := "OMPC"
+	if bh == nil {
+		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash))
+		return
+	}
+
+	logStart(mtype, bh.Height, bh.QueueNumber, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), MinerNonceSeqDesc(msg.NonceSeq))
+
+	if msg.GenHash() != msg.SI.DataHash {
+		panic("msg hash diff!")
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+	if gid == nil {
+		panic("deserialize groupId fail")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
+		panic("OMPR verify sign fail")
+	}
+
+	ret := p.worker.AcceptConfirm(msg.BlockHash, msg.NonceSeq, msg.SI.SignMember, msg.SI.DataSign)
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "结果 %v", ret.Desc)
+
+	if ret == pow.CONFIRM_SIGN_RECOVERED {
+		sign := p.worker.GetGSign()
+		if !groupsig.VerifySig(p.getGroupPubKey(*gid), msg.SI.DataHash.Bytes(), *sign) {
+			panic("verify powConfirm groupsign fail")
+		}
+		p.sendPowFinal()
+		if !p.persistPowConfirmed() {
+			log.Printf("%v persist powConfirmed fail", mtype)
+		}
+	}
+}
+
+func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
+	sender := GetIDPrefix(msg.SI.SignMember)
+	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	mtype := "OMPF"
+	if bh == nil {
+		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash))
+		return
+	}
+
+	logStart(mtype, bh.Height, bh.QueueNumber, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), MinerNonceSeqDesc(msg.NonceSeq))
+
+	if msg.GenHash() != msg.SI.DataHash {
+		panic("msg hash diff!")
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+	if gid == nil {
+		panic("deserialize groupId fail")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
+		panic("OMPR verify sign fail")
+	}
+
+	confirmMsgTmp := model.ConsensusPowConfirmMessage{
+		BlockHash: msg.BlockHash,
+		NonceSeq: msg.NonceSeq,
+	}
+	signedHash := confirmMsgTmp.GenHash()
+	gpk := p.getGroupPubKey(*gid)
+	if !groupsig.VerifySig(gpk, signedHash.Bytes(), msg.GSign) {
+		panic("OMPF verify groupSign fail")
+	}
+
+	ret := p.worker.AcceptFinal(msg.BlockHash, msg.NonceSeq, msg.SI.SignMember, msg.GSign)
+	logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "结果 %v", ret.Desc)
+	if ret == pow.FINAL_SUCCESS {
+		if !p.persistPowConfirmed() {
+			log.Printf("%v persist powConfirmed fail", mtype)
+		}
+	}
 
 }

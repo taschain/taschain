@@ -7,6 +7,7 @@ import (
 	"consensus/model"
 	"consensus/groupsig"
 	"common"
+	"strconv"
 )
 
 /*
@@ -130,4 +131,12 @@ func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo, isDummy bool) *types.Gro
 			Extends: sgi.Extends,
 		}
 	}
+}
+
+func MinerNonceSeqDesc(seq []model.MinerNonce) string {
+	s := ""
+	for _, n := range seq {
+		s += GetIDPrefix(n.MinerID) + ":" + strconv.FormatUint(n.Nonce, 10) + ","
+	}
+	return s
 }

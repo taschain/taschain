@@ -43,6 +43,8 @@ type MessageProcessor interface {
 	OnMessagePowResult(msg *model.ConsensusPowResultMessage)
 
 	OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage)
+
+	OnMessagePowFinal(msg *model.ConsensusPowFinalMessage)
 }
 
 type NetworkServer interface {
@@ -68,6 +70,8 @@ type NetworkServer interface {
 	SendPowResultMessage(msg *model.ConsensusPowResultMessage)
 
 	SendPowConfirmMessage(msg *model.ConsensusPowConfirmMessage)
+
+	SendPowFinalMessage(msg *model.ConsensusPowFinalMessage)
 
 	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
 

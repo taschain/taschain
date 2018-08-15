@@ -215,6 +215,16 @@ func (ns *NetworkServerImpl) SendPowConfirmMessage(msg *model.ConsensusPowConfir
 	ns.net.Multicast(msg.GroupID.GetHexString(), m)
 }
 
+func (ns *NetworkServerImpl) SendPowFinalMessage(msg *model.ConsensusPowFinalMessage) {
+	body, e := marshalConsensusPowFinalMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusPowFinalMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.POW_FINAL, Body: body}
+
+	ns.net.Multicast(msg.GroupID.GetHexString(), m)
+}
 
 //----------------------------------------------组初始化---------------------------------------------------------------
 
@@ -383,20 +393,39 @@ func marshalConsensusPowResultMessage(msg *model.ConsensusPowResultMessage) ([]b
 	return proto.Marshal(&message)
 }
 
-func marshalConsensusPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) ([]byte, error) {
-
-	sign := signDataToPb(&msg.SI)
-	nonces :=  make([]*tas_middleware_pb.MinerNonce, len(msg.NonceSeq))
-	for idx, ns := range msg.NonceSeq {
+func marshalMinerNonceSeq(seq []model.MinerNonce) []*tas_middleware_pb.MinerNonce {
+	nonces :=  make([]*tas_middleware_pb.MinerNonce, len(seq))
+	for idx, ns := range seq {
 		nonces[idx] = &tas_middleware_pb.MinerNonce{
 			MinerID: ns.MinerID.Serialize(),
 			Nonce: &ns.Nonce,
 		}
 	}
+	return nonces
+}
+
+func marshalConsensusPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) ([]byte, error) {
+
+	sign := signDataToPb(&msg.SI)
+	nonces :=  marshalMinerNonceSeq(msg.NonceSeq)
 
 	message := tas_middleware_pb.ConsensusPowConfirmMessage{
 		Hash: msg.BlockHash.Bytes(),
 		NonceSeq: nonces,
+		Sign: sign,
+	}
+	return proto.Marshal(&message)
+}
+
+func marshalConsensusPowFinalMessage(msg *model.ConsensusPowFinalMessage) ([]byte, error) {
+
+	sign := signDataToPb(&msg.SI)
+	nonces :=  marshalMinerNonceSeq(msg.NonceSeq)
+
+	message := tas_middleware_pb.ConsensusPowFinalMessage{
+		Hash: msg.BlockHash.Bytes(),
+		NonceSeq: nonces,
+		GSign: msg.GSign.Serialize(),
 		Sign: sign,
 	}
 	return proto.Marshal(&message)

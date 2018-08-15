@@ -353,3 +353,10 @@ message ConsensusPowConfirmMessage{
     repeated MinerNonce NonceSeq = 2;
     required SignData Sign = 3;
 }
+
+message ConsensusPowFinalMessage{
+    required bytes Hash = 1;
+    repeated MinerNonce NonceSeq = 2;
+    required bytes GSign = 3;
+    required SignData Sign = 4;
+}

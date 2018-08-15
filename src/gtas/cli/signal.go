@@ -13,7 +13,7 @@ func signals() <-chan bool {
 		signals := make(chan os.Signal)
 		defer close(signals)
 
-		signal.Notify(signals, syscall.SIGQUIT, syscall.SIGTERM, os.Interrupt)
+		signal.Notify(signals, syscall.SIGQUIT, syscall.SIGTERM, os.Interrupt, os.Kill)
 		defer signalStop(signals)
 
 		<-signals

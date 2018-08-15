@@ -1,16 +1,16 @@
 package pow
 
 import (
-		"math/big"
+	"math/big"
 	"sync"
 	"consensus/groupsig"
 	"common"
 	"strconv"
-	"consensus/base"
-	"sort"
+		"sort"
 	"sync/atomic"
 	"unsafe"
-)
+	"consensus/model"
+	)
 
 /*
 **  Creator: pxf
@@ -19,10 +19,10 @@ import (
 */
 
 type powResult struct {
-	minerID		groupsig.ID
-	nonce      uint64
-	value      *big.Int
-	level      int32
+	minerID groupsig.ID
+	nonce   uint64
+	value   *big.Int
+	level   int32
 }
 
 func (pr *powResult) marshal() []byte {
@@ -32,7 +32,6 @@ func (pr *powResult) marshal() []byte {
 	bs = strconv.AppendInt(bs, int64(pr.level), 10)
 	return bs
 }
-
 
 type powResults []*powResult
 
@@ -68,41 +67,65 @@ func (prs powResults) totalValue() *big.Int {
 
 type powConfirm struct {
 	resultHash common.Hash
-	results powResults
+	results    powResults
 	totalLevel int32
 	totalValue *big.Int
-	signs 	map[string]groupsig.Signature
-	gSign 	groupsig.Signature
+	signs      map[string]groupsig.Signature
+	gSign      *groupsig.Signature
+	threshold  int
+	lock       sync.RWMutex
 }
 
-func (pc *powConfirm) genHash() {
-    bs := make([]byte, 0)
+func (pc *powConfirm) genNonceSeq() []model.MinerNonce {
+	mns := make([]model.MinerNonce, 0)
 	for _, r := range pc.results {
-		bs = append(bs, r.marshal()...)
+		mns = append(mns, model.MinerNonce{MinerID: r.minerID, Nonce: r.nonce})
 	}
-	bs = strconv.AppendInt(bs, int64(pc.totalLevel), 10)
-	bs = append(bs, pc.totalValue.Bytes()...)
-	hash := base.Data2CommonHash(bs)
-	pc.resultHash = hash
+	return mns
+}
+
+func (pc *powConfirm) genHash(blockHash common.Hash) {
+	msgTmp := model.ConsensusPowConfirmMessage{
+		BlockHash: blockHash,
+		NonceSeq: pc.genNonceSeq(),
+	}
+	pc.resultHash = msgTmp.GenHash()
+}
+
+func (pc *powConfirm) addSign(uid groupsig.ID, signature groupsig.Signature) bool {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+	pc.signs[uid.GetHexString()] = signature
+	if len(pc.signs) > pc.threshold && pc.gSign == nil {
+		pc.gSign = groupsig.RecoverSignatureByMapI(pc.signs, pc.threshold)
+		if pc.gSign != nil {
+			return true
+		}
+	}
+	return false
 }
 
 type powContext struct {
+	blockHash common.Hash
 	results   map[string]*powResult
 	threshold int
+	members   int
 	confirmed *powConfirm
 
-	confirms  sync.Map	//hash -> *powConfirm
+	//confirms  sync.Map	//hash -> *powConfirm
 	lock sync.RWMutex
 }
 
-func newPowContext(threshold int) *powContext {
+func newPowContext(blockHash common.Hash, members int) *powContext {
 	return &powContext{
-		results: make(map[string]*powResult),
-		threshold: threshold,
+		blockHash:blockHash,
+		results:   make(map[string]*powResult),
+		threshold: model.Param.GetGroupK(members),
+		members:   members,
 	}
 }
 
-func (pc *powContext) add(r *powResult) bool {
+func (pc *powContext) addResult(r *powResult) bool {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
 	hex := r.minerID.GetHexString()
@@ -114,16 +137,26 @@ func (pc *powContext) add(r *powResult) bool {
 	}
 }
 
-func (pc *powContext) addConfirm(confirm *powConfirm) bool {
-    _, ok := pc.confirms.LoadOrStore(confirm.resultHash, confirm)
-    return !ok
+func (pc *powContext) newPowConfirm(results powResults) *powConfirm {
+	confirm := &powConfirm{
+		results:    results,
+		totalLevel: results.totalLevel(),
+		totalValue: results.totalValue(),
+		signs:      map[string]groupsig.Signature{},
+		threshold:  pc.threshold,
+	}
+	confirm.genHash(pc.blockHash)
+	return confirm
 }
 
-func (pc *powContext) confirm()  {
-	if !pc.threasholdReached() {
-		return
+func (pc *powContext) confirm() bool {
+	if !pc.thresholdReached() {
+		return false
 	}
-    results := make(powResults, len(pc.results))
+	if pc.hasConfirmed() {
+		return false
+	}
+	results := make(powResults, len(pc.results))
 	i := 0
 	for _, r := range pc.results {
 		results[i] = r
@@ -133,26 +166,45 @@ func (pc *powContext) confirm()  {
 
 	results = results[:pc.threshold]
 
-	confirm := &powConfirm{
-		results: results,
-		totalLevel: results.totalLevel(),
-		totalValue: results.totalValue(),
-		signs: map[string]groupsig.Signature{},
-	}
-	confirm.genHash()
-	if pc.addConfirm(confirm) {
-		p := unsafe.Pointer(pc.confirmed)
-		atomic.StorePointer(&p, unsafe.Pointer(confirm))
-	}
+	confirm := pc.newPowConfirm(results)
+	p := unsafe.Pointer(pc.confirmed)
+	return atomic.CompareAndSwapPointer(&p, nil, unsafe.Pointer(confirm))
+}
+
+func (pc *powContext) setConfirmed(cf *powConfirm) {
+	p := unsafe.Pointer(pc.confirmed)
+	atomic.StorePointer(&p, unsafe.Pointer(cf))
 }
 
 func (pc *powContext) hasConfirmed() bool {
 	p := unsafe.Pointer(pc.confirmed)
-    return atomic.LoadPointer(&p) != nil
+	return atomic.LoadPointer(&p) != nil
 }
 
-func (pc *powContext) threasholdReached() bool {
+func (pc *powContext) getConfirmed() *powConfirm {
+	p := unsafe.Pointer(pc.confirmed)
+	if rp := atomic.LoadPointer(&p); rp == nil {
+		return nil
+	} else {
+		return (*powConfirm)(rp)
+	}
+}
+
+func (pc *powContext) thresholdReached() bool {
 	pc.lock.RLock()
 	defer pc.lock.RUnlock()
-    return len(pc.results) >= pc.threshold
+	return len(pc.results) >= pc.threshold
+}
+
+func (pc *powContext) getResult(mn *model.MinerNonce) *powResult {
+	pc.lock.RLock()
+	defer pc.lock.RUnlock()
+	if r, ok := pc.results[mn.MinerID.GetHexString()]; ok && r.nonce == mn.Nonce {
+		return r
+	}
+	return nil
+}
+
+func (pc *powContext) addSign(uid groupsig.ID, signature groupsig.Signature) bool {
+	return pc.getConfirmed().addSign(uid, signature)
 }

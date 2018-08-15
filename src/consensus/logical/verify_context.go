@@ -282,7 +282,8 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //铸块共识消息处理函数
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+//pow模式下， 此方法废弃
+func (vc *VerifyContext) acceptCV2(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	calcQN := vc.calcQN(bh.CurTime)
 	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
@@ -314,6 +315,39 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, sum
 		return CBMR_PIECE_NORMAL
 		//if vc.slots[i].transFulled {
 		//	return CBMR_PIECE_NORMAL
+		//} else {
+		//	return CBMR_PIECE_LOSINGTRANS
+		//}
+
+	} else { //该QN值对应的插槽已存在
+		if vc.slots[i].IsFailed() {
+			return CBMR_STATUS_FAIL
+		}
+		result := vc.slots[i].AcceptPiece(*bh, *si)
+		return result
+	}
+	return CBMR_ERROR_UNKNOWN
+}
+
+func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+	idPrefix := vc.blockCtx.Proc.getPrefix()
+
+
+
+	i, info := vc.consensusFindSlot(int64(bh.QueueNumber))
+	log.Printf("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
+	if i < 0 { //没有找到有效的插槽
+		return CBMR_IGNORE_QN_BIG_QN
+	}
+	//找到有效的插槽
+	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
+		vc.slots[i] = newSlotContext(bh, si, vc.blockCtx.threshold())
+		if vc.slots[i].IsFailed() {
+			return CBMR_STATUS_FAIL
+		}
+		return CBMR_PIECE_NORMAL
+		//if vc.slots[i].transFulled {
+		//	return CBMR_PIoECE_NORMAL
 		//} else {
 		//	return CBMR_PIECE_LOSINGTRANS
 		//}

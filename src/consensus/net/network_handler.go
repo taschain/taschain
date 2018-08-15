@@ -175,7 +175,18 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 		c.processor.OnMessagePowConfirm(m)
 		return nil
+	case network.POW_FINAL:
+		m, e := unMarshalConsensusPowFinalMessage(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard ConsensusPowFinalMessage because of unmarshal error%s", e.Error())
+			return e
+		}
+
+		c.processor.OnMessagePowFinal(m)
+		return nil
 	}
+
+
 
 	return nil
 }
@@ -393,6 +404,17 @@ func unMarshalConsensusPowResultMessage(b []byte) (*model.ConsensusPowResultMess
 	return &message, nil
 }
 
+func unMarshalMinerNonceSeq(seq []*tas_middleware_pb.MinerNonce) []model.MinerNonce {
+	nonces := make([]model.MinerNonce, len(seq))
+	for idx, ns := range seq {
+		nonces[idx] = model.MinerNonce{
+			MinerID: *groupsig.DeserializeId(ns.MinerID),
+			Nonce: *ns.Nonce,
+		}
+	}
+	return nonces
+}
+
 func unMarshalConsensusPowConfirmMessage(b []byte) (*model.ConsensusPowConfirmMessage, error) {
 	m := new(tas_middleware_pb.ConsensusPowConfirmMessage)
 	e := proto.Unmarshal(b, m)
@@ -406,18 +428,36 @@ func unMarshalConsensusPowConfirmMessage(b []byte) (*model.ConsensusPowConfirmMe
 	hash.SetBytes(m.Hash)
 	base := model.BaseSignedMessage{SI: *signData}
 
-	nonces := make([]model.MinerNonce, len(m.NonceSeq))
-	for idx, ns := range m.NonceSeq {
-		nonces[idx] = model.MinerNonce{
-			MinerID: *groupsig.DeserializeId(ns.MinerID),
-			Nonce: *ns.Nonce,
-		}
-	}
+	nonces := unMarshalMinerNonceSeq(m.NonceSeq)
 
 	message := model.ConsensusPowConfirmMessage{
 		BlockHash: hash,
 		NonceSeq: nonces,
 		BaseSignedMessage: base,
+	}
+	return &message, nil
+}
+
+func unMarshalConsensusPowFinalMessage(b []byte) (*model.ConsensusPowFinalMessage, error) {
+	m := new(tas_middleware_pb.ConsensusPowFinalMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		network.Logger.Errorf("[handler]unMarshalConsensusPowConfirmMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	signData := pbToSignData(m.Sign)
+	var hash common.Hash
+	hash.SetBytes(m.Hash)
+	base := model.BaseSignedMessage{SI: *signData}
+
+	nonces := unMarshalMinerNonceSeq(m.NonceSeq)
+
+	message := model.ConsensusPowFinalMessage{
+		BlockHash: hash,
+		NonceSeq: nonces,
+		BaseSignedMessage: base,
+		GSign: *groupsig.DeserializeSign(m.GSign),
 	}
 	return &message, nil
 }

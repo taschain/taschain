@@ -181,7 +181,8 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-	if _, verifyCtx := bc.getVerifyContext(castHeight, baseBH.Hash); verifyCtx != nil {
+	var verifyCtx *VerifyContext
+	if _, verifyCtx = bc.getVerifyContext(castHeight, baseBH.Hash); verifyCtx != nil {
 		//verifyCtx.Rebase(bc, castHeight, preTime, preHash)
 		if !verifyCtx.isCasting() {
 			verifyCtx.rebase(bc, castHeight, expire, baseBH)
@@ -194,10 +195,9 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 		bc.currentVerifyContext = verifyCtx
 	}
 
-	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
-	//bc.Proc.Ticker.StartTickerRoutine(bc.getKingCheckRoutineName(), true)
-	//log.Printf("startCast end. castInfo=%v\n", bc.castingInfo())
-	return
+	//开始铸块
+	go bc.Proc.powProposeBlock(bc, verifyCtx, 0)
+	//bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
 }
 
 //定时器例行处理

@@ -88,6 +88,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 		p.triggerFutureVerifyMsg(block.Header.Hash)
 		p.groupManager.CreateNextGroupRoutine()
 		p.cleanVerifyContext(bh.Height)
+		p.startPowComputation(bh)
 	} else if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
 	}
@@ -144,7 +145,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 	b := p.AddBlockContext(bc)
 	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
-	bc.registerTicker()
+	//bc.registerTicker()
 	p.triggerCastCheck()
 }
 

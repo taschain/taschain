@@ -108,10 +108,6 @@ func (p *Processor) triggerCastCheck()  {
 
 //检查是否当前组铸块
 func (p *Processor) checkSelfCastRoutine() bool {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
-	//}()
 	if !p.Ready() {
 		return false
 	}
@@ -264,14 +260,13 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 
 
 //当前节点成为KING，出块
+//在pow模式下，此方法废弃， 见powProposeBlock
 func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *types.BlockHeader {
 
 	height := vctx.castHeight
 
 	log.Printf("begin Processor::castBlock, height=%v, qn=%v...\n", height, qn)
-	//var hash common.Hash
-	//hash = bh.Hash //TO DO:替换成出块头的哈希
-	//to do : change nonce
+
 	nonce := time.Now().Unix()
 	gid := bc.MinerID.Gid
 

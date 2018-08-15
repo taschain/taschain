@@ -12,7 +12,8 @@ import (
 	"consensus/net"
 	"middleware/notify"
 	"consensus/logical/pow"
-)
+	"vm/ethdb"
+	)
 
 var PROC_TEST_MODE bool
 
@@ -40,6 +41,8 @@ type Processor struct {
 	ready bool //是否已初始化完成
 
 	worker	*pow.PowWorker
+
+	storage ethdb.Database
 
 	//////链接口
 	MainChain  core.BlockChainI
@@ -79,13 +82,6 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.blockContexts = NewCastBlockContexts()
 	p.groupManager = NewGroupManager(p)
 	p.NetServer = net.NewNetworkServer()
-	//db, err := datasource.NewDatabase(STORE_PREFIX)
-	//if err != nil {
-	//	log.Printf("NewDatabase error %v\n", err)
-	//	return false
-	//}
-	//p.storage = db
-	//p.sci.Init()
 
 	p.Ticker = ticker.GetTickerInstance()
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
@@ -169,31 +165,6 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 	}
 
 	return true
-}
-
-//检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, si *model.SignData) bool {
-
-	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
-		log.Printf("beingCastGroup failed, node not in this group.\n")
-		return false
-	}
-
-	gmi := model.NewGroupMinerID(cgs.GroupID, si.GetID())
-	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-
-	if signPk.IsValid() { //该用户和我是同一组
-		//log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
-		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
-		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
-		if si.VerifySign(signPk) { //消息合法
-			return true
-		} else {
-			return false
-		}
-	} else {
-		return false
-	}
 }
 
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
