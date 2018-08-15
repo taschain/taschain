@@ -283,11 +283,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return errors.New("gov module error")
 	}
 
-	if isSuper {
-		//超级节点启动前先把Redis数据清空
-		redis.CleanRedisData()
-	}
-
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
