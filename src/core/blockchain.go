@@ -197,11 +197,11 @@ func (chain *BlockChain) Height() uint64 {
 	return chain.latestBlock.Height
 }
 
-func (chain *BlockChain) TotalQN() uint64 {
+func (chain *BlockChain) TotalLevel() uint64 {
 	if nil == chain.latestBlock {
 		return 0
 	}
-	return chain.latestBlock.TotalQN
+	return chain.latestBlock.TotalLevel
 }
 
 func (chain *BlockChain) LatestStateDB() *state.StateDB {
@@ -373,7 +373,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block {
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, level uint32, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
@@ -391,12 +391,11 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	block.Header = &types.BlockHeader{
 		CurTime:     time.Now(), //todo:时区问题
 		Height:      height,
-		Nonce:       nonce,
-		QueueNumber: queueNumber,
+		Level: 		 level,
 		Castor:      castor,
 		GroupId:     groupid,
-		TotalQN:     latestBlock.TotalQN + queueNumber,
-		LevelNonces: nonces,
+		TotalLevel:     latestBlock.TotalLevel + uint64(level),
+		MinerNonces: nonces,
 	}
 
 	if latestBlock != nil {
@@ -500,7 +499,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
 			BlockHeight:       bh.Height,
-			BlockQn:           bh.QueueNumber,
+			BlockLevel:        bh.Level,
 		}
 		go RequestTransaction(*m, castorId.String())
 		return missing, 1, nil, nil
@@ -586,13 +585,13 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalLevel <= chain.latestBlock.TotalLevel || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.remove(chain.latestBlock)
 		status = chain.saveBlock(b)
 	} else {
-		//b.Header.TotalQN > chain.latestBlock.TotalQN
+		//b.Header.TotalLevel > chain.latestBlock.TotalLevel
 		if chain.isAdujsting {
 			return 2
 		}
@@ -764,7 +763,7 @@ func (chain *BlockChain) getBlockHashesFromLocalChain(height uint64, length uint
 	for i = 0; i < length; {
 		bh := BlockChainImpl.queryBlockHeaderByHeight(height, true)
 		if bh != nil {
-			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Qn: bh.QueueNumber}
+			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Level: bh.Level}
 			r = append(r, &cbh)
 			i++
 		}
