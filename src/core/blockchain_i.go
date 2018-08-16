@@ -18,7 +18,7 @@ type BlockChainI interface {
 	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastingBlock(height uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block
+	CastingBlock(height uint64, level uint32, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
