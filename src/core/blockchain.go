@@ -373,7 +373,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, level uint32, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block {
+func (chain *BlockChain) CastingBlock(height uint64, level uint32, castor []byte, groupid []byte,levelNonces []common.LevelNonce) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
