@@ -388,7 +388,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte , msgDigest 
 		return
 	}
 	const MAX_SEND_COUNT = 3
-
+	nodesHasSend := make(map[NodeID]bool)
 	count :=0
 	//先找已经连接的
 	for i:=0;i<len(groupMembers) && count < MAX_SEND_COUNT;i++ {
@@ -396,6 +396,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte , msgDigest 
 		p := nc.peerManager.peerByID(id)
 		if  p != nil &&  p.seesionId > 0 {
 			count += 1
+			nodesHasSend[id] = true
 			Logger.Infof("found connected node, id:%v", id.GetHexString())
 			go nc.peerManager.write(id, nil, packet)
 		}
@@ -404,10 +405,12 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte , msgDigest 
 	//已经连接的不够，通过穿透服务器连接
 	for i:=0;i<len(groupMembers) && count < MAX_SEND_COUNT && count < len(groupMembers);i++ {
 		id := common.HexStringToAddress(groupMembers[i])
-		count += 1
-		Logger.Infof("connect and send,id:%v", id.GetHexString())
+		if nodesHasSend[id] != true && id != nc.id {
+			count += 1
+			Logger.Infof("connect and send,id:%v", id.GetHexString())
 
-		go nc.peerManager.write(id, nil, packet)
+			go nc.peerManager.write(id, nil, packet)
+		}
 	}
 
 	return
