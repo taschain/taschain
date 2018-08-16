@@ -24,17 +24,25 @@ class Address(object):
         this_data.set_balance(this_data.get_balance() - _value)
         self.data.set_balance(self.data.get_balance() + _value)
 
-    def __str__(self):
-        return self.value
-
-    def __repr__(self):
-        return self.value
+    # def __str__(self):
+    #     return self.value
+    #
+    # def __repr__(self):
+    #     return self.value
 
     def __hash__(self):
         return hash(self.value)
 
     def __eq__(self, other):
         return self.value == other.value
+
+    def __getstate__(self):
+        return {"value":self.value, "data":self.data}
+
+    def __setstate__(self, state):
+        self.value = state["value"]
+        self.data = state["data"]
+
 
     def call(self, function_name, *args, **kwargs):
         if not self.data.is_contract():
@@ -45,7 +53,6 @@ class Address(object):
             Address.this = self.value
             env["this"] = Address(self.value)
             env["Address"] = Address
-            env["block"] = glovar.block
             env["msg"] = glovar.msg
             self.contract = Contract(self.value, env)
         try:
@@ -54,4 +61,5 @@ class Address(object):
             print(repr(e))
             print("error of calling {f}!".format(f=function_name))
             glovar.storage.revert_to_snapshot()
+            raise e
 

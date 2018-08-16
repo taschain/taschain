@@ -8,6 +8,7 @@ class Block(object):
         self.blocks = []
         self.height = 0
         self.sha256 = hashlib.sha256()
+        self.alive = False
 
     def number(self):
         return self.height
@@ -17,9 +18,9 @@ class Block(object):
             return self.blocks[height + 1]
 
     def run(self):
-        while True:
+        while self.alive:
             self.height += 1
-            time.sleep(10)
+            time.sleep(1)
             self.sha256.update(bytes(self.height))
             res = self.sha256.hexdigest()
             self.blocks.append(res)

@@ -1,10 +1,6 @@
 
 
 
-print(dir())
-print(msg)
-print(this)
-
 class Recharge(object):
 
     def receive_approval(self, _from, _value, _token, _extraData):
@@ -13,4 +9,5 @@ class Recharge(object):
         # 收取代币
 
         # 充值
-        print("充值成功: ", phone_number)
+        print("充值成功: ", phone_number, _value)
+
