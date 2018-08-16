@@ -9,9 +9,8 @@ import (
 	"common"
 	"time"
 	"golang.org/x/crypto/sha3"
+	"middleware/notify"
 )
-
-
 
 type server struct {
 	Self *Node
@@ -63,7 +62,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 }
 
 //todo  implment by 文杰
-func (n *server) SpreadOverGroup(groupId string, groupMembers []string,msg Message,digest MsgDigest) error{
+func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 	return nil
 }
 
@@ -73,13 +72,13 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, false,nil)
+	n.netCore.SendAll(bytes, false, nil)
 	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
 //todo  implment by 文杰
-func (n *server) Broadcast(msg Message ,relayCount int32) error {
+func (n *server) Broadcast(msg Message, relayCount int32) error {
 	//bytes, err := marshalMessage(msg)
 	//if err != nil {
 	//	Logger.Errorf("[Network]Marshal message error:%s", err.Error())
@@ -138,7 +137,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b),message.Hash())
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 
 	code := message.Code
 	if code == KeyPieceMsg {
@@ -181,7 +180,17 @@ func (n *server) handleMessage(b []byte, from string) {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case NewBlockHeaderMsg:
+		msg := notify.BlockHeaderNotifyMessage{HeaderByte: b, Peer: from}
+		notify.BUS.Publish(notify.NewBlockHeader, &msg)
+	case BlockBodyReqMsg:
+		msg := notify.BlockBodyReqMessage{BlockHashByte: b, Peer: from}
+		notify.BUS.Publish(notify.BlockBodyReq, &msg)
+	case BlockBodyMsg:
+		msg := notify.BlockBodyNotifyMessage{BodyByte: b, Peer: from}
+		notify.BUS.Publish(notify.BlockBody, &msg)
 	}
+
 }
 
 func marshalMessage(m Message) ([]byte, error) {

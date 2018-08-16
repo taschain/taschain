@@ -38,7 +38,7 @@ func UnMarshalTransactions(b []byte) ([]*Transaction, error) {
 		return nil, error
 	}
 
-	result := pbToTransactions(ts.Transactions)
+	result := PbToTransactions(ts.Transactions)
 	return result, nil
 }
 
@@ -98,7 +98,7 @@ func MarshalTransaction(t *Transaction) ([]byte, error) {
 
 // 序列化[]*Transaction
 func MarshalTransactions(txs []*Transaction) ([]byte, error) {
-	transactions := transactionsToPb(txs)
+	transactions := TransactionsToPb(txs)
 	transactionSlice := tas_middleware_pb.TransactionSlice{Transactions: transactions}
 	return proto.Marshal(&transactionSlice)
 }
@@ -142,7 +142,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 	return &transaction
 }
 
-func pbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
+func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 	if txs == nil {
 		return nil
 	}
@@ -200,7 +200,7 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {
 	h := PbToBlockHeader(b.Header)
-	txs := pbToTransactions(b.Transactions)
+	txs := PbToTransactions(b.Transactions)
 	block := Block{Header: h, Transactions: txs}
 	return &block
 }
@@ -212,17 +212,17 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 		members = append(members, *member)
 	}
 	group := Group{
-		Id: g.Id,
-		Members: members,
-		PubKey: g.PubKey,
-		Parent: g.Parent,
-		Dummy: g.Dummy,
-		Signature: g.Signature,
-		BeginHeight: *g.BeginHeight,
+		Id:            g.Id,
+		Members:       members,
+		PubKey:        g.PubKey,
+		Parent:        g.Parent,
+		Dummy:         g.Dummy,
+		Signature:     g.Signature,
+		BeginHeight:   *g.BeginHeight,
 		DismissHeight: *g.DismissHeight,
-		Authority: *g.Authority,
-		Name: string(g.Name),
-		Extends: string(g.Extends),
+		Authority:     *g.Authority,
+		Name:          string(g.Name),
+		Extends:       string(g.Extends),
 	}
 	return &group
 }
@@ -244,7 +244,7 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	return &transaction
 }
 
-func transactionsToPb(txs []*Transaction) []*tas_middleware_pb.Transaction {
+func TransactionsToPb(txs []*Transaction) []*tas_middleware_pb.Transaction {
 	if txs == nil {
 		return nil
 	}
@@ -302,7 +302,7 @@ func BlockToPb(b *Block) *tas_middleware_pb.Block {
 		return nil
 	}
 	header := BlockHeaderToPb(b.Header)
-	transactions := transactionsToPb(b.Transactions)
+	transactions := TransactionsToPb(b.Transactions)
 	block := tas_middleware_pb.Block{Header: header, Transactions: transactions}
 	return &block
 }
@@ -314,17 +314,17 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 		members = append(members, member)
 	}
 	group := tas_middleware_pb.Group{
-		Id: g.Id,
-		Members: members,
-		PubKey: g.PubKey,
-		Parent: g.Parent,
-		Dummy: g.Dummy,
-		Signature: g.Signature,
-		BeginHeight: &g.BeginHeight,
+		Id:            g.Id,
+		Members:       members,
+		PubKey:        g.PubKey,
+		Parent:        g.Parent,
+		Dummy:         g.Dummy,
+		Signature:     g.Signature,
+		BeginHeight:   &g.BeginHeight,
 		DismissHeight: &g.DismissHeight,
-		Authority: &g.Authority,
-		Name: []byte(g.Name),
-		Extends: []byte(g.Extends),
+		Authority:     &g.Authority,
+		Name:          []byte(g.Name),
+		Extends:       []byte(g.Extends),
 	}
 	return &group
 }

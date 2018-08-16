@@ -129,9 +129,9 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock:            middleware.NewLoglock("chain"),
-		init:            true,
-		isAdujsting:     false,
+		lock:        middleware.NewLoglock("chain"),
+		init:        true,
+		isAdujsting: false,
 	}
 
 	var err error
@@ -302,6 +302,14 @@ func (chain *BlockChain) QueryTopBlock() *types.BlockHeader {
 //根据指定哈希查询块
 func (chain *BlockChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
+}
+
+func (chain *BlockChain) QueryBlockBody(blockHash common.Hash) []*types.Transaction {
+	block := chain.queryBlockByHash(blockHash)
+	if nil == block {
+		return nil
+	}
+	return block.Transactions
 }
 
 func (chain *BlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
@@ -721,17 +729,17 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 			}
 			break
 		}
-		if b == nil{
+		if b == nil {
 			return nil
 		}
 
 		var isTopBlock bool
-		if b.Header.Height == chain.Height(){
+		if b.Header.Height == chain.Height() {
 			isTopBlock = true
-		}else {
+		} else {
 			isTopBlock = false
 		}
-		return &BlockInfo{Block: b,IsTopBlock:isTopBlock}
+		return &BlockInfo{Block: b, IsTopBlock: isTopBlock}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")

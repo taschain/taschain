@@ -89,6 +89,13 @@ message BlockHeader{
      optional Hashes EvictedTxs  = 17;
 }
 
+message BlockBody{
+
+    required bytes BlockHash  = 1;
+
+    repeated Transaction transactions = 2;
+}
+
 message Block{
     required BlockHeader Header = 1;
 

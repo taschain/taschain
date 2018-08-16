@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"time"
 	"network"
 	"github.com/gogo/protobuf/proto"
 	"common"
@@ -11,11 +10,49 @@ import (
 	"fmt"
 	"middleware/types"
 	"middleware/pb"
+	"middleware/notify"
+	"github.com/hashicorp/golang-lru"
 )
 
-const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
+type ChainHandler struct {
+	headerPending map[common.Hash]blockHeaderNotify
 
-type ChainHandler struct{}
+	complete *lru.Cache
+
+	headerCh chan blockHeaderNotify
+
+	bodyCh chan blockBodyNotify
+}
+
+type blockHeaderNotify struct {
+	header types.BlockHeader
+
+	peer string
+}
+
+type blockBodyNotify struct {
+	body []*types.Transaction
+
+	blockHash common.Hash
+
+	peer string
+}
+
+func NewChainHandler() ChainHandler {
+
+	headerPending := make(map[common.Hash]blockHeaderNotify)
+	complete, _ := lru.New(256)
+	headerCh := make(chan blockHeaderNotify)
+	bodyCh := make(chan blockBodyNotify)
+	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
+
+	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
+	notify.BUS.Subscribe(notify.BlockBody, handler.blockBodyHandler)
+	notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
+
+	go handler.loop()
+	return handler
+}
 
 func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	switch msg.Code {
@@ -102,6 +139,87 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	return nil
 }
 
+func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
+	m, ok := msg.GetData().(notify.BlockHeaderNotifyMessage)
+	if !ok {
+		return
+	}
+
+	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
+	if e != nil {
+		network.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	notify := blockHeaderNotify{header: *header, peer: m.Peer}
+	ch.headerCh <- notify
+}
+
+func (ch ChainHandler) blockBodyReqHandler(msg notify.Message) {
+	m, ok := msg.GetData().(notify.BlockBodyReqMessage)
+	if !ok {
+		return
+	}
+
+	hash := common.BytesToHash(m.BlockHashByte)
+
+	body := core.BlockChainImpl.QueryBlockBody(hash)
+	if body == nil {
+		return
+	}
+
+	core.SendBlockBody(m.Peer, hash, body)
+}
+
+func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
+	m, ok := msg.GetData().(notify.BlockBodyNotifyMessage)
+	if !ok {
+		return
+	}
+
+	blockHash, txs, e := unMarshalBlockBody(m.BodyByte)
+	if e != nil {
+		network.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	notify := blockBodyNotify{blockHash: blockHash, body: txs, peer: m.Peer}
+	ch.bodyCh <- notify
+}
+
+func (ch ChainHandler) loop() {
+	for {
+		select {
+		case headerNotify := <-ch.headerCh:
+			hash := headerNotify.header.Hash
+			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
+				break
+			}
+
+			local := core.BlockChainImpl.QueryBlockByHash(hash)
+			if local != nil {
+				ch.complete.Add(hash, headerNotify.header)
+				break
+			}
+
+			ch.headerPending[hash] = headerNotify
+			core.ReqBlockBody(headerNotify.peer, hash)
+		case bodyNotify := <-ch.bodyCh:
+			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
+			if !ok {
+				break
+			}
+
+			if headerNotify.peer != bodyNotify.peer {
+				break
+			}
+			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
+			msg := notify.BlockMessage{Block: block}
+			notify.BUS.Publish(notify.NewBlock, &msg)
+		}
+	}
+}
+
 //-----------------------------------------------铸币-------------------------------------------------------------------
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
@@ -181,7 +299,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 		return
 	}
 	block := blockInfo.Block
-	if block != nil{
+	if block != nil {
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -192,12 +310,12 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			return
 		}
 
-		if !blockInfo.IsTopBlock{
+		if !blockInfo.IsTopBlock {
 			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash)
-		}else {
+		} else {
 			core.BlockChainImpl.SetAdujsting(false)
-			if !sync.BlockSyncer.IsInit(){
-				core.Logger.Errorf("Block sync finished,loal block height:%d\n",core.BlockChainImpl.Height())
+			if !sync.BlockSyncer.IsInit() {
+				core.Logger.Errorf("Block sync finished,loal block height:%d\n", core.BlockChainImpl.Height())
 				sync.BlockSyncer.SetInit(true)
 			}
 		}
@@ -316,7 +434,7 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 	}
 
 	var block *types.Block
-	if message.Block != nil{
+	if message.Block != nil {
 		block = types.PbToBlock(message.Block)
 	}
 
@@ -328,10 +446,10 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 	}
 
 	var topBlock bool
-	if message.IsTopBlock !=nil{
+	if message.IsTopBlock != nil {
 		topBlock = *(message.IsTopBlock)
 	}
-	m := core.BlockInfo{Block:block,IsTopBlock:topBlock, ChainPiece: cbh}
+	m := core.BlockInfo{Block: block, IsTopBlock: topBlock, ChainPiece: cbh}
 	return &m, nil
 }
 
@@ -361,4 +479,16 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 	}
 	groupInfo := sync.GroupInfo{Group: types.PbToGroup(message.Group), IsTopGroup: *message.IsTopGroup}
 	return &groupInfo, nil
+}
+
+func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {
+	message := new(tas_middleware_pb.BlockBody)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalBlockBody error:%s", e.Error())
+		return hash, nil, e
+	}
+	hash = common.BytesToHash(message.BlockHash)
+	transactions = types.PbToTransactions(message.Transactions)
+	return hash, transactions, nil
 }

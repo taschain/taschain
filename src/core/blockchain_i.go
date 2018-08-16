@@ -39,6 +39,8 @@ type BlockChainI interface {
 	//根据指定哈希查询块
 	QueryBlockByHash(hash common.Hash) *types.BlockHeader
 
+	QueryBlockBody(blockHash common.Hash) []*types.Transaction
+
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
 
@@ -49,7 +51,6 @@ type BlockChainI interface {
 	Clear() error
 	//是否正在调整分叉
 	IsAdujsting() bool
-
 }
 
 //组管理接口
