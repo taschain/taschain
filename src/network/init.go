@@ -16,7 +16,7 @@ const (
 
 	seedDefaultId = "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"
 
-	seedDefaultIp = "47.104.83.120"
+	seedDefaultIp = "47.104.95.207"
 
 	seedDefaultPort = 1122
 )
@@ -52,7 +52,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	} else {
 		natEnable = true
 	}
-	netConfig := Config{PrivateKey: &self.PrivateKey, Id: self.Id, ListenAddr: &nnet.UDPAddr{IP: self.Ip, Port: self.Port}, Bootnodes: seeds, NatTraversalEnable: natEnable}
+	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr: &nnet.UDPAddr{IP: self.Ip, Port: self.Port}, Seeds: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)

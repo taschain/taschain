@@ -61,8 +61,18 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	return nil
 }
 
-//todo  implment by 文杰
+
 func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers)
+	Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -72,20 +82,22 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, false, nil)
+
+	n.netCore.SendAll(bytes, false,nil,-1)
+
 	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-//todo  implment by 文杰
 func (n *server) Broadcast(msg Message, relayCount int32) error {
-	//bytes, err := marshalMessage(msg)
-	//if err != nil {
-	//	Logger.Errorf("[Network]Marshal message error:%s", err.Error())
-	//	return err
-	//}
-	//n.netCore.SendAll(bytes, true,msgDigest)
-	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes, true,nil,relayCount)
+	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 

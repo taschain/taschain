@@ -36,12 +36,6 @@ message MsgPing{
 	uint64 Expiration =5;
 }
 
-message MsgPong{
-	RpcEndPoint To =1;
-    bytes ReplyToken =2;
-	uint64 Expiration =3;
-}
-
 message MsgFindNode {
     bytes Target =1;
     uint64 Expiration =2;
@@ -49,18 +43,19 @@ message MsgFindNode {
 
 message MsgNeighbors {
     repeated RpcNode Nodes =1;
-    uint64 Expiration =2;
+    uint64  Expiration =2;
 }
 
 message MsgData {
-    DataType  dataType =1;
-    string groupId =2;
+    DataType DataType =1;
+    string GroupId =2;
     uint64 Expiration =3;
-    uint64 messageId = 4;
-    bytes bizMessageId =5;
-    bytes  DestNodeId=6;
-    bytes  SrcNodeId=7;
-    bytes  data=8;
+    uint64 MessageId = 4;
+    bytes BizMessageId =5;
+    bytes DestNodeId=6;
+    bytes SrcNodeId=7;
+    bytes Data=8;
+    int32 RelayCount=9;
 }
 
 

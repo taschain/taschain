@@ -40,8 +40,8 @@ type Node struct {
 	sha     []byte
 	addedAt time.Time
 	fails  int
-	bondAt time.Time
-	bonded bool
+	pingAt time.Time
+	pinged bool
 }
 
 

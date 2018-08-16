@@ -23,8 +23,6 @@ const (
 	nBuckets          = hashBits / 15       // kad桶数量
 	bucketMinDistance = hashBits - nBuckets // 最近桶的对数距离
 
-	maxBondingPingPongs = 16 // 最大ping/pong数量限制
-
 	refreshInterval    = 5 * time.Minute
 	checkInterval	= 	12 * time.Second
 	copyNodesInterval  = 30 * time.Second
@@ -43,7 +41,7 @@ func makeSha256Hash(data []byte) []byte {
 type Kad struct {
 	mutex   sync.Mutex        // 保护成员 buckets, bucket content, nursery, rand
 	buckets [nBuckets]*bucket // 根据节点距离排序的节点的索引
-	nursery []*Node           // 启动节点列表
+	seeds []*Node           // 启动节点列表
 	rand    *mrand.Rand       // 随机数生成器
 
 	refreshReq chan chan struct{}
@@ -51,12 +49,7 @@ type Kad struct {
 	closeReq   chan struct{}
 	closed     chan struct{}
 
-	bondMutex    sync.Mutex
-	bonding   map[NodeID]*bondProc
-	bondSlots chan struct{}
-
-
-	net  transport
+	net  NetInterface
 	self *Node
 
 	setupCheckCount int
@@ -69,12 +62,10 @@ type bondProc struct {
 }
 
 
-type transport interface {
+type NetInterface interface {
 	ping(NodeID, *nnet.UDPAddr) error
-	waitping(NodeID) error
-	findnode(toid NodeID, addr *nnet.UDPAddr, target NodeID) ([]*Node, error)
+	findNode(toid NodeID, addr *nnet.UDPAddr, target NodeID) ([]*Node, error)
 	close()
-	print()
 }
 
 type bucket struct {
@@ -82,23 +73,18 @@ type bucket struct {
 	replacements []*Node // 备用补充节点
 }
 
-func newKad(t transport, ourID NodeID, ourAddr *nnet.UDPAddr, nodeDBPath string, bootnodes []*Node) (*Kad, error) {
+func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node) (*Kad, error) {
 	kad := &Kad{
 		net:        t,
 		self:       newNode(ourID, ourAddr.IP, ourAddr.Port),
-		bonding:    make(map[NodeID]*bondProc),
-		bondSlots:  make(chan struct{}, maxBondingPingPongs),
 		refreshReq: make(chan chan struct{}),
 		initDone:   make(chan struct{}),
 		closeReq:   make(chan struct{}),
 		closed:     make(chan struct{}),
 		rand:       mrand.New(mrand.NewSource(0)),
 	}
-	if err := kad.setFallbackNodes(bootnodes); err != nil {
+	if err := kad.setFallbackNodes(seeds); err != nil {
 		return nil, err
-	}
-	for i := 0; i < cap(kad.bondSlots); i++ {
-		kad.bondSlots <- struct{}{}
 	}
 	for i := range kad.buckets {
 		kad.buckets[i] = &bucket{
@@ -184,11 +170,11 @@ func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 			return fmt.Errorf("bad bootstrap node %v (%v)", n, err)
 		}
 	}
-	kad.nursery = make([]*Node, 0, len(nodes))
+	kad.seeds = make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
 		cpy := *n
 		cpy.sha = makeSha256Hash(n.Id[:])
-		kad.nursery = append(kad.nursery, &cpy)
+		kad.seeds = append(kad.seeds, &cpy)
 	}
 	return nil
 }
@@ -224,7 +210,7 @@ func (kad *Kad) resolve(targetID NodeID) *Node {
 	if len(cl.entries) > 0 && cl.entries[0].Id == targetID {
 		return cl.entries[0]
 	}
-	// Otherwise, do a network lookup.
+	// 找不到，开始向临近节点询问
 	result := kad.Lookup(targetID)
 	for _, n := range result {
 		if n.Id == targetID {
@@ -268,10 +254,10 @@ func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 				asked[n.Id] = true
 				pendingQueries++
 				go func() {
-					r, err := kad.net.findnode(n.Id, n.addr(), targetID)
+					r, err := kad.net.findNode(n.Id, n.addr(), targetID)
 					if err != nil {
 					}
-					reply <- kad.bondall(r)
+					reply <- kad.pingAll(r)
 				}()
 			}
 		}
@@ -387,9 +373,9 @@ func (kad *Kad) doCheck() {
 func (kad *Kad) loadSeedNodes(bond bool) {
 	seeds := make([]*Node, 0, 16)
 
-	seeds = append(seeds, kad.nursery...)
+	seeds = append(seeds, kad.seeds...)
 	if bond {
-		seeds = kad.bondall(seeds)
+		seeds = kad.pingAll(seeds)
 	}
 	for i := range seeds {
 		seed := seeds[i]
@@ -431,12 +417,12 @@ func (kad *Kad) len() (n int) {
 	return n
 }
 
-func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
+func (kad *Kad) pingAll(nodes []*Node) (result []*Node) {
 
 	rc := make(chan *Node, len(nodes))
 	for i := range nodes {
 		go func(n *Node) {
-			nn, _ := kad.bond(false, n.Id, n.addr(), n.Port)
+			nn, _ := kad.pingNode(n.Id, n.addr())
 			rc <- nn
 		}(nodes[i])
 	}
@@ -448,87 +434,54 @@ func (kad *Kad) bondall(nodes []*Node) (result []*Node) {
 	return result
 }
 
-func (kad *Kad) bond(pinged bool, id NodeID, addr *nnet.UDPAddr, port int) (*Node, error) {
+func (kad *Kad) pingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
 	if id == kad.self.Id {
 		return nil, errors.New("is self")
-	}
-	if pinged && !kad.isInitDone() {
-
-		return nil, errors.New("still initializing")
 	}
 
 	var node *Node
 	node = kad.find(id)
 	age := nodeBondExpiration
 	fails := 0
-	bonded :=  false
+	pinged :=  false
 	if node != nil {
-		age = time.Since(node.bondAt)
+		age = time.Since(node.pingAt)
 		fails = int(node.fails)
-		node.bondAt = time.Now()
-		bonded = node.bonded
+		node.pingAt = time.Now()
+		pinged = node.pinged
 	}
 
 	var result error
-	if !bonded && ( fails > 0 || age >= nodeBondExpiration) {
-		kad.bondMutex.Lock()
-		w := kad.bonding[id]
-		if w != nil {
-			kad.bondMutex.Unlock()
-			<-w.done
-		} else {
-			w = &bondProc{done: make(chan struct{})}
-			kad.bonding[id] = w
-			kad.bondMutex.Unlock()
-			// Do the ping/pong. The result goes into w.
-			kad.pingpong(w, pinged, id, addr, port)
-			// Unregister the process after it's done.
-			kad.bondMutex.Lock()
-			delete(kad.bonding, id)
-			kad.bondMutex.Unlock()
-		}
-		// Retrieve the bonding results
-		result = w.err
-		if result == nil {
-			node = w.n
-		}
-		if node != nil {
-			node.bonded = true
-			kad.add(node)
-		}
+	if !pinged && ( fails > 0 || age >= nodeBondExpiration) {
+		kad.net.ping(id, addr)
 	}
 
 	return node, result
 }
 
-func (kad *Kad) pingpong(w *bondProc, pinged bool, id NodeID, addr *nnet.UDPAddr, tcpPort int) {
-	<-kad.bondSlots
-	defer func() { kad.bondSlots <- struct{}{} }()
+func (kad *Kad) onPingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
-	if w.err = kad.ping(id, addr); w.err != nil {
-		close(w.done)
-		return
+	if id == kad.self.Id {
+		return nil, errors.New("is self")
 	}
-	if !pinged {
-		kad.net.waitping(id)
+
+	var node *Node
+	node = kad.find(id)
+	if node == nil {
+		node = newNode(id, addr.IP, addr.Port)
+		kad.add(node)
+
 	}
-	w.n = newNode(id, addr.IP, addr.Port)
-	close(w.done)
+	node.pinged = true
+	return node, nil
 }
 
-func (kad *Kad) ping(id NodeID, addr *nnet.UDPAddr) error {
-	if err := kad.net.ping(id, addr); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (kad *Kad) hasBond(id NodeID) bool {
+func (kad *Kad) hasPinged(id NodeID) bool {
 	node := kad.find(id)
 
 	if node != nil {
-		return node.bonded
+		return node.pinged
 	}
 	return false
 }
