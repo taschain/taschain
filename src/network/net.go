@@ -381,6 +381,7 @@ func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
 //GroupBroadcastWithMembers 通过组成员发组广播
 func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte , msgDigest MsgDigest,groupMembers []string) {
 	dataType := DataType_DataGroup
+	Logger.Infof("GroupBroadcastWithMembers: group id:%v", id)
 
 	packet, _, err := nc.encodeDataPacket(data,dataType,id,nil,nil,-1)
 	if err != nil {
@@ -395,18 +396,20 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte , msgDigest 
 		p := nc.peerManager.peerByID(id)
 		if  p != nil &&  p.seesionId > 0 {
 			count += 1
+			Logger.Infof("found connected node, id:%v", id.GetHexString())
 			go nc.peerManager.write(id, nil, packet)
 		}
 	}
 
 	//已经连接的不够，通过穿透服务器连接
-	for i:=0;i<len(groupMembers) && count < MAX_SEND_COUNT;i++ {
+	for i:=0;i<len(groupMembers) && count < MAX_SEND_COUNT && count < len(groupMembers);i++ {
 		id := common.HexStringToAddress(groupMembers[i])
 		count += 1
+		Logger.Infof("connect and send,id:%v", id.GetHexString())
+
 		go nc.peerManager.write(id, nil, packet)
 	}
 
-	nc.groupManager.sendGroup(id, packet)
 	return
 }
 
