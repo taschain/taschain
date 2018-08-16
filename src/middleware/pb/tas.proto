@@ -43,14 +43,13 @@ message TransactionRequestMessage{
 
     required uint64 BlockHeight = 3;
 
-    required uint64 BlockQn = 4;
+    required uint32 BlockLevel = 4;
 }
 
 message TransactionSlice{
 
     repeated Transaction transactions = 1;
 }
-
 
 message BlockHeader{
 
@@ -62,9 +61,9 @@ message BlockHeader{
 
      optional bytes PreTime  = 4 ;
 
-     optional uint64 QueueNumber = 5;
+     optional uint32 Level = 5;
 
-     optional uint64 TotalQN = 6;
+     optional uint64 TotalLevel = 6;
 
      optional bytes CurTime  = 7 ;
 
@@ -75,8 +74,6 @@ message BlockHeader{
      optional bytes Signature  = 10 ;
 
      optional bytes RandSig  = 11 ;
-
-     optional uint64 Nonce = 12;
 
      optional Hashes transactions = 13;
 
@@ -89,6 +86,8 @@ message BlockHeader{
      optional bytes ExtraData  = 17 ;
 
      optional Hashes EvictedTxs  = 18;
+
+     repeated uint64 MinerNonces = 19;
 }
 
 message Block{

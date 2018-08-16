@@ -76,7 +76,7 @@ func (bs *blockSyncer) sync() {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
+	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalLevel(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
 	bs.lock.Lock()
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
@@ -107,7 +107,7 @@ func (bs *blockSyncer) loop() {
 			if nil == core.BlockChainImpl {
 				return
 			}
-			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN())
+			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalLevel())
 		case h := <-bs.TotalQnCh:
 			//logger.Debugf("[BlockSyncer] Receive total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
 			if !bs.init{

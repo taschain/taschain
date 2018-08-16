@@ -74,18 +74,18 @@ type BlockHeader struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
+	Level        uint32        //轮转序号
+	TotalLevel   uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
 	Signature    []byte        // 共识组签名
-	RandSig		 []byte			//随机数组签名
-	Nonce        uint64        //盐
+	RandSig      []byte			//随机数组签名
 	Transactions []common.Hash // 交易集哈希列表
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
+	MinerNonces  []uint64
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
 }
@@ -94,18 +94,18 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
+	Level  		 uint32        //轮转序号
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Nonce        uint64        //盐
 	Transactions []common.Hash // 交易集哈希列表
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
+	MinerNonces  []uint64
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
@@ -113,18 +113,18 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		Height:       bh.Height,
 		PreHash:      bh.PreHash,
 		PreTime:      bh.PreTime,
-		QueueNumber:  bh.QueueNumber,
-		TotalQN:      bh.TotalQN,
+		Level:  bh.Level,
+		TotalQN:      bh.TotalLevel,
 		CurTime:      bh.CurTime,
 		Castor:       bh.Castor,
 		GroupId:      bh.GroupId,
-		Nonce:        bh.Nonce,
 		Transactions: bh.Transactions,
 		TxTree:       bh.TxTree,
 		ReceiptTree:  bh.ReceiptTree,
 		StateTree:    bh.StateTree,
 		EvictedTxs:   bh.EvictedTxs,
 		ExtraData:    bh.ExtraData,
+		MinerNonces:  bh.MinerNonces,
 	}
 	blockByte, _ := json.Marshal(header)
 	result := common.BytesToHash(common.Sha256(blockByte))

@@ -106,7 +106,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockQn,len(m.TransactionHashes))
+	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockLevel,len(m.TransactionHashes))
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
 		return nil
@@ -117,7 +117,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 	}
 
 	if nil != transactions && 0 != len(transactions) {
-		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockQn)
+		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockLevel)
 	}
 
 	return nil
@@ -222,7 +222,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	}
 
 	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
-	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockQn: *m.BlockQn}
+	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockLevel: *m.BlockLevel}
 	return &message, nil
 }
 
