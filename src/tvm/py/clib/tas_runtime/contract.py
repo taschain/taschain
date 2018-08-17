@@ -23,8 +23,8 @@ class Contract(object):
         self.env["tas_{addr}_function_name".format(addr=self.addr)] = function_name
         self.my_exec(cmd="tas_{addr}_func = getattr(tas_{addr}, tas_{addr}_function_name, None)".format(addr=self.addr), globals=self.env)
         self.my_exec(cmd="tas_{addr}_func(*tas_{addr}_args, **tas_{addr}_kwargs)".format(addr=self.addr), globals=self.env)
-        print('self.env.get("tas_{addr}"')
-        print(self.env.get("tas_{addr}".format(addr=self.addr)))
+        # print('self.env.get("tas_{addr}"')
+        # print(self.env.get("tas_{addr}".format(addr=self.addr)))
         self.data.dump_data(self.env.get("tas_{addr}".format(addr=self.addr)))
 
 

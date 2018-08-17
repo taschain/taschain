@@ -24,11 +24,11 @@ class Address(object):
         this_data.set_balance(this_data.get_balance() - _value)
         self.data.set_balance(self.data.get_balance() + _value)
 
-    # def __str__(self):
-    #     return self.value
-    #
-    # def __repr__(self):
-    #     return self.value
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
 
     def __hash__(self):
         return hash(self.value)

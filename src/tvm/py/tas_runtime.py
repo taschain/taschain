@@ -57,12 +57,13 @@ except FileNotFoundError:
 caller = glovar.storage.new_account()
 print("caller: ", caller)
 
+
 # 创建充值合约
 with open("recharge/recharge.py", "r", encoding="utf-8") as f:
     code = f.read()
 recharge_contract_addr = glovar.storage.new_contract(code, "Recharge")
-recharge_contract = Address(recharge_contract_addr)
 print("recharge_contract_addr: ", recharge_contract_addr)
+recharge_contract = Address(recharge_contract_addr)
 
 
 # 创建TestStorage合约
@@ -72,6 +73,7 @@ test_storage_contract_addr = glovar.storage.new_contract(code, "Test")
 print("test_storage_contract_addr: ", test_storage_contract_addr)
 test_storage_contract = Address(test_storage_contract_addr)
 
+
 # 创建token合约
 with open("token/contract_token.py", "r", encoding="utf-8") as f:
     code = f.read()
@@ -80,7 +82,6 @@ token_contract = Address(token_contract_addr)
 
 # 部署合约
 glovar.msg = Msg(data="", sender=Address(caller), value=100)
-token_contract.call("deploy")
 
 # 调用token合约，购买
 token_contract.call("buy")
@@ -93,7 +94,7 @@ token_contract.call("approveAndCall", test_storage_contract_addr, 0, "")
 
 
 print("_exit")
-print_dict(glovar.storage)
+# print_dict(glovar.storage)
 # block.alive = True
 with open("data.pkl", "wb") as f:
     pickle.dump(glovar.storage, f)

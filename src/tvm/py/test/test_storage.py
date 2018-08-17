@@ -13,4 +13,5 @@ class Test(object):
     def _count(self):
         self.count += 1
 
-
+    def deploy(self):
+        pass

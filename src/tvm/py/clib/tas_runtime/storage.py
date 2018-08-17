@@ -14,6 +14,9 @@ class Storage(object):
         key = "0x{count}".format(count=self.count)
         self.count += 1
         self._data[key] = address
+        # deploy
+        contract = Address(key)
+        contract.call("deploy")
         return key
 
     def new_account(self, balance=10000):
@@ -50,6 +53,7 @@ class Storage(object):
 
 
 def check_base_type(obj):
+    return obj
     base_types = [int, float, str, bool, Address]
     container_types = [dict, list, tuple]
     if type(obj) in base_types:
@@ -107,14 +111,14 @@ class AddressStorage(object):
         if not self.is_contract():
             raise Exception("")
         for k in obj.__dict__:
-            print("dump_data: start")
-            print(k)
-            print(obj.__dict__[k])
+            # print("dump_data: start")
+            # print(k)
+            # print(obj.__dict__[k])
             if check_base_type(obj.__dict__[k]) is not None:
                 self.data["data"][k] = obj.__dict__[k]
             else:
                 raise Exception("不能存储非基础类型: key: ", k, " value: ", obj.__dict__[k])
-            print("dump_data: end")
+            # print("dump_data: end")
 
         print("dump_data:")
         print_data = self.data.copy()
