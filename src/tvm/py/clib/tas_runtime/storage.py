@@ -7,10 +7,22 @@ class Storage(object):
         self.count = 0
         self.copy = {}
 
-    def new_contract(self, code: str, class_name: str):
+    def new_lib_contract(self, code: str, owner: str):
         address = AddressStorage(is_contract=True)
+        address.address_type = "lib"
+        address.set_owner(owner)
+        address.set_code(code)
+        key = "0x{count}".format(count=self.count)
+        self.count += 1
+        self._data[key] = address
+        return key
+
+    def new_contract(self, code: str, class_name: str, owner: str, depends=[]):
+        address = AddressStorage(is_contract=True)
+        address.set_owner(owner)
         address.set_code(code)
         address.set_class(class_name)
+        address.set_depends(depends)
         key = "0x{count}".format(count=self.count)
         self.count += 1
         self._data[key] = address
@@ -106,6 +118,18 @@ class AddressStorage(object):
 
     def get_class(self):
         return self.data["_class"]
+
+    def set_owner(self, owner: str):
+        self.data["owner"] = owner
+
+    def get_owner(self):
+        return self.data["owner"]
+
+    def set_depends(self, depends):
+        self.data["_depends"] = depends
+
+    def get_depends(self):
+        return self.data.get("_depends", [])
 
     def dump_data(self, obj):
         if not self.is_contract():
