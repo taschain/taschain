@@ -364,6 +364,20 @@ func (nc *NetCore) SendAll(data []byte, broadcast bool, msgDigest MsgDigest, rel
 	return
 }
 
+
+//BroadcastRandom 随机发送广播数据包
+func (nc *NetCore) BroadcastRandom(data []byte, relayCount int32) {
+	dataType := DataType_DataGlobal
+
+	packet, _, err := nc.encodeDataPacket(data,dataType,"",nil, nil,relayCount)
+	if err != nil {
+		return
+	}
+	nc.peerManager.BroadcastRandom(packet)
+	return
+}
+
+
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
 func (nc *NetCore) SendGroup(id string, data []byte , broadcast bool) {
 	dataType := DataType_DataNormal

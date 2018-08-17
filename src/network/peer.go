@@ -5,6 +5,7 @@ import (
 	nnet "net"
 	"time"
 	"sync"
+	mrand "math/rand"
 )
 
 //Peer 节点连接对象
@@ -168,6 +169,22 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	}
 }
 
+func (pm *PeerManager) disconnect(id NodeID) {
+	netID := netCoreNodeID(id)
+
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	p, _ := pm.peers[netID]
+	if p != nil {
+
+		Logger.Infof("disconnect ip:%v port:%v ", p.Ip,p.Port)
+
+		p.connecting = false
+		delete(pm.peers,netID)
+	}
+}
+
 //OnChecked 网络类型检查
 func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp string) {
 	//nc.ourEndPoint = MakeEndPoint(&net.UDPAddr{Ip: net.ParseIP(publicIp), Port: 8686}, 8686)
@@ -177,7 +194,6 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
 			//pm.write(p.Id, nil, packet)
@@ -189,6 +205,52 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	return
 }
 
+
+//SendDataToAll 向所有已经连接的节点发送自定义数据包
+func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+	Logger.Infof("BroadcastRandom total peer size:%v", len(pm.peers))
+
+
+	var availablePeers[]*Peer
+
+	for _, p := range pm.peers {
+		if p.seesionId > 0 {
+			availablePeers = append(availablePeers,p)
+		}
+	}
+	peerSize :=len(availablePeers)
+	maxCount := peerSize /3;
+	if maxCount < 3 {
+		maxCount = 3
+	}
+
+	if len(availablePeers) < maxCount {
+		for _, p := range availablePeers {
+			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
+
+			go P2PSend(p.seesionId, packet.Bytes())
+		}
+	} else {
+		nodesHasSend := make(map[int]bool)
+		rand :=mrand.New(mrand.NewSource(0))
+
+		for i:=0;i<peerSize && len(nodesHasSend) < maxCount;i++ {
+			peerIndex := rand.Intn(peerSize)
+			if nodesHasSend[peerIndex] == true {
+				continue
+			}
+			nodesHasSend[peerIndex] = true
+			p:=availablePeers[peerIndex]
+			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
+
+			go P2PSend(p.seesionId, packet.Bytes())
+		}
+	}
+
+	return
+}
 func (pm *PeerManager) print() {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()

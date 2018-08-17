@@ -112,8 +112,28 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 }
 
 //RemoveGroup 移除组
-func (gm *GroupManager) removeGroup(ID string) {
-	//todo
+func (gm *GroupManager) removeGroup(id string) {
+	gm.mutex.RLock()
+	defer gm.mutex.RUnlock()
+	g := gm.groups[id]
+	if g == nil {
+		Logger.Debugf("removeGroup not found group.")
+		return
+	}
+	memberSize := len(g.members)
+
+	for i := 0; i < memberSize; i++ {
+		id := g.members[i]
+		if id == net.netCore.id {
+			continue
+		}
+
+		node := net.netCore.kad.find(id)
+		if node == nil {
+			net.netCore.peerManager.disconnect(id)
+		}
+	}
+	delete(gm.groups, id)
 }
 
 func (gm *GroupManager) loop() {
@@ -151,7 +171,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
 	Logger.Debugf("SendGroup  id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
-		Logger.Debugf("SendGroup not find group")
+		Logger.Debugf("SendGroup not found group.")
 		return
 	}
 	g.send(packet)
