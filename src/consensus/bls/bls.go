@@ -253,6 +253,10 @@ func (sign *Sign) IsEqual(rhs *Sign) bool {
 	return sign.v.IsEqual(&rhs.v)
 }
 
+func (sign *Sign) IsValid() bool {
+    return !sign.v.IsZero()
+}
+
 // GetPublicKey --
 func (sec *SecretKey) GetPublicKey() (pub *PublicKey) {
 	pub = new(PublicKey)

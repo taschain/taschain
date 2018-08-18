@@ -81,10 +81,11 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
-	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
+	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, level=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.Level, result)
+	logHalfway("doAddOnChain", bh.Height, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
 	if result == 0 {
+		p.latestBlocks.update(bh)
 		p.triggerFutureVerifyMsg(block.Header.Hash)
 		p.groupManager.CreateNextGroupRoutine()
 		p.cleanVerifyContext(bh.Height)
@@ -133,13 +134,13 @@ func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
-    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+    return fmt.Sprintf("hash=%v, height=%v, level=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.Level, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 	bc := NewBlockContext(p, sgi)
 
-	bc.pos = sgi.GetMinerPos(p.GetMinerID())
+	bc.pos = sgi.MemberIndex(p.GetMinerID())
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
@@ -153,4 +154,26 @@ func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
 	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
+}
+
+type latestBlockCache struct {
+	blocks sync.Map
+}
+
+func (lbc *latestBlockCache) update(bh *types.BlockHeader)  {
+	gid := groupsig.DeserializeId(bh.GroupId)
+	key := gid.GetHexString()
+	if v, load := lbc.blocks.LoadOrStore(key, bh); load {
+		existBh := v.(*types.BlockHeader)
+		if existBh.Height < bh.Height {	//若已有的高度小于当前高度，则更新
+			lbc.blocks.Store(key, bh)
+		}
+	}
+}
+
+func (lbc *latestBlockCache) get(gid groupsig.ID) *types.BlockHeader {
+    if v, ok := lbc.blocks.Load(gid.GetHexString()); ok {
+    	return v.(*types.BlockHeader)
+	}
+    return nil
 }

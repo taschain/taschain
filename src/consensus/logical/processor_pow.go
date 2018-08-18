@@ -7,6 +7,7 @@ import (
 	"consensus/logical/pow"
 	"middleware/types"
 	"consensus/groupsig"
+	"math/big"
 )
 
 /*
@@ -15,93 +16,81 @@ import (
 **  Description: 
 */
 
-//出块完成后，启动pow计算
-func (p *Processor) startPowComputation(bh *types.BlockHeader)  {
-	gid := groupsig.DeserializeId(bh.GroupId)
-	gminer := model.NewGroupMinerID(*gid, p.GetMinerID())
-	group := p.getGroup(gminer.Gid)
-	if group == nil {
-		return
+func (p *Processor) getPowWorker(gid groupsig.ID) *pow.PowWorker {
+    if bcs := p.GetBlockContext(gid); bcs != nil {
+    	return bcs.worker
 	}
-	p.worker.Prepare(bh, gminer, len(group.Members))
-	log.Printf("startPowComputation bh=%v\n", p.blockPreview(bh))
-	logStart("POW_COMP", p.worker.BH.Height, p.worker.BH.QueueNumber, p.getPrefix(), "", "")
-	p.worker.Start()
+    return nil
 }
 
-
-func (p *Processor) powWorkerLoop()  {
-    for {
-		select {
-		case cmd := <- p.worker.CmdCh:
-			switch cmd {
-			case pow.CMD_POW_RESULT:
-				p.onPowComputedDeadline()
-			case pow.CMD_POW_CONFIRM:
-				p.onPowConfirmDeadline()
-			}
-		}
+//出块完成后，启动pow计算
+func (p *Processor) startPowComputation(bh *types.BlockHeader)  {
+	gid := *groupsig.DeserializeId(bh.GroupId)
+	if !p.IsMinerGroup(gid) {
+		return
 	}
+	bc := p.GetBlockContext(gid)
+	bc.startPowComputation(bh)
 }
 
 //算出pow结果，发送给其他组员
-func (p *Processor) onPowComputedDeadline()  {
-	if !p.worker.Success() {
+func (p *Processor) onPowComputedDeadline(worker *pow.PowWorker)  {
+	if !worker.Success() {
 		return
 	}
 
 	msg := &model.ConsensusPowResultMessage{
-		BlockHash: p.worker.BH.Hash,
-		Nonce:     p.worker.Nonce,
-		GroupID:   p.worker.GroupMiner.Gid,
+		BlockHash: worker.BH.Hash,
+		Nonce:     worker.Nonce,
+		GroupID:   worker.GroupMiner.Gid,
 	}
 
-	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(p.worker.GroupMiner.Gid)), msg)
+	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(worker.GroupMiner.Gid)), msg)
 
-	logHalfway("POW_Result", p.worker.BH.Height, p.worker.BH.QueueNumber, p.getPrefix(), "nonce %v, cost %v", p.worker.Nonce, time.Since(p.worker.StartTime).String())
+	logHalfway("POW_Result", worker.BH.Height, p.getPrefix(), "nonce %v, cost %v", worker.Nonce, time.Since(worker.StartTime).String())
 
 	log.Printf("send ConsensusPowResultMessage ...")
 	p.NetServer.SendPowResultMessage(msg)
 }
 
-func (p *Processor) onPowConfirmDeadline()  {
-	if !p.worker.Confirmed() {
+func (p *Processor) onPowConfirmDeadline(worker *pow.PowWorker)  {
+	if !worker.Confirmed() {
 		return
 	}
 
 	msg := &model.ConsensusPowConfirmMessage{
-		GroupID: p.worker.GroupMiner.Gid,
-		BlockHash: p.worker.BH.Hash,
-		NonceSeq: p.worker.GetConfirmedNonceSeq(),
+		GroupID: worker.GroupMiner.Gid,
+		BlockHash: worker.BH.Hash,
+		NonceSeq: worker.GetConfirmedNonceSeq(),
 	}
-	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(p.worker.GroupMiner.Gid)), msg)
-	logHalfway("POW_Confirm", p.worker.BH.Height, p.worker.BH.QueueNumber, p.getPrefix(), "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(worker.GroupMiner.Gid)), msg)
+	logHalfway("POW_Confirm", worker.BH.Height, p.getPrefix(), "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
 
-	if p.worker.CheckBroadcastStatus(pow.BROADCAST_NONE, pow.BROADCAST_CONFIRM) {
+	if worker.CheckBroadcastStatus(pow.BROADCAST_NONE, pow.BROADCAST_CONFIRM) {
 		log.Printf("send ConsensusPowConfirmMessage ...")
 		p.NetServer.SendPowConfirmMessage(msg)
 	}
 }
 
-func (p *Processor) sendPowFinal()  {
+func (p *Processor) sendPowFinal(worker *pow.PowWorker)  {
 	msg := &model.ConsensusPowFinalMessage{
-		GroupID: p.worker.GroupMiner.Gid,
-		BlockHash: p.worker.BH.Hash,
-		NonceSeq: p.worker.GetConfirmedNonceSeq(),
-		GSign: *p.worker.GetGSign(),
+		GroupID: worker.GroupMiner.Gid,
+		BlockHash: worker.BH.Hash,
+		NonceSeq: worker.GetConfirmedNonceSeq(),
+		GSign: *worker.GetGSign(),
 	}
-	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(p.worker.GroupMiner.Gid)), msg)
-	logHalfway("POW_final", p.worker.BH.Height, p.worker.BH.QueueNumber, p.getPrefix(), "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerGroupSignKey(worker.GroupMiner.Gid)), msg)
+	logHalfway("POW_final", worker.BH.Height, p.getPrefix(), "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
 
-	if p.worker.CheckBroadcastStatus(pow.BROADCAST_CONFIRM, pow.BROADCAST_FINAL) {
+	if worker.CheckBroadcastStatus(pow.BROADCAST_CONFIRM, pow.BROADCAST_FINAL) {
 		log.Printf("send ConsensusPowFinalMessage ...")
 		p.NetServer.SendPowFinalMessage(msg)
 	}
 }
 
-func (p *Processor) persistPowConfirmed() bool {
-	if p.worker.CheckBroadcastStatus(pow.BROADCAST_CONFIRM, pow.BROADCAST_PERSIST) || p.worker.CheckBroadcastStatus(pow.BROADCAST_FINAL, pow.BROADCAST_PERSIST)  {
-		ret := p.worker.PersistConfirm()
+func (p *Processor) persistPowConfirmed(worker *pow.PowWorker) bool {
+	if worker.CheckBroadcastStatus(pow.BROADCAST_CONFIRM, pow.BROADCAST_PERSIST) || worker.CheckBroadcastStatus(pow.BROADCAST_FINAL, pow.BROADCAST_PERSIST)  {
+		ret := worker.PersistConfirm()
 		//触发检查 当前是否到自己组铸块
 		p.checkSelfCastRoutine()
 		return ret
@@ -109,62 +98,26 @@ func (p *Processor) persistPowConfirmed() bool {
 	return true
 }
 
-//区块提案
-func (p *Processor) powProposeBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *types.BlockHeader {
-	mtype := "CASTBLOCK"
-	height := vctx.castHeight
-
-	log.Printf("begin Processor::powProposeBlock, height=%v, qn=%v...\n", height, qn)
-
-	nonce := time.Now().Unix()
-	gid := bc.MinerID.Gid
-
-	prePowResult := p.worker.LoadConfirm()
-	if prePowResult == nil {	//pow预算还未结束
-		logStart(mtype, height, uint64(qn), p.getPrefix(), "pow预算未结束")
-		log.Printf("pow preCompute not finished\n")
-		return nil
-	}
-	if prePowResult.GetMinerNonce(p.GetMinerID()) == nil {	//自己不能铸块
-		return nil
+func (p *Processor) checkBlockNonces(bh *types.BlockHeader, gid groupsig.ID) bool {
+	groupInfo := p.getGroup(gid)
+	minerNonces := GetMinerNonceFromBlockHeader(bh, groupInfo)
+	latestBlock := p.latestBlocks.get(gid)
+	if latestBlock == nil {
+		latestBlock = p.MainChain.QueryBlockByHeight(0)
 	}
 
-	logStart(mtype, height, uint64(qn), p.getPrefix(), "开始铸块")
-
-	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
-	if block == nil {
-		log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-		logHalfway(mtype, height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
-		return nil
+	diffculty := pow.DIFFCULTY_20_24
+	totalLevel := uint32(0)
+	lastValue := new(big.Int).SetInt64(0)
+	for _, mn := range minerNonces {	//校验难度是否符合，计算值是否递增
+		dv, ok := pow.CheckMinerNonce(diffculty, latestBlock.Hash, &mn)
+		if ok && dv.Cmp(lastValue) > 0 {
+			lastValue = dv
+			totalLevel += diffculty.Level(dv)
+		} else {
+			log.Printf("miner nonce error, id=%v, nonce=%v\n", GetIDPrefix(mn.MinerID), mn.Nonce)
+			return false
+		}
 	}
-
-	bh := block.Header
-
-	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
-
-	var si model.SignData
-	si.DataHash = bh.Hash
-	si.SignMember = p.GetMinerID()
-
-	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
-		//发送该出块消息
-		var ccm model.ConsensusCastMessage
-		ccm.BH = *bh
-		//ccm.GroupID = gid
-		sk := p.getMinerGroupSignKey(gid)
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), sk), &ccm)
-		ccm.GenRandSign(sk, vctx.prevRandSig)
-
-		logHalfway(mtype, height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
-
-		p.NetServer.SendCastVerify(&ccm)
-
-	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, vctx.prevHash, bh.PreHash)
-		//panic("bh Error or sign Error.")
-		return nil
-	}
-	return bh
+	return totalLevel != bh.Level
 }

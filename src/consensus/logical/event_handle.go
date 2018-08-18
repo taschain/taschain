@@ -24,7 +24,7 @@ func (h *blockAddEventHandler) Handle(message notify.Message) {
 		log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 		for _, msg := range futureMsgs {
 			tbh := msg.Block.Header
-			logHalfway("OMB", tbh.Height, tbh.QueueNumber, GetIDPrefix(msg.SI.SignMember), "trigger cached future block")
+			logHalfway("OMB", tbh.Height, GetIDPrefix(msg.SI.SignMember), "trigger cached future block")
 			h.p.receiveBlock(msg, preHeader)
 		}
 		h.p.removeFutureBlockMsgs(preHeader.Hash)

@@ -36,7 +36,6 @@ const (
 
 type ConsensusParam struct {
 	GroupMember int
-	MaxQN 	int
 	SSSSThreshold int
 	MaxUserCastTime int
 	MaxGroupCastTime int
@@ -60,7 +59,6 @@ func InitParam() {
 		SSSSThreshold: cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD),
 		MaxUserCastTime: cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME),
 		MaxGroupCastTime: MAX_GROUP_BLOCK_TIME,
-		MaxQN: (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME,
 		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
 		Epoch: EPOCH,
@@ -71,7 +69,6 @@ func InitParam() {
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
 	}
-	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 }
 
 //取得门限值

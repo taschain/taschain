@@ -742,7 +742,7 @@ func TestSwitch(t *testing.T) {
 		log.Println("TRANS_ACCEPT_NOT_FULL full")
 	case TRANS_ACCEPT_FULL_PIECE:
 		log.Println("TRANS_ACCEPT_FULL_PIECE full")
-	case TRANS_ACCEPT_FULL_THRESHOLD:
-		log.Println("TRANS_ACCEPT_FULL_THRESHOLD full")
+	case TRANS_ACCEPT_FULL_RECOVERED:
+		log.Println("TRANS_ACCEPT_FULL_RECOVERED full")
 	}
 }

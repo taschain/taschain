@@ -78,13 +78,9 @@ func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *St
 
 //检查当前用户是否是建组发起人
 func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo) groupsig.ID {
-	secret := gm.processor.getGroupSecret(group.GroupID)
-	if secret == nil {
-		return groupsig.ID{}
-	}
-	data := secret.SecretSign
-	data = append(data, bh.Signature...)
-	hash := base.Data2CommonHash(data)
+	data := RealRandom(bh)
+	var hash common.Hash
+	hash.SetBytes(data)
 	biHash := hash.Big()
 
 	var index int32 = -1
@@ -92,11 +88,11 @@ func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo)
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
-	log.Printf("checkCreateNextGroup king index=%v, id=%v\n", index, GetIDPrefix(group.GetCastor(int(index))))
+	log.Printf("checkCreateNextGroup king index=%v, id=%v\n", index, GetIDPrefix(group.GetMemberIDByIndex(int(index))))
 	if index < 0 {
 		return groupsig.ID{}
 	}
-	return group.GetCastor(int(index))
+	return group.GetMemberIDByIndex(int(index))
 }
 
 //todo 从链上获取所有候选者
@@ -333,10 +329,10 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
-	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, 分片数 %v", PIECE_RESULT(accept), len(creating.getPieces()))
+	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
-		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
-		msg.GI.Signature = *sign
+		sig := creating.gSignGenerator.GetGroupSign()
+		msg.GI.Signature = sig
 		return true
 	}
 	return false

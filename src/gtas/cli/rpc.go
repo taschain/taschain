@@ -142,7 +142,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["height"] = bh.Height
 	blockDetail["pre_hash"] = bh.PreHash.Hex()
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["queue_number"] = bh.Level
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	var castorId groupsig.ID
 	castorId.Deserialize(bh.Castor)
@@ -167,7 +167,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["height"] = bh.Height
 	blockDetail["pre_hash"] = bh.PreHash.Hex()
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["queue_number"] = bh.Level
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)

@@ -16,7 +16,7 @@ var MAX_HASH_256 *big.Int
 var DIFFCULTY_20_24 *Difficulty
 
 const (
-	DIFFCULTY_LEVEL_NONE int32 = 0
+	DIFFCULTY_LEVEL_NONE uint32 = 0
 	DIFFCULTY_LEVEL_1 = 1
 	DIFFCULTY_LEVEL_2 = 2
 )
@@ -65,7 +65,7 @@ func (d *Difficulty) Satisfy(v *big.Int) bool {
     return v.Cmp(d.TargetMax) < 0
 }
 
-func (d *Difficulty) Level(v *big.Int) int32 {
+func (d *Difficulty) Level(v *big.Int) uint32 {
 	if v.Cmp(d.TargetMin) < 0 {
 		return DIFFCULTY_LEVEL_2
 	}

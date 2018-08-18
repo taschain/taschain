@@ -8,6 +8,7 @@ import (
 	"consensus/groupsig"
 	"common"
 	"strconv"
+	"consensus/base"
 )
 
 /*
@@ -78,19 +79,19 @@ func logKeyword(mtype string, key string, sender string, format string, params .
 	consensusLogger.Infof("%v,%v,#%v#,%v,%v", time.Now().Format(TIMESTAMP_LAYOUT), mtype, key, sender, s)
 }
 
-func logStart(mtype string, height uint64, qn uint64, sender string, format string, params ...interface{}) {
-	key := fmt.Sprintf("%v-%v", height, qn)
+func logStart(mtype string, height uint64, sender string, format string, params ...interface{}) {
+	key := fmt.Sprintf("%v-%v", height, 0)
 	logKeyword(mtype + "-begin", key, sender, format, params...)
 }
 
-func logEnd(mtype string, height uint64, qn uint64, sender string) {
-	key := fmt.Sprintf("%v-%v", height, qn)
+func logEnd(mtype string, height uint64, sender string) {
+	key := fmt.Sprintf("%v-%v", height, 0)
 	logKeyword(mtype + "-end", key, sender, "%v", "")
 }
 
 
-func logHalfway(mtype string, height uint64, qn uint64, sender string, format string, params ...interface{}) {
-	key := fmt.Sprintf("%v-%v", height, qn)
+func logHalfway(mtype string, height uint64, sender string, format string, params ...interface{}) {
+	key := fmt.Sprintf("%v-%v", height, 0)
 	logKeyword(mtype + "-half", key, sender, format, params...)
 }
 
@@ -139,4 +140,17 @@ func MinerNonceSeqDesc(seq []model.MinerNonce) string {
 		s += GetIDPrefix(n.MinerID) + ":" + strconv.FormatUint(n.Nonce, 10) + ","
 	}
 	return s
+}
+
+func RealRandom(bh *types.BlockHeader) []byte {
+	return base.Data2CommonHash(bh.RandSig).Bytes()
+}
+
+func GetMinerNonceFromBlockHeader(bh *types.BlockHeader, groupInfo *StaticGroupInfo) []model.MinerNonce {
+	minerNonces := make([]model.MinerNonce, len(bh.MinerNonces))
+	for idx, mn := range bh.MinerNonces {
+		ln := common.Uint64ToLevelNonce(mn)
+		minerNonces[idx] = model.MinerNonce{MinerID: groupInfo.GetMemberIDByIndex(int(ln.Index)), Nonce:ln.Nonce}
+	}
+	return minerNonces
 }

@@ -6,8 +6,7 @@ import (
 	"middleware/types"
 	"consensus/groupsig"
 	"common"
-	"sync"
-	"consensus/model"
+		"consensus/model"
 	"consensus/base"
 )
 
@@ -16,55 +15,6 @@ import (
 **  Date: 2018/6/27 上午10:39
 **  Description: 
 */
-
-type CastBlockContexts struct {
-	contexts sync.Map	//string -> *BlockContext
-}
-
-func NewCastBlockContexts() *CastBlockContexts {
-	return &CastBlockContexts{
-		contexts: sync.Map{},
-	}
-}
-
-func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-    _, load := bctx.contexts.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
-    return !load
-}
-
-func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
-	if v, ok := bctx.contexts.Load(gid.GetHexString()); ok {
-		return v.(*BlockContext)
-	}
-	return nil
-}
-
-func (bctx *CastBlockContexts) contextSize() int32 {
-	size := int32(0)
-	bctx.contexts.Range(func(key, value interface{}) bool {
-		size ++
-		return true
-	})
-	return size
-}
-
-func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
-	for _, id := range gids {
-		log.Println("removeContexts ", GetIDPrefix(id))
-		bc := bctx.getBlockContext(id)
-		if bc != nil {
-			bc.removeTicker()
-			bctx.contexts.Delete(id.GetHexString())
-		}
-	}
-}
-
-func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
-    bctx.contexts.Range(func(key, value interface{}) bool {
-    	v := value.(*BlockContext)
-		return f(v)
-	})
-}
 
 
 //增加一个铸块上下文（一个组有一个铸块上下文）
@@ -175,7 +125,8 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
-		bc.StartCast(castHeight, expireTime, top)
+		bc.PrepareForProposal(castHeight, expireTime, top)
+		go p.powProposeBlock(bc)	//提案
 
 		return true
 	} else { //自己不是下一个铸块组, 但是当前在铸块
@@ -216,18 +167,10 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("SuccessNewBlock begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	//}()
-
-	if bh == nil {
-		panic("SuccessNewBlock arg failed.")
-	}
 
 	if p.blockOnChain(bh) { //已经上链
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
-		vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+		vctx.setCastBroadcasted()
 		return
 	}
 
@@ -243,7 +186,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
 		return
 	}
-	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
+	vctx.setCastBroadcasted()
 
 	var cbm model.ConsensusBlockMessage
 	cbm.Block = *block
@@ -251,7 +194,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	cbm.GenSign(ski, &cbm)
 	if !PROC_TEST_MODE {
-		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
+		logHalfway("SuccessNewBlock", bh.Height, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(&cbm)
 		p.triggerCastCheck()
 	}
@@ -259,25 +202,48 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 }
 
 
-//当前节点成为KING，出块
-//在pow模式下，此方法废弃， 见powProposeBlock
-func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *types.BlockHeader {
-
+//区块提案
+func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
+	mtype := "CASTBLOCK"
+	vctx := bc.GetCurrentVerifyContext()
 	height := vctx.castHeight
 
-	log.Printf("begin Processor::castBlock, height=%v, qn=%v...\n", height, qn)
+	log.Printf("begin Processor::powProposeBlock, height=%v...\n", height)
 
-	nonce := time.Now().Unix()
 	gid := bc.MinerID.Gid
 
-	logStart("CASTBLOCK", height, uint64(qn), p.getPrefix(), "开始铸块")
+	prePowResult := bc.worker.LoadConfirm()
+	if prePowResult == nil {	//pow预算还未结束
+		logStart(mtype, height, p.getPrefix(), "pow预算未结束")
+		log.Printf("pow preCompute not finished\n")
+		return nil
+	}
+	if _, r := prePowResult.GetMinerNonce(p.GetMinerID()); r == nil {	//自己不能铸块
+		return nil
+	}
+
+	logStart(mtype, height, p.getPrefix(), "开始铸块")
+	group := p.getGroup(gid)
+	for _, nonce := range prePowResult.NonceSeq {
+		if group.MemExist(nonce.MinerID) {
+			panic("minerId not in the group,minerID=" + GetIDPrefix(nonce.MinerID))
+		}
+	}
+
+	levelNonces := make([]common.LevelNonce, len(prePowResult.NonceSeq))
+	for idx, nonce := range prePowResult.NonceSeq {
+		levelNonces[idx] = common.LevelNonce{
+			Index: uint16(group.MemberIndex(nonce.MinerID)),
+			Nonce: nonce.Nonce,
+		}
+	}
 
 	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastingBlock(height, prePowResult.TotalLevel, p.GetMinerID().Serialize(), gid.Serialize(), levelNonces)
 	if block == nil {
-		log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
+		log.Printf("MainChain::CastingBlock failed, height=%v, level=%v, gid=%v, mid=%v.\n", height, prePowResult.TotalLevel, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
 		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
+		logHalfway(mtype, height, p.getPrefix(), "铸块失败, block为空")
 		return nil
 	}
 
@@ -296,9 +262,9 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		//ccm.GroupID = gid
 		sk := p.getMinerGroupSignKey(gid)
 		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), sk), &ccm)
-		ccm.GenRandSign(sk, vctx.prevRandSig)
+		ccm.GenRandSign(sk, vctx.prevRand)
 
-		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
+		logHalfway(mtype, height, p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 
 		p.NetServer.SendCastVerify(&ccm)
 
@@ -307,7 +273,5 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		//panic("bh Error or sign Error.")
 		return nil
 	}
-	//个人铸块完成的同时也是个人验证完成（第一个验证者）
-	//更新共识上下文
 	return bh
 }

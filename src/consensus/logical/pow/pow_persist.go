@@ -15,19 +15,27 @@ import (
 
 type PreConfirmedPowResult struct {
 	BlockHash common.Hash
-	TotalLevel int32
+	TotalLevel uint32
 	Hash 	common.Hash
 	GSign 	groupsig.Signature
 	NonceSeq []model.MinerNonce
 }
 
-func (pcp *PreConfirmedPowResult) GetMinerNonce(id groupsig.ID) *model.MinerNonce {
-	for _, mn := range pcp.NonceSeq {
+func (pcp *PreConfirmedPowResult) GetMinerNonce(id groupsig.ID) (int, *model.MinerNonce) {
+	for i, mn := range pcp.NonceSeq {
 		if mn.MinerID.IsEqual(id) {
-			return &mn
+			return i, &mn
 		}
 	}
-	return nil
+	return -1, nil
+}
+
+func (pcp *PreConfirmedPowResult) CheckEqual(nonceSeq []model.MinerNonce) bool {
+	tmp := model.ConsensusPowConfirmMessage{
+		BlockHash: pcp.BlockHash,
+		NonceSeq: nonceSeq,
+	}
+	return tmp.GenHash() == pcp.Hash
 }
 
 func (w *PowWorker) PersistConfirm() bool {
@@ -69,3 +77,4 @@ func (w *PowWorker) LoadConfirm() *PreConfirmedPowResult {
 	}
     return pr
 }
+

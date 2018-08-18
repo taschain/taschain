@@ -6,6 +6,7 @@ import (
 	"log"
 	"unsafe"
 	"consensus/base"
+		"sort"
 )
 
 // types
@@ -56,8 +57,7 @@ func (sig Signature) Serialize() []byte {
 }
 
 func (sig Signature) IsValid() bool {
-	s := sig.Serialize()
-	return len(s) > 0
+	return sig.value.IsValid()
 }
 
 //把签名转换为十六进制字符串
@@ -131,8 +131,31 @@ func RecoverSignature(sigs []Signature, ids []ID) *Signature {
 	return sig
 }
 
+func randK(m SignatureIMap, k int) SignatureIMap {
+	indexs := base.NewRand().RandomPerm(len(m), k)
+	sort.Ints(indexs)
+	ret := make(SignatureIMap)
+
+	i := 0
+	j := 0
+	for key, sign := range m {
+		if i == indexs[j] {
+			ret[key] = sign
+			j++
+			if j >= k {
+				break
+			}
+		}
+		i++
+	}
+	return ret
+}
+
 //签名恢复函数，m为map(ID->签名)，k为门限值
 func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
+	if k < len(m) {
+		m = randK(m, k)
+	}
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0

@@ -12,9 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 	"vm/ethdb"
-	"core/datasource"
-	"log"
-)
+		)
 
 /*
 **  Creator: pxf
@@ -39,6 +37,8 @@ const (
 	BROADCAST_FINAL         = 2
 	BROADCAST_PERSIST       = 3
 )
+
+const NONCE_MAX = uint64(0xffffffffffff)
 
 var (
 	ACCEPT_HASH_DIFF = model.NewEnumResult(1, "hash不一致")
@@ -75,9 +75,9 @@ type dataInput struct {
 	offset int
 }
 
-func newDataInput(hash common.Hash, gminer *model.GroupMinerID) *dataInput {
+func newDataInput(hash common.Hash, uid groupsig.ID) *dataInput {
 	data := hash.Bytes()
-	data = append(data, gminer.Uid.Serialize()...)
+	data = append(data, uid.Serialize()...)
 	offset := len(data)
 	data = strconv.AppendUint(data, 0, 10)
 	return &dataInput{
@@ -114,20 +114,15 @@ type PowWorker struct {
 	storage 		ethdb.Database
 }
 
-func NewPowWorker() *PowWorker {
+func NewPowWorker(db ethdb.Database) *PowWorker {
 	w := &PowWorker{
 		CmdCh:           make(chan int),
 		stopCh:          make(chan struct{}),
 		Nonce:           0,
 		PowStatus:       STATUS_STOP,
 		BroadcastStatus: BROADCAST_NONE,
+		storage: db,
 	}
-	db, err := datasource.NewDatabase("consensus_pow_worker_")
-	if err != nil {
-		log.Printf("NewDatabase error %v\n", err)
-		panic("NewDatabase error" + err.Error())
-	}
-	w.storage = db
 	return w
 }
 
@@ -181,15 +176,27 @@ func (w *PowWorker) toFinish(status int32) bool {
 	return false
 }
 
-func (w *PowWorker) computeDifficultyValue(nonce uint64, input *dataInput) *big.Int {
-	input.setNonce(w.Nonce)
-	h := base.Data2CommonHash(w.Input.data)
+func computeDifficultyValue(nonce uint64, input *dataInput) *big.Int {
+	input.setNonce(nonce)
+	h := base.Data2CommonHash(input.data)
 	h = base.Data2CommonHash(h.Bytes())
 	return h.Big()
 }
 
+func CheckMinerNonce(diffculty *Difficulty, blockHash common.Hash, minerNonce *model.MinerNonce) (d *big.Int, ok bool) {
+	if minerNonce.Nonce > NONCE_MAX {
+		return nil, false
+	}
+	input := newDataInput(blockHash, minerNonce.MinerID)
+	dv := computeDifficultyValue(minerNonce.Nonce, input)
+	return dv, diffculty.Satisfy(dv)
+}
+
 func (w *PowWorker) checkNonce(nonce uint64, input *dataInput) (d *big.Int, ok bool) {
-	dv := w.computeDifficultyValue(nonce, input)
+	if nonce > NONCE_MAX {
+		return nil, false
+	}
+	dv := computeDifficultyValue(nonce, input)
 	return dv, w.Difficulty.Satisfy(dv)
 }
 
@@ -197,7 +204,7 @@ func (w *PowWorker) run() bool {
 	defer func() {
 		w.stopCh <- struct{}{}
 	}()
-	for w.PowStatus == STATUS_RUNNING {
+	for w.PowStatus == STATUS_RUNNING && w.Nonce <= NONCE_MAX {
 		w.Nonce++
 		if _, ok := w.checkNonce(w.Nonce, w.Input); ok {
 			if w.toFinish(STATUS_SUCCESS) {
@@ -209,31 +216,44 @@ func (w *PowWorker) run() bool {
 	return false
 }
 
-func (w *PowWorker) Prepare(bh *types.BlockHeader, gminer *model.GroupMinerID, members int) {
-	if atomic.LoadInt32(&w.PowStatus) == STATUS_RUNNING {
+func (w *PowWorker) IsRunning() bool {
+    return atomic.LoadInt32(&w.PowStatus) == STATUS_RUNNING
+}
+
+func (w *PowWorker) IsStopped() bool {
+	return atomic.LoadInt32(&w.PowStatus) == STATUS_STOP
+}
+
+func (w *PowWorker) Prepare(bh *types.BlockHeader, gminer *model.GroupMinerID, members int) bool {
+	if w.IsRunning() {
+		if w.BH.Hash == bh.Hash {
+			return false
+		}
 		w.Stop()
 		<-w.stopCh
 	}
 	w.GroupMiner = gminer
 	w.BH = bh
-	w.Input = newDataInput(bh.Hash, gminer)
+	w.Input = newDataInput(bh.Hash, gminer.Uid)
 	w.Difficulty = DIFFCULTY_20_24
 	w.setDeadline(bh.CurTime)
 	w.PowStatus = STATUS_STOP
 	w.BroadcastStatus = BROADCAST_NONE
 	w.Nonce = 0
 	w.context = newPowContext(bh.Hash, members)
+	return true
 }
 
 func (w *PowWorker) powExpire() bool {
 	return time.Now().After(*w.PowDeadline)
 }
 
-func (w *PowWorker) AcceptResult(nonce uint64, hash common.Hash, gminer *model.GroupMinerID) *model.EnumResult {
-	if hash != w.BH.Hash {
+func (w *PowWorker) AcceptResult(nonce uint64, blockHash common.Hash, gminer *model.GroupMinerID) *model.EnumResult {
+	if blockHash != w.BH.Hash {
 		return ACCEPT_HASH_DIFF
 	}
-	input := newDataInput(hash, gminer)
+
+	input := newDataInput(blockHash, gminer.Uid)
 	var (
 		dv *big.Int
 		ok bool
@@ -306,7 +326,8 @@ func (w *PowWorker) AcceptConfirm(blockHash common.Hash, seq []model.MinerNonce,
 }
 
 func (w *PowWorker) GetGSign() *groupsig.Signature {
-	return w.context.getConfirmed().gSign
+	sig := w.context.getConfirmed().gSignGenerator.GetGroupSign()
+	return &sig
 }
 
 func (w *PowWorker) CheckBroadcastStatus(sourceStatus int32, targetStatus int32) bool {

@@ -22,7 +22,7 @@ type powResult struct {
 	minerID groupsig.ID
 	nonce   uint64
 	value   *big.Int
-	level   int32
+	level   uint32
 }
 
 func (pr *powResult) marshal() []byte {
@@ -49,8 +49,8 @@ func (prs powResults) Swap(i, j int) {
 	prs[j] = tmp
 }
 
-func (prs powResults) totalLevel() int32 {
-	t := int32(0)
+func (prs powResults) totalLevel() uint32 {
+	t := uint32(0)
 	for _, pr := range prs {
 		t += pr.level
 	}
@@ -68,12 +68,11 @@ func (prs powResults) totalValue() *big.Int {
 type powConfirm struct {
 	resultHash common.Hash
 	results    powResults
-	totalLevel int32
+	totalLevel uint32
 	totalValue *big.Int
-	signs      map[string]groupsig.Signature
-	gSign      *groupsig.Signature
+	gSignGenerator *model.GroupSignGenerator
+	gSign 		*groupsig.Signature
 	threshold  int
-	lock       sync.RWMutex
 }
 
 func (pc *powConfirm) genNonceSeq() []model.MinerNonce {
@@ -93,14 +92,11 @@ func (pc *powConfirm) genHash(blockHash common.Hash) {
 }
 
 func (pc *powConfirm) addSign(uid groupsig.ID, signature groupsig.Signature) bool {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-	pc.signs[uid.GetHexString()] = signature
-	if len(pc.signs) > pc.threshold && pc.gSign == nil {
-		pc.gSign = groupsig.RecoverSignatureByMapI(pc.signs, pc.threshold)
-		if pc.gSign != nil {
-			return true
-		}
+	add, gen := pc.gSignGenerator.AddWitness(uid, signature)
+	if add && gen {
+		sig := pc.gSignGenerator.GetGroupSign()
+		pc.gSign = &sig
+		return true
 	}
 	return false
 }
@@ -142,7 +138,7 @@ func (pc *powContext) newPowConfirm(results powResults) *powConfirm {
 		results:    results,
 		totalLevel: results.totalLevel(),
 		totalValue: results.totalValue(),
-		signs:      map[string]groupsig.Signature{},
+		gSignGenerator:  model.NewGroupSignGenerator(pc.threshold),
 		threshold:  pc.threshold,
 	}
 	confirm.genHash(pc.blockHash)

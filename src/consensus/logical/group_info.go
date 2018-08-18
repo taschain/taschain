@@ -87,40 +87,13 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		Extends:       coreGroup.Extends,
 	}
 }
-//取得某个矿工在组内的排位
-func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
-	pos := -1
-	if v, ok := sgi.MemIndex[id.GetHexString()]; ok {
-		pos = v
-		//双重验证
-		if !sgi.Members[pos].ID.IsEqual(id) {
-			panic("double check fail!id=" + id.GetHexString())
-		}
-	}
-	return pos
-}
-
 
 func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 	return sgi.GroupPK
 }
 
-//由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
-	sgi := &StaticGroupInfo{
-		GIS:      grm.GI,
-		Members:  make([]model.PubKeyInfo, 0),
-		MemIndex: make(map[string]int),
-	}
-	for _, v := range grm.MEMS {
-		sgi.Members = append(sgi.Members, v)
-		sgi.MemIndex[v.GetID().GetHexString()] = len(sgi.Members) - 1
-	}
-	return sgi
-}
 
-
-func (sgi *StaticGroupInfo) GetLen() int {
+func (sgi *StaticGroupInfo) MemberCount() int {
 	return len(sgi.Members)
 }
 
@@ -148,13 +121,16 @@ func (sgi *StaticGroupInfo) addMember(m *model.PubKeyInfo) {
 	}
 }
 
-func (sgi *StaticGroupInfo) CanGroupSign() bool {
-	return sgi.GroupPK.IsValid()
-}
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
-	_, ok := sgi.MemIndex[uid.GetHexString()]
-	return ok
+	return sgi.MemberIndex(uid) >= 0
+}
+
+func (sgi *StaticGroupInfo) MemberIndex(uid groupsig.ID) int {
+    if i, ok := sgi.MemIndex[uid.GetHexString()]; ok {
+    	return i
+	}
+    return -1
 }
 
 //ok:是否组内成员
@@ -176,18 +152,8 @@ func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bo
 	return
 }
 
-//取得某个成员在组内的排位
-func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.MemIndex[uid.GetHexString()]
-	if ok {
-		return int32(i)
-	} else {
-		return int32(-1)
-	}
-}
-
 //取得指定位置的铸块人
-func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
+func (sgi StaticGroupInfo) GetMemberIDByIndex(i int) groupsig.ID {
 	var m groupsig.ID
 	if i >= 0 && i < len(sgi.Members) {
 		m = sgi.Members[i].GetID()

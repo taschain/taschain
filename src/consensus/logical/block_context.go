@@ -8,30 +8,26 @@ import (
 	"sync"
 	"middleware/types"
 	"consensus/model"
+	"consensus/logical/pow"
+	"consensus/groupsig"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-//组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
+//组铸块共识上下文结构
 type BlockContext struct {
 	Version         uint
-	//PreTime         time.Time                   //所属组的当前铸块起始时间戳(组内必须一致，不然时间片会异常，所以直接取上个铸块完成时间)
-	//CCTimer         time.Ticker                 //共识定时器
-	//TickerRunning	bool
-	//SignedMaxQN     int64                       //组内已铸出的最大QN值的块
-	//PrevHash        common.Hash                 //上一块哈希值
-	//CastHeight      uint64                      //待铸块高度
 	GroupMembers    int                        //组成员数量
-	//Threshold       uint                           //百分比（0-100）
-	//Slots [MAX_SYNC_CASTORS]*SlotContext //铸块槽列表
-	verifyContexts	[]*VerifyContext
-
-	currentVerifyContext *VerifyContext //当前铸块的verifycontext
-
-	lock sync.RWMutex
-
 	Proc    *Processor   //处理器
 	MinerID model.GroupMinerID //矿工ID和所属组ID
 	pos     int          //矿工在组内的排位
+	groupInfo 		*StaticGroupInfo
+
+	worker			*pow.PowWorker
+	verifyContexts	[]*VerifyContext
+	currentVerifyContext *VerifyContext //当前铸块的verifycontext
+	ctrlCh			chan struct{}
+
+	lock sync.RWMutex
 }
 
 func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
@@ -41,25 +37,54 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 		verifyContexts: make([]*VerifyContext, 0),
 		GroupMembers: len(sgi.Members),
 		Version: model.CONSENSUS_VERSION,
+		worker: pow.NewPowWorker(p.storage),
+		ctrlCh: make(chan struct{}),
+		groupInfo: sgi,
 	}
+
+	go bc.powWorkerLoop()
+
 	bc.reset()
 	return bc
+}
+
+
+func (bc *BlockContext) powWorkerLoop()  {
+	worker := bc.worker
+	FOR:
+	for {
+		select {
+		case cmd := <- worker.CmdCh:
+			switch cmd {
+			case pow.CMD_POW_RESULT:
+				bc.Proc.onPowComputedDeadline(worker)
+			case pow.CMD_POW_CONFIRM:
+				bc.Proc.onPowConfirmDeadline(worker)
+			}
+		case <-bc.ctrlCh:
+			break FOR
+		}
+	}
 }
 
 func (bc *BlockContext) threshold() int {
     return model.Param.GetGroupK(bc.GroupMembers)
 }
 
-func (bc *BlockContext) getKingCheckRoutineName() string {
-	return "king_check_routine_" + GetIDPrefix(bc.MinerID.Gid)
+func (bc *BlockContext) finalize()  {
+    bc.ctrlCh <- struct{}{}
 }
+
+//func (bc *BlockContext) getKingCheckRoutineName() string {
+//	return "king_check_routine_" + GetIDPrefix(bc.MinerID.Gid)
+//}
 
 func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
 	vctx := bc.GetCurrentVerifyContext()
 	if vctx != nil {
 		vctx.lock.Lock()
 		defer vctx.lock.Unlock()
-		return vctx.isCasting() && !vctx.maxQNCasted() && vctx.castHeight == height && vctx.prevHash == preHash
+		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevHash == preHash
 	} else {
 		return false
 	}
@@ -76,8 +101,8 @@ func (bc *BlockContext) getVerifyContext(height uint64, preHash common.Hash) (in
 }
 
 func (bc *BlockContext) GetCurrentVerifyContext() *VerifyContext {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
 	return bc.currentVerifyContext
 }
 
@@ -108,44 +133,24 @@ func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 			if bc.currentVerifyContext == ctx {
 				bc.reset()
 			}
-			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
+			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash))
 		}
 	}
 	bc.verifyContexts = newCtxs
 }
 
 func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
 
 	return bc.verifyContexts
 }
 
-//（网络接收）新到交易集通知
-//返回不再缺失交易的QN槽列表
-//func (bc *BlockContext) receiveTrans(ths []common.Hash) []*SlotContext {
-//	slots := make([]*SlotContext, 0)
-//
-//	for _, v := range bc.SafeGetVerifyContexts() {
-//		fullSlots := v.ReceiveTrans(ths)
-//		slots = append(slots, fullSlots...)
-//	}
-//	return slots
-//}
-
-type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
-
-const (
-	QQSR_EMPTY_SLOT   QN_QUERY_SLOT_RESULT = iota //找到一个空槽
-	QQSR_REPLACE_SLOT                             //找到一个能替换（QN值更低）的槽
-	QQSR_EXIST_SLOT                               //该QN对应的插槽已存在
-	QQSR_NO_UNKNOWN                               //未知结果
-)
 
 func (bc *BlockContext) castingInfo() string {
 	vctx := bc.currentVerifyContext
 	if vctx != nil {
-		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, signedMaxQN=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevHash), vctx.prevTime.String(), vctx.signedMaxQN)
+		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, casted=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevHash), vctx.prevTime.String(), vctx.castSuccess())
 	} else {
 		return "not in casting!"
 	}
@@ -162,22 +167,12 @@ func (bc *BlockContext) Reset() {
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
 
-	//bc.PreTime = *new(time.Time)
-	//bc.CCTimer.Stop() //关闭定时器
-	//bc.TickerRunning = false
-	//bc.consensusStatus = CBCS_IDLE
-	//bc.SignedMaxQN = INVALID_QN
-	//bc.PrevHash = common.Hash{}
-	//bc.CastHeight = 0
 	bc.currentVerifyContext = nil
-	//bc.GroupMembers = GetGroupMemberNum()
-
-	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
-	//log.Printf("end BlockContext::Reset.\n")
+	//bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) {
+func (bc *BlockContext) PrepareForProposal(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -194,70 +189,81 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}
+	if castHeight == 1 {
+		bc.startPowComputation(baseBH)
+	}
 
-	//开始铸块
-	go bc.Proc.powProposeBlock(bc, verifyCtx, 0)
-	//bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
 }
 
-//定时器例行处理
-//如果返回false, 则关闭定时器
-func (bc *BlockContext) kingTickerRoutine() bool {
-	if !bc.Proc.Ready() {
-		return false
+func (bc *BlockContext) getMemIdByIndex(index int) groupsig.ID {
+	if index >= bc.groupInfo.MemberCount() {
+		return groupsig.ID{}
 	}
-	//log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
+	return bc.groupInfo.Members[index].ID
+}
 
-	vctx := bc.GetCurrentVerifyContext()
-	if vctx == nil {
-		log.Printf("kingTickerRoutine: verifyContext is nil, return!\n")
-		return false
+func (bc *BlockContext) getMinerNonceFromBlockHeader(bh *types.BlockHeader) []model.MinerNonce {
+	return GetMinerNonceFromBlockHeader(bh, bc.groupInfo)
+}
+
+func (bc *BlockContext) startPowComputation(bh *types.BlockHeader) {
+	worker := bc.worker
+	if worker.Prepare(bh, &bc.MinerID, bc.groupInfo.MemberCount()) {
+		log.Printf("startPowComputation height=%v, hash=%v, gid=%v\n", bh.Height, GetHashPrefix(bh.Hash), GetIDPrefix(bc.groupInfo.GroupID))
+		logStart("POW_COMP", worker.BH.Height, GetIDPrefix(bc.MinerID.Uid), "", "")
+		worker.Start()
 	}
+}
 
-	vctx.lock.Lock()
-	defer vctx.lock.Unlock()
+func (bc *BlockContext) isPowWorking() bool {
+	return bc.worker.IsRunning()
+}
 
-	if !vctx.isCasting() || vctx.maxQNCasted() { //没有在组铸块共识中或已经出最高qn块
-		log.Printf("proc(%v) not in casting, reset and direct return. castingInfo=%v.\n", bc.Proc.getPrefix(), bc.castingInfo())
-		bc.Reset() //提前出块完成
-		return false
+type CastBlockContexts struct {
+	contexts sync.Map	//string -> *BlockContext
+}
+
+func NewCastBlockContexts() *CastBlockContexts {
+	return &CastBlockContexts{
+		contexts: sync.Map{},
 	}
+}
 
-	d := time.Since(vctx.prevTime) //上个铸块完成到现在的时间
-	//max := vctx.getMaxCastTime()
+func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
+	_, load := bctx.contexts.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
+	return !load
+}
 
-	if vctx.castExpire() { //超过了组最大铸块时间
-		log.Printf("proc(%v) end kingTickerRoutine, out of max group cast time, time=%v secs, castInfo=%v.\n", bc.Proc.getPrefix(), d.Seconds(), bc.castingInfo())
-		//bc.reset()
-		vctx.setTimeout()
-		return false
-	} else {
-		//当前组仍在有效铸块共识时间内
-		//检查自己是否成为铸块人
-		index, qn := vctx.calcCastor() //当前铸块人（KING）和QN值
-		if index < 0 {
-			log.Printf("kingTickerRoutine: calcCastor index =%v\n", index)
-			return false
-		}
-		if vctx.signedMaxQN != model.INVALID_QN && qn <= vctx.signedMaxQN { //已经铸出了更大的qn
-			log.Printf("kingTickerRoutine: already cast maxer qn! height=%v, signMaxQN=%v, calcQn=%v\n", vctx.castHeight, vctx.signedMaxQN, qn)
-			return false
-		}
-		bc.Proc.kingCheckAndCast(bc, vctx, index, qn)
-		//log.Printf("proc(%v) end kingTickerRoutine, KING_POS=%v, qn=%v.\n", bc.Proc.getPrefix(), index, qn)
+func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
+	if v, ok := bctx.contexts.Load(gid.GetHexString()); ok {
+		return v.(*BlockContext)
+	}
+	return nil
+}
+
+func (bctx *CastBlockContexts) contextSize() int32 {
+	size := int32(0)
+	bctx.contexts.Range(func(key, value interface{}) bool {
+		size ++
 		return true
+	})
+	return size
+}
+
+func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
+	for _, id := range gids {
+		log.Println("removeContexts ", GetIDPrefix(id))
+		bc := bctx.getBlockContext(id)
+		if bc != nil {
+			bc.finalize()
+			bctx.contexts.Delete(id.GetHexString())
+		}
 	}
-	return true
 }
 
-func (bc *BlockContext) getGroupSecret() *GroupSecret {
-    return bc.Proc.getGroupSecret(bc.MinerID.Gid)
-}
-
-func (bc *BlockContext) registerTicker()  {
-	bc.Proc.Ticker.RegisterRoutine(bc.getKingCheckRoutineName(), bc.kingTickerRoutine, uint32(model.Param.MaxUserCastTime))
-}
-
-func (bc *BlockContext) removeTicker()  {
-	bc.Proc.Ticker.RemoveRoutine(bc.getKingCheckRoutineName())
+func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
+	bctx.contexts.Range(func(key, value interface{}) bool {
+		v := value.(*BlockContext)
+		return f(v)
+	})
 }
