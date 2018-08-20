@@ -192,3 +192,41 @@ func Snapshot() int {
 func AddPreimage(hashC *C.char, preimageC *C.char) {
 
 }
+
+// block chain impl
+
+//export BlockHash
+func BlockHash(height C.ulonglong) *C.char {
+	block := reader.QueryBlockByHeight(uint64(height))
+	return C.CString(block.Hash.String())
+}
+
+//export CoinBase
+func CoinBase() *C.char {
+	return C.CString(common.BytesToAddress(currentBlockHeader.Castor).GetHexString())
+}
+
+//export Difficulty
+func Difficulty() C.ulonglong {
+	return C.ulonglong(currentBlockHeader.TotalQN)
+}
+
+//export Number
+func Number() C.ulonglong {
+	return C.ulonglong(currentBlockHeader.Height)
+}
+
+//export Timestamp
+func Timestamp() C.ulonglong {
+	return C.ulonglong(uint64(currentBlockHeader.CurTime.Unix()))
+}
+
+//export TxOrigin
+func TxOrigin() *C.char {
+	return C.CString(currentTransaction.Source.GetHexString())
+}
+
+//export TxGasLimit
+func TxGasLimit() C.ulonglong{
+	return C.ulonglong(currentTransaction.GasLimit)
+}

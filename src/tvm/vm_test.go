@@ -26,7 +26,7 @@ import (
 func TestVmTest(t *testing.T) {
 	db, _ := tasdb.NewMemDatabase()
 	statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	vm := NewTvm(statedb)
+	vm := NewTvm(statedb, nil)
 	script := `
 
 import account
@@ -37,7 +37,7 @@ account.set_nonce("0x1234", -1)
 print("")
 print(account.get_nonce("0x1234"))
 #tas.test()`
-	vm.Execute(script)
+	vm.Execute(script,nil, nil)
 }
 
 func TestVmTestContract(t *testing.T) {
