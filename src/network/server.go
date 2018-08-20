@@ -37,7 +37,7 @@ func (n *server) Send(id string, msg Message) error {
 	return nil
 }
 
-func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error {
+func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
@@ -89,7 +89,7 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 	return nil
 }
 
-func (n *server) Broadcast(msg Message, relayCount int32) error {
+func (n *server) Relay(msg Message, relayCount int32) error {
 
 	bytes, err := marshalMessage(msg)
 	if err != nil {
@@ -101,6 +101,10 @@ func (n *server) Broadcast(msg Message, relayCount int32) error {
 	return nil
 }
 
+//todo impl by 文杰
+func (n *server) Broadcast(msg Message) error {
+	return nil
+}
 func (n *server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
 	peers := n.netCore.peerManager.peers

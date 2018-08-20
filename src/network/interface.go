@@ -86,7 +86,7 @@ type Network interface {
 
 	//Send message to the node which id represents. If self doesn't connect to the node,
 	// send message to the guys which belongs to the same group with the node and they will rely the message to the node
-	SendWithGroupRely(id string, groupId string,msg Message)error
+	SendWithGroupRelay(id string, groupId string,msg Message)error
 
 	//Broadcast the message among the group which self belongs to
 	Multicast(groupId string, msg Message) error
@@ -97,9 +97,11 @@ type Network interface {
 	//Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error
 
-	//Broadcast the message to all nodes and they will also broadcast the message to their neighbor util relayCount
-	//if relayCount = -1,every node will relay this message to all connected node once
-	Broadcast(msg Message,relayCount int32) error
+	//Send the message to part nodes it connects to and they will also broadcast the message to part of their neighbor util relayCount
+	Relay(msg Message,relayCount int32)error
+
+	//Send the message to all nodes it connects to and the node which receive the message also broadcast the message to their neighbor once
+	Broadcast(msg Message) error
 
 	//Return all connections self has
 	ConnInfo() []Conn

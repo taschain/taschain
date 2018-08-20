@@ -53,7 +53,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	//给自己发
 	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
 
-	e = ns.net.Broadcast(m, -1)
+	e = ns.net.Broadcast(m)
 
 	logger.Debugf("SendGroupInitMessage hash:%s,  dummyId %v", m.Hash(), grm.GI.DummyID.GetHexString())
 }
@@ -73,7 +73,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 
 	begin := time.Now()
-	ns.net.SendWithGroupRely(spm.Dest.String(), spm.DummyID.GetHexString(), m)
+	ns.net.SendWithGroupRelay(spm.Dest.String(), spm.DummyID.GetHexString(), m)
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v", spm.Dest.String(), m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -206,7 +206,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CreateGroupSign, Body: body}
 
-	ns.net.SendWithGroupRely(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
+	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------
