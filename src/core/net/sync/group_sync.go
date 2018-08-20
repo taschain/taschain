@@ -16,7 +16,7 @@ import (
 
 //todo  消息传输是否需要签名？ 异常代码处理
 const (
-	GROUP_HEIGHT_RECEIVE_INTERVAL = 3 * time.Second
+	GROUP_HEIGHT_RECEIVE_INTERVAL = 1 * time.Second
 
 	GROUP_SYNC_INTERVAL = 5 * time.Second
 )
