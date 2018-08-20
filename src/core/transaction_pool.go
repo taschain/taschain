@@ -134,17 +134,6 @@ func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
 	return txs
-
-	//var result []*types.Transaction
-	//if pool.received.txs.Len() > 5000 {
-	//	result = make([]*types.Transaction, 5000)
-	//	copy(result, pool.received.txs[:5000])
-	//} else {
-	//	result = make([]*types.Transaction, pool.received.txs.Len())
-	//	copy(result, pool.received.txs)
-	//}
-	//sort.Sort(types.Transactions(result))
-	//return result
 }
 
 // 返回待处理的transaction数组
@@ -201,7 +190,6 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		return false, nil
 	}
 
-
 	pool.received.Push(tx)
 
 	// batch broadcast
@@ -224,7 +212,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 func (pool *TransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
 	pool.received.Remove(transactions)
 	pool.reserved.Remove(hash)
-
+	pool.removeFromSendinglist(transactions)
 }
 
 func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
@@ -527,4 +515,19 @@ func (c *container) Remove(keys []common.Hash) {
 
 func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
+}
+
+func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
+	if nil == transactions || 0 == len(transactions) {
+		return
+	}
+	for _, hash := range transactions {
+		for i, tx := range p.sendingList {
+			if tx.Hash == hash {
+				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
+			}
+			break
+		}
+	}
+
 }
