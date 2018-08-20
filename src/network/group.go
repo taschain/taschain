@@ -37,7 +37,7 @@ func (g *Group) doRefresh() {
 			continue
 		}
 		node := net.netCore.kad.find(id)
-		if node != nil {
+		if node != nil && node.Ip != nil && node.Port > 0{
 			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 			go net.netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
@@ -70,13 +70,11 @@ func (g *Group) send(packet *bytes.Buffer) {
 			go net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
 		} else {
 			node := net.netCore.kad.find(id)
-			if node != nil {
+			if node != nil  && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
 				go net.netCore.peerManager.write(id,nil, packet)
-				Logger.Debugf("sendGroup node not connected  & can not find in KAD , resolve ....  id：%v ", id.GetHexString())
-				g.resolve(id)
 			}
 		}
 	}

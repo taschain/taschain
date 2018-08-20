@@ -4,11 +4,11 @@ import "fmt"
 import "time"
 //export OnP2PRecved
 func OnP2PRecved(id uint64, session uint32, data []byte) {
-	//fmt.Printf("%v %v %v %v\n", "OnP2PRecved", id, session, len(data))
 	start := time.Now()
-
+	Logger.Infof("OnP2PRecved begin")
 	net.netCore.OnRecved(id, session, data)
-
+	Logger.Infof("OnP2PRecved end")
+	
 	diff := time.Now().Sub(start)
 	if diff > 500 *time.Millisecond {
 		fmt.Printf("OnP2PRecved timeout:%v\n", diff)
