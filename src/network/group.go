@@ -113,8 +113,8 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 
 //RemoveGroup 移除组
 func (gm *GroupManager) removeGroup(id string) {
-	gm.mutex.RLock()
-	defer gm.mutex.RUnlock()
+	gm.mutex.Lock()
+	defer gm.mutex.Unlock()
 	g := gm.groups[id]
 	if g == nil {
 		Logger.Debugf("removeGroup not found group.")
