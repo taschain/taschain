@@ -424,21 +424,21 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
-	Logger.Infof("SendGroupMember: node id:%v member id :%v", id, memberId)
+	Logger.Infof("SendGroupMember: node id:%v member id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if p != nil && p.seesionId > 0 {
-		Logger.Infof("node id:%v connected send packet", memberId)
+		Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
 		nc.Send(memberId, nil, data)
 	} else {
 		node := net.netCore.kad.find(memberId)
 		if node != nil && node.Ip != nil && node.Port > 0 {
-			Logger.Infof("node id:%v found in kad send packet", memberId)
+			Logger.Infof("node id:%v found in kad send packet", memberId.GetHexString())
 
 			go nc.Send(memberId, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, data)
 		} else {
 
-			Logger.Infof("node id:%v can not found ,group broadcast packet", memberId)
+			Logger.Infof("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
 
 			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId, nil, -1)
 			if err != nil {
