@@ -65,12 +65,12 @@ func (g *Group) send(packet *bytes.Buffer) {
 			continue
 		}
 		p := net.netCore.peerManager.peerByID(id)
-		if p != nil && p.Ip != nil && p.Port > 0 {
+		if p != nil {
 			Logger.Debugf("sendGroup node is connected : id：%v ip: %v  port:%v", id.GetHexString(), p.Ip, p.Port)
 			go net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
 		} else {
 			node := net.netCore.kad.find(id)
-			if node != nil {
+			if node != nil  && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
