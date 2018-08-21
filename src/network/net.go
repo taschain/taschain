@@ -172,7 +172,10 @@ func (nc *NetCore) close() {
 
 func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
-	to := MakeEndPoint(toaddr, 0)
+	to := MakeEndPoint(&nnet.UDPAddr{}, 0)
+	if toaddr != nil {
+		to = MakeEndPoint(toaddr, 0)
+	}
 	req := &MsgPing{
 		Version:    Version,
 		From:       &nc.ourEndPoint,
@@ -424,12 +427,12 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
-	Logger.Infof("SendGroupMember: node id:%v member id :%v", id, memberId.GetHexString())
+	Logger.Infof("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if p != nil && p.seesionId > 0 {
 		Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
-		nc.Send(memberId, nil, data)
+		go nc.Send(memberId, nil, data)
 	} else {
 		node := net.netCore.kad.find(memberId)
 		if node != nil && node.Ip != nil && node.Port > 0 {
@@ -683,8 +686,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 	id := fromId.GetHexString()
 	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
 	if req.DataType == DataType_DataNormal {
-		Logger.Infof("handleMessage...")
-
 		net.handleMessage(req.Data, id)
 	} else {
 		forwarded := false
@@ -710,15 +711,25 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-				Logger.Infof("handleMessage...")
 				net.handleMessage(req.Data, srcNodeId.GetHexString())
 			}
+			broadcast := false
 			//需广播
-			if (len(req.DestNodeId) == 0 || destNodeId != nc.id) && req.RelayCount != 0 {
+			if (len(req.DestNodeId) == 0 || destNodeId != nc.id) {
+				broadcast = true
+			}
+
+			//if req.DataType ==  DataType_DataGlobal &&  req.RelayCount ==0 {
+			//	broadcast = false
+			//}
+			if	broadcast {
 				var dataBuffer *bytes.Buffer = nil
-				if req.RelayCount > 0 {
-					req.RelayCount = req.RelayCount - 1
-					dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
+				if  req.DataType ==  DataType_DataGlobal && req.RelayCount > 0 {
+					//req.RelayCount = req.RelayCount - 1
+					//req.Expiration = uint64(time.Now().Add(expiration).Unix())
+					//dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
+					dataBuffer = bytes.NewBuffer(packet)
+
 				} else {
 					dataBuffer = bytes.NewBuffer(packet)
 

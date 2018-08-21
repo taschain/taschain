@@ -96,15 +96,24 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.BroadcastRandom(bytes,relayCount)
+	n.netCore.SendAll(bytes, true,nil,-1)
+
+	//n.netCore.BroadcastRandom(bytes,relayCount)
+	Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	return nil
+}
+
+func (n *server) Broadcast(msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes, true,nil,-1)
 	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-//todo impl by 文杰
-func (n *server) Broadcast(msg Message) error {
-	return nil
-}
 func (n *server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
 	peers := n.netCore.peerManager.peers
