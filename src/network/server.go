@@ -107,9 +107,8 @@ func (n *server) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, false,nil,-1)
+	n.netCore.SendAll(bytes, true,nil,-1)
 	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
-	return nil
 	return nil
 }
 

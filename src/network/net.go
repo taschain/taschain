@@ -683,8 +683,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 	id := fromId.GetHexString()
 	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
 	if req.DataType == DataType_DataNormal {
-		Logger.Infof("handleMessage...")
-
 		net.handleMessage(req.Data, id)
 	} else {
 		forwarded := false
@@ -710,15 +708,25 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-				Logger.Infof("handleMessage...")
 				net.handleMessage(req.Data, srcNodeId.GetHexString())
 			}
+			broadcast := false
 			//需广播
-			if (len(req.DestNodeId) == 0 || destNodeId != nc.id) && req.RelayCount != 0 {
+			if (len(req.DestNodeId) == 0 || destNodeId != nc.id) {
+				broadcast = true
+			}
+
+			//if req.DataType ==  DataType_DataGlobal &&  req.RelayCount ==0 {
+			//	broadcast = false
+			//}
+			if	broadcast {
 				var dataBuffer *bytes.Buffer = nil
-				if req.RelayCount > 0 {
-					req.RelayCount = req.RelayCount - 1
-					dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
+				if  req.DataType ==  DataType_DataGlobal && req.RelayCount > 0 {
+					//req.RelayCount = req.RelayCount - 1
+					//req.Expiration = uint64(time.Now().Add(expiration).Unix())
+					//dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
+					dataBuffer = bytes.NewBuffer(packet)
+
 				} else {
 					dataBuffer = bytes.NewBuffer(packet)
 
