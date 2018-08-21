@@ -16,7 +16,7 @@ type Group struct {
 
 func newGroup(id string, members []NodeID) *Group {
 
-	g := &Group{id: id, members: members,resolvingNodes: make(map[NodeID]time.Time)}
+	g := &Group{id: id, members: members, resolvingNodes: make(map[NodeID]time.Time)}
 
 	return g
 }
@@ -37,10 +37,12 @@ func (g *Group) doRefresh() {
 			continue
 		}
 		node := net.netCore.kad.find(id)
-		if node != nil && node.Ip != nil && node.Port > 0{
+		if node != nil && node.Ip != nil && node.Port > 0 {
 			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 			go net.netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
+			go net.netCore.ping(id, nil)
+
 			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
 			g.resolve(id)
 		}
@@ -59,6 +61,9 @@ func (g *Group) resolve(id NodeID) {
 
 func (g *Group) send(packet *bytes.Buffer) {
 
+	connected := 0
+	kad := 0
+	other := 0
 	for i := 0; i < len(g.members); i++ {
 		id := g.members[i]
 		if id == net.netCore.id {
@@ -66,18 +71,24 @@ func (g *Group) send(packet *bytes.Buffer) {
 		}
 		p := net.netCore.peerManager.peerByID(id)
 		if p != nil {
-			Logger.Debugf("sendGroup node is connected : id：%v ip: %v  port:%v", id.GetHexString(), p.Ip, p.Port)
+			connected +=1
 			go net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
 		} else {
 			node := net.netCore.kad.find(id)
-			if node != nil  && node.Ip != nil && node.Port > 0 {
-				Logger.Debugf("sendGroup node not connected ,but find in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+			if node != nil && node.Ip != nil && node.Port > 0 {
+				Logger.Debugf("sendGroup node not connected ,but found in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+				kad +=1
 				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
-				go net.netCore.peerManager.write(id,nil, packet)
+				Logger.Debugf("sendGroup node not connected and not found in KAD : id：%v", id.GetHexString())
+
+				other+=1
+				go net.netCore.peerManager.write(id, nil, packet)
 			}
 		}
 	}
+	Logger.Debugf("SendGroup total :%v connected:%v kad:%v other:%v", len(g.members),connected,kad,other)
+
 	return
 }
 
@@ -113,24 +124,28 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 func (gm *GroupManager) removeGroup(id string) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
-	g := gm.groups[id]
-	if g == nil {
-		Logger.Debugf("removeGroup not found group.")
-		return
-	}
-	memberSize := len(g.members)
 
-	for i := 0; i < memberSize; i++ {
-		id := g.members[i]
-		if id == net.netCore.id {
-			continue
-		}
 
-		node := net.netCore.kad.find(id)
-		if node == nil {
-			net.netCore.peerManager.disconnect(id)
-		}
-	}
+	Logger.Debugf("removeGroup :%v.",id)
+
+	//g := gm.groups[id]
+	//if g == nil {
+	//	Logger.Debugf("removeGroup not found group.")
+	//	return
+	//}
+	//memberSize := len(g.members)
+	//
+	//for i := 0; i < memberSize; i++ {
+	//	id := g.members[i]
+	//	if id == net.netCore.id {
+	//		continue
+	//	}
+	//
+	//	node := net.netCore.kad.find(id)
+	//	if node == nil {
+	//		net.netCore.peerManager.disconnect(id)
+	//	}
+	//}
 	delete(gm.groups, id)
 }
 

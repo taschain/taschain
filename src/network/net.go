@@ -172,7 +172,10 @@ func (nc *NetCore) close() {
 
 func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
-	to := MakeEndPoint(toaddr, 0)
+	to := MakeEndPoint(&nnet.UDPAddr{}, 0)
+	if toaddr != nil {
+		to = MakeEndPoint(toaddr, 0)
+	}
 	req := &MsgPing{
 		Version:    Version,
 		From:       &nc.ourEndPoint,
@@ -424,12 +427,12 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
-	Logger.Infof("SendGroupMember: node id:%v member id :%v", id, memberId.GetHexString())
+	Logger.Infof("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if p != nil && p.seesionId > 0 {
 		Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
-		nc.Send(memberId, nil, data)
+		go nc.Send(memberId, nil, data)
 	} else {
 		node := net.netCore.kad.find(memberId)
 		if node != nil && node.Ip != nil && node.Port > 0 {
