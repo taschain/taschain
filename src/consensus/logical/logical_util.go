@@ -38,7 +38,7 @@ func GetPubKeyPrefix(pk groupsig.Pubkey) string {
 }
 
 func GetIDPrefix(id groupsig.ID) string {
-	str := id.String()
+	str := id.GetHexString()
 	if len(str) >= 12 {
 		link := str[0:6] + "-" + str[len(str)-6:]
 		return link
