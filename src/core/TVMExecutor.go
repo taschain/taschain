@@ -46,23 +46,30 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	vm := tvm.NewTvm(accountdb, BlockChainImpl)
 	receipts := make([]*t.Receipt,len(block.Transactions))
 	for i,transaction := range block.Transactions{
-		receipt := t.Receipt{}
+		var fail = false
+		var contractAddress common.Address
+
 		if transaction.Target == nil{
-			receipt.ContractAddress,_ = createContract(accountdb, transaction)
+			contractAddress,_ = createContract(accountdb, transaction)
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
 			if !vm.Execute(script, block.Header.Height, block.Header.Castor, transaction){
 				accountdb.RevertToSnapshot(snapshot)
+				fail = true
 			}
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+			} else {
+				fail = true
 			}
 		}
+		receipt := t.NewReceipt(nil,fail,0)
 		receipt.TxHash = transaction.Hash
-		receipts[i] = &receipt
+		receipt.ContractAddress = contractAddress
+		receipts[i] = receipt
 	}
 
 	//if nil != processor {
