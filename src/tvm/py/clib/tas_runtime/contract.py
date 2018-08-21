@@ -17,6 +17,11 @@ class Contract(object):
         self.my_exec(cmd="tas_{addr} ={class_name}()".format(addr=addr, class_name=self.data.get_class()), globals=self.env)
         self.data.load_data(self.env.get("tas_{addr}".format(addr=addr)))
 
+    def import_depends(self, depends):
+        for code_addr in depends:
+            code = glovar.storage.get(code_addr).get_code()
+            self.my_exec(code, self.env)
+
     def call(self, function_name, *args, **kwargs):
         self.env["tas_{addr}_args".format(addr=self.addr)] = args
         self.env["tas_{addr}_kwargs".format(addr=self.addr)] = kwargs

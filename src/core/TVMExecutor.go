@@ -54,7 +54,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
-			if !vm.Execute(script, block.Header.Height, block.Header.Castor, transaction){
+			if !vm.Execute(script, block.Header, transaction){
 				accountdb.RevertToSnapshot(snapshot)
 				fail = true
 			}
