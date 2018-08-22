@@ -467,7 +467,7 @@ func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte,
 //OnConnected 处理连接成功的回调
 func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
-	nc.peerManager.OnConnected(id, session, p2pType)
+	nc.peerManager.newConnection(id, session, p2pType,false)
 	p := nc.peerManager.peerByNetID(id)
 	if p != nil && p.Ip != nil && p.Port > 0 {
 		go nc.ping(p.Id, &nnet.UDPAddr{IP: p.Ip, Port: p.Port})
@@ -477,7 +477,7 @@ func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 //OnConnected 处理接受连接的回调
 func (nc *NetCore) OnAccepted(id uint64, session uint32, p2pType uint32) {
 
-	nc.peerManager.OnConnected(id, session, p2pType)
+	nc.peerManager.newConnection(id, session, p2pType,true)
 }
 
 //OnDisconnected 处理连接断开的回调
