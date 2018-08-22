@@ -60,3 +60,17 @@ func consumer2(ch <-chan int) {
 		fmt.Println("Receive2:", <-ch)
 	}
 }
+
+
+func TestBus(t *testing.T){
+	bus := NewBus()
+	bus.Subscribe("topic1",handler1)
+	bus.Subscribe("topic2",handler2)
+	bus.Subscribe("topic3",handler3)
+
+	bus.Publish("topic1",&DummyMessage{})
+	bus.Publish("topic2",&DummyMessage{})
+	bus.Publish("topic3",&DummyMessage{})
+}
+
+
