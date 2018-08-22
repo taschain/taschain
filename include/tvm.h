@@ -37,6 +37,8 @@ typedef char* (*Function10) (const char*, const char*);
 typedef void (*Function11) (const char*, const char*, const char*);
 typedef void (*Function12) (int);
 typedef int (*Function13)();
+typedef char* (*Function14) (unsigned long long);
+typedef char* (*Function15) ();
 
 
 
@@ -61,6 +63,15 @@ Function4 empty;
 Function12 revert_to_snapshot;
 Function13 snapshot;
 Function5 add_preimage;
+// block
+Function14 blockhash;
+Function15 coinbase;
+Function9 difficulty;
+Function9 number;
+Function9 timestamp;
+// tx
+Function15 origin;
+Function9 gaslimit;
 
 
 

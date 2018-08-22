@@ -170,7 +170,47 @@ void wrap_add_preimage(char* hash, char* preimage)
 	AddPreimage(hash, preimage);
 }
 
+char* wrap_block_hash(unsigned long long height)
+{
+	char* BlockHash(unsigned long long);
+	return BlockHash(height);
+}
 
+char* wrap_coin_base()
+{
+	char* CoinBase();
+	return CoinBase();
+}
+
+unsigned long long wrap_difficulty()
+{
+	unsigned long long Difficulty();
+	return Difficulty();
+}
+
+unsigned long long wrap_number()
+{
+	unsigned long long Number();
+	return Number();
+}
+
+unsigned long long wrap_timestamp()
+{
+	unsigned long long Timestamp();
+	return Timestamp();
+}
+
+char* wrap_tx_origin()
+{
+	char* TxOrigin();
+	return TxOrigin();
+}
+
+unsigned long long wrap_tx_gas_limit()
+{
+	unsigned long long TxGasLimit();
+	return TxGasLimit();
+}
 
 */
 import "C"
@@ -183,6 +223,11 @@ import (
 	"storage/core/vm"
 	"middleware/types"
 )
+
+var currentBlockHeader *types.BlockHeader
+var currentTransaction *types.Transaction
+var reader vm.ChainReader
+
 
 var tvm *Tvm
 
@@ -211,6 +256,14 @@ func bridge_init() {
 	C.revert_to_snapshot = (C.Function12)(unsafe.Pointer(C.wrap_revert_to_snapshot))
 	C.snapshot = (C.Function13)(unsafe.Pointer(C.wrap_snapshot))
 	C.add_preimage = (C.Function5)(unsafe.Pointer(C.wrap_add_preimage))
+	// block
+	C.blockhash = (C.Function14)(unsafe.Pointer(C.wrap_block_hash))
+	C.coinbase = (C.Function15)(unsafe.Pointer(C.wrap_coin_base))
+	C.difficulty = (C.Function9)(unsafe.Pointer(C.wrap_difficulty))
+	C.number = (C.Function9)(unsafe.Pointer(C.wrap_number))
+	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
+	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
+	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 }
 
 
@@ -222,6 +275,7 @@ func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	if tvm == nil {
 		tvm = &Tvm{}
 	}
+	reader = chainReader
 	tvm.state = accountDB
 
 	C.tvm_start()
@@ -230,7 +284,17 @@ func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)Execute(script string, height uint64, castor []byte, transaction *types.Transaction) bool {
+func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
+	if header == nil {
+		currentBlockHeader = &types.BlockHeader{}
+	} else {
+		currentBlockHeader = header
+	}
+	if transaction == nil {
+		currentTransaction = &types.Transaction{}
+	} else {
+		currentTransaction = transaction
+	}
 	var c_bool C._Bool
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
@@ -257,7 +321,7 @@ func (tvm *Tvm) ExecuteABIJson(j string) {
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	tvm.Execute(buf.String())
+	tvm.Execute(buf.String(),nil, nil)
 }
 
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
