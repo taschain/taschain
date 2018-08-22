@@ -73,7 +73,7 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 }
 
 func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
-	return &StaticGroupInfo{
+	sgi := &StaticGroupInfo{
 		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
 		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 		BeginHeight: coreGroup.BeginHeight,
@@ -86,7 +86,15 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		Name:          coreGroup.Name,
 		Extends:       coreGroup.Extends,
 	}
+	for _, cMem := range coreGroup.Members {
+		id := groupsig.DeserializeId(cMem.Id)
+		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)
+		pkInfo := model.NewPubKeyInfo(*id, *pk)
+		sgi.addMember(&pkInfo)
+	}
+	return sgi
 }
+
 //取得某个矿工在组内的排位
 func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	pos := -1
