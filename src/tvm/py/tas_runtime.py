@@ -11,6 +11,7 @@ from clib.tas_runtime.address import Address
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.block import Block
 from clib.tas_runtime.storage import Storage
+from clib.tas_runtime.importer import install_meta
 
 
 def print_dict(_dict):
@@ -33,6 +34,8 @@ try:
             glovar.storage = pickle.loads(data)
 except FileNotFoundError:
     glovar.storage = Storage()
+
+
 # block = Block()
 # #t = threading.Thread(target=block.run)
 # block.alive = True
@@ -51,6 +54,9 @@ except FileNotFoundError:
 #
 # signal.signal(signal.SIGINT, _exit)
 # signal.signal(signal.SIGTERM, _exit)
+
+
+glovar.importer = install_meta()
 
 
 def setup1():
@@ -83,7 +89,7 @@ def setup1():
         depends_code.append(f.read())
     depends_addr = []
     for item in depends_code:
-        depends_addr.append(glovar.storage.new_lib_contract(item, caller))
+        depends_addr.append(glovar.storage.new_lib_contract(item, "lib_helloworld", caller))
     libcontract_contract_addr = glovar.storage.new_contract(code, "Libcontract", caller, depends_addr)
 
 

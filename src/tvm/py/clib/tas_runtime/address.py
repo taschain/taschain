@@ -57,9 +57,7 @@ class Address(object):
             owner = self.data.get_owner()
             env["owner"] = Address(owner)
 
-            self.contract = Contract(self.value, env)
-            self.contract.import_depends(self.data.get_depends())
-
+            self.contract = Contract(self.value, env, self.data.get_depends())
         try:
             self.contract.call(function_name, *args, **kwargs)
         except Exception as e:
@@ -67,4 +65,5 @@ class Address(object):
             print("error of calling {f}!".format(f=function_name))
             glovar.storage.revert_to_snapshot()
             raise e
+
 
