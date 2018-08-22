@@ -106,7 +106,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.TransmitToNeighbor(m)
+	ns.net.Broadcast(m)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
