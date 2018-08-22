@@ -38,7 +38,7 @@ type blockBodyNotify struct {
 	peer string
 }
 
-func NewChainHandler() ChainHandler {
+func NewChainHandler() network.MsgHandler {
 
 	headerPending := make(map[common.Hash]blockHeaderNotify)
 	complete, _ := lru.New(256)
@@ -51,7 +51,7 @@ func NewChainHandler() ChainHandler {
 	notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
 
 	go handler.loop()
-	return handler
+	return &handler
 }
 
 func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {

@@ -269,7 +269,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	id, err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
+	id, err := network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp)
 	if err != nil {
 		return err
 	}
