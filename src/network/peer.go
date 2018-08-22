@@ -146,6 +146,9 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		if p.seesionId ==0 {
 			p.seesionId = session
 		} else {
+			P2PShutdown(session)
+			P2PShutdown(p.seesionId)
+
 			p.seesionId = 0
 		}
 
