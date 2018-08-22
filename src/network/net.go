@@ -527,6 +527,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId stri
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
+	Logger.Infof("encodeDataPacket MessageId:%v ", msgData.GetMessageId())
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
