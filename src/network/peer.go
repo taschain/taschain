@@ -135,7 +135,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 //OnConnected 处理连接成功的回调
 func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
 
-	Logger.Infof("OnConnected netid :%v session:%v ", id,session)
 
 	p := pm.peerByNetID(id)
 	if p == nil {
@@ -153,6 +152,9 @@ func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
 		}
 		p.sendList = make([]*bytes.Buffer, 0)
 	}
+
+	Logger.Infof("OnConnected node id:%v  netid :%v session:%v ", p.Id.GetHexString(),id,session)
+
 }
 
 //OnDisconnected 处理连接断开的回调
