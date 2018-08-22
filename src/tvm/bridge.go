@@ -55,13 +55,13 @@ func transfer(fromAddresss *C.char, toAddress *C.char, amount int) {
 
 //export CreateAccount
 func CreateAccount(addressC *C.char) {
-	addr := common.StringToAddress(C.GoString(addressC))
+	addr := common.HexToAddress(C.GoString(addressC))
 	tvm.state.CreateAccount(addr)
 }
 
 //export SubBalance
 func SubBalance(addressC *C.char, valueC *C.char) {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
 	if !ok {
 		// TODO error
@@ -71,7 +71,7 @@ func SubBalance(addressC *C.char, valueC *C.char) {
 
 //export AddBalance
 func AddBalance(addressC *C.char, valueC *C.char) {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
 	if !ok {
 		// TODO error
@@ -81,48 +81,48 @@ func AddBalance(addressC *C.char, valueC *C.char) {
 
 //export GetBalance
 func GetBalance(addressC *C.char) *C.char {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	value := tvm.state.GetBalance(address)
 	return C.CString(value.String())
 }
 
 //export GetNonce
 func GetNonce(addressC *C.char) C.ulonglong {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	value := tvm.state.GetNonce(address)
 	return C.ulonglong(value)
 }
 
 //export SetNonce
 func SetNonce(addressC *C.char, nonce C.ulonglong) {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	tvm.state.SetNonce(address, uint64(nonce))
 }
 
 //export GetCodeHash
 func GetCodeHash(addressC *C.char) *C.char {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	hash := tvm.state.GetCodeHash(address)
 	return C.CString(hash.String())
 }
 
 //export GetCode
 func GetCode(addressC *C.char) *C.char {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	code := tvm.state.GetCode(address)
 	return C.CString(string(code))
 }
 
 //export SetCode
 func SetCode(addressC *C.char, codeC *C.char) {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	code := C.GoString(codeC)
 	tvm.state.SetCode(address, []byte(code))
 }
 
 //export GetCodeSize
 func GetCodeSize(addressC *C.char) C.int {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	size := tvm.state.GetCodeSize(address)
 	return C.int(size)
 }
@@ -137,44 +137,44 @@ func GetRefund() C.ulonglong {
 	return C.ulonglong(tvm.state.GetRefund())
 }
 
-//export GetState
-func GetState(addressC *C.char, hashC *C.char) *C.char {
-	address := common.StringToAddress(C.GoString(addressC))
+//export GetData
+func GetData(addressC *C.char, hashC *C.char) *C.char {
+	address := common.HexToAddress(C.GoString(addressC))
 	//hash := common.StringToHash(C.GoString(hashC))
 	state := tvm.state.GetData(address, C.GoString(hashC))
 
 	return C.CString(string(state))
 }
 
-//export SetState
-func SetState(addressC *C.char, hashC *C.char, stateC *C.char) {
-	address := common.StringToAddress(C.GoString(addressC))
-	hash := C.GoString(hashC)
-	state := common.StringToHash(C.GoString(stateC))
-	tvm.state.SetData(address, hash, state.Bytes())
+//export SetData
+func SetData(addressC *C.char, keyC *C.char, data *C.char) {
+	address := common.HexToAddress(C.GoString(addressC))
+	key := C.GoString(keyC)
+	state := []byte(C.GoString(data))
+	tvm.state.SetData(address, key, state)
 }
 
 //export Suicide
 func Suicide(addressC *C.char) bool {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	return tvm.state.Suicide(address)
 }
 
 //export HasSuicided
 func HasSuicided(addressC *C.char) bool {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	return tvm.state.HasSuicided(address)
 }
 
 //export Exist
 func Exist(addressC *C.char) bool {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	return tvm.state.Exist(address)
 }
 
 //export Empty
 func Empty(addressC *C.char) bool {
-	address := common.StringToAddress(C.GoString(addressC))
+	address := common.HexToAddress(C.GoString(addressC))
 	return tvm.state.Empty(address)
 }
 

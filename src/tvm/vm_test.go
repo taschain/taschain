@@ -28,13 +28,11 @@ func TestVmTest(t *testing.T) {
 	statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(statedb, nil)
 	script := `
-
 import account
 account.create_account("0x2234")
 value = account.get_balance("0x1234")
 value = account.add_balance("0x1234",10)
 account.set_nonce("0x1234", -1)
-print("")
 print(account.get_nonce("0x1234"))
 #tas.test()`
 	vm.Execute(script,nil, nil)
