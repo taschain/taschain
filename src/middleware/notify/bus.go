@@ -7,14 +7,14 @@ import (
 var BUS *Bus
 
 type Bus struct {
-	topics map[string]*Topic
+	topics map[string]Topic
 	lock   sync.RWMutex
 }
 
 func NewBus() *Bus {
 	return &Bus{
 		lock:   sync.RWMutex{},
-		topics: make(map[string]*Topic, 10),
+		topics: make(map[string]Topic, 10),
 	}
 }
 
@@ -24,7 +24,7 @@ func (bus *Bus) Subscribe(id string, handler Handler) {
 
 	topic, ok := bus.topics[id]
 	if !ok {
-		topic = &Topic{
+		topic = Topic{
 			Id: id,
 		}
 		bus.topics[id] = topic

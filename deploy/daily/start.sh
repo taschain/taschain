@@ -22,7 +22,7 @@ do
 	pid_file='pid/pid_tas'$instance_index'.txt'
 
 	if [ -e $pid_file ];then
-		kill -3 `cat $pid_file`
+		kill -9 `cat $pid_file`
 	fi
 
 	#echo -e 'nohup ./gtas miner --config' $config_file '--rpc --rpcport' $rpc_port '--super --instance' $instance_index '--pprof' $pprof_port '>' $stdout_log '2>&1 & echo $! >' $pid_file
