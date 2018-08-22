@@ -9,6 +9,7 @@ import (
 	"core"
 	"sync"
 	"consensus/model"
+	"bytes"
 )
 
 /*
@@ -85,7 +86,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	logHalfway("doAddOnChain", bh.Height, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
 	if result == 0 {
-		p.latestBlocks.update(bh)
+		p.updateLatestBlock(bh)
 		p.triggerFutureVerifyMsg(block.Header.Hash)
 		p.groupManager.CreateNextGroupRoutine()
 		p.cleanVerifyContext(bh.Height)
@@ -142,7 +143,6 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 
 	bc.pos = sgi.MemberIndex(p.GetMinerID())
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
-	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
 	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
@@ -174,6 +174,34 @@ func (lbc *latestBlockCache) update(bh *types.BlockHeader)  {
 func (lbc *latestBlockCache) get(gid groupsig.ID) *types.BlockHeader {
     if v, ok := lbc.blocks.Load(gid.GetHexString()); ok {
     	return v.(*types.BlockHeader)
+	} else {
+		return nil
 	}
-    return nil
+}
+
+func (p *Processor) updateLatestBlock(bh *types.BlockHeader)  {
+    p.latestBlocks.update(bh)
+}
+
+func (p *Processor) getLatestBlock(gid groupsig.ID) *types.BlockHeader {
+	if bh := p.latestBlocks.get(gid); bh == nil {
+		group := p.getGroup(gid)
+		tmpBH := p.MainChain.QueryTopBlock()
+		if group.CastQualified(tmpBH.Height) {
+			beginHeight := group.BeginHeight
+			gidBytes := gid.Serialize()
+			for tmpBH.Height >= beginHeight {
+				if bytes.Equal(gidBytes, tmpBH.GroupId) {
+					p.updateLatestBlock(tmpBH)
+					return tmpBH
+				}
+				tmpBH = p.MainChain.QueryBlockByHash(tmpBH.PreHash)
+			}
+			return nil
+		} else {
+			return nil
+		}
+	} else {
+		return bh
+	}
 }

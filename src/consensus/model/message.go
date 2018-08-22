@@ -213,13 +213,13 @@ func (msg *ConsensusCreateGroupSignMessage) GenHash() common.Hash {
 //===================================pow预算确认======================
 type ConsensusPowResultMessage struct {
 	BaseSignedMessage
-	GroupID 	groupsig.ID
-	BlockHash common.Hash
-	Nonce     uint64
+	GroupID  groupsig.ID
+	BaseHash common.Hash
+	Nonce    uint64
 }
 
 func (msg *ConsensusPowResultMessage) GenHash() common.Hash {
-	data := msg.BlockHash.Bytes()
+	data := msg.BaseHash.Bytes()
 	data = strconv.AppendUint(data, msg.Nonce, 10)
 	return base.Data2CommonHash(data)
 }
@@ -231,13 +231,13 @@ type MinerNonce struct {
 
 type ConsensusPowConfirmMessage struct {
 	BaseSignedMessage
-	GroupID 	groupsig.ID
-	BlockHash common.Hash
+	GroupID  groupsig.ID
+	BaseHash common.Hash
 	NonceSeq []MinerNonce
 }
 
 func (msg *ConsensusPowConfirmMessage) GenHash() common.Hash {
-	data := msg.BlockHash.Bytes()
+	data := msg.BaseHash.Bytes()
 	for _, mn := range msg.NonceSeq {
 		data = append(data, mn.MinerID.Serialize()...)
 		data = strconv.AppendUint(data, mn.Nonce, 10)
@@ -247,14 +247,14 @@ func (msg *ConsensusPowConfirmMessage) GenHash() common.Hash {
 
 type ConsensusPowFinalMessage struct {
 	BaseSignedMessage
-	GroupID 	groupsig.ID
-	GSign 		groupsig.Signature
-	BlockHash common.Hash
+	GroupID  groupsig.ID
+	GSign    groupsig.Signature
+	BaseHash common.Hash
 	NonceSeq []MinerNonce
 }
 
 func (msg *ConsensusPowFinalMessage) GenHash() common.Hash {
-	data := msg.BlockHash.Bytes()
+	data := msg.BaseHash.Bytes()
 	data = append(data, msg.GSign.Serialize()...)
 	for _, mn := range msg.NonceSeq {
 		data = append(data, mn.MinerID.Serialize()...)

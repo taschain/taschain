@@ -143,10 +143,6 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData, rand []by
 
 //检查铸块组是否合法
 func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
-	//to do : 检查是否基于链上最高块的出块
-	//defer func() {
-	//	log.Printf("isCastGroupLeagal result=%v.\n", result)
-	//}()
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
 		panic("isCastGroupLegal, group id Deserialize failed.")

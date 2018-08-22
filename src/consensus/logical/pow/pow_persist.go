@@ -32,11 +32,12 @@ func (pcp *PreConfirmedPowResult) GetMinerNonce(id groupsig.ID) (int, *model.Min
 
 func (pcp *PreConfirmedPowResult) CheckEqual(nonceSeq []model.MinerNonce) bool {
 	tmp := model.ConsensusPowConfirmMessage{
-		BlockHash: pcp.BlockHash,
+		BaseHash: pcp.BlockHash,
 		NonceSeq: nonceSeq,
 	}
 	return tmp.GenHash() == pcp.Hash
 }
+
 
 func (w *PowWorker) PersistConfirm() bool {
 	confirm := w.GetConfirmed()

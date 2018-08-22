@@ -40,6 +40,7 @@ const (
 	CBMR_CAST_BROADCAST											//已经广播块
 	CBMR_NO_AVAIL_SLOT											//未找到合适slot
 	CBMR_POW_RESULT_DIFF										//pow结果与本地不一致
+	CBMR_TIMEOUT												//超时
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -58,6 +59,8 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "找不到有效插槽"
 	case CBMR_STATUS_FAIL:
 		return "失败状态"
+	case CBMR_TIMEOUT:
+		return "铸块共识超时"
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }

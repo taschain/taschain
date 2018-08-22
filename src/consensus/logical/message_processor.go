@@ -749,14 +749,14 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	bh := p.getBlockHeaderByHash(msg.BaseHash)
 	mtype := "OMPR"
 	if bh == nil {
-		log.Printf("OMPR block not found! sender=%v, hash=%v\n", sender, GetHashPrefix(msg.BlockHash))
+		log.Printf("OMPR block not found! sender=%v, hash=%v\n", sender, GetHashPrefix(msg.BaseHash))
 		return
 	}
 	logStart(mtype, bh.Height, sender, "nonce %v", msg.Nonce)
-	log.Printf("%v, sender=%v, hash=%v, nonce=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), msg.Nonce)
+	log.Printf("%v, sender=%v, hash=%v, nonce=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), msg.Nonce)
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
@@ -770,7 +770,7 @@ func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 	}
 	worker := p.getPowWorker(*gid)
 
-	ret := worker.AcceptResult(msg.Nonce, msg.BlockHash, model.NewGroupMinerID(*gid, msg.SI.SignMember))
+	ret := worker.AcceptResult(msg.Nonce, msg.BaseHash, msg.SI.SignMember)
 	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
 
 }
@@ -778,15 +778,15 @@ func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 
 func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	bh := p.getBlockHeaderByHash(msg.BaseHash)
 	mtype := "OMPC"
 	if bh == nil {
-		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash))
+		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash))
 		return
 	}
 
 	logStart(mtype, bh.Height, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
-	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), MinerNonceSeqDesc(msg.NonceSeq))
+	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), MinerNonceSeqDesc(msg.NonceSeq))
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
@@ -801,7 +801,7 @@ func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
 
 	worker := p.getPowWorker(*gid)
 
-	ret := worker.AcceptConfirm(msg.BlockHash, msg.NonceSeq, msg.SI.SignMember, msg.SI.DataSign)
+	ret := worker.AcceptConfirm(msg.BaseHash, msg.NonceSeq, msg.SI.SignMember, msg.SI.DataSign)
 	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
 
 	if ret == pow.CONFIRM_SIGN_RECOVERED {
@@ -818,15 +818,15 @@ func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
 
 func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	bh := p.getBlockHeaderByHash(msg.BaseHash)
 	mtype := "OMPF"
 	if bh == nil {
-		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash))
+		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash))
 		return
 	}
 
 	logStart(mtype, bh.Height, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
-	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BlockHash), MinerNonceSeqDesc(msg.NonceSeq))
+	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), MinerNonceSeqDesc(msg.NonceSeq))
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
@@ -840,7 +840,7 @@ func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
 	}
 
 	confirmMsgTmp := model.ConsensusPowConfirmMessage{
-		BlockHash: msg.BlockHash,
+		BaseHash: msg.BaseHash,
 		NonceSeq: msg.NonceSeq,
 	}
 	signedHash := confirmMsgTmp.GenHash()
@@ -850,7 +850,7 @@ func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
 	}
 	worker := p.getPowWorker(*gid)
 
-	ret := worker.AcceptFinal(msg.BlockHash, msg.NonceSeq, msg.SI.SignMember, msg.GSign)
+	ret := worker.AcceptFinal(msg.BaseHash, msg.NonceSeq, msg.SI.SignMember, msg.GSign)
 	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
 	if ret == pow.FINAL_SUCCESS {
 		if !p.persistPowConfirmed(worker) {

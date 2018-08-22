@@ -84,7 +84,7 @@ func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) boo
 	if vctx != nil {
 		vctx.lock.Lock()
 		defer vctx.lock.Unlock()
-		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevHash == preHash
+		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevHash == preHash && (!vctx.canProposal(bc.MinerID.Uid) || vctx.isProposal())
 	} else {
 		return false
 	}
@@ -189,9 +189,6 @@ func (bc *BlockContext) PrepareForProposal(castHeight uint64, expire time.Time, 
 		bc.verifyContexts = append(bc.verifyContexts, verifyCtx)
 		bc.currentVerifyContext = verifyCtx
 	}
-	if castHeight == 1 {
-		bc.startPowComputation(baseBH)
-	}
 
 }
 
@@ -207,10 +204,24 @@ func (bc *BlockContext) getMinerNonceFromBlockHeader(bh *types.BlockHeader) []mo
 }
 
 func (bc *BlockContext) startPowComputation(bh *types.BlockHeader) {
-	worker := bc.worker
-	if worker.Prepare(bh, &bc.MinerID, bc.groupInfo.MemberCount()) {
-		log.Printf("startPowComputation height=%v, hash=%v, gid=%v\n", bh.Height, GetHashPrefix(bh.Hash), GetIDPrefix(bc.groupInfo.GroupID))
-		logStart("POW_COMP", worker.BH.Height, GetIDPrefix(bc.MinerID.Uid), "", "")
+	var (
+		baseHash  common.Hash
+		startTime time.Time
+		worker    = bc.worker
+		height 		uint64
+	)
+	if bh == nil {
+		baseHash = bc.groupInfo.Signature.GetHash()
+		startTime = time.Now()
+		height = 0
+	} else {
+		baseHash = bh.Hash
+		height = bh.Height
+		startTime = bh.CurTime
+	}
+	if worker.Prepare(baseHash, height, startTime, &bc.MinerID, bc.groupInfo.MemberCount()) {
+		log.Printf("startPowComputation height=%v, hash=%v, gid=%v\n", height, GetHashPrefix(baseHash), GetIDPrefix(bc.groupInfo.GroupID))
+		logStart("POW_COMP", height, GetIDPrefix(bc.MinerID.Uid), "", "")
 		worker.Start()
 	}
 }

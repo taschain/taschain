@@ -7,8 +7,7 @@ import (
 	"consensus/model"
 	"consensus/ticker"
 	"math/big"
-	"middleware/types"
-	"strconv"
+		"strconv"
 	"sync/atomic"
 	"time"
 	"vm/ethdb"
@@ -21,7 +20,8 @@ import (
  */
 
 const (
-	STATUS_RUNNING int32 = 1 //计算中
+	STATUS_READY int32 = 0 //准备就绪
+	STATUS_RUNNING = 1 //计算中
 	STATUS_STOP    = 2 //中断
 	STATUS_SUCCESS = 3 //已经成功找出解
 )
@@ -65,14 +65,10 @@ var (
 	FINAL_SUCCESS		= model.NewEnumResult(5, "成功")
 )
 
-type WorkerCommand struct {
-	Cmd   int
-	Param interface{}
-}
-
+//用于pow计算的数据
 type dataInput struct {
-	data   []byte
-	offset int
+	data   []byte	//hash计算数据
+	offset int		//nonce所在偏移量
 }
 
 func newDataInput(hash common.Hash, uid groupsig.ID) *dataInput {
@@ -98,20 +94,21 @@ func (di *dataInput) setNonce(nonce uint64) {
 }
 
 type PowWorker struct {
-	CmdCh           chan int
-	stopCh          chan struct{}
-	Input           *dataInput
-	BH              *types.BlockHeader
-	GroupMiner      *model.GroupMinerID
-	Nonce           uint64
-	Difficulty      *Difficulty
-	PowStatus       int32
-	PowDeadline     *time.Time
-	ConfirmDeadline *time.Time
-	StartTime       time.Time
-	context         *powContext
-	BroadcastStatus int32
-	storage 		ethdb.Database
+	CmdCh            chan int
+	stopCh           chan struct{}
+	input            *dataInput
+	BaseHash         common.Hash
+	BaseHeight       uint64
+	GroupMiner       *model.GroupMinerID
+	Nonce            uint64
+	difficulty       *Difficulty
+	powStatus        int32
+	powDeadline      *time.Time
+	confirmStartTime *time.Time
+	StartTime        time.Time
+	context          *powContext
+	broadcastStatus  int32
+	storage          ethdb.Database
 }
 
 func NewPowWorker(db ethdb.Database) *PowWorker {
@@ -119,9 +116,9 @@ func NewPowWorker(db ethdb.Database) *PowWorker {
 		CmdCh:           make(chan int),
 		stopCh:          make(chan struct{}),
 		Nonce:           0,
-		PowStatus:       STATUS_STOP,
-		BroadcastStatus: BROADCAST_NONE,
-		storage: db,
+		powStatus:       STATUS_STOP,
+		broadcastStatus: BROADCAST_NONE,
+		storage:         db,
 	}
 	return w
 }
@@ -131,45 +128,38 @@ func (w *PowWorker) tickerName() string {
 }
 
 func (w *PowWorker) setDeadline(start time.Time) {
-	w.PowDeadline = w.Difficulty.powDeadline(start)
-	w.ConfirmDeadline = w.Difficulty.confirmDeadline(start)
-	ticker.GetTickerInstance().RegisterRoutine(w.tickerName(), w.tickerRoutine, 1)
+	w.powDeadline = w.difficulty.sendPowResultTime(start)
+	w.confirmStartTime = w.difficulty.sendPowConfirmTime(start)
 }
 
 func (w *PowWorker) tickerRoutine() bool {
-	if time.Now().After(*w.PowDeadline) {
+	if time.Now().After(*w.powDeadline) {
 		w.Stop()
-		if time.Now().After(*w.ConfirmDeadline) {
+		if time.Now().After(*w.confirmStartTime) {
 			w.tryConfirm()
 		}
 	}
 	return true
 }
 
-func (w *PowWorker) checkReady() {
-	if w.Input == nil || w.Difficulty == nil || w.PowDeadline == nil || w.BH == nil {
-		panic("param not ready")
-	}
-}
-
 func (w *PowWorker) Stop() {
-	w.toFinish(STATUS_STOP)
+	w.toEnd(STATUS_STOP)
 }
 
 func (w *PowWorker) Start() {
-	w.checkReady()
-	if atomic.CompareAndSwapInt32(&w.PowStatus, STATUS_STOP, STATUS_RUNNING) {
+	if atomic.CompareAndSwapInt32(&w.powStatus, STATUS_READY, STATUS_RUNNING) {
+		ticker.GetTickerInstance().RegisterRoutine(w.tickerName(), w.tickerRoutine, 1)
 		w.StartTime = time.Now()
 		go w.run()
 	}
 }
 
 func (w *PowWorker) Success() bool {
-	return atomic.LoadInt32(&w.PowStatus) == STATUS_SUCCESS
+	return atomic.LoadInt32(&w.powStatus) == STATUS_SUCCESS
 }
 
-func (w *PowWorker) toFinish(status int32) bool {
-	if atomic.CompareAndSwapInt32(&w.PowStatus, STATUS_RUNNING, status) {
+func (w *PowWorker) toEnd(status int32) bool {
+	if atomic.CompareAndSwapInt32(&w.powStatus, STATUS_RUNNING, status) {
 		ticker.GetTickerInstance().RemoveRoutine(w.tickerName())
 		return true
 	}
@@ -183,31 +173,35 @@ func computeDifficultyValue(nonce uint64, input *dataInput) *big.Int {
 	return h.Big()
 }
 
-func CheckMinerNonce(diffculty *Difficulty, blockHash common.Hash, minerNonce *model.MinerNonce) (d *big.Int, ok bool) {
-	if minerNonce.Nonce > NONCE_MAX {
-		return nil, false
-	}
-	input := newDataInput(blockHash, minerNonce.MinerID)
-	dv := computeDifficultyValue(minerNonce.Nonce, input)
-	return dv, diffculty.Satisfy(dv)
-}
-
-func (w *PowWorker) checkNonce(nonce uint64, input *dataInput) (d *big.Int, ok bool) {
+func checkDataInput(difficulty *Difficulty, nonce uint64, input *dataInput) (*big.Int, bool) {
 	if nonce > NONCE_MAX {
 		return nil, false
 	}
 	dv := computeDifficultyValue(nonce, input)
-	return dv, w.Difficulty.Satisfy(dv)
+	return dv, difficulty.Satisfy(dv)
+}
+
+func CheckMinerNonce(diffculty *Difficulty, baseHash common.Hash, nonce uint64, uid groupsig.ID) (d *big.Int, ok bool) {
+	input := newDataInput(baseHash, uid)
+	return checkDataInput(diffculty, nonce, input)
+}
+
+func (w *PowWorker) checkNonce(nonce uint64, input *dataInput) (d *big.Int, ok bool) {
+	return checkDataInput(w.difficulty, nonce, input)
+}
+
+func (w *PowWorker) checkMinerNonce(nonce uint64, uid groupsig.ID) (d *big.Int, ok bool) {
+    return CheckMinerNonce(w.difficulty, w.BaseHash, nonce, uid)
 }
 
 func (w *PowWorker) run() bool {
 	defer func() {
 		w.stopCh <- struct{}{}
 	}()
-	for w.PowStatus == STATUS_RUNNING && w.Nonce <= NONCE_MAX {
+	for w.powStatus == STATUS_RUNNING && w.Nonce <= NONCE_MAX {
 		w.Nonce++
-		if _, ok := w.checkNonce(w.Nonce, w.Input); ok {
-			if w.toFinish(STATUS_SUCCESS) {
+		if _, ok := w.checkNonce(w.Nonce, w.input); ok {
+			if w.toEnd(STATUS_SUCCESS) {
 				w.CmdCh <- CMD_POW_RESULT
 				return true
 			}
@@ -217,48 +211,48 @@ func (w *PowWorker) run() bool {
 }
 
 func (w *PowWorker) IsRunning() bool {
-    return atomic.LoadInt32(&w.PowStatus) == STATUS_RUNNING
+    return atomic.LoadInt32(&w.powStatus) == STATUS_RUNNING
 }
 
 func (w *PowWorker) IsStopped() bool {
-	return atomic.LoadInt32(&w.PowStatus) == STATUS_STOP
+	return atomic.LoadInt32(&w.powStatus) == STATUS_STOP
 }
 
-func (w *PowWorker) Prepare(bh *types.BlockHeader, gminer *model.GroupMinerID, members int) bool {
+func (w *PowWorker) Prepare(baseHash common.Hash, baseHeight uint64, startTime time.Time, gminer *model.GroupMinerID, members int) bool {
 	if w.IsRunning() {
-		if w.BH.Hash == bh.Hash {
+		if w.BaseHash == baseHash { //已经在运行中
 			return false
 		}
 		w.Stop()
-		<-w.stopCh
+		<-w.stopCh	//等待run函数退出
 	}
 	w.GroupMiner = gminer
-	w.BH = bh
-	w.Input = newDataInput(bh.Hash, gminer.Uid)
-	w.Difficulty = DIFFCULTY_20_24
-	w.setDeadline(bh.CurTime)
-	w.PowStatus = STATUS_STOP
-	w.BroadcastStatus = BROADCAST_NONE
+	w.BaseHash = baseHash
+	w.BaseHeight = baseHeight
+	w.input = newDataInput(baseHash, gminer.Uid)
+	w.difficulty = DIFFCULTY_20_24
+	w.setDeadline(startTime)
+	w.powStatus = STATUS_READY
+	w.broadcastStatus = BROADCAST_NONE
 	w.Nonce = 0
-	w.context = newPowContext(bh.Hash, members)
+	w.context = newPowContext(baseHash, members)
 	return true
 }
 
 func (w *PowWorker) powExpire() bool {
-	return time.Now().After(*w.PowDeadline)
+	return time.Now().After(*w.confirmStartTime)
 }
 
-func (w *PowWorker) AcceptResult(nonce uint64, blockHash common.Hash, gminer *model.GroupMinerID) *model.EnumResult {
-	if blockHash != w.BH.Hash {
+func (w *PowWorker) AcceptResult(nonce uint64, baseHash common.Hash, uid groupsig.ID) *model.EnumResult {
+	if baseHash != w.BaseHash {
 		return ACCEPT_HASH_DIFF
 	}
 
-	input := newDataInput(blockHash, gminer.Uid)
 	var (
 		dv *big.Int
 		ok bool
 	)
-	if dv, ok = w.checkNonce(nonce, input); !ok {
+	if dv, ok = w.checkMinerNonce(nonce, uid); !ok {
 		return ACCEPT_NONCE_ERR
 	}
 	if w.powExpire() {
@@ -266,9 +260,9 @@ func (w *PowWorker) AcceptResult(nonce uint64, blockHash common.Hash, gminer *mo
 	}
 
 	r := &powResult{
-		minerID: gminer.Uid,
+		minerID: uid,
 		nonce:   nonce,
-		level:   w.Difficulty.Level(dv),
+		level:   w.difficulty.Level(dv),
 		value:   dv,
 	}
 	if w.context.addResult(r) {
@@ -296,8 +290,8 @@ func (w *PowWorker) tryConfirm() {
 	}
 }
 
-func (w *PowWorker) AcceptConfirm(blockHash common.Hash, seq []model.MinerNonce, sender groupsig.ID, signature groupsig.Signature) *model.EnumResult {
-	if blockHash != w.BH.Hash {
+func (w *PowWorker) AcceptConfirm(baseHash common.Hash, seq []model.MinerNonce, sender groupsig.ID, signature groupsig.Signature) *model.EnumResult {
+	if baseHash != w.BaseHash {
 		return CONFIRM_HASH_DIFF
 	}
 	if !w.powExpire() {
@@ -331,11 +325,11 @@ func (w *PowWorker) GetGSign() *groupsig.Signature {
 }
 
 func (w *PowWorker) CheckBroadcastStatus(sourceStatus int32, targetStatus int32) bool {
-	return atomic.CompareAndSwapInt32(&w.BroadcastStatus, sourceStatus, targetStatus)
+	return atomic.CompareAndSwapInt32(&w.broadcastStatus, sourceStatus, targetStatus)
 }
 
-func (w *PowWorker) AcceptFinal(blockHash common.Hash, seq []model.MinerNonce, sender groupsig.ID, signature groupsig.Signature) *model.EnumResult {
-	if blockHash != w.BH.Hash {
+func (w *PowWorker) AcceptFinal(baseHash common.Hash, seq []model.MinerNonce, sender groupsig.ID, signature groupsig.Signature) *model.EnumResult {
+	if baseHash != w.BaseHash {
 		return FINAL_HASH_DIFF
 	}
 	if !w.powExpire() {
@@ -344,8 +338,8 @@ func (w *PowWorker) AcceptFinal(blockHash common.Hash, seq []model.MinerNonce, s
 
 	for _, mn := range seq {
 		if r := w.context.getResult(&mn); r == nil {
-			ret := w.AcceptResult(mn.Nonce, blockHash, &model.GroupMinerID{Uid: sender, Gid:w.GroupMiner.Gid})
-			if ret != ACCEPT_NORMAL {
+			_, ok := w.checkMinerNonce(mn.Nonce, sender)
+			if !ok {
 				return FINAL_ACCEPT_NONCE_FAIL
 			}
 		}
@@ -359,10 +353,11 @@ func (w *PowWorker) AcceptFinal(blockHash common.Hash, seq []model.MinerNonce, s
 	confirming := w.context.newPowConfirm(results)
 	confirming.gSign = &signature
 
+	w.tryConfirm()
 	confirmed := w.context.getConfirmed()
 	if confirmed != nil && confirmed.gSign != nil {
 		if confirmed.resultHash != confirming.resultHash {
-			panic("confirmed at different blockHash")
+			panic("confirmed at different BaseHash")
 		}
 	} else {
 		w.context.setConfirmed(confirming)

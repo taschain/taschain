@@ -80,6 +80,10 @@ func  (p *ConsensusParam) GetGroupK(max int) int {
 	return int(math.Ceil(float64(max*p.SSSSThreshold) / 100))
 }
 
+func  (p *ConsensusParam) GetPowGroupK(max int) int {
+	return int(math.Ceil(float64(max*30) / 100))
+}
+
 //获取组成员个数
 func (p *ConsensusParam) GetGroupMemberNum() int {
 	return p.GroupMember

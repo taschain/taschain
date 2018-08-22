@@ -386,7 +386,7 @@ func marshalConsensusPowResultMessage(msg *model.ConsensusPowResultMessage) ([]b
 	sign := signDataToPb(&msg.SI)
 
 	message := tas_middleware_pb.ConsensusPowResultMessage{
-		Hash: msg.BlockHash.Bytes(),
+		Hash: msg.BaseHash.Bytes(),
 		Nonce: &msg.Nonce,
 		Sign: sign,
 	}
@@ -410,7 +410,7 @@ func marshalConsensusPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) ([
 	nonces :=  marshalMinerNonceSeq(msg.NonceSeq)
 
 	message := tas_middleware_pb.ConsensusPowConfirmMessage{
-		Hash: msg.BlockHash.Bytes(),
+		Hash: msg.BaseHash.Bytes(),
 		NonceSeq: nonces,
 		Sign: sign,
 	}
@@ -423,7 +423,7 @@ func marshalConsensusPowFinalMessage(msg *model.ConsensusPowFinalMessage) ([]byt
 	nonces :=  marshalMinerNonceSeq(msg.NonceSeq)
 
 	message := tas_middleware_pb.ConsensusPowFinalMessage{
-		Hash: msg.BlockHash.Bytes(),
+		Hash: msg.BaseHash.Bytes(),
 		NonceSeq: nonces,
 		GSign: msg.GSign.Serialize(),
 		Sign: sign,

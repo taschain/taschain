@@ -74,6 +74,7 @@ type VerifyContext struct {
 	expireTime	time.Time			//铸块超时时间
 
 	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
+	proposal 	bool		//自己是否已经提案
 
 	slots [model.MAX_CAST_SLOT]*SlotContext
 
@@ -123,6 +124,21 @@ func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time
 	vc.consensusStatus = CBCS_CURRENT
 	vc.powResult = bc.worker.LoadConfirm()
 	vc.resetSlotContext()
+}
+
+func (vc *VerifyContext) markProposal() {
+    vc.proposal = true
+}
+
+func (vc *VerifyContext) isProposal() bool {
+    return vc.proposal
+}
+
+func (vc *VerifyContext) canProposal(id groupsig.ID) bool {
+	if _, mn := vc.powResult.GetMinerNonce(id); mn != nil {
+		return true
+	}
+	return false
 }
 
 func (vc *VerifyContext) setTimeout() {
@@ -180,6 +196,9 @@ func (vc *VerifyContext) castSuccess() bool {
 }
 
 func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData) (CAST_BLOCK_MESSAGE_RESULT, *SlotContext) {
+	if vc.castTimeout() {
+		return CBMR_TIMEOUT, nil
+	}
 	if bh.GenHash() != si.DataHash {
 		panic("SlotContext::AcceptPiece arg failed, hash not samed 1.")
 	}
@@ -258,8 +277,8 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 
 //判断该context是否可以删除
 func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
 
 	//不在铸块或者已出最大块的, 可以删除
 	if !vc.isCasting() || vc.castSuccess() {

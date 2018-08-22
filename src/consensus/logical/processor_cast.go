@@ -208,6 +208,10 @@ func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
 	vctx := bc.GetCurrentVerifyContext()
 	height := vctx.castHeight
 
+	if !vctx.canProposal(p.GetMinerID()) || vctx.isProposal() {
+		return nil
+	}
+
 	log.Printf("begin Processor::powProposeBlock, height=%v...\n", height)
 
 	gid := bc.MinerID.Gid
@@ -238,7 +242,6 @@ func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
 		}
 	}
 
-	//调用鸠兹的铸块处理
 	block := p.MainChain.CastingBlock(height, prePowResult.TotalLevel, p.GetMinerID().Serialize(), gid.Serialize(), levelNonces)
 	if block == nil {
 		log.Printf("MainChain::CastingBlock failed, height=%v, level=%v, gid=%v, mid=%v.\n", height, prePowResult.TotalLevel, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
@@ -265,6 +268,7 @@ func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
 		ccm.GenRandSign(sk, vctx.prevRand)
 
 		logHalfway(mtype, height, p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
+		vctx.markProposal()
 
 		p.NetServer.SendCastVerify(&ccm)
 

@@ -27,10 +27,10 @@ func init() {
 }
 
 type Difficulty struct {
-	TargetMax  *big.Int
-	TargetMin  *big.Int
-	PowSecsMax int
-	ConfirmSecsMax int
+	TargetMax      *big.Int //目标值上限
+	TargetMin      *big.Int //目标值下限
+	SendResultSec  int      //发送pow结果的时间
+	SendConfirmSec int      //发送确认的时间
 
 }
 
@@ -54,10 +54,10 @@ func generateBigIntWithPrefixZero(znum int) *big.Int {
 
 func NewDifficultyWithPrefixZero(zmaxnum int, zminnum int, powSec int, confirmSec int) *Difficulty {
 	return &Difficulty{
-		TargetMax:  generateBigIntWithPrefixZero(zminnum),
-		TargetMin:  generateBigIntWithPrefixZero(zmaxnum),
-		PowSecsMax: powSec,
-		ConfirmSecsMax: confirmSec,
+		TargetMax:      generateBigIntWithPrefixZero(zminnum),
+		TargetMin:      generateBigIntWithPrefixZero(zmaxnum),
+		SendResultSec:  powSec,
+		SendConfirmSec: confirmSec,
 	}
 }
 
@@ -75,12 +75,12 @@ func (d *Difficulty) Level(v *big.Int) uint32 {
 	return DIFFCULTY_LEVEL_NONE
 }
 
-func (d *Difficulty) powDeadline(start time.Time) *time.Time {
-    t := start.Add(time.Second * time.Duration(d.PowSecsMax))
+func (d *Difficulty) sendPowResultTime(start time.Time) *time.Time {
+    t := start.Add(time.Second * time.Duration(d.SendResultSec))
     return &t
 }
 
-func (d *Difficulty) confirmDeadline(start time.Time) *time.Time {
-	t := start.Add(time.Second * time.Duration(d.ConfirmSecsMax))
+func (d *Difficulty) sendPowConfirmTime(start time.Time) *time.Time {
+	t := start.Add(time.Second * time.Duration(d.SendConfirmSec))
 	return &t
 }
