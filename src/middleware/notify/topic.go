@@ -3,6 +3,7 @@ package notify
 import (
 	"sync"
 	"reflect"
+	"fmt"
 )
 
 type Message interface {
@@ -33,12 +34,8 @@ func (topic *Topic) Subscribe(h Handler) {
 	topic.lock.Lock()
 	defer topic.lock.Unlock()
 
-	for _, handler := range topic.handlers {
-		if reflect.ValueOf(handler) == reflect.ValueOf(h) {
-			return
-		}
-	}
 	topic.handlers = append(topic.handlers, h)
+	fmt.Printf("Subscribe:%d",len(topic.handlers))
 }
 
 func (topic *Topic) UnSubscribe(h Handler) {
