@@ -142,6 +142,7 @@ func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id,p)
 	} else if session >0{
+		p.dataBuffer = nil
 		p.seesionId = session
 	}
 	p.connecting = false
