@@ -94,8 +94,6 @@ func newPeerManager() *PeerManager {
 
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
 
-	begin := time.Now()
-
 	netId := netCoreNodeID(toid)
 	p := pm.peerByNetID(netId)
 	if p == nil {
@@ -106,6 +104,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId,p)
 	}
 	if  p.seesionId > 0 {
+		Logger.Infof("P2PSend Id:%v size %v", toid.GetHexString(),len(packet.Bytes()))
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
@@ -123,11 +122,12 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			Logger.Infof("Connect：ID: %v ", toid.GetHexString())
+			Logger.Infof("P2PConnect: %v ", toid.GetHexString())
+		} else {
+			Logger.Infof("write  error : %v ", toid.GetHexString())
 		}
 	}
 
-	Logger.Infof("PeerManager.write  cost time：%v",  time.Since(begin))
 
 	return nil
 }
@@ -196,9 +196,7 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	defer pm.mutex.Unlock()
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
-			//pm.write(p.Id, nil, packet)
 			go P2PSend(p.seesionId, packet.Bytes())
-
 		}
 	}
 

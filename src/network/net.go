@@ -458,6 +458,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte, error) {
 	packet, hash, err := nc.encodeDataPacket(data, DataType_DataNormal, "", nil, nil, -1)
 	if err != nil {
+		Logger.Infof("Send encodeDataPacket err :%v ", toid.GetHexString())
 		return hash, err
 	}
 	return hash, nc.peerManager.write(toid, toaddr, packet)
