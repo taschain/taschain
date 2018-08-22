@@ -15,7 +15,7 @@ import (
 
 const (
 	alpha           = 3  // 并发限制
-	bucketSize      = 16 // kad桶大小
+	bucketSize      = 35 // kad桶大小
 	maxReplacements = 10 // kad 预备桶成员大小
 	maxSetupCheckCount = 12
 
