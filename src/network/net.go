@@ -469,8 +469,9 @@ func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
 	nc.peerManager.OnConnected(id, session, p2pType)
 	p := nc.peerManager.peerByNetID(id)
-
-	go nc.ping(p.Id, &nnet.UDPAddr{IP: p.Ip, Port: p.Port})
+	if p != nil && p.Ip != nil && p.Port > 0 {
+		go nc.ping(p.Id, &nnet.UDPAddr{IP: p.Ip, Port: p.Port})
+	}
 }
 
 //OnConnected 处理接受连接的回调
@@ -688,7 +689,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 	id := fromId.GetHexString()
 	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
 	if req.DataType == DataType_DataNormal {
-		net.handleMessage(req.Data, id)
+		go  net.handleMessage(req.Data, id)
 	} else {
 		forwarded := false
 
@@ -713,7 +714,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-				net.handleMessage(req.Data, srcNodeId.GetHexString())
+				go net.handleMessage(req.Data, srcNodeId.GetHexString())
 			}
 			broadcast := false
 			//需广播

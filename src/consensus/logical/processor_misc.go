@@ -1,12 +1,10 @@
 package logical
 
 import (
-	"consensus/groupsig"
-	"log"
+		"log"
 	"strings"
 	"common"
-	"consensus/model"
-)
+	)
 
 /*
 **  Creator: pxf
@@ -49,10 +47,6 @@ func (p *Processor) prepareMiner()  {
 		log.Printf("load group=%v\n", GetIDPrefix(sgi.GroupID))
 		if !sgi.CastQualified(topHeight) {
 			continue
-		}
-		for _, mem := range coreGroup.Members {
-			pkInfo := model.NewPubKeyInfo(*groupsig.DeserializeId(mem.Id), *groupsig.DeserializePubkeyBytes(mem.PubKey))
-			sgi.addMember(&pkInfo)
 		}
 		if !p.globalGroups.AddStaticGroup(sgi) {
 			continue

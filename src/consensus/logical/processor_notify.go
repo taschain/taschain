@@ -8,7 +8,9 @@ import (
 )
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
-
+	if !p.Ready() {
+		return
+	}
 	block := message.GetData().(types.Block)
 	topBH := p.MainChain.QueryTopBlock()
 	preHeader := block.Header
@@ -36,13 +38,19 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 }
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
+	if !p.Ready() {
+		return
+	}
 	group := message.GetData().(types.Group)
 	sgi := NewSGIFromCoreGroup(&group)
 	log.Printf("groupAddEventHandler receive message, groupId=%v\n", GetIDPrefix(sgi.GroupID))
-	p.globalGroups.AddStaticGroup(sgi)
+	p.acceptGroup(sgi)
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message)  {
+	if !p.Ready() {
+		return
+	}
     msg := &model.ConsensusBlockMessage{
     	Block: message.GetData().(types.Block),
 	}
