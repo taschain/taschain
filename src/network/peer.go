@@ -166,6 +166,8 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 		if p.seesionId == session {
 			p.seesionId = 0
 		}
+	} else {
+		Logger.Infof("OnDisconnected net id：%v session:%v port:%v code:%v", id,session,p2pCode)
 	}
 }
 
