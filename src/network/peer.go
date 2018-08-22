@@ -141,13 +141,13 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		p = &Peer{Id: NodeID{}, seesionId: session, sendList: make([]*bytes.Buffer, 0)}
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id,p)
-	} else if session >0{
+	} else if session >0 && p.seesionId == 0{
 		p.dataBuffer = nil
 		p.seesionId = session
 	}
 	p.connecting = false
 
-	if p != nil {
+	if p != nil  {
 		for i := 0; i < len(p.sendList); i++ {
 			P2PSend(p.seesionId, p.sendList[i].Bytes())
 		}
