@@ -23,21 +23,121 @@ import (
 type GtasAPI struct {
 }
 
+var nicks = make(map[string]string)
+var alias = make(map[string]string)
+
+type txs []*common.Hash
+
+var relatedTxs = make(map[string]txs)
+
+type txdetail struct {
+	Hash      string `json:"hash"`
+	Height    uint64 `json:"height"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Value     uint64 `json:"value"`
+	BlockHash string `json:"block_hash"`
+}
+
+func (api *GtasAPI) formatAccount(account string) string {
+	if len(account) == 0 {
+		return account
+	}
+
+	addr := nicks[account]
+	if len(addr) != 0 {
+		return addr
+	}
+
+	if strings.HasPrefix(account, "TAS:") {
+		return account[4:]
+	}
+
+	return account
+}
+
 // T 交易接口
 func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
+	if len(from) == 0 {
+		from = "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	}
+	from = api.formatAccount(from)
+	to = api.formatAccount(to)
 	hash, err := walletManager.transaction(from, to, amount, code)
 	if err != nil {
 		return nil, err
 	}
+
+	tx := relatedTxs[from]
+	if nil == tx {
+		tx = make([]*common.Hash, 10)
+		relatedTxs[from] = tx
+	}
+	relatedTxs[from] = append(relatedTxs[from], hash)
+
+	tx = relatedTxs[to]
+	if nil == tx {
+		tx = make([]*common.Hash, 10)
+		relatedTxs[to] = tx
+	}
+	relatedTxs[to] = append(relatedTxs[to], hash)
+
 	return &Result{
 		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
 		Data:    hash.String(),
 	}, nil
 }
 
+func (api *GtasAPI) Transactions(account string) (*Result, error) {
+	txs := relatedTxs[api.formatAccount(account)]
+	if nil == txs || 0 == len(txs) {
+		return &Result{
+			Message: "nil txs",
+		}, nil
+	}
+
+	details := make([]*txdetail, 0)
+	for _, tx := range txs {
+		if nil == tx {
+			continue
+		}
+		wrapper := core.BlockChainImpl.GetExecutedTransactionByHash(*tx)
+		if nil == wrapper {
+			continue
+		}
+
+		detail := &txdetail{
+			Hash:      tx.Hex(),
+			From:      wrapper.Transaction.Source.GetHexString(),
+			To:        wrapper.Transaction.Target.GetHexString(),
+			Value:     wrapper.Transaction.Value,
+			Height:    wrapper.Height,
+			BlockHash: wrapper.BlockHash.Hex(),
+		}
+
+		alia,ok := alias[detail.From]
+		if ok {
+			detail.From = alia
+		}
+		alia,ok = alias[detail.To]
+		if ok {
+			detail.To = alia
+		}
+
+		details = append(details, detail)
+
+	}
+
+	return &Result{
+		Message: "success",
+		Data:    details,
+	}, nil
+
+}
+
 // Balance 查询余额接口
 func (api *GtasAPI) Balance(account string) (*Result, error) {
-	balance, err := walletManager.getBalance(account)
+	balance, err := walletManager.getBalance(api.formatAccount(account))
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +148,31 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 }
 
 // NewWallet 新建账户接口
-func (api *GtasAPI) NewWallet() (*Result, error) {
+func (api *GtasAPI) NewWallet(nick string) (*Result, error) {
+
 	privKey, addr := walletManager.newWallet()
 	data := make(map[string]string)
 	data["private_key"] = privKey
+	if len(nick) != 0 {
+		if strings.HasPrefix(nick, "TAS:") {
+			nick = ""
+		} else {
+			nicks[nick] = addr
+
+		}
+
+		_, ok := alias[addr]
+		if !ok && len(nick) != 0 {
+			alias[addr] = nick
+		}
+
+	}
+
+	data["nick"] = nick
+	addr = "TAS:" + addr[2:]
 	data["address"] = addr
 	return &Result{fmt.Sprintf("Please Remember Your PrivateKey!\n "+
-		"PrivateKey: %s\n WalletAddress: %s", privKey, addr), data}, nil
+		"PrivateKey: %s\n WalletAddress: %s\n nick: %s", privKey, addr, nick), data}, nil
 }
 
 // GetWallets 获取当前节点的wallets
@@ -99,10 +217,10 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
-	nodes :=network.GetNetInstance().ConnInfo()
-	conns := make([]ConnInfo,0)
-	for _,n := range nodes{
-		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
+	nodes := network.GetNetInstance().ConnInfo()
+	conns := make([]ConnInfo, 0)
+	for _, n := range nodes {
+		conns = append(conns, ConnInfo{Id: n.Id, Ip: n.Ip, TcpPort: n.Port})
 	}
 	return &Result{"", conns}, nil
 }
@@ -122,7 +240,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return &Result{"success", transList}, nil
 }
 
-func(api *GtasAPI) GetTransaction(hash string) (*Result, error) {
+func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
 	if err != nil {
 		return nil, err
@@ -199,8 +317,8 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr :=  groupsig.DeserializeId(mem.Id).GetHexString()
-		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
+		memberStr := groupsig.DeserializeId(mem.Id).GetHexString()
+		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
 	return gmap
@@ -222,12 +340,10 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 	return &Result{"success", ret}, nil
 }
 
-
 func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
 	height := core.BlockChainImpl.Height()
 	return api.GetWorkGroup(height)
 }
-
 
 func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	groups := mediator.Proc.GetCastQualifiedGroups(height)

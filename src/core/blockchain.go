@@ -129,9 +129,9 @@ func initBlockChain() error {
 		transactionPool: NewTransactionPool(),
 		latestBlock:     nil,
 
-		lock:            middleware.NewLoglock("chain"),
-		init:            true,
-		isAdujsting:     false,
+		lock:        middleware.NewLoglock("chain"),
+		init:        true,
+		isAdujsting: false,
 	}
 
 	var err error
@@ -288,6 +288,11 @@ func (chain *BlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 //根据哈希取得某个交易
 func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
+}
+
+//根据哈希取得某个交易
+func (chain *BlockChain) GetExecutedTransactionByHash(h common.Hash) *ReceiptWrapper {
+	return chain.transactionPool.GetExecuted(h)
 }
 
 //辅助方法族
@@ -606,7 +611,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.AddExecuted(receipts, b.Transactions)
+		chain.transactionPool.AddExecuted(receipts, b.Transactions, b)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
@@ -721,17 +726,17 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 			}
 			break
 		}
-		if b == nil{
+		if b == nil {
 			return nil
 		}
 
 		var isTopBlock bool
-		if b.Header.Height == chain.Height(){
+		if b.Header.Height == chain.Height() {
 			isTopBlock = true
-		}else {
+		} else {
 			isTopBlock = false
 		}
-		return &BlockInfo{Block: b,IsTopBlock:isTopBlock}
+		return &BlockInfo{Block: b, IsTopBlock: isTopBlock}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")

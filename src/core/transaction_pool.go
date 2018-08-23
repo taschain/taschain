@@ -71,6 +71,8 @@ type TransactionPool struct {
 type ReceiptWrapper struct {
 	Receipt     *vtypes.Receipt
 	Transaction *types.Transaction
+	Height      uint64
+	BlockHash   common.Hash
 }
 
 func DefaultPoolConfig() *TransactionPoolConfig {
@@ -197,7 +199,6 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		//Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
-
 
 	pool.received.Push(tx)
 
@@ -328,7 +329,7 @@ func (pool *TransactionPool) addTxs(txs []*types.Transaction) {
 }
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
-func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {
+func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction, block *types.Block) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
@@ -342,6 +343,8 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 			receiptWrapper := &ReceiptWrapper{
 				Receipt:     receipt,
 				Transaction: getTransaction(txs, hash, i),
+				Height:      block.Header.Height,
+				BlockHash:   block.Header.Hash,
 			}
 
 			receiptJson, err := json.Marshal(receiptWrapper)

@@ -4,7 +4,7 @@ const HTMLTEM = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title> 
+    <title>Title</title>
     <link rel="stylesheet" href="https://mvp.taschain.cn/static/layui/css/layui.css">
     <style type="text/css">
         .wallet_tr {word-wrap:break-word; word-break:break-all;}
@@ -22,6 +22,7 @@ const HTMLTEM = `<!DOCTYPE html>
             <li>查询块信息</li>
             <li>查询组信息</li>
             <li>查询工作组</li>
+            <li>查询交易信息</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -88,12 +89,14 @@ const HTMLTEM = `<!DOCTYPE html>
                 <button class="layui-btn" id="create_btn">创建账户</button>
                 <table class="layui-table" style="table-layout: fixed">
                     <colgroup>
+						<col width="10%">
                         <col width="65%">
                         <col width="20%">
                         <col>
                     </colgroup>
                     <thead>
                     <tr>
+						<th>用户名</th>
                         <th>私钥</th>
                         <th>钱包地址</th>
                         <th>操作</th>
@@ -107,21 +110,21 @@ const HTMLTEM = `<!DOCTYPE html>
             <div class="layui-tab-item">
                 <form class="layui-form" action="">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">from</label>
+                        <label class="layui-form-label">发送方</label>
                         <div class="layui-input-block">
                             <input type="text" name="from"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入发送方地址(len=40)">
+                                   placeholder="默认地址0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">to</label>
+                        <label class="layui-form-label">收款人</label>
                         <div class="layui-input-block">
                             <input type="text" name="to"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入接收方地址(len=40)">
+                                   placeholder="请输入收款人地址(len=40)">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">amount</label>
+                        <label class="layui-form-label">金额</label>
                         <div class="layui-input-block">
                             <input type="text" name="amount"  autocomplete="off" class="layui-input"
                                    placeholder="请输入金额(正整数)">
@@ -163,66 +166,66 @@ const HTMLTEM = `<!DOCTYPE html>
                     </tr>
                     </thead>
                     <tbody id="balance_chart">
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_0">
-                            </td>
-                            <td id="query_balance_0">
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_0">
+                        </td>
+                        <td id="query_balance_0">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_1">
-                            </td>
-                            <td id="query_balance_1">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_1">
+                        </td>
+                        <td id="query_balance_1">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_2">
-                            </td>
-                            <td id="query_balance_2">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_2">
+                        </td>
+                        <td id="query_balance_2">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_2">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_3">
-                            </td>
-                            <td id="query_balance_3">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_2">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_3">
+                        </td>
+                        <td id="query_balance_3">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_3">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_4">
-                            </td>
-                            <td id="query_balance_4">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_3">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_4">
+                        </td>
+                        <td id="query_balance_4">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_4">查询</button>
-                            </td>
-                        </tr>
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_4">查询</button>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
                 <div style="padding-top: 30px"></div>
@@ -375,6 +378,21 @@ const HTMLTEM = `<!DOCTYPE html>
 
                 <table id="work_group_detail" lay-filter="block_detail"></table>
             </div>
+
+            <div class="layui-tab-item">
+                    <table class="layui-table">
+                            <tr>
+                                <td width="40%">
+                                    <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                           placeholder="根据用户名查询交易" id="query_username">
+                                </td>
+                                <td>
+                                    <button class="layui-btn query_btn" id="query_trans_btn">查询</button>
+                                </td>
+                            </tr>
+                    </table>
+                <table id="trans_detail_table" lay-filter="trans_list"></table>
+            </div>
         </div>
     </div>
 </div>
@@ -395,9 +413,17 @@ const HTMLTEM = `<!DOCTYPE html>
         var blocks = [];
         var groups = [];
         var workGroups = [];
+        var trans_data = [];
         var groupIds = new Set();
         var table = layui.table;
 
+        var user_trans_table = table.render({
+            elem: '#trans_detail_table' //指定原始表格元素选择器（推荐id选择器）
+            ,cols: [[{field:'hash', title: '交易哈希'},{field:'height',title: '块高', sort:true}, {field:'block_hash', title: '块哈希'}, {field:'from', title: '付款人'}, {field:'to', title: '收款人'}, {field:'value', title: '金额'}]] //设置表头
+            ,data: trans_data
+            ,page: true
+            ,limit:15
+        });
 
         var block_table = table.render({
             elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
@@ -428,7 +454,40 @@ const HTMLTEM = `<!DOCTYPE html>
             ,page: true
             ,limit:15
         });
-
+        
+        // 查询交易
+        $("#query_trans_btn").click(function () {
+            var h = $("#query_username").val()
+            if (h == null || h == undefined || h == '') {
+                alert("请输入查询用户名")
+                return
+            }
+            let params = {
+                "method": "GTAS_transactions",
+                "params": [h],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined){
+                        trans_data = rdata.result.data;
+                        user_trans_table.reload({
+                                    data: trans_data
+                                })
+                    }
+                    if (rdata.error !== undefined){
+                        
+                    }
+                },
+            });
+        });
 
         $("#change_host").click(function () {
             layer.prompt({
@@ -536,30 +595,39 @@ const HTMLTEM = `<!DOCTYPE html>
 
         // 创建钱包
         $("#create_btn").click(function () {
-            let params = {
-                "method": "GTAS_newWallet",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    let tr = "<tr class='wallet_tr'><td>" + rdata.result.data.private_key + "</td><td>" + rdata.result.data.address
-                            + '</td><td ><button class="layui-btn wallet_del">删除</button></td></tr>';
-                    $("#create_chart").append(tr);
 
-                    $(".wallet_del").click(function () {
-                        let parent = $(this).parents("tr");
-                        del_wallet(parent.children("td:eq(1)").text());
-                        parent.remove();
-                    });
-                },
+            layer.prompt({
+                formType: 2,
+                value: '',
+                title: '请输入用户名',
+                area: ['200px', '20px'] //自定义文本域宽高
+            }, function(value, index, elem){
+                let params = {
+                    "method": "GTAS_newWallet",
+                    "params": [value],
+                    "jsonrpc": "2.0",
+                    "id": "1"
+                };
+                $.ajax({
+                    type: 'POST',
+                    url: HOST,
+                    beforeSend: function (xhr) {
+                        xhr.setRequestHeader("Content-Type", "application/json");
+                    },
+                    data: JSON.stringify(params),
+                    success: function (rdata) {
+                        let tr = "<tr class='wallet_tr'><td>"+rdata.result.data.nick+"</td><td>" + rdata.result.data.private_key + "</td><td>" + rdata.result.data.address
+                                + '</td><td ><button class="layui-btn wallet_del">删除</button></td></tr>';
+                        $("#create_chart").append(tr);
+
+                        $(".wallet_del").click(function () {
+                            let parent = $(this).parents("tr");
+                            del_wallet(parent.children("td:eq(1)").text());
+                            parent.remove();
+                        });
+                    },
+                });
+                layer.close(index);
             });
         });
 
@@ -921,7 +989,7 @@ const HTMLTEM = `<!DOCTYPE html>
                 alert("请输入查询高度")
                 return
             }
-			queryWorkGroup(parseInt(h))
+            queryWorkGroup(parseInt(h))
         })
         //查询工作组
         function queryWorkGroup(height) {
