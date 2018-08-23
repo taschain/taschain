@@ -5,6 +5,7 @@ import (
 	"common"
 
 	nnet "net"
+	"middleware/statistics"
 )
 
 const (
@@ -27,7 +28,7 @@ var Logger taslog.Logger
 
 func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string)(id string,err error){
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
-
+	statistics.Init(config)
 	self, err := InitSelfNode(config, isSuper)
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
