@@ -96,11 +96,9 @@ func VmTestABI() {
 
 
 	tvm.Execute(`
+import account
 def Test(a, b, c, d):
-    print(a)
-    print(b)
-    print(c)
-    print(d)
+	print("hehe")
 `,  nil, nil)
 
 	str := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
@@ -352,5 +350,5 @@ class MyAdvancedToken(TokenERC20):
 #
 #
 #
-`, nil, nil)
+`,  nil, nil)
 }

@@ -23,10 +23,11 @@ import (
 	"middleware/types"
 	"network"
 	"taslog"
+	"os"
 )
 
 func TestBlockChain_AddBlock(t *testing.T) {
-	common.InitConf("/Users/Kaede/TasProject/work/1g3n/test1.ini")
+	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
@@ -47,10 +48,15 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	if nil == txpool {
 		t.Fatalf("fail to get txpool")
 	}
-
+	code := `
+import account
+def Test(a, b, c, d):
+	print("hehe")
+`
 	// 交易1
 	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
-
+	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
 	//交易2
 	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
@@ -87,8 +93,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	//交易3
-	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1, 10))
-
+	txpool.Add(genTestTx("jdai3", 1, "1", "2", 2, 10))
+	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
+	fmt.Println(contractAddr.GetHexString())
 	// 铸块2
 	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
@@ -360,6 +367,29 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		Target:   &targetbyte,
 		Nonce:    nonce,
 		Value:    value,
+	}
+}
+
+func genContractTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
+	var sourceAddr, targetAddr *common.Address
+
+	sourcebyte := common.BytesToAddress([]byte(source))
+	sourceAddr = &sourcebyte
+	if target == "" {
+		targetAddr = nil
+	} else {
+		targetbyte := common.HexStringToAddress(target)
+		targetAddr = &targetbyte
+	}
+	return &types.Transaction{
+		Data:          data,
+		GasPrice:      price,
+		Source:        sourceAddr,
+		Target:        targetAddr,
+		Nonce:         nonce,
+		Value:         value,
+		ExtraData:     extraData,
+		ExtraDataType: extraDataType,
 	}
 }
 

@@ -20,10 +20,10 @@ import (
 	"common"
 	t "storage/core/types"
 	"storage/core"
-	"tvm"
 	"math/big"
 	"storage/core/vm"
 	"fmt"
+	"tvm"
 )
 
 type TVMExecutor struct {
@@ -42,17 +42,17 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
 		return hash, nil, nil
 	}
-
-	vm := tvm.NewTvm(accountdb, BlockChainImpl)
 	receipts := make([]*t.Receipt,len(block.Transactions))
 	for i,transaction := range block.Transactions{
+		vm := tvm.NewTvm(accountdb, BlockChainImpl)
 		receipt := t.Receipt{}
 		if transaction.Target == nil{
 			receipt.ContractAddress,_ = createContract(accountdb, transaction)
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
-			if !vm.Execute(script, block.Header, transaction){
+			fmt.Println(script)
+			if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
 				accountdb.RevertToSnapshot(snapshot)
 			}
 		} else {
