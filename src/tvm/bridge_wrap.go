@@ -118,14 +118,14 @@ unsigned long long wrap_get_refund()
 
 char* wrap_get_state(char* address, char* hash)
 {
-	char* GetState(char*, char*);
-	return GetState(address, hash);
+	char* GetData(char*, char*);
+	return GetData(address, hash);
 }
 
 void wrap_set_state(char* address, char* hash, char* state)
 {
-	void SetState(char*, char*, char*);
-	SetState(address, hash, state);
+	void SetData(char*, char*, char*);
+	SetData(address, hash, state);
 }
 
 _Bool wrap_suicide(char* address)

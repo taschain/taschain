@@ -68,10 +68,10 @@ Function14 blockhash;
 Function15 coinbase;
 Function9 difficulty;
 Function9 number;
+Function9 gaslimit;
 Function9 timestamp;
 // tx
 Function15 origin;
-Function9 gaslimit;
 
 
 

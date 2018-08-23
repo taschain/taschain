@@ -8,11 +8,13 @@ class InterpreterError(Exception): pass
 
 class Contract(object):
 
-    def __init__(self, addr, env):
+    def __init__(self, addr, env, depends):
         self.data = glovar.storage.get(addr)
         self.addr = addr
         self.env = env
         self.env["tas_filename"] = addr
+        self.import_depends(depends)
+        # TODO 删除加载的module
         self.my_exec(cmd=self.data.get_code(), globals=self.env)
         self.my_exec(cmd="tas_{addr} ={class_name}()".format(addr=addr, class_name=self.data.get_class()), globals=self.env)
         self.data.load_data(self.env.get("tas_{addr}".format(addr=addr)))
@@ -20,7 +22,8 @@ class Contract(object):
     def import_depends(self, depends):
         for code_addr in depends:
             code = glovar.storage.get(code_addr).get_code()
-            self.my_exec(code, self.env)
+            class_name = glovar.storage.get(code_addr).get_class()
+            glovar.importer.add_module(class_name, code)
 
     def call(self, function_name, *args, **kwargs):
         self.env["tas_{addr}_args".format(addr=self.addr)] = args
