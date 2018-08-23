@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"middleware/types"
 	"consensus/model"
+	"middleware/statistics"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -52,6 +53,7 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 	if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
 		p.SuccessNewBlock(bh, vctx, gid) //上链和组外广播
 		//log.Printf("%v remove verifycontext from bccontext! remain size=%v\n", mtype, len(bc.verifyContexts))
+		statistics.AddLog(bh.Hash.String(),statistics.NewBlock,time.Now().UnixNano(),string(bh.Castor),p.mi.MinerID.String())
 	}
 
 }
@@ -193,11 +195,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
+	statistics.AddLog(ccm.BH.Hash.String(),statistics.MessageCast,time.Now().UnixNano(),string(ccm.BH.Castor),p.mi.MinerID.String())
 	p.verifyCastMessage("OMC", &ccm.ConsensusBlockMessageBase)
 }
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
+	statistics.AddLog(cvm.BH.Hash.String(),statistics.MessageVerify,time.Now().UnixNano(),string(cvm.BH.Castor),p.mi.MinerID.String())
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
 }
 

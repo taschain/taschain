@@ -10,6 +10,7 @@ import (
 	"consensus/model"
 	"consensus/base"
 	"consensus/net"
+	"middleware/statistics"
 )
 
 /*
@@ -289,6 +290,8 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
 		return nil
+	} else {
+		statistics.AddLog(block.Header.Hash.String(), statistics.KingCasting, time.Now().UnixNano(),string(block.Header.Castor),p.GetMinerID().String())
 	}
 
 	bh := block.Header
