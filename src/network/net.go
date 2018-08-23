@@ -504,6 +504,7 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 		p = newPeer(NodeID{}, 0)
 		nc.peerManager.addPeer(netId, p)
 	}
+	Logger.Infof("recvData id:%v netid:%v  session:%v len:%v ", p.Id.GetHexString(),netId ,session,len(data))
 
 	p.addData(data)
 	nc.unhandle <- p
@@ -528,7 +529,6 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId stri
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
-	Logger.Infof("encodeDataPacket MessageId:%v ", msgData.GetMessageId())
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
