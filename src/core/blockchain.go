@@ -400,7 +400,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
-		TotalQN:     latestBlock.TotalQN + queueNumber,
+		TotalQN:     latestBlock.TotalQN + queueNumber,//todo:latestBlock != nil?
 	}
 
 	if latestBlock != nil {
