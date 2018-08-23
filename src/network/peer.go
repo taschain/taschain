@@ -104,7 +104,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId,p)
 	}
 	if  p.seesionId > 0 {
-		Logger.Infof("P2PSend Id:%v size %v", toid.GetHexString(),len(packet.Bytes()))
+		Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
@@ -142,8 +142,8 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id,p)
 	} else if session >0 {
-		p.dataBuffer = nil
 		if p.seesionId ==0 {
+			p.dataBuffer = nil
 			p.seesionId = session
 		}
 

@@ -498,13 +498,13 @@ func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 }
 
 func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
+	Logger.Infof("recvData netid:%v  session:%v len:%v ", netId ,session,len(data))
 
 	p := nc.peerManager.peerByNetID(netId)
 	if p == nil {
 		p = newPeer(NodeID{}, 0)
 		nc.peerManager.addPeer(netId, p)
 	}
-	Logger.Infof("recvData id:%v netid:%v  session:%v len:%v ", p.Id.GetHexString(),netId ,session,len(data))
 
 	p.addData(data)
 	nc.unhandle <- p
