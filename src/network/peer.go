@@ -132,27 +132,38 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	return nil
 }
 
-//OnConnected 处理连接成功的回调
-func (pm *PeerManager) OnConnected(id uint64, session uint32, p2pType uint32) {
+//newConnection 处理连接成功的回调
+func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, isAccepted bool) {
 
-	Logger.Infof("OnConnected netid :%v session:%v ", id,session)
 
 	p := pm.peerByNetID(id)
 	if p == nil {
 		p = &Peer{Id: NodeID{}, seesionId: session, sendList: make([]*bytes.Buffer, 0)}
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id,p)
-	} else if session >0{
-		p.seesionId = session
+	} else if session >0 {
+		p.dataBuffer = nil
+		if p.seesionId ==0 {
+			p.seesionId = session
+		} else {
+			P2PShutdown(session)
+			P2PShutdown(p.seesionId)
+
+			p.seesionId = 0
+		}
+
 	}
 	p.connecting = false
 
-	if p != nil {
+	if p != nil  {
 		for i := 0; i < len(p.sendList); i++ {
 			P2PSend(p.seesionId, p.sendList[i].Bytes())
 		}
 		p.sendList = make([]*bytes.Buffer, 0)
 	}
+
+	Logger.Infof("OnConnected node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
+
 }
 
 //OnDisconnected 处理连接断开的回调
