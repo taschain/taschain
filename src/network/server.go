@@ -207,15 +207,15 @@ func (n *server) handleMessage(b []byte, from string) {
 		n.consensusHandler.Handle(from, *message)
 	case NewBlockHeaderMsg:
 		Logger.Debugf("Receive NewBlockHeaderMsg from %s", from)
-		msg := notify.BlockHeaderNotifyMessage{HeaderByte: b, Peer: from}
+		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)
 	case BlockBodyReqMsg:
 		Logger.Debugf("Receive BlockBodyReqMsg from %s", from)
-		msg := notify.BlockBodyReqMessage{BlockHashByte: b, Peer: from}
+		msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBodyReq, &msg)
 	case BlockBodyMsg:
 		Logger.Debugf("Receive BlockBodyMsg from %s", from)
-		msg := notify.BlockBodyNotifyMessage{BodyByte: b, Peer: from}
+		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	}
 

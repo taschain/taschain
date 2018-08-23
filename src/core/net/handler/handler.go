@@ -141,14 +141,15 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 
 func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
 	core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler RCV MSG")
-	m, ok := msg.GetData().(notify.BlockHeaderNotifyMessage)
+	m, ok := msg.GetData().(*notify.BlockHeaderNotifyMessage)
 	if !ok {
+		core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler GetData assert not ok!")
 		return
 	}
 
 	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
 	if e != nil {
-		network.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
+		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
 		return
 	}
 
@@ -158,31 +159,29 @@ func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
 
 func (ch ChainHandler) blockBodyReqHandler(msg notify.Message) {
 	core.Logger.Debugf("[ChainHandler]blockBodyReqHandler RCV MSG")
-	m, ok := msg.GetData().(notify.BlockBodyReqMessage)
+	m, ok := msg.GetData().(*notify.BlockBodyReqMessage)
 	if !ok {
+		core.Logger.Debugf("[ChainHandler]blockBodyReqHandler GetData assert not ok!")
 		return
 	}
 
 	hash := common.BytesToHash(m.BlockHashByte)
 
 	body := core.BlockChainImpl.QueryBlockBody(hash)
-	if body == nil {
-		return
-	}
 
 	core.SendBlockBody(m.Peer, hash, body)
 }
 
 func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
 	core.Logger.Debugf("[ChainHandler]blockBodyHandler RCV MSG")
-	m, ok := msg.GetData().(notify.BlockBodyNotifyMessage)
+	m, ok := msg.GetData().(*notify.BlockBodyNotifyMessage)
 	if !ok {
 		return
 	}
 
 	blockHash, txs, e := unMarshalBlockBody(m.BodyByte)
 	if e != nil {
-		network.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
+		core.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
 		return
 	}
 
@@ -194,7 +193,7 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			core.Logger.Debugf("[ChainHandler]headerCh reveive,hash:%v,peer:%s",headerNotify.header.Hash,headerNotify.peer)
+			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s",headerNotify.header.Hash,headerNotify.peer)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				break
@@ -209,7 +208,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]headerCh reveive,hash:%v,peer:%s",bodyNotify.blockHash,bodyNotify.peer)
+			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s",bodyNotify.blockHash,bodyNotify.peer)
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break

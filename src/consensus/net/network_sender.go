@@ -180,7 +180,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	}
 	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:body}
 	ns.net.TransmitToNeighbor(headerMsg)
-	network.Logger.Debugf("spread block %d-%d header over group:%s,header size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber,nextCastGroupId, len(body))
+	network.Logger.Debugf("spread block %d-%d header to neighbor,header size %d,hash:%v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body), cbm.Block.Header.Hash)
 }
 
 //====================================建组前共识=======================
