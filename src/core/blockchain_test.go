@@ -442,6 +442,7 @@ func genContractTx(price uint64, source string, target string, nonce uint64, val
 		targetAddr = &targetbyte
 	}
 	return &types.Transaction{
+		Hash: common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
 		GasPrice:      price,
 		Source:        sourceAddr,

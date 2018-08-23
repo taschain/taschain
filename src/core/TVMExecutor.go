@@ -49,12 +49,9 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		vm := tvm.NewTvm(accountdb, BlockChainImpl)
 		if transaction.Target == nil{
 			contractAddress,_ = createContract(accountdb, transaction)
-			fmt.Println(contractAddress.GetHexString())
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
-			fmt.Println(transaction.Target.GetHexString())
 			script := string(accountdb.GetCode(*transaction.Target))
-			fmt.Println(script)
 			if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
 				accountdb.RevertToSnapshot(snapshot)
 				fail = true
