@@ -224,8 +224,8 @@ import (
 	"middleware/types"
 )
 
-var currentBlockHeader *types.BlockHeader
-var currentTransaction *types.Transaction
+var currentBlockHeader *types.BlockHeader = nil
+var currentTransaction *types.Transaction = nil
 var reader vm.ChainReader
 
 
@@ -285,12 +285,12 @@ func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 }
 
 func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
-	if header == nil {
+	if currentBlockHeader == nil && header == nil {
 		currentBlockHeader = &types.BlockHeader{}
 	} else {
 		currentBlockHeader = header
 	}
-	if transaction == nil {
+	if currentTransaction == nil && transaction == nil {
 		currentTransaction = &types.Transaction{}
 	} else {
 		currentTransaction = transaction
@@ -304,7 +304,7 @@ type ABI struct {
 	FuncName string
 	Args []interface{}
 }
-func (tvm *Tvm) ExecuteABIJson(j string) {
+func (tvm *Tvm) ExecuteABIJson(j string) bool{
 	res := ABI{}
 	json.Unmarshal([]byte(j), &res)
 	fmt.Println(res)
@@ -321,7 +321,7 @@ func (tvm *Tvm) ExecuteABIJson(j string) {
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	tvm.Execute(buf.String(),nil, nil)
+	return tvm.Execute(buf.String(),nil, nil)
 }
 
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {

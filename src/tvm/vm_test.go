@@ -35,7 +35,7 @@ value = account.add_balance("0x1234",10)
 account.set_nonce("0x1234", -1)
 print(account.get_nonce("0x1234"))
 #tas.test()`
-	vm.Execute(script,nil, nil)
+	vm.Execute(script, nil, nil)
 }
 
 func TestVmTestContract(t *testing.T) {
@@ -64,4 +64,8 @@ func TestVmTestToken(t *testing.T) {
 
 func TestVmTest2(t *testing.T) {
 	VmTest()
+}
+
+func TestVm(t *testing.T) {
+	VmTestABI()
 }

@@ -32,6 +32,7 @@ if account.get_nonce("0x1234") != 10:
 account.set_code("0xe8ba89a51b095e63d83f1ec95441483415c64065", "print('hello world')")
 `,
 `
+import account
 code_hash = account.get_code_hash("0xe8ba89a51b095e63d83f1ec95441483415c64065")
 code = account.get_code("0xe8ba89a51b095e63d83f1ec95441483415c64065")
 assert code == "print('hello world')"
@@ -55,7 +56,6 @@ account.add_balance("0x123456",100)
 assert account.get_balance("0x123456") == 100
 account.revert_to_snapshot(num)
 assert account.get_balance("0x123456") == 0
-
 `,
 	}
 	block := types.Block{}
