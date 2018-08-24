@@ -1,12 +1,13 @@
 package groupsig
 
 import (
-	"consensus/bls"
 	"fmt"
 	"math/big"
+	//"math/rand"
 	"testing"
 	"time"
 	"unsafe"
+	"bytes"
 	"consensus/base"
 )
 
@@ -30,13 +31,13 @@ func testPubkey(t *testing.T) {
 	if pub == nil {
 		t.Log("NewPubkeyFromSeckey")
 	}
-	{
-		var pub2 Pubkey
-		err := pub2.SetHexString(pub.GetHexString()) //测试公钥的字符串导出
-		if err != nil || !pub.IsEqual(pub2) {        //检查字符串导入生成的公钥是否跟之前的公钥相同
-			t.Log("pub != pub2")
-		}
-	}
+	//{
+	//	var pub2 Pubkey
+	//	err := pub2.SetHexString(pub.GetHexString()) //测试公钥的字符串导出
+	//	if err != nil || !pub.IsEqual(pub2) {        //检查字符串导入生成的公钥是否跟之前的公钥相同
+	//		t.Log("pub != pub2")
+	//	}
+	//}
 	{
 		var pub2 Pubkey
 		err := pub2.Deserialize(pub.Serialize()) //测试公钥的序列化
@@ -78,13 +79,13 @@ func testComparison(t *testing.T) {
 	if !VerifyAggregateSig([]Pubkey{*pub, *pub}, []byte("hi"), asig) { //对同一个原始公钥进行聚合后（生成聚合公钥），去验证聚合签名
 		t.Error("Aggregated signature does not verify")
 	}
-	{
-		var sig2 Signature
-		err := sig2.SetHexString(sig.GetHexString()) //测试原始签名的字符串导出
-		if err != nil || !sig.IsEqual(sig2) {        //检查字符串导入生成的签名是否和之前的签名相同
-			t.Error("sig2.SetHexString")
-		}
-	}
+	//{
+	//	var sig2 Signature
+	//	err := sig2.SetHexString(sig.GetHexString()) //测试原始签名的字符串导出
+	//	if err != nil || !sig.IsEqual(sig2) {        //检查字符串导入生成的签名是否和之前的签名相同
+	//		t.Error("sig2.SetHexString")
+	//	}
+	//}
 	{
 		var sig2 Signature
 		err := sig2.Deserialize(sig.Serialize()) //测试原始签名的序列化
@@ -132,7 +133,7 @@ func testAggregation(t *testing.T) {
 	//    m := 5
 	n := 3
 	//    groupPubkeys := make([]Pubkey, m)
-	r := base.NewRand()                      //生成随机数基
+	r := base.NewRand()                    //生成随机数基
 	seckeyContributions := make([]Seckey, n) //私钥切片
 	for i := 0; i < n; i++ {
 		seckeyContributions[i] = *NewSeckeyFromRand(r.Deri(i)) //以r为基，i为递增量生成n个相关性私钥
@@ -306,15 +307,14 @@ func testID(t *testing.T) {
 	fmt.Printf("end test ID.\n")
 }
 
-func test(t *testing.T, c int) {
-	fmt.Printf("call test, c =%v.\n", c)
+func test(t *testing.T) {
 	var tmp []byte
 	fmt.Printf("len of empty []byte=%v.\n", len(tmp))
 	var ti time.Time
 	fmt.Printf("time zero=%v.\n", ti.IsZero())
 	var tmp_i int = 456
 	fmt.Printf("sizeof(int) =%v.\n", unsafe.Sizeof(tmp_i))
-	Init(c)            //初始化bls底层C库
+	//Init(c)            //初始化bls底层C库
 	testID(t)          //测试从big.Int生成ID，以及ID的序列化
 	testSeckey(t)      //测试从big.Int生成私钥，以及私钥的序列化
 	testPubkey(t)      //测试用衍生随机数生成私钥，从私钥萃取公钥，以及公钥的序列化
@@ -334,33 +334,32 @@ func test(t *testing.T, c int) {
 }
 
 
-func TestIDStringConvert(t *testing.T){
-	Init(1)
+func Test_GroupsigIDStringConvert(t *testing.T){
 	str := "QmWJZdSV23by4xzYSz8SEmcfdo38N27WgxSefoy179pnoK"
 	id := NewIDFromString(str)
 	s:= id.String()
 	fmt.Printf("id str:%s\n",s)
 	fmt.Printf("id str compare resylt:%t\n",str==s)
 }
-func TestMain1(t *testing.T) {
+
+func Test_Groupsig_Main1(t *testing.T) {
 	fmt.Printf("begin TestMain...\n")
-	t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
-	t.Log("CurveFp254BNb")
-	fmt.Printf("\ncall test with curve(CurveFp254BNb)=%v...\n", bls.CurveFp254BNb)
-	test(t, bls.CurveFp254BNb)
-	if bls.GetMaxOpUnitSize() == 6 {
-		t.Log("CurveFp382_1")
-		fmt.Printf("\ncall test with curve(CurveFp382_1)=%v...\n", bls.CurveFp382_1)
-		test(t, bls.CurveFp382_1)
-		t.Log("CurveFp382_2")
-		fmt.Printf("\ncall test with curve(CurveFp382_2)=%v...\n", bls.CurveFp382_2)
-		test(t, bls.CurveFp382_2)
-	}
+	//t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
+	//fmt.Printf("\ncall test with curve(CurveFp254BNb)=%v...\n", bn_curve.CurveFp254BNb)
+	test(t)
+	//if bn_curve.GetMaxOpUnitSize() == 6 {
+	//	t.Log("CurveFp382_1")
+	//	fmt.Printf("\ncall test with curve(CurveFp382_1)=%v...\n", bn_curve.CurveFp382_1)
+	//	test(t, bn_curve.CurveFp382_1)
+	//	t.Log("CurveFp382_2")
+	//	fmt.Printf("\ncall test with curve(CurveFp382_2)=%v...\n", bn_curve.CurveFp382_2)
+	//	test(t, bn_curve.CurveFp382_2)
+	//}
 	return
 }
 
-func TestID_Deserialize(t *testing.T) {
-	Init(1)
+func Test_Groupsig_ID_Deserialize(t *testing.T) {
+	//Init(1)
 	s := "abc"
 	id1 := DeserializeId([]byte(s))
 	id2 := NewIDFromString(s)
@@ -375,19 +374,67 @@ func TestID_Deserialize(t *testing.T) {
 	t.Log(id3.GetHexString())
 }
 
-func TestNewIDFromString(t *testing.T) {
-	Init(1)
-	id := NewIDFromString("0x123abc")
-	t.Log(id.String(), ",===", id.GetHexString())
+//测试BLS门限签名.
+//Added by FlyingSquirrel-Xu. 2018-08-24.
+func testRecover() {
+	n := 50
+	k := 10
 
-	//bi := new(big.Int).SetBytes([]byte("abc"))
-	//id2 := NewIDFromBigInt(bi)
-	//
-	//var id3 ID
-	//id3.SetHexString(PREFIX + bi.Text(16))
+	//定义k-1次多项式 F(x): <a[0], a[1], ..., a[k-1]>. F(0)=a[0].
+	a := make([]Seckey, k)
+	r := base.NewRand()
+	for i := 0; i < k; i++ {
+		a[i] = *NewSeckeyFromRand(r.Deri(i))
+	}
+	fmt.Println("a[0]:", a[0].Serialize())
 
-	//t.Log(id2.GetHexString(), id3.GetHexString())
-	id2 := NewIDFromInt(23)
-	t.Log(id2.String(), id2.GetHexString())
+	//生成n个成员ID: {IDi}, i=1,..,n.
+	ids := make([]ID, n)
+	for i := 0; i < n; i++ {
+		ids[i] = *NewIDFromInt64(int64(i + 3)) //生成50个ID
+	}
 
+	//计算得到多项式F(x)上的n个点 <IDi, Si>. 满足F(IDi)=Si.
+	secs := make([]Seckey, n) //私钥切片
+	for j := 0; j < n; j++ {
+		bs := ShareSeckey(a, ids[j])
+		secs[j].value.SetBigInt(bs.value.GetBigInt())
+	}
+
+	//通过Lagrange插值公式, 由{<IDi, Si>|i=1..n}计算得到组签名私钥s=F(0).
+	new_secs := secs[:k]
+	s := RecoverSeckey(new_secs, ids)
+	fmt.Println("s:", s.Serialize())
+
+	//检查 F(0) = a[0]?
+	if !bytes.Equal(a[0].Serialize(), s.Serialize()) {
+		fmt.Errorf("secreky Recover failed.")
+	}
+
+	//通过组签名私钥s得到组签名公钥 pub.
+	pub := NewPubkeyFromSeckey(*s)
+
+	//成员签名: H[i] = si·H(m)
+	sig := make([]Signature, n)
+	for i:=0; i<n; i++ {
+		sig[i] = Sign(secs[i], []byte("hi")) //以原始私钥对明文签名，生成原始签名
+	}
+
+	//Recover组签名: H = ∑ ∆i(0)·Hi.
+	new_sig := sig[:k]
+	H := RecoverSignature(new_sig, ids) //调用big.Int加法求模的私钥恢复函数
+
+	//组签名验证：Pair(H,Q)==Pair(Hm,Pub)?
+	result := VerifySig(*pub, []byte("hi"), *H)
+	if result != true {
+		fmt.Errorf("VerifySig failed.")
+	}
 }
+
+func benchmark_GroupsigRecoverSignature(b *testing.B) {
+	b.StartTimer()
+	testRecover()
+	b.StopTimer()
+}
+
+func Benchmark_GroupsigRecover(b *testing.B)  { benchmark_GroupsigRecoverSignature(b) }

@@ -2,10 +2,10 @@ package model
 
 import (
 	"common"
-	"consensus/groupsig"
 	"strconv"
 	"time"
 	"consensus/base"
+	"consensus/groupsig"
 )
 
 
