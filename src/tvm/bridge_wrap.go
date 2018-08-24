@@ -285,14 +285,10 @@ func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 }
 
 func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
-	if currentBlockHeader == nil && header == nil {
-		currentBlockHeader = &types.BlockHeader{}
-	} else {
+	if header != nil  {
 		currentBlockHeader = header
 	}
-	if currentTransaction == nil && transaction == nil {
-		currentTransaction = &types.Transaction{}
-	} else {
+	if transaction != nil {
 		currentTransaction = transaction
 	}
 	var c_bool C._Bool

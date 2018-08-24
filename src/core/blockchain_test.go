@@ -37,9 +37,21 @@ func TestConstractOnChain(t *testing.T)  {
 	txpool := BlockChainImpl.GetTransactionPool()
 
 	code := `
-import account
+import block
+import tx
 def Test(a, b, c, d):
-	print("hehe")
+	print(dir(block))
+	hash = block.blockhash(0)
+	print("hash: " + hash)
+	diff = block.difficulty()
+	print("difficulty: " + str(diff))
+	height = block.number()
+	print("height: " + str(height))
+	timestamp = block.timestamp()
+	print("timestamp:" + str(timestamp))
+	print(dir(tx))
+	origin = tx.origin()
+	print(origin)
 `
 	// 交易1
 	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))

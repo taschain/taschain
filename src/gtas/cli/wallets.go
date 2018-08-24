@@ -17,10 +17,8 @@ package cli
 
 import (
 	"common"
-	"encoding/hex"
 	"encoding/json"
 	"log"
-	"strings"
 	"core"
 	"sync"
 	"math/rand"
@@ -38,16 +36,16 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	nonce := rand.Uint64()
 		//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
-	if strings.HasPrefix(code, "0x") {
-		code = code[2:]
-	}
-	codeBytes, err := hex.DecodeString(code)
-	if err != nil {
-		return nil, nil, err
-	}
-	transaction := genTx(0, source, target, nonce, value, codeBytes, nil, 0)
+	//if strings.HasPrefix(code, "0x") {
+	//	code = code[2:]
+	//}
+	//codeBytes, err := hex.DecodeString(code)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	transaction := genTx(0, source, target, nonce, value, []byte(code), nil, 0)
 	transaction.Hash = transaction.GenHash()
-	_, err = txpool.Add(transaction)
+	_, err := txpool.Add(transaction)
 	if err != nil {
 		return nil, nil, err
 	}
