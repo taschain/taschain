@@ -96,9 +96,8 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true,nil,-1)
-
-	//n.netCore.BroadcastRandom(bytes,relayCount)
+	//n.netCore.SendAll(bytes, true,nil,-1)
+	n.netCore.BroadcastRandom(bytes,relayCount)
 	Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }

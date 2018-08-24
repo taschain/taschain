@@ -722,16 +722,16 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 				broadcast = true
 			}
 
-			//if req.DataType ==  DataType_DataGlobal &&  req.RelayCount ==0 {
-			//	broadcast = false
-			//}
+			if req.DataType ==  DataType_DataGlobal &&  req.RelayCount ==0 {
+				broadcast = false
+			}
 			if	broadcast {
 				var dataBuffer *bytes.Buffer = nil
 				if  req.DataType ==  DataType_DataGlobal && req.RelayCount > 0 {
-					//req.RelayCount = req.RelayCount - 1
-					//req.Expiration = uint64(time.Now().Add(expiration).Unix())
-					//dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
-					dataBuffer = bytes.NewBuffer(packet)
+					req.RelayCount = req.RelayCount - 1
+					req.Expiration = uint64(time.Now().Add(expiration).Unix())
+					dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
+					//dataBuffer = bytes.NewBuffer(packet)
 
 				} else {
 					dataBuffer = bytes.NewBuffer(packet)
