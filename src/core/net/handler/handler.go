@@ -196,6 +196,7 @@ func (ch ChainHandler) loop() {
 			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s",headerNotify.header.Hash,headerNotify.peer)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
+				core.Logger.Debugf("[ChainHandler]header hit pending or complete")
 				break
 			}
 
@@ -219,6 +220,8 @@ func (ch ChainHandler) loop() {
 			}
 			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
 			msg := notify.BlockMessage{Block: block}
+			ch.complete.Add(block.Header.Hash,block)
+			delete(ch.headerPending,block.Header.Hash)
 			notify.BUS.Publish(notify.NewBlock, &msg)
 		}
 	}
