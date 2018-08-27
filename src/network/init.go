@@ -17,7 +17,7 @@ const (
 
 	seedDefaultId = "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"
 
-	seedDefaultIp = "47.104.95.207"
+	seedDefaultIp = "47.105.70.31"
 
 	seedDefaultPort = 1122
 )
