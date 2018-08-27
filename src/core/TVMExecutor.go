@@ -49,6 +49,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		vm := tvm.NewTvm(accountdb, BlockChainImpl)
 		if transaction.Target == nil{
 			contractAddress,_ = createContract(accountdb, transaction)
+			//TODO 执行部署合约
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))

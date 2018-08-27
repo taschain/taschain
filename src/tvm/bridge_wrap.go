@@ -269,19 +269,41 @@ func bridge_init() {
 
 type Tvm struct {
 	state vm.AccountDB
+
+	contractName string
+	// gas
+	// this地址
 }
 
-func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
+func NewTvm()*Tvm {
 	if tvm == nil {
 		tvm = &Tvm{}
 	}
+	return tvm
+}
+
+func (tvm *Tvm)init(contractName string,
+	accountDB vm.AccountDB,
+	chainReader vm.ChainReader,
+	header *types.BlockHeader,
+	transaction *types.Transaction)  {
+
+	tvm.contractName = contractName
+
 	reader = chainReader
 	tvm.state = accountDB
-
+	if header != nil  {
+		currentBlockHeader = header
+	}
+	if transaction != nil {
+		currentTransaction = transaction
+	}
 	C.tvm_start()
 	bridge_init()
+}
 
-	return tvm
+func (tvm *Tvm)DelTvm() {
+	//TODO 释放tvm环境
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
@@ -298,23 +320,51 @@ func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
-	if header != nil  {
-		currentBlockHeader = header
-	}
-	if transaction != nil {
-		currentTransaction = transaction
-	}
+type Msg struct {
+	Data []byte
+	Value int
+	Sender string
+}
+
+func (tvm *Tvm)Execute(script string) bool {
 	var c_bool C._Bool
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
+}
+
+func (tvm *Tvm)loadMsg(msg Msg) bool{
+	script := fmt.Sprintf(`
+from clib.tas_runtime import glovar
+from clib.tas_runtime.msgxx import Msg
+from clib.tas_runtime.address_tas import Address
+
+glovar.msg = Msg(data=bytes('%s'), sender=Address("%s"), value=%d)
+print(glovar.msg)
+`, msg.Data, msg.Sender, msg.Value)
+	return tvm.Execute(script)
+}
+
+func (tvm *Tvm)Deploy(msg Msg) bool {
+	if tvm.loadMsg(msg) != true {
+		return false
+	}
+
+	script := fmt.Sprintf(`
+tas_%s = %s()
+tas_%s.deploy()
+`, tvm.contractName, tvm.contractName, tvm.contractName)
+	return tvm.Execute(script)
 }
 
 type ABI struct {
 	FuncName string
 	Args []interface{}
 }
-func (tvm *Tvm) ExecuteABIJson(j string) bool{
+func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
+	if tvm.loadMsg(msg) != true {
+		return false
+	}
+
 	res := ABI{}
 	json.Unmarshal([]byte(j), &res)
 	fmt.Println(res)
@@ -331,7 +381,7 @@ func (tvm *Tvm) ExecuteABIJson(j string) bool{
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	return tvm.Execute(buf.String(),nil, nil)
+	return tvm.Execute(buf.String())
 }
 
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {

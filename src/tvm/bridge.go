@@ -230,3 +230,14 @@ func TxOrigin() *C.char {
 func TxGasLimit() C.ulonglong{
 	return C.ulonglong(currentTransaction.GasLimit)
 }
+
+//TODO 合约call合约
+func callContract() {
+	// extern json
+
+	// tvm.state.GetCode()
+
+	// tvm.exec code
+
+	// tvm.call abi
+}

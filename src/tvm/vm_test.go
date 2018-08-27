@@ -17,15 +17,12 @@ package tvm
 
 import (
 	"testing"
-	"common"
-	"storage/core"
-	"storage/tasdb"
 )
 
 func TestVmTest(t *testing.T) {
-	db, _ := tasdb.NewMemDatabase()
-	statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	vm := NewTvm(statedb, nil)
+	//db, _ := tasdb.NewMemDatabase()
+	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
+	vm := NewTvm()
 	script := `
 import account
 account.create_account("0x2234")
@@ -34,7 +31,7 @@ value = account.add_balance("0x1234",10)
 account.set_nonce("0x1234", -1)
 print(account.get_nonce("0x1234"))
 #tas.test()`
-	vm.Execute(script, nil, nil)
+	vm.Execute(script)
 }
 
 func TestVmTestContract(t *testing.T) {
@@ -74,7 +71,7 @@ from test import test_lib_helloworld
 test_lib_helloworld.helloworld()
 
 `
-	vm.Execute(script,nil, nil)
+	vm.Execute(script)
 }
 
 // msg变量
@@ -89,7 +86,7 @@ glovar.msg = Msg(data="", sender=Address(""), value=100)
 
 print(glovar.msg)
 `
-	vm.Execute(script,nil, nil)
+	vm.Execute(script)
 }
 
 // Address.call
@@ -106,7 +103,7 @@ print(glovar.msg)
 from token.contract_token_tas import MyAdvancedToken
 
 `
-	vm.Execute(script,nil, nil)
+	vm.Execute(script)
 }
 
 

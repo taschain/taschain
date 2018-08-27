@@ -44,26 +44,6 @@ class Address(object):
         self.data = state["data"]
 
     def call(self, function_name, *args, **kwargs):
-        if not self.data.is_contract():
-            raise Exception("不是一个可执行的智能合约")
-            glovar.storage.snapshot()
-        if getattr(self, "contract", None) is None:
-            env = {}
-            Address.this = self.value
-            env["storage"] = glovar.storage
-            env["this"] = Address(self.value)
-            # env["Address"] = Address
-            env["msg"] = glovar.msg
-            owner = self.data.get_owner()
-            env["owner"] = Address(owner)
-
-            self.contract = Contract(self.value, env, self.data.get_depends())
-        try:
-            self.contract.call(function_name, *args, **kwargs)
-        except Exception as e:
-            print(repr(e))
-            print("error of calling {f}!".format(f=function_name))
-            glovar.storage.revert_to_snapshot()
-            raise e
+        pass
 
 
