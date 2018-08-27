@@ -97,7 +97,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log")
+	middleware.SetupStackTrap("/Users/daijia/stack.log")//todo: absolute path?
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
