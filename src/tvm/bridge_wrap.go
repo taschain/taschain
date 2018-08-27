@@ -299,13 +299,13 @@ func (tvm *Tvm)init(accountDB vm.AccountDB,
 }
 
 // 获取剩余gas
-func (tvm *Tvm)Gas() uint64 {
-	return C.getGas()
+func (tvm *Tvm)Gas() int {
+	return int(C.getGas())
 }
 
 // 设置可使用gas, init成功后设置
-func (tvm *Tvm)SetGas(gas uint64) {
-	C.setGast(tvm.Gas)
+func (tvm *Tvm)SetGas(gas int) {
+	C.setGas(C.int(gas))
 }
 
 func (tvm *Tvm)DelTvm() {
