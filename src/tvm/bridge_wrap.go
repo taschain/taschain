@@ -320,6 +320,10 @@ func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	return tvm
 }
 
+func (tvm *Tvm) AddLibPath(path string) {
+	C.tvm_set_lib_path(C.CString(path))
+}
+
 type Msg struct {
 	Data []byte
 	Value int
