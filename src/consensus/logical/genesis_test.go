@@ -11,9 +11,10 @@ import (
 	"io/ioutil"
 	"os"
 	"consensus/model"
+	"middleware"
 )
 
-const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/local_3g9n`
 
 func TestBelongGroups(t *testing.T) {
 	groupsig.Init(1)
@@ -92,6 +93,7 @@ func processors() (map[string]*Processor, map[string]int) {
 
 func TestGenIdPubkey(t *testing.T) {
 	groupsig.Init(1)
+	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
 	procs, _ := processors()
@@ -109,7 +111,8 @@ func TestGenIdPubkey(t *testing.T) {
 }
 
 func TestGenesisGroup(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
+	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	// block初始化
 	err := core.InitCore()
