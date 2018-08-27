@@ -30,12 +30,12 @@ func Read0(filename string)  (string){
 
 func VmTest() {
 
-	tvm := NewTvm(nil, nil)
-	tvm.Execute(Read0("py/token/contract_token_test.py"), nil, nil)
+	tvm := NewTvm()
+	tvm.Execute(Read0("py/token/contract_token_test.py"))
 }
 
 func VmTestContract() {
-	tvm := NewTvm(nil, nil)
+	tvm := NewTvm()
 
 	script := `
 import tas
@@ -47,7 +47,7 @@ class TasAccount():
        tas.transfer(self.address, toAddress, amount)
 `
 
-	tvm.Execute(script, nil, nil)
+	tvm.Execute(script)
 
 	script = `
 
@@ -59,11 +59,11 @@ def apply():
 
 apply()
 `
-	tvm.Execute(script, nil, nil)
+	tvm.Execute(script)
 }
 
 func VmTestClass() {
-	tvm := NewTvm(nil, nil)
+	tvm := NewTvm()
 
 	script := `
 
@@ -88,33 +88,33 @@ print(tasa.desc)
 print("end")
 
 `
-	tvm.Execute(script, nil, nil)
+	tvm.Execute(script)
 }
 
 func VmTestABI() {
-	tvm := NewTvm(nil, nil)
+	tvm := NewTvm()
 
 
 	tvm.Execute(`
 import account
 def Test(a, b, c, d):
 	print("hehe")
-`,  nil, nil)
+`)
 
 	str := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
 	tvm.ExecuteABIJson(str)
 }
 
 func VmTestException() {
-	tvm := NewTvm(nil, nil)
+	tvm := NewTvm()
 
 	tvm.Execute(`
 i am error
-`, nil, nil)
+`)
 }
 
 func VmTestToken(){
-	tvm := NewTvm(nil, nil)
+	tvm := NewTvm()
 
 	tvm.Execute(`
 import account
@@ -350,5 +350,5 @@ class MyAdvancedToken(TokenERC20):
 #
 #
 #
-`,  nil, nil)
+`)
 }

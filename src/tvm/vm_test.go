@@ -17,16 +17,12 @@ package tvm
 
 import (
 	"testing"
-	"common"
-	"storage/core"
-	"storage/tasdb"
-
 )
 
 func TestVmTest(t *testing.T) {
-	db, _ := tasdb.NewMemDatabase()
-	statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	vm := NewTvm(statedb, nil)
+	//db, _ := tasdb.NewMemDatabase()
+	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
+	vm := NewTvm()
 	script := `
 import account
 account.create_account("0x2234")
@@ -35,7 +31,7 @@ value = account.add_balance("0x1234",10)
 account.set_nonce("0x1234", -1)
 print(account.get_nonce("0x1234"))
 #tas.test()`
-	vm.Execute(script, nil, nil)
+	vm.Execute(script)
 }
 
 func TestVmTestContract(t *testing.T) {
@@ -66,6 +62,53 @@ func TestVmTest2(t *testing.T) {
 	VmTest()
 }
 
-func TestVm(t *testing.T) {
-	VmTestABI()
+// 设置python lib目录
+func TestVmTest3(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from test import test_lib_helloworld
+
+test_lib_helloworld.helloworld()
+
+`
+	vm.Execute(script)
 }
+
+// msg变量
+func TestVmTest4(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from clib.tas_runtime import glovar
+from clib.tas_runtime.msgxx import Msg
+from clib.tas_runtime.address_tas import Address
+
+glovar.msg = Msg(data="", sender=Address(""), value=100)
+
+print(glovar.msg)
+`
+	vm.Execute(script)
+}
+
+// Address.call
+func TestVmTest5(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from clib.tas_runtime import glovar
+from clib.tas_runtime.msgxx import Msg
+from clib.tas_runtime.address_tas import Address
+
+glovar.msg = Msg(data="", sender=Address(""), value=100)
+print(glovar.msg)
+
+from token.contract_token_tas import MyAdvancedToken
+
+`
+	vm.Execute(script)
+}
+
+
+// 创建账户
+
+// 部署合约
+
+// 执行合约

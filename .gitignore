@@ -22,3 +22,7 @@ src/core/wenqin_test_util.go
 */tx/
 */database/
 src/gtas/main
+
+*.pyc
+
+venv/
