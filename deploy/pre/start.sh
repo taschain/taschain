@@ -29,8 +29,8 @@ do
 
 	if [ $instance_index -eq 1 ];then
 		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --prefix aly_flow --pprof $pprof_port > $stdout_log 2>&1 & echo $! > $pid_file
+		sleep 0.5
 	else
 		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --prefix aly_flow --pprof $pprof_port > $stdout_log 2>&1 & echo $! > $pid_file
 	fi
-	sleep 0.5
 done
