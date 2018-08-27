@@ -749,64 +749,57 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 func (p *Processor) OnMessagePowResult(msg *model.ConsensusPowResultMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BaseHash)
 	mtype := "OMPR"
-	if bh == nil {
-		log.Printf("OMPR block not found! sender=%v, hash=%v\n", sender, GetHashPrefix(msg.BaseHash))
+	gid := msg.GroupID
+	if !p.checkPowBaseHash(msg.BaseHash, gid) {
+		log.Printf("%v checkPowBaseHash fail\n", mtype)
 		return
 	}
-	logStart(mtype, bh.Height, sender, "nonce %v", msg.Nonce)
+	worker := p.getPowWorker(gid)
+	logStart(mtype, worker.BaseHeight, sender, "nonce %v", msg.Nonce)
 	log.Printf("%v, sender=%v, hash=%v, nonce=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), msg.Nonce)
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
 	}
-	gid := groupsig.DeserializeId(bh.GroupId)
-	if gid == nil {
-		panic("deserialize groupId fail")
-	}
-	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
+
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.SignMember))) {
 		panic("OMPR verify sign fail")
 	}
-	worker := p.getPowWorker(*gid)
 
 	ret := worker.AcceptResult(msg.Nonce, msg.BaseHash, msg.SI.SignMember)
-	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
+	logHalfway(mtype, worker.BaseHeight, sender, "结果 %v", ret.Desc)
 
 }
 
 
 func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BaseHash)
+	gid := msg.GroupID
 	mtype := "OMPC"
-	if bh == nil {
-		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash))
+	if !p.checkPowBaseHash(msg.BaseHash, gid) {
+		log.Printf("%v checkPowBaseHash fail\n", mtype)
 		return
 	}
+	worker := p.getPowWorker(gid)
 
-	logStart(mtype, bh.Height, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	logStart(mtype, worker.BaseHeight, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
 	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), MinerNonceSeqDesc(msg.NonceSeq))
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
 	}
-	gid := groupsig.DeserializeId(bh.GroupId)
-	if gid == nil {
-		panic("deserialize groupId fail")
-	}
-	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.SignMember))) {
 		panic("OMPR verify sign fail")
 	}
 
-	worker := p.getPowWorker(*gid)
 
 	ret := worker.AcceptConfirm(msg.BaseHash, msg.NonceSeq, msg.SI.SignMember, msg.SI.DataSign)
-	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
+	logHalfway(mtype, worker.BaseHeight, sender, "结果 %v", ret.Desc)
 
 	if ret == pow.CONFIRM_SIGN_RECOVERED {
 		sign := worker.GetGSign()
-		if !groupsig.VerifySig(p.getGroupPubKey(*gid), msg.SI.DataHash.Bytes(), *sign) {
+		if !groupsig.VerifySig(p.getGroupPubKey(gid), msg.SI.DataHash.Bytes(), *sign) {
 			panic("verify powConfirm groupsign fail")
 		}
 		p.sendPowFinal(worker)
@@ -818,24 +811,22 @@ func (p *Processor) OnMessagePowConfirm(msg *model.ConsensusPowConfirmMessage) {
 
 func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
 	sender := GetIDPrefix(msg.SI.SignMember)
-	bh := p.getBlockHeaderByHash(msg.BaseHash)
 	mtype := "OMPF"
-	if bh == nil {
-		log.Printf("%v block not found! sender=%v, hash=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash))
+	gid := msg.GroupID
+	if !p.checkPowBaseHash(msg.BaseHash, gid) {
+		log.Printf("%v checkPowBaseHash fail\n", mtype)
 		return
 	}
+	worker := p.getPowWorker(gid)
 
-	logStart(mtype, bh.Height, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
+	logStart(mtype, worker.BaseHeight, sender, "nonceSeq %v", MinerNonceSeqDesc(msg.NonceSeq))
 	log.Printf("%v, sender=%v, hash=%v, nonceSeq=%v\n", mtype, sender, GetHashPrefix(msg.BaseHash), MinerNonceSeqDesc(msg.NonceSeq))
 
 	if msg.GenHash() != msg.SI.DataHash {
 		panic("msg hash diff!")
 	}
-	gid := groupsig.DeserializeId(bh.GroupId)
-	if gid == nil {
-		panic("deserialize groupId fail")
-	}
-	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(*gid, msg.SI.SignMember))) {
+
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.SignMember))) {
 		panic("OMPR verify sign fail")
 	}
 
@@ -844,14 +835,13 @@ func (p *Processor) OnMessagePowFinal(msg *model.ConsensusPowFinalMessage) {
 		NonceSeq: msg.NonceSeq,
 	}
 	signedHash := confirmMsgTmp.GenHash()
-	gpk := p.getGroupPubKey(*gid)
+	gpk := p.getGroupPubKey(gid)
 	if !groupsig.VerifySig(gpk, signedHash.Bytes(), msg.GSign) {
 		panic("OMPF verify groupSign fail")
 	}
-	worker := p.getPowWorker(*gid)
 
 	ret := worker.AcceptFinal(msg.BaseHash, msg.NonceSeq, msg.SI.SignMember, msg.GSign)
-	logHalfway(mtype, bh.Height, sender, "结果 %v", ret.Desc)
+	logHalfway(mtype, worker.BaseHeight, sender, "结果 %v", ret.Desc)
 	if ret == pow.FINAL_SUCCESS {
 		if !p.persistPowConfirmed(worker) {
 			log.Printf("%v persist powConfirmed fail", mtype)

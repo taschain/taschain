@@ -21,40 +21,39 @@ func (p *Processor) getPowWorker(gid groupsig.ID) *pow.PowWorker {
     if bcs := p.GetBlockContext(gid); bcs != nil {
     	return bcs.worker
 	}
-    return nil
+	panic("powWorker is nil gid " + GetIDPrefix(gid))
 }
 
-func (p *Processor) startGroupPow(gid groupsig.ID, bh *types.BlockHeader)  {
+func (p *Processor) startGroupPow(gid groupsig.ID, bh *types.BlockHeader, groupFirst bool)  {
 	bc := p.GetBlockContext(gid)
-	bc.startPowComputation(bh)
+	bc.startPowComputation(bh, groupFirst)
 }
 
 //出块完成后，启动pow计算
 func (p *Processor) startPowComputation(bh *types.BlockHeader)  {
 	gid := *groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
-		p.startGroupPow(gid, bh)
+		p.startGroupPow(gid, bh, false)
 	}
 
-	//对刚进入工作高度的组触发pow预算
-	beginGroups := p.GetCastQualifiedGroups(bh.Height)
+	//对已准备就绪的组触发pow预算
+	beginGroups := p.globalGroups.GetBeReadyGroups(bh.Height)
 	for _, g := range beginGroups {
 		if !g.MemExist(p.GetMinerID()) {
 			continue
 		}
-		if g.BeginHeight != bh.Height {
-			tmp := p.MainChain.QueryBlockByHeight(g.BeginHeight)
-			if tmp == nil {
-				p.startGroupPow(g.GroupID, nil)
-			}
+		readyHeight := g.BeReadyHeight()
+		if readyHeight != bh.Height && p.MainChain.QueryBlockByHeight(readyHeight) != nil {
+			continue
 		} else {
-			p.startGroupPow(g.GroupID, nil)
+			p.startGroupPow(g.GroupID, bh, true)
 		}
 	}
 }
 
 //算出pow结果，发送给其他组员
 func (p *Processor) onPowComputedDeadline(worker *pow.PowWorker)  {
+	log.Printf("onPowComputedDealine success=%v, nonce=%v, hash=%v, height=%v, cost=%v\n", worker.Success(), worker.Nonce, GetHashPrefix(worker.BaseHash), worker.BaseHeight, worker.ComputationCost())
 	if !worker.Success() {
 		return
 	}
@@ -74,6 +73,8 @@ func (p *Processor) onPowComputedDeadline(worker *pow.PowWorker)  {
 }
 
 func (p *Processor) onPowConfirmDeadline(worker *pow.PowWorker)  {
+	log.Printf("onPowConfirmDeadline confirmed=%v, nonce=%v, hash=%v, height=%v\n", worker.Confirmed(), worker.Nonce, GetHashPrefix(worker.BaseHash), worker.BaseHeight)
+
 	if !worker.Confirmed() {
 		return
 	}
@@ -143,4 +144,24 @@ func (p *Processor) checkBlockNonces(bh *types.BlockHeader, gid groupsig.ID) boo
 		}
 	}
 	return totalLevel != bh.Level
+}
+
+func (p *Processor) checkPowBaseHash(baseHash common.Hash, gid groupsig.ID) bool {
+	groupInfo := p.getGroup(gid)
+	if groupInfo == nil || !groupInfo.GroupID.IsValid() {
+		log.Printf("checkPowBaseHash getGroup nil, gid=%v\n", GetIDPrefix(gid))
+		return false
+	}
+	latestBlock := p.getLatestBlock(gid)
+	var h common.Hash
+	if latestBlock == nil {
+		h = groupInfo.Signature.GetHash()
+	} else {
+		h = latestBlock.Hash
+	}
+	ret := h == baseHash
+	if !ret {
+		log.Printf("checkPowBaseHash diff, expect %v, receive %v\n", h, baseHash)
+	}
+	return ret
 }

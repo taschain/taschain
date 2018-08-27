@@ -251,11 +251,6 @@ func TestGenesisGroup(t *testing.T) {
 
 		log.Println()
 
-		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
-
-		var sig groupsig.Signature
-		sig.Deserialize(jg.GroupSec.SecretSign)
-		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
 	}
 
 

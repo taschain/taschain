@@ -7,11 +7,13 @@ import (
 	"consensus/model"
 	"consensus/ticker"
 	"math/big"
-		"strconv"
-	"sync/atomic"
+			"sync/atomic"
 	"time"
 	"vm/ethdb"
-		)
+	"encoding/binary"
+	"log"
+	"fmt"
+)
 
 /*
 **  Creator: pxf
@@ -72,10 +74,13 @@ type dataInput struct {
 }
 
 func newDataInput(hash common.Hash, uid groupsig.ID) *dataInput {
+	bs := uid.Serialize()
 	data := hash.Bytes()
-	data = append(data, uid.Serialize()...)
+	data = append(data, bs...)
 	offset := len(data)
-	data = strconv.AppendUint(data, 0, 10)
+	var nonceBit = make([]byte, 8)
+	binary.BigEndian.PutUint64(nonceBit, NONCE_MAX)
+	data = append(data, nonceBit...)
 	return &dataInput{
 		data:   data,
 		offset: offset,
@@ -111,7 +116,7 @@ type PowWorker struct {
 	storage          ethdb.Database
 }
 
-func NewPowWorker(db ethdb.Database) *PowWorker {
+func NewPowWorker(db ethdb.Database, gminer *model.GroupMinerID) *PowWorker {
 	w := &PowWorker{
 		CmdCh:           make(chan int),
 		stopCh:          make(chan struct{}),
@@ -119,12 +124,19 @@ func NewPowWorker(db ethdb.Database) *PowWorker {
 		powStatus:       STATUS_STOP,
 		broadcastStatus: BROADCAST_NONE,
 		storage:         db,
+		GroupMiner: 	gminer,
+
 	}
+	ticker.GetTickerInstance().RegisterRoutine(w.tickerName(), w.tickerRoutine, 1)
 	return w
 }
 
+func (w *PowWorker) Finalize() {
+    ticker.GetTickerInstance().RemoveRoutine(w.tickerName())
+}
+
 func (w *PowWorker) tickerName() string {
-	return "pow-worker"
+	return fmt.Sprintf("pow-worker-%v", w.GroupMiner.Gid.String())
 }
 
 func (w *PowWorker) setDeadline(start time.Time) {
@@ -134,8 +146,10 @@ func (w *PowWorker) setDeadline(start time.Time) {
 
 func (w *PowWorker) tickerRoutine() bool {
 	if time.Now().After(*w.powDeadline) {
+		log.Printf("pow computation timeout")
 		w.Stop()
 		if time.Now().After(*w.confirmStartTime) {
+			log.Printf("pow confirm start")
 			w.tryConfirm()
 		}
 	}
@@ -143,13 +157,18 @@ func (w *PowWorker) tickerRoutine() bool {
 }
 
 func (w *PowWorker) Stop() {
-	w.toEnd(STATUS_STOP)
+	if w.toEnd(STATUS_STOP) {
+		ticker.GetTickerInstance().StopTickerRoutine(w.tickerName())
+	}
 }
 
 func (w *PowWorker) Start() {
 	if atomic.CompareAndSwapInt32(&w.powStatus, STATUS_READY, STATUS_RUNNING) {
-		ticker.GetTickerInstance().RegisterRoutine(w.tickerName(), w.tickerRoutine, 1)
+		ticker.GetTickerInstance().StartAndTriggerRoutine(w.tickerName())
 		w.StartTime = time.Now()
+		go w.run()
+	} else if atomic.CompareAndSwapInt32(&w.powStatus, STATUS_STOP, STATUS_RUNNING) {
+		ticker.GetTickerInstance().StartAndTriggerRoutine(w.tickerName())
 		go w.run()
 	}
 }
@@ -160,7 +179,6 @@ func (w *PowWorker) Success() bool {
 
 func (w *PowWorker) toEnd(status int32) bool {
 	if atomic.CompareAndSwapInt32(&w.powStatus, STATUS_RUNNING, status) {
-		ticker.GetTickerInstance().RemoveRoutine(w.tickerName())
 		return true
 	}
 	return false
@@ -214,22 +232,28 @@ func (w *PowWorker) IsRunning() bool {
     return atomic.LoadInt32(&w.powStatus) == STATUS_RUNNING
 }
 
-func (w *PowWorker) IsStopped() bool {
-	return atomic.LoadInt32(&w.powStatus) == STATUS_STOP
-}
-
-func (w *PowWorker) Prepare(baseHash common.Hash, baseHeight uint64, startTime time.Time, gminer *model.GroupMinerID, members int) bool {
-	if w.IsRunning() {
+func (w *PowWorker) Prepare(baseHash common.Hash, baseHeight uint64, startTime time.Time, members int) bool {
+	st := atomic.LoadInt32(&w.powStatus)
+	switch st {
+	case STATUS_RUNNING:
 		if w.BaseHash == baseHash { //已经在运行中
 			return false
 		}
 		w.Stop()
 		<-w.stopCh	//等待run函数退出
+	case STATUS_STOP:
+		if w.BaseHash == baseHash {
+			return true
+		}
+	case STATUS_SUCCESS:
+		if w.BaseHash == baseHash { //已经计算出结果
+			return false
+		}
 	}
-	w.GroupMiner = gminer
+
 	w.BaseHash = baseHash
 	w.BaseHeight = baseHeight
-	w.input = newDataInput(baseHash, gminer.Uid)
+	w.input = newDataInput(baseHash, w.GroupMiner.Uid)
 	w.difficulty = DIFFCULTY_20_24
 	w.setDeadline(startTime)
 	w.powStatus = STATUS_READY
@@ -241,6 +265,10 @@ func (w *PowWorker) Prepare(baseHash common.Hash, baseHeight uint64, startTime t
 
 func (w *PowWorker) powExpire() bool {
 	return time.Now().After(*w.confirmStartTime)
+}
+
+func (w *PowWorker) ComputationCost() string {
+    return time.Since(w.StartTime).String()
 }
 
 func (w *PowWorker) AcceptResult(nonce uint64, baseHash common.Hash, uid groupsig.ID) *model.EnumResult {
@@ -287,6 +315,9 @@ func (w *PowWorker) GetConfirmedNonceSeq() []model.MinerNonce {
 func (w *PowWorker) tryConfirm() {
 	if w.context.confirm() {
 		w.CmdCh <- CMD_POW_CONFIRM
+		ticker.GetTickerInstance().StopTickerRoutine(w.tickerName())
+	} else {
+		log.Printf("pow confirm return false")
 	}
 }
 

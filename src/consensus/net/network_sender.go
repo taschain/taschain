@@ -35,6 +35,10 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
 	ns.net.DissolveGroupNet(gid.GetHexString())
 }
 
+func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message)  {
+	go MessageHandler.Handle(self.String(), m)
+}
+
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
 //广播 组初始化消息  全网广播
@@ -47,7 +51,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 
 	m := network.Message{Code: network.GROUP_INIT_MSG, Body: body}
 	//给自己发
-	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
+	ns.send2Self(grm.SI.SignMember, m)
 
 	e = ns.net.Broadcast(m, nil)
 
@@ -83,7 +87,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 
 	m := network.Message{Code: network.SIGN_PUBKEY_MSG, Body: body}
 	//给自己发
-	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
+	ns.send2Self(spkm.SI.SignMember, m)
 
 	begin := time.Now()
 	ns.net.Multicast(spkm.DummyID.GetHexString(), m)
@@ -100,7 +104,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 
 	m := network.Message{Code: network.GROUP_INIT_DONE_MSG, Body: body}
 	//给自己发
-	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
+	ns.send2Self(cgm.SI.SignMember, m)
 
 	ns.net.Broadcast(m, nil)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
@@ -199,6 +203,7 @@ func (ns *NetworkServerImpl) SendPowResultMessage(msg *model.ConsensusPowResultM
 		return
 	}
 	m := network.Message{Code: network.POW_RESULT, Body: body}
+	ns.send2Self(msg.SI.SignMember, m)
 
 	ns.net.Multicast(msg.GroupID.GetHexString(), m)
 }
@@ -210,7 +215,7 @@ func (ns *NetworkServerImpl) SendPowConfirmMessage(msg *model.ConsensusPowConfir
 		return
 	}
 	m := network.Message{Code: network.POW_CONFIRM, Body: body}
-	go MessageHandler.Handle(msg.SI.SignMember.String(), m)
+	ns.send2Self(msg.SI.SignMember, m)
 
 	ns.net.Multicast(msg.GroupID.GetHexString(), m)
 }
@@ -387,6 +392,7 @@ func marshalConsensusPowResultMessage(msg *model.ConsensusPowResultMessage) ([]b
 
 	message := tas_middleware_pb.ConsensusPowResultMessage{
 		Hash: msg.BaseHash.Bytes(),
+		GroupID: msg.GroupID.Serialize(),
 		Nonce: &msg.Nonce,
 		Sign: sign,
 	}
@@ -411,6 +417,7 @@ func marshalConsensusPowConfirmMessage(msg *model.ConsensusPowConfirmMessage) ([
 
 	message := tas_middleware_pb.ConsensusPowConfirmMessage{
 		Hash: msg.BaseHash.Bytes(),
+		GroupID: msg.GroupID.Serialize(),
 		NonceSeq: nonces,
 		Sign: sign,
 	}
@@ -424,6 +431,7 @@ func marshalConsensusPowFinalMessage(msg *model.ConsensusPowFinalMessage) ([]byt
 
 	message := tas_middleware_pb.ConsensusPowFinalMessage{
 		Hash: msg.BaseHash.Bytes(),
+		GroupID: msg.GroupID.Serialize(),
 		NonceSeq: nonces,
 		GSign: msg.GSign.Serialize(),
 		Sign: sign,

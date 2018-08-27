@@ -37,11 +37,10 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 		verifyContexts: make([]*VerifyContext, 0),
 		GroupMembers: len(sgi.Members),
 		Version: model.CONSENSUS_VERSION,
-		worker: pow.NewPowWorker(p.storage),
 		ctrlCh: make(chan struct{}),
 		groupInfo: sgi,
 	}
-
+	bc.worker = pow.NewPowWorker(p.storage, &bc.MinerID)
 	go bc.powWorkerLoop()
 
 	bc.reset()
@@ -62,6 +61,7 @@ func (bc *BlockContext) powWorkerLoop()  {
 				bc.Proc.onPowConfirmDeadline(worker)
 			}
 		case <-bc.ctrlCh:
+			worker.Finalize()
 			break FOR
 		}
 	}
@@ -84,7 +84,7 @@ func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) boo
 	if vctx != nil {
 		vctx.lock.Lock()
 		defer vctx.lock.Unlock()
-		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevHash == preHash && (!vctx.canProposal(bc.MinerID.Uid) || vctx.isProposal())
+		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevHash == preHash && (!vctx.canProposal(bc.MinerID.Uid) || vctx.hasProposal())
 	} else {
 		return false
 	}
@@ -190,6 +190,10 @@ func (bc *BlockContext) PrepareForProposal(castHeight uint64, expire time.Time, 
 		bc.currentVerifyContext = verifyCtx
 	}
 
+	if baseBH.Height == 0 {
+		bc.prepareAndStartPow(bc.groupInfo.Signature.GetHash(), 0, expire.Add(-time.Duration(model.Param.MaxGroupCastTime)*time.Second))
+	}
+
 }
 
 func (bc *BlockContext) getMemIdByIndex(index int) groupsig.ID {
@@ -203,31 +207,27 @@ func (bc *BlockContext) getMinerNonceFromBlockHeader(bh *types.BlockHeader) []mo
 	return GetMinerNonceFromBlockHeader(bh, bc.groupInfo)
 }
 
-func (bc *BlockContext) startPowComputation(bh *types.BlockHeader) {
-	var (
-		baseHash  common.Hash
-		startTime time.Time
-		worker    = bc.worker
-		height 		uint64
-	)
-	if bh == nil {
-		baseHash = bc.groupInfo.Signature.GetHash()
-		startTime = time.Now()
-		height = 0
-	} else {
-		baseHash = bh.Hash
-		height = bh.Height
-		startTime = bh.CurTime
-	}
-	if worker.Prepare(baseHash, height, startTime, &bc.MinerID, bc.groupInfo.MemberCount()) {
-		log.Printf("startPowComputation height=%v, hash=%v, gid=%v\n", height, GetHashPrefix(baseHash), GetIDPrefix(bc.groupInfo.GroupID))
-		logStart("POW_COMP", height, GetIDPrefix(bc.MinerID.Uid), "", "")
+func (bc *BlockContext) prepareAndStartPow(baseHash common.Hash, baseHeight uint64, startTime time.Time)  {
+	worker := bc.worker
+	if worker.Prepare(baseHash, baseHeight, startTime, bc.groupInfo.MemberCount()) {
+		log.Printf("startPowComputation height=%v, hash=%v, gid=%v, startTime=%v\n", baseHeight, GetHashPrefix(baseHash), GetIDPrefix(bc.groupInfo.GroupID), startTime.String())
+		logStart("POW_COMP", baseHeight, GetIDPrefix(bc.MinerID.Uid), "", "")
 		worker.Start()
 	}
 }
 
-func (bc *BlockContext) isPowWorking() bool {
-	return bc.worker.IsRunning()
+func (bc *BlockContext) startPowComputation(bh *types.BlockHeader, groupFirst bool) {
+	var (
+		baseHash  common.Hash
+		startTime = bh.CurTime
+		height    = bh.Height
+	)
+	if groupFirst {
+		baseHash = bc.groupInfo.Signature.GetHash()
+	} else {
+		baseHash = bh.Hash
+	}
+	bc.prepareAndStartPow(baseHash, height, startTime)
 }
 
 type CastBlockContexts struct {

@@ -398,6 +398,7 @@ func unMarshalConsensusPowResultMessage(b []byte) (*model.ConsensusPowResultMess
 	base := model.BaseSignedMessage{SI: *signData}
 	message := model.ConsensusPowResultMessage{
 		BaseHash:          hash,
+		GroupID: 			*groupsig.DeserializeId(m.GroupID),
 		Nonce:             *m.Nonce,
 		BaseSignedMessage: base,
 	}
@@ -432,6 +433,7 @@ func unMarshalConsensusPowConfirmMessage(b []byte) (*model.ConsensusPowConfirmMe
 
 	message := model.ConsensusPowConfirmMessage{
 		BaseHash:          hash,
+		GroupID: 			*groupsig.DeserializeId(m.GroupID),
 		NonceSeq:          nonces,
 		BaseSignedMessage: base,
 	}
@@ -455,6 +457,7 @@ func unMarshalConsensusPowFinalMessage(b []byte) (*model.ConsensusPowFinalMessag
 
 	message := model.ConsensusPowFinalMessage{
 		BaseHash:          hash,
+		GroupID: 			*groupsig.DeserializeId(m.GroupID),
 		NonceSeq:          nonces,
 		BaseSignedMessage: base,
 		GSign:             *groupsig.DeserializeSign(m.GSign),

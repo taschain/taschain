@@ -130,11 +130,14 @@ func (vc *VerifyContext) markProposal() {
     vc.proposal = true
 }
 
-func (vc *VerifyContext) isProposal() bool {
+func (vc *VerifyContext) hasProposal() bool {
     return vc.proposal
 }
 
 func (vc *VerifyContext) canProposal(id groupsig.ID) bool {
+	if vc.powResult == nil {
+		return true
+	}
 	if _, mn := vc.powResult.GetMinerNonce(id); mn != nil {
 		return true
 	}

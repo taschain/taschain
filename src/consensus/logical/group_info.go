@@ -162,7 +162,7 @@ func (sgi StaticGroupInfo) GetMemberIDByIndex(i int) groupsig.ID {
 }
 
 func (sgi *StaticGroupInfo) CastQualified(height uint64) bool {
-	return sgi.BeginHeight <= height && height < sgi.DismissHeight
+	return sgi.BeginHeight <= height && !sgi.Dismissed(height)
 }
 
 //是否已解散
@@ -170,10 +170,17 @@ func (sgi *StaticGroupInfo) Dismissed(height uint64) bool {
 	return height >= sgi.DismissHeight
 }
 
+func (sgi *StaticGroupInfo) IsReady(height uint64) bool {
+    return sgi.BeReadyHeight() <= height && !sgi.Dismissed(height)
+}
+
 func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
     return sgi.GIS.ReadyTimeout(height)
 }
 
+func (sgi *StaticGroupInfo) BeReadyHeight() uint64 {
+    return sgi.BeginHeight - model.Param.GroupCastQualifyGap
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
@@ -315,6 +322,19 @@ func (gg *GlobalGroups) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo
 	gs := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
 		if g.CastQualified(height) {
+			gs = append(gs, g)
+		}
+	}
+	return gs
+}
+
+func (gg *GlobalGroups) GetBeReadyGroups(height uint64) []*StaticGroupInfo {
+	gg.lock.RLock()
+	defer gg.lock.RUnlock()
+
+	gs := make([]*StaticGroupInfo, 0)
+	for _, g := range gg.groups {
+		if g.IsReady(height) {
 			gs = append(gs, g)
 		}
 	}

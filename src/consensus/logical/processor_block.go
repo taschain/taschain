@@ -190,7 +190,7 @@ func (p *Processor) getLatestBlock(gid groupsig.ID) *types.BlockHeader {
 		if group.CastQualified(tmpBH.Height) {
 			beginHeight := group.BeginHeight
 			gidBytes := gid.Serialize()
-			for tmpBH.Height >= beginHeight {
+			for tmpBH != nil && tmpBH.Height >= beginHeight {
 				if bytes.Equal(gidBytes, tmpBH.GroupId) {
 					p.updateLatestBlock(tmpBH)
 					return tmpBH

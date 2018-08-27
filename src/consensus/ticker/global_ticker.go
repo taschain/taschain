@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync/atomic"
 	"sync"
+	"runtime/debug"
 )
 
 type RoutineFunc func() bool
@@ -71,6 +72,7 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
+			debug.PrintStack()
 		}
 	}()
 	t := gt.ticker

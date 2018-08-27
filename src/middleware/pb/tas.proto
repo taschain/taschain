@@ -338,8 +338,9 @@ message ConsensusCreateGroupSignMessage{
 
 message ConsensusPowResultMessage{
     required bytes Hash = 1;
-    required uint64 Nonce = 2;
-    required SignData Sign = 3;
+    required bytes GroupID = 2;
+    required uint64 Nonce = 3;
+    required SignData Sign = 4;
 }
 
 message MinerNonce{
@@ -349,13 +350,15 @@ message MinerNonce{
 
 message ConsensusPowConfirmMessage{
     required bytes Hash = 1;
-    repeated MinerNonce NonceSeq = 2;
-    required SignData Sign = 3;
+    required bytes GroupID = 2;
+    repeated MinerNonce NonceSeq = 3;
+    required SignData Sign = 4;
 }
 
 message ConsensusPowFinalMessage{
     required bytes Hash = 1;
-    repeated MinerNonce NonceSeq = 2;
-    required bytes GSign = 3;
-    required SignData Sign = 4;
+    required bytes GroupID = 2;
+    repeated MinerNonce NonceSeq = 3;
+    required bytes GSign = 4;
+    required SignData Sign = 5;
 }

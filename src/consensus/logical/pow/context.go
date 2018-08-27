@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+	"log"
 )
 
 /*
@@ -175,7 +176,9 @@ func (pc *powContext) confirm() bool {
 
 	confirm := pc.newPowConfirm(results)
 	p := unsafe.Pointer(pc.confirmed)
-	return atomic.CompareAndSwapPointer(&p, nil, unsafe.Pointer(confirm))
+	ret := atomic.CompareAndSwapPointer(&p, nil, unsafe.Pointer(confirm))
+	log.Printf("----------------powContext confirm %v\n", ret)
+	return ret
 }
 
 func (pc *powContext) setConfirmed(cf *powConfirm) {

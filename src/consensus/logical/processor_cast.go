@@ -208,7 +208,14 @@ func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
 	vctx := bc.GetCurrentVerifyContext()
 	height := vctx.castHeight
 
-	if !vctx.canProposal(p.GetMinerID()) || vctx.isProposal() {
+	prePowResult := vctx.powResult
+	if prePowResult == nil {	//pow预算还未结束
+		logStart(mtype, height, p.getPrefix(), "pow预算未结束")
+		log.Printf("powProposeBlock pow preCompute not finished\n")
+		return nil
+	}
+
+	if !vctx.canProposal(p.GetMinerID()) || vctx.hasProposal() {
 		return nil
 	}
 
@@ -216,12 +223,6 @@ func (p *Processor) powProposeBlock(bc *BlockContext) *types.BlockHeader {
 
 	gid := bc.MinerID.Gid
 
-	prePowResult := bc.worker.LoadConfirm()
-	if prePowResult == nil {	//pow预算还未结束
-		logStart(mtype, height, p.getPrefix(), "pow预算未结束")
-		log.Printf("pow preCompute not finished\n")
-		return nil
-	}
 	if _, r := prePowResult.GetMinerNonce(p.GetMinerID()); r == nil {	//自己不能铸块
 		return nil
 	}

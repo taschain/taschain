@@ -51,7 +51,7 @@ func (w *PowWorker) PersistConfirm() bool {
 		TotalLevel: confirm.totalLevel,
 		GSign: *confirm.gSign,
 		NonceSeq: nonceSeq,
-		BlockHash: w.BH.Hash,
+		BlockHash: w.BaseHash,
 		Hash: confirm.resultHash,
 	}
 
@@ -59,13 +59,13 @@ func (w *PowWorker) PersistConfirm() bool {
 	if err != nil {
 		return false
 	}
-	w.storage.Put(w.BH.Hash.Bytes(), bs)
+	w.storage.Put(w.BaseHash.Bytes(), bs)
 	return true
 }
 
 func (w *PowWorker) LoadConfirm() *PreConfirmedPowResult {
     pr := new(PreConfirmedPowResult)
-    bs,err := w.storage.Get(w.BH.Hash.Bytes())
+    bs,err := w.storage.Get(w.BaseHash.Bytes())
 	if err != nil {
 		return nil
 	}
