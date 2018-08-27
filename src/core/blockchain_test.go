@@ -24,23 +24,59 @@ import (
 	"network"
 	"taslog"
 	"os"
+	"math/rand"
 )
 
-func TestConstractOnChain(t *testing.T)  {
+func OnChainFunc(code string){
 	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
-	//chain.Clear()
-
 	txpool := BlockChainImpl.GetTransactionPool()
+	txpool.Add(genContractTx(123456, "0x1234", "", 1, 0, []byte(code), nil, 0))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress("0x1234").Bytes(), common.Uint64ToByte(0))))
+	castor := new([]byte)
+	groupid := new([]byte)
+	// 铸块1
+	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
+	if nil == block {
+		fmt.Println("fail to cast new block")
+	}
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block) {
+		fmt.Println("fail to add block")
+	}
+	fmt.Println(contractAddr.GetHexString())
+}
 
+func CallContract(address, abi string) {
+	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+	castor := new([]byte)
+	groupid := new([]byte)
+	contractAddr := common.HexStringToAddress(address)
+	code := BlockChainImpl.latestStateDB.GetCode(contractAddr)
+	fmt.Println(code)
+	txpool := BlockChainImpl.GetTransactionPool()
+	txpool.Add(genContractTx(123456, "0x1234", contractAddr.GetHexString(), rand.Uint64(), 0, []byte(abi), nil, 0))
+	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
+	block2.Header.QueueNumber = 2
+	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
+		fmt.Println("fail to add empty block")
+	}
+}
+
+func TestContractOnChain(t *testing.T)  {
 	code := `
 import block
 import tx
+import account
 def Test(a, b, c, d):
 	print(dir(block))
+
 	hash = block.blockhash(0)
 	print("hash: " + hash)
 	diff = block.difficulty()
@@ -53,49 +89,13 @@ def Test(a, b, c, d):
 	origin = tx.origin()
 	print(origin)
 `
-	// 交易1
-	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
-	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
-
-	castor := new([]byte)
-	groupid := new([]byte)
-
-	// 铸块1
-	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
-	if nil == block {
-		t.Fatalf("fail to cast new block")
-	}
-
-	// 上链
-	if 0 != BlockChainImpl.AddBlockOnChain(block) {
-		t.Fatalf("fail to add block")
-	}
-
-	fmt.Println(contractAddr.GetHexString())
+	OnChainFunc(code)
 }
 
 func TestCallConstract(t *testing.T)  {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
-	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-	//Clear()
-	initBlockChain()
-	BlockChainImpl.transactionPool.Clear()
-	castor := new([]byte)
-	groupid := new([]byte)
-	//chain.Clear()
-	contractAddr := common.HexStringToAddress("0x2c1ef0519d0425e964e5a4a786c6d39300bf9cd3")
-	code := BlockChainImpl.latestStateDB.GetCode(common.HexStringToAddress("0x2c1ef0519d0425e964e5a4a786c6d39300bf9cd3"))
-	fmt.Println(string(code))
-	txpool := BlockChainImpl.GetTransactionPool()
-	txpool.Add(genTestTx("jdai3", 1, "1", "2", 2, 10))
-	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
-	fmt.Println(contractAddr.GetHexString())
-	// 铸块2
-	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
-	block2.Header.QueueNumber = 2
-	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
-		t.Fatalf("fail to add empty block")
-	}
+	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
+	abi := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
+	CallContract(contractAddr, abi)
 }
 
 func TestBlockChain_AddBlock(t *testing.T) {
@@ -445,7 +445,7 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 func genContractTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
-	sourcebyte := common.BytesToAddress([]byte(source))
+	sourcebyte := common.HexStringToAddress(source)
 	sourceAddr = &sourcebyte
 	if target == "" {
 		targetAddr = nil
