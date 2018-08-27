@@ -97,7 +97,7 @@ func TestGenIdPubkey(t *testing.T) {
 	procs, _ := processors()
 	idPubs := make([]model.PubKeyInfo, 0)
 	for _, p := range procs {
-		idPubs = append(idPubs, p.getPubkeyInfo())
+		idPubs = append(idPubs, p.GetPubkeyInfo())
 	}
 
 
@@ -122,7 +122,7 @@ func TestGenesisGroup(t *testing.T) {
 
 	mems := make([]model.PubKeyInfo, 0)
 	for _, proc := range procs {
-		mems = append(mems, proc.getPubkeyInfo())
+		mems = append(mems, proc.GetPubkeyInfo())
 	}
 	gis := GenGenesisGroupSummary()
 	gis.WithMemberPubs(mems)

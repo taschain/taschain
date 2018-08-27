@@ -112,6 +112,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 
 	gtas.waitingUtilSyncFinished()
+	redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 	gtas.inited = true
 	if !ok {
@@ -294,7 +295,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewMinerInfo(id, secret)
-	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok = mediator.ConsensusInit(minerInfo)

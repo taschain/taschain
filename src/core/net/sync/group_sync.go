@@ -182,6 +182,7 @@ func requestGroupChainHeight() {
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localHeight uint64) {
+	logger.Debugf("[GroupSyncer]Send group height  %s!",targetId)
 	body := utility.UInt64ToByte(localHeight)
 	message := network.Message{Code: network.GroupChainHeightMsg, Body: body}
 	network.GetNetInstance().Send(targetId, message)

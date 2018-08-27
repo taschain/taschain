@@ -139,6 +139,7 @@ func requestBlockChainTotalQn() {
 
 //返回自身链QN值
 func sendBlockTotalQn(targetId string, localTotalQN uint64) {
+	logger.Debugf("[BlockSyncer]Send totalQN to %s!",targetId)
 	body := utility.UInt64ToByte(localTotalQN)
 	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: body}
 	network.GetNetInstance().Send(targetId,message)
