@@ -12,6 +12,9 @@ import (
 	"os"
 	"consensus/model"
 	"middleware"
+	"network"
+	"core/net/handler"
+	chandler "consensus/net"
 )
 
 const CONF_PATH_PREFIX = `/Users/dongdexu/TASchain/taschain/deploy/daily`
@@ -119,6 +122,9 @@ func TestGenesisGroup(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
+
 	InitConsensus()
 	model.InitParam()
 
