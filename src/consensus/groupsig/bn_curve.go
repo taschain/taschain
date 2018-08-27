@@ -12,10 +12,9 @@ import (
 const PREFIX = "0x"
 
 // GetMaxOpUnitSize --
-func GetMaxOpUnitSize() int {
-	return 4
-}
-const CurveFp254BNb = 1
+//func GetMaxOpUnitSize() int {
+//	return 4
+//}
 
 func revertString(b string) string {
 	len := len(b)
