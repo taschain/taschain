@@ -17,6 +17,10 @@ type Signature struct {
 	value bn_curve.G1
 }
 
+func (sig *Signature) IsNil () bool {
+	return sig.value.IsNil()
+}
+
 func (sig *Signature) Add(sig1 *Signature) error {
 	new_sig := &Signature{}
 	new_sig.value.Set(&sig.value)
@@ -66,12 +70,19 @@ func DeserializeSign(b [] byte)  * Signature {
 
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
+	if len(b) == 0 {
+		return fmt.Errorf("b is empty")
+	}
+
 	sig.value.Unmarshal(b)
 	return nil
 }
 
 //把签名转换为字节切片
 func (sig Signature) Serialize() []byte {
+	if sig.IsNil() {
+		return []byte{}
+	}
 	return sig.value.Marshal()
 }
 

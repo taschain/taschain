@@ -1,9 +1,5 @@
 package groupsig
 
-import (
-	"fmt"
-)
-
 const (
 	Curve254     = 0 //256位曲线
 	Curve382_1   = 1 //384位曲线1
@@ -18,18 +14,18 @@ const (
 	HASHLENGTH   = 32 //哈希字节长度(golang.SHA3, 256位。和common包相同)
 )
 
-// Init --
-func Init(curve int) {
-	//fmt.Printf("\nbegin groupsig init, curve=%v.\n", curve)
-	//err := bn_curve.Init(curve) //以特定的椭圆曲线初始化BLS C库
-	//if err != nil {
-	//	panic("groupsig.Init")
-	//}
-	//curveOrder.SetString(bn_curve.GetCurveOrder(), 10)
-	//fieldOrder.SetString(bn_curve.GetFieldOrder(), 10)
-
-	bitLength = curveOrder.BitLen()
-	fmt.Printf("groupsig init success, curve_order=%v, field_order=%v, bitlen=%v.\n",
-		curveOrder.String(), fieldOrder.String(), bitLength)
-	return
-}
+//// Init --
+//func Init(curve int) {
+//	//fmt.Printf("\nbegin groupsig init, curve=%v.\n", curve)
+//	//err := bn_curve.Init(curve) //以特定的椭圆曲线初始化BLS C库
+//	//if err != nil {
+//	//	panic("groupsig.Init")
+//	//}
+//	//curveOrder.SetString(bn_curve.GetCurveOrder(), 10)
+//	//fieldOrder.SetString(bn_curve.GetFieldOrder(), 10)
+//
+//	bitLength = curveOrder.BitLen()
+//	fmt.Printf("groupsig init success, curve_order=%v, field_order=%v, bitlen=%v.\n",
+//		curveOrder.String(), fieldOrder.String(), bitLength)
+//	return
+//}

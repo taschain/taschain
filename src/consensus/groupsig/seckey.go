@@ -12,7 +12,7 @@ import (
 // Curve and Field order
 var curveOrder = bn_curve.Order //曲线整数域
 var fieldOrder = bn_curve.P
-var bitLength int
+var bitLength = curveOrder.BitLen()
 
 // Seckey -- represented by a big.Int modulo curveOrder
 //私钥对象，表现为一个大整数在曲线域上的求模？

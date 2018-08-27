@@ -14,10 +14,10 @@ import (
 	"middleware"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/local_3g9n`
+const CONF_PATH_PREFIX = `/Users/dongdexu/TASchain/taschain/deploy/daily`
 
 func TestBelongGroups(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
 	belongs := NewBelongGroups("/Users/pxf/workspace/tas_develop/tas/conf/aliyun/joined_group.config.1")
@@ -92,7 +92,7 @@ func processors() (map[string]*Processor, map[string]int) {
 }
 
 func TestGenIdPubkey(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
 	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
@@ -120,6 +120,7 @@ func TestGenesisGroup(t *testing.T) {
 		panic(err)
 	}
 	InitConsensus()
+	model.InitParam()
 
 	procs, _ := processors()
 

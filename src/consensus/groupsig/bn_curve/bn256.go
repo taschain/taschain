@@ -50,6 +50,10 @@ func (g *G1) String() string {
 	return "bls.G1" + g.p.String()
 }
 
+func (g *G1) IsNil () bool {
+	return g.p == nil
+}
+
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
 // returns e.
 func (e *G1) ScalarBaseMult(k *big.Int) *G1 {
@@ -162,6 +166,10 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 // output of an operation, but cannot be used as an input.
 type G2 struct {
 	p *twistPoint
+}
+
+func (e *G2) IsEmpty() bool {
+	return e.p == nil
 }
 
 // RandomG2 returns x and g₂ˣ where x is a random, non-zero number read from r.

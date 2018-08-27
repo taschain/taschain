@@ -21,6 +21,10 @@ type PubkeyMap map[common.Address]Pubkey
 
 type PubkeyMapID map[string]Pubkey
 
+func (pub Pubkey) IsEmpty() bool {
+	return pub.value.IsEmpty()
+}
+
 //判断两个公钥是否相同   
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {
 	return  bytes.Equal(pub.value.Marshal(), rhs.value.Marshal())
@@ -61,8 +65,9 @@ func (pub Pubkey) GetBigInt() *big.Int {
 }
 
 func (pub Pubkey) IsValid() bool {
-	bi := pub.GetBigInt()
-	return bi.Cmp(big.NewInt(0)) != 0
+	return !pub.IsEmpty()
+	//bi := pub.GetBigInt()
+	//return bi.Cmp(big.NewInt(0)) != 0
 }
 
 //由公钥生成TAS地址
