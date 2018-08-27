@@ -270,9 +270,8 @@ func bridge_init() {
 type Tvm struct {
 	state vm.AccountDB
 
-	contractName string
-	// gas
-	// this地址
+	ContractName string
+	ContractAddress string
 }
 
 func NewTvm()*Tvm {
@@ -282,13 +281,10 @@ func NewTvm()*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)init(contractName string,
-	accountDB vm.AccountDB,
+func (tvm *Tvm)init(accountDB vm.AccountDB,
 	chainReader vm.ChainReader,
 	header *types.BlockHeader,
 	transaction *types.Transaction)  {
-
-	tvm.contractName = contractName
 
 	reader = chainReader
 	tvm.state = accountDB
@@ -300,6 +296,16 @@ func (tvm *Tvm)init(contractName string,
 	}
 	C.tvm_start()
 	bridge_init()
+}
+
+// 获取剩余gas
+func (tvm *Tvm)Gas() uint64 {
+	return C.getGas()
+}
+
+// 设置可使用gas, init成功后设置
+func (tvm *Tvm)SetGas(gas uint64) {
+	C.setGast(tvm.Gas)
 }
 
 func (tvm *Tvm)DelTvm() {
@@ -326,7 +332,7 @@ func (tvm *Tvm) AddLibPath(path string) {
 
 type Msg struct {
 	Data []byte
-	Value int
+	Value uint64
 	Sender string
 }
 
@@ -356,7 +362,7 @@ func (tvm *Tvm)Deploy(msg Msg) bool {
 	script := fmt.Sprintf(`
 tas_%s = %s()
 tas_%s.deploy()
-`, tvm.contractName, tvm.contractName, tvm.contractName)
+`, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	return tvm.Execute(script)
 }
 
