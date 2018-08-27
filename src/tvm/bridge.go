@@ -141,6 +141,7 @@ func GetRefund() C.ulonglong {
 func GetData(addressC *C.char, hashC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
 	//hash := common.StringToHash(C.GoString(hashC))
+	address = *currentTransaction.Target
 	state := tvm.state.GetData(address, C.GoString(hashC))
 
 	return C.CString(string(state))
@@ -149,6 +150,7 @@ func GetData(addressC *C.char, hashC *C.char) *C.char {
 //export SetData
 func SetData(addressC *C.char, keyC *C.char, data *C.char) {
 	address := common.HexToAddress(C.GoString(addressC))
+	address = *currentTransaction.Target
 	key := C.GoString(keyC)
 	state := []byte(C.GoString(data))
 	tvm.state.SetData(address, key, state)
