@@ -284,6 +284,20 @@ func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 	return tvm
 }
 
+func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
+	if tvm == nil {
+		tvm = &Tvm{}
+	}
+	reader = chainReader
+	tvm.state = accountDB
+
+	C.tvm_start()
+	C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
+	bridge_init()
+
+	return tvm
+}
+
 func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
 	if header == nil {
 		currentBlockHeader = &types.BlockHeader{}

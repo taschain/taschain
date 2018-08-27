@@ -9,7 +9,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// 设置python lib的路径
+void tvm_set_lib_path(const char* path);
 void tvm_start(void);
+void setGas(int value);
+int getGas();
 void tvm_test(void);
 _Bool tvm_execute(char *str);
 typedef int (*callback_fcn)(int);
@@ -68,10 +72,10 @@ Function14 blockhash;
 Function15 coinbase;
 Function9 difficulty;
 Function9 number;
+Function9 gaslimit;
 Function9 timestamp;
 // tx
 Function15 origin;
-Function9 gaslimit;
 
 
 

@@ -1,7 +1,7 @@
 
 
 from lib.base.utils import *
-from lib.erc20.token_erc20 import TokenERC20
+from lib.erc20.token_erc20_tas import TokenERC20
 
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);

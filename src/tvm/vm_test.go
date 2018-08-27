@@ -20,7 +20,6 @@ import (
 	"common"
 	"storage/core"
 	"storage/tasdb"
-
 )
 
 func TestVmTest(t *testing.T) {
@@ -67,3 +66,54 @@ func TestVmTestToken(t *testing.T) {
 func TestVmTest2(t *testing.T) {
 	VmTest()
 }
+
+// 设置python lib目录
+func TestVmTest3(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from test import test_lib_helloworld
+
+test_lib_helloworld.helloworld()
+
+`
+	vm.Execute(script,nil, nil)
+}
+
+// msg变量
+func TestVmTest4(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from clib.tas_runtime import glovar
+from clib.tas_runtime.msgxx import Msg
+from clib.tas_runtime.address_tas import Address
+
+glovar.msg = Msg(data="", sender=Address(""), value=100)
+
+print(glovar.msg)
+`
+	vm.Execute(script,nil, nil)
+}
+
+// Address.call
+func TestVmTest5(t *testing.T) {
+	vm := NewTvmTest(nil, nil)
+	script := `
+from clib.tas_runtime import glovar
+from clib.tas_runtime.msgxx import Msg
+from clib.tas_runtime.address_tas import Address
+
+glovar.msg = Msg(data="", sender=Address(""), value=100)
+print(glovar.msg)
+
+from token.contract_token_tas import MyAdvancedToken
+
+`
+	vm.Execute(script,nil, nil)
+}
+
+
+// 创建账户
+
+// 部署合约
+
+// 执行合约
