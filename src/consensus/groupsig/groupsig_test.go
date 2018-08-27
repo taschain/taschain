@@ -9,6 +9,7 @@ import (
 	"unsafe"
 	"bytes"
 	"consensus/base"
+	"strconv"
 )
 
 type Expect struct {
@@ -376,9 +377,9 @@ func Test_Groupsig_ID_Deserialize(t *testing.T) {
 
 //测试BLS门限签名.
 //Added by FlyingSquirrel-Xu. 2018-08-24.
-func testRecover() {
-	n := 50
-	k := 10
+func testRecover(n int, k int, b *testing.B) {
+	//n := 50
+	//k := 10
 
 	//定义k-1次多项式 F(x): <a[0], a[1], ..., a[k-1]>. F(0)=a[0].
 	a := make([]Seckey, k)
@@ -431,10 +432,162 @@ func testRecover() {
 	}
 }
 
-func benchmark_GroupsigRecoverSignature(b *testing.B) {
-	b.StartTimer()
-	testRecover()
-	b.StopTimer()
+func benchmark_GroupsigRecover(n int, k int, b *testing.B) {
+	b.ResetTimer()
+	for i:=0; i<b.N; i++ {
+		testRecover(n, k, b)
+	}
 }
 
-func Benchmark_GroupsigRecover(b *testing.B)  { benchmark_GroupsigRecoverSignature(b) }
+
+
+func Benchmark_GroupsigRecover100(b *testing.B)  { benchmark_GroupsigRecover(100, 100, b) }
+func Benchmark_GroupsigRecover200(b *testing.B)  { benchmark_GroupsigRecover(200, 200, b) }
+func Benchmark_GroupsigRecover500(b *testing.B)  { benchmark_GroupsigRecover(500, 500, b) }
+func Benchmark_GroupsigRecover1000(b *testing.B) { benchmark_GroupsigRecover(1000, 1000,  b) }
+
+func BenchmarkPubkeyFromSeckey(b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+
+	//var sec Seckey
+	for n := 0; n < b.N; n++ {
+		//sec.SetByCSPRNG()
+		sec := NewSeckeyFromRand(r.Deri(1))
+		b.StartTimer()
+		NewPubkeyFromSeckey(*sec)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkSigning(b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+
+	for n := 0; n < b.N; n++ {
+		sec := NewSeckeyFromRand(r.Deri(1))
+		b.StartTimer()
+		Sign(*sec, []byte(strconv.Itoa(n)))
+		b.StopTimer()
+	}
+}
+
+func BenchmarkValidation(b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+
+	for n := 0; n < b.N; n++ {
+		sec := NewSeckeyFromRand(r.Deri(1))
+		pub := NewPubkeyFromSeckey(*sec)
+		m := strconv.Itoa(n)
+		sig := Sign(*sec, []byte(m))
+		b.StartTimer()
+		VerifySig(*pub, []byte(m), sig)
+		b.StopTimer()
+	}
+}
+
+func benchmarkDeriveSeckeyShare(k int, b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+	sec := NewSeckeyFromRand(r.Deri(1))
+
+	msk := sec.GetMasterSecretKey(k)
+	var id ID
+	for n := 0; n < b.N; n++ {
+		err := id.SetLittleEndian([]byte{1, 2, 3, 4, 5, byte(n)})
+		if err != nil {
+			b.Error(err)
+		}
+		b.StartTimer()
+		err = sec.Set(msk, &id)
+		b.StopTimer()
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+func BenchmarkDeriveSeckeyShare500(b *testing.B) { benchmarkDeriveSeckeyShare(500, b) }
+
+
+
+func benchmarkRecoverSeckey(k int, b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+	sec := NewSeckeyFromRand(r.Deri(1))
+
+	msk := sec.GetMasterSecretKey(k)
+
+	// derive n shares
+	n := k
+	secVec := make([]Seckey, n)
+	idVec := make([]ID, n)
+	for i := 0; i < n; i++ {
+		err := idVec[i].SetLittleEndian([]byte{1, 2, 3, 4, 5, byte(i)})
+		if err != nil {
+			b.Error(err)
+		}
+		err = secVec[i].Set(msk, &idVec[i])
+		if err != nil {
+			b.Error(err)
+		}
+	}
+
+	// recover from secVec and idVec
+	var sec2 Seckey
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		err := sec2.Recover(secVec, idVec)
+		if err != nil {
+			b.Errorf("%s\n", err)
+		}
+	}
+}
+
+func BenchmarkRecoverSeckey100(b *testing.B)  { benchmarkRecoverSeckey(100, b) }
+func BenchmarkRecoverSeckey200(b *testing.B)  { benchmarkRecoverSeckey(200, b) }
+func BenchmarkRecoverSeckey500(b *testing.B)  { benchmarkRecoverSeckey(500, b) }
+func BenchmarkRecoverSeckey1000(b *testing.B) { benchmarkRecoverSeckey(1000, b) }
+
+func benchmarkRecoverSignature(k int, b *testing.B) {
+	b.StopTimer()
+
+	r := base.NewRand() //生成随机数
+	sec := NewSeckeyFromRand(r.Deri(1))
+
+	msk := sec.GetMasterSecretKey(k)
+
+	// derive n shares
+	n := k
+	idVec := make([]ID, n)
+	secVec := make([]Seckey, n)
+	signVec := make([]Signature, n)
+	for i := 0; i < n; i++ {
+		err := idVec[i].SetLittleEndian([]byte{1, 2, 3, 4, 5, byte(i)})
+		if err != nil {
+			b.Error(err)
+		}
+		err = secVec[i].Set(msk, &idVec[i])
+		if err != nil {
+			b.Error(err)
+		}
+		signVec[i] = Sign(secVec[i], []byte("test message"))
+	}
+
+	// recover signature
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		RecoverSignature(signVec, idVec)
+	}
+}
+
+func BenchmarkRecoverSignature100(b *testing.B)  { benchmarkRecoverSignature(100, b) }
+func BenchmarkRecoverSignature200(b *testing.B)  { benchmarkRecoverSignature(200, b) }
+func BenchmarkRecoverSignature500(b *testing.B)  { benchmarkRecoverSignature(500, b) }
+func BenchmarkRecoverSignature1000(b *testing.B) { benchmarkRecoverSignature(1000, b) }

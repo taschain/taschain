@@ -39,6 +39,16 @@ func (id *ID) SetHexString(s string) error {
 	return id.value.SetHexString(s)
 }
 
+// GetLittleEndian --
+func (id *ID) GetLittleEndian() []byte {
+	return id.Serialize()
+}
+
+// SetLittleEndian --
+func (id *ID) SetLittleEndian(buf []byte) error {
+	return id.Deserialize(buf)
+}
+
 //把字节切片转换到ID
 func (id *ID) Deserialize(b []byte) error {
 	return id.value.Deserialize(b)

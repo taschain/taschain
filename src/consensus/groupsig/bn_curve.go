@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"consensus/groupsig/bn_curve"
 	"math/big"
+	"consensus/base"
 )
 
 const PREFIX = "0x"
@@ -172,4 +173,25 @@ func (bg *blsG2) Add(bh *blsG2) error {
 	return nil
 }
 
+// GetMasterSecretKey --
+func (sec *Seckey) GetMasterSecretKey(k int) (msk []Seckey) {
+	msk = make([]Seckey, k)
+	msk[0] = *sec
+
+	r := base.NewRand() //生成随机数
+	for i := 1; i < k; i++ {
+		msk[i] = *NewSeckeyFromRand(r.Deri(1))
+	}
+	return msk
+}
+
+// GetMasterPublicKey --
+func GetMasterPublicKey(msk []Seckey) (mpk []Pubkey) {
+	n := len(msk)
+	mpk = make([]Pubkey, n)
+	for i := 0; i < n; i++ {
+		mpk[i] = *NewPubkeyFromSeckey(msk[i])
+	}
+	return mpk
+}
 

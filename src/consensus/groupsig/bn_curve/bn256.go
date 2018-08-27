@@ -18,6 +18,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"strings"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -482,4 +483,8 @@ func (e *GT) Unmarshal(m []byte) ([]byte, error) {
 
 func GetG2Base() *G2 {
 	return &G2{twistGen}
+}
+
+func PairIsEuqal(g1 *GT, g2 *GT) bool {
+	return strings.EqualFold(g1.String(), g1.String())
 }

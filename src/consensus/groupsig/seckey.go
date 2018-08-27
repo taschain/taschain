@@ -291,3 +291,21 @@ func RecoverSeckeyByMapInt(m SeckeyMapInt, k int) *Seckey {
 	//恢复出组私钥
 	return RecoverSeckey(secs, ids)
 }
+
+// Set --
+func (sec *Seckey) Set(msk []Seckey, id *ID) error {
+	// #nosec
+	s := ShareSeckey(msk, *id)
+	sec.Deserialize(s.Serialize())
+	return nil
+}
+
+// Recover --
+func (sec *Seckey) Recover(secVec []Seckey, idVec []ID) error {
+	// #nosec
+	s := RecoverSeckey(secVec, idVec)
+	sec.Deserialize(s.Serialize())
+
+	return nil
+}
+

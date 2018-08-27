@@ -117,7 +117,8 @@ func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
 	Hm := HashToG1(string(msg))
 	p2 := bn_curve.Pair(Hm, &pub.value)
 
-	return bytes.Equal(p1.Marshal(), p2.Marshal())
+	return bn_curve.PairIsEuqal(p1, p2)
+	//return bytes.Equal(p1.Marshal(), p2.Marshal())
 }
 
 //分片合并验证函数。先把公钥切片合并，然后验证该签名是否来自公钥对应的私钥。
@@ -231,4 +232,10 @@ func RecoverSignatureByMapA(m SignatureAMap, k int) *Signature {
 		}
 	}
 	return RecoverSignature(sigs, ids) //调用签名恢复函数
+}
+
+// Recover --
+func (sign *Signature) Recover(signVec []Signature, idVec []ID) error {
+
+	return nil
 }
