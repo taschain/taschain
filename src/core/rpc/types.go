@@ -24,7 +24,6 @@ import (
 
 	"gopkg.in/fatih/set.v0"
 	"common"
-	"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
 )
 
 type API struct {

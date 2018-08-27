@@ -118,14 +118,14 @@ unsigned long long wrap_get_refund()
 
 char* wrap_get_state(char* address, char* hash)
 {
-	char* GetState(char*, char*);
-	return GetState(address, hash);
+	char* GetData(char*, char*);
+	return GetData(address, hash);
 }
 
 void wrap_set_state(char* address, char* hash, char* state)
 {
-	void SetState(char*, char*, char*);
-	SetState(address, hash, state);
+	void SetData(char*, char*, char*);
+	SetData(address, hash, state);
 }
 
 _Bool wrap_suicide(char* address)
@@ -224,8 +224,8 @@ import (
 	"middleware/types"
 )
 
-var currentBlockHeader *types.BlockHeader
-var currentTransaction *types.Transaction
+var currentBlockHeader *types.BlockHeader = nil
+var currentTransaction *types.Transaction = nil
 var reader vm.ChainReader
 
 
@@ -299,14 +299,10 @@ func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
 }
 
 func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
-	if header == nil {
-		currentBlockHeader = &types.BlockHeader{}
-	} else {
+	if header != nil  {
 		currentBlockHeader = header
 	}
-	if transaction == nil {
-		currentTransaction = &types.Transaction{}
-	} else {
+	if transaction != nil {
 		currentTransaction = transaction
 	}
 	var c_bool C._Bool
@@ -318,7 +314,7 @@ type ABI struct {
 	FuncName string
 	Args []interface{}
 }
-func (tvm *Tvm) ExecuteABIJson(j string) {
+func (tvm *Tvm) ExecuteABIJson(j string) bool{
 	res := ABI{}
 	json.Unmarshal([]byte(j), &res)
 	fmt.Println(res)
@@ -335,7 +331,7 @@ func (tvm *Tvm) ExecuteABIJson(j string) {
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	tvm.Execute(buf.String(),nil, nil)
+	return tvm.Execute(buf.String(),nil, nil)
 }
 
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {

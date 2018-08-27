@@ -25,7 +25,6 @@ import (
 	"sync/atomic"
 
 	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
 )
 
 const MetadataApi = "rpc"

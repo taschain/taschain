@@ -28,7 +28,7 @@ import (
 
 	"golang.org/x/net/websocket"
 	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
+	//"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
 )
 
 func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
