@@ -18,7 +18,7 @@ import (
 const (
 	GROUP_HEIGHT_RECEIVE_INTERVAL = 1 * time.Second
 
-	GROUP_SYNC_INTERVAL = 5 * time.Second
+	GROUP_SYNC_INTERVAL = 3 * time.Second
 )
 
 var GroupSyncer groupSyncer
@@ -78,9 +78,7 @@ func (gs *groupSyncer) start() {
 		}
 	}
 
-	for{
-		gs.sync()
-	}
+	gs.sync()
 }
 
 func (gs *groupSyncer) sync() {
@@ -97,13 +95,13 @@ func (gs *groupSyncer) sync() {
 	gs.lock.Unlock()
 
 	if maxHeight <= localHeight {
-		logger.Debugf("[GroupSyncer]Neightbor max group height %d is less than self group height %d don't sync!\n", maxHeight, localHeight)
+		logger.Debugf("[GroupSyncer]Neightbor max group height %d is less than self group height %d\n don't sync!\n", maxHeight, localHeight)
 		if !gs.init {
 			gs.init = true
 		}
 		return
 	} else {
-		logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.Sync from %s!\n", maxHeight, localHeight, bestNode)
+		logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.\nSync from %s!\n", maxHeight, localHeight, bestNode)
 		if bestNode != "" {
 			requestGroupByHeight(bestNode, localHeight)
 		}
@@ -172,7 +170,7 @@ func (gs *groupSyncer) loop() {
 				continue
 			}
 			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
-			go gs.sync()
+			gs.sync()
 		}
 	}
 }
@@ -186,7 +184,7 @@ func requestGroupChainHeight() {
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localHeight uint64) {
-	logger.Debugf("[GroupSyncer]Send local group height %s to %d!",localHeight,targetId)
+	logger.Debugf("[GroupSyncer]Send local group height %d to %s!",localHeight,targetId)
 	body := utility.UInt64ToByte(localHeight)
 	message := network.Message{Code: network.GroupChainHeightMsg, Body: body}
 	network.GetNetInstance().Send(targetId, message)

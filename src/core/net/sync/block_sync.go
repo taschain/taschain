@@ -65,9 +65,7 @@ func (bs *blockSyncer) start() {
 			break
 		}
 	}
-	for{
-		bs.sync()
-	}
+	bs.sync()
 }
 
 func (bs *blockSyncer) sync() {
@@ -105,13 +103,13 @@ func (bs *blockSyncer) loop() {
 	for {
 		select {
 		case sourceId := <-bs.ReqTotalQnCh:
-			logger.Debugf("[BlockSyncer] Request total qn from:%s", sourceId)
+			logger.Debugf("[BlockSyncer] Rcv total qn req from:%s", sourceId)
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN())
 		case h := <-bs.TotalQnCh:
-			logger.Debugf("[BlockSyncer] Receive total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
+			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
 			if !bs.init{
 				bs.replyCount++
 			}
@@ -135,13 +133,14 @@ func (bs *blockSyncer) loop() {
 
 //广播索要链的QN值
 func requestBlockChainTotalQn() {
+	logger.Debugf("[BlockSyncer]Req block total qn for neighbor!")
 	message := network.Message{Code: network.ReqBlockChainTotalQnMsg}
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //返回自身链QN值
 func sendBlockTotalQn(targetId string, localTotalQN uint64) {
-	logger.Debugf("[BlockSyncer]Send totalQN to %s!",targetId)
+	logger.Debugf("[BlockSyncer]Send local total qn %d to %s!",localTotalQN,targetId)
 	body := utility.UInt64ToByte(localTotalQN)
 	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: body}
 	network.GetNetInstance().Send(targetId,message)
