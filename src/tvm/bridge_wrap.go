@@ -348,9 +348,11 @@ from clib.tas_runtime import glovar
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
-glovar.msg = Msg(data=bytes('%s'), sender=Address("%s"), value=%d)
+glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
 print(glovar.msg)
-`, msg.Data, msg.Sender, msg.Value)
+
+this = Address("%s")
+`, msg.Sender, msg.Value, tvm.ContractAddress)
 	return tvm.Execute(script)
 }
 

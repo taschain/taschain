@@ -2,6 +2,7 @@
 
 from lib.base.utils import *
 from lib.erc20.token_erc20_tas import TokenERC20
+from clib.tas_runtime import glovar
 
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);
@@ -107,8 +108,8 @@ class MyAdvancedToken(TokenERC20):
 
     def buy(self):
         # 在call前已经完成扣款
-        amount = msg.value / self.buy_price
-        self._transfer(this, msg.sender, amount)
+        amount = glovar.msg.value / self.buy_price
+        self._transfer(this, glovar.msg.sender, amount)
 
     def sell(self, amount):
         require(this.balance() >= amount * self.sell_price)
@@ -116,10 +117,10 @@ class MyAdvancedToken(TokenERC20):
         msg.sender.transfer(amount * self.sell_price)
 
     def test(self):
-        print(block.number())
+        print("test")
 
 
 
-if __name__ == '__main__':
-    a = compile("a = 1",mode="single", filename="s.py")
-    print(a.co_code.decode("utf-8"))
+# if __name__ == '__main__':
+#     a = compile("a = 1",mode="single", filename="s.py")
+#     print(a.co_code.decode("utf-8"))
