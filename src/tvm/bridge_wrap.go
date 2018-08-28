@@ -370,6 +370,8 @@ type ABI struct {
 	FuncName string
 	Args []interface{}
 }
+
+// `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
 func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
 	if tvm.loadMsg(msg) != true {
 		return false
@@ -380,7 +382,11 @@ func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
 	fmt.Println(res)
 
 	var buf bytes.Buffer
+	//类名
+	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
+	//函数名
 	buf.WriteString(res.FuncName)
+	//参数
 	buf.WriteString("(")
 	for _, value := range res.Args {
 		tvm.jsonValueToBuf(&buf, value)
