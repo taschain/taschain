@@ -349,9 +349,11 @@ from clib.tas_runtime import glovar
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
-glovar.msg = Msg(data=bytes('%s'), sender=Address("%s"), value=%d)
+glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
 print(glovar.msg)
-`, msg.Data, msg.Sender, msg.Value)
+
+this = Address("%s")
+`, msg.Sender, msg.Value, tvm.ContractAddress)
 	return tvm.Execute(script)
 }
 
@@ -371,6 +373,8 @@ type ABI struct {
 	FuncName string
 	Args []interface{}
 }
+
+// `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
 func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
 	if tvm.loadMsg(msg) != true {
 		return false
@@ -381,7 +385,11 @@ func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
 	fmt.Println(res)
 
 	var buf bytes.Buffer
+	//类名
+	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
+	//函数名
 	buf.WriteString(res.FuncName)
+	//参数
 	buf.WriteString("(")
 	for _, value := range res.Args {
 		tvm.jsonValueToBuf(&buf, value)

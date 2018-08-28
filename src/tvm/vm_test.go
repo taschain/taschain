@@ -106,9 +106,49 @@ from token.contract_token_tas import MyAdvancedToken
 	vm.Execute(script)
 }
 
+// TVM释放
+func TestVmTest6(t *testing.T) {
+	vm := NewTvm()
+	vm.init(nil, nil, nil, nil)
+	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
-// 创建账户
+	script := `
+from test import test_lib_helloworld
 
-// 部署合约
+test_lib_helloworld.helloworld()
 
-// 执行合约
+`
+	vm.Execute(script)
+
+	vm.DelTvm()
+
+	vm = NewTvm()
+	vm.init(nil, nil, nil, nil)
+	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
+
+	script = `
+test_lib_helloworld.helloworld()
+`
+	vm.Execute(script)
+
+	vm.DelTvm()
+}
+
+func TestVmTest7(t *testing.T) {
+	vm := NewTvm()
+	vm.init(nil, nil, nil, nil)
+	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
+	vm.ContractName = "MyAdvancedToken"
+	vm.ContractAddress = "0x2"
+
+	code := Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
+	vm.Execute(code)
+
+	msg := Msg{}
+	msg.Value = 0
+	msg.Sender = "0x1"
+	vm.Deploy(msg)
+
+	j := `{"FuncName": "test", "Args": []}`
+	vm.ExecuteABIJson(msg, j)
+}
