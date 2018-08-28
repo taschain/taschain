@@ -7,7 +7,6 @@ import (
 
 	"strconv"
 	"common"
-	"time"
 	"golang.org/x/crypto/sha3"
 	"middleware/notify"
 )
@@ -155,7 +154,7 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	begin := time.Now()
+	//begin := time.Now()
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
@@ -164,31 +163,31 @@ func (n *server) handleMessage(b []byte, from string) {
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 
 	code := message.Code
-	if code == KeyPieceMsg {
-		Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == SignPubkeyMsg {
-		Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == CastVerifyMsg {
-		Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
-	}
-
-	if code == NewBlockMsg {
-		Logger.Debugf("Receive NEW_BLOCK_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == GroupInitMsg {
-		Logger.Debugf("Receive GROUP_INIT_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == GroupInitDoneMsg {
-		Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
+	//if code == KeyPieceMsg {
+	//	Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
+	//}
+	//
+	//if code == SignPubkeyMsg {
+	//	Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
+	//}
+	//
+	//if code == CastVerifyMsg {
+	//	Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
+	//}
+	//
+	//if code == NewBlockMsg {
+	//	Logger.Debugf("Receive NEW_BLOCK_MSG from %s,hash:%s", from, message.Hash())
+	//}
+	//
+	//if code == GroupInitMsg {
+	//	Logger.Debugf("Receive GROUP_INIT_MSG from %s,hash:%s", from, message.Hash())
+	//}
+	//
+	//if code == GroupInitDoneMsg {
+	//	Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
+	//}
+	//
+	//defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
@@ -205,15 +204,15 @@ func (n *server) handleMessage(b []byte, from string) {
 		}
 		n.consensusHandler.Handle(from, *message)
 	case NewBlockHeaderMsg:
-		Logger.Debugf("Receive NewBlockHeaderMsg from %s", from)
+		//Logger.Debugf("Receive NewBlockHeaderMsg from %s", from)
 		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)
 	case BlockBodyReqMsg:
-		Logger.Debugf("Receive BlockBodyReqMsg from %s", from)
+		//Logger.Debugf("Receive BlockBodyReqMsg from %s", from)
 		msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBodyReq, &msg)
 	case BlockBodyMsg:
-		Logger.Debugf("Receive BlockBodyMsg from %s", from)
+		//Logger.Debugf("Receive BlockBodyMsg from %s", from)
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	}
