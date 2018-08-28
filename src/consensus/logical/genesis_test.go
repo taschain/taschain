@@ -243,7 +243,10 @@ func TestGenesisGroup(t *testing.T) {
 
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
-
+		if jg == nil {
+			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),GetIDPrefix(sgi.GroupID))
+			continue
+		}
 		jgByte, _ := json.Marshal(jg)
 
 		if !write {
