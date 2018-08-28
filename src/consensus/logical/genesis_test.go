@@ -130,12 +130,15 @@ func TestGenesisGroup(t *testing.T) {
 
 	procs, _ := processors()
 
+	//生成miner信息ID, SK, PK.
 	mems := make([]model.PubKeyInfo, 0)
 	for _, proc := range procs {
 		mems = append(mems, proc.getPubkeyInfo())
 	}
 	gis := GenGenesisGroupSummary()
 	gis.WithMemberPubs(mems)
+
+	//组启动初始化信息
 	grm := &model.ConsensusGroupRawMessage{
 		GI: gis,
 		MEMS: mems,
@@ -150,13 +153,20 @@ func TestGenesisGroup(t *testing.T) {
 		staticGroupInfo.GIS = grm.GI
 		staticGroupInfo.Members = grm.MEMS
 
+		log.Println("------dummyId:", gis.DummyID.GetHexString())
+		//组上链.
 		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 			//dummy 组写入组链 add by 小熊
+
+			//log.Println("------AddGroupOnChain()")
 			p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 		}
 
+		//创建组共识上下文
 		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, p.mi)
+
+		//创建sharePieces
 		shares := gc.GenSharePieces()
 		for id, share := range shares {
 			spms := procSpms[id]
@@ -178,8 +188,8 @@ func TestGenesisGroup(t *testing.T) {
 		}
 	}
 
+	//签名公钥信息广播
 	spks := make(map[string]*model.ConsensusSignPubKeyMessage)
-
 	for id, spms := range procSpms {
 		p := procs[id]
 		for _, spm := range spms {
@@ -195,12 +205,14 @@ func TestGenesisGroup(t *testing.T) {
 				msg.GenGISSign(jg.SignKey)
 				msg.SI.SignMember = p.GetMinerID()
 				spks[id] = msg
+
+				log.Println("SignKey:", jg.SignKey.Serialize())
 			}
 		}
 	}
 
+	//初始化完成消息
 	initedMsgs := make(map[string]*model.ConsensusGroupInitedMessage)
-
 	for id, p := range procs {
 		for _, spkm := range spks {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
@@ -214,12 +226,12 @@ func TestGenesisGroup(t *testing.T) {
 				msg.GI.GroupPK = jg.GroupPK
 
 				msg.GenSign(ski, msg)
-
 				initedMsgs[id] = msg
 			}
 		}
 	}
 
+	//组上链
 	for _, p := range procs {
 		for _, msg := range initedMsgs {
 			initingGroup := p.globalGroups.GetInitingGroup(msg.GI.GIS.DummyID)
@@ -237,11 +249,15 @@ func TestGenesisGroup(t *testing.T) {
 		}
 	}
 
+	log.Println("ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ")
+
+	//把组信息写入到文件.
 	write := false
 	for id, p := range procs {
 		//index := indexs[p.getPrefix()]
-
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
+
+		//log.Println("=======GroupID:",sgi.GroupID.GetHexString())
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 
 		jgByte, _ := json.Marshal(jg)
@@ -249,28 +265,31 @@ func TestGenesisGroup(t *testing.T) {
 		if !write {
 			write = true
 			log.Println("=======", id, "============")
+
+			log.Println("sgi.GroupPK:", sgi.GroupPK.GetHexString())
+
 			sgiByte, _ := json.Marshal(sgi)
 
 			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
 
-			log.Println(string(sgiByte))
+			log.Println("sgi:", string(sgiByte))
 			log.Println("-----------------------")
-			log.Println(string(jgByte))
+			log.Println("jg:", string(jgByte))
 		}
 
 
 		log.Println()
-
 		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
 
 		var sig groupsig.Signature
-		sig.Deserialize(jg.GroupSec.SecretSign)
-		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
+
+		if jg == nil {
+			log.Println("jg is NULL")
+		} else {
+			sig.Deserialize(jg.GroupSec.SecretSign)
+			log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
+		}
 	}
-
-
-
-
 
 }
 

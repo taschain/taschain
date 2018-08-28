@@ -1,4 +1,9 @@
 package logical
+
+import (
+	"testing"
+)
+
 //
 //import (
 //	"consensus/groupsig"
@@ -746,3 +751,30 @@ package logical
 //		log.Println("TRANS_ACCEPT_FULL_THRESHOLD full")
 //	}
 //}
+
+type Person struct {
+	Id   string
+	Name string
+	Age  int
+}
+
+type Car struct {
+	Driver *Person
+}
+
+type Garage struct {
+	Manager Person
+}
+
+func Test_TmpJsonMarshal(t *testing.T) {
+	//p := Person{Id: "123456", Name: "Alice", Age: 33}
+	//
+	//c := &Car{Driver: &p}
+	//b, _ := json.Marshal(c)
+	//fmt.Printf("Car: %s\n", string(b))
+	//
+	//g := &Garage{Manager: p}
+	//b, _ = json.Marshal(g)
+	//fmt.Printf("Garage: %s\n", string(b))
+
+}

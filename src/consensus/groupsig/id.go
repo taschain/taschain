@@ -10,7 +10,7 @@ import (
 // ID -- id for secret sharing, represented by big.Int
 //秘密共享的ID，64位int，共256位
 type ID struct {
-	value BlsInt
+	value BnInt
 }
 
 //判断2个ID是否相同

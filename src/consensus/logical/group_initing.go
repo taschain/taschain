@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"vm/common/math"
 	"consensus/model"
+	"fmt"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -140,6 +141,8 @@ func CreateNewGroupGenerator() *NewGroupGenerator {
 
 func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	dummyId := initingGroup.gis.DummyID
+
+	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), initingGroup)
 	if load {
 		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummyId))
@@ -378,6 +381,9 @@ func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
 	if v, ok := jgs.groups.Load(gid.GetHexString()); ok {
 		return v.(*GroupContext)
 	}
+
+	fmt.Println("gc is NULL, gid:", gid.GetHexString())
+
 	return nil
 }
 

@@ -78,9 +78,7 @@ func (pub Pubkey) GetAddress() common.Address {
 
 //把公钥转换成十六进制字符串，不包含0x前缀   ToDoCheck
 func (pub Pubkey) GetHexString() string {
-	//return PREFIX + pub.value.String()
-	//return pub.value.GetHexString()
-	return ""
+	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
 //由十六进制字符串初始化公钥  ToDoCheck
@@ -88,12 +86,10 @@ func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
-	//buf := s[len(PREFIX):]
+	buf := s[len(PREFIX):]
 
-	return fmt.Errorf("arg failed")
-
-	//return pub.value.SetHexString(buf)
-	//return pub.value.SetHexString(s)
+	pub.value.Unmarshal(common.Hex2Bytes(buf))
+	return nil
 }
 
 //由私钥构建公钥
