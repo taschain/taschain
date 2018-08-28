@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -9,9 +24,8 @@ import (
 
 	"encoding/json"
 	"sort"
-	"vm/common/hexutil"
-	"vm/ethdb"
-	vtypes "vm/core/types"
+	"storage/tasdb"
+	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
 	"container/heap"
@@ -60,9 +74,9 @@ type TransactionPool struct {
 	sendingList []*types.Transaction
 
 	// 已经在块上的交易 key ：txhash value： receipt
-	executed ethdb.Database
+	executed tasdb.Database
 
-	batch     ethdb.Batch
+	batch     tasdb.Batch
 	batchLock sync.Mutex
 
 	totalReceived uint64
@@ -358,12 +372,12 @@ func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transac
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
-	if hexutil.Encode(txs[i].Hash.Bytes()) == hexutil.Encode(hash) {
+	if common.ToHex(txs[i].Hash.Bytes()) == common.ToHex(hash) {
 		return txs[i]
 	}
 
 	for _, tx := range txs {
-		if hexutil.Encode(tx.Hash.Bytes()) == hexutil.Encode(hash) {
+		if common.ToHex(tx.Hash.Bytes()) == common.ToHex(hash) {
 			return tx
 		}
 	}

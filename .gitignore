@@ -21,5 +21,9 @@ src/core/wenqin_test_util.go
 */state/
 */tx/
 */database/
+<<<<<<< HEAD
 
 main
+=======
+src/gtas/main
+>>>>>>> 2f83fbcef286490906f6f31536dcbb523e2c03f4
