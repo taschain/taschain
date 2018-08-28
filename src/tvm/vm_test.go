@@ -109,7 +109,7 @@ from token.contract_token_tas import MyAdvancedToken
 // TVM释放
 func TestVmTest6(t *testing.T) {
 	vm := NewTvm()
-	vm.init(nil, nil, nil, nil)
+	vm.Init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script := `
@@ -123,7 +123,7 @@ test_lib_helloworld.helloworld()
 	vm.DelTvm()
 
 	vm = NewTvm()
-	vm.init(nil, nil, nil, nil)
+	vm.Init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script = `
@@ -136,7 +136,7 @@ test_lib_helloworld.helloworld()
 
 func TestVmTest7(t *testing.T) {
 	vm := NewTvm()
-	vm.init(nil, nil, nil, nil)
+	vm.Init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 	vm.ContractName = "MyAdvancedToken"
 	vm.ContractAddress = "0x2"
