@@ -596,7 +596,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 	msgLen := binary.BigEndian.Uint32(buf[PacketTypeSize : PacketTypeSize+PacketLenSize])
 	packetSize := int(msgLen + PacketHeadSize)
 
-//	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, len(buf))
+	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, len(buf))
 
 	if buffer.Len() < packetSize {
 		return MessageType_MessageNone, 0, nil, errPacketTooSmall
