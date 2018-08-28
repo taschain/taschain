@@ -44,8 +44,8 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v\n", GetIDPrefix(sgi.GroupID))
-		if !sgi.CastQualified(topHeight) {
+		log.Printf("load group=%v, topHeight=%v\n", GetIDPrefix(sgi.GroupID), topHeight)
+		if sgi.Dismissed(topHeight) {
 			continue
 		}
 		if !p.globalGroups.AddStaticGroup(sgi) {

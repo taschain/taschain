@@ -99,6 +99,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 
 //向某一节点请求Block信息
 func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.Hash) {
+	Logger.Debugf("Req block info to:%s,localHeight:%d,current hash:%v",id,localHeight,currentHash)
 	m := BlockRequestInfo{SourceHeight: localHeight, SourceCurrentHash: currentHash}
 	body, e := MarshalBlockRequestInfo(&m)
 	if e != nil {
@@ -111,6 +112,7 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 
 //本地查询之后将结果返回
 func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
+	Logger.Debugf("Send local block info to:%s",targetId)
 	body, e := marshalBlockInfo(blockInfo)
 	if e != nil {
 		Logger.Errorf("[peer]SendBlockInfo marshal BlockEntity error:%s", e.Error())

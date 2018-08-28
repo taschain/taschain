@@ -111,7 +111,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log")
+	middleware.SetupStackTrap("/Users/daijia/stack.log")//todo: absolute path?
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
@@ -126,6 +126,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 
 	gtas.waitingUtilSyncFinished()
+	redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
 	gtas.inited = true
@@ -309,7 +310,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewMinerInfo(id, secret)
-	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo)

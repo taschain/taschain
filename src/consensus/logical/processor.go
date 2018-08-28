@@ -70,7 +70,7 @@ func (p Processor) getMinerInfo() *model.MinerInfo {
 	return p.mi
 }
 
-func (p Processor) getPubkeyInfo() model.PubKeyInfo {
+func (p Processor) GetPubkeyInfo() model.PubKeyInfo {
 	return model.NewPubKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultPubKey())
 }
 

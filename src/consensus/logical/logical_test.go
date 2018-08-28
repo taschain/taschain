@@ -600,7 +600,7 @@ func testLogicGroupInitEx(t *testing.T) {
 		if first_proc == nil && v != nil {
 			first_proc = v
 		}
-		pki := v.getPubkeyInfo()
+		pki := v.GetPubkeyInfo()
 		fmt.Printf("proc(%v) miner_id=%v, pub_key=%v.\n", proc_index, GetIDPrefix(pki.GetID()), GetPubKeyPrefix(pki.PK))
 		proc_index++
 		mems = append(mems, pki)

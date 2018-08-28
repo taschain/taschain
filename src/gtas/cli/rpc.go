@@ -200,6 +200,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
+	blockDetail["miner_id"] = logical.GetIDPrefix(mediator.Proc.GetPubkeyInfo().ID)
 	return &Result{"success", blockDetail}, nil
 }
 
