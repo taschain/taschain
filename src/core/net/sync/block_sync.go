@@ -65,7 +65,9 @@ func (bs *blockSyncer) start() {
 			break
 		}
 	}
-	bs.sync()
+	for{
+		bs.sync()
+	}
 }
 
 func (bs *blockSyncer) sync() {
