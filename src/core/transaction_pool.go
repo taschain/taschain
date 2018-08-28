@@ -59,6 +59,8 @@ type TransactionPool struct {
 	reserved    *lru.Cache
 	sendingList []*types.Transaction
 
+	sendingTxLock sync.Mutex
+
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed ethdb.Database
 
@@ -100,6 +102,7 @@ func NewTransactionPool() *TransactionPool {
 		lock:        middleware.NewLoglock("txpool"),
 		batchLock:   sync.Mutex{},
 		sendingList: make([]*types.Transaction, 0),
+		sendingTxLock: sync.Mutex{},
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -194,12 +197,16 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
+		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
+		pool.sendingTxLock.Unlock()
 
 		if sendingListLength == len(pool.sendingList) {
+			pool.sendingTxLock.Lock()
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
 			pool.sendingList = make([]*types.Transaction, 0)
+			pool.sendingTxLock.Unlock()
 			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
@@ -521,6 +528,7 @@ func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
 	if nil == transactions || 0 == len(transactions) {
 		return
 	}
+	p.sendingTxLock.Lock()
 	for _, hash := range transactions {
 		for i, tx := range p.sendingList {
 			if tx.Hash == hash {
@@ -529,5 +537,5 @@ func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
 			break
 		}
 	}
-
+	p.sendingTxLock.Unlock()
 }
