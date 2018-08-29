@@ -211,17 +211,23 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
+void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+{
+    void ContractCall();
+    ContractCall(address, func_name, json_parms);
+}
+
 */
 import "C"
 import (
 	"unsafe"
-	"storage/core/vm"
-	"middleware/types"
+	"common"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"common"
 	"bytes"
+	"strconv"
+	"storage/core/vm"
+	"middleware/types"
 )
 
 var CurrentBlockHeader *types.BlockHeader = nil
@@ -265,6 +271,7 @@ func bridge_init() {
 	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
+	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 }
 
 type Contract struct {
@@ -382,10 +389,9 @@ from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
 glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
-print(glovar.msg)
-
-this = Address("%s")
-`, msg.Sender, msg.Value, tvm.ContractAddress)
+glovar.this = Address("%s")
+glovar.owner = Address("%s")
+`, msg.Sender, msg.Value, tvm.ContractAddress, tvm.ContractOwner)
 	return tvm.Execute(script)
 }
 

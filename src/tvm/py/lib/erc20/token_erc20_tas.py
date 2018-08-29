@@ -3,6 +3,7 @@
 from clib.tas_runtime import glovar
 from clib.tas_runtime.address_tas import Address
 from lib.base.event import Event
+from lib.base.utils_tas import *
 
 
 class TokenERC20(object):
@@ -28,9 +29,10 @@ class TokenERC20(object):
         # 转账
         self.balanceOf[_from] -= _value
         self.balanceOf[_to] += _value
+        Event.emit("Transfer", _from, _to, _value)
 
     def transfer(self, _to, _value):
-        self._transfer(glovar.msg.sender, _to, _value)
+        self._transfer(glovar.msg.sender, Address(_to), _value)
 
     def transfer_from(self, _from, _to, _value):
         require(_value <= self.allowance[_from][glovar.msg.sender])

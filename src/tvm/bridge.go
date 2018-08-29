@@ -233,6 +233,11 @@ func TxGasLimit() C.ulonglong{
 	return C.ulonglong(CurrentTransaction.GasLimit)
 }
 
+//export ContractCall
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
+
+}
+
 //TODO 合约call合约
 func callContract() {
 	// extern json
