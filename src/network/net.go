@@ -407,7 +407,6 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 		if p != nil && p.seesionId > 0 {
 			count += 1
 			nodesHasSend[id] = true
-			Logger.Infof("found connected node, id:%v", id.GetHexString())
 			go nc.peerManager.write(id, nil, packet)
 		}
 	}
@@ -417,8 +416,6 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 		id := common.HexStringToAddress(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
 			count += 1
-			Logger.Infof("connect and send,id:%v", id.GetHexString())
-
 			go nc.peerManager.write(id, nil, packet)
 		}
 	}
@@ -432,7 +429,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
 	p := nc.peerManager.peerByID(memberId)
 	if p != nil && p.seesionId > 0 {
-		Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
+		//Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
 		go nc.Send(memberId, nil, data)
 	} else {
 		node := net.netCore.kad.find(memberId)
@@ -499,7 +496,7 @@ func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 }
 
 func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
-	Logger.Infof("recvData netid:%v  session:%v len:%v ", netId ,session,len(data))
+	//Logger.Infof("recvData netid:%v  session:%v len:%v ", netId ,session,len(data))
 
 	p := nc.peerManager.peerByNetID(netId)
 	if p == nil {
@@ -573,7 +570,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	if int(packetSize) < buf.Len() {
 		p.addDataToHead(buf.Bytes()[packetSize:])
 	}
-	Logger.Infof("handleMessage : msgType: %v ", msgType)
+	//Logger.Infof("handleMessage : msgType: %v ", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -630,7 +627,7 @@ func decodePacket(buffer *bytes.Buffer) (MessageType, int, proto.Message, error)
 
 func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 
-	Logger.Infof("handlePing from ip:%v %v to ip:%v %v ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
+//	Logger.Infof("handlePing from ip:%v %v to ip:%v %v ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
 
 	if expired(req.Expiration) {
 		return errExpired
@@ -688,7 +685,6 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
 	statistics.AddCount("net.handleData", uint32(req.DataType))
 	if req.DataType == DataType_DataNormal {
 		go  net.handleMessage(req.Data, id)

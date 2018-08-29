@@ -104,7 +104,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId,p)
 	}
 	if  p.seesionId > 0 {
-		Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
+		//Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
@@ -212,7 +212,7 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 }
 
 
-//SendDataToAll 向所有已经连接的节点发送自定义数据包
+//BroadcastRandom
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
@@ -257,6 +257,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 
 	return
 }
+
 func (pm *PeerManager) print() {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()

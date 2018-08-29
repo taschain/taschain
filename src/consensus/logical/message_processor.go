@@ -385,8 +385,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 		//dummy 组写入组链 add by 小熊
-		//staticGroupInfo := NewDummySGIFromGroupRawMessage(grm)
-		//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
+		staticGroupInfo := NewDummySGIFromGroupRawMessage(grm)
+		p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
 	logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "%v", "")
