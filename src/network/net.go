@@ -393,7 +393,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 	dataType := DataType_DataGroup
 	Logger.Infof("GroupBroadcastWithMembers: group id:%v", id)
 
-	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, nil, -1)
+	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, msgDigest, -1)
 	if err != nil {
 		return
 	}
@@ -686,7 +686,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	id := fromId.GetHexString()
 	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
-	
+
 	statistics.AddCount("net.handleData", uint32(req.DataType))
 	if req.DataType == DataType_DataNormal {
 		go  net.handleMessage(req.Data, id)
