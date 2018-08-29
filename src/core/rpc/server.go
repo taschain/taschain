@@ -40,7 +40,7 @@ const (
 func NewServer() *Server {
 	server := &Server{
 		services: make(serviceRegistry),
-		codecs:   set.New(),
+		codecs:   set.New(set.ThreadSafe),
 		run:      1,
 	}
 
