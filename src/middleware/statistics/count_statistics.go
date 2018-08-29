@@ -6,32 +6,45 @@ import (
 	"common"
 	"bytes"
 	"fmt"
+	"sync"
 )
 
-var count_map = make(map[string]map[uint32]uint32)
+var count_map = make(map[string]*sync.Map)
 var logger taslog.Logger
 
 func printAndRefresh()  {
 	for key,vmap := range count_map{
-		if len(vmap) > 0{
-			pmap := vmap
-			count_map[key] = make(map[uint32]uint32)
-			var buffer bytes.Buffer
-			for code,value := range pmap {
-				buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
-			}
-			logger.Infof("%s%s\n", key, buffer.String())
-			//fmt.Printf("%s %d %d\n", key, code, value)
-		}
+		count_map[key] = &sync.Map{}
+		var buffer bytes.Buffer
+		vmap.Range(func(code, value interface{}) bool {
+			buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
+			return true
+		})
+		logger.Infof("%s%s\n", key, buffer.String())
+		//if len(vmap) > 0{
+		//	pmap := vmap
+		//	count_map[key] = make(map[uint32]uint32)
+		//	var buffer bytes.Buffer
+		//	for code,value := range pmap {
+		//		buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
+		//	}
+		//	logger.Infof("%s%s\n", key, buffer.String())
+		//	//fmt.Printf("%s %d %d\n", key, code, value)
+		//}
 	}
 }
 
 func AddCount(name string, code uint32)  {
 	if vmap,ok := count_map[name];ok{
-		vmap[code]++
+		if v,ok2 := vmap.Load(code);ok2{
+			vmap.Store(code,v.(uint32) + uint32(1))
+		} else {
+			vmap.Store(code,uint32(1))
+		}
 	} else {
-		count_map[name] = make(map[uint32]uint32)
-		count_map[name][code] = 1
+		vmap = &sync.Map{}
+		vmap.Store(code,uint32(1))
+		count_map[name] = vmap
 	}
 	//logger.Infof("%s %d",name,code)
 }
