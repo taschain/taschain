@@ -25,6 +25,8 @@ import (
 	"taslog"
 	"os"
 	"math/rand"
+	"github.com/gin-gonic/gin/json"
+	"tvm"
 )
 
 func OnChainFunc(code string){
@@ -71,30 +73,22 @@ func CallContract(address, abi string) {
 
 func TestContractOnChain(t *testing.T)  {
 	code := `
-import block
-import tx
-import account
-def Test(a, b, c, d):
-	print(dir(block))
+class A():
+	def deploy(self):
+		print("deploy")
 
-	hash = block.blockhash(0)
-	print("hash: " + hash)
-	diff = block.difficulty()
-	print("difficulty: " + str(diff))
-	height = block.number()
-	print("height: " + str(height))
-	timestamp = block.timestamp()
-	print("timestamp:" + str(timestamp))
-	print(dir(tx))
-	origin = tx.origin()
-	print(origin)
+	def test(self):
+		print("test")
 `
-	OnChainFunc(code)
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	fmt.Println(string(jsonString))
+	OnChainFunc(string(jsonString))
 }
 
 func TestCallConstract(t *testing.T)  {
 	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
-	abi := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
+	abi := `{"FuncName": "test", "Args": []}`
 	CallContract(contractAddr, abi)
 }
 
@@ -456,6 +450,7 @@ func genContractTx(price uint64, source string, target string, nonce uint64, val
 	return &types.Transaction{
 		Hash: common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
+		GasLimit:		2000000000,
 		GasPrice:      price,
 		Source:        sourceAddr,
 		Target:        targetAddr,

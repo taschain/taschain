@@ -36,8 +36,15 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
-func(executer *TVMExecutor) Call(vm *tvm.Tvm) {
-
+func(executer *TVMExecutor) Call(callerAddr common.Address, contractAddr common.Address, msg tvm.Msg, accountdb *core.AccountDB) bool {
+	contract := tvm.LoadContract(contractAddr)
+	newVm := tvm.NewTvm(&callerAddr, contract, "/Users/yushenghui/tas/src/tvm/py")
+	snapshot := accountdb.Snapshot()
+	if !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, string(msg.Data))){
+		accountdb.RevertToSnapshot(snapshot)
+		return false
+	}
+	return true
 }
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
@@ -52,19 +59,21 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil{
-			vm := tvm.NewTvm()
-			vm.Init(accountdb, BlockChainImpl, block.Header, transaction)
-			contractAddress,_ = createContract(accountdb, transaction)
+			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
+			contractAddress, _ = createContract(accountdb, transaction)
+			contract := tvm.LoadContract(contractAddress)
+			vm := tvm.NewTvm(transaction.Source, contract, "/Users/yushenghui/tas/src/tvm/py")
+
 			msg = tvm.Msg{Data:[]byte{}, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
 			vm.Deploy(msg)
 			vm.DelTvm()
 		} else if len(transaction.Data) > 0 {
-			vm := tvm.NewTvm()
-			vm.Init(accountdb, BlockChainImpl, block.Header, transaction)
+			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
+			contract := tvm.LoadContract(*transaction.Target)
+			vm := tvm.NewTvm(transaction.Source, contract, "/Users/yushenghui/tas/src/tvm/py")
 			snapshot := accountdb.Snapshot()
-			script := string(accountdb.GetCode(*transaction.Target))
 			msg = tvm.Msg{Data:transaction.Data, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
-			if !(vm.Execute(script) && vm.ExecuteABIJson(msg, string(transaction.Data))){
+			if !(vm.LoadContractCode() && vm.ExecuteABIJson(msg, string(transaction.Data))){
 				accountdb.RevertToSnapshot(snapshot)
 				fail = true
 			}

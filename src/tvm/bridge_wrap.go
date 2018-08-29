@@ -20,7 +20,6 @@ package tvm
 #cgo LDFLAGS: -L ../../lib/darwin_amd64 -lmicropython
 
 #include "tvm.h"
-
 #include <stdio.h>
 
 
@@ -216,20 +215,22 @@ unsigned long long wrap_tx_gas_limit()
 import "C"
 import (
 	"unsafe"
-	"encoding/json"
-	"fmt"
-	"bytes"
-	"strconv"
 	"storage/core/vm"
 	"middleware/types"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"common"
+	"bytes"
 )
 
-var currentBlockHeader *types.BlockHeader = nil
-var currentTransaction *types.Transaction = nil
-var reader vm.ChainReader
+var CurrentBlockHeader *types.BlockHeader = nil
+var CurrentTransaction *types.Transaction = nil
+var AccountDB vm.AccountDB
+var Reader vm.ChainReader
 
-
-var tvm *Tvm
+var tvmStack []*Tvm
+var tvmObj *Tvm
 
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
@@ -266,38 +267,56 @@ func bridge_init() {
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 }
 
-
-type Tvm struct {
-	state vm.AccountDB
-
-	ContractName string
-	ContractAddress string
+type Contract struct {
+	Code string `json:"code"`
+	ContractName string `json:"contract_name"`
+	ContractAddress *common.Address `json:"-"`
 }
 
-func NewTvm()*Tvm {
-	if tvm == nil {
-		tvm = &Tvm{}
+func LoadContract(address common.Address) *Contract {
+	jsonString := AccountDB.GetCode(address)
+	con := &Contract{}
+	json.Unmarshal([]byte(jsonString), con)
+	con.ContractAddress = &address
+	return con
+}
+
+type Tvm struct {
+	*Contract
+	Sender *common.Address
+}
+
+func EnvInit(accountDB vm.AccountDB,
+	chainReader vm.ChainReader,
+	header *types.BlockHeader,
+	transaction *types.Transaction) {
+	if chainReader != nil {
+		Reader = chainReader
 	}
+	if accountDB != nil {
+		AccountDB = accountDB
+	}
+	if header != nil  {
+		CurrentBlockHeader = header
+	}
+	if transaction != nil {
+		CurrentTransaction = transaction
+	}
+}
+
+func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
+	tvm := &Tvm{
+		contract,
+		sender,
+	}
+	C.tvm_set_lib_path(C.CString(libPath))
+	C.tvm_start()
+	bridge_init()
+	tvm.SetGas(int(CurrentTransaction.GasLimit))
+	tvmStack = append(tvmStack, tvm)
 	return tvm
 }
 
-func (tvm *Tvm)Init(accountDB vm.AccountDB,
-	chainReader vm.ChainReader,
-	header *types.BlockHeader,
-	transaction *types.Transaction)  {
-
-	reader = chainReader
-	tvm.state = accountDB
-	if header != nil  {
-		currentBlockHeader = header
-	}
-	if transaction != nil {
-		currentTransaction = transaction
-	}
-	C.tvm_start()
-	bridge_init()
-	tvm.SetGas(int(transaction.GasLimit))
-}
 
 // 获取剩余gas
 func (tvm *Tvm)Gas() int {
@@ -311,20 +330,26 @@ func (tvm *Tvm)SetGas(gas int) {
 
 func (tvm *Tvm)DelTvm() {
 	//TODO 释放tvm环境
+	if len(tvmStack) - 2 >= 0{
+		tvmObj = tvmStack[len(tvmStack)-2]
+	} else {
+		tvmObj = nil
+	}
+	tvmStack = tvmStack[:len(tvmStack)-1]
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
-	if tvm == nil {
-		tvm = &Tvm{}
+	if tvmObj == nil {
+		tvmObj = NewTvm(nil, nil, "")
 	}
-	reader = chainReader
-	tvm.state = accountDB
+	Reader = chainReader
+	AccountDB = accountDB
 
 	C.tvm_start()
 	C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
 	bridge_init()
 
-	return tvm
+	return tvmObj
 }
 
 func (tvm *Tvm) AddLibPath(path string) {
@@ -337,8 +362,15 @@ type Msg struct {
 	Sender string
 }
 
+func(tvm *Tvm) LoadContractCode() bool {
+	var c_bool C._Bool
+	c_bool = C.tvm_execute(C.CString(tvm.Code))
+	return bool(c_bool)
+}
+
 func (tvm *Tvm)Execute(script string) bool {
 	var c_bool C._Bool
+	script = fmt.Sprintf("%s\ntas_%s = %s()",script, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -358,6 +390,7 @@ this = Address("%s")
 }
 
 func (tvm *Tvm)Deploy(msg Msg) bool {
+	tvm.Execute(tvm.Code)
 	if tvm.loadMsg(msg) != true {
 		return false
 	}
