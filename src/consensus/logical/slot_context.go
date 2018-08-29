@@ -25,7 +25,6 @@ import (
 	"core"
 	"unsafe"
 	"consensus/model"
-	"sync"
 )
 
 /*
@@ -54,9 +53,7 @@ type SlotContext struct {
 	BH          types.BlockHeader             //出块头详细数据
 	QueueNumber int64                         //铸块槽序号(<0无效)，等同于出块人序号。
 	King        groupsig.ID                   //出块者ID
-	MapWitness  map[string]groupsig.Signature //该铸块槽的见证人验证签名列表
-	lock 		sync.RWMutex
-	GroupSign   groupsig.Signature            //成功输出的组签名
+	gSignGenerator *model.GroupSignGenerator
 	SlotStatus  int32
 	LosingTrans map[common.Hash]int //本地缺失的交易集
 	transFulled *bool                //针对该区块头的交易集在本地链上已全部存在
@@ -121,7 +118,7 @@ func (sc *SlotContext) AcceptTrans(ths []common.Hash) (bool) {
 }
 
 func (sc SlotContext) MessageSize() int {
-	return len(sc.MapWitness)
+	return sc.gSignGenerator.WitnessSize()
 }
 
 //验证组签名
@@ -132,45 +129,45 @@ func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
 	if st == SS_VERIFIED { //已经验证过组签名
 		return true
 	}
-	if st != SS_RECOVERD || !sc.GroupSign.IsValid() {
+	if st != SS_RECOVERD {
 		return false
 	}
-	b := groupsig.VerifySig(pk, sc.BH.Hash.Bytes(), sc.GroupSign)
+	b := sc.gSignGenerator.VerifyGroupSign(pk, sc.BH.Hash.Bytes())
 	if b {
 		sc.setSlotStatus(SS_VERIFIED) //组签名验证通过
+	} else {
+		sc.setSlotStatus(SS_FAILED)
 	}
 	return b
 }
 
 func (sc SlotContext) GetGroupSign() groupsig.Signature {
-	return sc.GroupSign
+	return sc.gSignGenerator.GetGroupSign()
 }
 
 //（达到超过阈值的签名片段后）生成组签名
 //如成功，则置位成员变量GroupSign和GSStatus，返回true。
-func (sc *SlotContext) GenGroupSign() bool {
-	st := sc.slotStatus()
-	if st == SS_RECOVERD || st == SS_VERIFIED {
-		return true
-	}
-	if st == SS_FAILED {
-		return false
-	}
-	if sc.thresholdWitnessGot() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
-		sc.lock.RLock()
-		defer sc.lock.RUnlock()
-		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, sc.threshold)
-		if gs != nil {
-			sc.GroupSign = *gs
-			sc.setSlotStatus(SS_RECOVERD)
-			return true
-		} else {
-			sc.setSlotStatus(SS_FAILED)
-			panic("CastContext::GenGroupSign failed, groupsig.RecoverSign return nil.")
-		}
-	}
-	return false
-}
+//func (sc *SlotContext) GenGroupSign() bool {
+//	st := sc.slotStatus()
+//	if st == SS_RECOVERD || st == SS_VERIFIED {
+//		return true
+//	}
+//	if st == SS_FAILED {
+//		return false
+//	}
+//	if sc.gSignGenerator.ThresholdReached() /* && sc.HasKingMessage() */ { //达到组签名恢复阈值，且当前节点收到了出块人消息
+//		gs := groupsig.RecoverSignatureByMapI(sc.MapWitness, sc.threshold)
+//		if gs != nil {
+//			sc.GroupSign = *gs
+//			sc.setSlotStatus(SS_RECOVERD)
+//			return true
+//		} else {
+//			sc.setSlotStatus(SS_FAILED)
+//			panic("CastContext::GenGroupSign failed, groupsig.RecoverSign return nil.")
+//		}
+//	}
+//	return false
+//}
 
 func (sc *SlotContext) IsVerified() bool {
 	return sc.slotStatus() == SS_VERIFIED
@@ -216,19 +213,6 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 	return strconv.FormatInt(int64(ret), 10)
 }
 
-func (sc *SlotContext) addSign(id groupsig.ID, sign groupsig.Signature)  {
-    sc.lock.Lock()
-    defer sc.lock.Unlock()
-	sc.MapWitness[id.GetHexString()] = sign
-}
-
-func (sc *SlotContext) getSign(id groupsig.ID) (groupsig.Signature, bool) {
-	sc.lock.RLock()
-	defer sc.lock.RUnlock()
-    v, ok := sc.MapWitness[id.GetHexString()]
-    return v, ok
-}
-
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
 func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
@@ -242,36 +226,20 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST
 	if si.DataHash != sc.BH.Hash {
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
-	v, ok := sc.getSign(si.SignMember)
-	if ok { //已经收到过该成员的验签
-		if !v.IsEqual(si.DataSign) {
-			panic("CastContext::Verified failed, one member's two sign diff.")
-		}
+	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
+	if !add { //已经收到过该成员的验签
 		//忽略
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
-		//sc.MapWitness[si.GetID().GetHexString()] = si.DataSign
-		sc.addSign(si.SignMember, si.DataSign)
-		//if !sc.transFulled {
-		//	return CBMR_PIECE_LOSINGTRANS
-		//}
-		if sc.thresholdWitnessGot() /* && sc.HasKingMessage() */ { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
-			if sc.GenGroupSign() {
-				return CBMR_THRESHOLD_SUCCESS
-			} else {
-				return CBMR_THRESHOLD_FAILED
-			}
+		if generate { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
+			sc.setSlotStatus(SS_RECOVERD)
+			sc.BH.Signature = sc.gSignGenerator.GetGroupSign().Serialize()
+			return CBMR_THRESHOLD_SUCCESS
 		} else {
 			return CBMR_PIECE_NORMAL
 		}
 	}
 	return CBMR_ERROR_UNKNOWN
-}
-
-func (sc *SlotContext) thresholdWitnessGot() bool {
-	sc.lock.RLock()
-	defer sc.lock.RUnlock()
-    return len(sc.MapWitness) >= sc.threshold
 }
 
 
@@ -290,7 +258,7 @@ func newSlotContext(bh *types.BlockHeader, si *model.SignData, threshold int) *S
 	sc.BH = *bh
 	sc.QueueNumber = int64(bh.QueueNumber)
 	sc.King.Deserialize(bh.Castor)
-	sc.addSign(si.SignMember, si.DataSign)
+	sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 
 	//if !PROC_TEST_MODE {
 	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
@@ -308,7 +276,7 @@ func (sc *SlotContext) reset(threshold int) {
 	sc.QueueNumber = model.INVALID_QN
 	sc.transFulled = new(bool)
 	sc.SlotStatus = SS_WAITING
-	sc.MapWitness = make(map[string]groupsig.Signature)
+	sc.gSignGenerator = model.NewGroupSignGenerator(threshold)
 	sc.LosingTrans = make(map[common.Hash]int)
 	sc.threshold = threshold
 	return

@@ -389,7 +389,7 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	if !slot.IsTransFull() {
 		return TRANS_ACCEPT_NOT_FULL
 	}
-	if slot.thresholdWitnessGot() {
+	if slot.gSignGenerator.Recovered() {
 		return TRANS_ACCEPT_FULL_THRESHOLD
 	} else {
 		return TRANS_ACCEPT_FULL_PIECE
