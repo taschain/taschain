@@ -270,6 +270,7 @@ func bridge_init() {
 type Tvm struct {
 	state vm.AccountDB
 
+	ContractOwner string
 	ContractName string
 	ContractAddress string
 }
@@ -350,10 +351,9 @@ from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
 glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
-print(glovar.msg)
-
-this = Address("%s")
-`, msg.Sender, msg.Value, tvm.ContractAddress)
+glovar.this = Address("%s")
+glovar.owner = Address("%s")
+`, msg.Sender, msg.Value, tvm.ContractAddress, tvm.ContractOwner)
 	return tvm.Execute(script)
 }
 

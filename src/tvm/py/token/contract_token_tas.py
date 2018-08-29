@@ -1,6 +1,6 @@
 
 
-from lib.base.utils import *
+from lib.base.utils_tas import *
 from lib.erc20.token_erc20_tas import TokenERC20
 from clib.tas_runtime import glovar
 from lib.base.event import Event
@@ -94,8 +94,8 @@ class MyAdvancedToken(TokenERC20):
             self.balanceOf[target] = 0
         self.balanceOf[target] += minted_amount
         self.totalSupply += minted_amount
-        Event.emit("Transfer", 0, this, minted_amount)
-        Event.emit("Transfer", this, target, minted_amount)
+        Event.emit("Transfer", 0, glovar.this, minted_amount)
+        Event.emit("Transfer", glovar.this, target, minted_amount)
 
     def freeze_account(self, target, freeze):
         check_owner()
@@ -110,12 +110,12 @@ class MyAdvancedToken(TokenERC20):
     def buy(self):
         # 在call前已经完成扣款
         amount = glovar.msg.value / self.buy_price
-        self._transfer(this, glovar.msg.sender, amount)
+        self._transfer(glovar.this, glovar.msg.sender, amount)
 
     def sell(self, amount):
-        require(this.balance() >= amount * self.sell_price)
-        self._transfer(msg.sender, this, amount)
-        msg.sender.transfer(amount * self.sell_price)
+        require(glovar.this.balance() >= amount * self.sell_price)
+        self._transfer(glovar.msg.sender, glovar.this, amount)
+        glovar.msg.sender.transfer(amount * self.sell_price)
 
     # def test(self):
     #     print("test")

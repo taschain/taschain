@@ -141,6 +141,7 @@ func TestVmTest7(t *testing.T) {
 	transaction.GasLimit = 10000000
 	vm.Init(nil, nil, nil, &transaction)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
+	vm.ContractOwner = "0x1"
 	vm.ContractName = "MyAdvancedToken"
 	vm.ContractAddress = "0x2"
 
@@ -152,9 +153,16 @@ func TestVmTest7(t *testing.T) {
 	msg.Sender = "0x1"
 	vm.Deploy(msg)
 
-	j := `{"FuncName": "test", "Args": []}`
+	j := ""
+	j = `{"FuncName": "transfer", "Args": ["0x3", 1000]}`
 	vm.ExecuteABIJson(msg, j)
 
-	j = `{"FuncName": "transfer", "Args": ["0x3", 1000]}`
+	j = `{"FuncName": "set_prices", "Args": [100, 100]}`
+	vm.ExecuteABIJson(msg, j)
+
+	j = `{"FuncName": "burn", "Args": [2500]}`
+	vm.ExecuteABIJson(msg, j)
+
+	j = `{"FuncName": "mint_token", "Args": ["0x1", 5000]}`
 	vm.ExecuteABIJson(msg, j)
 }
