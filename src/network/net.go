@@ -684,7 +684,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	id := fromId.GetHexString()
-	//Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
 	if req.DataType == DataType_DataNormal {
 		go  net.handleMessage(req.Data, id)
 	} else {
