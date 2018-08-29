@@ -14,9 +14,10 @@ var logger taslog.Logger
 func printAndRefresh()  {
 	for key,vmap := range count_map{
 		if len(vmap) > 0{
+			pmap := vmap
 			count_map[key] = make(map[uint32]uint32)
 			var buffer bytes.Buffer
-			for code,value := range vmap {
+			for code,value := range pmap {
 				buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
 			}
 			logger.Infof("%s%s\n", key, buffer.String())
