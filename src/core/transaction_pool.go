@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -9,9 +24,8 @@ import (
 
 	"encoding/json"
 	"sort"
-	"vm/common/hexutil"
-	"vm/ethdb"
-	vtypes "vm/core/types"
+	"storage/tasdb"
+	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
 	"container/heap"
@@ -59,10 +73,12 @@ type TransactionPool struct {
 	reserved    *lru.Cache
 	sendingList []*types.Transaction
 
-	// 已经在块上的交易 key ：txhash value： receipt
-	executed ethdb.Database
+	sendingTxLock sync.Mutex
 
-	batch     ethdb.Batch
+	// 已经在块上的交易 key ：txhash value： receipt
+	executed tasdb.Database
+
+	batch     tasdb.Batch
 	batchLock sync.Mutex
 
 	totalReceived uint64
@@ -100,6 +116,7 @@ func NewTransactionPool() *TransactionPool {
 		lock:        middleware.NewLoglock("txpool"),
 		batchLock:   sync.Mutex{},
 		sendingList: make([]*types.Transaction, 0),
+		sendingTxLock: sync.Mutex{},
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -194,12 +211,16 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
+		//pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
+		//pool.sendingTxLock.Unlock()
 
 		if sendingListLength == len(pool.sendingList) {
+			//pool.sendingTxLock.Lock()
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
 			pool.sendingList = make([]*types.Transaction, 0)
+			//pool.sendingTxLock.Unlock()
 			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
@@ -212,7 +233,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 func (pool *TransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
 	pool.received.Remove(transactions)
 	pool.reserved.Remove(hash)
-	pool.removeFromSendinglist(transactions)
+	//pool.removeFromSendinglist(transactions)
 }
 
 func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
@@ -358,12 +379,12 @@ func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transac
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
-	if hexutil.Encode(txs[i].Hash.Bytes()) == hexutil.Encode(hash) {
+	if common.ToHex(txs[i].Hash.Bytes()) == common.ToHex(hash) {
 		return txs[i]
 	}
 
 	for _, tx := range txs {
-		if hexutil.Encode(tx.Hash.Bytes()) == hexutil.Encode(hash) {
+		if common.ToHex(tx.Hash.Bytes()) == common.ToHex(hash) {
 			return tx
 		}
 	}
@@ -517,17 +538,18 @@ func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
 }
 
-func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
-	if nil == transactions || 0 == len(transactions) {
-		return
-	}
-	for _, hash := range transactions {
-		for i, tx := range p.sendingList {
-			if tx.Hash == hash {
-				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
-			}
-			break
-		}
-	}
-
-}
+//func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
+//	if nil == transactions || 0 == len(transactions) {
+//		return
+//	}
+//	p.sendingTxLock.Lock()
+//	for _, hash := range transactions {
+//		for i, tx := range p.sendingList {
+//			if tx.Hash == hash {
+//				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
+//			}
+//			break
+//		}
+//	}
+//	p.sendingTxLock.Unlock()
+//}

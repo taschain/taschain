@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package datasource
 
 import (
@@ -11,7 +26,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"common"
 	"bytes"
-	"vm/ethdb"
+	"storage/tasdb"
 )
 
 const (
@@ -36,7 +51,7 @@ type databaseConfig struct {
 	handler  int
 }
 
-func NewDatabase(prefix string) (ethdb.Database, error) {
+func NewDatabase(prefix string) (tasdb.Database, error) {
 	dbInner, err := getInstance()
 	if nil != err {
 		return nil, err
@@ -113,7 +128,7 @@ func (db *PrefixedDatabase) Delete(key []byte) error {
 	return db.db.Delete(generateKey(key, db.prefix))
 }
 
-func (db *PrefixedDatabase) NewBatch() ethdb.Batch {
+func (db *PrefixedDatabase) NewBatch() tasdb.Batch {
 
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
 }
@@ -301,7 +316,7 @@ func (db *LDBDatabase) Close() {
 	//}
 }
 
-func (db *LDBDatabase) NewBatch() ethdb.Batch {
+func (db *LDBDatabase) NewBatch() tasdb.Batch {
 	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
 }
 
@@ -392,7 +407,7 @@ func (db *MemDatabase) Delete(key []byte) error {
 
 func (db *MemDatabase) Close() {}
 
-func (db *MemDatabase) NewBatch() ethdb.Batch {
+func (db *MemDatabase) NewBatch() tasdb.Batch {
 	return &memBatch{db: db}
 }
 

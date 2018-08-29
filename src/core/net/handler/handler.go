@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package handler
 
 import (
@@ -193,7 +208,7 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s",headerNotify.header.Hash,headerNotify.peer)
+			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				core.Logger.Debugf("[ChainHandler]header hit pending or complete")
@@ -209,7 +224,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s",bodyNotify.blockHash,bodyNotify.peer)
+			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break

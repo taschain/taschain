@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -11,6 +26,7 @@ import (
 	"consensus/model"
 	"consensus/net"
 	"middleware/notify"
+	"storage/tasdb"
 )
 
 var PROC_TEST_MODE bool
@@ -35,8 +51,8 @@ type Processor struct {
 	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 
-	//storage 	ethdb.Database
-	ready bool //是否已初始化完成
+	storage 	tasdb.Database
+	ready 		bool //是否已初始化完成
 
 	//////链接口
 	MainChain  core.BlockChainI

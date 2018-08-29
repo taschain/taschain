@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -251,6 +266,15 @@ func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
 	gg.generator.removeInitingGroup(dummyId)
 }
 
+func (gg *GlobalGroups) findPos(g *StaticGroupInfo) int {
+	for idx, group := range gg.groups {
+		if group.BeginHeight > g.BeginHeight {
+			return idx
+		}
+	}
+	return -1
+}
+
 //增加一个合法铸块组
 func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
@@ -259,7 +283,25 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		gg.groups = append(gg.groups, g)
-		gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+		insert := gg.findPos(g)
+		if insert < 0 {
+			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+		} else {
+			for i := len(gg.groups)-2; i >= insert; i-- {
+				tg := gg.groups[i]
+				gg.groups[i+1] = tg
+				gg.gIndex[tg.GroupID.GetHexString()] = i+1
+			}
+			gg.groups[insert] = g
+			gg.gIndex[g.GroupID.GetHexString()] = insert
+		}
+		bh := uint64(0)
+		for _, group := range gg.groups {
+			if group.BeginHeight < bh {
+				panic("group seq error!")
+			}
+			bh = group.BeginHeight
+		}
 		fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
 		return true
 	} else {

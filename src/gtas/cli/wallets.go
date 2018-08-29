@@ -1,12 +1,24 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"common"
-	"encoding/hex"
 	"encoding/json"
-	"governance/global"
 	"log"
-	"strings"
 	"core"
 	"sync"
 	"math/rand"
@@ -17,27 +29,31 @@ type wallets []wallet
 var mutex sync.Mutex
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string) (*common.Hash, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string) (*common.Hash, *common.Address, error) {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
 	nonce := rand.Uint64()
 		//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
-	if strings.HasPrefix(code, "0x") {
-		code = code[2:]
-	}
-	codeBytes, err := hex.DecodeString(code)
-	if err != nil {
-		return nil, err
-	}
-	transaction := genTx(0, source, target, nonce, value, codeBytes, nil, 0)
+	//if strings.HasPrefix(code, "0x") {
+	//	code = code[2:]
+	//}
+	//codeBytes, err := hex.DecodeString(code)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	transaction := genTx(0, source, target, nonce, value, []byte(code), nil, 0)
 	transaction.Hash = transaction.GenHash()
-	_, err = txpool.Add(transaction)
+	_, err := txpool.Add(transaction)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &transaction.Hash, nil
+	var contractAddr common.Address
+	if code != "" {
+		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
+	}
+	return &transaction.Hash, &contractAddr, nil
 }
 
 //存储钱包账户
@@ -84,24 +100,24 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 	return balance.Int64(), nil
 }
 
-func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
-	if source == "" {
-		source = (*ws)[0].Address
-	}
-	abi, err := config.AbiEncode()
-	if err != nil {
-		return err
-	}
-	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
-	txpool := core.BlockChainImpl.GetTransactionPool()
-	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
-	transaction.Hash = transaction.GenHash()
-	_, err = txpool.Add(transaction)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+//func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
+//	if source == "" {
+//		source = (*ws)[0].Address
+//	}
+//	abi, err := config.AbiEncode()
+//	if err != nil {
+//		return err
+//	}
+//	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+//	txpool := core.BlockChainImpl.GetTransactionPool()
+//	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
+//	transaction.Hash = transaction.GenHash()
+//	_, err = txpool.Add(transaction)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 func newWallets() wallets {
 	var ws wallets
