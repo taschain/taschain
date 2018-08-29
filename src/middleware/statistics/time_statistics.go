@@ -25,6 +25,8 @@ var TimeChannel = make(chan int)
 var IsInit = false
 var WriteData = make([]*LogObj,0)
 var batch int
+var enable bool
+
 type LogObj struct {
 	Hash string
 	Status int
@@ -44,9 +46,12 @@ func NewLogObj(id string)*LogObj{
 	lg.Batch = 1
 	return lg
 }
+
 func AddLog(Hash string, Status int, Time int64, Castor string, Node string,){
-	log := &LogObj{Hash:Hash,Status:Status,Time:Time,Batch:batch,Castor:Castor,Node:Node}
-	PutLog(log)
+	if enable {
+		log := &LogObj{Hash: Hash, Status: Status, Time: Time, Batch: batch, Castor: Castor, Node: Node}
+		PutLog(log)
+	}
 }
 
 func PutLog(data *LogObj){
@@ -62,6 +67,7 @@ func InitStatistics(config common.ConfManager){
 	url = config.GetString("statistics","url","http://118.31.60.210:9090/send")
 	timeout = time.Duration(config.GetInt("statistics","timeout",1)) * time.Second
 	batch =  config.GetInt("statistics","batch",0)
+	enable = config.GetBool("statistics","enable", false)
 	go ProcessLog()
 	go func() {
 		t := time.Tick(Duration * time.Second)
@@ -91,13 +97,15 @@ func HasInit()bool{
 }
 
 func ProcessLog(){
-	for{
-		select {
+	if enable {
+		for {
+			select {
 			case log := <-LogChannel:
-				WriteData = append(WriteData,log)
+				WriteData = append(WriteData, log)
 				SendLog()
-			case  <- TimeChannel:
+			case <-TimeChannel:
 				SendLogByTime()
+			}
 		}
 	}
 }
