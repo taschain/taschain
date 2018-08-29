@@ -5,8 +5,8 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"vm/common/math"
 	"consensus/model"
+	"common"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -109,7 +109,7 @@ func (ig *InitingGroup) convergence() bool {
 
 	//查找最多的元素
 	var gpk groupsig.Pubkey
-	var maxCnt = math.MinInt64
+	var maxCnt = common.MinInt64
 	for _, v := range countMap {
 		if v.count > maxCnt {
 			maxCnt = v.count

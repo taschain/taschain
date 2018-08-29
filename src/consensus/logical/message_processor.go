@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -320,7 +335,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					//} else {
 					//	p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
 					//}
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(slot.MapWitness))
+					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), slot.MessageSize())
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					//_, ret := p.verifyBlock(&slot.BH)

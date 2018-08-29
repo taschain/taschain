@@ -1,16 +1,106 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
 	"testing"
 	"common"
 
-	c "vm/common"
 	"fmt"
 	"middleware/types"
+	"network"
+	"taslog"
+	"os"
 )
 
-func TestBlockChain_AddBlock(t *testing.T) {
+func TestConstractOnChain(t *testing.T)  {
+	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	Clear()
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+	//chain.Clear()
 
+	txpool := BlockChainImpl.GetTransactionPool()
+
+	code := `
+import block
+import tx
+def Test(a, b, c, d):
+	print(dir(block))
+	hash = block.blockhash(0)
+	print("hash: " + hash)
+	diff = block.difficulty()
+	print("difficulty: " + str(diff))
+	height = block.number()
+	print("height: " + str(height))
+	timestamp = block.timestamp()
+	print("timestamp:" + str(timestamp))
+	print(dir(tx))
+	origin = tx.origin()
+	print(origin)
+`
+	// 交易1
+	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
+
+	castor := new([]byte)
+	groupid := new([]byte)
+
+	// 铸块1
+	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
+	if nil == block {
+		t.Fatalf("fail to cast new block")
+	}
+
+	// 上链
+	if 0 != BlockChainImpl.AddBlockOnChain(block) {
+		t.Fatalf("fail to add block")
+	}
+
+	fmt.Println(contractAddr.GetHexString())
+}
+
+func TestCallConstract(t *testing.T)  {
+	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
+	//Clear()
+	initBlockChain()
+	BlockChainImpl.transactionPool.Clear()
+	castor := new([]byte)
+	groupid := new([]byte)
+	//chain.Clear()
+	contractAddr := common.HexStringToAddress("0x2c1ef0519d0425e964e5a4a786c6d39300bf9cd3")
+	code := BlockChainImpl.latestStateDB.GetCode(common.HexStringToAddress("0x2c1ef0519d0425e964e5a4a786c6d39300bf9cd3"))
+	fmt.Println(string(code))
+	txpool := BlockChainImpl.GetTransactionPool()
+	txpool.Add(genTestTx("jdai3", 1, "1", "2", 2, 10))
+	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
+	fmt.Println(contractAddr.GetHexString())
+	// 铸块2
+	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
+	block2.Header.QueueNumber = 2
+	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
+		t.Fatalf("fail to add empty block")
+	}
+}
+
+func TestBlockChain_AddBlock(t *testing.T) {
+	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -22,7 +112,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 1000000 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 1000000 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 
@@ -30,10 +120,15 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	if nil == txpool {
 		t.Fatalf("fail to get txpool")
 	}
-
+	code := `
+import account
+def Test(a, b, c, d):
+	print("hehe")
+`
 	// 交易1
 	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
-
+	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
 	//交易2
 	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
 
@@ -60,7 +155,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("add block1 failed")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 999999 {
 		t.Fatalf("fail to transfer 1 from 1  to 2")
 	}
 
@@ -70,8 +165,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	//交易3
-	txpool.Add(genTestTx("jdai3", 1, "1", "2", 1, 10))
-
+	txpool.Add(genTestTx("jdai3", 1, "1", "2", 2, 10))
+	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
+	fmt.Println(contractAddr.GetHexString())
 	// 铸块2
 	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
@@ -79,7 +175,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 		t.Fatalf("fail to add empty block")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999989 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 999989 {
 		t.Fatalf("fail to transfer 10 from 1 to 2")
 	}
 
@@ -106,6 +202,26 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//最新块是块3
 	blockHeader = BlockChainImpl.QueryTopBlock()
 	if nil == blockHeader || 3 != blockHeader.Height || blockHeader.Hash != block3.Header.Hash {
+		t.Fatalf("add block3 failed")
+	}
+
+	block4 := BlockChainImpl.CastingBlock(4, 126, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
+		t.Fatalf("fail to add empty block")
+	}
+	//最新块是块3
+	blockHeader = BlockChainImpl.QueryTopBlock()
+	if nil == blockHeader || 4 != blockHeader.Height || blockHeader.Hash != block4.Header.Hash {
+		t.Fatalf("add block3 failed")
+	}
+
+	block5 := BlockChainImpl.CastingBlock(5, 127, 0, *castor, *groupid)
+	if 0 != BlockChainImpl.AddBlockOnChain(block5) {
+		t.Fatalf("fail to add empty block")
+	}
+	//最新块是块5
+	blockHeader = BlockChainImpl.QueryTopBlock()
+	if nil == blockHeader || 5 != blockHeader.Height || blockHeader.Hash != block5.Header.Hash {
 		t.Fatalf("add block3 failed")
 	}
 
@@ -248,7 +364,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 100 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 100 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 
@@ -323,6 +439,30 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		Target:   &targetbyte,
 		Nonce:    nonce,
 		Value:    value,
+	}
+}
+
+func genContractTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
+	var sourceAddr, targetAddr *common.Address
+
+	sourcebyte := common.BytesToAddress([]byte(source))
+	sourceAddr = &sourcebyte
+	if target == "" {
+		targetAddr = nil
+	} else {
+		targetbyte := common.HexStringToAddress(target)
+		targetAddr = &targetbyte
+	}
+	return &types.Transaction{
+		Hash: common.BytesToHash([]byte{byte(nonce)}),
+		Data:          data,
+		GasPrice:      price,
+		Source:        sourceAddr,
+		Target:        targetAddr,
+		Nonce:         nonce,
+		Value:         value,
+		ExtraData:     extraData,
+		ExtraDataType: extraDataType,
 	}
 }
 
