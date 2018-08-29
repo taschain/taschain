@@ -124,9 +124,6 @@ func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
-
-	log.Println("===addJoinedGroup GroupID:", jg.GroupID.GetHexString())
-
 	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 }
 
@@ -164,9 +161,7 @@ func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {
-			if p.belongGroups.commit() == false {
-				log.Println("commit failed.")
-			}
+			p.belongGroups.commit()
 		}
 	} else {
 		log.Printf("Error::Processor::joinGroup failed, already exist.\n")
