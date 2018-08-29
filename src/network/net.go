@@ -13,7 +13,6 @@ import (
 
 	"common"
 	"github.com/gogo/protobuf/proto"
-	"middleware/statistics"
 )
 
 //Version 版本号
@@ -685,7 +684,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	id := fromId.GetHexString()
-	statistics.AddCount("net.handleData", uint32(req.DataType))
+	//statistics.AddCount("net.handleData", uint32(req.DataType))
 	if req.DataType == DataType_DataNormal {
 		go  net.handleMessage(req.Data, id)
 	} else {

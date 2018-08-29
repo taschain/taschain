@@ -9,7 +9,6 @@ import (
 	"common"
 	"golang.org/x/crypto/sha3"
 	"middleware/notify"
-	"middleware/statistics"
 )
 
 type server struct {
@@ -164,7 +163,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 
 	code := message.Code
-	statistics.AddCount("server.handleMessage", code)
+	//statistics.AddCount("server.handleMessage", code)
 
 	//if code == KeyPieceMsg {
 	//	Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
