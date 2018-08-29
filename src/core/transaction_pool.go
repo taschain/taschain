@@ -211,16 +211,16 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 
 	// batch broadcast
 	if isBroadcast {
-		pool.sendingTxLock.Lock()
+		//pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
-		pool.sendingTxLock.Unlock()
+		//pool.sendingTxLock.Unlock()
 
 		if sendingListLength == len(pool.sendingList) {
-			pool.sendingTxLock.Lock()
+			//pool.sendingTxLock.Lock()
 			txs := make([]*types.Transaction, sendingListLength)
 			copy(txs, pool.sendingList)
 			pool.sendingList = make([]*types.Transaction, 0)
-			pool.sendingTxLock.Unlock()
+			//pool.sendingTxLock.Unlock()
 			Logger.Debugf("Broadcast txs,len:%d", len(txs))
 			go BroadcastTransactions(txs)
 		}
@@ -233,7 +233,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 func (pool *TransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
 	pool.received.Remove(transactions)
 	pool.reserved.Remove(hash)
-	pool.removeFromSendinglist(transactions)
+	//pool.removeFromSendinglist(transactions)
 }
 
 func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
@@ -538,18 +538,18 @@ func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
 }
 
-func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
-	if nil == transactions || 0 == len(transactions) {
-		return
-	}
-	p.sendingTxLock.Lock()
-	for _, hash := range transactions {
-		for i, tx := range p.sendingList {
-			if tx.Hash == hash {
-				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
-			}
-			break
-		}
-	}
-	p.sendingTxLock.Unlock()
-}
+//func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
+//	if nil == transactions || 0 == len(transactions) {
+//		return
+//	}
+//	p.sendingTxLock.Lock()
+//	for _, hash := range transactions {
+//		for i, tx := range p.sendingList {
+//			if tx.Hash == hash {
+//				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
+//			}
+//			break
+//		}
+//	}
+//	p.sendingTxLock.Unlock()
+//}
