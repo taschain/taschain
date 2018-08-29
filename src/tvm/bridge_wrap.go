@@ -212,6 +212,12 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
+void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+{
+    void ContractCall();
+    ContractCall(address, func_name, json_parms);
+}
+
 */
 import "C"
 import (
@@ -264,6 +270,7 @@ func bridge_init() {
 	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
+	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 }
 
 
