@@ -14,7 +14,7 @@ type countItem struct {
 	innerMap *sync.Map
 }
 
-var count_map = make(map[string]*countItem)
+var count_map = new(sync.Map)
 var logger taslog.Logger
 
 func newCountItem() *countItem {
@@ -50,31 +50,24 @@ func (item *countItem)print() string{
 }
 
 func printAndRefresh()  {
-	for key,item := range count_map{
-		content := item.print()
-		logger.Infof("%s%s\n", key, content)
-		//fmt.Printf("%s%s\n", key, content)
-		//if len(vmap) > 0{
-		//	pmap := vmap
-		//	count_map[key] = make(map[uint32]uint32)
-		//	var buffer bytes.Buffer
-		//	for code,value := range pmap {
-		//		buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
-		//	}
-		//	logger.Infof("%s%s\n", key, buffer.String())
-		//	//fmt.Printf("%s %d %d\n", key, code, value)
-		//}
-	}
+	count_map.Range(func(name, item interface{}) bool {
+		citem := item.(*countItem)
+		content := citem.print()
+		logger.Infof("%s%s\n", name, content)
+		//fmt.Printf("%s%s\n", name, content)
+		return true
+	})
 }
 
 func AddCount(name string, code uint32)  {
-	if item,ok := count_map[name];ok{
-		newValue := item.get(code) + 1
-		item.set(code, newValue)
+	if item,ok := count_map.Load(name);ok{
+		citem := item.(*countItem)
+		newValue := citem.get(code) + 1
+		citem.set(code, newValue)
 	} else {
-		item = newCountItem()
-		item.set(code, 1)
-		count_map[name] = item
+		citem := newCountItem()
+		citem.set(code, 1)
+		count_map.Store(name, citem)
 	}
 	//logger.Infof("%s %d",name,code)
 }
