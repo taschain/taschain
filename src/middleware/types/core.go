@@ -160,6 +160,7 @@ type Group struct {
 	Members     []Member
 	PubKey      []byte
 	Parent      []byte //父亲组 的组ID
+	PreGroup	[]byte //前一块的ID
 	Dummy       []byte
 	Signature   []byte
 	BeginHeight uint64 //组开始参与铸块的高度
