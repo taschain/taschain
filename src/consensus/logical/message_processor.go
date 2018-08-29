@@ -52,7 +52,7 @@ func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupS
 
 func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, bh *types.BlockHeader)  {
 	gpk := p.getGroupPubKey(gid)
-	if !slot.IsFailed() {
+	if slot.IsFailed() {
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "gen group sign fail")
 		return
 	}

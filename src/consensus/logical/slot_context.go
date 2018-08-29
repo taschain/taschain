@@ -25,6 +25,7 @@ import (
 	"core"
 	"unsafe"
 	"consensus/model"
+	"log"
 )
 
 /*
@@ -227,6 +228,7 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
+	log.Printf("AcceptPiece %v %v\n", add, generate)
 	if !add { //已经收到过该成员的验签
 		//忽略
 		return CBMR_IGNORE_REPEAT
@@ -258,8 +260,8 @@ func newSlotContext(bh *types.BlockHeader, si *model.SignData, threshold int) *S
 	sc.BH = *bh
 	sc.QueueNumber = int64(bh.QueueNumber)
 	sc.King.Deserialize(bh.Castor)
-	sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
-
+	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
+	log.Printf("newSlotContext %v %v\n", add, generate)
 	//if !PROC_TEST_MODE {
 	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
 	sc.InitLostingTrans(ltl)
