@@ -208,7 +208,7 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s",headerNotify.header.Hash,headerNotify.peer)
+			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions))
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				core.Logger.Debugf("[ChainHandler]header hit pending or complete")
@@ -224,7 +224,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s",bodyNotify.blockHash,bodyNotify.peer)
+			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
