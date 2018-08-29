@@ -136,10 +136,11 @@ test_lib_helloworld.helloworld()
 
 func TestVmTest7(t *testing.T) {
 	vm := NewTvm()
-	vm.init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 	vm.ContractName = "MyAdvancedToken"
 	vm.ContractAddress = "0x2"
+	vm.init(nil, nil, nil, nil)
+	vm.SetGas(10000000)
 
 	code := Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
 	vm.Execute(code)
@@ -150,5 +151,8 @@ func TestVmTest7(t *testing.T) {
 	vm.Deploy(msg)
 
 	j := `{"FuncName": "test", "Args": []}`
+	vm.ExecuteABIJson(msg, j)
+
+	j = `{"FuncName": "transfer", "Args": ["0x3", 1000]}`
 	vm.ExecuteABIJson(msg, j)
 }

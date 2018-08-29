@@ -3,6 +3,7 @@
 from lib.base.utils import *
 from lib.erc20.token_erc20_tas import TokenERC20
 from clib.tas_runtime import glovar
+from lib.base.event import Event
 
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);
@@ -56,7 +57,7 @@ class MyAdvancedToken(TokenERC20):
         self.name = "TAS"
         self.symbol = "%"
         self.totalSupply = 1000000
-        self.balanceOf[this] = self.totalSupply
+        self.balanceOf[glovar.msg.sender] = self.totalSupply
 
     # @property
     # def sell_price(self):
@@ -73,19 +74,19 @@ class MyAdvancedToken(TokenERC20):
     #     Storage.delete("sell_price")
     #     self._sell_price = 0
 
-    def _transfer(self, _from, _to, _value):
-        require(_to.invalid)
-        if _from not in self.balanceOf:
-            self.balanceOf[_from] = 0
-        require(self.balanceOf[_from] >= _value)
-        require(_value > 0)
-        # require((_from not in self.frozenAccount) or (not self.frozenAccount[_from]))
-        # require((_to not in self.frozenAccount) or (not self.frozenAccount[_to]))
-        self.balanceOf[_from] -= _value
-        if _to not in self.balanceOf:
-            self.balanceOf[_to] = 0
-        self.balanceOf[_to] += _value
-        Event.emit("Transfer", _from, _to, _value)
+    # def _transfer(self, _from, _to, _value):
+    #     require(_to.invalid)
+    #     if _from not in self.balanceOf:
+    #         self.balanceOf[_from] = 0
+    #     require(self.balanceOf[_from] >= _value)
+    #     require(_value > 0)
+    #     # require((_from not in self.frozenAccount) or (not self.frozenAccount[_from]))
+    #     # require((_to not in self.frozenAccount) or (not self.frozenAccount[_to]))
+    #     self.balanceOf[_from] -= _value
+    #     if _to not in self.balanceOf:
+    #         self.balanceOf[_to] = 0
+    #     self.balanceOf[_to] += _value
+    #     Event.emit("Transfer", _from, _to, _value)
 
     def mint_token(self, target, minted_amount):
         check_owner()
@@ -116,8 +117,8 @@ class MyAdvancedToken(TokenERC20):
         self._transfer(msg.sender, this, amount)
         msg.sender.transfer(amount * self.sell_price)
 
-    def test(self):
-        print("test")
+    # def test(self):
+    #     print("test")
 
 
 
