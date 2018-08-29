@@ -128,6 +128,9 @@ func (n GroupNode) GenInnerGroup() *JoinedGroup {
 		GroupID: *groupsig.NewIDFromPubkey(gpk),
 		SeedKey: n.minerGroupSecret.GenSecKey(),
 	}
+
+	//log.Println("GroupPK:", joinedGroup.GroupPK.Serialize())
+
 	if n.groupSecret != nil {
 		joinedGroup.GroupSec = *n.groupSecret
 	}

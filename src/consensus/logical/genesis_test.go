@@ -1,23 +1,23 @@
 package logical
 
 import (
-	"testing"
-	"consensus/groupsig"
-	"log"
-	"encoding/json"
-	"core"
 	"common"
+	"consensus/groupsig"
+	"consensus/model"
+	chandler "consensus/net"
+	"core"
+	"core/net/handler"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"consensus/model"
+	"log"
 	"middleware"
 	"network"
-	"core/net/handler"
-	chandler "consensus/net"
+	"os"
+	"testing"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/local_3g9n`
+const CONF_PATH_PREFIX = `/Users/dongdexu/TASchain/taschain/deploy/daily`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -31,6 +31,7 @@ func TestBelongGroups(t *testing.T) {
 	}
 	t.Log(belongs)
 }
+
 //
 //func GetIdFromPublicKey(p common.PublicKey) string {
 //	pubKey := &p2p.Pubkey{PublicKey: p}
@@ -65,7 +66,6 @@ func processors() (map[string]*Processor, map[string]int) {
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
 	}
-
 
 	//proc = new(Processor)
 	//proc.Init(NewMinerInfo("siren", "850701"))
@@ -105,7 +105,6 @@ func TestGenIdPubkey(t *testing.T) {
 		idPubs = append(idPubs, p.GetPubkeyInfo())
 	}
 
-
 	bs, err := json.Marshal(idPubs)
 	if err != nil {
 		t.Fatal(err)
@@ -138,9 +137,9 @@ func TestGenesisGroup(t *testing.T) {
 	gis := GenGenesisGroupSummary()
 	gis.WithMemberPubs(mems)
 
-	//组启动初始化信息
+	//组启初始化信息广播
 	grm := &model.ConsensusGroupRawMessage{
-		GI: gis,
+		GI:   gis,
 		MEMS: mems,
 	}
 
@@ -153,7 +152,7 @@ func TestGenesisGroup(t *testing.T) {
 		staticGroupInfo.GIS = grm.GI
 		staticGroupInfo.Members = grm.MEMS
 
-		log.Println("------dummyId:", gis.DummyID.GetHexString())
+		//log.Println("------dummyId:", gis.DummyID.GetHexString())
 		//组上链.
 		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -166,7 +165,7 @@ func TestGenesisGroup(t *testing.T) {
 		//创建组共识上下文
 		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, p.mi)
 
-		//创建sharePieces
+		//密钥分片广播
 		shares := gc.GenSharePieces()
 		for id, share := range shares {
 			spms := procSpms[id]
@@ -179,8 +178,8 @@ func TestGenesisGroup(t *testing.T) {
 			spm := &model.ConsensusSharePieceMessage{
 				GISHash: grm.GI.GenHash(),
 				DummyID: grm.GI.DummyID,
-				Dest: dest,
-				Share: share,
+				Dest:    dest,
+				Share:   share,
 			}
 			spm.SI.SignMember = p.GetMinerID()
 			spms = append(spms, spm)
@@ -200,13 +199,13 @@ func TestGenesisGroup(t *testing.T) {
 				msg := &model.ConsensusSignPubKeyMessage{
 					GISHash: spm.GISHash,
 					DummyID: spm.DummyID,
-					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
+					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),  //PKi = si·Q.
 				}
 				msg.GenGISSign(jg.SignKey)
 				msg.SI.SignMember = p.GetMinerID()
 				spks[id] = msg
 
-				log.Println("SignKey:", jg.SignKey.Serialize())
+				//log.Println("SignKey:", jg.SignKey.Serialize())
 			}
 		}
 	}
@@ -218,6 +217,9 @@ func TestGenesisGroup(t *testing.T) {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
+				if jg == nil {
+					log.Println("jg is nil")
+				}
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
@@ -257,7 +259,7 @@ func TestGenesisGroup(t *testing.T) {
 		//index := indexs[p.getPrefix()]
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 
-		//log.Println("=======GroupID:",sgi.GroupID.GetHexString())
+		log.Println("=====getJoinedGroup by GroupID:",sgi.GroupID.GetHexString())
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 
 		jgByte, _ := json.Marshal(jg)
@@ -266,7 +268,7 @@ func TestGenesisGroup(t *testing.T) {
 			write = true
 			log.Println("=======", id, "============")
 
-			log.Println("sgi.GroupPK:", sgi.GroupPK.GetHexString())
+			//log.Println("sgi.GroupPK:", sgi.GroupPK.GetHexString())
 
 			sgiByte, _ := json.Marshal(sgi)
 
@@ -276,7 +278,6 @@ func TestGenesisGroup(t *testing.T) {
 			log.Println("-----------------------")
 			log.Println("jg:", string(jgByte))
 		}
-
 
 		log.Println()
 		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)

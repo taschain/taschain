@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"vm/common/math"
 	"consensus/model"
-	"fmt"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -327,7 +326,7 @@ func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int 
 	return result
 }
 
-//生成发送给组内成员的秘密分享
+//生成发送给组内成员的秘密分享: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.ShareMapID {
 	shares := make(model.ShareMapID, 0)
 	if len(gc.mems) == int(gc.gis.Members) && atomic.CompareAndSwapInt32(&gc.is, GIS_RAW, GIS_SHARED) {
@@ -382,7 +381,7 @@ func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
 		return v.(*GroupContext)
 	}
 
-	fmt.Println("gc is NULL, gid:", gid.GetHexString())
+	//fmt.Println("gc is NULL, gid:", gid.GetHexString())
 
 	return nil
 }

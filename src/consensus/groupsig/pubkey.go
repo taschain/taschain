@@ -5,7 +5,6 @@ import (
 	"fmt"
 	//"fmt"
 	"log"
-	"math/big"
 	"golang.org/x/crypto/sha3"
 	"bytes"
 	"consensus/groupsig/bn_curve"
@@ -55,14 +54,14 @@ func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	return pub.SetHexString(str)
 }
 
-//把公钥转换成big.Int  ToDoCheck
-func (pub Pubkey) GetBigInt() *big.Int {
-	//x := new(big.Int)
-	//x.SetString(pub.value.GetHexString(), 16)
-	//return x
-
-	return nil
-}
+////把公钥转换成big.Int  ToDoCheck
+//func (pub Pubkey) GetBigInt() *big.Int {
+//	//x := new(big.Int)
+//	//x.SetString(pub.value.GetHexString(), 16)
+//	//return x
+//
+//	return nil
+//}
 
 func (pub Pubkey) IsValid() bool {
 	return !pub.IsEmpty()
@@ -121,11 +120,24 @@ func AggregatePubkeys(pubs []Pubkey) *Pubkey {
 		log.Printf("AggregatePubkeys no pubs")
 		return nil
 	}
+
 	pub := new(Pubkey)
-	pub.value = pubs[0].value
+	//pub.value.Unmarshal(pubs[0].value.Marshal())
+	pub.value.Set(&pubs[0].value)
+
+	//pub.value = pubs[0].value
+	//for i := 0; i < len(pubs); i++ {
+		//log.Println("", i)
+		//log.Println("pub:", pubs[i].Serialize())
+	//}
+
+	//log.Println("len:", len(pubs))
 	for i := 1; i < len(pubs); i++ {
 		pub.Add(&pubs[i])
 	}
+
+	//log.Println("aggregatePK:", pub.Serialize())
+
 	return pub
 }
 
