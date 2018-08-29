@@ -60,6 +60,8 @@ const (
 
 	databaseKey = "database"
 
+	statisticsSection = "statistics"
+
 	redis_prefix = "aliyun_"
 )
 
@@ -164,6 +166,7 @@ func (gtas *Gtas) Run() {
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
+	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -217,7 +220,7 @@ func (gtas *Gtas) Run() {
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
-
+	common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
 	if *prefix == "" {
 		common.GlobalConf.SetString("test", "prefix", redis_prefix)
 	} else {
