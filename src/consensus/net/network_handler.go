@@ -130,6 +130,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			network.Logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return  e
 		}
+		network.Logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,m.Block.Header.QueueNumber)
 		c.processor.OnMessageBlock(m)
 		return nil
 	case network.CreateGroupaRaw:
