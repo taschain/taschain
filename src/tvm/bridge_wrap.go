@@ -377,7 +377,7 @@ func(tvm *Tvm) LoadContractCode() bool {
 
 func (tvm *Tvm)Execute(script string) bool {
 	var c_bool C._Bool
-	script = fmt.Sprintf("%s\ntas_%s = %s()",script, tvm.ContractName, tvm.ContractName)
+	//script = fmt.Sprintf("%s\ntas_%s = %s()",script, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -390,8 +390,7 @@ from clib.tas_runtime.address_tas import Address
 
 glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
 glovar.this = Address("%s")
-glovar.owner = Address("%s")
-`, msg.Sender, msg.Value, tvm.ContractAddress, tvm.ContractOwner)
+`, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
 

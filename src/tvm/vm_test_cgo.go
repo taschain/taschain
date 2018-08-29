@@ -15,13 +15,18 @@
 
 package tvm
 
-//func Read0(filename string)  (string){
-//	f, err := ioutil.ReadFile(filename)
-//	if err != nil {
-//		fmt.Println("read fail", err)
-//	}
-//	return string(f)
-//}
+import (
+	"fmt"
+	"io/ioutil"
+)
+
+func Read0(filename string)  (string){
+	f, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Println("read fail", err)
+	}
+	return string(f)
+}
 //
 //func VmTest() {
 //
