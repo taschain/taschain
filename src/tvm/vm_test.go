@@ -16,6 +16,7 @@
 package tvm
 
 import (
+	"middleware/types"
 	"testing"
 )
 
@@ -109,7 +110,7 @@ from token.contract_token_tas import MyAdvancedToken
 // TVM释放
 func TestVmTest6(t *testing.T) {
 	vm := NewTvm()
-	vm.init(nil, nil, nil, nil)
+	vm.Init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script := `
@@ -123,7 +124,7 @@ test_lib_helloworld.helloworld()
 	vm.DelTvm()
 
 	vm = NewTvm()
-	vm.init(nil, nil, nil, nil)
+	vm.Init(nil, nil, nil, nil)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script = `
@@ -136,11 +137,12 @@ test_lib_helloworld.helloworld()
 
 func TestVmTest7(t *testing.T) {
 	vm := NewTvm()
+	transaction := types.Transaction{}
+	transaction.GasLimit = 10000000
+	vm.Init(nil, nil, nil, &transaction)
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 	vm.ContractName = "MyAdvancedToken"
 	vm.ContractAddress = "0x2"
-	vm.init(nil, nil, nil, nil)
-	vm.SetGas(10000000)
 
 	code := Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
 	vm.Execute(code)

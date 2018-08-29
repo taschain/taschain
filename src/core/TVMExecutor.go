@@ -36,6 +36,10 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
+func(executer *TVMExecutor) Call(vm *tvm.Tvm) {
+
+}
+
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
 		hash := accountdb.IntermediateRoot(true)
@@ -43,20 +47,28 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
+	msg := tvm.Msg{}
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		vm := tvm.NewTvm(accountdb, BlockChainImpl)
 		if transaction.Target == nil{
+			vm := tvm.NewTvm()
+			vm.Init(accountdb, BlockChainImpl, block.Header, transaction)
 			contractAddress,_ = createContract(accountdb, transaction)
-			//TODO 执行部署合约
+			msg = tvm.Msg{Data:[]byte{}, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
+			vm.Deploy(msg)
+			vm.DelTvm()
 		} else if len(transaction.Data) > 0 {
+			vm := tvm.NewTvm()
+			vm.Init(accountdb, BlockChainImpl, block.Header, transaction)
 			snapshot := accountdb.Snapshot()
 			script := string(accountdb.GetCode(*transaction.Target))
-			if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
+			msg = tvm.Msg{Data:transaction.Data, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
+			if !(vm.Execute(script) && vm.ExecuteABIJson(msg, string(transaction.Data))){
 				accountdb.RevertToSnapshot(snapshot)
 				fail = true
 			}
+			vm.DelTvm()
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){

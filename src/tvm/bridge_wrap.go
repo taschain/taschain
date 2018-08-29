@@ -281,7 +281,7 @@ func NewTvm()*Tvm {
 	return tvm
 }
 
-func (tvm *Tvm)init(accountDB vm.AccountDB,
+func (tvm *Tvm)Init(accountDB vm.AccountDB,
 	chainReader vm.ChainReader,
 	header *types.BlockHeader,
 	transaction *types.Transaction)  {
@@ -296,6 +296,7 @@ func (tvm *Tvm)init(accountDB vm.AccountDB,
 	}
 	C.tvm_start()
 	bridge_init()
+	tvm.SetGas(int(transaction.GasLimit))
 }
 
 // 获取剩余gas
