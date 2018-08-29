@@ -32,13 +32,13 @@ func testPubkey(t *testing.T) {
 	if pub == nil {
 		t.Log("NewPubkeyFromSeckey")
 	}
-	//{
-	//	var pub2 Pubkey
-	//	err := pub2.SetHexString(pub.GetHexString()) //测试公钥的字符串导出
-	//	if err != nil || !pub.IsEqual(pub2) {        //检查字符串导入生成的公钥是否跟之前的公钥相同
-	//		t.Log("pub != pub2")
-	//	}
-	//}
+	{
+		var pub2 Pubkey
+		err := pub2.SetHexString(pub.GetHexString()) //测试公钥的字符串导出
+		if err != nil || !pub.IsEqual(pub2) {        //检查字符串导入生成的公钥是否跟之前的公钥相同
+			t.Log("pub != pub2")
+		}
+	}
 	{
 		var pub2 Pubkey
 		err := pub2.Deserialize(pub.Serialize()) //测试公钥的序列化
@@ -80,13 +80,13 @@ func testComparison(t *testing.T) {
 	if !VerifyAggregateSig([]Pubkey{*pub, *pub}, []byte("hi"), asig) { //对同一个原始公钥进行聚合后（生成聚合公钥），去验证聚合签名
 		t.Error("Aggregated signature does not verify")
 	}
-	//{
-	//	var sig2 Signature
-	//	err := sig2.SetHexString(sig.GetHexString()) //测试原始签名的字符串导出
-	//	if err != nil || !sig.IsEqual(sig2) {        //检查字符串导入生成的签名是否和之前的签名相同
-	//		t.Error("sig2.SetHexString")
-	//	}
-	//}
+	{
+		var sig2 Signature
+		err := sig2.SetHexString(sig.GetHexString()) //测试原始签名的字符串导出
+		if err != nil || !sig.IsEqual(sig2) {        //检查字符串导入生成的签名是否和之前的签名相同
+			t.Error("sig2.SetHexString")
+		}
+	}
 	{
 		var sig2 Signature
 		err := sig2.Deserialize(sig.Serialize()) //测试原始签名的序列化
@@ -340,7 +340,7 @@ func Test_GroupsigIDStringConvert(t *testing.T){
 	id := NewIDFromString(str)
 	s:= id.String()
 	fmt.Printf("id str:%s\n",s)
-	fmt.Printf("id str compare resylt:%t\n",str==s)
+	fmt.Printf("id str compare result:%t\n",str==s)
 }
 
 func Test_Groupsig_Main1(t *testing.T) {
@@ -387,7 +387,7 @@ func testRecover(n int, k int, b *testing.B) {
 	for i := 0; i < k; i++ {
 		a[i] = *NewSeckeyFromRand(r.Deri(i))
 	}
-	fmt.Println("a[0]:", a[0].Serialize())
+	//fmt.Println("a[0]:", a[0].Serialize())
 
 	//生成n个成员ID: {IDi}, i=1,..,n.
 	ids := make([]ID, n)
@@ -405,7 +405,7 @@ func testRecover(n int, k int, b *testing.B) {
 	//通过Lagrange插值公式, 由{<IDi, Si>|i=1..n}计算得到组签名私钥s=F(0).
 	new_secs := secs[:k]
 	s := RecoverSeckey(new_secs, ids)
-	fmt.Println("s:", s.Serialize())
+	//fmt.Println("s:", s.Serialize())
 
 	//检查 F(0) = a[0]?
 	if !bytes.Equal(a[0].Serialize(), s.Serialize()) {
@@ -485,7 +485,10 @@ func BenchmarkValidation(b *testing.B) {
 		m := strconv.Itoa(n)
 		sig := Sign(*sec, []byte(m))
 		b.StartTimer()
-		VerifySig(*pub, []byte(m), sig)
+		result := VerifySig(*pub, []byte(m), sig)
+		if result != true {
+			fmt.Println("VerifySig failed.")
+		}
 		b.StopTimer()
 	}
 }

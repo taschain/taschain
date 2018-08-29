@@ -17,7 +17,7 @@ var bitLength = curveOrder.BitLen()
 // Seckey -- represented by a big.Int modulo curveOrder
 //私钥对象，表现为一个大整数在曲线域上的求模？
 type Seckey struct {
-	value BlsInt
+	value BnInt
 }
 
 //比较两个私钥是否相等

@@ -93,22 +93,17 @@ func (sig Signature) IsValid() bool {
 
 //把签名转换为十六进制字符串 ToDoCheck
 func (sig Signature) GetHexString() string {
-	//return PREFIX + sig.value.GetHexString()
-	//return sig.value.GetHexString()
-
-	return ""
+	return PREFIX + common.Bytes2Hex(sig.value.Marshal())
 }
 
 //由十六进制字符串初始化签名 ToDoCheck
 func (sig *Signature) SetHexString(s string) error {
-	/*
-		if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
-			return fmt.Errorf("arg failed")
-		}
-		buf := s[len(PREFIX):]
-		return sig.value.SetHexString(buf)
-	*/
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return fmt.Errorf("arg failed")
+	}
+	buf := s[len(PREFIX):]
 
+	sig.value.Unmarshal(common.Hex2Bytes(buf))
 	return nil
 }
 

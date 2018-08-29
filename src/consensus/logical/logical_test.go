@@ -1,4 +1,6 @@
 package logical
+
+
 //
 //import (
 //	"consensus/groupsig"
