@@ -206,6 +206,7 @@ func TestGenesisGroup(t *testing.T) {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
+				log.Printf("processor %v join group gid %v\n", p.getPrefix(), GetIDPrefix(jg.GroupID))
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
@@ -227,7 +228,7 @@ func TestGenesisGroup(t *testing.T) {
 				staticGroup := NewSGIFromStaticGroupSummary(&msg.GI, initingGroup)
 				add := p.globalGroups.AddStaticGroup(staticGroup)
 				if add {
-					p.groupManager.AddGroupOnChain(staticGroup, false)
+					//p.groupManager.AddGroupOnChain(staticGroup, false)
 
 					//if p.IsMinerGroup(msg.GI.GroupID) && p.GetBlockContext(msg.GI.GroupID) == nil {
 					//	p.prepareForCast(msg.GI.GroupID)
