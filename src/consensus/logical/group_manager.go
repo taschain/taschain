@@ -327,10 +327,10 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
-	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, 分片数 %v", PIECE_RESULT(accept), len(creating.getPieces()))
+	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
-		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
-		msg.GI.Signature = *sign
+		sig := creating.gSignGenerator.GetGroupSign()
+		msg.GI.Signature = sig
 		return true
 	}
 	return false
