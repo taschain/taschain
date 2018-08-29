@@ -264,6 +264,7 @@ func newSlotContext(bh *types.BlockHeader, si *model.SignData, threshold int) *S
 	log.Printf("newSlotContext %v %v\n", add, generate)
 	//if !PROC_TEST_MODE {
 	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	log.Printf("newSlotContext verifyCastingBlock ret %v %v\n", ltl, ccr)
 	sc.InitLostingTrans(ltl)
 	if ccr == -1 {
 		sc.SlotStatus = SS_FAILED_CHAIN
