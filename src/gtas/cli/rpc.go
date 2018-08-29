@@ -171,7 +171,9 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	castorId.Deserialize(bh.Castor)
 	blockDetail["castor"] = castorId.String()
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
-	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	var gid groupsig.ID
+	gid.Deserialize(bh.GroupId)
+	blockDetail["group_id"] = gid.GetHexString()
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	trans := make([]string, len(bh.Transactions))
 	for i := range bh.Transactions {
