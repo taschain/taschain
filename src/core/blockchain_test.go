@@ -120,6 +120,12 @@ class A():
 	def test(self):
 		self.a += 1
 		print("test")
+		raise Exception("")
+		print(self.a)
+	
+	def test2(self):
+		self.a += 1
+		print("test")
 		print(self.a)
 `
 	contract := tvm.Contract{code, "A", nil}
@@ -131,6 +137,12 @@ class A():
 func TestCallConstract(t *testing.T)  {
 	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
 	abi := `{"FuncName": "test", "Args": []}`
+	CallContract(contractAddr, abi)
+}
+
+func TestCallConstract2(t *testing.T)  {
+	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
+	abi := `{"FuncName": "test2", "Args": []}`
 	CallContract(contractAddr, abi)
 }
 
