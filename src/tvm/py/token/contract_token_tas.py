@@ -58,6 +58,7 @@ class MyAdvancedToken(TokenERC20):
         self.symbol = "%"
         self.totalSupply = 1000000
         self.balanceOf[glovar.msg.sender] = self.totalSupply
+        glovar.owner = glovar.msg.sender
 
     # @property
     # def sell_price(self):

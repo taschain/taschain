@@ -271,7 +271,7 @@ func bridge_init() {
 	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
-	//C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
+	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 }
 
 type Contract struct {

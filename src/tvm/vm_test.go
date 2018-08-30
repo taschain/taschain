@@ -16,6 +16,7 @@
 package tvm
 
 import (
+	"common"
 	"middleware/types"
 	"testing"
 )
@@ -23,7 +24,7 @@ import (
 func TestVmTest(t *testing.T) {
 	//db, _ := tasdb.NewMemDatabase()
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	vm := NewTvm()
+	vm := NewTvm(nil, nil, "")
 	script := `
 import account
 account.create_account("0x2234")
@@ -36,11 +37,11 @@ print(account.get_nonce("0x1234"))
 }
 
 func TestVmTestContract(t *testing.T) {
-	VmTestContract()
+	//VmTestContract()
 }
 
 func TestVmTestClass(t *testing.T) {
-	VmTestClass()
+	//VmTestClass()
 }
 
 func MockBlockChain() {
@@ -48,19 +49,19 @@ func MockBlockChain() {
 }
 
 func TestVmTestABI(t *testing.T) {
-	VmTestABI()
+	//VmTestABI()
 }
 
 func TestVmTestException(t *testing.T) {
-	VmTestException()
+	//VmTestException()
 }
 
 func TestVmTestToken(t *testing.T) {
-	VmTestToken()
+	//VmTestToken()
 }
 
 func TestVmTest2(t *testing.T) {
-	VmTest()
+	//VmTest()
 }
 
 // 设置python lib目录
@@ -109,8 +110,7 @@ from token.contract_token_tas import MyAdvancedToken
 
 // TVM释放
 func TestVmTest6(t *testing.T) {
-	vm := NewTvm()
-	vm.Init(nil, nil, nil, nil)
+	vm := NewTvm(nil, nil, "")
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script := `
@@ -123,8 +123,7 @@ test_lib_helloworld.helloworld()
 
 	vm.DelTvm()
 
-	vm = NewTvm()
-	vm.Init(nil, nil, nil, nil)
+	vm = NewTvm(nil, nil, "")
 	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
 
 	script = `
@@ -136,25 +135,28 @@ test_lib_helloworld.helloworld()
 }
 
 func TestVmTest7(t *testing.T) {
-	vm := NewTvm()
+
 	transaction := types.Transaction{}
 	transaction.GasLimit = 10000000
-	vm.Init(nil, nil, nil, &transaction)
-	vm.AddLibPath("/Users/guangyujing/workspace/tas/src/tvm/py")
-	vm.ContractOwner = "0x1"
-	vm.ContractName = "MyAdvancedToken"
-	vm.ContractAddress = "0x2"
+	EnvInit(nil, nil, nil, &transaction)
 
-	code := Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
-	vm.Execute(code)
+	sender := common.HexToAddress("0x00000001")
+	contract := Contract{}
+	contractAddress := common.HexToAddress("0x00000002")
+	contract.ContractAddress = &contractAddress
+	contract.ContractName = "MyAdvancedToken"
+	contract.Code = Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
+	vm := NewTvm(&sender, &contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
+
+	vm.Execute(contract.Code)
 
 	msg := Msg{}
 	msg.Value = 0
-	msg.Sender = "0x1"
+	msg.Sender = sender.GetHexString()
 	vm.Deploy(msg)
 
 	j := ""
-	j = `{"FuncName": "transfer", "Args": ["0x3", 1000]}`
+	j = `{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`
 	vm.ExecuteABIJson(msg, j)
 
 	j = `{"FuncName": "set_prices", "Args": [100, 100]}`
@@ -163,6 +165,6 @@ func TestVmTest7(t *testing.T) {
 	j = `{"FuncName": "burn", "Args": [2500]}`
 	vm.ExecuteABIJson(msg, j)
 
-	j = `{"FuncName": "mint_token", "Args": ["0x1", 5000]}`
+	j = `{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`
 	vm.ExecuteABIJson(msg, j)
 }
