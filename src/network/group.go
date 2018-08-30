@@ -5,29 +5,84 @@ import (
 	nnet "net"
 	"sync"
 	"time"
+	"sort"
 )
 
+const GroupBaseConnectNodeCount = 2
 // Group 组对象
 type Group struct {
-	id             string
-	members        []NodeID
+	id             		string
+	members        		[]NodeID
+	needConnectNodes    []NodeID
+
 	resolvingNodes map[NodeID]time.Time
+	curIndex int
+}
+
+
+func (g Group) Len() int {
+	return len(g.members)
+}
+
+
+func (g Group) Less(i, j int) bool {
+	return g.members[i].GetHexString() < g.members[j].GetHexString()
+}
+
+
+func (g Group) Swap(i, j int) {
+	g.members[i], g.members[j] = g.members[j], g.members[i]
 }
 
 func newGroup(id string, members []NodeID) *Group {
 
-	g := &Group{id: id, members: members, resolvingNodes: make(map[NodeID]time.Time)}
+	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
+	Logger.Debugf("sort group id：%v", id)
+	for i:= 0;i<len(g.members);i++ {
+		Logger.Debugf("before id：%v", g.members[i].GetHexString())
+	}
+	sort.Sort(g)
+	for i:= 0;i<len(g.members);i++ {
+		Logger.Debugf("after id：%v", g.members[i].GetHexString())
+	}
 
+	g.curIndex =0
+	for i:= 0;i<len(g.members);i++ {
+		if g.members[i] == net.netCore.id {
+			g.curIndex = i
+			break
+		}
+	}
+	connectCount := GroupBaseConnectNodeCount;
+	if connectCount >  len(g.members) -1 {
+		connectCount = len(g.members) -1
+	}
+	nextIndex := g.getNextIndex(g.curIndex)
+	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+	nextIndex = g.getNextIndex(nextIndex)
+	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+
+	for i:= 0;i<len(g.needConnectNodes);i++ {
+		Logger.Debugf("needConnectNodes  id：%v", g.needConnectNodes[i].GetHexString())
+	}
 	return g
 }
 
+func (g Group) getNextIndex(index int) int {
+	index = index +1
+	if index >= len(g.members) {
+		index=0
+	}
+	return index
+}
+
 func (g *Group) doRefresh() {
-	memberSize := len(g.members)
+	memberSize := len(g.needConnectNodes)
 
 	Logger.Debugf("Group doRefresh  id： %v", g.id)
 
 	for i := 0; i < memberSize; i++ {
-		id := g.members[i]
+		id := g.needConnectNodes[i]
 		if id == net.netCore.id {
 			continue
 		}
@@ -64,8 +119,8 @@ func (g *Group) send(packet *bytes.Buffer) {
 	connected := 0
 	kad := 0
 	other := 0
-	for i := 0; i < len(g.members); i++ {
-		id := g.members[i]
+	for i := 0; i < len(g.needConnectNodes); i++ {
+		id := g.needConnectNodes[i]
 		if id == net.netCore.id {
 			continue
 		}

@@ -6,6 +6,7 @@ import (
 	"time"
 	"sync"
 	mrand "math/rand"
+	"math"
 )
 
 //Peer 节点连接对象
@@ -119,11 +120,12 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 
 			if pm.natTraversalEnable {
 				P2PConnect(netId, NatServerIp, NatServerPort)
+				Logger.Infof("P2PConnect[nat]: %v ", toid.GetHexString())
 			} else {
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
+				Logger.Infof("P2PConnect[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			Logger.Infof("P2PConnect: %v ", toid.GetHexString())
-		} else {
+			} else {
 			Logger.Infof("write  error : %v ", toid.GetHexString())
 		}
 	}
@@ -157,7 +159,7 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		p.sendList = make([]*bytes.Buffer, 0)
 	}
 
-	Logger.Infof("OnConnected node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
+	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
 
 }
 
@@ -166,7 +168,7 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		Logger.Infof("OnDisconnected id：%d ip:%v port:%v ",p.Id.GetHexString(), p.Ip,p.Port)
+		Logger.Infof("OnDisconnected id：%v ip:%v port:%v ",p.Id.GetHexString(), p.Ip,p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
@@ -227,9 +229,9 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		}
 	}
 	peerSize :=len(availablePeers)
-	maxCount := peerSize /3;
-	if maxCount < 3 {
-		maxCount = 3
+	maxCount := int(math.Sqrt(peerSize));
+	if maxCount < 2 {
+		maxCount = 2
 	}
 
 	if len(availablePeers) < maxCount {

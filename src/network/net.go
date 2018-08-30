@@ -142,14 +142,15 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.messageManager = newMessageManager(nc.id)
 	realaddr := cfg.ListenAddr
 
-	Logger.Debugf("KAD ID %v ", nc.id.GetHexString())
-	Logger.Debugf("P2PConfig %v ", nc.nid)
-	Logger.Debugf("P2PListen %v %v", realaddr.IP.String(), uint16(realaddr.Port))
+	Logger.Debugf("kad id: %v ", nc.id.GetHexString())
+	Logger.Debugf("P2PConfig: %v ", nc.nid)
 	P2PConfig(nc.nid)
 
 	if nc.natTraversalEnable {
+		Logger.Debugf("P2PProxy: %v %v", NatServerIp, uint16(NatServerPort))
 		P2PProxy(NatServerIp, uint16(NatServerPort))
 	} else {
+		Logger.Debugf("P2PListen: %v %v", realaddr.IP.String(), uint16(realaddr.Port))
 		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
 	}
 
@@ -184,7 +185,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		NodeId:     nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	Logger.Info("ping node:%v, %v, %v", toid.GetHexString(), to.Ip, to.Port)
+	Logger.Info("ping node:%v, %v,%v", toid.GetHexString(), to.Ip, to.Port)
 
 	packet, _, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
@@ -633,9 +634,11 @@ func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 		return errExpired
 	}
 	p := nc.peerManager.peerByID(fromId)
-	if p != nil {
-		p.Ip = nnet.ParseIP(req.From.Ip)
-		p.Port = int(req.From.Port)
+	ip :=nnet.ParseIP(req.From.Ip)
+	port :=int(req.From.Port)
+	if p != nil && ip !=nil && port > 0 {
+		p.Ip = ip
+		p.Port = port
 	}
 	from := nnet.UDPAddr{IP: nnet.ParseIP(req.From.Ip), Port: int(req.From.Port)}
 
