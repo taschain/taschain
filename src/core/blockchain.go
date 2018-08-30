@@ -596,6 +596,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
 	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	//if false {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state

@@ -79,9 +79,9 @@ func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if tr,ok := db.pastTriesCache.Get(root);ok{
-		return tr.(Trie),nil
-	}
+	//if tr,ok := db.pastTriesCache.Get(root);ok{
+	//	return tr.(Trie),nil
+	//}
 
 	tr, err := trie.NewTrie(root, db.db)
 	if err != nil {

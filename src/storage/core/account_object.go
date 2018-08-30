@@ -211,7 +211,7 @@ func (self *accountObject) CommitTrie(db Database) error {
 	root, err := self.trie.Commit(nil)
 	if err == nil {
 		self.data.Root = root
-		self.db.db.PushTrie(root, self.trie)
+		//self.db.db.PushTrie(root, self.trie)
 	}
 	return err
 }
