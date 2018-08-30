@@ -20,6 +20,7 @@ import (
 
 	"common"
 	"middleware/types"
+	"storage/trie"
 )
 
 type AccountDB interface {
@@ -42,6 +43,7 @@ type AccountDB interface {
 
 	GetData(common.Address, string) []byte
 	SetData(common.Address, string, []byte)
+	DataIterator(common.Address, string) *trie.Iterator
 
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
