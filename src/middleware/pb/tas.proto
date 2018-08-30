@@ -209,22 +209,23 @@ message SignData{
 message ConsensusGroupInitSummary{
 
     required  bytes ParentID  = 1;
+    required  bytes PrevGroupID  = 2;
 
-	required  uint64  Authority = 2;
+	required  uint64  Authority = 3;
 
-	required  bytes   Name = 3;
+	required  bytes   Name = 4;
 
-	required  bytes   DummyID = 4;
+	required  bytes   DummyID = 5;
 
-	required uint64    Members =5;
-	required bytes    BeginTime =6;
-	required bytes    MemberHash =7;
-	required bytes    Signature =8;
-    required uint64     GetReadyHeight=9;
-	required uint64     BeginCastHeight=10;
-	required uint64     DismissHeight=11;
-	required uint64     TopHeight=12;
-	required bytes    Extends =13;
+	required uint64    Members =6;
+	required bytes    BeginTime =7;
+	required bytes    MemberHash =8;
+	required bytes    Signature =9;
+    required uint64     GetReadyHeight=10;
+	required uint64     BeginCastHeight=11;
+	required uint64     DismissHeight=12;
+	required uint64     TopHeight=13;
+	required bytes    Extends =14;
 }
 
 message PubKeyInfo{

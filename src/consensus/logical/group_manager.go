@@ -52,7 +52,7 @@ func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *St
 		log.Printf("checkCreateNextGroup topHeight=%v, create %v\n", topHeight, create)
 	}()
 	blockHeight := topHeight - model.Param.CheckCreateGroupGap
-	if blockHeight % model.Param.Epoch != 0 {
+	if blockHeight % model.Param.CreateGroupInterval != 0 {
 		return
 	}
 	theBH = gm.mainChain.QueryBlockByHeight(blockHeight)
@@ -132,7 +132,7 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (b
 				joinedNum++
 			}
 		}
-		if joinedNum <= model.Param.MinerMaxJoinGroup {
+		if joinedNum < model.Param.MinerMaxJoinGroup {
 			candidates = append(candidates, id)
 		}
 	}
@@ -198,9 +198,12 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		return
 	}
 
+	topGroup := gm.groupChain.LastGroup()
+
 	var gis model.ConsensusGroupInitSummary
 
 	gis.ParentID = group.GroupID
+	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.PreGroup)
 
 	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height)
 	bi := base.Data2CommonHash([]byte(gn)).Big()
@@ -261,6 +264,12 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		log.Printf("ConsensusCreateGroupRawMessage hash diff\n")
+		return false
+	}
+
+	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
+	if preGroup == nil {
+		log.Printf("ConsensusCreateGroupRawMessage preGroup is nil, preGroupId=%v\n", msg.GI.PrevGroupID)
 		return false
 	}
 

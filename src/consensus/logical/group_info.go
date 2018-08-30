@@ -47,6 +47,7 @@ type StaticGroupInfo struct {
 	BeginHeight   uint64                    //组开始参与铸块的高度
 	DismissHeight uint64                    //组解散的高度
 	ParentId      groupsig.ID
+	PrevGroupID		groupsig.ID				//前一块组id
 	Signature     groupsig.Signature
 	Authority     uint64      //权限相关数据（父亲组赋予）
 	Name          string    //父亲组取的名字
@@ -76,6 +77,7 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 		BeginHeight:   summary.GIS.BeginCastHeight,
 		DismissHeight: summary.GIS.DismissHeight,
 		ParentId:      summary.GIS.ParentID,
+		PrevGroupID:   summary.GIS.PrevGroupID,
 		Signature:     summary.GIS.Signature,
 		Authority:     summary.GIS.Authority,
 		Name:          string(summary.GIS.Name[:]),
@@ -96,6 +98,7 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		MemIndex:    make(map[string]int),
 		DismissHeight: coreGroup.DismissHeight,
 		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
+		PrevGroupID:   *groupsig.DeserializeId(coreGroup.PreGroup),
 		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
 		Authority:     coreGroup.Authority,
 		Name:          coreGroup.Name,

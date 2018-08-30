@@ -44,6 +44,7 @@ type ConsensusParam struct {
 	GroupInitMaxSeconds int
 	Epoch	uint64
 	CheckCreateGroupGap	uint64
+	CreateGroupInterval uint64
 	MinerMaxJoinGroup int
 	CandidatesMinRatio int
 	GroupGetReadyGap uint64
@@ -72,6 +73,7 @@ func InitParam() {
 		GroupCastDuration: GROUP_CAST_DURATION,
 	}
 	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
+	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
 
 //取得门限值

@@ -21,10 +21,7 @@ func (p *Processor) genBelongGroupStoreFile() string {
 }
 
 func (p *Processor) prepareMiner()  {
-    rets := p.GroupChain.GetAllGroupID()
-	if len(rets) == 0 {
-		return
-	}
+
 	topHeight := p.MainChain.QueryTopBlock().Height
 
 	storeFile := p.genBelongGroupStoreFile()
@@ -34,11 +31,11 @@ func (p *Processor) prepareMiner()  {
 
 	}
 
-	log.Printf("prepareMiner get groups from groupchain, len=%v, belongGroup len=%v\n", len(rets), belongs.groupSize())
-	for _, gidBytes := range rets {
-		coreGroup := p.GroupChain.GetGroupById(gidBytes)
+	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
+	iterator := p.GroupChain.NewIterator()
+	for coreGroup := iterator.Current();iterator.MovePre();{
 		if coreGroup == nil {
-			panic("buildGlobalGroups getGroupById failed! gid=" + string(gidBytes))
+			panic("buildGlobalGroups getGroupById failed!")
 		}
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue

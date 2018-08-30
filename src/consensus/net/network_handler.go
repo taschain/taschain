@@ -374,6 +374,7 @@ func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummar
 	mhash.SetBytes(m.MemberHash)
 	message := model.ConsensusGroupInitSummary{
 		ParentID: parentId,
+		PrevGroupID: *groupsig.DeserializeId(m.PrevGroupID),
 		Authority: *m.Authority,
 		Name: name,
 		DummyID: dummyID,
