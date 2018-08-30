@@ -210,6 +210,7 @@ type CastGroupSummary struct {
 //组初始化共识摘要
 type ConsensusGroupInitSummary struct {
 	ParentID  groupsig.ID //父亲组ID
+	PrevGroupID	groupsig.ID
 	Signature groupsig.Signature	//父亲组签名
 	Authority uint64      //权限相关数据（父亲组赋予）
 	Name      [64]byte    //父亲组取的名字
@@ -271,6 +272,7 @@ func (gis *ConsensusGroupInitSummary) ReadyTimeout(height uint64) bool {
 //生成哈希
 func (gis *ConsensusGroupInitSummary) GenHash() common.Hash {
 	buf := gis.ParentID.Serialize()
+	buf = append(buf, gis.PrevGroupID.Serialize()...)
 	buf = strconv.AppendUint(buf, gis.Authority, 16)
 	buf = append(buf, []byte(gis.Name[:])...)
 	buf = append(buf, gis.DummyID.Serialize()...)

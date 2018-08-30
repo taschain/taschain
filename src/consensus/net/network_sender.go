@@ -296,6 +296,7 @@ func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_midd
 	}
 	message := tas_middleware_pb.ConsensusGroupInitSummary{
 		ParentID:        m.ParentID.Serialize(),
+		PrevGroupID: 	 m.PrevGroupID.Serialize(),
 		Authority:       &m.Authority,
 		Name:            name,
 		DummyID:         m.DummyID.Serialize(),
