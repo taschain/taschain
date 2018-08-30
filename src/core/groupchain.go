@@ -76,6 +76,10 @@ func (chain *GroupChain) NewIterator() *GroupIterator {
 	return &GroupIterator{current:chain.lastGroup}
 }
 
+func (chain *GroupChain) LastGroup() *types.Group {
+	return chain.lastGroup
+}
+
 func defaultGroupChainConfig() *GroupChainConfig {
 	return &GroupChainConfig{
 		group: "groupldb",
