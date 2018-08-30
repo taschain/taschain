@@ -11,7 +11,6 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
-	"sync/atomic"
 )
 
 /*
@@ -262,11 +261,10 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 			Gid: *nextId,
 			MemIds: mems,
 		}
-		if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
+		if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 			logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 			p.NetServer.BroadcastNewBlock(cbm, next)
 		}
-		p.triggerCastCheck()
 	}
 	return
 }
