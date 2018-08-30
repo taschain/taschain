@@ -87,7 +87,7 @@ type VerifyContext struct {
 
 	blockCtx *BlockContext
 
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader) *VerifyContext {
@@ -98,8 +98,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 
 func (vc *VerifyContext) resetSlotContext() {
 	for i := 0; i < model.MAX_CAST_SLOT; i++ {
-		sc := new(SlotContext)
-		sc.reset(vc.blockCtx.threshold())
+		sc := createSlotContext(vc.blockCtx.threshold())
 		vc.slots[i] = sc
 	}
 }
@@ -147,38 +146,11 @@ func (vc *VerifyContext) setTimeout() {
 	vc.consensusStatus = CBCS_TIMEOUT
 }
 
-//func (vc *VerifyContext) baseOnGeneisBlock() bool {
-//	return vc.castHeight == 1
-//}
 
 func (vc *VerifyContext) castExpire() bool {
     return time.Now().After(vc.expireTime)
 }
 
-//func (vc *VerifyContext) getMaxCastTime() int64 {
-//	var max int64
-//	defer func() {
-//		log.Printf("getMaxCastTime calc max time = %v sec\n", max)
-//	}()
-//
-//	//if vc.baseOnGeneisBlock() {
-//	//	max = math.MaxInt64
-//	//} else {
-//	//	preBH := vc.blockCtx.Proc.getBlockHeaderByHash(vc.prevHash)
-//	//	if preBH == nil {//TODO: handle preblock is nil. 有可能分叉处理, 把pre块删掉了
-//	//		log.Printf("[ERROR]getMaxCastTime: query pre blockheader fail! vctx.castHeight=%v, vctx.prevHash=%v\n", vc.castHeight, GetHashPrefix(vc.prevHash))
-//	//		//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
-//	//		max = -1
-//	//	} else {
-//	//		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
-//	//	}
-//	//
-//	//}
-//	//
-//	max = int64(vc.expireTime.Sub(vc.prevTime).Seconds())
-//
-//	return max
-//}
 
 //计算QN
 func (vc *VerifyContext) calcQN(timeEnd time.Time) int64 {
@@ -237,15 +209,11 @@ func (vc *VerifyContext) findEmptySlot() int32 {
 //检查是否要处理某个铸块槽
 //返回true需要处理，返回false可以丢弃。
 func (vc *VerifyContext) needHandleQN(qn int64) bool {
-	if vc.signedMaxQN == model.INVALID_QN { //当前该组还没有铸出过块
-		return true
-	} else { //当前该组已经有成功的铸块（来自某个铸块槽）
-		return qn > vc.signedMaxQN
-	}
+	return qn > vc.signedMaxQN
 }
 
 //完成（上链，向组外广播）某个铸块槽后更新当前高度的最小QN值
-func (vc *VerifyContext) signedUpdateMinQN(qn int64) bool {
+func (vc *VerifyContext) signedUpdateMaxQN(qn int64) bool {
 	b := vc.needHandleQN(qn)
 	if b {
 		vc.signedMaxQN = qn
@@ -274,12 +242,6 @@ func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int32, ret QN_QUERY_SL
 	return -1, QQSR_NO_UNKNOWN
 }
 
-//func (vc *VerifyContext) Rebase(bc *BlockContext, castHeight uint64, preTime time.Time, preHash common.Hash)  {
-//	vc.lock.Lock()
-//	defer vc.lock.Unlock()
-//	vc.rebase(bc, castHeight, preTime, preHash)
-//}
-
 func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
@@ -296,6 +258,13 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 //cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
 //=0, 接受; =1,接受，达到阈值；<0, 不接受。
 func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+	if bh.GenHash() != si.DataHash {
+		panic("acceptCV arg failed, hash not samed 1.")
+	}
+	if bh.Hash != si.DataHash {
+		panic("acceptCV arg failed, hash not samed 2")
+	}
+
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 	calcQN := vc.calcQN(bh.CurTime)
 	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
@@ -320,25 +289,14 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, sum
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		vc.slots[i] = newSlotContext(bh, si, vc.blockCtx.threshold())
-		if vc.slots[i].IsFailed() {
-			return CBMR_STATUS_FAIL
-		}
-		return CBMR_PIECE_NORMAL
-		//if vc.slots[i].transFulled {
-		//	return CBMR_PIECE_NORMAL
-		//} else {
-		//	return CBMR_PIECE_LOSINGTRANS
-		//}
-
-	} else { //该QN值对应的插槽已存在
-		if vc.slots[i].IsFailed() {
-			return CBMR_STATUS_FAIL
-		}
-		result := vc.slots[i].AcceptPiece(*bh, *si)
-		return result
+		vc.slots[i] = initSlotContext(bh, vc.blockCtx.threshold())
 	}
-	return CBMR_ERROR_UNKNOWN
+	slot := vc.slots[i]
+	if slot.IsFailed() {
+		return CBMR_STATUS_FAIL
+	}
+	result := slot.AcceptPiece(*bh, *si)
+	return result
 }
 
 //完成某个铸块槽的铸块（上链，组外广播）后，更新组的当前高度铸块状态
@@ -346,7 +304,7 @@ func (vc *VerifyContext) CastedUpdateStatus(qn int64) bool {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
-	vc.signedUpdateMinQN(qn)
+	vc.signedUpdateMaxQN(qn)
 
 	switch vc.consensusStatus {
 	case CBCS_IDLE, CBCS_TIMEOUT, CBCS_MAX_QN_BLOCKED: //不在铸块周期或已经铸出最大块
@@ -386,10 +344,12 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	if !accept {
 		return TRANS_DENY
 	}
-	if !slot.IsTransFull() {
+	if slot.HasTransLost() {
 		return TRANS_ACCEPT_NOT_FULL
 	}
-	if slot.gSignGenerator.Recovered() {
+	st := slot.GetSlotStatus()
+
+	if st == SS_RECOVERD || st == SS_VERIFIED {
 		return TRANS_ACCEPT_FULL_THRESHOLD
 	} else {
 		return TRANS_ACCEPT_FULL_PIECE
@@ -398,8 +358,8 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 
 //判断该context是否可以删除
 func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
 
 	//不在铸块或者已出最大块的, 可以删除
 	if !vc.isCasting() || vc.maxQNCasted() {
@@ -441,16 +401,6 @@ func (vc *VerifyContext) calcCastor() (int32, int64) {
 }
 
 func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
-	//firstKing := vc.getFirstCastor(vc.prevHash) //取得第一个铸块人位置
-	////log.Printf("mem_count=%v, first King pos=%v, qn=%v, cur King pos=%v.\n", bc.GroupMembers, firstKing, qn, int64(firstKing)+qn)
-	//mem := vc.blockCtx.GroupMembers
-	//if firstKing >= 0 {
-	//	index := int32((qn + int64(firstKing)) % int64(mem))
-	//	log.Printf("real King pos(MOD mem_count)=%v.\n", index)
-	//	return index
-	//} else {
-	//	return -1
-	//}
 	secret := vc.blockCtx.getGroupSecret()
 	if secret == nil {
 		 return -1

@@ -328,6 +328,15 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+	stateObject := self.GetOrNewAccountObject(addr)
+	if stateObject != nil {
+		return stateObject.DataIterator([]byte(prefix))
+	} else {
+		return nil
+	}
+}
+
 func (self *AccountDB) Copy() *AccountDB {
 	self.lock.Lock()
 	defer self.lock.Unlock()
@@ -461,7 +470,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		}
 		return nil
 	})
-	s.db.PushTrie(root, s.trie)
+	//s.db.PushTrie(root, s.trie)
 	logger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }

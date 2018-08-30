@@ -99,11 +99,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
 	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
-	if result == 0 {
-		p.triggerFutureVerifyMsg(block.Header.Hash)
-		p.groupManager.CreateNextGroupRoutine()
-		p.cleanVerifyContext(bh.Height)
-	} else if result == -1 {
+	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
 	}
 

@@ -24,6 +24,7 @@ import (
 	"network"
 	"taslog"
 	"os"
+	"middleware"
 )
 
 func TestConstractOnChain(t *testing.T)  {
@@ -103,8 +104,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
+	middleware.InitMiddleware()
 	BlockChainImpl.transactionPool.Clear()
-	//chain.Clear()
+	//BlockChainImpl.Clear()
 
 	// 查询创始块
 	blockHeader := BlockChainImpl.QueryTopBlock()
@@ -126,7 +128,7 @@ def Test(a, b, c, d):
 	print("hehe")
 `
 	// 交易1
-	txpool.Add(genTestTx("jdai1", 12345, "1", "2", 0, 1))
+	txpool.Add(genTestTx("jdai1", 12345, "100", "2", 0, 1))
 	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
 	//交易2

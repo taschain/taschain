@@ -384,3 +384,7 @@ func (t *Trie) Fstring() string{
 	}
 	return t.root.fstring("")
 }
+
+func (t *Trie) NodeIterator(start []byte) NodeIterator {
+	return newNodeIterator(t, start)
+}

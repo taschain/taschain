@@ -12,7 +12,6 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		return
 	}
 	block := message.GetData().(types.Block)
-	topBH := p.MainChain.QueryTopBlock()
 	preHeader := block.Header
 
 	for {
@@ -29,11 +28,12 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		p.removeFutureBlockMsgs(preHeader.Hash)
 		preHeader = p.MainChain.QueryTopBlock()
 	}
+	p.triggerCastCheck()
 
-	nowTop := p.MainChain.QueryTopBlock()
-	if topBH.Hash != nowTop.Hash {
-		p.triggerCastCheck()
-	}
+	p.triggerFutureVerifyMsg(block.Header.Hash)
+	p.groupManager.CreateNextGroupRoutine()
+	p.cleanVerifyContext(preHeader.Height)
+
 
 }
 
