@@ -48,9 +48,8 @@ func (p *Processor) prepareMiner()  {
 		if sgi.Dismissed(topHeight) {
 			continue
 		}
-		if !p.globalGroups.AddStaticGroup(sgi) {
-			continue
-		}
+		p.globalGroups.AddStaticGroup(sgi)
+
 		if sgi.MemExist(p.GetMinerID()) {
 			gid := sgi.GroupID
 			jg := belongs.getJoinedGroup(gid)
