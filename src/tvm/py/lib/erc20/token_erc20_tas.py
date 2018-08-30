@@ -21,7 +21,7 @@ class TokenERC20(object):
         if _from not in self.balanceOf:
             self.balanceOf[_from] = 0
         # 接收账户地址是否合法
-        require(_to.invalid())
+        require(Address(_to).invalid())
         # 账户余额是否满足转账金额
         require(self.balanceOf[_from] >= _value)
         # 检查转账金额是否合法
@@ -32,7 +32,7 @@ class TokenERC20(object):
         Event.emit("Transfer", _from, _to, _value)
 
     def transfer(self, _to, _value):
-        self._transfer(glovar.msg.sender, Address(_to), _value)
+        self._transfer(glovar.msg.sender, _to, _value)
 
     def transfer_from(self, _from, _to, _value):
         require(_value <= self.allowance[_from][glovar.msg.sender])

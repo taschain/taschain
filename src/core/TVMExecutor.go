@@ -38,7 +38,7 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 
 func(executer *TVMExecutor) Call(callerAddr common.Address, contractAddr common.Address, msg tvm.Msg, accountdb *core.AccountDB) bool {
 	contract := tvm.LoadContract(contractAddr)
-	newVm := tvm.NewTvm(&callerAddr, contract, "/Users/yushenghui/tas/src/tvm/py")
+	newVm := tvm.NewTvm(&callerAddr, contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
 	snapshot := accountdb.Snapshot()
 	if !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, string(msg.Data))){
 		accountdb.RevertToSnapshot(snapshot)
@@ -62,7 +62,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
 			contractAddress, _ = createContract(accountdb, transaction)
 			contract := tvm.LoadContract(contractAddress)
-			vm := tvm.NewTvm(transaction.Source, contract, "/Users/yushenghui/tas/src/tvm/py")
+			vm := tvm.NewTvm(transaction.Source, contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
 
 			msg = tvm.Msg{Data:[]byte{}, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
 			vm.Deploy(msg)
@@ -70,7 +70,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		} else if len(transaction.Data) > 0 {
 			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
 			contract := tvm.LoadContract(*transaction.Target)
-			vm := tvm.NewTvm(transaction.Source, contract, "/Users/yushenghui/tas/src/tvm/py")
+			vm := tvm.NewTvm(transaction.Source, contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
 			snapshot := accountdb.Snapshot()
 			msg = tvm.Msg{Data:transaction.Data, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
 			if !(vm.LoadContractCode() && vm.ExecuteABIJson(msg, string(transaction.Data))){

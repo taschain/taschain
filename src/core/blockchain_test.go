@@ -16,29 +16,33 @@
 package core
 
 import (
-	"testing"
 	"common"
+	"math/rand"
+	"testing"
+	"time"
 
 	"fmt"
+	"github.com/gin-gonic/gin/json"
 	"middleware/types"
 	"network"
-	"taslog"
 	"os"
-	"math/rand"
-	"github.com/gin-gonic/gin/json"
+	"taslog"
 	"tvm"
-	"time"
 )
 
 func OnChainFunc(code string){
+	OnChainFunc2(code, "0x1234")
+}
+
+func OnChainFunc2(code string, source string) {
 	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 	txpool := BlockChainImpl.GetTransactionPool()
-	txpool.Add(genContractTx(123456, "0x1234", "", 1, 0, []byte(code), nil, 0))
-	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress("0x1234").Bytes(), common.Uint64ToByte(0))))
+	txpool.Add(genContractTx(123456, source, "", 1, 0, []byte(code), nil, 0))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(0))))
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
@@ -53,7 +57,13 @@ func OnChainFunc(code string){
 	fmt.Println(contractAddr.GetHexString())
 }
 
+
+
 func CallContract(address, abi string) {
+	CallContract2(address, abi, "0x1234")
+}
+
+func CallContract2(address, abi string, source string) {
 	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	initBlockChain()
@@ -65,12 +75,72 @@ func CallContract(address, abi string) {
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(123456, "0x1234", contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
+	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		fmt.Println("fail to add empty block")
 	}
+}
+
+//func TestVmTest7(t *testing.T) {
+//
+//	transaction := types.Transaction{}
+//	transaction.GasLimit = 10000000
+//	EnvInit(nil, nil, nil, &transaction)
+//
+//	sender := common.HexToAddress("0x00000001")
+//	contract := Contract{}
+//	contractAddress := common.HexToAddress("0x00000002")
+//	contract.ContractAddress = &contractAddress
+//	contract.ContractName = "MyAdvancedToken"
+//	contract.Code = Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
+//	vm := NewTvm(&sender, &contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
+//
+//	vm.Execute(contract.Code)
+//
+//	msg := Msg{}
+//	msg.Value = 0
+//	msg.Sender = sender.GetHexString()
+//	vm.Deploy(msg)
+//
+//	j := ""
+//	j = `{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`
+//	vm.ExecuteABIJson(msg, j)
+//
+//	j = `{"FuncName": "set_prices", "Args": [100, 100]}`
+//	vm.ExecuteABIJson(msg, j)
+//
+//	j = `{"FuncName": "burn", "Args": [2500]}`
+//	vm.ExecuteABIJson(msg, j)
+//
+//	j = `{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`
+//	vm.ExecuteABIJson(msg, j)
+//}
+
+func TestVmTest(t *testing.T)  {
+	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
+
+	contract := tvm.Contract{code, "MyAdvancedToken", nil}
+	jsonString, _ := json.Marshal(contract)
+	fmt.Println(string(jsonString))
+	contractAddress := common.HexToAddress("0x00000001")
+	OnChainFunc2(string(jsonString), contractAddress.GetHexString())
+}
+
+func VmTest2(code string)  {
+	contractAddr := "0x27fe3e1d80e80c70f64055ed67cf428b36b5f994"
+	abi := code
+	contractAddress := common.HexToAddress("0x00000001")
+	CallContract2(contractAddr, abi, contractAddress.GetHexString())
+}
+
+func TestVmTest3(t *testing.T)  {
+
+	VmTest2(`{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`)
+	VmTest2(`{"FuncName": "set_prices", "Args": [100, 100]}`)
+	VmTest2(`{"FuncName": "burn", "Args": [2500]}`)
+	VmTest2(`{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`)
 }
 
 func TestContractOnChain(t *testing.T)  {
