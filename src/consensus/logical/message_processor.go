@@ -52,7 +52,7 @@ func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupS
 
 func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, bh *types.BlockHeader)  {
 	gpk := p.getGroupPubKey(gid)
-	if !slot.IsFailed() {
+	if slot.IsFailed() {
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "gen group sign fail")
 		return
 	}
@@ -65,8 +65,8 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 
 	bh.Signature = sign.Serialize()
 
-	if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
-		p.SuccessNewBlock(bh, vctx, gid) //上链和组外广播
+	if slot.IsVerified() {
+		p.SuccessNewBlock(bh, vctx, slot, gid) //上链和组外广播
 		//log.Printf("%v remove verifycontext from bccontext! remain size=%v\n", mtype, len(bc.verifyContexts))
 		statistics.AddLog(bh.Hash.String(),statistics.NewBlock,time.Now().UnixNano(),string(bh.Castor),p.mi.MinerID.String())
 	}

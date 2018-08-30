@@ -72,8 +72,7 @@ func (sig Signature) Serialize() []byte {
 }
 
 func (sig Signature) IsValid() bool {
-	s := sig.Serialize()
-	return len(s) > 0
+	return sig.value.IsValid()
 }
 
 //把签名转换为十六进制字符串

@@ -11,6 +11,7 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
+	"sync/atomic"
 )
 
 /*
@@ -221,7 +222,7 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, gid groupsig.ID) {
+func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, slot *SlotContext, gid groupsig.ID) {
 
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
@@ -251,7 +252,6 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		Block: *block,
 	}
 	if !PROC_TEST_MODE {
-		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		nextId := p.calcCastGroup(bh, bh.Height+1)
 		group := p.getGroup(*nextId)
 		mems := make([]groupsig.ID, len(group.Members))
@@ -262,7 +262,10 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 			Gid: *nextId,
 			MemIds: mems,
 		}
-		p.NetServer.BroadcastNewBlock(cbm, next)
+		if atomic.CompareAndSwapInt32(&slot.SlotStatus, SS_VERIFIED, SS_ONCHAIN) {
+			logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
+			p.NetServer.BroadcastNewBlock(cbm, next)
+		}
 		p.triggerCastCheck()
 	}
 	return
@@ -298,11 +301,11 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
-	var si model.SignData
-	si.DataHash = bh.Hash
-	si.SignMember = p.GetMinerID()
+	//var si model.SignData
+	//si.DataHash = bh.Hash
+	//si.SignMember = p.GetMinerID()
 
-	if bh.Height > 0 && si.DataSign.IsValid() && bh.Height == height && bh.PreHash == vctx.prevHash {
+	if bh.Height > 0 && bh.Height == height && bh.PreHash == vctx.prevHash {
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
@@ -318,7 +321,7 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 			}
 		}
 	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, ds=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, GetSignPrefix(si.DataSign), bh.Height, vctx.prevHash, bh.PreHash)
+		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevHash, bh.PreHash)
 		//panic("bh Error or sign Error.")
 		return nil
 	}
