@@ -24,6 +24,7 @@ import (
 	"io"
 	"golang.org/x/crypto/sha3"
 	"common"
+	"storage/trie"
 )
 
 var emptyCodeHash = sha3.Sum256(nil)
@@ -284,6 +285,10 @@ func (self *accountObject) Code(db Database) []byte {
 	}
 	self.code = code
 	return code
+}
+
+func (self *accountObject) DataIterator(prefix []byte) *trie.Iterator{
+	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
 }
 
 func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
