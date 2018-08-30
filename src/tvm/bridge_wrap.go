@@ -336,20 +336,23 @@ func (tvm *Tvm)SetGas(gas int) {
 	C.setGas(C.int(gas))
 }
 
-func (tvm *Tvm)DelTvm() bool{
+func (tvm *Tvm)DelTvm(){
 	//TODO 释放tvm环境
-	var c_bool C._Bool
-	script := fmt.Sprintf(`import account
-import ujson
-for k in tas_%s.__dict__:
-	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
 	if len(tvmStack) - 2 >= 0{
 		tvmObj = tvmStack[len(tvmStack)-2]
 	} else {
 		tvmObj = nil
 	}
 	tvmStack = tvmStack[:len(tvmStack)-1]
+}
+
+func(tvm *Tvm) StoreData() bool {
+	var c_bool C._Bool
+	script := fmt.Sprintf(`import account
+import ujson
+for k in tas_%s.__dict__:
+	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
 
