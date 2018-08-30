@@ -271,7 +271,7 @@ func bridge_init() {
 	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
-	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
+	//C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 }
 
 type Contract struct {
@@ -320,6 +320,7 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	C.tvm_start()
 	bridge_init()
 	tvm.SetGas(int(CurrentTransaction.GasLimit))
+	tvmObj = tvm
 	tvmStack = append(tvmStack, tvm)
 	return tvm
 }
@@ -335,14 +336,21 @@ func (tvm *Tvm)SetGas(gas int) {
 	C.setGas(C.int(gas))
 }
 
-func (tvm *Tvm)DelTvm() {
+func (tvm *Tvm)DelTvm() bool{
 	//TODO 释放tvm环境
+	var c_bool C._Bool
+	script := fmt.Sprintf(`import account
+import ujson
+for k in tas_%s.__dict__:
+	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
 	if len(tvmStack) - 2 >= 0{
 		tvmObj = tvmStack[len(tvmStack)-2]
 	} else {
 		tvmObj = nil
 	}
 	tvmStack = tvmStack[:len(tvmStack)-1]
+	return bool(c_bool)
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
@@ -371,13 +379,21 @@ type Msg struct {
 
 func(tvm *Tvm) LoadContractCode() bool {
 	var c_bool C._Bool
-	c_bool = C.tvm_execute(C.CString(tvm.Code))
+	script := fmt.Sprintf("%s\ntas_%s = %s()",tvm.Code, tvm.ContractName, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
+	if !bool(c_bool) {
+		return false
+	}
+	script = fmt.Sprintf(`import account
+import ujson
+for k in tas_%s.__dict__:
+	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
 
 func (tvm *Tvm)Execute(script string) bool {
 	var c_bool C._Bool
-	script = fmt.Sprintf("%s\ntas_%s = %s()",script, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -390,8 +406,7 @@ from clib.tas_runtime.address_tas import Address
 
 glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
 glovar.this = Address("%s")
-glovar.owner = Address("%s")
-`, msg.Sender, msg.Value, tvm.ContractAddress, tvm.ContractOwner)
+`, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
 

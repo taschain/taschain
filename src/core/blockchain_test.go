@@ -27,6 +27,7 @@ import (
 	"math/rand"
 	"github.com/gin-gonic/gin/json"
 	"tvm"
+	"time"
 )
 
 func OnChainFunc(code string){
@@ -61,9 +62,10 @@ func CallContract(address, abi string) {
 	groupid := new([]byte)
 	contractAddr := common.HexStringToAddress(address)
 	code := BlockChainImpl.latestStateDB.GetCode(contractAddr)
-	fmt.Println(code)
+	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
-	txpool.Add(genContractTx(123456, "0x1234", contractAddr.GetHexString(), rand.Uint64(), 0, []byte(abi), nil, 0))
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	txpool.Add(genContractTx(123456, "0x1234", contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
@@ -74,11 +76,16 @@ func CallContract(address, abi string) {
 func TestContractOnChain(t *testing.T)  {
 	code := `
 class A():
+	def __init__(self):
+		self.a = 10
+	
 	def deploy(self):
 		print("deploy")
 
 	def test(self):
+		self.a += 1
 		print("test")
+		print(self.a)
 `
 	contract := tvm.Contract{code, "A", nil}
 	jsonString, _ := json.Marshal(contract)
