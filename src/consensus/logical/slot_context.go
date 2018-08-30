@@ -26,6 +26,7 @@ import (
 	"consensus/model"
 	"log"
 	"gopkg.in/fatih/set.v0"
+	"fmt"
 )
 
 /*
@@ -237,4 +238,8 @@ func (sc SlotContext) IsValid() bool {
 
 func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
 	return atomic.CompareAndSwapInt32(&sc.slotStatus, from, to)
+}
+
+func (sc *SlotContext) TransBrief() string {
+    return fmt.Sprintf("总交易数%v，缺失%v", len(sc.BH.Transactions), sc.lostTransSize())
 }

@@ -132,22 +132,19 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
-	result = fmt.Sprintf("%v, %v", CBMR_RESULT_DESC(verifyResult), slot.gSignGenerator.Brief())
+	result = fmt.Sprintf("%v, %v, %v", CBMR_RESULT_DESC(verifyResult), slot.gSignGenerator.Brief(), slot.TransBrief())
 
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		log.Printf("proc(%v) %v msg_count reach threshold!\n", mtype, p.getPrefix())
 		if !slot.HasTransLost() {
 			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, bh)
-		} else {
-			logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 收到所有分片, 但缺失交易, 总共交易%v, 缺失%v", GetHashPrefix(bh.PreHash), len(bh.Transactions), slot.lostTransSize())
 		}
 
 	case CBMR_PIECE_NORMAL:
 		p.normalPieceVerify(mtype, sender, gid, slot, bh)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(bh.PreHash), len(bh.Transactions), slot.lostTransSize())
 	}
 }
 
