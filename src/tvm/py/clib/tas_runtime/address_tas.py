@@ -24,10 +24,6 @@ class Address(object):
         this_data.set_balance(this_data.get_balance() - _value)
         self.data.set_balance(self.data.get_balance() + _value)
 
-    def __json__(self):
-        print("jyi:")
-        return '{"class": "Address", "value": "{a}"}'.format(a=self.value)
-
     def __str__(self):
         return self.value
 
