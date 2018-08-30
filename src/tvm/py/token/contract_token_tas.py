@@ -57,6 +57,7 @@ class MyAdvancedToken(TokenERC20):
         self.name = "TAS"
         self.symbol = "%"
         self.totalSupply = 1000000
+        print("jyi:", type(glovar.msg.sender))
         self.balanceOf[glovar.msg.sender] = self.totalSupply
         glovar.owner = glovar.msg.sender
 

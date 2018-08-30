@@ -348,7 +348,8 @@ func (tvm *Tvm)DelTvm(){
 
 func(tvm *Tvm) StoreData() bool {
 	var c_bool C._Bool
-	script := fmt.Sprintf(`import account
+	script := fmt.Sprintf(`
+import account
 import ujson
 for k in tas_%s.__dict__:
 	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName)
@@ -387,10 +388,11 @@ func(tvm *Tvm) LoadContractCode() bool {
 	if !bool(c_bool) {
 		return false
 	}
-	script = fmt.Sprintf(`import account
+	script = fmt.Sprintf(`
+import account
 import ujson
 for k in tas_%s.__dict__:
-	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName, tvm.ContractName)
+	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName,  tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -407,8 +409,8 @@ from clib.tas_runtime import glovar
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
-glovar.msg = Msg(data=bytes(), sender=Address("%s"), value=%d)
-glovar.this = Address("%s")
+glovar.msg = Msg(data=bytes(), sender="%s", value=%d)
+glovar.this = "%s"
 `, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
