@@ -34,7 +34,6 @@ import (
 **  Description: 
 */
 
-
 const (
 	SS_INVALID  int32 = iota
 	SS_WAITING   //等待签名片段达到阈值
@@ -49,21 +48,21 @@ const (
 type SlotContext struct {
 	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
 	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
-	BH             types.BlockHeader             //出块头详细数据
-	QueueNumber    int64                         //铸块槽序号(<0无效)，等同于出块人序号。
-	King           groupsig.ID                   //出块者ID
+	BH             types.BlockHeader //出块头详细数据
+	QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
+	King           groupsig.ID       //出块者ID
 	gSignGenerator *model.GroupSignGenerator
 	slotStatus     int32
 	lostTxHash     set.Interface
 }
 
 func createSlotContext(threshold int) *SlotContext {
-    return &SlotContext{
-    	TimeRev: time.Now(),
-    	QueueNumber: model.INVALID_QN,
-    	slotStatus: SS_INVALID,
-    	gSignGenerator: model.NewGroupSignGenerator(threshold),
-    	lostTxHash: set.New(set.ThreadSafe),
+	return &SlotContext{
+		TimeRev:        time.Now(),
+		QueueNumber:    model.INVALID_QN,
+		slotStatus:     SS_INVALID,
+		gSignGenerator: model.NewGroupSignGenerator(threshold),
+		lostTxHash:     set.New(set.ThreadSafe),
 	}
 }
 
@@ -104,7 +103,9 @@ func (sc *SlotContext) AcceptTrans(ths []common.Hash) (bool) {
 	if l == 0 { //已经无缺失
 		return false
 	}
-	sc.lostTxHash.Remove(ths)
+	for _, tx := range ths {
+		sc.lostTxHash.Remove(tx)
+	}
 	return l > sc.lostTransSize()
 }
 
@@ -147,7 +148,6 @@ func (sc *SlotContext) IsRecovered() bool {
 func (sc *SlotContext) IsSuccess() bool {
 	return sc.GetSlotStatus() == SS_SUCCESS
 }
-
 
 type CAST_BLOCK_MESSAGE_RESULT int8 //出块和验证消息处理结果枚举
 
@@ -212,7 +212,6 @@ func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST
 	return CBMR_ERROR_UNKNOWN
 }
 
-
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
 func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 
@@ -237,5 +236,5 @@ func (sc SlotContext) IsValid() bool {
 }
 
 func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
-    return atomic.CompareAndSwapInt32(&sc.slotStatus, from, to)
+	return atomic.CompareAndSwapInt32(&sc.slotStatus, from, to)
 }
