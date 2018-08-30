@@ -84,12 +84,13 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				accountdb.RevertToSnapshot(snapshot)
 				fail = true
 				vm.DelTvm()
-				continue
 			}
-			if !vm.StoreData() {
-				accountdb.RevertToSnapshot(snapshot)
+			if !fail {
+				if !vm.StoreData() {
+					accountdb.RevertToSnapshot(snapshot)
+				}
+				vm.DelTvm()
 			}
-			vm.DelTvm()
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){
