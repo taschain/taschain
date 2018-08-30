@@ -229,7 +229,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		}
 	}
 	peerSize :=len(availablePeers)
-	maxCount := int(math.Sqrt(peerSize));
+	maxCount := int(math.Sqrt(float64(peerSize)));
 	if maxCount < 2 {
 		maxCount = 2
 	}
