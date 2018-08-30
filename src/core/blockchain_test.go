@@ -83,41 +83,6 @@ func CallContract2(address, abi string, source string) {
 	}
 }
 
-//func TestVmTest7(t *testing.T) {
-//
-//	transaction := types.Transaction{}
-//	transaction.GasLimit = 10000000
-//	EnvInit(nil, nil, nil, &transaction)
-//
-//	sender := common.HexToAddress("0x00000001")
-//	contract := Contract{}
-//	contractAddress := common.HexToAddress("0x00000002")
-//	contract.ContractAddress = &contractAddress
-//	contract.ContractName = "MyAdvancedToken"
-//	contract.Code = Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
-//	vm := NewTvm(&sender, &contract, "/Users/guangyujing/workspace/tas/src/tvm/py")
-//
-//	vm.Execute(contract.Code)
-//
-//	msg := Msg{}
-//	msg.Value = 0
-//	msg.Sender = sender.GetHexString()
-//	vm.Deploy(msg)
-//
-//	j := ""
-//	j = `{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`
-//	vm.ExecuteABIJson(msg, j)
-//
-//	j = `{"FuncName": "set_prices", "Args": [100, 100]}`
-//	vm.ExecuteABIJson(msg, j)
-//
-//	j = `{"FuncName": "burn", "Args": [2500]}`
-//	vm.ExecuteABIJson(msg, j)
-//
-//	j = `{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`
-//	vm.ExecuteABIJson(msg, j)
-//}
-
 func TestVmTest(t *testing.T)  {
 	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
 
