@@ -38,10 +38,12 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
 	for i := 0; i < len(tx); i++ {
-		keybuf.Reset()
-		serialize.Encode(keybuf, uint(i))
-		encode, _ := serialize.EncodeToBytes(tx[i])
-		trie.Update(keybuf.Bytes(), encode)
+		if tx[i] != nil {
+			keybuf.Reset()
+			serialize.Encode(keybuf, uint(i))
+			encode, _ := serialize.EncodeToBytes(tx[i])
+			trie.Update(keybuf.Bytes(), encode)
+		}
 	}
 	hash := trie.Hash()
 
@@ -56,10 +58,12 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
 	for i := 0; i < len(receipts); i++ {
-		keybuf.Reset()
-		serialize.Encode(keybuf, uint(i))
-		encode, _ := serialize.EncodeToBytes(receipts[i])
-		trie.Update(keybuf.Bytes(), encode)
+		if receipts[i] != nil {
+			keybuf.Reset()
+			serialize.Encode(keybuf, uint(i))
+			encode, _ := serialize.EncodeToBytes(receipts[i])
+			trie.Update(keybuf.Bytes(), encode)
+		}
 	}
 	hash := trie.Hash()
 
