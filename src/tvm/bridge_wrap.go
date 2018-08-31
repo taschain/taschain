@@ -242,6 +242,26 @@ func GetCurrentTvm() *Tvm {
 	return tvmObj
 }
 
+func Call(callerAddr common.Address, contractAddr common.Address, msg Msg) bool {
+	contract := LoadContract(contractAddr)
+	gasLeft := GetCurrentTvm().Gas()
+	newVm := NewTvm(&callerAddr, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	newVm.SetGas(gasLeft)
+	snapshot := AccountDB.Snapshot()
+	if !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, string(msg.Data))){
+		AccountDB.RevertToSnapshot(snapshot)
+		newVm.DelTvm()
+		return false
+	}
+	if !newVm.StoreData() {
+		AccountDB.RevertToSnapshot(snapshot)
+	}
+	gasLeft = newVm.Gas()
+	newVm.DelTvm()
+	GetCurrentTvm().SetGas(gasLeft)
+	return true
+}
+
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
