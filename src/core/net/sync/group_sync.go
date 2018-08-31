@@ -10,7 +10,6 @@ import (
 	"taslog"
 	"middleware/pb"
 	"middleware/types"
-	"fmt"
 	"network"
 )
 
@@ -158,7 +157,7 @@ func (gs *groupSyncer) loop() {
 					requestGroupByHeight(groupInfo.SourceId, localHeight+1)
 				} else {
 					if !gs.init {
-						fmt.Printf("group sync init finish,local group height:%d\n", core.GroupChainImpl.Count())
+						logger.Debugf("group sync init finish,local group height:%d\n", core.GroupChainImpl.Count())
 						gs.init = true
 						continue
 					}
