@@ -179,7 +179,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		return
 	}
 	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:body}
-	ns.net.TransmitToNeighbor(headerMsg)
+	ns.net.Relay(headerMsg,1)
 	network.Logger.Debugf("spread block %d-%d header to neighbor,header size %d,hash:%v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body), cbm.Block.Header.Hash)
 }
 
