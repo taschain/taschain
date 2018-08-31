@@ -27,9 +27,12 @@ import (
 	"middleware/types"
 	"redis"
 	"middleware/notify"
+	"utility"
+	"bytes"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
+const GROUP_COUNT_KEY = "gcount"
 
 var GroupChainImpl *GroupChain
 
@@ -51,7 +54,8 @@ type GroupChain struct {
 
 	lastGroup *types.Group
 
-	preCache map[string]*types.Group
+	//preCache map[string]*types.Group
+	preCache *sync.Map
 }
 
 type GroupIterator struct {
@@ -62,14 +66,9 @@ func (iterator *GroupIterator)Current() *types.Group {
 	return iterator.current
 }
 
-func (iterator *GroupIterator)MovePre() bool{
-	pre := GroupChainImpl.GetGroupById(iterator.current.PreGroup)
-	if nil == pre{
-		return false
-	} else{
-		iterator.current = pre
-		return true
-	}
+func (iterator *GroupIterator)MovePre()*types.Group {
+	iterator.current = GroupChainImpl.GetGroupById(iterator.current.PreGroup)
+	return iterator.current
 }
 
 func (chain *GroupChain) NewIterator() *GroupIterator {
@@ -104,7 +103,7 @@ func ClearGroup(config *GroupChainConfig) {
 func initGroupChain() error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
-		preCache: make(map[string]*types.Group),
+		preCache: new(sync.Map),
 	}
 
 	var err error
@@ -121,21 +120,16 @@ func initGroupChain() error {
 }
 
 func build(chain *GroupChain) {
-	last, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
+	lastId, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
+	count,_ := chain.groups.Get([]byte(GROUP_COUNT_KEY))
 	var lastGroup *types.Group
-	if nil == last {
-		// 创始块
-		gen := types.GenesisGroup()
-		if nil == chain.save(gen, false){
-			lastGroup = gen
-		} else {
-			panic("GenesisGroup fail")
-		}
-	} else {
-		err := json.Unmarshal(last, &lastGroup)
+	if lastId != nil{
+		data,_ := chain.groups.Get(lastId)
+		err := json.Unmarshal(data, &lastGroup)
 		if err != nil {
 			panic("build group Unmarshal fail")
 		}
+		chain.count = utility.ByteToUInt64(count)
 	}
 	chain.lastGroup = lastGroup
 
@@ -161,7 +155,7 @@ func intToBytes(n uint64) []byte {
 }
 
 func (chain *GroupChain) Count() uint64 {
-	return chain.count - 1
+	return chain.count
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
@@ -215,6 +209,41 @@ func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
 	return nil
 }
 
+func (chain *GroupChain) GetOtherLackGroups(topId []byte,existIds [][]byte) ([]*types.Group) {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+	return chain.getOtherLackGroups(topId ,existIds)
+}
+
+func (chain *GroupChain) getOtherLackGroups(topId []byte,existIds [][]byte) ([]*types.Group) {
+	result := make([]*types.Group,0)
+	for group := chain.lastGroup;group != nil && !bytes.Equal(topId,group.Id);group = chain.getPreGroup(group){
+		if filt(existIds, group.Id){
+			continue
+		} else {
+			result = append(result, group)
+		}
+	}
+	return result
+}
+
+func (chain *GroupChain) getPreGroup(group *types.Group)*types.Group{
+	if group.PreGroup != nil{
+		return chain.getGroupById(group.PreGroup)
+	} else {
+		return nil
+	}
+}
+
+func filt(existIds [][]byte, target []byte) bool {
+	for _,id := range existIds{
+		if bytes.Equal(id,target){
+			return true
+		}
+	}
+	return false
+}
+
 func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
 	chain.lock.RLock()
 	defer chain.lock.RUnlock()
@@ -236,15 +265,29 @@ func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 	return group
 }
 
+func (chain *GroupChain) MissingGroupIds() [][]byte{
+	result := make([][]byte,0)
+	chain.preCache.Range(func(key, value interface{}) bool {
+		result = append(result,[]byte(key.(string)))
+		return true
+	})
+
+	return result
+}
+
 func (chain *GroupChain) repairPreGroup(groupId []byte){
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
 	for{
-		if group,ok := chain.preCache[string(groupId)];ok{
-			chain.save(group, true)
-			chain.lastGroup = group
-			groupId = group.Id
+		if group,ok := chain.preCache.Load(string(groupId));ok{
+			if group,ok := group.(*types.Group);ok {
+				if nil == chain.save(group, true) {
+					chain.lastGroup = group
+					chain.preCache.Delete(string(groupId))
+					groupId = group.Id
+				}
+			}
 		} else {
 			break
 		}
@@ -271,7 +314,7 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 		if nil != group.PreGroup{
 			exist,_ := chain.groups.Has(group.PreGroup)
 			if !exist{
-				chain.preCache[string(group.PreGroup)] = group
+				chain.preCache.Store(string(group.PreGroup), group)
 				return fmt.Errorf("pre group is not existed")
 			}
 		}
@@ -304,22 +347,14 @@ func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
 		return err
 	}
 
-	if group.Dummy != nil {
-		//chain.groups.Put(generateKey(chain.count), group.Dummy)
-		if !overWrite {
-			chain.count++
-		}
-		chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Dummy)
-		fmt.Printf("[group]put dummy succ.count: %d,  overwrite: %t, dummy id:%x \n", chain.count, overWrite, group.Dummy)
-		return chain.groups.Put(group.Dummy, data)
-	} else {
 		chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
 		if !overWrite {
 			chain.count++
+			chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
 		}
 		fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
 
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 		return chain.groups.Put(group.Id, data)
-	}
+
 }

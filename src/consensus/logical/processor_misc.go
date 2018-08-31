@@ -33,8 +33,7 @@ func (p *Processor) prepareMiner()  {
 
 	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
-	for coreGroup := iterator.Current();iterator.MovePre();{
-		log.Printf("iterate group gid=%v\n", coreGroup.Id)
+	for coreGroup := iterator.Current(); iterator.Current() != nil;coreGroup = iterator.MovePre(){
 		if coreGroup == nil {
 			panic("buildGlobalGroups getGroupById failed!")
 		}
