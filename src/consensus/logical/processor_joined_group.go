@@ -58,6 +58,7 @@ func (bg *BelongGroups) commit() bool {
 	if atomic.LoadInt32(&bg.dirty) != 1 {
 		return false
 	}
+	log.Printf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
     gs := make([]*JoinedGroup, 0)
     bg.groups.Range(func(key, value interface{}) bool {
 		jg := value.(*JoinedGroup)
@@ -130,8 +131,8 @@ func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
 	for _, gid := range gids {
 		bg.groups.Delete(gid.GetHexString())
+		atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 	}
-	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 	bg.commit()
 }
 

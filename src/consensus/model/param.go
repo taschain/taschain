@@ -24,7 +24,6 @@ const (
 
 
 	EPOCH uint64 = 8
-	CHECK_CREATE_GROUP_HEIGHT_AFTER uint64 = 10	//启动建组的块高度差
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
@@ -43,7 +42,6 @@ type ConsensusParam struct {
 	MaxFutureBlock int
 	GroupInitMaxSeconds int
 	Epoch	uint64
-	CheckCreateGroupGap	uint64
 	CreateGroupInterval uint64
 	MinerMaxJoinGroup int
 	CandidatesMinRatio int
@@ -65,7 +63,6 @@ func InitParam() {
 		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
 		Epoch: EPOCH,
-		CheckCreateGroupGap: CHECK_CREATE_GROUP_HEIGHT_AFTER,
 		MinerMaxJoinGroup: MINER_MAX_JOINED_GROUP,
 		CandidatesMinRatio: CANDIDATES_MIN_RATIO,
 		GroupGetReadyGap: GROUP_GET_READY_GAP,

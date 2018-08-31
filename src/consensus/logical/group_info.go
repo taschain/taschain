@@ -285,9 +285,11 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
-			last := gg.groups[len(gg.groups)-1]
-			if last.BeginHeight >= g.BeginHeight {
-				panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+			if len(gg.groups) > 0 {
+				last := gg.groups[len(gg.groups)-1]
+				if last.BeginHeight >= g.BeginHeight {
+					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+				}
 			}
 			gg.groups = append(gg.groups, g)
 			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1

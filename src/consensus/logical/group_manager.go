@@ -51,10 +51,11 @@ func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *St
 	defer func() {
 		log.Printf("checkCreateNextGroup topHeight=%v, create %v\n", topHeight, create)
 	}()
-	blockHeight := topHeight - model.Param.CheckCreateGroupGap
-	if blockHeight % model.Param.CreateGroupInterval != 0 {
+	if topHeight % model.Param.CreateGroupInterval != 0 {
 		return
 	}
+	blockHeight := topHeight - model.Param.CreateGroupInterval
+
 	theBH = gm.mainChain.QueryBlockByHeight(blockHeight)
 	if theBH == nil || theBH.GroupId == nil || len(theBH.GroupId) == 0 {
 		create = false
@@ -177,6 +178,26 @@ func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
 		pubs = append(pubs, *pk)
 	}
     return pubs
+}
+
+func (gm *GroupManager) CheckGIS(gis *model.ConsensusGroupInitSummary, isGroupMember bool) bool {
+	//topGroup := gm.groupChain.LastGroup()
+	//topBH := gm.mainChain.QueryTopBlock()
+	//
+	//key := "CheckGIS"
+	//deltaH := topBH.Height - gis.TopHeight
+	//if deltaH < 0 || deltaH >= model.Param.CreateGroupInterval {
+	//	log.Printf("%v topHeight error. topHeight=%v, gis topHeight=%v\n",  topBH.Height, gis.TopHeight)
+	//	return false
+	//}
+	//
+	//create, group, bh := gm.checkCreateGroup(gis.TopHeight)
+	//if group == nil {
+	//	log.Printf("CheckGIS")
+	//	return false
+	//}
+
+	return true
 }
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
