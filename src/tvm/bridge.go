@@ -235,7 +235,7 @@ func TxGasLimit() C.ulonglong{
 
 //export ContractCall
 func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
-
+	fmt.Println(addressC, funName, jsonParms)
 }
 
 //TODO 合约call合约

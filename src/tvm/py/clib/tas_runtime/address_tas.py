@@ -1,7 +1,7 @@
 
 # from clib.tas_runtime.contract import Contract
 from clib.tas_runtime import glovar
-
+import account
 
 class Address(object):
     this = ""
@@ -44,6 +44,7 @@ class Address(object):
         self.data = state["data"]
 
     def call(self, function_name, *args, **kwargs):
-        pass
+        account.contractCall("0x1", "abc", "bca")
+
 
 

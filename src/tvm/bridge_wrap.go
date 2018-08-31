@@ -352,7 +352,11 @@ func(tvm *Tvm) StoreData() bool {
 import account
 import ujson
 for k in tas_%s.__dict__:
-	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName)
+#	print(k)
+#	print(type(k))
+#	print(tas_%s.__dict__[k])
+#	print(type(tas_%s.__dict__[k]))
+	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -392,7 +396,11 @@ func(tvm *Tvm) LoadContractCode() bool {
 import account
 import ujson
 for k in tas_%s.__dict__:
-	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName,  tvm.ContractName)
+#	print(k)
+#	print(type(k))
+#	value = ujson.loads(account.get_state("", k))
+#	print(value)
+	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }

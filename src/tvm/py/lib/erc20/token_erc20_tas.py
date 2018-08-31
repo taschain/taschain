@@ -49,7 +49,7 @@ class TokenERC20(object):
 
     def approveAndCall(self, _spender, _value, _extraData):
         spender = Address(_spender)
-        if self.approve(spender, _value):
+        if self.approve(_spender, _value):
             spender.call("receive_approval", glovar.msg.sender, _value, glovar.this, _extraData)
             return True
         else:
