@@ -82,13 +82,13 @@ func (bs *blockSyncer) sync() {
 	bestNodeId := bs.bestNode
 	bs.lock.Unlock()
 	if maxTotalQN <= localTotalQN {
-		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
+		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			bs.init = true
 		}
 		return
 	} else {
-		//logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
+		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
 		if core.BlockChainImpl.IsAdujsting() {
 			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
@@ -103,13 +103,13 @@ func (bs *blockSyncer) loop() {
 	for {
 		select {
 		case sourceId := <-bs.ReqTotalQnCh:
-			//logger.Debugf("[BlockSyncer] Request total qn from:%s", sourceId)
+			logger.Debugf("[BlockSyncer] Request total qn from:%s", sourceId)
 			if nil == core.BlockChainImpl {
 				return
 			}
 			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN())
 		case h := <-bs.TotalQnCh:
-			//logger.Debugf("[BlockSyncer] Receive total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
+			logger.Debugf("[BlockSyncer] Receive total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
 			if !bs.init{
 				bs.replyCount++
 			}
@@ -123,7 +123,7 @@ func (bs *blockSyncer) loop() {
 			if !bs.init{
 				continue
 			}
-			//logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
+			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			go bs.sync()
 		}
 	}
