@@ -68,7 +68,7 @@ type Server struct {
 
 	run      int32
 	codecsMu sync.Mutex
-	codecs   *set.Set
+	codecs   set.Interface
 }
 
 type rpcRequest struct {

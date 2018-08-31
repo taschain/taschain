@@ -45,7 +45,7 @@ func NewWSServer(allowedOrigins []string, srv *Server) *http.Server {
 }
 
 func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http.Request) error {
-	origins := set.New()
+	origins := set.New(set.ThreadSafe)
 	allowAllOrigins := false
 
 	for _, origin := range allowedOrigins {

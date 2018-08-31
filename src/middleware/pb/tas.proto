@@ -109,8 +109,6 @@ message BlockSlice{
 }
 
 
-
-
 message Member{
 
     required bytes Id = 1;
@@ -151,6 +149,15 @@ message GroupSlice{
     repeated Group Groups = 1;
 }
 
+message GroupIdSlice{
+    repeated bytes GroupIds = 1;
+}
+
+message GroupRequestInfo{
+    required bytes CurrentTopGroupId  =1;
+
+    optional GroupIdSlice ExistGroupIds =2;
+}
 
 message BlockRequestInfo{
 

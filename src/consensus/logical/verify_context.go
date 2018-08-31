@@ -170,7 +170,7 @@ func (vc *VerifyContext) castExpire() bool {
 //	//		//panic("[ERROR]getMaxCastTime: query pre blockheader nil!!!")
 //	//		max = -1
 //	//	} else {
-//	//		max = int64(vc.castHeight - preBH.Height) * int64(MAX_GROUP_BLOCK_TIME)
+//	//		max = int64(vc.castHeight - preBH.Count) * int64(MAX_GROUP_BLOCK_TIME)
 //	//	}
 //	//
 //	//}

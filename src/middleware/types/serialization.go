@@ -245,6 +245,14 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 	return &group
 }
 
+func PbToGroups(g *tas_middleware_pb.GroupSlice) []*Group {
+	result := make([]*Group, 0)
+	for _,group := range g.Groups{
+		result = append(result, PbToGroup(group))
+	}
+	return result
+}
+
 func pbToMember(m *tas_middleware_pb.Member) *Member {
 	member := Member{Id: m.Id, PubKey: m.PubKey}
 	return &member

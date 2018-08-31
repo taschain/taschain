@@ -234,7 +234,7 @@ def Test(a, b, c, d):
 	//}
 	////最新块是块4
 	//blockHeader = BlockChainImpl.QueryTopBlock()
-	//if nil == blockHeader || 2 != blockHeader.Height || blockHeader.Hash != block4.Header.Hash {
+	//if nil == blockHeader || 2 != blockHeader.Count || blockHeader.Hash != block4.Header.Hash {
 	//	t.Fatalf("add block4 failed")
 	//}
 	//blockHeader = BlockChainImpl.QueryBlockByHeight(3)

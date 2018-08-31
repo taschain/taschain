@@ -196,7 +196,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
 		n.consensusHandler.Handle(from, *message)
 	case ReqTransactionMsg, ReqBlockChainTotalQnMsg, BlockChainTotalQnMsg, ReqBlockInfo, BlockInfo,
-		ReqGroupChainHeightMsg, GroupChainHeightMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
+		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
 		n.chainHandler.Handle(from, *message)
 	case NewBlockMsg:
 		n.consensusHandler.Handle(from, *message)

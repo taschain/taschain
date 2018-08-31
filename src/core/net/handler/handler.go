@@ -97,18 +97,17 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		onMessageNewBlock(block)
 
-	case network.ReqGroupChainHeightMsg:
+	case network.ReqGroupChainCountMsg:
 		sync.GroupSyncer.ReqHeightCh <- sourceId
-	case network.GroupChainHeightMsg:
+	case network.GroupChainCountMsg:
 		height := utility.ByteToUInt64(msg.Body)
-		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
-		sync.GroupSyncer.HeightCh <- ghi
+		ghi := sync.GroupCountInfo{Count: height, SourceId: sourceId}
+		sync.GroupSyncer.CountCh <- ghi
 	case network.ReqGroupMsg:
-		baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
-		sync.GroupSyncer.ReqGroupCh <- gri
+		gri,_ := unMarshalGroupRequestInfo(msg.Body)
+		sync.GroupSyncer.ReqGroupCh <- *gri
 	case network.GroupMsg:
-		m, e := unMarshalGroupInfo(msg.Body)
+		m, e := unMarshalGroupInfos(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 			return e
@@ -502,6 +501,28 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 	}
 	groupInfo := sync.GroupInfo{Group: types.PbToGroup(message.Group), IsTopGroup: *message.IsTopGroup}
 	return &groupInfo, nil
+}
+
+func unMarshalGroupRequestInfo(b []byte) (*sync.GroupRequestInfo, error) {
+	message := new(tas_middleware_pb.GroupRequestInfo)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalGroupInfos error:%s", e.Error())
+		return nil, e
+	}
+	groupInfos := sync.GroupRequestInfo{CurrentTopGroupId:message.CurrentTopGroupId,ExistGroupIds:message.ExistGroupIds.GroupIds}
+	return &groupInfos, nil
+}
+
+func unMarshalGroupInfos(b []byte) (*sync.GroupInfos, error) {
+	message := new(tas_middleware_pb.GroupSlice)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalGroupInfos error:%s", e.Error())
+		return nil, e
+	}
+	groupInfos := sync.GroupInfos{Groups: types.PbToGroups(message)}
+	return &groupInfos, nil
 }
 
 func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {

@@ -103,7 +103,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	//log.Printf("%v message bh %v, top bh %v\n", mtype, p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
 	if p.blockOnChain(bh) {
-		//log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
+		//log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Count)
 		result = "已经上链"
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
 		return
@@ -330,7 +330,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
 					//_, ret := p.verifyBlock(&slot.BH)
 					//if ret != 0 {
-					//	logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
+					//	logHalfway(mtype, slot.BH.Count, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
 					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					//} else {
 					//	p.normalPieceVerify(mtype, p.getPrefix(), bc.MinerID.gid, slot, &slot.BH)
@@ -340,7 +340,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					//_, ret := p.verifyBlock(&slot.BH)
 					//if ret != 0 {
-					//	logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
+					//	logHalfway(mtype, slot.BH.Count, slot.BH.QueueNumber, p.getPrefix(), "all trans got, but verify fail, result=%v", ret)
 					//	log.Printf("verify block failed!, won't sendVerifiedCast!bh=%v, ret=%v\n", p.blockPreview(&slot.BH), ret)
 					//	continue
 					//}

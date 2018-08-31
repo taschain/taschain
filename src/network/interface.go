@@ -43,9 +43,9 @@ const (
 	BlockInfo uint32 = 0x12
 
 	//-----------组同步---------------------------------
-	ReqGroupChainHeightMsg uint32 = 0x13
+	ReqGroupChainCountMsg uint32 = 0x13
 
-	GroupChainHeightMsg uint32 = 0x14
+	GroupChainCountMsg uint32 = 0x14
 
 	ReqGroupMsg uint32 = 0x15
 

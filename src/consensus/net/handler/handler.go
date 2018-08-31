@@ -138,8 +138,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 		//fmt.Println("Get CAST_VERIFY_MSG!")
-		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Count)
+		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Count, m.BH.Castor)
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 		//	mediator.Proc.OnMessageCast(*msg.(*logical.ConsensusCastMessage))
 		//})
@@ -153,8 +153,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 			return nil, e
 		}
 
-		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Height)
-		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Height, m.BH.Castor)
+		//machine := net.TimeSeq.GetBlockStateMachine(m.BH.GroupId, m.BH.Count)
+		//key := net.GenerateBlockMachineKey(m.BH.GroupId, m.BH.Count, m.BH.Castor)
 		//machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 		//	mediator.Proc.OnMessageVerify(*msg.(*logical.ConsensusVerifyMessage))
 		//})
@@ -185,8 +185,8 @@ func (c *ConsensusHandler) HandlerMessage(code uint32, body []byte, sourceId str
 		//b := &m.Block
 		//belongGroup := mediator.Proc.IsMinerGroup(m.GroupID)
 		//if belongGroup {
-		//	machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Height)
-		//	key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Height, m.Block.Header.Castor)
+		//	machine := net.TimeSeq.GetBlockStateMachine(m.Block.Header.GroupId, m.Block.Header.Count)
+		//	key := net.GenerateBlockMachineKey(m.Block.Header.GroupId, m.Block.Header.Count, m.Block.Header.Castor)
 		//	machine.Transform(net.NewStateMsg(code, m, sourceId, key), func(msg interface{}) {
 		//		mediator.Proc.OnMessageBlock(*msg.(*logical.ConsensusBlockMessage))
 		//	})
