@@ -40,7 +40,7 @@ func memberExistIn(mems *[]model.PubKeyInfo, id groupsig.ID) bool {
 func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 	code := msg.Code
 	body := msg.Body
-	if !c.processor.Ready() {
+	if c.processor == nil ||!c.processor.Ready() {
 		log.Printf("message ingored because processor not ready. code=%v\n", code)
 		return fmt.Errorf("processor not ready yet")
 	}
