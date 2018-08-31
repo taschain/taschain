@@ -238,6 +238,10 @@ var Reader vm.ChainReader
 var tvmStack []*Tvm
 var tvmObj *Tvm
 
+func GetCurrentTvm() *Tvm {
+	return tvmObj
+}
+
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))

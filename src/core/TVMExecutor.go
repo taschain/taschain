@@ -38,7 +38,9 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 
 func(executer *TVMExecutor) Call(callerAddr common.Address, contractAddr common.Address, msg tvm.Msg, accountdb *core.AccountDB) bool {
 	contract := tvm.LoadContract(contractAddr)
+	gasLeft := tvm.GetCurrentTvm().Gas()
 	newVm := tvm.NewTvm(&callerAddr, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	newVm.SetGas(gasLeft)
 	snapshot := accountdb.Snapshot()
 	if !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, string(msg.Data))){
 		accountdb.RevertToSnapshot(snapshot)
@@ -48,7 +50,9 @@ func(executer *TVMExecutor) Call(callerAddr common.Address, contractAddr common.
 	if !newVm.StoreData() {
 		accountdb.RevertToSnapshot(snapshot)
 	}
+	gasLeft = newVm.Gas()
 	newVm.DelTvm()
+	tvm.GetCurrentTvm().SetGas(gasLeft)
 	return true
 }
 
