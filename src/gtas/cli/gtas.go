@@ -274,6 +274,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
+	sync.InitGroupSyncer()
+	sync.InitBlockSyncer()
 	// TODO gov, ConsensusInit? StartMiner?
 	ok := global.InitGov(core.BlockChainImpl)
 	if !ok {
@@ -300,9 +302,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	}
 
 	mediator.Proc.BeginGenesisGroupMember()
-
-	sync.InitGroupSyncer()
-	sync.InitBlockSyncer()
 	return nil
 }
 
