@@ -163,10 +163,7 @@ func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
 		if save {
 			p.belongGroups.commit()
 		}
-	} else {
-		log.Printf("Error::Processor::joinGroup failed, already exist.\n")
 	}
-	log.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), GetSecKeyPrefix(g.SignKey))
 	return
 }
 

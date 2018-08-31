@@ -43,20 +43,17 @@ func (p *Processor) prepareMiner()  {
 		sgi := NewSGIFromCoreGroup(coreGroup)
 		log.Printf("load group=%v, topHeight=%v\n", GetIDPrefix(sgi.GroupID), topHeight)
 		if sgi.Dismissed(topHeight) {
-			continue
+			break
 		}
-		p.globalGroups.AddStaticGroup(sgi)
-
 		if sgi.MemExist(p.GetMinerID()) {
-			gid := sgi.GroupID
-			jg := belongs.getJoinedGroup(gid)
+			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				log.Println("cannot find joinedgroup infos! gid=" + GetIDPrefix(gid))
-				continue
+				log.Printf("prepareMiner get join group fail, gid=%v\n", sgi.GroupID)
+			} else {
+				p.joinGroup(jg, true)
 			}
-			p.joinGroup(jg, false)
-			p.prepareForCast(sgi)
 		}
+		p.acceptGroup(sgi)
 	}
 }
 

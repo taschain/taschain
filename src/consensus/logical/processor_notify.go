@@ -41,7 +41,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(types.Group)
 	sgi := NewSGIFromCoreGroup(&group)
 	log.Printf("groupAddEventHandler receive message, groupId=%v\n", GetIDPrefix(sgi.GroupID))
-	p.globalGroups.AddStaticGroup(sgi)
+	p.acceptGroup(sgi)
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message)  {

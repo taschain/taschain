@@ -269,13 +269,12 @@ func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
 	gg.generator.removeInitingGroup(dummyId)
 }
 
-func (gg *GlobalGroups) findPos(g *StaticGroupInfo) int {
-	for idx, group := range gg.groups {
-		if group.BeginHeight > g.BeginHeight {
-			return idx
-		}
+func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
+	if len(gg.groups) == 0 {
+		return true
 	}
-	return -1
+	last := gg.groups[len(gg.groups)-1]
+	return last.GroupID.IsEqual(g.PrevGroupID)
 }
 
 //增加一个合法铸块组
@@ -285,28 +284,19 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 
 	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
-		gg.groups = append(gg.groups, g)
-		insert := gg.findPos(g)
-		if insert < 0 {
+		if gg.canAdd(g) {
+			last := gg.groups[len(gg.groups)-1]
+			if last.BeginHeight >= g.BeginHeight {
+				panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+			}
+			gg.groups = append(gg.groups, g)
 			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
+			return true
 		} else {
-			for i := len(gg.groups)-2; i >= insert; i-- {
-				tg := gg.groups[i]
-				gg.groups[i+1] = tg
-				gg.gIndex[tg.GroupID.GetHexString()] = i+1
-			}
-			gg.groups[insert] = g
-			gg.gIndex[g.GroupID.GetHexString()] = insert
+			log.Printf("AddStaticGroup fail, future group received, cached on chain! gid=%v\n", g.GroupID)
+			return false
 		}
-		bh := uint64(0)
-		for _, group := range gg.groups {
-			if group.BeginHeight < bh {
-				panic("group seq error!")
-			}
-			bh = group.BeginHeight
-		}
-		fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
-		return true
 	} else {
 		if gg.groups[idx].BeginHeight < g.BeginHeight {
 			gg.groups[idx].BeginHeight = g.BeginHeight

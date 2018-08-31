@@ -112,10 +112,6 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 		str += GetIDPrefix(id) + ","
 	}
 	log.Printf("=============getAllCandidates %v\n", str)
-	//sgi := gm.processor.globalGroups.groups[0]
-	//for _, mem := range sgi.Members {
-	//	ids = append(ids, mem.ID)
-	//}
 	return ids
 }
 

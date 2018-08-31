@@ -557,12 +557,12 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	add := p.globalGroups.AddStaticGroup(staticGroup)
 	log.Printf("Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
-
-	if add {
-		p.groupManager.AddGroupOnChain(staticGroup, false)
-
-		if p.IsMinerGroup(staticGroup.GroupID) && p.GetBlockContext(staticGroup.GroupID) == nil {
+	if staticGroup.MemExist(p.GetMinerID()) {
+		jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
+		if jg != nil {
 			p.prepareForCast(staticGroup)
+		} else {
+			log.Printf("[ERROR]cannot find joined group info, gid=%v\n", staticGroup.GroupID)
 		}
 	}
 }
@@ -624,7 +624,8 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
 		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK), staticGroup.BeginHeight, staticGroup.DismissHeight)
 
-		p.acceptGroup(staticGroup)
+		//p.acceptGroup(staticGroup)
+		p.groupManager.AddGroupOnChain(staticGroup, false)
 		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "组上链 id=%v", GetIDPrefix(staticGroup.GroupID))
 
 		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)

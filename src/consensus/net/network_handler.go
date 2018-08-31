@@ -28,6 +28,10 @@ func (c *ConsensusHandler) Processor() MessageProcessor {
     return c.processor
 }
 
+func (c *ConsensusHandler) ready() bool {
+    return c.processor != nil && c.processor.Ready()
+}
+
 func memberExistIn(mems *[]model.PubKeyInfo, id groupsig.ID) bool {
 	for _, member := range *mems {
 		if member.ID.IsEqual(id) {
@@ -40,7 +44,7 @@ func memberExistIn(mems *[]model.PubKeyInfo, id groupsig.ID) bool {
 func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 	code := msg.Code
 	body := msg.Body
-	if !c.processor.Ready() {
+	if !c.ready() {
 		log.Printf("message ingored because processor not ready. code=%v\n", code)
 		return fmt.Errorf("processor not ready yet")
 	}
