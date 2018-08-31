@@ -15,7 +15,7 @@ const (
 func getRedisConnection() (redis.Conn, error) {
 	redisIp := common.GlobalConf.GetString("test", "redis_ip", "118.31.60.210")
 	redisPort := common.GlobalConf.GetString("test", "redis_port", "6379")
-	return redis.Dial("tcp", redisIp + ":" + redisPort)
+	return redis.Dial("tcp", redisIp + ":" + redisPort,redis.DialPassword("TasChain1003"))
 }
 
 func NodeOnline(id []byte, pubKey []byte) error{
