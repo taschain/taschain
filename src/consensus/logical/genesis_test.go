@@ -17,7 +17,7 @@ import (
 	chandler "consensus/net"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/conf/local_3g9n`
+const CONF_PATH_PREFIX = `Z:/TASchain/taschain/conf/local_3g9n`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)

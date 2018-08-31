@@ -148,23 +148,23 @@ type blsG1 struct {
 // 	return (*C.blsSignature)(unsafe.Pointer(sign))
 // }
 
-type blsG2 struct {
+type bnG2 struct {
 	v bn_curve.G2
 }
 
-func (bi *blsG2) Deserialize(b []byte) error {
+func (bi *bnG2) Deserialize(b []byte) error {
 	bi.v.Unmarshal(b)
 	return nil
 }
 
 //序列化
-func (bg *blsG2) Serialize() []byte {
+func (bg *bnG2) Serialize() []byte {
 	return bg.v.Marshal()
 }
 
-func (bg *blsG2) Add(bh *blsG2) error {
-	a := &blsG2{}
-	b := &blsG2{}
+func (bg *bnG2) Add(bh *bnG2) error {
+	a := &bnG2{}
+	b := &bnG2{}
 	a.Deserialize(bh.Serialize())
 	b.Deserialize(bh.Serialize())
 
