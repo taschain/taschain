@@ -65,16 +65,17 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			vm := tvm.NewTvm(transaction.Source, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			snapshot := accountdb.Snapshot()
 			msg = tvm.Msg{Data:transaction.Data, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
-			if !vm.LoadContractCode() || !vm.ExecuteABIJson(msg, string(transaction.Data)){
-				accountdb.RevertToSnapshot(snapshot)
-				fail = true
-				vm.DelTvm()
-			}
+			fail = !vm.LoadContractCode() || !vm.ExecuteABIJson(msg, string(transaction.Data))
 			if !fail {
-				if !vm.StoreData() {
-					accountdb.RevertToSnapshot(snapshot)
-				}
-				vm.DelTvm()
+				fail = !vm.StoreData()
+			}
+			if fail {
+				accountdb.RevertToSnapshot(snapshot)
+			}
+			block := vm.Block
+			vm.DelTvm()
+			if !fail {
+				block()
 			}
 		} else {
 			amount := big.NewInt(int64(transaction.Value))

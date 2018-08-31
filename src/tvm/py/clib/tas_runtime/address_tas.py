@@ -44,7 +44,7 @@ class Address(object):
         self.data = state["data"]
 
     def call(self, function_name, *args, **kwargs):
-        account.contractCall("0x1", "abc", "bca")
+        account.contractCall(self.value, "abc", "bca")
 
 
 

@@ -242,23 +242,34 @@ func GetCurrentTvm() *Tvm {
 	return tvmObj
 }
 
-func Call(callerAddr common.Address, contractAddr common.Address, msg Msg) bool {
-	contract := LoadContract(contractAddr)
-	gasLeft := GetCurrentTvm().Gas()
-	newVm := NewTvm(&callerAddr, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-	newVm.SetGas(gasLeft)
-	snapshot := AccountDB.Snapshot()
-	if !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, string(msg.Data))){
-		AccountDB.RevertToSnapshot(snapshot)
+func Call(_contractAddr string, funcName string, params string) bool {
+	tvm := GetCurrentTvm()
+	tvm.Block = func () bool {
+		contractAddr := common.HexToAddress(_contractAddr)
+		msg := Msg{ Value:0, Sender: tvm.Sender.GetHexString()}
+		contract := LoadContract(contractAddr)
+		gasLeft := tvm.Gas()
+		newVm := NewTvm(tvm.Sender, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+		newVm.SetGas(gasLeft)
+		snapshot := AccountDB.Snapshot()
+		abi := `{"FuncName": "test", "Args": []}`
+		failed := !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, abi))
+
+		if !failed {
+			failed = !newVm.StoreData()
+		}
+
+		if failed {
+			AccountDB.RevertToSnapshot(snapshot)
+		}
+
+		gasLeft = newVm.Gas()
 		newVm.DelTvm()
-		return false
+		tvm.SetGas(gasLeft)
+
+		return !failed
 	}
-	if !newVm.StoreData() {
-		AccountDB.RevertToSnapshot(snapshot)
-	}
-	gasLeft = newVm.Gas()
-	newVm.DelTvm()
-	GetCurrentTvm().SetGas(gasLeft)
+
 	return true
 }
 
@@ -315,6 +326,8 @@ func LoadContract(address common.Address) *Contract {
 type Tvm struct {
 	*Contract
 	Sender *common.Address
+
+	Block func() bool
 }
 
 func EnvInit(accountDB vm.AccountDB,
@@ -339,6 +352,7 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
+		nil,
 	}
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()
@@ -361,8 +375,8 @@ func (tvm *Tvm)SetGas(gas int) {
 }
 
 func (tvm *Tvm)DelTvm(){
-	//TODO 释放tvm环境
-	if len(tvmStack) - 2 >= 0{
+	//TODO 释放tvm环境 tvmObj
+	if len(tvmStack) >= 2{
 		tvmObj = tvmStack[len(tvmStack)-2]
 	} else {
 		tvmObj = nil
