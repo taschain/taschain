@@ -103,7 +103,8 @@ func (sig Signature) Serialize() []byte {
 }
 
 func (sig Signature) IsValid() bool {
-	return sig.value.IsValid()
+	s := sig.Serialize()
+	return len(s) > 0
 }
 
 //把签名转换为十六进制字符串 ToDoCheck
