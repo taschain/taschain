@@ -2,6 +2,7 @@
 # from clib.tas_runtime.contract import Contract
 from clib.tas_runtime import glovar
 import account
+import ujson
 
 class Address(object):
     this = ""
@@ -44,7 +45,9 @@ class Address(object):
         self.data = state["data"]
 
     def call(self, function_name, *args, **kwargs):
-        account.contractCall(self.value, "abc", "bca")
+        print("call: ", function_name)
+        print("call: ", ujson.dumps(args))
+        account.contractCall(self.value, function_name, ujson.dumps(args))
 
 
 

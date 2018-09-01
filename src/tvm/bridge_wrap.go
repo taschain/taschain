@@ -308,6 +308,7 @@ func(con *Controller) ExecuteTask() {
 		snapshot := con.AccountDB.Snapshot()
 		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
 		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+		fmt.Println(abi)
 		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
 		if !succeed {
 			if con.Vm.Gas() == 0 {
