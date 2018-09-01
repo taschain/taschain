@@ -27,7 +27,6 @@ import (
 	"taslog"
 	"common"
 	"time"
-	"log"
 )
 
 // middleware模块统一logger
