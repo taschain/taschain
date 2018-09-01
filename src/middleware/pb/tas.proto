@@ -87,6 +87,8 @@ message BlockHeader{
      optional bytes ExtraData  = 16 ;
 
      optional Hashes EvictedTxs  = 17;
+
+     optional bytes Random = 18;
 }
 
 message BlockBody{
