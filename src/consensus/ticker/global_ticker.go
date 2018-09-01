@@ -98,7 +98,7 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 
 	b := false
 	if lastTicker < t && atomic.CompareAndSwapUint64(&routine.lastTicker, lastTicker, t) {
-		log.Printf("ticker routine begin, id=%v, globalticker=%v\n", routine.id, t)
+		//log.Printf("ticker routine begin, id=%v, globalticker=%v\n", routine.id, t)
 		b = routine.handler()
 	} else {
 		if chanVal == 2 {
