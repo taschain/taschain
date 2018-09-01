@@ -140,6 +140,8 @@ func CreateNewGroupGenerator() *NewGroupGenerator {
 
 func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	dummyId := initingGroup.gis.DummyID
+
+	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), initingGroup)
 	if load {
 		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummyId))
@@ -324,7 +326,7 @@ func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int 
 	return result
 }
 
-//生成发送给组内成员的秘密分享
+//生成发送给组内成员的秘密分享: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.ShareMapID {
 	shares := make(model.ShareMapID, 0)
 	if len(gc.mems) == int(gc.gis.Members) && atomic.CompareAndSwapInt32(&gc.is, GIS_RAW, GIS_SHARED) {
@@ -378,6 +380,9 @@ func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
 	if v, ok := jgs.groups.Load(gid.GetHexString()); ok {
 		return v.(*GroupContext)
 	}
+
+	//fmt.Println("gc is NULL, gid:", gid.GetHexString())
+
 	return nil
 }
 

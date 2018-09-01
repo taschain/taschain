@@ -299,10 +299,6 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
-	//var si model.SignData
-	//si.DataHash = bh.Hash
-	//si.SignMember = p.GetMinerID()
-
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == vctx.prevHash {
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage

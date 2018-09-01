@@ -11,12 +11,16 @@ import (
 	"io/ioutil"
 	"os"
 	"consensus/model"
+	"middleware"
+	"network"
+	"core/net/handler"
+	chandler "consensus/net"
 )
 
-const CONF_PATH_PREFIX = `/Users/zhangchao/Documents/GitRepository/tas/conf/aliyun_3g21n_new_id`
+const CONF_PATH_PREFIX = `Z:/TASchain/taschain/conf/local_3g9n`
 
 func TestBelongGroups(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
 	belongs := NewBelongGroups("/Users/pxf/workspace/tas_develop/tas/conf/aliyun/joined_group.config.1")
@@ -91,7 +95,8 @@ func processors() (map[string]*Processor, map[string]int) {
 }
 
 func TestGenIdPubkey(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
+	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
 	procs, _ := processors()
@@ -109,14 +114,19 @@ func TestGenIdPubkey(t *testing.T) {
 }
 
 func TestGenesisGroup(t *testing.T) {
-	groupsig.Init(1)
+	//groupsig.Init(1)
+	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	// block初始化
 	err := core.InitCore()
 	if err != nil {
 		panic(err)
 	}
+
+	network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
+
 	InitConsensus()
+	model.InitParam()
 
 	procs, _ := processors()
 
@@ -196,6 +206,7 @@ func TestGenesisGroup(t *testing.T) {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
+				log.Printf("processor %v join group gid %v\n", p.getPrefix(), GetIDPrefix(jg.GroupID))
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
@@ -217,7 +228,7 @@ func TestGenesisGroup(t *testing.T) {
 				staticGroup := NewSGIFromStaticGroupSummary(&msg.GI, initingGroup)
 				add := p.globalGroups.AddStaticGroup(staticGroup)
 				if add {
-					p.groupManager.AddGroupOnChain(staticGroup, false)
+					//p.groupManager.AddGroupOnChain(staticGroup, false)
 
 					//if p.IsMinerGroup(msg.GI.GroupID) && p.GetBlockContext(msg.GI.GroupID) == nil {
 					//	p.prepareForCast(msg.GI.GroupID)
@@ -233,7 +244,10 @@ func TestGenesisGroup(t *testing.T) {
 
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
-
+		if jg == nil {
+			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),GetIDPrefix(sgi.GroupID))
+			continue
+		}
 		jgByte, _ := json.Marshal(jg)
 
 		if !write {

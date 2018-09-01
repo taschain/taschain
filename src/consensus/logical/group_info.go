@@ -282,7 +282,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
+	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
 			if len(gg.groups) > 0 {
@@ -302,9 +302,9 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	} else {
 		if gg.groups[idx].BeginHeight < g.BeginHeight {
 			gg.groups[idx].BeginHeight = g.BeginHeight
-			fmt.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
+			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
 		} else {
-			fmt.Printf("already exist this group, ignored.\n")
+			log.Printf("already exist this group, ignored.\n")
 		}
 
 	}

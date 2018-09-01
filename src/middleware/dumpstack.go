@@ -2,10 +2,8 @@ package middleware
 
 import (
 	"os"
-	"os/signal"
-	"runtime"
-	"syscall"
-	"time"
+		"runtime"
+		"time"
 )
 
 // how to use?
@@ -21,17 +19,17 @@ var (
 )
 
 func SetupStackTrap(args ...string) {
-	if len(args) > 0 {
-		stdFile = args[0]
-	}
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGUSR1)
-	go func() {
-		for range c {
-			dumpStacks()
-		}
-	}()
+	//if len(args) > 0 {
+	//	stdFile = args[0]
+	//}
+	//
+	//c := make(chan os.Signal, 1)
+	//signal.Notify(c, syscall.SIGUSR1)
+	//go func() {
+	//	for range c {
+	//		dumpStacks()
+	//	}
+	//}()
 }
 
 func dumpStacks() {
