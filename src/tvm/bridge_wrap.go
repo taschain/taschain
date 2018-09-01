@@ -230,46 +230,101 @@ import (
 	"middleware/types"
 )
 
-var CurrentBlockHeader *types.BlockHeader = nil
-var CurrentTransaction *types.Transaction = nil
-var AccountDB vm.AccountDB
-var Reader vm.ChainReader
+var controller *Controller = nil
 
-var tvmStack []*Tvm
-var tvmObj *Tvm
 
-func GetCurrentTvm() *Tvm {
-	return tvmObj
+type CallTask struct {
+	Sender *common.Address
+	ContractAddr *common.Address
+	FuncName string
+	Params string
+}
+
+type Controller struct {
+	BlockHeader *types.BlockHeader
+	Transaction *types.Transaction
+	AccountDB vm.AccountDB
+	Reader vm.ChainReader
+	Vm *Tvm
+	Tasks []*CallTask
+	LibPath string
+}
+
+func NewController(accountDB vm.AccountDB,
+	chainReader vm.ChainReader,
+	header *types.BlockHeader,
+	transaction *types.Transaction, libPath string) *Controller {
+	if controller == nil {
+		controller = &Controller{}
+	}
+	controller.BlockHeader = header
+	controller.Transaction = transaction
+	controller.AccountDB = accountDB
+	controller.Reader = chainReader
+	controller.Tasks = make([]*CallTask, 0)
+	controller.Vm = nil
+	controller.LibPath = libPath
+	return controller
+}
+
+
+func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
+	var succeed bool
+	con.Vm = NewTvm(sender, contract, con.LibPath)
+	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	snapshot := con.AccountDB.Snapshot()
+	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
+	if !succeed {
+		con.AccountDB.RevertToSnapshot(snapshot)
+	}
+	con.Vm.DelTvm()
+	con.ExecuteTask()
+	return succeed
+}
+
+func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
+	var succeed bool
+	con.Vm  = NewTvm(sender, contract, con.LibPath)
+	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	snapshot := con.AccountDB.Snapshot()
+	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+	if !succeed {
+		con.AccountDB.RevertToSnapshot(snapshot)
+	}
+	con.Vm.DelTvm()
+	con.ExecuteTask()
+	return succeed
+}
+
+func(con *Controller) ExecuteTask() {
+	var succeed bool
+	for _, task := range con.Tasks {
+		contract := LoadContract(*task.ContractAddr)
+		gasLeft := con.Vm.Gas()
+		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
+		con.Vm.SetGas(gasLeft)
+		snapshot := con.AccountDB.Snapshot()
+		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
+		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+		if !succeed {
+			if con.Vm.Gas() == 0 {
+				con.Vm.DelTvm()
+				return
+			}
+			con.AccountDB.RevertToSnapshot(snapshot)
+			con.Vm.DelTvm()
+			continue
+		}
+	}
 }
 
 func Call(_contractAddr string, funcName string, params string) bool {
-	tvm := GetCurrentTvm()
-	tvm.Block = func () bool {
-		contractAddr := common.HexToAddress(_contractAddr)
-		msg := Msg{ Value:0, Sender: tvm.Sender.GetHexString()}
-		contract := LoadContract(contractAddr)
-		gasLeft := tvm.Gas()
-		newVm := NewTvm(tvm.Sender, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-		newVm.SetGas(gasLeft)
-		snapshot := AccountDB.Snapshot()
-		abi := `{"FuncName": "test", "Args": []}`
-		failed := !(newVm.LoadContractCode() && newVm.ExecuteABIJson(msg, abi))
-
-		if !failed {
-			failed = !newVm.StoreData()
-		}
-
-		if failed {
-			AccountDB.RevertToSnapshot(snapshot)
-		}
-
-		gasLeft = newVm.Gas()
-		newVm.DelTvm()
-		tvm.SetGas(gasLeft)
-
-		return !failed
-	}
-
+	conAddr := common.HexStringToAddress(_contractAddr)
+	task := CallTask{controller.Vm.ContractAddress, &conAddr, funcName, params}
+	controller.Tasks = append(controller.Tasks, &task)
 	return true
 }
 
@@ -316,7 +371,7 @@ type Contract struct {
 }
 
 func LoadContract(address common.Address) *Contract {
-	jsonString := AccountDB.GetCode(address)
+	jsonString := controller.AccountDB.GetCode(address)
 	con := &Contract{}
 	json.Unmarshal([]byte(jsonString), con)
 	con.ContractAddress = &address
@@ -330,23 +385,7 @@ type Tvm struct {
 	Block func() bool
 }
 
-func EnvInit(accountDB vm.AccountDB,
-	chainReader vm.ChainReader,
-	header *types.BlockHeader,
-	transaction *types.Transaction) {
-	if chainReader != nil {
-		Reader = chainReader
-	}
-	if accountDB != nil {
-		AccountDB = accountDB
-	}
-	if header != nil  {
-		CurrentBlockHeader = header
-	}
-	if transaction != nil {
-		CurrentTransaction = transaction
-	}
-}
+
 
 func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	tvm := &Tvm{
@@ -357,9 +396,6 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()
 	bridge_init()
-	tvm.SetGas(int(CurrentTransaction.GasLimit))
-	tvmObj = tvm
-	tvmStack = append(tvmStack, tvm)
 	return tvm
 }
 
@@ -376,12 +412,6 @@ func (tvm *Tvm)SetGas(gas int) {
 
 func (tvm *Tvm)DelTvm(){
 	//TODO 释放tvm环境 tvmObj
-	if len(tvmStack) >= 2{
-		tvmObj = tvmStack[len(tvmStack)-2]
-	} else {
-		tvmObj = nil
-	}
-	tvmStack = tvmStack[:len(tvmStack)-1]
 }
 
 func(tvm *Tvm) StoreData() bool {
@@ -400,17 +430,18 @@ for k in tas_%s.__dict__:
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
-	if tvmObj == nil {
-		tvmObj = NewTvm(nil, nil, "")
-	}
-	Reader = chainReader
-	AccountDB = accountDB
-
-	C.tvm_start()
-	C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
-	bridge_init()
-
-	return tvmObj
+	//if tvmObj == nil {
+	//	tvmObj = NewTvm(nil, nil, "")
+	//}
+	//Reader = chainReader
+	//AccountDB = accountDB
+	//
+	//C.tvm_start()
+	//C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
+	//bridge_init()
+	//
+	//return tvmObj
+	return nil
 }
 
 func (tvm *Tvm) AddLibPath(path string) {

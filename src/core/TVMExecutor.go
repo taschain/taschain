@@ -44,39 +44,18 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
-	msg := tvm.Msg{}
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil{
-			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contractAddress, _ = createContract(accountdb, transaction)
 			contract := tvm.LoadContract(contractAddress)
-			vm := tvm.NewTvm(transaction.Source, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-
-			msg = tvm.Msg{Data:[]byte{}, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
-			if !vm.Deploy(msg) || !vm.StoreData(){
-
-			}
-			vm.DelTvm()
+			controller.Deploy(transaction.Source, contract)
 		} else if len(transaction.Data) > 0 {
-			tvm.EnvInit(accountdb, BlockChainImpl, block.Header, transaction)
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contract := tvm.LoadContract(*transaction.Target)
-			vm := tvm.NewTvm(transaction.Source, contract, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			snapshot := accountdb.Snapshot()
-			msg = tvm.Msg{Data:transaction.Data, Value:transaction.Value, Sender: transaction.Source.GetHexString()}
-			fail = !vm.LoadContractCode() || !vm.ExecuteABIJson(msg, string(transaction.Data))
-			if !fail {
-				fail = !vm.StoreData()
-			}
-			if fail {
-				accountdb.RevertToSnapshot(snapshot)
-			}
-			block := vm.Block
-			vm.DelTvm()
-			if !fail {
-				block()
-			}
+			controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){

@@ -56,7 +56,7 @@ func transfer(fromAddresss *C.char, toAddress *C.char, amount int) {
 //export CreateAccount
 func CreateAccount(addressC *C.char) {
 	addr := common.HexToAddress(C.GoString(addressC))
-	AccountDB.CreateAccount(addr)
+	controller.AccountDB.CreateAccount(addr)
 }
 
 //export SubBalance
@@ -66,7 +66,7 @@ func SubBalance(addressC *C.char, valueC *C.char) {
 	if !ok {
 		// TODO error
 	}
-	AccountDB.SubBalance(address, value)
+	controller.AccountDB.SubBalance(address, value)
 }
 
 //export AddBalance
@@ -76,40 +76,40 @@ func AddBalance(addressC *C.char, valueC *C.char) {
 	if !ok {
 		// TODO error
 	}
-	AccountDB.AddBalance(address, value)
+	controller.AccountDB.AddBalance(address, value)
 }
 
 //export GetBalance
 func GetBalance(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	value := AccountDB.GetBalance(address)
+	value := controller.AccountDB.GetBalance(address)
 	return C.CString(value.String())
 }
 
 //export GetNonce
 func GetNonce(addressC *C.char) C.ulonglong {
 	address := common.HexToAddress(C.GoString(addressC))
-	value := AccountDB.GetNonce(address)
+	value := controller.AccountDB.GetNonce(address)
 	return C.ulonglong(value)
 }
 
 //export SetNonce
 func SetNonce(addressC *C.char, nonce C.ulonglong) {
 	address := common.HexToAddress(C.GoString(addressC))
-	AccountDB.SetNonce(address, uint64(nonce))
+	controller.AccountDB.SetNonce(address, uint64(nonce))
 }
 
 //export GetCodeHash
 func GetCodeHash(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	hash := AccountDB.GetCodeHash(address)
+	hash := controller.AccountDB.GetCodeHash(address)
 	return C.CString(hash.String())
 }
 
 //export GetCode
 func GetCode(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	code := AccountDB.GetCode(address)
+	code := controller.AccountDB.GetCode(address)
 	return C.CString(string(code))
 }
 
@@ -117,32 +117,32 @@ func GetCode(addressC *C.char) *C.char {
 func SetCode(addressC *C.char, codeC *C.char) {
 	address := common.HexToAddress(C.GoString(addressC))
 	code := C.GoString(codeC)
-	AccountDB.SetCode(address, []byte(code))
+	controller.AccountDB.SetCode(address, []byte(code))
 }
 
 //export GetCodeSize
 func GetCodeSize(addressC *C.char) C.int {
 	address := common.HexToAddress(C.GoString(addressC))
-	size := AccountDB.GetCodeSize(address)
+	size := controller.AccountDB.GetCodeSize(address)
 	return C.int(size)
 }
 
 //export AddRefund
 func AddRefund(re C.ulonglong) {
-	AccountDB.AddRefund(uint64(re))
+	controller.AccountDB.AddRefund(uint64(re))
 }
 
 //export GetRefund
 func GetRefund() C.ulonglong {
-	return C.ulonglong(AccountDB.GetRefund())
+	return C.ulonglong(controller.AccountDB.GetRefund())
 }
 
 //export GetData
 func GetData(addressC *C.char, hashC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
 	//hash := common.StringToHash(C.GoString(hashC))
-	address = *tvmObj.ContractAddress
-	state := AccountDB.GetData(address, C.GoString(hashC))
+	address = *controller.Vm.ContractAddress
+	state := controller.AccountDB.GetData(address, C.GoString(hashC))
 
 	return C.CString(string(state))
 }
@@ -150,44 +150,44 @@ func GetData(addressC *C.char, hashC *C.char) *C.char {
 //export SetData
 func SetData(addressC *C.char, keyC *C.char, data *C.char) {
 	address := common.HexToAddress(C.GoString(addressC))
-	address = *tvmObj.ContractAddress
+	address = *controller.Vm.ContractAddress
 	key := C.GoString(keyC)
 	state := []byte(C.GoString(data))
-	AccountDB.SetData(address, key, state)
+	controller.AccountDB.SetData(address, key, state)
 }
 
 //export Suicide
 func Suicide(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return AccountDB.Suicide(address)
+	return controller.AccountDB.Suicide(address)
 }
 
 //export HasSuicided
 func HasSuicided(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return AccountDB.HasSuicided(address)
+	return controller.AccountDB.HasSuicided(address)
 }
 
 //export Exist
 func Exist(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return AccountDB.Exist(address)
+	return controller.AccountDB.Exist(address)
 }
 
 //export Empty
 func Empty(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return AccountDB.Empty(address)
+	return controller.AccountDB.Empty(address)
 }
 
 //export RevertToSnapshot
 func RevertToSnapshot(i int) {
-	AccountDB.RevertToSnapshot(i)
+	controller.AccountDB.RevertToSnapshot(i)
 }
 
 //export Snapshot
 func Snapshot() int {
-	return AccountDB.Snapshot()
+	return controller.AccountDB.Snapshot()
 }
 
 //export AddPreimage
@@ -199,38 +199,38 @@ func AddPreimage(hashC *C.char, preimageC *C.char) {
 
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
-	block := Reader.QueryBlockByHeight(uint64(height))
+	block := controller.Reader.QueryBlockByHeight(uint64(height))
 	return C.CString(block.Hash.String())
 }
 
 //export CoinBase
 func CoinBase() *C.char {
-	return C.CString(common.BytesToAddress(CurrentBlockHeader.Castor).GetHexString())
+	return C.CString(common.BytesToAddress(controller.BlockHeader.Castor).GetHexString())
 }
 
 //export Difficulty
 func Difficulty() C.ulonglong {
-	return C.ulonglong(CurrentBlockHeader.TotalQN)
+	return C.ulonglong(controller.BlockHeader.TotalQN)
 }
 
 //export Number
 func Number() C.ulonglong {
-	return C.ulonglong(CurrentBlockHeader.Height)
+	return C.ulonglong(controller.BlockHeader.Height)
 }
 
 //export Timestamp
 func Timestamp() C.ulonglong {
-	return C.ulonglong(uint64(CurrentBlockHeader.CurTime.Unix()))
+	return C.ulonglong(uint64(controller.BlockHeader.CurTime.Unix()))
 }
 
 //export TxOrigin
 func TxOrigin() *C.char {
-	return C.CString(CurrentTransaction.Source.GetHexString())
+	return C.CString(controller.Transaction.Source.GetHexString())
 }
 
 //export TxGasLimit
 func TxGasLimit() C.ulonglong{
-	return C.ulonglong(CurrentTransaction.GasLimit)
+	return C.ulonglong(controller.Transaction.GasLimit)
 }
 
 //export ContractCall
