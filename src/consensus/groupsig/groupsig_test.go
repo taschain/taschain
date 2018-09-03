@@ -75,7 +75,7 @@ func testComparison(t *testing.T) {
 	t.Log("sec.Hex: ", sec.GetHexString())
 
 	// Add Seckeys
-	sum := AggregateSeckeys([]Seckey{*sec, *sec}) //同一个原始私钥相加，生成聚合私钥（bls底层算法）
+	sum := AggregateSeckeys([]Seckey{*sec, *sec}) //同一个原始私钥相加，生成聚合私钥
 	if sum == nil {
 		t.Error("AggregateSeckeys failed.")
 	}
@@ -154,7 +154,7 @@ func testAggregation(t *testing.T) {
 	for i := 0; i < n; i++ {
 		seckeyContributions[i] = *NewSeckeyFromRand(r.Deri(i)) //以r为基，i为递增量生成n个相关性私钥
 	}
-	groupSeckey := AggregateSeckeys(seckeyContributions) //对n个私钥聚合，生成组私钥（bls底层算法）
+	groupSeckey := AggregateSeckeys(seckeyContributions) //对n个私钥聚合，生成组私钥
 	groupPubkey := NewPubkeyFromSeckey(*groupSeckey)     //从组私钥萃取出组公钥
 	t.Log("Group pubkey:", groupPubkey.GetHexString())
 	fmt.Printf("end test Aggregation.\n")
@@ -170,7 +170,7 @@ func AggregateSeckeysByBigInt(secs []Seckey) *Seckey {
 	return NewSeckeyFromBigInt(secret)
 }
 
-//生成n个衍生随机数私钥，对这n个衍生私钥用bls聚合法和big.Int聚合法生成聚合私钥，比较2个聚合私钥是否一致。
+//生成n个衍生随机数私钥，对这n个衍生私钥用聚合法和big.Int聚合法生成聚合私钥，比较2个聚合私钥是否一致。
 func testAggregateSeckeys(t *testing.T) {
 	fmt.Printf("\nbegin testAggregateSeckeys...\n")
 	t.Log("begin testAggregateSeckeys")
@@ -183,12 +183,12 @@ func testAggregateSeckeys(t *testing.T) {
 	}
 	fmt.Printf("begin aggr sec key with bigint...\n")
 	s1 := AggregateSeckeysByBigInt(secs) //通过int加法和求模生成聚合私钥
-	fmt.Printf("begin aggr sec key with bls...\n")
-	s2 := AggregateSeckeys(secs) //通过bls底层库生成聚合私钥
+	fmt.Printf("begin aggr sec key...\n")
+	s2 := AggregateSeckeys(secs) //生成聚合私钥
 	fmt.Printf("sec aggred with int, data=%v.\n", s1.GetHexString())
-	fmt.Printf("sec aggred with bls, data=%v.\n", s2.GetHexString())
-	if !s1.value.IsEqual(&s2.value) { //比较用简单加法求模生成的聚合私钥和bls底层库生成的聚合私钥是否不同
-		t.Errorf("not same int(%v) VS bls(%v).\n", s1.GetHexString(), s2.GetHexString())
+	fmt.Printf("sec aggred , data=%v.\n", s2.GetHexString())
+	if !s1.value.IsEqual(&s2.value) { //比较用简单加法求模生成的聚合私钥和底层库生成的聚合私钥是否不同
+		t.Errorf("not same int(%v) VS (%v).\n", s1.GetHexString(), s2.GetHexString())
 	}
 	t.Log("end testAggregateSeckeys")
 	fmt.Printf("end testAggregateSeckeys.\n")
@@ -227,10 +227,10 @@ func RecoverSeckeyByBigInt(secs []Seckey, ids []ID) *Seckey {
 		secret.Add(secret, delta)      //把delta加到组私钥（big.Int形式）
 		secret.Mod(secret, curveOrder) //组私钥对曲线域求模（big.Int形式）
 	}
-	return NewSeckeyFromBigInt(secret) //用big.Int数生成真正的bls私钥
+	return NewSeckeyFromBigInt(secret) //用big.Int数生成真正的私钥
 }
 
-//生成n个ID和n个衍生随机数私钥，然后调用bls恢复法和bls.Int恢复法，比较2个恢复的私钥是否一致。
+//生成n个ID和n个衍生随机数私钥, 比较2个恢复的私钥是否一致。
 func testRecoverSeckey(t *testing.T) {
 	fmt.Printf("\nbegin testRecoverSeckey...\n")
 	t.Log("testRecoverSeckey")
@@ -243,7 +243,7 @@ func testRecoverSeckey(t *testing.T) {
 		ids[i] = *NewIDFromInt64(int64(i + 3))  //生成50个ID
 		secs[i] = *NewSeckeyFromRand(r.Deri(i)) //以基r和累加值i，生成50个私钥
 	}
-	s1 := RecoverSeckey(secs, ids)         //调用bls的私钥恢复函数（门限值取100%）
+	s1 := RecoverSeckey(secs, ids)         //调用私钥恢复函数（门限值取100%）
 	s2 := RecoverSeckeyByBigInt(secs, ids) //调用big.Int加法求模的私钥恢复函数
 	if !s1.value.IsEqual(&s2.value) {      //检查两种方法恢复的私钥是否相同
 		t.Errorf("Mismatch in recovered secret key:\n  %s\n  %s.", s1.GetHexString(), s2.GetHexString())
@@ -269,7 +269,7 @@ func ShareSeckeyByBigInt(msec []Seckey, id ID) *Seckey {
 	return NewSeckeyFromBigInt(secret) //生成签名私钥
 }
 
-//调用bls生成n个衍生随机数私钥，然后针对一个特定的ID生成bls分享片段和big.Int分享片段，比较2个分享片段是否一致。
+//生成n个衍生随机数私钥，然后针对一个特定的ID生成分享片段和big.Int分享片段，比较2个分享片段是否一致。
 func testShareSeckey(t *testing.T) {
 	fmt.Printf("\nbegin testShareSeckey...\n")
 	t.Log("testShareSeckey")
@@ -277,11 +277,11 @@ func testShareSeckey(t *testing.T) {
 	msec := make([]Seckey, n)
 	r := base.NewRand()
 	for i := 0; i < n; i++ {
-		msec[i] = *NewSeckeyFromRand(r.Deri(i)) //生成100个随机私钥（bls库初始化函数）
+		msec[i] = *NewSeckeyFromRand(r.Deri(i)) //生成100个随机私钥
 	}
 	id := *NewIDFromInt64(123)          //随机生成一个ID
 	s1 := ShareSeckeyByBigInt(msec, id) //简单加法分享函数
-	s2 := ShareSeckey(msec, id)         //bls库分享函数
+	s2 := ShareSeckey(msec, id)         //分享函数
 	if !s1.value.IsEqual(&s2.value) {   //比较2者是否相同
 		t.Errorf("bad sec\n%s\n%s", s1.GetHexString(), s2.GetHexString())
 	} else {
@@ -330,7 +330,6 @@ func test(t *testing.T) {
 	fmt.Printf("time zero=%v.\n", ti.IsZero())
 	var tmp_i int = 456
 	fmt.Printf("sizeof(int) =%v.\n", unsafe.Sizeof(tmp_i))
-	//Init(c)            //初始化bls底层C库
 	testID(t)          //测试从big.Int生成ID，以及ID的序列化
 	testSeckey(t)      //测试从big.Int生成私钥，以及私钥的序列化
 	testPubkey(t)      //测试用衍生随机数生成私钥，从私钥萃取公钥，以及公钥的序列化
@@ -338,13 +337,13 @@ func test(t *testing.T) {
 	//用big.Int生成私钥，取得公钥和签名。然后对私钥、公钥和签名各复制一份后测试加法后的验证是否正确。
 	//同时测试签名的序列化。
 	testComparison(t)
-	//生成n个衍生随机数私钥，对这n个衍生私钥用bls聚合法和big.Int聚合法生成聚合私钥，比较2个聚合私钥是否一致。
+	//生成n个衍生随机数私钥，对这n个衍生私钥用聚合法和big.Int聚合法生成聚合私钥，比较2个聚合私钥是否一致。
 	//全量聚合，用于生成组成员签名私钥（对收到的秘密分片聚合）和组公钥（由组成员签名私钥萃取出公钥，然后在组内广播，任何一个成员收到全量公钥后聚合即生成组公钥）
 	testAggregateSeckeys(t)
-	//生成n个ID和n个衍生随机数私钥，然后调用bls恢复法和bls.Int恢复法，比较2个恢复的私钥是否一致。
+	//生成n个ID和n个衍生随机数私钥，比较2个恢复的私钥是否一致。
 	//秘密分享恢复函数，门限值取了100%。
 	testRecoverSeckey(t)
-	//调用bls生成n个衍生随机数私钥，然后针对一个特定的ID生成bls分享片段和big.Int分享片段，比较2个分享片段是否一致。
+	//生成n个衍生随机数私钥，然后针对一个特定的ID生成分享片段和big.Int分享片段，比较2个分享片段是否一致。
 	//秘密分享，把自己的秘密分片发送给组内不同的成员（对不同成员生成不同的秘密分片）
 	testShareSeckey(t)
 }
@@ -360,7 +359,6 @@ func Test_GroupsigIDStringConvert(t *testing.T){
 
 func Test_Groupsig_Main1(t *testing.T) {
 	fmt.Printf("begin TestMain...\n")
-	//t.Logf("GetMaxOpUnitSize() = %d\n", bls.GetMaxOpUnitSize())
 	//fmt.Printf("\ncall test with curve(CurveFp254BNb)=%v...\n", bn_curve.CurveFp254BNb)
 	test(t)
 	//if bn_curve.GetMaxOpUnitSize() == 6 {

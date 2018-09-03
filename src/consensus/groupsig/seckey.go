@@ -163,7 +163,7 @@ func TrivialSeckey() *Seckey {
 	return NewSeckeyFromInt64(1) //以1作为跳频
 }
 
-//私钥聚合函数，用bls曲线加法把多个私钥聚合成一个
+//私钥聚合函数
 func AggregateSeckeys(secs []Seckey) *Seckey {
 	if len(secs) == 0 { //没有私钥要聚合
 		log.Printf("AggregateSeckeys no secs")
@@ -172,8 +172,8 @@ func AggregateSeckeys(secs []Seckey) *Seckey {
 	sec := new(Seckey)               //创建一个新的私钥
 	sec.value.SetBigInt(secs[0].value.GetBigInt())
 	//sec.value = secs[0].value        //以第一个私钥作为基
-	for i := 1; i < len(secs); i++ { //把其后的私钥调用bls的add加到基私钥
-		sec.value.Add(&secs[i].value) //调用bls曲线的私钥相加函数
+	for i := 1; i < len(secs); i++ {
+		sec.value.Add(&secs[i].value)
 	}
 
 	x := new(big.Int)
@@ -264,7 +264,7 @@ func RecoverSeckey(secs []Seckey, ids []ID) *Seckey {
 		secret.Mod(secret, curveOrder) //组私钥对曲线域求模（big.Int形式）
 	}
 
-	return NewSeckeyFromBigInt(secret) //用big.Int数生成真正的bls私钥
+	return NewSeckeyFromBigInt(secret)
 }
 
 //私钥恢复函数，m为map(地址->私钥)，k为门限值

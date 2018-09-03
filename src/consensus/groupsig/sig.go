@@ -127,7 +127,6 @@ func (sig *Signature) SetHexString(s string) error {
 func Sign(sec Seckey, msg []byte) (sig Signature) {
 	bg := HashToG1(string(msg))
 	sig.value.ScalarMult(bg, sec.GetBigInt())
-	//sig.value = *sec.value.Sign(string(msg)) //调用bls曲线的签名函数
 	return sig
 }
 
@@ -159,7 +158,7 @@ func BatchVerify(pubs []Pubkey, msg []byte, sigs []Signature) bool {
 }
 
 // AggregateXXX函数族是把全部切片相加，而不是k个相加。
-//签名聚合函数。用bls曲线加法把多个签名聚合成一个。
+//签名聚合函数。
 func AggregateSigs(sigs []Signature) (sig Signature) {
 	n := len(sigs)
 	sig = Signature{}

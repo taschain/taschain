@@ -41,14 +41,6 @@ type BnInt struct {
 	v big.Int
 }
 
-
-//func blstest() error {
-//	buf := make([]byte, 32)
-//	rand.Read(buf)
-//	fmt.Println("buf:", buf)
-//	return nil
-//}
-
 func (bi *BnInt) IsEqual(b *BnInt) bool {
 	return 0 == bi.v.Cmp(&b.v)
 }
@@ -138,15 +130,6 @@ func (bi *BnInt) Deserialize(b []byte) error {
 	bi.v.SetBytes(b)
 	return nil
 }
-
-type blsG1 struct {
-	v bn_curve.G1
-}
-
-// getPointer --
-// func (s *blsG1) getPointer() (p *C.blsSignature) {
-// 	return (*C.blsSignature)(unsafe.Pointer(sign))
-// }
 
 type bnG2 struct {
 	v bn_curve.G2

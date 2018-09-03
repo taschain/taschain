@@ -71,10 +71,10 @@ func (e *gfP) Unmarshal(in []byte) error {
 			return nil
 		}
 		if e[i] > p2[i] {
-			return errors.New("bls: coordinate exceeds modulus")
+			return errors.New("coordinate exceeds modulus")
 		}
 	}
-	return errors.New("bls: coordinate equals modulus")
+	return errors.New("coordinate equals modulus")
 }
 
 func montEncode(c, a *gfP) { gfpMul(c, a, r2) }

@@ -129,7 +129,7 @@ func (pub *Pubkey) Add(rhs *Pubkey) error {
 	return nil
 }
 
-//公钥聚合函数，用bls曲线加法把多个公钥聚合成一个  
+//公钥聚合函数
 func AggregatePubkeys(pubs []Pubkey) *Pubkey {
 	if len(pubs) == 0 {
 		log.Printf("AggregatePubkeys no pubs")

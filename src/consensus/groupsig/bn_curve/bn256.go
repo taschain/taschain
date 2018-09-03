@@ -1,4 +1,4 @@
-// Package bls implements a particular bilinear group at the 128-bit security
+// Package implements a particular bilinear group at the 128-bit security
 // level.
 //
 // Bilinear groups are the basis of many of the new cryptographic protocols that
@@ -47,7 +47,7 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 }
 
 func (g *G1) String() string {
-	return "bls.G1" + g.p.String()
+	return "bn_curve.G1" + g.p.String()
 }
 
 func (g *G1) IsNil () bool {
@@ -126,7 +126,7 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 	if len(m) < 2*numBytes {
-		return nil, errors.New("bls: not enough data")
+		return nil, errors.New("bn_curve: not enough data")
 	}
 	// Unmarshal the points and check their caps
 	if e.p == nil {
@@ -156,7 +156,7 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 		e.p.t = *newGFp(1)
 
 		if !e.p.IsOnCurve() {
-			return nil, errors.New("bls: malformed point")
+			return nil, errors.New("bn_curve: malformed point")
 		}
 	}
 	return m[2*numBytes:], nil
@@ -183,7 +183,7 @@ func RandomG2(r io.Reader) (*big.Int, *G2, error) {
 }
 
 func (e *G2) String() string {
-	return "bls.G2" + e.p.String()
+	return "bn_curve.G2" + e.p.String()
 }
 
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
@@ -266,7 +266,7 @@ func (e *G2) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 	if len(m) < 4*numBytes {
-		return nil, errors.New("bls: not enough data")
+		return nil, errors.New("bn_curve: not enough data")
 	}
 	// Unmarshal the points and check their caps
 	if e.p == nil {
@@ -301,7 +301,7 @@ func (e *G2) Unmarshal(m []byte) ([]byte, error) {
 		e.p.t.SetOne()
 
 		if !e.p.IsOnCurve() {
-			return nil, errors.New("bls: malformed point")
+			return nil, errors.New("bn_curve: malformed point")
 		}
 	}
 	return m[4*numBytes:], nil
@@ -340,7 +340,7 @@ func Miller(g1 *G1, g2 *G2) *GT {
 }
 
 func (g *GT) String() string {
-	return "bls.GT" + g.p.String()
+	return "bn_curve.GT" + g.p.String()
 }
 
 // ScalarMult sets e to a*k and then returns e.
@@ -429,7 +429,7 @@ func (e *GT) Unmarshal(m []byte) ([]byte, error) {
 	const numBytes = 256 / 8
 
 	if len(m) < 12*numBytes {
-		return nil, errors.New("bls: not enough data")
+		return nil, errors.New("bn_curve: not enough data")
 	}
 
 	if e.p == nil {
