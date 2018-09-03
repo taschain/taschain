@@ -51,7 +51,8 @@ func (ws *wallets) transaction(source, target string, value uint64, code string)
 	}
 	var contractAddr common.Address
 	if code != "" {
-		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
+		lastNonce := core.BlockChainImpl.GetNonce(common.BytesToAddress(transaction.Source[:]))
+		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(lastNonce))))
 	}
 	return &transaction.Hash, &contractAddr, nil
 }
