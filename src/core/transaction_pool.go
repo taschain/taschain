@@ -202,8 +202,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	// 检查交易是否已经存在
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
-
-		//Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
 
