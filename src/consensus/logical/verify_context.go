@@ -72,9 +72,10 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 }
 
 type VerifyContext struct {
-	prevTime    time.Time
-	prevHash    common.Hash
-	prevSign	[]byte
+	prevBH 		*types.BlockHeader
+	//prevTime    time.Time
+	//prevHash    common.Hash
+	//prevSign	[]byte
 	castHeight  uint64
 	signedMaxQN int64
 	expireTime	time.Time			//铸块超时时间
@@ -130,10 +131,8 @@ func (vc *VerifyContext) addCastedQN(qn int64) {
 }
 
 func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader)  {
-    vc.prevTime = preBH.CurTime
-    vc.prevHash = preBH.Hash
+	vc.prevBH = preBH
     vc.castHeight = castHeight
-    vc.prevSign = preBH.Signature
     vc.signedMaxQN =  model.INVALID_QN
     vc.blockCtx = bc
 	vc.expireTime = expire
@@ -154,19 +153,18 @@ func (vc *VerifyContext) castExpire() bool {
 
 //计算QN
 func (vc *VerifyContext) calcQN(timeEnd time.Time) int64 {
-	diff := timeEnd.Sub(vc.prevTime).Seconds() //从上个铸块完成到现在的时间（秒）
+	diff := timeEnd.Sub(vc.prevBH.CurTime).Seconds() //从上个铸块完成到现在的时间（秒）
 	return vc.qnOfDiff(diff)
 }
 
 func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
-	max := int64(vc.expireTime.Sub(vc.prevTime).Seconds())
+	max := int64(vc.expireTime.Sub(vc.prevBH.CurTime).Seconds())
 	if max < 0 {
 		return -1
 	}
 	d := int64(diff) + int64(model.Param.MaxGroupCastTime) - max
 	qn := int64(model.Param.MaxQN) - d / int64(model.Param.MaxUserCastTime)
 
-	//log.Printf("qnOfDiff diff %v, pre %v, d %v, qn=%v\n", int(diff), vc.prevTime, d, qn)
 	return qn
 }
 
@@ -295,7 +293,7 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, sum
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
 	}
-	result := slot.AcceptPiece(*bh, *si)
+	result := slot.AcceptPiece(bh, *si)
 	return result
 }
 
@@ -406,7 +404,7 @@ func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
 		 return -1
 	}
 	data := secret.SecretSign
-	data = append(data, vc.prevSign...)
+	data = append(data, vc.prevBH.Random...)
 	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
 	data = append(data, qnBytes...)

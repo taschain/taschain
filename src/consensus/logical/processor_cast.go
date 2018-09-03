@@ -201,7 +201,7 @@ func (p *Processor) getCastCheckRoutineName() string {
 
 func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
-	data := preBH.Signature
+	data := preBH.Random
 
 	deltaHeight := height - preBH.Height
 	for ; deltaHeight > 0; deltaHeight -- {
@@ -299,31 +299,24 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 
-	//var si model.SignData
-	//si.DataHash = bh.Hash
-	//si.SignMember = p.GetMinerID()
-
-	if bh.Height > 0 && bh.Height == height && bh.PreHash == vctx.prevHash {
+	if bh.Height > 0 && bh.Height == height && bh.PreHash == vctx.prevBH.Hash {
+		skey := p.getSignKey(gid)
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), &ccm)
-
+		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
+		ccm.GenRandomSign(skey, vctx.prevBH.Random)
+		newBizLog("castBlock").log("preRandom %v, signed random %v", vctx.prevBH.Random, ccm.BH.Random)
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
-		if !PROC_TEST_MODE {
-			p.NetServer.SendCastVerify(&ccm)
-		} else {
-			for _, proc := range p.GroupProcs {
-				proc.OnMessageCast(&ccm)
-			}
-		}
+
+		p.NetServer.SendCastVerify(&ccm)
+
 	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevHash, bh.PreHash)
+		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevBH.Hash, bh.PreHash)
 		//panic("bh Error or sign Error.")
 		return nil
 	}
-	//个人铸块完成的同时也是个人验证完成（第一个验证者）
-	//更新共识上下文
+
 	return bh
 }

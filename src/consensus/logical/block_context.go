@@ -74,7 +74,7 @@ func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) boo
 	if vctx != nil {
 		vctx.lock.Lock()
 		defer vctx.lock.Unlock()
-		return vctx.isCasting() && !vctx.maxQNCasted() && vctx.castHeight == height && vctx.prevHash == preHash
+		return vctx.isCasting() && !vctx.maxQNCasted() && vctx.castHeight == height && vctx.prevBH.Hash == preHash
 	} else {
 		return false
 	}
@@ -83,7 +83,7 @@ func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) boo
 func (bc *BlockContext) getVerifyContext(height uint64, preHash common.Hash) (int32, *VerifyContext) {
 
 	for idx, ctx := range bc.verifyContexts {
-		if ctx.castHeight == height && ctx.prevHash == preHash {
+		if ctx.castHeight == height && ctx.prevBH.Hash == preHash {
 			return int32(idx), ctx
 		}
 	}
@@ -123,7 +123,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 			if bc.currentVerifyContext == ctx {
 				bc.reset()
 			}
-			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevHash), ctx.signedMaxQN)
+			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v, ctx.signedMaxQN=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevBH.Hash), ctx.signedMaxQN)
 		}
 	}
 	bc.verifyContexts = newCtxs
@@ -160,7 +160,7 @@ const (
 func (bc *BlockContext) castingInfo() string {
 	vctx := bc.currentVerifyContext
 	if vctx != nil {
-		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, signedMaxQN=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevHash), vctx.prevTime.String(), vctx.signedMaxQN)
+		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v, signedMaxQN=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevBH.Hash), vctx.prevBH.CurTime.String(), vctx.signedMaxQN)
 	} else {
 		return "not in casting!"
 	}
@@ -238,7 +238,7 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 		return false
 	}
 
-	d := time.Since(vctx.prevTime) //上个铸块完成到现在的时间
+	d := time.Since(vctx.prevBH.CurTime) //上个铸块完成到现在的时间
 	//max := vctx.getMaxCastTime()
 
 	if vctx.castExpire() { //超过了组最大铸块时间

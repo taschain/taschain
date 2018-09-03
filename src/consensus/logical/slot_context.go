@@ -52,7 +52,8 @@ type SlotContext struct {
 	BH             types.BlockHeader //出块头详细数据
 	QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
 	King           groupsig.ID       //出块者ID
-	gSignGenerator *model.GroupSignGenerator
+	gSignGenerator *model.GroupSignGenerator	//块签名产生器
+	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
 	slotStatus     int32
 	lostTxHash     set.Interface
 }
@@ -63,6 +64,7 @@ func createSlotContext(threshold int) *SlotContext {
 		QueueNumber:    model.INVALID_QN,
 		slotStatus:     SS_INVALID,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
+		rSignGenerator: model.NewGroupSignGenerator(threshold),
 		lostTxHash:     set.New(set.ThreadSafe),
 	}
 }
@@ -117,7 +119,7 @@ func (sc SlotContext) MessageSize() int {
 //验证组签名
 //pk：组公钥
 //返回true验证通过，返回false失败。
-func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
+func (sc *SlotContext) VerifyGroupSigns(pk groupsig.Pubkey, preRandom []byte) bool {
 	st := sc.GetSlotStatus()
 	if st == SS_SUCCESS || st == SS_VERIFIED { //已经验证过组签名
 		return true
@@ -127,15 +129,15 @@ func (sc *SlotContext) VerifyGroupSign(pk groupsig.Pubkey) bool {
 	}
 	b := sc.gSignGenerator.VerifyGroupSign(pk, sc.BH.Hash.Bytes())
 	if b {
-		sc.setSlotStatus(SS_VERIFIED) //组签名验证通过
-	} else {
+		b = sc.rSignGenerator.VerifyGroupSign(pk, preRandom)
+		if b {
+			sc.setSlotStatus(SS_VERIFIED) //组签名验证通过
+		}
+	}
+	if !b {
 		sc.setSlotStatus(SS_FAILED)
 	}
 	return b
-}
-
-func (sc SlotContext) GetGroupSign() groupsig.Signature {
-	return sc.gSignGenerator.GetGroupSign()
 }
 
 func (sc *SlotContext) IsVerified() bool {
@@ -192,19 +194,26 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if si.DataHash != sc.BH.Hash {
 		panic("SlotContext::AcceptPiece failed, hash diff.")
 	}
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
-	log.Printf("AcceptPiece %v %v\n", add, generate)
+
 	if !add { //已经收到过该成员的验签
 		//忽略
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
-		if generate { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
+		rsign := groupsig.DeserializeSign(bh.Random)
+		if rsign == nil {
+			panic("SlotContext:randSign deserialize nil")
+		}
+		radd, rgen := sc.rSignGenerator.AddWitness(si.SignMember, *rsign)
+
+		if radd && generate && rgen { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
 			sc.setSlotStatus(SS_RECOVERD)
 			sc.BH.Signature = sc.gSignGenerator.GetGroupSign().Serialize()
+			sc.BH.Random = sc.rSignGenerator.GetGroupSign().Serialize()
 			return CBMR_THRESHOLD_SUCCESS
 		} else {
 			return CBMR_PIECE_NORMAL
