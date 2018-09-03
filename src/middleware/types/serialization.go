@@ -258,6 +258,9 @@ func pbToMember(m *tas_middleware_pb.Member) *Member {
 }
 
 func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
+	if t == nil {
+		return nil
+	}
 	var target []byte
 	if t.Target != nil {
 		target = t.Target.Bytes()
