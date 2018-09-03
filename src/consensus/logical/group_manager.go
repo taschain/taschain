@@ -184,10 +184,10 @@ func (gm *GroupManager) CheckGIS(gis *model.ConsensusGroupInitSummary, isGroupMe
 	//topGroup := gm.groupChain.LastGroup()
 	//topBH := gm.mainChain.QueryTopBlock()
 	//
-	//key := "CheckGIS"
+	//blog := newBizLog("CheckGIS")
 	//deltaH := topBH.Height - gis.TopHeight
 	//if deltaH < 0 || deltaH >= model.Param.CreateGroupInterval {
-	//	log.Printf("%v topHeight error. topHeight=%v, gis topHeight=%v\n",  topBH.Height, gis.TopHeight)
+	//	blog.log("topHeight error. topHeight=%v, gis topHeight=%v",  topBH.Height, gis.TopHeight)
 	//	return false
 	//}
 	//
@@ -220,7 +220,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	var gis model.ConsensusGroupInitSummary
 
 	gis.ParentID = group.GroupID
-	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.PreGroup)
+	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.Id)
 
 	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height)
 	bi := base.Data2CommonHash([]byte(gn)).Big()
@@ -265,7 +265,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	creatingGroup := newCreateGroup(&gis, memIds, group)
 	gm.addCreatingGroup(creatingGroup)
 
-	log.Printf("proc(%v) start Create Group consensus, send network msg to members...\n", gm.processor.getPrefix())
+	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), GetIDPrefix(gis.DummyID))
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
@@ -286,7 +286,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
 	if preGroup == nil {
-		log.Printf("ConsensusCreateGroupRawMessage preGroup is nil, preGroupId=%v\n", msg.GI.PrevGroupID)
+		log.Printf("ConsensusCreateGroupRawMessage preGroup is nil, preGroupId=%v\n", GetIDPrefix(msg.GI.PrevGroupID))
 		return false
 	}
 
