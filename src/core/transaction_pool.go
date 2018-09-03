@@ -493,14 +493,11 @@ func (c *container) PushTxs(txs []*types.Transaction) {
 
 func (c *container) add(tx *types.Transaction) {
 	if c.txs.Len() < c.limit {
-		Logger.Debugf(" container add c.txs.Len() < c.limit")
 		c.txs = append(c.txs, tx)
-		Logger.Debugf(" container add hash:%v",tx.Hash)
 		c.txsMap[tx.Hash] = tx
 		return
 	}
 
-	Logger.Debugf(" container add c.txs.Len() >= c.limit")
 	if !c.inited {
 		heap.Init(&c.txs)
 		c.inited = true
