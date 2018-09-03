@@ -493,11 +493,14 @@ func (c *container) PushTxs(txs []*types.Transaction) {
 
 func (c *container) add(tx *types.Transaction) {
 	if c.txs.Len() < c.limit {
+		Logger.Debugf(" container add c.txs.Len() < c.limit")
 		c.txs = append(c.txs, tx)
+		Logger.Debugf(" container add hash:%v",tx.Hash)
 		c.txsMap[tx.Hash] = tx
 		return
 	}
 
+	Logger.Debugf(" container add c.txs.Len() >= c.limit")
 	if !c.inited {
 		heap.Init(&c.txs)
 		c.inited = true
@@ -518,12 +521,14 @@ func (c *container) Remove(keys []common.Hash) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
 	for _, key := range keys {
 		if c.txsMap[key] == nil {
-			return
+			continue
 		}
-
 		delete(c.txsMap, key)
+		//Logger.Debugf("txsMap delete value contain tx map len %d",len(c.txsMap))
+
 		index := -1
 		for i, tx := range c.txs {
 			if tx.Hash == key {
@@ -533,7 +538,7 @@ func (c *container) Remove(keys []common.Hash) {
 		}
 		heap.Remove(&c.txs, index)
 	}
-
+	//Logger.Debugf("[Remove111:]After remove,contain tx map len %d,contain txs len %d",len(c.txsMap),len(c.txs))
 }
 
 func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
