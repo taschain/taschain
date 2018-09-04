@@ -77,7 +77,6 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 		//cvm.GroupID = gId
 		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm)
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
-		newBizLog(mtype).log("preRandom %v, signed random %v", vctx.prevBH.Random, cvm.BH.Random)
 		log.Printf("call network service SendVerifiedCast...\n")
 		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
 		p.NetServer.SendVerifiedCast(&cvm)
@@ -118,7 +117,6 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	if !p.isCastGroupLegal(bh, preBH) {
 		result = "非法的铸块组"
 		log.Printf("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
-		panic("cast !!")
 		return
 	}
 
@@ -128,8 +126,12 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		log.Printf("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
 		return
 	}
+	if bc.IsHeightCasted(bh.Height) {
+		result = "该高度已铸过"
+		return
+	}
 
-	_, vctx := bc.GetOrNewVerifyContext(bh, preBH)
+	vctx := bc.GetOrNewVerifyContext(bh, preBH)
 
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), CBMR_RESULT_DESC(verifyResult))
@@ -143,7 +145,6 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
-		log.Printf("proc(%v) %v msg_count reach threshold!\n", mtype, p.getPrefix())
 		if !slot.HasTransLost() {
 			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot)
 		}
@@ -250,17 +251,17 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		logEnd("OMB", bh.Height, bh.QueueNumber, "")
 	}()
 
-	if p.MainChain.QueryBlockByHash(cbm.Block.Header.Hash) != nil {
+	if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
 		//log.Printf("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
 		result = "已经在链上"
 		return
 	}
-	var gid groupsig.ID
-	if gid.Deserialize(cbm.Block.Header.GroupId) != nil {
+	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
+	if gid == nil {
 		panic("OMB Deserialize group_id failed")
 	}
 	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(gid), GetIDPrefix(gid), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
+		GetIDPrefix(*gid), GetIDPrefix(*gid), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
 
 	block := &cbm.Block
 

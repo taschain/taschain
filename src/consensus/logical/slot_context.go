@@ -21,7 +21,6 @@ import (
 	"common"
 	"sync/atomic"
 	"middleware/types"
-	"strconv"
 	"core"
 	"consensus/model"
 	"log"
@@ -51,7 +50,6 @@ type SlotContext struct {
 	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
 	BH             types.BlockHeader //出块头详细数据
 	QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
-	King           groupsig.ID       //出块者ID
 	gSignGenerator *model.GroupSignGenerator	//块签名产生器
 	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
 	slotStatus     int32
@@ -152,45 +150,6 @@ func (sc *SlotContext) IsSuccess() bool {
 	return sc.GetSlotStatus() == SS_SUCCESS
 }
 
-type CAST_BLOCK_MESSAGE_RESULT int8 //出块和验证消息处理结果枚举
-
-const (
-	CBMR_PIECE_NORMAL         CAST_BLOCK_MESSAGE_RESULT = iota //收到一个分片，接收正常
-	CBMR_PIECE_LOSINGTRANS                                     //收到一个分片, 缺失交易
-	CBMR_THRESHOLD_SUCCESS                                     //收到一个分片且达到阈值，组签名成功
-	CBMR_THRESHOLD_FAILED                                      //收到一个分片且达到阈值，组签名失败
-	CBMR_IGNORE_REPEAT                                         //丢弃：重复收到该消息
-	CBMR_IGNORE_QN_BIG_QN                                      //丢弃：QN太大
-	CBMR_IGNORE_QN_ERROR                                       //丢弃：qn错误
-	CBMR_IGNORE_KING_ERROR                                     //丢弃：king错误
-	CBMR_IGNORE_MAX_QN_SIGNED                                  //丢弃：该节点已向组外广播出更低QN值的块
-	CBMR_STATUS_FAIL                                           //已经失败的
-	CBMR_ERROR_UNKNOWN                                         //异常：未知异常
-)
-
-func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
-	switch ret {
-	case CBMR_PIECE_NORMAL:
-		return "正常分片"
-	case CBMR_PIECE_LOSINGTRANS:
-		return "交易缺失"
-	case CBMR_THRESHOLD_SUCCESS:
-		return "达到门限值组签名成功"
-	case CBMR_THRESHOLD_FAILED:
-		return "达到门限值但组签名失败"
-	case CBMR_IGNORE_QN_BIG_QN, CBMR_IGNORE_QN_ERROR:
-		return "qn错误"
-	case CBMR_IGNORE_KING_ERROR:
-		return "king错误"
-	case CBMR_IGNORE_MAX_QN_SIGNED:
-		return "已出更大qn"
-	case CBMR_STATUS_FAIL:
-		return "失败状态"
-	case CBMR_IGNORE_REPEAT:
-		return "重复消息"
-	}
-	return strconv.FormatInt(int64(ret), 10)
-}
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
@@ -229,7 +188,6 @@ func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 
 	sc.BH = *bh
 	sc.QueueNumber = int64(bh.QueueNumber)
-	sc.King.Deserialize(bh.Castor)
 	sc.setSlotStatus(SS_WAITING)
 	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
 	log.Printf("initSlotContext verifyCastingBlock lost trans size %v, ret %v\n", len(ltl), ccr)
@@ -242,7 +200,7 @@ func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 }
 
 func (sc SlotContext) IsValid() bool {
-	return sc.QueueNumber > model.INVALID_QN
+	return sc.GetSlotStatus() != SS_INVALID
 }
 
 func (sc *SlotContext) StatusTransform(from int32, to int32) bool {

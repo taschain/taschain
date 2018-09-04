@@ -178,8 +178,6 @@ func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.Conse
 		return false
 	}
 	if msg.VerifySign(signPk) { //消息合法
-		bizlog.log("preBH random %v，bh random %v", preBH.Random, msg.BH.Random)
-
 		return msg.VerifyRandomSign(signPk, preBH.Random)
 	} else {
 		bizlog.log("msg verifysign fail")

@@ -110,10 +110,6 @@ func (p *Processor) triggerCastCheck()  {
 
 //检查是否当前组铸块
 func (p *Processor) checkSelfCastRoutine() bool {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("checkSelfCastRoutine: begin at %v, cost %v", begin, time.Since(begin).String())
-	//}()
 	if !p.Ready() {
 		return false
 	}
@@ -180,7 +176,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 			return false
 		}
 
-		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup))
+		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
 		bc.StartCast(castHeight, expireTime, top)
 
 		return true
@@ -229,7 +225,6 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 
 	if p.blockOnChain(bh) { //已经上链
 		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
-		vctx.CastedUpdateStatus(int64(bh.QueueNumber))
 		return
 	}
 
@@ -245,27 +240,26 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
 		return
 	}
-	vctx.CastedUpdateStatus(int64(bh.QueueNumber))
 
 	cbm := &model.ConsensusBlockMessage{
 		Block: *block,
 	}
-	if !PROC_TEST_MODE {
-		nextId := p.calcCastGroup(bh, bh.Height+1)
-		group := p.getGroup(*nextId)
-		mems := make([]groupsig.ID, len(group.Members))
-		for idx, mem := range group.Members {
-			mems[idx] = mem.ID
-		}
-		next := &net.NextGroup{
-			Gid: *nextId,
-			MemIds: mems,
-		}
-		if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-			logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
-			p.NetServer.BroadcastNewBlock(cbm, next)
-		}
+
+	nextId := p.calcCastGroup(bh, bh.Height+1)
+	group := p.getGroup(*nextId)
+	mems := make([]groupsig.ID, len(group.Members))
+	for idx, mem := range group.Members {
+		mems[idx] = mem.ID
 	}
+	next := &net.NextGroup{
+		Gid: *nextId,
+		MemIds: mems,
+	}
+	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
+		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
+		p.NetServer.BroadcastNewBlock(cbm, next)
+	}
+
 	return
 }
 
