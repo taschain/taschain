@@ -136,11 +136,11 @@ func (gs *groupSyncer) loop() {
 		select {
 		case sourceId := <-gs.ReqHeightCh:
 			//收到组高度请求
-			logger.Debugf("[GroupSyncer]Rcv group height req from:%s", sourceId)
+			//logger.Debugf("[GroupSyncer]Rcv group height req from:%s", sourceId)
 			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.CountCh:
 			//收到来自其他节点的组链高度
-			logger.Debugf("[GroupSyncer]Rcv group height from:%s,height:%d", h.SourceId, h.Count)
+			//logger.Debugf("[GroupSyncer]Rcv group height from:%s,height:%d", h.SourceId, h.Count)
 			if !gs.init {
 				gs.replyCount++
 			}
@@ -152,7 +152,7 @@ func (gs *groupSyncer) loop() {
 			gs.lock.Unlock()
 		case gri := <-gs.ReqGroupCh:
 			//收到组请求
-			logger.Debugf("[GroupSyncer]Rcv group from:%s\n,id:%s", gri.SourceId, gri.CurrentTopGroupId)
+			//logger.Debugf("[GroupSyncer]Rcv group from:%s\n,id:%s", gri.SourceId, gri.CurrentTopGroupId)
 			groups := core.GroupChainImpl.GetOtherLackGroups(gri.CurrentTopGroupId,gri.ExistGroupIds)
 			if len(groups) == 0 {
 				logger.Errorf("[GroupSyncer]Get nil group by id:%s", gri.SourceId)
@@ -162,7 +162,7 @@ func (gs *groupSyncer) loop() {
 			sendGroups(gri.SourceId, groups)
 		case groupInfos := <-gs.GroupCh:
 			//收到组信息
-			logger.Debugf("[GroupSyncer]Rcv groups len :%d,from:%d", len(groupInfos.Groups),groupInfos.SourceId)
+			//logger.Debugf("[GroupSyncer]Rcv groups len :%d,from:%d", len(groupInfos.Groups),groupInfos.SourceId)
 			for _,group := range groupInfos.Groups {
 				e := core.GroupChainImpl.AddGroup(group, nil, nil)
 				if e != nil {
@@ -186,7 +186,7 @@ func (gs *groupSyncer) loop() {
 			if !gs.init {
 				continue
 			}
-			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
+			//logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
 			gs.sync()
 		}
 	}
@@ -194,14 +194,14 @@ func (gs *groupSyncer) loop() {
 
 //广播索要组链高度
 func requestGroupChainHeight() {
-	logger.Debugf("[GroupSyncer]Req group height for neighbor!")
+	//logger.Debugf("[GroupSyncer]Req group height for neighbor!")
 	message := network.Message{Code: network.ReqGroupChainCountMsg}
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //返回自身组链高度
 func sendGroupHeight(targetId string, localCount uint64) {
-	logger.Debugf("[GroupSyncer]Send local group height %d to %s!", localCount,targetId)
+	//logger.Debugf("[GroupSyncer]Send local group height %d to %s!", localCount,targetId)
 	body := utility.UInt64ToByte(localCount)
 	message := network.Message{Code: network.GroupChainCountMsg, Body: body}
 	network.GetNetInstance().Send(targetId, message)
@@ -209,14 +209,14 @@ func sendGroupHeight(targetId string, localCount uint64) {
 
 //向某一节点请求Group
 func requestGroupByGroupId(id string, groupId []byte) {
-	logger.Debugf("[GroupSyncer]Req group for %s,id:%s!",id,groupId)
+	//logger.Debugf("[GroupSyncer]Req group for %s,id:%s!",id,groupId)
 	message := network.Message{Code: network.ReqGroupMsg, Body: groupId}
 	network.GetNetInstance().Send(id, message)
 }
 
 //本地查询之后将结果返回
 func sendGroup(targetId string, group *types.Group, isTopGroup bool) {
-	logger.Debugf("[GroupSyncer]Send group to %s,group id:%s",targetId,group.Id)
+	//logger.Debugf("[GroupSyncer]Send group to %s,group id:%s",targetId,group.Id)
 	groupInfo := GroupInfo{Group: group, IsTopGroup: isTopGroup}
 	body, e := marshalGroupInfo(groupInfo)
 	if e != nil {
@@ -228,7 +228,7 @@ func sendGroup(targetId string, group *types.Group, isTopGroup bool) {
 }
 
 func sendGroups(targetId string, groups []*types.Group) {
-	logger.Debugf("[GroupSyncer]Send group to %s,group len:%d",targetId,len(groups))
+	//logger.Debugf("[GroupSyncer]Send group to %s,group len:%d",targetId,len(groups))
 	body, e := marshalGroupInfos(groups)
 	if e != nil {
 		logger.Errorf("[GroupSyncer]"+"sendGroup marshal group error:%s", e.Error())
