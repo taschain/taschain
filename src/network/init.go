@@ -62,13 +62,16 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 		seeds = append(seeds, bnNode)
 	}
 
+	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
+
 	var natEnable bool
 	if testMode {
 		natEnable = false
+		listenAddr =  nnet.UDPAddr{IP:nnet.ParseIP(seedIp), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr: &nnet.UDPAddr{IP: self.Ip, Port: self.Port}, Seeds: seeds, NatTraversalEnable: natEnable}
+	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr:&listenAddr , Seeds: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
