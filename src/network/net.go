@@ -37,8 +37,8 @@ var (
 	errClosed           = errors.New("socket closed")
 )
 
-const NatServerIp = "47.104.83.120"
 const NatServerPort = 70
+var NatServerIp = "47.104.83.120"
 
 // Timeouts
 const (

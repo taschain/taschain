@@ -183,13 +183,21 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error
 		return nil, fmt.Errorf("exceed local height")
 	}
 
-	result := make([]*types.Group, chain.count-height)
-	for i := height; i < chain.count; i++ {
-		group := chain.getGroupByHeight(i)
-		if nil != group {
-			result[i-height] = group
-		}
-
+	result := make([]*types.Group, 0)
+	//for i := height; i < chain.count; i++ {
+	//	group := chain.getGroupByHeight(i)
+	//	if nil != group {
+	//		result[i-height] = group
+	//	}
+	//}
+	iterator := chain.NewIterator()
+	i := height
+	if i == 0{
+		i = chain.count
+	}
+	for coreGroup := iterator.Current(); coreGroup != nil&&i > 0; coreGroup = iterator.MovePre(){
+		result = append(result, coreGroup)
+		i--
 	}
 	return result, nil
 }
