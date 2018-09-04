@@ -176,7 +176,6 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 	publicKey := privateKey.GetPubKey()
 	id := publicKey.GetAddress()
 	ip := getLocalIp()
-	ip="10.0.0.105"
 	basePort := BASE_PORT
 	port := SUPER_BASE_PORT;
 	if !isSuper {

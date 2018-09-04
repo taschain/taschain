@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"storage/core/vm"
 	"fmt"
-
+	"tvm"
 )
 
 type TVMExecutor struct {
@@ -42,41 +42,39 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
 		return hash, nil, nil
 	}
-	hash := accountdb.IntermediateRoot(true)
-	return hash, nil, nil
-	//receipts := make([]*t.Receipt,len(block.Transactions))
-	//for i,transaction := range block.Transactions{
-	//	var fail = false
-	//	var contractAddress common.Address
-	//	vm := tvm.NewTvm(accountdb, BlockChainImpl)
-	//	if transaction.Target == nil{
-	//		contractAddress,_ = createContract(accountdb, transaction)
-	//	} else if len(transaction.Data) > 0 {
-	//		snapshot := accountdb.Snapshot()
-	//		script := string(accountdb.GetCode(*transaction.Target))
-	//		if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
-	//			accountdb.RevertToSnapshot(snapshot)
-	//			fail = true
-	//		}
-	//	} else {
-	//		amount := big.NewInt(int64(transaction.Value))
-	//		if CanTransfer(accountdb, *transaction.Source, amount){
-	//			Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-	//		} else {
-	//			fail = true
-	//		}
-	//	}
-	//	receipt := t.NewReceipt(nil,fail,0)
-	//	receipt.TxHash = transaction.Hash
-	//	receipt.ContractAddress = contractAddress
-	//	receipts[i] = receipt
+	receipts := make([]*t.Receipt,len(block.Transactions))
+	for i,transaction := range block.Transactions{
+		var fail = false
+		var contractAddress common.Address
+		vm := tvm.NewTvm(accountdb, BlockChainImpl)
+		if transaction.Target == nil{
+			contractAddress,_ = createContract(accountdb, transaction)
+		} else if len(transaction.Data) > 0 {
+			snapshot := accountdb.Snapshot()
+			script := string(accountdb.GetCode(*transaction.Target))
+			if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
+				accountdb.RevertToSnapshot(snapshot)
+				fail = true
+			}
+		} else {
+			amount := big.NewInt(int64(transaction.Value))
+			if CanTransfer(accountdb, *transaction.Source, amount){
+				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+			} else {
+				fail = true
+			}
+		}
+		receipt := t.NewReceipt(nil,fail,0)
+		receipt.TxHash = transaction.Hash
+		receipt.ContractAddress = contractAddress
+		receipts[i] = receipt
+	}
+
+	//if nil != processor {
+	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
-	//
-	////if nil != processor {
-	////	processor.AfterAllTransactionExecuted(block, statedb, receipts)
-	////}
-	//
-	//return accountdb.IntermediateRoot(true), receipts, nil
+
+	return accountdb.IntermediateRoot(true), receipts, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
