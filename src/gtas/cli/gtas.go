@@ -203,7 +203,7 @@ func (gtas *Gtas) Run() {
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
-	nat := mineCmd.Flag("$nat", "nat server address").String()
+	nat := mineCmd.Flag("nat", "nat server address").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
