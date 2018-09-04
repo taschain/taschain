@@ -5,6 +5,8 @@ import (
 	nnet "net"
 	"sync"
 	"time"
+	"sort"
+	"math"
 )
 
 const GroupBaseConnectNodeCount = 2
@@ -36,55 +38,46 @@ func (g Group) Swap(i, j int) {
 func newGroup(id string, members []NodeID) *Group {
 
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
-	//Logger.Debugf("sort group id：%v", id)
-	//for i:= 0;i<len(g.members);i++ {
-	//	Logger.Debugf("before id：%v", g.members[i].GetHexString())
-	//}
-	//sort.Sort(g)
-	//for i:= 0;i<len(g.members);i++ {
-	//	Logger.Debugf("after id：%v", g.members[i].GetHexString())
-	//}
-	//
-	//g.curIndex =0
-	//for i:= 0;i<len(g.members);i++ {
-	//	if g.members[i] == net.netCore.id {
-	//		g.curIndex = i
-	//		break
-	//	}
-	//}
-	//connectCount := GroupBaseConnectNodeCount;
-	//if connectCount >  len(g.members) -1 {
-	//	connectCount = len(g.members) -1
-	//}
-	//nodesSelected := make(map[int]bool)
-	//
-	//nextIndex := g.getNextIndex(g.curIndex)
-	//g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
-	//nodesSelected[nextIndex] = true;
-	//nextIndex = g.getNextIndex(nextIndex)
-	//g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
-	//nodesSelected[nextIndex] = true;
-	//
-	//
-	//rand :=mrand.New(mrand.NewSource(0))
-	//peerSize := len(g.members)
-	//maxCount := int(math.Sqrt(float64(peerSize)));
-	//
-	//for i:=0;i<peerSize && len(nodesSelected) < maxCount;i++ {
-	//	peerIndex := rand.Intn(peerSize)
-	//	if nodesSelected[peerIndex] == true {
-	//		continue
-	//	}
-	//	nodesSelected[peerIndex] = true
-	//	g.needConnectNodes = append(g.needConnectNodes,g.members[peerIndex])
-	//}
-	//
-	//for i:= 0;i<len(g.needConnectNodes);i++ {
-	//	Logger.Debugf("needConnectNodes  id：%v", g.needConnectNodes[i].GetHexString())
-	//}
-	for i:=0;i<len(g.members);i++ {
-		g.needConnectNodes = append(g.needConnectNodes,g.members[i])
+	Logger.Debugf("sort group id：%v", id)
+	for i:= 0;i<len(g.members);i++ {
+		Logger.Debugf("before id：%v", g.members[i].GetHexString())
 	}
+	sort.Sort(g)
+	for i:= 0;i<len(g.members);i++ {
+		Logger.Debugf("after id：%v", g.members[i].GetHexString())
+	}
+
+	g.curIndex =0
+	for i:= 0;i<len(g.members);i++ {
+		if g.members[i] == net.netCore.id {
+			g.curIndex = i
+			break
+		}
+	}
+	connectCount := GroupBaseConnectNodeCount;
+	if connectCount >  len(g.members) -1 {
+		connectCount = len(g.members) -1
+	}
+
+	nextIndex := g.getNextIndex(g.curIndex)
+	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+	nextIndex = g.getNextIndex(nextIndex)
+	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+
+	peerSize := len(g.members)
+	maxCount := int(math.Sqrt(float64(peerSize)));
+	maxCount -=  len(g.needConnectNodes)
+	step :=  len(g.members)/ maxCount
+	for i:=0;i<maxCount ;i++ {
+		nextIndex += step
+		nextIndex %= len(g.members)
+		g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+	}
+
+	for i:= 0;i<len(g.needConnectNodes);i++ {
+		Logger.Debugf("needConnectNodes  id：%v", g.needConnectNodes[i].GetHexString())
+	}
+
 	return g
 }
 
