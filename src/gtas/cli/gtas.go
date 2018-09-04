@@ -113,7 +113,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log")//todo: absolute path?
+	middleware.SetupStackTrap("/Users/daijia/stack.log") //todo: absolute path?
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
@@ -203,6 +203,7 @@ func (gtas *Gtas) Run() {
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
+	nat := mineCmd.Flag("nat", "nat server address").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -227,6 +228,10 @@ func (gtas *Gtas) Run() {
 		common.GlobalConf.SetString("test", "prefix", *prefix)
 	}
 
+	if *nat != "" {
+		network.NatServerIp = *nat
+		log.Printf("NAT server ip:%s", *nat)
+	}
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
