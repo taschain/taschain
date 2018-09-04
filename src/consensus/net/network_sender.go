@@ -8,6 +8,8 @@ import (
 	"network"
 	"consensus/model"
 	"time"
+	"middleware/statistics"
+	"common"
 )
 
 type NetworkServerImpl struct {
@@ -152,6 +154,8 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 	begin := time.Now()
 	ns.net.Multicast(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(begin),timeFromCast, m.Hash())
+	statistics.AddBlockLog(statistics.SendVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
+		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
 }
 
 //对外广播经过组签名的block 全网广播
@@ -169,7 +173,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	groupMembers := id2String(group.MemIds)
 
 	ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
-	//network.Logger.Debugf("spread block %d-%d over group:%s,body size %d", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber,nextCastGroupId, len(body))
+
 
 
 
@@ -180,8 +184,10 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	}
 	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:headerByte}
 	ns.net.Relay(headerMsg,1)
-	//network.Logger.Debugf("spread block %d-%d header to neighbor,header size %d,hash:%v", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(body), cbm.Block.Header.Hash)
+	//network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
+	statistics.AddBlockLog(statistics.BroadBlock,cbm.Block.Header.Height,cbm.Block.Header.QueueNumber,len(cbm.Block.Transactions),len(body),
+		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
 }
 
 //====================================建组前共识=======================

@@ -19,6 +19,8 @@ import (
 
 )
 
+var InstanceIndex int
+
 type AccountData struct {
 	sk   []byte   //secure key
 	pk 	 []byte   //public key

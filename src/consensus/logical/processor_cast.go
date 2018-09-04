@@ -286,7 +286,7 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
 		return nil
 	} else {
-		statistics.AddLog(block.Header.Hash.String(), statistics.KingCasting, time.Now().UnixNano(),string(block.Header.Castor),p.GetMinerID().String())
+		//statistics.AddLog(block.Header.Hash.String(), statistics.KingCasting, time.Now().UnixNano(),string(block.Header.Castor),p.GetMinerID().String())
 	}
 
 	bh := block.Header
@@ -306,6 +306,10 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 		p.NetServer.SendCastVerify(&ccm)
 
+		var groupId groupsig.ID
+		groupId.Deserialize(ccm.BH.GroupId)
+		statistics.AddBlockLog(statistics.SendCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
+			time.Now().UnixNano(),GetIDPrefix(p.GetMinerID()),GetIDPrefix(groupId),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	} else {
 		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevBH.Hash, bh.PreHash)
 		//panic("bh Error or sign Error.")
