@@ -148,6 +148,11 @@ func MarshalGroup(g *Group) ([]byte, error) {
 	return proto.Marshal(group)
 }
 
+//func MarshalGroupRequest(info *sync.GroupRequestInfo) ([]byte, error) {
+//	group := GroupRequestInfoToPB(info)
+//	return proto.Marshal(group)
+//}
+
 func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
@@ -213,6 +218,10 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN, Random: h.Random}
 	return &header
+}
+
+func GroupRequestInfoToPB(CurrentTopGroupId []byte, ExistGroupIds [][]byte) *tas_middleware_pb.GroupRequestInfo {
+	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId:CurrentTopGroupId,	ExistGroupIds:&tas_middleware_pb.GroupIdSlice{GroupIds:ExistGroupIds}}
 }
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {

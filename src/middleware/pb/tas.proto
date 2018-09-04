@@ -142,8 +142,7 @@ message Group{
 
 
 message GroupInfo{
-    required Group Group = 1;
-
+    repeated Group Groups = 1;
     required bool IsTopGroup = 2;
 }
 

@@ -221,6 +221,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 		gmap["dummy"] = true
 	}
 	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+	gmap["pre"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.PreGroup))
 	gmap["begin_height"] = g.BeginHeight
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
@@ -262,7 +263,8 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	for _, g := range groups {
 		gmap := make(map[string]interface{})
 		gmap["id"] = logical.GetIDPrefix(g.GroupID)
-		gmap["parent"] = logical.GetIDPrefix(g.GroupID)
+		gmap["parent"] = logical.GetIDPrefix(g.ParentId)
+		gmap["pre"] = logical.GetIDPrefix(g.PrevGroupID)
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
 			mems = append(mems, logical.GetIDPrefix(mem.ID))

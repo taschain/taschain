@@ -426,7 +426,8 @@ const HTMLTEM = `<!DOCTYPE html>
 
         var group_table = table.render({
             elem: '#group_detail' //指定原始表格元素选择器（推荐id选择器）
-            ,cols: [[{field:'height',title: '逆序', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},{field:'parent', title: '父亲组', width:140},
+            ,cols: [[{field:'height',title: '逆序', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},
+			{field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
                 {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
                 {field:'members', title: '成员列表'}]] //设置表头
             ,data: groups
@@ -436,7 +437,7 @@ const HTMLTEM = `<!DOCTYPE html>
 
         var work_group_table = table.render({
             elem: '#work_group_detail' //指定原始表格元素选择器（推荐id选择器）
-            ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},
+            ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
                 {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
                 {field:'group_members', title: '成员列表'}]] //设置表头
             ,data: groups

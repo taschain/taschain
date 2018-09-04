@@ -541,9 +541,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
 		return nil, -1, nil, nil
-	} else {
-		log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
 	}
+	//else {
+	//	log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
+	//}
 
 	b := new(types.Block)
 	b.Header = &bh
@@ -580,7 +581,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
-	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Count, b.Header.QueueNumber, time.Since(b.Header.CurTime))
+	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }
@@ -666,7 +667,7 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
 	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Count:%d,localHeight:%d", blockHash.Height, chain.Height())
+		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		//删除自身链的结点
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
@@ -844,10 +845,10 @@ func isCommonAncestor(bhs []*BlockHash, index int) int {
 	he := bhs[index]
 	bh := BlockChainImpl.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:Count:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
+		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1
 	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:Count:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
 	}

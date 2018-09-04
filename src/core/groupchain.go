@@ -183,21 +183,13 @@ func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error
 		return nil, fmt.Errorf("exceed local height")
 	}
 
-	result := make([]*types.Group, 0)
-	//for i := height; i < chain.count; i++ {
-	//	group := chain.getGroupByHeight(i)
-	//	if nil != group {
-	//		result[i-height] = group
-	//	}
-	//}
-	iterator := chain.NewIterator()
-	i := height
-	if i == 0{
-		i = chain.count
-	}
-	for coreGroup := iterator.Current(); coreGroup != nil&&i > 0; coreGroup = iterator.MovePre(){
-		result = append(result, coreGroup)
-		i--
+	result := make([]*types.Group, chain.count-height)
+	for i := height; i < chain.count; i++ {
+		group := chain.getGroupByHeight(i)
+		if nil != group {
+			result[i-height] = group
+		}
+
 	}
 	return result, nil
 }
@@ -215,6 +207,26 @@ func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
 	}
 
 	return nil
+}
+
+func (chain *GroupChain) GetSyncGroupsByHeight(height uint64, limit int) ([]*types.Group) {
+	chain.lock.RLock()
+	defer chain.lock.RUnlock()
+	return chain.getSyncGroupsByHeight(height, limit)
+}
+
+func (chain *GroupChain) getSyncGroupsByHeight(height uint64, limit int) []*types.Group {
+	result := make([]*types.Group, 0)
+	for i := 0;i < limit;i++{
+		groupId, _ := chain.groups.Get(generateKey(height + uint64(i)))
+		if nil != groupId {
+			result = append(result, chain.getGroupById(groupId))
+		} else {
+			break
+		}
+	}
+
+	return result
 }
 
 func (chain *GroupChain) GetOtherLackGroups(topId []byte,existIds [][]byte) ([]*types.Group) {
@@ -283,15 +295,25 @@ func (chain *GroupChain) MissingGroupIds() [][]byte{
 	return result
 }
 
-func (chain *GroupChain) repairPreGroup(groupId []byte){
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
+func (chain *GroupChain) ExistingGroupIds() [][]byte{
+	result := make([][]byte,0)
+	chain.preCache.Range(func(key, value interface{}) bool {
+		if group,ok := value.(*types.Group);ok{
+			result = append(result,group.Id)
+		}
 
+		return true
+	})
+
+	return result
+}
+
+func (chain *GroupChain) repairPreGroup(groupId []byte){
 	for{
 		if group,ok := chain.preCache.Load(string(groupId));ok{
 			if group,ok := group.(*types.Group);ok {
-				if nil == chain.save(group, true) {
-					chain.lastGroup = group
+				if nil == chain.save(group) {
+					//chain.lastGroup = group
 					chain.preCache.Delete(string(groupId))
 					groupId = group.Id
 				}
@@ -301,6 +323,25 @@ func (chain *GroupChain) repairPreGroup(groupId []byte){
 		}
 	}
 }
+
+//func (chain *GroupChain) canOnChain(preGroupId []byte) (bool, []*types.Group){
+//	reslut := make([]*types.Group,0)
+//	for{
+//		if preGroupId == nil{
+//			return true,reslut
+//		} else if ok,_ := chain.groups.Has(preGroupId);ok{
+//			return true,reslut
+//		} else {
+//			if g,ok := chain.preCache.Load(string(preGroupId));ok{
+//				group,_ := g.(*types.Group)
+//				reslut = append([]*types.Group{group},reslut...)
+//				preGroupId = group.PreGroup
+//			} else {
+//				return false,reslut
+//			}
+//		}
+//	}
+//}
 
 func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature []byte) error {
 	chain.lock.Lock()
@@ -325,23 +366,30 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 				chain.preCache.Store(string(group.PreGroup), group)
 				return fmt.Errorf("pre group is not existed")
 			}
+		} else{
+			return chain.save(group)
 		}
 	}
 
-	// 检查是否已经存在
-	var flag bool
-	if nil != group.Id {
-		flag, _ = chain.groups.Has(group.Id)
-
-	} else if nil != group.Dummy {
-		flag, _ = chain.groups.Has(group.Dummy)
-
-	}
 	// todo: 通过父亲节点公钥校验本组的合法性
-	ret := chain.save(group, flag)
-	chain.lastGroup = group
+	//if nil != group.PreGroup{
+	//	can,preGroups := chain.canOnChain(group.PreGroup)
+	//	if can {
+	//		for _,g := range preGroups{
+	//			chain.save(g)
+	//		}
+	//		return chain.save(group)
+	//	} else{
+	//		chain.preCache.Store(string(group.PreGroup), group)
+	//		return fmt.Errorf("pre group is not existed")
+	//	}
+	//} else {
+	//	return chain.save(group)
+	//}
+	ret := chain.save(group)
+	//chain.lastGroup = group
 	if nil == ret{
-		go chain.repairPreGroup(group.Id)
+		chain.repairPreGroup(group.Id)
 		//if next,ok := chain.preCache[string(group.Id)];ok{
 		//	chain.AddGroup(next, sender, signature)
 		//}
@@ -349,20 +397,28 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	return ret
 }
 
-func (chain *GroupChain) save(group *types.Group, overWrite bool) error {
+func (chain *GroupChain) save(group *types.Group) error {
+	var overWrite bool
+	if nil != group.Id {
+		overWrite, _ = chain.groups.Has(group.Id)
+	}
+
 	data, err := json.Marshal(group)
 	if nil != err {
 		return err
 	}
+	chain.groups.Put(generateKey(chain.count), group.Id)
+	chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
+	if !overWrite {
+		chain.count++
+		chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
+	}
+	fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
 
-		chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
-		if !overWrite {
-			chain.count++
-			chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
-		}
-		fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
-
+	err = chain.groups.Put(group.Id, data)
+	if nil == err {
+		chain.lastGroup = group
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
-		return chain.groups.Put(group.Id, data)
-
+	}
+	return err
 }
