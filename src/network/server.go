@@ -33,7 +33,7 @@ func (n *server) Send(id string, msg Message) error {
 		return nil
 	}
 	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
-	Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -45,7 +45,7 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 	}
 
 	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
-	Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	}
 
 	n.netCore.SendGroup(groupId, bytes, true)
-	Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -71,7 +71,7 @@ func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Mess
 	}
 
 	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers)
-	Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 
 	return nil
 }
@@ -85,7 +85,7 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 
 	n.netCore.SendAll(bytes, false,nil,-1)
 
-	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 	}
 	//n.netCore.SendAll(bytes, true,nil,-1)
 	n.netCore.BroadcastRandom(bytes,relayCount)
-	Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (n *server) Broadcast(msg Message) error {
 		return err
 	}
 	n.netCore.SendAll(bytes, true,nil,-1)
-	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -166,30 +166,6 @@ func (n *server) handleMessage(b []byte, from string) {
 	code := message.Code
 	statistics.AddCount("server.handleMessage", code)
 
-	//if code == KeyPieceMsg {
-	//	Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
-	//}
-	//
-	//if code == SignPubkeyMsg {
-	//	Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
-	//}
-	//
-	//if code == CastVerifyMsg {
-	//	Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
-	//}
-	//
-	//if code == NewBlockMsg {
-	//	Logger.Debugf("Receive NEW_BLOCK_MSG from %s,hash:%s", from, message.Hash())
-	//}
-	//
-	//if code == GroupInitMsg {
-	//	Logger.Debugf("Receive GROUP_INIT_MSG from %s,hash:%s", from, message.Hash())
-	//}
-	//
-	//if code == GroupInitDoneMsg {
-	//	Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
-	//}
-	//
 	//defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,

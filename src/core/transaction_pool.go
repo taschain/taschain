@@ -202,8 +202,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	// 检查交易是否已经存在
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
-
-		//Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
 		return false, nil
 	}
 
@@ -518,12 +517,14 @@ func (c *container) Remove(keys []common.Hash) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
 	for _, key := range keys {
 		if c.txsMap[key] == nil {
-			return
+			continue
 		}
-
 		delete(c.txsMap, key)
+		//Logger.Debugf("txsMap delete value contain tx map len %d",len(c.txsMap))
+
 		index := -1
 		for i, tx := range c.txs {
 			if tx.Hash == key {
@@ -533,7 +534,7 @@ func (c *container) Remove(keys []common.Hash) {
 		}
 		heap.Remove(&c.txs, index)
 	}
-
+	//Logger.Debugf("[Remove111:]After remove,contain tx map len %d,contain txs len %d",len(c.txsMap),len(c.txs))
 }
 
 func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {

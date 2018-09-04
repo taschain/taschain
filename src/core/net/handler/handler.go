@@ -208,10 +208,10 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
-				core.Logger.Debugf("[ChainHandler]header hit pending or complete")
+				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
 				break
 			}
 
@@ -224,7 +224,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
+			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
@@ -306,7 +306,7 @@ func onBlockHashes(bhs []*core.BlockHash, sourceId string) {
 
 func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	//收到块请求
-	core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
@@ -316,13 +316,13 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 
 func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	//收到块信息
-	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
 	block := blockInfo.Block
 	if block != nil {
-		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
+		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -343,7 +343,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			}
 		}
 	} else {
-		core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
+		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
 		chainPiece := blockInfo.ChainPiece
 		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
 	}

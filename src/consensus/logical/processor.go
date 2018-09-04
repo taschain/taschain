@@ -116,7 +116,8 @@ func (p Processor) GetMinerID() groupsig.ID {
 }
 
 //验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(b *types.Block) bool {
+func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
+	b := &msg.Block
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -129,18 +130,11 @@ func (p *Processor) verifyGroupSign(b *types.Block) bool {
 		return false
 	}
 
-	//检查组签名是否正确
-	var gSign groupsig.Signature
-	if gSign.Deserialize(bh.Signature) != nil {
-		panic("verifyGroupSign sign Deserialize failed.")
+	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
+		log.Printf("verifyGroupSign: verifyGroupSig fail")
+		return false
 	}
-	result := groupsig.VerifySig(groupInfo.GroupPK, bh.Hash.Bytes(), gSign)
-	if !result {
-		log.Printf("[ERROR]verifyGroupSign::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
-			GetPubKeyPrefix(groupInfo.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(gSign), GetIDPrefix(gid))
-	}
-	//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
-	return result
+	return true
 }
 
 //检查铸块组是否合法
@@ -174,26 +168,19 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 }
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, si *model.SignData) bool {
+func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.ConsensusBlockMessageBase, preBH *types.BlockHeader) bool {
 
-	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
-		log.Printf("beingCastGroup failed, node not in this group.\n")
+	gmi := model.NewGroupMinerID(cgs.GroupID, msg.SI.GetID())
+	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
+	bizlog := newBizLog("verifyCastSign")
+	if !signPk.IsValid() {
+		bizlog.log("signPK is not valid")
 		return false
 	}
-
-	gmi := model.NewGroupMinerID(cgs.GroupID, si.GetID())
-	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-
-	if signPk.IsValid() { //该用户和我是同一组
-		//log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
-		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
-		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
-		if si.VerifySign(signPk) { //消息合法
-			return true
-		} else {
-			return false
-		}
+	if msg.VerifySign(signPk) { //消息合法
+		return msg.VerifyRandomSign(signPk, preBH.Random)
 	} else {
+		bizlog.log("msg verifysign fail")
 		return false
 	}
 }

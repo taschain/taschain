@@ -426,7 +426,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
-	Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
+	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -462,7 +462,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
-	Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
+	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
@@ -550,7 +550,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Header = &bh
 	b.Transactions = transactions
 
-	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
+	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
 	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
@@ -664,7 +664,7 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	}
 	chain.lock.Lock("CompareChainPiece")
 	defer chain.lock.Unlock("CompareChainPiece")
-	Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
+	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
 	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
@@ -748,7 +748,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 	bh := chain.QueryBlockByHeight(height)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
-		Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
+		//Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
 		var b *types.Block
 		for i := height + 1; i <= chain.Height(); i++ {
 			bh := chain.queryBlockHeaderByHeight(i, true)
@@ -774,7 +774,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 		return &BlockInfo{Block: b, IsTopBlock: isTopBlock}
 	} else {
 		//当前结点和请求结点不在同一条链
-		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
+		//Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
 		var bhs []*BlockHash
 		if height >= localHeight {
 			bhs = chain.getBlockHashesFromLocalChain(localHeight-1, CHAIN_BLOCK_HASH_INIT_LENGTH)

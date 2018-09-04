@@ -21,7 +21,6 @@ import (
 	"log"
 	"core"
 	"sync"
-	"math/rand"
 )
 
 // Wallets 钱包
@@ -29,11 +28,10 @@ type wallets []wallet
 var mutex sync.Mutex
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string) (*common.Hash, *common.Address, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string,nonce uint64) (*common.Hash, *common.Address, error) {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
-	nonce := rand.Uint64()
 		//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	//if strings.HasPrefix(code, "0x") {

@@ -138,6 +138,7 @@ message Group{
     optional  uint64    Authority = 9;
     optional  bytes     Name = 10;
     optional  bytes     Extends = 11;
+    required  bytes     PreGroup = 12;
 }
 
 

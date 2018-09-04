@@ -39,8 +39,8 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	hash, contractAddr, err := walletManager.transaction(from, to, amount, code)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64) (*Result, error) {
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code,nonce)
 	if err != nil {
 		return nil, err
 	}

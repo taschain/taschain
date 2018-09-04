@@ -84,6 +84,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
 	blockByte, _ := json.Marshal(block)
 	block.Header.Hash = common.BytesToHash(common.Sha256(blockByte))
 	block.Header.Signature = common.Sha256([]byte("tas"))
+	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
 	// 创始块账户创建
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000))
