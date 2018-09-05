@@ -18,7 +18,6 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"strings"
 	"bytes"
 )
 
