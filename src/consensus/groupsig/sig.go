@@ -87,7 +87,7 @@ func DeserializeSign(b [] byte)  * Signature {
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
-		return fmt.Errorf("b is empty")
+		return nil
 	}
 
 	sig.value.Unmarshal(b)
