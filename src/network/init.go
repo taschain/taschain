@@ -64,7 +64,6 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
 
 	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
-
 	var natEnable bool
 	if testMode {
 		natEnable = false
