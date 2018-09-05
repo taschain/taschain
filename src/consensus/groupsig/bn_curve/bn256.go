@@ -18,7 +18,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"strings"
+        "bytes"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
