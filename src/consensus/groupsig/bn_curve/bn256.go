@@ -18,7 +18,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"strings"
+	"bytes"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -494,5 +494,5 @@ func GetG2Base() *G2 {
 }
 
 func PairIsEuqal(g1 *GT, g2 *GT) bool {
-    return bytes.Equal(g1.Marshal(), g2.Marshal())
+	return bytes.Equal(g1.Marshal(),g2.Marshal())
 }
