@@ -17,19 +17,17 @@ package groupsig
 
 import (
 	"common"
-	"consensus/bls"
 	"fmt"
 	//"fmt"
 	"log"
-	"math/big"
-	"unsafe"
-
 	"golang.org/x/crypto/sha3"
+	"bytes"
+	"consensus/groupsig/bn_curve"
 )
 
 //用户公钥
 type Pubkey struct {
-	value bls.PublicKey
+	value bn_curve.G2
 }
 
 //MAP（地址->公钥）
@@ -37,19 +35,24 @@ type PubkeyMap map[common.Address]Pubkey
 
 type PubkeyMapID map[string]Pubkey
 
-//判断两个公钥是否相同
-func (pub Pubkey) IsEqual(rhs Pubkey) bool {
-	return pub.value.IsEqual(&rhs.value)
+func (pub Pubkey) IsEmpty() bool {
+	return pub.value.IsEmpty()
 }
 
-//由字节切片初始化私钥
+//判断两个公钥是否相同   
+func (pub Pubkey) IsEqual(rhs Pubkey) bool {
+	return  bytes.Equal(pub.value.Marshal(), rhs.value.Marshal())
+}
+
+//由字节切片初始化私钥  ToDoCheck
 func (pub *Pubkey) Deserialize(b []byte) error {
-	return pub.value.Deserialize(b)
+	_, error := pub.value.Unmarshal(b)
+	return error
 }
 
 //把公钥转换成字节切片（小端模式？）
 func (pub Pubkey) Serialize() []byte {
-	return pub.value.Serialize()
+	return pub.value.Marshal()
 }
 
 func (pub Pubkey) MarshalJSON() ([]byte, error) {
@@ -66,16 +69,19 @@ func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	return pub.SetHexString(str)
 }
 
-//把公钥转换成big.Int
-func (pub Pubkey) GetBigInt() *big.Int {
-	x := new(big.Int)
-	x.SetString(pub.value.GetHexString(), 16)
-	return x
-}
+////把公钥转换成big.Int  ToDoCheck
+//func (pub Pubkey) GetBigInt() *big.Int {
+//	//x := new(big.Int)
+//	//x.SetString(pub.value.GetHexString(), 16)
+//	//return x
+//
+//	return nil
+//}
 
 func (pub Pubkey) IsValid() bool {
-	bi := pub.GetBigInt()
-	return bi.Cmp(big.NewInt(0)) != 0
+	return !pub.IsEmpty()
+	//bi := pub.GetBigInt()
+	//return bi.Cmp(big.NewInt(0)) != 0
 }
 
 //由公钥生成TAS地址
@@ -84,26 +90,26 @@ func (pub Pubkey) GetAddress() common.Address {
 	return common.BytesToAddress(h[:]) //由256位哈希生成TAS160位地址
 }
 
-//把公钥转换成十六进制字符串，不包含0x前缀
+//把公钥转换成十六进制字符串，不包含0x前缀   ToDoCheck
 func (pub Pubkey) GetHexString() string {
-	return PREFIX + pub.value.GetHexString()
-	//return pub.value.GetHexString()
+	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
-//由十六进制字符串初始化公钥
+//由十六进制字符串初始化公钥  ToDoCheck
 func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
 	buf := s[len(PREFIX):]
-	return pub.value.SetHexString(buf)
-	//return pub.value.SetHexString(s)
+
+	pub.value.Unmarshal(common.Hex2Bytes(buf))
+	return nil
 }
 
 //由私钥构建公钥
 func NewPubkeyFromSeckey(sec Seckey) *Pubkey {
 	pub := new(Pubkey)
-	pub.value = *sec.value.GetPublicKey()
+	pub.value.ScalarBaseMult(sec.value.GetBigInt())
 	return pub
 }
 
@@ -112,31 +118,61 @@ func TrivialPubkey() *Pubkey {
 	return NewPubkeyFromSeckey(*TrivialSeckey())
 }
 
-//公钥聚合函数，用bls曲线加法把多个公钥聚合成一个
+func (pub *Pubkey) Add(rhs *Pubkey) error {
+	pa := &bn_curve.G2{}
+	pb := &bn_curve.G2{}
+
+	pa.Set(&pub.value)
+	pb.Set(&rhs.value)
+
+	pub.value.Add(pa, pb)
+	return nil
+}
+
+//公钥聚合函数
 func AggregatePubkeys(pubs []Pubkey) *Pubkey {
 	if len(pubs) == 0 {
 		log.Printf("AggregatePubkeys no pubs")
 		return nil
 	}
+
 	pub := new(Pubkey)
-	pub.value = pubs[0].value
+	//pub.value.Unmarshal(pubs[0].value.Marshal())
+	pub.value.Set(&pubs[0].value)
+
+	//pub.value = pubs[0].value
+	//for i := 0; i < len(pubs); i++ {
+		//log.Println("", i)
+		//log.Println("pub:", pubs[i].Serialize())
+	//}
+
+	//log.Println("len:", len(pubs))
 	for i := 1; i < len(pubs); i++ {
-		pub.value.Add(&pubs[i].value) //调用bls曲线的公钥相加函数
+		pub.Add(&pubs[i])
 	}
+
+	//log.Println("aggregatePK:", pub.Serialize())
+
 	return pub
 }
 
-//公钥分片生成函数，用多项式替换生成特定于某个ID的公钥分片
+//公钥分片生成函数，用多项式替换生成特定于某个ID的公钥分片  
 //mpub : master公钥切片
 //id : 获得该分片的id
 func SharePubkey(mpub []Pubkey, id ID) *Pubkey {
-	mpk := *(*[]bls.PublicKey)(unsafe.Pointer(&mpub))
-	pub := new(Pubkey)
-	err := pub.value.Set(mpk, &id.value) //用master公钥切片和id，调用bls曲线的（公钥）分片生成函数
-	if err != nil {
-		log.Printf("SharePubkey err=%s id=%s\n", err, id.GetHexString())
-		return nil
+	pub := &Pubkey{}
+	// degree of polynomial, need k >= 1, i.e. len(msec) >= 2
+	k := len(mpub) - 1
+	// msec = c_0, c_1, ..., c_k
+	// evaluate polynomial f(x) with coefficients c0, ..., ck
+	pub.Deserialize(mpub[k].Serialize())
+
+	x := id.GetBigInt()             //取得id的big.Int值
+	for j := k - 1; j >= 0; j-- {   //从master key切片的尾部-1往前遍历
+		pub.value.ScalarMult(&pub.value, x)
+		pub.value.Add(&pub.value, &mpub[j].value)
 	}
+
 	return pub
 }
 

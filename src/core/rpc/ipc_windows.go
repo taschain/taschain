@@ -16,8 +16,8 @@
 package rpc
 
 import (
-	"context"
-	"net"
+	//"context"
+	//"net"
 	"time"
 
 )
@@ -27,18 +27,18 @@ import (
 const defaultPipeDialTimeout = 2 * time.Second
 
 // ipcListen will create a named pipe on the given endpoint.
-func ipcListen(endpoint string) (net.Listener, error) {
-	return npipe.Listen(endpoint)
-}
-
-// newIPCConnection will connect to a named pipe with the given endpoint as name.
-func newIPCConnection(ctx context.Context, endpoint string) (net.Conn, error) {
-	timeout := defaultPipeDialTimeout
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout = deadline.Sub(time.Now())
-		if timeout < 0 {
-			timeout = 0
-		}
-	}
-	return npipe.DialTimeout(endpoint, timeout)
-}
+//func ipcListen(endpoint string) (net.Listener, error) {
+//	return npipe.Listen(endpoint)
+//}
+//
+//// newIPCConnection will connect to a named pipe with the given endpoint as name.
+//func newIPCConnection(ctx context.Context, endpoint string) (net.Conn, error) {
+//	timeout := defaultPipeDialTimeout
+//	if deadline, ok := ctx.Deadline(); ok {
+//		timeout = deadline.Sub(time.Now())
+//		if timeout < 0 {
+//			timeout = 0
+//		}
+//	}
+//	return npipe.DialTimeout(endpoint, timeout)
+//}

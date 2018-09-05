@@ -283,7 +283,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	var err error
 	// 椭圆曲线初始化
-	groupsig.Init(1)
+	//groupsig.Init(1)
 
 	// 初始化中间件
 	middleware.InitMiddleware()
