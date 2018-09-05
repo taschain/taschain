@@ -23,7 +23,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 		bc.AddCastedHeight(block.Header.Height)
 		_, vctx := bc.GetVerifyContextByHeight(block.Header.Height)
-		if vctx != nil && vctx.prevBH.Hash == block.Header.Hash {
+		if vctx != nil && vctx.prevBH.Hash == block.Header.PreHash {
 			vctx.MarkCastSuccess()
 		}
 	}

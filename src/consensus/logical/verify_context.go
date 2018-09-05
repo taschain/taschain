@@ -354,8 +354,8 @@ func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
 		return true
 	}
 
-	//铸过块, 且高度已经低于10块的, 可以删除
-	if vc.castSuccess() && vc.castHeight+10 < topHeight {
+	//铸过块, 且已经超时的， 可以删除
+	if vc.castSuccess() && vc.castExpire() {
 		return true
 	}
 

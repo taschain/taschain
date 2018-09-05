@@ -11,6 +11,7 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
+	"fmt"
 )
 
 /*
@@ -177,6 +178,15 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		}
 
 		log.Printf("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v\n", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
+		for _, vt := range bc.verifyContexts {
+			s := ""
+			slot := ""
+			for _, sl := range vt.slots {
+				slot += fmt.Sprintf("(qn %v, piece %v, status %v)", sl.QueueNumber, sl.gSignGenerator.WitnessSize(), sl.slotStatus)
+			}
+			s += fmt.Sprintf("h:%v, hash:%v, st:%v, slot:%v", vt.castHeight, GetHashPrefix(vt.prevBH.Hash), vt.consensusStatus, slot)
+			log.Printf(s)
+		}
 		bc.StartCast(castHeight, expireTime, top)
 
 		return true
@@ -300,7 +310,6 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 		//ccm.GroupID = gid
 		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
 		ccm.GenRandomSign(skey, vctx.prevBH.Random)
-		newBizLog("castBlock").log("preRandom %v, signed random %v", vctx.prevBH.Random, ccm.BH.Random)
 		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 
 		p.NetServer.SendCastVerify(&ccm)
