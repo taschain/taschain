@@ -4,7 +4,8 @@ import (
 		"log"
 	"strings"
 	"common"
-	)
+	"consensus/model"
+)
 
 /*
 **  Creator: pxf
@@ -76,7 +77,11 @@ func (p *Processor) Finalize() {
 
 func (p *Processor) releaseRoutine() bool {
 	topHeight := p.MainChain.QueryTopBlock().Height
-	ids := p.globalGroups.DismissGroups(topHeight)
+	if topHeight <= model.Param.CreateGroupInterval {
+		return true
+	}
+	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证改组解散前夕建的块有效
+	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
 	if len(ids) == 0 {
 		return true
 	}

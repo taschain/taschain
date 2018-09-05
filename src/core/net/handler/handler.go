@@ -101,13 +101,14 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		sync.GroupSyncer.ReqHeightCh <- sourceId
 	case network.GroupChainCountMsg:
 		height := utility.ByteToUInt64(msg.Body)
-		ghi := sync.GroupCountInfo{Count: height, SourceId: sourceId}
-		sync.GroupSyncer.CountCh <- ghi
+		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
+		sync.GroupSyncer.HeightCh <- ghi
 	case network.ReqGroupMsg:
-		gri,_ := unMarshalGroupRequestInfo(msg.Body)
-		sync.GroupSyncer.ReqGroupCh <- *gri
+		baseHeight := utility.ByteToUInt64(msg.Body)
+		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
+		sync.GroupSyncer.ReqGroupCh <- gri
 	case network.GroupMsg:
-		m, e := unMarshalGroupInfos(msg.Body)
+		m, e := unMarshalGroupInfo(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 			return e
@@ -207,10 +208,10 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
-				core.Logger.Debugf("[ChainHandler]header hit pending or complete")
+				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
 				break
 			}
 
@@ -223,7 +224,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
+			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
@@ -305,7 +306,7 @@ func onBlockHashes(bhs []*core.BlockHash, sourceId string) {
 
 func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	//收到块请求
-	core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
@@ -315,13 +316,13 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 
 func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	//收到块信息
-	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	//core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
 	block := blockInfo.Block
 	if block != nil {
-		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
+		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -342,7 +343,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			}
 		}
 	} else {
-		core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
+		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
 		chainPiece := blockInfo.ChainPiece
 		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
 	}
@@ -499,30 +500,12 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
 		return nil, e
 	}
-	groupInfo := sync.GroupInfo{Group: types.PbToGroup(message.Group), IsTopGroup: *message.IsTopGroup}
+	groups := make([]*types.Group,len(message.Groups))
+	for i,g := range message.Groups{
+		groups[i] = types.PbToGroup(g)
+	}
+	groupInfo := sync.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
 	return &groupInfo, nil
-}
-
-func unMarshalGroupRequestInfo(b []byte) (*sync.GroupRequestInfo, error) {
-	message := new(tas_middleware_pb.GroupRequestInfo)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalGroupInfos error:%s", e.Error())
-		return nil, e
-	}
-	groupInfos := sync.GroupRequestInfo{CurrentTopGroupId:message.CurrentTopGroupId,ExistGroupIds:message.ExistGroupIds.GroupIds}
-	return &groupInfos, nil
-}
-
-func unMarshalGroupInfos(b []byte) (*sync.GroupInfos, error) {
-	message := new(tas_middleware_pb.GroupSlice)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalGroupInfos error:%s", e.Error())
-		return nil, e
-	}
-	groupInfos := sync.GroupInfos{Groups: types.PbToGroups(message)}
-	return &groupInfos, nil
 }
 
 func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {

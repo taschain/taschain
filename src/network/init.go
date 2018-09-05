@@ -61,7 +61,6 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
 	}
-
 	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
 
 	var natEnable bool

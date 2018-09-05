@@ -5,6 +5,7 @@ import (
 	"log"
 	"middleware/types"
 	"consensus/model"
+	"consensus/groupsig"
 )
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
@@ -13,6 +14,19 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	}
 	block := message.GetData().(types.Block)
 	preHeader := block.Header
+
+	gid := *groupsig.DeserializeId(block.Header.GroupId)
+	if p.IsMinerGroup(gid) {
+		bc := p.GetBlockContext(gid)
+		if bc == nil {
+			panic("get blockContext nil")
+		}
+		bc.AddCastedHeight(block.Header.Height)
+		_, vctx := bc.GetVerifyContextByHeight(block.Header.Height)
+		if vctx != nil && vctx.prevBH.Hash == block.Header.Hash {
+			vctx.MarkCastSuccess()
+		}
+	}
 
 	for {
 		futureMsgs := p.getFutureBlockMsgs(preHeader.Hash)

@@ -102,6 +102,7 @@ type BlockHeader struct {
 	StateTree    common.Hash
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
+	Random       []byte
 }
 
 type header struct {

@@ -434,14 +434,10 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	if len(gids) == 0 {
 		return
 	}
-	gg.lock.Lock()
-	defer gg.lock.Unlock()
-
 	removeIdMap := make(map[string]bool)
 	for _, gid := range gids {
 		removeIdMap[gid.GetHexString()] = true
 	}
-
 	newGS := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
 		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
@@ -452,6 +448,10 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	for idx, g := range newGS {
 		indexMap[g.GroupID.GetHexString()] = idx
 	}
+
+	gg.lock.Lock()
+	defer gg.lock.Unlock()
+
 	gg.groups = newGS
 	gg.gIndex = indexMap
 }

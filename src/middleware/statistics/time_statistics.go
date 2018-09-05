@@ -17,6 +17,14 @@ const (
 	NewBlock = 4
 )
 
+const(
+	RcvNewBlock = "RcvNewBlock"
+	SendCast = "SendCast"
+	RcvCast = "RcvCast"
+	SendVerified = "SendVerified"
+	RcvVerified = "RcvVerified"
+	BroadBlock = "BroadBlock"
+)
 var BatchSize = 1000
 var Duration time.Duration = 5
 var Lock sync.Mutex
@@ -52,6 +60,10 @@ func AddLog(Hash string, Status int, Time int64, Castor string, Node string,){
 		log := &LogObj{Hash: Hash, Status: Status, Time: Time, Batch: batch, Castor: Castor, Node: Node}
 		PutLog(log)
 	}
+}
+
+func AddBlockLog(code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
+	//todo by pos 哥
 }
 
 func PutLog(data *LogObj){

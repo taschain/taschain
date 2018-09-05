@@ -12,8 +12,6 @@ import (
 */
 
 const (
-	SSSS_THRESHOLD int = 51                 //1-100
-	GROUP_MAX_MEMBERS int = 20             //一个组最大的成员数量
 	MAX_GROUP_BLOCK_TIME int = 10                                //组铸块最大允许时间=10s
 	MAX_USER_CAST_TIME int = 2                                   //个人出块最大允许时间=2s
 	MAX_CAST_SLOT	= 3						//最大验证槽个数
@@ -22,11 +20,12 @@ const (
 	INVALID_QN = -1                       //无效的队列序号
 	GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
 
-
-	EPOCH uint64 = 8
+	SSSS_THRESHOLD int = 51                 //1-100
+	GROUP_MAX_MEMBERS int = 50             //一个组最大的成员数量
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
+	EPOCH uint64 = 8
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 5	//组准备就绪后, 等待可以铸块的间隔为4个epoch
 	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch

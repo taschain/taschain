@@ -87,6 +87,8 @@ message BlockHeader{
      optional bytes ExtraData  = 16 ;
 
      optional Hashes EvictedTxs  = 17;
+
+     optional bytes Random = 18;
 }
 
 message BlockBody{
@@ -136,12 +138,12 @@ message Group{
     optional  uint64    Authority = 9;
     optional  bytes     Name = 10;
     optional  bytes     Extends = 11;
+    required  bytes     PreGroup = 12;
 }
 
 
 message GroupInfo{
-    required Group Group = 1;
-
+    repeated Group Groups = 1;
     required bool IsTopGroup = 2;
 }
 

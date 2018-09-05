@@ -148,6 +148,11 @@ func MarshalGroup(g *Group) ([]byte, error) {
 	return proto.Marshal(group)
 }
 
+//func MarshalGroupRequest(info *sync.GroupRequestInfo) ([]byte, error) {
+//	group := GroupRequestInfoToPB(info)
+//	return proto.Marshal(group)
+//}
+
 func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 	source := common.BytesToAddress(t.Source)
 	target := common.BytesToAddress(t.Target)
@@ -211,8 +216,12 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
 		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN}
+		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN, Random: h.Random}
 	return &header
+}
+
+func GroupRequestInfoToPB(CurrentTopGroupId []byte, ExistGroupIds [][]byte) *tas_middleware_pb.GroupRequestInfo {
+	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId:CurrentTopGroupId,	ExistGroupIds:&tas_middleware_pb.GroupIdSlice{GroupIds:ExistGroupIds}}
 }
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {
@@ -234,6 +243,7 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 		PubKey:        g.PubKey,
 		Parent:        g.Parent,
 		Dummy:         g.Dummy,
+		PreGroup:      g.PreGroup,
 		Signature:     g.Signature,
 		BeginHeight:   *g.BeginHeight,
 		DismissHeight: *g.DismissHeight,
@@ -258,6 +268,9 @@ func pbToMember(m *tas_middleware_pb.Member) *Member {
 }
 
 func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
+	if t == nil {
+		return nil
+	}
 	var target []byte
 	if t.Target != nil {
 		target = t.Target.Bytes()
@@ -317,7 +330,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalQN: &h.TotalQN}
+		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalQN: &h.TotalQN, Random: h.Random}
 	return &header
 }
 
@@ -343,6 +356,7 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 		Members:       members,
 		PubKey:        g.PubKey,
 		Parent:        g.Parent,
+		PreGroup:	   g.PreGroup,
 		Dummy:         g.Dummy,
 		Signature:     g.Signature,
 		BeginHeight:   &g.BeginHeight,
