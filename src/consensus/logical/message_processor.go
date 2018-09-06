@@ -127,10 +127,16 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 	if bc.IsHeightCasted(bh.Height) {
 		result = "该高度已铸过"
+		log.Printf("%v, height=%v\n", result, bh.Height)
 		return
 	}
 
 	vctx := bc.GetOrNewVerifyContext(bh, preBH)
+	if vctx == nil {
+		result = "获取vctx为空，可能preBH已经被删除"
+		log.Printf("%v, preBH=%v\n", result, p.blockPreview(preBH))
+		return
+	}
 
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), CBMR_RESULT_DESC(verifyResult))
@@ -206,20 +212,6 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	statistics.AddBlockLog(statistics.RcvVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
-}
-
-func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
-	futures := p.getFutureVerifyMsgs(hash)
-	if futures == nil || len(futures) == 0 {
-		return
-	}
-	p.removeFutureVerifyMsgs(hash)
-
-	for _, msg := range futures {
-		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.QueueNumber, GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
-		p.doVerify("FUTURE_VERIFY", msg, nil)
-	}
-
 }
 
 func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {

@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"consensus/base"
+	"sync/atomic"
 )
 
 /*
@@ -34,16 +35,12 @@ import (
 **  Description: 
 */
 
-//组铸块共识状态（针对某个高度而言）
-type CAST_BLOCK_CONSENSUS_STATUS int
 
 const (
-	CBCS_IDLE           CAST_BLOCK_CONSENSUS_STATUS = iota //非当前组
-	CBCS_CURRENT                                           //成为当前铸块组
-	CBCS_CASTING                                           //至少收到一块组内共识数据
-	CBCS_BLOCKED                                           //组内已有铸块完成（已通知到组外）
-	//CBCS_MAX_QN_BLOCKED                                    //组内最大铸块完成（已通知到组外），该高度铸块结束
-	CBCS_TIMEOUT                                           //组铸块超时
+	CBCS_IDLE    int32 = iota //非当前组
+	CBCS_CASTING                                    //正在铸块
+	CBCS_BLOCKED                                    //组内已有铸块完成（已通知到组外）
+	CBCS_TIMEOUT                                    //组铸块超时
 )
 
 
@@ -125,7 +122,7 @@ type VerifyContext struct {
 	castHeight  uint64
 	//signedMaxQN int64
 	expireTime	time.Time			//铸块超时时间
-	consensusStatus CAST_BLOCK_CONSENSUS_STATUS //铸块状态
+	consensusStatus int32 //铸块状态
 	slots [model.MAX_CAST_SLOT]*SlotContext
 	castedQNs []int64 //自己铸过的qn
 	blockCtx *BlockContext
@@ -133,8 +130,15 @@ type VerifyContext struct {
 }
 
 func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader) *VerifyContext {
-	ctx := &VerifyContext{}
-	ctx.rebase(bc, castHeight, expire, preBH)
+	ctx := &VerifyContext{
+		prevBH:          preBH,
+		castHeight:      castHeight,
+		blockCtx:        bc,
+		expireTime:      expire,
+		consensusStatus: CBCS_CASTING,
+		castedQNs:       make([]int64, 0),
+	}
+	ctx.resetSlotContext()
 	return ctx
 }
 
@@ -146,11 +150,12 @@ func (vc *VerifyContext) resetSlotContext() {
 }
 
 func (vc *VerifyContext) isCasting() bool {
-	return !(vc.consensusStatus == CBCS_IDLE || vc.consensusStatus == CBCS_TIMEOUT)
+	status := atomic.LoadInt32(&vc.consensusStatus)
+	return !(status == CBCS_IDLE || status == CBCS_TIMEOUT)
 }
 
 func (vc *VerifyContext) castSuccess() bool {
-	return vc.consensusStatus == CBCS_BLOCKED
+	return atomic.LoadInt32(&vc.consensusStatus) == CBCS_BLOCKED
 }
 
 func (vc *VerifyContext) isQNCasted(qn int64) bool {
@@ -166,31 +171,13 @@ func (vc *VerifyContext) addCastedQN(qn int64) {
 	vc.castedQNs = append(vc.castedQNs, qn)
 }
 
-func (vc *VerifyContext) rebase(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader)  {
-
-	vc.prevBH = preBH
-    vc.castHeight = castHeight
-    vc.blockCtx = bc
-	vc.expireTime = expire
-	vc.consensusStatus = CBCS_CURRENT
-	vc.castedQNs = make([]int64, 0)
-	vc.resetSlotContext()
-}
-
 func (vc *VerifyContext) markTimeout() {
-	vc.consensusStatus = CBCS_TIMEOUT
-}
-
-func (vc *VerifyContext) MarkCastSuccess()  {
-    vc.lock.Lock()
-    defer vc.lock.Unlock()
-    vc.markCastSuccess()
+	atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
 }
 
 func (vc *VerifyContext) markCastSuccess() {
-    vc.consensusStatus = CBCS_BLOCKED
+	atomic.StoreInt32(&vc.consensusStatus, CBCS_BLOCKED)
 }
-
 
 func (vc *VerifyContext) castExpire() bool {
     return time.Now().After(vc.expireTime)
@@ -210,7 +197,9 @@ func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
 	}
 	d := int64(diff) + int64(model.Param.MaxGroupCastTime) - max
 	qn := int64(model.Param.MaxQN) - d / int64(model.Param.MaxUserCastTime)
-
+	if qn < 0 {
+		log.Printf("maxQN %v, d %v, max %v, diff %v, expire %v, (%v, %v)\n", model.Param.MaxQN, d, max, diff, vc.expireTime, model.Param.MaxGroupCastTime, model.Param.MaxUserCastTime)
+	}
 	return qn
 }
 
@@ -225,6 +214,8 @@ func (vc *VerifyContext) findSlot(qn int64) int {
 
 //根据QN优先级规则，尝试找到有效的插槽
 func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int, ret QN_QUERY_SLOT_RESULT) {
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
 
 	idx = vc.findSlot(qn)
 	if idx >= 0 {
@@ -265,17 +256,29 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	return nil
 }
 
-//铸块共识消息处理函数
-//cv：铸块共识数据，出块消息或验块消息生成的ConsensusBlockSummary.
-//=0, 接受; =1,接受，达到阈值；<0, 不接受。
-func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) replaceSlot(idx int, bh *types.BlockHeader, threshold int)  {
+    vc.lock.Lock()
+    defer vc.lock.Unlock()
+    slot := initSlotContext(bh, threshold)
+    vc.slots[idx] = slot
+}
+
+func (vc *VerifyContext) getSlot(idx int) *SlotContext {
+    vc.lock.RLock()
+    defer vc.lock.RUnlock()
+    return vc.slots[idx]
+}
+
+
+//收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
 	if vc.castSuccess() {
 		return CBMR_CAST_SUCCESS
 	}
-	if bh.GenHash() != si.DataHash {
+	if bh.GenHash() != signData.DataHash {
 		panic("acceptCV arg failed, hash not samed 1.")
 	}
-	if bh.Hash != si.DataHash {
+	if bh.Hash != signData.DataHash {
 		panic("acceptCV arg failed, hash not samed 2")
 	}
 
@@ -299,31 +302,19 @@ func (vc *VerifyContext) acceptCV(bh *types.BlockHeader, si *model.SignData, sum
 	}
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		vc.slots[i] = initSlotContext(bh, vc.blockCtx.threshold())
+		vc.replaceSlot(i, bh, vc.blockCtx.threshold())
 	}
-	slot := vc.slots[i]
+	slot := vc.getSlot(i)
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
 	}
-	result := slot.AcceptPiece(bh, *si)
-	return result
-}
-
-
-//收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, sd *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
-
-	result := vc.acceptCV(bh, sd, summary) //>=0为消息正确接收
+	result := slot.AcceptPiece(bh, *signData)
 	return result
 }
 
 //（网络接收）新到交易集通知
 //返回不再缺失交易的QN槽列表
 func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
 
 	if slot.QueueNumber == int64(model.INVALID_QN) {
 		return TRANS_INVALID_SLOT
@@ -345,11 +336,8 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 }
 
 //判断该context是否可以删除
-func (vc *VerifyContext) ShouldRemove(topHeight uint64) bool {
-	vc.lock.RLock()
-	defer vc.lock.RUnlock()
-
-	//不在铸块或者已出最大块的, 可以删除
+func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
+	//不在铸块的, 可以删除
 	if !vc.isCasting() {
 		return true
 	}

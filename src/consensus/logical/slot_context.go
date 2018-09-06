@@ -169,7 +169,7 @@ func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si model.SignData) CAS
 		}
 		radd, rgen := sc.rSignGenerator.AddWitness(si.SignMember, *rsign)
 
-		if radd && generate && rgen { //达到组签名条件; (不一定需要收到king的消息 ? : by wenqin 2018/5/21)
+		if radd && generate && rgen { //达到组签名条件
 			sc.setSlotStatus(SS_RECOVERD)
 			sc.BH.Signature = sc.gSignGenerator.GetGroupSign().Serialize()
 			sc.BH.Random = sc.rSignGenerator.GetGroupSign().Serialize()

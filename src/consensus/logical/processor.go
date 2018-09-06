@@ -19,7 +19,6 @@ import (
 	"consensus/groupsig"
 
 	"core"
-	"time"
 	"log"
 	"consensus/ticker"
 	"middleware/types"
@@ -188,35 +187,6 @@ func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.Conse
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
 	sgi := p.getGroup(gid)
 	return int32(sgi.GetMinerPos(uid))
-}
-
-//检查是否轮到自己出块
-func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
-	//p.castLock.Lock()
-	//defer p.castLock.Unlock()
-	gid := bc.MinerID.Gid
-	height := vctx.castHeight
-
-	//log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
-	if kingIndex < 0 || qn < 0 {
-		return
-	}
-
-	sgi := p.getGroup(gid)
-
-	log.Printf("time=%v, Current kingIndex=%v, KING=%v, qn=%v.\n", time.Now().Format(time.Stamp), kingIndex, GetIDPrefix(sgi.GetCastor(int(kingIndex))), qn)
-	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
-		log.Printf("curent node IS KING!\n")
-		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
-			head := p.castBlock(bc, vctx, qn) //铸块
-			if head != nil {
-				vctx.addCastedQN(qn)
-			}
-		} else {
-			log.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
-		}
-	}
-	return
 }
 
 ///////////////////////////////////////////////////////////////////////////////
