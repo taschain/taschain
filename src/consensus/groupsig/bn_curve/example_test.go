@@ -70,11 +70,12 @@ func TestHomoEncrypt(t *testing.T) {
 
 	//加密M， 得到<C1, R1>
 	r1,_ := randomK(rand.Reader)
+
 	R1 := &G1{}
 	R1.ScalarBaseMult(r1)
 
 	S1 := &G1{}
-	S1.ScalarMult(R1, s1)
+	S1.ScalarMult(P1, r1)
 	C1 := make([]byte, 32)
 	bitutil.XORBytes(C1, M, S1.Marshal())
 
@@ -84,7 +85,7 @@ func TestHomoEncrypt(t *testing.T) {
 	R2.ScalarBaseMult(r2)
 
 	S2 := &G1{}
-	S2.ScalarMult(R2, s2)
+	S2.ScalarMult(P2, r2)
 	C2 := make([]byte, 32)
 	bitutil.XORBytes(C2, C1, S2.Marshal())
 
