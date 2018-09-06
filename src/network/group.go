@@ -38,7 +38,7 @@ func (g Group) Swap(i, j int) {
 func newGroup(id string, members []NodeID) *Group {
 
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
-	Logger.Debugf("sort group id：%v", id)
+	Logger.Debugf("new group id：%v", id)
 	for i:= 0;i<len(g.members);i++ {
 		Logger.Debugf("before id：%v", g.members[i].GetHexString())
 	}
@@ -54,6 +54,8 @@ func newGroup(id string, members []NodeID) *Group {
 			break
 		}
 	}
+	Logger.Debugf("curIndex：%v", g.curIndex)
+
 	connectCount := GroupBaseConnectNodeCount;
 	if connectCount >  len(g.members) -1 {
 		connectCount = len(g.members) -1
@@ -70,14 +72,20 @@ func newGroup(id string, members []NodeID) *Group {
 	step :=  len(g.members)/ maxCount
 	for i:=0;i<maxCount ;i++ {
 		nextIndex += step
-		nextIndex %= len(g.members)
+		if nextIndex >= len(g.members) {
+			nextIndex %= len(g.members)
+		}
 		g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
 	}
+
+
+	//for i:= 0;i<len(g.members);i++ {
+	//	g.needConnectNodes = append(g.needConnectNodes,g.members[i])
+	//}
 
 	for i:= 0;i<len(g.needConnectNodes);i++ {
 		Logger.Debugf("needConnectNodes  id：%v", g.needConnectNodes[i].GetHexString())
 	}
-
 	return g
 }
 

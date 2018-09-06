@@ -22,7 +22,7 @@ const(
 							<rollingfile type="size" filename="./logs/default.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>
 						<formats>
-							<format id="default" format="%Date/%Time [%Level]  [%File:%Line] %Msg%n" />
+							<format id="default" format="%Date(2006-01-02 15:04:05.000)  [%Level]  [%File:%Line] %Msg%n" />
 						</formats>
 					</seelog>`
 
@@ -31,7 +31,7 @@ const(
 							<rollingfile type="size" filename="./logs/p2p.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>
 						<formats>
-							<format id="default" format="%Date/%Time [%Level]  [%File:%Line] %Msg%n" />
+							<format id="default" format="%Date(2006-01-02 15:04:05.000)  [%Level]  [%File:%Line] %Msg%n" />
 						</formats>
 					</seelog>`
 )
