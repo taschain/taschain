@@ -178,7 +178,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 			return false
 		}
 
-		blog.log("MYGOD! BECOME NEXT CAST GROUP! uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
+		blog.log("BECOME NEXT CAST GROUP! castHeight=%v, uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", castHeight, GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
 		//for _, vt := range bc.verifyContexts {
 		//	s := ""
 		//	slot := ""
