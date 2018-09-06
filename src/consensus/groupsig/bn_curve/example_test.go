@@ -106,3 +106,7 @@ func TestHomoEncrypt(t *testing.T) {
 	t.Log("DD2:", DD2)
 }
 
+func TestCpu(t *testing.T) {
+	t.Log("hasBMI2:", hasBMI2)
+}
+
