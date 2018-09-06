@@ -67,7 +67,7 @@ func (gs *GroupSignGenerator) GetGroupSign() groupsig.Signature {
 }
 
 func (gs *GroupSignGenerator) VerifyGroupSign(gpk groupsig.Pubkey, data []byte) bool {
-	return groupsig.VerifySig(gpk, data, gs.gSign)
+	return groupsig.VerifySig(gpk, data, gs.GetGroupSign())
 }
 
 func (gs *GroupSignGenerator) WitnessSize() int {

@@ -23,6 +23,7 @@ import (
 	"sync"
 	"middleware/types"
 	"consensus/model"
+	"sync/atomic"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,17 +31,19 @@ import (
 type BlockContext struct {
 	Version         uint
 	GroupMembers    int                        //组成员数量
-	verifyContexts	[]*VerifyContext
-	currentVerifyContext *VerifyContext //当前铸块的verifycontext
+	Proc    *Processor   //处理器
+	MinerID *model.GroupMinerID //矿工ID和所属组ID
+	pos     int          //矿工在组内的排位
+
+	//变化
+	verifyContexts []*VerifyContext
+	currentVCtx    atomic.Value 	//当前铸块的verifycontext
 
 	recentCastedHeight []uint64
 	castedCount		uint64
 
 	lock sync.RWMutex
 
-	Proc    *Processor   //处理器
-	MinerID *model.GroupMinerID //矿工ID和所属组ID
-	pos     int          //矿工在组内的排位
 }
 
 func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
@@ -51,7 +54,7 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 		GroupMembers: len(sgi.Members),
 		Version: model.CONSENSUS_VERSION,
 		castedCount: 0,
-		recentCastedHeight: make([]uint64, 100),
+		recentCastedHeight: make([]uint64, 20),
 	}
 	bc.reset()
 	return bc
@@ -66,10 +69,8 @@ func (bc *BlockContext) getKingCheckRoutineName() string {
 }
 
 func (bc *BlockContext) alreadyInCasting(height uint64, preHash common.Hash) bool {
-	vctx := bc.GetCurrentVerifyContext()
+	vctx := bc.getCurrentVerifyCtx()
 	if vctx != nil {
-		vctx.lock.Lock()
-		defer vctx.lock.Unlock()
 		return vctx.isCasting() && !vctx.castSuccess() && vctx.castHeight == height && vctx.prevBH.Hash == preHash
 	} else {
 		return false
@@ -87,10 +88,12 @@ func (bc *BlockContext) GetVerifyContextByHeight(height uint64) (int, *VerifyCon
 	return -1, nil
 }
 
-func (bc *BlockContext) GetCurrentVerifyContext() *VerifyContext {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-	return bc.currentVerifyContext
+func (bc *BlockContext) getCurrentVerifyCtx() *VerifyContext {
+	return bc.currentVCtx.Load().(*VerifyContext)
+}
+
+func (bc *BlockContext) setCurrentVerifyCtx(vctx *VerifyContext)  {
+	bc.currentVCtx.Store(vctx)
 }
 
 func (bc *BlockContext) AddVerifyContext(vctx *VerifyContext) bool {
@@ -100,61 +103,72 @@ func (bc *BlockContext) AddVerifyContext(vctx *VerifyContext) bool {
 	return true
 }
 
-func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
-	var vctx *VerifyContext
+func (bc *BlockContext) replaceVerifyCtx(idx int, height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
+	vctx := newVerifyContext(bc, height, expireTime, preBH)
+	bc.verifyContexts[idx] = vctx
+	return vctx
+}
+
+func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH *types.BlockHeader) (int, *VerifyContext) {
+	var (
+		vctx *VerifyContext
+		idx int
+	)
+
 	//若该高度还没有verifyContext， 则创建一个
-	if _, vctx = bc.GetVerifyContextByHeight(height); vctx == nil {
+	if idx, vctx = bc.GetVerifyContextByHeight(height); vctx == nil {
 		vctx = newVerifyContext(bc, height, expireTime, preBH)
 		bc.AddVerifyContext(vctx)
+		idx = len(bc.verifyContexts) -1
 	} else {
-		vctx.lock.Lock()
-		defer vctx.lock.Unlock()
-
 		blog := newBizLog("getOrNewVctx")
+		// hash不一致的情况下，
 		if vctx.prevBH.Hash != preBH.Hash {
 			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, GetHashPrefix(vctx.prevBH.Hash), GetHashPrefix(preBH.Hash))
-			// hash不一致的情况下，
-			// 1. 先取前项hash已存在的
-			// 2. 若前项hash都存在，则取前项hash高度高的
-			preBH1 := bc.Proc.getBlockHeaderByHash(vctx.prevBH.Hash)
-			preBH2 := bc.Proc.getBlockHeaderByHash(preBH.Hash)
-			if preBH1 != nil && preBH2 == nil {
-				return vctx
-			} else if preBH1 == nil && preBH2 != nil {
-				vctx.rebase(bc, height, expireTime, preBH2)
-			} else if preBH1 != nil && preBH2 != nil {
-				if preBH1.Height < preBH2.Height {
-					vctx.rebase(bc, height, expireTime, preBH2)
-				}
-			} else {
-				blog.log("both preBH is nil!height=%v, preHash1=%v, preHash2=%v", height, GetHashPrefix(vctx.prevBH.Hash), GetHashPrefix(preBH.Hash))
-				panic("verifycontext error")
+			preOld := bc.Proc.getBlockHeaderByHash(vctx.prevBH.Hash)
+			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
+			if preOld == nil {
+				vctx = bc.replaceVerifyCtx(idx, height, expireTime, preBH)
+				return idx, vctx
+			}
+			preNew := bc.Proc.getBlockHeaderByHash(preBH.Hash)
+			//新的preBH不存在了，也可能被分叉干掉了，此处直接返回nil
+			if preNew == nil {
+				return -1, nil
+			}
+			//新旧preBH都非空， 取高度高的preBH？
+			if preOld.Height < preNew.Height {
+				vctx = bc.replaceVerifyCtx(idx, height, expireTime, preNew)
 			}
 		}
 	}
-	return vctx
+	return idx, vctx
 }
 
 func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
 	expireTime := GetCastExpireTime(bh.PreTime, bh.Height - preBH.Height)
-	return bc.getOrNewVctx(bh.Height, expireTime, preBH)
+	_, vctx := bc.getOrNewVctx(bh.Height, expireTime, preBH)
+	return vctx
 }
 
 func (bc *BlockContext) CleanVerifyContext(height uint64)  {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-
 	newCtxs := make([]*VerifyContext, 0)
-	for _, ctx := range bc.verifyContexts {
-		if !ctx.ShouldRemove(height) {
+	for _, ctx := range bc.SafeGetVerifyContexts() {
+		bRemove := ctx.shouldRemove(height)
+		if !bRemove  {
 			newCtxs = append(newCtxs, ctx)
 		} else {
-			if bc.currentVerifyContext == ctx {
+			if bc.getCurrentVerifyCtx() == ctx {
 				bc.reset()
 			}
 			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevBH.Hash))
 		}
 	}
+
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
 	bc.verifyContexts = newCtxs
 }
 
@@ -168,7 +182,7 @@ func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 }
 
 func (bc *BlockContext) castingInfo() string {
-	vctx := bc.currentVerifyContext
+	vctx := bc.getCurrentVerifyCtx()
 	if vctx != nil {
 		return fmt.Sprintf("status=%v, castHeight=%v, prevHash=%v, prevTime=%v", vctx.consensusStatus, vctx.castHeight, GetHashPrefix(vctx.prevBH.Hash), vctx.prevBH.CurTime.String())
 	} else {
@@ -177,35 +191,29 @@ func (bc *BlockContext) castingInfo() string {
 }
 
 func (bc *BlockContext) Reset() {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-
 	bc.reset()
 }
 
 //铸块上下文复位，在某个高度轮到当前组铸块时调用。
 //to do : 还是索性重新生成。
 func (bc *BlockContext) reset() {
-	bc.currentVerifyContext = nil
+	bc.setCurrentVerifyCtx(nil)
 	bc.Proc.Ticker.StopTickerRoutine(bc.getKingCheckRoutineName())
-	//log.Printf("end BlockContext::Reset.\n")
 }
 
 //开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) {
-	vctx := bc.getOrNewVctx(castHeight, expire, baseBH)
-	vctx.lock.Lock()
-	if !vctx.isCasting() {
-		vctx.rebase(bc, castHeight, expire, baseBH)
+func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) bool {
+	idx, vctx := bc.getOrNewVctx(castHeight, expire, baseBH)
+	if vctx == nil {
+		return false
 	}
-	vctx.lock.Unlock()
+	if !vctx.isCasting() {
+		bc.replaceVerifyCtx(idx, castHeight, expire, baseBH)
+	}
 
-	bc.lock.Lock()
-	bc.currentVerifyContext = vctx
-	bc.lock.Unlock()
-
+	bc.setCurrentVerifyCtx(vctx)
 	bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
-	return
+	return true
 }
 
 //定时器例行处理
@@ -216,18 +224,15 @@ func (bc *BlockContext) kingTickerRoutine() bool {
 	}
 	//log.Printf("proc(%v) begin kingTickerRoutine, time=%v...\n", bc.Proc.getPrefix(), time.Now().Format(time.Stamp))
 
-	vctx := bc.GetCurrentVerifyContext()
+	vctx := bc.getCurrentVerifyCtx()
 	if vctx == nil {
 		log.Printf("kingTickerRoutine: verifyContext is nil, return!\n")
 		return false
 	}
 
-	vctx.lock.Lock()
-	defer vctx.lock.Unlock()
-
 	if !vctx.isCasting() || vctx.castSuccess() { //没有在组铸块共识中或已经出最高qn块
 		log.Printf("proc(%v) not in casting, reset and direct return. castingInfo=%v.\n", bc.Proc.getPrefix(), bc.castingInfo())
-		bc.Reset() //提前出块完成
+		bc.reset() //提前出块完成
 		return false
 	}
 
