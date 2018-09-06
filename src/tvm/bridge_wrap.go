@@ -37,10 +37,10 @@ void wrap_testAry(void* p)
     go_testAry(p);
 }
 
-void wrap_transfer(const char* p1, const char* p2, int p3)
+void wrap_transfer(const char* p2, const char* value)
 {
-    void transfer(const char*, const char*, int);
-    transfer(p1, p2, p3);
+    void Transfer(const char*, const char* value);
+    Transfer(p2, value);
 }
 
 void wrap_create_account(const char* address)
@@ -332,7 +332,8 @@ func Call(_contractAddr string, funcName string, params string) bool {
 func bridge_init() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
-	C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
+	//C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
+	C.transferFunc = (C.TransferFunc)(unsafe.Pointer(C.wrap_transfer))
 	C.create_account = (C.Function1)(unsafe.Pointer(C.wrap_create_account))
 	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
 	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))

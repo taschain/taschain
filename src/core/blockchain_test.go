@@ -30,19 +30,17 @@ import (
 	"tvm"
 )
 
-func OnChainFunc(code string){
-	OnChainFunc2(code, "0x1234")
-}
 
-func OnChainFunc3(code string, source string, index uint64) {
+func OnChainFunc(code string, source string) {
 	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 	txpool := BlockChainImpl.GetTransactionPool()
+	index := BlockChainImpl.latestStateDB.GetNonce(common.HexStringToAddress(source))
 	txpool.Add(genContractTx(123456, source, "", index, 0, []byte(code), nil, 0))
-	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(index - 1))))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(index))))
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
@@ -56,12 +54,6 @@ func OnChainFunc3(code string, source string, index uint64) {
 	}
 	fmt.Println(contractAddr.GetHexString())
 }
-
-func OnChainFunc2(code string, source string) {
-	OnChainFunc3(code, source, 1)
-}
-
-
 
 func CallContract(address, abi string) {
 	CallContract2(address, abi, "0x1234")
@@ -95,7 +87,7 @@ func TestVmTest(t *testing.T)  {
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
 	contractAddress := common.HexToAddress("0x00000001")
-	OnChainFunc3(string(jsonString), contractAddress.GetHexString(), 1)
+	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
 func VmTest1(code string)  {
@@ -112,7 +104,7 @@ func TestVmTest2(t *testing.T)  {
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
 	contractAddress := common.HexToAddress("0x00000001")
-	OnChainFunc3(string(jsonString), contractAddress.GetHexString(), 2)
+	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
 func VmTest2(code string)  {
@@ -155,7 +147,7 @@ class A():
 	contract := tvm.Contract{code, "A", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString))
+	OnChainFunc(string(jsonString), "0x1234")
 }
 
 func TestCallConstract(t *testing.T)  {
@@ -165,7 +157,7 @@ func TestCallConstract(t *testing.T)  {
 }
 
 func TestCallConstract2(t *testing.T)  {
-	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
+	contractAddr := "0x9610b83c5c03aa0824f2d5da225553ca43ad65a6"
 	abi := `{"FuncName": "test2", "Args": []}`
 	CallContract(contractAddr, abi)
 }

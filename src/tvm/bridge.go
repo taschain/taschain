@@ -48,9 +48,20 @@ func go_testAry(ary unsafe.Pointer) {
 	C.free(unsafe.Pointer(intary[1]))
 }
 
-//export transfer
-func transfer(fromAddresss *C.char, toAddress *C.char, amount int) {
-	fmt.Printf("From %s Send to %s amout: %d\n", C.GoString(fromAddresss), C.GoString(toAddress), amount)
+//export Transfer
+func Transfer(toAddressStr *C.char, value *C.char) {
+	transValue, ok := big.NewInt(0).SetString(C.GoString(value), 10)
+	if !ok {
+		// TODO error
+	}
+	contractAddr := controller.Vm.ContractAddress
+	contractValue := controller.AccountDB.GetBalance(*contractAddr)
+	if contractValue.Cmp(transValue) < 0 {
+		return
+	}
+	toAddress := common.HexStringToAddress(C.GoString(toAddressStr))
+	controller.AccountDB.AddBalance(toAddress, transValue)
+	controller.AccountDB.SubBalance(*contractAddr, transValue)
 }
 
 //export CreateAccount
