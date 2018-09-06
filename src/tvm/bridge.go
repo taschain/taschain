@@ -138,19 +138,17 @@ func GetRefund() C.ulonglong {
 }
 
 //export GetData
-func GetData(addressC *C.char, hashC *C.char) *C.char {
-	address := common.HexToAddress(C.GoString(addressC))
+func GetData(hashC *C.char) *C.char {
 	//hash := common.StringToHash(C.GoString(hashC))
-	address = *controller.Vm.ContractAddress
+	address := *controller.Vm.ContractAddress
 	state := controller.AccountDB.GetData(address, C.GoString(hashC))
 
 	return C.CString(string(state))
 }
 
 //export SetData
-func SetData(addressC *C.char, keyC *C.char, data *C.char) {
-	address := common.HexToAddress(C.GoString(addressC))
-	address = *controller.Vm.ContractAddress
+func SetData(keyC *C.char, data *C.char) {
+	address := *controller.Vm.ContractAddress
 	key := C.GoString(keyC)
 	state := []byte(C.GoString(data))
 	controller.AccountDB.SetData(address, key, state)

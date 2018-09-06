@@ -115,16 +115,16 @@ unsigned long long wrap_get_refund()
 	return GetRefund();
 }
 
-char* wrap_get_state(char* address, char* hash)
+char* wrap_get_data(char* key)
 {
-	char* GetData(char*, char*);
-	return GetData(address, hash);
+	char* GetData(char*);
+	return GetData(key);
 }
 
-void wrap_set_state(char* address, char* hash, char* state)
+void wrap_set_data(char* key, char* value)
 {
-	void SetData(char*, char*, char*);
-	SetData(address, hash, state);
+	void SetData(char*, char*);
+	SetData(key, value);
 }
 
 _Bool wrap_suicide(char* address)
@@ -345,8 +345,8 @@ func bridge_init() {
 	C.get_code_size = (C.Function7)(unsafe.Pointer(C.wrap_get_code_size))
 	C.add_refund = (C.Function8)(unsafe.Pointer(C.wrap_add_refund))
 	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
-	C.get_state = (C.Function10)(unsafe.Pointer(C.wrap_get_state))
-	C.set_state = (C.Function11)(unsafe.Pointer(C.wrap_set_state))
+	C.get_data = (C.Function10)(unsafe.Pointer(C.wrap_get_data))
+	C.set_data = (C.Function5)(unsafe.Pointer(C.wrap_set_data))
 	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
 	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
 	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
@@ -425,7 +425,7 @@ for k in tas_%s.__dict__:
 #	print(type(k))
 #	print(tas_%s.__dict__[k])
 #	print(type(tas_%s.__dict__[k]))
-	account.set_state("", k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+	account.set_data(k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -470,7 +470,7 @@ for k in tas_%s.__dict__:
 #	print(type(k))
 #	value = ujson.loads(account.get_state("", k))
 #	print(value)
-	setattr(tas_%s, k, ujson.loads(account.get_state("", k)))`, tvm.ContractName, tvm.ContractName)
+	setattr(tas_%s, k, ujson.loads(account.get_data(k)))`, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }

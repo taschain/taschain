@@ -46,7 +46,7 @@ func OnChainFunc3(code string, source string, index uint64) {
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
-	block := BlockChainImpl.CastingBlock(index, 12, 0, *castor, *groupid)
+	block := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 12, 0, *castor, *groupid)
 	if nil == block {
 		fmt.Println("fail to cast new block")
 	}
