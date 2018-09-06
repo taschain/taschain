@@ -74,7 +74,7 @@ func TestGFpMul(t *testing.T) {
 	h := &gfP{}
 
 	gfpMul(h, a, b)
-	if *h != *b {
+	if *h != *w {
 		t.Errorf("multiplication mismatch: have %#x, want %#x", *h, *w)
 	}
 }
