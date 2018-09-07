@@ -59,6 +59,7 @@ type BlockLogObject struct {
 	GroupId string
 	InstanceIndex int
 	CastTime int64
+	BootId int
 }
 
 func NewLogObj(id string)*LogObj{
@@ -96,7 +97,7 @@ func AddBlockLog(bootId int,code string,blockHeight uint64,qn uint64,txCount int
 			case BroadBlock:
 				cn = 6
 		}
-		log := &BlockLogObject{Code: code, CodeNum:cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount,Size:size,TimeStamp:timeStamp, Castor: castor, GroupId: groupId, InstanceIndex:instanceIndex,CastTime:castTime}
+		log := &BlockLogObject{Code: code, CodeNum:cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount,Size:size,TimeStamp:timeStamp, Castor: castor, GroupId: groupId, InstanceIndex:instanceIndex,CastTime:castTime,BootId:bootId}
 		PutBlockLog(log)
 	}
 }
