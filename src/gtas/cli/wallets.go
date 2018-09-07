@@ -45,8 +45,9 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	//}
 	var transaction *types.Transaction
 	var contractAddr common.Address
+
 	var i uint64 = 0
-	for ; i < 100; i++ {
+	for ; i < 1; i++ {
 		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0)
 		transaction.Hash = transaction.GenHash()
 		_, err := txpool.Add(transaction)
@@ -54,9 +55,11 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 			return nil, nil, err
 		}
 		if code != "" {
-			contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
+			lastNonce := core.BlockChainImpl.GetNonce(common.BytesToAddress(transaction.Source[:]))
+			contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(lastNonce))))
 		}
 	}
+
 
 	return &transaction.Hash, &contractAddr, nil
 }
