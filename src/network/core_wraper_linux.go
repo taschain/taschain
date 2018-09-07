@@ -147,6 +147,27 @@ void p2p_send(uint32_t session, const void* data, uint32_t size)
     	((void(*)(uint32_t session, const void* data, uint32_t size))api)(session, data, size);
 	}
 }
+
+uint32_t p2p_session_rxrtt(uint32_t session)
+{
+	void* api = p2p_api(__FUNCTION__);
+	if (api)
+    {
+    	return ((uint32_t(*)(uint32_t session))api)(session);
+	}
+	return 0;
+}
+
+uint32_t p2p_session_nsndbuf(uint32_t session)
+{
+	void* api = p2p_api(__FUNCTION__);
+	if (api)
+    {
+    	return ((uint32_t(*)(uint32_t session))api)(session);
+	}
+	return 0;
+}
+
 */
 import "C"
 import (
@@ -175,6 +196,16 @@ func P2PConnect(id uint64, ip string, port uint16) {
 
 func P2PShutdown(session uint32) {
 	C.p2p_shutdown(C.uint(session))
+}
+
+func P2PSessionRxrtt(session uint32) uint32 {
+	r := C.p2p_session_rxrtt(C.uint(session))
+	return  uint32(r)
+}
+
+func P2PSessionNsndbuf(session uint32) uint32 {
+	r := C.p2p_session_nsndbuf(C.uint(session))
+	return  uint32(r)
 }
 
 func P2PSend(session uint32, data []byte) {
