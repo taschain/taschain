@@ -178,7 +178,7 @@ func P2PShutdown(session uint32) {
 }
 
 func P2PSend(session uint32, data []byte) {
-	maxSize := 128 * 1024
+	maxSize := 64 * 1024
 	totalLen := len(data)
 
 	curPos := 0

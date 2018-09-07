@@ -228,15 +228,20 @@ func (gm *GroupManager) removeGroup(id string) {
 func (gm *GroupManager) loop() {
 
 	const refreshInterval = 5 * time.Second
+	const peerInfoInterval = 30 * time.Second
 
 	var (
 		refresh = time.NewTicker(refreshInterval)
+		peerInfo = time.NewTicker(peerInfoInterval)
 	)
 	defer refresh.Stop()
+	defer peerInfo.Stop()
 	for {
 		select {
 		case <-refresh.C:
 			go gm.doRefresh()
+		case <-peerInfo.C:
+			go net.netCore.peerManager.print()
 		}
 	}
 
