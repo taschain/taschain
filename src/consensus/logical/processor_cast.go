@@ -168,7 +168,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	blog.log("NEXT CAST GROUP is %v", GetIDPrefix(*selectGroup))
+	blog.log("NEXT CAST GROUP is %v, castHeight=%v, expire=%v", GetIDPrefix(*selectGroup), castHeight, expireTime)
 
 	//自己属于下一个铸块组
 	if p.IsMinerGroup(*selectGroup) {

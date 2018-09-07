@@ -31,6 +31,10 @@ import (
 	"tvm"
 )
 
+func init() {
+	middleware.InitMiddleware()
+}
+
 
 func OnChainFunc(code string, source string) {
 	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
@@ -126,6 +130,7 @@ func TestVmTest3(t *testing.T)  {
 }
 
 func TestContractOnChain(t *testing.T)  {
+
 	code := `
 class A():
 	def __init__(self):

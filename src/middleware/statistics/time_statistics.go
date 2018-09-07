@@ -27,7 +27,8 @@ const(
 )
 var BatchSize = 1000
 var Duration time.Duration = 5
-var Lock sync.Mutex
+var Lock sync.RWMutex
+var Lock2 sync.RWMutex
 var LogChannel = make(chan *LogObj)
 var BlockLogChannel = make(chan *BlockLogObject)
 var TimeChannel = make(chan int)
@@ -104,15 +105,11 @@ func PutLog(data *LogObj){
 	//if !HasInit(){
 	//	Init()
 	//}
-	go func(){
-		LogChannel <- data
-		}()
+	LogChannel <- data
 }
 
 func PutBlockLog(data *BlockLogObject){
-	go func(){
-		BlockLogChannel <- data
-	}()
+	BlockLogChannel <- data
 }
 
 func InitStatistics(config common.ConfManager){
@@ -154,12 +151,16 @@ func ProcessLog(){
 		for {
 			select {
 			case log := <-LogChannel:
+				Lock.Lock()
 				WriteData = append(WriteData, log)
+				Lock.Unlock()
 				if len(WriteData) >= BatchSize{
 					Send(1)
 				}
 			case log := <-BlockLogChannel:
+				Lock2.Lock()
 				WriteData2 = append(WriteData2, log)
+				Lock2.Unlock()
 				if len(WriteData2) >= BatchSize{
 					Send(2)
 				}
@@ -173,18 +174,24 @@ func ProcessLog(){
 
 func Send(code int){
 	if l := len(WriteData);code == 1&&l > 0{
+		Lock.Lock()
+		tmp := WriteData
+		WriteData = WriteData[0:0]
+		Lock.Unlock()
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(WriteData)
+		json.NewEncoder(b).Encode(tmp)
 		fmt.Printf("send log batch len:%d\n",l)
 		SendPost(b,"log")
-		WriteData = WriteData[0:0]
 	}
 	if l := len(WriteData2);code == 2&&l > 0{
+		Lock2.Lock()
+		tmp := WriteData2
+		WriteData2 = WriteData2[0:0]
+		Lock2.Unlock()
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(WriteData2)
+		json.NewEncoder(b).Encode(tmp)
 		fmt.Printf("send block batch len:%d\n",l)
 		SendPost(b,"block")
-		WriteData2 = WriteData2[0:0]
 	}
 }
 
