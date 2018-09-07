@@ -52,8 +52,8 @@ func TestExamplePair(t *testing.T) {
 }
 
 
-//同态加密测试
-func TestHomoEncrypt(t *testing.T) {
+//聚合加密测试
+func TestAggEncrypt(t *testing.T) {
 	//------------1.初始化-----------
 	//生成A B的公私钥对<s1, P1> <s2, P2>
 	s1,_ := randomK(rand.Reader)
@@ -105,6 +105,53 @@ func TestHomoEncrypt(t *testing.T) {
 	bitutil.XORBytes(DD1, C2, SS2.Marshal())
 	bitutil.XORBytes(DD2, DD1, SS1.Marshal())
 	t.Log("DD2:", DD2)
+}
+
+//盲化加密测试
+func TestAggBlindEncrypt(t *testing.T) {
+	//------------1.初始化-----------
+	//生成A B的公私钥对<s1, P1> <s2, P2>
+	s1,_ := randomK(rand.Reader)
+	s2,_ := randomK(rand.Reader)
+	P1, P2 := &G1{}, &G1{}
+	P1.ScalarBaseMult(s1)
+	P2.ScalarBaseMult(s2)
+
+	//------------2.加密-----------
+	//得到随机M
+	M := make([]byte, 32)
+	rand.Read(M)
+	t.Log("M:", M)
+
+	//A 加密M， 得到<C1, R1>
+	r1,_ := randomK(rand.Reader)
+
+	R1 := &G1{}
+	R1.ScalarBaseMult(r1)
+
+	S1 := &G1{}
+	S1.ScalarMult(P1, r1)
+	C1 := make([]byte, 32)
+	bitutil.XORBytes(C1, M, S1.Marshal())
+
+	//B 盲化R1得到K1=s2*R1
+	K1 := &G1{}
+	K1 = R1.ScalarMult(R1, s2)  //A计算出
+
+	//------------3.解密-----------
+	//A 计算得到 L1 = s1·K1
+	L1 := &G1{}
+	L1 = K1.ScalarMult(K1, s1)
+
+	//B脱盲运算
+	t2 := s2.ModInverse(s2, Order)  //t2 = 1/s2.
+	T1 := &G1{}
+	T1 = L1.ScalarMult(L1, t2)
+
+	//异或运算:
+	D1 := make([]byte, 32)
+	bitutil.XORBytes(D1, C1, T1.Marshal())      //A计算出D1
+	t.Log("D1:", D1)
 }
 
 func TestCpu(t *testing.T) {
