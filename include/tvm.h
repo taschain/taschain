@@ -24,7 +24,7 @@ void tvm_set_testAry_func(testAry_fcn);
 callback_fcn func;
 testAry_fcn testAry;
 
-typedef void (*TransferFunc)(const char*, const char*, int);
+typedef void (*TransferFunc)(const char*, const char*);
 TransferFunc transferFunc;
 void setTransferFunc(TransferFunc);
 /*********************************************************************************************/
@@ -37,7 +37,7 @@ typedef void (*Function6) (const char*, unsigned long long);
 typedef int (*Function7) (const char*);
 typedef void (*Function8) (unsigned long long);
 typedef unsigned long long (*Function9) ();
-typedef char* (*Function10) (const char*, const char*);
+typedef char* (*Function10) (const char*);
 typedef void (*Function11) (const char*, const char*, const char*);
 typedef void (*Function12) (int);
 typedef int (*Function13)();
@@ -58,8 +58,8 @@ Function5 set_code;
 Function7 get_code_size;
 Function8 add_refund;
 Function9 get_refund;
-Function10 get_state;
-Function11 set_state;
+Function10 get_data;
+Function5 set_data;
 Function4 suicide;
 Function4 has_suicide;
 Function4 exists;
