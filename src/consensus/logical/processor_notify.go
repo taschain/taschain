@@ -6,7 +6,22 @@ import (
 	"middleware/types"
 	"consensus/model"
 	"consensus/groupsig"
+	"common"
 )
+
+func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
+	futures := p.getFutureVerifyMsgs(hash)
+	if futures == nil || len(futures) == 0 {
+		return
+	}
+	p.removeFutureVerifyMsgs(hash)
+
+	for _, msg := range futures {
+		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.QueueNumber, GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
+		p.doVerify("FUTURE_VERIFY", msg, nil)
+	}
+
+}
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
@@ -23,8 +38,8 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 		bc.AddCastedHeight(block.Header.Height)
 		_, vctx := bc.GetVerifyContextByHeight(block.Header.Height)
-		if vctx != nil && vctx.prevBH.Hash == block.Header.Hash {
-			vctx.MarkCastSuccess()
+		if vctx != nil && vctx.prevBH.Hash == block.Header.PreHash {
+			vctx.markCastSuccess()
 		}
 	}
 

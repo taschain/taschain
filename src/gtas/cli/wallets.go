@@ -21,18 +21,20 @@ import (
 	"log"
 	"core"
 	"sync"
+	"middleware/types"
 )
 
 // Wallets 钱包
 type wallets []wallet
+
 var mutex sync.Mutex
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string,nonce uint64) (*common.Hash, *common.Address, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64) (*common.Hash, *common.Address, error) {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
-		//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+	//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	//if strings.HasPrefix(code, "0x") {
 	//	code = code[2:]
@@ -41,16 +43,21 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	//if err != nil {
 	//	return nil, nil, err
 	//}
-	transaction := genTx(0, source, target, nonce, value, []byte(code), nil, 0)
-	transaction.Hash = transaction.GenHash()
-	_, err := txpool.Add(transaction)
-	if err != nil {
-		return nil, nil, err
-	}
+	var transaction *types.Transaction
 	var contractAddr common.Address
-	if code != "" {
-		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
+	var i uint64 = 0
+	for ; i < 100; i++ {
+		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0)
+		transaction.Hash = transaction.GenHash()
+		_, err := txpool.Add(transaction)
+		if err != nil {
+			return nil, nil, err
+		}
+		if code != "" {
+			contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
+		}
 	}
+
 	return &transaction.Hash, &contractAddr, nil
 }
 
