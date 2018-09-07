@@ -48,15 +48,26 @@ func go_testAry(ary unsafe.Pointer) {
 	C.free(unsafe.Pointer(intary[1]))
 }
 
-//export transfer
-func transfer(fromAddresss *C.char, toAddress *C.char, amount int) {
-	fmt.Printf("From %s Send to %s amout: %d\n", C.GoString(fromAddresss), C.GoString(toAddress), amount)
+//export Transfer
+func Transfer(toAddressStr *C.char, value *C.char) {
+	transValue, ok := big.NewInt(0).SetString(C.GoString(value), 10)
+	if !ok {
+		// TODO error
+	}
+	contractAddr := controller.Vm.ContractAddress
+	contractValue := controller.AccountDB.GetBalance(*contractAddr)
+	if contractValue.Cmp(transValue) < 0 {
+		return
+	}
+	toAddress := common.HexStringToAddress(C.GoString(toAddressStr))
+	controller.AccountDB.AddBalance(toAddress, transValue)
+	controller.AccountDB.SubBalance(*contractAddr, transValue)
 }
 
 //export CreateAccount
 func CreateAccount(addressC *C.char) {
 	addr := common.HexToAddress(C.GoString(addressC))
-	tvm.state.CreateAccount(addr)
+	controller.AccountDB.CreateAccount(addr)
 }
 
 //export SubBalance
@@ -66,7 +77,7 @@ func SubBalance(addressC *C.char, valueC *C.char) {
 	if !ok {
 		// TODO error
 	}
-	tvm.state.SubBalance(address, value)
+	controller.AccountDB.SubBalance(address, value)
 }
 
 //export AddBalance
@@ -76,40 +87,40 @@ func AddBalance(addressC *C.char, valueC *C.char) {
 	if !ok {
 		// TODO error
 	}
-	tvm.state.AddBalance(address, value)
+	controller.AccountDB.AddBalance(address, value)
 }
 
 //export GetBalance
 func GetBalance(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	value := tvm.state.GetBalance(address)
+	value := controller.AccountDB.GetBalance(address)
 	return C.CString(value.String())
 }
 
 //export GetNonce
 func GetNonce(addressC *C.char) C.ulonglong {
 	address := common.HexToAddress(C.GoString(addressC))
-	value := tvm.state.GetNonce(address)
+	value := controller.AccountDB.GetNonce(address)
 	return C.ulonglong(value)
 }
 
 //export SetNonce
 func SetNonce(addressC *C.char, nonce C.ulonglong) {
 	address := common.HexToAddress(C.GoString(addressC))
-	tvm.state.SetNonce(address, uint64(nonce))
+	controller.AccountDB.SetNonce(address, uint64(nonce))
 }
 
 //export GetCodeHash
 func GetCodeHash(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	hash := tvm.state.GetCodeHash(address)
+	hash := controller.AccountDB.GetCodeHash(address)
 	return C.CString(hash.String())
 }
 
 //export GetCode
 func GetCode(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
-	code := tvm.state.GetCode(address)
+	code := controller.AccountDB.GetCode(address)
 	return C.CString(string(code))
 }
 
@@ -117,75 +128,75 @@ func GetCode(addressC *C.char) *C.char {
 func SetCode(addressC *C.char, codeC *C.char) {
 	address := common.HexToAddress(C.GoString(addressC))
 	code := C.GoString(codeC)
-	tvm.state.SetCode(address, []byte(code))
+	controller.AccountDB.SetCode(address, []byte(code))
 }
 
 //export GetCodeSize
 func GetCodeSize(addressC *C.char) C.int {
 	address := common.HexToAddress(C.GoString(addressC))
-	size := tvm.state.GetCodeSize(address)
+	size := controller.AccountDB.GetCodeSize(address)
 	return C.int(size)
 }
 
 //export AddRefund
 func AddRefund(re C.ulonglong) {
-	tvm.state.AddRefund(uint64(re))
+	controller.AccountDB.AddRefund(uint64(re))
 }
 
 //export GetRefund
 func GetRefund() C.ulonglong {
-	return C.ulonglong(tvm.state.GetRefund())
+	return C.ulonglong(controller.AccountDB.GetRefund())
 }
 
 //export GetData
-func GetData(addressC *C.char, hashC *C.char) *C.char {
-	address := common.HexToAddress(C.GoString(addressC))
+func GetData(hashC *C.char) *C.char {
 	//hash := common.StringToHash(C.GoString(hashC))
-	state := tvm.state.GetData(address, C.GoString(hashC))
+	address := *controller.Vm.ContractAddress
+	state := controller.AccountDB.GetData(address, C.GoString(hashC))
 
 	return C.CString(string(state))
 }
 
 //export SetData
-func SetData(addressC *C.char, keyC *C.char, data *C.char) {
-	address := common.HexToAddress(C.GoString(addressC))
+func SetData(keyC *C.char, data *C.char) {
+	address := *controller.Vm.ContractAddress
 	key := C.GoString(keyC)
 	state := []byte(C.GoString(data))
-	tvm.state.SetData(address, key, state)
+	controller.AccountDB.SetData(address, key, state)
 }
 
 //export Suicide
 func Suicide(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return tvm.state.Suicide(address)
+	return controller.AccountDB.Suicide(address)
 }
 
 //export HasSuicided
 func HasSuicided(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return tvm.state.HasSuicided(address)
+	return controller.AccountDB.HasSuicided(address)
 }
 
 //export Exist
 func Exist(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return tvm.state.Exist(address)
+	return controller.AccountDB.Exist(address)
 }
 
 //export Empty
 func Empty(addressC *C.char) bool {
 	address := common.HexToAddress(C.GoString(addressC))
-	return tvm.state.Empty(address)
+	return controller.AccountDB.Empty(address)
 }
 
 //export RevertToSnapshot
 func RevertToSnapshot(i int) {
-	tvm.state.RevertToSnapshot(i)
+	controller.AccountDB.RevertToSnapshot(i)
 }
 
 //export Snapshot
 func Snapshot() int {
-	return tvm.state.Snapshot()
+	return controller.AccountDB.Snapshot()
 }
 
 //export AddPreimage
@@ -197,36 +208,52 @@ func AddPreimage(hashC *C.char, preimageC *C.char) {
 
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
-	block := reader.QueryBlockByHeight(uint64(height))
+	block := controller.Reader.QueryBlockByHeight(uint64(height))
 	return C.CString(block.Hash.String())
 }
 
 //export CoinBase
 func CoinBase() *C.char {
-	return C.CString(common.BytesToAddress(currentBlockHeader.Castor).GetHexString())
+	return C.CString(common.BytesToAddress(controller.BlockHeader.Castor).GetHexString())
 }
 
 //export Difficulty
 func Difficulty() C.ulonglong {
-	return C.ulonglong(currentBlockHeader.TotalQN)
+	return C.ulonglong(controller.BlockHeader.TotalQN)
 }
 
 //export Number
 func Number() C.ulonglong {
-	return C.ulonglong(currentBlockHeader.Height)
+	return C.ulonglong(controller.BlockHeader.Height)
 }
 
 //export Timestamp
 func Timestamp() C.ulonglong {
-	return C.ulonglong(uint64(currentBlockHeader.CurTime.Unix()))
+	return C.ulonglong(uint64(controller.BlockHeader.CurTime.Unix()))
 }
 
 //export TxOrigin
 func TxOrigin() *C.char {
-	return C.CString(currentTransaction.Source.GetHexString())
+	return C.CString(controller.Transaction.Source.GetHexString())
 }
 
 //export TxGasLimit
 func TxGasLimit() C.ulonglong{
-	return C.ulonglong(currentTransaction.GasLimit)
+	return C.ulonglong(controller.Transaction.GasLimit)
+}
+
+//export ContractCall
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
+	Call(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+}
+
+//TODO 合约call合约
+func callContract() {
+	// extern json
+
+	// tvm.state.GetCode()
+
+	// tvm.exec code
+
+	// tvm.call abi
 }
