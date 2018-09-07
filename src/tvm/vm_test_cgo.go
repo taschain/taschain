@@ -13,22 +13,6 @@
 ////   You should have received a copy of the GNU General Public License
 ////   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
-package tvm
-
-import (
-	"fmt"
-	"io/ioutil"
-)
-
-//
-//import (
-//	"io/ioutil"
-//	"fmt"
-//)
-//
-
-//   You should have received a copy of the GNU General Public License
-//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package tvm
 
@@ -65,11 +49,9 @@ func Read0(filename string)  (string){
 //       tas.transfer(self.address, toAddress, amount)
 //`
 //
-<<<<<<< HEAD
-//	tvm.Execute(script, nil, nil)
-=======
+
 //	tvm.Execute(script)
->>>>>>> origin/tvm
+
 //
 //	script = `
 //
