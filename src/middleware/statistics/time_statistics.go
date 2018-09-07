@@ -29,11 +29,13 @@ var BatchSize = 1000
 var Duration time.Duration = 5
 var Lock sync.Mutex
 var LogChannel = make(chan *LogObj)
+var BlockLogChannel = make(chan *BlockLogObject)
 var TimeChannel = make(chan int)
 var IsInit = false
 var WriteData = make([]*LogObj,0)
+var WriteData2 = make([]*BlockLogObject,0)
 var batch int
-var enable bool
+var enable = true
 
 type LogObj struct {
 	Hash string
@@ -42,6 +44,20 @@ type LogObj struct {
 	Batch  int
 	Castor   string
 	Node   string
+}
+
+type BlockLogObject struct {
+	Code string
+	CodeNum uint8
+	BlockHeight uint64
+	Qn uint64
+	TxCount int
+	Size int
+	TimeStamp int64
+	Castor string
+	GroupId string
+	InstanceIndex int
+	CastTime int64
 }
 
 func NewLogObj(id string)*LogObj{
@@ -63,7 +79,25 @@ func AddLog(Hash string, Status int, Time int64, Castor string, Node string,){
 }
 
 func AddBlockLog(code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
-	//todo by pos 哥
+	if enable {
+		var cn uint8
+		switch code {
+			case RcvNewBlock:
+				cn = 1
+			case SendCast:
+				cn = 2
+			case RcvCast:
+				cn = 3
+			case SendVerified:
+				cn = 4
+			case RcvVerified:
+				cn = 5
+			case BroadBlock:
+				cn = 6
+		}
+		log := &BlockLogObject{Code: code, CodeNum:cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount,Size:size,TimeStamp:timeStamp, Castor: castor, GroupId: groupId, InstanceIndex:instanceIndex,CastTime:castTime}
+		PutBlockLog(log)
+	}
 }
 
 func PutLog(data *LogObj){
@@ -75,11 +109,18 @@ func PutLog(data *LogObj){
 		}()
 }
 
+func PutBlockLog(data *BlockLogObject){
+	go func(){
+		BlockLogChannel <- data
+	}()
+}
+
 func InitStatistics(config common.ConfManager){
 	url = config.GetString("statistics","url","http://118.31.60.210:9090/send")
+	//url = config.GetString("statistics","url","http://localhost:9090/send")
 	timeout = time.Duration(config.GetInt("statistics","timeout",1)) * time.Second
 	batch =  config.GetInt("statistics","batch",0)
-	enable = config.GetBool("statistics","enable", false)
+	//enable = config.GetBool("statistics","enable", false)
 	go ProcessLog()
 	go func() {
 		t := time.Tick(Duration * time.Second)
@@ -114,39 +155,37 @@ func ProcessLog(){
 			select {
 			case log := <-LogChannel:
 				WriteData = append(WriteData, log)
-				SendLog()
+				if len(WriteData) >= BatchSize{
+					Send(1)
+				}
+			case log := <-BlockLogChannel:
+				WriteData2 = append(WriteData2, log)
+				if len(WriteData2) >= BatchSize{
+					Send(2)
+				}
 			case <-TimeChannel:
-				SendLogByTime()
+				Send(1)
+				Send(2)
 			}
 		}
 	}
 }
-func SendLogByTime(){
-	if len(WriteData)== 0{
-		return
-	}
-	Send()
-	Clear()
-}
-func SendLog(){
-	if len(WriteData)== 0{
-		return
-	}
-	if len(WriteData) >= BatchSize{
-		Send()
-		Clear()
-	}
-}
 
-func Send(){
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(WriteData)
-	fmt.Printf("send batch len:%d\n",len(WriteData))
-	SendPost(b)
-}
-
-func Clear(){
-	WriteData = WriteData[0:0]
+func Send(code int){
+	if l := len(WriteData);code == 1&&l > 0{
+		b := new(bytes.Buffer)
+		json.NewEncoder(b).Encode(WriteData)
+		fmt.Printf("send log batch len:%d\n",l)
+		SendPost(b,"log")
+		WriteData = WriteData[0:0]
+	}
+	if l := len(WriteData2);code == 2&&l > 0{
+		b := new(bytes.Buffer)
+		json.NewEncoder(b).Encode(WriteData2)
+		fmt.Printf("send block batch len:%d\n",l)
+		SendPost(b,"block")
+		WriteData2 = WriteData2[0:0]
+	}
 }
 
 
