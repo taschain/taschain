@@ -36,6 +36,7 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
+
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
 		hash := accountdb.IntermediateRoot(true)
@@ -46,16 +47,15 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		vm := tvm.NewTvm(accountdb, BlockChainImpl)
 		if transaction.Target == nil{
-			contractAddress,_ = createContract(accountdb, transaction)
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			contractAddress, _ = createContract(accountdb, transaction)
+			contract := tvm.LoadContract(contractAddress)
+			controller.Deploy(transaction.Source, contract)
 		} else if len(transaction.Data) > 0 {
-			snapshot := accountdb.Snapshot()
-			script := string(accountdb.GetCode(*transaction.Target))
-			if !(vm.Execute(script, block.Header, transaction) && vm.ExecuteABIJson(string(transaction.Data))){
-				accountdb.RevertToSnapshot(snapshot)
-				fail = true
-			}
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			contract := tvm.LoadContract(*transaction.Target)
+			controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount){

@@ -11,6 +11,9 @@ class Recharge(object):
         # 充值
         print("充值成功: ", phone_number, _value)
 
+    def test(self):
+        print("充值成功: test")
+
     def deploy(self):
         pass
 

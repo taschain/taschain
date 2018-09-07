@@ -164,7 +164,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 
 	code := message.Code
-	statistics.AddCount("server.handleMessage", code)
+	statistics.AddCount("server.handleMessage", code,uint64(len(b)))
 
 	//defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {

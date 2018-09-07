@@ -10,40 +10,43 @@ import (
 )
 
 type countItem struct {
-	lock *sync.RWMutex
-	innerMap *sync.Map
+	*sync.Map
+}
+
+type innerItem struct {
+	count uint32
+	size uint64
 }
 
 var count_map = new(sync.Map)
 var logger taslog.Logger
 
 func newCountItem() *countItem {
-	return &countItem{lock:new(sync.RWMutex),innerMap:new(sync.Map)}
+	return &countItem{new(sync.Map)}
 }
 
-func (item *countItem)get(code uint32) uint32 {
-	item.lock.RLock()
-	defer item.lock.RUnlock()
-	if v,ok2 := item.innerMap.Load(code);ok2{
-		return v.(uint32)
+func newInnerItem(size uint64) *innerItem {
+	return &innerItem{count:1,size:size}
+}
+
+func (item *countItem)get(code uint32) *innerItem {
+	if v,ok2 := item.Load(code);ok2{
+		return v.(*innerItem)
 	} else{
-		return 0
+		return nil
 	}
 }
 
-func (item *countItem)set(code uint32,value uint32) {
-	item.lock.RLock()
-	defer item.lock.RUnlock()
-	item.innerMap.Store(code, value)
+func (item *innerItem)increase(size uint64) {
+	item.count++
+	item.size += size
 }
 
 func (item *countItem)print() string{
-	item.lock.Lock()
-	defer item.lock.Unlock()
 	var buffer bytes.Buffer
-	item.innerMap.Range(func(code, value interface{}) bool {
+	item.Range(func(code, value interface{}) bool {
 		buffer.WriteString(fmt.Sprintf(" %d:%d",code,value))
-		item.innerMap.Delete(code)
+		item.Delete(code)
 		return true
 	})
 	return buffer.String()
@@ -59,14 +62,18 @@ func printAndRefresh()  {
 	})
 }
 
-func AddCount(name string, code uint32)  {
+func AddCount(name string, code uint32, size uint64)  {
 	if item,ok := count_map.Load(name);ok{
 		citem := item.(*countItem)
-		newValue := citem.get(code) + 1
-		citem.set(code, newValue)
+		if item2,ok := count_map.Load(code);ok{
+			citem2 := item2.(*innerItem)
+			citem2.increase(size)
+		} else{
+			citem.Store(code, newInnerItem(size))
+		}
 	} else {
 		citem := newCountItem()
-		citem.set(code, 1)
+		citem.Store(code, newInnerItem(size))
 		count_map.Store(name, citem)
 	}
 	//logger.Infof("%s %d",name,code)

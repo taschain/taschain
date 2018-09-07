@@ -13,29 +13,31 @@
 ////   You should have received a copy of the GNU General Public License
 ////   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
+
 package tvm
-//
-//import (
-//	"io/ioutil"
-//	"fmt"
-//)
-//
-//func Read0(filename string)  (string){
-//	f, err := ioutil.ReadFile(filename)
-//	if err != nil {
-//		fmt.Println("read fail", err)
-//	}
-//	return string(f)
-//}
+
+import (
+	"fmt"
+	"io/ioutil"
+)
+
+func Read0(filename string)  (string){
+	f, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Println("read fail", err)
+	}
+	return string(f)
+}
 //
 //func VmTest() {
 //
-//	tvm := NewTvm(nil, nil)
-//	tvm.Execute(Read0("py/token/contract_token_test.py"), nil, nil)
+//	tvm := NewTvm()
+//	tvm.Execute(Read0("py/token/contract_token_test.py"))
 //}
 //
 //func VmTestContract() {
-//	tvm := NewTvm(nil, nil)
+//	tvm := NewTvm()
+
 //
 //	script := `
 //import tas
@@ -47,7 +49,9 @@ package tvm
 //       tas.transfer(self.address, toAddress, amount)
 //`
 //
-//	tvm.Execute(script, nil, nil)
+
+//	tvm.Execute(script)
+
 //
 //	script = `
 //
@@ -59,11 +63,13 @@ package tvm
 //
 //apply()
 //`
-//	tvm.Execute(script, nil, nil)
+
+//	tvm.Execute(script)
 //}
 //
 //func VmTestClass() {
-//	tvm := NewTvm(nil, nil)
+//	tvm := NewTvm()
+
 //
 //	script := `
 //
@@ -88,33 +94,38 @@ package tvm
 //print("end")
 //
 //`
-//	tvm.Execute(script, nil, nil)
+
+//	tvm.Execute(script)
 //}
 //
 //func VmTestABI() {
-//	tvm := NewTvm(nil, nil)
+//	tvm := NewTvm()
+
 //
 //
 //	tvm.Execute(`
 //import account
 //def Test(a, b, c, d):
 //	print("hehe")
-//`,  nil, nil)
+
+//`)
 //
 //	str := `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-//	tvm.ExecuteABIJson(str)
+//
+//	tvm.ExecuteABIJson(Msg{}, str)
 //}
 //
 //func VmTestException() {
-//	tvm := NewTvm(nil, nil)
+//	tvm := NewTvm()
 //
 //	tvm.Execute(`
 //i am error
-//`, nil, nil)
+//`)
 //}
 //
 //func VmTestToken(){
-//	tvm := NewTvm(nil, nil)
+//	tvm := NewTvm()
+
 //
 //	tvm.Execute(`
 //import account
@@ -350,5 +361,7 @@ package tvm
 //#
 //#
 //#
-//`,  nil, nil)
+
+//`)
+
 //}
