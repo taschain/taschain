@@ -198,7 +198,7 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
-	common.InstanceIndex = *instanceIndex
+
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
@@ -212,6 +212,7 @@ func (gtas *Gtas) Run() {
 	if err != nil {
 		kingpin.Fatalf("%s, try --help", err)
 	}
+	common.InstanceIndex = *instanceIndex
 	go func() {
 		http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
 		runtime.SetBlockProfileRate(1)
