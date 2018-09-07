@@ -20,7 +20,7 @@ import (
 )
 
 var InstanceIndex int
-
+var BootId int
 type AccountData struct {
 	sk   []byte   //secure key
 	pk 	 []byte   //public key

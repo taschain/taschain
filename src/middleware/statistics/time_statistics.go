@@ -78,7 +78,7 @@ func AddLog(Hash string, Status int, Time int64, Castor string, Node string,){
 	}
 }
 
-func AddBlockLog(code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
+func AddBlockLog(bootId int,code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
 	if enable {
 		var cn uint8
 		switch code {

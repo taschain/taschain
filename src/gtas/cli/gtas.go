@@ -205,6 +205,7 @@ func (gtas *Gtas) Run() {
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
+	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -234,6 +235,9 @@ func (gtas *Gtas) Run() {
 		network.NatServerIp = *nat
 		log.Printf("NAT server ip:%s", *nat)
 	}
+
+	common.BootId = *buildId
+	log.Printf("Boot id:%d",common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
