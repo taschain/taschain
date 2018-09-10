@@ -427,7 +427,9 @@ for k in tas_%s.__dict__:
 #	print(type(k))
 #	print(tas_%s.__dict__[k])
 #	print(type(tas_%s.__dict__[k]))
-	account.set_data(k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+	value = ujson.dumps(tas_%s.__dict__[k])
+	if TAS_PARAMS_DICT.get(k) != value:
+		account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -467,12 +469,15 @@ func(tvm *Tvm) LoadContractCode() bool {
 	script = fmt.Sprintf(`
 import account
 import ujson
+TAS_PARAMS_DICT = {}
 for k in tas_%s.__dict__:
 #	print(k)
 #	print(type(k))
 #	value = ujson.loads(account.get_state("", k))
 #	print(value)
-	setattr(tas_%s, k, ujson.loads(account.get_data(k)))`, tvm.ContractName, tvm.ContractName)
+	value = ujson.loads(account.get_data(k))
+	TAS_PARAMS_DICT[k] = value
+	setattr(tas_%s, k, value)`, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
