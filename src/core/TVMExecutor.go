@@ -47,7 +47,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		var fail = false
 		var contractAddress common.Address
 		vm := tvm.NewTvm(accountdb, BlockChainImpl)
-		if transaction.Target == nil{
+		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0{
 			contractAddress,_ = createContract(accountdb, transaction)
 		} else if len(transaction.Data) > 0 {
 			snapshot := accountdb.Snapshot()
