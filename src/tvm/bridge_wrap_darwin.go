@@ -422,13 +422,13 @@ func(tvm *Tvm) StoreData() bool {
 import account
 import ujson
 for k in tas_%s.__dict__:
-#	print(k)
-#	print(type(k))
-#	print(tas_%s.__dict__[k])
-#	print(type(tas_%s.__dict__[k]))
-	value = ujson.dumps(tas_%s.__dict__[k])
-	if TAS_PARAMS_DICT[k] != value:
-		account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+    #	print(k)
+    #	print(type(k))
+    #	print(tas_%s.__dict__[k])
+    #	print(type(tas_%s.__dict__[k]))
+    value = ujson.dumps(tas_%s.__dict__[k])
+    if TAS_PARAMS_DICT.get(k) != value:
+        account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -470,13 +470,13 @@ import account
 import ujson
 TAS_PARAMS_DICT = {}
 for k in tas_%s.__dict__:
-#	print(k)
-#	print(type(k))
-#	value = ujson.loads(account.get_state("", k))
-#	print(value)
-	value = ujson.loads(account.get_data(k))
-	TAS_PARAMS_DICT[k] = value
-	setattr(tas_%s, k, value)`, tvm.ContractName, tvm.ContractName)
+    #	print(k)
+    #	print(type(k))
+    #	value = ujson.loads(account.get_state("", k))
+    #	print(value)
+    value = account.get_data(k)
+    TAS_PARAMS_DICT[k] = value
+    setattr(tas_%s, k, ujson.loads(value))`, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -506,6 +506,7 @@ func (tvm *Tvm)Deploy(msg Msg) bool {
 	}
 
 	script := fmt.Sprintf(`
+TAS_PARAMS_DICT = {}
 tas_%s = %s()
 tas_%s.deploy()
 `, tvm.ContractName, tvm.ContractName, tvm.ContractName)
