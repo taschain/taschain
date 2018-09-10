@@ -47,7 +47,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		if transaction.Target == nil{
+		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0{
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contractAddress, _ = createContract(accountdb, transaction)
 			contract := tvm.LoadContract(contractAddress)
