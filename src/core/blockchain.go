@@ -529,10 +529,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
-	txtree := calcTxTree(transactions).Bytes()
+	txtree := calcTxTree(transactions)
 
-	if common.ToHex(txtree) != common.ToHex(bh.TxTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree, bh.TxTree.Bytes())
+	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 

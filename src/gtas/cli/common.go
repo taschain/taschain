@@ -83,7 +83,7 @@ func genTx(price uint64, source string, target string, nonce uint64, value uint6
 	sourcebyte := common.HexToAddress(source)
 	sourceAddr = &sourcebyte
 	if target == "" {
-		targetAddr = nil
+		targetAddr = &common.Address{}
 	} else {
 		targetbyte := common.HexToAddress(target)
 		targetAddr = &targetbyte
@@ -98,6 +98,7 @@ func genTx(price uint64, source string, target string, nonce uint64, value uint6
 		Value:         value,
 		ExtraData:     extraData,
 		ExtraDataType: extraDataType,
+		GasLimit: 10000000,
 	}
 }
 
