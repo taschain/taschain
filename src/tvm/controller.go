@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"common"
 	"math/big"
-	"core"
 )
 
 type Controller struct {
@@ -51,6 +50,15 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
 	return succeed
 }
 
+func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
+	return db.GetBalance(addr).Cmp(amount) >= 0
+}
+
+func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int) {
+	db.SubBalance(sender, amount)
+	db.AddBalance(recipient, amount)
+}
+
 func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
 	var succeed bool
 	con.Vm = NewTvm(sender, contract, con.LibPath)
@@ -59,8 +67,8 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	//先转账
 	if con.Transaction.Value > 0 {
 		amount := big.NewInt(int64(con.Transaction.Value))
-		if core.CanTransfer(con.AccountDB, *sender, amount) {
-			core.Transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
+		if CanTransfer(con.AccountDB, *sender, amount) {
+			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
 		} else {
 			return false
 		}

@@ -227,7 +227,6 @@ import (
 	"bytes"
 	"strconv"
 	"storage/core/vm"
-	"middleware/types"
 )
 
 var controller *Controller = nil
