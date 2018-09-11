@@ -153,9 +153,9 @@ func (sc *SlotContext) IsSuccess() bool {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if si.DataHash != sc.BH.Hash {
-		panic("SlotContext::AcceptPiece failed, hash diff.")
+		return CBMR_BH_HASH_DIFF
 	}
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 

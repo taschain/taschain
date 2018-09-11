@@ -139,7 +139,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 
 	verifyResult := vctx.UserVerified(bh, si, cgs)
-	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), CBMR_RESULT_DESC(verifyResult))
+	log.Printf("proc(%v) %v UserVerified height-qn=%v-%v, result=%v.\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber, CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
@@ -299,7 +299,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 	p.blockContexts.forEach(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
-			for _, slot := range vctx.slots {
+			for _, slot := range vctx.GetSlots() {
 				acceptRet := vctx.AcceptTrans(slot, ths)
 				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:

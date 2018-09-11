@@ -58,6 +58,7 @@ const (
 	CBMR_STATUS_FAIL                                           //已经失败的
 	CBMR_ERROR_UNKNOWN                                         //异常：未知异常
 	CBMR_CAST_SUCCESS											//铸块成功
+	CBMR_BH_HASH_DIFF											//slot已经被替换过了
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -80,6 +81,8 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "重复消息"
 	case CBMR_CAST_SUCCESS:
 		return "已铸块成功"
+	case CBMR_BH_HASH_DIFF:
+		return "hash不一致，slot已无效"
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }
@@ -138,16 +141,13 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		consensusStatus: CBCS_CASTING,
 		castedQNs:       make([]int64, 0),
 	}
-	ctx.resetSlotContext()
+	for i := 0; i < model.MAX_CAST_SLOT; i++ {
+		sc := createSlotContext(ctx.blockCtx.threshold())
+		ctx.slots[i] = sc
+	}
 	return ctx
 }
 
-func (vc *VerifyContext) resetSlotContext() {
-	for i := 0; i < model.MAX_CAST_SLOT; i++ {
-		sc := createSlotContext(vc.blockCtx.threshold())
-		vc.slots[i] = sc
-	}
-}
 
 func (vc *VerifyContext) isCasting() bool {
 	status := atomic.LoadInt32(&vc.consensusStatus)
@@ -304,11 +304,12 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
 		vc.replaceSlot(i, bh, vc.blockCtx.threshold())
 	}
+	//警惕并发
 	slot := vc.getSlot(i)
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
 	}
-	result := slot.AcceptPiece(bh, *signData)
+	result := slot.AcceptPiece(bh, signData)
 	return result
 }
 
@@ -397,4 +398,12 @@ func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
 	return index
+}
+
+func (vc *VerifyContext) GetSlots() []*SlotContext {
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
+	slots := make([]*SlotContext, len(vc.slots))
+	copy(slots, vc.slots[:])
+	return slots
 }
