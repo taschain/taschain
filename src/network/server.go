@@ -36,7 +36,7 @@ func (n *server) Send(id string, msg Message) error {
 		return err
 	}
 	if id == n.Self.Id.GetHexString() {
-		go n.sendSelf(bytes)
+		n.sendSelf(bytes)
 		return nil
 	}
 	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
