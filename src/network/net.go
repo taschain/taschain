@@ -429,7 +429,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 	Logger.Infof("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
-	if p != nil && p.seesionId > 0 {
+	if (p != nil && p.seesionId > 0) || nc.natTraversalEnable {
 		//Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
 		go nc.Send(memberId, nil, data)
 	} else {
@@ -439,7 +439,6 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
 			go nc.Send(memberId, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, data)
 		} else {
-
 			Logger.Infof("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
 
 			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId, nil, -1)

@@ -69,7 +69,10 @@ func newGroup(id string, members []NodeID) *Group {
 	peerSize := len(g.members)
 	maxCount := int(math.Sqrt(float64(peerSize)));
 	maxCount -=  len(g.needConnectNodes)
-	step :=  len(g.members)/ maxCount
+	step := 1
+	if maxCount > 0 {
+		step = len(g.members)/ maxCount
+	}
 	for i:=0;i<maxCount ;i++ {
 		nextIndex += step
 		if nextIndex >= len(g.members) {
@@ -192,7 +195,7 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
-	go gm.doRefresh()
+	go g.doRefresh()
 	return g
 }
 
