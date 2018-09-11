@@ -286,10 +286,14 @@ func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
 func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
 	var succeed bool
 	con.Vm  = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	con.Vm.SetGas(1000000)
 	snapshot := con.AccountDB.Snapshot()
 	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+	succeed = con.Vm.LoadContractCode()
+	if succeed {
+		con.Vm.SetGas(int(con.Transaction.GasLimit))
+		succeed = con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+	}
 	if !succeed {
 		con.AccountDB.RevertToSnapshot(snapshot)
 	}
@@ -304,12 +308,15 @@ func(con *Controller) ExecuteTask() {
 		contract := LoadContract(*task.ContractAddr)
 		gasLeft := con.Vm.Gas()
 		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-		con.Vm.SetGas(gasLeft)
+		con.Vm.SetGas(1000000)
 		snapshot := con.AccountDB.Snapshot()
 		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
 		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		fmt.Println(abi)
-		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+		succeed = con.Vm.LoadContractCode()
+		if succeed {
+			con.Vm.SetGas(gasLeft)
+			succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+		}
 		if !succeed {
 			if con.Vm.Gas() == 0 {
 				con.Vm.DelTvm()
