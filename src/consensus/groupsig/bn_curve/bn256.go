@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/big"
 	"bytes"
+	"fmt"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -44,6 +45,51 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 	}
 
 	return k, new(G1).ScalarBaseMult(k), nil
+}
+
+//获得x,y坐标(仿射坐标)
+func (g *G1) GetXY() (*gfP, *gfP) {
+	p := &curvePoint{}
+	p.Set(g.p)
+	p.MakeAffine()
+	return &p.x, &p.y
+}
+
+//通过x坐标恢复出点(x,y)
+func (g *G1) SetX(px *gfP) error {
+	//计算t=x³+b in gfP.
+	pt := &gfP{}
+	gfpMul(pt, px, px)
+	gfpMul(pt, pt, px)
+	gfpAdd(pt, pt, curveB)
+	montDecode(pt, pt)
+
+	//t转化为big.Int类型，再计算y=sqrt(t).
+	y := &big.Int{}
+	buf := make([]byte, 32)
+	pt.Marshal(buf)
+	y.SetBytes(buf)
+	//y.Mod(y, P)
+	y.ModSqrt(y, P)
+
+	//y转化为gfP类型
+	byte_str := y.Bytes()
+	len := len(byte_str)
+
+	fmt.Println("len:", len)
+
+	j := 0
+	for i:= 32-len; i<32; i++ {
+		buf[i] = byte_str[j]
+		j++
+	}
+	py := &gfP{}
+	py.Unmarshal(buf)
+	montEncode(py, py)
+
+	g.p = &curvePoint{*px, *py, *newGFp(1), *newGFp(1)}
+
+	return nil
 }
 
 func (g *G1) String() string {

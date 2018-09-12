@@ -247,7 +247,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
-		rand :=mrand.New(mrand.NewSource(0))
+		rand :=mrand.New(mrand.NewSource(time.Now().Unix()))
 
 		for i:=0;i<peerSize && len(nodesHasSend) < maxCount;i++ {
 			peerIndex := rand.Intn(peerSize)

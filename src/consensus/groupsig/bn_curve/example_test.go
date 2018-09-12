@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/ethereum/go-ethereum/common/bitutil"
+	"fmt"
+	"math/big"
 )
 
 func TestExamplePair(t *testing.T) {
@@ -156,5 +158,90 @@ func TestAggBlindEncrypt(t *testing.T) {
 
 func TestCpu(t *testing.T) {
 	t.Log("hasBMI2:", hasBMI2)
+}
+
+func Bytes2Bits(data []byte) []int {
+	dst := make([]int, 0)
+	for _, v := range data {
+		for i := 0; i < 8; i++ {
+			move := uint(7 - i)
+			dst = append(dst, int((v>>move)&1))
+		}
+	}
+	fmt.Println(len(dst))
+	return dst
+}
+
+//通过big.Int方式，短签名恢复出签名点(x,y).[BUG修复中]
+func TestShortSig2(t *testing.T) {
+	_, g1, _ := RandomG1(rand.Reader)
+	px,py := g1.GetXY()
+	t.Log("px:", px.String())
+	t.Log(" py:", py.String())
+
+	g2 := &G1{}
+	g2.SetX(px)
+
+	ppx, ppy := g2.GetXY()
+	t.Log("ppx:", ppx.String())
+	t.Log("ppy:", ppy.String())
+}
+
+//gfP上实现平方根运算, 短签名恢复出签名点(x,y). [验证不通过]
+func TestShortSig(t *testing.T) {
+	_, g1, _ := RandomG1(rand.Reader)
+	px, py := g1.GetXY()
+	montDecode(px, px)
+	montDecode(py, py)
+
+	t.Log("px:", px.String())
+	t.Log("py:", py.String())
+
+	//计算t = x³ + b
+	pt := &gfP{}
+	gfpMul(pt, px, px)
+	gfpMul(pt, pt, px)
+	gfpAdd(pt, pt, curveB)
+
+	//t.Log("px:", px.String())
+	//t.Log("py:", py.String())
+	t.Log("pt:", pt.String())
+
+	//计算r=u+1 mod P
+	r := &big.Int{}
+	r.Set(Pu)
+	r.Add(r, big.NewInt(1))
+	r.Mod(r, P)
+
+	//bit array
+	bit_Array := Bytes2Bits(r.Bytes())
+	n := len(bit_Array)
+	t.Log("r:", r.Bytes())
+
+	tmp := &gfP{}
+	tmp.Set(pt)
+
+	for i:=1; i<n; i++ {
+		//tmp_tb.Mul(tmp_tb, tmp_tb)
+		gfpMul(tmp, tmp, tmp) 		//x<-x*x
+		if bit_Array[i] == 1 {
+			//tmp_tb.Mul(tmp_tb, tb)
+			gfpMul(tmp, tmp, pt) 	//x<-x*t
+		}
+	}
+
+	//t.Log("tmp_tb:", tmp_tb.Bytes())
+
+	t.Log("tmp:", tmp.String())
+
+	tmp2 := &gfP{}
+	tmp2.Set(tmp)
+	gfpMul(tmp2, tmp2, tmp) //x<-x*x
+	montEncode(tmp, tmp)
+
+	t.Log("tmp:", tmp.String())
+	t.Log("tmp2:", tmp2.String())
+
+	//t.Log("b:", Bytes2Bits(r.Bytes()))
 }
 
