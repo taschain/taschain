@@ -33,6 +33,8 @@ func (p*Peer ) addData(data []byte) {
 
 
 	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	if p.dataBuffer == nil {
 		p.dataBuffer = bytes.NewBuffer(nil)
 		p.dataBuffer.Write(data)
@@ -40,11 +42,12 @@ func (p*Peer ) addData(data []byte) {
 		p.dataBuffer.Write(data)
 	}
 
-	p.mutex.Unlock()
+
 }
 
 func (p *Peer ) addDataToHead(data []byte) {
 	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	if p.dataBuffer == nil {
 		p.dataBuffer = bytes.NewBuffer(nil)
 		p.dataBuffer.Write(data)
@@ -54,24 +57,26 @@ func (p *Peer ) addDataToHead(data []byte) {
 		newBuf.Write(p.dataBuffer.Bytes())
 		p.dataBuffer =  newBuf
 	}
-	p.mutex.Unlock()
+
 }
 
 func (p*Peer ) getData() *bytes.Buffer{
 	p.mutex.Lock()
-	buf:= p.dataBuffer;
-	p.dataBuffer = nil;
-	p.mutex.Unlock()
+	defer p.mutex.Unlock()
+	buf:= p.dataBuffer
+	p.dataBuffer = nil
+
 	return  buf
 }
 
 func (p*Peer ) isEmpty() bool{
 	empty := true
 	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	if p.dataBuffer != nil && p.dataBuffer.Len() >0 {
 		empty = false
 	}
-	p.mutex.Unlock()
+
 	return  empty
 }
 
@@ -242,7 +247,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
-		rand :=mrand.New(mrand.NewSource(0))
+		rand :=mrand.New(mrand.NewSource(time.Now().Unix()))
 
 		for i:=0;i<peerSize && len(nodesHasSend) < maxCount;i++ {
 			peerIndex := rand.Intn(peerSize)

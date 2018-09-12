@@ -132,6 +132,8 @@ func Sign(sec Seckey, msg []byte) (sig Signature) {
 
 //验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
+	fmt.Printf("VerifySig, msg: %s\n", msg)
+
 	bQ := bn_curve.GetG2Base()
 	p1 := bn_curve.Pair(&sig.value, bQ)
 

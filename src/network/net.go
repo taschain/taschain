@@ -691,7 +691,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
-		go  net.handleMessage(req.Data, id)
+		net.handleMessage(req.Data, id)
 	} else {
 		forwarded := false
 
@@ -716,7 +716,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-				go net.handleMessage(req.Data, srcNodeId.GetHexString())
+				net.handleMessage(req.Data, srcNodeId.GetHexString())
 			}
 			broadcast := false
 			//需广播
@@ -743,8 +743,10 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 				if req.DataType == DataType_DataGroup {
 					nc.groupManager.sendGroup(req.GroupId, dataBuffer)
-				} else if req.DataType == DataType_DataGlobal {
+				} else if req.DataType == DataType_DataGlobal && req.RelayCount == -1 {
 					nc.peerManager.SendAll(dataBuffer)
+				}else if req.DataType == DataType_DataGlobal && req.RelayCount != -1 {
+					nc.peerManager.BroadcastRandom(dataBuffer)
 				}
 			}
 		}
