@@ -23,7 +23,6 @@ type JoinedGroup struct {
 	SignKey groupsig.Seckey      //矿工签名私钥
 	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
 	Members groupsig.PubkeyMapID //组成员签名公钥
-	GroupSec GroupSecret
 }
 
 
@@ -34,10 +33,6 @@ func (jg *JoinedGroup) Init() {
 //取得组内某个成员的签名公钥
 func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
 	return jg.Members[mid.GetHexString()]
-}
-
-func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
-	jg.GroupSec.EffectHeight = height
 }
 
 type BelongGroups struct {
@@ -186,12 +181,3 @@ func (p *Processor) IsMinerGroup(gid groupsig.ID) bool {
 func (p Processor) getMinerGroups() map[string]JoinedGroup {
 	return p.belongGroups.getAllGroups()
 }
-
-func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
-	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
-		return &jg.GroupSec
-	} else {
-		return nil
-	}
-}
-

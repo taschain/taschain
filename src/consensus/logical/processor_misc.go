@@ -5,6 +5,7 @@ import (
 	"strings"
 	"common"
 	"consensus/model"
+	"consensus/groupsig"
 )
 
 /*
@@ -19,6 +20,21 @@ func (p *Processor) genBelongGroupStoreFile() string {
 		storeFile = "joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
 	}
 	return storeFile
+}
+
+//后续如有全局定时器，从这个函数启动
+func (p *Processor) Start() bool {
+	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
+	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
+	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
+	p.prepareMiner()
+	p.ready = true
+	return true
+}
+
+//预留接口
+func (p *Processor) Stop() {
+	return
 }
 
 func (p *Processor) prepareMiner()  {
@@ -112,4 +128,27 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	})
 	return true
+}
+
+func (p *Processor) getVrfWorker() *vrfWorker {
+    if v := p.vrf.Load(); v != nil {
+    	return v.(*vrfWorker)
+	}
+	return nil
+}
+
+func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
+    p.vrf.Store(vrf)
+}
+
+func (p *Processor) canProposalAt(h uint64) bool {
+   	return p.minerCanProposalAt(p.GetMinerID(), h)
+}
+
+func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
+	miner := p.minerReader.getMinerDO(id.Serialize(), model.WeightNode)
+	if miner == nil {
+		return false
+	}
+	return miner.CanCastAt(h)
 }

@@ -28,17 +28,18 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		return
 	}
 	block := message.GetData().(types.Block)
+	bh := block.Header
 	preHeader := block.Header
 
-	gid := *groupsig.DeserializeId(block.Header.GroupId)
+	gid := *groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
 		bc := p.GetBlockContext(gid)
 		if bc == nil {
 			panic("get blockContext nil")
 		}
-		bc.AddCastedHeight(block.Header.Height)
-		_, vctx := bc.GetVerifyContextByHeight(block.Header.Height)
-		if vctx != nil && vctx.prevBH.Hash == block.Header.PreHash {
+		bc.AddCastedHeight(bh.Height)
+		_, vctx := bc.GetVerifyContextByHeight(bh.Height)
+		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 			vctx.markCastSuccess()
 		}
 	}
@@ -56,6 +57,10 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 		p.removeFutureBlockMsgs(preHeader.Hash)
 		preHeader = p.MainChain.QueryTopBlock()
+	}
+	vrf := p.getVrfWorker()
+	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
+		vrf.markSuccess()
 	}
 	p.triggerCastCheck()
 

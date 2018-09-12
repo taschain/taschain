@@ -124,8 +124,6 @@ type GroupNode struct {
 	minerSignedSecret groupsig.Seckey      //输出：矿工签名私钥（由秘密共享接收池聚合而来）
 	groupPubKey       groupsig.Pubkey      //输出：组公钥（由矿工签名公钥接收池聚合而来）
 	memberPubKeys     groupsig.PubkeyMapID //组成员签名公钥
-	groupSecretSignMap	map[string]groupsig.Signature	//组成员秘密签名
-	groupSecret		*GroupSecret	//输出: 由signMap恢复出组秘密签名
 
 	lock sync.RWMutex
 }
@@ -142,9 +140,6 @@ func (n GroupNode) GenInnerGroup() *JoinedGroup {
 		Members: n.memberPubKeys,
 		GroupID: *groupsig.NewIDFromPubkey(gpk),
 		SeedKey: n.minerGroupSecret.GenSecKey(),
-	}
-	if n.groupSecret != nil {
-		joinedGroup.GroupSec = *n.groupSecret
 	}
 	return joinedGroup
 }
@@ -177,7 +172,6 @@ func (n *GroupNode) InitForGroup(h common.Hash) {
 	n.minerSignedSecret = groupsig.Seckey{} //初始化
 	n.groupPubKey = groupsig.Pubkey{}
 	n.memberPubKeys = make(groupsig.PubkeyMapID, 0)
-	n.groupSecretSignMap = make(map[string]groupsig.Signature)
 	return
 }
 
@@ -235,9 +229,6 @@ func (n *GroupNode) SetSignPKPiece(spkm *model.ConsensusSignPubKeyMessage) int {
 	//log.Printf("begin GroupNode::SetSignPKPiece...\n")
 	idHex := spkm.SI.SignMember.GetHexString()
 	signPk := spkm.SignPK
-	gisHash := spkm.GISHash
-	gisSign := spkm.GISSign
-	n.groupSecretSignMap[idHex] = gisSign
 
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -251,12 +242,6 @@ func (n *GroupNode) SetSignPKPiece(spkm *model.ConsensusSignPubKeyMessage) int {
 	} else {
 		n.memberPubKeys[idHex] = signPk
 		if len(n.memberPubKeys) == n.memberNum { //已经收到所有组内成员发送的签名公钥
-			gisSign = *groupsig.RecoverSignatureByMapI(n.groupSecretSignMap, n.threshold())
-			if !groupsig.VerifySig(n.groupPubKey, gisHash.Bytes(), gisSign) {
-				log.Printf("recover group secret gisSign failed!\n")
-				return -1
-			}
-			n.groupSecret = NewGroupSecret(gisSign, 0, gisHash)
 			return 1
 		}
 	}

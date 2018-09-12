@@ -139,64 +139,6 @@ func (piece SharePiece) IsEqual(rhs SharePiece) bool {
 //map(id->秘密分享)
 type ShareMapID map[string]SharePiece
 
-type MinerInfo struct {
-	MinerID    groupsig.ID //矿工ID
-	SecretSeed base.Rand   //私密随机数
-}
-
-func NewMinerInfo(id string, secert string) MinerInfo {
-	var mi MinerInfo
-	mi.MinerID = *groupsig.NewIDFromString(id)
-	mi.SecretSeed = base.RandFromString(secert)
-	return mi
-}
-
-func (mi *MinerInfo) Init(id groupsig.ID, secert base.Rand) {
-	mi.MinerID = id
-	mi.SecretSeed = secert
-	return
-}
-
-func (mi MinerInfo) GetMinerID() groupsig.ID {
-	return mi.MinerID
-}
-
-func (mi MinerInfo) GetSecret() base.Rand {
-	return mi.SecretSeed
-}
-
-func (mi MinerInfo) GetDefaultSecKey() groupsig.Seckey {
-	return *groupsig.NewSeckeyFromRand(mi.SecretSeed)
-}
-
-func (mi MinerInfo) GetDefaultPubKey() groupsig.Pubkey {
-	return *groupsig.NewPubkeyFromSeckey(mi.GetDefaultSecKey())
-}
-
-func (mi MinerInfo) GenSecretForGroup(h common.Hash) base.Rand {
-	r := base.RandFromBytes(h.Bytes())
-	return mi.SecretSeed.DerivedRand(r[:])
-}
-
-//流化函数
-func (mi MinerInfo) Serialize() []byte {
-	buf := make([]byte, groupsig.IDLENGTH+base.RandLength)
-	copy(buf[:groupsig.IDLENGTH], mi.MinerID.Serialize()[:])
-	copy(buf[groupsig.IDLENGTH:], mi.SecretSeed[:])
-	return buf
-}
-
-func (mi *MinerInfo) Deserialize(buf []byte) (err error) {
-	id_buf := make([]byte, groupsig.IDLENGTH)
-	copy(id_buf[:], buf[:groupsig.IDLENGTH])
-	err = mi.MinerID.Deserialize(id_buf)
-	if err != nil {
-		return err
-	}
-	copy(mi.SecretSeed[:], buf[groupsig.IDLENGTH:])
-	return
-}
-
 //成为当前铸块组共识摘要
 type CastGroupSummary struct {
 	PreHash     common.Hash //上一块哈希

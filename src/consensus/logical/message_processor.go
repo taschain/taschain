@@ -400,18 +400,8 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				//log.Printf("OMGI spm.GenSign result=%v.\n", sb)
 				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
 				logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "sharepiece to %v", GetIDPrefix(spm.Dest))
-				if !PROC_TEST_MODE {
-					log.Printf("call network service SendKeySharePiece...\n")
-					p.NetServer.SendKeySharePiece(spm)
-				} else {
-					log.Printf("test mode, call OMSP direct...\n")
-					destProc, ok := p.GroupProcs[spm.Dest.GetHexString()]
-					if ok {
-						destProc.OnMessageSharePiece(spm)
-					} else {
-						panic("ERROR, dest proc not found!\n")
-					}
-				}
+				log.Printf("call network service SendKeySharePiece...\n")
+				p.NetServer.SendKeySharePiece(spm)
 
 			} else {
 				panic("GenSharePieces data not IsValid.\n")
@@ -518,8 +508,6 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
-
-		jg.setGroupSecretHeight(p.MainChain.QueryTopBlock().Height)
 
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
 			p.joinGroup(jg, true)
@@ -695,16 +683,8 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
 			return
 		}
-		mems := make([]model.PubKeyInfo, len(creatingGroup.ids))
-		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
-		if len(pubkeys) != len(creatingGroup.ids) {
-			panic("get all pubkey failed")
-		}
+		mems := creatingGroup.pkis
 
-
-		for i, id := range creatingGroup.ids {
-			mems[i] = model.NewPubKeyInfo(id, pubkeys[i])
-		}
 		initMsg := &model.ConsensusGroupRawMessage{
 			GI: msg.GI,
 			MEMS: mems,

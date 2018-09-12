@@ -47,6 +47,7 @@ type ConsensusParam struct {
 	GroupGetReadyGap uint64
 	GroupCastQualifyGap uint64
 	GroupCastDuration	uint64
+	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
 }
 
 var Param ConsensusParam
@@ -67,6 +68,7 @@ func InitParam() {
 		GroupGetReadyGap: GROUP_GET_READY_GAP,
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
+		EffectGapAfterApply: EPOCH,
 	}
 	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap

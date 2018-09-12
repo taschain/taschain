@@ -26,6 +26,7 @@ import (
 	"consensus/net"
 	"middleware/notify"
 	"storage/tasdb"
+	"sync/atomic"
 )
 
 var PROC_TEST_MODE bool
@@ -56,6 +57,9 @@ type Processor struct {
 	//////链接口
 	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
+
+	minerReader *MinerContractAccess
+	vrf	 atomic.Value		//vrfWorker
 
 	NetServer net.NetworkServer
 }
@@ -89,7 +93,6 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.joiningGroups = NewJoiningGroups()
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
 	p.blockContexts = NewCastBlockContexts()
-	p.groupManager = NewGroupManager(p)
 	p.NetServer = net.NewNetworkServer()
 	//db, err := datasource.NewDatabase(STORE_PREFIX)
 	//if err != nil {
@@ -99,7 +102,10 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	//p.storage = db
 	//p.sci.Init()
 
+	p.minerReader = NewMinerContractAccess()
+	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
+
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 

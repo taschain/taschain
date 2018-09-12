@@ -368,11 +368,7 @@ func (vc *VerifyContext) calcCastor() (int32, int64) {
 }
 
 func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
-	secret := vc.blockCtx.getGroupSecret()
-	if secret == nil {
-		 return -1
-	}
-	data := secret.SecretSign
+	data := make([]byte, 0)
 	data = append(data, vc.prevBH.Random...)
 	qnBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
