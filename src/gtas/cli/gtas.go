@@ -42,6 +42,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"redis"
+	"runtime/debug"
 )
 
 const (
@@ -113,7 +114,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log") //todo: absolute path?
+	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
@@ -135,6 +136,13 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	if !ok {
 		return
 	}
+}
+
+func (gtas *Gtas) runtimeInit()  {
+	debug.SetGCPercent(70)
+	old:=debug.SetMaxStack(1024*1024*1024)
+
+	fmt.Printf("initial stack setting: %d \n", old)
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
