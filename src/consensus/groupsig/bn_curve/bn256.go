@@ -19,7 +19,6 @@ import (
 	"io"
 	"math/big"
 	"bytes"
-	"fmt"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -48,15 +47,16 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 }
 
 //获得x,y坐标(仿射坐标)
-func (g *G1) GetXY() (*gfP, *gfP) {
+func (g *G1) GetXY() (*gfP, *gfP, bool) {
 	p := &curvePoint{}
 	p.Set(g.p)
 	p.MakeAffine()
-	return &p.x, &p.y
+
+	return &p.x, &p.y, p.y.IsOdd()
 }
 
 //通过x坐标恢复出点(x,y)
-func (g *G1) SetX(px *gfP) error {
+func (g *G1) SetX(px *gfP, isOdd bool) error {
 	//计算t=x³+b in gfP.
 	pt := &gfP{}
 	gfpMul(pt, px, px)
@@ -69,15 +69,11 @@ func (g *G1) SetX(px *gfP) error {
 	buf := make([]byte, 32)
 	pt.Marshal(buf)
 	y.SetBytes(buf)
-	//y.Mod(y, P)
 	y.ModSqrt(y, P)
 
 	//y转化为gfP类型
 	byte_str := y.Bytes()
 	len := len(byte_str)
-
-	fmt.Println("len:", len)
-
 	j := 0
 	for i:= 32-len; i<32; i++ {
 		buf[i] = byte_str[j]
@@ -87,6 +83,9 @@ func (g *G1) SetX(px *gfP) error {
 	py.Unmarshal(buf)
 	montEncode(py, py)
 
+	if py.IsOdd() != isOdd {
+		gfpNeg(py, py)
+	}
 	g.p = &curvePoint{*px, *py, *newGFp(1), *newGFp(1)}
 
 	return nil
