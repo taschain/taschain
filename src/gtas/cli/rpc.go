@@ -158,6 +158,20 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	return &Result{"success", detail}, nil
 }
 
+func (api *GtasAPI) GetContractData(contractAddr, key string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	value := stateDb.GetData(addr, key)
+	return &Result{"success", string(value)}, nil
+}
+
+func (api *GtasAPI) GetNonce(contractAddr string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	nonce := stateDb.GetNonce(addr)
+	return &Result{"success", nonce}, nil
+}
+
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
 	blockDetail := make(map[string]interface{})
