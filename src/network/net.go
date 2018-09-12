@@ -743,8 +743,10 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 				if req.DataType == DataType_DataGroup {
 					nc.groupManager.sendGroup(req.GroupId, dataBuffer)
-				} else if req.DataType == DataType_DataGlobal {
+				} else if req.DataType == DataType_DataGlobal && req.RelayCount == -1 {
 					nc.peerManager.SendAll(dataBuffer)
+				}else if req.DataType == DataType_DataGlobal && req.RelayCount != -1 {
+					nc.peerManager.BroadcastRandom(dataBuffer)
 				}
 			}
 		}
