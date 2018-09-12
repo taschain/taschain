@@ -427,7 +427,12 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
-	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
+	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
+	if len(block.Transactions) > 0 {
+		Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s",
+			height, latestBlock.Hash.Hex(), preRoot.Hex())
+	}
+	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
 		buffer.WriteString("fail to new statedb, lateset height: ")
@@ -462,7 +467,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
-	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
+	Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree:%s TxTree:%s",height,statehash.Hex(),block.Header.TxTree.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
@@ -529,15 +534,20 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
-	txtree := calcTxTree(transactions).Bytes()
+	txtree := calcTxTree(transactions)
 
-	if common.ToHex(txtree) != common.ToHex(bh.TxTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree, bh.TxTree.Bytes())
+	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 
 	//执行交易
-	state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
+	if len(txs) > 0 {
+		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s",
+			bh.Height, bh.StateTree.Hex(), preHash.Hex(), preRoot.Hex())
+	}
+	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
 		return nil, -1, nil, nil
@@ -550,7 +560,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Header = &bh
 	b.Transactions = transactions
 
-	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
+	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
 	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
