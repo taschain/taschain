@@ -155,7 +155,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 	b := p.AddBlockContext(bc)
 	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
-	bc.registerTicker()
+	//bc.registerTicker()
 	p.triggerCastCheck()
 }
 

@@ -94,13 +94,6 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
-	//db, err := datasource.NewDatabase(STORE_PREFIX)
-	//if err != nil {
-	//	log.Printf("NewDatabase error %v\n", err)
-	//	return false
-	//}
-	//p.storage = db
-	//p.sci.Init()
 
 	p.minerReader = NewMinerContractAccess()
 	p.groupManager = NewGroupManager(p)
@@ -143,22 +136,20 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 }
 
 //检查铸块组是否合法
-func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
-	//to do : 检查是否基于链上最高块的出块
-	//defer func() {
-	//	log.Printf("isCastGroupLeagal result=%v.\n", result)
-	//}()
+func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
+	//TODO: 检查vrf是否满足条件
+
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
-		panic("isCastGroupLegal, group id Deserialize failed.")
+		panic("isCastLegal, group id Deserialize failed.")
 	}
 
-	selectGroupId := p.calcCastGroup(preHeader, bh.Height)
+	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
 		return false
 	}
 	if !selectGroupId.IsEqual(gid) {
-		log.Printf("isCastGroupLegal failed, expect group=%v, receive cast group=%v.\n", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
+		log.Printf("isCastLegal failed, expect group=%v, receive cast group=%v.\n", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
 		log.Printf("qualified group num is %v\n", len(p.GetCastQualifiedGroups(bh.Height)))
 		return false
 	}

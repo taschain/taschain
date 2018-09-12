@@ -86,6 +86,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	bh := &msg.BH
 	si := &msg.SI
 
+	blog := newBizLog(mtype)
 	sender := GetIDPrefix(si.SignMember)
 	result := ""
 	defer func() {
@@ -109,38 +110,48 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 
 	if !p.verifyCastSign(cgs, msg, preBH) {
-		log.Printf("%v verify failed!\n", mtype)
+		blog.log("verify failed!")
 		return
 	}
 
-	if !p.isCastGroupLegal(bh, preBH) {
+	if !p.isCastLegal(bh, preBH) {
 		result = "非法的铸块组"
-		log.Printf("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
+		blog.log("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
 		return
 	}
 
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
 		result = "未获取到blockcontext"
-		log.Printf("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
+		blog.log("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
 		return
 	}
 	if bc.IsHeightCasted(bh.Height) {
 		result = "该高度已铸过"
-		log.Printf("%v, height=%v\n", result, bh.Height)
+		blog.log("%v, height=%v", result, bh.Height)
 		return
 	}
 
 	vctx := bc.GetOrNewVerifyContext(bh, preBH)
 	if vctx == nil {
 		result = "获取vctx为空，可能preBH已经被删除"
-		log.Printf("%v, preBH=%v\n", result, p.blockPreview(preBH))
+		blog.log("%v, preBH=%v", result, p.blockPreview(preBH))
+		return
+	}
+
+	if vctx.castSuccess() {
+		result = "已出块"
+		return
+	}
+	if vctx.castExpire() {
+		vctx.markTimeout()
+		result = "已超时"
 		return
 	}
 
 	verifyResult := vctx.UserVerified(bh, si, cgs)
-	log.Printf("proc(%v) %v UserVerified height-qn=%v-%v, result=%v.\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber, CBMR_RESULT_DESC(verifyResult))
-	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
+	blog.log("proc(%v) UserVerified height-qn=%v-%v, result=%v.", p.getPrefix(), bh.Height, bh.QueueNumber, CBMR_RESULT_DESC(verifyResult))
+	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
 		return
@@ -165,6 +176,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	bh := &msg.BH
 	si := &msg.SI
 
+	blog := newBizLog(mtype)
 	logStart(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember), "")
 
 	defer func() {
@@ -173,14 +185,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 
 	cgs := p.genCastGroupSummary(bh)
 	if cgs == nil {
-		log.Printf("[ERROR]%v gen castGroupSummary fail!\n", mtype)
+		blog.log("[ERROR]gen castGroupSummary fail!")
 		return
 	}
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
-		log.Printf("beingCastGroup failed, node not in this group.\n")
 		return
 	}
-	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype, GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
+	blog.log("proc(%v) begin, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(si.SignMember) {
@@ -193,6 +204,11 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	}
 
 	outputBlockHeaderAndSign(mtype, bh, si)
+
+	if !p.minerCanProposalAt(si.SignMember, bh.Height) {
+		blog.log("miner cannot propose at the height, id=%v, height=%v", GetIDPrefix(si.SignMember), bh.Height)
+		return
+	}
 
 	p.doVerify(mtype, msg, cgs)
 
@@ -215,7 +231,7 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 }
 
 func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
-	if p.isCastGroupLegal(block.Header, preBH) { //铸块组合法
+	if p.isCastLegal(block.Header, preBH) { //铸块组合法
 		result := p.doAddOnChain(block)
 		if result == 0 || result == 1 {
 			return true

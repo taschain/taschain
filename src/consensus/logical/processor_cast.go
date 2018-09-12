@@ -55,7 +55,7 @@ func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
 		log.Println("removeContexts ", GetIDPrefix(id))
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
-			bc.removeTicker()
+			//bc.removeTicker()
 			bctx.contexts.Delete(id.GetHexString())
 		}
 	}
@@ -159,7 +159,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	//		return false
 	//	}
 	//
-	//	blog.log("BECOME NEXT CAST GROUP! castHeight=%v, uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", castHeight, GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
+	//	blog.log("BECOME NEXT CAST GROUP! castHeight=%v, uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", castHeight, GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.verifyCnt, bc.recentVerifyHeight)
 	//
 	//	if !bc.StartCast(castHeight, expireTime, top) {
 	//		blog.log("startCast fail, castHeight=%v, expire=%v,topBH=%v", castHeight, expireTime, bc.Proc.blockPreview(top))
@@ -231,7 +231,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		Block: *block,
 	}
 
-	nextId := p.calcCastGroup(bh, bh.Height+1)
+	nextId := p.calcVerifyGroup(bh, bh.Height+1)
 	group := p.getGroup(*nextId)
 	mems := make([]groupsig.ID, len(group.Members))
 	for idx, mem := range group.Members {
@@ -285,6 +285,10 @@ func (p *Processor) blockProposal() {
 	worker := p.getVrfWorker()
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.log("vrf baseBH differ from top!")
+		return
+	}
+	if worker.isProposed() || worker.isSuccess() {
+		blog.log("vrf worker proposed/success, status %v", worker.getStatus())
 		return
 	}
 

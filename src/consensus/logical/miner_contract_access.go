@@ -18,7 +18,7 @@ func NewMinerContractAccess() *MinerContractAccess {
     return &MinerContractAccess{}
 }
 
-func (access *MinerContractAccess) getMinerDO(idbytes []byte, ntype model.NodeType) *model.MinerDO {
+func (access *MinerContractAccess) getProposeMiner(idbytes []byte) *model.MinerDO {
     return &model.MinerDO{}
 }
 

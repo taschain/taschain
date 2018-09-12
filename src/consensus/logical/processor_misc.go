@@ -146,7 +146,7 @@ func (p *Processor) canProposalAt(h uint64) bool {
 }
 
 func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
-	miner := p.minerReader.getMinerDO(id.Serialize(), model.WeightNode)
+	miner := p.minerReader.getProposeMiner(id.Serialize())
 	if miner == nil {
 		return false
 	}
