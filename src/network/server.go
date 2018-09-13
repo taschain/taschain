@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/sha3"
 	"middleware/statistics"
 	"middleware/notify"
+	"time"
 )
 
 type server struct {
@@ -161,6 +162,7 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
+	n.netCore.unhandleDataMsg +=1
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
@@ -174,10 +176,8 @@ func (n *server) handleMessage(b []byte, from string) {
 }
 
 func (n *server) handleMessageInner(message *Message, from string) {
-	//begin := time.Now()
+	begin := time.Now()
 	code := message.Code
-
-	//defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
@@ -205,6 +205,10 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		//Logger.Debugf("Receive BlockBodyMsg from %s", from)
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
+	}
+	n.netCore.unhandleDataMsg -=1
+	if time.Since(begin) > 100*time.Millisecond {
+		Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	}
 }
 

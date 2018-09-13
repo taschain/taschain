@@ -56,6 +56,7 @@ type NetCore struct {
 	addpending  chan *pending
 	gotreply    chan reply
 	unhandle    chan *Peer
+	unhandleDataMsg   int
 	closing chan struct{}
 
 	kad                *Kad
@@ -583,7 +584,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	case MessageType_MessageNeighbors:
 		nc.handleNeighbors(msg.(*MsgNeighbors), fromId)
 	case MessageType_MessageData:
-		go nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromId)
+		nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromId)
 	default:
 		return Logger.Errorf("unknown type: %d", msgType)
 	}
@@ -686,7 +687,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount,nc.unhandleDataMsg)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
