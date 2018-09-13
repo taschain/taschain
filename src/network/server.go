@@ -208,7 +208,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	}
 	n.netCore.unhandleDataMsg -=1
 	if time.Since(begin) > 100*time.Millisecond {
-		Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
+		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
 	}
 }
 
