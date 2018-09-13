@@ -384,7 +384,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
-		log.Printf("SelectNextGroup qualified groups %v, index %v\n", gids, index)
+		log.Printf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")

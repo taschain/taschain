@@ -257,9 +257,9 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 }
 
 func (vc *VerifyContext) replaceSlot(idx int, bh *types.BlockHeader, threshold int)  {
-    vc.lock.Lock()
-    defer vc.lock.Unlock()
-    slot := initSlotContext(bh, threshold)
+	slot := initSlotContext(bh, threshold)
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
     vc.slots[idx] = slot
 }
 
@@ -296,7 +296,7 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	}
 
 	i, info := vc.consensusFindSlot(int64(bh.QueueNumber))
-	log.Printf("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
+	log.Printf("proc(%v) consensusFindSlot, height=%v, qn=%v, i=%v, info=%v.\n", idPrefix, bh.Height, bh.QueueNumber, i, info)
 	if i < 0 { //没有找到有效的插槽
 		return CBMR_IGNORE_QN_BIG_QN
 	}
