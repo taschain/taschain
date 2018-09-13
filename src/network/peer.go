@@ -80,6 +80,16 @@ func (p*Peer ) isEmpty() bool{
 	return  empty
 }
 
+func (p*Peer ) getDataSize() int{
+		p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if p.dataBuffer != nil {
+		return p.dataBuffer.Len()
+	}
+
+	return  0
+}
+
 
 //PeerManager 节点连接管理
 type PeerManager struct {
@@ -268,8 +278,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 func (pm *PeerManager) print() {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	Logger.Infof("PeerManager Print peer size:%v", len(pm.peers))
-
+	totolRecvBufferSize :=0
 	for _, p := range pm.peers {
 		var rtt uint32
 		var pendingSendBuffer uint32
@@ -278,11 +287,14 @@ func (pm *PeerManager) print() {
 			rtt = P2PSessionRxrtt(p.seesionId )
 			pendingSendBuffer = P2PSessionNsndbuf(p.seesionId )
 		}
+		totolRecvBufferSize += p.getDataSize()
+
 		Logger.Infof("id:%v session:%v  ip:%v  port:%v   rtt:%v, PendingBufferCount:%v"  , p.Id.GetHexString(),p.seesionId,p.Ip,p.Port,rtt,pendingSendBuffer)
 	}
+	Logger.Infof("PeerManager Print peer size:%v totolRecvBufferSize:%v", len(pm.peers),totolRecvBufferSize)
+
 	return
 }
-
 
 func (pm *PeerManager) peerByID(id NodeID) *Peer {
 	netID := netCoreNodeID(id)

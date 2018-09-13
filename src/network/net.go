@@ -56,7 +56,6 @@ type NetCore struct {
 	addpending  chan *pending
 	gotreply    chan reply
 	unhandle    chan *Peer
-
 	closing chan struct{}
 
 	kad                *Kad
@@ -161,8 +160,6 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	}
 	nc.kad = kad
 	go nc.loop()
-	go nc.decodeLoop()
-
 	return nc, nil
 }
 
@@ -241,21 +238,6 @@ func (nc *NetCore) handleReply(from NodeID, ptype MessageType, req interface{}) 
 		return <-matched
 	case <-nc.closing:
 		return false
-	}
-}
-
-func (nc *NetCore) decodeLoop() {
-
-	for {
-		select {
-		case peer := <-nc.unhandle:
-			for {
-				err := nc.handleMessage(peer)
-				if err != nil || peer.isEmpty() {
-					break
-				}
-			}
-		}
 	}
 }
 
@@ -505,7 +487,7 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 	}
 
 	p.addData(data)
-	nc.unhandle <- p
+	go nc.handleMessage(p)
 }
 
 func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId string, nodeId *NodeID, msgDigest MsgDigest, relayCount int32) (msg *bytes.Buffer, hash []byte, err error) {
