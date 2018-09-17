@@ -643,9 +643,9 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
-		root, _ := state.Commit(true)
-		triedb := chain.stateCache.TrieDB()
-		triedb.Commit(root, false)
+		//root, _ := state.Commit(true)
+		//triedb := chain.stateCache.TrieDB()
+		//triedb.Commit(root, false)
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
 
