@@ -55,6 +55,13 @@ func (p*Peer ) popData() *bytes.Buffer{
 
 	return buf
 }
+
+func (p*Peer ) resetData(){
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.recvList = list.New()
+}
+
 func (p*Peer ) isEmpty() bool{
 
 	empty := true
