@@ -61,7 +61,7 @@ func OnChainFunc(code string, source string) {
 }
 
 func CallContract(address, abi string) {
-	CallContract2(address, abi, "0x1234")
+	CallContract2(address, abi, "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
 func CallContract2(address, abi string, source string) {
@@ -91,15 +91,15 @@ func TestVmTest(t *testing.T)  {
 	contract := tvm.Contract{code, "MyAdvancedToken", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0x00000001")
+	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
 func VmTest1(code string)  {
-	contractAddr := "0x27fe3e1d80e80c70f64055ed67cf428b36b5f994"
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
 	abi := code
-	contractAddress := common.HexToAddress("0x00000001")
-	CallContract2(contractAddr, abi, contractAddress.GetHexString())
+	sourceAddr := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	CallContract2(contractAddr, abi, sourceAddr.GetHexString())
 }
 
 func TestVmTest2(t *testing.T)  {
@@ -543,17 +543,17 @@ func TestMinerOnChain(t *testing.T)  {
 	contract := tvm.Contract{code, "miner", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0x00000001")
+	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
 func TestMinerCall(t *testing.T)  {
 	//VmTest1(`{"FuncName": "register", "Args": ["0x0000000300000000000000000000000000000000", 0]}`)
-	//VmTest1(`{"FuncName": "register", "Args": ["0x0000000300000000000000000000000000000000", 0]}`)
-	//
+	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
+
 	//VmTest1(`{"FuncName": "deregister", "Args": ["0x0000000300000000000000000000000000000000"]}`)
 	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
 
-	VmTest1(`{"FuncName": "withdraw", "Args": ["0x0000000300000000000000000000000000000000"]}`)
-	VmTest1(`{"FuncName": "test_print", "Args": []}`)
+	//VmTest1(`{"FuncName": "withdraw", "Args": ["0x0000000300000000000000000000000000000000"]}`)
+	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
 }

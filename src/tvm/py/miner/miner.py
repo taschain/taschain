@@ -81,6 +81,9 @@ class miner(object):
 
         for info in return_stake_infos:
             self.deregister_list[public_key].remove(info)
+        # 删除空KEY
+        if len(self.deregister_list[public_key]) <= 0:
+            self.deregister_list.pop(public_key)
 
         return_stake = 0
         for info in return_stake_infos:
@@ -88,10 +91,10 @@ class miner(object):
 
         # 转账
         assert return_stake > 0
-        print(glovar.this)
-        print(account.get_balance(glovar.this))
         assert account.get_balance(glovar.this) > return_stake
         account.transfer(glovar.msg.sender, return_stake)
+
+
 
     def test_print(self):
         print(self.register_list)
