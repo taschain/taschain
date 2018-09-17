@@ -7,6 +7,13 @@ from clib.tas_runtime import glovar
 class miner(object):
 
     def __init__(self):
+        """
+        {public_key: {registerBlockNumber: int,
+                      stake: int,
+                      type: int,
+                      vefPk: str,
+                      owner: str address}}
+        """
         self.register_list = {}
         self.deregister_list = {}
 
@@ -30,6 +37,9 @@ class miner(object):
             require(glovar.msg.value >= miner_heavy_stake)
         else:
             assert False
+
+        # 检查是否已注册
+        require(public_key not in self.register_list)
 
         #
         info = {"registerBlockNumber": block.number(),
@@ -70,8 +80,7 @@ class miner(object):
         lock_stake_block_count = 5
         return_stake_infos = []
 
-        infos = self.deregister_list[public_key]
-        for info in infos:
+        for info in self.deregister_list[public_key]:
             if (block.number() - info["deregisterBlockNumber"] > lock_stake_block_count and
                     info["owner"] == glovar.msg.sender):
                 return_stake_infos.append(info)
@@ -93,8 +102,6 @@ class miner(object):
         assert return_stake > 0
         assert account.get_balance(glovar.this) > return_stake
         account.transfer(glovar.msg.sender, return_stake)
-
-
 
     def test_print(self):
         print(self.register_list)
