@@ -15,7 +15,7 @@ type Group struct {
 	id             		string
 	members        		[]NodeID
 	needConnectNodes    []NodeID
-
+	mutex  sync.Mutex
 	resolvingNodes map[NodeID]time.Time
 	curIndex int
 }
@@ -38,6 +38,7 @@ func (g Group) Swap(i, j int) {
 func newGroup(id string, members []NodeID) *Group {
 
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
+
 	Logger.Debugf("new group id：%v", id)
 	for i:= 0;i<len(g.members);i++ {
 		Logger.Debugf("before id：%v", g.members[i].GetHexString())
@@ -101,6 +102,10 @@ func (g Group) getNextIndex(index int) int {
 }
 
 func (g *Group) doRefresh() {
+
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
 	memberSize := len(g.needConnectNodes)
 
 	Logger.Debugf("Group doRefresh  id： %v", g.id)
@@ -123,7 +128,7 @@ func (g *Group) doRefresh() {
 			go net.netCore.ping(id, nil)
 
 			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
-			go g.resolve(id)
+			g.resolve(id)
 		}
 	}
 }
