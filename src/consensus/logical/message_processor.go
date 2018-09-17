@@ -237,8 +237,6 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.QueueNumber,len(cbm.Block.Transactions),-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
 	bh := cbm.Block.Header
 	logStart("OMB", bh.Height, bh.QueueNumber, "", "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 	result := ""
