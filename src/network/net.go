@@ -789,6 +789,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 func (nc *NetCore) onHandleDataMessage(b []byte, from string) {
 	if nc.unhandledDataMsg > MaxUnhandledMessageCount {
 		Logger.Errorf("unhandled message too much , drop this message !")
+		return
 	}
 	nc.unhandledDataMsg += 1
 	net.handleMessage(b, from)
