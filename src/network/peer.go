@@ -7,6 +7,7 @@ import (
 	"sync"
 	mrand "math/rand"
 	"math"
+	"container/list"
 )
 
 //Peer 节点连接对象
@@ -15,65 +16,51 @@ type Peer struct {
 	seesionId  uint32
 	Ip     	nnet.IP
 	Port    int
-	sendList   []*bytes.Buffer
-	dataBuffer *bytes.Buffer
+	sendList   *list.List
+	recvList   *list.List
 	expiration uint64
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	connecting bool
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList: make([]*bytes.Buffer, 0)}
+	p := &Peer{Id: Id, seesionId: seesionId, sendList:list.New(),recvList:list.New()}
 
 	return p
 }
 
 func (p*Peer ) addData(data []byte) {
+	p.mutex. Lock()
+	defer p.mutex.Unlock()
+	b:=bytes.NewBuffer(nil)
+	b.Write(data)
+	p.recvList.PushBack(b)
+}
 
-
+func (p *Peer ) addDataToHead(data  *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	p.recvList.PushFront(data)
+}
 
-	if p.dataBuffer == nil {
-		p.dataBuffer = bytes.NewBuffer(nil)
-		p.dataBuffer.Write(data)
-	} else {
-		p.dataBuffer.Write(data)
+func (p*Peer ) popData() *bytes.Buffer{
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if p.recvList.Len() == 0 {
+		return nil
 	}
+	buf:= p.recvList.Front().Value.(*bytes.Buffer)
+	p.recvList.Remove(p.recvList.Front())
 
-
+	return buf
 }
-
-func (p *Peer ) addDataToHead(data []byte) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	if p.dataBuffer == nil {
-		p.dataBuffer = bytes.NewBuffer(nil)
-		p.dataBuffer.Write(data)
-	} else {
-		newBuf :=  bytes.NewBuffer(nil)
-		newBuf.Write(data)
-		newBuf.Write(p.dataBuffer.Bytes())
-		p.dataBuffer =  newBuf
-	}
-
-}
-
-func (p*Peer ) getData() *bytes.Buffer{
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	buf:= p.dataBuffer
-	p.dataBuffer = nil
-
-	return  buf
-}
-
 func (p*Peer ) isEmpty() bool{
+
 	empty := true
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	if p.dataBuffer != nil && p.dataBuffer.Len() >0 {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if p.recvList.Len() >0 {
 		empty = false
 	}
 
@@ -81,20 +68,22 @@ func (p*Peer ) isEmpty() bool{
 }
 
 func (p*Peer ) getDataSize() int{
-		p.mutex.Lock()
+	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if p.dataBuffer != nil {
-		return p.dataBuffer.Len()
+	size := 0
+	for e := p.recvList.Front(); e != nil; e = e.Next() {
+		buf:= e.Value.(*bytes.Buffer)
+		size += buf.Len()
 	}
 
-	return  0
+	return  size
 }
 
 
 //PeerManager 节点连接管理
 type PeerManager struct {
 	peers map[uint64]*Peer //key为网络ID
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	natTraversalEnable bool
 }
 
@@ -113,8 +102,8 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	netId := netCoreNodeID(toid)
 	p := pm.peerByNetID(netId)
 	if p == nil {
-		p = &Peer{Id: toid, seesionId: 0, sendList: make([]*bytes.Buffer, 0)}
-		p.sendList = append(p.sendList, packet)
+		p =newPeer(toid, 0)
+		p.sendList.PushBack(packet)
 		p.expiration = 0
 		p.connecting = false
 		pm.addPeer(netId,p)
@@ -131,7 +120,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 				p.Ip = toaddr.IP
 				p.Port = toaddr.Port
 			}
-			p.sendList = append(p.sendList, packet)
+			p.sendList.PushBack(packet)
 
 			if pm.natTraversalEnable {
 				P2PConnect(netId, NatServerIp, NatServerPort)
@@ -155,27 +144,25 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 
 	p := pm.peerByNetID(id)
 	if p == nil {
-		p = &Peer{Id: NodeID{}, seesionId: session, sendList: make([]*bytes.Buffer, 0)}
+		p =newPeer(NodeID{}, session)
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id,p)
 	} else if session >0 {
 		if p.seesionId ==0 {
-			p.dataBuffer = nil
+			p.recvList = list.New()
 			p.seesionId = session
 		}
-
 	}
 	p.connecting = false
 
 	if p != nil  {
-		for i := 0; i < len(p.sendList); i++ {
-			P2PSend(p.seesionId, p.sendList[i].Bytes())
+		for e := p.sendList.Front(); e != nil; e = e.Next() {
+			buf:= e.Value.(*bytes.Buffer)
+			P2PSend(p.seesionId, buf.Bytes())
 		}
-		p.sendList = make([]*bytes.Buffer, 0)
+		p.sendList = list.New()
 	}
-
 	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
-
 }
 
 //OnDisconnected 处理连接断开的回调
@@ -217,11 +204,11 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
-			go P2PSend(p.seesionId, packet.Bytes())
+			P2PSend(p.seesionId, packet.Bytes())
 		}
 	}
 
@@ -231,8 +218,8 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 
 //BroadcastRandom
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
 	Logger.Infof("BroadcastRandom total peer size:%v", len(pm.peers))
 
 
@@ -253,7 +240,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		for _, p := range availablePeers {
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
 
-			go P2PSend(p.seesionId, packet.Bytes())
+			P2PSend(p.seesionId, packet.Bytes())
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
@@ -268,7 +255,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 			p:=availablePeers[peerIndex]
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
 
-			go P2PSend(p.seesionId, packet.Bytes())
+			P2PSend(p.seesionId, packet.Bytes())
 		}
 	}
 
@@ -276,8 +263,8 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 }
 
 func (pm *PeerManager) print() {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
 	totolRecvBufferSize :=0
 	for _, p := range pm.peers {
 		var rtt uint32
@@ -308,8 +295,8 @@ func (pm *PeerManager) peerByID(id NodeID) *Peer {
 
 
 func (pm *PeerManager) peerByNetID(netId uint64) *Peer {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
 	p, _ := pm.peers[netId]
 	return p
 }

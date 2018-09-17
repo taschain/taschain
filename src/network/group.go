@@ -123,7 +123,7 @@ func (g *Group) doRefresh() {
 			go net.netCore.ping(id, nil)
 
 			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
-			g.resolve(id)
+			go g.resolve(id)
 		}
 	}
 }
@@ -151,18 +151,18 @@ func (g *Group) send(packet *bytes.Buffer) {
 		p := net.netCore.peerManager.peerByID(id)
 		if p != nil {
 			connected +=1
-			go net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
+			net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
 		} else {
 			node := net.netCore.kad.find(id)
 			if node != nil && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("sendGroup node not connected ,but found in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 				kad +=1
-				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+				net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
 				Logger.Debugf("sendGroup node not connected and not found in KAD : id：%v", id.GetHexString())
 
 				other+=1
-				go net.netCore.peerManager.write(id, nil, packet)
+				net.netCore.peerManager.write(id, nil, packet)
 			}
 		}
 	}
@@ -271,7 +271,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
 		Logger.Debugf("SendGroup not found group.")
 		return
 	}
-	g.send(packet)
+	go g.send(packet)
 
 	return
 }
