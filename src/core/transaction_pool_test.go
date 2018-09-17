@@ -47,14 +47,14 @@ func TestCreatePool(t *testing.T) {
 
 	tGet, error := pool.GetTransaction(h)
 	if nil == error {
-		fmt.Printf("%d\n", tGet.GasPrice)
+		fmt.Printf("GasPrice: %d\n", tGet.GasPrice)
 	}
 
 	casting := pool.GetTransactionsForCasting()
-	fmt.Printf("%d\n", len(casting))
+	fmt.Printf("length for casting: %d\n", len(casting))
 
 	fmt.Printf("%d\n", casting[0])
-	fmt.Printf("%d\n", casting[1])
+	//fmt.Printf("%d\n", casting[1])
 	//fmt.Printf("%d\n", casting[2].gasprice)
 	//fmt.Printf("%d\n", casting[3].gasprice)
 

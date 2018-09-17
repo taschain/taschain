@@ -118,7 +118,7 @@ func NewTransactionPool() *TransactionPool {
 		sendingList:   make([]*types.Transaction, 0),
 		sendingTxLock: sync.Mutex{},
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize, 1000)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -472,7 +472,7 @@ func (c *container) AsSlice() []*types.Transaction {
 	if length >= c.maxTxsPerBlock {
 		// 根据gasprice，从高到低排序
 		sort.Sort(types.GasPriceTransactions(result))
-		result = result[0:length]
+		result = result[:length-1]
 	}
 
 	return result
