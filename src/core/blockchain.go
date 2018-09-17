@@ -553,11 +553,12 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Transactions = transactions
 
 	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
-	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
-	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
-		return nil, -1, nil, nil
-	}
+
+	//statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	//if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
+	//	Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
+	//	return nil, -1, nil, nil
+	//}
 	//receiptsTree := calcReceiptsTree(receipts).Bytes()
 	//if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
 	//	Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
@@ -566,7 +567,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	chain.blockCache.Add(bh.Hash, &castingBlock{
 		state:    state,
-		receipts: receipts,
+		//receipts: receipts,
 	})
 	//return nil, 0, state, receipts
 	return nil, 0, state, nil
