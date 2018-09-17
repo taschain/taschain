@@ -23,6 +23,8 @@ const (
 	PacketTypeSize = 4
 	PacketLenSize  = 4
 	PacketHeadSize = PacketTypeSize + PacketLenSize
+	MAX_UNHANDLED_MSG_COUNT  = 256
+
 )
 
 // Errors
@@ -691,7 +693,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
-		net.handleMessage(req.Data, id)
+		nc.onHandleDataMessage(req.Data, id)
 	} else {
 		forwarded := false
 
@@ -716,7 +718,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 			}
 			//需处理
 			if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-				net.handleMessage(req.Data, srcNodeId.GetHexString())
+				nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
 			}
 			broadcast := false
 			//需广播
@@ -754,6 +756,19 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 	return nil
 }
+
+func (nc *NetCore) onHandleDataMessage(b []byte, from string) {
+	if(nc.unhandleDataMsg > MAX_UNHANDLED_MSG_COUNT) {
+		Logger.Errorf("unhandleDataMsg too much , drop this message !")
+	}
+	nc.unhandleDataMsg +=1
+	net.handleMessage(b,from)
+}
+
+func (nc *NetCore) onHandleDataMessageDone(id string) {
+	nc.unhandleDataMsg -=1
+}
+
 
 func expired(ts uint64) bool {
 	return time.Unix(int64(ts), 0).Before(time.Now())
