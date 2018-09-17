@@ -132,6 +132,7 @@ func TestVmTest3(t *testing.T)  {
 func TestContractOnChain(t *testing.T)  {
 
 	code := `
+import account
 class A():
 	def __init__(self):
 		self.a = 10
@@ -140,20 +141,12 @@ class A():
 		print("deploy")
 
 	def test(self):
-		self.a += 1
-		print("test")
-		raise Exception("")
-		print(self.a)
-	
-	def test2(self):
-		self.a += 1
-		print("test")
-		print(self.a)
+		account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
 `
 	contract := tvm.Contract{code, "A", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0x1234")
+	//OnChainFunc(string(jsonString), "0x1234")
 }
 
 func TestCallConstract(t *testing.T)  {

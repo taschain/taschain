@@ -23,9 +23,11 @@ import (
 	"time"
 	"storage/core"
 	vtypes "storage/core/types"
-	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
+	"storage/trie"
+	"github.com/vmihailenco/msgpack"
+	"golang.org/x/crypto/sha3"
 )
 
 var emptyHash = common.Hash{}
@@ -35,19 +37,39 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 		return emptyHash
 	}
 
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
-	for i := 0; i < len(tx); i++ {
-		if tx[i] != nil {
-			keybuf.Reset()
-			serialize.Encode(keybuf, uint(i))
-			encode, _ := serialize.EncodeToBytes(tx[i])
-			trie.Update(keybuf.Bytes(), encode)
-		}
-	}
-	hash := trie.Hash()
+	//keybuf := new(bytes.Buffer)
+	//trie := new(trie.Trie)
+	//Logger.Infof("calcTxTree transaction size:%d",len(tx))
+	//for i := 0; i < len(tx); i++ {
+	//	if tx[i] != nil {
+	//		keybuf.Reset()
+	//		serialize.Encode(keybuf, uint(i))
+	//		//encode, _ := serialize.EncodeToBytes(tx[i])
+	//		encode, _ := msgpack.Marshal(tx[i])
+	//		len1 := -1
+	//		if tx[i].Data != nil{
+	//			len1 = len(tx[i].Data)
+	//		}
+	//		len2 := -1
+	//		if tx[i].ExtraData != nil{
+	//			len2 = len(tx[i].ExtraData)
+	//		}
+	//		Logger.Infof("calcTxTree %d len1:%d len2:%d source1:%s target1:%s %v",i,len1,len2,
+	//			tx[i].Source.GetHexString(),tx[i].Target.GetHexString(),encode)
+	//		trie.Update(keybuf.Bytes(), encode)
+	//	} else {
+	//		Logger.Error("calcTxTree exist empty transaction %d",i)
+	//	}
+	//}
+	//hash := trie.Hash()
+	//return common.BytesToHash(hash.Bytes())
 
-	return common.BytesToHash(hash.Bytes())
+	buf := new(bytes.Buffer)
+	for i := 0; i < len(tx); i++ {
+		encode, _ := msgpack.Marshal(tx[i])
+		serialize.Encode(buf, encode)
+	}
+	return common.BytesToHash(sha3.New256().Sum(buf.Bytes()))
 }
 
 func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {

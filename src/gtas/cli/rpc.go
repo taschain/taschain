@@ -39,8 +39,8 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64) (*Result, error) {
-	hash, contractAddr, err := walletManager.transaction(from, to, amount, code,nonce)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string, nonce uint64) (*Result, error) {
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +156,20 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail["target"] = transaction.Target.Hash().Hex()
 	detail["value"] = transaction.Value
 	return &Result{"success", detail}, nil
+}
+
+func (api *GtasAPI) GetContractData(contractAddr, key string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	value := stateDb.GetData(addr, key)
+	return &Result{"success", string(value)}, nil
+}
+
+func (api *GtasAPI) GetNonce(contractAddr string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	nonce := stateDb.GetNonce(addr)
+	return &Result{"success", nonce}, nil
 }
 
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
