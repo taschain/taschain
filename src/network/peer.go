@@ -13,12 +13,12 @@ import (
 type Peer struct {
 	Id         NodeID
 	seesionId  uint32
-	Ip     	nnet.IP
-	Port    int
+	Ip         nnet.IP
+	Port       int
 	sendList   []*bytes.Buffer
 	dataBuffer *bytes.Buffer
 	expiration uint64
-	mutex sync.Mutex
+	mutex      sync.Mutex
 	connecting bool
 }
 
@@ -29,8 +29,7 @@ func newPeer(Id NodeID, seesionId uint32) *Peer {
 	return p
 }
 
-func (p*Peer ) addData(data []byte) {
-
+func (p *Peer) addData(data []byte) {
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -42,59 +41,57 @@ func (p*Peer ) addData(data []byte) {
 		p.dataBuffer.Write(data)
 	}
 
-
 }
 
-func (p *Peer ) addDataToHead(data []byte) {
+func (p *Peer) addDataToHead(data []byte) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	if p.dataBuffer == nil {
 		p.dataBuffer = bytes.NewBuffer(nil)
 		p.dataBuffer.Write(data)
 	} else {
-		newBuf :=  bytes.NewBuffer(nil)
+		newBuf := bytes.NewBuffer(nil)
 		newBuf.Write(data)
 		newBuf.Write(p.dataBuffer.Bytes())
-		p.dataBuffer =  newBuf
+		p.dataBuffer = newBuf
 	}
 
 }
 
-func (p*Peer ) getData() *bytes.Buffer{
+func (p *Peer) getData() *bytes.Buffer {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	buf:= p.dataBuffer
+	buf := p.dataBuffer
 	p.dataBuffer = nil
 
-	return  buf
+	return buf
 }
 
-func (p*Peer ) isEmpty() bool{
+func (p *Peer) isEmpty() bool {
 	empty := true
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if p.dataBuffer != nil && p.dataBuffer.Len() >0 {
+	if p.dataBuffer != nil && p.dataBuffer.Len() > 0 {
 		empty = false
 	}
 
-	return  empty
+	return empty
 }
 
-func (p*Peer ) getDataSize() int{
-		p.mutex.Lock()
+func (p *Peer) getDataSize() int {
+	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	if p.dataBuffer != nil {
 		return p.dataBuffer.Len()
 	}
 
-	return  0
+	return 0
 }
-
 
 //PeerManager 节点连接管理
 type PeerManager struct {
-	peers map[uint64]*Peer //key为网络ID
-	mutex sync.Mutex
+	peers              map[uint64]*Peer //key为网络ID
+	mutex              sync.Mutex
 	natTraversalEnable bool
 }
 
@@ -107,7 +104,6 @@ func newPeerManager() *PeerManager {
 	return pm
 }
 
-
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer) error {
 
 	netId := netCoreNodeID(toid)
@@ -117,14 +113,14 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		p.sendList = append(p.sendList, packet)
 		p.expiration = 0
 		p.connecting = false
-		pm.addPeer(netId,p)
+		pm.addPeer(netId, p)
 	}
-	if  p.seesionId > 0 {
+	if p.seesionId > 0 {
 		Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
 		P2PSend(p.seesionId, packet.Bytes())
 	} else {
 
-		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port>0) || pm.natTraversalEnable)  && !p.connecting {
+		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port > 0) || pm.natTraversalEnable) && !p.connecting {
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
 			if toaddr != nil {
@@ -140,11 +136,10 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
 				Logger.Infof("P2PConnect[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 			}
-			} else {
+		} else {
 			Logger.Infof("write  error : %v ", toid.GetHexString())
 		}
 	}
-
 
 	return nil
 }
@@ -152,14 +147,13 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 //newConnection 处理连接成功的回调
 func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, isAccepted bool) {
 
-
 	p := pm.peerByNetID(id)
 	if p == nil {
 		p = &Peer{Id: NodeID{}, seesionId: session, sendList: make([]*bytes.Buffer, 0)}
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
-		pm.addPeer(id,p)
-	} else if session >0 {
-		if p.seesionId ==0 {
+		pm.addPeer(id, p)
+	} else if session > 0 {
+		if p.seesionId == 0 {
 			p.dataBuffer = nil
 			p.seesionId = session
 		}
@@ -167,14 +161,14 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
-	if p != nil  {
+	if p != nil {
 		for i := 0; i < len(p.sendList); i++ {
 			P2PSend(p.seesionId, p.sendList[i].Bytes())
 		}
 		p.sendList = make([]*bytes.Buffer, 0)
 	}
 
-	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
+	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 
 }
 
@@ -183,14 +177,14 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		Logger.Infof("OnDisconnected id：%v ip:%v port:%v ",p.Id.GetHexString(), p.Ip,p.Port)
+		Logger.Infof("OnDisconnected id：%v ip:%v port:%v ", p.Id.GetHexString(), p.Ip, p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
 			p.seesionId = 0
 		}
 	} else {
-		Logger.Infof("OnDisconnected net id：%v session:%v port:%v code:%v", id,session,p2pCode)
+		Logger.Infof("OnDisconnected net id：%v session:%v port:%v code:%v", id, session, p2pCode)
 	}
 }
 
@@ -203,10 +197,10 @@ func (pm *PeerManager) disconnect(id NodeID) {
 	p, _ := pm.peers[netID]
 	if p != nil {
 
-		Logger.Infof("disconnect ip:%v port:%v ", p.Ip,p.Port)
+		Logger.Infof("disconnect ip:%v port:%v ", p.Ip, p.Port)
 
 		p.connecting = false
-		delete(pm.peers,netID)
+		delete(pm.peers, netID)
 	}
 }
 
@@ -228,22 +222,20 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	return
 }
 
-
 //BroadcastRandom
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
 	Logger.Infof("BroadcastRandom total peer size:%v", len(pm.peers))
 
-
-	var availablePeers[]*Peer
+	var availablePeers []*Peer
 
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
-			availablePeers = append(availablePeers,p)
+			availablePeers = append(availablePeers, p)
 		}
 	}
-	peerSize :=len(availablePeers)
+	peerSize := len(availablePeers)
 	maxCount := int(math.Sqrt(float64(peerSize)));
 	if maxCount < 2 {
 		maxCount = 2
@@ -257,15 +249,15 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
-		rand :=mrand.New(mrand.NewSource(time.Now().Unix()))
+		rand := mrand.New(mrand.NewSource(time.Now().Unix()))
 
-		for i:=0;i<peerSize && len(nodesHasSend) < maxCount;i++ {
+		for i := 0; i < peerSize && len(nodesHasSend) < maxCount; i++ {
 			peerIndex := rand.Intn(peerSize)
 			if nodesHasSend[peerIndex] == true {
 				continue
 			}
 			nodesHasSend[peerIndex] = true
-			p:=availablePeers[peerIndex]
+			p := availablePeers[peerIndex]
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
 
 			go P2PSend(p.seesionId, packet.Bytes())
@@ -278,20 +270,20 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 func (pm *PeerManager) print() {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	totolRecvBufferSize :=0
+	totolRecvBufferSize := 0
 	for _, p := range pm.peers {
 		var rtt uint32
 		var pendingSendBuffer uint32
 
 		if p.seesionId > 0 {
-			rtt = P2PSessionRxrtt(p.seesionId )
-			pendingSendBuffer = P2PSessionNsndbuf(p.seesionId )
+			rtt = P2PSessionRxrtt(p.seesionId)
+			pendingSendBuffer = P2PSessionNsndbuf(p.seesionId)
 		}
 		totolRecvBufferSize += p.getDataSize()
 
-		Logger.Infof("id:%v session:%v  ip:%v  port:%v   rtt:%v, PendingBufferCount:%v"  , p.Id.GetHexString(),p.seesionId,p.Ip,p.Port,rtt,pendingSendBuffer)
+		Logger.Infof("id:%v session:%v  ip:%v  port:%v   rtt:%v, PendingBufferCount:%v", p.Id.GetHexString(), p.seesionId, p.Ip, p.Port, rtt, pendingSendBuffer)
 	}
-	Logger.Infof("PeerManager Print peer size:%v totolRecvBufferSize:%v", len(pm.peers),totolRecvBufferSize)
+	Logger.Infof("PeerManager Print peer size:%v totolRecvBufferSize:%v", len(pm.peers), totolRecvBufferSize)
 
 	return
 }
@@ -305,7 +297,6 @@ func (pm *PeerManager) peerByID(id NodeID) *Peer {
 	p, _ := pm.peers[netID]
 	return p
 }
-
 
 func (pm *PeerManager) peerByNetID(netId uint64) *Peer {
 	pm.mutex.Lock()
