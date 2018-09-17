@@ -16,7 +16,7 @@ type Peer struct {
 	seesionId  uint32
 	Ip     	nnet.IP
 	Port    int
-	sendList   *list.List
+	sendData  *bytes.Buffer
 	recvList   *list.List
 	expiration uint64
 	mutex sync.RWMutex
@@ -25,7 +25,7 @@ type Peer struct {
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList:list.New(),recvList:list.New()}
+	p := &Peer{Id: Id, seesionId: seesionId, sendData:nil,recvList:list.New()}
 
 	return p
 }
@@ -103,7 +103,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	p := pm.peerByNetID(netId)
 	if p == nil {
 		p =newPeer(toid, 0)
-		p.sendList.PushBack(packet)
+		p.sendData = packet
 		p.expiration = 0
 		p.connecting = false
 		pm.addPeer(netId,p)
@@ -120,7 +120,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 				p.Ip = toaddr.IP
 				p.Port = toaddr.Port
 			}
-			p.sendList.PushBack(packet)
+			p.sendData = packet
 
 			if pm.natTraversalEnable {
 				P2PConnect(netId, NatServerIp, NatServerPort)
@@ -155,12 +155,9 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
-	if p != nil  {
-		for e := p.sendList.Front(); e != nil; e = e.Next() {
-			buf:= e.Value.(*bytes.Buffer)
-			P2PSend(p.seesionId, buf.Bytes())
-		}
-		p.sendList = list.New()
+	if p.sendData != nil   {
+		P2PSend(p.seesionId, p.sendData.Bytes())
+		p.sendData = nil
 	}
 	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(),id,session,isAccepted)
 }
