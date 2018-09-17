@@ -27,7 +27,6 @@ import (
 	vtypes "storage/core/types"
 	"github.com/hashicorp/golang-lru"
 	"fmt"
-	"bytes"
 	"consensus/groupsig"
 	"log"
 	"middleware"
@@ -427,17 +426,18 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
-	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
-	if err != nil {
-		var buffer bytes.Buffer
-		buffer.WriteString("fail to new statedb, lateset height: ")
-		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
-		buffer.WriteString(", block height: ")
-		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
-		buffer.WriteString(fmt.Sprint(err))
-		panic(buffer.String())
 
-	}
+	//state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
+	//if err != nil {
+	//	var buffer bytes.Buffer
+	//	buffer.WriteString("fail to new statedb, lateset height: ")
+	//	buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
+	//	buffer.WriteString(", block height: ")
+	//	buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
+	//	buffer.WriteString(fmt.Sprint(err))
+	//	panic(buffer.String())
+	//
+	//}
 
 	// Process block using the parent state as reference point.
 	//statehash, receipts, err := chain.executor.Execute(state, block, chain.voteProcessor)
@@ -469,10 +469,10 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	//block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
 
-	chain.blockCache.Add(block.Header.Hash, &castingBlock{
-		state:    state,
-		//receipts: receipts,
-	})
+	//chain.blockCache.Add(block.Header.Hash, &castingBlock{
+	//	state:    state,
+	//	receipts: receipts,
+	//})
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
 	return block
@@ -539,11 +539,11 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	//执行交易
-	state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
-	if err != nil {
-		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
-		return nil, -1, nil, nil
-	}
+	//state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
+	//if err != nil {
+	//	Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
+	//	return nil, -1, nil, nil
+	//}
 	//else {
 	//	log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
 	//}
@@ -565,12 +565,12 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	//	return nil, 1, nil, nil
 	//}
 
-	chain.blockCache.Add(bh.Hash, &castingBlock{
-		state:    state,
-		//receipts: receipts,
-	})
+	//chain.blockCache.Add(bh.Hash, &castingBlock{
+	//	state:    state,
+	//	receipts: receipts,
+	//})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, nil, nil
 }
 
 //铸块成功，上链
