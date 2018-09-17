@@ -409,7 +409,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 
 	block := new(types.Block)
 
-	//block.Transactions = chain.transactionPool.GetTransactionsForCasting()
+	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
 	block.Header = &types.BlockHeader{
 		CurTime:     time.Now(), //todo:时区问题
 		Height:      height,

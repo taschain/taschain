@@ -91,7 +91,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 100000,
+		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
 	}
 }
@@ -139,7 +139,7 @@ func (pool *TransactionPool) Clear() {
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(pool.config.maxReceivedPoolSize, 1000)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 }
 
 func (pool *TransactionPool) GetReceived() []*types.Transaction {

@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"storage/core/vm"
 	"fmt"
-	"tvm"
 )
 
 type TVMExecutor struct {
@@ -38,43 +37,43 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
-	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(true)
-		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
-		return hash, nil, nil
-	}
-	receipts := make([]*t.Receipt,len(block.Transactions))
-	for i,transaction := range block.Transactions{
-		var fail = false
-		var contractAddress common.Address
-		if transaction.Target == nil{
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contractAddress, _ = createContract(accountdb, transaction)
-			contract := tvm.LoadContract(contractAddress)
-			controller.Deploy(transaction.Source, contract)
-		} else if len(transaction.Data) > 0 {
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contract := tvm.LoadContract(*transaction.Target)
-			controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
-		} else {
-			amount := big.NewInt(int64(transaction.Value))
-			if CanTransfer(accountdb, *transaction.Source, amount){
-				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-			} else {
-				fail = true
-			}
-		}
-		receipt := t.NewReceipt(nil,fail,0)
-		receipt.TxHash = transaction.Hash
-		receipt.ContractAddress = contractAddress
-		receipts[i] = receipt
-	}
+	//if 0 == len(block.Transactions) {
+	//	hash := accountdb.IntermediateRoot(true)
+	//	Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
+	//	return hash, nil, nil
+	//}
+	//receipts := make([]*t.Receipt,len(block.Transactions))
+	//for i,transaction := range block.Transactions{
+	//	var fail = false
+	//	var contractAddress common.Address
+	//	if transaction.Target == nil{
+	//		controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	//		contractAddress, _ = createContract(accountdb, transaction)
+	//		contract := tvm.LoadContract(contractAddress)
+	//		controller.Deploy(transaction.Source, contract)
+	//	} else if len(transaction.Data) > 0 {
+	//		controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	//		contract := tvm.LoadContract(*transaction.Target)
+	//		controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+	//	} else {
+	//		amount := big.NewInt(int64(transaction.Value))
+	//		if CanTransfer(accountdb, *transaction.Source, amount){
+	//			Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+	//		} else {
+	//			fail = true
+	//		}
+	//	}
+	//	receipt := t.NewReceipt(nil,fail,0)
+	//	receipt.TxHash = transaction.Hash
+	//	receipt.ContractAddress = contractAddress
+	//	receipts[i] = receipt
+	//}
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
 
-	return accountdb.IntermediateRoot(true), receipts, nil
+	return accountdb.IntermediateRoot(true), nil, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
