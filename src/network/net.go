@@ -29,7 +29,7 @@ const (
 // Errors
 var (
 	errPacketTooSmall   = errors.New("too small")
-	errBadHash          = errors.New("bad hash")
+	errBadPacket          = errors.New("bad Packet")
 	errExpired          = errors.New("expired")
 	errUnsolicitedReply = errors.New("unsolicited reply")
 	errUnknownNode      = errors.New("unknown node")
@@ -613,9 +613,12 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message,*bytes.Buffer, error
 
 	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, buffer.Len())
 
-	if buffer.Len() < packetSize {
-		buffer.Grow(packetSize)
+	if  packetSize > 16 * 1024 * 1024 || packetSize <= 0 {
+		Logger.Debugf("bad packet reset data!")
+		p.resetData()
+		return MessageType_MessageNone, 0, nil, buffer, errBadPacket
 	}
+
 	for buffer.Len() < packetSize  && !p.isEmpty() {
 		b := p.popData()
 		if b != nil && b.Len() > 0 {
@@ -786,6 +789,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 func (nc *NetCore) onHandleDataMessage(b []byte, from string) {
 	if nc.unhandledDataMsg > MaxUnhandledMessageCount {
 		Logger.Errorf("unhandled message too much , drop this message !")
+		return
 	}
 	nc.unhandledDataMsg += 1
 	net.handleMessage(b, from)
