@@ -4,7 +4,7 @@ import (
 	"common"
 )
 
-type PublicTrie struct {``
+type PublicTrie struct {
 	db           *Database
 	root         node
 	originalRoot common.Hash
