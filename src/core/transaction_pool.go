@@ -91,7 +91,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 10000,
+		maxReceivedPoolSize: 100000,
 		tx:                  "tx",
 	}
 }
