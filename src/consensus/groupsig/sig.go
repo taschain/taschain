@@ -54,8 +54,8 @@ func (sig *Signature) Mul(bi *big.Int) error {
 
 //比较两个签名是否相同
 func (sig Signature) IsEqual(rhs Signature) bool {
-	fmt.Println("IsEqual rhs:", rhs.value.Marshal())
-	fmt.Println("IsEqual sig:", sig.value.Marshal())
+	//fmt.Println("IsEqual rhs:", rhs.value.Marshal())
+	//fmt.Println("IsEqual sig:", sig.value.Marshal())
 
 	return bytes.Equal(sig.value.Marshal(), rhs.value.Marshal())
 	//return sig.value.IsEqual(&rhs.value)
@@ -89,7 +89,6 @@ func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
-
 	sig.value.Unmarshal(b)
 	return nil
 }
@@ -104,7 +103,11 @@ func (sig Signature) Serialize() []byte {
 
 func (sig Signature) IsValid() bool {
 	s := sig.Serialize()
-	return len(s) > 0
+	if len(s) == 0 {
+		return false
+	}
+
+	return sig.value.IsValid()
 }
 
 //把签名转换为十六进制字符串 ToDoCheck
@@ -132,16 +135,15 @@ func Sign(sec Seckey, msg []byte) (sig Signature) {
 
 //验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
-	fmt.Printf("VerifySig, msg: %s\n", msg)
-
 	bQ := bn_curve.GetG2Base()
 	p1 := bn_curve.Pair(&sig.value, bQ)
+	//fmt.Println("p1:", p1.String())
 
 	Hm := HashToG1(string(msg))
 	p2 := bn_curve.Pair(Hm, &pub.value)
+	//fmt.Println("p2:", p2.String())
 
 	return bn_curve.PairIsEuqal(p1, p2)
-	//return bytes.Equal(p1.Marshal(), p2.Marshal())
 }
 
 //分片合并验证函数。先把公钥切片合并，然后验证该签名是否来自公钥对应的私钥。

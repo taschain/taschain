@@ -172,17 +172,34 @@ func Bytes2Bits(data []byte) []int {
 }
 
 //通过big.Int方式，短签名恢复出签名点(x,y).[BUG修复中]
-func TestShortSig(t *testing.T) {
-	_, g1, _ := RandomG1(rand.Reader)
-	px,py,isOdd := g1.GetXY()
+func BenchmarkShortSig(b *testing.B) {
+	for i:=0; i<b.N; i++ {
+		_, g1, _ := RandomG1(rand.Reader)
+		px, _,isOdd := g1.GetXY()
 
-	t.Log("px:", px.String())
-	t.Log(" py:", py.String())
+		g2 := &G1{}
+		g2.SetX(px, isOdd)
+		ppx, ppy, _ := g2.GetXY()
 
-	g2 := &G1{}
-	g2.SetX(px, isOdd)
+		buf_xx := make([]byte, 32)
+		buf_yy := make([]byte, 32)
+		ppx.Marshal(buf_xx)
+		ppy.Marshal(buf_yy)
 
-	ppx, ppy, _ := g2.GetXY()
-	t.Log("ppx:", ppx.String())
-	t.Log("ppy:", ppy.String())
+		gfpNeg(ppy, ppy)
+		ppy.Marshal(buf_yy)
+
+		_, h1, _ := RandomG2(rand.Reader)
+		gt1 := Pair(g1, h1)
+
+		gt2 := &GT{}
+		gt2.Set(gt1)
+
+		if PairIsEuqal(gt1, gt2) != true {
+			gt2.p.Invert(gt1.p)
+			if PairIsEuqal(gt1, gt2) != true {
+				b.Error("check failed.")
+			}
+		}
+	}
 }

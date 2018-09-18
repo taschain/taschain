@@ -61,26 +61,30 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 	pt := &gfP{}
 	gfpMul(pt, px, px)
 	gfpMul(pt, pt, px)
-	gfpAdd(pt, pt, curveB)
+	gfpAdd(pt, pt, CurveB)
 	montDecode(pt, pt)
 
 	//t转化为big.Int类型，再计算y=sqrt(t).
 	y := &big.Int{}
 	buf := make([]byte, 32)
 	pt.Marshal(buf)
+	//fmt.Println("buf:", len(buf))
 	y.SetBytes(buf)
 	y.ModSqrt(y, P)
 
 	//y转化为gfP类型
 	byte_str := y.Bytes()
+	//fmt.Println("buf:", len(byte_str))
+
+	buf1 := make([]byte, 32)
 	len := len(byte_str)
 	j := 0
 	for i:= 32-len; i<32; i++ {
-		buf[i] = byte_str[j]
+		buf1[i] = byte_str[j]
 		j++
 	}
 	py := &gfP{}
-	py.Unmarshal(buf)
+	py.Unmarshal(buf1)
 	montEncode(py, py)
 
 	if py.IsOdd() != isOdd {
@@ -93,6 +97,10 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 
 func (g *G1) String() string {
 	return "bn_curve.G1" + g.p.String()
+}
+
+func (g *G1) IsValid() bool {
+	return g.p.IsOnCurve()
 }
 
 func (g *G1) IsNil () bool {
@@ -151,16 +159,20 @@ func (e *G1) Marshal() []byte {
 	const numBytes = 256 / 8
 
 	e.p.MakeAffine()
-	ret := make([]byte, numBytes*2)
+	ret := make([]byte, numBytes+1)
 	if e.p.IsInfinity() {
 		return ret
 	}
-	temp := &gfP{}
 
+	temp := &gfP{}
 	montDecode(temp, &e.p.x)
 	temp.Marshal(ret)
-	montDecode(temp, &e.p.y)
-	temp.Marshal(ret[numBytes:])
+
+	if e.p.y.IsOdd() == true {
+		ret[numBytes] = 0x1
+	} else {
+		ret[numBytes] = 0x0
+	}
 
 	return ret
 }
@@ -170,7 +182,7 @@ func (e *G1) Marshal() []byte {
 func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
-	if len(m) < 2*numBytes {
+	if len(m) < numBytes + 1 {
 		return nil, errors.New("bn_curve: not enough data")
 	}
 	// Unmarshal the points and check their caps
@@ -183,12 +195,8 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	if err = e.p.x.Unmarshal(m); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.Unmarshal(m[numBytes:]); err != nil {
-		return nil, err
-	}
 	// Encode into Montgomery form and ensure it's on the curve
 	montEncode(&e.p.x, &e.p.x)
-	montEncode(&e.p.y, &e.p.y)
 
 	zero := gfP{0}
 	if e.p.x == zero && e.p.y == zero {
@@ -200,11 +208,19 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 		e.p.z = *newGFp(1)
 		e.p.t = *newGFp(1)
 
+		isOdd := true
+		if m[numBytes] == 0x1 {
+			isOdd = true
+		} else {
+			isOdd = false
+		}
+		e.SetX(&e.p.x, isOdd)
+
 		if !e.p.IsOnCurve() {
 			return nil, errors.New("bn_curve: malformed point")
 		}
 	}
-	return m[2*numBytes:], nil
+	return m[numBytes+1:], nil
 }
 
 // G2 is an abstract cyclic group. The zero value is suitable for use as the
@@ -539,5 +555,5 @@ func GetG2Base() *G2 {
 }
 
 func PairIsEuqal(g1 *GT, g2 *GT) bool {
-	return bytes.Equal(g1.Marshal(),g2.Marshal())
+	return bytes.Equal(g1.Marshal(), g2.Marshal())
 }
