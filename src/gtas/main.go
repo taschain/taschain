@@ -20,21 +20,23 @@ import (
 	"runtime"
 	"time"
 	"log"
+	"runtime/debug"
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	gtas := cli.NewGtas()
-	//go gc()
+	go gc()
 	gtas.Run()
 }
 
 func gc() {
 
-	gcTick := time.NewTicker(time.Second * 10)
+	gcTick := time.NewTicker(time.Second * 60)
 	for {
 		<-gcTick.C
 		log.Println("Force GC...")
-		runtime.GC()
+		//runtime.GC()
+		debug.FreeOSMemory()
 	}
 }
