@@ -57,8 +57,8 @@ class MyAdvancedToken(TokenERC20):
         self.name = "TAS"
         self.symbol = "%"
         self.totalSupply = 1000000
-        self.balanceOf[glovar.msg.sender] = self.totalSupply
-        glovar.owner = glovar.msg.sender
+        self.balanceOf[msg.sender] = self.totalSupply
+        glovar.owner = msg.sender
 
     # @property
     # def sell_price(self):
@@ -95,8 +95,8 @@ class MyAdvancedToken(TokenERC20):
             self.balanceOf[target] = 0
         self.balanceOf[target] += minted_amount
         self.totalSupply += minted_amount
-        Event.emit("Transfer", 0, glovar.this, minted_amount)
-        Event.emit("Transfer", glovar.this, target, minted_amount)
+        Event.emit("Transfer", 0, this, minted_amount)
+        Event.emit("Transfer", this, target, minted_amount)
 
     def freeze_account(self, target, freeze):
         check_owner()
@@ -110,13 +110,13 @@ class MyAdvancedToken(TokenERC20):
 
     def buy(self):
         # 在call前已经完成扣款
-        amount = glovar.msg.value / self.buy_price
-        self._transfer(glovar.this, glovar.msg.sender, amount)
+        amount = msg.value / self.buy_price
+        self._transfer(this, msg.sender, amount)
 
     def sell(self, amount):
-        require(glovar.this.balance() >= amount * self.sell_price)
-        self._transfer(glovar.msg.sender, glovar.this, amount)
-        glovar.msg.sender.transfer(amount * self.sell_price)
+        require(this.balance() >= amount * self.sell_price)
+        self._transfer(msg.sender, this, amount)
+        msg.sender.transfer(amount * self.sell_price)
 
     # def test(self):
     #     print("test")
