@@ -73,12 +73,12 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 // 创始块
 func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
 	block := new(types.Block)
-
+	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
-		ExtraData:   common.Sha256([]byte("tas")),
-		CurTime:     time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
-		QueueNumber: 0,
-		TotalQN:     0,
+		ExtraData:  common.Sha256([]byte("tas")),
+		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
+		ProveValue: pv,
+		TotalPV:    pv,
 	}
 
 	blockByte, _ := json.Marshal(block)

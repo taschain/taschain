@@ -11,6 +11,7 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
+	"math/big"
 )
 
 /*
@@ -242,7 +243,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		MemIds: mems,
 	}
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
+		logHalfway("SuccessNewBlock", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(cbm, next)
 	}
 
@@ -311,7 +312,7 @@ func (p *Processor) blockProposal() {
 	logStart("CASTBLOCK", height, uint64(nonce), p.getPrefix(), "开始铸块")
 
 	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(1), p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), big.NewInt(1), p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v, nonce=%v, gid=%v, mid=%v.\n", height, nonce, GetIDPrefix(*gid), GetIDPrefix(p.GetMinerID()))
 		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
@@ -336,7 +337,7 @@ func (p *Processor) blockProposal() {
 
 		worker.markProposed()
 
-		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
+		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.ProveValue.Uint64(),-1,-1,
 			time.Now().UnixNano(),GetIDPrefix(p.GetMinerID()),GetIDPrefix(*gid),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	} else {
 		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, worker.baseBH.Hash, bh.PreHash)

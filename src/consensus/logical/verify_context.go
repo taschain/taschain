@@ -277,7 +277,7 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	idPrefix := vc.blockCtx.Proc.getPrefix()
 
 	i, info := vc.consensusFindSlot(bh)
-	newBizLog("UserVerified").log("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
+	newBizLog("UserVerified").log("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.ProveValue, i, info)
 
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {

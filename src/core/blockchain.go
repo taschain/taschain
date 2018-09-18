@@ -62,6 +62,8 @@ type BlockChainConfig struct {
 
 	//组内能出的最大QN值
 	qn uint64
+
+	bonus string
 }
 
 type BlockChain struct {
@@ -71,6 +73,9 @@ type BlockChain struct {
 	blocks tasdb.Database
 	//key: height, value: blockHeader
 	blockHeight tasdb.Database
+
+	//key: blockhash, value: transactionhash
+	bonus tasdb.Database
 
 	transactionPool *TransactionPool
 
@@ -113,6 +118,8 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 		state: "state",
 
 		qn: 4,
+
+		bonus: "bonus",
 	}
 }
 
@@ -130,6 +137,8 @@ func getBlockChainConfig() *BlockChainConfig {
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
 
 		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
+
+		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
 	}
 
 }
@@ -214,11 +223,11 @@ func (chain *BlockChain) Height() uint64 {
 	return chain.latestBlock.Height
 }
 
-func (chain *BlockChain) TotalQN() uint64 {
+func (chain *BlockChain) TotalQN() *big.Int {
 	if nil == chain.latestBlock {
-		return 0
+		return nil
 	}
-	return chain.latestBlock.TotalQN
+	return chain.latestBlock.TotalPV
 }
 
 func (chain *BlockChain) LatestStateDB() *core.AccountDB {
@@ -284,6 +293,26 @@ func (chain *BlockChain) Clear() error {
 
 	chain.transactionPool.Clear()
 	return err
+}
+
+func (chain *BlockChain) GenerateBonus(targetIds []int, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction) {
+	group := GroupChainImpl.getGroupById(groupId)
+	buffer := &bytes.Buffer{}
+	for i:=0;i<len(targetIds);i++{
+		index := targetIds[i]
+		buffer.Write(group.Members[index].Id)
+	}
+	transaction := &types.Transaction{}
+	transaction.Data = blockHash.Bytes()
+	transaction.ExtraData = buffer.Bytes()
+	transaction.Hash = transaction.GenHash()
+	transaction.Value = totalValue
+	transaction.ExtraDataType = types.ExtraDataTypeBonus
+	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,GroupId:groupId,TotalValue:totalValue},transaction
+}
+
+func (chain *BlockChain) AddBonusTrasanction(transaction *types.Transaction){
+	chain.GetTransactionPool().addInner(transaction, false)
 }
 
 func (chain *BlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
@@ -398,7 +427,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.latestBlock
 	//校验高度
@@ -410,14 +439,16 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	block := new(types.Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
+	totalPV := &big.Int{}
+	totalPV.Add(latestBlock.TotalPV,proveValue)
 	block.Header = &types.BlockHeader{
-		CurTime:     time.Now(), //todo:时区问题
-		Height:      height,
-		Nonce:       nonce,
-		QueueNumber: queueNumber,
-		Castor:      castor,
-		GroupId:     groupid,
-		TotalQN:     latestBlock.TotalQN + queueNumber,//todo:latestBlock != nil?
+		CurTime:    time.Now(), //todo:时区问题
+		Height:     height,
+		Nonce:      nonce,
+		ProveValue: proveValue,
+		Castor:     castor,
+		GroupId:    groupid,
+		TotalPV:    totalPV, //todo:latestBlock != nil?
 	}
 
 	if latestBlock != nil {
@@ -523,7 +554,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			TransactionHashes: missing,
 			CurrentBlockHash:  bh.Hash,
 			BlockHeight:       bh.Height,
-			BlockQn:           bh.QueueNumber,
+			BlockPv:           bh.ProveValue,
 		}
 		go RequestTransaction(*m, castorId.String())
 		return missing, 1, nil, nil
@@ -581,7 +612,7 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
-	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
+	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }
@@ -614,13 +645,13 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.saveBlock(b)
-	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.remove(chain.latestBlock)
 		status = chain.saveBlock(b)
 	} else {
-		//b.Header.TotalQN > chain.latestBlock.TotalQN
+		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
 			return 2
 		}
@@ -650,7 +681,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		if e != nil {
 			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
 			network.GetNetInstance().Relay(headerMsg,1)
-			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.QueueNumber, len(h), b.Header.Hash)
+			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(h), b.Header.Hash)
 		}
 
 	}
@@ -800,7 +831,7 @@ func (chain *BlockChain) getBlockHashesFromLocalChain(height uint64, length uint
 	for i = 0; i < length; {
 		bh := BlockChainImpl.queryBlockHeaderByHeight(height, true)
 		if bh != nil {
-			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Qn: bh.QueueNumber}
+			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Pv: bh.ProveValue}
 			r = append(r, &cbh)
 			i++
 		}

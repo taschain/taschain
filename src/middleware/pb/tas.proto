@@ -43,7 +43,7 @@ message TransactionRequestMessage{
 
     required uint64 BlockHeight = 3;
 
-    required uint64 BlockQn = 4;
+    required bytes BlockPv = 4;
 }
 
 message TransactionSlice{
@@ -62,9 +62,9 @@ message BlockHeader{
 
      optional bytes PreTime  = 4 ;
 
-     optional uint64 QueueNumber = 5;
+     optional bytes ProveValue = 5;
 
-     optional uint64 TotalQN = 6;
+     optional bytes TotalPV = 6;
 
      optional bytes CurTime  = 7 ;
 

@@ -78,7 +78,7 @@ func CallContract2(address, abi string, source string) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
-	block2.Header.QueueNumber = 2
+	block2.Header.ProveValue = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		fmt.Println("fail to add empty block")
 	}
@@ -241,7 +241,7 @@ def Test(a, b, c, d):
 	fmt.Println(contractAddr.GetHexString())
 	// 铸块2
 	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
-	block2.Header.QueueNumber = 2
+	block2.Header.ProveValue = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
 	}

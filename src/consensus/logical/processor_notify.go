@@ -17,7 +17,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	p.removeFutureVerifyMsgs(hash)
 
 	for _, msg := range futures {
-		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.QueueNumber, GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
+		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.ProveValue.Uint64(), GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
 		p.doVerify("FUTURE_VERIFY", msg, nil)
 	}
 
@@ -52,7 +52,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 		for _, msg := range futureMsgs {
 			tbh := msg.Block.Header
-			logHalfway("OMB", tbh.Height, tbh.QueueNumber, "", "trigger cached future block")
+			logHalfway("OMB", tbh.Height, tbh.ProveValue.Uint64(), "", "trigger cached future block")
 			p.receiveBlock(&msg.Block, preHeader)
 		}
 		p.removeFutureBlockMsgs(preHeader.Hash)

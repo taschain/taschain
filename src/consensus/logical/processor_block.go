@@ -96,8 +96,8 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
-	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
+	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.ProveValue, result)
+	logHalfway("doAddOnChain", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
 	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
@@ -143,7 +143,7 @@ func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
-    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.QueueNumber, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.ProveValue, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {

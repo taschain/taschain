@@ -19,7 +19,10 @@ import (
 	"common"
 	"encoding/json"
 	"time"
+	"math/big"
 )
+
+const ExtraDataTypeBonus = 1
 
 type Transaction struct {
 	Data   []byte
@@ -83,14 +86,23 @@ func (pt *PriorityTransactions) Pop() interface{} {
 	return item
 }
 
+type Bonus struct {
+	TxHash		common.Hash
+	TargetIds	[]int
+	BlockHash	common.Hash
+	GroupId		[]byte
+	Sign		[]byte
+	TotalValue	uint64
+}
+
 //区块头结构
 type BlockHeader struct {
 	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
+	ProveValue   *big.Int      //轮转序号
+	TotalPV      *big.Int      //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -109,8 +121,8 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
+	ProveValue  *big.Int        //轮转序号
+	TotalPV      *big.Int        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -128,8 +140,8 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		Height:       bh.Height,
 		PreHash:      bh.PreHash,
 		PreTime:      bh.PreTime,
-		QueueNumber:  bh.QueueNumber,
-		TotalQN:      bh.TotalQN,
+		ProveValue:  bh.ProveValue,
+		TotalPV:      bh.TotalPV,
 		CurTime:      bh.CurTime,
 		Castor:       bh.Castor,
 		GroupId:      bh.GroupId,

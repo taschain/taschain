@@ -32,7 +32,7 @@ type BlockChainI interface {
 	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block
+	CastingBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -65,6 +65,10 @@ type BlockChainI interface {
 	Clear() error
 	//是否正在调整分叉
 	IsAdujsting() bool
+
+    GenerateBonus(targetIds []int, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
+
+	AddBonusTrasanction(transaction *types.Transaction)
 }
 
 //组管理接口

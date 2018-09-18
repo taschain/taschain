@@ -19,10 +19,10 @@ import (
 	"time"
 	"core"
 	"sync"
-	"utility"
 	"taslog"
 	"common"
 	"network"
+	"math/big"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 var BlockSyncer blockSyncer
 
 type TotalQnInfo struct {
-	TotalQn  uint64
+	TotalQn  *big.Int
 	SourceId string
 }
 
@@ -44,7 +44,7 @@ type blockSyncer struct {
 	ReqTotalQnCh chan string
 	TotalQnCh        chan TotalQnInfo
 
-	maxTotalQn uint64
+	maxTotalQn *big.Int
 	bestNode         string
 	lock     sync.Mutex
 
@@ -56,7 +56,7 @@ func InitBlockSyncer() {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0}
+	BlockSyncer = blockSyncer{maxTotalQn: big.NewInt(0), ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0}
 	go BlockSyncer.start()
 }
 
@@ -96,7 +96,7 @@ func (bs *blockSyncer) sync() {
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
 	bs.lock.Unlock()
-	if maxTotalQN <= localTotalQN {
+	if maxTotalQN.Cmp(localTotalQN) <= 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			bs.init = true
@@ -129,7 +129,7 @@ func (bs *blockSyncer) loop() {
 				bs.replyCount++
 			}
 			bs.lock.Lock()
-			if h.TotalQn > bs.maxTotalQn {
+			if h.TotalQn.Cmp(bs.maxTotalQn) > 0 {
 				bs.maxTotalQn = h.TotalQn
 				bs.bestNode = h.SourceId
 			}
@@ -154,9 +154,9 @@ func requestBlockChainTotalQn() {
 }
 
 //返回自身链QN值
-func sendBlockTotalQn(targetId string, localTotalQN uint64) {
+func sendBlockTotalQn(targetId string, localTotalQN *big.Int) {
 	logger.Debugf("[BlockSyncer]Send local total qn %d to %s!",localTotalQN,targetId)
-	body := utility.UInt64ToByte(localTotalQN)
-	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: body}
+	//body := utility.UInt64ToByte(localTotalQN)
+	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: localTotalQN.Bytes()}
 	network.GetNetInstance().Send(targetId,message)
 }

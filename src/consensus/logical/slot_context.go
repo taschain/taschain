@@ -49,7 +49,7 @@ type SlotContext struct {
 	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
 	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
 	BH             types.BlockHeader //出块头详细数据
-	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
+	//ProveValue    int64             //铸块槽序号(<0无效)，等同于出块人序号。
 	vrfValue 		uint64
 	gSignGenerator *model.GroupSignGenerator	//块签名产生器
 	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
@@ -60,7 +60,7 @@ type SlotContext struct {
 func createSlotContext(threshold int) *SlotContext {
 	return &SlotContext{
 		TimeRev:        time.Now(),
-		//QueueNumber:    model.INVALID_QN,
+		//ProveValue:    model.INVALID_QN,
 		slotStatus:     SS_INVALID,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),

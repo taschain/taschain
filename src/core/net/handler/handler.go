@@ -27,6 +27,7 @@ import (
 	"middleware/pb"
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
+	"math/big"
 )
 
 type ChainHandler struct {
@@ -119,7 +120,9 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	case network.ReqBlockChainTotalQnMsg:
 		sync.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
-		totalQn := utility.ByteToUInt64(msg.Body)
+		//totalQn := utility.ByteToUInt64(msg.Body)
+		totalQn := &big.Int{}
+		totalQn.SetBytes(msg.Body)
 		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
 		sync.BlockSyncer.TotalQnCh <- s
 	case network.ReqBlockInfo:
@@ -208,7 +211,7 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.ProveValue)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
@@ -246,7 +249,7 @@ func (ch ChainHandler) loop() {
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockQn,len(m.TransactionHashes))
+	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockPv,len(m.TransactionHashes))
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
 		return nil
@@ -257,7 +260,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 	}
 
 	if nil != transactions && 0 != len(transactions) {
-		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockQn)
+		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockPv)
 	}
 
 	return nil
@@ -322,7 +325,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	}
 	block := blockInfo.Block
 	if block != nil {
-		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
+		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.ProveValue)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -363,7 +366,9 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	}
 
 	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
-	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockQn: *m.BlockQn}
+	blockPv := &big.Int{}
+	blockPv.SetBytes(m.BlockPv)
+	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
 	return &message, nil
 }
 
