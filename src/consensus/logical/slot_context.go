@@ -182,22 +182,20 @@ func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si *model.SignData) CA
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
-
-	sc := createSlotContext(threshold)
-
-	sc.BH = *bh
-	sc.QueueNumber = int64(bh.QueueNumber)
-	sc.setSlotStatus(SS_WAITING)
-	log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, bh.QueueNumber)
-	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
-	log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, bh.QueueNumber, len(ltl), ccr)
-	sc.addLostTrans(ltl)
-	if ccr == -1 {
-		sc.setSlotStatus(SS_FAILED)
+func (sc *SlotContext) init(bh *types.BlockHeader) bool {
+	if sc.StatusTransform(SS_INVALID, SS_WAITING) {
+		sc.BH = *bh
+		sc.QueueNumber = int64(bh.QueueNumber)
+		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, bh.QueueNumber)
+		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, bh.QueueNumber, len(ltl), ccr)
+		sc.addLostTrans(ltl)
+		if ccr == -1 {
+			sc.setSlotStatus(SS_FAILED)
+		}
+		return true
 	}
-
-	return sc
+	return false
 }
 
 func (sc SlotContext) IsValid() bool {
