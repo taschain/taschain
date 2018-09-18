@@ -61,7 +61,7 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 	pt := &gfP{}
 	gfpMul(pt, px, px)
 	gfpMul(pt, pt, px)
-	gfpAdd(pt, pt, CurveB)
+	gfpAdd(pt, pt, curveB)
 	montDecode(pt, pt)
 
 	//t转化为big.Int类型，再计算y=sqrt(t).
