@@ -57,7 +57,20 @@ func (c Transactions) Less(i, j int) bool {
 	return c[i].Nonce < c[j].Nonce
 }
 
+type GasPriceTransactions []*Transaction
+
+func (c GasPriceTransactions) Len() int {
+	return len(c)
+}
+func (c GasPriceTransactions) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+func (c GasPriceTransactions) Less(i, j int) bool {
+	return c[i].GasPrice > c[j].GasPrice
+}
+
 // 根据gasprice决定优先级的transaction数组
+// gasprice 低的，放在前
 type PriorityTransactions []*Transaction
 
 func (pt PriorityTransactions) Len() int {

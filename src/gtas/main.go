@@ -18,11 +18,24 @@ package main
 import (
 	"gtas/cli"
 	"runtime"
+	"time"
+	"log"
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	gtas := cli.NewGtas()
+	//go gc()
 	gtas.Run()
 }
 
+func gc() {
+
+	gcTick := time.NewTicker(time.Second * 60)
+	for {
+		<-gcTick.C
+		log.Println("Force GC...")
+		runtime.GC()
+		//debug.FreeOSMemory()
+	}
+}

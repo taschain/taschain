@@ -162,7 +162,6 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	n.netCore.unhandleDataMsg +=1
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
@@ -206,7 +205,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	}
-	n.netCore.unhandleDataMsg -=1
+	n.netCore.onHandleDataMessageDone(from)
 	if time.Since(begin) > 100*time.Millisecond {
 		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
 	}

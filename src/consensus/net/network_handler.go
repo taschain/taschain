@@ -11,6 +11,7 @@ import (
 	"log"
 	"fmt"
 	"consensus/model"
+	"middleware/statistics"
 )
 
 type ConsensusHandler struct{
@@ -135,6 +136,8 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			return  e
 		}
 		network.Logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,m.Block.Header.QueueNumber)
+		statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,m.Block.Header.Height,m.Block.Header.QueueNumber,len(m.Block.Transactions),-1,
+			time.Now().UnixNano(),"","",common.InstanceIndex,m.Block.Header.CurTime.UnixNano())
 		c.processor.OnMessageBlock(m)
 		return nil
 	case network.CreateGroupaRaw:
