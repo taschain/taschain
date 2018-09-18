@@ -51,10 +51,7 @@ func CacheUnloads() int64 {
 type LeafCallback func(leaf []byte, parent common.Hash) error
 
 type Trie struct {
-	db           *Database
-	root         node
-	originalRoot common.Hash
-
+	PublicTrie
 	cachegen, cachelimit uint16
 }
 
@@ -71,8 +68,10 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 		panic("trie.NewTrie called without a database")
 	}
 	trie := &Trie{
-		db:           db,
-		originalRoot: root,
+		PublicTrie:PublicTrie{
+			db:           db,
+			originalRoot: root,
+		},
 	}
 	if (root != common.Hash{}) && root != emptyRoot {
 		rootnode, err := trie.resolveHash(root[:], nil)
@@ -378,12 +377,6 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	return h.hash(t.root, db, true)
 }
 
-func (t *Trie) Fstring() string{
-	if t.root == nil{
-		return ""
-	}
-	return t.root.fstring("")
-}
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {
 	return newNodeIterator(t, start)

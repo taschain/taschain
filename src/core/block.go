@@ -28,6 +28,7 @@ import (
 	"storage/trie"
 	"github.com/vmihailenco/msgpack"
 	"golang.org/x/crypto/sha3"
+	"encoding/binary"
 )
 
 var emptyHash = common.Hash{}
@@ -90,6 +91,12 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 	hash := trie.Hash()
 
 	return common.BytesToHash(hash.Bytes())
+}
+
+func GenerateHeightKey(height uint64) []byte {
+	h := make([]byte, 8)
+	binary.BigEndian.PutUint64(h, height)
+	return h
 }
 
 // 创始块

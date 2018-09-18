@@ -59,12 +59,16 @@ type BlockChainI interface {
 	QueryBlockByHeight(height uint64) *types.BlockHeader
 
 	// 返回等待入块的交易池
-	GetTransactionPool() *TransactionPool
+	GetTransactionPool() ITransactionPool
 
 	//清除链所有数据
 	Clear() error
 	//是否正在调整分叉
 	IsAdujsting() bool
+
+	QueryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader
+
+	Height() uint64
 }
 
 //组管理接口

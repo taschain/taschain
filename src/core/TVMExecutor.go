@@ -27,10 +27,10 @@ import (
 )
 
 type TVMExecutor struct {
-	bc *BlockChain
+	bc BlockChainI
 }
 
-func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
+func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
 	return &TVMExecutor{
 		bc: bc,
 	}

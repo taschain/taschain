@@ -62,6 +62,8 @@ const (
 
 	statisticsSection = "statistics"
 
+	nodetypeSection = "nodetype"
+
 	redis_prefix = "aliyun_"
 )
 
@@ -112,9 +114,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
 	middleware.SetupStackTrap("/Users/daijia/stack.log") //todo: absolute path?
-	err := gtas.fullInit(super, testMode, seedIp)
+	err := gtas.fullInit(super, testMode, seedIp,light)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -198,6 +200,8 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
+	//light node
+	light := mineCmd.Flag("light", "light node").Bool()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
@@ -255,7 +259,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
 		if err != nil {
@@ -281,7 +285,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) error {
 	var err error
 	// 椭圆曲线初始化
 	//groupsig.Init(1)
@@ -290,7 +294,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	middleware.InitMiddleware()
 
 	// block初始化
-	err = core.InitCore()
+	err = core.InitCore(light)
 	if err != nil {
 		return err
 	}

@@ -358,9 +358,9 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 		t.Fatalf("fail to add 3 blocks")
 	}
 
-	header1 := BlockChainImpl.queryBlockHeaderByHeight(uint64(1), true)
-	header2 := BlockChainImpl.queryBlockHeaderByHeight(uint64(2), false)
-	header3 := BlockChainImpl.queryBlockHeaderByHeight(uint64(3), true)
+	header1 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(1), true)
+	header2 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(2), false)
+	header3 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(3), true)
 
 	b1 := BlockChainImpl.queryBlockByHash(header1.Hash)
 	b2 := BlockChainImpl.queryBlockByHash(header2.Hash)

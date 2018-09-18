@@ -23,7 +23,6 @@ import (
 	"os"
 
 	"encoding/json"
-	"sort"
 	"storage/tasdb"
 	vtypes "storage/core/types"
 	"middleware/types"
@@ -62,26 +61,14 @@ type TransactionPoolConfig struct {
 	tx                  string
 }
 
+
 type TransactionPool struct {
-	config *TransactionPoolConfig
-
-	// 读写锁
-	lock middleware.Loglock
-
-	// 待上块的交易
-	received    *container
-	reserved    *lru.Cache
-	sendingList []*types.Transaction
-
-	sendingTxLock sync.Mutex
-
+	PublicTransactionPool
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed tasdb.Database
 
 	batch     tasdb.Batch
 	batchLock sync.Mutex
-
-	totalReceived uint64
 }
 
 type ReceiptWrapper struct {
@@ -110,13 +97,14 @@ func getPoolConfig() *TransactionPoolConfig {
 }
 
 func NewTransactionPool() *TransactionPool {
-
 	pool := &TransactionPool{
-		config:      getPoolConfig(),
-		lock:        middleware.NewLoglock("txpool"),
+		PublicTransactionPool:PublicTransactionPool{
+			config:      getPoolConfig(),
+			lock:        middleware.NewLoglock("txpool"),
+			sendingList: make([]*types.Transaction, 0),
+			sendingTxLock: sync.Mutex{},
+		},
 		batchLock:   sync.Mutex{},
-		sendingList: make([]*types.Transaction, 0),
-		sendingTxLock: sync.Mutex{},
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -140,25 +128,6 @@ func (pool *TransactionPool) Clear() {
 	pool.executed = executed
 	pool.batch.Reset()
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-}
-
-func (pool *TransactionPool) GetReceived() []*types.Transaction {
-	return pool.received.AsSlice()
-}
-
-// 返回待处理的transaction数组
-func (pool *TransactionPool) GetTransactionsForCasting() []*types.Transaction {
-	txs := pool.received.AsSlice()
-	sort.Sort(types.Transactions(txs))
-	return txs
-}
-
-// 返回待处理的transaction数组
-func (pool *TransactionPool) ReserveTransactions(hash common.Hash, txs []*types.Transaction) {
-	if 0 == len(txs) {
-		return
-	}
-	pool.reserved.Add(hash, txs)
 }
 
 // 不加锁
@@ -334,11 +303,7 @@ func (pool *TransactionPool) validate(tx *types.Transaction) error {
 	return nil
 }
 
-// 外部加锁
-// 加缓冲区
-func (pool *TransactionPool) addTxs(txs []*types.Transaction) {
-	pool.received.PushTxs(txs)
-}
+
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
 func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {

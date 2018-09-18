@@ -88,7 +88,6 @@ func returnHasherToPool(h *hasher) {
 }
 
 func (h *hasher) store(n node, db *Database, force bool) (node, error) {
-
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil
 	}
@@ -153,7 +152,7 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 	case *shortNode:
 
 		collapsed, cached := n.copy(), n.copy()
-
+		collapsed.Key = hexToCompact(n.Key)
 		cached.Key = common.CopyBytes(n.Key)
 
 		if _, ok := n.Val.(valueNode); !ok {
