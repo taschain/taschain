@@ -25,7 +25,7 @@ import (
 func main() {
 	runtime.GOMAXPROCS(4)
 	gtas := cli.NewGtas()
-	go gc()
+	//go gc()
 	gtas.Run()
 }
 

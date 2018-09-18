@@ -21,7 +21,7 @@ const (
 	GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
 
 	SSSS_THRESHOLD int = 51                 //1-100
-	GROUP_MAX_MEMBERS int = 50             //一个组最大的成员数量
+	GROUP_MAX_MEMBERS int = 500            //一个组最大的成员数量
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
