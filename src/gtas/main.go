@@ -20,7 +20,6 @@ import (
 	"runtime"
 	"time"
 	"log"
-	"runtime/debug"
 )
 
 func main() {
@@ -36,7 +35,7 @@ func gc() {
 	for {
 		<-gcTick.C
 		log.Println("Force GC...")
-		//runtime.GC()
-		debug.FreeOSMemory()
+		runtime.GC()
+		//debug.FreeOSMemory()
 	}
 }

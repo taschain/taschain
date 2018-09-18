@@ -36,7 +36,7 @@ var IsInit = false
 var WriteData = make([]*LogObj,0)
 var WriteData2 = make([]*BlockLogObject,0)
 var batch int
-var enable = true
+var enable = false
 
 type LogObj struct {
 	Hash string
