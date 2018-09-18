@@ -75,10 +75,10 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}
 
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.LoadContractCode()
+	succeed = con.Vm.LoadContractCode(msg)
 	if succeed {
 		con.Vm.SetGas(int(con.Transaction.GasLimit))
-		succeed = con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+		succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
 	}
 
 	con.Vm.DelTvm()
@@ -100,10 +100,10 @@ func (con *Controller) ExecuteTask() {
 		snapshot := con.AccountDB.Snapshot()
 		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
 		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		succeed = con.Vm.LoadContractCode()
+		succeed = con.Vm.LoadContractCode(msg)
 		if succeed {
 			con.Vm.SetGas(gasLeft)
-			succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+			succeed = con.Vm.LoadContractCode(msg) && con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
 		}
 		if !succeed {
 			if con.Vm.Gas() == 0 {

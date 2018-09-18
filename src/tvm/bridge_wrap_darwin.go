@@ -377,7 +377,10 @@ type Msg struct {
 	Sender string
 }
 
-func(tvm *Tvm) LoadContractCode() bool {
+func(tvm *Tvm) LoadContractCode(msg Msg) bool {
+	if tvm.loadMsg(msg) != true {
+		return false
+	}
 	var c_bool C._Bool
 	script := fmt.Sprintf("%s\ntas_%s = %s()",tvm.Code, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
@@ -408,21 +411,20 @@ func (tvm *Tvm)Execute(script string) bool {
 
 func (tvm *Tvm)loadMsg(msg Msg) bool{
 	script := fmt.Sprintf(`
-from clib.tas_runtime import glovar
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
-glovar.msg = Msg(data=bytes(), sender="%s", value=%d)
-glovar.this = "%s"
+msg = Msg(data=bytes(), sender="%s", value=%d)
+this = "%s"
 `, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
 
 func (tvm *Tvm)Deploy(msg Msg) bool {
-	tvm.Execute(tvm.Code)
 	if tvm.loadMsg(msg) != true {
 		return false
 	}
+	tvm.Execute(tvm.Code)
 
 	script := fmt.Sprintf(`
 TAS_PARAMS_DICT = {}
@@ -438,11 +440,7 @@ type ABI struct {
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIJson(msg Msg, j string) bool{
-	if tvm.loadMsg(msg) != true {
-		return false
-	}
-
+func (tvm *Tvm) ExecuteABIJson(j string) bool{
 	res := ABI{}
 	json.Unmarshal([]byte(j), &res)
 	fmt.Println(res)
