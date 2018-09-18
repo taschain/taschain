@@ -19,7 +19,7 @@ import (
 	"gtas/cli"
 	"runtime"
 	"time"
-	"github.com/ethereum/go-ethereum/log"
+	"log"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func gc() {
 	gcTick := time.NewTicker(time.Second * 10)
 	for {
 		<-gcTick.C
-		log.Debug("Force GC...")
+		log.Println("Force GC...")
 		runtime.GC()
 	}
 }
