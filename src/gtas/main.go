@@ -18,11 +18,23 @@ package main
 import (
 	"gtas/cli"
 	"runtime"
+	"time"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	gtas := cli.NewGtas()
+	go gc()
 	gtas.Run()
 }
 
+func gc() {
+
+	gcTick := time.NewTicker(time.Second * 10)
+	for {
+		<-gcTick.C
+		log.Debug("Force GC...")
+		runtime.GC()
+	}
+}
