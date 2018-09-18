@@ -61,7 +61,7 @@ func OnChainFunc(code string, source string) {
 }
 
 func CallContract(address, abi string) {
-	CallContract2(address, abi, "0x1234")
+	CallContract2(address, abi, "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
 func CallContract2(address, abi string, source string) {
@@ -76,7 +76,7 @@ func CallContract2(address, abi string, source string) {
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
+	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 500, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
@@ -91,15 +91,15 @@ func TestVmTest(t *testing.T)  {
 	contract := tvm.Contract{code, "MyAdvancedToken", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0x00000001")
+	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
 func VmTest1(code string)  {
-	contractAddr := "0x27fe3e1d80e80c70f64055ed67cf428b36b5f994"
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
 	abi := code
-	contractAddress := common.HexToAddress("0x00000001")
-	CallContract2(contractAddr, abi, contractAddress.GetHexString())
+	sourceAddr := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	CallContract2(contractAddr, abi, sourceAddr.GetHexString())
 }
 
 func TestVmTest2(t *testing.T)  {
@@ -534,4 +534,26 @@ func genContractTx(price uint64, source string, target string, nonce uint64, val
 func genHash(hash string) []byte {
 	bytes3 := []byte(hash)
 	return common.Sha256(bytes3)
+}
+
+func TestMinerOnChain(t *testing.T)  {
+	Clear()
+	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/miner/miner.py")
+
+	contract := tvm.Contract{code, "miner", nil}
+	jsonString, _ := json.Marshal(contract)
+	fmt.Println(string(jsonString))
+	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	OnChainFunc(string(jsonString), contractAddress.GetHexString())
+}
+
+func TestMinerCall(t *testing.T)  {
+	//VmTest1(`{"FuncName": "register", "Args": ["0x0000000300000000000000000000000000000000", 0]}`)
+	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
+
+	//VmTest1(`{"FuncName": "deregister", "Args": ["0x0000000300000000000000000000000000000000"]}`)
+	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
+
+	//VmTest1(`{"FuncName": "withdraw", "Args": ["0x0000000300000000000000000000000000000000"]}`)
+	//VmTest1(`{"FuncName": "test_print", "Args": []}`)
 }
