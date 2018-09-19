@@ -745,7 +745,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 	defer chain.lock.RUnlock("GetBlockInfo")
 	localHeight := chain.latestBlock.Height
 
-	bh := chain.QueryBlockByHeight(height)
+	bh := chain.queryBlockHeaderByHeight(height,true)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
 		//Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
