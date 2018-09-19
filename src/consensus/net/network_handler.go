@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"consensus/model"
 	"middleware/statistics"
-	"consensus/logical"
 )
 
 type ConsensusHandler struct{
