@@ -331,6 +331,10 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
+	rt := newRtLog("OMGI")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(grm.SI.GetID()))
+	}()
 
 	if !grm.GI.CheckMemberHash(grm.MEMS) {
 		panic("grm member hash diff!")
@@ -428,7 +432,10 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
-
+	rt := newRtLog("OMSP")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spm.SI.GetID()))
+	}()
 	if !spm.Dest.IsEqual(p.GetMinerID()) {
 		return
 	}
@@ -495,7 +502,10 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
-
+	rt := newRtLog("OMSPK")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spkm.SI.GetID()))
+	}()
 	gc := p.joiningGroups.GetGroup(spkm.DummyID)
 	if gc == nil {
 		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
@@ -574,7 +584,10 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
-
+	rt := newRtLog("OMGIED")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(gim.SI.GetID()))
+	}()
 	dummyId := gim.GI.GIS.DummyID
 
 
