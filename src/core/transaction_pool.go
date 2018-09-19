@@ -472,7 +472,7 @@ func (c *container) AsSlice() []*types.Transaction {
 	if length >= c.maxTxsPerBlock {
 		// 根据gasprice，从高到低排序
 		sort.Sort(types.GasPriceTransactions(result))
-		result = result[:length-1]
+		result = result[:c.maxTxsPerBlock]
 	}
 
 	return result

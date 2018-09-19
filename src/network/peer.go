@@ -166,6 +166,7 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		buf:= e.Value.(*bytes.Buffer)
 		P2PSend(p.seesionId, buf.Bytes())
 	}
+	p.sendList = list.New()
 	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 }
 

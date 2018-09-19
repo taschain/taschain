@@ -37,7 +37,9 @@ func newRtLog(key string) *rtLog {
 }
 
 func (r *rtLog) log(format string, p ...interface{})  {
-    log.Printf(fmt.Sprintf("%v:%v cost %v. %v", time.Now().Format(TIMESTAMP_LAYOUT), r.key, time.Since(r.start).String(), fmt.Sprintf(format, p...)))
+	if time.Since(r.start).Nanoseconds() > 5000000 {
+		log.Printf(fmt.Sprintf("%v:%v cost %v. %v", time.Now().Format(TIMESTAMP_LAYOUT), r.key, time.Since(r.start).String(), fmt.Sprintf(format, p...)))
+	}
 }
 
 func (r *rtLog) end()  {
