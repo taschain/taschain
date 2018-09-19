@@ -26,15 +26,9 @@ func revertString(b string) string {
 }
 
 func HashToG1(m string) *bn_curve.G1 {
-	b := &big.Int{}
-	b.SetBytes([]byte(m))
-
-	b.Mod(b, bn_curve.Order)
-
-	bg := &bn_curve.G1{}
-	bg.ScalarBaseMult(b)
-
-	return bg
+	g := &bn_curve.G1{}
+	g.HashToPoint([]byte(m))
+	return g
 }
 
 type BnInt struct {
