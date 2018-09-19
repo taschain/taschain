@@ -22,7 +22,15 @@ import (
 	"math/big"
 )
 
-const ExtraDataTypeBonus = 1
+const (
+	TransactionTypeTransfer = 0
+	TransactionTypeContractCreate = 1
+	TransactionTypeContractCall = 2
+	TransactionTypeBonus = 3
+	TransactionTypeMinerApply = 4
+	TransactionTypeMinerAbort = 5
+	TransactionTypeMinerRefund = 6
+)
 
 type Transaction struct {
 	Data   []byte
@@ -30,6 +38,7 @@ type Transaction struct {
 	Nonce  uint64
 	Source *common.Address
 	Target *common.Address
+	Type   int32
 
 	GasLimit uint64
 	GasPrice uint64
@@ -88,12 +97,30 @@ func (pt *PriorityTransactions) Pop() interface{} {
 
 type Bonus struct {
 	TxHash		common.Hash
-	TargetIds	[]int
+	TargetIds	[]int32
 	BlockHash	common.Hash
 	GroupId		[]byte
 	Sign		[]byte
 	TotalValue	uint64
 }
+
+const (
+	MinerTypeLight  = 0
+	MinerTypeHeavy  = 1
+	MinerStatusNormal = 0
+	MinerStatusAbort = 1
+)
+
+type Miner struct {
+	PublicKey 		[]byte
+	VrfPublicKey 	[]byte
+	ApplyHeight 	uint64
+	Stake			uint64
+	AbortHeight		uint64
+	Type			byte
+	Status			byte
+}
+
 
 //区块头结构
 type BlockHeader struct {

@@ -159,7 +159,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 	target := common.BytesToAddress(t.Target)
 	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
 		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType}
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type:*t.Type}
 	return &transaction
 }
 
@@ -280,7 +280,7 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType}
+		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType,Type:&t.Type}
 	return &transaction
 }
 

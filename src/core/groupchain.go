@@ -54,6 +54,8 @@ type GroupChain struct {
 
 	lastGroup *types.Group
 
+	activeGroups []*types.Group
+
 	//preCache map[string]*types.Group
 	preCache *sync.Map
 }
@@ -418,7 +420,30 @@ func (chain *GroupChain) save(group *types.Group) error {
 	err = chain.groups.Put(group.Id, data)
 	if nil == err {
 		chain.lastGroup = group
+		chain.activeGroups = append(chain.activeGroups, group)
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 	}
 	return err
+}
+
+func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64)  {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+	for ;len(chain.activeGroups) > 0;{
+		group := chain.activeGroups[0]
+		if group.DismissHeight <= blockHeight{
+			chain.activeGroups = chain.activeGroups[1:]
+		}
+	}
+}
+
+func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte) bool{
+	for _,group := range chain.activeGroups{
+		for _,member := range group.Members{
+			if bytes.Equal(member.Id,id){
+				return true
+			}
+		}
+	}
+	return false
 }
