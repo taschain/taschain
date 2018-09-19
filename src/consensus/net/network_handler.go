@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"consensus/model"
 	"middleware/statistics"
+	"consensus/logical"
 )
 
 type ConsensusHandler struct{
@@ -75,14 +76,16 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
 
 	case network.SignPubkeyMsg:
-		logger.Debugf("Receive SIGN_PUBKEY_MSG from:%s", sourceId)
+		t := time.Now()
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			network.Logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return  e
 		}
+		t1 := time.Since(t)
 		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
-
+		t2 := time.Since(t)
+		logger.Infof("SignPubKeyMsg receive %v, unMarshal cost %v, transform cost %v", t.Format("2006-01-02/15:04:05.000"), t1.String(), t2.String())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
