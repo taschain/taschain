@@ -42,6 +42,7 @@ func (p *Peer) addDataToHead(data *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.recvList.PushFront(data)
+	Logger.Infof("addDataToHead size %v", data.Len())
 }
 
 func (p *Peer) popData() *bytes.Buffer {
@@ -73,6 +74,13 @@ func (p *Peer) isEmpty() bool {
 
 	return empty
 }
+
+func(p *Peer) write(packet *bytes.Buffer) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	P2PSend(p.seesionId, packet.Bytes())
+}
+
 
 func (p *Peer) getDataSize() int {
 	p.mutex.Lock()
@@ -115,7 +123,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	}
 	if p.seesionId > 0 {
 		Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
-		P2PSend(p.seesionId, packet.Bytes())
+		p.write(packet)
 	} else {
 
 		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port > 0) || pm.natTraversalEnable) && !p.connecting {
@@ -164,7 +172,8 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 
 	for e := p.sendList.Front(); e != nil; e = e.Next() {
 		buf:= e.Value.(*bytes.Buffer)
-		P2PSend(p.seesionId, buf.Bytes())
+		//P2PSend(p.seesionId, buf.Bytes())
+		p.write(buf)
 	}
 	p.sendList = list.New()
 	Logger.Infof("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
@@ -213,7 +222,8 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	defer pm.mutex.RUnlock()
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
-			P2PSend(p.seesionId, packet.Bytes())
+			//P2PSend(p.seesionId, packet.Bytes())
+			p.write(packet)
 		}
 	}
 
@@ -243,7 +253,8 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 		for _, p := range availablePeers {
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
 
-			P2PSend(p.seesionId, packet.Bytes())
+			//P2PSend(p.seesionId, packet.Bytes())
+			p.write(packet)
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
@@ -258,7 +269,8 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 			p := availablePeers[peerIndex]
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
 
-			P2PSend(p.seesionId, packet.Bytes())
+			//P2PSend(p.seesionId, packet.Bytes())
+			p.write(packet)
 		}
 	}
 

@@ -29,7 +29,8 @@ const (
 // Errors
 var (
 	errPacketTooSmall   = errors.New("too small")
-	errBadPacket          = errors.New("bad Packet")
+	errDataNotEnough   	= errors.New("data not enough")
+	errBadPacket        = errors.New("bad Packet")
 	errExpired          = errors.New("expired")
 	errUnsolicitedReply = errors.New("unsolicited reply")
 	errUnknownNode      = errors.New("unknown node")
@@ -622,10 +623,18 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message,*bytes.Buffer, error
 	for buffer.Len() < packetSize  && !p.isEmpty() {
 		b := p.popData()
 		if b != nil && b.Len() > 0 {
+			Logger.Debugf("popData size:%v!", b.Len())
+
 			buffer.Write(b.Bytes())
 		}
 	}
+	if  buffer.Len() < packetSize {
+		p.addDataToHead(buffer)
+		return MessageType_MessageNone, 0, nil, buffer, errPacketTooSmall
+	}
+
 	bufBytes = buffer.Bytes()
+	Logger.Debugf("decodePacket after :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, buffer.Len())
 
 	if buffer.Len() < packetSize {
 		p.addDataToHead(buffer)
