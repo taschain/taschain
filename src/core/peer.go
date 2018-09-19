@@ -65,7 +65,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 	}
 	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
-	network.GetNetInstance().Send(castorId, message)
+	go network.GetNetInstance().Send(castorId, message)
 }
 
 //本地查询到交易，返回请求方
@@ -77,7 +77,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 	}
 	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
 	message := network.Message{Code: network.TransactionGotMsg, Body: body}
-	network.GetNetInstance().Send(sourceId, message)
+	go network.GetNetInstance().Send(sourceId, message)
 }
 
 //收到交易 全网扩散
@@ -94,7 +94,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		return
 	}
 	message := network.Message{Code: network.TransactionMsg, Body: body}
-	network.GetNetInstance().Relay(message, 3)
+	go network.GetNetInstance().Relay(message, 3)
 }
 
 //向某一节点请求Block信息
@@ -107,7 +107,7 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 		return
 	}
 	message := network.Message{Code: network.ReqBlockInfo, Body: body}
-	network.GetNetInstance().Send(id, message)
+	go network.GetNetInstance().Send(id, message)
 }
 
 //本地查询之后将结果返回
@@ -119,7 +119,7 @@ func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
 		return
 	}
 	message := network.Message{Code: network.BlockInfo, Body: body}
-	network.GetNetInstance().Send(targetId, message)
+	go network.GetNetInstance().Send(targetId, message)
 }
 
 //向目标结点索要 block hash
@@ -130,7 +130,7 @@ func RequestBlockHashes(targetNode string, bhr BlockHashesReq) {
 		return
 	}
 	message := network.Message{Code: network.BlockHashesReq, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
+	go network.GetNetInstance().Send(targetNode, message)
 }
 
 //向目标结点发送 block hash
@@ -141,14 +141,14 @@ func SendBlockHashes(targetNode string, bhs []*BlockHash) {
 		return
 	}
 	message := network.Message{Code: network.BlockHashes, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
+	go network.GetNetInstance().Send(targetNode, message)
 }
 
 func ReqBlockBody(targetNode string, blockHash common.Hash) {
 	body := blockHash.Bytes()
 
 	message := network.Message{Code: network.BlockBodyReqMsg, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
+	go network.GetNetInstance().Send(targetNode, message)
 }
 
 func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*types.Transaction) {
@@ -159,7 +159,7 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	}
 
 	message := network.Message{Code: network.BlockBodyMsg, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
+	go network.GetNetInstance().Send(targetNode, message)
 }
 
 //--------------------------------------------------Transaction---------------------------------------------------------------

@@ -94,11 +94,10 @@ func (bs *blockSyncer) sync() {
 		return
 	}
 	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
+	logger.Debug("Get info from chain")
 	bs.lock.Lock()
-	logger.Debug("in lock")
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
-	logger.Debug("out lock")
 	bs.lock.Unlock()
 	if maxTotalQN <= localTotalQN {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
@@ -141,16 +140,13 @@ func (bs *blockSyncer) loop() {
 			}
 			bs.lock.Unlock()
 		case <-syncTicker.C:
-			logger.Debug("syncTicker.C")
 			if !bs.init{
 				continue
 			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			requestBlockChainTotalQn()
 			totalQnRcvTimer.Reset(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
-			logger.Debug("totalQnRcvTimer.Reset")
 		case <-totalQnRcvTimer.C:
-			logger.Debug("totalQnRcvTimer.C")
 			if bs.replyCount <= 0 {
 				continue
 			}

@@ -75,7 +75,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 
 	begin := time.Now()
-	ns.net.SendWithGroupRelay(spm.Dest.String(), spm.DummyID.GetHexString(), m)
+	go ns.net.SendWithGroupRelay(spm.Dest.String(), spm.DummyID.GetHexString(), m)
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v", spm.Dest.String(), m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -92,7 +92,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
 
 	begin := time.Now()
-	ns.net.Multicast(spkm.DummyID.GetHexString(), m)
+	go ns.net.Multicast(spkm.DummyID.GetHexString(), m)
 	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -108,7 +108,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.Broadcast(m)
+	go ns.net.Broadcast(m)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
@@ -132,7 +132,7 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 	}
 	timeFromCast :=  time.Since(ccm.BH.CurTime)
 	begin := time.Now()
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.QueueNumber, time.Since(begin),timeFromCast, m.Hash())
 }
 
@@ -152,7 +152,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 	}
 	timeFromCast :=  time.Since(cvm.BH.CurTime)
 	begin := time.Now()
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.QueueNumber, time.Since(begin),timeFromCast, m.Hash())
 	statistics.AddBlockLog(common.BootId,statistics.SendVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
@@ -172,7 +172,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	nextCastGroupId := group.Gid.GetHexString()
 	groupMembers := id2String(group.MemIds)
 
-	ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
+	go ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
 
 
 
@@ -183,7 +183,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		return
 	}
 	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:headerByte}
-	ns.net.Relay(headerMsg,1)
+	go ns.net.Relay(headerMsg,1)
 	//network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	statistics.AddBlockLog(common.BootId,statistics.BroadBlock,cbm.Block.Header.Height,cbm.Block.Header.QueueNumber,len(cbm.Block.Transactions),len(body),
@@ -204,7 +204,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 	m := network.Message{Code: network.CreateGroupaRaw, Body: body}
 
 	var groupId = msg.GI.ParentID
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage) {
@@ -215,7 +215,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CreateGroupSign, Body: body}
 
-	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
+	go ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
 //----------------------------------------------组初始化---------------------------------------------------------------

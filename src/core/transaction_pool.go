@@ -143,7 +143,7 @@ func (pool *TransactionPool) Clear() {
 }
 
 func (pool *TransactionPool) GetReceived() []*types.Transaction {
-	return pool.received.AsSlice()
+	return pool.received.txs
 }
 
 // 返回待处理的transaction数组
