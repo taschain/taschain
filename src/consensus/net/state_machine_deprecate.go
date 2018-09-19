@@ -253,7 +253,7 @@ package net
 //		p = p.Next
 //	}
 //	if p == nil {
-//		logger.Warnf("illegal msg found! curr state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
+//		logger.Warnf("illegal msg found! exec state %v, found state %v, msg %v", m.Current.State.code, state.State.code, state.State)
 //	}
 //	future = future && p != nil
 //
