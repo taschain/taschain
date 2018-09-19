@@ -39,6 +39,7 @@ const (
 	//默认曲线相关参数结束。
 	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1，160位)
 	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
+	GroupIdLength = 32
 )
 
 var (

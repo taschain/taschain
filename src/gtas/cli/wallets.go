@@ -30,7 +30,7 @@ type wallets []wallet
 var mutex sync.Mutex
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64) (*common.Hash, *common.Address, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64, cmd int32) (*common.Hash, *common.Address, error) {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
@@ -47,7 +47,7 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	var contractAddr common.Address
 	var i uint64 = 0
 	for ; i < 100; i++ {
-		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0)
+		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0, cmd)
 		transaction.Hash = transaction.GenHash()
 		_, err := txpool.Add(transaction)
 		if err != nil {

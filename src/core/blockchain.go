@@ -64,6 +64,10 @@ type BlockChainConfig struct {
 	qn uint64
 
 	bonus string
+
+	heavy string
+
+	light string
 }
 
 type BlockChain struct {
@@ -120,6 +124,10 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 		qn: 4,
 
 		bonus: "bonus",
+
+		light: "light",
+
+		heavy: "heavy",
 	}
 }
 
@@ -139,6 +147,10 @@ func getBlockChainConfig() *BlockChainConfig {
 		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 
 		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
+
+		heavy: common.GlobalConf.GetString(CONFIG_SEC, "heavy", defaultConfig.heavy),
+
+		light: common.GlobalConf.GetString(CONFIG_SEC, "light", defaultConfig.light),
 	}
 
 }
@@ -207,7 +219,7 @@ func initBlockChain() error {
 			chain.saveBlock(block)
 		}
 	}
-
+	initMinerManager(chain.config)
 	BlockChainImpl = chain
 	return nil
 }
@@ -295,9 +307,10 @@ func (chain *BlockChain) Clear() error {
 	return err
 }
 
-func (chain *BlockChain) GenerateBonus(targetIds []int, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction) {
+func (chain *BlockChain) GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction) {
 	group := GroupChainImpl.getGroupById(groupId)
 	buffer := &bytes.Buffer{}
+	buffer.Write(groupId)
 	for i:=0;i<len(targetIds);i++{
 		index := targetIds[i]
 		buffer.Write(group.Members[index].Id)
@@ -306,8 +319,8 @@ func (chain *BlockChain) GenerateBonus(targetIds []int, blockHash common.Hash, g
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
 	transaction.Hash = transaction.GenHash()
-	transaction.Value = totalValue
-	transaction.ExtraDataType = types.ExtraDataTypeBonus
+	transaction.Value = totalValue / uint64(len(targetIds))
+	transaction.Type = types.TransactionTypeBonus
 	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,GroupId:groupId,TotalValue:totalValue},transaction
 }
 
@@ -676,7 +689,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		triedb.Commit(root, false)
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-
+		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
 			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}

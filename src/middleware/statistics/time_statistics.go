@@ -118,7 +118,7 @@ func InitStatistics(config common.ConfManager){
 	//url = config.GetString("statistics","url","http://localhost:9090/send")
 	timeout = time.Duration(config.GetInt("statistics","timeout",1)) * time.Second
 	batch =  config.GetInt("statistics","batch",0)
-	//enable = config.GetBool("statistics","enable", false)
+	enable = config.GetBool("statistics","enable", false)
 	go ProcessLog()
 	go func() {
 		t := time.Tick(Duration * time.Second)

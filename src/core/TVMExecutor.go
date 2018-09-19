@@ -24,6 +24,8 @@ import (
 	"storage/core/vm"
 	"fmt"
 	"tvm"
+	"bytes"
+	"github.com/vmihailenco/msgpack"
 )
 
 type TVMExecutor struct {
@@ -47,22 +49,77 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		if transaction.Target == nil{
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contractAddress, _ = createContract(accountdb, transaction)
-			contract := tvm.LoadContract(contractAddress)
-			controller.Deploy(transaction.Source, contract)
-		} else if len(transaction.Data) > 0 {
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contract := tvm.LoadContract(*transaction.Target)
-			controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
-		} else {
-			amount := big.NewInt(int64(transaction.Value))
-			if CanTransfer(accountdb, *transaction.Source, amount){
-				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-			} else {
-				fail = true
-			}
+		switch transaction.Type {
+			case types.TransactionTypeTransfer:
+				amount := big.NewInt(int64(transaction.Value))
+				if CanTransfer(accountdb, *transaction.Source, amount){
+					Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+				} else {
+					fail = true
+				}
+			case types.TransactionTypeContractCreate:
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				contractAddress, _ = createContract(accountdb, transaction)
+				contract := tvm.LoadContract(contractAddress)
+				fail = !controller.Deploy(transaction.Source, contract)
+			case types.TransactionTypeContractCall:
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				contract := tvm.LoadContract(*transaction.Target)
+				fail = !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+			case types.TransactionTypeBonus:
+				if v,_ := executor.bc.bonus.Has(transaction.Data);v == false{
+					reader := bytes.NewReader(transaction.ExtraData)
+					groupId := make([]byte,common.GroupIdLength)
+					addr := make([]byte,common.AddressLength)
+					value := big.NewInt(int64(transaction.Value))
+					if n,_ := reader.Read(groupId);n != common.GroupIdLength{
+						panic("TVMExecutor Read GroupId Fail")
+					}
+					for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
+						accountdb.AddBalance(common.BytesToAddress(addr),value)
+					}
+					executor.bc.bonus.Put(transaction.Data, transaction.Hash[:])
+				} else {
+					fail = true
+				}
+			case types.TransactionTypeMinerApply:
+				if transaction.Data == nil{
+					fail = true
+					continue
+				}
+				var miner types.Miner
+				msgpack.Unmarshal(transaction.Data,&miner)
+				mexist,_ := MinerManagerImpl.GetMinerById(transaction.Source[:],miner.Type)
+				if mexist == nil{
+					amount := big.NewInt(int64(transaction.Value))
+					if CanTransfer(accountdb, *transaction.Source, amount){
+						MinerManagerImpl.AddMiner(transaction.Source[:],&miner)
+						accountdb.SubBalance(*transaction.Source,amount)
+					} else {
+						fail = true
+					}
+				} else {
+					fail = true
+				}
+			case types.TransactionTypeMinerAbort:
+				if transaction.Data == nil{
+					fail = true
+					continue
+				}
+				fail = !MinerManagerImpl.AbortMiner(transaction.Source[:],transaction.Data[0],transaction.Value)
+			case types.TransactionTypeMinerRefund:
+				mexist,_ := MinerManagerImpl.GetMinerById(transaction.Source[:],transaction.Data[0])
+				if mexist != nil && mexist.Status == types.MinerStatusAbort{
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
+						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type)
+						amount := big.NewInt(int64(mexist.Stake))
+						accountdb.AddBalance(*transaction.Source, amount)
+					} else {
+						fail = true
+					}
+				} else {
+					fail = true
+				}
 		}
 		receipt := t.NewReceipt(nil,fail,0)
 		receipt.TxHash = transaction.Hash
