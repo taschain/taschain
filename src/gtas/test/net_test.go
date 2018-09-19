@@ -9,6 +9,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"log"
+	"runtime"
 )
 
 func TestNet1(test *testing.T) {
@@ -19,7 +21,7 @@ func TestNet1(test *testing.T) {
 	for {
 		m := mockMsg()
 		network.GetNetInstance().Broadcast(m)
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 1)
 	}
 }
 
@@ -30,13 +32,13 @@ func TestNet2(test *testing.T) {
 	for {
 		m := mockMsg()
 		network.GetNetInstance().Broadcast(m)
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 1)
 	}
 }
 
 func mockMsg() network.Message {
 
-	body := make([]byte, 1000000)
+	body := make([]byte, 10000)
 	msg := network.Message{Code: 1, Body: body}
 	return msg
 }
@@ -45,4 +47,15 @@ func pprof(){
 	go func() {
 		http.ListenAndServe("localhost:1111", nil)
 	}()
+}
+
+func gc() {
+
+	gcTick := time.NewTicker(time.Second * 5)
+	for {
+		<-gcTick.C
+		log.Println("Force GC...")
+		runtime.GC()
+		//debug.FreeOSMemory()
+	}
 }
