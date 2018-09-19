@@ -40,6 +40,9 @@ const (
 var GroupSyncer groupSyncer
 var logger taslog.Logger
 
+var heightRcvTimer = time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
+
+
 type GroupHeightInfo struct {
 	Height   uint64
 	SourceId string
@@ -74,6 +77,7 @@ func InitGroupSyncer() {
 	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	GroupSyncer = groupSyncer{ReqHeightCh: make(chan string,100), HeightCh: make(chan GroupHeightInfo,100),
 		ReqGroupCh: make(chan GroupRequestInfo,100), GroupCh: make(chan GroupInfo,100), maxHeight: 0, init: false, replyCount: 0}
+	go GroupSyncer.loop()
 	go GroupSyncer.start()
 }
 
@@ -83,34 +87,27 @@ func (gs *groupSyncer) IsInit() bool {
 
 func (gs *groupSyncer) start() {
 	logger.Debug("[GroupSyncer]Wait for connecting...")
-	go gs.loop()
-
+	t := time.NewTimer(INIT_INTERVAL)
+	defer t.Stop()
 	for {
 		requestGroupChainHeight()
-		t := time.NewTimer(INIT_INTERVAL)
+		t.Reset(INIT_INTERVAL)
 		<-t.C
-		//t.Reset(INIT_INTERVAL)
 		if gs.replyCount > 0 {
 			logger.Debug("[GroupSyncer]Detect node and start sync group...")
 			break
 		}
 	}
-
-	gs.sync()
+	heightRcvTimer.Reset(GROUP_HEIGHT_RECEIVE_INTERVAL)
 }
 
 func (gs *groupSyncer) sync() {
-	requestGroupChainHeight()
-	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
-
-	<-t.C
 	localHeight := core.GroupChainImpl.Count()
 	gs.lock.Lock()
 	maxHeight := gs.maxHeight
 	bestNode := gs.bestNode
 	gs.maxHeight = 0
 	gs.bestNode = ""
-	gs.replyCount = 0
 	gs.lock.Unlock()
 
 	if maxHeight <= localHeight {
@@ -127,12 +124,15 @@ func (gs *groupSyncer) sync() {
 }
 
 func (gs *groupSyncer) loop() {
-	t := time.NewTicker(GROUP_SYNC_INTERVAL)
+	syncTicker := time.NewTicker(GROUP_SYNC_INTERVAL)
+
+	defer syncTicker.Stop()
+	defer heightRcvTimer.Stop()
 	for {
 		select {
 		case sourceId := <-gs.ReqHeightCh:
 			//收到组高度请求
-			//logger.Debugf("[GroupSyncer]Rcv group height req from:%s", sourceId)
+			logger.Debugf("[GroupSyncer]Rcv group height req from:%s", sourceId)
 			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的组链高度
@@ -186,11 +186,17 @@ func (gs *groupSyncer) loop() {
 				}
 			}
 
-		case <-t.C:
+		case <-syncTicker.C:
 			if !gs.init {
 				continue
 			}
-			//logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
+			logger.Debugf("[GroupSyncer]sync time up, start to group sync!")
+			requestGroupChainHeight()
+			heightRcvTimer.Reset(GROUP_HEIGHT_RECEIVE_INTERVAL)
+		case<-heightRcvTimer.C:
+			if gs.replyCount <= 0 {
+				continue
+			}
 			gs.sync()
 		}
 	}
