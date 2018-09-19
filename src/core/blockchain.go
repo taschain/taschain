@@ -631,7 +631,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
+		go RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
 		status = 2
 	}
 
@@ -649,7 +649,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
 			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			network.GetNetInstance().Relay(headerMsg,1)
+			go network.GetNetInstance().Relay(headerMsg,1)
 			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.QueueNumber, len(h), b.Header.Hash)
 		}
 
