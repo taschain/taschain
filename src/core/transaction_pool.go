@@ -132,8 +132,8 @@ func NewTransactionPool() *TransactionPool {
 }
 
 func (pool *TransactionPool) Clear() {
-	pool.lock.Lock("Clear")
-	defer pool.lock.Unlock("Clear")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
@@ -163,8 +163,8 @@ func (pool *TransactionPool) ReserveTransactions(hash common.Hash, txs []*types.
 
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
-	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("AddTransactions")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
@@ -180,8 +180,8 @@ func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 	return nil
 }
 func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
-	pool.lock.Lock("Add")
-	defer pool.lock.Unlock("Add")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	return pool.addInner(tx, true)
 }
@@ -242,8 +242,8 @@ func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []
 		return nil, nil, ErrNil
 	}
 
-	pool.lock.RLock("GetTransactions")
-	defer pool.lock.RUnlock("GetTransactions")
+	pool.lock.RLock("")
+	defer pool.lock.RUnlock("")
 	reservedRaw, _ := pool.reserved.Get(reservedHash)
 	var reserved []*types.Transaction
 	if nil != reservedRaw {
@@ -288,8 +288,8 @@ func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction,
 // 根据hash获取交易实例
 // 此处加锁
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
-	pool.lock.RLock("GetTransaction")
-	defer pool.lock.RUnlock("GetTransaction")
+	pool.lock.RLock("")
+	defer pool.lock.RUnlock("")
 
 	return pool.getTransaction(hash)
 }

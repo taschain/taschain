@@ -88,13 +88,11 @@ func (bs *blockSyncer) SetInit(init bool){
 }
 
 func (bs *blockSyncer) sync() {
-	logger.Debug("into sync")
 	if nil == core.BlockChainImpl {
 		logger.Error("core.BlockChainImpl is nil!")
 		return
 	}
 	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
-	logger.Debug("Get info from chain")
 	bs.lock.Lock()
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
