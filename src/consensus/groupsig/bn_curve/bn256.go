@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/big"
 	"bytes"
+	"github.com/minio/sha256-simd"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -93,6 +94,72 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 	g.p = &curvePoint{*px, *py, *newGFp(1), *newGFp(1)}
 
 	return nil
+}
+
+// Hash m to a point in Curve.
+// Using try-and-increment method
+// 	in https://www.normalesup.org/~tibouchi/papers/bnhash-scis.pdf
+func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
+	bi_curveB := new(big.Int).SetInt64(3)
+	one := big.NewInt(1)
+
+	h := sha256.Sum256(m)
+	x := new(big.Int).SetBytes(h[:])
+	x.Mod(x, P)
+
+	for {
+		xxx := new(big.Int).Mul(x, x)
+		xxx.Mul(xxx, x)
+		t := new(big.Int).Add(xxx, bi_curveB)
+
+		y := new(big.Int).ModSqrt(t, P)
+		if y != nil {
+			return x, y
+		}
+
+		x.Add(x, one)
+	}
+}
+
+func (e *G1) HashToPoint(m []byte) error {
+	x, y := hashToCurvePoint(m)
+
+	x_str := x.Bytes()
+	y_str := y.Bytes()
+	buf_x := make([]byte, 32)
+	buf_y := make([]byte, 32)
+
+	j := 0
+	for i := 32-len(x_str); i<32; i++ {
+		buf_x[i] = x_str[j]
+		j ++
+	}
+
+	j = 0
+	for i:=32-len(y_str); i<32; i++ {
+		buf_y[i] = y_str[j]
+		j++
+	}
+
+	Px, Py := &gfP{}, &gfP{}
+	Px.Unmarshal(buf_x)
+	Py.Unmarshal(buf_y)
+	montEncode(Px, Px)
+	montEncode(Py, Py)
+
+	if e.p == nil {
+		e.p = &curvePoint{}
+	}
+	e.p.x.Set(Px)
+	e.p.y.Set(Py)
+	e.p.z.Set(newGFp(1))
+	e.p.t.Set(newGFp(1))
+
+	if e.IsValid() {
+		return nil
+	} else {
+		return errors.New("hash to point failed.")
+	}
 }
 
 func (g *G1) String() string {
