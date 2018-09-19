@@ -162,6 +162,10 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
+	//测试 P2P发送情况 打开该注释
+	//fmt.Printf("Receive message from %s,msg size:%d\n", from, len(b))
+	//return
+
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
