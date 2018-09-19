@@ -103,11 +103,15 @@ func (bc *BlockContext) AddVerifyContext(vctx *VerifyContext) bool {
 	return true
 }
 
-func (bc *BlockContext) replaceVerifyCtx(idx int, height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
+func (bc *BlockContext) replaceVerifyCtx(old *VerifyContext, height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 	vctx := newVerifyContext(bc, height, expireTime, preBH)
-	bc.verifyContexts[idx] = vctx
+	for idx, vx := range bc.verifyContexts {
+		if vx == old {
+			bc.verifyContexts[idx] = vctx
+		}
+	}
 	return vctx
 }
 
@@ -130,7 +134,7 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 			preOld := bc.Proc.getBlockHeaderByHash(vctx.prevBH.Hash)
 			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
 			if preOld == nil {
-				vctx = bc.replaceVerifyCtx(idx, height, expireTime, preBH)
+				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preBH)
 				return idx, vctx
 			}
 			preNew := bc.Proc.getBlockHeaderByHash(preBH.Hash)
@@ -140,7 +144,7 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 			}
 			//新旧preBH都非空， 取高度高的preBH？
 			if preOld.Height < preNew.Height {
-				vctx = bc.replaceVerifyCtx(idx, height, expireTime, preNew)
+				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preNew)
 			}
 		}
 	}
@@ -203,12 +207,15 @@ func (bc *BlockContext) reset() {
 
 //开始铸块
 func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) bool {
-	idx, vctx := bc.getOrNewVctx(castHeight, expire, baseBH)
+	_, vctx := bc.getOrNewVctx(castHeight, expire, baseBH)
 	if vctx == nil {
 		return false
 	}
 	if !vctx.isCasting() {
-		bc.replaceVerifyCtx(idx, castHeight, expire, baseBH)
+		vctx = bc.replaceVerifyCtx(vctx, castHeight, expire, baseBH)
+	}
+	if vctx == nil {
+		return false
 	}
 
 	bc.setCurrentVerifyCtx(vctx)
