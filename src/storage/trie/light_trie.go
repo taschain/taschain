@@ -31,6 +31,14 @@ func NewLightTrie(root common.Hash, db *Database) (*LightTrie, error) {
 }
 
 
+func (t *LightTrie) Get(key []byte) []byte {
+	res, err := t.TryGet(key)
+	if err != nil {
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	}
+	return res
+}
+
 func (t *LightTrie) Root() []byte { return t.Hash().Bytes() }
 
 func (t *LightTrie) Hash() common.Hash {
@@ -175,6 +183,12 @@ func (t *LightTrie) resolveHash(n hashNode, prefix []byte) (node, error) {
 }
 
 
+func (t *LightTrie) Delete(key []byte) {
+	if err := t.TryDelete(key); err != nil {
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	}
+}
+
 func (t *LightTrie) TryGet(key []byte) ([]byte, error) {
 	key = keybytesToHex(key)
 	value, newroot, didResolve, err := t.tryGet(t.root, key, 0)
@@ -229,6 +243,7 @@ func (t *LightTrie) Update(key, value []byte) {
 
 func (t *LightTrie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
+	fmt.Printf("instert key = %v,%v,%v\n",key,k,hexToCompact(k))
 	if len(value) != 0 {
 		_, n, err := t.insert(t.root, nil, k, valueNode(value))
 		if err != nil {
@@ -252,7 +267,7 @@ func (t *LightTrie) insert(n node, prefix, key []byte, value node) (bool, node, 
 		}
 		return true, value, nil
 	}
-	switch n := n.(type) {
+        	switch n := n.(type) {
 	case *shortNode:
 		matchlen := prefixLen(key, n.Key)
 

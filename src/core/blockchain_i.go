@@ -71,6 +71,10 @@ type BlockChainI interface {
 	Height() uint64
 
 	SaveBlock(b *types.Block) int8
+
+	Remove(header *types.BlockHeader)
+
+	SetAdujsting(isAjusting bool)
 }
 
 //组管理接口

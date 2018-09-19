@@ -30,10 +30,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"common"
 	"storage/tasdb"
-	"math/big"
-	"storage/serialize"
-	"golang.org/x/crypto/sha3"
-	"github.com/ethereum/go-ethereum/crypto"
+
 )
 
 func init() {
@@ -592,34 +589,34 @@ func benchUpdate(b *testing.B, e binary.ByteOrder) *Trie {
 // the first one will be NOOP. As such, we'll use b.N as the number of account to
 // insert into the trie before measuring the hashing.
 func BenchmarkHash(b *testing.B) {
-	// Make the random benchmark deterministic
-	random := rand.New(rand.NewSource(0))
-
-	// Create a realistic account trie to hash
-	addresses := make([][20]byte, b.N)
-	for i := 0; i < len(addresses); i++ {
-		for j := 0; j < len(addresses[i]); j++ {
-			addresses[i][j] = byte(random.Intn(256))
-		}
-	}
-	accounts := make([][]byte, len(addresses))
-	for i := 0; i < len(accounts); i++ {
-		var (
-			nonce   = uint64(random.Int63())
-			balance = new(big.Int).Rand(random, new(big.Int).Exp(common.Big2, common.Big256, nil))
-			root    = emptyRoot
-			code    = sha3.Sum256(nil)
-		)
-		accounts[i], _ = serialize.EncodeToBytes([]interface{}{nonce, balance, root, code})
-	}
-	// Insert the accounts into the trie and hash it
-	trie := newEmpty()
-	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
-	}
-	b.ResetTimer()
-	b.ReportAllocs()
-	trie.Hash()
+	//// Make the random benchmark deterministic
+	//random := rand.New(rand.NewSource(0))
+	//
+	//// Create a realistic account trie to hash
+	//addresses := make([][20]byte, b.N)
+	//for i := 0; i < len(addresses); i++ {
+	//	for j := 0; j < len(addresses[i]); j++ {
+	//		addresses[i][j] = byte(random.Intn(256))
+	//	}
+	//}
+	//accounts := make([][]byte, len(addresses))
+	//for i := 0; i < len(accounts); i++ {
+	//	var (
+	//		nonce   = uint64(random.Int63())
+	//		balance = new(big.Int).Rand(random, new(big.Int).Exp(common.Big2, common.Big256, nil))
+	//		root    = emptyRoot
+	//		code    = sha3.Sum256(nil)
+	//	)
+	//	accounts[i], _ = serialize.EncodeToBytes([]interface{}{nonce, balance, root, code})
+	//}
+	//// Insert the accounts into the trie and hash it
+	//trie := newEmpty()
+	//for i := 0; i < len(addresses); i++ {
+	//	trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+	//}
+	//b.ResetTimer()
+	//b.ReportAllocs()
+	//trie.Hash()
 }
 
 func tempDB() (string, *Database) {

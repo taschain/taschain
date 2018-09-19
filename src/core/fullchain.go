@@ -9,6 +9,7 @@ import (
 	"common"
 	vtypes "storage/core/types"
 	"math"
+	"time"
 )
 
 type FullChain struct {
@@ -40,6 +41,20 @@ type FullChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
+}
+
+
+func (chain *FullChain) SetAdujsting(isAjusting bool) {
+	chain.isAdujsting = isAjusting
+	if isAjusting == true {
+		go func() {
+			t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
+
+			<-t.C
+			Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!")
+			chain.isAdujsting = false
+		}()
+	}
 }
 
 //根据哈希取得某个交易
@@ -174,4 +189,9 @@ func (chain *FullChain) Height() uint64 {
 		return math.MaxUint64
 	}
 	return chain.latestBlock.Height
+}
+
+
+func (chain *FullChain) Remove(header *types.BlockHeader){
+	panic("not expect enter here")
 }

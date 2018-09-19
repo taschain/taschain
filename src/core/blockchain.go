@@ -508,7 +508,6 @@ func (chain *BlockChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
-
 	var (
 		state    *core.AccountDB
 		receipts vtypes.Receipts
@@ -538,7 +537,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
-		chain.remove(chain.latestBlock)
+		chain.Remove(chain.latestBlock)
 		status = chain.SaveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
@@ -798,7 +797,7 @@ func isCommonAncestor(bhs []*BlockHash, index int) int {
 
 
 // 删除块
-func (chain *BlockChain) remove(header *types.BlockHeader) {
+func (chain *BlockChain) Remove(header *types.BlockHeader) {
 	hash := header.Hash
 	block := chain.queryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
@@ -837,15 +836,4 @@ func (chain *BlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *BlockChain) SetAdujsting(isAjusting bool) {
-	chain.isAdujsting = isAjusting
-	if isAjusting == true {
-		go func() {
-			t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
 
-			<-t.C
-			Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!")
-			chain.isAdujsting = false
-		}()
-	}
-}

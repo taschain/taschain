@@ -24,6 +24,7 @@ import (
 	"encoding/gob"
 	"bytes"
 
+	"common"
 )
 
 const encodeVersion byte = 1
@@ -49,6 +50,7 @@ type node interface {
 	canUnload(cachegen, cachelimit uint16) bool
 	magic() byte
 	encode(io.Writer) error
+	print()string
 }
 
 type (
@@ -73,6 +75,46 @@ type nodeFlag struct {
 	gen   uint16   // cache generation counter
 	dirty bool     // whether the node has changes that must be written to the database
 }
+
+func (n *fullNode) print()string  {
+	str:= fmt.Sprintf("fullnode:flag=%v,value=[",n.flags)
+	for index,d:=range n.Children{
+		switch dn:=d.(type) {
+		case hashNode:
+			str1 := fmt.Sprintf("hashnode:index=%d,value=%v",index,(common.ToHex([]byte(dn))))
+			str=fmt.Sprintf("%s,%s",str,str1)
+		case valueNode:
+			str1 := fmt.Sprintf(str,"valueNode:index=%d,value=%v",index,([]byte(dn)))
+			str=fmt.Sprintf("%s,%s",str,str1)
+		default:
+			if d != nil{
+				str1 := fmt.Sprintf("otherNode:index=%d",index)
+				str=fmt.Sprintf("%s,%s",str,str1)
+			}
+
+		}
+	}
+	str=fmt.Sprintf("%s,%s",str,"]\n")
+	return str
+
+}
+func (n *shortNode) print()string   {
+	var str string= ""
+	hashnode,isok :=n.Val.(hashNode)
+	if isok{
+		str = fmt.Sprintf("[hashnode:value=%v]",hashnode)
+	}else{
+		valuenode,isok :=n.Val.(valueNode)
+		if isok{
+			str = fmt.Sprintf("[valuenode:value=%v]",([]byte)(valuenode))
+		}else{
+			str = fmt.Sprintf("[othernode:value=%v]",n.Val)
+		}
+	}
+	return fmt.Sprintf("shortNode:key=%v,value=%s,flag=%v\n",n.Key,str,n.flags)
+	}
+func (n hashNode) print()string   {return fmt.Sprintf("hashNode:value=%v\n",n) }
+func (n valueNode) print()string  {return fmt.Sprintf("valueNode:value=%v\n",n) }
 
 func (n *fullNode) cache() (hashNode, bool)  { return n.flags.hash, n.flags.dirty }
 func (n *shortNode) cache() (hashNode, bool) { return n.flags.hash, n.flags.dirty }

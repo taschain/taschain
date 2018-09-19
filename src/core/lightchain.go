@@ -191,8 +191,8 @@ func (chain *LightChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *LightChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
-	chain.lock.Lock("VerifyCastingBlock")
-	defer chain.lock.Unlock("VerifyCastingBlock")
+	chain.lock.Lock("VerifyCastingLightChainBlock")
+	defer chain.lock.Unlock("VerifyCastingLightChainBlock")
 
 	return chain.verifyCastingBlock(bh, nil)
 }
@@ -222,7 +222,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		var castorId groupsig.ID
 		error := castorId.Deserialize(bh.Castor)
 		if error != nil {
-			log.Printf("[BlockChain]Give up request txs because of groupsig id deserialize error:%s", error.Error())
+			log.Printf("[LightChain]Give up request txs because of groupsig id deserialize error:%s", error.Error())
 			return nil, 1, nil, nil
 		}
 
@@ -240,7 +240,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	txtree := calcTxTree(transactions)
 
 	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
+		Logger.Debugf("[LightChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 
@@ -252,13 +252,9 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
-		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
+		Logger.Errorf("[LightChain]fail to new statedb, error:%s", err)
 		return nil, -1, nil, nil
 	}
-	//else {
-	//	log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
-	//}
-
 	b := new(types.Block)
 	b.Header = &bh
 	b.Transactions = transactions
@@ -266,14 +262,9 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
 	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
+		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
 	}
-	//receiptsTree := calcReceiptsTree(receipts).Bytes()
-	//if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
-	//	Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
-	//	return nil, 1, nil, nil
-	//}
 
 	chain.blockCache.Add(bh.Hash, &castingBlock{
 		state:    state,
@@ -296,18 +287,16 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
-	chain.lock.Lock("AddBlockOnChain")
-	defer chain.lock.Unlock("AddBlockOnChain")
+	chain.lock.Lock("LightChain:AddBlockOnChain")
+	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
 
 	return chain.addBlockOnChain(b)
 }
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
-
 	var (
 		state    *core.AccountDB
-		receipts vtypes.Receipts
 		status   int8
 	)
 
@@ -318,24 +307,23 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state
-		receipts = cache.(*castingBlock).receipts
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		_, status, state, _ = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status != 0 {
-			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
+			Logger.Errorf("[LightChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
 
 	if b.Header.PreHash == chain.latestBlock.Hash {
-		status = chain.saveBlock(b)
+		status = chain.SaveBlock(b)
 	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
-		chain.remove(chain.latestBlock)
-		status = chain.saveBlock(b)
+		chain.Remove(chain.latestBlock)
+		status = chain.SaveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		if chain.isAdujsting {
@@ -344,7 +332,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
-			log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
+			log.Printf("[LightChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
 			return -1
 		}
 		chain.SetAdujsting(true)
@@ -355,7 +343,6 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
@@ -373,6 +360,25 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	}
 	return status
 
+}
+
+// 删除块
+func (chain *LightChain) Remove(header *types.BlockHeader) {
+	hash := header.Hash
+	block := chain.queryBlockByHash(hash)
+	chain.blockHeight.Delete(GenerateHeightKey(header.Height))
+
+	// 删除块的交易，返回transactionpool
+	if nil == block {
+		return
+	}
+	txs := block.Transactions
+	if 0 == len(txs) {
+		return
+	}
+	chain.transactionPool.GetLock().Lock("remove block")
+	defer chain.transactionPool.GetLock().Unlock("remove block")
+	chain.transactionPool.AddTxs(txs)
 }
 
 
