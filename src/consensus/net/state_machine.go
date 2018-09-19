@@ -32,8 +32,8 @@ type stateHandleFunc func(msg interface{})
 type stateNode struct {
 	code    uint32
 	repeat  int
-	current int
-	data    []*StateMsg
+	curr    int
+	queue   []*StateMsg
 	handler stateHandleFunc
 	next    *stateNode
 }
@@ -91,10 +91,10 @@ func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 
 func newStateNode(st uint32, r int, h stateHandleFunc) *stateNode {
 	return &stateNode{
-		code: st,
-		repeat: r,
-		data: make([]*StateMsg, 0),
-		handler:h,
+		code:    st,
+		repeat:  r,
+		queue:   make([]*StateMsg, 0),
+		handler: h,
 	}
 }
 
@@ -106,15 +106,15 @@ func newStateMachine(id string) *StateMachine {
 }
 
 func (n *stateNode) notEmpty() bool {
-    return len(n.data) > 0
+    return len(n.queue) > 0
 }
 
 func (n *stateNode) state() string {
-    return fmt.Sprintf("%v[%v/%v]", n.code, n.current, n.repeat)
+    return fmt.Sprintf("%v[%v/%v]", n.code, n.curr, n.repeat)
 }
 
 func (n *stateNode) dataIndex(id string) int {
-	for idx, d := range n.data {
+	for idx, d := range n.queue {
 		if d.Id == id {
 			return idx
 		}
@@ -127,12 +127,12 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int, bool) {
 	if idx >= 0 {
 		return idx, false
 	}
-	n.data = append(n.data, stateMsg)
-	return len(n.data)-1, true
+	n.queue = append(n.queue, stateMsg)
+	return len(n.queue)-1, true
 }
 
 func (n *stateNode) finished() bool {
-    return n.current >= n.repeat
+    return n.curr >= n.repeat
 }
 
 
@@ -179,16 +179,22 @@ func (m *StateMachine) expire() bool {
 func (m *StateMachine) transform() {
 	node := m.Current
 
-	for node.current < len(node.data) {
-		node.handler(node.data[node.current].Data)
-		node.data[node.current].Data = true	//释放内存
-		node.current++
-		logger.Debugf("machine %v handling current state %v", m.Id, node.state())
+	datas := make([]interface{}, 0)
+	for node.curr < len(node.queue) {
+		datas = append(datas, node.queue[node.curr].Data)
+		node.queue[node.curr].Data = true //释放内存
+		node.curr++
+		logger.Debugf("machine %v handling curr state %v", m.Id, node.state())
 	}
+	go func() {
+		for _, d := range datas {
+			node.handler(d)
+		}
+	}()
 
 	if m.Current.finished() && m.Current.next != nil {
 		m.Current = m.Current.next
-		if len(m.Current.data) > 0 {
+		if len(m.Current.queue) > 0 {
 			m.transform()
 		}
 	}
@@ -204,7 +210,7 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 	defer m.lock.Unlock()
 	defer func() {
 		if !m.finish() {
-			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, m.Current.code, m.Current.current, m.Current.repeat)
+			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, m.Current.code, m.Current.curr, m.Current.repeat)
 		}
 	}()
 
@@ -213,17 +219,17 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 	}
 
 	if node.code < m.Current.code {	//已经执行过的状态
-		logger.Debugf("machine %v handle pre state %v, current state %v", m.Id, node.code, m.Current.state())
+		logger.Debugf("machine %v handle pre state %v, curr state %v", m.Id, node.code, m.Current.state())
 		node.handler(msg.Data)
 	} else if node.code == m.Current.code {	//进行中的状态
 		idx, _ := node.addData(msg)
-		if idx < node.current {
-			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.Id, node.code, m.Current.state())
+		if idx < node.curr {
+			logger.Debugf("machine %v ignore redundant state %v, curr state %v", m.Id, node.code, m.Current.state())
 			return false
 		}
 		m.transform()
 	} else {	//未来的状态
-		logger.Debugf("machine %v cache future state %v, current state %v", m.Id, node.code, m.Current.state())
+		logger.Debugf("machine %v cache future state %v, curr state %v", m.Id, node.code, m.Current.state())
 		node.addData(msg)
 	}
 	return true
