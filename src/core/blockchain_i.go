@@ -69,6 +69,8 @@ type BlockChainI interface {
 	QueryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader
 
 	Height() uint64
+
+	SaveBlock(b *types.Block) int8
 }
 
 //组管理接口

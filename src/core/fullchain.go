@@ -164,6 +164,10 @@ func (chain *FullChain) QueryBlockHeaderByHeight(height interface{}, cache bool)
 	}
 }
 
+func (chain *FullChain) SaveBlock(b *types.Block) int8 {
+	panic("not expect enter here")
+}
+
 
 func (chain *FullChain) Height() uint64 {
 	if nil == chain.latestBlock {

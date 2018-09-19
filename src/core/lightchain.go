@@ -13,8 +13,16 @@ import (
 	"consensus/groupsig"
 	"middleware/notify"
 	"network"
+	"log"
+	"fmt"
+	vtypes "storage/core/types"
 )
 
+const (
+	LIGHT_BLOCK_CACHE_SIZE = 20
+	LIGHT_BLOCKHEIGHT_CACHE_SIZE = 100
+	LIGHT_LRU_SIZE = 5000000
+)
 type LightChain struct {
 	config *LightChainConfig
 	FullChain
@@ -48,8 +56,8 @@ func getLightChainConfig() *LightChainConfig {
 // 默认配置
 func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
-		blockHeight: "height",
-		state: "state",
+		blockHeight: "light_height",
+		state: "light_state",
 		qn: 4,
 	}
 }
@@ -70,8 +78,8 @@ func initLightChain() error {
 	}
 
 	var err error
-	chain.blockCache, err = lru.New(20)
-	chain.topBlocks, _ = lru.New(100)
+	chain.blockCache, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
+	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
 		return err
 	}
@@ -80,7 +88,7 @@ func initLightChain() error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
 	}
-	chain.statedb, err = datasource.NewLRUMemDatabase(5000000)
+	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
@@ -92,7 +100,7 @@ func initLightChain() error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.QueryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
-		chain.buildCache(100,chain.topBlocks)
+		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE,chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
 	} else {
 		// 创始块
@@ -100,7 +108,7 @@ func initLightChain() error {
 		if nil == err {
 			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB())
-			chain.saveBlock(block)
+			chain.SaveBlock(block)
 		}
 	}
 
@@ -108,6 +116,34 @@ func initLightChain() error {
 	return nil
 }
 
+// 保存block到ldb
+// todo:错误回滚
+//result code:
+// -1 保存失败
+// 0 保存成功
+func (chain *LightChain) SaveBlock(b *types.Block) int8 {
+	// 根据height存blockheader
+	headerJson, err := types.MarshalBlockHeader(b.Header)
+	if err != nil {
+		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
+		return -1
+	}
+	err = chain.blockHeight.Put(GenerateHeightKey(b.Header.Height), headerJson)
+	if err != nil {
+		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
+		return -1
+	}
+
+	// 持久化保存最新块信息
+	chain.latestBlock = b.Header
+	chain.topBlocks.Add(b.Header.Height, b.Header)
+	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		fmt.Printf("[lightblock]fail to put current, error:%s \n", err)
+		return -1
+	}
+	return 0
+}
 
 
 
@@ -115,23 +151,17 @@ func initLightChain() error {
 func (chain *LightChain) Clear() error {
 	chain.lock.Lock("Clear")
 	defer chain.lock.Unlock("Clear")
-
 	chain.init = false
 	chain.latestBlock = nil
-	chain.topBlocks, _ = lru.New(1000)
-
+	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	var err error
-
 	chain.blockHeight.Close()
 	chain.statedb.Close()
-
-
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
-		//todo: 日志
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
 	}
-
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 
@@ -140,12 +170,9 @@ func (chain *LightChain) Clear() error {
 	if nil == err {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB())
-
-		chain.saveBlock(block)
+		chain.SaveBlock(block)
 	}
-
 	chain.init = true
-
 	chain.transactionPool.Clear()
 	return err
 }
@@ -173,7 +200,7 @@ func (chain *LightChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 	// 校验父亲块
 	preHash := bh.PreHash
-	preBlock := chain.queryBlockHeaderByHash(preHash)
+	preBlock := chain.QueryBlockHeaderByHeight(bh.Height-1,true)
 
 	if preBlock == nil {
 		return nil, 2, nil, nil

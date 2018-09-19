@@ -167,7 +167,7 @@ func initBlockChain() error {
 		if nil == err {
 			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB())
-			chain.saveBlock(block)
+			chain.SaveBlock(block)
 		}
 	}
 
@@ -240,7 +240,7 @@ func (chain *BlockChain) Clear() error {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB())
 
-		chain.saveBlock(block)
+		chain.SaveBlock(block)
 	}
 
 	chain.init = true
@@ -534,12 +534,12 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	if b.Header.PreHash == chain.latestBlock.Hash {
-		status = chain.saveBlock(b)
+		status = chain.SaveBlock(b)
 	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.remove(chain.latestBlock)
-		status = chain.saveBlock(b)
+		status = chain.SaveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		if chain.isAdujsting {
@@ -620,7 +620,7 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 //result code:
 // -1 保存失败
 // 0 保存成功
-func (chain *BlockChain) saveBlock(b *types.Block) int8 {
+func (chain *BlockChain) SaveBlock(b *types.Block) int8 {
 	// 根据hash存block
 	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
