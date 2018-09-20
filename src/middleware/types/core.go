@@ -112,6 +112,7 @@ const (
 )
 
 type Miner struct {
+	Id				[]byte
 	PublicKey 		[]byte
 	VrfPublicKey 	[]byte
 	ApplyHeight 	uint64
