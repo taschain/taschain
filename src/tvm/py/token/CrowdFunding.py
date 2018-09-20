@@ -13,15 +13,15 @@ class CrowdFunding():
     def deploy(self):
         self.funding_goal = 10000
         self.max_block_number = block.number() + 1000
-        self.owner = glovar.msg.sender
+        self.owner = msg.sender
 
     def sale(self):
         if self.max_block_number < block.number():
             self.on_sale = False
         if not self.on_sale:
             raise Exception("not on sale")
-        value = glovar.msg.value
-        sender = glovar.msg.sender
+        value = msg.value
+        sender = msg.sender
         self.funding = self.funding + value
         if self.funding > self.funding_goal:
             value = self.funding_goal-self.funding
@@ -33,12 +33,12 @@ class CrowdFunding():
         print(self.vote_dict)
 
     def withdraw(self, addr):
-        if self.owner != glovar.msg.sender:
+        if self.owner != msg.sender:
             return
         if not self.on_sale and self.funding >= self.funding_goal:
             account.transfer(addr, self.funding)
 
     def failed(self):
-        if not self.on_sale and self.funding < self.funding_goal and self.funding >= account.get_balance(glovar.this):
+        if not self.on_sale and self.funding < self.funding_goal and self.funding >= account.get_balance(this):
             for k, v in self.vote_dict.items():
                 account.transfer(k, v)

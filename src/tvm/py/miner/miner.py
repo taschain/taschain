@@ -32,9 +32,9 @@ class miner(object):
         miner_light_stake = 10
         miner_heavy_stake = 50
         if miner_type == 0:
-            require(glovar.msg.value >= miner_light_stake)
+            require(msg.value >= miner_light_stake)
         elif miner_type == 1:
-            require(glovar.msg.value >= miner_heavy_stake)
+            require(msg.value >= miner_heavy_stake)
         else:
             assert False
 
@@ -43,15 +43,15 @@ class miner(object):
 
         #
         info = {"registerBlockNumber": block.number(),
-                "stake": glovar.msg.value,
+                "stake": msg.value,
                 "type": miner_type,
                 "vrfPk": vrf_public_key,
-                "owner": glovar.msg.sender}
+                "owner": msg.sender}
         self.register_list[public_key] = info
 
         # 转账
-        # account.sub_balance(glovar.msg.sender, glovar.msg.value)
-        # account.add_balance(glovar.this, glovar.msg.value)
+        # account.sub_balance(msg.sender, msg.value)
+        # account.add_balance(this, msg.value)
 
     def deregister(self, public_key):
         """
@@ -82,7 +82,7 @@ class miner(object):
 
         for info in self.deregister_list[public_key]:
             if (block.number() - info["deregisterBlockNumber"] > lock_stake_block_count and
-                    info["owner"] == glovar.msg.sender):
+                    info["owner"] == msg.sender):
                 return_stake_infos.append(info)
 
         # 是否有已解冻质押金未提取，并且检查owner
@@ -100,8 +100,8 @@ class miner(object):
 
         # 转账
         assert return_stake > 0
-        assert account.get_balance(glovar.this) > return_stake
-        account.transfer(glovar.msg.sender, return_stake)
+        assert account.get_balance(this) > return_stake
+        account.transfer(msg.sender, return_stake)
 
     def test_print(self):
         print(self.register_list)
