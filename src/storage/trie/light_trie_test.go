@@ -44,8 +44,8 @@ func TestLRU(t *testing.T) {
 	triedb := NewDatabase(db)
 	trie,_:=NewLightTrie(common.Hash{}, triedb)
 	updateLightString(trie,"key1","1")
-	vl:=string(getLightString(trie,"key"))
-	if vl !="value"{
+	vl:=string(getLightString(trie,"key1"))
+	if vl !="1"{
 		t.Errorf("Wrong error: %v", vl)
 	}
 

@@ -66,6 +66,24 @@ func TestNull(t *testing.T) {
 	}
 }
 
+func TestExpandAll(t *testing.T){
+	diskdb, _ := tasdb.NewMemDatabase()
+	triedb := NewDatabase(diskdb)
+	trie, _ := NewTrie(common.Hash{}, triedb)
+	updateString(trie, "key1", "1")
+	updateString(trie, "key2", "2")
+	//updateString(trie, "ere", "3")
+	//updateString(trie, "ssas", "3")
+	//getString(trie,"key1")
+	root,_:=trie.Commit(nil)
+	//triedb.Commit(root,false)
+
+	trie,_ = NewTrie(root, triedb)
+	//trie.ExpandAll(trie.GetRoot(), triedb)
+	data := getString(trie,"key1")
+	fmt.Printf("===============>%s\n",data)
+}
+
 func TestMissingRoot(t *testing.T) {
 	diskdb, _ := tasdb.NewMemDatabase()
 	trie, err := NewTrie(common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(diskdb))

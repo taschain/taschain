@@ -63,6 +63,10 @@ func (t *Trie) newFlag() nodeFlag {
 	return nodeFlag{dirty: true, gen: t.cachegen}
 }
 
+func (t *Trie) GetRoot() node {
+	return t.root
+}
+
 func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
@@ -363,7 +367,7 @@ func (t *Trie) resolveHash2(n hashNode) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash}
 	}
-	return mustDecodeNode2(n, enc), nil
+	return mustDecodeNode(n, enc,t.cachegen,false), nil
 }
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
@@ -375,7 +379,7 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
-	return mustDecodeNode(n, enc, t.cachegen), nil
+	return mustDecodeNode(n, enc, t.cachegen,true), nil
 }
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
@@ -396,7 +400,7 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 }
 
 
-func (t *Trie) expandAll(original node, db *Database) (newNode node,err error) {
+func (t *Trie) ExpandAll(original node, db *Database) (newNode node,err error) {
 	switch n := original.(type) {
 	case nil:
 		return nil, nil
@@ -404,7 +408,7 @@ func (t *Trie) expandAll(original node, db *Database) (newNode node,err error) {
 		cached := n.copy()
 		cached.Key = common.CopyBytes(n.Key)
 		if _, ok := n.Val.(valueNode); !ok {
-			cached.Val, err = t.expandAll(n.Val, db)
+			cached.Val, err = t.ExpandAll(n.Val, db)
 			if err != nil {
 				return original, err
 			}
@@ -414,7 +418,7 @@ func (t *Trie) expandAll(original node, db *Database) (newNode node,err error) {
 		cached := n.copy()
 		for i := 0; i < 16; i++ {
 			if n.Children[i] != nil {
-				cached.Children[i], err = t.expandAll(n.Children[i], db)
+				cached.Children[i], err = t.ExpandAll(n.Children[i], db)
 				if err != nil {
 					return original, err
 				}
@@ -423,14 +427,11 @@ func (t *Trie) expandAll(original node, db *Database) (newNode node,err error) {
 		cached.Children[16] = n.Children[16]
 		return  cached, nil
 	case hashNode:
-		child, err := t.resolveHash2(n, n[:pos])
+		child, err := t.resolveHash2(n)
 		if err != nil {
-			return nil, n, true, err
+			return original, err
 		}
-		value, newnode, _, err := t.tryGet(child, key, pos)
-	return value, newnode, true, err
-
-
+		return t.ExpandAll(child, db)
 	default:
 		return original, nil
 	}
