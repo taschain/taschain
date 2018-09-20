@@ -168,7 +168,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	blog.log("NEXT CAST GROUP is %v", GetIDPrefix(*selectGroup))
+	blog.log("NEXT CAST GROUP is %v, castHeight=%v, expire=%v", GetIDPrefix(*selectGroup), castHeight, expireTime)
 
 	//自己属于下一个铸块组
 	if p.IsMinerGroup(*selectGroup) {
@@ -271,6 +271,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(cbm, next)
+		log.Printf("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 
 	return
@@ -348,7 +349,7 @@ func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *t
 
 		var groupId groupsig.ID
 		groupId.Deserialize(ccm.BH.GroupId)
-		statistics.AddBlockLog(statistics.SendCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
+		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
 			time.Now().UnixNano(),GetIDPrefix(p.GetMinerID()),GetIDPrefix(groupId),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	} else {
 		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevBH.Hash, bh.PreHash)

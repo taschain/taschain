@@ -35,6 +35,8 @@ const (
 
 var BlockSyncer blockSyncer
 
+var totalQnRcvTimer = time.NewTimer(0)
+
 type TotalQnInfo struct {
 	TotalQn  uint64
 	SourceId string
@@ -56,8 +58,25 @@ func InitBlockSyncer() {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0}
+	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string,100), TotalQnCh: make(chan TotalQnInfo,100),init:false, replyCount: 0}
+	go BlockSyncer.loop()
 	go BlockSyncer.start()
+}
+
+func (bs *blockSyncer) start() {
+	logger.Debug("[BlockSyncer]Wait for connecting...")
+	t := time.NewTimer(INIT_INTERVAL)
+	defer t.Stop()
+	for {
+		requestBlockChainTotalQn()
+		t.Reset(INIT_INTERVAL)
+		<-t.C
+		if bs.replyCount > 0 {
+			logger.Debug("[BlockSyncer]Detect node and start sync block...")
+			break
+		}
+	}
+	totalQnRcvTimer.Reset(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
 }
 
 func (bs *blockSyncer) IsInit() bool {
@@ -68,27 +87,9 @@ func (bs *blockSyncer) SetInit(init bool){
 	bs.init = init
 }
 
-func (bs *blockSyncer) start() {
-	go bs.loop()
-	logger.Debug("[BlockSyncer]Wait for connecting...")
-	for {
-		requestBlockChainTotalQn()
-		t := time.NewTimer(INIT_INTERVAL)
-		<-t.C
-		if bs.replyCount > 0 {
-			logger.Debug("[BlockSyncer]Detect node and start sync block...")
-			break
-		}
-	}
-	bs.sync()
-}
-
 func (bs *blockSyncer) sync() {
-	requestBlockChainTotalQn()
-	t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
-
-	<-t.C
 	if nil == core.BlockChainImpl {
+		logger.Error("core.BlockChainImpl is nil!")
 		return
 	}
 	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
@@ -114,7 +115,9 @@ func (bs *blockSyncer) sync() {
 }
 
 func (bs *blockSyncer) loop() {
-	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
+	syncTicker := time.NewTicker(BLOCK_SYNC_INTERVAL)
+	defer syncTicker.Stop()
+	defer totalQnRcvTimer.Stop()
 	for {
 		select {
 		case sourceId := <-bs.ReqTotalQnCh:
@@ -134,12 +137,18 @@ func (bs *blockSyncer) loop() {
 				bs.bestNode = h.SourceId
 			}
 			bs.lock.Unlock()
-		case <-t.C:
+		case <-syncTicker.C:
 			if !bs.init{
 				continue
 			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-			go bs.sync()
+			requestBlockChainTotalQn()
+			totalQnRcvTimer.Reset(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
+		case <-totalQnRcvTimer.C:
+			if bs.replyCount <= 0 {
+				continue
+			}
+			bs.sync()
 		}
 	}
 }

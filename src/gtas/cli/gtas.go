@@ -42,6 +42,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"redis"
+	"runtime/debug"
 )
 
 const (
@@ -113,7 +114,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log") //todo: absolute path?
+	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
@@ -135,6 +136,13 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	if !ok {
 		return
 	}
+}
+
+func (gtas *Gtas) runtimeInit()  {
+	debug.SetGCPercent(70)
+	debug.SetMaxStack(2*1000000000)
+    fmt.Println("setting gc 70%, max memory 2g")
+
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
@@ -205,6 +213,7 @@ func (gtas *Gtas) Run() {
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
+	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -234,6 +243,9 @@ func (gtas *Gtas) Run() {
 		network.NatServerIp = *nat
 		log.Printf("NAT server ip:%s", *nat)
 	}
+
+	common.BootId = *buildId
+	log.Printf("Boot id:%d",common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)

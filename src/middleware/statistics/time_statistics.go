@@ -27,7 +27,8 @@ const(
 )
 var BatchSize = 1000
 var Duration time.Duration = 5
-var Lock sync.Mutex
+var Lock sync.RWMutex
+var Lock2 sync.RWMutex
 var LogChannel = make(chan *LogObj)
 var BlockLogChannel = make(chan *BlockLogObject)
 var TimeChannel = make(chan int)
@@ -35,7 +36,7 @@ var IsInit = false
 var WriteData = make([]*LogObj,0)
 var WriteData2 = make([]*BlockLogObject,0)
 var batch int
-var enable = true
+var enable = false
 
 type LogObj struct {
 	Hash string
@@ -58,6 +59,7 @@ type BlockLogObject struct {
 	GroupId string
 	InstanceIndex int
 	CastTime int64
+	BootId int
 }
 
 func NewLogObj(id string)*LogObj{
@@ -78,7 +80,7 @@ func AddLog(Hash string, Status int, Time int64, Castor string, Node string,){
 	}
 }
 
-func AddBlockLog(code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
+func AddBlockLog(bootId int,code string,blockHeight uint64,qn uint64,txCount int,size int,timeStamp int64,castor string,groupId string,instanceIndex int,castTime int64){
 	if enable {
 		var cn uint8
 		switch code {
@@ -95,7 +97,7 @@ func AddBlockLog(code string,blockHeight uint64,qn uint64,txCount int,size int,t
 			case BroadBlock:
 				cn = 6
 		}
-		log := &BlockLogObject{Code: code, CodeNum:cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount,Size:size,TimeStamp:timeStamp, Castor: castor, GroupId: groupId, InstanceIndex:instanceIndex,CastTime:castTime}
+		log := &BlockLogObject{Code: code, CodeNum:cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount,Size:size,TimeStamp:timeStamp, Castor: castor, GroupId: groupId, InstanceIndex:instanceIndex,CastTime:castTime,BootId:bootId}
 		PutBlockLog(log)
 	}
 }
@@ -104,15 +106,11 @@ func PutLog(data *LogObj){
 	//if !HasInit(){
 	//	Init()
 	//}
-	go func(){
-		LogChannel <- data
-		}()
+	LogChannel <- data
 }
 
 func PutBlockLog(data *BlockLogObject){
-	go func(){
-		BlockLogChannel <- data
-	}()
+	BlockLogChannel <- data
 }
 
 func InitStatistics(config common.ConfManager){
@@ -154,12 +152,16 @@ func ProcessLog(){
 		for {
 			select {
 			case log := <-LogChannel:
+				Lock.Lock()
 				WriteData = append(WriteData, log)
+				Lock.Unlock()
 				if len(WriteData) >= BatchSize{
 					Send(1)
 				}
 			case log := <-BlockLogChannel:
+				Lock2.Lock()
 				WriteData2 = append(WriteData2, log)
+				Lock2.Unlock()
 				if len(WriteData2) >= BatchSize{
 					Send(2)
 				}
@@ -173,18 +175,24 @@ func ProcessLog(){
 
 func Send(code int){
 	if l := len(WriteData);code == 1&&l > 0{
+		Lock.Lock()
+		tmp := WriteData
+		WriteData = WriteData[0:0]
+		Lock.Unlock()
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(WriteData)
+		json.NewEncoder(b).Encode(tmp)
 		fmt.Printf("send log batch len:%d\n",l)
 		SendPost(b,"log")
-		WriteData = WriteData[0:0]
 	}
 	if l := len(WriteData2);code == 2&&l > 0{
+		Lock2.Lock()
+		tmp := WriteData2
+		WriteData2 = WriteData2[0:0]
+		Lock2.Unlock()
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(WriteData2)
+		json.NewEncoder(b).Encode(tmp)
 		fmt.Printf("send block batch len:%d\n",l)
 		SendPost(b,"block")
-		WriteData2 = WriteData2[0:0]
 	}
 }
 

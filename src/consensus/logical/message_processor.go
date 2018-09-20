@@ -138,8 +138,9 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
+	log.Printf("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, bh.QueueNumber)
 	verifyResult := vctx.UserVerified(bh, si, cgs)
-	log.Printf("proc(%v) %v UserVerified result=%v.\n", mtype, p.getPrefix(), CBMR_RESULT_DESC(verifyResult))
+	log.Printf("proc(%v) %v UserVerified height-qn=%v-%v, result=%v.\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber, CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
@@ -202,14 +203,14 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
-	statistics.AddBlockLog(statistics.RcvCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
+	statistics.AddBlockLog(common.BootId,statistics.RcvCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	p.verifyCastMessage("OMC", &ccm.ConsensusBlockMessageBase)
 }
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
-	statistics.AddBlockLog(statistics.RcvVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
+	statistics.AddBlockLog(common.BootId,statistics.RcvVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
 }
@@ -236,8 +237,6 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	statistics.AddBlockLog(statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.QueueNumber,len(cbm.Block.Transactions),-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
 	bh := cbm.Block.Header
 	logStart("OMB", bh.Height, bh.QueueNumber, "", "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 	result := ""
@@ -299,7 +298,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 	p.blockContexts.forEach(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
-			for _, slot := range vctx.slots {
+			for _, slot := range vctx.GetSlots() {
 				acceptRet := vctx.AcceptTrans(slot, ths)
 				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
@@ -332,6 +331,10 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
+	rt := newRtLog("OMGI")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(grm.SI.GetID()))
+	}()
 
 	if !grm.GI.CheckMemberHash(grm.MEMS) {
 		panic("grm member hash diff!")
@@ -429,7 +432,10 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
-
+	rt := newRtLog("OMSP")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spm.SI.GetID()))
+	}()
 	if !spm.Dest.IsEqual(p.GetMinerID()) {
 		return
 	}
@@ -496,7 +502,10 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
-
+	rt := newRtLog("OMSPK")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spkm.SI.GetID()))
+	}()
 	gc := p.joiningGroups.GetGroup(spkm.DummyID)
 	if gc == nil {
 		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
@@ -575,7 +584,10 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
-
+	rt := newRtLog("OMGIED")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(gim.SI.GetID()))
+	}()
 	dummyId := gim.GI.GIS.DummyID
 
 

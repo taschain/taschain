@@ -24,7 +24,7 @@ const (
 	IDLENGTH     = 32 //ID字节长度(256位，同私钥长度)
 	PUBKEYLENGTH = 128 //公钥字节长度（1024位）
 	SECKEYLENGTH = 32 //私钥字节长度（256位）
-	SIGNLENGTH   = 64 //签名字节长度（512位）
+	SIGNLENGTH   = 33 //签名字节长度（256位+1字节奇偶位）
 	//默认曲线相关参数结束。
 	HASHLENGTH   = 32 //哈希字节长度(golang.SHA3, 256位。和common包相同)
 )

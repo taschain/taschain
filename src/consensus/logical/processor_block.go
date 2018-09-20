@@ -90,9 +90,10 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//defer func() {
 	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	//}()
+	bh := block.Header
+	log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, bh.QueueNumber)
 	result = p.MainChain.AddBlockOnChain(block)
 
-	bh := block.Header
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))

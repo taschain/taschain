@@ -41,16 +41,16 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string)(id string,err error){
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string) (id string, err error) {
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 	self, err := InitSelfNode(config, isSuper)
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
-		return "",err
+		return "", err
 	}
 	id = self.Id.GetHexString()
-	if seedIp == ""{
+	if seedIp == "" {
 		seedIp = seedDefaultIp
 	}
 	seedId, _, seedPort := getSeedInfo(config)
@@ -66,22 +66,20 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var natEnable bool
 	if testMode {
 		natEnable = false
-		listenAddr =  nnet.UDPAddr{IP:nnet.ParseIP(seedIp), Port: self.Port}
+		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(seedIp), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr:&listenAddr , Seeds: seeds, NatTraversalEnable: natEnable}
+	netConfig := NetCoreConfig{Id: self.Id, ListenAddr: &listenAddr, Seeds: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
 	return
 }
 
-
-
-func GetNetInstance()Network{
+func GetNetInstance() Network {
 	return net
 }
 

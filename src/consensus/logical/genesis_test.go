@@ -17,7 +17,7 @@ import (
 	chandler "consensus/net"
 )
 
-const CONF_PATH_PREFIX = `Z:/TASchain/taschain/conf/local_3g9n`
+const CONF_PATH_PREFIX = `/Users/mac/TASchain/tas_node`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -153,7 +153,7 @@ func TestGenesisGroup(t *testing.T) {
 		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 			//dummy 组写入组链 add by 小熊
-			p.groupManager.AddGroupOnChain(staticGroupInfo, true)
+			//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 		}
 
 		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, p.mi)

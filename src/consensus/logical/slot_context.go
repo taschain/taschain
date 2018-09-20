@@ -153,9 +153,9 @@ func (sc *SlotContext) IsSuccess() bool {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if si.DataHash != sc.BH.Hash {
-		panic("SlotContext::AcceptPiece failed, hash diff.")
+		return CBMR_BH_HASH_DIFF
 	}
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 
@@ -182,21 +182,20 @@ func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si model.SignData) CAS
 }
 
 //根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
-
-	sc := createSlotContext(threshold)
-
-	sc.BH = *bh
-	sc.QueueNumber = int64(bh.QueueNumber)
-	sc.setSlotStatus(SS_WAITING)
-	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
-	log.Printf("initSlotContext verifyCastingBlock lost trans size %v, ret %v\n", len(ltl), ccr)
-	sc.addLostTrans(ltl)
-	if ccr == -1 {
-		sc.setSlotStatus(SS_FAILED)
+func (sc *SlotContext) init(bh *types.BlockHeader) bool {
+	if sc.StatusTransform(SS_INVALID, SS_WAITING) {
+		sc.BH = *bh
+		sc.QueueNumber = int64(bh.QueueNumber)
+		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, bh.QueueNumber)
+		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, bh.QueueNumber, len(ltl), ccr)
+		sc.addLostTrans(ltl)
+		if ccr == -1 {
+			sc.setSlotStatus(SS_FAILED)
+		}
+		return true
 	}
-
-	return sc
+	return false
 }
 
 func (sc SlotContext) IsValid() bool {

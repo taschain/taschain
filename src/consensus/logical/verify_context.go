@@ -58,6 +58,9 @@ const (
 	CBMR_STATUS_FAIL                                           //已经失败的
 	CBMR_ERROR_UNKNOWN                                         //异常：未知异常
 	CBMR_CAST_SUCCESS											//铸块成功
+	CBMR_BH_HASH_DIFF											//slot已经被替换过了
+	CBMR_SLOT_INIT_FAIL											//slot初始化失败
+	CBMR_SLOT_REPLACE_FAIL											//slot初始化失败
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -80,6 +83,12 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "重复消息"
 	case CBMR_CAST_SUCCESS:
 		return "已铸块成功"
+	case CBMR_BH_HASH_DIFF:
+		return "hash不一致，slot已无效"
+	case CBMR_SLOT_INIT_FAIL:
+		return "slot初始化失败"
+	case CBMR_SLOT_REPLACE_FAIL:
+		return "slot替换失败"
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }
@@ -138,16 +147,13 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		consensusStatus: CBCS_CASTING,
 		castedQNs:       make([]int64, 0),
 	}
-	ctx.resetSlotContext()
+	for i := 0; i < model.MAX_CAST_SLOT; i++ {
+		sc := createSlotContext(ctx.blockCtx.threshold())
+		ctx.slots[i] = sc
+	}
 	return ctx
 }
 
-func (vc *VerifyContext) resetSlotContext() {
-	for i := 0; i < model.MAX_CAST_SLOT; i++ {
-		sc := createSlotContext(vc.blockCtx.threshold())
-		vc.slots[i] = sc
-	}
-}
 
 func (vc *VerifyContext) isCasting() bool {
 	status := atomic.LoadInt32(&vc.consensusStatus)
@@ -213,37 +219,36 @@ func (vc *VerifyContext) findSlot(qn int64) int {
 }
 
 //根据QN优先级规则，尝试找到有效的插槽
-func (vc *VerifyContext) consensusFindSlot(qn int64) (idx int, ret QN_QUERY_SLOT_RESULT) {
+func (vc *VerifyContext) consensusFindSlot(qn int64) (*SlotContext, QN_QUERY_SLOT_RESULT, int) {
 	vc.lock.RLock()
 	defer vc.lock.RUnlock()
 
-	idx = vc.findSlot(qn)
+	idx := vc.findSlot(qn)
 	if idx >= 0 {
-		return idx, QQSR_EXIST_SLOT
+		return vc.slots[idx], QQSR_EXIST_SLOT, idx
 	}
 
 	for idx, slot := range vc.slots {
 		if !slot.IsValid() {
-			return idx, QQSR_EMPTY_SLOT
+			return vc.slots[idx], QQSR_EMPTY_SLOT, idx
 		}
 	}
 	for idx, slot := range vc.slots {
 		if slot.IsFailed() {
-			return idx, QQSR_REPLACE_SLOT
+			return vc.slots[idx], QQSR_REPLACE_SLOT, idx
 		}
 	}
 	var (
 		minQN int64 = common.MaxInt64
-		index int = -1
 	)
 
-	for idx, slot := range vc.slots {
+	for i, slot := range vc.slots {
 		if slot.QueueNumber < minQN {
 			minQN = slot.QueueNumber
-			index = idx
+			idx = i
 		}
 	}
-	return index, QQSR_REPLACE_SLOT
+	return vc.slots[idx], QQSR_REPLACE_SLOT, idx
 }
 
 func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
@@ -256,11 +261,19 @@ func (vc *VerifyContext) GetSlotByQN(qn int64) *SlotContext {
 	return nil
 }
 
-func (vc *VerifyContext) replaceSlot(idx int, bh *types.BlockHeader, threshold int)  {
-    vc.lock.Lock()
-    defer vc.lock.Unlock()
-    slot := initSlotContext(bh, threshold)
-    vc.slots[idx] = slot
+func (vc *VerifyContext) replaceSlot(idx int, old *SlotContext, bh *types.BlockHeader) *SlotContext {
+	if old.BH.Hash == bh.Hash {
+		return old
+	}
+	slot := createSlotContext(vc.blockCtx.threshold())
+	slot.init(bh)
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
+	if vc.slots[idx].BH.Hash != bh.Hash {
+		vc.slots[idx] = slot
+		return slot
+	}
+	return nil
 }
 
 func (vc *VerifyContext) getSlot(idx int) *SlotContext {
@@ -295,20 +308,27 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 		return CBMR_IGNORE_KING_ERROR
 	}
 
-	i, info := vc.consensusFindSlot(int64(bh.QueueNumber))
-	log.Printf("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
-	if i < 0 { //没有找到有效的插槽
-		return CBMR_IGNORE_QN_BIG_QN
-	}
+	slot, info, idx := vc.consensusFindSlot(int64(bh.QueueNumber))
+	log.Printf("proc(%v) consensusFindSlot, height=%v, qn=%v, slotStatus=%v, info=%v, idx=%v.\n", idPrefix, bh.Height, bh.QueueNumber, slot.GetSlotStatus(), info, idx)
+
 	//找到有效的插槽
-	if info == QQSR_EMPTY_SLOT || info == QQSR_REPLACE_SLOT {
-		vc.replaceSlot(i, bh, vc.blockCtx.threshold())
+	if info == QQSR_EMPTY_SLOT {
+		if !slot.init(bh) {
+			log.Printf("initSlotContext fail, status=%v", slot.GetSlotStatus())
+			return CBMR_SLOT_INIT_FAIL
+		}
+	} else if info == QQSR_REPLACE_SLOT {
+		slot = vc.replaceSlot(idx, slot, bh)
+		if slot == nil {
+			log.Printf("replaceSlot fail")
+			return CBMR_SLOT_REPLACE_FAIL
+		}
 	}
-	slot := vc.getSlot(i)
+	//警惕并发
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
 	}
-	result := slot.AcceptPiece(bh, *signData)
+	result := slot.AcceptPiece(bh, signData)
 	return result
 }
 
@@ -397,4 +417,12 @@ func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
 	return index
+}
+
+func (vc *VerifyContext) GetSlots() []*SlotContext {
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
+	slots := make([]*SlotContext, len(vc.slots))
+	copy(slots, vc.slots[:])
+	return slots
 }

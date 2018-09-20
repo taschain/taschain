@@ -77,7 +77,7 @@ package net
 ////	//InputBlockMachine(network.NEW_BLOCK_MSG, "newblock 1", "u5", groupId, height, kingId3, machine)
 ////	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 2", "u6", groupId, height, kingId3, machine)
 ////	//
-////	//InputBlockMachine(network.CURRENT_GROUP_CAST_MSG, "current 1", "u1", groupId, height, kingId, machine)
+////	//InputBlockMachine(network.CURRENT_GROUP_CAST_MSG, "exec 1", "u1", groupId, height, kingId, machine)
 ////	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 1", "u5", groupId, height, kingId3, machine)
 ////	//InputBlockMachine(network.VARIFIED_CAST_MSG, "verified 2", "u3", groupId, height, kingId2, machine)
 ////	//

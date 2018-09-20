@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/big"
 	"bytes"
+	"github.com/minio/sha256-simd"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -46,8 +47,127 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 	return k, new(G1).ScalarBaseMult(k), nil
 }
 
+//获得x,y坐标(仿射坐标)
+func (g *G1) GetXY() (*gfP, *gfP, bool) {
+	p := &curvePoint{}
+	p.Set(g.p)
+	p.MakeAffine()
+
+	return &p.x, &p.y, p.y.IsOdd()
+}
+
+//通过x坐标恢复出点(x,y)
+func (g *G1) SetX(px *gfP, isOdd bool) error {
+	//计算t=x³+b in gfP.
+	pt := &gfP{}
+	gfpMul(pt, px, px)
+	gfpMul(pt, pt, px)
+	gfpAdd(pt, pt, curveB)
+	montDecode(pt, pt)
+
+	//t转化为big.Int类型，再计算y=sqrt(t).
+	y := &big.Int{}
+	buf := make([]byte, 32)
+	pt.Marshal(buf)
+	//fmt.Println("buf:", len(buf))
+	y.SetBytes(buf)
+	y.ModSqrt(y, P)
+
+	//y转化为gfP类型
+	byte_str := y.Bytes()
+	//fmt.Println("buf:", len(byte_str))
+
+	buf1 := make([]byte, 32)
+	len := len(byte_str)
+	j := 0
+	for i:= 32-len; i<32; i++ {
+		buf1[i] = byte_str[j]
+		j++
+	}
+	py := &gfP{}
+	py.Unmarshal(buf1)
+	montEncode(py, py)
+
+	if py.IsOdd() != isOdd {
+		gfpNeg(py, py)
+	}
+	g.p = &curvePoint{*px, *py, *newGFp(1), *newGFp(1)}
+
+	return nil
+}
+
+// Hash m to a point in Curve.
+// Using try-and-increment method
+// 	in https://www.normalesup.org/~tibouchi/papers/bnhash-scis.pdf
+func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
+	bi_curveB := new(big.Int).SetInt64(3)
+	one := big.NewInt(1)
+
+	h := sha256.Sum256(m)
+	x := new(big.Int).SetBytes(h[:])
+	x.Mod(x, P)
+
+	for {
+		xxx := new(big.Int).Mul(x, x)
+		xxx.Mul(xxx, x)
+		t := new(big.Int).Add(xxx, bi_curveB)
+
+		y := new(big.Int).ModSqrt(t, P)
+		if y != nil {
+			return x, y
+		}
+
+		x.Add(x, one)
+	}
+}
+
+func (e *G1) HashToPoint(m []byte) error {
+	x, y := hashToCurvePoint(m)
+
+	x_str := x.Bytes()
+	y_str := y.Bytes()
+	buf_x := make([]byte, 32)
+	buf_y := make([]byte, 32)
+
+	j := 0
+	for i := 32-len(x_str); i<32; i++ {
+		buf_x[i] = x_str[j]
+		j ++
+	}
+
+	j = 0
+	for i:=32-len(y_str); i<32; i++ {
+		buf_y[i] = y_str[j]
+		j++
+	}
+
+	Px, Py := &gfP{}, &gfP{}
+	Px.Unmarshal(buf_x)
+	Py.Unmarshal(buf_y)
+	montEncode(Px, Px)
+	montEncode(Py, Py)
+
+	if e.p == nil {
+		e.p = &curvePoint{}
+	}
+	e.p.x.Set(Px)
+	e.p.y.Set(Py)
+	e.p.z.Set(newGFp(1))
+	e.p.t.Set(newGFp(1))
+
+	if e.IsValid() {
+		return nil
+	} else {
+		return errors.New("hash to point failed.")
+	}
+}
+
 func (g *G1) String() string {
 	return "bn_curve.G1" + g.p.String()
+}
+
+func (g *G1) IsValid() bool {
+	return g.p.IsOnCurve()
 }
 
 func (g *G1) IsNil () bool {
@@ -106,16 +226,20 @@ func (e *G1) Marshal() []byte {
 	const numBytes = 256 / 8
 
 	e.p.MakeAffine()
-	ret := make([]byte, numBytes*2)
+	ret := make([]byte, numBytes+1)
 	if e.p.IsInfinity() {
 		return ret
 	}
-	temp := &gfP{}
 
+	temp := &gfP{}
 	montDecode(temp, &e.p.x)
 	temp.Marshal(ret)
-	montDecode(temp, &e.p.y)
-	temp.Marshal(ret[numBytes:])
+
+	if e.p.y.IsOdd() == true {
+		ret[numBytes] = 0x1
+	} else {
+		ret[numBytes] = 0x0
+	}
 
 	return ret
 }
@@ -125,7 +249,7 @@ func (e *G1) Marshal() []byte {
 func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
-	if len(m) < 2*numBytes {
+	if len(m) < numBytes + 1 {
 		return nil, errors.New("bn_curve: not enough data")
 	}
 	// Unmarshal the points and check their caps
@@ -138,12 +262,8 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	if err = e.p.x.Unmarshal(m); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.Unmarshal(m[numBytes:]); err != nil {
-		return nil, err
-	}
 	// Encode into Montgomery form and ensure it's on the curve
 	montEncode(&e.p.x, &e.p.x)
-	montEncode(&e.p.y, &e.p.y)
 
 	zero := gfP{0}
 	if e.p.x == zero && e.p.y == zero {
@@ -155,11 +275,19 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 		e.p.z = *newGFp(1)
 		e.p.t = *newGFp(1)
 
+		isOdd := true
+		if m[numBytes] == 0x1 {
+			isOdd = true
+		} else {
+			isOdd = false
+		}
+		e.SetX(&e.p.x, isOdd)
+
 		if !e.p.IsOnCurve() {
 			return nil, errors.New("bn_curve: malformed point")
 		}
 	}
-	return m[2*numBytes:], nil
+	return m[numBytes+1:], nil
 }
 
 // G2 is an abstract cyclic group. The zero value is suitable for use as the
@@ -494,5 +622,5 @@ func GetG2Base() *G2 {
 }
 
 func PairIsEuqal(g1 *GT, g2 *GT) bool {
-	return bytes.Equal(g1.Marshal(),g2.Marshal())
+	return bytes.Equal(g1.Marshal(), g2.Marshal())
 }

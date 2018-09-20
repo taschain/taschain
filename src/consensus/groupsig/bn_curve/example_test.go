@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/ethereum/go-ethereum/common/bitutil"
+	"fmt"
 )
 
 func TestExamplePair(t *testing.T) {
@@ -52,8 +53,8 @@ func TestExamplePair(t *testing.T) {
 }
 
 
-//同态加密测试
-func TestHomoEncrypt(t *testing.T) {
+//聚合加密测试
+func TestAggEncrypt(t *testing.T) {
 	//------------1.初始化-----------
 	//生成A B的公私钥对<s1, P1> <s2, P2>
 	s1,_ := randomK(rand.Reader)
@@ -107,7 +108,98 @@ func TestHomoEncrypt(t *testing.T) {
 	t.Log("DD2:", DD2)
 }
 
+//盲化加密测试
+func TestAggBlindEncrypt(t *testing.T) {
+	//------------1.初始化-----------
+	//生成A B的公私钥对<s1, P1> <s2, P2>
+	s1,_ := randomK(rand.Reader)
+	s2,_ := randomK(rand.Reader)
+	P1, P2 := &G1{}, &G1{}
+	P1.ScalarBaseMult(s1)
+	P2.ScalarBaseMult(s2)
+
+	//------------2.加密-----------
+	//得到随机M
+	M := make([]byte, 32)
+	rand.Read(M)
+	t.Log("M:", M)
+
+	//A 加密M， 得到<C1, R1>
+	r1,_ := randomK(rand.Reader)
+
+	R1 := &G1{}
+	R1.ScalarBaseMult(r1)
+
+	S1 := &G1{}
+	S1.ScalarMult(P1, r1)
+	C1 := make([]byte, 32)
+	bitutil.XORBytes(C1, M, S1.Marshal())
+
+	//B 盲化R1得到K1=s2*R1
+	K1 := &G1{}
+	K1 = R1.ScalarMult(R1, s2)  //A计算出
+
+	//------------3.解密-----------
+	//A 计算得到 L1 = s1·K1
+	L1 := &G1{}
+	L1 = K1.ScalarMult(K1, s1)
+
+	//B脱盲运算
+	t2 := s2.ModInverse(s2, Order)  //t2 = 1/s2.
+	T1 := &G1{}
+	T1 = L1.ScalarMult(L1, t2)
+
+	//异或运算:
+	D1 := make([]byte, 32)
+	bitutil.XORBytes(D1, C1, T1.Marshal())      //A计算出D1
+	t.Log("D1:", D1)
+}
+
 func TestCpu(t *testing.T) {
 	t.Log("hasBMI2:", hasBMI2)
 }
 
+func Bytes2Bits(data []byte) []int {
+	dst := make([]int, 0)
+	for _, v := range data {
+		for i := 0; i < 8; i++ {
+			move := uint(7 - i)
+			dst = append(dst, int((v>>move)&1))
+		}
+	}
+	fmt.Println(len(dst))
+	return dst
+}
+
+//通过big.Int方式，短签名恢复出签名点(x,y).[BUG修复中]
+func BenchmarkShortSig(b *testing.B) {
+	for i:=0; i<b.N; i++ {
+		_, g1, _ := RandomG1(rand.Reader)
+		px, _,isOdd := g1.GetXY()
+
+		g2 := &G1{}
+		g2.SetX(px, isOdd)
+		ppx, ppy, _ := g2.GetXY()
+
+		buf_xx := make([]byte, 32)
+		buf_yy := make([]byte, 32)
+		ppx.Marshal(buf_xx)
+		ppy.Marshal(buf_yy)
+
+		gfpNeg(ppy, ppy)
+		ppy.Marshal(buf_yy)
+
+		_, h1, _ := RandomG2(rand.Reader)
+		gt1 := Pair(g1, h1)
+
+		gt2 := &GT{}
+		gt2.Set(gt1)
+
+		if PairIsEuqal(gt1, gt2) != true {
+			gt2.p.Invert(gt1.p)
+			if PairIsEuqal(gt1, gt2) != true {
+				b.Error("check failed.")
+			}
+		}
+	}
+}

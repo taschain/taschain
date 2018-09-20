@@ -112,13 +112,13 @@ func getPoolConfig() *TransactionPoolConfig {
 func NewTransactionPool() *TransactionPool {
 
 	pool := &TransactionPool{
-		config:      getPoolConfig(),
-		lock:        middleware.NewLoglock("txpool"),
-		batchLock:   sync.Mutex{},
-		sendingList: make([]*types.Transaction, 0),
+		config:        getPoolConfig(),
+		lock:          middleware.NewLoglock("txpool"),
+		batchLock:     sync.Mutex{},
+		sendingList:   make([]*types.Transaction, 0),
 		sendingTxLock: sync.Mutex{},
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -132,18 +132,18 @@ func NewTransactionPool() *TransactionPool {
 }
 
 func (pool *TransactionPool) Clear() {
-	pool.lock.Lock("Clear")
-	defer pool.lock.Unlock("Clear")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	os.RemoveAll(pool.config.tx)
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 }
 
 func (pool *TransactionPool) GetReceived() []*types.Transaction {
-	return pool.received.AsSlice()
+	return pool.received.txs
 }
 
 // 返回待处理的transaction数组
@@ -163,8 +163,8 @@ func (pool *TransactionPool) ReserveTransactions(hash common.Hash, txs []*types.
 
 // 不加锁
 func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
-	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("AddTransactions")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	if nil == txs || 0 == len(txs) {
 		return ErrNil
@@ -180,8 +180,8 @@ func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 	return nil
 }
 func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
-	pool.lock.Lock("Add")
-	defer pool.lock.Unlock("Add")
+	pool.lock.Lock("")
+	defer pool.lock.Unlock("")
 
 	return pool.addInner(tx, true)
 }
@@ -211,7 +211,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	// batch broadcast
 	if isBroadcast {
 		//交易不广播
-		return  true, nil
+		return true, nil
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()
@@ -242,8 +242,8 @@ func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []
 		return nil, nil, ErrNil
 	}
 
-	pool.lock.RLock("GetTransactions")
-	defer pool.lock.RUnlock("GetTransactions")
+	pool.lock.RLock("")
+	defer pool.lock.RUnlock("")
 	reservedRaw, _ := pool.reserved.Get(reservedHash)
 	var reserved []*types.Transaction
 	if nil != reservedRaw {
@@ -288,8 +288,8 @@ func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction,
 // 根据hash获取交易实例
 // 此处加锁
 func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
-	pool.lock.RLock("GetTransaction")
-	defer pool.lock.RUnlock("GetTransaction")
+	pool.lock.RLock("")
+	defer pool.lock.RUnlock("")
 
 	return pool.getTransaction(hash)
 }
@@ -420,20 +420,22 @@ func (pool *TransactionPool) RemoveExecuted(txs []*types.Transaction) {
 }
 
 type container struct {
-	lock   sync.RWMutex
-	txs    types.PriorityTransactions
-	txsMap map[common.Hash]*types.Transaction
-	limit  int
-	inited bool
+	lock           sync.RWMutex
+	txs            types.PriorityTransactions
+	txsMap         map[common.Hash]*types.Transaction
+	limit          int
+	inited         bool
+	maxTxsPerBlock int
 }
 
-func newContainer(l int) *container {
+func newContainer(l int, maxTxsPerBlock int) *container {
 	return &container{
-		lock:   sync.RWMutex{},
-		limit:  l,
-		txsMap: map[common.Hash]*types.Transaction{},
-		txs:    types.PriorityTransactions{},
-		inited: false,
+		lock:           sync.RWMutex{},
+		limit:          l,
+		txsMap:         map[common.Hash]*types.Transaction{},
+		txs:            types.PriorityTransactions{},
+		inited:         false,
+		maxTxsPerBlock: maxTxsPerBlock,
 	}
 
 }
@@ -463,8 +465,16 @@ func (c *container) AsSlice() []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	result := make([]*types.Transaction, c.txs.Len())
+	length := c.txs.Len()
+	result := make([]*types.Transaction, length)
 	copy(result, c.txs)
+
+	if length >= c.maxTxsPerBlock {
+		// 根据gasprice，从高到低排序
+		sort.Sort(types.GasPriceTransactions(result))
+		result = result[:c.maxTxsPerBlock]
+	}
+
 	return result
 }
 

@@ -57,8 +57,8 @@ func NewChainHandler() network.MsgHandler {
 
 	headerPending := make(map[common.Hash]blockHeaderNotify)
 	complete, _ := lru.New(256)
-	headerCh := make(chan blockHeaderNotify)
-	bodyCh := make(chan blockBodyNotify)
+	headerCh := make(chan blockHeaderNotify, 100)
+	bodyCh := make(chan blockBodyNotify, 100)
 	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
 
 	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
@@ -235,8 +235,8 @@ func (ch ChainHandler) loop() {
 			}
 			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
 			msg := notify.BlockMessage{Block: block}
-			ch.complete.Add(block.Header.Hash,block)
-			delete(ch.headerPending,block.Header.Hash)
+			ch.complete.Add(block.Header.Hash, block)
+			delete(ch.headerPending, block.Header.Hash)
 			notify.BUS.Publish(notify.NewBlock, &msg)
 		}
 	}
@@ -500,8 +500,8 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
 		return nil, e
 	}
-	groups := make([]*types.Group,len(message.Groups))
-	for i,g := range message.Groups{
+	groups := make([]*types.Group, len(message.Groups))
+	for i, g := range message.Groups {
 		groups[i] = types.PbToGroup(g)
 	}
 	groupInfo := sync.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
