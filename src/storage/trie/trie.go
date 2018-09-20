@@ -328,6 +328,14 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
+//func (t *Trie) CopyCompleteTrie() (root common.Hash, err error) {
+//	if t.db == nil {
+//		panic("CopyCompleteTrie called on trie with nil database")
+//	}
+//
+//}
+
+
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if t.db == nil {
 		panic("commit called on trie with nil database")
@@ -346,6 +354,16 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 		return t.resolveHash(n, prefix)
 	}
 	return n, nil
+}
+
+func (t *Trie) resolveHash2(n hashNode) (node, error) {
+	hash := common.BytesToHash(n)
+
+	enc, err := t.db.Node(hash)
+	if err != nil || enc == nil {
+		return nil, &MissingNodeError{NodeHash: hash}
+	}
+	return mustDecodeNode2(n, enc), nil
 }
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
@@ -376,6 +394,48 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	defer returnHasherToPool(h)
 	return h.hash(t.root, db, true)
 }
+
+
+func (t *Trie) expandAll(original node, db *Database) (newNode node,err error) {
+	switch n := original.(type) {
+	case nil:
+		return nil, nil
+	case *shortNode:
+		cached := n.copy()
+		cached.Key = common.CopyBytes(n.Key)
+		if _, ok := n.Val.(valueNode); !ok {
+			cached.Val, err = t.expandAll(n.Val, db)
+			if err != nil {
+				return original, err
+			}
+		}
+		return  cached,nil
+	case *fullNode:
+		cached := n.copy()
+		for i := 0; i < 16; i++ {
+			if n.Children[i] != nil {
+				cached.Children[i], err = t.expandAll(n.Children[i], db)
+				if err != nil {
+					return original, err
+				}
+			}
+		}
+		cached.Children[16] = n.Children[16]
+		return  cached, nil
+	case hashNode:
+		child, err := t.resolveHash2(n, n[:pos])
+		if err != nil {
+			return nil, n, true, err
+		}
+		value, newnode, _, err := t.tryGet(child, key, pos)
+	return value, newnode, true, err
+
+
+	default:
+		return original, nil
+	}
+}
+
 
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {
