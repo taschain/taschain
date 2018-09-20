@@ -18,27 +18,33 @@ func TestNet1(test *testing.T) {
 	id, _ := network.Init(common.GlobalConf, true, nil, nil, true, "10.0.0.66")
 	fmt.Printf("id:%s\n", id)
 	pprof()
-	for {
-		m := mockMsg()
-		network.GetNetInstance().Broadcast(m)
-		time.Sleep(time.Millisecond * 1)
-	}
+	go sendMsg()
+	go sendMsg()
+	go sendMsg()
+	sendMsg()
 }
 
 func TestNet2(test *testing.T) {
 	common.InitConf("tas2.ini")
 	id, _ := network.Init(common.GlobalConf, false, nil, nil, true, "10.0.0.66")
 	fmt.Printf("id:%s\n", id)
+	go sendMsg()
+	go sendMsg()
+	go sendMsg()
+	sendMsg()
+}
+
+func sendMsg(){
 	for {
 		m := mockMsg()
 		network.GetNetInstance().Broadcast(m)
-		time.Sleep(time.Millisecond * 1)
+		time.Sleep(time.Millisecond * 10)
 	}
 }
 
 func mockMsg() network.Message {
 
-	body := make([]byte, 10000)
+	body := make([]byte, 250000)
 	msg := network.Message{Code: 1, Body: body}
 	return msg
 }
