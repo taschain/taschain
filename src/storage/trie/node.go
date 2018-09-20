@@ -42,6 +42,8 @@ func init()  {
 	gob.Register(valueNode{})
 	gob.Register(hashNode{})
 	gob.Register(nodeFlag{})
+	gob.Register(shortNode{})
+	gob.Register(fullNode{})
 }
 
 type node interface {
@@ -136,11 +138,11 @@ func (n hashNode) magic() byte   { return magicHash }
 func (n valueNode) magic() byte  { return magicValue }
 
 func (n *fullNode) encode(w io.Writer) error  {
-	return encode(w, n.magic(), n)
+	return encode(w, n.magic(), n.Children)
 }
 
 func (n *shortNode) encode(w io.Writer) error  {
-	return encode(w, n.magic(), n)
+	return encode(w, n.magic(), n.Val)
 }
 func (n hashNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 func (n valueNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
@@ -152,11 +154,11 @@ func (n *shortNode) String() string { return n.fstring("") }
 func (n hashNode) String() string   { return n.fstring("") }
 func (n valueNode) String() string  { return n.fstring("") }
 
-func encode(w io.Writer,magic byte,node node) error{
+func encode(w io.Writer,magic byte,vl interface{}) error{
 	encoder := gob.NewEncoder(w)
 	encoder.Encode(encodeVersion)
 	encoder.Encode(magic)
-	return encoder.Encode(node)
+	return encoder.Encode(vl)
 }
 
 func (n *fullNode) fstring(ind string) string {
