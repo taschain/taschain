@@ -12,6 +12,7 @@ import (
 	"consensus/net"
 	"middleware/statistics"
 	"math/big"
+	"strings"
 )
 
 /*
@@ -139,43 +140,11 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		blog.log("already working on that block, status=%v", worker.getStatus())
 		return false
 	} else {
-		worker = newVRFWorker(top, castHeight, expireTime)
+		worker = newVRFWorker(p.getMinerInfo(), top, castHeight, expireTime)
 		p.setVrfWorker(worker)
 		p.blockProposal()
 	}
 	return true
-
-	//selectGroup := p.calcCastGroup(top, castHeight)
-	//if selectGroup == nil {
-	//	return false
-	//}
-	//
-	//blog.log("NEXT CAST GROUP is %v, castHeight=%v, expire=%v", GetIDPrefix(*selectGroup), castHeight, expireTime)
-	//
-	////自己属于下一个铸块组
-	//if p.IsMinerGroup(*selectGroup) {
-	//	bc := p.GetBlockContext(*selectGroup)
-	//	if bc == nil {
-	//		blog.log("[ERROR]checkSelfCastRoutine: get nil blockcontext!, gid=%v", GetIDPrefix(*selectGroup))
-	//		return false
-	//	}
-	//
-	//	blog.log("BECOME NEXT CAST GROUP! castHeight=%v, uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", castHeight, GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.verifyCnt, bc.recentVerifyHeight)
-	//
-	//	if !bc.StartCast(castHeight, expireTime, top) {
-	//		blog.log("startCast fail, castHeight=%v, expire=%v,topBH=%v", castHeight, expireTime, bc.Proc.blockPreview(top))
-	//	}
-	//
-	//	return true
-	//} else { //自己不是下一个铸块组, 但是当前在铸块
-	//	p.blockContexts.forEach(func(_bc *BlockContext) bool {
-	//		blog.log("reset casting blockcontext: castingInfo=%v", _bc.castingInfo())
-	//		_bc.Reset()
-	//		return true
-	//	})
-	//}
-	//
-	//return false
 }
 
 func (p *Processor) getCastCheckRoutineName() string {
@@ -250,36 +219,6 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	return
 }
 
-
-//检查是否轮到自己出块
-//func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
-//	//p.castLock.Lock()
-//	//defer p.castLock.Unlock()
-//	gid := bc.MinerID.Gid
-//	height := vctx.castHeight
-//
-//	//log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
-//	if kingIndex < 0 || qn < 0 {
-//		return
-//	}
-//
-//	sgi := p.getGroup(gid)
-//
-//	log.Printf("time=%v, Current kingIndex=%v, KING=%v, qn=%v.\n", time.Now().Format(time.Stamp), kingIndex, GetIDPrefix(sgi.GetCastor(int(kingIndex))), qn)
-//	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
-//		log.Printf("curent node IS KING!\n")
-//		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
-//			head := p.castBlock(bc, vctx, qn) //铸块
-//			if head != nil {
-//				vctx.addCastedQN(qn)
-//			}
-//		} else {
-//			log.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
-//		}
-//	}
-//	return
-//}
-
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -292,16 +231,17 @@ func (p *Processor) blockProposal() {
 		blog.log("vrf worker proposed/success, status %v", worker.getStatus())
 		return
 	}
+	height := worker.castHeight
 
-	ok, nonce := worker.prove()
-	if !ok {
-		blog.log("vrf prove not ok! nonce=%v", nonce)
+	totalStake := p.minerReader.getTotalStake(height)
+	blog.log("totalStake height=%v, stake=%v", top.Height, totalStake)
+	pi, err := worker.prove(totalStake)
+	if err != nil {
+		blog.log("vrf prove not ok! %v", err)
 		return
 	}
 
-	height := worker.castHeight
-
-	blog.log("begin proposal, height=%v, qn=%v...\n", height, nonce)
+	blog.log("begin proposal, height=%v, pi=%v...\n", height, pi)
 
 	gid := p.calcVerifyGroup(top, height)
 	if gid == nil {
@@ -309,14 +249,14 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	logStart("CASTBLOCK", height, uint64(nonce), p.getPrefix(), "开始铸块")
+	logStart("CASTBLOCK", height, 0, p.getPrefix(), "pi %v", pi)
 
 	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), big.NewInt(1), p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastingBlock(uint64(height), 0, new(big.Int).SetBytes(pi), p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
-		blog.log("MainChain::CastingBlock failed, height=%v, nonce=%v, gid=%v, mid=%v.\n", height, nonce, GetIDPrefix(*gid), GetIDPrefix(p.GetMinerID()))
+		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-		logHalfway("CASTBLOCK", height, uint64(nonce), p.getPrefix(), "铸块失败, block为空")
+		logHalfway("CASTBLOCK", height, 0, p.getPrefix(), "铸块失败, block为空")
 		return
 	}
 
@@ -331,7 +271,7 @@ func (p *Processor) blockProposal() {
 		//ccm.GroupID = gid
 		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
 		ccm.GenRandomSign(skey, worker.baseBH.Random)
-		logHalfway("CASTBLOCK", height, uint64(nonce), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
+		logHalfway("CASTBLOCK", height, 0, p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
 
 		p.NetServer.SendCastVerify(&ccm)
 
@@ -345,3 +285,52 @@ func (p *Processor) blockProposal() {
 
 }
 
+//请求组内对奖励交易签名
+func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeader)  {
+	blog := newBizLog("reqRewardTransSign")
+	blog.log("start, bh=%v", p.blockPreview(bh))
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		return
+	}
+	if !slot.IsSuccess() {
+		return
+	}
+	if !slot.gSignGenerator.Recovered() {
+		panic("slot not recovered")
+	}
+
+	groupID := groupsig.DeserializeId(bh.GroupId)
+	group := p.getGroup(groupID)
+
+	witnesses := slot.gSignGenerator.GetWitnesses()
+	size := len(witnesses)
+	targetIdIndexs := make([]int32, size)
+	signs := make([]groupsig.Signature, size)
+	idHexs := make([]string, size)
+
+	i := 0
+	for idStr, piece := range witnesses {
+		signs[i] = piece
+		var id groupsig.ID
+		id.SetHexString(idStr)
+		idHexs[i] = idStr
+		targetIdIndexs[i] = int32(group.GetMinerPos(id))
+		i++
+	}
+
+	bonus, tx := p.MainChain.GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash, bonus.TargetIds, bh.Height)
+	logHalfway("REWARD_REQ", bh.Height, 0, p.getPrefix(), "txHash=%v, targetIds=%v", bonus.TxHash, strings.Join(idHexs, ","))
+
+	if slot.SetRewardTrans(tx) {
+		msg := &model.CastRewardTransSignReqMessage{
+			Reward: *bonus,
+			SignedPieces: signs,
+		}
+		msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID)), msg)
+		p.NetServer.SendCastRewardSignReq(msg)
+		blog.log("reward req send height=%v", bh.Height)
+	}
+
+}

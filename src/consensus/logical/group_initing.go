@@ -263,16 +263,16 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //}
 
 //从秘密分享消息创建GroupContext结构
-func CreateGroupContextWithPieceMessage(spm model.ConsensusSharePieceMessage, mi model.MinerInfo) *GroupContext {
-	gc := new(GroupContext)
-	gc.is = GIS_PIECE
-	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
-	gc.node.InitForGroup(spm.GISHash)
-	return gc
-}
+//func CreateGroupContextWithPieceMessage(spm model.ConsensusSharePieceMessage, mi model.SelfMinerDO) *GroupContext {
+//	gc := new(GroupContext)
+//	gc.is = GIS_PIECE
+//	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+//	gc.node.InitForGroup(spm.GISHash)
+//	return gc
+//}
 
 //从组初始化消息创建GroupContext结构
-func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
+func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
 	if len(grm.MEMS) != model.Param.GetGroupMemberNum() || len(grm.MEMS) != int(grm.GI.Members) {
 		log.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
@@ -289,7 +289,7 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *m
 	gc.gis = grm.GI
 	gc.is = GIS_RAW
 	gc.node.memberNum = len(gc.mems)
-	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+	gc.node.InitForMiner(mi)
 	gc.node.InitForGroup(grm.GI.GenHash())
 	return gc
 }
@@ -360,7 +360,7 @@ func NewJoiningGroups() *JoiningGroups {
 	}
 }
 
-func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
+func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
 	if v := jgs.GetGroup(grm.GI.DummyID); v != nil {
 		gs := v.GetGroupStatus()
 		log.Printf("found initing group info BY RAW, status=%v...\n", gs)

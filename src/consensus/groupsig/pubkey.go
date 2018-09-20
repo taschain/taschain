@@ -186,10 +186,10 @@ func SharePubkeyByMembershipNumber(mpub []Pubkey, id int) *Pubkey {
 	return SharePubkey(mpub, *NewIDFromInt(id + 1))
 }
 
-func DeserializePubkeyBytes(bytes []byte) *Pubkey {
+func DeserializePubkeyBytes(bytes []byte) Pubkey {
 	var pk Pubkey
 	if err := pk.Deserialize(bytes); err != nil {
-		return nil
+		return Pubkey{}
 	}
-	return &pk
+	return pk
 }

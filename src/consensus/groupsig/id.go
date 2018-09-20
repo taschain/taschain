@@ -144,16 +144,17 @@ func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
 }
-func DeserializeId(bs []byte) *ID {
+func DeserializeId(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
-		return nil
+		return ID{}
 	}
-	return &id
+	return id
 }
 
 func (id ID) String() string {
-	bigInt := id.GetBigInt()
-	b := bigInt.Bytes()
-	return string(b)
+	//bigInt := id.GetBigInt()
+	//b := bigInt.Bytes()
+	//return string(b)
+	return id.GetHexString()
 }

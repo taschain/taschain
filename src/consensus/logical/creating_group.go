@@ -56,7 +56,7 @@ func newCreateGroup(gis *model.ConsensusGroupInitSummary, pkis []model.PubKeyInf
 		gis:            gis,
 		pkis:            pkis,
 		createGroup:    creator,
-		gSignGenerator: model.NewGroupSignGenerator(model.Param.GetGroupK(creator.GetLen())),
+		gSignGenerator: model.NewGroupSignGenerator(model.Param.GetGroupK(creator.GetMemberCount())),
 	}
 	return cg
 }

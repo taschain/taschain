@@ -349,3 +349,24 @@ message ConsensusCreateGroupSignMessage{
     required SignData sign = 2;
 
 }
+
+message Bonus{
+    required	bytes   TxHash = 1;
+    repeated	int32   TargetIds = 2;
+    required	bytes   BlockHash	= 3;
+    required	bytes   GroupId	= 4;
+    optional	bytes   Sign = 5;
+    required	uint64  TotalValue = 6;
+}
+
+message CastRewardTransSignReqMessage {
+	required SignData Sign = 1;
+	required Bonus Reward = 2;
+	repeated bytes SignedPieces = 3;
+}
+
+message CastRewardTransSignMessage {
+	required SignData Sign = 1;
+    required bytes ReqHash = 2;
+    required bytes BlockHash = 3;
+}

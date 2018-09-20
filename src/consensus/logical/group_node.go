@@ -115,7 +115,7 @@ type GroupNode struct {
 	privateKey common.PrivateKey //用户私钥（非组签名私钥）
 	address    common.Address    //用户地址
 	//矿工属性
-	minerInfo model.MinerInfo //和组无关的矿工信息（本质上可以跨多个GroupNode共享）
+	minerInfo 	*model.SelfMinerDO //和组无关的矿工信息（本质上可以跨多个GroupNode共享）
 	//组（相关）属性
 	minerGroupSecret  MinerGroupSecret     //和组相关的矿工信息
 	memberNum		int					//组成员数量
@@ -158,9 +158,9 @@ func (n *GroupNode) ImportUser(sk common.PrivateKey, addr common.Address) {
 }
 
 //矿工初始化(和组无关)
-func (n *GroupNode) InitForMiner(id groupsig.ID, secret base.Rand) {
+func (n *GroupNode) InitForMiner(mi *model.SelfMinerDO) {
 	//log.Printf("begin GroupNode::InitForMiner...\n")
-	n.minerInfo.Init(id, secret)
+	n.minerInfo = mi
 	return
 }
 
@@ -176,20 +176,16 @@ func (n *GroupNode) InitForGroup(h common.Hash) {
 }
 
 //针对矿工的初始化(可以分两层，一个节点ID可以加入多个组)
-func (n *GroupNode) InitForMinerStr(id string, secret string, gis model.ConsensusGroupInitSummary) {
-	log.Printf("begin GroupNode::InitForMinerStr...\n")
-	n.minerInfo = model.NewMinerInfo(id, secret)
-	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(gis.GenHash()))
-
-	n.groupInitPool = *newGroupInitPool()
-	n.minerSignedSecret = groupsig.Seckey{}
-	n.groupPubKey = groupsig.Pubkey{}
-	return
-}
-
-func (n GroupNode) GetMinerID() groupsig.ID {
-	return n.minerInfo.MinerID
-}
+//func (n *GroupNode) InitForMinerStr(id string, secret string, gis model.ConsensusGroupInitSummary) {
+//	log.Printf("begin GroupNode::InitForMinerStr...\n")
+//	n.minerInfo = model.NewSelfMinerDO(id, secret)
+//	n.minerGroupSecret = NewMinerGroupSecret(n.minerInfo.GenSecretForGroup(gis.GenHash()))
+//
+//	n.groupInitPool = *newGroupInitPool()
+//	n.minerSignedSecret = groupsig.Seckey{}
+//	n.groupPubKey = groupsig.Pubkey{}
+//	return
+//}
 
 //生成针对组内所有成员的秘密共享
 func (n *GroupNode) GenSharePiece(mems []groupsig.ID) groupsig.SeckeyMapID {

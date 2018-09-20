@@ -41,7 +41,7 @@ type Processor struct {
 	groupManager *GroupManager
 
 	//////和组无关的矿工信息
-	mi *model.MinerInfo
+	mi *model.SelfMinerDO
 	//////加入(成功)的组信息(矿工节点数据)
 	belongGroups *BelongGroups //当前ID参与了哪些(已上链，可铸块的)组, 组id_str->组内私密数据（组外不可见或加速缓存）
 	//////测试数据，代替屮逸的网络消息
@@ -58,7 +58,7 @@ type Processor struct {
 	MainChain  core.BlockChainI
 	GroupChain *core.GroupChain
 
-	minerReader *MinerContractAccess
+	minerReader *MinerPoolReader
 	vrf	 atomic.Value		//vrfWorker
 
 	NetServer net.NetworkServer
@@ -69,7 +69,7 @@ func (p Processor) getPrefix() string {
 }
 
 //私密函数，用于测试，正式版本不提供
-func (p Processor) getMinerInfo() *model.MinerInfo {
+func (p Processor) getMinerInfo() *model.SelfMinerDO {
 	return p.mi
 }
 
@@ -82,7 +82,7 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 }
 
 //初始化矿工数据（和组无关）
-func (p *Processor) Init(mi model.MinerInfo) bool {
+func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.ready = false
 	p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
@@ -95,7 +95,7 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
 
-	p.minerReader = NewMinerContractAccess()
+	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
@@ -110,7 +110,7 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 
 //取得矿工ID（和组无关）
 func (p Processor) GetMinerID() groupsig.ID {
-	return p.mi.MinerID
+	return p.mi.GetMinerID()
 }
 
 //验证块的组签名是否正确
@@ -137,7 +137,23 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 
 //检查铸块组是否合法
 func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
-	//TODO: 检查vrf是否满足条件
+	blog := newBizLog("isCastLegal")
+	castor := groupsig.DeserializeId(bh.Castor)
+	minerDO := p.minerReader.getProposeMiner(castor)
+	if minerDO == nil {
+		blog.log("minerDO is nil")
+		return false
+	}
+	if !p.minerCanProposalAt(castor, bh.Height) {
+		blog.log("miner can't cast at height, id=%v, height=%v(%v-%v)", GetIDPrefix(castor), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
+		return false
+	}
+	totalStake := p.minerReader.getTotalStake(bh.Height)
+	blog.log("totalStake %v", totalStake)
+	if ok, err := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok {
+		blog.log("vrf verify block fail, err=%v", err)
+		return false
+	}
 
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -149,14 +165,14 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return false
 	}
 	if !selectGroupId.IsEqual(gid) {
-		log.Printf("isCastLegal failed, expect group=%v, receive cast group=%v.\n", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
-		log.Printf("qualified group num is %v\n", len(p.GetCastQualifiedGroups(bh.Height)))
+		blog.log("failed, expect group=%v, receive cast group=%v", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
+		blog.log("qualified group num is %v", len(p.GetCastQualifiedGroups(bh.Height)))
 		return false
 	}
 
 	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
 	if !groupInfo.GroupID.IsValid() {
-		log.Printf("selectedGroup is not valid, expect gid=%v, real gid=%v\n", GetIDPrefix(*selectGroupId), GetIDPrefix(groupInfo.GroupID))
+		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v\n", GetIDPrefix(*selectGroupId), GetIDPrefix(groupInfo.GroupID))
 		return false
 	}
 

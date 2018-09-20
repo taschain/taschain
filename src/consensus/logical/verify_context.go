@@ -153,18 +153,6 @@ func (vc *VerifyContext) castSuccess() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == CBCS_BLOCKED
 }
 
-//func (vc *VerifyContext) isQNCasted(qn int64) bool {
-//	for _, _qn := range vc.castedQNs {
-//		if _qn == qn {
-//			return true
-//		}
-//	}
-//	return false
-//}
-//
-//func (vc *VerifyContext) addCastedQN(qn int64) {
-//	vc.castedQNs = append(vc.castedQNs, qn)
-//}
 
 func (vc *VerifyContext) markTimeout() {
 	atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
@@ -177,26 +165,6 @@ func (vc *VerifyContext) markCastSuccess() {
 func (vc *VerifyContext) castExpire() bool {
     return time.Now().After(vc.expireTime)
 }
-
-//
-////计算QN
-//func (vc *VerifyContext) calcQN(timeEnd time.Time) int64 {
-//	diff := timeEnd.Sub(vc.prevBH.CurTime).Seconds() //从上个铸块完成到现在的时间（秒）
-//	return vc.qnOfDiff(diff)
-//}
-//
-//func (vc *VerifyContext) qnOfDiff(diff float64) int64 {
-//	max := int64(vc.expireTime.Sub(vc.prevBH.CurTime).Seconds())
-//	if max < 0 {
-//		return -1
-//	}
-//	d := int64(diff) + int64(model.Param.MaxGroupCastTime) - max
-//	qn := int64(model.Param.MaxQN) - d / int64(model.Param.MaxUserCastTime)
-//	if qn < 0 {
-//		log.Printf("maxQN %v, d %v, max %v, diff %v, expire %v, (%v, %v)\n", model.Param.MaxQN, d, max, diff, vc.expireTime, model.Param.MaxGroupCastTime, model.Param.MaxUserCastTime)
-//	}
-//	return qn
-//}
 
 func (vc *VerifyContext) findSlot(hash common.Hash) int {
 	for idx, slot := range vc.slots {
@@ -288,7 +256,7 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
 	}
-	result := slot.AcceptPiece(bh, signData)
+	result := slot.AcceptVerifyPiece(bh, signData)
 	return result
 }
 
@@ -333,47 +301,6 @@ func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
 	}
 	return false
 }
-//
-////计算当前铸块人位置和QN
-//func (vc *VerifyContext) calcCastor() (int32, int64) {
-//	//if secs < max { //在组铸块共识时间窗口内
-//	qn := vc.calcQN(time.Now())
-//	if qn < 0 {
-//		return -1, qn
-//	}
-//	index := vc.getCastorPosByQN(qn)
-//
-//	return index, qn
-//}
-
-//func (vc *VerifyContext) getCastorPosByQN(qn int64) int32 {
-//	data := make([]byte, 0)
-//	data = append(data, vc.prevBH.Random...)
-//	qnBytes := make([]byte, 8)
-//	binary.LittleEndian.PutUint64(qnBytes, uint64(qn))
-//	data = append(data, qnBytes...)
-//	hash := base.Data2CommonHash(data)
-//	biHash := hash.Big()
-//
-//	var index int32 = -1
-//	mem := vc.blockCtx.GroupMembers
-//	if biHash.BitLen() > 0 {
-//		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
-//	}
-//	return index
-//}
-
-//取得第一个铸块人在组内的位置
-//deprecated
-//func (vc *VerifyContext) getFirstCastor(prevHash common.Hash) int32 {
-//	var index int32 = -1
-//	biHash := prevHash.Big()
-//	mem := vc.blockCtx.GroupMembers
-//	if biHash.BitLen() > 0 {
-//		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
-//	}
-//	return index
-//}
 
 func (vc *VerifyContext) GetSlots() []*SlotContext {
 	vc.lock.RLock()

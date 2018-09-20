@@ -39,6 +39,10 @@ type MessageProcessor interface {
 	OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)
 
 	OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)
+
+	OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage)
 }
 
 type NextGroup struct {
@@ -69,4 +73,8 @@ type NetworkServer interface {
 	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
 
 	ReleaseGroupNet(gid groupsig.ID)
+
+	SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	SendCastRewardSign(msg *model.CastRewardTransSignMessage)
 }

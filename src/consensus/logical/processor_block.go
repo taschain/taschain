@@ -97,7 +97,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.ProveValue, result)
-	logHalfway("doAddOnChain", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
+	logHalfway("doAddOnChain", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(groupsig.DeserializeId(bh.Castor)))
 
 	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)

@@ -16,7 +16,7 @@ import (
 
 type GroupCreateChecker struct {
 	processor *Processor
-	access 	 *MinerContractAccess
+	access 	 *MinerPoolReader
 }
 
 func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
@@ -40,11 +40,11 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
-	newBizLog("selectKing").log("king index=%v, id=%v\n", index, GetIDPrefix(group.GetCastor(int(index))))
+	newBizLog("selectKing").log("king index=%v, id=%v\n", index, GetIDPrefix(group.GetMemberID(int(index))))
 	if index < 0 {
 		return groupsig.ID{}
 	}
-	return group.GetCastor(int(index))
+	return group.GetMemberID(int(index))
 }
 
 //检查当前用户是否是属于建组的组, 返回组id
@@ -64,10 +64,10 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	}
 
 	castGID := groupsig.DeserializeId(theBH.GroupId)
-	if !gchecker.processor.IsMinerGroup(*castGID) {
+	if !gchecker.processor.IsMinerGroup(castGID) {
 		return
 	}
-	sgi = gchecker.processor.getGroup(*castGID)
+	sgi = gchecker.processor.getGroup(castGID)
 	if !sgi.CastQualified(topHeight) {
 		return
 	}

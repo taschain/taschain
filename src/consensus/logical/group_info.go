@@ -91,14 +91,14 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 
 func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
-		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
-		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
+		GroupID:     groupsig.DeserializeId(coreGroup.Id),
+		GroupPK:     groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 		BeginHeight: coreGroup.BeginHeight,
 		Members:     make([]model.PubKeyInfo, 0),
 		MemIndex:    make(map[string]int),
 		DismissHeight: coreGroup.DismissHeight,
-		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
-		PrevGroupID:   *groupsig.DeserializeId(coreGroup.PreGroup),
+		ParentId:      groupsig.DeserializeId(coreGroup.Parent),
+		PrevGroupID:   groupsig.DeserializeId(coreGroup.PreGroup),
 		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
 		Authority:     coreGroup.Authority,
 		Name:          coreGroup.Name,
@@ -107,7 +107,7 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	for _, cMem := range coreGroup.Members {
 		id := groupsig.DeserializeId(cMem.Id)
 		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)
-		pkInfo := model.NewPubKeyInfo(*id, *pk)
+		pkInfo := model.NewPubKeyInfo(id, pk)
 		sgi.addMember(&pkInfo)
 	}
 	return sgi
@@ -131,22 +131,8 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 	return sgi.GroupPK
 }
 
-//由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
-	sgi := &StaticGroupInfo{
-		GIS:      grm.GI,
-		Members:  make([]model.PubKeyInfo, 0),
-		MemIndex: make(map[string]int),
-	}
-	for _, v := range grm.MEMS {
-		sgi.Members = append(sgi.Members, v)
-		sgi.MemIndex[v.GetID().GetHexString()] = len(sgi.Members) - 1
-	}
-	return sgi
-}
 
-
-func (sgi *StaticGroupInfo) GetLen() int {
+func (sgi *StaticGroupInfo) GetMemberCount() int {
 	return len(sgi.Members)
 }
 
@@ -174,10 +160,6 @@ func (sgi *StaticGroupInfo) addMember(m *model.PubKeyInfo) {
 	}
 }
 
-func (sgi *StaticGroupInfo) CanGroupSign() bool {
-	return sgi.GroupPK.IsValid()
-}
-
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 	_, ok := sgi.MemIndex[uid.GetHexString()]
 	return ok
@@ -185,35 +167,26 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 
 //ok:是否组内成员
 //m:组内成员矿工公钥
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
-	var i int
-	i, ok = sgi.MemIndex[uid.GetHexString()]
-	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
-	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
-	if ok {
-		m = sgi.Members[i]
-	} else {
-		i := 0
-		for k, _ := range sgi.MemIndex {
-			fmt.Printf("---mem(%v)=%v.\n", i, k)
-			i++
-		}
-	}
-	return
-}
+//func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
+//	var i int
+//	i, ok = sgi.MemIndex[uid.GetHexString()]
+//	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
+//	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
+//	if ok {
+//		m = sgi.Members[i]
+//	} else {
+//		i := 0
+//		for k, _ := range sgi.MemIndex {
+//			fmt.Printf("---mem(%v)=%v.\n", i, k)
+//			i++
+//		}
+//	}
+//	return
+//}
 
-//取得某个成员在组内的排位
-func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.MemIndex[uid.GetHexString()]
-	if ok {
-		return int32(i)
-	} else {
-		return int32(-1)
-	}
-}
 
 //取得指定位置的铸块人
-func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
+func (sgi StaticGroupInfo) GetMemberID(i int) groupsig.ID {
 	var m groupsig.ID
 	if i >= 0 && i < len(sgi.Members) {
 		m = sgi.Members[i].GetID()

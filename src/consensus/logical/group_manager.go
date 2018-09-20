@@ -65,7 +65,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	var gis model.ConsensusGroupInitSummary
 
 	gis.ParentID = group.GroupID
-	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.Id)
+	gis.PrevGroupID = groupsig.DeserializeId(topGroup.Id)
 
 	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
 	bi := base.Data2CommonHash([]byte(gn)).Big()

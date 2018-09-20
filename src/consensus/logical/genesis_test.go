@@ -50,7 +50,7 @@ func initProcessor(conf string) *Processor {
 	pk := privateKey.GetPubKey()
 	id := pk.GetAddress().GetHexString()
 	proc := new(Processor)
-	proc.Init(model.NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
+	proc.Init(model.NewSelfMinerDO(id, cm.GetString("gtas", "secret", "")))
 	return proc
 }
 
@@ -68,27 +68,27 @@ func processors() (map[string]*Processor, map[string]int) {
 
 
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("siren", "850701"))
+	//proc.Init(NewSelfMinerDO("siren", "850701"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 	//
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("juanzi", "123456"))
+	//proc.Init(NewSelfMinerDO("juanzi", "123456"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 	//
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("wild children", "111111"))
+	//proc.Init(NewSelfMinerDO("wild children", "111111"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 	//
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("gebaini", "999999"))
+	//proc.Init(NewSelfMinerDO("gebaini", "999999"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 	//
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("wenqin", "2342245"))
+	//proc.Init(NewSelfMinerDO("wenqin", "2342245"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 	//
 	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("baozhu", "23420949"))
+	//proc.Init(NewSelfMinerDO("baozhu", "23420949"))
 	//procs[proc.GetMinerID().GetHexString()] = proc
 
 	return procs, indexs

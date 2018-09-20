@@ -214,14 +214,14 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {
-		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
+		gmap["group_id"] = logical.GetIDPrefix(groupsig.DeserializeId(g.Id))
 		gmap["dummy"] = false
 	} else {
-		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
+		gmap["group_id"] = logical.GetIDPrefix(groupsig.DeserializeId(g.Dummy))
 		gmap["dummy"] = true
 	}
-	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
-	gmap["pre"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.PreGroup))
+	gmap["parent"] = logical.GetIDPrefix(groupsig.DeserializeId(g.Parent))
+	gmap["pre"] = logical.GetIDPrefix(groupsig.DeserializeId(g.PreGroup))
 	gmap["begin_height"] = g.BeginHeight
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)

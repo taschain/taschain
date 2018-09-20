@@ -298,8 +298,14 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	if err != nil {
 		return err
 	}
-
-	id, err := network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp)
+	secret := (*configManager).GetString(Section, "secret", "")
+	if secret == "" {
+		secret = getRandomString(5)
+		(*configManager).SetString(Section, "secret", secret)
+	}
+	minerInfo := model.NewSelfMinerDO(secret)
+	id := minerInfo.ID.GetHexString()
+	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
@@ -318,12 +324,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		redis.CleanRedisData()
 	}
 
-	secret := (*configManager).GetString(Section, "secret", "")
-	if secret == "" {
-		secret = getRandomString(5)
-		(*configManager).SetString(Section, "secret", secret)
-	}
-	minerInfo := model.NewMinerInfo(id, secret)
+
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo)
@@ -357,7 +358,7 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info model.MinerInfo, id string) {
+func ShowPubKeyInfo(info model.SelfMinerDO, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})

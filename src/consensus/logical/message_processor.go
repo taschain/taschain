@@ -25,6 +25,7 @@ import (
 	"middleware/types"
 	"consensus/model"
 	"middleware/statistics"
+	"bytes"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -50,7 +51,12 @@ func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupS
 }
 
 func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext)  {
+	blog := newBizLog("thresholdPieceVerify")
 	bh := &slot.BH
+	if vctx.castSuccess() {
+		blog.log("already cast success, height=%v", bh.Height)
+		return
+	}
 	gpk := p.getGroupPubKey(gid)
 
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
@@ -255,7 +261,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
 	bh := cbm.Block.Header
-	logStart("OMB", bh.Height, bh.ProveValue.Uint64(), "", "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
+	logStart("OMB", bh.Height, bh.ProveValue.Uint64(), "", "castor=%v", GetIDPrefix(groupsig.DeserializeId(bh.Castor)))
 	result := ""
 	defer func() {
 		logHalfway("OMB", bh.Height, bh.ProveValue.Uint64(), "", "OMB result %v", result)
@@ -268,11 +274,9 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		return
 	}
 	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
-	if gid == nil {
-		panic("OMB Deserialize group_id failed")
-	}
+
 	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(*gid), GetIDPrefix(*gid), cbm.Block.Header.Height, cbm.Block.Header.ProveValue)
+		GetIDPrefix(gid), GetIDPrefix(gid), cbm.Block.Header.Height, cbm.Block.Header.ProveValue)
 
 	block := &cbm.Block
 
@@ -713,5 +717,153 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		p.NetServer.SendGroupInitMessage(initMsg)
 
 		p.groupManager.removeCreatingGroup(msg.GI.DummyID)
+	}
+}
+
+func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
+	mtype := "OMCRSR"
+	blog := newBizLog(mtype)
+	reward := &msg.Reward
+
+	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", GetIDPrefix(msg.SI.GetID()), GetHashPrefix(reward.BlockHash), GetHashPrefix(reward.TxHash))
+	bh := p.getBlockHeaderByHash(reward.BlockHash)
+	if bh == nil {
+		blog.log("block not exist, hash=%v", GetHashPrefix(reward.BlockHash))
+		return
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+	group := p.getGroup(gid)
+	if group == nil {
+		panic("group is nil")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))) {
+		return
+	}
+	logStart(mtype, bh.Height, 0, GetIDPrefix(msg.SI.GetID()), "txHash=%v", GetHashPrefix(reward.TxHash))
+	send := "fail"
+	defer func() {
+		logHalfway(mtype, bh.Height, 0, GetIDPrefix(msg.SI.GetID()), "%v", send)
+	}()
+
+	if !bytes.Equal(bh.GroupId, reward.GroupId) {
+		blog.log("groupID error")
+		return
+	}
+	genBonus, _ := p.MainChain.GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	if genBonus.TxHash != reward.TxHash {
+		blog.log("bonus txHash diff")
+		return
+	}
+
+	bc := p.GetBlockContext(gid)
+	if bc == nil {
+		blog.log("blockcontext is nil, gid=%v", GetIDPrefix(gid))
+		return
+	}
+	vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
+		blog.log("vctx is nil")
+		return
+	}
+
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		blog.log("slot is nil")
+		return
+	}
+	if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
+		blog.log("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
+		return
+	}
+
+	gSignGener := model.NewGroupSignGenerator(bc.threshold())
+
+	witnesses := slot.gSignGenerator.GetWitnesses()
+	for idx, idIndex := range msg.Reward.TargetIds {
+		id := group.GetMemberID(int(idIndex))
+		sign := msg.SignedPieces[idx]
+		if sig, ok := witnesses[id.GetHexString()]; !ok {	//本地无该id签名的，需要校验签名
+			pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
+			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sig) {
+				blog.log("verify member sign fail, id=%v", GetIDPrefix(id))
+				return
+			}
+		} else {	//本地已有该id的签名的，只要判断是否跟本地签名一样即可
+			if !sign.IsEqual(sig) {
+				blog.log("member sign different id=%v", GetIDPrefix(id))
+				return
+			}
+		}
+		gSignGener.AddWitness(id, sign)
+	}
+	if !gSignGener.Recovered() {
+		blog.log("recover group sign fail")
+		return
+	}
+	bhSign := groupsig.DeserializeSign(bh.Signature)
+	if !gSignGener.GetGroupSign().IsEqual(*bhSign) {
+		blog.log("recovered sign differ from bh sign, recover %v, bh %v", GetSignPrefix(gSignGener.GetGroupSign()), GetSignPrefix(*bhSign))
+		return
+	}
+
+	send = "success"
+	//自己签名
+	signMsg := &model.CastRewardTransSignMessage{
+		ReqHash: reward.TxHash,
+		BlockHash: reward.BlockHash,
+		GroupID: gid,
+		Launcher: msg.SI.GetID(),
+	}
+	signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), signMsg)
+	p.NetServer.SendCastRewardSign(signMsg)
+	blog.log("SendCastRewardSign to %v", GetIDPrefix(msg.SI.GetID()))
+}
+
+func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {
+	mtype := "OMCRS"
+	blog := newBizLog(mtype)
+
+	blog.log("begin, sender=%v, reqHash=%v", GetIDPrefix(msg.SI.GetID()), GetHashPrefix(msg.ReqHash))
+	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	if bh == nil {
+		blog.log("block not exist, hash=%v", GetHashPrefix(msg.BlockHash))
+		return
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+	group := p.getGroup(gid)
+	if group == nil {
+		panic("group is nil")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))) {
+		return
+	}
+	logStart(mtype, bh.Height, 0, GetIDPrefix(msg.SI.GetID()), "txHash=%v", GetHashPrefix(msg.ReqHash))
+	send := "fail"
+	defer func() {
+		logHalfway(mtype, bh.Height, 0, GetIDPrefix(msg.SI.GetID()), "%v", send)
+	}()
+
+	bc := p.GetBlockContext(gid)
+	if bc == nil {
+		blog.log("blockcontext is nil, gid=%v", GetIDPrefix(gid))
+		return
+	}
+	vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
+		blog.log("vctx is nil")
+		return
+	}
+
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		blog.log("slot is nil")
+		return
+	}
+
+	accept, recover := slot.AcceptRewardPiece(&msg.SI)
+	blog.log("slot acceptRewardPiece %v %v", accept, recover)
+	if accept && recover {
+		 ok, err := p.MainChain.GetTransactionPool().Add(slot.rewardTrans)
+		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v %v", GetHashPrefix(slot.rewardTrans.Hash), ok, err)
 	}
 }

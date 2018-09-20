@@ -86,6 +86,12 @@ func (gs *GroupSignGenerator) Recovered() bool {
     return gs.gSign.IsValid()
 }
 
+func (gs *GroupSignGenerator) GetWitnesses() map[string]groupsig.Signature {
+    gs.lock.RLock()
+    defer gs.lock.RUnlock()
+    return gs.witnesses
+}
+
 func (gs *GroupSignGenerator) Brief() string {
 	return fmt.Sprintf("当前分片数%v，需分片数%v", gs.WitnessSize(), gs.threshold)
 }

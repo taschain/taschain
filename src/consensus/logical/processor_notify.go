@@ -31,17 +31,19 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	bh := block.Header
 	preHeader := block.Header
 
-	gid := *groupsig.DeserializeId(bh.GroupId)
+	gid := groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
 		bc := p.GetBlockContext(gid)
 		if bc == nil {
 			panic("get blockContext nil")
 		}
 		bc.AddCastedHeight(bh.Height)
-		_, vctx := bc.GetVerifyContextByHeight(bh.Height)
+		vctx := bc.GetVerifyContextByHeight(bh.Height)
 		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 			vctx.markCastSuccess()
+			p.reqRewardTransSign(vctx, bh)
 		}
+
 	}
 
 	for {

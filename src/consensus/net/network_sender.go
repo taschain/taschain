@@ -16,6 +16,8 @@ type NetworkServerImpl struct {
 	net network.Network
 }
 
+
+
 func NewNetworkServer() NetworkServer {
 	return &NetworkServerImpl{
 		net: network.GetNetInstance(),
@@ -216,6 +218,30 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
+func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
+	body, e := marshalCastRewardTransSignReqMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send CastRewardTransSignReqMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.CastRewardSignReq, Body: body}
+
+	gid := groupsig.DeserializeId(msg.Reward.GroupId)
+
+	ns.net.Multicast(gid.GetHexString(), m)
+}
+
+func (ns *NetworkServerImpl) SendCastRewardSign(msg *model.CastRewardTransSignMessage) {
+	body, e := marshalCastRewardTransSignMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send CastRewardTransSignMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.CastRewardSignGot, Body: body}
+
+	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GroupID.GetHexString(), m)
+}
+
 //----------------------------------------------组初始化---------------------------------------------------------------
 
 func marshalConsensusGroupRawMessage(m *model.ConsensusGroupRawMessage) ([]byte, error) {
@@ -368,4 +394,40 @@ func marshalConsensusCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignM
 
 	message := tas_middleware_pb.ConsensusCreateGroupSignMessage{ConsensusGroupInitSummary: gi, Sign: sign}
 	return proto.Marshal(&message)
+}
+
+func bonusToPB(bonus *types.Bonus) *tas_middleware_pb.Bonus {
+    return &tas_middleware_pb.Bonus{
+    	TxHash: bonus.TxHash.Bytes(),
+    	TargetIds: bonus.TargetIds,
+    	BlockHash: bonus.BlockHash.Bytes(),
+    	GroupId: bonus.GroupId,
+    	Sign: bonus.Sign,
+    	TotalValue: &bonus.TotalValue,
+	}
+}
+
+func marshalCastRewardTransSignReqMessage(msg *model.CastRewardTransSignReqMessage) ([]byte, error) {
+	b := bonusToPB(&msg.Reward)
+	si := signDataToPb(&msg.SI)
+	pieces := make([][]byte, 0)
+	for _, sp := range msg.SignedPieces {
+		pieces = append(pieces, sp.Serialize())
+	}
+	message := &tas_middleware_pb.CastRewardTransSignReqMessage{
+		Sign: si,
+		Reward: b,
+		SignedPieces: pieces,
+	}
+	return proto.Marshal(message)
+}
+
+func marshalCastRewardTransSignMessage(msg *model.CastRewardTransSignMessage) ([]byte, error) {
+	si := signDataToPb(&msg.SI)
+	message := &tas_middleware_pb.CastRewardTransSignMessage{
+		Sign: si,
+		ReqHash: msg.ReqHash.Bytes(),
+		BlockHash: msg.BlockHash.Bytes(),
+	}
+	return proto.Marshal(message)
 }

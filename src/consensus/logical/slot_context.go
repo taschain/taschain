@@ -16,7 +16,6 @@
 package logical
 
 import (
-	"time"
 	"consensus/groupsig"
 	"common"
 	"sync/atomic"
@@ -42,25 +41,29 @@ const (
 	SS_VERIFIED  //组签名用组公钥验证通过
 	SS_SUCCESS   //已上链广播
 	SS_FAILED    //铸块过程中失败，不可逆
+	SS_REWARD_REQ //分红交易签名请求已发
+	SS_REWARD_SEND //分红交易已广播
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
-	TimeRev time.Time //插槽被创建的时间（也就是接收到该插槽第一包数据的时间）
-	//HeaderHash   common.Hash                   //出块头哈希(就这个哈希值达成一致)
+	//验证相关
 	BH             types.BlockHeader //出块头详细数据
-	//ProveValue    int64             //铸块槽序号(<0无效)，等同于出块人序号。
+	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
 	vrfValue 		uint64
 	gSignGenerator *model.GroupSignGenerator	//块签名产生器
 	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
 	slotStatus     int32
 	lostTxHash     set.Interface
+
+	//奖励相关
+	rewardTrans 		*types.Transaction
+	rewardGSignGen	*model.GroupSignGenerator	//奖励交易签名产生器
 }
 
 func createSlotContext(threshold int) *SlotContext {
 	return &SlotContext{
-		TimeRev:        time.Now(),
-		//ProveValue:    model.INVALID_QN,
+		//QueueNumber:    model.INVALID_QN,
 		slotStatus:     SS_INVALID,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
@@ -154,7 +157,7 @@ func (sc *SlotContext) IsSuccess() bool {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if si.DataHash != sc.BH.Hash {
 		return CBMR_BH_HASH_DIFF
 	}
@@ -200,7 +203,7 @@ func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return sc
 }
 
-func (sc SlotContext) IsValid() bool {
+func (sc *SlotContext) IsValid() bool {
 	return sc.GetSlotStatus() != SS_INVALID
 }
 
@@ -210,4 +213,24 @@ func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
 
 func (sc *SlotContext) TransBrief() string {
     return fmt.Sprintf("总交易数%v，缺失%v", len(sc.BH.Transactions), sc.lostTransSize())
+}
+
+func (sc *SlotContext) SetRewardTrans(tx *types.Transaction) bool {
+	if sc.StatusTransform(SS_SUCCESS, SS_REWARD_REQ) {
+		sc.rewardTrans = tx
+		return true
+	}
+	return false
+}
+
+func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bool) {
+	if sc.rewardTrans != nil && sc.rewardTrans.Hash != sd.DataHash {
+		return
+	}
+	accept, recover = sc.rewardGSignGen.AddWitness(sd.GetID(), sd.DataSign)
+	if accept && recover {
+		//交易设置签名
+		//sc.rewardTrans.
+	}
+	return
 }

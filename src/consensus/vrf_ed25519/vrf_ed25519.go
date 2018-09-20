@@ -133,8 +133,8 @@ func ECVRF_prove(pk PublicKey, sk PrivateKey, m []byte) (pi VRFProve, err error)
 	return buf.Bytes(), nil
 }
 
-func ECVRF_proof2hash(pi VRFProve) []byte {
-	return pi[1 : N2 + 1]
+func ECVRF_proof2hash(pi VRFProve) VRFRandomValue {
+	return VRFRandomValue(pi[1 : N2 + 1])
 }
 
 func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte) (bool, error) {
