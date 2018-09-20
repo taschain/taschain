@@ -11,7 +11,7 @@ class miner(object):
         {public_key: {registerBlockNumber: int,
                       stake: int,
                       type: int,
-                      vefPk: str,
+                      vrfPk: str,
                       owner: str address}}
         """
         self.register_list = {}
