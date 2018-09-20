@@ -159,17 +159,22 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 }
 
 func (api *GtasAPI) GetContractData(contractAddr, key string) (*Result, error) {
-	stateDb := core.BlockChainImpl.LatestStateDB()
-	addr := common.HexStringToAddress(contractAddr)
-	value := stateDb.GetData(addr, key)
-	return &Result{"success", string(value)}, nil
+	//stateDb := core.BlockChainImpl.LatestStateDB()
+	//addr := common.HexStringToAddress(contractAddr)
+	//value := stateDb.GetData(addr, key)
+	//return &Result{"success", string(value)}, nil
+	//todo 轻节点如何处理？
+	return nil,nil
 }
 
 func (api *GtasAPI) GetNonce(contractAddr string) (*Result, error) {
-	stateDb := core.BlockChainImpl.LatestStateDB()
-	addr := common.HexStringToAddress(contractAddr)
-	nonce := stateDb.GetNonce(addr)
-	return &Result{"success", nonce}, nil
+	//stateDb := core.BlockChainImpl.LatestStateDB()
+	//addr := common.HexStringToAddress(contractAddr)
+	//nonce := stateDb.GetNonce(addr)
+	//return &Result{"success", nonce}, nil
+
+	//todo 轻节点如何处理？
+	return nil,nil
 }
 
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
@@ -215,7 +220,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
-	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
+	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().(*core.TransactionPool).GetTotalReceivedTxCount()
 	blockDetail["miner_id"] = logical.GetIDPrefix(mediator.Proc.GetPubkeyInfo().ID)
 	return &Result{"success", blockDetail}, nil
 }

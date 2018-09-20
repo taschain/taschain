@@ -27,7 +27,6 @@ import (
 	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
-	"container/heap"
 	"github.com/hashicorp/golang-lru"
 )
 
@@ -63,7 +62,9 @@ type TransactionPoolConfig struct {
 
 
 type TransactionPool struct {
-	PublicTransactionPool
+
+	txPoolPrototype
+
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed tasdb.Database
 
@@ -98,13 +99,13 @@ func getPoolConfig() *TransactionPoolConfig {
 
 func NewTransactionPool() *TransactionPool {
 	pool := &TransactionPool{
-		PublicTransactionPool:PublicTransactionPool{
-			config:      getPoolConfig(),
-			lock:        middleware.NewLoglock("txpool"),
-			sendingList: make([]*types.Transaction, 0),
-			sendingTxLock: sync.Mutex{},
-		},
-		batchLock:   sync.Mutex{},
+			txPoolPrototype:txPoolPrototype{
+				config:      getPoolConfig(),
+				lock:        middleware.NewLoglock("txpool"),
+				sendingList: make([]*types.Transaction, 0),
+				sendingTxLock: sync.Mutex{},
+			},
+			batchLock:   sync.Mutex{},
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -117,190 +118,6 @@ func NewTransactionPool() *TransactionPool {
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
 	return pool
-}
-
-func (pool *TransactionPool) Clear() {
-	pool.lock.Lock("Clear")
-	defer pool.lock.Unlock("Clear")
-
-	os.RemoveAll(pool.config.tx)
-	executed, _ := datasource.NewDatabase(pool.config.tx)
-	pool.executed = executed
-	pool.batch.Reset()
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-}
-
-// 不加锁
-func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
-	pool.lock.Lock("AddTransactions")
-	defer pool.lock.Unlock("AddTransactions")
-
-	if nil == txs || 0 == len(txs) {
-		return ErrNil
-	}
-
-	for _, tx := range txs {
-		_, err := pool.addInner(tx, false)
-		if nil != err {
-			return err
-		}
-	}
-
-	return nil
-}
-func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
-	pool.lock.Lock("Add")
-	defer pool.lock.Unlock("Add")
-
-	return pool.addInner(tx, true)
-}
-
-// 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
-// 加锁
-func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
-	if tx == nil {
-		return false, ErrNil
-	}
-	pool.totalReceived++
-	// 简单规则校验
-	if err := pool.validate(tx); err != nil {
-		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
-		return false, err
-	}
-
-	// 检查交易是否已经存在
-	hash := tx.Hash
-	if pool.isTransactionExisted(hash) {
-		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
-		return false, nil
-	}
-
-	pool.received.Push(tx)
-
-	// batch broadcast
-	if isBroadcast {
-		//交易不广播
-		return  true, nil
-		pool.sendingTxLock.Lock()
-		pool.sendingList = append(pool.sendingList, tx)
-		pool.sendingTxLock.Unlock()
-
-		if sendingListLength == len(pool.sendingList) {
-			pool.sendingTxLock.Lock()
-			txs := make([]*types.Transaction, sendingListLength)
-			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, 0)
-			pool.sendingTxLock.Unlock()
-			Logger.Debugf("Broadcast txs,len:%d", len(txs))
-			go BroadcastTransactions(txs)
-		}
-	}
-
-	return true, nil
-}
-
-// 从池子里移除一批交易
-func (pool *TransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
-	pool.received.Remove(transactions)
-	pool.reserved.Remove(hash)
-	pool.removeFromSendinglist(transactions)
-}
-
-func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
-	if nil == hashes || 0 == len(hashes) {
-		return nil, nil, ErrNil
-	}
-
-	pool.lock.RLock("GetTransactions")
-	defer pool.lock.RUnlock("GetTransactions")
-	reservedRaw, _ := pool.reserved.Get(reservedHash)
-	var reserved []*types.Transaction
-	if nil != reservedRaw {
-		reserved = reservedRaw.([]*types.Transaction)
-	}
-
-	txs := make([]*types.Transaction, 0)
-	need := make([]common.Hash, 0)
-	var err error
-	for _, hash := range hashes {
-
-		tx, errInner := getTx(reserved, hash)
-
-		if tx == nil {
-			tx, errInner = pool.getTransaction(hash)
-		}
-
-		if nil == errInner {
-			txs = append(txs, tx)
-		} else {
-			need = append(need, hash)
-			err = errInner
-		}
-	}
-
-	return txs, need, err
-}
-
-func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction, error) {
-	if nil == reserved {
-		return nil, nil
-	}
-
-	for _, tx := range reserved {
-		if tx.Hash == hash {
-			return tx, nil
-		}
-	}
-	return nil, nil
-}
-
-// 根据hash获取交易实例
-// 此处加锁
-func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
-	pool.lock.RLock("GetTransaction")
-	defer pool.lock.RUnlock("GetTransaction")
-
-	return pool.getTransaction(hash)
-}
-
-func (pool *TransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
-	// 先从received里获取
-	result := pool.received.Get(hash)
-	if nil != result {
-		return result, nil
-	}
-
-	// 再从executed里获取
-	executed := pool.GetExecuted(hash)
-	if nil != executed {
-		return executed.Transaction, nil
-	}
-
-	return nil, ErrNil
-}
-
-// 根据交易的hash判断交易是否存在：
-// 1）已存在待处理列表
-// 2）已存在块上
-// 3）todo：曾经收到过的，不合法的交易
-// 被add调用，外部加锁
-func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
-	result := pool.received.Contains(hash)
-	if result {
-		return true
-	}
-
-	existed, _ := pool.executed.Has(hash.Bytes())
-	return existed
-}
-
-// 校验transaction是否合法
-func (pool *TransactionPool) validate(tx *types.Transaction) error {
-	if !tx.Hash.IsValid() {
-		return ErrHash
-	}
-
-	return nil
 }
 
 
@@ -358,6 +175,203 @@ func getTransaction(txs []*types.Transaction, hash []byte, i int) *types.Transac
 	return nil
 }
 
+// 本身不需要加锁（ldb自己保证）
+func (pool *TransactionPool) RemoveExecuted(txs []*types.Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+	for _, tx := range txs {
+		pool.executed.Delete(tx.Hash.Bytes())
+	}
+}
+
+// 根据hash获取交易实例
+// 此处加锁
+func (pool *TransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
+	pool.lock.RLock("GetTransaction")
+	defer pool.lock.RUnlock("GetTransaction")
+
+	return pool.getTransaction(hash)
+}
+
+func (pool *TransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
+	// 先从received里获取
+	result := pool.received.Get(hash)
+	if nil != result {
+		return result, nil
+	}
+
+	// 再从executed里获取
+	executed := pool.GetExecuted(hash)
+	if nil != executed {
+		return executed.Transaction, nil
+	}
+
+	return nil, ErrNil
+}
+
+func (pool *TransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
+	if nil == hashes || 0 == len(hashes) {
+		return nil, nil, ErrNil
+	}
+
+	pool.lock.RLock("GetTransactions")
+	defer pool.lock.RUnlock("GetTransactions")
+	reservedRaw, _ := pool.reserved.Get(reservedHash)
+	var reserved []*types.Transaction
+	if nil != reservedRaw {
+		reserved = reservedRaw.([]*types.Transaction)
+	}
+
+	txs := make([]*types.Transaction, 0)
+	need := make([]common.Hash, 0)
+	var err error
+	for _, hash := range hashes {
+
+		tx, errInner := getTx(reserved, hash)
+
+		if tx == nil {
+			tx, errInner = pool.getTransaction(hash)
+		}
+
+		if nil == errInner {
+			txs = append(txs, tx)
+		} else {
+			need = append(need, hash)
+			err = errInner
+		}
+	}
+
+	return txs, need, err
+}
+
+func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction, error) {
+	if nil == reserved {
+		return nil, nil
+	}
+
+	for _, tx := range reserved {
+		if tx.Hash == hash {
+			return tx, nil
+		}
+	}
+	return nil, nil
+}
+
+
+func (pool *TransactionPool) Clear() {
+	pool.lock.Lock("Clear")
+	defer pool.lock.Unlock("Clear")
+
+	os.RemoveAll(pool.config.tx)
+	executed, _ := datasource.NewDatabase(pool.config.tx)
+	pool.executed = executed
+	pool.batch.Reset()
+	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+}
+
+
+
+// 不加锁
+func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
+	pool.lock.Lock("AddTransactions")
+	defer pool.lock.Unlock("AddTransactions")
+
+	if nil == txs || 0 == len(txs) {
+		return ErrNil
+	}
+
+	for _, tx := range txs {
+		_, err := pool.addInner(tx, false)
+		if nil != err {
+			return err
+		}
+	}
+
+	return nil
+}
+
+
+func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
+	pool.lock.Lock("Add")
+	defer pool.lock.Unlock("Add")
+
+	return pool.addInner(tx, true)
+}
+
+// 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
+// 加锁
+func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
+	if tx == nil {
+		return false, ErrNil
+	}
+	pool.totalReceived++
+	// 简单规则校验
+	if err := pool.validate(tx); err != nil {
+		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
+		return false, err
+	}
+
+	// 检查交易是否已经存在
+	hash := tx.Hash
+	if pool.isTransactionExisted(hash) {
+		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		return false, nil
+	}
+
+	pool.received.Push(tx)
+
+	// batch broadcast
+	if isBroadcast {
+		//交易不广播
+		return  true, nil
+		pool.sendingTxLock.Lock()
+		pool.sendingList = append(pool.sendingList, tx)
+		pool.sendingTxLock.Unlock()
+
+		if sendingListLength == len(pool.sendingList) {
+			pool.sendingTxLock.Lock()
+			txs := make([]*types.Transaction, sendingListLength)
+			copy(txs, pool.sendingList)
+			pool.sendingList = make([]*types.Transaction, 0)
+			pool.sendingTxLock.Unlock()
+			Logger.Debugf("Broadcast txs,len:%d", len(txs))
+			go BroadcastTransactions(txs)
+		}
+	}
+
+	return true, nil
+}
+
+
+
+
+
+// 根据交易的hash判断交易是否存在：
+// 1）已存在待处理列表
+// 2）已存在块上
+// 3）todo：曾经收到过的，不合法的交易
+// 被add调用，外部加锁
+func (pool *TransactionPool) isTransactionExisted(hash common.Hash) bool {
+	result := pool.received.Contains(hash)
+	if result {
+		return true
+	}
+
+	existed, _ := pool.executed.Has(hash.Bytes())
+	return existed
+}
+
+// 校验transaction是否合法
+func (pool *TransactionPool) validate(tx *types.Transaction) error {
+	if !tx.Hash.IsValid() {
+		return ErrHash
+	}
+
+	return nil
+}
+
+
 // 从磁盘读取，不需要加锁（ldb自行保证）
 func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	receiptJson, _ := pool.executed.Get(hash.Bytes())
@@ -374,150 +388,8 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	return receipt
 }
 
-// 本身不需要加锁（ldb自己保证）
-func (pool *TransactionPool) RemoveExecuted(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-	for _, tx := range txs {
-		pool.executed.Delete(tx.Hash.Bytes())
-	}
-}
 
-type container struct {
-	lock   sync.RWMutex
-	txs    types.PriorityTransactions
-	txsMap map[common.Hash]*types.Transaction
-	limit  int
-	inited bool
-}
-
-func newContainer(l int) *container {
-	return &container{
-		lock:   sync.RWMutex{},
-		limit:  l,
-		txsMap: map[common.Hash]*types.Transaction{},
-		txs:    types.PriorityTransactions{},
-		inited: false,
-	}
-
-}
-
-func (c *container) Len() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return len(c.txs)
-}
-
-func (c *container) Contains(key common.Hash) bool {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return c.txsMap[key] != nil
-}
-
-func (c *container) Get(key common.Hash) *types.Transaction {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return c.txsMap[key]
-}
-
-func (c *container) AsSlice() []*types.Transaction {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	result := make([]*types.Transaction, c.txs.Len())
-	copy(result, c.txs)
-	return result
-}
-
-func (c *container) Push(tx *types.Transaction) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.add(tx)
-
-}
-
-func (c *container) PushTxs(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	for _, tx := range txs {
-		c.add(tx)
-	}
-
-}
-
-func (c *container) add(tx *types.Transaction) {
-	if c.txs.Len() < c.limit {
-		c.txs = append(c.txs, tx)
-		c.txsMap[tx.Hash] = tx
-		return
-	}
-
-	if !c.inited {
-		heap.Init(&c.txs)
-		c.inited = true
-
-	}
-
-	evicted := heap.Pop(&c.txs).(*types.Transaction)
-	delete(c.txsMap, evicted.Hash)
-	heap.Push(&c.txs, tx)
-	c.txsMap[tx.Hash] = tx
-}
-
-func (c *container) Remove(keys []common.Hash) {
-	if nil == keys || 0 == len(keys) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
-	for _, key := range keys {
-		if c.txsMap[key] == nil {
-			continue
-		}
-		delete(c.txsMap, key)
-		//Logger.Debugf("txsMap delete value contain tx map len %d",len(c.txsMap))
-
-		index := -1
-		for i, tx := range c.txs {
-			if tx.Hash == key {
-				index = i
-				break
-			}
-		}
-		heap.Remove(&c.txs, index)
-	}
-	//Logger.Debugf("[Remove111:]After remove,contain tx map len %d,contain txs len %d",len(c.txsMap),len(c.txs))
-}
 
 func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
-}
-
-func (p *TransactionPool) removeFromSendinglist(transactions []common.Hash) {
-	if nil == transactions || 0 == len(transactions) {
-		return
-	}
-	p.sendingTxLock.Lock()
-	for _, hash := range transactions {
-		for i, tx := range p.sendingList {
-			if tx.Hash == hash {
-				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
-			}
-			break
-		}
-	}
-	p.sendingTxLock.Unlock()
 }

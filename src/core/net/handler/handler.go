@@ -295,7 +295,7 @@ func onBlockHashesReq(cbhr *core.BlockHashesReq, sourceId string) {
 	if cbhr == nil {
 		return
 	}
-	cbh := core.BlockChainImpl.GetBlockHashesFromLocalChain(cbhr.Height, cbhr.Length)
+	cbh := core.BlockChainImpl.QueryBlockHashes(cbhr.Height, cbhr.Length)
 	core.SendBlockHashes(sourceId, cbh)
 }
 
@@ -310,7 +310,7 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	blockInfo := core.BlockChainImpl.GetBlockInfo(erm.SourceHeight, erm.SourceCurrentHash)
+	blockInfo := core.BlockChainImpl.QueryBlockInfo(erm.SourceHeight, erm.SourceCurrentHash)
 	core.SendBlockInfo(sourceId, blockInfo)
 }
 

@@ -69,6 +69,7 @@ const (
 
 var configManager = &common.GlobalConf
 var walletManager wallets
+var lightMiner bool
 
 type Gtas struct {
 	inited bool
@@ -259,6 +260,7 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
+		lightMiner = *light
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
 	case clearCmd.FullCommand():
 		err := ClearBlock()
@@ -273,7 +275,7 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	err := core.InitCore()
+	err := core.InitCore(lightMiner)
 	if err != nil {
 		return err
 	}

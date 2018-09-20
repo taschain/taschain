@@ -189,7 +189,7 @@ func initSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	sc.BH = *bh
 	sc.QueueNumber = int64(bh.QueueNumber)
 	sc.setSlotStatus(SS_WAITING)
-	ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
 	log.Printf("initSlotContext verifyCastingBlock lost trans size %v, ret %v\n", len(ltl), ccr)
 	sc.addLostTrans(ltl)
 	if ccr == -1 {
