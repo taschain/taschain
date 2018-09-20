@@ -33,8 +33,9 @@ func TestLightInsertAndDel(t *testing.T) {
 	updateLightString(trie,"key2","2")
 	updateLightString(trie,"key3","3")
 	updateLightString(trie,"key4","4")
-	trie.Commit(nil)
-
+	root,_:=trie.Commit(nil)
+	triedb.Commit(root,false)
+	trie,_=NewLightTrie(root, triedb)
 }
 
 

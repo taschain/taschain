@@ -69,6 +69,9 @@ type (
 	valueNode []byte
 )
 
+func newNodeFlag(hash  hashNode,gen   uint16)nodeFlag{
+	return nodeFlag{hash:hash,gen:gen}
+}
 func (n *fullNode) copy() *fullNode   { copy := *n; return &copy }
 func (n *shortNode) copy() *shortNode { copy := *n; return &copy }
 
@@ -142,8 +145,23 @@ func (n *fullNode) encode(w io.Writer) error  {
 }
 
 func (n *shortNode) encode(w io.Writer) error  {
-	return encode(w, n.magic(), n.Val)
+	return encode(w, n.magic(), n.Key,n.getValueType(),n.Val)
 }
+
+func (n *shortNode) getValueType() int8 {
+	switch n.Val.(type) {
+	case *fullNode:
+		return 1
+	case valueNode:
+		return 2
+	case hashNode:
+		return 3
+	case *shortNode:
+		return 4
+	}
+	panic(fmt.Sprintf("unknow value type%v",n.Val))
+}
+
 func (n hashNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 func (n valueNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 
@@ -154,11 +172,17 @@ func (n *shortNode) String() string { return n.fstring("") }
 func (n hashNode) String() string   { return n.fstring("") }
 func (n valueNode) String() string  { return n.fstring("") }
 
-func encode(w io.Writer,magic byte,vl interface{}) error{
+func encode(w io.Writer,magic byte,vl ...interface{}) error{
 	encoder := gob.NewEncoder(w)
 	encoder.Encode(encodeVersion)
 	encoder.Encode(magic)
-	return encoder.Encode(vl)
+	for _,data := range vl{
+		er :=encoder.Encode(data)
+		if er!=nil{
+			return er
+		}
+	}
+	return nil
 }
 
 func (n *fullNode) fstring(ind string) string {
@@ -236,20 +260,43 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 	decoder.Decode(&magic)
 	switch magic {
 		case magicFull:
-		var n fullNode
-			err := decoder.Decode(&n)
-			n.flags.hash = hash
-			n.flags.dirty = false
-			n.flags.gen = cachegen
-			return &n,err
+			var Children [17]node
+			err := decoder.Decode(&Children)
+			return &fullNode{Children:Children,flags:newNodeFlag(hash,cachegen)},err
 		case magicShort:
-			var n shortNode
-			err := decoder.Decode(&n)
-			n.Key = compactToHex(n.Key)
-			n.flags.hash = hash
-			n.flags.dirty = false
-			n.flags.gen = cachegen
-			return &n,err
+			var key  []byte
+			var valueType int8
+			var vl node
+			err:=decoder.Decode(&key)
+			if err != nil{
+				return nil,err
+			}
+			err=decoder.Decode(&valueType)
+			if err != nil{
+				return nil,err
+			}
+			if valueType == 1{
+				var fn fullNode
+				err=decoder.Decode(&fn)
+				vl = &fn
+			}else if valueType==2{
+				var fn valueNode
+				err=decoder.Decode(&fn)
+				vl = fn
+			}else if valueType==3{
+				var fn hashNode
+				err=decoder.Decode(&fn)
+				vl = fn
+			}else if valueType==4{
+				var fn shortNode
+				err=decoder.Decode(&fn)
+				vl = &fn
+			}
+			if err != nil{
+				return nil,err
+			}
+			key = compactToHex(key)
+			return  &shortNode{Key:key,Val:vl,flags:newNodeFlag(hash,cachegen)},nil
 		case magicHash:
 			var n hashNode
 			err := decoder.Decode(&n)
