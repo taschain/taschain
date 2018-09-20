@@ -54,6 +54,8 @@ func TestEmptyTrie(t *testing.T) {
 	}
 }
 
+
+
 func TestNull(t *testing.T) {
 	var trie Trie
 	key := make([]byte, 32)

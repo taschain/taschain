@@ -147,6 +147,7 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 	return hash, nil
 }
 
+
 func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 	var err error
 

@@ -188,6 +188,41 @@ func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
 	return n
 }
 
+func mustDecodeNode2(hash, buf []byte) node {
+	n, err := decodeNode2(hash, buf)
+	if err != nil {
+		panic(fmt.Sprintf("node %x: %v", hash, err))
+	}
+	return n
+}
+
+func decodeNode2(hash, buf []byte) (node, error)  {
+	if len(buf) == 0 {
+		return nil, io.ErrUnexpectedEOF
+	}
+	buffer := bytes.NewBuffer(buf)
+	decoder := gob.NewDecoder(buffer)
+	var version,magic byte
+	decoder.Decode(&version)
+	decoder.Decode(&magic)
+	switch magic {
+	case magicFull:
+		var n fullNode
+		err := decoder.Decode(&n)
+		n.flags.hash = hash
+
+		return &n,err
+	case magicShort:
+		var n shortNode
+		err := decoder.Decode(&n)
+		n.Key = compactToHex(n.Key)
+		n.flags.hash = hash
+
+		return &n,err
+	}
+	return nil, fmt.Errorf("type mismatch")
+}
+
 func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 	if len(buf) == 0 {
 		return nil, io.ErrUnexpectedEOF

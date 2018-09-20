@@ -40,6 +40,8 @@ type Database interface {
 
 	CopyTrie(Trie) Trie
 
+	CopyCompleteTrie(Trie) Trie
+
 	PushTrie(root common.Hash,t Trie)
 
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
@@ -160,6 +162,15 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 	}
 }
 
+func (db *storageDB) RestoreTrie(root common.Hash) Trie {
+	return nil
+}
+
+func (db *storageDB) CopyCompleteTrie(t Trie) Trie {
+	return nil
+}
+
+
 
 func (db *lightStorageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
@@ -196,6 +207,11 @@ func (db *lightStorageDB) CopyTrie(t Trie) Trie {
 		panic(fmt.Errorf("unknown trie type %T", t))
 	}
 }
+
+func (db *lightStorageDB) CopyCompleteTrie(t Trie) Trie {
+	return nil
+}
+
 
 
 
