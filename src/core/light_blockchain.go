@@ -25,7 +25,7 @@ const (
 )
 type LightChain struct {
 	config *LightChainConfig
-	FullChain
+	prototypeChain
 }
 
 // 配置
@@ -67,7 +67,7 @@ func initLightChain() error {
 
 	chain := &LightChain{
 		config:          getLightChainConfig(),
-		FullChain:FullChain{
+		prototypeChain:prototypeChain{
 			transactionPool: NewLightTransactionPool(),
 			latestBlock:     nil,
 
@@ -116,72 +116,9 @@ func initLightChain() error {
 	return nil
 }
 
-// 保存block到ldb
-// todo:错误回滚
-//result code:
-// -1 保存失败
-// 0 保存成功
-func (chain *LightChain) SaveBlock(b *types.Block) int8 {
-	// 根据height存blockheader
-	headerJson, err := types.MarshalBlockHeader(b.Header)
-	if err != nil {
-		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
-		return -1
-	}
-	err = chain.blockHeight.Put(GenerateHeightKey(b.Header.Height), headerJson)
-	if err != nil {
-		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
-		return -1
-	}
-
-	// 持久化保存最新块信息
-	chain.latestBlock = b.Header
-	chain.topBlocks.Add(b.Header.Height, b.Header)
-	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		fmt.Printf("[lightblock]fail to put current, error:%s \n", err)
-		return -1
-	}
-	return 0
-}
-
-
-
-//清除链所有数据
-func (chain *LightChain) Clear() error {
-	chain.lock.Lock("Clear")
-	defer chain.lock.Unlock("Clear")
-	chain.init = false
-	chain.latestBlock = nil
-	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
-	var err error
-	chain.blockHeight.Close()
-	chain.statedb.Close()
-	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
-	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
-		return err
-	}
-	chain.stateCache = core.NewLightDatabase(chain.statedb)
-	chain.executor = NewTVMExecutor(chain)
-
-	// 创始块
-	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
-	if nil == err {
-		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB())
-		chain.SaveBlock(block)
-	}
-	chain.init = true
-	chain.transactionPool.Clear()
-	return err
-}
-
-
-
-//轻节点不出块
-func (chain *LightChain) CastingBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
-	return nil
+//构建一个铸块（组内当前铸块人同步操作）
+func (chain *LightChain)CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block{
+	panic("Not support!")
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -190,7 +127,7 @@ func (chain *LightChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 // -1，验证失败
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
-func (chain *LightChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 	chain.lock.Lock("VerifyCastingLightChainBlock")
 	defer chain.lock.Unlock("VerifyCastingLightChainBlock")
 
@@ -273,10 +210,6 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	//return nil, 0, state, receipts
 	return nil, 0, state, nil
 }
-
-
-
-
 
 //铸块成功，上链
 //返回值: 0,上链成功
@@ -362,26 +295,98 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 }
 
+//根据指定哈希查询块
+func (chain *LightChain)QueryBlockByHash(hash common.Hash) *types.BlockHeader{
+	panic("Not support!")
+}
+
+func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transaction{
+	panic("Not support!")
+}
+
+func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {
+	panic("Not support!")
+}
+
+// 保存block到ldb
+// todo:错误回滚
+//result code:
+// -1 保存失败
+// 0 保存成功
+func (chain *LightChain) SaveBlock(b *types.Block) int8 {
+	// 根据height存blockheader
+	headerJson, err := types.MarshalBlockHeader(b.Header)
+	if err != nil {
+		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
+		return -1
+	}
+	err = chain.blockHeight.Put(GenerateHeightKey(b.Header.Height), headerJson)
+	if err != nil {
+		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
+		return -1
+	}
+
+	// 持久化保存最新块信息
+	chain.latestBlock = b.Header
+	chain.topBlocks.Add(b.Header.Height, b.Header)
+	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		fmt.Printf("[lightblock]fail to put current, error:%s \n", err)
+		return -1
+	}
+	return 0
+}
+
 // 删除块
 func (chain *LightChain) Remove(header *types.BlockHeader) {
-	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHeight(header.Height)
 	chain.blockHeight.Delete(GenerateHeightKey(header.Height))
 
 	// 删除块的交易，返回transactionpool
 	if nil == block {
 		return
 	}
-	txs := block.Transactions
-	if 0 == len(txs) {
-		return
-	}
-	chain.transactionPool.GetLock().Lock("remove block")
-	defer chain.transactionPool.GetLock().Unlock("remove block")
-	chain.transactionPool.AddTxs(txs)
+	//todo 此处轻结点 不将交易加回交易池
+	//txs := block.Transactions
+	//if 0 == len(txs) {
+	//	return
+	//}
+	//chain.transactionPool.GetLock().Lock("remove block")
+	//defer chain.transactionPool.GetLock().Unlock("remove block")
+	//chain.transactionPool.AddTxs(txs)
 }
 
 
-func (chain *LightChain) QueryBlockByHeight(height uint64) *types.BlockHeader {
-	return nil
+//清除链所有数据
+func (chain *LightChain) Clear() error {
+	chain.lock.Lock("Clear")
+	defer chain.lock.Unlock("Clear")
+	chain.init = false
+	chain.latestBlock = nil
+	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
+	var err error
+	chain.blockHeight.Close()
+	chain.statedb.Close()
+	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	if err != nil {
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
+		return err
+	}
+	chain.stateCache = core.NewLightDatabase(chain.statedb)
+	chain.executor = NewTVMExecutor(chain)
+
+	// 创始块
+	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
+	if nil == err {
+		chain.latestStateDB = state
+		block := GenesisBlock(state, chain.stateCache.TrieDB())
+		chain.SaveBlock(block)
+	}
+	chain.init = true
+	chain.transactionPool.Clear()
+	return err
+}
+
+func (chain *LightChain)CompareChainPiece(bhs []*BlockHash, sourceId string){
+	panic("Not support!")
 }

@@ -1,21 +1,22 @@
 package core
 
-
 import (
 	"middleware"
 	"github.com/hashicorp/golang-lru"
 	"middleware/types"
 	"sync"
 	"common"
+	vtypes "storage/core/types"
+
 )
 
 type LightTransactionPool struct {
-	PublicTransactionPool
+	txPoolPrototype
 }
 
 func NewLightTransactionPool() *LightTransactionPool {
 	pool := &LightTransactionPool{
-		PublicTransactionPool:PublicTransactionPool{
+		txPoolPrototype:txPoolPrototype{
 			config:        getPoolConfig(),
 			lock:          middleware.NewLoglock("txpool"),
 			sendingList:   make([]*types.Transaction, 0),
@@ -28,29 +29,27 @@ func NewLightTransactionPool() *LightTransactionPool {
 }
 
 
+func (pool *LightTransactionPool)AddTransactions(txs []*types.Transaction) error{
+	panic("Not support!")
+}
+
+
+func (pool *LightTransactionPool)  AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction){
+	panic("Not support!")
+}
+
+
+func (pool *LightTransactionPool) RemoveExecuted(txs []*types.Transaction){
+	panic("Not support!")
+}
+
+
 func (pool *LightTransactionPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
 
 	return pool.getTransaction(hash)
 }
-
-func (pool *LightTransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
-	// 先从received里获取
-	result := pool.received.Get(hash)
-	if nil != result {
-		return result, nil
-	}
-	return nil, ErrNil
-}
-
-func (pool *LightTransactionPool) Clear() {
-	pool.lock.Lock("Clear")
-	defer pool.lock.Unlock("Clear")
-
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-}
-
 
 func (pool *LightTransactionPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
@@ -87,26 +86,21 @@ func (pool *LightTransactionPool) GetTransactions(reservedHash common.Hash, hash
 	return txs, need, err
 }
 
-
-// 从池子里移除一批交易
-func (pool *LightTransactionPool) Remove(hash common.Hash, transactions []common.Hash) {
-	pool.received.Remove(transactions)
-	pool.reserved.Remove(hash)
-	pool.removeFromSendinglist(transactions)
+func (pool *LightTransactionPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
+	// 先从received里获取
+	result := pool.received.Get(hash)
+	if nil != result {
+		return result, nil
+	}
+	return nil, ErrNil
 }
 
-func (p *LightTransactionPool) removeFromSendinglist(transactions []common.Hash) {
-	if nil == transactions || 0 == len(transactions) {
-		return
-	}
-	p.sendingTxLock.Lock()
-	for _, hash := range transactions {
-		for i, tx := range p.sendingList {
-			if tx.Hash == hash {
-				p.sendingList = append(p.sendingList[:i], p.sendingList[i+1:]...)
-			}
-			break
-		}
-	}
-	p.sendingTxLock.Unlock()
+
+func (pool *LightTransactionPool) Clear() {
+	pool.lock.Lock("Clear")
+	defer pool.lock.Unlock("Clear")
+
+	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 }
+
+
