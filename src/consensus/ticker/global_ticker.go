@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package ticker
 
 import (
@@ -83,7 +98,7 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 
 	b := false
 	if lastTicker < t && atomic.CompareAndSwapUint64(&routine.lastTicker, lastTicker, t) {
-		log.Printf("ticker routine begin, id=%v, globalticker=%v\n", routine.id, t)
+		//log.Printf("ticker routine begin, id=%v, globalticker=%v\n", routine.id, t)
 		b = routine.handler()
 	} else {
 		if chanVal == 2 {

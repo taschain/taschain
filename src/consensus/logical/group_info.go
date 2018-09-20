@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -32,6 +47,7 @@ type StaticGroupInfo struct {
 	BeginHeight   uint64                    //组开始参与铸块的高度
 	DismissHeight uint64                    //组解散的高度
 	ParentId      groupsig.ID
+	PrevGroupID		groupsig.ID				//前一块组id
 	Signature     groupsig.Signature
 	Authority     uint64      //权限相关数据（父亲组赋予）
 	Name          string    //父亲组取的名字
@@ -61,6 +77,7 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 		BeginHeight:   summary.GIS.BeginCastHeight,
 		DismissHeight: summary.GIS.DismissHeight,
 		ParentId:      summary.GIS.ParentID,
+		PrevGroupID:   summary.GIS.PrevGroupID,
 		Signature:     summary.GIS.Signature,
 		Authority:     summary.GIS.Authority,
 		Name:          string(summary.GIS.Name[:]),
@@ -73,7 +90,7 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 }
 
 func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
-	return &StaticGroupInfo{
+	sgi := &StaticGroupInfo{
 		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
 		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 		BeginHeight: coreGroup.BeginHeight,
@@ -81,12 +98,21 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		MemIndex:    make(map[string]int),
 		DismissHeight: coreGroup.DismissHeight,
 		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
+		PrevGroupID:   *groupsig.DeserializeId(coreGroup.PreGroup),
 		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
 		Authority:     coreGroup.Authority,
 		Name:          coreGroup.Name,
 		Extends:       coreGroup.Extends,
 	}
+	for _, cMem := range coreGroup.Members {
+		id := groupsig.DeserializeId(cMem.Id)
+		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)
+		pkInfo := model.NewPubKeyInfo(*id, *pk)
+		sgi.addMember(&pkInfo)
+	}
+	return sgi
 }
+
 //取得某个矿工在组内的排位
 func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	pos := -1
@@ -243,23 +269,46 @@ func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
 	gg.generator.removeInitingGroup(dummyId)
 }
 
+func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
+	return gg.groups[len(gg.groups)-1]
+}
+
+func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
+	if len(gg.groups) <= 1 {
+		return true
+	}
+	last := gg.lastGroup()
+	return last.GroupID.IsEqual(g.PrevGroupID)
+}
+
 //增加一个合法铸块组
 func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	fmt.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
+	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
-		gg.groups = append(gg.groups, g)
-		gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-		fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
-		return true
+		if gg.canAdd(g) {
+			if len(gg.groups) > 0 {
+				last := gg.lastGroup()
+				if last.BeginHeight >= g.BeginHeight {
+					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+				}
+			}
+			gg.groups = append(gg.groups, g)
+			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
+			return true
+		} else {
+			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", GetIDPrefix(g.GroupID), GetIDPrefix(g.PrevGroupID), GetIDPrefix(gg.lastGroup().GroupID))
+			return false
+		}
 	} else {
 		if gg.groups[idx].BeginHeight < g.BeginHeight {
 			gg.groups[idx].BeginHeight = g.BeginHeight
-			fmt.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
+			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
 		} else {
-			fmt.Printf("already exist this group, ignored.\n")
+			log.Printf("already exist this group, ignored.\n")
 		}
 
 	}
@@ -335,7 +384,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
-		log.Printf("SelectNextGroup qualified groups %v, index %v\n", gids, index)
+		log.Printf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")
@@ -380,6 +429,8 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
 	for _, g := range gg.groups {
 		if g.Dismissed(height) {
 			ids = append(ids, g.GroupID)
+		} else {
+			break
 		}
 	}
 	return ids
@@ -389,14 +440,10 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	if len(gids) == 0 {
 		return
 	}
-	gg.lock.Lock()
-	defer gg.lock.Unlock()
-
 	removeIdMap := make(map[string]bool)
 	for _, gid := range gids {
 		removeIdMap[gid.GetHexString()] = true
 	}
-
 	newGS := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
 		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
@@ -407,6 +454,10 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	for idx, g := range newGS {
 		indexMap[g.GroupID.GetHexString()] = idx
 	}
+
+	gg.lock.Lock()
+	defer gg.lock.Unlock()
+
 	gg.groups = newGS
 	gg.gIndex = indexMap
 }

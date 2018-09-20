@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -75,20 +90,17 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//defer func() {
 	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	//}()
+	bh := block.Header
+	log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, bh.QueueNumber)
 	result = p.MainChain.AddBlockOnChain(block)
 
-	bh := block.Header
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
 	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
-	if result == 0 {
-		p.triggerFutureVerifyMsg(block.Header.Hash)
-		p.groupManager.CreateNextGroupRoutine()
-		p.cleanVerifyContext(bh.Height)
-	} else if result == -1 {
+	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
 	}
 

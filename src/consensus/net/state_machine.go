@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package net
 
 import (
@@ -9,6 +24,7 @@ import (
 	"time"
 	"consensus/ticker"
 	"fmt"
+	"sync/atomic"
 )
 
 
@@ -16,11 +32,13 @@ type stateHandleFunc func(msg interface{})
 
 type stateNode struct {
 	code    uint32
-	repeat  int
-	current int
-	data    []*StateMsg
+	repeat  int32
 	handler stateHandleFunc
 	next    *stateNode
+
+	currentIdx int32
+	queue      []*StateMsg
+	lock       sync.RWMutex
 }
 
 type StateMsg struct {
@@ -31,10 +49,10 @@ type StateMsg struct {
 
 type StateMachine struct {
 	Id 	string
-	Current *stateNode
+	//Current *stateNode
+	Current atomic.Value
 	Head *stateNode
 	Time time.Time
-	lock sync.Mutex
 }
 
 type StateMachines struct {
@@ -76,13 +94,12 @@ func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 
 func newStateNode(st uint32, r int, h stateHandleFunc) *stateNode {
 	return &stateNode{
-		code: st,
-		repeat: r,
-		data: make([]*StateMsg, 0),
-		handler:h,
+		code:    st,
+		repeat:  int32(r),
+		queue:   make([]*StateMsg, 0),
+		handler: h,
 	}
 }
-
 
 func newStateMachine(id string) *StateMachine {
 	return &StateMachine{
@@ -91,36 +108,49 @@ func newStateMachine(id string) *StateMachine {
 	}
 }
 
-func (n *stateNode) notEmpty() bool {
-    return len(n.data) > 0
+func (n *stateNode) queueSize() int32 {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+    return int32(len(n.queue))
 }
 
 func (n *stateNode) state() string {
-    return fmt.Sprintf("%v[%v/%v]", n.code, n.current, n.repeat)
+    return fmt.Sprintf("%v[%v/%v]", n.code, n.currentIdx, n.repeat)
 }
 
-func (n *stateNode) dataIndex(id string) int {
-	for idx, d := range n.data {
+func (n *stateNode) dataIndex(id string) int32 {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	for idx, d := range n.queue {
 		if d.Id == id {
-			return idx
+			return int32(idx)
 		}
 	}
     return -1
 }
 
-func (n *stateNode) addData(stateMsg *StateMsg) (int, bool) {
+func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
     idx := n.dataIndex(stateMsg.Id)
 	if idx >= 0 {
 		return idx, false
 	}
-	n.data = append(n.data, stateMsg)
-	return len(n.data)-1, true
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	n.queue = append(n.queue, stateMsg)
+	return int32(len(n.queue))-1, true
+}
+
+func (n *stateNode) curr() int32 {
+    return atomic.LoadInt32(&n.currentIdx)
 }
 
 func (n *stateNode) finished() bool {
-    return n.current >= n.repeat
+    return n.curr() >= n.repeat
 }
 
+func (n *stateNode) current2Next()  {
+    atomic.AddInt32(&n.currentIdx, 1)
+}
 
 func (m *StateMachine) findTail() *stateNode {
 	p := m.Head
@@ -130,6 +160,14 @@ func (m *StateMachine) findTail() *stateNode {
 	return p
 }
 
+func (m *StateMachine) currentNode() *stateNode {
+    return m.Current.Load().(*stateNode)
+}
+
+func (m *StateMachine) setCurrent(node *stateNode)  {
+    m.Current.Store(node)
+}
+
 func (m *StateMachine) appendNode(node *stateNode) {
 	if node == nil {
 		panic("cannot add nil node to the state machine!")
@@ -137,7 +175,7 @@ func (m *StateMachine) appendNode(node *stateNode) {
 
 	tail := m.findTail()
 	if tail == nil {
-		m.Current = node
+		m.setCurrent(node)
 		m.Head = node
 	} else {
 		tail.next = node
@@ -155,7 +193,8 @@ func (m *StateMachine) findNode(code uint32) *stateNode {
 
 
 func (m *StateMachine) finish() bool {
-	return m.Current.next == nil && m.Current.finished()
+	current := m.currentNode()
+	return current.next == nil && current.finished()
 }
 
 func (m *StateMachine) expire() bool {
@@ -163,54 +202,55 @@ func (m *StateMachine) expire() bool {
 }
 
 func (m *StateMachine) transform() {
-	node := m.Current
-
-	for node.current < len(node.data) {
-		node.handler(node.data[node.current].Data)
-		node.data[node.current].Data = true	//释放内存
-		node.current++
-		logger.Debugf("machine %v handling current state %v", m.Id, node.state())
+	node := m.currentNode()
+	if node.queueSize() == 0 {
+		return
 	}
 
-	if m.Current.finished() && m.Current.next != nil {
-		m.Current = m.Current.next
-		if len(m.Current.data) > 0 {
-			m.transform()
-		}
+	node.lock.Lock()
+
+	for node.curr() < int32(len(node.queue)) {
+		node.handler(node.queue[node.curr()].Data)
+		node.queue[node.curr()].Data = true //释放内存
+		node.current2Next()
+		logger.Debugf("machine %v handling exec state %v", m.Id, node.state())
 	}
+	node.lock.Unlock()
+
+	if node.finished() && node.next != nil {
+		m.setCurrent(node.next)
+		m.transform()
+	}
+
 }
 
 func (m *StateMachine) Transform(msg *StateMsg) bool {
+	if m.finish() {
+		return false
+	}
+	defer func() {
+		if !m.finish() {
+			curr := m.currentNode()
+			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, curr.code, curr.currentIdx, curr.repeat)
+		}
+	}()
 	node := m.findNode(msg.Code)
 	if node == nil {
 		return false
 	}
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	defer func() {
-		if !m.finish() {
-			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, m.Current.code, m.Current.current, m.Current.repeat)
-		}
-	}()
-
-	if m.finish() {
-		return false
-	}
-
-	if node.code < m.Current.code {	//已经执行过的状态
-		logger.Debugf("machine %v handle pre state %v, current state %v", m.Id, node.code, m.Current.state())
+	if node.code < m.currentNode().code {
+		logger.Debugf("machine %v handle pre state %v, exec state %v", m.Id, node.code, m.currentNode().state())
 		node.handler(msg.Data)
-	} else if node.code == m.Current.code {	//进行中的状态
-		idx, _ := node.addData(msg)
-		if idx < node.current {
-			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.Id, node.code, m.Current.state())
+	} else if node.code > m.currentNode().code {
+		logger.Debugf("machine %v cache future state %v, exec state %v", m.Id, node.code, m.currentNode().state())
+		node.addData(msg)
+	} else {
+		_, add := node.addData(msg)
+		if !add {
+			logger.Debugf("machine %v ignore redundant state %v, exec state %v", m.Id, node.code, m.currentNode().state())
 			return false
 		}
 		m.transform()
-	} else {	//未来的状态
-		logger.Debugf("machine %v cache future state %v, current state %v", m.Id, node.code, m.Current.state())
-		node.addData(msg)
 	}
 	return true
 }
@@ -224,10 +264,10 @@ type groupOutsideMachineGenerator struct {}
 
 func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
-	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, model.Param.GetThreshold(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine
@@ -235,16 +275,16 @@ func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
 
 func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GROUP_INIT_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
-	machine.appendNode(newStateNode(network.KEY_PIECE_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.KeyPieceMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
 	}))
-	machine.appendNode(newStateNode(network.SIGN_PUBKEY_MSG, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.SignPubkeyMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
 	}))
-	machine.appendNode(newStateNode(network.GROUP_INIT_DONE_MSG, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine

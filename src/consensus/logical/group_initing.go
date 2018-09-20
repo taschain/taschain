@@ -5,8 +5,8 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"vm/common/math"
 	"consensus/model"
+	"common"
 )
 
 //新组的上链处理（全网节点/父亲组节点需要处理）
@@ -109,7 +109,7 @@ func (ig *InitingGroup) convergence() bool {
 
 	//查找最多的元素
 	var gpk groupsig.Pubkey
-	var maxCnt = math.MinInt64
+	var maxCnt = common.MinInt64
 	for _, v := range countMap {
 		if v.count > maxCnt {
 			maxCnt = v.count
@@ -140,6 +140,8 @@ func CreateNewGroupGenerator() *NewGroupGenerator {
 
 func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	dummyId := initingGroup.gis.DummyID
+
+	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), initingGroup)
 	if load {
 		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummyId))
@@ -324,7 +326,7 @@ func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int 
 	return result
 }
 
-//生成发送给组内成员的秘密分享
+//生成发送给组内成员的秘密分享: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.ShareMapID {
 	shares := make(model.ShareMapID, 0)
 	if len(gc.mems) == int(gc.gis.Members) && atomic.CompareAndSwapInt32(&gc.is, GIS_RAW, GIS_SHARED) {
@@ -378,6 +380,9 @@ func (jgs *JoiningGroups) GetGroup(gid groupsig.ID) *GroupContext {
 	if v, ok := jgs.groups.Load(gid.GetHexString()); ok {
 		return v.(*GroupContext)
 	}
+
+	//fmt.Println("gc is NULL, gid:", gid.GetHexString())
+
 	return nil
 }
 

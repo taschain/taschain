@@ -1,16 +1,31 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"consensus/groupsig"
 
 	"core"
-	"time"
 	"log"
 	"consensus/ticker"
 	"middleware/types"
 	"consensus/model"
 	"consensus/net"
 	"middleware/notify"
+	"storage/tasdb"
 )
 
 var PROC_TEST_MODE bool
@@ -35,8 +50,8 @@ type Processor struct {
 	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 
-	//storage 	ethdb.Database
-	ready bool //是否已初始化完成
+	storage 	tasdb.Database
+	ready 		bool //是否已初始化完成
 
 	//////链接口
 	MainChain  core.BlockChainI
@@ -54,7 +69,7 @@ func (p Processor) getMinerInfo() *model.MinerInfo {
 	return p.mi
 }
 
-func (p Processor) getPubkeyInfo() model.PubKeyInfo {
+func (p Processor) GetPubkeyInfo() model.PubKeyInfo {
 	return model.NewPubKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultPubKey())
 }
 
@@ -88,8 +103,9 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
-	notify.BUS.Subscribe(notify.BLOCK_ADD_SUCC, &blockAddEventHandler{p: p,})
-	notify.BUS.Subscribe(notify.GROUP_ADD_SUCC, &groupAddEventHandler{p: p})
+	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
+	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
+	notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 	return true
 }
 
@@ -99,7 +115,8 @@ func (p Processor) GetMinerID() groupsig.ID {
 }
 
 //验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
+func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
+	b := &msg.Block
 	bh := b.Header
 	var gid groupsig.ID
 	if gid.Deserialize(bh.GroupId) != nil {
@@ -112,18 +129,11 @@ func (p *Processor) verifyGroupSign(b *types.Block, sd model.SignData) bool {
 		return false
 	}
 
-	//检查组签名是否正确
-	var gSign groupsig.Signature
-	if gSign.Deserialize(bh.Signature) != nil {
-		panic("verifyGroupSign sign Deserialize failed.")
+	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
+		log.Printf("verifyGroupSign: verifyGroupSig fail")
+		return false
 	}
-	result := groupsig.VerifySig(groupInfo.GroupPK, bh.Hash.Bytes(), gSign)
-	if !result {
-		log.Printf("[ERROR]verifyGroupSign::verify group sign failed, gpk=%v, hash=%v, sign=%v. gid=%v.\n",
-			GetPubKeyPrefix(groupInfo.GroupPK), GetHashPrefix(bh.Hash), GetSignPrefix(gSign), GetIDPrefix(gid))
-	}
-	//to do ：对铸块的矿工（组内最终铸块者，非KING）签名做验证
-	return result
+	return true
 }
 
 //检查铸块组是否合法
@@ -157,26 +167,19 @@ func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.Blo
 }
 
 //检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, si *model.SignData) bool {
+func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.ConsensusBlockMessageBase, preBH *types.BlockHeader) bool {
 
-	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
-		log.Printf("beingCastGroup failed, node not in this group.\n")
+	gmi := model.NewGroupMinerID(cgs.GroupID, msg.SI.GetID())
+	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
+	bizlog := newBizLog("verifyCastSign")
+	if !signPk.IsValid() {
+		bizlog.log("signPK is not valid")
 		return false
 	}
-
-	gmi := model.NewGroupMinerID(cgs.GroupID, si.GetID())
-	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-
-	if signPk.IsValid() { //该用户和我是同一组
-		//log.Printf("message sender's signPk=%v.\n", GetPubKeyPrefix(signPk))
-		//log.Printf("verifyCast::si info: id=%v, data hash=%v, sign=%v.\n",
-		//	GetIDPrefix(si.GetID()), GetHashPrefix(si.DataHash), GetSignPrefix(si.DataSign))
-		if si.VerifySign(signPk) { //消息合法
-			return true
-		} else {
-			return false
-		}
+	if msg.VerifySign(signPk) { //消息合法
+		return msg.VerifyRandomSign(signPk, preBH.Random)
 	} else {
+		bizlog.log("msg verifysign fail")
 		return false
 	}
 }
@@ -184,35 +187,6 @@ func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, si *model.SignDa
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
 	sgi := p.getGroup(gid)
 	return int32(sgi.GetMinerPos(uid))
-}
-
-//检查是否轮到自己出块
-func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
-	//p.castLock.Lock()
-	//defer p.castLock.Unlock()
-	gid := bc.MinerID.Gid
-	height := vctx.castHeight
-
-	//log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
-	if kingIndex < 0 || qn < 0 {
-		return
-	}
-
-	sgi := p.getGroup(gid)
-
-	log.Printf("time=%v, Current kingIndex=%v, KING=%v, qn=%v.\n", time.Now().Format(time.Stamp), kingIndex, GetIDPrefix(sgi.GetCastor(int(kingIndex))), qn)
-	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
-		log.Printf("curent node IS KING!\n")
-		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
-			head := p.castBlock(bc, vctx, qn) //铸块
-			if head != nil {
-				vctx.addCastedQN(qn)
-			}
-		} else {
-			log.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
-		}
-	}
-	return
 }
 
 ///////////////////////////////////////////////////////////////////////////////

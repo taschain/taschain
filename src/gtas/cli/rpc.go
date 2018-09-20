@@ -1,8 +1,23 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"net"
-	"vm/rpc"
+	"core/rpc"
 
 	"fmt"
 	"network"
@@ -24,15 +39,22 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(from string, to string, amount uint64, code string) (*Result, error) {
-	hash, err := walletManager.transaction(from, to, amount, code)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64) (*Result, error) {
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code,nonce)
 	if err != nil {
 		return nil, err
 	}
-	return &Result{
-		Message: fmt.Sprintf("Address: %s Send %d to Address:%s", from, amount, to),
-		Data:    hash.String(),
-	}, nil
+	if code == "" {
+		return &Result{
+			Message: fmt.Sprintf("Transaction hash: %s", hash.String()),
+			Data:    hash.String(),
+		}, nil
+	} else {
+		return &Result{
+			Message: fmt.Sprintf("Contract Hash: %s", contractAddr.GetHexString()),
+			Data:    contractAddr.GetHexString(),
+		}, nil
+	}
 }
 
 // Balance 查询余额接口
@@ -91,8 +113,8 @@ func (api *GtasAPI) GroupHeight() (*Result, error) {
 
 // Vote
 func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
-	config := v.ToGlobal()
-	walletManager.newVote(from, config)
+	//config := v.ToGlobal()
+	//walletManager.newVote(from, config)
 	return &Result{"success", ""}, nil
 }
 
@@ -113,6 +135,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
+			Hash:   v.Hash.String(),
 			Source: v.Source.GetHexString(),
 			Target: v.Target.GetHexString(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
@@ -122,7 +145,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return &Result{"success", transList}, nil
 }
 
-func(api *GtasAPI) GetTransaction(hash string) (*Result, error) {
+func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
 	if err != nil {
 		return nil, err
@@ -148,7 +171,9 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	castorId.Deserialize(bh.Castor)
 	blockDetail["castor"] = castorId.String()
 	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
-	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	var gid groupsig.ID
+	gid.Deserialize(bh.GroupId)
+	blockDetail["group_id"] = gid.GetHexString()
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	trans := make([]string, len(bh.Transactions))
 	for i := range bh.Transactions {
@@ -177,6 +202,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
+	blockDetail["miner_id"] = logical.GetIDPrefix(mediator.Proc.GetPubkeyInfo().ID)
 	return &Result{"success", blockDetail}, nil
 }
 
@@ -195,6 +221,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 		gmap["dummy"] = true
 	}
 	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
+	gmap["pre"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.PreGroup))
 	gmap["begin_height"] = g.BeginHeight
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
@@ -236,7 +263,8 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	for _, g := range groups {
 		gmap := make(map[string]interface{})
 		gmap["id"] = logical.GetIDPrefix(g.GroupID)
-		gmap["parent"] = logical.GetIDPrefix(g.GroupID)
+		gmap["parent"] = logical.GetIDPrefix(g.ParentId)
+		gmap["pre"] = logical.GetIDPrefix(g.PrevGroupID)
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
 			mems = append(mems, logical.GetIDPrefix(mem.ID))

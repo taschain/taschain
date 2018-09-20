@@ -7,62 +7,10 @@ import (
 
 	"strconv"
 	"common"
-	"time"
 	"golang.org/x/crypto/sha3"
-)
-
-const (
-	//-----------组初始化---------------------------------
-	GROUP_MEMBER_MSG uint32 = 0x00
-
-	GROUP_INIT_MSG uint32 = 0x01
-
-	KEY_PIECE_MSG uint32 = 0x02
-
-	SIGN_PUBKEY_MSG uint32 = 0x03
-
-	GROUP_INIT_DONE_MSG uint32 = 0x04
-
-	//-----------组铸币---------------------------------
-	CURRENT_GROUP_CAST_MSG uint32 = 0x05
-
-	CAST_VERIFY_MSG uint32 = 0x06
-
-	VARIFIED_CAST_MSG uint32 = 0x07
-
-	REQ_TRANSACTION_MSG uint32 = 0x08
-
-	TRANSACTION_GOT_MSG uint32 = 0x09
-
-	TRANSACTION_MSG uint32 = 0x0a
-
-	NEW_BLOCK_MSG uint32 = 0x0b
-
-	//-----------块同步---------------------------------
-	REQ_BLOCK_CHAIN_TOTAL_QN_MSG uint32 = 0x0c
-
-	BLOCK_CHAIN_TOTAL_QN_MSG uint32 = 0x0d
-
-	REQ_BLOCK_INFO uint32 = 0x0e
-
-	BLOCK_INFO uint32 = 0x0f
-
-	//-----------组同步---------------------------------
-	REQ_GROUP_CHAIN_HEIGHT_MSG uint32 = 0x10
-
-	GROUP_CHAIN_HEIGHT_MSG uint32 = 0x11
-
-	REQ_GROUP_MSG uint32 = 0x12
-
-	GROUP_MSG uint32 = 0x13
-	//-----------块链调整---------------------------------
-	BLOCK_HASHES_REQ uint32 = 0x14
-
-	BLOCK_HASHES uint32 = 0x15
-	//---------------------组创建确认-----------------------
-	CREATE_GROUP_RAW uint32 = 0x16
-
-	CREATE_GROUP_SIGN uint32 = 0x17
+	"middleware/statistics"
+	"middleware/notify"
+	"time"
 )
 
 type server struct {
@@ -73,6 +21,13 @@ type server struct {
 	consensusHandler MsgHandler
 
 	chainHandler MsgHandler
+
+	//workinglist *concurrent.Queue
+}
+
+type workingdata struct {
+	message *Message
+	from    string
 }
 
 func (n *server) Send(id string, msg Message) error {
@@ -82,15 +37,15 @@ func (n *server) Send(id string, msg Message) error {
 		return err
 	}
 	if id == n.Self.Id.GetHexString() {
-		go n.sendSelf(bytes)
+		n.sendSelf(bytes)
 		return nil
 	}
 	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
-	Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error {
+func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
@@ -98,7 +53,7 @@ func (n *server) SendWithGroupRely(id string, groupId string, msg Message) error
 	}
 
 	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
-	Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -110,7 +65,21 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	}
 
 	n.netCore.SendGroup(groupId, bytes, true)
-	Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	return nil
+}
+
+func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers)
+	//Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -120,19 +89,34 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, false,nil)
-	Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+
+	n.netCore.SendAll(bytes, false, nil, -1)
+
+	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) Broadcast(msg Message ,msgDigest MsgDigest) error {
+func (n *server) Relay(msg Message, relayCount int32) error {
+
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true,msgDigest)
-	Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	//n.netCore.SendAll(bytes, true,nil,-1)
+	n.netCore.BroadcastRandom(bytes, relayCount)
+	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+	return nil
+}
+
+func (n *server) Broadcast(msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+	n.netCore.SendAll(bytes, true, nil, -1)
+	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -178,55 +162,56 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	begin := time.Now()
+	//测试 P2P发送情况 打开该注释
+	//fmt.Printf("Receive message from %s,msg size:%d\n", from, len(b))
+	//return
+
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b),message.Hash())
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
+	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
 
+	// 快速释放b
+	go n.handleMessageInner(message, from)
+}
+
+func (n *server) handleMessageInner(message *Message, from string) {
+	begin := time.Now()
 	code := message.Code
-	if code == KEY_PIECE_MSG {
-		Logger.Debugf("Receive KEY_PIECE_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == SIGN_PUBKEY_MSG {
-		Logger.Debugf("Receive SIGN_PUBKEY_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == CAST_VERIFY_MSG {
-		Logger.Debugf("Receive CAST_VERIFY_MSG from%s,hash:%s", from, message.Hash())
-	}
-
-	if code == NEW_BLOCK_MSG {
-		Logger.Debugf("Receive NEW_BLOCK_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == CAST_VERIFY_MSG {
-		Logger.Debugf("Receive GROUP_INIT_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	if code == GROUP_INIT_DONE_MSG {
-		Logger.Debugf("Receive GROUP_INIT_DONE_MSG from %s,hash:%s", from, message.Hash())
-	}
-
-	defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {
-	case GROUP_MEMBER_MSG, GROUP_INIT_MSG, KEY_PIECE_MSG, SIGN_PUBKEY_MSG, GROUP_INIT_DONE_MSG, CURRENT_GROUP_CAST_MSG, CAST_VERIFY_MSG,
-		VARIFIED_CAST_MSG, CREATE_GROUP_RAW, CREATE_GROUP_SIGN:
+	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
+		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
 		n.consensusHandler.Handle(from, *message)
-	case REQ_TRANSACTION_MSG, REQ_BLOCK_CHAIN_TOTAL_QN_MSG, BLOCK_CHAIN_TOTAL_QN_MSG, REQ_BLOCK_INFO, BLOCK_INFO,
-		REQ_GROUP_CHAIN_HEIGHT_MSG, GROUP_CHAIN_HEIGHT_MSG, REQ_GROUP_MSG, GROUP_MSG, BLOCK_HASHES_REQ, BLOCK_HASHES:
+	case ReqTransactionMsg, ReqBlockChainTotalQnMsg, BlockChainTotalQnMsg, ReqBlockInfo, BlockInfo,
+		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
 		n.chainHandler.Handle(from, *message)
-	case NEW_BLOCK_MSG:
+	case NewBlockMsg:
 		n.consensusHandler.Handle(from, *message)
-	case TRANSACTION_MSG, TRANSACTION_GOT_MSG:
+	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
 		if error != nil {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case NewBlockHeaderMsg:
+		//Logger.Debugf("Receive NewBlockHeaderMsg from %s", from)
+		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.NewBlockHeader, &msg)
+	case BlockBodyReqMsg:
+		//Logger.Debugf("Receive BlockBodyReqMsg from %s", from)
+		msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockBodyReq, &msg)
+	case BlockBodyMsg:
+		//Logger.Debugf("Receive BlockBodyMsg from %s", from)
+		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockBody, &msg)
+	}
+	n.netCore.onHandleDataMessageDone(from)
+	if time.Since(begin) > 100*time.Millisecond {
+		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
 	}
 }
 

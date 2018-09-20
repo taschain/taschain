@@ -1,7 +1,21 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package handler
 
 import (
-	"time"
 	"network"
 	"github.com/gogo/protobuf/proto"
 	"common"
@@ -11,22 +25,60 @@ import (
 	"fmt"
 	"middleware/types"
 	"middleware/pb"
+	"middleware/notify"
+	"github.com/hashicorp/golang-lru"
 )
 
-const MAX_TRANSACTION_REQUEST_INTERVAL = 20 * time.Second
+type ChainHandler struct {
+	headerPending map[common.Hash]blockHeaderNotify
 
-type ChainHandler struct{}
+	complete *lru.Cache
+
+	headerCh chan blockHeaderNotify
+
+	bodyCh chan blockBodyNotify
+}
+
+type blockHeaderNotify struct {
+	header types.BlockHeader
+
+	peer string
+}
+
+type blockBodyNotify struct {
+	body []*types.Transaction
+
+	blockHash common.Hash
+
+	peer string
+}
+
+func NewChainHandler() network.MsgHandler {
+
+	headerPending := make(map[common.Hash]blockHeaderNotify)
+	complete, _ := lru.New(256)
+	headerCh := make(chan blockHeaderNotify, 100)
+	bodyCh := make(chan blockBodyNotify, 100)
+	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
+
+	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
+	notify.BUS.Subscribe(notify.BlockBody, handler.blockBodyHandler)
+	notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
+
+	go handler.loop()
+	return &handler
+}
 
 func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	switch msg.Code {
-	case network.REQ_TRANSACTION_MSG:
+	case network.ReqTransactionMsg:
 		m, e := unMarshalTransactionRequestMessage(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
 			return nil
 		}
 		OnTransactionRequest(m, sourceId)
-	case network.TRANSACTION_GOT_MSG, network.TRANSACTION_MSG:
+	case network.TransactionGotMsg, network.TransactionMsg:
 		m, e := types.UnMarshalTransactions(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
@@ -37,7 +89,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		//}
 		err := onMessageTransaction(m)
 		return err
-	case network.NEW_BLOCK_MSG:
+	case network.NewBlockMsg:
 		block, e := types.UnMarshalBlock(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard NEW_BLOCK_MSG because of unmarshal error:%s", e.Error())
@@ -45,17 +97,17 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		onMessageNewBlock(block)
 
-	case network.REQ_GROUP_CHAIN_HEIGHT_MSG:
+	case network.ReqGroupChainCountMsg:
 		sync.GroupSyncer.ReqHeightCh <- sourceId
-	case network.GROUP_CHAIN_HEIGHT_MSG:
+	case network.GroupChainCountMsg:
 		height := utility.ByteToUInt64(msg.Body)
 		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
 		sync.GroupSyncer.HeightCh <- ghi
-	case network.REQ_GROUP_MSG:
+	case network.ReqGroupMsg:
 		baseHeight := utility.ByteToUInt64(msg.Body)
 		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
 		sync.GroupSyncer.ReqGroupCh <- gri
-	case network.GROUP_MSG:
+	case network.GroupMsg:
 		m, e := unMarshalGroupInfo(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
@@ -64,42 +116,130 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		m.SourceId = sourceId
 		sync.GroupSyncer.GroupCh <- *m
 
-	case network.REQ_BLOCK_CHAIN_TOTAL_QN_MSG:
+	case network.ReqBlockChainTotalQnMsg:
 		sync.BlockSyncer.ReqTotalQnCh <- sourceId
-	case network.BLOCK_CHAIN_TOTAL_QN_MSG:
+	case network.BlockChainTotalQnMsg:
 		totalQn := utility.ByteToUInt64(msg.Body)
 		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
 		sync.BlockSyncer.TotalQnCh <- s
-	case network.REQ_BLOCK_INFO:
+	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard REQ_BLOCK_MSG_WITH_PRE because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockInfoReq(*m, sourceId)
-	case network.BLOCK_INFO:
+	case network.BlockInfo:
 		m, e := unMarshalBlockInfo(msg.Body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard BLOCK_MSG because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockInfo(*m, sourceId)
-	case network.BLOCK_HASHES_REQ:
+	case network.BlockHashesReq:
 		cbhr, e := unMarshalBlockHashesReq(msg.Body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES_REQ because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockHashesReq(cbhr, sourceId)
-	case network.BLOCK_HASHES:
+	case network.BlockHashes:
 		cbh, e := unMarshalBlockHashes(msg.Body)
 		if e != nil {
-			network.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
+			core.Logger.Errorf("[handler]Discard BLOCK_CHAIN_HASHES because of unmarshal error:%s", e.Error())
 			return e
 		}
 		onBlockHashes(cbh, sourceId)
 	}
 	return nil
+}
+
+func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
+	//core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler RCV MSG")
+	m, ok := msg.GetData().(*notify.BlockHeaderNotifyMessage)
+	if !ok {
+		core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler GetData assert not ok!")
+		return
+	}
+
+	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	notify := blockHeaderNotify{header: *header, peer: m.Peer}
+	ch.headerCh <- notify
+}
+
+func (ch ChainHandler) blockBodyReqHandler(msg notify.Message) {
+	//core.Logger.Debugf("[ChainHandler]blockBodyReqHandler RCV MSG")
+	m, ok := msg.GetData().(*notify.BlockBodyReqMessage)
+	if !ok {
+		core.Logger.Debugf("[ChainHandler]blockBodyReqHandler GetData assert not ok!")
+		return
+	}
+
+	hash := common.BytesToHash(m.BlockHashByte)
+
+	body := core.BlockChainImpl.QueryBlockBody(hash)
+
+	core.SendBlockBody(m.Peer, hash, body)
+}
+
+func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
+	//core.Logger.Debugf("[ChainHandler]blockBodyHandler RCV MSG")
+	m, ok := msg.GetData().(*notify.BlockBodyNotifyMessage)
+	if !ok {
+		return
+	}
+
+	blockHash, txs, e := unMarshalBlockBody(m.BodyByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	notify := blockBodyNotify{blockHash: blockHash, body: txs, peer: m.Peer}
+	ch.bodyCh <- notify
+}
+
+func (ch ChainHandler) loop() {
+	for {
+		select {
+		case headerNotify := <-ch.headerCh:
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash,headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.QueueNumber)
+			hash := headerNotify.header.Hash
+			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
+				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
+				break
+			}
+
+			local := core.BlockChainImpl.QueryBlockByHash(hash)
+			if local != nil {
+				ch.complete.Add(hash, headerNotify.header)
+				break
+			}
+
+			ch.headerPending[hash] = headerNotify
+			core.ReqBlockBody(headerNotify.peer, hash)
+		case bodyNotify := <-ch.bodyCh:
+			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash,bodyNotify.peer,len(bodyNotify.body))
+			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
+			if !ok {
+				break
+			}
+
+			if headerNotify.peer != bodyNotify.peer {
+				break
+			}
+			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
+			msg := notify.BlockMessage{Block: block}
+			ch.complete.Add(block.Header.Hash, block)
+			delete(ch.headerPending, block.Header.Hash)
+			notify.BUS.Publish(notify.NewBlock, &msg)
+		}
+	}
 }
 
 //-----------------------------------------------铸币-------------------------------------------------------------------
@@ -181,7 +321,8 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 		return
 	}
 	block := blockInfo.Block
-	if block != nil{
+	if block != nil {
+		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -192,12 +333,12 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			return
 		}
 
-		if !blockInfo.IsTopBlock{
+		if !blockInfo.IsTopBlock {
 			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash)
-		}else {
+		} else {
 			core.BlockChainImpl.SetAdujsting(false)
-			if !sync.BlockSyncer.IsInit(){
-				core.Logger.Errorf("Block sync finished,loal block height:%d\n",core.BlockChainImpl.Height())
+			if !sync.BlockSyncer.IsInit() {
+				core.Logger.Errorf("Block sync finished,loal block height:%d\n", core.BlockChainImpl.Height())
 				sync.BlockSyncer.SetInit(true)
 			}
 		}
@@ -316,7 +457,7 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 	}
 
 	var block *types.Block
-	if message.Block != nil{
+	if message.Block != nil {
 		block = types.PbToBlock(message.Block)
 	}
 
@@ -328,10 +469,10 @@ func unMarshalBlockInfo(b []byte) (*core.BlockInfo, error) {
 	}
 
 	var topBlock bool
-	if message.IsTopBlock !=nil{
+	if message.IsTopBlock != nil {
 		topBlock = *(message.IsTopBlock)
 	}
-	m := core.BlockInfo{Block:block,IsTopBlock:topBlock, ChainPiece: cbh}
+	m := core.BlockInfo{Block: block, IsTopBlock: topBlock, ChainPiece: cbh}
 	return &m, nil
 }
 
@@ -359,6 +500,22 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
 		return nil, e
 	}
-	groupInfo := sync.GroupInfo{Group: types.PbToGroup(message.Group), IsTopGroup: *message.IsTopGroup}
+	groups := make([]*types.Group, len(message.Groups))
+	for i, g := range message.Groups {
+		groups[i] = types.PbToGroup(g)
+	}
+	groupInfo := sync.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
 	return &groupInfo, nil
+}
+
+func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {
+	message := new(tas_middleware_pb.BlockBody)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalBlockBody error:%s", e.Error())
+		return hash, nil, e
+	}
+	hash = common.BytesToHash(message.BlockHash)
+	transactions = types.PbToTransactions(message.Transactions)
+	return hash, transactions, nil
 }

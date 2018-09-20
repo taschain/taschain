@@ -1,6 +1,6 @@
 #!/bin/bash
 
-main_dir=/Users/zhangchao/Documents/GitRepository/tas/src/gtas/main.go
+main_dir=/Users/zhangchao/Documents/GitRepository/taschain/src/gtas/main.go
 
 rm ./gtas
 go build  -o ./gtas $main_dir

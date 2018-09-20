@@ -58,6 +58,7 @@ func (bg *BelongGroups) commit() bool {
 	if atomic.LoadInt32(&bg.dirty) != 1 {
 		return false
 	}
+	log.Printf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
     gs := make([]*JoinedGroup, 0)
     bg.groups.Range(func(key, value interface{}) bool {
 		jg := value.(*JoinedGroup)
@@ -130,8 +131,8 @@ func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 func (bg *BelongGroups) leaveGroups(gids []groupsig.ID)  {
 	for _, gid := range gids {
 		bg.groups.Delete(gid.GetHexString())
+		atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 	}
-	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 	bg.commit()
 }
 
@@ -157,16 +158,13 @@ func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
 func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
-	log.Printf("begin Processor::joinGroup, gid=%v...\n", GetIDPrefix(g.GroupID))
+	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), GetIDPrefix(g.GroupID))
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {
 			p.belongGroups.commit()
 		}
-	} else {
-		log.Printf("Error::Processor::joinGroup failed, already exist.\n")
 	}
-	log.Printf("SUCCESS:node=%v inited group=%v, sign key=%v.\n", p.getPrefix(), GetIDPrefix(g.GroupID), GetSecKeyPrefix(g.SignKey))
 	return
 }
 

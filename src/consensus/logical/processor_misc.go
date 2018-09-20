@@ -1,8 +1,7 @@
 package logical
 
 import (
-	"consensus/groupsig"
-	"log"
+		"log"
 	"strings"
 	"common"
 	"consensus/model"
@@ -23,10 +22,7 @@ func (p *Processor) genBelongGroupStoreFile() string {
 }
 
 func (p *Processor) prepareMiner()  {
-    rets := p.GroupChain.GetAllGroupID()
-	if len(rets) == 0 {
-		return
-	}
+
 	topHeight := p.MainChain.QueryTopBlock().Height
 
 	storeFile := p.genBelongGroupStoreFile()
@@ -36,37 +32,26 @@ func (p *Processor) prepareMiner()  {
 
 	}
 
-	log.Printf("prepareMiner get groups from groupchain, len=%v, belongGroup len=%v\n", len(rets), belongs.groupSize())
-	for _, gidBytes := range rets {
-		coreGroup := p.GroupChain.GetGroupById(gidBytes)
-		if coreGroup == nil {
-			panic("buildGlobalGroups getGroupById failed! gid=" + string(gidBytes))
-		}
+	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
+	iterator := p.GroupChain.NewIterator()
+	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v\n", GetIDPrefix(sgi.GroupID))
-		if !sgi.CastQualified(topHeight) {
-			continue
-		}
-		for _, mem := range coreGroup.Members {
-			pkInfo := model.NewPubKeyInfo(*groupsig.DeserializeId(mem.Id), *groupsig.DeserializePubkeyBytes(mem.PubKey))
-			sgi.addMember(&pkInfo)
-		}
-		if !p.globalGroups.AddStaticGroup(sgi) {
-			continue
+		log.Printf("load group=%v, topHeight=%v\n", GetIDPrefix(sgi.GroupID), topHeight)
+		if sgi.Dismissed(topHeight) {
+			break
 		}
 		if sgi.MemExist(p.GetMinerID()) {
-			gid := sgi.GroupID
-			jg := belongs.getJoinedGroup(gid)
+			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				log.Println("cannot find joinedgroup infos! gid=" + GetIDPrefix(gid))
-				continue
+				log.Printf("prepareMiner get join group fail, gid=%v\n", GetIDPrefix(sgi.GroupID))
+			} else {
+				p.joinGroup(jg, true)
 			}
-			p.joinGroup(jg, false)
-			p.prepareForCast(sgi)
 		}
+		p.acceptGroup(sgi)
 	}
 }
 
@@ -92,7 +77,14 @@ func (p *Processor) Finalize() {
 
 func (p *Processor) releaseRoutine() bool {
 	topHeight := p.MainChain.QueryTopBlock().Height
-	ids := p.globalGroups.DismissGroups(topHeight)
+	if topHeight <= model.Param.CreateGroupInterval {
+		return true
+	}
+	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证改组解散前夕建的块有效
+	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
+	if len(ids) == 0 {
+		return true
+	}
 	log.Printf("releaseRoutine: clean group %v\n", len(ids))
 	p.globalGroups.RemoveGroups(ids)
 	p.blockContexts.removeContexts(ids)

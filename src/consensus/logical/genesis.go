@@ -3,11 +3,11 @@ package logical
 import (
 	"consensus/groupsig"
 	"time"
-	"vm/common/math"
 	"encoding/json"
 	"io/ioutil"
 	"strings"
 	"consensus/model"
+	"common"
 )
 
 /*
@@ -54,7 +54,7 @@ func GenGenesisGroupSummary() model.ConsensusGroupInitSummary {
 	gis.BeginTime = time.Now()
 	gis.GetReadyHeight = 1
 	gis.BeginCastHeight = 0
-	gis.DismissHeight = math.MaxUint64
+	gis.DismissHeight = common.MaxUint64
 
 	return gis
 }

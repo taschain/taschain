@@ -87,6 +87,15 @@ message BlockHeader{
      optional bytes ExtraData  = 16 ;
 
      optional Hashes EvictedTxs  = 17;
+
+     optional bytes Random = 18;
+}
+
+message BlockBody{
+
+    required bytes BlockHash  = 1;
+
+    repeated Transaction transactions = 2;
 }
 
 message Block{
@@ -100,8 +109,6 @@ message Block{
 message BlockSlice{
     repeated Block Blocks = 1;
 }
-
-
 
 
 message Member{
@@ -131,12 +138,12 @@ message Group{
     optional  uint64    Authority = 9;
     optional  bytes     Name = 10;
     optional  bytes     Extends = 11;
+    required  bytes     PreGroup = 12;
 }
 
 
 message GroupInfo{
-    required Group Group = 1;
-
+    repeated Group Groups = 1;
     required bool IsTopGroup = 2;
 }
 
@@ -144,6 +151,15 @@ message GroupSlice{
     repeated Group Groups = 1;
 }
 
+message GroupIdSlice{
+    repeated bytes GroupIds = 1;
+}
+
+message GroupRequestInfo{
+    required bytes CurrentTopGroupId  =1;
+
+    optional GroupIdSlice ExistGroupIds =2;
+}
 
 message BlockRequestInfo{
 
@@ -202,22 +218,23 @@ message SignData{
 message ConsensusGroupInitSummary{
 
     required  bytes ParentID  = 1;
+    required  bytes PrevGroupID  = 2;
 
-	required  uint64  Authority = 2;
+	required  uint64  Authority = 3;
 
-	required  bytes   Name = 3;
+	required  bytes   Name = 4;
 
-	required  bytes   DummyID = 4;
+	required  bytes   DummyID = 5;
 
-	required uint64    Members =5;
-	required bytes    BeginTime =6;
-	required bytes    MemberHash =7;
-	required bytes    Signature =8;
-    required uint64     GetReadyHeight=9;
-	required uint64     BeginCastHeight=10;
-	required uint64     DismissHeight=11;
-	required uint64     TopHeight=12;
-	required bytes    Extends =13;
+	required uint64    Members =6;
+	required bytes    BeginTime =7;
+	required bytes    MemberHash =8;
+	required bytes    Signature =9;
+    required uint64     GetReadyHeight=10;
+	required uint64     BeginCastHeight=11;
+	required uint64     DismissHeight=12;
+	required uint64     TopHeight=13;
+	required bytes    Extends =14;
 }
 
 message PubKeyInfo{
@@ -312,10 +329,6 @@ message ConsensusBlockMessageBase{
 
 message ConsensusBlockMessage{
     required Block Block = 1;
-
-    optional bytes GroupID = 2;
-
-    required SignData SignData = 3;
 }
 
 

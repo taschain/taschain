@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -5,6 +20,7 @@ import (
 	"fmt"
 	"common"
 	"middleware/types"
+	"math/rand"
 )
 
 func TestCreatePool(t *testing.T) {
@@ -32,14 +48,14 @@ func TestCreatePool(t *testing.T) {
 
 	tGet, error := pool.GetTransaction(h)
 	if nil == error {
-		fmt.Printf("%d\n", tGet.GasPrice)
+		fmt.Printf("GasPrice: %d\n", tGet.GasPrice)
 	}
 
 	casting := pool.GetTransactionsForCasting()
-	fmt.Printf("%d\n", len(casting))
+	fmt.Printf("length for casting: %d\n", len(casting))
 
 	fmt.Printf("%d\n", casting[0])
-	fmt.Printf("%d\n", casting[1])
+	//fmt.Printf("%d\n", casting[1])
 	//fmt.Printf("%d\n", casting[2].gasprice)
 	//fmt.Printf("%d\n", casting[3].gasprice)
 
@@ -78,4 +94,22 @@ func TestContainer(t *testing.T) {
 	} else {
 		fmt.Printf("success %x\n", e)
 	}
+}
+
+func TestMaxTxsPerBlock(t *testing.T) {
+	pool := NewTransactionPool()
+	for i := 0; i < 100000; i++ {
+		transaction := &types.Transaction{
+			GasPrice: rand.Uint64(),
+			Nonce:    rand.Uint64(),
+		}
+
+		transaction.Hash = transaction.GenHash()
+		pool.Add(transaction)
+
+		//fmt.Printf("%d\n", pool.received.Len())
+	}
+
+	casting := pool.GetTransactionsForCasting()
+	fmt.Printf("length for casting: %d\n", len(casting))
 }

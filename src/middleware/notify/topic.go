@@ -1,6 +1,9 @@
 package notify
 
-import "sync"
+import (
+	"sync"
+	"reflect"
+)
 
 type Message interface {
 	GetRaw() []byte
@@ -9,6 +12,7 @@ type Message interface {
 
 type DummyMessage struct {
 }
+
 func (d *DummyMessage) GetRaw() []byte {
 	return []byte{}
 }
@@ -16,11 +20,7 @@ func (d *DummyMessage) GetData() interface{} {
 	return struct{}{}
 }
 
-
-type Handler interface {
-	// 处理消息
-	Handle(message Message)
-}
+type Handler func(message Message)
 
 // 消息订阅
 type Topic struct {
@@ -41,7 +41,7 @@ func (topic *Topic) UnSubscribe(h Handler) {
 	defer topic.lock.Unlock()
 
 	for i, handler := range topic.handlers {
-		if handler == h {
+		if reflect.ValueOf(handler) == reflect.ValueOf(h) {
 			topic.handlers = append(topic.handlers[:i], topic.handlers[i+1:]...)
 			return
 		}
@@ -56,6 +56,6 @@ func (topic *Topic) Handle(message Message) {
 	topic.lock.RLock()
 	defer topic.lock.RUnlock()
 	for _, h := range topic.handlers {
-		go h.Handle(message)
+		go h(message)
 	}
 }

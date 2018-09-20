@@ -51,10 +51,11 @@ func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *St
 	defer func() {
 		log.Printf("checkCreateNextGroup topHeight=%v, create %v\n", topHeight, create)
 	}()
-	blockHeight := topHeight - model.Param.CheckCreateGroupGap
-	if blockHeight % model.Param.Epoch != 0 {
+	if topHeight % model.Param.CreateGroupInterval != 0 {
 		return
 	}
+	blockHeight := topHeight - model.Param.CreateGroupInterval
+
 	theBH = gm.mainChain.QueryBlockByHeight(blockHeight)
 	if theBH == nil || theBH.GroupId == nil || len(theBH.GroupId) == 0 {
 		create = false
@@ -112,10 +113,6 @@ func (gm *GroupManager) getAllCandidates() []groupsig.ID {
 		str += GetIDPrefix(id) + ","
 	}
 	log.Printf("=============getAllCandidates %v\n", str)
-	//sgi := gm.processor.globalGroups.groups[0]
-	//for _, mem := range sgi.Members {
-	//	ids = append(ids, mem.ID)
-	//}
 	return ids
 }
 
@@ -132,7 +129,7 @@ func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (b
 				joinedNum++
 			}
 		}
-		if joinedNum <= model.Param.MinerMaxJoinGroup {
+		if joinedNum < model.Param.MinerMaxJoinGroup {
 			candidates = append(candidates, id)
 		}
 	}
@@ -183,6 +180,26 @@ func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
     return pubs
 }
 
+func (gm *GroupManager) CheckGIS(gis *model.ConsensusGroupInitSummary, isGroupMember bool) bool {
+	//topGroup := gm.groupChain.LastGroup()
+	//topBH := gm.mainChain.QueryTopBlock()
+	//
+	//blog := newBizLog("CheckGIS")
+	//deltaH := topBH.Height - gis.TopHeight
+	//if deltaH < 0 || deltaH >= model.Param.CreateGroupInterval {
+	//	blog.log("topHeight error. topHeight=%v, gis topHeight=%v",  topBH.Height, gis.TopHeight)
+	//	return false
+	//}
+	//
+	//create, group, bh := gm.checkCreateGroup(gis.TopHeight)
+	//if group == nil {
+	//	log.Printf("CheckGIS")
+	//	return false
+	//}
+
+	return true
+}
+
 func (gm *GroupManager) CreateNextGroupRoutine() {
 	topBH := gm.mainChain.QueryTopBlock()
 	topHeight := topBH.Height
@@ -198,9 +215,12 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		return
 	}
 
+	topGroup := gm.groupChain.LastGroup()
+
 	var gis model.ConsensusGroupInitSummary
 
 	gis.ParentID = group.GroupID
+	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.Id)
 
 	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height)
 	bi := base.Data2CommonHash([]byte(gn)).Big()
@@ -245,7 +265,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	creatingGroup := newCreateGroup(&gis, memIds, group)
 	gm.addCreatingGroup(creatingGroup)
 
-	log.Printf("proc(%v) start Create Group consensus, send network msg to members...\n", gm.processor.getPrefix())
+	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), GetIDPrefix(gis.DummyID))
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
@@ -261,6 +281,12 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		log.Printf("ConsensusCreateGroupRawMessage hash diff\n")
+		return false
+	}
+
+	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
+	if preGroup == nil {
+		log.Printf("ConsensusCreateGroupRawMessage preGroup is nil, preGroupId=%v\n", GetIDPrefix(msg.GI.PrevGroupID))
 		return false
 	}
 
@@ -327,10 +353,10 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
-	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, 分片数 %v", PIECE_RESULT(accept), len(creating.getPieces()))
+	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
-		sign := groupsig.RecoverSignatureByMapI(creating.pieces, creating.threshold)
-		msg.GI.Signature = *sign
+		sig := creating.gSignGenerator.GetGroupSign()
+		msg.GI.Signature = sig
 		return true
 	}
 	return false

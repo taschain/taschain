@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -12,7 +27,6 @@ import (
 	"core/net/handler"
 	chandler "consensus/net"
 	"consensus/mediator"
-	"governance/global"
 
 	"encoding/json"
 	"consensus/groupsig"
@@ -28,6 +42,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"redis"
+	"runtime/debug"
 )
 
 const (
@@ -45,6 +60,8 @@ const (
 	chainSection = "chain"
 
 	databaseKey = "database"
+
+	statisticsSection = "statistics"
 
 	redis_prefix = "aliyun_"
 )
@@ -97,7 +114,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log")
+	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
@@ -112,11 +129,20 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 
 	gtas.waitingUtilSyncFinished()
+	redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
+
 	gtas.inited = true
 	if !ok {
 		return
 	}
+}
+
+func (gtas *Gtas) runtimeInit()  {
+	debug.SetGCPercent(70)
+	debug.SetMaxStack(2*1000000000)
+    fmt.Println("setting gc 70%, max memory 2g")
+
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
@@ -148,6 +174,7 @@ func (gtas *Gtas) Run() {
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
+	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -179,11 +206,14 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
+
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
+	nat := mineCmd.Flag("nat", "nat server address").String()
+	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -191,6 +221,7 @@ func (gtas *Gtas) Run() {
 	if err != nil {
 		kingpin.Fatalf("%s, try --help", err)
 	}
+	common.InstanceIndex = *instanceIndex
 	go func() {
 		http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
 		runtime.SetBlockProfileRate(1)
@@ -201,13 +232,20 @@ func (gtas *Gtas) Run() {
 	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
-
+	common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
 	if *prefix == "" {
 		common.GlobalConf.SetString("test", "prefix", redis_prefix)
 	} else {
 		common.GlobalConf.SetString("test", "prefix", *prefix)
 	}
 
+	if *nat != "" {
+		network.NatServerIp = *nat
+		log.Printf("NAT server ip:%s", *nat)
+	}
+
+	common.BootId = *buildId
+	log.Printf("Boot id:%d",common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
@@ -258,7 +296,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	var err error
 	// 椭圆曲线初始化
-	groupsig.Init(1)
+	//groupsig.Init(1)
 
 	// 初始化中间件
 	middleware.InitMiddleware()
@@ -269,7 +307,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	id, err := network.Init(*configManager, isSuper, new(handler.ChainHandler), chandler.MessageHandler, testMode, seedIp)
+	id, err := network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp)
 	if err != nil {
 		return err
 	}
@@ -278,15 +316,15 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	sync.InitBlockSyncer()
 
 	// TODO gov, ConsensusInit? StartMiner?
-	ok := global.InitGov(core.BlockChainImpl)
-	if !ok {
-		return errors.New("gov module error")
-	}
-
-	//if isSuper {
-	//	//超级节点启动前先把Redis数据清空
-	//	redis.CleanRedisData()
+	//ok := global.InitGov(core.BlockChainImpl)
+	//if !ok {
+	//	return errors.NewAccountDB("gov module error")
 	//}
+
+	if isSuper {
+		//超级节点启动前先把Redis数据清空
+		redis.CleanRedisData()
+	}
 
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
@@ -294,10 +332,9 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewMinerInfo(id, secret)
-	redis.NodeOnline(minerInfo.MinerID.Serialize(), minerInfo.GetDefaultPubKey().Serialize())
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
-	ok = mediator.ConsensusInit(minerInfo)
+	ok := mediator.ConsensusInit(minerInfo)
 	if !ok {
 		return errors.New("consensus module error")
 	}

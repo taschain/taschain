@@ -148,6 +148,19 @@ func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
 	return msg.BH.GenHash()
 }
 
+func (msg *ConsensusBlockMessageBase) GenRandomSign(skey groupsig.Seckey, preRandom []byte)  {
+	sig := groupsig.Sign(skey, preRandom)
+    msg.BH.Random = sig.Serialize()
+}
+
+func (msg *ConsensusBlockMessageBase) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
+	sig := groupsig.DeserializeSign(msg.BH.Random)
+	if sig == nil {
+		return false
+	}
+    return groupsig.VerifySig(pkey, preRandom, *sig)
+}
+
 //出块消息 - 由成为KING的组成员发出
 type ConsensusCastMessage struct {
 	ConsensusBlockMessageBase
@@ -161,16 +174,29 @@ type ConsensusVerifyMessage struct {
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {
 	Block   types.Block
-	GroupID groupsig.ID
-	BaseSignedMessage
 }
 
 func (msg *ConsensusBlockMessage) GenHash() common.Hash {
 	buf := msg.Block.Header.GenHash().Bytes()
-	buf = append(buf, msg.GroupID.Serialize()...)
+	buf = append(buf, msg.Block.Header.GroupId...)
 	return base.Data2CommonHash(buf)
 }
 
+func (msg *ConsensusBlockMessage) VerifySig(gpk groupsig.Pubkey, preRandom []byte) bool {
+	sig := groupsig.DeserializeSign(msg.Block.Header.Signature)
+	if sig == nil {
+		return false
+	}
+    b := groupsig.VerifySig(gpk, msg.Block.Header.Hash.Bytes(), *sig)
+	if !b {
+		return false
+	}
+	rsig := groupsig.DeserializeSign(msg.Block.Header.Random)
+	if rsig == nil {
+		return false
+	}
+	return groupsig.VerifySig(gpk, preRandom, *rsig)
+}
 
 //====================================父组建组共识消息================================
 

@@ -1,10 +1,75 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
 	"testing"
-	"fmt"
 	"middleware/types"
+	"middleware"
 )
+
+func TestGroupChain_Add(t *testing.T)  {
+	ClearGroup(defaultGroupChainConfig())
+	initGroupChain()
+	middleware.InitMiddleware()
+	id1 := genHash("test1")
+	group1 := &types.Group{
+		Id: id1,
+	}
+	GroupChainImpl.AddGroup(group1, nil, nil)
+
+	if 1 != GroupChainImpl.Count() {
+		t.Fatalf("fail to add group1")
+	}
+
+
+
+	id2 := genHash("test2")
+	group2 := &types.Group{
+		Id:     id2,
+		Parent: id1,
+		PreGroup: id1,
+	}
+
+	//if 2 != GroupChainImpl.Height() {
+	//	t.Fatalf("fail to add group2")
+	//}
+
+	id4 := genHash("test3")
+	group4 := &types.Group{
+		Id:     id4,
+		Parent: id1,
+		PreGroup: id2,
+	}
+
+	GroupChainImpl.AddGroup(group4, nil, nil)
+	GroupChainImpl.AddGroup(group2, nil, nil)
+
+	// 相同id，测试覆盖
+	group3 := &types.Group{
+		Id:        id2,
+		Parent:    id1,
+		PreGroup: id2,
+		Signature: []byte{1, 2},
+	}
+	GroupChainImpl.AddGroup(group3, nil, nil)
+	if 3 != GroupChainImpl.Count() {
+		t.Fatalf("fail to add group4")
+	}
+}
 
 func TestGroupChain_AddGroup(t *testing.T) {
 	ClearGroup(defaultGroupChainConfig())
@@ -71,12 +136,12 @@ func TestGroupChain_AddGroup(t *testing.T) {
 		t.Fatalf("fail to overwrite by dummyid")
 	}
 
-	now := GroupChainImpl.GetAllGroupID()
-	if nil == now {
-		t.Fatalf("fail to get all groupID")
-	}
+	//now := GroupChainImpl.GetAllGroupID()
+	//if nil == now {
+	//	t.Fatalf("fail to get all groupID")
+	//}
 
-	fmt.Printf("len now: %d\n",len(now))
+	//fmt.Printf("len now: %d\n",len(now))
 	group := GroupChainImpl.GetGroupById(id2)
 	if nil == group {
 		t.Fatalf("fail to GetGroupById2")

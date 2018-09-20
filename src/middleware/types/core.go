@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package types
 
 import (
@@ -42,7 +57,20 @@ func (c Transactions) Less(i, j int) bool {
 	return c[i].Nonce < c[j].Nonce
 }
 
+type GasPriceTransactions []*Transaction
+
+func (c GasPriceTransactions) Len() int {
+	return len(c)
+}
+func (c GasPriceTransactions) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+func (c GasPriceTransactions) Less(i, j int) bool {
+	return c[i].GasPrice > c[j].GasPrice
+}
+
 // 根据gasprice决定优先级的transaction数组
+// gasprice 低的，放在前
 type PriorityTransactions []*Transaction
 
 func (pt PriorityTransactions) Len() int {
@@ -87,6 +115,7 @@ type BlockHeader struct {
 	StateTree    common.Hash
 	EvictedTxs   []common.Hash
 	ExtraData    []byte
+	Random       []byte
 }
 
 type header struct {
@@ -145,6 +174,7 @@ type Group struct {
 	Members     []Member
 	PubKey      []byte
 	Parent      []byte //父亲组 的组ID
+	PreGroup	[]byte //前一块的ID
 	Dummy       []byte
 	Signature   []byte
 	BeginHeight uint64 //组开始参与铸块的高度
