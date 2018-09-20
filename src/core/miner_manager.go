@@ -108,6 +108,19 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
 	}
 }
 
+func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
+	iter := mm.MinerIterator(types.MinerTypeHeavy)
+	var total uint64 = 0
+	for miner,_ := iter.Current();iter.Next();miner,_ = iter.Current(){
+		if height >= miner.ApplyHeight{
+			if miner.Status == types.MinerStatusNormal || height < miner.AbortHeight{
+				total += miner.Stake
+			}
+		}
+	}
+	return total
+}
+
 func (mm *MinerManager) MinerIterator(ttype byte) *MinerIterator{
 	db := mm.getMinerDatabase(ttype)
 	iterator := &MinerIterator{iter:db.NewIterator()}
