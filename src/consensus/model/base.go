@@ -256,17 +256,8 @@ func (gis *ConsensusGroupInitSummary) CheckMemberHash(mems []PubKeyInfo) bool {
     return gis.MemberHash == GenMemberHash(mems)
 }
 
-//是否已超过允许的初始化共识时间窗口
-func (gis *ConsensusGroupInitSummary) IsExpired() bool {
-	if !gis.BeginTime.IsZero() && time.Since(gis.BeginTime).Seconds() <= float64(GROUP_INIT_MAX_SECONDS) {
-		return false
-	} else {
-		return true
-	}
-}
-
 func (gis *ConsensusGroupInitSummary) ReadyTimeout(height uint64) bool {
-	return gis.IsExpired() && gis.GetReadyHeight <= height
+	return gis.GetReadyHeight <= height
 }
 
 //生成哈希
