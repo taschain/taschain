@@ -367,7 +367,7 @@ func (t *Trie) resolveHash2(n hashNode) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash}
 	}
-	return mustDecodeNode(n, enc,t.cachegen,false), nil
+	return mustDecodeNode(n, enc,t.cachegen), nil
 }
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
@@ -379,7 +379,7 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
-	return mustDecodeNode(n, enc, t.cachegen,true), nil
+	return mustDecodeNode(n, enc, t.cachegen), nil
 }
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }

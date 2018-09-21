@@ -179,7 +179,7 @@ func (t *LightTrie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	if enc == nil{
 		return nil, nil
 	}
-	return mustDecodeNode(n, enc, t.cachegen,true), nil
+	return mustDecodeNode(n, enc, t.cachegen), nil
 }
 
 

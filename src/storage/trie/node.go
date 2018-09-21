@@ -69,17 +69,17 @@ type (
 	valueNode []byte
 )
 
-func setValue(data int,hasdata bool)int{
-	var v int = 0
-	if hasdata{
-		v = 1
-	}
-	return data << 1 | v
-}
-
-func hasValue(data int,count uint)bool{
-	return ((data >> (17-count)) & 1) > 0
-}
+//func setValue(data int,hasdata bool)int{
+//	var v int = 0
+//	if hasdata{
+//		v = 1
+//	}
+//	return data << 1 | v
+//}
+//
+//func hasValue(data int,count uint)bool{
+//	return ((data >> (17-count)) & 1) > 0
+//}
 
 func newNodeFlag(hash  hashNode,gen uint16)nodeFlag{
 	return nodeFlag{hash:hash,gen:gen}
@@ -153,57 +153,61 @@ func (n hashNode) magic() byte   { return magicHash }
 func (n valueNode) magic() byte  { return magicValue }
 
 
-func decodeFullNode(decoder *gob.Decoder,hash hashNode, cachegen uint16,coverStatus bool) (*fullNode,error)  {
-	var valueType int
-	var err error
-	decoder.Decode(&valueType)
-	var children [17]node
-	for i:= 1;i<18;i++{
-		if hasValue(valueType,uint(i)){
-			fmt.Printf("decode:------index %d is not nil\n",(i-1))
-			var nodeType int8
-			decoder.Decode(&nodeType)
-			children[i-1],err = getNode(nodeType,decoder)
-			if err != nil{
-				return nil,err
-			}
-		}
-	}
-	if !coverStatus{
-		return &fullNode{Children:children},err
-	}else{
-		return &fullNode{Children:children,flags:newNodeFlag(hash,cachegen)},err
-	}
-}
+//func decodeFullNode(decoder *gob.Decoder,hash hashNode, cachegen uint16,coverStatus bool) (*fullNode,error)  {
+//	var valueType int
+//	var err error
+//	decoder.Decode(&valueType)
+//	var children [17]node
+//	for i:= 1;i<18;i++{
+//		if hasValue(valueType,uint(i)){
+//			fmt.Printf("decode:------index %d is not nil\n",(i-1))
+//			var nodeType int8
+//			decoder.Decode(&nodeType)
+//			children[i-1],err = getNode(nodeType,decoder)
+//			if err != nil{
+//				return nil,err
+//			}
+//		}
+//	}
+//	if !coverStatus{
+//		return &fullNode{Children:children},err
+//	}else{
+//		return &fullNode{Children:children,flags:newNodeFlag(hash,cachegen)},err
+//	}
+//}
+
+//func (n *fullNode) encode(w io.Writer) error  {
+//	encoder := gob.NewEncoder(w)
+//	encoder.Encode(encodeVersion)
+//	encoder.Encode(n.magic())
+//	var data int = 0
+//	for index,nd:= range n.Children{
+//		if nd == nil{
+//			data = setValue(data,false)
+//		}else{
+//			fmt.Printf("------index %d is not nil\n",index)
+//			data = setValue(data,true)
+//		}
+//	}
+//	encoder.Encode(data)
+//	for _,nd:= range n.Children{
+//		if nd != nil{
+//			encoder.Encode(getNodeType(nd))
+//			err:=encoder.Encode(nd)
+//			if err != nil{
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
 
 func (n *fullNode) encode(w io.Writer) error  {
-	encoder := gob.NewEncoder(w)
-	encoder.Encode(encodeVersion)
-	encoder.Encode(n.magic())
-	var data int = 0
-	for index,nd:= range n.Children{
-		if nd == nil{
-			data = setValue(data,false)
-		}else{
-			fmt.Printf("------index %d is not nil\n",index)
-			data = setValue(data,true)
-		}
-	}
-	encoder.Encode(data)
-	for _,nd:= range n.Children{
-		if nd != nil{
-			encoder.Encode(getNodeType(nd))
-			err:=encoder.Encode(nd)
-			if err != nil{
-				return err
-			}
-		}
-	}
-	return nil
+	return encode(w, n.magic(), n)
 }
 
 func (n *shortNode) encode(w io.Writer) error  {
-	return encode(w, n.magic(), n.Key,getNodeType(n.Val),n.Val)
+	return encode(w, n.magic(), n)
 }
 
 func getNode(valueType int8,decoder *gob.Decoder) (node,error) {
@@ -255,17 +259,11 @@ func (n *shortNode) String() string { return n.fstring("") }
 func (n hashNode) String() string   { return n.fstring("") }
 func (n valueNode) String() string  { return n.fstring("") }
 
-func encode(w io.Writer,magic byte,vl ...interface{}) error{
+func encode(w io.Writer,magic byte,node node) error{
 	encoder := gob.NewEncoder(w)
 	encoder.Encode(encodeVersion)
 	encoder.Encode(magic)
-	for _,data := range vl{
-		er :=encoder.Encode(data)
-		if er!=nil{
-			return er
-		}
-	}
-	return nil
+	return encoder.Encode(node)
 }
 
 func (n *fullNode) fstring(ind string) string {
@@ -289,15 +287,15 @@ func (n valueNode) fstring(ind string) string {
 	return fmt.Sprintf("value %x ", []byte(n))
 }
 
-func mustDecodeNode(hash, buf []byte, cachegen uint16,coverStatus bool) node {
-	n, err := decodeNode(hash, buf, cachegen,coverStatus)
+func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
+	n, err := decodeNode(hash, buf, cachegen)
 	if err != nil {
 		panic(fmt.Sprintf("node %x: %v", hash, err))
 	}
 	return n
 }
 
-func decodeNode(hash hashNode, buf []byte, cachegen uint16,coverStatus bool) (node, error)  {
+func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 	if len(buf) == 0 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -307,45 +305,32 @@ func decodeNode(hash hashNode, buf []byte, cachegen uint16,coverStatus bool) (no
 	decoder.Decode(&version)
 	decoder.Decode(&magic)
 	switch magic {
-		case magicFull:
-			node,err := decodeFullNode(decoder,hash,cachegen,coverStatus)
-			if err != nil{
-				return nil,err
-			}
-			return node,err
-		case magicShort:
-			var key  []byte
-			var valueType int8
-			var vl node
-			err:=decoder.Decode(&key)
-			if err != nil{
-				return nil,err
-			}
-			err=decoder.Decode(&valueType)
-			if err != nil{
-				return nil,err
-			}
-			vl,err=getNode(valueType,decoder)
-			if err != nil{
-				return nil,err
-			}
-			key = compactToHex(key)
-			if !coverStatus{
-				return  &shortNode{Key:key,Val:vl},nil
-			}else{
-				return  &shortNode{Key:key,Val:vl,flags:newNodeFlag(hash,cachegen)},nil
-			}
-		//case magicHash:
-		//	var n hashNode
-		//	err := decoder.Decode(&n)
-		//	return &n,err
-		//case magicValue:
-		//	var n valueNode
-		//	err := decoder.Decode(&n)
-		//	if len(n) == 0{
-		//		return nil, err
-		//	}
-		//	return &n,err
+	case magicFull:
+		var n fullNode
+		err := decoder.Decode(&n)
+		n.flags.hash = hash
+		n.flags.dirty = false
+		n.flags.gen = cachegen
+		return &n,err
+	case magicShort:
+		var n shortNode
+		err := decoder.Decode(&n)
+		n.Key = compactToHex(n.Key)
+		n.flags.hash = hash
+		n.flags.dirty = false
+		n.flags.gen = cachegen
+		return &n,err
+	//case magicHash:
+	//	var n hashNode
+	//	err := decoder.Decode(&n)
+	//	return &n,err
+	//case magicValue:
+	//	var n valueNode
+	//	err := decoder.Decode(&n)
+	//	if len(n) == 0{
+	//		return nil, err
+	//	}
+	//	return &n,err
 	}
 	return nil, fmt.Errorf("type mismatch")
 }

@@ -88,7 +88,8 @@ func initLightChain() error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
 	}
-	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	//chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	chain.statedb, err = datasource.NewDatabase(chain.config.state)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
@@ -102,6 +103,13 @@ func initLightChain() error {
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE,chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
+
+		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+		} else {
+			panic("initLightChain NewAccountDB fail:" + err.Error())
+		}
 	} else {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)

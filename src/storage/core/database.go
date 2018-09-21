@@ -162,9 +162,9 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 	}
 }
 
-func (db *storageDB) RestoreTrie(root common.Hash) Trie {
-	return nil
-}
+//func (db *storageDB) RestoreTrie(root common.Hash,hn []byte) []trie.node {
+//	return nilsss
+//}
 
 func (db *storageDB) CopyCompleteTrie(root common.Hash) Trie {
 	trie,error := trie.NewTrie(root, db.db)

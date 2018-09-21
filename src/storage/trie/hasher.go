@@ -51,6 +51,7 @@ func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 			return hash, n, nil
 		}
 		if n.canUnload(h.cachegen, h.cachelimit) {
+			fmt.Printf("unload....\n")
 			cacheUnloadCounter.Inc(1)
 			return hash, hash, nil
 		}
@@ -106,7 +107,7 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 		h.sha.Reset()
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
-		fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
+		//fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
 	}
 	if db != nil {
 
