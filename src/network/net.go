@@ -469,10 +469,7 @@ func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte,
 func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
 	nc.peerManager.newConnection(id, session, p2pType, false)
-	p := nc.peerManager.peerByNetID(id)
-	if p != nil && p.Ip != nil && p.Port > 0 {
-		go nc.ping(p.Id, &nnet.UDPAddr{IP: p.Ip, Port: p.Port})
-	}
+
 }
 
 //OnConnected 处理接受连接的回调
