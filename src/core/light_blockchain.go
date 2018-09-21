@@ -312,7 +312,15 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 //根据指定哈希查询块
 func (chain *LightChain)QueryBlockByHash(hash common.Hash) *types.BlockHeader{
-	panic("Not support!")
+	return chain.queryBlockHeaderByHash(hash)
+}
+
+func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	block := chain.queryBlockByHash(hash)
+	if nil == block {
+		return nil
+	}
+	return block.Header
 }
 
 func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transaction{
@@ -321,6 +329,21 @@ func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transacti
 
 func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {
 	panic("Not support!")
+}
+
+func (chain *LightChain) queryBlockByHash(hash common.Hash) *types.Block {
+	result, err := chain.blocks.Get(hash.Bytes())
+
+	if result != nil {
+		var block *types.Block
+		block, err = types.UnMarshalBlock(result)
+		if err != nil || &block == nil {
+			return nil
+		}
+		return block
+	} else {
+		return nil
+	}
 }
 
 // 保存block到ldb
