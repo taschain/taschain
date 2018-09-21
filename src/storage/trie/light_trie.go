@@ -25,7 +25,7 @@ func NewLightTrie(root common.Hash, db *Database) (*LightTrie, error) {
 		if err != nil {
 			return nil, err
 		}
-		trie.root = rootnode
+		trie.RootNode = rootnode
 	}
 	return trie, nil
 }
@@ -43,17 +43,17 @@ func (t *LightTrie) Root() []byte { return t.Hash().Bytes() }
 
 func (t *LightTrie) Hash() common.Hash {
 	hash, cached, _ := t.hashRoot(nil, nil)
-	t.root = cached
+	t.RootNode = cached
 	return common.BytesToHash(hash.(hashNode))
 }
 
 func (t *LightTrie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
-	if t.root == nil {
+	if t.RootNode == nil {
 		return hashNode(emptyRoot.Bytes()), nil, nil
 	}
 	h := newHasher(t.cachegen, t.cachelimit, onleaf)
 	defer returnHasherToPool(h)
-	return h.hash(t.root, db, true)
+	return h.hash(t.RootNode, db, true)
 }
 
 func (t *LightTrie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
@@ -64,18 +64,18 @@ func (t *LightTrie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if err != nil {
 		return common.Hash{}, err
 	}
-	t.root = cached
+	t.RootNode = cached
 	t.cachegen++
 	return common.BytesToHash(hash.(hashNode)), nil
 }
 
 func (t *LightTrie) TryDelete(key []byte) error {
 	k := keybytesToHex(key)
-	_, n, err := t.delete(t.root, nil, k)
+	_, n, err := t.delete(t.RootNode, nil, k)
 	if err != nil {
 		return err
 	}
-	t.root = n
+	t.RootNode = n
 	return nil
 }
 
@@ -191,9 +191,9 @@ func (t *LightTrie) Delete(key []byte) {
 
 func (t *LightTrie) TryGet(key []byte) ([]byte, error) {
 	key = keybytesToHex(key)
-	value, newroot, didResolve, err := t.tryGet(t.root, key, 0)
+	value, newroot, didResolve, err := t.tryGet(t.RootNode, key, 0)
 	if err == nil && didResolve {
-		t.root = newroot
+		t.RootNode = newroot
 	}
 	return value, err
 }
@@ -245,17 +245,17 @@ func (t *LightTrie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
 	fmt.Printf("instert key = %v,%v,%v\n",key,k,hexToCompact(k))
 	if len(value) != 0 {
-		_, n, err := t.insert(t.root, nil, k, valueNode(value))
+		_, n, err := t.insert(t.RootNode, nil, k, valueNode(value))
 		if err != nil {
 			return err
 		}
-		t.root = n
+		t.RootNode = n
 	} else {
-		_, n, err := t.delete(t.root, nil, k)
+		_, n, err := t.delete(t.RootNode, nil, k)
 		if err != nil {
 			return err
 		}
-		t.root = n
+		t.RootNode = n
 	}
 	return nil
 }

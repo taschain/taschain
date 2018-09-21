@@ -6,7 +6,7 @@ import (
 
 type PublicTrie struct {
 	db           *Database
-	root         node
+	RootNode         node
 	originalRoot common.Hash
 	cachegen, cachelimit uint16
 }
@@ -37,8 +37,8 @@ func (t *PublicTrie) NodeIterator(start []byte) NodeIterator {
 }
 
 func (t *PublicTrie) Fstring() string{
-	if t.root == nil{
+	if t.RootNode == nil{
 		return ""
 	}
-	return t.root.fstring("")
+	return t.RootNode.fstring("")
 }
