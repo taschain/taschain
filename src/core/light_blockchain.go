@@ -133,7 +133,8 @@ func initLightChain() error {
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *LightChain)CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block{
-	panic("Not support!")
+	//panic("Not support!")
+	return nil
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
