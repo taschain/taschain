@@ -22,11 +22,12 @@ const (
 	success  = 2
 )
 
-var max256 *big.Int
+var max256 *big.Rat
 
 func init() {
-	max256 = new(big.Int)
-	max256.SetString("ffffffffffffffffffffffffffffffff", 16)
+	t := new(big.Int)
+	t.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	max256 = new(big.Rat).SetInt(t)
 }
 
 type vrfWorker struct {
@@ -62,18 +63,26 @@ func (vrf *vrfWorker) prove(totalStake uint64) (vrf_ed25519.VRFProve, error) {
 
 func vrfSatisfy(pi vrf_ed25519.VRFProve, stake uint64, totalStake uint64) bool {
 	value := vrf_ed25519.ECVRF_proof2hash(pi)
-	bi := new(big.Int).SetBytes(value)
-	v := bi.Div(bi, max256)
+	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
+	v := br.Quo(br, max256)
 
-	biTStake := new(big.Int).SetUint64(totalStake)
-	vs := new(big.Int).Div(new(big.Int).SetUint64(stake), biTStake)
+	brTStake := new(big.Rat).SetInt64(int64(totalStake))
+	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake)), brTStake)
 
-	return v.Cmp(vs) < 0
+	s1, _ := v.Float64()
+	s2, _ := vs.Float64()
+	blog := newBizLog("vrfSatisfy")
+	blog.log("value %v stake %v", s1, s2)
+
+	//return v.Cmp(vs) < 0
+	return true
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
 	pi := vrf_ed25519.VRFProve(bh.ProveValue.Bytes())
 	ok, err := vrf_ed25519.ECVRF_verify(miner.VrfPK, pi, preBH.Random)
+	blog := newBizLog("vrfVerifyBlock")
+	blog.log("pi %v", pi)
 	if !ok {
 		return ok ,err
 	}

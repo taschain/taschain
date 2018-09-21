@@ -141,6 +141,15 @@ func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
     p.vrf.Store(vrf)
 }
 
+func (p *Processor) getSelfMinerDO() *model.SelfMinerDO {
+    md := p.minerReader.getProposeMiner(p.GetMinerID())
+	if md == nil {
+		panic("self miner info nil")
+	}
+	p.mi.MinerDO = *md
+	return p.mi
+}
+
 func (p *Processor) canProposalAt(h uint64) bool {
    	return p.minerCanProposalAt(p.GetMinerID(), h)
 }

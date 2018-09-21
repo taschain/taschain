@@ -34,6 +34,7 @@ func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	proc := new(Processor)
 	proc.Init(model.NewSelfMinerDO(cm.GetString("gtas", "secret", "")))
+	log.Printf("%v", proc.mi.VrfPK)
 	return proc
 }
 
@@ -217,7 +218,8 @@ func TestGenesisGroup(t *testing.T) {
 
 			vrfpks := make(map[string]vrf_ed25519.PublicKey, 0)
 			for _, mem := range sgi.Members {
-				vrfpks[mem.ID.GetHexString()]= p.mi.VrfPK
+				_p := procs[mem.ID.GetHexString()]
+				vrfpks[mem.ID.GetHexString()]= _p.mi.VrfPK
 			}
 			genesis.VrfPK = vrfpks
 

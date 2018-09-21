@@ -25,6 +25,7 @@ import (
 	"log"
 	"gopkg.in/fatih/set.v0"
 	"fmt"
+	"math/big"
 )
 
 /*
@@ -50,7 +51,7 @@ type SlotContext struct {
 	//验证相关
 	BH             types.BlockHeader //出块头详细数据
 	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
-	vrfValue 		uint64
+	vrfValue 		*big.Int
 	gSignGenerator *model.GroupSignGenerator	//块签名产生器
 	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
 	slotStatus     int32
@@ -189,7 +190,7 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	if sc.StatusTransform(SS_INVALID, SS_WAITING) {
 		sc.BH = *bh
-		sc.vrfValue = bh.Nonce
+		sc.vrfValue = bh.ProveValue
 		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, 0)
 		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
 		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, 0, len(ltl), ccr)

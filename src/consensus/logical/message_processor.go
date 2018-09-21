@@ -96,7 +96,8 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	sender := GetIDPrefix(si.SignMember)
 	result := ""
 	defer func() {
-		logHalfway(mtype, bh.Height, bh.ProveValue.Uint64(), sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
+		logHalfway(mtype, bh.Height, 0, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
+		blog.log(result)
 	}()
 
 	if cgs == nil {
@@ -151,13 +152,13 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 	if vctx.castExpire() {
 		vctx.markTimeout()
-		result = "已超时"
+		result = "已超时" + vctx.expireTime.String()
 		return
 	}
 
 	blog.log("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, 0)
 	verifyResult := vctx.UserVerified(bh, si, cgs)
-	blog.log("proc(%v) UserVerified height-qn=%v-%v, result=%v.", p.getPrefix(), bh.Height, bh.ProveValue, CBMR_RESULT_DESC(verifyResult))
+	blog.log("proc(%v) UserVerified height-qn=%v-%v, result=%v.", p.getPrefix(), bh.Height, 0, CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
 		result = "找不到合适的验证槽, 放弃验证"
@@ -198,7 +199,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
 		return
 	}
-	blog.log("proc(%v) begin, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.ProveValue, GetIDPrefix(cgs.Castor))
+	blog.log("proc(%v) begin, group=%v, sender=%v, height=%v, qn=%v, castor=%v...", p.getPrefix(), GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, 0, GetIDPrefix(cgs.Castor))
 
 	//如果是自己发的, 不处理
 	if p.GetMinerID().IsEqual(si.SignMember) {
@@ -277,7 +278,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
 
 	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(gid), GetIDPrefix(gid), cbm.Block.Header.Height, cbm.Block.Header.ProveValue)
+		GetIDPrefix(gid), GetIDPrefix(gid), cbm.Block.Header.Height, 0)
 
 	block := &cbm.Block
 
@@ -893,8 +894,8 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	}
 
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
-	blog.log("slot acceptRewardPiece %v %v", accept, recover)
-	if accept && recover {
+	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
+	if accept && recover && slot.StatusTransform(SS_REWARD_REQ, SS_REWARD_SEND) {
 		 ok, err := p.MainChain.GetTransactionPool().Add(slot.rewardTrans)
 		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v %v", GetHashPrefix(slot.rewardTrans.Hash), ok, err)
 	}

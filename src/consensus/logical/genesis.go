@@ -33,6 +33,7 @@ func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
 	//p.globalGroups.AddStaticGroup(sgi)
 	p.groupManager.AddGroupOnChain(&genesis.Group, false)
 	miners := make([]*types.Miner, len(genesis.Group.Members))
+	blog := newBizLog("BeginGenesisGroupMember")
 	for idx, mem := range genesis.Group.Members {
 		miner := &types.Miner{
 			Id: mem.ID.Serialize(),
@@ -40,10 +41,13 @@ func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
 			VrfPublicKey: genesis.VrfPK[mem.ID.GetHexString()],
 			ApplyHeight: 0,
 			AbortHeight: 0,
+			Stake: 10,
 		}
 		miners[idx] = miner
+		blog.log("minerInfo %v %v", miner.VrfPublicKey, miner.Id)
 	}
 	p.minerReader.genesisMiner(miners)
+
 	return model.PubKeyInfo{}
 }
 

@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"sync/atomic"
+	"math/big"
 )
 
 /*
@@ -202,11 +203,11 @@ func (vc *VerifyContext) consensusFindSlot(bh *types.BlockHeader) (sc *SlotConte
 		}
 	}
 	var (
-		maxV uint64 = 0
+		maxV = new(big.Int).SetUint64(0)
 	)
 
 	for i, slot := range vc.slots {
-		if slot.vrfValue > maxV {
+		if slot.vrfValue.Cmp(maxV) > 0 {
 			maxV = slot.vrfValue
 			idx = i
 		}

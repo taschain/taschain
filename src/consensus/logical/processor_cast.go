@@ -140,7 +140,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		blog.log("already working on that block, status=%v", worker.getStatus())
 		return false
 	} else {
-		worker = newVRFWorker(p.getMinerInfo(), top, castHeight, expireTime)
+		worker = newVRFWorker(p.getSelfMinerDO(), top, castHeight, expireTime)
 		p.setVrfWorker(worker)
 		p.blockProposal()
 	}

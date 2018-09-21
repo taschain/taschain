@@ -144,7 +144,7 @@ func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
-    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, bh.ProveValue, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
+    return fmt.Sprintf("hash=%v, height=%v, qn=%v, curTime=%v, preHash=%v, preTime=%v", GetHashPrefix(bh.Hash), bh.Height, 0, bh.CurTime, GetHashPrefix(bh.PreHash), bh.PreTime)
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {

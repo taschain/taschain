@@ -96,13 +96,14 @@ func (bc *BlockContext) replaceVerifyCtx(old *VerifyContext,height uint64, expir
 
 func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
 	var	vctx *VerifyContext
+	blog := newBizLog("getOrNewVctx")
 
 	//若该高度还没有verifyContext， 则创建一个
 	if vctx = bc.GetVerifyContextByHeight(height); vctx == nil {
 		vctx = newVerifyContext(bc, height, expireTime, preBH)
 		bc.AddVerifyContext(vctx)
+		blog.log("add vctx expire %v", expireTime)
 	} else {
-		blog := newBizLog("getOrNewVctx")
 		// hash不一致的情况下，
 		if vctx.prevBH.Hash != preBH.Hash {
 			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, GetHashPrefix(vctx.prevBH.Hash), GetHashPrefix(preBH.Hash))
@@ -121,6 +122,8 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 			if preOld.Height < preNew.Height {
 				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preNew)
 			}
+		} else {
+			blog.log("get exist vctx height %v, expire %v", height, vctx.expireTime)
 		}
 	}
 	return vctx
