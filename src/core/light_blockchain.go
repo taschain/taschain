@@ -324,7 +324,7 @@ func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHe
 }
 
 func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transaction{
-	panic("Not support!")
+	return nil
 }
 
 func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {
