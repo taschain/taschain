@@ -44,6 +44,43 @@ func newHasher(cachegen, cachelimit uint16, onleaf LeafCallback) *hasher {
 	h.cachegen, h.cachelimit, h.onleaf = cachegen, cachelimit, onleaf
 	return h
 }
+func newHasher2() *hasher {
+	h := hasherPool.Get().(*hasher)
+	return h
+}
+
+func (h *hasher) hash2(n node, db *Database, force bool,nodes map[string]*[]byte) (node, node, error) {
+	if hash, dirty := n.cache(); hash != nil {
+		if db == nil {
+			return hash, n, nil
+		}
+		if !dirty {
+			return hash, n, nil
+		}
+	}
+	collapsed, cached, err := h.hashChildren(n, db)
+	if err != nil {
+		return hashNode{}, n, err
+	}
+	hashed, err := h.store2(collapsed, db, force,nodes)
+	if err != nil {
+		return hashNode{}, n, err
+	}
+	cachedHash, _ := hashed.(hashNode)
+	switch cn := cached.(type) {
+	case *shortNode:
+		cn.flags.hash = cachedHash
+		if db != nil {
+			cn.flags.dirty = false
+		}
+	case *fullNode:
+		cn.flags.hash = cachedHash
+		if db != nil {
+			cn.flags.dirty = false
+		}
+	}
+	return hashed, cached, nil
+}
 
 func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 	if hash, dirty := n.cache(); hash != nil {
@@ -87,6 +124,33 @@ func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 
 func returnHasherToPool(h *hasher) {
 	hasherPool.Put(h)
+}
+
+func (h *hasher) store2(n node, db *Database, force bool,nodes map[string]*[]byte) (node, error) {
+	if _, isHash := n.(hashNode); n == nil || isHash {
+		return n, nil
+	}
+	h.tmp.Reset()
+	if err := n.encode(h.tmp); err != nil {
+		panic("serialize error: " + err.Error())
+	}
+	if h.tmp.Len() < 32 && !force {
+		return n, nil
+	}
+	hash, _ := n.cache()
+	if hash == nil {
+		h.sha.Reset()
+		h.sha.Write(h.tmp.Bytes())
+		hash = hashNode(h.sha.Sum(nil))
+	}
+	if db != nil {
+		db.lock.Lock()
+		hash := common.BytesToHash(hash)
+		vl:=h.tmp.Bytes()
+		nodes[string(hash[:])] =&vl
+		db.lock.Unlock()
+	}
+	return hash, nil
 }
 
 func (h *hasher) store(n node, db *Database, force bool) (node, error) {
@@ -151,23 +215,17 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 
 func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 	var err error
-
 	switch n := original.(type) {
 	case *shortNode:
-
 		collapsed, cached := n.copy(), n.copy()
 		collapsed.Key = hexToCompact(n.Key)
 		cached.Key = common.CopyBytes(n.Key)
-
 		if _, ok := n.Val.(valueNode); !ok {
 			collapsed.Val, cached.Val, err = h.hash(n.Val, db, false)
 			if err != nil {
 				return original, original, err
 			}
 		}
-		//if collapsed.Val == nil {
-		//	collapsed.Val = valueNode(nil)
-		//}
 		return collapsed, cached, nil
 
 	case *fullNode:
@@ -181,14 +239,8 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 					return original, original, err
 				}
 			}
-			//else {
-			//	collapsed.Children[i] = valueNode(nil) // Ensure that nil children are encoded as empty strings.
-			//}
 		}
 		cached.Children[16] = n.Children[16]
-		//if collapsed.Children[16] == nil {
-		//	collapsed.Children[16] = valueNode(nil)
-		//}
 		return collapsed, cached, nil
 
 	default:

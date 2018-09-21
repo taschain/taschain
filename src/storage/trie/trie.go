@@ -23,6 +23,7 @@ import (
 	"taslog"
 	"github.com/rcrowley/go-metrics"
 	"golang.org/x/crypto/sha3"
+	"hash"
 )
 
 var (
@@ -332,7 +333,16 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
-
+func (t *Trie) Commit2(nodes map[string]*[]byte) (err error) {
+	if t.db == nil {
+		panic("commit called on trie with nil database")
+	}
+	err = t.hashRoot2(t.db, nodes)
+	if err != nil {
+		return  err
+	}
+	return nil
+}
 
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if t.db == nil {
@@ -393,14 +403,15 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	return h.hash(t.RootNode, db, true)
 }
 
-//func (t *Trie) hashRoot2(db *Database,nodes*[]node) (error) {
-//	if t.RootNode == nil {
-//		return hashNode(emptyRoot.Bytes()), nil, nil
-//	}
-//	h := newHasher(t.cachegen, t.cachelimit, onleaf)
-//	defer returnHasherToPool(h)
-//	return h.hash(t.RootNode, db, true)
-//}
+func (t *Trie) hashRoot2(db *Database,nodes map[string]*[]byte) (error) {
+	if t.RootNode == nil {
+		return nil
+	}
+	h := newHasher2()
+	defer returnHasherToPool(h)
+	_,_,err :=h.hash2(t.RootNode, db, true,nodes)
+	return err
+}
 
 
 func (t *Trie) ExpandAll(original node, db *Database) (newNode node,err error) {
