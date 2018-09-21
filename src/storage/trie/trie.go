@@ -332,12 +332,6 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
-//func (t *Trie) CopyCompleteTrie() (root common.Hash, err error) {
-//	if t.db == nil {
-//		panic("CopyCompleteTrie called on trie with nil database")
-//	}
-//
-//}
 
 
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
@@ -398,6 +392,15 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	defer returnHasherToPool(h)
 	return h.hash(t.RootNode, db, true)
 }
+
+//func (t *Trie) hashRoot2(db *Database,nodes*[]node) (error) {
+//	if t.RootNode == nil {
+//		return hashNode(emptyRoot.Bytes()), nil, nil
+//	}
+//	h := newHasher(t.cachegen, t.cachelimit, onleaf)
+//	defer returnHasherToPool(h)
+//	return h.hash(t.RootNode, db, true)
+//}
 
 
 func (t *Trie) ExpandAll(original node, db *Database) (newNode node,err error) {

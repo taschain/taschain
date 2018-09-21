@@ -75,28 +75,29 @@ func TestExpandAll(t *testing.T){
 	for i:=0;i<100;i++{
 		updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
 	}
-	trie.SetCacheLimit(10)
-	for i:= 0;i<11;i++{
-		trie.Commit(nil)
-	}
 
 	root,_:=trie.Commit(nil)
+	mp := make(map[common.Hash]*cachedNode)
+
+	for key,value:= range trie.db.nodes{
+		mp[key] = value
+	}
+
 	triedb.Commit(root,false)
 
-	trie,_ = NewTrie(root, triedb)
-	trie.ExpandAll(trie.GetRoot(), triedb)
-	for i:=0;i<100;i++{
-		vl:= string(getString(trie,strconv.Itoa(i)))
-		if vl != strconv.Itoa(i){
-			t.Errorf("wrong value: %v", vl)
-		}
+	diskdb2, _ := tasdb.NewMemDatabase()
+	triedb2 := NewDatabase(diskdb2)
+
+
+	for key,value:= range mp{
+		triedb2.diskdb.Put(key[:],value.blob)
 	}
 
-	f:=trie.NodeIterator(nil)
-	if f!=nil{
+	trie2, _ := NewTrie(root, triedb2)
+	vvv:=getString(trie2,"1")
+	fmt.Printf("%v",vvv)
 
-	}
-
+	//triedb2.diskdb.Put()
 }
 
 func TestMissingRoot(t *testing.T) {
