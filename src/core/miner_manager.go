@@ -61,6 +61,24 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
 	}
 }
 
+func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner) {
+	dbh := mm.getMinerDatabase(types.MinerTypeHeavy)
+	dbl := mm.getMinerDatabase(types.MinerTypeLight)
+
+	for _,miner := range miners{
+		if exist,_ := dbh.Has(miner.Id);!exist{
+			miner.Type = types.MinerTypeHeavy
+			data,_ := msgpack.Marshal(miner)
+			dbh.Put(miner.Id, data)
+		}
+		if exist,_ := dbl.Has(miner.Id);!exist{
+			miner.Type = types.MinerTypeLight
+			data,_ := msgpack.Marshal(miner)
+			dbh.Put(miner.Id, data)
+		}
+	}
+}
+
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte) (*types.Miner,error) {
 	if ttype == types.MinerTypeHeavy {
 		if result, ok := mm.cache.Get(id); ok {
@@ -106,6 +124,19 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
 	} else {
 		return false
 	}
+}
+
+func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
+	iter := mm.MinerIterator(types.MinerTypeHeavy)
+	var total uint64 = 0
+	for miner,_ := iter.Current();iter.Next();miner,_ = iter.Current(){
+		if height >= miner.ApplyHeight{
+			if miner.Status == types.MinerStatusNormal || height < miner.AbortHeight{
+				total += miner.Stake
+			}
+		}
+	}
+	return total
 }
 
 func (mm *MinerManager) MinerIterator(ttype byte) *MinerIterator{
