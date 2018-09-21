@@ -23,3 +23,5 @@ src/core/wenqin_test_util.go
 */database/
 
 main
+
+venv/

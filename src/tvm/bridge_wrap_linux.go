@@ -17,6 +17,7 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
+#cgo LDFLAGS: -lm
 #cgo LDFLAGS: -L ../../lib/linux -lmicropython
 
 
