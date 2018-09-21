@@ -155,6 +155,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
+	log.Printf("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, bh.QueueNumber)
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	blog.log("proc(%v) UserVerified height-qn=%v-%v, result=%v.", p.getPrefix(), bh.Height, bh.ProveValue, CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)
@@ -352,6 +353,10 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
+	rt := newRtLog("OMGI")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(grm.SI.GetID()))
+	}()
 
 	if !grm.GI.CheckMemberHash(grm.MEMS) {
 		panic("grm member hash diff!")
@@ -362,6 +367,11 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	parentGroup := p.getGroup(grm.GI.ParentID)
 	if !parentGroup.CastQualified(grm.GI.TopHeight) {
 		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), grm.GI.TopHeight)
+		return
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if grm.GI.ReadyTimeout(topHeight) {
+		log.Printf("OMGI ready timeout, readyHeight=%v, now=%v", grm.GI.GetReadyHeight, topHeight)
 		return
 	}
 	gpk := parentGroup.GroupPK
@@ -439,7 +449,10 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
-
+	rt := newRtLog("OMSP")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spm.SI.GetID()))
+	}()
 	if !spm.Dest.IsEqual(p.GetMinerID()) {
 		return
 	}
@@ -450,7 +463,12 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		return
 	}
 	if gc.gis.GenHash() != spm.GISHash {
-		log.Printf("OMSPK failed, gisHash diff.\n")
+		log.Printf("OMSP failed, gisHash diff.\n")
+		return
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMSP ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
 		return
 	}
 
@@ -506,7 +524,10 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
-
+	rt := newRtLog("OMSPK")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(spkm.SI.GetID()))
+	}()
 	gc := p.joiningGroups.GetGroup(spkm.DummyID)
 	if gc == nil {
 		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
@@ -518,6 +539,11 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	}
 	if !spkm.VerifyGISSign(spkm.SignPK) {
 		panic("OMSP verify GISSign with sign pub key failed.")
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMSPK ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
+		return
 	}
 
 	//log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
@@ -583,7 +609,10 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage) {
 	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
 		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
-
+	rt := newRtLog("OMGIED")
+	defer func() {
+		rt.log("sender=%v", GetIDPrefix(gim.SI.GetID()))
+	}()
 	dummyId := gim.GI.GIS.DummyID
 
 
@@ -601,10 +630,13 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
-
 	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
 	if initingGroup == nil {
 		log.Printf("initingGroup not found!dummyId=%v\n", GetIDPrefix(dummyId))
+		return
+	}
+	if initingGroup.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMGIED ready timeout, readyHeight=%v, now=%v", initingGroup.gis.GetReadyHeight, topHeight)
 		return
 	}
 	if !initingGroup.MemberExist(gim.SI.SignMember) {

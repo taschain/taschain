@@ -41,10 +41,11 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string, nodeID string)(err error){
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string, nodeIDHex string)(err error){
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
-	self, err := InitSelfNode(config, isSuper, NodeID(nodeID))
+
+	self, err := InitSelfNode(config, isSuper, newNodeID(nodeIDHex))
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
 		return err
@@ -56,7 +57,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := newNode(NodeID(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := newNode(newNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
 
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
@@ -66,22 +67,20 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var natEnable bool
 	if testMode {
 		natEnable = false
-		listenAddr =  nnet.UDPAddr{IP:nnet.ParseIP(seedIp), Port: self.Port}
+		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(seedIp), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr:&listenAddr , Seeds: seeds, NatTraversalEnable: natEnable}
+	netConfig := NetCoreConfig{Id: self.Id, ListenAddr: &listenAddr, Seeds: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
 	return
 }
 
-
-
-func GetNetInstance()Network{
+func GetNetInstance() Network {
 	return net
 }
 

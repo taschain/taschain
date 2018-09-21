@@ -214,6 +214,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 		logHalfway("SuccessNewBlock", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(cbm, next)
+		log.Printf("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 
 	return

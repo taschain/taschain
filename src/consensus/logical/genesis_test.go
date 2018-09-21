@@ -12,12 +12,10 @@ import (
 	"os"
 	"consensus/model"
 	"middleware"
-	"network"
-	"core/net/handler"
-	chandler "consensus/net"
+	"consensus/vrf_ed25519"
 )
 
-const CONF_PATH_PREFIX = `Z:/TASchain/taschain/conf/local_3g9n`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -31,26 +29,11 @@ func TestBelongGroups(t *testing.T) {
 	}
 	t.Log(belongs)
 }
-//
-//func GetIdFromPublicKey(p common.PublicKey) string {
-//	pubKey := &p2p.Pubkey{PublicKey: p}
-//	pID, e := peer.IDFromPublicKey(pubKey)
-//	if e != nil {
-//		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
-//		panic("GetIdFromPublicKey error!")
-//	}
-//	id := pID.Pretty()
-//	return id
-//}
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
-	scm := cm.GetSectionManager("network")
-	privateKey := common.HexStringToSecKey(scm.GetString("private_key", ""))
-	pk := privateKey.GetPubKey()
-	id := pk.GetAddress().GetHexString()
 	proc := new(Processor)
-	proc.Init(model.NewSelfMinerDO(id, cm.GetString("gtas", "secret", "")))
+	proc.Init(model.NewSelfMinerDO(cm.GetString("gtas", "secret", "")))
 	return proc
 }
 
@@ -65,31 +48,6 @@ func processors() (map[string]*Processor, map[string]int) {
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
 	}
-
-
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("siren", "850701"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("juanzi", "123456"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("wild children", "111111"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("gebaini", "999999"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("wenqin", "2342245"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewSelfMinerDO("baozhu", "23420949"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
 
 	return procs, indexs
 }
@@ -123,7 +81,7 @@ func TestGenesisGroup(t *testing.T) {
 		panic(err)
 	}
 
-	network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
+	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
 
 	InitConsensus()
 	model.InitParam()
@@ -153,7 +111,7 @@ func TestGenesisGroup(t *testing.T) {
 		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 			//dummy 组写入组链 add by 小熊
-			p.groupManager.AddGroupOnChain(staticGroupInfo, true)
+			//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 		}
 
 		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, p.mi)
@@ -252,8 +210,19 @@ func TestGenesisGroup(t *testing.T) {
 
 		if !write {
 			write = true
+
+
+			genesis := new(genesisGroup)
+			genesis.Group = *sgi
+
+			vrfpks := make(map[string]vrf_ed25519.PublicKey, 0)
+			for _, mem := range sgi.Members {
+				vrfpks[mem.ID.GetHexString()]= p.mi.VrfPK
+			}
+			genesis.VrfPK = vrfpks
+
 			log.Println("=======", id, "============")
-			sgiByte, _ := json.Marshal(sgi)
+			sgiByte, _ := json.Marshal(genesis)
 
 			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
 
@@ -266,10 +235,6 @@ func TestGenesisGroup(t *testing.T) {
 		log.Println()
 
 		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
-
-		var sig groupsig.Signature
-		sig.Deserialize(jg.GroupSec.SecretSign)
-		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
 	}
 
 
@@ -278,6 +243,10 @@ func TestGenesisGroup(t *testing.T) {
 
 }
 
-func writeGroup(p *Processor) {
+func TestLoadGenesisGroup(t *testing.T) {
+	file := CONF_PATH_PREFIX + "/genesis_sgi.config"
+	gg := genGenesisStaticGroupInfo(file)
 
+	json, _ := json.Marshal(gg)
+	t.Log(string(json))
 }

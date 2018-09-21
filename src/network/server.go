@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"common"
 	"golang.org/x/crypto/sha3"
-	"middleware/notify"
 	"middleware/statistics"
+	"middleware/notify"
+	"time"
 )
 
 type server struct {
@@ -20,6 +21,13 @@ type server struct {
 	consensusHandler MsgHandler
 
 	chainHandler MsgHandler
+
+	//workinglist *concurrent.Queue
+}
+
+type workingdata struct {
+	message *Message
+	from    string
 }
 
 func (n *server) Send(id string, msg Message) error {
@@ -29,10 +37,10 @@ func (n *server) Send(id string, msg Message) error {
 		return err
 	}
 	if id == n.Self.Id.GetHexString() {
-		go n.sendSelf(bytes)
+		n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
+	go n.netCore.Send(newNodeID(id), nil, bytes)
 	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -44,7 +52,7 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
+	n.netCore.SendGroupMember(groupId, bytes, newNodeID(id))
 	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -60,7 +68,6 @@ func (n *server) Multicast(groupId string, msg Message) error {
 	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
-
 
 func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 
@@ -83,7 +90,7 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		return err
 	}
 
-	n.netCore.SendAll(bytes, false,nil,-1)
+	n.netCore.SendAll(bytes, false, nil, -1)
 
 	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
@@ -97,7 +104,7 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 		return err
 	}
 	//n.netCore.SendAll(bytes, true,nil,-1)
-	n.netCore.BroadcastRandom(bytes,relayCount)
+	n.netCore.BroadcastRandom(bytes, relayCount)
 	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -108,7 +115,7 @@ func (n *server) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true,nil,-1)
+	n.netCore.SendAll(bytes, true, nil, -1)
 	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -128,7 +135,7 @@ func (n *server) ConnInfo() []Conn {
 func (n *server) BuildGroupNet(groupId string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
-		nodes = append(nodes, common.HexStringToAddress(id))
+		nodes = append(nodes, newNodeID(id))
 	}
 	n.netCore.groupManager.addGroup(groupId, nodes)
 }
@@ -140,7 +147,7 @@ func (n *server) DissolveGroupNet(groupId string) {
 func (n *server) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
-		nodes = append(nodes, common.HexStringToAddress(id))
+		nodes = append(nodes, newNodeID(id))
 	}
 	return n.netCore.groupManager.addGroup(groupId, nodes)
 }
@@ -155,18 +162,25 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	//begin := time.Now()
+	//测试 P2P发送情况 打开该注释
+	//fmt.Printf("Receive message from %s,msg size:%d\n", from, len(b))
+	//return
+
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
+	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
 
+	// 快速释放b
+	go n.handleMessageInner(message, from)
+}
+
+func (n *server) handleMessageInner(message *Message, from string) {
+	begin := time.Now()
 	code := message.Code
-	statistics.AddCount("server.handleMessage", code,uint64(len(b)))
-
-	//defer Logger.Debugf("handle message cost time:%v,hash:%s", time.Since(begin), message.Hash())
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
@@ -195,7 +209,10 @@ func (n *server) handleMessage(b []byte, from string) {
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	}
-
+	n.netCore.onHandleDataMessageDone(from)
+	if time.Since(begin) > 100*time.Millisecond {
+		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
+	}
 }
 
 func marshalMessage(m Message) ([]byte, error) {

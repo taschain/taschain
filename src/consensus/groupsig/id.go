@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"golang.org/x/crypto/sha3"
 )
 
 // ID -- id for secret sharing, represented by big.Int
@@ -135,8 +136,9 @@ func NewIDFromAddress(addr common.Address) *ID {
 
 //由公钥构建ID，公钥->（缩小到160位）地址->（放大到256/384位）ID
 func NewIDFromPubkey(pk Pubkey) *ID {
-	addr := pk.GetAddress()
-	return NewIDFromAddress(addr)
+	h := sha3.Sum256(pk.Serialize())  //取得公钥的SHA3 256位哈希
+	bi := new(big.Int).SetBytes(h[:])
+	return NewIDFromBigInt(bi)
 }
 
 //从字符串生成ID 传入的STRING必须保证离散性

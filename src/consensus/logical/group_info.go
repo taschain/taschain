@@ -242,11 +242,15 @@ func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
 	gg.generator.removeInitingGroup(dummyId)
 }
 
+func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
+	return gg.groups[len(gg.groups)-1]
+}
+
 func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
-	if len(gg.groups) == 0 {
+	if len(gg.groups) <= 1 {
 		return true
 	}
-	last := gg.groups[len(gg.groups)-1]
+	last := gg.lastGroup()
 	return last.GroupID.IsEqual(g.PrevGroupID)
 }
 
@@ -259,7 +263,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
 			if len(gg.groups) > 0 {
-				last := gg.groups[len(gg.groups)-1]
+				last := gg.lastGroup()
 				if last.BeginHeight >= g.BeginHeight {
 					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
 				}
@@ -269,7 +273,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
 			return true
 		} else {
-			log.Printf("AddStaticGroup fail, future group received, cached on chain! gid=%v\n", g.GroupID)
+			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", GetIDPrefix(g.GroupID), GetIDPrefix(g.PrevGroupID), GetIDPrefix(gg.lastGroup().GroupID))
 			return false
 		}
 	} else {
@@ -353,7 +357,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
-		log.Printf("SelectNextGroup qualified groups %v, index %v\n", gids, index)
+		log.Printf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")
@@ -398,6 +402,8 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
 	for _, g := range gg.groups {
 		if g.Dismissed(height) {
 			ids = append(ids, g.GroupID)
+		} else {
+			break
 		}
 	}
 	return ids

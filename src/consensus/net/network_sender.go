@@ -49,7 +49,7 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
 func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(grm)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
 
@@ -67,7 +67,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 
 	body, e := marshalConsensusSharePieceMessage(spm)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusSharePieceMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.KeyPieceMsg, Body: body}
@@ -77,7 +77,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 
 	begin := time.Now()
-	ns.net.SendWithGroupRelay(spm.Dest.String(), spm.DummyID.GetHexString(), m)
+	go ns.net.SendWithGroupRelay(spm.Dest.String(), spm.DummyID.GetHexString(), m)
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, dummyId:%v, cost time:%v", spm.Dest.String(), m.Hash(), spm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -94,7 +94,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
 
 	begin := time.Now()
-	ns.net.Multicast(spkm.DummyID.GetHexString(), m)
+	go ns.net.Multicast(spkm.DummyID.GetHexString(), m)
 	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -110,7 +110,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	//给自己发
 	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
 
-	ns.net.Broadcast(m)
+	go ns.net.Broadcast(m)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
@@ -121,7 +121,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 	body, e := marshalConsensusCastMessage(ccm)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.CastVerifyMsg, Body: body}
@@ -129,12 +129,12 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
 	if e1 != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
 	timeFromCast :=  time.Since(ccm.BH.CurTime)
 	begin := time.Now()
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
 }
 
@@ -142,19 +142,19 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage) {
 	body, e := marshalConsensusVerifyMessage(cvm)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(cvm.BH.GroupId)
 	if e1 != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
 	timeFromCast :=  time.Since(cvm.BH.CurTime)
 	begin := time.Now()
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
 	statistics.AddBlockLog(common.BootId,statistics.SendVerified,cvm.BH.Height,cvm.BH.ProveValue.Uint64(),-1,-1,
 		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
@@ -165,7 +165,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	timeFromCast :=  time.Since(cbm.Block.Header.CurTime)
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
 	blockMsg := network.Message{Code: network.NewBlockMsg, Body: body}
@@ -174,22 +174,24 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	nextCastGroupId := group.Gid.GetHexString()
 	groupMembers := id2String(group.MemIds)
 
-	ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
+	go ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
 
 
 
 
 	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
 	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:headerByte}
-	ns.net.Relay(headerMsg,1)
+	go ns.net.Relay(headerMsg,1)
 	//network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	statistics.AddBlockLog(common.BootId,statistics.BroadBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),len(body),
 		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
+	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
+
 }
 
 //====================================建组前共识=======================
@@ -198,24 +200,24 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage) {
 	body, e := marshalConsensusCreateGroupRawMessage(msg)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCreateGroupRawMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.CreateGroupaRaw, Body: body}
 
 	var groupId = msg.GI.ParentID
-	ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.Multicast(groupId.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage) {
 	body, e := marshalConsensusCreateGroupSignMessage(msg)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCreateGroupSignMessage because of marshal error:%s", e.Error())
 		return
 	}
 	m := network.Message{Code: network.CreateGroupSign, Body: body}
 
-	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
+	go ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GI.ParentID.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
@@ -309,7 +311,7 @@ func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, err
 func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error) {
 	block := types.BlockToPb(&m.Block)
 	if block == nil {
-		network.Logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
+		logger.Errorf("[peer]Block is nil while marshalConsensusBlockMessage")
 	}
 	message := tas_middleware_pb.ConsensusBlockMessage{Block: block}
 	return proto.Marshal(&message)
@@ -319,7 +321,7 @@ func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error
 func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_middleware_pb.ConsensusGroupInitSummary {
 	beginTime, e := m.BeginTime.MarshalBinary()
 	if e != nil {
-		network.Logger.Errorf("ConsensusGroupInitSummary marshal begin time error:%s", e.Error())
+		logger.Errorf("ConsensusGroupInitSummary marshal begin time error:%s", e.Error())
 		return nil
 	}
 

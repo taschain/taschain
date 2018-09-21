@@ -20,9 +20,30 @@ const (
 	BASE_SECTION = "network"
 
 	PRIVATE_KEY = "private_key"
+	NodeIdLength = 66
 )
 
-type NodeID string
+type NodeID [NodeIdLength]byte
+
+func (nid NodeID) GetHexString() string {
+    return string(nid[:])
+}
+func newNodeID(hex string) NodeID {
+    var nid NodeID
+    nid.SetBytes([]byte(hex))
+    return nid
+}
+
+func (nid *NodeID) SetBytes(b []byte)  {
+	if len(nid) < len(b) {
+		b = b[:len(nid)]
+	}
+	copy(nid[:], b)
+}
+
+func (nid NodeID) Bytes() []byte {
+    return nid[:]
+}
 
 // Node Kad 节点
 type Node struct {
@@ -54,7 +75,7 @@ func newNode(id NodeID, ip nnet.IP, port int) *Node {
 		Ip:   ip,
 		Port: port,
 		Id:   id,
-		sha:  makeSha256Hash([]byte(id)),
+		sha:  makeSha256Hash(id[:]),
 	}
 }
 
@@ -232,7 +253,7 @@ func getAvailablePort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
 	return str
 }
 

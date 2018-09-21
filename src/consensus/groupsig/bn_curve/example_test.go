@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/ethereum/go-ethereum/common/bitutil"
+	"fmt"
 )
 
 func TestExamplePair(t *testing.T) {
@@ -158,3 +159,47 @@ func TestCpu(t *testing.T) {
 	t.Log("hasBMI2:", hasBMI2)
 }
 
+func Bytes2Bits(data []byte) []int {
+	dst := make([]int, 0)
+	for _, v := range data {
+		for i := 0; i < 8; i++ {
+			move := uint(7 - i)
+			dst = append(dst, int((v>>move)&1))
+		}
+	}
+	fmt.Println(len(dst))
+	return dst
+}
+
+//通过big.Int方式，短签名恢复出签名点(x,y).[BUG修复中]
+func BenchmarkShortSig(b *testing.B) {
+	for i:=0; i<b.N; i++ {
+		_, g1, _ := RandomG1(rand.Reader)
+		px, _,isOdd := g1.GetXY()
+
+		g2 := &G1{}
+		g2.SetX(px, isOdd)
+		ppx, ppy, _ := g2.GetXY()
+
+		buf_xx := make([]byte, 32)
+		buf_yy := make([]byte, 32)
+		ppx.Marshal(buf_xx)
+		ppy.Marshal(buf_yy)
+
+		gfpNeg(ppy, ppy)
+		ppy.Marshal(buf_yy)
+
+		_, h1, _ := RandomG2(rand.Reader)
+		gt1 := Pair(g1, h1)
+
+		gt2 := &GT{}
+		gt2.Set(gt1)
+
+		if PairIsEuqal(gt1, gt2) != true {
+			gt2.p.Invert(gt1.p)
+			if PairIsEuqal(gt1, gt2) != true {
+				b.Error("check failed.")
+			}
+		}
+	}
+}

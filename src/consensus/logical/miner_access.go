@@ -31,6 +31,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		return nil
 	}
 	md := &model.MinerDO{
+		ID: groupsig.DeserializeId(miner.Id),
 		PK: groupsig.DeserializePubkeyBytes(miner.PublicKey),
 		VrfPK: vrf_ed25519.PublicKey(miner.VrfPublicKey),
 		Stake: miner.Stake,
@@ -38,7 +39,6 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		ApplyHeight: miner.ApplyHeight,
 		AbortHeight: miner.AbortHeight,
 	}
-	md.ID = *groupsig.NewIDFromPubkey(md.PK)
 	return md
 }
 
@@ -51,15 +51,15 @@ func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
 	return convert2MinerDO(miner)
 }
 
-func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []model.MinerDO {
+func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO {
 	iter := access.minerPool.MinerIterator(ntype)
-	mds := make([]model.MinerDO, 0)
+	mds := make([]*model.MinerDO, 0)
 	for iter.Next() {
 		if curr, err := iter.Current(); err != nil {
 			access.blog.log("minerManager iterator error %v", err)
 		} else {
 			md := convert2MinerDO(curr)
-			mds = append(mds, *md)
+			mds = append(mds, md)
 		}
 	}
     return mds
@@ -71,12 +71,16 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 
 	for _, md := range miners {
 		if md.CanJoinGroupAt(h) {
-			rets = append(rets, md)
+			rets = append(rets, *md)
 		}
 	}
 	return rets
 }
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
-	return 1
+	return access.minerPool.GetTotalStakeByHeight(h)
+}
+
+func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
+    access.minerPool.AddGenesesMiner(miners)
 }
