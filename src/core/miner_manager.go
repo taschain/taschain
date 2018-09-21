@@ -74,7 +74,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner) {
 		if exist,_ := dbl.Has(miner.Id);!exist{
 			miner.Type = types.MinerTypeLight
 			data,_ := msgpack.Marshal(miner)
-			dbh.Put(miner.Id, data)
+			dbl.Put(miner.Id, data)
 		}
 	}
 }
