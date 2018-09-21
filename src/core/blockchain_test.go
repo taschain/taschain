@@ -29,6 +29,7 @@ import (
 	"middleware"
 	"taslog"
 	"tvm"
+	"math/big"
 )
 
 func init() {
@@ -49,7 +50,7 @@ func OnChainFunc(code string, source string) {
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
-	block := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 12, 0, *castor, *groupid)
+	block := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 12, big.NewInt(0), *castor, *groupid)
 	if nil == block {
 		fmt.Println("fail to cast new block")
 	}
@@ -77,8 +78,8 @@ func CallContract2(address, abi string, source string) {
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
-	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
-	block2.Header.ProveValue = 2
+	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, big.NewInt(0), *castor, *groupid)
+	block2.Header.ProveValue = big.NewInt(2)
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		fmt.Println("fail to add empty block")
 	}
@@ -210,7 +211,7 @@ def Test(a, b, c, d):
 	groupid := new([]byte)
 
 	// 铸块1
-	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
+	block := BlockChainImpl.CastingBlock(1, 12, big.NewInt(0), *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
@@ -240,8 +241,8 @@ def Test(a, b, c, d):
 	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
 	fmt.Println(contractAddr.GetHexString())
 	// 铸块2
-	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
-	block2.Header.ProveValue = 2
+	block2 := BlockChainImpl.CastingBlock(2, 123, big.NewInt(0), *castor, *groupid)
+	block2.Header.ProveValue = big.NewInt(2)
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -266,7 +267,7 @@ def Test(a, b, c, d):
 	}
 
 	// 铸块3 空块
-	block3 := BlockChainImpl.CastingBlock(3, 125, 0, *castor, *groupid)
+	block3 := BlockChainImpl.CastingBlock(3, 125, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -276,7 +277,7 @@ def Test(a, b, c, d):
 		t.Fatalf("add block3 failed")
 	}
 
-	block4 := BlockChainImpl.CastingBlock(4, 126, 0, *castor, *groupid)
+	block4 := BlockChainImpl.CastingBlock(4, 126, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -286,7 +287,7 @@ def Test(a, b, c, d):
 		t.Fatalf("add block3 failed")
 	}
 
-	block5 := BlockChainImpl.CastingBlock(5, 127, 0, *castor, *groupid)
+	block5 := BlockChainImpl.CastingBlock(5, 127, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block5) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -331,7 +332,7 @@ func TestBlockChain_CastingBlock(t *testing.T) {
 
 	castor := []byte{1, 2}
 	group := []byte{3, 4}
-	block1 := BlockChainImpl.CastingBlock(1, 1, 1, castor, group)
+	block1 := BlockChainImpl.CastingBlock(1, 1, big.NewInt(1), castor, group)
 	if nil == block1 {
 		t.Fatalf("fail to cast block1")
 	}
@@ -346,17 +347,17 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 
 	castor := new([]byte)
 	groupid := new([]byte)
-	block1 := BlockChainImpl.CastingBlock(1, 125, 0, *castor, *groupid)
+	block1 := BlockChainImpl.CastingBlock(1, 125, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block1) {
 		t.Fatalf("fail to add empty block")
 	}
 
-	block2 := BlockChainImpl.CastingBlock(2, 1256, 0, *castor, *groupid)
+	block2 := BlockChainImpl.CastingBlock(2, 1256, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		t.Fatalf("fail to add empty block")
 	}
 
-	block3 := BlockChainImpl.CastingBlock(3, 1257, 0, *castor, *groupid)
+	block3 := BlockChainImpl.CastingBlock(3, 1257, big.NewInt(0), *castor, *groupid)
 	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 		t.Fatalf("fail to add empty block")
 	}
@@ -389,7 +390,7 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 
 	var i uint64
 	for i = 1; i < 2000; i++ {
-		block := BlockChainImpl.CastingBlock(i, i, 0, *castor, *groupid)
+		block := BlockChainImpl.CastingBlock(i, i, big.NewInt(0), *castor, *groupid)
 		if 0 != BlockChainImpl.AddBlockOnChain(block) {
 			t.Fatalf("fail to add empty block")
 		}
@@ -447,7 +448,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	castor := new([]byte)
 	groupid := new([]byte)
 
-	block0 := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
+	block0 := BlockChainImpl.CastingBlock(1, 12, big.NewInt(0), *castor, *groupid)
 	// 上链
 	if 0 != BlockChainImpl.AddBlockOnChain(block0) {
 		t.Fatalf("fail to add block0")
@@ -463,7 +464,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	txpool.Add(genTestTx("jdai3", 123457, "1", "2", 0, 3))
 
 	// 铸块1
-	block := BlockChainImpl.CastingBlock(2, 12, 0, *castor, *groupid)
+	block := BlockChainImpl.CastingBlock(2, 12, big.NewInt(0), *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
@@ -474,7 +475,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	}
 
 	// 铸块2
-	block2 := BlockChainImpl.CastingBlock(3, 12, 0, *castor, *groupid)
+	block2 := BlockChainImpl.CastingBlock(3, 12, big.NewInt(0), *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
@@ -486,7 +487,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 	fmt.Printf("state: %d\n", BlockChainImpl.latestBlock.StateTree)
 
 	// 铸块3
-	block3 := BlockChainImpl.CastingBlock(4, 12, 0, *castor, *groupid)
+	block3 := BlockChainImpl.CastingBlock(4, 12, big.NewInt(0), *castor, *groupid)
 	if nil == block {
 		t.Fatalf("fail to cast new block")
 	}
