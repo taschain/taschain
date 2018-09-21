@@ -530,6 +530,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId stri
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
+	Logger.Infof("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
