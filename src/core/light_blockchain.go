@@ -16,11 +16,13 @@ import (
 	"log"
 	"fmt"
 	vtypes "storage/core/types"
+	"storage/tasdb"
 )
 
 const (
 	LIGHT_BLOCK_CACHE_SIZE = 20
 	LIGHT_BLOCKHEIGHT_CACHE_SIZE = 100
+	LIGHT_BLOCKBODY_CACHE_SIZE = 100
 	LIGHT_LRU_SIZE = 5000000
 )
 type LightChain struct {
@@ -81,6 +83,11 @@ func initLightChain() error {
 	chain.blockCache, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
+		return err
+	}
+	chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
+	if err != nil {
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
 	}
 	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
@@ -322,6 +329,17 @@ func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockI
 // -1 保存失败
 // 0 保存成功
 func (chain *LightChain) SaveBlock(b *types.Block) int8 {
+	// 根据hash存block
+	blockJson, err := types.MarshalBlock(b)
+	if err != nil {
+		log.Printf("[lightblock]fail to json Marshal, error:%s \n", err)
+		return -1
+	}
+	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
+	if err != nil {
+		log.Printf("[lightblock]fail to put key:hash value:block, error:%s \n", err)
+		return -1
+	}
 	// 根据height存blockheader
 	headerJson, err := types.MarshalBlockHeader(b.Header)
 	if err != nil {

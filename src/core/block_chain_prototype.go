@@ -13,7 +13,7 @@ import (
 )
 
 type prototypeChain struct {
-
+	blocks tasdb.Database
 	//key: height, value: blockHeader
 	blockHeight tasdb.Database
 

@@ -65,7 +65,6 @@ type FullBlockChain struct {
 	prototypeChain
 	config *BlockChainConfig
 	// key: blockhash, value: block
-	blocks tasdb.Database
 }
 
 type castingBlock struct {
