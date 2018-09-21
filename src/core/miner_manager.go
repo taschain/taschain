@@ -150,7 +150,7 @@ func (mm *MinerManager) MinerIterator(ttype byte) *MinerIterator{
 
 func (mi *MinerIterator) Current() (*types.Miner,error){
 	if mi.cache != nil{
-		if result, ok := mi.cache.Get(mi.iter.Key()); ok {
+		if result, ok := mi.cache.Get(string(mi.iter.Key())); ok {
 			return result.(*types.Miner),nil
 		}
 	}
