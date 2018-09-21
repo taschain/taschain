@@ -155,7 +155,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
-	log.Printf("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, bh.QueueNumber)
+	blog.log("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, 0)
 	verifyResult := vctx.UserVerified(bh, si, cgs)
 	blog.log("proc(%v) UserVerified height-qn=%v-%v, result=%v.", p.getPrefix(), bh.Height, bh.ProveValue, CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)

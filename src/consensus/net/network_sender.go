@@ -190,7 +190,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 	statistics.AddBlockLog(common.BootId,statistics.BroadBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),len(body),
 		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
-	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.QueueNumber, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
+	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, 0, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
 
 }
 

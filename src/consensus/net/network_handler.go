@@ -137,8 +137,8 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return  e
 		}
-		logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,m.Block.Header.QueueNumber)
-		statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,m.Block.Header.Height,m.Block.Header.QueueNumber,len(m.Block.Transactions),-1,
+		logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,0)
+		statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,m.Block.Header.Height,0,len(m.Block.Transactions),-1,
 			time.Now().UnixNano(),"","",common.InstanceIndex,m.Block.Header.CurTime.UnixNano())
 		c.processor.OnMessageBlock(m)
 		return nil

@@ -16,11 +16,9 @@
 package mediator
 
 import (
-	"consensus/groupsig"
 	"consensus/logical"
 	"consensus/model"
 	"consensus/net"
-	"consensus/base"
 )
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -91,7 +91,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	//}()
 	bh := block.Header
-	log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, bh.QueueNumber)
+	log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, 0)
 	result = p.MainChain.AddBlockOnChain(block)
 
 

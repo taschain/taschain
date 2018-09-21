@@ -190,9 +190,9 @@ func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	if sc.StatusTransform(SS_INVALID, SS_WAITING) {
 		sc.BH = *bh
 		sc.vrfValue = bh.Nonce
-		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, bh.QueueNumber)
+		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, 0)
 		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
-		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, bh.QueueNumber, len(ltl), ccr)
+		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, 0, len(ltl), ccr)
 		sc.addLostTrans(ltl)
 		if ccr == -1 {
 			sc.setSlotStatus(SS_FAILED)
