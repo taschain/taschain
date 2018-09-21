@@ -81,7 +81,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner) {
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte) (*types.Miner,error) {
 	if ttype == types.MinerTypeHeavy {
-		if result, ok := mm.cache.Get(id); ok {
+		if result, ok := mm.cache.Get(string(id)); ok {
 			return result.(*types.Miner),nil
 		}
 	}
@@ -93,7 +93,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte) (*types.Miner,error)
 		var miner types.Miner
 		err = msgpack.Unmarshal(data,&miner)
 		if ttype == types.MinerTypeHeavy {
-			mm.cache.Add(id,&miner)
+			mm.cache.Add(string(id),&miner)
 		}
 		return &miner,err
 	}
@@ -101,7 +101,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte) (*types.Miner,error)
 
 func (mm *MinerManager) RemoveMiner(id []byte, ttype byte) error{
 	if ttype == types.MinerTypeHeavy {
-		mm.cache.Remove(id)
+		mm.cache.Remove(string(id))
 	}
 	db := mm.getMinerDatabase(ttype)
 	return db.Delete(id)
@@ -115,7 +115,7 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
 		miner.Status = types.MinerStatusAbort
 		miner.AbortHeight = height
 		if ttype == types.MinerTypeHeavy {
-			mm.cache.Remove(id)
+			mm.cache.Remove(string(id))
 		}
 		db := mm.getMinerDatabase(ttype)
 		data,_ := msgpack.Marshal(miner)
