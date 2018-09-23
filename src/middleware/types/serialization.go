@@ -273,12 +273,18 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	if t == nil {
 		return nil
 	}
-	var target []byte
+	var (
+		target []byte
+		source []byte
+	)
 	if t.Target != nil {
 		target = t.Target.Bytes()
 	}
+	if t.Source != nil {
+		source = t.Source.Bytes()
+	}
 
-	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
 		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType,Type:&t.Type}
 	return &transaction

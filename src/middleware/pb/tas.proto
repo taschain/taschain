@@ -20,7 +20,7 @@ message Transaction{
 
     required uint64 Nonce = 3;
 
-    required bytes Source  = 4 ;
+    optional bytes Source  = 4 ;
 
     optional bytes Target  = 5 ;
 

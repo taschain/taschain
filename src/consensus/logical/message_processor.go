@@ -186,10 +186,10 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	si := &msg.SI
 
 	blog := newBizLog(mtype)
-	logStart(mtype, bh.Height, bh.ProveValue.Uint64(), GetIDPrefix(si.SignMember), "")
+	logStart(mtype, bh.Height, 0, GetIDPrefix(si.SignMember), "")
 
 	defer func() {
-		logEnd(mtype, bh.Height, bh.ProveValue.Uint64(), GetIDPrefix(si.SignMember))
+		logEnd(mtype, bh.Height, 0, GetIDPrefix(si.SignMember))
 	}()
 
 	cgs := p.genCastGroupSummary(bh)
