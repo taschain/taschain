@@ -53,6 +53,9 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	defer func() {
 		blog.log("topHeight=%v, create %v\n", topHeight, create)
 	}()
+	if topHeight <= model.Param.CreateGroupInterval {
+		return
+	}
 	h := topHeight-model.Param.CreateGroupInterval
 	theBH = gchecker.processor.MainChain.QueryBlockByHeight(h)
 	if theBH == nil {
