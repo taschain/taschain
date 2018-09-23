@@ -97,7 +97,6 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	result := ""
 	defer func() {
 		logHalfway(mtype, bh.Height, 0, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
-		blog.log(result)
 	}()
 
 	if cgs == nil {
@@ -148,11 +147,13 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 
 	if vctx.castSuccess() {
 		result = "已出块"
+		blog.log(result)
 		return
 	}
 	if vctx.castExpire() {
 		vctx.markTimeout()
 		result = "已超时" + vctx.expireTime.String()
+		blog.log(result)
 		return
 	}
 
@@ -817,7 +818,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 		sign := msg.SignedPieces[idx]
 		if sig, ok := witnesses[id.GetHexString()]; !ok {	//本地无该id签名的，需要校验签名
 			pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
-			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sig) {
+			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
 				blog.log("verify member sign fail, id=%v", GetIDPrefix(id))
 				return
 			}

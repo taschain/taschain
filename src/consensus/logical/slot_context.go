@@ -58,7 +58,7 @@ type SlotContext struct {
 	lostTxHash     set.Interface
 
 	//奖励相关
-	rewardTrans 		*types.Transaction
+	rewardTrans 	*types.Transaction
 	rewardGSignGen	*model.GroupSignGenerator	//奖励交易签名产生器
 }
 
@@ -68,6 +68,7 @@ func createSlotContext(threshold int) *SlotContext {
 		slotStatus:     SS_INVALID,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
+		rewardGSignGen: model.NewGroupSignGenerator(threshold),
 		lostTxHash:     set.New(set.ThreadSafe),
 	}
 }

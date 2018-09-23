@@ -194,6 +194,11 @@ func initBlockChain() error {
 		//todo: 日志
 		return err
 	}
+	chain.bonus, err = datasource.NewDatabase(chain.config.bonus)
+	if err != nil {
+		//todo: 日志
+		return err
+	}
 	chain.stateCache = core.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
@@ -321,7 +326,7 @@ func (chain *BlockChain) GenerateBonus(targetIds []int32, blockHash common.Hash,
 	transaction.Hash = transaction.GenHash()
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
-	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,GroupId:groupId,TotalValue:totalValue},transaction
+	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,BlockHash:blockHash,GroupId:groupId,TotalValue:totalValue},transaction
 }
 
 func (chain *BlockChain) AddBonusTrasanction(transaction *types.Transaction){

@@ -123,6 +123,9 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preNew)
 			}
 		} else {
+			if height == 1 && expireTime.After(vctx.expireTime) {
+				vctx.expireTime = expireTime
+			}
 			blog.log("get exist vctx height %v, expire %v", height, vctx.expireTime)
 		}
 	}
@@ -142,7 +145,18 @@ func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 }
 
 func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
-	expireTime := GetCastExpireTime(bh.PreTime, bh.Height - preBH.Height)
+	var (
+		deltaHeightByTime uint64
+	)
+	if bh.Height == 1 {
+		d := time.Since(preBH.CurTime)
+		deltaHeightByTime = uint64(d.Seconds()) / uint64(model.Param.MaxGroupCastTime) + 1
+	} else {
+		deltaHeightByTime = bh.Height - preBH.Height
+	}
+
+	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime)
+
 	vctx := bc.getOrNewVctx(bh.Height, expireTime, preBH)
 	return vctx
 }
@@ -163,21 +177,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 	bc.vctxs = newCtxs
 }
 
-//开始铸块
-func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *types.BlockHeader) bool {
-	vctx := bc.getOrNewVctx(castHeight, expire, baseBH)
-	if vctx == nil {
-		return false
-	}
-	if !vctx.isCasting() {
-		vctx = bc.replaceVerifyCtx(vctx, castHeight, expire, baseBH)
-	}
-	if vctx == nil {
-		return false
-	}
-	//bc.Proc.Ticker.StartAndTriggerRoutine(bc.getKingCheckRoutineName())
-	return true
-}
+
 
 func (bc *BlockContext) IsHeightCasted(height uint64) bool {
 	bc.lock.RLock()

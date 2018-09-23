@@ -436,6 +436,8 @@ func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64)  {
 		group := chain.activeGroups[0]
 		if group.DismissHeight <= blockHeight{
 			chain.activeGroups = chain.activeGroups[1:]
+		} else {
+			break
 		}
 	}
 }

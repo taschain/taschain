@@ -242,7 +242,7 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	blog.log("begin proposal, height=%v, pi=%v...\n", height, pi)
+	blog.log("begin proposal, height=%v, pi=%v...", height, pi)
 
 	gid := p.calcVerifyGroup(top, height)
 	if gid == nil {
@@ -292,13 +292,16 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	blog.log("start, bh=%v", p.blockPreview(bh))
 	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
-		return
-	}
-	if !slot.IsSuccess() {
+		blog.log("slot is nil")
 		return
 	}
 	if !slot.gSignGenerator.Recovered() {
-		panic("slot not recovered")
+		blog.log("slot not recovered")
+		return
+	}
+	if !slot.IsSuccess() && !slot.IsVerified() {
+		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
+		return
 	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
@@ -331,7 +334,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		}
 		msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID)), msg)
 		p.NetServer.SendCastRewardSignReq(msg)
-		blog.log("reward req send height=%v", bh.Height)
+		blog.log("reward req send height=%v, gid=%v", bh.Height, GetIDPrefix(groupID))
 	}
 
 }
