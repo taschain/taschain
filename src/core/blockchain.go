@@ -78,8 +78,7 @@ type BlockChain struct {
 	//key: height, value: blockHeader
 	blockHeight tasdb.Database
 
-	//key: blockhash, value: transactionhash
-	bonus tasdb.Database
+	bonusManager *BonusManager
 
 	transactionPool *TransactionPool
 
@@ -194,11 +193,13 @@ func initBlockChain() error {
 		//todo: 日志
 		return err
 	}
-	chain.bonus, err = datasource.NewDatabase(chain.config.bonus)
+
+	bonus, err := datasource.NewDatabase(chain.config.bonus)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
+	chain.bonusManager = newBonusManager(bonus)
 	chain.stateCache = core.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
@@ -228,6 +229,8 @@ func initBlockChain() error {
 	BlockChainImpl = chain
 	return nil
 }
+
+
 
 func (chain *BlockChain) SetLastBlockHash(bh *BlockHash) {
 	chain.lastBlockHash = bh
@@ -578,10 +581,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
-	txtree := calcTxTree(transactions).Bytes()
+	txtree := calcTxTree(transactions)
 
-	if common.ToHex(txtree) != common.ToHex(bh.TxTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree, bh.TxTree.Bytes())
+	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 

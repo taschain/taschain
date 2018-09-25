@@ -49,6 +49,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
+		var source string
+		if transaction.Source != nil{
+			source = transaction.Source.GetHexString()
+		}
+
 		switch transaction.Type {
 			case types.TransactionTypeTransfer:
 				amount := big.NewInt(int64(transaction.Value))
@@ -67,7 +72,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				contract := tvm.LoadContract(*transaction.Target)
 				fail = !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
 			case types.TransactionTypeBonus:
-				if v,_ := executor.bc.bonus.Has(transaction.Data);v == false{
+				if executor.bc.bonusManager.Contain(transaction.Data) == false{
+					Logger.Debugf("TVMExecutor Execute %+v %s",transaction,source)
 					reader := bytes.NewReader(transaction.ExtraData)
 					groupId := make([]byte,common.GroupIdLength)
 					addr := make([]byte,common.AddressLength)
@@ -78,7 +84,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
 						accountdb.AddBalance(common.BytesToAddress(addr),value)
 					}
-					executor.bc.bonus.Put(transaction.Data, transaction.Hash[:])
+					executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:])
 				} else {
 					fail = true
 				}

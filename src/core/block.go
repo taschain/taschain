@@ -26,6 +26,7 @@ import (
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
+	"github.com/vmihailenco/msgpack"
 )
 
 var emptyHash = common.Hash{}
@@ -35,19 +36,25 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 		return emptyHash
 	}
 
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
+	//keybuf := new(bytes.Buffer)
+	//trie := new(trie.Trie)
+	//for i := 0; i < len(tx); i++ {
+	//	if tx[i] != nil {
+	//		keybuf.Reset()
+	//		serialize.Encode(keybuf, uint(i))
+	//		encode, _ := serialize.EncodeToBytes(tx[i])
+	//		trie.Update(keybuf.Bytes(), encode)
+	//	}
+	//}
+	//hash := trie.Hash()
+	//
+	//return common.BytesToHash(hash.Bytes())
+	buf := new(bytes.Buffer)
 	for i := 0; i < len(tx); i++ {
-		if tx[i] != nil {
-			keybuf.Reset()
-			serialize.Encode(keybuf, uint(i))
-			encode, _ := serialize.EncodeToBytes(tx[i])
-			trie.Update(keybuf.Bytes(), encode)
-		}
+		encode, _ := msgpack.Marshal(tx[i])
+		serialize.Encode(buf, encode)
 	}
-	hash := trie.Hash()
-
-	return common.BytesToHash(hash.Bytes())
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
 func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
