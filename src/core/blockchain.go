@@ -258,6 +258,10 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 	return block
 }
 
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(Header *types.BlockHeader,Transactions []*types.Transaction) *types.Block {
+	var nodes map[string]*[]byte = make(map[string]*[]byte)
+}
+
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回值:
 // 0, 验证通过
