@@ -124,7 +124,10 @@ func initLightChain() error {
 
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode){
-
+	//TODO:put里面的索粒度太小了。增加putwithnolock方法
+	for _,node:=range *nodes{
+		chain.statedb.Put(node.Key,node.Value)
+	}
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
