@@ -11,6 +11,15 @@ message Message{
 
 }
 
+message TrieNode{
+
+    required bytes Key  = 1;
+
+    required bytes Data  = 2;
+
+}
+
+
 
 message Transaction{
 
@@ -45,6 +54,12 @@ message TransactionRequestMessage{
 
     required uint64 BlockQn = 4;
 }
+
+message TrieNodes{
+
+    repeated TrieNode TrieNodes = 1;
+}
+
 
 message TransactionSlice{
 
