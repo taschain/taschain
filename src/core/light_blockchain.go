@@ -94,8 +94,7 @@ func initLightChain() error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
 	}
-	//chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
 		return err
@@ -109,13 +108,6 @@ func initLightChain() error {
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE,chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
-
-		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
-		if nil == err {
-			chain.latestStateDB = state
-		} else {
-			panic("initLightChain NewAccountDB fail:" + err.Error())
-		}
 	} else {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
@@ -152,7 +144,7 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 	// 校验父亲块
 	preHash := bh.PreHash
-	preBlock := chain.QueryBlockHeaderByHeight(bh.Height-1,true)
+	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
 		return nil, 2, nil, nil
