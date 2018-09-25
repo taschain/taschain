@@ -4,7 +4,7 @@ import (
 	"consensus/groupsig"
 	"common"
 	"consensus/base"
-	"consensus/vrf_ed25519"
+	"consensus/ed25519"
 	"middleware/types"
 )
 
@@ -16,7 +16,7 @@ import (
 
 type MinerDO struct {
 	PK          groupsig.Pubkey
-	VrfPK 		vrf_ed25519.PublicKey
+	VrfPK 		ed25519.PublicKey
 	ID          groupsig.ID
 	Stake       uint64
 	NType  		byte
@@ -54,7 +54,7 @@ type SelfMinerDO struct {
 	MinerDO
 	SecretSeed 	base.Rand   //私密随机数
 	SK 			groupsig.Seckey
-	VrfSK 		vrf_ed25519.PrivateKey
+	VrfSK 		ed25519.PrivateKey
 }
 
 func (mi *SelfMinerDO) Read(p []byte) (n int, err error) {
@@ -74,7 +74,7 @@ func NewSelfMinerDO(secert string) SelfMinerDO {
 	mi.ID = *groupsig.NewIDFromPubkey(mi.PK)
 
 	var err error
-	mi.VrfPK, mi.VrfSK, err = vrf_ed25519.GenerateKey(&mi)
+	mi.VrfPK, mi.VrfSK, err = ed25519.GenerateKey(&mi)
 	if err != nil {
 		panic("generate vrf key error, err=" + err.Error())
 	}

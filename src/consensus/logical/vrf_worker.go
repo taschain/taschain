@@ -4,7 +4,7 @@ import (
 	"middleware/types"
 	"time"
 	"sync/atomic"
-	"consensus/vrf_ed25519"
+	"consensus/ed25519"
 	"consensus/model"
 	"math/big"
 	"errors"
@@ -50,8 +50,8 @@ func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight ui
 	}
 }
 
-func (vrf *vrfWorker) prove(totalStake uint64) (vrf_ed25519.VRFProve, error) {
-	pi, err := vrf_ed25519.ECVRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
+func (vrf *vrfWorker) prove(totalStake uint64) (ed25519.VRFProve, error) {
+	pi, err := ed25519.ECVRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func (vrf *vrfWorker) prove(totalStake uint64) (vrf_ed25519.VRFProve, error) {
     return nil, errors.New("proof fail")
 }
 
-func vrfSatisfy(pi vrf_ed25519.VRFProve, stake uint64, totalStake uint64) bool {
-	value := vrf_ed25519.ECVRF_proof2hash(pi)
+func vrfSatisfy(pi ed25519.VRFProve, stake uint64, totalStake uint64) bool {
+	value := ed25519.ECVRF_proof2hash(pi)
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	v := br.Quo(br, max256)
 
@@ -79,8 +79,8 @@ func vrfSatisfy(pi vrf_ed25519.VRFProve, stake uint64, totalStake uint64) bool {
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
-	pi := vrf_ed25519.VRFProve(bh.ProveValue.Bytes())
-	ok, err := vrf_ed25519.ECVRF_verify(miner.VrfPK, pi, preBH.Random)
+	pi := ed25519.VRFProve(bh.ProveValue.Bytes())
+	ok, err := ed25519.ECVRF_verify(miner.VrfPK, pi, preBH.Random)
 	blog := newBizLog("vrfVerifyBlock")
 	blog.log("pi %v", pi)
 	if !ok {

@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package vrf_ed25519
+package ed25519
 
 import (
 	"encoding/hex"
@@ -22,7 +22,7 @@ import (
 	"io"
 	"fmt"
 
-	"consensus/vrf_ed25519/edwards25519"
+	"consensus/ed25519/edwards25519"
 )
 
 const message = "This is TASchain achates' testing message"
@@ -90,4 +90,27 @@ func TestECVRFOnce(t *testing.T) {
 	fmt.Printf("h: %s\n", hex.EncodeToString(ECP2OS(h)))
 }
 
+func BenchmarkProve(b *testing.B) {
+	pk, sk, err := GenerateKey(nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	m := []byte(message)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ECVRF_prove(pk, sk, m)
+	}
+}
 
+func BenchmarkVRFVerify(b *testing.B) {
+	pk, sk, err := GenerateKey(nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	m := []byte(message)
+	pi, err := ECVRF_prove(pk, sk, m)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ECVRF_verify(pk, pi, m)
+	}
+}

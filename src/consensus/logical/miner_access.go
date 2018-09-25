@@ -3,9 +3,9 @@ package logical
 import (
 	"consensus/model"
 	"consensus/groupsig"
-	"core"
 	"middleware/types"
-	"consensus/vrf_ed25519"
+	"consensus/ed25519"
+	"core"
 )
 
 /*
@@ -33,7 +33,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 	md := &model.MinerDO{
 		ID: groupsig.DeserializeId(miner.Id),
 		PK: groupsig.DeserializePubkeyBytes(miner.PublicKey),
-		VrfPK: vrf_ed25519.PublicKey(miner.VrfPublicKey),
+		VrfPK: ed25519.PublicKey(miner.VrfPublicKey),
 		Stake: miner.Stake,
 		NType: miner.Type,
 		ApplyHeight: miner.ApplyHeight,

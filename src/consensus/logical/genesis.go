@@ -9,7 +9,7 @@ import (
 	"consensus/model"
 	"common"
 	"middleware/types"
-	"consensus/vrf_ed25519"
+	"consensus/ed25519"
 )
 
 /*
@@ -22,7 +22,7 @@ const GENESIS_GROUP_INFO = `{"GroupID":"0xa85a46d7fde553e2dbfe19750faee0144d3616
 
 type genesisGroup struct {
 	Group StaticGroupInfo
-	VrfPK map[string]vrf_ed25519.PublicKey
+	VrfPK map[string]ed25519.PublicKey
 }
 
 //生成创世组成员信息

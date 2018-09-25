@@ -155,3 +155,30 @@ func TestHash(test *testing.T){
 	h2 := Hash{1,2,3,4}
 	fmt.Printf("%v",h1 == h2)
 }
+
+func BenchmarkSign(b *testing.B) {
+	msg := []byte("This is TASchain achates' testing message")
+	sk := GenerateKey("")
+	sha1_hash := sha1.Sum(msg)
+	var sha_buf []byte
+	copy(sha_buf, sha1_hash[:])
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sk.Sign(sha_buf) //私钥签名
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	msg := []byte("This is TASchain achates' testing message")
+	sk := GenerateKey("")
+	pk := sk.GetPubKey()
+	sha1_hash := sha1.Sum(msg)
+	var sha_buf []byte
+	copy(sha_buf, sha1_hash[:])
+	sign := sk.Sign(sha_buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pk.Verify(sha_buf, &sign)
+	}
+}
+
