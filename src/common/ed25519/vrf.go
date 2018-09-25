@@ -21,7 +21,7 @@ import (
 	"crypto/sha512"
 	"bytes"
 	"crypto/sha256"
-	"consensus/ed25519/edwards25519"
+	"common/ed25519/edwards25519"
 )
 
 const (

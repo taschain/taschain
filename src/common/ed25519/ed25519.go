@@ -31,7 +31,7 @@ import (
 	"errors"
 	"io"
 	"strconv"
-	"consensus/ed25519/edwards25519"
+	"common/ed25519/edwards25519"
 )
 
 const (

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"consensus/ed25519/edwards25519"
+	"common/ed25519/edwards25519"
 )
 
 type zeroReader struct{}

@@ -22,7 +22,7 @@ import (
 	"io"
 	"fmt"
 
-	"consensus/ed25519/edwards25519"
+	"common/ed25519/edwards25519"
 )
 
 const message = "This is TASchain achates' testing message"
