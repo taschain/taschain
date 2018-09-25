@@ -469,10 +469,7 @@ func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte,
 func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
 	nc.peerManager.newConnection(id, session, p2pType, false)
-	p := nc.peerManager.peerByNetID(id)
-	if p != nil && p.Ip != nil && p.Port > 0 {
-		go nc.ping(p.Id, &nnet.UDPAddr{IP: p.Ip, Port: p.Port})
-	}
+
 }
 
 //OnConnected 处理接受连接的回调
@@ -530,6 +527,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId stri
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
+	Logger.Infof("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
@@ -726,12 +724,13 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 }
 
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
-	id := fromId.GetHexString()
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", id, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
+	srcNodeId := NodeID{}
+	srcNodeId.SetBytes(req.SrcNodeId)
+	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
-		nc.onHandleDataMessage(req.Data, id)
+		nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
 	} else {
 		forwarded := false
 
@@ -746,8 +745,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 		if !forwarded {
 			destNodeId := NodeID{}
 			destNodeId.SetBytes(req.DestNodeId)
-			srcNodeId := NodeID{}
-			srcNodeId.SetBytes(req.SrcNodeId)
 
 			nc.messageManager.forward(req.MessageId)
 			if req.BizMessageId != nil {

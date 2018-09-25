@@ -55,7 +55,7 @@ type GroupChain struct {
 	lastGroup *types.Group
 
 	//preCache map[string]*types.Group
-	preCache *sync.Map
+	//preCache *sync.Map
 }
 
 type GroupIterator struct {
@@ -103,7 +103,7 @@ func ClearGroup(config *GroupChainConfig) {
 func initGroupChain() error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
-		preCache: new(sync.Map),
+		//preCache: new(sync.Map),
 	}
 
 	var err error
@@ -285,44 +285,44 @@ func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 	return group
 }
 
-func (chain *GroupChain) MissingGroupIds() [][]byte{
-	result := make([][]byte,0)
-	chain.preCache.Range(func(key, value interface{}) bool {
-		result = append(result,[]byte(key.(string)))
-		return true
-	})
+//func (chain *GroupChain) MissingGroupIds() [][]byte{
+//	result := make([][]byte,0)
+//	chain.preCache.Range(func(key, value interface{}) bool {
+//		result = append(result,[]byte(key.(string)))
+//		return true
+//	})
+//
+//	return result
+//}
+//
+//func (chain *GroupChain) ExistingGroupIds() [][]byte{
+//	result := make([][]byte,0)
+//	chain.preCache.Range(func(key, value interface{}) bool {
+//		if group,ok := value.(*types.Group);ok{
+//			result = append(result,group.Id)
+//		}
+//
+//		return true
+//	})
+//
+//	return result
+//}
 
-	return result
-}
-
-func (chain *GroupChain) ExistingGroupIds() [][]byte{
-	result := make([][]byte,0)
-	chain.preCache.Range(func(key, value interface{}) bool {
-		if group,ok := value.(*types.Group);ok{
-			result = append(result,group.Id)
-		}
-
-		return true
-	})
-
-	return result
-}
-
-func (chain *GroupChain) repairPreGroup(groupId []byte){
-	for{
-		if group,ok := chain.preCache.Load(string(groupId));ok{
-			if group,ok := group.(*types.Group);ok {
-				if nil == chain.save(group) {
-					//chain.lastGroup = group
-					chain.preCache.Delete(string(groupId))
-					groupId = group.Id
-				}
-			}
-		} else {
-			break
-		}
-	}
-}
+//func (chain *GroupChain) repairPreGroup(groupId []byte){
+//	for{
+//		if group,ok := chain.preCache.Load(string(groupId));ok{
+//			if group,ok := group.(*types.Group);ok {
+//				if nil == chain.save(group) {
+//					//chain.lastGroup = group
+//					chain.preCache.Delete(string(groupId))
+//					groupId = group.Id
+//				}
+//			}
+//		} else {
+//			break
+//		}
+//	}
+//}
 
 //func (chain *GroupChain) canOnChain(preGroupId []byte) (bool, []*types.Group){
 //	reslut := make([]*types.Group,0)
@@ -361,10 +361,13 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 			}
 		}
 		if nil != group.PreGroup{
-			exist,_ := chain.groups.Has(group.PreGroup)
-			if !exist{
-				chain.preCache.Store(string(group.PreGroup), group)
-				return fmt.Errorf("pre group is not existed")
+			//exist,_ := chain.groups.Has(group.PreGroup)
+			//if !exist{
+			//	chain.preCache.Store(string(group.PreGroup), group)
+			//	return fmt.Errorf("pre group is not existed")
+			//}
+			if !bytes.Equal(chain.lastGroup.Id, group.PreGroup){
+				return fmt.Errorf("pre not equal lastgroup")
 			}
 		} else{
 			return chain.save(group)
@@ -388,12 +391,12 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	//}
 	ret := chain.save(group)
 	//chain.lastGroup = group
-	if nil == ret{
-		chain.repairPreGroup(group.Id)
-		//if next,ok := chain.preCache[string(group.Id)];ok{
-		//	chain.AddGroup(next, sender, signature)
-		//}
-	}
+	//if nil == ret{
+	//	chain.repairPreGroup(group.Id)
+	//	//if next,ok := chain.preCache[string(group.Id)];ok{
+	//	//	chain.AddGroup(next, sender, signature)
+	//	//}
+	//}
 	return ret
 }
 

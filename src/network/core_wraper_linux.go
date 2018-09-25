@@ -148,7 +148,7 @@ void p2p_send(uint32_t session, const void* data, uint32_t size)
 	}
 }
 
-uint32_t p2p_session_rxrtt(uint32_t session)
+uint32_t p2p_kcp_rxrtt(uint32_t session)
 {
 	void* api = p2p_api(__FUNCTION__);
 	if (api)
@@ -158,12 +158,32 @@ uint32_t p2p_session_rxrtt(uint32_t session)
 	return 0;
 }
 
-uint32_t p2p_session_nsndbuf(uint32_t session)
+uint32_t p2p_kcp_nsndbuf(uint32_t session)
 {
 	void* api = p2p_api(__FUNCTION__);
 	if (api)
     {
     	return ((uint32_t(*)(uint32_t session))api)(session);
+	}
+	return 0;
+}
+
+uint32_t p2p_kcp_nrcvbuf(uint32_t session)
+{
+	void* api = p2p_api(__FUNCTION__);
+	if (api)
+    {
+    	return ((uint32_t(*)(uint32_t session))api)(session);
+	}
+	return 0;
+}
+
+uint64_t p2p_cache_size()
+{
+	void* api = p2p_api(__FUNCTION__);
+	if (api)
+    {
+    	return ((uint64_t(*)())api)();
 	}
 	return 0;
 }
@@ -198,17 +218,35 @@ func P2PShutdown(session uint32) {
 	C.p2p_shutdown(C.uint(session))
 }
 
-func P2PSessionRxrtt(session uint32) uint32 {
-	r := C.p2p_session_rxrtt(C.uint(session))
+func P2PSessionRtt(session uint32) uint32 {
+	r := C.p2p_kcp_rxrtt(C.uint(session))
 	return  uint32(r)
 }
 
-func P2PSessionNsndbuf(session uint32) uint32 {
-	r := C.p2p_session_nsndbuf(C.uint(session))
+func P2PSessionSendBufferCount(session uint32) uint32 {
+	r := C.p2p_kcp_nsndbuf(C.uint(session))
 	return  uint32(r)
 }
 
+func P2PSessionRecvBufferCount(session uint32) uint32 {
+	r := C.p2p_kcp_nrcvbuf(C.uint(session))
+	return  uint32(r)
+}
+
+
+func P2PCacheSize() uint64 {
+	r := C.p2p_cache_size()
+	return  uint64(r)
+}
 func P2PSend(session uint32, data []byte) {
+
+	pendingSendBuffer := P2PSessionSendBufferCount(session)
+
+	if pendingSendBuffer > 10240 {
+		Logger.Debugf("session kcp send queue over 10240 drop this message,session id:%v pendingSendBuffer:%v " ,session,pendingSendBuffer)
+		return
+	}
+
 	maxSize := 64 * 1024
 	totalLen := len(data)
 
@@ -218,7 +256,7 @@ func P2PSend(session uint32, data []byte) {
 		if sendSize > maxSize {
 			sendSize = maxSize
 		}
-		Logger.Debugf("P2PSend : session:%v curPos:%v sendSize:%v totalSize: %v",session,curPos,sendSize,totalLen)
+		//Logger.Debugf("P2PSend : session:%v curPos:%v sendSize:%v totalSize: %v",session,curPos,sendSize,totalLen)
 
 		C.p2p_send(C.uint(session), unsafe.Pointer(&data[curPos]), C.uint(sendSize))
 		curPos += sendSize
