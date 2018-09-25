@@ -57,6 +57,7 @@ type Trie interface {
 	TryDelete(key []byte) error
 	Commit(onleaf trie.LeafCallback) (common.Hash, error)
 	Hash() common.Hash
+	Hash2(nodes map[string]*[]byte)
 	NodeIterator(startKey []byte) trie.NodeIterator
 	Fstring() string
 }

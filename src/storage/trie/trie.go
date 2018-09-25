@@ -337,7 +337,7 @@ func (t *Trie) Commit2(nodes map[string]*[]byte) (err error) {
 	if t.db == nil {
 		panic("commit called on trie with nil database")
 	}
-	err = t.hashRoot2(t.db, nodes)
+	err = t.hashRoot2(nodes)
 	if err != nil {
 		return  err
 	}
@@ -388,6 +388,10 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
+func (t *Trie) Hash2(nodes map[string]*[]byte){
+	t.hashRoot2(nodes)
+}
+
 func (t *Trie) Hash() common.Hash {
 	hash, cached, _ := t.hashRoot(nil, nil)
 	t.RootNode = cached
@@ -403,13 +407,13 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	return h.hash(t.RootNode, db, true)
 }
 
-func (t *Trie) hashRoot2(db *Database,nodes map[string]*[]byte) (error) {
+func (t *Trie) hashRoot2(nodes map[string]*[]byte) error {
 	if t.RootNode == nil {
 		return nil
 	}
 	h := newHasher2()
 	defer returnHasherToPool(h)
-	_,_,err :=h.hash2(t.RootNode, db, true,nodes)
+	_,_,err :=h.hash2(t.RootNode, true,nodes)
 	return err
 }
 

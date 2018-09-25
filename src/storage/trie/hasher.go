@@ -22,7 +22,6 @@ import (
 
 	"golang.org/x/crypto/sha3"
 	"common"
-	"fmt"
 )
 
 type hasher struct {
@@ -49,20 +48,18 @@ func newHasher2() *hasher {
 	return h
 }
 
-func (h *hasher) hash2(n node, db *Database, force bool,nodes map[string]*[]byte) (node, node, error) {
+func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte) (node, node, error) {
 	if hash, dirty := n.cache(); hash != nil {
-		if db == nil {
-			return hash, n, nil
-		}
+		return hash, n, nil
 		if !dirty {
 			return hash, n, nil
 		}
 	}
-	collapsed, cached, err := h.hashChildren(n, db)
+	collapsed, cached, err := h.hashChildren2(n, nodes)
 	if err != nil {
 		return hashNode{}, n, err
 	}
-	hashed, err := h.store2(collapsed, db, force,nodes)
+	hashed, err := h.store2(collapsed, force,nodes)
 	if err != nil {
 		return hashNode{}, n, err
 	}
@@ -70,14 +67,10 @@ func (h *hasher) hash2(n node, db *Database, force bool,nodes map[string]*[]byte
 	switch cn := cached.(type) {
 	case *shortNode:
 		cn.flags.hash = cachedHash
-		if db != nil {
-			cn.flags.dirty = false
-		}
+		cn.flags.dirty = false
 	case *fullNode:
 		cn.flags.hash = cachedHash
-		if db != nil {
-			cn.flags.dirty = false
-		}
+		cn.flags.dirty = false
 	}
 	return hashed, cached, nil
 }
@@ -88,7 +81,6 @@ func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
 			return hash, n, nil
 		}
 		if n.canUnload(h.cachegen, h.cachelimit) {
-			fmt.Printf("unload....\n")
 			cacheUnloadCounter.Inc(1)
 			return hash, hash, nil
 		}
@@ -126,7 +118,7 @@ func returnHasherToPool(h *hasher) {
 	hasherPool.Put(h)
 }
 
-func (h *hasher) store2(n node, db *Database, force bool,nodes map[string]*[]byte) (node, error) {
+func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte) (node, error) {
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil
 	}
@@ -143,13 +135,9 @@ func (h *hasher) store2(n node, db *Database, force bool,nodes map[string]*[]byt
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
 	}
-	if db != nil {
-		db.lock.Lock()
-		hash := common.BytesToHash(hash)
-		vl:=h.tmp.Bytes()
-		nodes[string(hash[:])] =&vl
-		db.lock.Unlock()
-	}
+	hash2 := common.BytesToHash(hash)
+	vl:=h.tmp.Bytes()
+	nodes[string(hash2[:])] =&vl
 	return hash, nil
 }
 
@@ -235,6 +223,41 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 		for i := 0; i < 16; i++ {
 			if n.Children[i] != nil {
 				collapsed.Children[i], cached.Children[i], err = h.hash(n.Children[i], db, false)
+				if err != nil {
+					return original, original, err
+				}
+			}
+		}
+		cached.Children[16] = n.Children[16]
+		return collapsed, cached, nil
+
+	default:
+
+		return n, original, nil
+	}
+}
+
+
+func (h *hasher) hashChildren2(original node,nodes map[string]*[]byte) (node, node, error) {
+	var err error
+	switch n := original.(type) {
+	case *shortNode:
+		collapsed, cached := n.copy(), n.copy()
+		collapsed.Key = hexToCompact(n.Key)
+		cached.Key = common.CopyBytes(n.Key)
+		if _, ok := n.Val.(valueNode); !ok {
+			collapsed.Val, cached.Val, err = h.hash2(n.Val, false,nodes)
+			if err != nil {
+				return original, original, err
+			}
+		}
+		return collapsed, cached, nil
+
+	case *fullNode:
+		collapsed, cached := n.copy(), n.copy()
+		for i := 0; i < 16; i++ {
+			if n.Children[i] != nil {
+				collapsed.Children[i], cached.Children[i], err = h.hash2(n.Children[i], false,nodes)
 				if err != nil {
 					return original, original, err
 				}

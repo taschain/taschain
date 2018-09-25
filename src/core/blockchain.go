@@ -174,6 +174,11 @@ func initBlockChain() error {
 
 
 
+func (chain *FullBlockChain) InsertStateNode(nodes *[]types.StateNode){
+	//nothing to do
+}
+
+
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
@@ -265,11 +270,11 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
 		return nil
 	}
-	err = chain.executor.Execute2(state, transactions, nodes)
-	if err != nil{
-		Logger.Infof("GetTrieNodesByExecuteTransactions exeute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
-		return nil
-	}
+	chain.executor.Execute2(state, transactions, nodes)
+	//if err != nil{
+	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
+	//	return nil
+	//}
 	return nodes
 }
 

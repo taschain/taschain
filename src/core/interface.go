@@ -88,6 +88,10 @@ type BlockChainI interface {
 	Close()
 
 	CompareChainPiece(bhs []*BlockHash, sourceId string)
+
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte
+
+	InsertStateNode(nodes *[]types.StateNode)
 }
 
 type TransactionPoolI interface {

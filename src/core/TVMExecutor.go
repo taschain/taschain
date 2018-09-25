@@ -36,7 +36,32 @@ func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte) error {
+func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte) {
+	for _, transaction := range transactions {
+		//var contractAddress common.Address
+		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
+			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			//contractAddress, _ = createContract(accountdb, transaction)
+			//contract := tvm.LoadContract(contractAddress)
+			//controller.Deploy(transaction.Source, contract)
+		} else if len(transaction.Data) > 0 {
+			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			//contract := tvm.LoadContract(*transaction.Target)
+
+			//snapshot := controller.AccountDB.Snapshot()
+			//if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
+			//	controller.AccountDB.RevertToSnapshot(snapshot)
+			//}
+
+		} else {
+			amount := big.NewInt(int64(transaction.Value))
+			if CanTransfer(accountdb, *transaction.Source, amount) {
+				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+			}
+		}
+	}
+
+	accountdb.IntermediateRoot2(true,nodes)
 
 }
 

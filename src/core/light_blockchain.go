@@ -122,6 +122,11 @@ func initLightChain() error {
 	return nil
 }
 
+
+func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode){
+
+}
+
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *LightChain)CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block{
 	//panic("Not support!")
@@ -317,6 +322,10 @@ func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHe
 
 func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transaction{
 	return nil
+}
+
+func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte {
+	panic("Not support!")
 }
 
 func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {

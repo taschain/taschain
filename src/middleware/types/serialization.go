@@ -142,6 +142,25 @@ func MarshalMember(m *Member) ([]byte, error) {
 	return proto.Marshal(member)
 }
 
+// 序列化TrieNodes
+func MarshalTrieNodes(nodes map[string]*[]byte) ([]byte, error) {
+	data := []*tas_middleware_pb.TrieNode{}
+	for key,value:= range nodes{
+		data=append(data,MarshalTrieNode(key,value))
+	}
+	trieNodes:= tas_middleware_pb.TrieNodes{TrieNodes:data}
+	return proto.Marshal(&trieNodes)
+}
+
+
+// 序列化TrieNode
+func MarshalTrieNode(key string,value *[]byte) *tas_middleware_pb.TrieNode {
+	bt := ([]byte)(key)
+	return &tas_middleware_pb.TrieNode{Key:bt,Data:*value}
+}
+
+
+
 // 序列化*Group
 func MarshalGroup(g *Group) ([]byte, error) {
 	group := GroupToPb(g)
