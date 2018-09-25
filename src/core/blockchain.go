@@ -258,8 +258,19 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 	return block
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(Header *types.BlockHeader,Transactions []*types.Transaction) *types.Block {
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte {
 	var nodes map[string]*[]byte = make(map[string]*[]byte)
+	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
+	if err != nil{
+		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
+		return nil
+	}
+	err = chain.executor.Execute2(state, transactions, nodes)
+	if err != nil{
+		Logger.Infof("GetTrieNodesByExecuteTransactions exeute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
+		return nil
+	}
+	return nodes
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）

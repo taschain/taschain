@@ -36,7 +36,7 @@ func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, block *types.Block) (common.Hash, []*t.Receipt, error) {
+func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte) error {
 
 }
 
