@@ -30,7 +30,7 @@ type GenesisGeneratorImpl struct {
 }
 
 func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
-	f := consensusConfManager.GetString("genesis_sgi_conf", "genesis_sgi.config")
+	f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
 	genesis := genGenesisStaticGroupInfo(f)
 	sgi := &genesis.Group
 	coreGroup := ConvertStaticGroup2CoreGroup(sgi, false)
