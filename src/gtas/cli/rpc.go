@@ -307,6 +307,42 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	return &Result{"success", ret}, nil
 }
 
+func (api *GtasAPI) GetTransByAccount(account string) (*Result, error) {
+	height := core.BlockChainImpl.Height()
+	res := make([]*Transactions, 0)
+	for i := uint64(1); i <= height; i++ {
+		block := core.BlockChainImpl.QueryBlockByHeight(i)
+		if block == nil {
+			fmt.Println("i: ", i, " heighttt: ", height)
+			continue
+		}
+		for _, hash := range block.Transactions {
+			transaction, err := core.BlockChainImpl.GetTransactionByHash(hash)
+			if err != nil {
+				continue
+			}
+			if transaction.Source.GetHexString() == account || transaction.Target.GetHexString() == account {
+				t := &Transactions{}
+				t.Hash = transaction.Hash.Hex()
+				t.Source = transaction.Source.GetHexString()
+				t.Target = transaction.Target.GetHexString()
+				t.Value = strconv.FormatUint(transaction.Value, 10)
+				t.Height = block.Height
+				t.BlockHash = block.Hash.Hex()
+				res = append(res, t)
+			}
+		}
+	}
+	return &Result{"success", res}, nil
+}
+
+func(api *GtasAPI) ContractCode(contractAddrStr string) (*Result, error) {
+	contractAddr := common.HexStringToAddress(contractAddrStr)
+	db := core.BlockChainImpl.LatestStateDB()
+	code := db.GetCode(contractAddr)
+	return &Result{"success", string(code)}, nil
+}
+
 // startHTTP initializes and starts the HTTP RPC endpoint.
 func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
