@@ -263,14 +263,14 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 	return block
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte {
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) map[string]*[]byte {
 	var nodes map[string]*[]byte = make(map[string]*[]byte)
 	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
 	if err != nil{
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
 		return nil
 	}
-	chain.executor.Execute2(state, transactions, nodes)
+	chain.executor.Execute2(state, transactions, nodes,isInit)
 	//if err != nil{
 	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
 	//	return nil

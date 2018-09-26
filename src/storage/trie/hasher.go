@@ -48,20 +48,28 @@ func newHasher2() *hasher {
 	return h
 }
 
-func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte) (node, node, error) {
+func needStore(isInit bool)bool{
+	if isInit{
+		return true
+	}else{
+		return false
+	}
+}
+
+func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte,isInit bool) (node, node,bool, error) {
 	if hash, dirty := n.cache(); hash != nil {
-		return hash, n, nil
+		return hash, n,needStore(isInit), nil
 		if !dirty {
-			return hash, n, nil
+			return hash, n,needStore(isInit), nil
 		}
 	}
-	collapsed, cached, err := h.hashChildren2(n, nodes)
+	collapsed, cached, ns,err := h.hashChildren2(n, nodes,isInit)
 	if err != nil {
-		return hashNode{}, n, err
+		return hashNode{}, n,true, err
 	}
-	hashed, err := h.store2(collapsed, force,nodes)
+	hashed, err := h.store2(collapsed, force,nodes,ns)
 	if err != nil {
-		return hashNode{}, n, err
+		return hashNode{}, n,true, err
 	}
 	cachedHash, _ := hashed.(hashNode)
 	switch cn := cached.(type) {
@@ -72,7 +80,7 @@ func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte) (node, node,
 		cn.flags.hash = cachedHash
 		cn.flags.dirty = false
 	}
-	return hashed, cached, nil
+	return hashed, cached,true, nil
 }
 
 func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
@@ -118,7 +126,7 @@ func returnHasherToPool(h *hasher) {
 	hasherPool.Put(h)
 }
 
-func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte) (node, error) {
+func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte,needStore bool) (node, error) {
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil
 	}
@@ -135,9 +143,11 @@ func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte) (node, erro
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
 	}
-	hash2 := common.BytesToHash(hash)
-	vl:=h.tmp.Bytes()
-	nodes[string(hash2[:])] =&vl
+	if needStore{
+		hash2 := common.BytesToHash(hash)
+		vl:=h.tmp.Bytes()
+		nodes[string(hash2[:])] =&vl
+	}
 	return hash, nil
 }
 
@@ -238,36 +248,37 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 }
 
 
-func (h *hasher) hashChildren2(original node,nodes map[string]*[]byte) (node, node, error) {
+func (h *hasher) hashChildren2(original node,nodes map[string]*[]byte,isInit bool) (node, node,bool, error) {
 	var err error
 	switch n := original.(type) {
 	case *shortNode:
+		var needStore bool
 		collapsed, cached := n.copy(), n.copy()
 		collapsed.Key = hexToCompact(n.Key)
 		cached.Key = common.CopyBytes(n.Key)
 		if _, ok := n.Val.(valueNode); !ok {
-			collapsed.Val, cached.Val, err = h.hash2(n.Val, false,nodes)
+			collapsed.Val, cached.Val,needStore,err = h.hash2(n.Val, false,nodes,isInit)
 			if err != nil {
-				return original, original, err
+				return original, original,needStore, err
 			}
 		}
-		return collapsed, cached, nil
+		return collapsed, cached, needStore,nil
 
 	case *fullNode:
 		collapsed, cached := n.copy(), n.copy()
 		for i := 0; i < 16; i++ {
+			var needStore bool
 			if n.Children[i] != nil {
-				collapsed.Children[i], cached.Children[i], err = h.hash2(n.Children[i], false,nodes)
+				collapsed.Children[i], cached.Children[i],needStore, err = h.hash2(n.Children[i], false,nodes,isInit)
 				if err != nil {
-					return original, original, err
+					return original, original,needStore, err
 				}
 			}
 		}
 		cached.Children[16] = n.Children[16]
-		return collapsed, cached, nil
+		return collapsed, cached,true, nil
 
 	default:
-
-		return n, original, nil
+		return n, original, true,nil
 	}
 }

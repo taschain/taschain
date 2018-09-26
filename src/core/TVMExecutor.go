@@ -36,7 +36,7 @@ func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte) {
+func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte,isInit bool) {
 	for _, transaction := range transactions {
 		//var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
@@ -61,7 +61,7 @@ func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []
 		}
 	}
 
-	accountdb.IntermediateRoot2(true,nodes)
+	accountdb.IntermediateRoot2(true,nodes,isInit)
 
 }
 

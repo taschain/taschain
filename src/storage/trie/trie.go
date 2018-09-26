@@ -23,7 +23,6 @@ import (
 	"taslog"
 	"github.com/rcrowley/go-metrics"
 	"golang.org/x/crypto/sha3"
-	"hash"
 )
 
 var (
@@ -333,16 +332,16 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
-func (t *Trie) Commit2(nodes map[string]*[]byte) (err error) {
-	if t.db == nil {
-		panic("commit called on trie with nil database")
-	}
-	err = t.hashRoot2(nodes)
-	if err != nil {
-		return  err
-	}
-	return nil
-}
+//func (t *Trie) Commit2(nodes map[string]*[]byte) (err error) {
+//	if t.db == nil {
+//		panic("commit called on trie with nil database")
+//	}
+//	err = t.hashRoot2(nodes)
+//	if err != nil {
+//		return  err
+//	}
+//	return nil
+//}
 
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if t.db == nil {
@@ -364,15 +363,6 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 	return n, nil
 }
 
-func (t *Trie) resolveHash2(n hashNode) (node, error) {
-	hash := common.BytesToHash(n)
-
-	enc, err := t.db.Node(hash)
-	if err != nil || enc == nil {
-		return nil, &MissingNodeError{NodeHash: hash}
-	}
-	return mustDecodeNode(n, enc,t.cachegen), nil
-}
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	cacheMissCounter.Inc(1)
@@ -388,8 +378,8 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
-func (t *Trie) Hash2(nodes map[string]*[]byte){
-	t.hashRoot2(nodes)
+func (t *Trie) Hash2(nodes map[string]*[]byte,isInit bool){
+	t.hashRoot2(nodes,isInit)
 }
 
 func (t *Trie) Hash() common.Hash {
@@ -407,54 +397,15 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	return h.hash(t.RootNode, db, true)
 }
 
-func (t *Trie) hashRoot2(nodes map[string]*[]byte) error {
+func (t *Trie) hashRoot2(nodes map[string]*[]byte,isInit bool) error {
 	if t.RootNode == nil {
 		return nil
 	}
 	h := newHasher2()
 	defer returnHasherToPool(h)
-	_,_,err :=h.hash2(t.RootNode, true,nodes)
+	_,_,err :=h.hash2(t.RootNode, true,nodes,isInit)
 	return err
 }
-
-
-func (t *Trie) ExpandAll(original node, db *Database) (newNode node,err error) {
-	switch n := original.(type) {
-	case nil:
-		return nil, nil
-	case *shortNode:
-		cached := n.copy()
-		cached.Key = common.CopyBytes(n.Key)
-		if _, ok := n.Val.(valueNode); !ok {
-			cached.Val, err = t.ExpandAll(n.Val, db)
-			if err != nil {
-				return original, err
-			}
-		}
-		return  cached,nil
-	case *fullNode:
-		cached := n.copy()
-		for i := 0; i < 16; i++ {
-			if n.Children[i] != nil {
-				cached.Children[i], err = t.ExpandAll(n.Children[i], db)
-				if err != nil {
-					return original, err
-				}
-			}
-		}
-		cached.Children[16] = n.Children[16]
-		return  cached, nil
-	case hashNode:
-		child, err := t.resolveHash2(n)
-		if err != nil {
-			return original, err
-		}
-		return t.ExpandAll(child, db)
-	default:
-		return original, nil
-	}
-}
-
 
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {
