@@ -18,10 +18,10 @@ func GetCastExpireTime(base time.Time, deltaHeight uint64) time.Time {
 }
 
 func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo, isDummy bool) *types.Group {
-	members := make([]types.Member, 0)
-	for _, miner := range sgi.Members {
+	members := make([]types.Member, len(sgi.Members))
+	for idx, miner := range sgi.Members {
 		member := types.Member{Id: miner.ID.Serialize(), PubKey: miner.PK.Serialize()}
-		members = append(members, member)
+		members[idx] = member
 	}
 
 	if isDummy {

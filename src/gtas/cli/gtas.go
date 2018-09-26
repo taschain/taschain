@@ -340,7 +340,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return errors.New("consensus module error")
 	}
 
-	mediator.Proc.BeginGenesisGroupMember()
+	//mediator.Proc.BeginGenesisGroupMember()
 	return nil
 }
 

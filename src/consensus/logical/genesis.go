@@ -25,6 +25,27 @@ type genesisGroup struct {
 	VrfPK map[string]base.VRFPublicKey
 }
 
+type GenesisGeneratorImpl struct {
+
+}
+
+func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
+	f := consensusConfManager.GetString("genesis_sgi_conf", "genesis_sgi.config")
+	genesis := genGenesisStaticGroupInfo(f)
+	sgi := &genesis.Group
+	coreGroup := ConvertStaticGroup2CoreGroup(sgi, false)
+	vrfPKs := make(map[int][]byte)
+
+	for idstr, vpk := range genesis.VrfPK {
+		idx := sgi.MemIndex[idstr]
+		vrfPKs[idx] = vpk
+	}
+	return &types.GenesisInfo{
+		Group: *coreGroup,
+		VrfPKs: vrfPKs,
+	}
+}
+
 //生成创世组成员信息
 func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
 	f := consensusConfManager.GetString("genesis_sgi_conf", "genesis_sgi.config")
