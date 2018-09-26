@@ -170,6 +170,8 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
+	net.netCore.ping(p.Id, nil)
+
 	for e := p.sendList.Front(); e != nil; e = e.Next() {
 		buf:= e.Value.(*bytes.Buffer)
 		//P2PSend(p.seesionId, buf.Bytes())
@@ -282,16 +284,7 @@ func (pm *PeerManager) print() {
 	defer pm.mutex.RUnlock()
 	totolRecvBufferSize := 0
 	for _, p := range pm.peers {
-		var rtt uint32
-		var pendingSendBuffer uint32
-
-		if p.seesionId > 0 {
-			rtt = P2PSessionRxrtt(p.seesionId)
-			pendingSendBuffer = P2PSessionNsndbuf(p.seesionId)
-		}
 		totolRecvBufferSize += p.getDataSize()
-
-		Logger.Infof("id:%v session:%v  ip:%v  port:%v   rtt:%v, PendingBufferCount:%v", p.Id.GetHexString(), p.seesionId, p.Ip, p.Port, rtt, pendingSendBuffer)
 	}
 	Logger.Infof("PeerManager Print peer size:%v totolRecvBufferSize:%v", len(pm.peers), totolRecvBufferSize)
 

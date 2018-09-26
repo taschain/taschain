@@ -347,6 +347,11 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), grm.GI.TopHeight)
 		return
 	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if grm.GI.ReadyTimeout(topHeight) {
+		log.Printf("OMGI ready timeout, readyHeight=%v, now=%v", grm.GI.GetReadyHeight, topHeight)
+		return
+	}
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, grm.SI.DataHash.Bytes(), grm.GI.Signature) {
 		log.Printf("OMGI verify parent groupsig fail!\n")
@@ -446,7 +451,12 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		return
 	}
 	if gc.gis.GenHash() != spm.GISHash {
-		log.Printf("OMSPK failed, gisHash diff.\n")
+		log.Printf("OMSP failed, gisHash diff.\n")
+		return
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMSP ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
 		return
 	}
 
@@ -517,6 +527,11 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	}
 	if !spkm.VerifyGISSign(spkm.SignPK) {
 		panic("OMSP verify GISSign with sign pub key failed.")
+	}
+	topHeight := p.MainChain.QueryTopBlock().Height
+	if gc.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMSPK ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
+		return
 	}
 
 	//log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
@@ -605,10 +620,13 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
-
 	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
 	if initingGroup == nil {
 		log.Printf("initingGroup not found!dummyId=%v\n", GetIDPrefix(dummyId))
+		return
+	}
+	if initingGroup.gis.ReadyTimeout(topHeight) {
+		log.Printf("OMGIED ready timeout, readyHeight=%v, now=%v", initingGroup.gis.GetReadyHeight, topHeight)
 		return
 	}
 	if !initingGroup.MemberExist(gim.SI.SignMember) {
