@@ -161,6 +161,7 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 			err := decoder.Decode(&n)
 			n.flags.hash = hash
 			n.flags.dirty = false
+			n.flags.gen = cachegen
 			return &n,err
 		case magicShort:
 			var n shortNode
@@ -168,6 +169,7 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 			//n.Key = compactToHex(n.Key)
 			n.flags.hash = hash
 			n.flags.dirty = false
+			n.flags.gen = cachegen
 			return &n,err
 		case magicHash:
 			var n hashNode

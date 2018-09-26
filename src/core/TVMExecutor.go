@@ -46,19 +46,18 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
+	Logger.Debugf("TVMExecutor Begin Execute Block %s",block.Header.Hash.Hex())
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		var source string
-		if transaction.Source != nil{
-			source = transaction.Source.GetHexString()
-		}
+		Logger.Debugf("TVMExecutor Execute %+v",transaction)
 
 		switch transaction.Type {
 			case types.TransactionTypeTransfer:
 				amount := big.NewInt(int64(transaction.Value))
 				if CanTransfer(accountdb, *transaction.Source, amount){
 					Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+					Logger.Debugf("TVMExecutor Execute Transfer Transaction %s",transaction.Hash.Hex())
 				} else {
 					fail = true
 				}
@@ -67,13 +66,15 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				contractAddress, _ = createContract(accountdb, transaction)
 				contract := tvm.LoadContract(contractAddress)
 				fail = !controller.Deploy(transaction.Source, contract)
+				Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s",transaction.Hash.Hex())
 			case types.TransactionTypeContractCall:
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				fail = !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+				Logger.Debugf("TVMExecutor Execute ContractCall Transaction %s",transaction.Hash.Hex())
 			case types.TransactionTypeBonus:
-				if executor.bc.bonusManager.Contain(transaction.Data) == false{
-					Logger.Debugf("TVMExecutor Execute %+v %s",transaction,source)
+				if executor.bc.bonusManager.Contain(transaction.Data,accountdb) == false{
+					Logger.Debugf("TVMExecutor Execute Bonus Transaction %s",transaction.Hash.Hex())
 					reader := bytes.NewReader(transaction.ExtraData)
 					groupId := make([]byte,common.GroupIdLength)
 					addr := make([]byte,common.AddressLength)
@@ -84,7 +85,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
 						accountdb.AddBalance(common.BytesToAddress(addr),value)
 					}
-					executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:])
+					executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:],accountdb)
 				} else {
 					fail = true
 				}
@@ -95,10 +96,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				}
 				var miner types.Miner
 				msgpack.Unmarshal(transaction.Data,&miner)
-				mexist,_ := MinerManagerImpl.GetMinerById(transaction.Source[:],miner.Type)
+				mexist := MinerManagerImpl.GetMinerById(transaction.Source[:],miner.Type)
 				if mexist == nil{
 					amount := big.NewInt(int64(transaction.Value))
 					if CanTransfer(accountdb, *transaction.Source, amount){
+						Logger.Debugf("TVMExecutor Execute MinerApply Transaction %s",transaction.Hash.Hex())
 						MinerManagerImpl.AddMiner(transaction.Source[:],&miner)
 						accountdb.SubBalance(*transaction.Source,amount)
 					} else {
@@ -113,13 +115,15 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					continue
 				}
 				fail = !MinerManagerImpl.AbortMiner(transaction.Source[:],transaction.Data[0],transaction.Value)
+				Logger.Debugf("TVMExecutor Execute MinerAbort Transaction %s",transaction.Hash.Hex())
 			case types.TransactionTypeMinerRefund:
-				mexist,_ := MinerManagerImpl.GetMinerById(transaction.Source[:],transaction.Data[0])
+				mexist := MinerManagerImpl.GetMinerById(transaction.Source[:],transaction.Data[0])
 				if mexist != nil && mexist.Status == types.MinerStatusAbort{
 					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
+						Logger.Debugf("TVMExecutor Execute MinerRefund Transaction %s",transaction.Hash.Hex())
 					} else {
 						fail = true
 					}
@@ -132,6 +136,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
+	Logger.Debugf("TVMExecutor End Execute Block %s",block.Header.Hash.Hex())
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)

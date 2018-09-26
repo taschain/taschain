@@ -194,12 +194,7 @@ func initBlockChain() error {
 		return err
 	}
 
-	bonus, err := datasource.NewDatabase(chain.config.bonus)
-	if err != nil {
-		//todo: 日志
-		return err
-	}
-	chain.bonusManager = newBonusManager(bonus)
+	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
@@ -225,7 +220,7 @@ func initBlockChain() error {
 			chain.saveBlock(block)
 		}
 	}
-	initMinerManager(chain.config)
+	initMinerManager(chain)
 	BlockChainImpl = chain
 	return nil
 }
@@ -478,7 +473,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *b
 	}
 	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
-	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
+	Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -589,6 +584,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	//执行交易
+	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s", preBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)

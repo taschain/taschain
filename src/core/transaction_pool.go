@@ -182,7 +182,7 @@ func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("")
 	defer pool.lock.Unlock("")
-	Logger.Debugf("TransactionPool Add %+v",tx)
+	//Logger.Debugf("TransactionPool Add %+v",tx)
 	return pool.addInner(tx, true)
 }
 

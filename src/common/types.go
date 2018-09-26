@@ -45,6 +45,9 @@ const (
 var (
 	hashT    = reflect.TypeOf(Hash{})
 	addressT = reflect.TypeOf(Address{})
+	BonusStorageAddress = HexStringToAddress("0x0")
+ 	LightDBAddress = HexStringToAddress("0x1")
+ 	HeavyDBAddress = HexStringToAddress("0x2")
 )
 
 //160位地址

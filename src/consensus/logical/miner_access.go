@@ -43,16 +43,16 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 }
 
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
-	miner, err := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy)
-	if err != nil {
-		access.blog.log("getMinerById error %v, id %v", err, GetIDPrefix(id))
+	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy)
+	if miner == nil {
+		access.blog.log("getMinerById error id %v", GetIDPrefix(id))
 		return nil
 	}
 	return convert2MinerDO(miner)
 }
 
 func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO {
-	iter := access.minerPool.MinerIterator(ntype)
+	iter := access.minerPool.MinerIterator(ntype,nil)
 	mds := make([]*model.MinerDO, 0)
 	for iter.Next() {
 		if curr, err := iter.Current(); err != nil {
