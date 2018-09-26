@@ -218,9 +218,9 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
 			chain.saveBlock(block)
+			chain.latestStateDB = state
 		}
 	}
 

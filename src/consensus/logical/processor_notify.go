@@ -42,7 +42,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vctx := bc.GetVerifyContextByHeight(bh.Height)
 		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 			vctx.markCastSuccess()
-			p.reqRewardTransSign(vctx, bh)
+			//p.reqRewardTransSign(vctx, bh)
 		}
 
 	}

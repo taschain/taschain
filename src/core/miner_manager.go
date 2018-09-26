@@ -7,7 +7,7 @@ import (
 	"common"
 	"storage/core/vm"
 	"storage/trie"
-	"storage/core"
+	"sync"
 )
 
 var emptyValue [0]byte
@@ -15,6 +15,7 @@ var emptyValue [0]byte
 type MinerManager struct {
 	blockchain *BlockChain
 	cache   *lru.Cache
+	lock 	sync.Mutex
 }
 
 type MinerIterator struct {
@@ -59,15 +60,15 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.Accou
 	dbl := mm.getMinerDatabase(types.MinerTypeLight)
 
 	for _,miner := range miners{
-		if mm.blockchain.latestStateDB.GetData(dbh, string(miner.Id)) == nil{
+		if accountdb.GetData(dbh, string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeHeavy
 			data,_ := msgpack.Marshal(miner)
-			mm.blockchain.latestStateDB.SetData(dbh, string(miner.Id), data)
+			accountdb.SetData(dbh, string(miner.Id), data)
 		}
-		if mm.blockchain.latestStateDB.GetData(dbl, string(miner.Id)) == nil{
+		if accountdb.GetData(dbl, string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeLight
 			data,_ := msgpack.Marshal(miner)
-			mm.blockchain.latestStateDB.SetData(dbl, string(miner.Id), data)
+			accountdb.SetData(dbl, string(miner.Id), data)
 		}
 	}
 }
@@ -119,15 +120,17 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
 }
 
 func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
-	header := mm.blockchain.QueryBlockByHeight(height)
-	if header == nil{
-		return 0
-	}
-	accountdb,err := core.NewAccountDB(header.StateTree, mm.blockchain.stateCache)
-	if err != nil{
-		panic(err)
-	}
-	iter := mm.MinerIterator(types.MinerTypeHeavy,accountdb)
+	//header := mm.blockchain.QueryBlockByHeight(height)
+	//if header == nil{
+	//	return 0
+	//}
+	//accountdb,_ := core.NewAccountDB(mm.blockchain.latestBlock.StateTree, mm.blockchain.stateCache)
+	//if err != nil{
+	//	panic(err)
+	//}
+	mm.lock.Lock()
+	defer mm.lock.Unlock()
+	iter := mm.MinerIterator(types.MinerTypeHeavy,nil)
 	var total uint64 = 0
 	for ;iter.Next();{
 		miner,_ := iter.Current()
@@ -136,6 +139,15 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 				total += miner.Stake
 			}
 		}
+	}
+	if total == 0{
+		Logger.Errorf("GetTotalStakeByHeight get0 %d %s",height,mm.blockchain.latestBlock.StateTree.Hex())
+		iter = mm.MinerIterator(types.MinerTypeHeavy,nil)
+		for ;iter.Next(); {
+			miner, _ := iter.Current()
+			Logger.Debugf("GetTotalStakeByHeight %+v",miner)
+		}
+
 	}
 	return total
 }
