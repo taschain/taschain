@@ -54,7 +54,7 @@ func (bctx *CastBlockContexts) contextSize() int32 {
 
 func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
 	for _, id := range gids {
-		log.Println("removeContexts ", GetIDPrefix(id))
+		log.Println("removeContexts ", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()
@@ -74,7 +74,7 @@ func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
 //增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processor) AddBlockContext(bc *BlockContext) bool {
 	var add = p.blockContexts.addBlockContext(bc)
-	log.Printf("AddBlockContext, gid=%v, result=%v\n.", GetIDPrefix(bc.MinerID.Gid), add)
+	newBizLog("AddBlockContext").log("gid=%v, result=%v\n.", bc.MinerID.Gid.ShortS(), add)
 	return add
 }
 
@@ -133,7 +133,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight, expireTime)
+	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
 	worker := p.getVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
@@ -178,16 +178,16 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if bh == nil {
 		panic("SuccessNewBlock arg failed.")
 	}
-
+	blog := newBizLog("SuccessNewBlock")
 	if p.blockOnChain(bh) { //已经上链
-		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
+		blog.log("core.GenerateBlock is nil! block alreayd onchain!")
 		return
 	}
 
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
-		log.Printf("SuccessNewBlock core.GenerateBlock is nil! won't broadcast block!")
+		blog.log("core.GenerateBlock is nil! won't broadcast block!")
 		return
 	}
 
@@ -212,9 +212,9 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		MemIds: mems,
 	}
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-		logHalfway("SuccessNewBlock", bh.Height, bh.ProveValue.Uint64(), p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
+		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log( "height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(cbm, next)
-		log.Printf("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
+		blog.log("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 
 	return
@@ -242,7 +242,10 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	blog.log("begin proposal, height=%v, pi=%v...", height, pi)
+	if worker.timeout() {
+		blog.log("vrf worker timeout")
+		return
+	}
 
 	gid := p.calcVerifyGroup(top, height)
 	if gid == nil {
@@ -250,20 +253,16 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	logStart("CASTBLOCK", height, 0, p.getPrefix(), "pi %v", pi)
-
-	//调用鸠兹的铸块处理
 	block := p.MainChain.CastingBlock(uint64(height), 0, new(big.Int).SetBytes(pi), p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
-		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-		logHalfway("CASTBLOCK", height, 0, p.getPrefix(), "铸块失败, block为空")
 		return
 	}
-
 	bh := block.Header
+	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
+	blog.log("begin proposal, hash=%v, height=%v, pi=%v...", bh.Hash.ShortS(), height, pi.ShortS())
+	tlog.logStart("height=%v,pi=%v", bh.Height, pi)
 
-	blog.log("bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.getSignKey(*gid)
 		//发送该出块消息
@@ -272,16 +271,15 @@ func (p *Processor) blockProposal() {
 		//ccm.GroupID = gid
 		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
 		ccm.GenRandomSign(skey, worker.baseBH.Random)
-		logHalfway("CASTBLOCK", height, 0, p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
-
+		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v", bh.CurTime.Sub(bh.PreTime).Seconds())
 		p.NetServer.SendCastVerify(&ccm)
 
 		worker.markProposed()
 
 		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.ProveValue.Uint64(),-1,-1,
-			time.Now().UnixNano(),GetIDPrefix(p.GetMinerID()),GetIDPrefix(*gid),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
+			time.Now().UnixNano(),p.GetMinerID().ShortS(),gid.ShortS(),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
+		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}
 
 }
@@ -318,14 +316,16 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		signs[i] = piece
 		var id groupsig.ID
 		id.SetHexString(idStr)
-		idHexs[i] = idStr
+		idHexs[i] = id.ShortS()
 		targetIdIndexs[i] = int32(group.GetMinerPos(id))
 		i++
 	}
 
 	bonus, tx := p.MainChain.GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
 	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash, bonus.TargetIds, bh.Height)
-	logHalfway("REWARD_REQ", bh.Height, 0, p.getPrefix(), "txHash=%v, targetIds=%v", bonus.TxHash, strings.Join(idHexs, ","))
+
+	tlog := newBlockTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
+	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
 
 	if slot.SetRewardTrans(tx) {
 		msg := &model.CastRewardTransSignReqMessage{
@@ -334,7 +334,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		}
 		msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID)), msg)
 		p.NetServer.SendCastRewardSignReq(msg)
-		blog.log("reward req send height=%v, gid=%v", bh.Height, GetIDPrefix(groupID))
+		blog.log("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
 	}
 
 }

@@ -95,6 +95,10 @@ func (pub Pubkey) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
+func (pub *Pubkey) ShortS() string {
+	str := pub.GetHexString()
+	return common.ShortHex12(str)
+}
 //由十六进制字符串初始化公钥  ToDoCheck
 func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {

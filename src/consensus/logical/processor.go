@@ -65,7 +65,7 @@ type Processor struct {
 }
 
 func (p Processor) getPrefix() string {
-	return GetIDPrefix(p.GetMinerID())
+	return p.GetMinerID().ShortS()
 }
 
 //私密函数，用于测试，正式版本不提供
@@ -122,14 +122,15 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 		panic("verifyGroupSign: group id Deserialize failed.")
 	}
 
+	blog := newBizLog("verifyGroupSign")
 	groupInfo := p.getGroup(gid)
 	if !groupInfo.GroupID.IsValid() {
-		log.Printf("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
+		blog.log("get group is nil!, gid=" + gid.ShortS())
 		return false
 	}
 
 	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
-		log.Printf("verifyGroupSign: verifyGroupSig fail")
+		blog.log("verifyGroupSig fail")
 		return false
 	}
 	return true
@@ -145,7 +146,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return false
 	}
 	if !p.minerCanProposalAt(castor, bh.Height) {
-		blog.log("miner can't cast at height, id=%v, height=%v(%v-%v)", GetIDPrefix(castor), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
+		blog.log("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
 		return false
 	}
 	totalStake := p.minerReader.getTotalStake(bh.Height)
@@ -165,14 +166,14 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return false
 	}
 	if !selectGroupId.IsEqual(gid) {
-		blog.log("failed, expect group=%v, receive cast group=%v", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
+		blog.log("failed, expect group=%v, receive cast group=%v", selectGroupId.ShortS(), gid.ShortS())
 		blog.log("qualified group num is %v", len(p.GetCastQualifiedGroups(bh.Height)))
 		return false
 	}
 
 	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
 	if !groupInfo.GroupID.IsValid() {
-		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v\n", GetIDPrefix(*selectGroupId), GetIDPrefix(groupInfo.GroupID))
+		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v\n", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
 		return false
 	}
 

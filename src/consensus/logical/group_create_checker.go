@@ -40,7 +40,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
-	newBizLog("selectKing").log("king index=%v, id=%v\n", index, GetIDPrefix(group.GetMemberID(int(index))))
+	newBizLog("selectKing").log("king index=%v, id=%v\n", index, group.GetMemberID(int(index)).ShortS())
 	if index < 0 {
 		return groupsig.ID{}
 	}
@@ -75,7 +75,7 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 		return
 	}
 	castor = gchecker.selectKing(theBH, sgi)
-	blog.log("topHeight=%v, king=%v\n", topHeight, GetIDPrefix(castor))
+	blog.log("topHeight=%v, king=%v\n", topHeight, castor.ShortS())
 	create = true
 	return
 }
@@ -120,7 +120,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	}
 	str := ""
 	for _, id := range result {
-		str += GetIDPrefix(id.ID) + ","
+		str += id.ID.ShortS() + ","
 	}
 	blog.log("=============selectCandidates %v\n", str)
 	return true, result

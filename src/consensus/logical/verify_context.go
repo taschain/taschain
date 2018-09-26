@@ -260,7 +260,7 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	blog := newBizLog("UserVerified")
 
 	slot, info, idx := vc.consensusFindSlot(bh)
-	blog.log("proc(%v) consensusFindSlot, pv=%v, i=%v, info=%v.", idPrefix, bh.ProveValue, idx, info)
+	blog.log("proc(%v) consensusFindSlot, hash=%v, i=%v, info=%v.", idPrefix, bh.Hash.ShortS(), idx, info)
 
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT {

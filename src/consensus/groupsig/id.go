@@ -107,6 +107,11 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	return id.SetHexString(str)
 }
 
+func (id ID) ShortS() string  {
+	str := id.GetHexString()
+	return common.ShortHex12(str)
+}
+
 //由big.Int创建ID
 func NewIDFromBigInt(b *big.Int) *ID {
 	id := new(ID)

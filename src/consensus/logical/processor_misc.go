@@ -55,14 +55,14 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v, topHeight=%v\n", GetIDPrefix(sgi.GroupID), topHeight)
+		log.Printf("load group=%v, topHeight=%v\n", sgi.GroupID.ShortS(), topHeight)
 		if sgi.Dismissed(topHeight) {
 			break
 		}
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				log.Printf("prepareMiner get join group fail, gid=%v\n", GetIDPrefix(sgi.GroupID))
+				log.Printf("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
 				p.joinGroup(jg, true)
 			}
@@ -106,14 +106,14 @@ func (p *Processor) releaseRoutine() bool {
 	p.blockContexts.removeContexts(ids)
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
-		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", GetIDPrefix(gid))
+		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", gid.ShortS())
 		p.NetServer.ReleaseGroupNet(gid)
 	}
 
     //释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
 		if gc.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", GetIDPrefix(gc.gis.DummyID))
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", gc.gis.DummyID.ShortS())
 			p.NetServer.ReleaseGroupNet(gc.gis.DummyID)
 			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
 		}
@@ -121,7 +121,7 @@ func (p *Processor) releaseRoutine() bool {
 	})
 	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
 		if cg.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", GetIDPrefix(cg.gis.DummyID))
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", cg.gis.DummyID.ShortS())
 			p.NetServer.ReleaseGroupNet(cg.gis.DummyID)
 			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
 		}
