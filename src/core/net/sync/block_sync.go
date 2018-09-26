@@ -22,6 +22,8 @@ import (
 	"taslog"
 	"common"
 	"network"
+	"middleware/pb"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -104,7 +106,12 @@ func (bs *blockSyncer) sync() {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	localTotalQN, localHeight, currentHash := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height(), core.BlockChainImpl.QueryTopBlock().Hash
+	var currentHash common.Hash
+	topBlock := core.BlockChainImpl.QueryTopBlock()
+	if topBlock != nil {
+		currentHash = topBlock.Hash
+	}
+	localTotalQN, localHeight := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height()
 	bs.lock.Lock()
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
@@ -189,7 +196,7 @@ func sendBlockTotalQn(targetId string, localTotalQN uint64, height uint64) {
 	network.GetNetInstance().Send(targetId, message)
 }
 
-//todo
 func marshalTotalQnInfo(totalQnInfo TotalQnInfo) ([]byte, error) {
-	return nil, nil
+	t := tas_middleware_pb.TotalQnInfo{TotalQn: &totalQnInfo.TotalQn, Height: &totalQnInfo.Height}
+	return proto.Marshal(&t)
 }

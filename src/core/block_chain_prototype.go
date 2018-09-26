@@ -13,7 +13,8 @@ import (
 )
 
 type prototypeChain struct {
-	blocks tasdb.Database
+	isLightMiner bool
+	blocks       tasdb.Database
 	//key: height, value: blockHeader
 	blockHeight tasdb.Database
 
@@ -41,6 +42,10 @@ type prototypeChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
+}
+
+func (chain *prototypeChain) IsLightMiner() bool {
+	return chain.isLightMiner
 }
 
 func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {

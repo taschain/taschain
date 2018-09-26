@@ -77,7 +77,7 @@ func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 }
 
 func (self *AccountDB) GetTrie() Trie {
-	return &self.trie
+	return self.trie
 }
 
 func (self *AccountDB) setError(err error) {

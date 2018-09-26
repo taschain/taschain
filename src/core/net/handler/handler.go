@@ -122,7 +122,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	case network.ReqBlockChainTotalQnMsg:
 		sync.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
-		totalQnInfo,e := unmarshalTotalQnInfo(msg.Body)
+		totalQnInfo, e := unmarshalTotalQnInfo(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard BlockChainTotalQnMsg because of unmarshal error:%s", e.Error())
 			return e
@@ -211,7 +211,12 @@ func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
 	ch.bodyCh <- notify
 }
 
+//只有重节点
 func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
+	if core.BlockChainImpl.IsLightMiner() {
+		return
+	}
+
 	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
 	if !ok {
 		return
@@ -223,19 +228,26 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	}
 
 	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
-	if message.Transactions == nil{
+	if header == nil {
+		//todo
+	}
+	if message.IsInit {
 		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
 	}
-	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(header,message.Transactions)
-	core.SendStateInfo(m.Peer,message.Height,stateNodes)
+	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(header, message.Transactions, message.IsInit)
+	core.SendStateInfo(m.Peer, message.Height, stateNodes)
 }
 
+//只有轻节点
 func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
-	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
+	if !core.BlockChainImpl.IsLightMiner() {
+		return
+	}
+	m, ok := msg.GetData().(*notify.StateInfoMessage)
 	if !ok {
 		return
 	}
-	message, e := unMarshalStateInfo(m.StateInfoReqByte)
+	message, e := unMarshalStateInfo(m.StateInfoByte)
 	if e != nil {
 		core.Logger.Errorf("[handler]Discard unMarshalStateInfo because of unmarshal error:%s", e.Error())
 		return
@@ -244,19 +256,19 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 
 	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
 	state, err := storagecore.NewAccountDB(header.StateTree, core.BlockChainImpl.GetSateCache())
-	if err !=nil{
+	if err != nil {
 		//todo
 	}
 
-	newHash:=state.GetTrie().Hash()
-	if header.StateTree != newHash{
-		var info string = fmt.Sprint("remote hash=%v,local hash=%v",header.StateTree,newHash)
+	newHash := state.GetTrie().Hash()
+	if header.StateTree != newHash {
+		var info string = fmt.Sprint("remote hash=%v,local hash=%v", header.StateTree, newHash)
 		panic(info)
 		//todo
 	}
 
 	sync.BlockSyncer.SetSyncedFirstBlock(true)
-	core.RequestBlockInfoByHeight(m.Peer,core.BlockChainImpl.Height()+1,core.BlockChainImpl.QueryTopBlock().Hash,true)
+	core.RequestBlockInfoByHeight(m.Peer, core.BlockChainImpl.Height()+1, core.BlockChainImpl.QueryTopBlock().Hash, true)
 }
 
 func (ch ChainHandler) loop() {
@@ -365,7 +377,7 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	blockInfo := core.BlockChainImpl.QueryBlockInfo(erm.SourceHeight, erm.SourceCurrentHash,erm.VerifyHash)
+	blockInfo := core.BlockChainImpl.QueryBlockInfo(erm.SourceHeight, erm.SourceCurrentHash, erm.VerifyHash)
 	core.SendBlockInfo(sourceId, blockInfo)
 }
 
@@ -388,11 +400,12 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			return
 		}
 
-		if !sync.BlockSyncer.IsSyncedFirstBlock(){
-			core.ReqStateInfo(sourceId,block.Header.Height+1,nil)
+		if core.BlockChainImpl.IsLightMiner() && !sync.BlockSyncer.IsSyncedFirstBlock() {
+			core.ReqStateInfo(sourceId, block.Header.Height+1, nil, true)
+			return
 		}
 		if !blockInfo.IsTopBlock {
-			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash,true)
+			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash, true)
 		} else {
 			core.BlockChainImpl.SetAdujsting(false)
 			if !sync.BlockSyncer.IsInit() {
@@ -502,7 +515,7 @@ func unMarshalBlockRequestInfo(b []byte) (*core.BlockRequestInfo, error) {
 
 	sourceHeight := m.SourceHeight
 	sourceCurrentHash := common.BytesToHash(m.SourceCurrentHash)
-	message := core.BlockRequestInfo{SourceHeight: *sourceHeight, SourceCurrentHash: sourceCurrentHash}
+	message := core.BlockRequestInfo{SourceHeight: *sourceHeight, SourceCurrentHash: sourceCurrentHash, VerifyHash: *m.VerifyHash}
 	return &message, nil
 }
 
@@ -578,17 +591,48 @@ func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Trans
 	return hash, transactions, nil
 }
 
-//todo
-func unMarshalStateInfoReq(b []byte) (*core.StateInfoReq, error) {
-	return nil, nil
+func unMarshalStateInfoReq(b []byte) (core.StateInfoReq, error) {
+	message := new(tas_middleware_pb.StateInfoReq)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalStateInfoReq error:%s", e.Error())
+		return core.StateInfoReq{}, e
+	}
+
+	var transactions []*types.Transaction
+	if message.Transactions != nil {
+		transactions = types.PbToTransactions(message.Transactions.Transactions)
+	}
+
+	stateInfoReq := core.StateInfoReq{Height: *message.Height, Transactions: transactions, IsInit: *message.IsInit}
+	return stateInfoReq, nil
 }
 
-//todo
-func unMarshalStateInfo(b []byte) (*core.StateInfo, error) {
-	return nil, nil
+func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
+	message := new(tas_middleware_pb.StateInfo)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unMarshalStateInfo error:%s", e.Error())
+		return core.StateInfo{}, e
+	}
+
+	trieNodes := make([]types.StateNode, 0)
+	for _, node := range message.TrieNodes {
+		n := types.StateNode{Key: node.Key, Value: node.Data}
+		trieNodes = append(trieNodes, n)
+	}
+
+	stateInfo := core.StateInfo{Height: *message.Height, TrieNodes: &trieNodes}
+	return stateInfo, nil
 }
 
-//todo
-func unmarshalTotalQnInfo([]byte)(sync.TotalQnInfo,error){
-	return nil,nil
+func unmarshalTotalQnInfo(b []byte) (sync.TotalQnInfo, error) {
+	message := new(tas_middleware_pb.TotalQnInfo)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		core.Logger.Errorf("[handler]unmarshalTotalQnInfo error:%s", e.Error())
+		return sync.TotalQnInfo{}, e
+	}
+	totalQnInfo := sync.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
+	return totalQnInfo, nil
 }

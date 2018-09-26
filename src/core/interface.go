@@ -26,6 +26,9 @@ import (
 
 //主链接口
 type BlockChainI interface {
+
+	IsLightMiner() bool
+
 	//构建一个铸块（组内当前铸块人同步操作）
 	CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block
 
@@ -91,7 +94,7 @@ type BlockChainI interface {
 
 	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) *[]types.StateNode
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 }

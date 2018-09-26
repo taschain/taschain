@@ -403,7 +403,7 @@ func (t *Trie) hashRoot2(nodes map[string]*[]byte,isInit bool) error {
 	}
 	h := newHasher2()
 	defer returnHasherToPool(h)
-	_,_,err :=h.hash2(t.RootNode, true,nodes,isInit)
+	_,_,_,err :=h.hash2(t.RootNode, true,nodes,isInit)
 	return err
 }
 

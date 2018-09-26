@@ -307,7 +307,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 	}
 
 	sync.InitGroupSyncer()
-	sync.InitBlockSyncer()
+	sync.InitBlockSyncer(light)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)

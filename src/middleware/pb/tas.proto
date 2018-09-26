@@ -11,15 +11,6 @@ message Message{
 
 }
 
-message TrieNode{
-
-    required bytes Key  = 1;
-
-    required bytes Data  = 2;
-
-}
-
-
 
 message Transaction{
 
@@ -182,6 +173,7 @@ message BlockRequestInfo{
 
 	required bytes SourceCurrentHash =2;
 
+    required bool VerifyHash =3;
 }
 
 
@@ -216,6 +208,37 @@ message BlockHashesReq{
 	required  uint64 Height = 1;
 
 	required uint64 Length = 2;
+}
+
+message TotalQnInfo{
+
+    required uint64 TotalQn = 1;
+
+    required uint64 Height = 2;
+}
+
+message StateInfoReq{
+
+    required uint64 Height = 1;
+
+    optional TransactionSlice Transactions = 2;
+
+    required bool IsInit = 3;
+
+}
+
+message  StateInfo  {
+    required uint64 Height = 1;
+
+    repeated TrieNode TrieNodes = 2;
+}
+
+message TrieNode{
+
+    required bytes Key  = 1;
+
+    required bytes Data  = 2;
+
 }
 
 

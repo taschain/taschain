@@ -114,6 +114,7 @@ func initBlockChain() error {
 			lock:        middleware.NewLoglock("chain"),
 			init:        true,
 			isAdujsting: false,
+			isLightMiner:false,
 			},
 	}
 
@@ -172,11 +173,6 @@ func initBlockChain() error {
 	return nil
 }
 
-
-
-func (chain *FullBlockChain) InsertStateNode(nodes *[]types.StateNode){
-	//nothing to do
-}
 
 
 //构建一个铸块（组内当前铸块人同步操作）
@@ -263,25 +259,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 	return block
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode {
-	var nodes map[string]*[]byte = make(map[string]*[]byte)
-	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
-	if err != nil{
-		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
-		return nil
-	}
-	chain.executor.Execute2(state, transactions, nodes,isInit)
-	//if err != nil{
-	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
-	//	return nil
-	//}
-
-	data := []types.StateNode{}
-	for key,value:= range nodes{
-		data=append(data,types.StateNode{Key:([]byte)(key),Value:*value})
-	}
-	return &data
-}
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 //返回值:
@@ -729,6 +706,30 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	defer chain.transactionPool.GetLock().Unlock("remove block")
 	chain.transactionPool.RemoveExecuted(txs)
 	chain.transactionPool.AddTxs(txs)
+}
+
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode {
+	var nodes map[string]*[]byte = make(map[string]*[]byte)
+	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
+	if err != nil{
+		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
+		return nil
+	}
+	chain.executor.Execute2(state, transactions, nodes,isInit)
+	//if err != nil{
+	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
+	//	return nil
+	//}
+
+	data := []types.StateNode{}
+	for key,value:= range nodes{
+		data=append(data,types.StateNode{Key:([]byte)(key),Value:*value})
+	}
+	return &data
+}
+
+func (chain *FullBlockChain)InsertStateNode(nodes *[]types.StateNode){
+	panic("Not support!")
 }
 
 

@@ -44,7 +44,7 @@ type BlockHash struct {
 type BlockRequestInfo struct {
 	SourceHeight      uint64
 	SourceCurrentHash common.Hash
-	VerifyHash bool
+	VerifyHash        bool
 }
 
 type BlockInfo struct {
@@ -54,12 +54,13 @@ type BlockInfo struct {
 }
 
 type StateInfoReq struct {
-	Height  uint64
+	Height       uint64
 	Transactions types.Transactions
+	IsInit       bool
 }
 
 type StateInfo struct {
-	Height  uint64
+	Height    uint64
 	TrieNodes *[]types.StateNode
 }
 
@@ -109,9 +110,9 @@ func BroadcastTransactions(txs []*types.Transaction) {
 }
 
 //向某一节点请求Block信息
-func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.Hash,verifyHash bool) {
-	Logger.Debugf("Req block info to:%s,localHeight:%d,current hash:%v",id,localHeight,currentHash)
-	m := BlockRequestInfo{SourceHeight: localHeight, SourceCurrentHash: currentHash,VerifyHash:verifyHash}
+func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.Hash, verifyHash bool) {
+	Logger.Debugf("Req block info to:%s,localHeight:%d,current hash:%v", id, localHeight, currentHash)
+	m := BlockRequestInfo{SourceHeight: localHeight, SourceCurrentHash: currentHash, VerifyHash: verifyHash}
 	body, e := MarshalBlockRequestInfo(&m)
 	if e != nil {
 		Logger.Errorf("[peer]RequestBlockInfoByHeight marshal EntityRequestMessage error:%s", e.Error())
@@ -123,7 +124,7 @@ func RequestBlockInfoByHeight(id string, localHeight uint64, currentHash common.
 
 //本地查询之后将结果返回
 func SendBlockInfo(targetId string, blockInfo *BlockInfo) {
-	Logger.Debugf("Send local block info to:%s",targetId)
+	Logger.Debugf("Send local block info to:%s", targetId)
 	body, e := marshalBlockInfo(blockInfo)
 	if e != nil {
 		Logger.Errorf("[peer]SendBlockInfo marshal BlockEntity error:%s", e.Error())
@@ -173,11 +174,10 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	network.GetNetInstance().Send(targetNode, message)
 }
 
-
-func ReqStateInfo(targetNode string,blockHeight uint64,txs types.Transactions){
-	m := StateInfoReq{Height:blockHeight,Transactions:txs}
-	body,e := marshalStateInfoReq(&m)
-	if e!=nil{
+func ReqStateInfo(targetNode string, blockHeight uint64, txs types.Transactions, isInit bool) {
+	m := StateInfoReq{Height: blockHeight, Transactions: txs, IsInit: isInit}
+	body, e := marshalStateInfoReq(m)
+	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalStateInfoReq because of marshal error:%s!", e.Error())
 		return
 	}
@@ -185,16 +185,17 @@ func ReqStateInfo(targetNode string,blockHeight uint64,txs types.Transactions){
 	network.GetNetInstance().Send(targetNode, message)
 }
 
-func SendStateInfo(targetNode string,blockHeight uint64,stateInfo *[]types.StateNode){
-	m := StateInfo{Height:blockHeight,TrieNodes:stateInfo}
-	body,e := marshalStateInfo(&m)
-	if e!= nil{
+func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.StateNode) {
+	m := StateInfo{Height: blockHeight, TrieNodes: stateInfo}
+	body, e := marshalStateInfo(m)
+	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTrieNodes because of marshal error:%s!", e.Error())
 		return
 	}
 	message := network.Message{Code: network.StateInfoMsg, Body: body}
 	network.GetNetInstance().Send(targetNode, message)
 }
+
 //--------------------------------------------------Transaction---------------------------------------------------------------
 func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, error) {
 	txHashes := make([][]byte, 0)
@@ -257,7 +258,7 @@ func MarshalBlockRequestInfo(e *BlockRequestInfo) ([]byte, error) {
 	sourceHeight := e.SourceHeight
 	currentHash := e.SourceCurrentHash.Bytes()
 
-	m := tas_middleware_pb.BlockRequestInfo{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash}
+	m := tas_middleware_pb.BlockRequestInfo{SourceHeight: &sourceHeight, SourceCurrentHash: currentHash, VerifyHash: &e.VerifyHash}
 	return proto.Marshal(&m)
 }
 
@@ -290,12 +291,25 @@ func marshalBlockInfo(e *BlockInfo) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-//todo
-func marshalStateInfoReq(stateInfoReq *StateInfoReq)([]byte, error){
-	return nil ,nil
+func marshalStateInfoReq(stateInfoReq StateInfoReq) ([]byte, error) {
+
+	var txSlice tas_middleware_pb.TransactionSlice
+	if stateInfoReq.Transactions != nil {
+		txs := types.TransactionsToPb(stateInfoReq.Transactions)
+		txSlice = tas_middleware_pb.TransactionSlice{Transactions: txs}
+	}
+
+	message := tas_middleware_pb.StateInfoReq{Height: &stateInfoReq.Height, Transactions: &txSlice, IsInit: &stateInfoReq.IsInit}
+	return proto.Marshal(&message)
 }
 
-//todo
-func marshalStateInfo(stateInfo *StateInfo)([]byte, error){
-	return nil ,nil
+func marshalStateInfo(stateInfo StateInfo) ([]byte, error) {
+	var trieNodes = make([]*tas_middleware_pb.TrieNode,0)
+	for _, node := range *stateInfo.TrieNodes {
+		tNode := tas_middleware_pb.TrieNode{Key: node.Key, Data: node.Value}
+		trieNodes = append(trieNodes, &tNode)
+	}
+
+	message := tas_middleware_pb.StateInfo{Height: &stateInfo.Height, TrieNodes: trieNodes}
+	return proto.Marshal(&message)
 }

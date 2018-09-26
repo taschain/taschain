@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	LIGHT_BLOCK_CACHE_SIZE = 20
+	LIGHT_BLOCK_CACHE_SIZE       = 20
 	LIGHT_BLOCKHEIGHT_CACHE_SIZE = 100
-	LIGHT_BLOCKBODY_CACHE_SIZE = 100
-	LIGHT_LRU_SIZE = 5000000
+	LIGHT_BLOCKBODY_CACHE_SIZE   = 100
+	LIGHT_LRU_SIZE               = 5000000
 )
+
 type LightChain struct {
 	config *LightChainConfig
 	prototypeChain
@@ -58,8 +59,8 @@ func getLightChainConfig() *LightChainConfig {
 func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
-		state: "light_state",
-		qn: 4,
+		state:       "light_state",
+		qn:          4,
 	}
 }
 
@@ -67,14 +68,15 @@ func initLightChain() error {
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &LightChain{
-		config:          getLightChainConfig(),
-		prototypeChain:prototypeChain{
+		config: getLightChainConfig(),
+		prototypeChain: prototypeChain{
 			transactionPool: NewLightTransactionPool(),
 			latestBlock:     nil,
 
-			lock:        middleware.NewLoglock("lightchain"),
-			init:        true,
-			isAdujsting: false,
+			lock:         middleware.NewLoglock("lightchain"),
+			init:         true,
+			isAdujsting:  false,
+			isLightMiner: true,
 		},
 	}
 
@@ -86,17 +88,17 @@ func initLightChain() error {
 	}
 	chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
 	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
 	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
@@ -106,8 +108,8 @@ func initLightChain() error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.QueryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
-		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE,chain.topBlocks)
-		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
+		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
+		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 	} else {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
@@ -122,16 +124,8 @@ func initLightChain() error {
 	return nil
 }
 
-
-func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode){
-	//TODO:put里面的索粒度太小了。增加putwithnolock方法
-	for _,node:=range *nodes{
-		chain.statedb.Put(node.Key,node.Value)
-	}
-}
-
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *LightChain)CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block{
+func (chain *LightChain) CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")
 	return nil
 }
@@ -191,7 +185,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	txtree := calcTxTree(transactions)
 
-	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+	if !bytes.Equal(txtree.Bytes(), bh.TxTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
@@ -211,7 +205,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Header = &bh
 	b.Transactions = transactions
 
-	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
+	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
 	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
@@ -244,8 +238,8 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	var (
-		state    *core.AccountDB
-		status   int8
+		state  *core.AccountDB
+		status int8
 	)
 
 	// 自己铸块的时候，会将块临时存放到blockCache里
@@ -284,7 +278,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash,true)
+		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash, true)
 		status = 2
 	}
 
@@ -300,8 +294,8 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
-			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			network.GetNetInstance().Relay(headerMsg,1)
+			headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: h}
+			network.GetNetInstance().Relay(headerMsg, 1)
 			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.QueueNumber, len(h), b.Header.Hash)
 		}
 
@@ -311,7 +305,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 //根据指定哈希查询块
-func (chain *LightChain)QueryBlockByHash(hash common.Hash) *types.BlockHeader{
+func (chain *LightChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
@@ -323,15 +317,11 @@ func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHe
 	return block.Header
 }
 
-func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transaction{
+func (chain *LightChain) QueryBlockBody(blockHash common.Hash) []*types.Transaction {
 	return nil
 }
 
-func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) *[]types.StateNode {
-	panic("Not support!")
-}
-
-func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo {
+func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
 	panic("Not support!")
 }
 
@@ -409,7 +399,6 @@ func (chain *LightChain) Remove(header *types.BlockHeader) {
 	//chain.transactionPool.AddTxs(txs)
 }
 
-
 //清除链所有数据
 func (chain *LightChain) Clear() error {
 	chain.lock.Lock("Clear")
@@ -422,7 +411,7 @@ func (chain *LightChain) Clear() error {
 	chain.statedb.Close()
 	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]",err)
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
@@ -440,6 +429,17 @@ func (chain *LightChain) Clear() error {
 	return err
 }
 
-func (chain *LightChain)CompareChainPiece(bhs []*BlockHash, sourceId string){
+func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	panic("Not support!")
+}
+
+func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
+	panic("Not support!")
+}
+
+func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
+	//TODO:put里面的索粒度太小了。增加putwithnolock方法
+	for _, node := range *nodes {
+		chain.statedb.Put(node.Key, node.Value)
+	}
 }
