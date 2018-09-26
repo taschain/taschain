@@ -102,7 +102,7 @@ func ClearGroup(config *GroupChainConfig) {
 	os.RemoveAll("database")
 }
 
-func initGroupChain() error {
+func initGroupChain(genesisInfo *types.GenesisInfo) error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
 		//preCache: new(sync.Map),
@@ -115,13 +115,13 @@ func initGroupChain() error {
 		return err
 	}
 
-	build(chain)
+	build(chain,genesisInfo)
 
 	GroupChainImpl = chain
 	return nil
 }
 
-func build(chain *GroupChain) {
+func build(chain *GroupChain,genesisInfo *types.GenesisInfo) {
 	lastId, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	count,_ := chain.groups.Get([]byte(GROUP_COUNT_KEY))
 	var lastGroup *types.Group
@@ -132,6 +132,8 @@ func build(chain *GroupChain) {
 			panic("build group Unmarshal fail")
 		}
 		chain.count = utility.ByteToUInt64(count)
+	} else {
+		chain.AddGroup(&genesisInfo.Group,nil,nil)
 	}
 	chain.lastGroup = lastGroup
 

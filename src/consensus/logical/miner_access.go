@@ -81,6 +81,6 @@ func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
 	return access.minerPool.GetTotalStakeByHeight(h)
 }
 
-func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
-    access.minerPool.AddGenesesMiner(miners)
-}
+//func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
+//    access.minerPool.AddGenesesMiner(miners)
+//}

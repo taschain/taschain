@@ -43,6 +43,7 @@ import (
 	"consensus/model"
 	"redis"
 	"runtime/debug"
+	"consensus/logical"
 )
 
 const (
@@ -281,7 +282,8 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	err := core.InitCore()
+	genesis := &logical.GenesisGeneratorImpl{}
+	err := core.InitCore(genesis.Generate())
 	if err != nil {
 		return err
 	}
@@ -301,8 +303,9 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	// 初始化中间件
 	middleware.InitMiddleware()
 
+	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore()
+	err = core.InitCore(genesis.Generate())
 	if err != nil {
 		return err
 	}

@@ -78,7 +78,7 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
+func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
 	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
@@ -104,6 +104,14 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("10"))), big.NewInt(1000000))
+
+	miners := make([]*types.Miner,0)
+	for i,member := range genesisInfo.Group.Members{
+		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
+		miners = append(miners,miner)
+	}
+	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
+
 	stateDB.IntermediateRoot(false)
 	root, _ := stateDB.Commit(false)
 	triedb.Commit(root, false)

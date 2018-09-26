@@ -67,7 +67,7 @@ func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
 		miners[idx] = miner
 		blog.log("minerInfo %v %v", miner.VrfPublicKey, miner.Id)
 	}
-	p.minerReader.genesisMiner(miners)
+	//p.minerReader.genesisMiner(miners)
 
 	return model.PubKeyInfo{}
 }

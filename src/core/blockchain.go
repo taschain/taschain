@@ -104,6 +104,8 @@ type BlockChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
+
+	genesisInfo *types.GenesisInfo
 }
 
 type castingBlock struct {
@@ -154,7 +156,7 @@ func getBlockChainConfig() *BlockChainConfig {
 
 }
 
-func initBlockChain() error {
+func initBlockChain(genesisInfo *types.GenesisInfo) error {
 
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
@@ -166,6 +168,7 @@ func initBlockChain() error {
 		lock:        middleware.NewLoglock("chain"),
 		init:        true,
 		isAdujsting: false,
+		genesisInfo: genesisInfo,
 	}
 
 	var err error
@@ -198,7 +201,7 @@ func initBlockChain() error {
 	chain.stateCache = core.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
-
+	initMinerManager(chain)
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -216,11 +219,11 @@ func initBlockChain() error {
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
-			block := GenesisBlock(state, chain.stateCache.TrieDB())
+			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
 			chain.saveBlock(block)
 		}
 	}
-	initMinerManager(chain)
+
 	BlockChainImpl = chain
 	return nil
 }
@@ -299,7 +302,7 @@ func (chain *BlockChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB())
+		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
 
 		chain.saveBlock(block)
 	}

@@ -287,7 +287,10 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(prefix []byte) *trie.Iterator{
+func (self *accountObject) DataIterator(db Database,prefix []byte) *trie.Iterator{
+	if self.trie == nil{
+		self.getTrie(db)
+	}
 	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
 }
 

@@ -53,7 +53,8 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
 	}
 }
 
-func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner) {
+func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.AccountDB) {
+	Logger.Infof("MinerManager AddGenesesMiner")
 	dbh := mm.getMinerDatabase(types.MinerTypeHeavy)
 	dbl := mm.getMinerDatabase(types.MinerTypeLight)
 
