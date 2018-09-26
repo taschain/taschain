@@ -27,6 +27,7 @@ import (
 	"middleware/pb"
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
+	storagecore "storage/core"
 )
 
 type ChainHandler struct {
@@ -64,6 +65,8 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
 	notify.BUS.Subscribe(notify.BlockBody, handler.blockBodyHandler)
 	notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
+	notify.BUS.Subscribe(notify.StateInfoReq, handler.stateInfoReqHandler)
+	notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 
 	go handler.loop()
 	return &handler
@@ -119,9 +122,13 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	case network.ReqBlockChainTotalQnMsg:
 		sync.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
-		totalQn := utility.ByteToUInt64(msg.Body)
-		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
-		sync.BlockSyncer.TotalQnCh <- s
+		totalQnInfo,e := unmarshalTotalQnInfo(msg.Body)
+		if e != nil {
+			core.Logger.Errorf("[handler]Discard BlockChainTotalQnMsg because of unmarshal error:%s", e.Error())
+			return e
+		}
+		totalQnInfo.SourceId = sourceId
+		sync.BlockSyncer.TotalQnCh <- totalQnInfo
 	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
@@ -204,6 +211,48 @@ func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
 	ch.bodyCh <- notify
 }
 
+func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
+	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
+	if !ok {
+		return
+	}
+	message, e := unMarshalStateInfoReq(m.StateInfoReqByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard unMarshalStateInfoReq because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
+	if message.Transactions == nil{
+		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
+	}
+	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(header,message.Transactions)
+	core.SendStateInfo(m.Peer,message.Height,stateNodes)
+}
+
+func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
+	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
+	if !ok {
+		return
+	}
+	message, e := unMarshalStateInfo(m.StateInfoReqByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard unMarshalStateInfo because of unmarshal error:%s", e.Error())
+		return
+	}
+	core.BlockChainImpl.InsertStateNode(message.TrieNodes)
+
+	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
+	state, err := storagecore.NewAccountDB(header.StateTree, core.BlockChainImpl.GetSateCache())
+	if err !=nil{
+		//todo
+	}
+	state.GetTrie().Hash()
+
+	sync.BlockSyncer.SetSyncedFirstBlock(true)
+	core.RequestBlockInfoByHeight(m.Peer,core.BlockChainImpl.Height()+1,core.BlockChainImpl.QueryTopBlock().Hash,true)
+}
+
 func (ch ChainHandler) loop() {
 	for {
 		select {
@@ -235,8 +284,8 @@ func (ch ChainHandler) loop() {
 			}
 			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
 			msg := notify.BlockMessage{Block: block}
-			ch.complete.Add(block.Header.Hash,block)
-			delete(ch.headerPending,block.Header.Hash)
+			ch.complete.Add(block.Header.Hash, block)
+			delete(ch.headerPending, block.Header.Hash)
 			notify.BUS.Publish(notify.NewBlock, &msg)
 		}
 	}
@@ -310,7 +359,7 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	if nil == core.BlockChainImpl {
 		return
 	}
-	blockInfo := core.BlockChainImpl.QueryBlockInfo(erm.SourceHeight, erm.SourceCurrentHash)
+	blockInfo := core.BlockChainImpl.QueryBlockInfo(erm.SourceHeight, erm.SourceCurrentHash,erm.VerifyHash)
 	core.SendBlockInfo(sourceId, blockInfo)
 }
 
@@ -333,12 +382,15 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			return
 		}
 
+		if !sync.BlockSyncer.IsSyncedFirstBlock(){
+			core.ReqStateInfo(sourceId,block.Header.Height+1,nil)
+		}
 		if !blockInfo.IsTopBlock {
-			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash)
+			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash,true)
 		} else {
 			core.BlockChainImpl.SetAdujsting(false)
 			if !sync.BlockSyncer.IsInit() {
-				core.Logger.Errorf("Block sync finished,loal block height:%d\n", core.BlockChainImpl.Height())
+				core.Logger.Errorf("Block sync finished,local block height:%d\n", core.BlockChainImpl.Height())
 				sync.BlockSyncer.SetInit(true)
 			}
 		}
@@ -500,8 +552,8 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
 		return nil, e
 	}
-	groups := make([]*types.Group,len(message.Groups))
-	for i,g := range message.Groups{
+	groups := make([]*types.Group, len(message.Groups))
+	for i, g := range message.Groups {
 		groups[i] = types.PbToGroup(g)
 	}
 	groupInfo := sync.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
@@ -518,4 +570,19 @@ func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Trans
 	hash = common.BytesToHash(message.BlockHash)
 	transactions = types.PbToTransactions(message.Transactions)
 	return hash, transactions, nil
+}
+
+//todo
+func unMarshalStateInfoReq(b []byte) (*core.StateInfoReq, error) {
+	return nil, nil
+}
+
+//todo
+func unMarshalStateInfo(b []byte) (*core.StateInfo, error) {
+	return nil, nil
+}
+
+//todo
+func unmarshalTotalQnInfo([]byte)(sync.TotalQnInfo,error){
+	return nil,nil
 }

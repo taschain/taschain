@@ -59,7 +59,6 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 	return block
 }
 
-
 func (chain *prototypeChain) Height() uint64 {
 	if nil == chain.latestBlock {
 		return math.MaxUint64
@@ -81,7 +80,6 @@ func (chain *prototypeChain) QueryTopBlock() *types.BlockHeader {
 	result := *chain.latestBlock
 	return &result
 }
-
 
 // 根据指定高度查询块
 // 带有缓存
@@ -155,7 +153,6 @@ func (chain *prototypeChain) getBlockHashesFromLocalChain(height uint64, length 
 	return r
 }
 
-
 //根据哈希取得某个交易
 func (chain *prototypeChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
@@ -183,10 +180,12 @@ func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
 
+func (chain *prototypeChain) GetSateCache() core.Database {
+	return chain.stateCache
+}
 func (chain *prototypeChain) IsAdujsting() bool {
 	return chain.isAdujsting
 }
-
 
 func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
 	chain.isAdujsting = isAjusting
@@ -201,13 +200,9 @@ func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
 	}
 }
 
-
 func (chain *prototypeChain) Close() {
 	chain.statedb.Close()
 }
-
-
-
 
 func (chain *prototypeChain) getStartIndex(size uint64) uint64 {
 	var start uint64
@@ -215,22 +210,14 @@ func (chain *prototypeChain) getStartIndex(size uint64) uint64 {
 	if height < size {
 		start = 0
 	} else {
-		start = height - (size-1)
+		start = height - (size - 1)
 	}
 
 	return start
 }
 
-
-func (chain *prototypeChain) buildCache(size uint64,cache *lru.Cache) {
+func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 	for i := chain.getStartIndex(size); i < chain.latestBlock.Height; i++ {
 		chain.topBlocks.Add(i, chain.QueryBlockHeaderByHeight(i, false))
 	}
 }
-
-
-
-
-
-
-

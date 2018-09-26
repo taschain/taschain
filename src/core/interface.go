@@ -60,7 +60,7 @@ type BlockChainI interface {
 
 	QueryBlockHashes(height uint64, length uint64) []*BlockHash
 
-	QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo
+	QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo
 
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取
@@ -72,6 +72,8 @@ type BlockChainI interface {
 	GetBalance(address common.Address)*big.Int
 
 	GetNonce(address common.Address) uint64
+
+	GetSateCache()core.Database
 
 	//是否正在调整分叉
 	IsAdujsting() bool
@@ -89,7 +91,7 @@ type BlockChainI interface {
 
 	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 }

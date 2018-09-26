@@ -284,7 +284,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
+		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash,true)
 		status = 2
 	}
 
@@ -327,11 +327,11 @@ func (chain *LightChain)QueryBlockBody(blockHash common.Hash) []*types.Transacti
 	return nil
 }
 
-func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) map[string]*[]byte {
+func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction) *[]types.StateNode {
 	panic("Not support!")
 }
 
-func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {
+func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo {
 	panic("Not support!")
 }
 

@@ -38,7 +38,7 @@ var (
 
 	emptyCode = sha3.Sum256(nil)
 
-    logger = taslog.GetLogger(taslog.DefaultConfig)
+	logger = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 type AccountDB struct {
@@ -74,6 +74,10 @@ func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 		accountObjects:      make(map[common.Address]*accountObject),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}, nil
+}
+
+func (self *AccountDB) GetTrie() Trie {
+	return &self.trie
 }
 
 func (self *AccountDB) setError(err error) {
@@ -193,7 +197,6 @@ func (self *AccountDB) HasSuicided(addr common.Address) bool {
 	return false
 }
 
-
 func (self *AccountDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
@@ -229,7 +232,7 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
+func (self *AccountDB) SetData(addr common.Address, key string, value []byte) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)
@@ -328,10 +331,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,[]byte(prefix))
+		return stateObject.DataIterator(self.db, []byte(prefix))
 	} else {
 		return nil
 	}
@@ -342,8 +345,8 @@ func (self *AccountDB) Copy() *AccountDB {
 	defer self.lock.Unlock()
 
 	state := &AccountDB{
-		db:                self.db,
-		trie:              self.trie,
+		db:                  self.db,
+		trie:                self.trie,
 		accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
 		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
 		refund:              self.refund,
@@ -356,7 +359,6 @@ func (self *AccountDB) Copy() *AccountDB {
 	}
 	return state
 }
-
 
 func (self *AccountDB) Snapshot() int {
 	id := self.nextRevisionId
@@ -406,9 +408,9 @@ func (s *AccountDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	return s.trie.Hash()
 }
 
-func (s *AccountDB) IntermediateRoot2(deleteEmptyObjects bool,nodes map[string]*[]byte,isInit bool){
+func (s *AccountDB) IntermediateRoot2(deleteEmptyObjects bool, nodes map[string]*[]byte, isInit bool) {
 	s.Finalise(deleteEmptyObjects)
-	s.trie.Hash2(nodes,isInit)
+	s.trie.Hash2(nodes, isInit)
 }
 
 func (self *AccountDB) Prepare(thash, bhash common.Hash, ti int) {
@@ -480,7 +482,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	return root, err
 }
 
-func (s *AccountDB) Fstring(){
+func (s *AccountDB) Fstring() {
 	if s.trie != nil {
 		fmt.Print(s.trie.Fstring())
 	}

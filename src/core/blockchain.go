@@ -263,7 +263,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 	return block
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) map[string]*[]byte {
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode {
 	var nodes map[string]*[]byte = make(map[string]*[]byte)
 	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
 	if err != nil{
@@ -275,7 +275,12 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
 	//	return nil
 	//}
-	return nodes
+
+	data := []types.StateNode{}
+	for key,value:= range nodes{
+		data=append(data,types.StateNode{Key:([]byte)(key),Value:*value})
+	}
+	return &data
 }
 
 //验证一个铸块（如本地缺少交易，则异步网络请求该交易）
@@ -438,7 +443,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash)
+		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash,true)
 		status = 2
 	}
 
@@ -503,13 +508,13 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
 //否则返回本地链从height向前开始一定长度的非空块hash 用于查找公公祖先
-func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash) *BlockInfo {
+func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo {
 	chain.lock.RLock("GetBlockInfo")
 	defer chain.lock.RUnlock("GetBlockInfo")
 	localHeight := chain.latestBlock.Height
 
 	bh := chain.QueryBlockByHeight(height)
-	if bh != nil && bh.Hash == hash {
+	if bh != nil && bh.Hash == hash|| !verifyHash {
 		//当前结点和请求结点在同一条链上
 		//Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
 		var b *types.Block
@@ -695,7 +700,7 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 				break
 			}
 		}
-		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash)
+		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash,true)
 	} else {
 		chain.SetLastBlockHash(bhs[0])
 		cbhr := BlockHashesReq{Height: bhs[len(bhs)-1].Height, Length: uint64(len(bhs) * 10)}

@@ -58,6 +58,10 @@ const (
 	CreateGroupaRaw uint32 = 0x19
 
 	CreateGroupSign uint32 = 0x1a
+	//---------------------轻节点状态同步-----------------------
+	ReqStateInfoMsg uint32 = 0x1b
+
+	StateInfoMsg uint32 = 0x1c
 
 )
 
