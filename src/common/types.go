@@ -194,6 +194,11 @@ func (h Hash) String() string {
 	return h.Hex()
 }
 
+func (h Hash) ShortS() string {
+	str := h.Hex()
+	return ShortHex12(str)
+}
+
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
 // without going through the stringer interface used for logging.
 func (h Hash) Format(s fmt.State, c rune) {

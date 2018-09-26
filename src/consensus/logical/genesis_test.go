@@ -25,7 +25,7 @@ func TestBelongGroups(t *testing.T) {
 	belongs.load()
 	gs := belongs.getAllGroups()
 	for _, g := range gs {
-		log.Println(GetIDPrefix(g.GroupID))
+		log.Println(g.GroupID.ShortS())
 	}
 	t.Log(belongs)
 }
@@ -165,7 +165,7 @@ func TestGenesisGroup(t *testing.T) {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
-				log.Printf("processor %v join group gid %v\n", p.getPrefix(), GetIDPrefix(jg.GroupID))
+				log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
@@ -204,7 +204,7 @@ func TestGenesisGroup(t *testing.T) {
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 		if jg == nil {
-			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),GetIDPrefix(sgi.GroupID))
+			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),sgi.GroupID.ShortS())
 			continue
 		}
 		jgByte, _ := json.Marshal(jg)

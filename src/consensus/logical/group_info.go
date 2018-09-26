@@ -186,7 +186,7 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 
 
 //取得指定位置的铸块人
-func (sgi StaticGroupInfo) GetMemberID(i int) groupsig.ID {
+func (sgi *StaticGroupInfo) GetMemberID(i int) groupsig.ID {
 	var m groupsig.ID
 	if i >= 0 && i < len(sgi.Members) {
 		m = sgi.Members[i].GetID()
@@ -259,7 +259,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
+	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.ShortS(), len(g.Members), len(g.MemIndex))
 	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
 			if len(gg.groups) > 0 {
@@ -270,16 +270,16 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 			}
 			gg.groups = append(gg.groups, g)
 			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
+			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", g.GroupID.ShortS(),g.BeginHeight)
 			return true
 		} else {
-			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", GetIDPrefix(g.GroupID), GetIDPrefix(g.PrevGroupID), GetIDPrefix(gg.lastGroup().GroupID))
+			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", g.GroupID.ShortS(), g.PrevGroupID.ShortS(), gg.lastGroup().GroupID.ShortS())
 			return false
 		}
 	} else {
 		if gg.groups[idx].BeginHeight < g.BeginHeight {
 			gg.groups[idx].BeginHeight = g.BeginHeight
-			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
+			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", g.GroupID.ShortS(),gg.groups[idx].BeginHeight,g.BeginHeight)
 		} else {
 			log.Printf("already exist this group, ignored.\n")
 		}
@@ -333,9 +333,9 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
-		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", GetIDPrefix(id))
+		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
-			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", GetIDPrefix(g.GroupID))
+			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
 		}
 		g = &StaticGroupInfo{}
 	}
@@ -351,7 +351,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 
 	gids := make([]string, 0)
 	for _, g := range qualifiedGS {
-		gids = append(gids, GetIDPrefix(g.GroupID))
+		gids = append(gids, g.GroupID.ShortS())
 	}
 
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {

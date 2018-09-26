@@ -106,7 +106,7 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 	} else {
 		// hash不一致的情况下，
 		if vctx.prevBH.Hash != preBH.Hash {
-			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, GetHashPrefix(vctx.prevBH.Hash), GetHashPrefix(preBH.Hash))
+			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
 			preOld := bc.Proc.getBlockHeaderByHash(vctx.prevBH.Hash)
 			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
 			if preOld == nil {
@@ -168,7 +168,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 		if !bRemove  {
 			newCtxs[ctx.castHeight] = ctx
 		} else {
-			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, GetHashPrefix(ctx.prevBH.Hash))
+			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
 		}
 	}
 

@@ -15,10 +15,11 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 		return
 	}
 	p.removeFutureVerifyMsgs(hash)
-
+	mtype := "FUTURE_VERIFY"
 	for _, msg := range futures {
-		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.ProveValue.Uint64(), GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
-		p.doVerify("FUTURE_VERIFY", msg, nil)
+		tlog := newBlockTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
+		tlog.logStart("size %v", len(futures))
+		p.doVerify(mtype, msg, nil, tlog, newBizLog(mtype))
 	}
 
 }
@@ -54,7 +55,8 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 		for _, msg := range futureMsgs {
 			tbh := msg.Block.Header
-			logHalfway("OMB", tbh.Height, tbh.ProveValue.Uint64(), "", "trigger cached future block")
+			tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+			tlog.log( "%v", "trigger cached future block")
 			p.receiveBlock(&msg.Block, preHeader)
 		}
 		p.removeFutureBlockMsgs(preHeader.Hash)
@@ -79,7 +81,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 		return
 	}
 	sgi := NewSGIFromCoreGroup(&group)
-	log.Printf("groupAddEventHandler receive message, groupId=%v\n", GetIDPrefix(sgi.GroupID))
+	log.Printf("groupAddEventHandler receive message, groupId=%v\n", sgi.GroupID.ShortS())
 	p.acceptGroup(sgi)
 }
 

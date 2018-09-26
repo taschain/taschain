@@ -153,7 +153,7 @@ func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
 func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
-	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), GetIDPrefix(g.GroupID))
+	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {

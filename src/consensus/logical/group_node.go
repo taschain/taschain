@@ -37,7 +37,7 @@ func newGroupInitPool() *GroupInitPool {
 
 //接收数据
 func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece model.SharePiece) int {
-	log.Printf("GroupInitPool::ReceiveData, sender=%v, share=%v, pub=%v...\n", GetIDPrefix(id), GetSecKeyPrefix(piece.Share), GetPubKeyPrefix(piece.Pub))
+	log.Printf("GroupInitPool::ReceiveData, sender=%v, share=%v, pub=%v...\n", id.ShortS(), piece.Share.ShortS(), piece.Pub.ShortS())
 	if _, ok := gmd.pool[id.GetHexString()]; !ok {
 		gmd.pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0

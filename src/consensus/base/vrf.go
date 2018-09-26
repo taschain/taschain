@@ -17,6 +17,8 @@ package base
 import (
 	"io"
 	"common/ed25519"
+	"math/big"
+	"common"
 )
 
 // Hash helpers
@@ -42,6 +44,12 @@ type VRFRandomValue ed25519.VRFRandomValue  //RandomValueSize = 32 in bytes
 
 // VRFProve is the output prove of VRF_Ed25519.
 type VRFProve ed25519.VRFProve  //ProveSize = 81 in bytes
+
+func (vp VRFProve) ShortS() string {
+    bi := new(big.Int).SetBytes(vp)
+    hex := bi.Text(16)
+    return common.ShortHex12(hex)
+}
 
 // GenerateKey generates a public/private key pair using entropy from rand.
 // If rand is nil, crypto/rand.Reader will be used.

@@ -72,11 +72,11 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	gis.DummyID = *groupsig.NewIDFromBigInt(bi)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		blog.log("ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
+		blog.log("ingored, dummyId already onchain! dummyId=%v\n", gis.DummyID.ShortS())
 		return
 	}
 
-	blog.log("group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
+	blog.log("group name=%v, group dummy id=%v.\n", gn, gis.DummyID.ShortS())
 	gis.Authority = 777
 	if len(gn) <= 64 {
 		copy(gis.Name[:], gn[:])
@@ -113,20 +113,20 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	creatingGroup := newCreateGroup(&gis, memPkis, group)
 	gm.addCreatingGroup(creatingGroup)
 
-	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), GetIDPrefix(gis.DummyID))
+	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), gis.DummyID.ShortS())
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
-		memIdStrs = append(memIdStrs, GetIDPrefix(mem))
+		memIdStrs = append(memIdStrs, mem.ShortS())
 	}
-	logKeyword("CreateGroupRoutine", GetIDPrefix(gis.DummyID), gm.processor.getPrefix(), "parent %v, members %v", GetIDPrefix(gis.ParentID), strings.Join(memIdStrs, ","))
+	newGroupTraceLog("CreateGroupRoutine", gis.DummyID, gm.processor.GetMinerID()).log( "parent %v, members %v", gis.ParentID.ShortS(), strings.Join(memIdStrs, ","))
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {
 	blog := newBizLog("OMCGR")
-	blog.log("dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+	blog.log("dummyId=%v, sender=%v\n", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		blog.log("hash diff\n")
@@ -135,7 +135,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
 	if preGroup == nil {
-		blog.log("preGroup is nil, preGroupId=%v\n", GetIDPrefix(msg.GI.PrevGroupID))
+		blog.log("preGroup is nil, preGroupId=%v\n", msg.GI.PrevGroupID.ShortS())
 		return false
 	}
 
@@ -155,7 +155,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		return false
 	}
 	if !king.IsEqual(msg.SI.SignMember) {
-		blog.log("not the user for casting! expect user is %v, receive user is %v\n", GetIDPrefix(king), GetIDPrefix(msg.SI.SignMember))
+		blog.log("not the user for casting! expect user is %v, receive user is %v\n", king.ShortS(), msg.SI.SignMember.ShortS())
 		return false
 	}
 
@@ -174,7 +174,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 	for idx, id := range memIds {
 		if !id.IsEqual(msg.IDs[idx]) {
-			blog.log("member diff [%v, %v]", GetIDPrefix(id), GetIDPrefix(msg.IDs[idx]))
+			blog.log("member diff [%v, %v]", id.ShortS(), msg.IDs[idx].ShortS())
 			return  false
 		}
 	}
@@ -184,7 +184,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) bool {
 	blog := newBizLog("OMCGS")
-	blog.log("dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+	blog.log("dummyId=%v, sender=%v\n", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
 		blog.log("hash diff\n")
@@ -210,7 +210,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
 	blog.log("accept result %v\n", accept)
-	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
+	newGroupTraceLog("OMCGS", msg.GI.DummyID, msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
 		sig := creating.gSignGenerator.GetGroupSign()
 		msg.GI.Signature = sig
@@ -223,17 +223,17 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 	group := ConvertStaticGroup2CoreGroup(sgi, isDummy)
 	err := gm.groupChain.AddGroup(group, nil, nil)
 	if err != nil {
-		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, GetIDPrefix(sgi.GIS.DummyID), err.Error())
+		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, sgi.GIS.DummyID.ShortS(), err.Error())
 		return
 	}
 	if isDummy {
-		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", GetIDPrefix(sgi.GIS.DummyID), gm.groupChain.Count())
+		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", sgi.GIS.DummyID.ShortS(), gm.groupChain.Count())
 	} else {
 		mems := make([]groupsig.ID, 0)
 		for _, mem := range sgi.Members {
 			mems = append(mems, mem.ID)
 		}
 		gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
-		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", GetIDPrefix(sgi.GroupID), gm.groupChain.Count())
+		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 	}
 }

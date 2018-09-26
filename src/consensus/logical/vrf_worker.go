@@ -82,7 +82,7 @@ func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *mode
 	pi := base.VRFProve(bh.ProveValue.Bytes())
 	ok, err := base.VRF_verify(miner.VrfPK, pi, preBH.Random)
 	blog := newBizLog("vrfVerifyBlock")
-	blog.log("pi %v", pi)
+	blog.log("pi %v", pi.ShortS())
 	if !ok {
 		return ok ,err
 	}
@@ -118,4 +118,8 @@ func (vrf *vrfWorker) getStatus() int32 {
 
 func (vrf *vrfWorker) workingOn(bh *types.BlockHeader, castHeight uint64) bool {
 	return bh.Hash == vrf.baseBH.Hash && castHeight == vrf.castHeight && !time.Now().After(vrf.expire)
+}
+
+func (vrf *vrfWorker) timeout() bool {
+    return time.Now().After(vrf.expire)
 }
