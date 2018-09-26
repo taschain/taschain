@@ -261,7 +261,7 @@ func (p *Processor) blockProposal() {
 	bh := block.Header
 	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, pi=%v...", bh.Hash.ShortS(), height, pi.ShortS())
-	tlog.logStart("height=%v,pi=%v", bh.Height, pi)
+	tlog.logStart("height=%v,pi=%v", bh.Height, pi.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.getSignKey(*gid)

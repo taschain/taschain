@@ -152,6 +152,13 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
+	//组建组网络
+	mems := make([]groupsig.ID, 0)
+	for _, mem := range sgi.Members {
+		mems = append(mems, mem.ID)
+	}
+	p.NetServer.BuildGroupNet(sgi.GroupID, mems)
+
 	bc := NewBlockContext(p, sgi)
 
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())

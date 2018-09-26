@@ -229,11 +229,11 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 	if isDummy {
 		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", sgi.GIS.DummyID.ShortS(), gm.groupChain.Count())
 	} else {
-		mems := make([]groupsig.ID, 0)
-		for _, mem := range sgi.Members {
-			mems = append(mems, mem.ID)
-		}
-		gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
+		//mems := make([]groupsig.ID, 0)
+		//for _, mem := range sgi.Members {
+		//	mems = append(mems, mem.ID)
+		//}
+		//gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
 		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 	}
 }

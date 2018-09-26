@@ -51,6 +51,7 @@ func (p *Processor) prepareMiner()  {
 	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
+		log.Printf("get group from core, id=%v", coreGroup.Id)
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
@@ -69,6 +70,7 @@ func (p *Processor) prepareMiner()  {
 		}
 		p.acceptGroup(sgi)
 	}
+	log.Printf("prepare finished")
 }
 
 func (p *Processor) Ready() bool {
