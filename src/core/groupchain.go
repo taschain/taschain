@@ -133,7 +133,8 @@ func build(chain *GroupChain,genesisInfo *types.GenesisInfo) {
 		}
 		chain.count = utility.ByteToUInt64(count)
 	} else {
-		chain.AddGroup(&genesisInfo.Group,nil,nil)
+		lastGroup = &genesisInfo.Group
+		chain.AddGroup(lastGroup,nil,nil)
 	}
 	chain.lastGroup = lastGroup
 
