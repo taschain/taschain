@@ -247,7 +247,13 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 	if err !=nil{
 		//todo
 	}
-	state.GetTrie().Hash()
+
+	newHash:=state.GetTrie().Hash()
+	if header.StateTree != newHash{
+		var info string = fmt.Sprint("remote hash=%v,local hash=%v",header.StateTree,newHash)
+		panic(info)
+		//todo
+	}
 
 	sync.BlockSyncer.SetSyncedFirstBlock(true)
 	core.RequestBlockInfoByHeight(m.Peer,core.BlockChainImpl.Height()+1,core.BlockChainImpl.QueryTopBlock().Hash,true)

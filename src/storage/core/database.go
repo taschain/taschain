@@ -40,8 +40,6 @@ type Database interface {
 
 	CopyTrie(Trie) Trie
 
-	CopyCompleteTrie(root common.Hash) Trie
-
 	PushTrie(root common.Hash,t Trie)
 
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
@@ -167,19 +165,6 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 //	return nilsss
 //}
 
-func (db *storageDB) CopyCompleteTrie(root common.Hash) Trie {
-	trie,error := trie.NewTrie(root, db.db)
-	if error != nil{
-		logger.Error("[CopyCompleteTrie] error:%v",error)
-		return nil
-	}
-	_,error = trie.ExpandAll(trie.GetRoot(), db.db)
-	if error != nil{
-		logger.Error("[CopyCompleteTrie] error:%v",error)
-		return nil
-	}
-	return trie
-}
 
 
 

@@ -39,6 +39,10 @@ func (t *LightTrie) Get(key []byte) []byte {
 	return res
 }
 
+func (t *LightTrie)Hash2(nodes map[string]*[]byte,isInit bool){
+
+}
+
 func (t *LightTrie) Root() []byte { return t.Hash().Bytes() }
 
 func (t *LightTrie) Hash() common.Hash {
