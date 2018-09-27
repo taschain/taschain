@@ -111,7 +111,9 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
-
+	stateDB.SetNonce(common.BonusStorageAddress,1)
+	stateDB.SetNonce(common.HeavyDBAddress,1)
+	stateDB.SetNonce(common.LightDBAddress,1)
 	stateDB.IntermediateRoot(false)
 	root, _ := stateDB.Commit(false)
 	triedb.Commit(root, false)

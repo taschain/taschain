@@ -41,12 +41,12 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(true)
-		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
+		hash := accountdb.IntermediateRoot(false)
+		Logger.Infof("TVMExecutor Execute Empty State:%s",hash.Hex())
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
-	Logger.Debugf("TVMExecutor Begin Execute Block %s",block.Header.Hash.Hex())
+	Logger.Debugf("TVMExecutor Begin Execute State %s",block.Header.StateTree.Hex())
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
@@ -136,12 +136,14 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
-	Logger.Debugf("TVMExecutor End Execute Block %s",block.Header.Hash.Hex())
+
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
-	return accountdb.IntermediateRoot(true), receipts, nil
+	state := accountdb.IntermediateRoot(false)
+	Logger.Debugf("TVMExecutor End Execute State %s",state.Hex())
+	return state, receipts, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {

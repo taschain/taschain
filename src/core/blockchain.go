@@ -468,6 +468,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *b
 		Castor:     castor,
 		GroupId:    groupid,
 		TotalPV:    totalPV, //todo:latestBlock != nil?
+		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 	}
 
 	if latestBlock != nil {
@@ -477,7 +478,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *b
 	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
-	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
+	state, err := core.NewAccountDB(block.Header.StateTree, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
 		buffer.WriteString("fail to new statedb, lateset height: ")
@@ -587,7 +588,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 
 	//执行交易
-	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s", preBlock.StateTree.Hex())
+	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(),bh.Height)
 	state, err := core.NewAccountDB(common.BytesToHash(preBlock.StateTree.Bytes()), chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
@@ -691,6 +692,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
+		Logger.Debugf("blockchain update latestStateDB to:%s",b.Header.StateTree.Hex())
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
