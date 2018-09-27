@@ -68,15 +68,15 @@ func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []
 
 func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*types.Transaction,[]*t.Receipt, error) {
 	noExecuteTransactions := []*types.Transaction{}
-	//if 0 == len(block.Transactions) {
-	//	hash := accountdb.IntermediateRoot(true)
-	//	Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
-	//	return hash, nil, nil
-	//}
-	//receipts := make([]*t.Receipt, len(block.Transactions))
+	if 0 == len(block.Transactions) {
+		hash := accountdb.IntermediateRoot(true)
+		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
+		return hash, nil, nil,nil
+	}
+	receipts := make([]*t.Receipt, len(block.Transactions))
 	for i, transaction := range block.Transactions {
-		//var fail = false
-		//var contractAddress common.Address
+		var fail = false
+		var contractAddress common.Address
 		//if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
 		//	controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		//	contractAddress, _ = createContract(accountdb, transaction)
@@ -92,19 +92,30 @@ func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Bl
 		//	}
 		//
 		//} else {
+
+			//todo 账号不存在的情况,或者新增账号删除账号可能会有问题，另外这里性能有问题。每次交易还要判断存不存在账号
 			amount := big.NewInt(int64(transaction.Value))
+			if !IsAccountExist(accountdb,*transaction.Source){
+				noExecuteTransactions = append(noExecuteTransactions,transaction)
+			}
+			if !IsAccountExist(accountdb,*transaction.Target){
+				noExecuteTransactions = append(noExecuteTransactions,transaction)
+			}
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 			} else {
-				//fail = true
+				fail = true
 			}
 		//}
-		//receipt := t.NewReceipt(nil, fail, 0)
-		//receipt.TxHash = transaction.Hash
-		//receipt.ContractAddress = contractAddress
-		//receipts[i] = receipt
+		if len(noExecuteTransactions) > 0{
+			return common.Hash{}, noExecuteTransactions, nil,nil
+		}
+		receipt := t.NewReceipt(nil, fail, 0)
+		receipt.TxHash = transaction.Hash
+		receipt.ContractAddress = contractAddress
+		receipts[i] = receipt
 	}
-	return accountdb.IntermediateRoot(true), receipts, nil
+	return accountdb.IntermediateRoot(true), nil,receipts, nil
 }
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, error) {
@@ -172,7 +183,13 @@ func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (
 	Transfer(accountdb, *transaction.Source, contractAddr, amount)
 	return contractAddr, nil
 }
-
+func IsAccountExist(db vm.AccountDB,addr common.Address)bool{
+	data,_:=db.GetTrie().TryGet(addr[:])
+	if  data == nil{
+		return false
+	}
+	return true
+}
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
