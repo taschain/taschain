@@ -27,7 +27,6 @@ import (
 	"middleware/pb"
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
-	storagecore "storage/core"
 )
 
 type ChainHandler struct {
@@ -230,16 +229,19 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
 	if header == nil {
 		//todo
+		panic("Header is nil!")
 	}
+	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
 	if message.IsInit {
 		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
 	}
-	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(header, message.Transactions, message.IsInit)
+	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.IsInit)
 	core.SendStateInfo(m.Peer, message.Height, stateNodes)
 }
 
 //只有轻节点
 func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
+	//core.Logger.Debugf("into stateInfoHandler")
 	if !core.BlockChainImpl.IsLightMiner() {
 		return
 	}
@@ -254,21 +256,17 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 	}
 	core.BlockChainImpl.InsertStateNode(message.TrieNodes)
 
-	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
-	state, err := storagecore.NewAccountDB(header.StateTree, core.BlockChainImpl.GetSateCache())
-	if err != nil {
-		//todo
+
+	b := core.BlockChainImpl.(*core.LightChain).GetCachedBlock(message.Height)
+	result := core.BlockChainImpl.AddBlockOnChain(b)
+	if result == 0{
+		core.BlockChainImpl.(*core.LightChain).RemoveFromCache(b)
+		sync.BlockSyncer.SetSyncedFirstBlock(true)
+		core.RequestBlockInfoByHeight(m.Peer, core.BlockChainImpl.Height()+1, core.BlockChainImpl.QueryTopBlock().Hash, true)
+	}else {
+		panic("Add block on chain should be success!")
 	}
 
-	newHash := state.GetTrie().Hash()
-	if header.StateTree != newHash {
-		var info string = fmt.Sprint("remote hash=%v,local hash=%v", header.StateTree, newHash)
-		panic(info)
-		//todo
-	}
-
-	sync.BlockSyncer.SetSyncedFirstBlock(true)
-	core.RequestBlockInfoByHeight(m.Peer, core.BlockChainImpl.Height()+1, core.BlockChainImpl.QueryTopBlock().Hash, true)
 }
 
 func (ch ChainHandler) loop() {
@@ -383,13 +381,13 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 
 func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	//收到块信息
-	//core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
 	block := blockInfo.Block
 	if block != nil {
-		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
+		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.QueueNumber)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -399,11 +397,13 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 		if code == 2 {
 			return
 		}
-
-		if core.BlockChainImpl.IsLightMiner() && !sync.BlockSyncer.IsSyncedFirstBlock() {
-			core.ReqStateInfo(sourceId, block.Header.Height+1, nil, true)
+		if code == 3{
+			//轻节点缺少账户状态信息
+			core.ReqStateInfo(sourceId, block.Header.Height, nil, true)
+			core.BlockChainImpl.(*core.LightChain).Cache(block)
 			return
 		}
+
 		if !blockInfo.IsTopBlock {
 			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash, true)
 		} else {

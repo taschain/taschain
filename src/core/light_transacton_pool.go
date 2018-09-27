@@ -30,7 +30,8 @@ func NewLightTransactionPool() *LightTransactionPool {
 
 
 func (pool *LightTransactionPool)AddTransactions(txs []*types.Transaction) error{
-	panic("Not support!")
+	pool.received.PushTxs(txs)
+	return nil
 }
 
 

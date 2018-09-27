@@ -130,7 +130,7 @@ func (bs *blockSyncer) sync() {
 			return
 		}
 		if lightMiner && !bs.syncedFirstBlock {
-			var height uint64 = 1
+			var height uint64 = 0
 			if bestNodeHeight > 101 {
 				height = bestNodeHeight - 100
 			}
@@ -148,11 +148,11 @@ func (bs *blockSyncer) loop() {
 		select {
 		case sourceId := <-bs.ReqTotalQnCh:
 			if lightMiner {
-				return
+				continue
 			}
 			logger.Debugf("[BlockSyncer] Rcv total qn req from:%s", sourceId)
 			if nil == core.BlockChainImpl {
-				return
+				panic("core.BlockChainImpl can not be nil!")
 			}
 			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height())
 		case h := <-bs.TotalQnCh:

@@ -199,7 +199,7 @@ func (n *server) handleMessage(b []byte, from string) {
 		notify.BUS.Publish(notify.StateInfoReq,&msg)
 	case StateInfoMsg:
 		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfoReq,&msg)
+		notify.BUS.Publish(notify.StateInfo,&msg)
 	}
 
 }
