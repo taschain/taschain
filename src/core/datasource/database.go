@@ -515,7 +515,7 @@ func (b *LruMemBatch) Write() error {
 	defer b.db.lock.Unlock()
 
 	for _, kv := range b.writes {
-		b.db.db.Add(kv.k,kv.v)
+		b.db.db.Add(string(kv.k),kv.v)
 	}
 	return nil
 }
