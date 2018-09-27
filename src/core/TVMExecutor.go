@@ -74,7 +74,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				Logger.Debugf("TVMExecutor Execute ContractCall Transaction %s",transaction.Hash.Hex())
 			case types.TransactionTypeBonus:
 				if executor.bc.bonusManager.Contain(transaction.Data,accountdb) == false{
-					Logger.Debugf("TVMExecutor Execute Bonus Transaction %s",transaction.Hash.Hex())
+					Logger.Debugf("TVMExecutor Execute Bonus Transaction")
 					reader := bytes.NewReader(transaction.ExtraData)
 					groupId := make([]byte,common.GroupIdLength)
 					addr := make([]byte,common.AddressLength)
@@ -83,7 +83,9 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 						panic("TVMExecutor Read GroupId Fail")
 					}
 					for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
-						accountdb.AddBalance(common.BytesToAddress(addr),value)
+						address := common.BytesToAddress(addr)
+						accountdb.AddBalance(address,value)
+						Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d",address.GetHexString(),transaction.Value)
 					}
 					executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:],accountdb)
 				} else {
