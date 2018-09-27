@@ -26,8 +26,9 @@ const (
 )
 
 type LightChain struct {
-	config *LightChainConfig
+	config  *LightChainConfig
 	prototypeChain
+	pending map[uint64]*types.Block
 }
 
 // 配置
@@ -78,6 +79,7 @@ func initLightChain() error {
 			isAdujsting:  false,
 			isLightMiner: true,
 		},
+		pending: make(map[uint64]*types.Block),
 	}
 
 	var err error
@@ -136,6 +138,7 @@ func (chain *LightChain) CastBlock(height uint64, nonce uint64, queueNumber uint
 // -1，验证失败
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
+//3 无法验证(缺少账户状态信息) 只有轻节点有
 func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 	chain.lock.Lock("VerifyCastingLightChainBlock")
 	defer chain.lock.Unlock("VerifyCastingLightChainBlock")
@@ -144,12 +147,23 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 }
 
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
-	// 校验父亲块
+
+	Logger.Debugf("Verify block height:%d,preHash:%v", bh.Height, bh.PreHash.String())
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
-	if preBlock == nil {
-		return nil, 2, nil, nil
+	var hasFirstBlock bool
+	//todo 轻节点是否保留创世块？
+	if chain.Height() == 0 {
+		hasFirstBlock = false
+	} else {
+		hasFirstBlock = true
+	}
+
+	if hasFirstBlock {
+		if preBlock == nil {
+			return nil, 2, nil, nil
+		}
 	}
 
 	// 验证交易
@@ -183,6 +197,10 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
+	if !hasFirstBlock {
+		return nil, 3, nil, nil
+	}
+
 	txtree := calcTxTree(transactions)
 
 	if !bytes.Equal(txtree.Bytes(), bh.TxTree.Bytes()) {
@@ -197,6 +215,9 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			bh.Height, bh.StateTree.Hex(), preHash.Hex(), preRoot.Hex())
 	}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	if state == nil {
+		return nil, 3, nil, nil
+	}
 	if err != nil {
 		Logger.Errorf("[LightChain]fail to new statedb, error:%s", err)
 		return nil, -1, nil, nil
@@ -225,6 +246,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 //       -1，验证失败
 //        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
 //        2，未上链(异步进行分叉调整)
+//        3,未上链(缺少账户状态信息)只有轻节点有
 func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
@@ -253,6 +275,9 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	} else {
 		// 验证块是否有问题
 		_, status, state, _ = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		if status == 3 {
+			return 3
+		}
 		if status != 0 {
 			Logger.Errorf("[LightChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
@@ -442,4 +467,24 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 	for _, node := range *nodes {
 		chain.statedb.Put(node.Key, node.Value)
 	}
+}
+
+func (chain *LightChain) Cache(b *types.Block) {
+	chain.lock.Lock("Cache")
+	defer chain.lock.Unlock("Cache")
+
+	chain.pending[b.Header.Height] = b
+}
+
+func (chain *LightChain) GetCachedBlock(blockHeight uint64) *types.Block {
+	chain.lock.RLock("GetCachedBlock")
+	defer chain.lock.RUnlock("GetCachedBlock")
+	return chain.pending[blockHeight]
+}
+
+func (chain *LightChain) RemoveFromCache(b *types.Block) {
+	chain.lock.Lock("Cache")
+	defer chain.lock.Unlock("Cache")
+
+	delete(chain.pending,b.Header.Height)
 }
