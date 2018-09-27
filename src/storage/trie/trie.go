@@ -87,6 +87,26 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
+func NewTrie2(root common.Hash, db *Database,nodes map[common.Hash][]byte) (*Trie, error) {
+	if db == nil {
+		panic("trie.NewTrie called without a database")
+	}
+	trie := &Trie{
+		PublicTrie:PublicTrie{
+			db:           db,
+			originalRoot: root,
+		},
+	}
+	if (root != common.Hash{}) && root != emptyRoot {
+		rootnode, err := trie.resolveHash2(root[:], nil,nodes)
+		if err != nil {
+			return nil, err
+		}
+		trie.RootNode = rootnode
+	}
+	return trie, nil
+}
+
 func (t *Trie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
@@ -119,6 +139,23 @@ func (t *Trie) Get(key []byte) []byte {
 	return res
 }
 
+func (t *Trie) GetValueNode(key []byte, nodes map[common.Hash][]byte){
+	err := t.TryGet2(key,nodes)
+	if err != nil {
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	}
+}
+
+func (t *Trie) TryGet2(key []byte,nodes map[common.Hash][]byte) error {
+	key = keybytesToHex(key)
+	_, newroot, didResolve, err := t.tryGet2(t.RootNode, key, 0,nodes)
+	if err == nil && didResolve {
+		t.RootNode = newroot
+	}
+	return  err
+}
+
+
 func (t *Trie) TryGet(key []byte) ([]byte, error) {
 	key = keybytesToHex(key)
 	value, newroot, didResolve, err := t.tryGet(t.RootNode, key, 0)
@@ -126,6 +163,46 @@ func (t *Trie) TryGet(key []byte) ([]byte, error) {
 		t.RootNode = newroot
 	}
 	return value, err
+}
+
+func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[common.Hash][]byte) (value []byte, newnode node, didResolve bool, err error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, false, nil
+	case valueNode:
+		return n, n, false, nil
+	case *shortNode:
+		if len(key)-pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
+			for k, _ := range nodes {
+				delete(nodes, k)
+			}
+			return nil, n, false, nil
+		}
+		value, newnode, didResolve, err = t.tryGet2(n.Val, key, pos+len(n.Key),nodes)
+		if err == nil && didResolve {
+			n = n.copy()
+			n.Val = newnode
+			n.flags.gen = t.cachegen
+		}
+		return value, n, didResolve, err
+	case *fullNode:
+		value, newnode, didResolve, err = t.tryGet2(n.Children[key[pos]], key, pos+1,nodes)
+		if err == nil && didResolve {
+			n = n.copy()
+			n.flags.gen = t.cachegen
+			n.Children[key[pos]] = newnode
+		}
+		return value, n, didResolve, err
+	case hashNode:
+		child, err := t.resolveHash2(n, key[:pos],nodes)
+		if err != nil {
+			return nil, n, true, err
+		}
+		value, newnode, _, err := t.tryGet2(child, key, pos,nodes)
+		return value, newnode, true, err
+	default:
+		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
+	}
 }
 
 func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode node, didResolve bool, err error) {
@@ -363,6 +440,17 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 	return n, nil
 }
 
+
+func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[common.Hash][]byte) (node, error) {
+	cacheMissCounter.Inc(1)
+	hash := common.BytesToHash(n)
+	enc, err := t.db.Node(hash)
+	nodes[hash] = enc
+	if err != nil || enc == nil {
+		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
+	}
+	return mustDecodeNode(n, enc, t.cachegen), nil
+}
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	cacheMissCounter.Inc(1)

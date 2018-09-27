@@ -70,25 +70,55 @@ func TestNull(t *testing.T) {
 func TestExpandAll(t *testing.T){
 	diskdb, _ := tasdb.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
-	trie, _ := NewTrie(common.Hash{}, triedb)
+	trie, _ := NewTrie(common.Hash{}, triedb)//init
 
 	for i:=0;i<100;i++{
 		updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
 	}
 	root,_:=trie.Commit(nil)
-	mp := make(map[common.Hash]*cachedNode)
-	for key,value:= range trie.db.nodes{
-		mp[key] = value
-	}
 	triedb.Commit(root,false)
+
+
+	trie2, _ := NewTrie(root, triedb)//99
+	for i:=200;i<300;i++{
+		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
+	}
+	root2,_:=trie2.Commit(nil)
+	triedb.Commit(root2,false)
+
+
+	//------------------copy begin----------------------
+	mp := make(map[common.Hash][]byte)
+	copyTrie, _ := NewTrie2(root2, triedb,mp)//99
+	//put trie data
+	for i:=200;i<300;i++{
+		si := strconv.Itoa(i)
+		copyTrie.GetValueNode([]byte(si),mp)
+	}
+	//------------------copy end----------------------
+
+	trie3, _ := NewTrie(root2, triedb)//100
+	for i:=200;i<300;i++{
+		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i + 1000))
+	}
+	root3,_:=trie3.Commit(nil)
+	triedb.Commit(root3,false)
+//-----------------------------------------------------------------------------------------------------------------------------
 	diskdb2, _ := tasdb.NewMemDatabase()
 	triedb2 := NewDatabase(diskdb2)
-	for key,value:= range mp{
-		triedb2.diskdb.Put(key[:],value.blob)
+	for key,value := range mp{
+		diskdb2.Put(key[:],value)
 	}
-	trie2, _ := NewTrie(root, triedb2)
-	vvv:=getString(trie2,"1")
-	fmt.Printf("%v",vvv)
+	trie22, _ := NewTrie(root2, triedb2)//99
+	for i:=200;i<300;i++{
+		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i + 1000))
+	}
+	root33,_:=trie22.Commit(nil)
+
+	if root3!= root33{
+		t.Errorf("wrong error:old hash = %v,new hash= %v", root3,root33)
+	}
+	fmt.Printf("old hash = %v \n new hash= %v",root3,root33)
 }
 
 func TestMissingRoot(t *testing.T) {
