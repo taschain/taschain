@@ -13,10 +13,9 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sync
+package core
 
 import (
-	"core"
 	"sync"
 	"time"
 	"common"
@@ -104,7 +103,7 @@ func (gs *groupSyncer) sync() {
 	t := time.NewTimer(GROUP_HEIGHT_RECEIVE_INTERVAL)
 
 	<-t.C
-	localHeight := core.GroupChainImpl.Count()
+	localHeight := GroupChainImpl.Count()
 	gs.lock.Lock()
 	maxHeight := gs.maxHeight
 	bestNode := gs.bestNode
@@ -133,7 +132,7 @@ func (gs *groupSyncer) loop() {
 		case sourceId := <-gs.ReqHeightCh:
 			//收到组高度请求
 			//logger.Debugf("[GroupSyncer]Rcv group height req from:%s", sourceId)
-			sendGroupHeight(sourceId, core.GroupChainImpl.Count())
+			sendGroupHeight(sourceId, GroupChainImpl.Count())
 		case h := <-gs.HeightCh:
 			//收到来自其他节点的组链高度
 			logger.Debugf("[GroupSyncer]Rcv group height from:%s,height:%d", h.SourceId, h.Height)
@@ -150,14 +149,14 @@ func (gs *groupSyncer) loop() {
 		case gri := <-gs.ReqGroupCh:
 			//收到组请求
 			logger.Debugf("[GroupSyncer]Rcv group from:%s,height:%d\n", gri.SourceId, gri.Height)
-			groups := core.GroupChainImpl.GetSyncGroupsByHeight(gri.Height, 5)
+			groups := GroupChainImpl.GetSyncGroupsByHeight(gri.Height, 5)
 			l := len(groups)
 			if l == 0 {
 				logger.Errorf("[GroupSyncer]Get nil group by id:%s", gri.SourceId)
 				continue
 			} else {
 				var isTop bool
-				if bytes.Equal(groups[l-1].Id, core.GroupChainImpl.LastGroup().Id) {
+				if bytes.Equal(groups[l-1].Id, GroupChainImpl.LastGroup().Id) {
 					isTop = true
 				}
 				sendGroups(gri.SourceId, groups, isTop)
@@ -167,7 +166,7 @@ func (gs *groupSyncer) loop() {
 			//收到组信息
 			logger.Debugf("[GroupSyncer]Rcv groups len :%d,from:%d", len(groupInfos.Groups),groupInfos.SourceId)
 			for _,group := range groupInfos.Groups {
-				e := core.GroupChainImpl.AddGroup(group, nil, nil)
+				e := GroupChainImpl.AddGroup(group, nil, nil)
 				if e != nil {
 					logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 					//TODO  上链失败 异常处理
@@ -176,11 +175,11 @@ func (gs *groupSyncer) loop() {
 			}
 
 			if !groupInfos.IsTopGroup {
-				localHeight := core.GroupChainImpl.Count()
+				localHeight := GroupChainImpl.Count()
 				requestGroupByHeight(groupInfos.SourceId, localHeight+1)
 			} else {
 				if !gs.init {
-					fmt.Printf("group sync init finish,local group height:%d\n", core.GroupChainImpl.Count())
+					fmt.Printf("group sync init finish,local group height:%d\n", GroupChainImpl.Count())
 					gs.init = true
 					continue
 				}

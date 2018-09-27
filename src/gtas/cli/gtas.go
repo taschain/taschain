@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"consensus/groupsig"
 	"taslog"
-	"core/net/sync"
 	_ "net/http/pprof"
 	"net/http"
 	"middleware"
@@ -106,7 +105,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit() {
+		if core.BlockSyncer.IsInit() && core.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
@@ -306,8 +305,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 		return err
 	}
 
-	sync.InitGroupSyncer()
-	sync.InitBlockSyncer(light)
+	core.InitGroupSyncer()
+	core.InitBlockSyncer(light)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)

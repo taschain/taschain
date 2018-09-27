@@ -13,11 +13,10 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package sync
+package core
 
 import (
 	"time"
-	"core"
 	"sync"
 	"taslog"
 	"common"
@@ -103,15 +102,15 @@ func (bs *blockSyncer) sync() {
 	t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
 
 	<-t.C
-	if nil == core.BlockChainImpl {
+	if nil == BlockChainImpl {
 		return
 	}
 	var currentHash common.Hash
-	topBlock := core.BlockChainImpl.QueryTopBlock()
+	topBlock := BlockChainImpl.QueryTopBlock()
 	if topBlock != nil {
 		currentHash = topBlock.Hash
 	}
-	localTotalQN, localHeight := core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height()
+	localTotalQN, localHeight := BlockChainImpl.TotalQN(), BlockChainImpl.Height()
 	bs.lock.Lock()
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
@@ -125,7 +124,7 @@ func (bs *blockSyncer) sync() {
 		return
 	} else {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
-		if core.BlockChainImpl.IsAdujsting() {
+		if BlockChainImpl.IsAdujsting() {
 			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
 		}
@@ -134,10 +133,10 @@ func (bs *blockSyncer) sync() {
 			if bestNodeHeight > 101 {
 				height = bestNodeHeight - 100
 			}
-			core.RequestBlockInfoByHeight(bestNodeId, height, common.Hash{}, false)
+			RequestBlockInfoByHeight(bestNodeId, height, common.Hash{}, false)
 			return
 		}
-		core.RequestBlockInfoByHeight(bestNodeId, localHeight, currentHash, true)
+		RequestBlockInfoByHeight(bestNodeId, localHeight, currentHash, true)
 	}
 
 }
@@ -151,10 +150,10 @@ func (bs *blockSyncer) loop() {
 				continue
 			}
 			logger.Debugf("[BlockSyncer] Rcv total qn req from:%s", sourceId)
-			if nil == core.BlockChainImpl {
+			if nil == BlockChainImpl {
 				panic("core.BlockChainImpl can not be nil!")
 			}
-			sendBlockTotalQn(sourceId, core.BlockChainImpl.TotalQN(), core.BlockChainImpl.Height())
+			sendBlockTotalQn(sourceId, BlockChainImpl.TotalQN(), BlockChainImpl.Height())
 		case h := <-bs.TotalQnCh:
 			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
 			if !bs.init {

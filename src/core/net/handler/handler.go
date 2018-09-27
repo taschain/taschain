@@ -20,7 +20,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"common"
 	"core"
-	"core/net/sync"
 	"utility"
 	"fmt"
 	"middleware/types"
@@ -100,15 +99,15 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		onMessageNewBlock(block)
 
 	case network.ReqGroupChainCountMsg:
-		sync.GroupSyncer.ReqHeightCh <- sourceId
+		core.GroupSyncer.ReqHeightCh <- sourceId
 	case network.GroupChainCountMsg:
 		height := utility.ByteToUInt64(msg.Body)
-		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
-		sync.GroupSyncer.HeightCh <- ghi
+		ghi := core.GroupHeightInfo{Height: height, SourceId: sourceId}
+		core.GroupSyncer.HeightCh <- ghi
 	case network.ReqGroupMsg:
 		baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
-		sync.GroupSyncer.ReqGroupCh <- gri
+		gri := core.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
+		core.GroupSyncer.ReqGroupCh <- gri
 	case network.GroupMsg:
 		m, e := unMarshalGroupInfo(msg.Body)
 		if e != nil {
@@ -116,10 +115,10 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		m.SourceId = sourceId
-		sync.GroupSyncer.GroupCh <- *m
+		core.GroupSyncer.GroupCh <- *m
 
 	case network.ReqBlockChainTotalQnMsg:
-		sync.BlockSyncer.ReqTotalQnCh <- sourceId
+		core.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
 		totalQnInfo, e := unmarshalTotalQnInfo(msg.Body)
 		if e != nil {
@@ -127,7 +126,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		totalQnInfo.SourceId = sourceId
-		sync.BlockSyncer.TotalQnCh <- totalQnInfo
+		core.BlockSyncer.TotalQnCh <- totalQnInfo
 	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
@@ -261,9 +260,10 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 	result := core.BlockChainImpl.AddBlockOnChain(b)
 	if result == 0{
 		core.BlockChainImpl.(*core.LightChain).RemoveFromCache(b)
-		sync.BlockSyncer.SetSyncedFirstBlock(true)
+		core.BlockSyncer.SetSyncedFirstBlock(true)
 		core.RequestBlockInfoByHeight(m.Peer, core.BlockChainImpl.Height()+1, core.BlockChainImpl.QueryTopBlock().Hash, true)
 	}else {
+		core.Logger.Errorf("Before panic,reslult:%d",result)
 		panic("Add block on chain should be success!")
 	}
 
@@ -399,7 +399,6 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 		}
 		if code == 3{
 			//轻节点缺少账户状态信息
-			core.ReqStateInfo(sourceId, block.Header.Height, nil, true)
 			core.BlockChainImpl.(*core.LightChain).Cache(block)
 			return
 		}
@@ -408,9 +407,9 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			core.RequestBlockInfoByHeight(sourceId, block.Header.Height, block.Header.Hash, true)
 		} else {
 			core.BlockChainImpl.SetAdujsting(false)
-			if !sync.BlockSyncer.IsInit() {
+			if !core.BlockSyncer.IsInit() {
 				core.Logger.Errorf("Block sync finished,local block height:%d\n", core.BlockChainImpl.Height())
-				sync.BlockSyncer.SetInit(true)
+				core.BlockSyncer.SetInit(true)
 			}
 		}
 	} else {
@@ -564,7 +563,7 @@ func unMarshalGroups(b []byte) ([]*types.Group, error) {
 	return groups, nil
 }
 
-func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
+func unMarshalGroupInfo(b []byte) (*core.GroupInfo, error) {
 	message := new(tas_middleware_pb.GroupInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -575,7 +574,7 @@ func unMarshalGroupInfo(b []byte) (*sync.GroupInfo, error) {
 	for i, g := range message.Groups {
 		groups[i] = types.PbToGroup(g)
 	}
-	groupInfo := sync.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
+	groupInfo := core.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
 	return &groupInfo, nil
 }
 
@@ -626,13 +625,13 @@ func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
 	return stateInfo, nil
 }
 
-func unmarshalTotalQnInfo(b []byte) (sync.TotalQnInfo, error) {
+func unmarshalTotalQnInfo(b []byte) (core.TotalQnInfo, error) {
 	message := new(tas_middleware_pb.TotalQnInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		core.Logger.Errorf("[handler]unmarshalTotalQnInfo error:%s", e.Error())
-		return sync.TotalQnInfo{}, e
+		return core.TotalQnInfo{}, e
 	}
-	totalQnInfo := sync.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
+	totalQnInfo := core.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
 	return totalQnInfo, nil
 }

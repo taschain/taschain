@@ -197,7 +197,9 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
-	if !hasFirstBlock {
+	if !hasFirstBlock && BlockChainImpl.(*LightChain).GetCachedBlock(bh.Height) == nil {
+		bestNodeId := BlockSyncer.bestNode
+		ReqStateInfo(bestNodeId,bh.Height,nil,true)
 		return nil, 3, nil, nil
 	}
 
@@ -216,6 +218,8 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if state == nil {
+		bestNodeId := BlockSyncer.bestNode
+		ReqStateInfo(bestNodeId,bh.Height,nil,true)
 		return nil, 3, nil, nil
 	}
 	if err != nil {
@@ -228,6 +232,13 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
 	statehash, noExecuteTxs,receipts, err := chain.executor.Execute3(state, b, chain.voteProcessor)
+
+	if len(noExecuteTxs) !=0{
+		bestNodeId := BlockSyncer.bestNode
+		ReqStateInfo(bestNodeId,bh.Height,noExecuteTxs,false)
+		return nil, 3, nil, nil
+	}
+
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
