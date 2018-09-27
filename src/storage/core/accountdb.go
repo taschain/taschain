@@ -63,6 +63,19 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
+func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte) (*AccountDB, error) {
+	tr, err := db.OpenTrieWithMap(root,nodes)
+	if err != nil {
+		return nil, err
+	}
+	return &AccountDB{
+		db:                  db,
+		trie:                tr,
+		accountObjects:      make(map[common.Address]*accountObject),
+		accountObjectsDirty: make(map[common.Address]struct{}),
+	}, nil
+}
+
 func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {

@@ -87,7 +87,7 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
-func NewTrie2(root common.Hash, db *Database,nodes map[common.Hash]*[]byte) (*Trie, error) {
+func NewTrieWithMap(root common.Hash, db *Database,nodes map[string]*[]byte) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}

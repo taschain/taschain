@@ -36,6 +36,8 @@ const (
 type Database interface {
 	OpenTrie(root common.Hash) (Trie, error)
 
+	OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error)
+
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
 	CopyTrie(Trie) Trie
@@ -117,6 +119,17 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	return len(code), err
 }
 
+func (db *storageDB) OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	tr, err := trie.NewTrieWithMap(root, db.db,nodes)
+	if err != nil {
+		return nil, err
+	}
+	return tr, nil
+}
+
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -166,6 +179,9 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 
 
 
+func (db *lightStorageDB)OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error){
+	panic("not support")
+}
 
 func (db *lightStorageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()

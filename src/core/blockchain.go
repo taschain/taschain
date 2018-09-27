@@ -710,7 +710,7 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode {
 	var nodes map[string]*[]byte = make(map[string]*[]byte)
-	state, err := core.NewAccountDB(header.StateTree, chain.stateCache)
+	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache,nodes)
 	if err != nil{
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
 		return nil

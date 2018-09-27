@@ -97,14 +97,16 @@ func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Bl
 			amount := big.NewInt(int64(transaction.Value))
 			if !IsAccountExist(accountdb,*transaction.Source){
 				noExecuteTransactions = append(noExecuteTransactions,transaction)
-			}
-			if !IsAccountExist(accountdb,*transaction.Target){
-				noExecuteTransactions = append(noExecuteTransactions,transaction)
-			}
-			if CanTransfer(accountdb, *transaction.Source, amount) {
-				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-			} else {
-				fail = true
+			}else{
+				if CanTransfer(accountdb, *transaction.Source, amount) {
+					if !IsAccountExist(accountdb,*transaction.Target){
+						noExecuteTransactions = append(noExecuteTransactions,transaction)
+					}else{
+						Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+					}
+				} else {
+					fail = true
+				}
 			}
 		//}
 		if len(noExecuteTransactions) > 0{
