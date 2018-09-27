@@ -87,7 +87,7 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
-func NewTrie2(root common.Hash, db *Database,nodes map[common.Hash][]byte) (*Trie, error) {
+func NewTrie2(root common.Hash, db *Database,nodes map[common.Hash]*[]byte) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}
@@ -139,14 +139,14 @@ func (t *Trie) Get(key []byte) []byte {
 	return res
 }
 
-func (t *Trie) GetValueNode(key []byte, nodes map[common.Hash][]byte){
+func (t *Trie) GetValueNode(key []byte, nodes map[string]*[]byte){
 	err := t.TryGet2(key,nodes)
 	if err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
-func (t *Trie) TryGet2(key []byte,nodes map[common.Hash][]byte) error {
+func (t *Trie) TryGet2(key []byte,nodes map[string]*[]byte) error {
 	key = keybytesToHex(key)
 	_, newroot, didResolve, err := t.tryGet2(t.RootNode, key, 0,nodes)
 	if err == nil && didResolve {
@@ -165,7 +165,7 @@ func (t *Trie) TryGet(key []byte) ([]byte, error) {
 	return value, err
 }
 
-func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[common.Hash][]byte) (value []byte, newnode node, didResolve bool, err error) {
+func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[string]*[]byte) (value []byte, newnode node, didResolve bool, err error) {
 	switch n := (origNode).(type) {
 	case nil:
 		return nil, nil, false, nil
@@ -441,11 +441,11 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 }
 
 
-func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[common.Hash][]byte) (node, error) {
+func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[string]*[]byte) (node, error) {
 	cacheMissCounter.Inc(1)
 	hash := common.BytesToHash(n)
 	enc, err := t.db.Node(hash)
-	nodes[hash] = enc
+	nodes[string(hash[:])] = &enc
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
@@ -466,10 +466,6 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
-func (t *Trie) Hash2(nodes map[string]*[]byte,isInit bool){
-	t.hashRoot2(nodes,isInit)
-}
-
 func (t *Trie) Hash() common.Hash {
 	hash, cached, _ := t.hashRoot(nil, nil)
 	t.RootNode = cached
@@ -484,17 +480,6 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	defer returnHasherToPool(h)
 	return h.hash(t.RootNode, db, true)
 }
-
-func (t *Trie) hashRoot2(nodes map[string]*[]byte,isInit bool) error {
-	if t.RootNode == nil {
-		return nil
-	}
-	h := newHasher2()
-	defer returnHasherToPool(h)
-	_,_,_,err :=h.hash2(t.RootNode, true,nodes,isInit)
-	return err
-}
-
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {
 	return newNodeIterator(t, start)

@@ -24,6 +24,7 @@ import (
 	"storage/core/vm"
 	"fmt"
 	"tvm"
+	"storage/trie"
 )
 
 type TVMExecutor struct {
@@ -54,14 +55,14 @@ func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []
 			//}
 
 		} else {
-			amount := big.NewInt(int64(transaction.Value))
-			if CanTransfer(accountdb, *transaction.Source, amount) {
-				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-			}
+				tr,_:=accountdb.GetTrie().(*trie.Trie)
+				source := *transaction.Source
+				target := *transaction.Target
+				tr.GetValueNode(source[:],nodes)
+				tr.GetValueNode(target[:],nodes)
 		}
 	}
 
-	accountdb.IntermediateRoot2(true,nodes,isInit)
 
 }
 

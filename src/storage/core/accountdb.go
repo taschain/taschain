@@ -408,11 +408,6 @@ func (s *AccountDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	return s.trie.Hash()
 }
 
-func (s *AccountDB) IntermediateRoot2(deleteEmptyObjects bool, nodes map[string]*[]byte, isInit bool) {
-	s.Finalise(deleteEmptyObjects)
-	s.trie.Hash2(nodes, isInit)
-}
-
 func (self *AccountDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.thash = thash
 	self.bhash = bhash
