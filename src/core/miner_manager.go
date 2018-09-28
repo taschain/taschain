@@ -8,9 +8,13 @@ import (
 	"storage/core/vm"
 	"storage/trie"
 	"sync"
+	"github.com/pkg/errors"
 )
 
 var emptyValue [0]byte
+
+const HeavyPrefix  = "heavy"
+const LightPrefix  = "light"
 
 type MinerManager struct {
 	blockchain *BlockChain
@@ -31,45 +35,45 @@ func initMinerManager(blockchain *BlockChain) error {
 	return nil
 }
 
-func (mm *MinerManager) getMinerDatabase(ttype byte) common.Address{
+func (mm *MinerManager) getMinerDatabase(ttype byte) (common.Address,string){
 	switch ttype {
 	case types.MinerTypeLight:
-		return  common.LightDBAddress
+		return  common.LightDBAddress,LightPrefix
 	case types.MinerTypeHeavy:
-		return common.HeavyDBAddress
+		return common.HeavyDBAddress,HeavyPrefix
 	}
-	return common.Address{}
+	return common.Address{},""
 }
 
 //返回值：1成功添加，-1旧数据仍然存在，添加失败
 func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
-	db := mm.getMinerDatabase(miner.Type)
+	db,prefix := mm.getMinerDatabase(miner.Type)
 
 	if mm.blockchain.latestStateDB.GetData(db, string(id)) != nil{
 		return -1
 	} else {
 		data,_ := msgpack.Marshal(miner)
-		mm.blockchain.latestStateDB.SetData(db, string(id), data)
+		mm.blockchain.latestStateDB.SetData(db, prefix+string(id), data)
 		return 1
 	}
 }
 
 func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.AccountDB) {
 	Logger.Infof("MinerManager AddGenesesMiner")
-	dbh := mm.getMinerDatabase(types.MinerTypeHeavy)
-	dbl := mm.getMinerDatabase(types.MinerTypeLight)
+	dbh,preh := mm.getMinerDatabase(types.MinerTypeHeavy)
+	dbl,prel := mm.getMinerDatabase(types.MinerTypeLight)
 
 	for _,miner := range miners{
-		if accountdb.GetData(dbh, string(miner.Id)) == nil{
+		if accountdb.GetData(dbh, preh + string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeHeavy
 			data,_ := msgpack.Marshal(miner)
-			accountdb.SetData(dbh, string(miner.Id), data)
+			accountdb.SetData(dbh, preh + string(miner.Id), data)
 			Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
 		}
-		if accountdb.GetData(dbl, string(miner.Id)) == nil{
+		if accountdb.GetData(dbl, prel + string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeLight
 			data,_ := msgpack.Marshal(miner)
-			accountdb.SetData(dbl, string(miner.Id), data)
+			accountdb.SetData(dbl, prel + string(miner.Id), data)
 			Logger.Debugf("AddGenesesMiner Light %+v %+v",miner.Id,data)
 		}
 	}
@@ -81,8 +85,8 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte) *types.Miner {
 			return result.(*types.Miner)
 		}
 	}
-	db := mm.getMinerDatabase(ttype)
-	data := mm.blockchain.latestStateDB.GetData(db,string(id))
+	db,prefix := mm.getMinerDatabase(ttype)
+	data := mm.blockchain.latestStateDB.GetData(db,prefix + string(id))
 	if data != nil {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
@@ -98,8 +102,8 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte){
 	if ttype == types.MinerTypeHeavy {
 		mm.cache.Remove(string(id))
 	}
-	db := mm.getMinerDatabase(ttype)
-	mm.blockchain.latestStateDB.SetData(db,string(id),emptyValue[:])
+	db,prefix := mm.getMinerDatabase(ttype)
+	mm.blockchain.latestStateDB.SetData(db,prefix+string(id),emptyValue[:])
 }
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
@@ -112,9 +116,9 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
 		if ttype == types.MinerTypeHeavy {
 			mm.cache.Remove(string(id))
 		}
-		db := mm.getMinerDatabase(ttype)
+		db,prefix := mm.getMinerDatabase(ttype)
 		data,_ := msgpack.Marshal(miner)
-		mm.blockchain.latestStateDB.SetData(db,string(id),data)
+		mm.blockchain.latestStateDB.SetData(db,prefix + string(id),data)
 		return true
 	} else {
 		return false
@@ -156,12 +160,12 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 }
 
 func (mm *MinerManager) MinerIterator(ttype byte,accountdb vm.AccountDB) *MinerIterator{
-	db := mm.getMinerDatabase(ttype)
+	db,prefix := mm.getMinerDatabase(ttype)
 	if accountdb == nil{
 		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
 		accountdb = mm.blockchain.latestStateDB
 	}
-	iterator := &MinerIterator{iter:accountdb.DataIterator(db,"")}
+	iterator := &MinerIterator{iter:accountdb.DataIterator(db,prefix)}
 	if ttype == types.MinerTypeHeavy{
 		iterator.cache = mm.cache
 	}
@@ -184,11 +188,14 @@ func (mi *MinerIterator) Current() (*types.Miner,error){
 	}
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iter.Value,&miner)
-	//if err != nil {
-	//	Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
-	//} else {
-	//	Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
-	//}
+	if err != nil {
+		Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
+	} else {
+		Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
+	}
+	if len(miner.Id) == 0{
+		err = errors.New("empty miner")
+	}
 	return &miner,err
 }
 

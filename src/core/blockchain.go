@@ -693,6 +693,11 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		Logger.Debugf("blockchain update latestStateDB to:%s",b.Header.StateTree.Hex())
+		//iter := state.DataIterator(common.HeavyDBAddress,"heavy")
+		//for iter.Next(){
+		//	Logger.Debugf("DataIterator Key:%+v", iter.Key)
+		//}
+
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
