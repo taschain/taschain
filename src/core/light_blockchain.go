@@ -88,7 +88,8 @@ func initLightChain() error {
 	if err != nil {
 		return err
 	}
-	chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
+	//chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
+	chain.blocks, err = datasource.NewDatabase("block")
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
