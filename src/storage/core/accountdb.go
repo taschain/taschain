@@ -280,7 +280,7 @@ func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObjec
 	}
 
 	obj := newAccountObject(self, addr, data, self.MarkAccountObjectDirty)
-	self.setAccountObject(obj)
+	//self.setAccountObject(obj)
 	return obj
 }
 
