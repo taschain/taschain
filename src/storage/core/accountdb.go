@@ -294,7 +294,9 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 		return obj
 	}
 	obj := self.getAccountObjectFromTrie(addr)
-	self.setAccountObject(obj)
+	if obj != nil {
+		self.setAccountObject(obj)
+	}
 	return obj
 }
 
