@@ -93,13 +93,13 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	bh := block.Header
 
 	blog := newBizLog("doAddOnChain")
-	blog.log("start, height=%v, qn=%v", bh.Height, 0)
+	blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	result = p.MainChain.AddBlockOnChain(block)
 
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	blog.log("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.ProveValue, result)
+	blog.log("proc(%v) core.AddBlockOnChain, height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newBlockTraceLog("doAddOnChain", bh.Hash, castor)
 	tlog.log("result=%v,castor=%v", result, castor)

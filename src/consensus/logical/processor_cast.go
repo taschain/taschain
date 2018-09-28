@@ -322,7 +322,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	}
 
 	bonus, tx := p.MainChain.GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
-	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash, bonus.TargetIds, bh.Height)
+	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
 	tlog := newBlockTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
 	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
