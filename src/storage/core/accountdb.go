@@ -293,8 +293,9 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 		}
 		return obj
 	}
-
-	return self.getAccountObjectFromTrie(addr)
+	obj := self.getAccountObjectFromTrie(addr)
+	self.setAccountObject(obj)
+	return obj
 }
 
 func (self *AccountDB) setAccountObject(object *accountObject) {
