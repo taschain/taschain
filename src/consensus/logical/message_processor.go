@@ -276,7 +276,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	}
 	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
 
-	blog.log("proc(%v) begin OMB, group=%v, height=%v, hash=%v...\n", p.getPrefix(),
+	blog.log("proc(%v) begin OMB, group=%v, height=%v, hash=%v...", p.getPrefix(),
 		gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
 
 	block := &cbm.Block

@@ -51,7 +51,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader) {
 	blog := newBizLog("checkCreateGroup")
 	defer func() {
-		blog.log("topHeight=%v, create %v\n", topHeight, create)
+		blog.log("topHeight=%v, create %v", topHeight, create)
 	}()
 	if topHeight <= model.Param.CreateGroupInterval {
 		return
