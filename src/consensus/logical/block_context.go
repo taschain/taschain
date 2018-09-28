@@ -208,7 +208,7 @@ func (bc *BlockContext) StartCast(castHeight uint64, expire time.Time, baseBH *t
 		return false
 	}
 	if !vctx.isCasting() {
-		bc.replaceVerifyCtx(idx, castHeight, expire, baseBH)
+		vctx = bc.replaceVerifyCtx(idx, castHeight, expire, baseBH)
 	}
 
 	bc.setCurrentVerifyCtx(vctx)
