@@ -267,15 +267,7 @@ func (self *AccountDB) deleteAccountObject(stateObject *accountObject) {
 	self.setError(self.trie.TryDelete(addr[:]))
 }
 
-func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
-
-	if obj := self.accountObjects[addr]; obj != nil {
-		if obj.deleted {
-			return nil
-		}
-		return obj
-	}
-
+func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObject *accountObject) {
 	enc, err := self.trie.TryGet(addr[:])
 	if len(enc) == 0 {
 		self.setError(err)
@@ -290,6 +282,19 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 	obj := newAccountObject(self, addr, data, self.MarkAccountObjectDirty)
 	self.setAccountObject(obj)
 	return obj
+}
+
+
+func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
+
+	if obj := self.accountObjects[addr]; obj != nil {
+		if obj.deleted {
+			return nil
+		}
+		return obj
+	}
+
+	return self.getAccountObjectFromTrie(addr)
 }
 
 func (self *AccountDB) setAccountObject(object *accountObject) {
@@ -329,7 +334,7 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 }
 
 func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
-	stateObject := self.GetOrNewAccountObject(addr)
+	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
 		return stateObject.DataIterator(self.db,[]byte(prefix))
 	} else {
