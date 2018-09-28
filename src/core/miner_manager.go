@@ -64,11 +64,13 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.Accou
 			miner.Type = types.MinerTypeHeavy
 			data,_ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
+			Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
 		}
 		if accountdb.GetData(dbl, string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeLight
 			data,_ := msgpack.Marshal(miner)
 			accountdb.SetData(dbl, string(miner.Id), data)
+			Logger.Debugf("AddGenesesMiner Light %+v %+v",miner.Id,data)
 		}
 	}
 }
@@ -128,11 +130,11 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 	//if err != nil{
 	//	panic(err)
 	//}
-	mm.lock.Lock()
-	defer mm.lock.Unlock()
+	//mm.lock.Lock()
+	//defer mm.lock.Unlock()
 	iter := mm.MinerIterator(types.MinerTypeHeavy,nil)
 	var total uint64 = 0
-	for ;iter.Next();{
+	for iter.Next(){
 		miner,_ := iter.Current()
 		if height >= miner.ApplyHeight{
 			if miner.Status == types.MinerStatusNormal || height < miner.AbortHeight{
@@ -141,13 +143,14 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 		}
 	}
 	if total == 0{
-		Logger.Errorf("GetTotalStakeByHeight get0 %d %s",height,mm.blockchain.latestBlock.StateTree.Hex())
+		Logger.Errorf("GetTotalStakeByHeight get 0 %d %s",height,mm.blockchain.latestBlock.StateTree.Hex())
 		iter = mm.MinerIterator(types.MinerTypeHeavy,nil)
 		for ;iter.Next(); {
 			miner, _ := iter.Current()
 			Logger.Debugf("GetTotalStakeByHeight %+v",miner)
 		}
-
+	} else {
+		Logger.Debugf("GetTotalStakeByHeight get %d",total)
 	}
 	return total
 }
@@ -155,6 +158,7 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 func (mm *MinerManager) MinerIterator(ttype byte,accountdb vm.AccountDB) *MinerIterator{
 	db := mm.getMinerDatabase(ttype)
 	if accountdb == nil{
+		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
 		accountdb = mm.blockchain.latestStateDB
 	}
 	iterator := &MinerIterator{iter:accountdb.DataIterator(db,"")}
@@ -180,6 +184,11 @@ func (mi *MinerIterator) Current() (*types.Miner,error){
 	}
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iter.Value,&miner)
+	//if err != nil {
+	//	Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
+	//} else {
+	//	Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
+	//}
 	return &miner,err
 }
 

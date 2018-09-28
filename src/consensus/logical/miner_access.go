@@ -56,6 +56,7 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO 
 	mds := make([]*model.MinerDO, 0)
 	for iter.Next() {
 		if curr, err := iter.Current(); err != nil {
+			continue
 			access.blog.log("minerManager iterator error %v", err)
 		} else {
 			md := convert2MinerDO(curr)
