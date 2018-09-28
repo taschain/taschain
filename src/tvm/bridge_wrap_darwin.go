@@ -495,7 +495,8 @@ func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 		}
 		buf.WriteString("}")
 	default:
-		panic("")
+		fmt.Println(value)
+		//panic("")
 	}
 }
 
