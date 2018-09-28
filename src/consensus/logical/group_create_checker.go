@@ -85,7 +85,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
 	allCandidates := gchecker.access.getCanJoinGroupMinersAt(height)
-	blog.log("=======allCandidates %v", allCandidates)
+	blog.log("=======allCandidates height %v, %v", height, allCandidates)
 	if len(allCandidates) < min {
 		return
 	}

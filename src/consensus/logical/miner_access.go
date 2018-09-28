@@ -69,7 +69,7 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO 
 func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO {
     miners := access.getAllMinerDOByType(types.MinerTypeLight)
     rets := make([]model.MinerDO, 0)
-
+	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
