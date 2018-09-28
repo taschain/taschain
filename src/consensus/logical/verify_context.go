@@ -283,17 +283,17 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	}
 
 	idPrefix := vc.blockCtx.Proc.getPrefix()
-	calcQN := vc.calcQN(bh.CurTime)
-	if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
-		log.Printf("calcQN %v, receiveQN %v\n", calcQN, bh.QueueNumber)
-		return CBMR_IGNORE_QN_ERROR
-	}
+	//calcQN := vc.calcQN(bh.CurTime)
+	//if calcQN < 0 || uint64(calcQN) != bh.QueueNumber { //计算的qn错误
+	//	log.Printf("calcQN %v, receiveQN %v\n", calcQN, bh.QueueNumber)
+	//	return CBMR_IGNORE_QN_ERROR
+	//}
 
-	calcKingPos := vc.getCastorPosByQN(calcQN)
-	receiveKingPos := summary.CastorPos
-	if calcKingPos != receiveKingPos { //该qn对应的king错误
-		return CBMR_IGNORE_KING_ERROR
-	}
+	//calcKingPos := vc.getCastorPosByQN(calcQN)
+	//receiveKingPos := summary.CastorPos
+	//if calcKingPos != receiveKingPos { //该qn对应的king错误
+	//	return CBMR_IGNORE_KING_ERROR
+	//}
 
 	i, info := vc.consensusFindSlot(int64(bh.QueueNumber))
 	log.Printf("proc(%v) consensusFindSlot, qn=%v, i=%v, info=%v.\n", idPrefix, bh.QueueNumber, i, info)
