@@ -22,6 +22,7 @@ import (
 
 	"golang.org/x/crypto/sha3"
 	"common"
+	"fmt"
 )
 
 type hasher struct {
@@ -147,6 +148,7 @@ func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte,needStore bo
 		hash2 := common.BytesToHash(hash)
 		vl:=h.tmp.Bytes()
 		nodes[string(hash2[:])] =&vl
+		fmt.Printf("---------------------hash2 put hash=%x\n",hash2[:])
 	}
 	return hash, nil
 }
@@ -169,7 +171,7 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 		h.sha.Reset()
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
-		//fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
+		fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
 	}
 	if db != nil {
 

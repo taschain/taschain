@@ -176,9 +176,6 @@ func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[string]*[]by
 		return n, n, false, nil
 	case *shortNode:
 		if len(key)-pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
-			for k, _ := range nodes {
-				delete(nodes, k)
-			}
 			return nil, n, false, nil
 		}
 		value, newnode, didResolve, err = t.tryGet2(n.Val, key, pos+len(n.Key),nodes)
@@ -449,6 +446,7 @@ func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[string]*[]byte) 
 	hash := common.BytesToHash(n)
 	enc, err := t.db.Node(hash)
 	nodes[string(hash[:])] = &enc
+	fmt.Printf("----------------try get node hash=%x\n",hash[:])
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
