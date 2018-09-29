@@ -134,42 +134,53 @@ func TestExpandAll2(t *testing.T){
 	fmt.Printf("轻节点 after 100 tx:%v \n",root33)
 }
 
+
 func TestExpandAll(t *testing.T){
 	diskdb, _ := tasdb.NewMemDatabase()
-	triedb := NewDatabase(diskdb) 
+	triedb := NewDatabase(diskdb)
+	mp := make(map[string]*[]byte)
 	trie, _ := NewTrie(common.Hash{}, triedb)//init
 
-	for i:=0;i<100;i++{
+	for i:=0;i<1;i++{
 		updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
 	}
 	root,_:=trie.Commit(nil)
 	triedb.Commit(root,false)
 
+	fmt.Printf("--------------------------over1-----------------------------------root= %x\n",root)
+
 
 	trie2, _ := NewTrie(root, triedb)//99
-	for i:=200;i<300;i++{
+	for i:=2;i<3;i++{
 		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
 	}
 	root2,_:=trie2.Commit(nil)
 	triedb.Commit(root2,false)
 
 
+	copyTrie2, _ := NewTrieWithMap(root2, triedb,mp)//99
+	si := strconv.Itoa(2)
+	copyTrie2.GetValueNode([]byte(si),mp)
+
+	fmt.Printf("--------------------------over2-----------------------------------root= %x\n",root2)
+
 	//------------------copy begin----------------------
-	mp := make(map[string]*[]byte)
+
 	copyTrie, _ := NewTrieWithMap(root2, triedb,mp)//99
 	//put trie data
-	for i:=200;i<300;i++{
+	for i:=3;i<4;i++{
 		si := strconv.Itoa(i)
 		copyTrie.GetValueNode([]byte(si),mp)
 	}
 	//------------------copy end----------------------
 
 	trie3, _ := NewTrie(root2, triedb)//100
-	for i:=200;i<400;i++{
+	for i:=2;i<4;i++{
 		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root3,_:=trie3.Commit(nil)
 	triedb.Commit(root3,false)
+	fmt.Printf("--------------------------over3-----------------------------------root= %x\n",root3)
 //-----------------------------------------------------------------------------------------------------------------------------
 	diskdb2, _ := tasdb.NewMemDatabase()
 	triedb2 := NewDatabase(diskdb2)
@@ -177,13 +188,13 @@ func TestExpandAll(t *testing.T){
 		diskdb2.Put(([]byte)(key),*value)
 	}
 	trie22, _ := NewTrie(root2, triedb2)//99
-	for i:=200;i<400;i++{
+	for i:=2;i<4;i++{
 		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root33,_:=trie22.Commit(nil)
 
 	if root3!= root33{
-		t.Errorf("wrong error:old hash = %v,new hash= %v", root3,root33)
+		t.Errorf("wrong error:old hash = %x,new hash= %x", root3,root33)
 	}
 }
 

@@ -448,6 +448,7 @@ func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[string]*[]byte) 
 	hash := common.BytesToHash(n)
 	enc, err := t.db.Node(hash)
 	nodes[string(hash[:])] = &enc
+	fmt.Printf("----------------try get node hash=%x\n",hash[:])
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
