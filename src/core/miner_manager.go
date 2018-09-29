@@ -47,6 +47,7 @@ func (mm *MinerManager) getMinerDatabase(ttype byte) (common.Address,string){
 
 //返回值：1成功添加，-1旧数据仍然存在，添加失败
 func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
+	Logger.Debugf("MinerManager AddMiner %d",miner.Type)
 	db,prefix := mm.getMinerDatabase(miner.Type)
 
 	if mm.blockchain.latestStateDB.GetData(db, string(id)) != nil{
@@ -99,6 +100,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte) *types.Miner {
 }
 
 func (mm *MinerManager) RemoveMiner(id []byte, ttype byte){
+	Logger.Debugf("MinerManager RemoveMiner %d",ttype)
 	if ttype == types.MinerTypeHeavy {
 		mm.cache.Remove(string(id))
 	}
@@ -108,6 +110,7 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte){
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
 func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
+	Logger.Debugf("MinerManager AbortMiner %d",ttype)
 	miner := mm.GetMinerById(id,ttype)
 
 	if miner != nil && miner.Status == types.MinerStatusNormal{
@@ -188,9 +191,10 @@ func (mi *MinerIterator) Current() (*types.Miner,error){
 	}
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iter.Value,&miner)
-	//if err != nil {
-	//	Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
-	//} else {
+	if err != nil {
+		Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
+	}
+	//else {
 	//	Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
 	//}
 	if len(miner.Id) == 0{

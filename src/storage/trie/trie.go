@@ -382,7 +382,7 @@ func (t *Trie) Fstring() string{
 	if t.root == nil{
 		return ""
 	}
-	return t.root.fstring("")
+	return t.root.fstring("",t)
 }
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {

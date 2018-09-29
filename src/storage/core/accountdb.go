@@ -230,6 +230,11 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
+	//if bytes.Equal(addr.Bytes(),common.HeavyDBAddress.Bytes()){
+	//	logger.Debugf("AccountDB SetData Key:%s Value:%v",key,value)
+	//	debug.PrintStack()
+	//}
+
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)
@@ -484,8 +489,11 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	return root, err
 }
 
-func (s *AccountDB) Fstring(){
-	if s.trie != nil {
-		fmt.Print(s.trie.Fstring())
-	}
+func (s *AccountDB) Fstring(address common.Address) string{
+	obj := s.getAccountObjectFromTrie(address)
+	return obj.fstring()
+	//if s.trie != nil {
+	//	fmt.Print(s.trie.Fstring())
+	//}
+	return ""
 }
