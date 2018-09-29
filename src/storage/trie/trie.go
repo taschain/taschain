@@ -145,6 +145,7 @@ func (t *Trie) Get(key []byte) []byte {
 func (t *Trie) GetValueNode(key []byte, nodes map[string]*[]byte){
 	err := t.TryGet2(key,nodes)
 	if err != nil {
+		fmt.Printf("Unhandled trie error: %s", err.Error())
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
@@ -176,9 +177,6 @@ func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[string]*[]by
 		return n, n, false, nil
 	case *shortNode:
 		if len(key)-pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
-			for k, _ := range nodes {
-				delete(nodes, k)
-			}
 			return nil, n, false, nil
 		}
 		value, newnode, didResolve, err = t.tryGet2(n.Val, key, pos+len(n.Key),nodes)
@@ -207,6 +205,7 @@ func (t *Trie) tryGet2(origNode node, key []byte, pos int,nodes map[string]*[]by
 		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
 	}
 }
+
 
 func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode node, didResolve bool, err error) {
 	switch n := (origNode).(type) {
