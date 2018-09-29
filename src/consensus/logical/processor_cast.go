@@ -214,6 +214,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log( "height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		p.NetServer.BroadcastNewBlock(cbm, next)
+		blog.log("bh hash %v, bh sign %v, bh rand %v", block.Header.Hash.ShortS(), block.Header.Signature, block.Header.Random)
 		blog.log("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 
@@ -234,8 +235,8 @@ func (p *Processor) blockProposal() {
 	}
 	height := worker.castHeight
 
-	totalStake := p.minerReader.getTotalStake(top.Height)
-	blog.log("totalStake height=%v, stake=%v", top.Height, totalStake)
+	totalStake := p.minerReader.getTotalStake(height)
+	blog.log("totalStake height=%v, stake=%v", height, totalStake)
 	pi, err := worker.prove(totalStake)
 	if err != nil {
 		blog.log("vrf prove not ok! %v", err)
@@ -279,7 +280,7 @@ func (p *Processor) blockProposal() {
 		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.ProveValue.Uint64(),-1,-1,
 			time.Now().UnixNano(),p.GetMinerID().ShortS(),gid.ShortS(),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
 	} else {
-		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
+		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}
 
 }

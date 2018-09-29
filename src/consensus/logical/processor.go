@@ -129,6 +129,7 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 		return false
 	}
 
+	blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
 	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
 		blog.log("verifyGroupSig fail")
 		return false
@@ -173,7 +174,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
 	if !groupInfo.GroupID.IsValid() {
-		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v\n", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
+		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
 		return false
 	}
 

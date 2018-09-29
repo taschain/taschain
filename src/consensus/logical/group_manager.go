@@ -72,11 +72,11 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	gis.DummyID = *groupsig.NewIDFromBigInt(bi)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		blog.log("ingored, dummyId already onchain! dummyId=%v\n", gis.DummyID.ShortS())
+		blog.log("ingored, dummyId already onchain! dummyId=%v", gis.DummyID.ShortS())
 		return
 	}
 
-	blog.log("group name=%v, group dummy id=%v.\n", gn, gis.DummyID.ShortS())
+	blog.log("group name=%v, group dummy id=%v.", gn, gis.DummyID.ShortS())
 	gis.Authority = 777
 	if len(gn) <= 64 {
 		copy(gis.Name[:], gn[:])
@@ -126,22 +126,22 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {
 	blog := newBizLog("OMCGR")
-	blog.log("dummyId=%v, sender=%v\n", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
+	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
-		blog.log("hash diff\n")
+		blog.log("hash diff")
 		return false
 	}
 
 	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
 	if preGroup == nil {
-		blog.log("preGroup is nil, preGroupId=%v\n", msg.GI.PrevGroupID.ShortS())
+		blog.log("preGroup is nil, preGroupId=%v", msg.GI.PrevGroupID.ShortS())
 		return false
 	}
 
 	memHash := model.GenMemberHashByIds(msg.IDs)
 	if memHash != gis.MemberHash {
-		blog.log("memberHash diff\n")
+		blog.log("memberHash diff")
 		return false
 	}
 	bh := gm.mainChain.QueryBlockByHeight(gis.TopHeight)
@@ -155,7 +155,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		return false
 	}
 	if !king.IsEqual(msg.SI.SignMember) {
-		blog.log("not the user for casting! expect user is %v, receive user is %v\n", king.ShortS(), msg.SI.SignMember.ShortS())
+		blog.log("not the user for casting! expect user is %v, receive user is %v", king.ShortS(), msg.SI.SignMember.ShortS())
 		return false
 	}
 
@@ -168,7 +168,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		memIds[idx] = mem.ID
 	}
 	if len(memIds) != len(msg.IDs) {
-		blog.log("member len not equal, expect len %v, receive len %v\n", len(memIds), len(msg.IDs))
+		blog.log("member len not equal, expect len %v, receive len %v", len(memIds), len(msg.IDs))
 		return  false
 	}
 
@@ -184,32 +184,32 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) bool {
 	blog := newBizLog("OMCGS")
-	blog.log("dummyId=%v, sender=%v\n", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
+	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
-		blog.log("hash diff\n")
+		blog.log("hash diff")
 		return false
 	}
 
 	creating := gm.creatingGroups.getCreatingGroup(gis.DummyID)
 	if creating == nil {
-		blog.log("get creating group nil!\n")
+		blog.log("get creating group nil!")
 		return false
 	}
 
 	memHash := model.GenMemberHashByIds(creating.getIDs())
 	if memHash != gis.MemberHash {
-		blog.log("memberHash diff\n")
+		blog.log("memberHash diff")
 		return false
 	}
 
 	height := gm.processor.MainChain.QueryTopBlock().Height
 	if gis.ReadyTimeout(height) {
-		blog.log("gis expired!\n")
+		blog.log("gis expired!")
 		return false
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
-	blog.log("accept result %v\n", accept)
+	blog.log("accept result %v", accept)
 	newGroupTraceLog("OMCGS", msg.GI.DummyID, msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
 		sig := creating.gSignGenerator.GetGroupSign()

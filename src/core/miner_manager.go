@@ -188,11 +188,11 @@ func (mi *MinerIterator) Current() (*types.Miner,error){
 	}
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iter.Value,&miner)
-	if err != nil {
-		Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
-	} else {
-		Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
-	}
+	//if err != nil {
+	//	Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iter.Key, err, mi.iter.Value)
+	//} else {
+	//	Logger.Debugf("MinerIterator Unmarshal Normal %+v %+v %+v", mi.iter.Key, miner, mi.iter.Value)
+	//}
 	if len(miner.Id) == 0{
 		err = errors.New("empty miner")
 	}

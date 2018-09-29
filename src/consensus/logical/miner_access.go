@@ -71,6 +71,7 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
     rets := make([]model.MinerDO, 0)
 	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
+		access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
 		}
@@ -79,7 +80,8 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 }
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
-	return access.minerPool.GetTotalStakeByHeight(h)
+	//return access.minerPool.GetTotalStakeByHeight(h)
+	return 30
 }
 
 //func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {

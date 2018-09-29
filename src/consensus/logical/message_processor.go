@@ -57,14 +57,14 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 	gpk := p.getGroupPubKey(gid)
 
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
-		blog.log("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.\n", mtype,
+		blog.log("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.", mtype,
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
 	}
 
 	if slot.IsVerified() {
 		p.SuccessNewBlock(bh, vctx, slot, gid) //上链和组外广播
-		//blog.log("%v remove verifycontext from bccontext! remain size=%v\n", mtype, len(bc.verifyContexts))
+		//blog.log("%v remove verifycontext from bccontext! remain size=%v", mtype, len(bc.verifyContexts))
 	}
 
 }
@@ -205,7 +205,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	}
 
 	if p.blockOnChain(bh) {
-		//blog.log("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
+		//blog.log("%v receive block already onchain! , height = %v", mtype, bh.Height)
 		return
 	}
 
@@ -244,7 +244,7 @@ func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) b
 		}
 	} else {
 		//丢弃该块
-		newBizLog("receiveBlock").log("received invalid new block, height = %v.\n", block.Header.Height)
+		newBizLog("receiveBlock").log("received invalid new block, height = %v.", block.Header.Height)
 	}
 	return false
 }
@@ -270,7 +270,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	}()
 
 	if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
-		//blog.log("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
+		//blog.log("OMB receive block already on chain! bh=%v", p.blockPreview(cbm.Block.Header))
 		result = "已经在链上"
 		return
 	}
@@ -291,7 +291,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 	verify := p.verifyGroupSign(cbm, preHeader)
 	if !verify {
 		result = "组签名未通过"
-		blog.log("OMB verifyGroupSign result=%v.\n", verify)
+		blog.log("OMB verifyGroupSign result=%v.", verify)
 		return
 	}
 
@@ -302,7 +302,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		result = "上链失败"
 	}
 
-	//blog.log("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
+	//blog.log("proc(%v) end OMB, group=%v, sender=%v...", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return
 }
 
@@ -349,7 +349,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	blog := newBizLog("OMGI")
-	blog.log("proc(%v) begin, sender=%v, dummy_gid=%v...\n", p.getPrefix(), grm.SI.GetID().ShortS(), grm.GI.DummyID.ShortS())
+	blog.log("proc(%v) begin, sender=%v, dummy_gid=%v...", p.getPrefix(), grm.SI.GetID().ShortS(), grm.GI.DummyID.ShortS())
 	tlog := newGroupTraceLog("OMGI", grm.GI.DummyID, grm.SI.GetID())
 	
 	if !grm.GI.CheckMemberHash(grm.MEMS) {
@@ -360,7 +360,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	}
 	parentGroup := p.getGroup(grm.GI.ParentID)
 	if !parentGroup.CastQualified(grm.GI.TopHeight) {
-		blog.log("parent group has no qualify to cast group. gid=%v, height=%v\n", parentGroup.GroupID.ShortS(), grm.GI.TopHeight)
+		blog.log("parent group has no qualify to cast group. gid=%v, height=%v", parentGroup.GroupID.ShortS(), grm.GI.TopHeight)
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
@@ -370,7 +370,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	}
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, grm.SI.DataHash.Bytes(), grm.GI.Signature) {
-		blog.log("OMGI verify parent groupsig fail!\n")
+		blog.log("OMGI verify parent groupsig fail!")
 		return
 	}
 
@@ -403,11 +403,11 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	p.NetServer.BuildGroupNet(grm.GI.DummyID, members)
 
 	gs := groupContext.GetGroupStatus()
-	blog.log("joining group(%v) status=%v.\n", grm.GI.DummyID.ShortS(), gs)
+	blog.log("joining group(%v) status=%v.", grm.GI.DummyID.ShortS(), gs)
 	if gs == GIS_RAW {
-		//blog.log("begin GenSharePieces in OMGI...\n")
+		//blog.log("begin GenSharePieces in OMGI...")
 		shares := groupContext.GenSharePieces() //生成秘密分享
-		//blog.log("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
+		//blog.log("proc(%v) end GenSharePieces in OMGI, piece size=%v.", p.getPrefix(), len(shares))
 
 		spm := &model.ConsensusSharePieceMessage{
 			GISHash: grm.GI.GenHash(),
@@ -421,27 +421,27 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
 				spm.GenSign(ski, spm)
-				//blog.log("OMGI spm.GenSign result=%v.\n", sb)
-				blog.log("piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", spm.Dest.ShortS(), spm.DummyID.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
+				//blog.log("OMGI spm.GenSign result=%v.", sb)
+				blog.log("piece to ID(%v), dummyId=%v, share=%v, pub=%v.", spm.Dest.ShortS(), spm.DummyID.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
 				tlog.log("sharepiece to %v", spm.Dest.ShortS())
-				blog.log("call network service SendKeySharePiece...\n")
+				blog.log("call network service SendKeySharePiece...")
 				p.NetServer.SendKeySharePiece(spm)
 
 			} else {
-				panic("GenSharePieces data not IsValid.\n")
+				panic("GenSharePieces data not IsValid.")
 			}
 		}
-		//blog.log("end GenSharePieces.\n")
+		//blog.log("end GenSharePieces.")
 	} 
 
-	//blog.log("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
+	//blog.log("proc(%v) end OMGI, sender=%v.", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	return
 }
 
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	blog := newBizLog("OMSP")
-	blog.log("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), spm.SI.GetID().ShortS(), spm.DummyID.ShortS())
+	blog.log("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...", p.getPrefix(), spm.SI.GetID().ShortS(), spm.DummyID.ShortS())
 	tlog := newGroupTraceLog("OMSP", spm.DummyID, spm.SI.GetID())
 	
 	if !spm.Dest.IsEqual(p.GetMinerID()) {
@@ -450,11 +450,11 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 
 	gc := p.joiningGroups.GetGroup(spm.DummyID)
 	if gc == nil {
-		blog.log("failed, receive SHAREPIECE msg but gc=nil.\n")
+		blog.log("failed, receive SHAREPIECE msg but gc=nil.")
 		return
 	}
 	if gc.gis.GenHash() != spm.GISHash {
-		blog.log("failed, gisHash diff.\n")
+		blog.log("failed, gisHash diff.")
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
@@ -464,7 +464,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	}
 
 	result := gc.PieceMessage(spm)
-	blog.log("proc(%v) after gc.PieceMessage, gc result=%v.\n", p.getPrefix(), result)
+	blog.log("proc(%v) after gc.PieceMessage, gc result=%v.", p.getPrefix(), result)
 
 	tlog.log("收到piece数 %v", gc.node.groupInitPool.GetSize())
 
@@ -488,10 +488,10 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 
 				msg.GenSign(ski, msg)
 				//todo : 组内广播签名公钥
-				blog.log("send sign pub key to group members, spk=%v...\n", msg.SignPK.ShortS())
+				blog.log("send sign pub key to group members, spk=%v...", msg.SignPK.ShortS())
 				tlog.log("SendSignPubKey %v", p.getPrefix())
 
-				blog.log("call network service SendSignPubKey...\n")
+				blog.log("call network service SendSignPubKey...")
 				p.NetServer.SendSignPubKey(msg)
 				
 			}
@@ -501,7 +501,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		}
 	}
 
-	//blog.log("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
+	//blog.log("prov(%v) end OMSP, sender=%v.", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
 
@@ -510,16 +510,16 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	blog := newBizLog("OMSPK")
 	tlog := newGroupTraceLog("OMSPK", spkm.DummyID, spkm.SI.GetID())
 	
-	blog.log("proc(%v) begin , sender=%v, dummy_gid=%v...\n", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.DummyID.ShortS())
+	blog.log("proc(%v) begin , sender=%v, dummy_gid=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.DummyID.ShortS())
 
 	
 	gc := p.joiningGroups.GetGroup(spkm.DummyID)
 	if gc == nil {
-		blog.log("failed, local node not found joining group with dummy id=%v.\n", spkm.DummyID.ShortS())
+		blog.log("failed, local node not found joining group with dummy id=%v.", spkm.DummyID.ShortS())
 		return
 	}
 	if gc.gis.GenHash() != spkm.GISHash {
-		blog.log("failed, gisHash diff.\n")
+		blog.log("failed, gisHash diff.")
 		return
 	}
 	if !spkm.VerifyGISSign(spkm.SignPK) {
@@ -531,9 +531,9 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		return
 	}
 
-	//blog.log("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
+	//blog.log("before SignPKMessage already exist mem sign pks=%v.", len(gc.node.memberPubKeys))
 	result := gc.SignPKMessage(spkm)
-	blog.log("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
+	blog.log("after SignPKMessage exist mem sign pks=%v, result=%v.", len(gc.node.memberPubKeys), result)
 
 	tlog.log("收到签名公钥数 %v", len(gc.node.memberPubKeys))
 
@@ -555,10 +555,10 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 
 				if !PROC_TEST_MODE {
 
-					blog.log("call network service BroadcastGroupInfo...\n")
+					blog.log("call network service BroadcastGroupInfo...")
 					p.NetServer.BroadcastGroupInfo(&msg)
 				} else {
-					blog.log("test mode, call OnMessageGroupInited direct...\n")
+					blog.log("test mode, call OnMessageGroupInited direct...")
 					for _, proc := range p.GroupProcs {
 						proc.OnMessageGroupInited(&msg)
 					}
@@ -570,20 +570,20 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		p.joiningGroups.RemoveGroup(spkm.DummyID)
 	}
 
-	//blog.log("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
+	//blog.log("proc(%v) end OMSPK, sender=%v, dummy gid=%v.", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
 
 func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	add := p.globalGroups.AddStaticGroup(staticGroup)
 	blog := newBizLog("acceptGroup")
-	blog.log("Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
+	blog.log("Add to Global static groups, result=%v, groups=%v.", add, p.globalGroups.GetGroupSize())
 	if staticGroup.MemExist(p.GetMinerID()) {
 		jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
 		if jg != nil {
 			p.prepareForCast(staticGroup)
 		} else {
-			blog.log("[ERROR]cannot find joined group info, gid=%v\n", staticGroup.GroupID.ShortS())
+			blog.log("[ERROR]cannot find joined group info, gid=%v", staticGroup.GroupID.ShortS())
 		}
 	}
 }
@@ -593,7 +593,7 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 //全网节点处理函数->to do : 调整为父亲组节点处理函数
 func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage) {
 	blog := newBizLog("OMGIED")
-	blog.log("proc(%v) begin, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
+	blog.log("proc(%v) begin, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...", p.getPrefix(),
 		gim.SI.GetID().ShortS(), gim.GI.GIS.DummyID.ShortS(), gim.GI.GroupID.ShortS(), gim.GI.GroupPK.ShortS())
 	tlog := newGroupTraceLog("OMGIED", gim.GI.GroupID, gim.SI.GetID())
 
@@ -604,18 +604,18 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	}
 	parentGroup := p.getGroup(gim.GI.GIS.ParentID)
 	if !parentGroup.CastQualified(gim.GI.GIS.TopHeight) {
-		blog.log("parent group has no qualify to cast group. gid=%v, height=%v\n", parentGroup.GroupID.ShortS(), gim.GI.GIS.TopHeight)
+		blog.log("parent group has no qualify to cast group. gid=%v, height=%v", parentGroup.GroupID.ShortS(), gim.GI.GIS.TopHeight)
 		return
 	}
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, gim.GI.GIS.GenHash().Bytes(), gim.GI.GIS.Signature) {
-		blog.log("verify parent groupsig fail! dummyId=%v\n", dummyId.ShortS())
+		blog.log("verify parent groupsig fail! dummyId=%v", dummyId.ShortS())
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
 	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
 	if initingGroup == nil {
-		blog.log("initingGroup not found!dummyId=%v\n", dummyId.ShortS())
+		blog.log("initingGroup not found!dummyId=%v", dummyId.ShortS())
 		return
 	}
 	if initingGroup.gis.ReadyTimeout(topHeight) {
@@ -627,7 +627,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	}
 
 	if initingGroup.gis.GenHash() != gim.GI.GIS.GenHash() {
-		blog.log("gisHash diff from initingGroup, dummyId=%v\n", dummyId.ShortS())
+		blog.log("gisHash diff from initingGroup, dummyId=%v", dummyId.ShortS())
 		return
 	}
 	if !gim.GI.GIS.CheckMemberHash(initingGroup.mems) {
@@ -638,7 +638,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	if !initingGroup.MemberExist(p.GetMinerID()) {
 		result = p.globalGroups.GroupInitedMessage(&gim.GI, gim.SI.SignMember, topHeight)
 
-		blog.log("proc(%v) globalGroups.GroupInitedMessage result=%v.\n", p.getPrefix(), result)
+		blog.log("proc(%v) globalGroups.GroupInitedMessage result=%v.", p.getPrefix(), result)
 		tlog.log("收到消息数量 %v", initingGroup.receiveSize())
 	} else {
 		result = INIT_SUCCESS
@@ -647,7 +647,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
 		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
-		blog.log("SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", gim.GI.GroupID.ShortS(), gim.GI.GroupPK.ShortS(), staticGroup.BeginHeight, staticGroup.DismissHeight)
+		blog.log("SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.", gim.GI.GroupID.ShortS(), gim.GI.GroupPK.ShortS(), staticGroup.BeginHeight, staticGroup.DismissHeight)
 
 		//p.acceptGroup(staticGroup)
 		p.groupManager.AddGroupOnChain(staticGroup, false)
@@ -661,14 +661,14 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	case INITING:
 		//继续等待下一包数据
 	}
-	//blog.log("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
+	//blog.log("proc(%v) end OMGIED, sender=%v...", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	return
 }
 
 
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)  {
 	blog := newBizLog("OMCRG")
-	blog.log("Proc(%v) begin, dummyId=%v sender=%v\n", p.getPrefix(), msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
+	blog.log("Proc(%v) begin, dummyId=%v sender=%v", p.getPrefix(), msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
@@ -699,7 +699,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 
 func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)  {
 	blog := newBizLog("OMCRS")
-	blog.log("Proc(%v) begin, dummyId=%v, sender=%v\n", p.getPrefix(), msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
+	blog.log("Proc(%v) begin, dummyId=%v, sender=%v", p.getPrefix(), msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
@@ -718,7 +718,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		}
 		gpk := p.getGroupPubKey(msg.GI.ParentID)
 		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), msg.GI.Signature) {
-			blog.log("Proc(%v) verify group sign fail\n", p.getPrefix())
+			blog.log("Proc(%v) verify group sign fail", p.getPrefix())
 			return
 		}
 		mems := creatingGroup.pkis
@@ -728,7 +728,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 			MEMS: mems,
 		}
 
-		blog.log("Proc(%v) send group init Message\n", p.getPrefix())
+		blog.log("Proc(%v) send group init Message", p.getPrefix())
 		initMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey()), initMsg)
 
 		tlog := newGroupTraceLog("OMCGS", msg.GI.DummyID, msg.SI.GetID())

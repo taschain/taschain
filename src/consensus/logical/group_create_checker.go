@@ -40,7 +40,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
-	newBizLog("selectKing").log("king index=%v, id=%v\n", index, group.GetMemberID(int(index)).ShortS())
+	newBizLog("selectKing").log("king index=%v, id=%v", index, group.GetMemberID(int(index)).ShortS())
 	if index < 0 {
 		return groupsig.ID{}
 	}
@@ -75,7 +75,7 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 		return
 	}
 	castor = gchecker.selectKing(theBH, sgi)
-	blog.log("topHeight=%v, king=%v\n", topHeight, castor.ShortS())
+	blog.log("topHeight=%v, king=%v", topHeight, castor.ShortS())
 	create = true
 	return
 }
@@ -85,13 +85,13 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
 	allCandidates := gchecker.access.getCanJoinGroupMinersAt(height)
-	blog.log("=======allCandidates height %v, %v", height, allCandidates)
+	blog.log("=======allCandidates height %v, %v size %v", height, allCandidates, len(allCandidates))
 	if len(allCandidates) < min {
 		return
 	}
 	groups := gchecker.processor.GetAvailableGroupsAt(height)
 
-	blog.log("available groupsize %v\n", len(groups))
+	blog.log("available groupsize %v", len(groups))
 
 	candidates := make([]model.MinerDO, 0)
 	for _, cand := range allCandidates {
@@ -107,7 +107,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	}
 	num := len(candidates)
 	if len(candidates) < min {
-		blog.log("not enough candidates, expect %v, got %v\n", min, num)
+		blog.log("not enough candidates, expect %v, got %v", min, num)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	for _, id := range result {
 		str += id.ID.ShortS() + ","
 	}
-	blog.log("=============selectCandidates %v\n", str)
+	blog.log("=============selectCandidates %v", str)
 	return true, result
 }
 
