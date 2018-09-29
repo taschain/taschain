@@ -50,7 +50,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		Logger.Debugf("TVMExecutor Execute %+v",transaction)
+		//Logger.Debugf("TVMExecutor Execute %+v",transaction)
 
 		switch transaction.Type {
 			case types.TransactionTypeTransfer:

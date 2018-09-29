@@ -697,7 +697,8 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		//for iter.Next(){
 		//	Logger.Debugf("DataIterator Key:%+v", iter.Key)
 		//}
-
+		//fstring := state.Fstring(common.HeavyDBAddress)
+		//Logger.Debugf("fstring:%s", fstring)
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
