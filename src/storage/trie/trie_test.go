@@ -67,9 +67,76 @@ func TestNull(t *testing.T) {
 	}
 }
 
-func TestExpandAll(t *testing.T){
+
+func TestExpandAll2(t *testing.T){
 	diskdb, _ := tasdb.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
+	trie, _ := NewTrie(common.Hash{}, triedb)//98
+	mp := make(map[string]*[]byte)
+	for i:=0;i<100;i++{
+		//updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
+	}
+	trie.Hash2(mp,true)
+	root,_:=trie.Commit(nil)
+	triedb.Commit(root,false)
+
+
+	trie2, _ := NewTrie(root, triedb)//99
+	for i:=200;i<300;i++{
+		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
+	}
+	trie2.Hash2(mp,true)
+	root2,_:=trie2.Commit(nil)
+	triedb.Commit(root2,false)
+
+
+	//--------------------------------执行缺失交易-------------------------
+	trie3, _ := NewTrie(root2, triedb)//100
+	for i:=300;i<320;i++{
+		updateString(trie3, strconv.Itoa(i), strconv.Itoa(1000+i))
+	}
+	trie3.Hash2(mp,true)
+	root3,_:=trie3.Commit(nil)
+	triedb.Commit(root3,false)
+	fmt.Printf("false after1 100 tx:%v \n",root3)
+
+	trie5, _ := NewTrie(root3, triedb)//100
+	for i:=200;i<300;i++{
+		updateString(trie5, strconv.Itoa(i), strconv.Itoa(1000+i))
+	}
+	root5,_:=trie5.Commit(nil)
+	triedb.Commit(root5,false)
+	fmt.Printf("false after2 100 tx:%v \n",root5)
+	//--------------------------------执行缺失交易-------------------------
+
+	trie4, _ := NewTrie(root2, triedb)//100
+	for i:=200;i<320;i++{
+		updateString(trie4, strconv.Itoa(i), strconv.Itoa(1000+i))
+	}
+	root4,_:=trie4.Commit(nil)
+	triedb.Commit(root4,false)
+
+	fmt.Printf("true after 100 tx:%v \n",root4)
+
+	//--------------------------------execute-------------------------
+
+	//-----------------------------------------------------------------------------------------------------------------------------
+	diskdb2, _ := tasdb.NewMemDatabase()
+	triedb2 := NewDatabase(diskdb2)
+	for key,value := range mp{
+		diskdb2.Put(([]byte)(key),*value)
+	}
+	trie33, _ := NewTrie(root3, triedb2)//100
+	for i:=200;i<300;i++{
+		updateString(trie33, strconv.Itoa(i), strconv.Itoa(1000+i))
+	}
+	root33,_:=trie33.Commit(nil)
+	fmt.Printf("轻节点 after 100 tx:%v \n",root33)
+}
+
+func TestExpandAll(t *testing.T){
+	diskdb, _ := tasdb.NewMemDatabase()
+	triedb := NewDatabase(diskdb) 
 	trie, _ := NewTrie(common.Hash{}, triedb)//init
 
 	for i:=0;i<100;i++{
@@ -88,8 +155,8 @@ func TestExpandAll(t *testing.T){
 
 
 	//------------------copy begin----------------------
-	mp := make(map[common.Hash][]byte)
-	copyTrie, _ := NewTrie2(root2, triedb,mp)//99
+	mp := make(map[string]*[]byte)
+	copyTrie, _ := NewTrieWithMap(root2, triedb,mp)//99
 	//put trie data
 	for i:=200;i<300;i++{
 		si := strconv.Itoa(i)
@@ -98,7 +165,7 @@ func TestExpandAll(t *testing.T){
 	//------------------copy end----------------------
 
 	trie3, _ := NewTrie(root2, triedb)//100
-	for i:=200;i<300;i++{
+	for i:=200;i<400;i++{
 		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root3,_:=trie3.Commit(nil)
@@ -107,10 +174,10 @@ func TestExpandAll(t *testing.T){
 	diskdb2, _ := tasdb.NewMemDatabase()
 	triedb2 := NewDatabase(diskdb2)
 	for key,value := range mp{
-		diskdb2.Put(key[:],value)
+		diskdb2.Put(([]byte)(key),*value)
 	}
 	trie22, _ := NewTrie(root2, triedb2)//99
-	for i:=200;i<300;i++{
+	for i:=200;i<400;i++{
 		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root33,_:=trie22.Commit(nil)
@@ -118,7 +185,6 @@ func TestExpandAll(t *testing.T){
 	if root3!= root33{
 		t.Errorf("wrong error:old hash = %v,new hash= %v", root3,root33)
 	}
-	fmt.Printf("old hash = %v \n new hash= %v",root3,root33)
 }
 
 func TestMissingRoot(t *testing.T) {

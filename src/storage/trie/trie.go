@@ -87,6 +87,9 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
+
+
+
 func NewTrieWithMap(root common.Hash, db *Database,nodes map[string]*[]byte) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
@@ -109,7 +112,7 @@ func NewTrieWithMap(root common.Hash, db *Database,nodes map[string]*[]byte) (*T
 
 func (t *Trie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		fmt.Printf(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
@@ -466,10 +469,25 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
+func (t *Trie) Hash2(nodes map[string]*[]byte,isInit bool)common.Hash{
+	hash,_:=t.hashRoot2(nodes,isInit)
+	return common.BytesToHash(hash.(hashNode))
+}
+
 func (t *Trie) Hash() common.Hash {
 	hash, cached, _ := t.hashRoot(nil, nil)
 	t.RootNode = cached
 	return common.BytesToHash(hash.(hashNode))
+}
+
+func (t *Trie) hashRoot2(nodes map[string]*[]byte,isInit bool)(node,error)  {
+	if t.RootNode == nil {
+		return hashNode(emptyRoot.Bytes()),nil
+	}
+	h := newHasher2()
+	defer returnHasherToPool(h)
+	hash,_,_,err :=h.hash2(t.RootNode, true,nodes,isInit)
+	return hash,err
 }
 
 func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
