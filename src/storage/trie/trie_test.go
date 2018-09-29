@@ -68,6 +68,9 @@ func TestNull(t *testing.T) {
 }
 
 func TestExpandAll(t *testing.T){
+	//mock full chain
+
+	//block1
 	diskdb, _ := tasdb.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
 	trie, _ := NewTrie(common.Hash{}, triedb)//init
@@ -78,7 +81,7 @@ func TestExpandAll(t *testing.T){
 	root,_:=trie.Commit(nil)
 	triedb.Commit(root,false)
 
-
+	//block2
 	trie2, _ := NewTrie(root, triedb)//99
 	for i:=200;i<300;i++{
 		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
@@ -87,30 +90,97 @@ func TestExpandAll(t *testing.T){
 	triedb.Commit(root2,false)
 
 
-	//------------------copy begin----------------------
-	mp := make(map[common.Hash][]byte)
-	copyTrie, _ := NewTrie2(root2, triedb,mp)//99
-	//put trie data
-	for i:=200;i<300;i++{
-		si := strconv.Itoa(i)
-		copyTrie.GetValueNode([]byte(si),mp)
-	}
-	//------------------copy end----------------------
 
+	//block3
 	trie3, _ := NewTrie(root2, triedb)//100
 	for i:=200;i<300;i++{
 		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root3,_:=trie3.Commit(nil)
 	triedb.Commit(root3,false)
+
+
+	//------------------copy begin----------------------
+	//模拟重节点拉数据
+	mp := make(map[string]*[]byte)
+	copyTrie, _ := NewTrieWithMap(root2, triedb,mp)//99
+	//put trie data
+	for i:=200;i<300;i++{
+		si := strconv.Itoa(i)
+		copyTrie.GetValueNode([]byte(si),mp)
+	}
+	//------------------copy end----------------------
 //-----------------------------------------------------------------------------------------------------------------------------
+	//模拟轻节点
 	diskdb2, _ := tasdb.NewMemDatabase()
 	triedb2 := NewDatabase(diskdb2)
 	for key,value := range mp{
-		diskdb2.Put(key[:],value)
+		diskdb2.Put(([]byte)(key),*value)
 	}
 	trie22, _ := NewTrie(root2, triedb2)//99
 	for i:=200;i<300;i++{
+		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i + 1000))
+	}
+	root33,_:=trie22.Commit(nil)
+
+	if root3!= root33{
+		t.Errorf("wrong error:old hash = %v,new hash= %v", root3,root33)
+	}
+	fmt.Printf("old hash = %v \n new hash= %v",root3,root33)
+}
+
+
+func TestExpandAll1(t *testing.T){
+	//mock full chain
+
+	//block1
+	diskdb, _ := tasdb.NewMemDatabase()
+	triedb := NewDatabase(diskdb)
+	trie, _ := NewTrie(common.Hash{}, triedb)//init
+
+	for i:=0;i<100;i++{
+		updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
+	}
+	root,_:=trie.Commit(nil)
+	triedb.Commit(root,false)
+
+	//block2
+	trie2, _ := NewTrie(root, triedb)//99
+	for i:=200;i<300;i++{
+		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
+	}
+	root2,_:=trie2.Commit(nil)
+	triedb.Commit(root2,false)
+
+
+	//block3
+	trie3, _ := NewTrie(root2, triedb)//100
+	for i:=300;i<400;i++{
+		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i + 1000))
+	}
+	root3,_:=trie3.Commit(nil)
+	triedb.Commit(root3,false)
+
+
+	//------------------copy begin----------------------
+	//模拟重节点拉数据
+	mp := make(map[string]*[]byte)
+	copyTrie, _ := NewTrieWithMap(root2, triedb,mp)//99
+	//put trie data
+	for i:=200;i<300;i++{
+		si := strconv.Itoa(i)
+		copyTrie.GetValueNode([]byte(si),mp)
+	}
+	//------------------copy end----------------------
+	//-----------------------------------------------------------------------------------------------------------------------------
+	//模拟轻节点
+	diskdb2, _ := tasdb.NewMemDatabase()
+	triedb2 := NewDatabase(diskdb2)
+	for key,value := range mp{
+		diskdb2.Put(([]byte)(key),*value)
+	}
+	trie22, _ := NewTrie(root2, triedb2)//99
+	for i:=300;i<400;i++{
 		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i + 1000))
 	}
 	root33,_:=trie22.Commit(nil)

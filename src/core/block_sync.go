@@ -103,6 +103,7 @@ func (bs *blockSyncer) sync() {
 
 	<-t.C
 	if nil == BlockChainImpl {
+		panic("BlockChainImpl should not be nil!")
 		return
 	}
 	var currentHash common.Hash

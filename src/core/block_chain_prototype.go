@@ -226,3 +226,11 @@ func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 		chain.topBlocks.Add(i, chain.QueryBlockHeaderByHeight(i, false))
 	}
 }
+
+
+func (chain *prototypeChain) SetLastBlockHash(bh *BlockHash) {
+	chain.lastBlockHash = bh
+}
+func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
+	return chain.latestStateDB
+}

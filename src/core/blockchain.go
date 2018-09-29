@@ -490,7 +490,7 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash,veri
 	defer chain.lock.RUnlock("GetBlockInfo")
 	localHeight := chain.latestBlock.Height
 
-	bh := chain.QueryBlockByHeight(height)
+	bh := chain.QueryBlockHeaderByHeight(height,true)
 	if bh != nil && bh.Hash == hash|| !verifyHash {
 		//当前结点和请求结点在同一条链上
 		//Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
@@ -642,13 +642,6 @@ func (chain *FullBlockChain) Clear() error {
 
 
 
-func (chain *FullBlockChain) SetLastBlockHash(bh *BlockHash) {
-	chain.lastBlockHash = bh
-}
-
-func (chain *FullBlockChain) LatestStateDB() *core.AccountDB {
-	return chain.latestStateDB
-}
 
 
 func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
@@ -709,6 +702,7 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 }
 
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode {
+	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v",header.Height,header.StateTree)
 	var nodes map[string]*[]byte = make(map[string]*[]byte)
 	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache,nodes)
 	if err != nil{

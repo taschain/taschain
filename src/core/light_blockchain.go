@@ -16,6 +16,7 @@ import (
 	"log"
 	"fmt"
 	vtypes "storage/core/types"
+	"sync"
 )
 
 const (
@@ -26,9 +27,10 @@ const (
 )
 
 type LightChain struct {
-	config  *LightChainConfig
+	config      *LightChainConfig
 	prototypeChain
-	pending map[uint64]*types.Block
+	pending     map[uint64]*types.Block
+	pendingLock sync.Mutex
 }
 
 // 配置
@@ -79,7 +81,8 @@ func initLightChain() error {
 			isAdujsting:  false,
 			isLightMiner: true,
 		},
-		pending: make(map[uint64]*types.Block),
+		pending:     make(map[uint64]*types.Block),
+		pendingLock: sync.Mutex{},
 	}
 
 	var err error
@@ -88,8 +91,7 @@ func initLightChain() error {
 	if err != nil {
 		return err
 	}
-	//chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
-	chain.blocks, err = datasource.NewDatabase("block")
+	chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
@@ -200,7 +202,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	if !hasFirstBlock && BlockChainImpl.(*LightChain).GetCachedBlock(bh.Height) == nil {
 		bestNodeId := BlockSyncer.bestNode
-		ReqStateInfo(bestNodeId,bh.Height,nil,true)
+		ReqStateInfo(bestNodeId, bh.Height, bh.QueueNumber,nil, true)
 		return nil, 3, nil, nil
 	}
 
@@ -219,8 +221,9 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if state == nil {
+		Logger.Debugf("state is nil,preroot:%v",preRoot)
 		bestNodeId := BlockSyncer.bestNode
-		ReqStateInfo(bestNodeId,bh.Height,nil,true)
+		ReqStateInfo(bestNodeId, bh.Height, bh.QueueNumber,nil, true)
 		return nil, 3, nil, nil
 	}
 	if err != nil {
@@ -232,11 +235,12 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Transactions = transactions
 
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
-	statehash, noExecuteTxs,receipts, err := chain.executor.Execute3(state, b, chain.voteProcessor)
+	statehash, noExecuteTxs, receipts, err := chain.executor.Execute3(state, b, chain.voteProcessor)
 
-	if len(noExecuteTxs) !=0{
+	if len(noExecuteTxs) != 0 {
+		Logger.Debugf("len(noExecuteTxs) != 0,len:%d",len(noExecuteTxs))
 		bestNodeId := BlockSyncer.bestNode
-		ReqStateInfo(bestNodeId,bh.Height,noExecuteTxs,false)
+		ReqStateInfo(bestNodeId, bh.Height,bh.QueueNumber, noExecuteTxs, false)
 		return nil, 3, nil, nil
 	}
 
@@ -287,6 +291,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	} else {
 		// 验证块是否有问题
 		_, status, state, _ = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		Logger.Errorf("[LightChain]verifyCastingBlock,status:%d \n", status)
 		if status == 3 {
 			return 3
 		}
@@ -295,6 +300,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
+
 
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.SaveBlock(b)
@@ -467,7 +473,59 @@ func (chain *LightChain) Clear() error {
 }
 
 func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
-	panic("Not support!")
+	if bhs == nil || len(bhs) == 0 {
+		return
+	}
+	chain.lock.Lock("CompareChainPiece")
+	defer chain.lock.Unlock("CompareChainPiece")
+	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
+	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
+	if hasCommonAncestor {
+		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
+		//删除自身链的结点
+		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
+			header := chain.QueryBlockHeaderByHeight(height, true)
+			if header == nil {
+				continue
+			}
+			chain.remove(header)
+			chain.topBlocks.Remove(header.Height)
+		}
+		for h := blockHash.Height; h >= 0; h-- {
+			header := chain.QueryBlockHeaderByHeight(h, true)
+			if header != nil {
+				chain.latestBlock = header
+				break
+			}
+		}
+		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash,true)
+	} else {
+		chain.SetLastBlockHash(bhs[0])
+		cbhr := BlockHashesReq{Height: bhs[len(bhs)-1].Height, Length: uint64(len(bhs) * 10)}
+		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d", sourceId, cbhr.Height, cbhr.Length)
+		RequestBlockHashes(sourceId, cbhr)
+	}
+
+}
+
+// 删除块
+func (chain *LightChain) remove(header *types.BlockHeader) {
+	hash := header.Hash
+	block := chain.queryBlockByHash(hash)
+	chain.blocks.Delete(hash.Bytes())
+	chain.blockHeight.Delete(GenerateHeightKey(header.Height))
+
+	// 删除块的交易，返回transactionpool
+	if nil == block {
+		return
+	}
+	txs := block.Transactions
+	if 0 == len(txs) {
+		return
+	}
+	chain.transactionPool.GetLock().Lock("remove block")
+	defer chain.transactionPool.GetLock().Unlock("remove block")
+	chain.transactionPool.AddTxs(txs)
 }
 
 func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
@@ -482,21 +540,21 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 }
 
 func (chain *LightChain) Cache(b *types.Block) {
-	chain.lock.Lock("Cache")
-	defer chain.lock.Unlock("Cache")
+	chain.pendingLock.Lock()
+	defer chain.pendingLock.Unlock()
 
 	chain.pending[b.Header.Height] = b
 }
 
 func (chain *LightChain) GetCachedBlock(blockHeight uint64) *types.Block {
-	chain.lock.RLock("GetCachedBlock")
-	defer chain.lock.RUnlock("GetCachedBlock")
+	chain.pendingLock.Lock()
+	defer chain.pendingLock.Unlock()
 	return chain.pending[blockHeight]
 }
 
 func (chain *LightChain) RemoveFromCache(b *types.Block) {
-	chain.lock.Lock("Cache")
-	defer chain.lock.Unlock("Cache")
+	chain.pendingLock.Lock()
+	defer chain.pendingLock.Unlock()
 
-	delete(chain.pending,b.Header.Height)
+	delete(chain.pending, b.Header.Height)
 }

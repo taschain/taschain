@@ -26,6 +26,7 @@ import (
 	"middleware/pb"
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
+	"time"
 )
 
 type ChainHandler struct {
@@ -233,6 +234,7 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
 	if message.IsInit {
 		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
+		core.Logger.Debugf("stateInfoReqHandler,height:%d,qn:%d,tx len:%d",header.Height,header.QueueNumber,len(message.Transactions))
 	}
 	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.IsInit)
 	core.SendStateInfo(m.Peer, message.Height, stateNodes)
@@ -257,6 +259,7 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 
 
 	b := core.BlockChainImpl.(*core.LightChain).GetCachedBlock(message.Height)
+	core.Logger.Debugf("After InsertStateNode,get cached node to add on chain! height:%d",b.Header.Height)
 	result := core.BlockChainImpl.AddBlockOnChain(b)
 	if result == 0{
 		core.BlockChainImpl.(*core.LightChain).RemoveFromCache(b)
@@ -264,6 +267,7 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 		core.RequestBlockInfoByHeight(m.Peer, core.BlockChainImpl.Height()+1, core.BlockChainImpl.QueryTopBlock().Hash, true)
 	}else {
 		core.Logger.Errorf("Before panic,reslult:%d",result)
+		time.Sleep(time.Second*3)
 		panic("Add block on chain should be success!")
 	}
 
@@ -415,7 +419,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	} else {
 		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
 		chainPiece := blockInfo.ChainPiece
-		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
+		core.BlockChainImpl. CompareChainPiece(chainPiece, sourceId)
 	}
 }
 

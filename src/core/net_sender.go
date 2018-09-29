@@ -76,7 +76,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
 }
@@ -175,7 +175,8 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	network.GetNetInstance().Send(targetNode, message)
 }
 
-func ReqStateInfo(targetNode string, blockHeight uint64, txs types.Transactions, isInit bool) {
+func ReqStateInfo(targetNode string, blockHeight uint64,qn uint64, txs types.Transactions, isInit bool) {
+	Logger.Debugf("Req state info to:%s,blockHeight:%d,qn:%d,len txs:%v,isInit:%t", targetNode, blockHeight,qn, len(txs),isInit)
 	m := StateInfoReq{Height: blockHeight, Transactions: txs, IsInit: isInit}
 	body, e := marshalStateInfoReq(m)
 	if e != nil {

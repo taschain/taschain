@@ -110,6 +110,7 @@ func NewTrieWithMap(root common.Hash, db *Database,nodes map[string]*[]byte) (*T
 func (t *Trie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		fmt.Printf("Unhandled trie error: %v", err)
 	}
 }
 
@@ -447,6 +448,7 @@ func (t *Trie) resolveHash2(n hashNode, prefix []byte,nodes map[string]*[]byte) 
 	enc, err := t.db.Node(hash)
 	nodes[string(hash[:])] = &enc
 	if err != nil || enc == nil {
+		fmt.Printf("resolveHash2  hash:%v,enc:%v\n",n,enc)
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
 	return mustDecodeNode(n, enc, t.cachegen), nil
