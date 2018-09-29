@@ -225,12 +225,18 @@ message StateInfoReq{
 
     required bool IsInit = 3;
 
+    required bytes BlockHash = 4;
 }
 
 message  StateInfo  {
     required uint64 Height = 1;
 
     repeated TrieNode TrieNodes = 2;
+
+    required bytes BlockHash = 3;
+
+    required bytes ProBlockStateRoot = 4;
+
 }
 
 message TrieNode{

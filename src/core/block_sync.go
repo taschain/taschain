@@ -129,10 +129,10 @@ func (bs *blockSyncer) sync() {
 			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
 		}
-		if lightMiner && !bs.syncedFirstBlock {
+		if lightMiner && BlockChainImpl.Height()==0 {
 			var height uint64 = 0
-			if bestNodeHeight > 101 {
-				height = bestNodeHeight - 100
+			if bestNodeHeight > 11 {
+				height = bestNodeHeight - 10
 			}
 			RequestBlockInfoByHeight(bestNodeId, height, common.Hash{}, false)
 			return

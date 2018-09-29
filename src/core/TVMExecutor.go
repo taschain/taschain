@@ -74,6 +74,7 @@ func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Bl
 		return hash, nil, nil,nil
 	}
 	receipts := make([]*t.Receipt, len(block.Transactions))
+	Logger.Infof("Execute3 block height:%d-%d,len(block.Transactions):%d", block.Header.Height,block.Header.QueueNumber,len(block.Transactions))
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
@@ -109,13 +110,17 @@ func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Bl
 				}
 			}
 		//}
-		if len(noExecuteTransactions) > 0{
-			return common.Hash{}, noExecuteTransactions, nil,nil
-		}
+
+
+
 		receipt := t.NewReceipt(nil, fail, 0)
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
+	}
+
+	if len(noExecuteTransactions) > 0{
+		return common.Hash{}, noExecuteTransactions, nil,nil
 	}
 	return accountdb.IntermediateRoot(true), nil,receipts, nil
 }
@@ -126,6 +131,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
 		return hash, nil, nil
 	}
+	Logger.Infof("Execute block height:%d-%d,len(block.Transactions):%d", block.Header.Height,block.Header.QueueNumber,len(block.Transactions))
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	for i, transaction := range block.Transactions {
 		var fail = false
