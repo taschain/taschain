@@ -258,6 +258,18 @@ func (chain *BlockChain) IsAdujsting() bool {
 	return chain.isAdujsting
 }
 
+func (chain *BlockChain) GetHistoryBalance(blockHash common.Hash,address common.Address) (*big.Int,error) {
+	header := chain.queryBlockHeaderByHash(blockHash)
+	if nil == header {
+		return nil,nil
+	}
+	accountDb,err := core.NewAccountDB(header.StateTree, chain.stateCache)
+	if err != nil{
+		return nil,err
+	}
+	return accountDb.GetBalance(address),nil
+}
+
 func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
 	if nil == chain.latestStateDB {
 		return nil
