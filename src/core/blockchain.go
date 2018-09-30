@@ -603,12 +603,14 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	b.Transactions = transactions
 
 	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
+	begin := time.Now()
 	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
 	}
-	//receiptsTree := calcReceiptsTree(receipts).Bytes()
+	Logger.Debugf("verifyCastingBlock executor Execute cost time:%v", time.Since(begin))
+		//receiptsTree := calcReceiptsTree(receipts).Bytes()
 	//if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
 	//	Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
 	//	return nil, 1, nil, nil

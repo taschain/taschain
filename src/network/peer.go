@@ -170,6 +170,8 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
+	net.netCore.ping(p.Id, nil)
+
 	for e := p.sendList.Front(); e != nil; e = e.Next() {
 		buf:= e.Value.(*bytes.Buffer)
 		//P2PSend(p.seesionId, buf.Bytes())
