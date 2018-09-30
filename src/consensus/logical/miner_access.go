@@ -80,8 +80,8 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 }
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
-	//return access.minerPool.GetTotalStakeByHeight(h)
-	return 30
+	return access.minerPool.GetTotalStakeByHeight(h)
+	//return 30
 }
 
 //func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
