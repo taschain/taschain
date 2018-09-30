@@ -87,7 +87,7 @@ func _doLog(t string, k string, sender string, format string, params ...interfac
 	} else {
 		s = fmt.Sprintf(format, params...)
 	}
-	consensusLogger.Infof("%v,%v,#%v#,%v,%v", time.Now().Format(TIMESTAMP_LAYOUT), t, k, sender, s)
+	consensusLogger.Infof("%v,#%v#,%v,%v", t, k, sender, s)
 }
 
 func (mtl *msgTraceLog) log(format string, params ... interface{})  {

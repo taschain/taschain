@@ -56,6 +56,10 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 	}
 	gpk := p.getGroupPubKey(gid)
 
+	if len(bh.Signature) == 0 {
+		blog.log("bh sign is empty! hash=%v", bh.Hash.ShortS())
+	}
+
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
 		blog.log("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.", mtype,
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
@@ -332,6 +336,9 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 				case TRANS_ACCEPT_FULL_THRESHOLD:
 					blog.log("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
 					tlog.log("preHash=%v, height=%v, %v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet))
+					if len(slot.BH.Signature) == 0 {
+						blog.log("slot bh sign is empty hash=%v", slot.BH.Hash.ShortS())
+					}
 					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.Gid, vctx, slot, tlog)
 				}
 
