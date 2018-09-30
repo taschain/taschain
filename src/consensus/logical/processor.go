@@ -113,6 +113,10 @@ func (p Processor) GetMinerID() groupsig.ID {
 	return p.mi.GetMinerID()
 }
 
+func (p Processor) GetMinerInfo() *model.MinerDO {
+	return &p.mi.MinerDO
+}
+
 //验证块的组签名是否正确
 func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
 	b := &msg.Block

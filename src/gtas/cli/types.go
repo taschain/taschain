@@ -61,3 +61,19 @@ type ConnInfo struct {
 	Ip      string `json:"ip"`
 	TcpPort string `json:"tcp_port"`
 }
+
+type GroupStat struct {
+	Dismissed bool `json:"dismissed"`
+	VCount		int32 `json:"v_count"`
+}
+
+type ProposerStat struct {
+	Stake 	uint64 `json:"stake"`
+	StakeRatio float64 `json:"stake_ratio"`
+	PCount	int32 `json:"p_count"`
+}
+
+type CastStat struct {
+	Group map[string]GroupStat `json:"group"`
+	Proposer map[string]ProposerStat `json:"proposer"`
+}
