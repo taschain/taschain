@@ -28,6 +28,9 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
+var castorReward = big.NewInt(50)
+var bonusReward = big.NewInt(20)
+
 type TVMExecutor struct {
 	bc     *BlockChain
 }
@@ -37,7 +40,6 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 		bc:     bc,
 	}
 }
-
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
@@ -88,6 +90,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 						Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d",address.GetHexString(),transaction.Value)
 					}
 					executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:],accountdb)
+					//分红交易奖励
+					accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
 				} else {
 					fail = true
 				}
@@ -133,12 +137,14 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					fail = true
 				}
 		}
+
 		receipt := t.NewReceipt(nil,fail,0)
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
-
+	//筑块奖励
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)

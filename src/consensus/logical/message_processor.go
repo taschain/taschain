@@ -770,7 +770,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 		blog.log("groupID error")
 		return
 	}
-	genBonus, _ := p.MainChain.GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
 	if genBonus.TxHash != reward.TxHash {
 		blog.log("bonus txHash diff")
 		return
