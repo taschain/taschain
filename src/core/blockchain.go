@@ -228,7 +228,9 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 	return nil
 }
 
-
+func (chain *BlockChain) GetBonusManager() *BonusManager{
+	return chain.bonusManager
+}
 
 func (chain *BlockChain) SetLastBlockHash(bh *BlockHash) {
 	chain.lastBlockHash = bh
@@ -311,23 +313,6 @@ func (chain *BlockChain) Clear() error {
 
 	chain.transactionPool.Clear()
 	return err
-}
-
-func (chain *BlockChain) GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction) {
-	group := GroupChainImpl.getGroupById(groupId)
-	buffer := &bytes.Buffer{}
-	buffer.Write(groupId)
-	for i:=0;i<len(targetIds);i++{
-		index := targetIds[i]
-		buffer.Write(group.Members[index].Id)
-	}
-	transaction := &types.Transaction{}
-	transaction.Data = blockHash.Bytes()
-	transaction.ExtraData = buffer.Bytes()
-	transaction.Hash = transaction.GenHash()
-	transaction.Value = totalValue / uint64(len(targetIds))
-	transaction.Type = types.TransactionTypeBonus
-	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,BlockHash:blockHash,GroupId:groupId,TotalValue:totalValue},transaction
 }
 
 func (chain *BlockChain) AddBonusTrasanction(transaction *types.Transaction){

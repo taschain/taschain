@@ -66,9 +66,11 @@ type BlockChainI interface {
 	//是否正在调整分叉
 	IsAdujsting() bool
 
-    GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
+    //GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
 
 	AddBonusTrasanction(transaction *types.Transaction)
+
+	GetBonusManager() *BonusManager
 }
 
 //组管理接口
