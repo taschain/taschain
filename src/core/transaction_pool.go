@@ -53,7 +53,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 50
+	sendingListLength = 1
 )
 
 // 配置文件
@@ -211,7 +211,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	// batch broadcast
 	if isBroadcast {
 		//交易不广播
-		return true, nil
+		//return true, nil
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()

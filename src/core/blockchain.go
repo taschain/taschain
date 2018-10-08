@@ -208,7 +208,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 	if nil != chain.latestBlock {
 		chain.buildCache(chain.topBlocks)
 		Logger.Infof("initBlockChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
-		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		state, err := core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
 		} else {
@@ -218,7 +218,8 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			chain.saveBlock(block)
 			chain.latestStateDB = state
 		}
@@ -275,7 +276,7 @@ func (chain *BlockChain) GetBalance(address common.Address) *big.Int {
 		return nil
 	}
 
-	return chain.latestStateDB.GetBalance(common.BytesToAddress(address.Bytes()))
+	return chain.latestStateDB.GetBalance(address)
 }
 
 func (chain *BlockChain) GetNonce(address common.Address) uint64 {
@@ -283,7 +284,7 @@ func (chain *BlockChain) GetNonce(address common.Address) uint64 {
 		return 0
 	}
 
-	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
+	return chain.latestStateDB.GetNonce(address)
 }
 
 //清除链所有数据
