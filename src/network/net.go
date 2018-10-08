@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	nnet "net"
-	"sync"
 	"time"
 
 	"common"
@@ -100,14 +99,13 @@ func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) 
 		return nil, errors.New("low port")
 	}
 
-	n := newNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
+	n := NewNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
 
 	err := n.validateComplete()
 	return n, err
 }
 
 var netCore *NetCore
-var lock = &sync.Mutex{}
 
 type NetCoreConfig struct {
 	ListenAddr         *nnet.UDPAddr
@@ -163,6 +161,7 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 		return nil, err
 	}
 	nc.kad = kad
+	netCore = nc
 	go nc.loop()
 	go nc.decodeLoop()
 
@@ -173,6 +172,10 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 func (nc *NetCore) close() {
 	P2PClose()
 	close(nc.closing)
+}
+
+func (nc *NetCore) AddGroup(id string, members []NodeID) *Group {
+	return nc.groupManager.addGroup(id, members)
 }
 
 func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
@@ -188,7 +191,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		NodeId:     nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	Logger.Info("ping node:%v, %v,%v", toid.GetHexString(), to.Ip, to.Port)
+	Logger.Info("ping node, id:%v, ip:%v, port:%v", toid.GetHexString(), to.Ip, to.Port)
 
 	packet, _, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
@@ -354,6 +357,7 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 
 //SendAll 向所有已经连接的节点发送自定义数据包
 func (nc *NetCore) SendAll(data []byte, broadcast bool, msgDigest MsgDigest, relayCount int32) {
+	Logger.Infof("SendAll len: %v", len(data))
 	dataType := DataType_DataNormal
 	if broadcast {
 		dataType = DataType_DataGlobal
@@ -621,7 +625,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message,*bytes.Buffer, error
 	for buffer.Len() < packetSize  && !p.isEmpty() {
 		b := p.popData()
 		if b != nil && b.Len() > 0 {
-			Logger.Debugf("popData size:%v!", b.Len())
+	//		Logger.Debugf("popData size:%v!", b.Len())
 
 			buffer.Write(b.Bytes())
 		}
@@ -632,7 +636,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message,*bytes.Buffer, error
 	}
 
 	bufBytes = buffer.Bytes()
-	Logger.Debugf("decodePacket after :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, buffer.Len())
+	//Logger.Debugf("decodePacket after :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, buffer.Len())
 
 	if buffer.Len() < packetSize {
 		p.addDataToHead(buffer)
@@ -798,7 +802,10 @@ func (nc *NetCore) onHandleDataMessage(b []byte, from string) {
 		return
 	}
 	nc.unhandledDataMsg += 1
-	net.handleMessage(b, from)
+	if net != nil {
+		net.handleMessage(b, from)
+	}
+
 }
 
 func (nc *NetCore) onHandleDataMessageDone(id string) {
