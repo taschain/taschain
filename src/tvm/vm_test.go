@@ -24,8 +24,8 @@ func TestVmTest(t *testing.T) {
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(nil, nil, "")
 	script := `
-for i in range(10):
-	print(i)
+import utime
+print(utime.time())
 `
 	vm.Execute(script)
 }
