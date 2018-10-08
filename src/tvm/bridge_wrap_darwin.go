@@ -341,10 +341,10 @@ func(tvm *Tvm) StoreData() bool {
 import account
 import ujson
 for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	print(tas_%s.__dict__[k])
-    #	print(type(tas_%s.__dict__[k]))
+    #print(k)
+    #print(type(k))
+    #print(tas_%s.__dict__[k])
+    #print(type(tas_%s.__dict__[k]))
     value = ujson.dumps(tas_%s.__dict__[k])
     if TAS_PARAMS_DICT.get(k) != value:
         account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
@@ -394,7 +394,7 @@ TAS_PARAMS_DICT = {}
 for k in tas_%s.__dict__:
     #	print(k)
     #	print(type(k))
-    #	value = ujson.loads(account.get_state("", k))
+    #	value = ujson.loads(account.get_data("", k))
     #	print(value)
     value = account.get_data(k)
     TAS_PARAMS_DICT[k] = value

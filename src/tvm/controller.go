@@ -95,7 +95,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 //}
 
 func (con *Controller) ExecuteTask() bool{
-	var succeed bool
+	succeed := true
 	for _, task := range con.Tasks {
 		contract := LoadContract(*task.ContractAddr)
 		gasLeft := con.Vm.Gas()
