@@ -1,9 +1,8 @@
 
 
 from lib.base.utils_tas import *
-from lib.erc20.token_erc20_tas import TokenERC20
-from clib.tas_runtime import glovar
 from lib.base.event import Event
+from lib.erc20.token_erc20_tas import TokenERC20
 
 # def tokenRecipient(_sender, _value, _tokenContract, _extraData):
 #     require(_tokenContract == tokenContract);
@@ -47,6 +46,7 @@ class MyAdvancedToken(TokenERC20):
         self.buy_price = 100
 
         self.frozenAccount = {}
+        self.owner = ""
 
     def apply(self):
         pass
@@ -58,7 +58,7 @@ class MyAdvancedToken(TokenERC20):
         self.symbol = "%"
         self.totalSupply = 1000000
         self.balanceOf[msg.sender] = self.totalSupply
-        glovar.owner = msg.sender
+        self.owner = msg.sender
 
     # @property
     # def sell_price(self):

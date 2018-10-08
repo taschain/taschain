@@ -121,12 +121,12 @@ func VmTest2(code string)  {
 
 func TestVmTest3(t *testing.T)  {
 
-	//VmTest1(`{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`)
+	VmTest1(`{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`)
 	//VmTest1(`{"FuncName": "set_prices", "Args": [100, 100]}`)
 	//VmTest1(`{"FuncName": "burn", "Args": [2500]}`)
 	//VmTest1(`{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`)
 
-	VmTest1(`{"FuncName": "approveAndCall", "Args": ["0x1ed70a8b95d348573aaa5414d6cd9b1cccc22831", 50, "13968999999"]}`)
+	//VmTest1(`{"FuncName": "approveAndCall", "Args": ["0x1ed70a8b95d348573aaa5414d6cd9b1cccc22831", 50, "13968999999"]}`)
 }
 
 func TestContractOnChain(t *testing.T)  {

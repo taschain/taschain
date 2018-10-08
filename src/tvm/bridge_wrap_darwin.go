@@ -414,8 +414,9 @@ func (tvm *Tvm)loadMsg(msg Msg) bool{
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
-msg = Msg(data=bytes(), sender="%s", value=%d)
-this = "%s"
+import builtins
+builtins.msg = Msg(data=bytes(), sender="%s", value=%d)
+builtins.this = "%s"
 `, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }

@@ -1,5 +1,4 @@
 
-from clib.tas_runtime import glovar
 
 def require(b):
     if not b:

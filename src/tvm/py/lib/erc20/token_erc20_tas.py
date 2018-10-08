@@ -1,6 +1,5 @@
 
 
-from clib.tas_runtime import glovar
 from clib.tas_runtime.address_tas import Address
 from lib.base.event import Event
 from lib.base.utils_tas import *
