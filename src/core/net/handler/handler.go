@@ -309,7 +309,7 @@ func onBlockHashes(bhs []*core.BlockHash, sourceId string) {
 
 func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 	//收到块请求
-	//core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
+	core.Logger.Debugf("[handler]onBlockInfoReq get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
@@ -319,13 +319,13 @@ func onBlockInfoReq(erm core.BlockRequestInfo, sourceId string) {
 
 func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	//收到块信息
-	//core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
+	core.Logger.Debugf("[handler] onBlockInfo get message from:%s", sourceId)
 	if nil == core.BlockChainImpl {
 		return
 	}
 	block := blockInfo.Block
 	if block != nil {
-		//core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.ProveValue)
+		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.ProveValue)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -346,7 +346,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 			}
 		}
 	} else {
-		//core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
+		core.Logger.Debugf("[handler] onBlockInfo receive chainPiece,length:%d", len(blockInfo.ChainPiece))
 		chainPiece := blockInfo.ChainPiece
 		core.BlockChainImpl.CompareChainPiece(chainPiece, sourceId)
 	}

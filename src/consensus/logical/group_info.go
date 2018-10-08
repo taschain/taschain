@@ -278,7 +278,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.ShortS(), len(g.Members), len(g.MemIndex))
+	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, beginHeight=%v...\n", g.GroupID.ShortS(), g.BeginHeight)
 	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
 			tmpG := g
