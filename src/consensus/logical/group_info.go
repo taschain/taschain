@@ -212,10 +212,11 @@ func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	chain 		*core.GroupChain
+	chain 	  	*core.GroupChain
 	groups    []*StaticGroupInfo
 	gIndex    map[string]int     //string(ID)->索引
 	generator *NewGroupGenerator //新组处理器(组外处理器)
+	orphanCache map[string]*StaticGroupInfo	//缓存前一组未到达的组
 	lock      sync.RWMutex
 }
 
@@ -225,6 +226,7 @@ func NewGlobalGroups(chain *core.GroupChain) *GlobalGroups {
 		gIndex:    make(map[string]int),
 		generator: CreateNewGroupGenerator(),
 		chain: 		chain,
+		orphanCache: make(map[string]*StaticGroupInfo),
 	}
 }
 
@@ -247,43 +249,56 @@ func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
 }
 
 func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
-	if len(gg.groups) <= 1 {
-		return true
+	if len(gg.groups) == 0 {
+		return g.BeginHeight == 0
 	}
 	last := gg.lastGroup()
 	return last.GroupID.IsEqual(g.PrevGroupID)
 }
 
+func (gg *GlobalGroups) pushBack(g *StaticGroupInfo) bool {
+	if len(gg.groups) > 0 {
+		last := gg.lastGroup()
+		if last.BeginHeight >= g.BeginHeight {
+			panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+		}
+		if !last.GroupID.IsEqual(g.PrevGroupID) {
+			panic(fmt.Sprintf("preGroupID not exist!last=%v, pre receive=%v， size=%v", last.GroupID.ShortS(), g.PrevGroupID.ShortS(), len(gg.groups)))
+		}
+	}
+	gg.groups = append(gg.groups, g)
+	gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+	log.Printf("*****Group(%v) BeginHeight(%v)*****\n", g.GroupID.ShortS(),g.BeginHeight)
+	return true
+}
+
 //增加一个合法铸块组
+//在组同步的时候，该方法有可能并发调用，导致组的顺序也是乱序的
 func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
 	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", g.GroupID.ShortS(), len(g.Members), len(g.MemIndex))
-	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
+	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
-			if len(gg.groups) > 0 {
-				last := gg.lastGroup()
-				if last.BeginHeight >= g.BeginHeight {
-					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+			tmpG := g
+			for {
+				gg.pushBack(tmpG)
+				hex := tmpG.GroupID.GetHexString()
+				tmpG, ok = gg.orphanCache[hex]
+				if !ok {
+					break
 				}
+				delete(gg.orphanCache, hex)
 			}
-			gg.groups = append(gg.groups, g)
-			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", g.GroupID.ShortS(),g.BeginHeight)
 			return true
 		} else {
-			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", g.GroupID.ShortS(), g.PrevGroupID.ShortS(), gg.lastGroup().GroupID.ShortS())
+			gg.orphanCache[g.PrevGroupID.GetHexString()] = g
+			log.Printf("AddStaticGroup fail, preGroup not found, cached! gid=%v, preGid=%v\n", g.GroupID.ShortS(), g.PrevGroupID.ShortS())
 			return false
 		}
 	} else {
-		if gg.groups[idx].BeginHeight < g.BeginHeight {
-			gg.groups[idx].BeginHeight = g.BeginHeight
-			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", g.GroupID.ShortS(),gg.groups[idx].BeginHeight,g.BeginHeight)
-		} else {
-			log.Printf("already exist this group, ignored.\n")
-		}
-
+		log.Printf("already exist this group, ignored.\n")
 	}
 	return false
 }
