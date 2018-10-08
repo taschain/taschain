@@ -51,7 +51,10 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contractAddress, _ = createContract(accountdb, transaction)
 			contract := tvm.LoadContract(contractAddress)
-			controller.Deploy(transaction.Source, contract)
+			snapshot := controller.AccountDB.Snapshot()
+			if !controller.Deploy(transaction.Source, contract) {
+				controller.AccountDB.RevertToSnapshot(snapshot)
+			}
 		} else if len(transaction.Data) > 0 {
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contract := tvm.LoadContract(*transaction.Target)

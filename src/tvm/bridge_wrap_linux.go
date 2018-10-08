@@ -380,7 +380,7 @@ type Msg struct {
 }
 
 func(tvm *Tvm) LoadContractCode(msg Msg) bool {
-	if tvm.loadMsg(msg) != true {
+	if !tvm.loadMsg(msg) {
 		return false
 	}
 	var c_bool C._Bool
@@ -423,7 +423,7 @@ this = "%s"
 }
 
 func (tvm *Tvm)Deploy(msg Msg) bool {
-	if tvm.loadMsg(msg) != true {
+	if !tvm.loadMsg(msg) {
 		return false
 	}
 	tvm.Execute(tvm.Code)
