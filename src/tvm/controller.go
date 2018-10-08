@@ -102,12 +102,11 @@ func (con *Controller) ExecuteTask() bool{
 		contract := LoadContract(*task.ContractAddr)
 		gasLeft := con.Transaction.GasLimit
 		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-		con.Vm.SetGas(1000000)
+		con.Vm.SetGas(int(gasLeft))
 		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
 		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
 		succeed = con.Vm.LoadContractCode(msg)
 		if succeed {
-			con.Vm.SetGas(int(gasLeft))
 			succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
 		}
 		if !succeed {
