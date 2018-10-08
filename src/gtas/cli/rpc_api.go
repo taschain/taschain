@@ -35,6 +35,7 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 		Nonce: nonce,
 		Data: data,
 		Source: &address,
+		Value: stake,
 		Type: types.TransactionTypeMinerApply,
 	}
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)

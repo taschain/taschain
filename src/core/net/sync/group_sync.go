@@ -165,13 +165,15 @@ func (gs *groupSyncer) loop() {
 			}
 		case groupInfos := <-gs.GroupCh:
 			//收到组信息
-			logger.Debugf("[GroupSyncer]Rcv groups len :%d,from:%d", len(groupInfos.Groups),groupInfos.SourceId)
+			logger.Debugf("[GroupSyncer]Rcv groups len:%d,from:%s", len(groupInfos.Groups),groupInfos.SourceId)
 			for _,group := range groupInfos.Groups {
 				e := core.GroupChainImpl.AddGroup(group, nil, nil)
+				logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v",core.GroupChainImpl.Count() - 1,
+					common.BytesToAddress(group.Id).GetHexString(),e)
 				if e != nil {
 					logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 					//TODO  上链失败 异常处理
-					return
+					continue
 				}
 			}
 

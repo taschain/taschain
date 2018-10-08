@@ -29,6 +29,7 @@ import (
 	"middleware/notify"
 	"utility"
 	"bytes"
+	"errors"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -406,9 +407,10 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 }
 
 func (chain *GroupChain) save(group *types.Group) error {
-	var overWrite bool
 	if nil != group.Id {
-		overWrite, _ = chain.groups.Has(group.Id)
+		if exist, _ := chain.groups.Has(group.Id);exist{
+			return errors.New("group already exist")
+		}
 	}
 
 	data, err := json.Marshal(group)
@@ -417,11 +419,10 @@ func (chain *GroupChain) save(group *types.Group) error {
 	}
 	chain.groups.Put(generateKey(chain.count), group.Id)
 	chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
-	if !overWrite {
-		chain.count++
-		chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
-	}
-	fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
+	chain.count++
+	chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
+
+	//fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
 
 	err = chain.groups.Put(group.Id, data)
 	if nil == err {
