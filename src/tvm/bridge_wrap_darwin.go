@@ -21,7 +21,9 @@ package tvm
 
 #include "tvm.h"
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 // The gateway function
 int callOnMeGo_cgo(int in)
@@ -30,6 +32,7 @@ int callOnMeGo_cgo(int in)
 	int callOnMeGo(int);
 	return callOnMeGo(in);
 }
+
 
 void wrap_testAry(void* p)
 {
@@ -217,35 +220,128 @@ void wrap_contract_call(const char* address, const char* func_name, const char* 
     ContractCall(address, func_name, json_parms);
 }
 
+void wrap_set_bytecode(const char* code, int len)
+{
+	void SetBytecode();
+	SetBytecode(code, len);
+}
 */
 import "C"
 import (
-	"unsafe"
+	"bytes"
 	"common"
 	"encoding/json"
 	"fmt"
-	"bytes"
-	"strconv"
 	"storage/core/vm"
+	"strconv"
+	"unsafe"
+	//"middleware/types"
 )
 
 var controller *Controller = nil
 
-
 type CallTask struct {
-	Sender *common.Address
+	Sender       *common.Address
 	ContractAddr *common.Address
-	FuncName string
-	Params string
+	FuncName     string
+	Params       string
 }
 
+//type Controller struct {
+//	BlockHeader *types.BlockHeader
+//	Transaction *types.Transaction
+//	AccountDB vm.AccountDB
+//	Reader vm.ChainReader
+//	Vm *Tvm
+//	Tasks []*CallTask
+//	LibPath string
+//}
+//
+//func NewController(accountDB vm.AccountDB,
+//	chainReader vm.ChainReader,
+//	header *types.BlockHeader,
+//	transaction *types.Transaction, libPath string) *Controller {
+//	if controller == nil {
+//		controller = &Controller{}
+//	}
+//	controller.BlockHeader = header
+//	controller.Transaction = transaction
+//	controller.AccountDB = accountDB
+//	controller.Reader = chainReader
+//	controller.Tasks = make([]*CallTask, 0)
+//	controller.Vm = nil
+//	controller.LibPath = libPath
+//	return controller
+//}
 
+func RunBinaryCode(buf *C.char, len C.int) {
+	C.runbytecode(buf, len)
+}
+
+//
+//func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
+//	var succeed bool
+//	con.Vm = NewTvm(sender, contract, con.LibPath)
+//	con.Vm.SetGas(int(con.Transaction.GasLimit))
+//	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+//	snapshot := con.AccountDB.Snapshot()
+//	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
+//	if !succeed {
+//		con.AccountDB.RevertToSnapshot(snapshot)
+//	}
+//	con.Vm.DelTvm()
+//	con.ExecuteTask()
+//	return succeed
+//}
+//
+//func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
+//	var succeed bool
+//	con.Vm  = NewTvm(sender, contract, con.LibPath)
+//	con.Vm.SetGas(int(con.Transaction.GasLimit))
+//	snapshot := con.AccountDB.Snapshot()
+//	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+//	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+//	if !succeed {
+//		con.AccountDB.RevertToSnapshot(snapshot)
+//	}
+//	con.Vm.DelTvm()
+//	con.ExecuteTask()
+//	return succeed
+//}
+//
+//func(con *Controller) ExecuteTask() {
+//	var succeed bool
+//	for _, task := range con.Tasks {
+//		contract := LoadContract(*task.ContractAddr)
+//		gasLeft := con.Vm.Gas()
+//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
+//		con.Vm.SetGas(gasLeft)
+//		snapshot := con.AccountDB.Snapshot()
+//		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
+//		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+//		fmt.Println(abi)
+//		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+//		if !succeed {
+//			if con.Vm.Gas() == 0 {
+//				con.Vm.DelTvm()
+//				return
+//			}
+//			con.AccountDB.RevertToSnapshot(snapshot)
+//			con.Vm.DelTvm()
+//			continue
+//		}
+//	}
+//}
 
 func Call(_contractAddr string, funcName string, params string) bool {
 	conAddr := common.HexStringToAddress(_contractAddr)
 	task := CallTask{controller.Vm.ContractAddress, &conAddr, funcName, params}
 	controller.Tasks = append(controller.Tasks, &task)
 	return true
+}
+
+func RunByteCode(code *C.char, len C.int) {
+	C.runbytecode(code, len)
 }
 
 func bridge_init() {
@@ -257,7 +353,7 @@ func bridge_init() {
 	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
 	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
 	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
-	C.get_nonce = (C.Function3)(unsafe.Pointer( C.wrap_get_nonce))
+	C.get_nonce = (C.Function3)(unsafe.Pointer(C.wrap_get_nonce))
 	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
 	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
 	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
@@ -283,11 +379,12 @@ func bridge_init() {
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
+	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
 }
 
 type Contract struct {
-	Code string `json:"code"`
-	ContractName string `json:"contract_name"`
+	Code            string          `json:"code"`
+	ContractName    string          `json:"contract_name"`
 	ContractAddress *common.Address `json:"-"`
 }
 
@@ -306,9 +403,7 @@ type Tvm struct {
 	Block func() bool
 }
 
-
-
-func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
+func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
@@ -320,22 +415,25 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	return tvm
 }
 
-
 // 获取剩余gas
-func (tvm *Tvm)Gas() int {
+func (tvm *Tvm) Gas() int {
 	return int(C.getGas())
 }
 
 // 设置可使用gas, init成功后设置
-func (tvm *Tvm)SetGas(gas int) {
+func (tvm *Tvm) SetGas(gas int) {
 	C.setGas(C.int(gas))
 }
 
-func (tvm *Tvm)DelTvm(){
+func (tvm *Tvm) Pycode2bytecode(str string) {
+	C.pycode2bytecode(C.CString(str))
+}
+
+func (tvm *Tvm) DelTvm() {
 	//TODO 释放tvm环境 tvmObj
 }
 
-func(tvm *Tvm) StoreData() bool {
+func (tvm *Tvm) StoreData() bool {
 	var c_bool C._Bool
 	script := fmt.Sprintf(`
 import account
@@ -352,7 +450,7 @@ for k in tas_%s.__dict__:
 	return bool(c_bool)
 }
 
-func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
+func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
 	//if tvmObj == nil {
 	//	tvmObj = NewTvm(nil, nil, "")
 	//}
@@ -372,17 +470,17 @@ func (tvm *Tvm) AddLibPath(path string) {
 }
 
 type Msg struct {
-	Data []byte
-	Value uint64
+	Data   []byte
+	Value  uint64
 	Sender string
 }
 
-func(tvm *Tvm) LoadContractCode(msg Msg) bool {
+func (tvm *Tvm) LoadContractCode(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
 	var c_bool C._Bool
-	script := fmt.Sprintf("%s\ntas_%s = %s()",tvm.Code, tvm.ContractName, tvm.ContractName)
+	script := fmt.Sprintf("%s\ntas_%s = %s()", tvm.Code, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	if !bool(c_bool) {
 		return false
@@ -403,13 +501,13 @@ for k in tas_%s.__dict__:
 	return bool(c_bool)
 }
 
-func (tvm *Tvm)Execute(script string) bool {
+func (tvm *Tvm) Execute(script string) bool {
 	var c_bool C._Bool
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
 
-func (tvm *Tvm)loadMsg(msg Msg) bool{
+func (tvm *Tvm) loadMsg(msg Msg) bool {
 	script := fmt.Sprintf(`
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
@@ -421,7 +519,7 @@ builtins.this = "%s"
 	return tvm.Execute(script)
 }
 
-func (tvm *Tvm)Deploy(msg Msg) bool {
+func (tvm *Tvm) Deploy(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
@@ -437,11 +535,11 @@ tas_%s.deploy()
 
 type ABI struct {
 	FuncName string
-	Args []interface{}
+	Args     []interface{}
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIJson(j string) bool{
+func (tvm *Tvm) ExecuteABIJson(j string) bool {
 	res := ABI{}
 	json.Unmarshal([]byte(j), &res)
 	fmt.Println(res)
@@ -500,12 +598,3 @@ func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 		//panic("")
 	}
 }
-
-
-
-
-
-
-
-
-
