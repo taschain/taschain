@@ -57,7 +57,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := newNode(newNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(newNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
 
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
@@ -77,7 +77,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	n, _ := netcore.InitNetCore(netConfig)
 
 	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
-	return
+	return nil
 }
 
 func GetNetInstance() Network {
