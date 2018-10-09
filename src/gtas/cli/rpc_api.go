@@ -7,6 +7,8 @@ import (
 	"common"
 	"github.com/vmihailenco/msgpack"
 	"consensus/groupsig"
+	"time"
+	"encoding/json"
 )
 
 /*
@@ -18,7 +20,7 @@ import (
 func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
-	nonce := core.BlockChainImpl.GetNonce(address)
+	nonce := time.Now().UnixNano()
 
 	miner := &types.Miner{
 		Id: minerInfo.ID.Serialize(),
@@ -32,10 +34,40 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 		return &Result{Message:err.Error(), Data:nil}, nil
 	}
 	tx := &types.Transaction{
-		Nonce: nonce,
+		Nonce: uint64(nonce),
 		Data: data,
 		Source: &address,
 		Value: stake,
+		Type: types.TransactionTypeMinerApply,
+	}
+	tx.Hash = tx.GenHash()
+	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
+	if !ok {
+		return &Result{Message:err.Error(), Data:nil}, nil
+	}
+	return &Result{Message:"success"}, nil
+}
+
+func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
+	minerInfo := mediator.Proc.GetMinerInfo()
+	address := minerInfo.ID.Serialize()
+	miner := core.MinerManagerImpl.GetMinerById(address, byte(mtype))
+	js,err := json.Marshal(miner)
+	if err != nil {
+		return &Result{Message:err.Error(), Data:nil}, err
+	}
+	return &Result{Message:string(js)}, nil
+}
+
+func (api *GtasAPI) MinerAbort(height uint64, mtype int32) (*Result, error) {
+	minerInfo := mediator.Proc.GetMinerInfo()
+	address := common.BytesToAddress(minerInfo.ID.Serialize())
+	nonce := time.Now().UnixNano()
+	tx := &types.Transaction{
+		Nonce: uint64(nonce),
+		Data: []byte{byte(mtype)},
+		Source: &address,
+		Value: height,
 		Type: types.TransactionTypeMinerApply,
 	}
 	tx.Hash = tx.GenHash()
