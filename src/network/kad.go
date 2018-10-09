@@ -55,13 +55,6 @@ type Kad struct {
 	setupCheckCount int
 }
 
-type bondProc struct {
-	err  error
-	n    *Node
-	done chan struct{}
-}
-
-
 type NetInterface interface {
 	ping(NodeID, *nnet.UDPAddr) error
 	findNode(toid NodeID, addr *nnet.UDPAddr, target NodeID) ([]*Node, error)
@@ -76,7 +69,7 @@ type bucket struct {
 func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node) (*Kad, error) {
 	kad := &Kad{
 		net:        t,
-		self:       newNode(ourID, ourAddr.IP, ourAddr.Port),
+		self:       NewNode(ourID, ourAddr.IP, ourAddr.Port),
 		refreshReq: make(chan chan struct{}),
 		initDone:   make(chan struct{}),
 		closeReq:   make(chan struct{}),
@@ -100,7 +93,7 @@ func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node)
 func (kad *Kad) print() {
 	for i, b := range kad.buckets {
 		for _, n := range b.entries {
-			Logger.Debugf(" [kad] bucket:%v id:%v  addr: IP:%v    Port:%v...", i,n.Id.GetHexString(),n.Ip, n.Port)
+			Logger.Debugf(" [kad] bucket:%v id:%v  addr: IP:%v    Port:%v", i,n.Id.GetHexString(),n.Ip, n.Port)
 		}
 	}
 	return
@@ -469,7 +462,7 @@ func (kad *Kad) onPingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 	var node *Node
 	node = kad.find(id)
 	if node == nil {
-		node = newNode(id, addr.IP, addr.Port)
+		node = NewNode(id, addr.IP, addr.Port)
 		kad.add(node)
 
 	}

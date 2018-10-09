@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+type PeerSource int32
+
+const (
+	PeerSourceUnkown PeerSource =0
+	PeerSourceKad PeerSource =1
+	PeerSourceGroup PeerSource =2
+)
+
 //Peer 节点连接对象
 type Peer struct {
 	Id         NodeID
@@ -21,11 +29,12 @@ type Peer struct {
 	expiration uint64
 	mutex      sync.RWMutex
 	connecting bool
+	source		PeerSource
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New()}
+	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(),source:PeerSourceUnkown}
 
 	return p
 }
@@ -42,7 +51,7 @@ func (p *Peer) addDataToHead(data *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.recvList.PushFront(data)
-	Logger.Infof("addDataToHead size %v", data.Len())
+	//Logger.Infof("addDataToHead size %v", data.Len())
 }
 
 func (p *Peer) popData() *bytes.Buffer {
@@ -75,12 +84,11 @@ func (p *Peer) isEmpty() bool {
 	return empty
 }
 
-func(p *Peer) write(packet *bytes.Buffer) {
+func (p *Peer) write(packet *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	P2PSend(p.seesionId, packet.Bytes())
 }
-
 
 func (p *Peer) getDataSize() int {
 	p.mutex.Lock()
@@ -170,10 +178,10 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
-	net.netCore.ping(p.Id, nil)
+	netCore.ping(p.Id, nil)
 
 	for e := p.sendList.Front(); e != nil; e = e.Next() {
-		buf:= e.Value.(*bytes.Buffer)
+		buf := e.Value.(*bytes.Buffer)
 		//P2PSend(p.seesionId, buf.Bytes())
 		p.write(buf)
 	}
@@ -215,21 +223,35 @@ func (pm *PeerManager) disconnect(id NodeID) {
 
 //OnChecked 网络类型检查
 func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp string) {
-	//nc.ourEndPoint = MakeEndPoint(&net.UDPAddr{Ip: net.ParseIP(publicIp), Port: 8686}, 8686)
+
 }
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
+	pm.checkPeerSource()
+
 	for _, p := range pm.peers {
-		if p.seesionId > 0 {
-			//P2PSend(p.seesionId, packet.Bytes())
+		if p.seesionId > 0 && p.source == PeerSourceKad {
 			p.write(packet)
 		}
 	}
 
 	return
+}
+
+func (pm *PeerManager) checkPeerSource() {
+	for _, p := range pm.peers {
+		if p.seesionId > 0 &&  p.source == PeerSourceUnkown {
+			node := netCore.kad.find(p.Id)
+			if node != nil  {
+				p.source = PeerSourceKad
+			} else {
+				p.source = PeerSourceGroup
+			}
+		}
+	}
 }
 
 //BroadcastRandom
@@ -238,6 +260,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 	defer pm.mutex.RUnlock()
 	Logger.Infof("BroadcastRandom total peer size:%v", len(pm.peers))
 
+	pm.checkPeerSource()
 	var availablePeers []*Peer
 
 	for _, p := range pm.peers {
@@ -254,8 +277,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 	if len(availablePeers) < maxCount {
 		for _, p := range availablePeers {
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
-
-			//P2PSend(p.seesionId, packet.Bytes())
 			p.write(packet)
 		}
 	} else {
@@ -270,8 +291,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer) {
 			nodesHasSend[peerIndex] = true
 			p := availablePeers[peerIndex]
 			Logger.Infof("BroadcastRandom send node id:%v", p.Id.GetHexString())
-
-			//P2PSend(p.seesionId, packet.Bytes())
 			p.write(packet)
 		}
 	}

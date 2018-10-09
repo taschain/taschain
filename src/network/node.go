@@ -66,8 +66,8 @@ type Node struct {
 }
 
 
-// newNode 新建节点
-func newNode(id NodeID, ip nnet.IP, port int) *Node {
+// NewNode 新建节点
+func NewNode(id NodeID, ip nnet.IP, port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
 	}
