@@ -372,7 +372,7 @@ func (nc *NetCore) SendAll(data []byte, broadcast bool, msgDigest MsgDigest, rel
 
 //BroadcastRandom 随机发送广播数据包
 func (nc *NetCore) BroadcastRandom(data []byte, relayCount int32) {
-	dataType := DataType_DataGlobal
+	dataType := DataType_DataGlobalRandom
 
 	packet, _, err := nc.encodeDataPacket(data, dataType, "", nil, nil, relayCount)
 	if err != nil {
@@ -765,12 +765,12 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 				broadcast = true
 			}
 
-			if req.DataType == DataType_DataGlobal && req.RelayCount == 0 {
+			if req.DataType == DataType_DataGlobalRandom && req.RelayCount == 0 {
 				broadcast = false
 			}
 			if broadcast {
 				var dataBuffer *bytes.Buffer = nil
-				if req.DataType == DataType_DataGlobal && req.RelayCount > 0 {
+				if req.DataType == DataType_DataGlobalRandom && req.RelayCount > 0 {
 					req.RelayCount = req.RelayCount - 1
 					req.Expiration = uint64(time.Now().Add(expiration).Unix())
 					dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
@@ -784,9 +784,9 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 
 				if req.DataType == DataType_DataGroup {
 					nc.groupManager.sendGroup(req.GroupId, dataBuffer)
-				} else if req.DataType == DataType_DataGlobal && req.RelayCount == -1 {
+				} else if req.DataType == DataType_DataGlobal {
 					nc.peerManager.SendAll(dataBuffer)
-				} else if req.DataType == DataType_DataGlobal && req.RelayCount != -1 {
+				} else if req.DataType == DataType_DataGlobalRandom && req.RelayCount != -1 {
 					nc.peerManager.BroadcastRandom(dataBuffer)
 				}
 			}
