@@ -98,7 +98,6 @@ func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) 
 		return nil, errors.New("low port")
 	}
 
-
 	n := NewNode(newNodeID(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
 
 	err := n.validateComplete()

@@ -43,7 +43,10 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
 	if !ok {
-		return &Result{Message:err.Error(), Data:nil}, nil
+		if err != nil {
+			return &Result{Message:err.Error(), Data:nil}, nil
+		}
+		return &Result{Message:"unkown error"}, nil
 	}
 	return &Result{Message:"success"}, nil
 }
@@ -121,4 +124,43 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	ret["proposer"] = pmap
 	ret["group"] = gmap
 	return &Result{Message:"success", Data:ret}, nil
+}
+
+func (api *GtasAPI) NodeInfo() (*Result, error) {
+	ni := &NodeInfo{}
+	p := mediator.Proc
+	ac := p.MainChain.(core.AccountRepository)
+	ni.ID = p.GetMinerID().GetHexString()
+	bi := ac.GetBalance(p.GetMinerID().ToAddress())
+	if bi != nil {
+		ni.Balance = bi.Uint64()
+	}
+	if !p.Ready() {
+		ni.Status = "节点未准备就绪"
+	} else {
+		ni.Status = "运行中"
+		morts := make([]MortGage, 0)
+		t := "--"
+		heavyInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeHeavy)
+		if heavyInfo != nil {
+			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
+			if heavyInfo.AbortHeight == 0 {
+				t = "重节点"
+			}
+		}
+		lightInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeLight)
+		if lightInfo != nil {
+			morts = append(morts, *NewMortGageFromMiner(lightInfo))
+			if lightInfo.AbortHeight == 0 {
+				t += " 轻节点"
+			}
+		}
+		ni.NType = t
+		ni.MortGages = morts
+	}
+	return &Result{
+		Message:"success",
+		Data: ni,
+	}, nil
+
 }

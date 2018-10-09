@@ -10,11 +10,11 @@
 </head>
 <body>
 <div style="margin: 20px 5%" >
-    <div>
+    <!--<div>
         <label class="layui-label" id="host"></label>
         <span class="layui-badge-dot" style="position: relative; top: -2px; left: -2px" id="online_flag"></span>
         <button class="layui-btn layui-btn-xs" id="change_host">更换host</button>
-    </div>
+    </div>-->
     <div class="layui-tab" lay-filter="demo" style="margin: 20px 0">
         <ul class="layui-tab-title">
             <li class="layui-this">Dashboard</li>
@@ -41,6 +41,56 @@
                         <span>工作组数量：</span><span id="work_group_num">0</span>
                     </div>
                     <div class="layui-col-md4">
+                    </div>
+                </div>
+                <hr/>
+                <label style="text-align: left">节点信息</label>
+                <span style="margin-left: 100px">
+                    <button lay-submit style="width: 100px; height: 30px;" lay-filter="t_form" id="apply_a">申请成为矿工</button>
+                </span>
+                <div id="node_info">
+                    <table class="layui-table" id="node_info">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>余额</th>
+                                <th>节点类型</th>
+                                <th>节点状态</th>
+                            </tr>
+                        </thead>
+                        <tr>
+                            <td id="tb_node_id">2344424232333333333333333333333333333</td>
+                            <td id="tb_node_balance">23233</td>
+                            <td id="tb_node_type">未知</td>
+                            <td id="tb_node_status">--</td>
+                        </tr>
+                    </table>
+                    <table class="layui-table" id="stake_info">
+                        <thead>
+                        <tr>
+                            <th>质押权益</th>
+                            <th>类型</th>
+                            <th>申请高度</th>
+                            <th>取消高度</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tb_stake_body"></tbody>
+                    </table>
+                </div>
+                <div id="apply_miner_div" style="padding-bottom: 40px; display: none">
+                    <div style="position: absolute">
+                        <label class="layui-form-label">质押权益</label>
+                        <input type="text" id="text_stake" class="layui-input" style="width: 150px;" value="10">
+                    </div>
+                    <div style="float: left; margin-left: 240px" >
+                        <label class="layui-form-label">类型</label>
+                        <input type="radio" style="margin-top: 12px" name="app_type_rd" value="1" checked>重节点
+                        <input type="radio"  style="margin-top: 12px" name="app_type_rd" value="0">轻节点
+                    </div>
+                    <div style="float: left; margin-left: 40px">
+                        <button class="layui-btn" lay-submit lay-filter="t_form" id="submit_apply">申请</button>
+                        <span style="margin-left: 40px" id="submit_result"></span>
                     </div>
                 </div>
                 <hr/>
@@ -389,7 +439,7 @@
         var form = layui.form;
         var layer = layui.layer;
         var $ = layui.$;
-        var HOST = "http://127.0.0.1:8088";
+        var HOST = "/";
         var ref;
         var host_ele = $("#host");
         var online=false;
@@ -959,7 +1009,85 @@
                 }
             });
         }
+        //查询工作组
+        function queryNodeInfo() {
+            let params = {
+                "method": "GTAS_nodeInfo",
+                "params": [],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
+                        d = rdata.result.data
+                        $("#tb_node_id").text(d.id)
+                        $("#tb_node_balance").text(d.balance)
+                        $("#tb_node_status").text(d.status)
+                        $("#tb_node_type").text(d.n_type)
+                        $("#tb_stake_body").html("")
+                        $.each(d.mort_gages, function (i, v) {
+                            tr = "<tr>"
+                            tr += "<td>" + v.stake + "</td>"
+                            tr += "<td>" + v.type + "</td>"
+                            tr += "<td>" + v.apply_height + "</td>"
+                            tr += "<td>" + v.abort_height + "</td>"
+                            tr += "<td><a href=\"javascript:void(0);\" id=\"miner_oper\">取消</a></td>"
+                            tr += "</tr>"
+                            $("#tb_stake_body").append(tr)
+                        })
 
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
+
+        $("#apply_a").click(function () {
+            f = $("#apply_miner_div")
+            if(f.is(":hidden")){
+                $(this).text("取消申请")
+                f.show()
+            }else{
+                $(this).text("申请成为矿工")
+                f.hide()
+            }
+
+        })
+
+        $("#submit_apply").click(function () {
+            stake = parseInt($("#text_stake").val())
+            t = parseInt($("input[name='app_type_rd']:checked").val())
+            $("#submit_result").text("")
+            let params = {
+                "method": "GTAS_minerApply",
+                "params": [stake, t],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    $("#submit_result").text(rdata.result.message)
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        })
 
         // dashboard同步数据
         syncNodes();
@@ -967,6 +1095,10 @@
         syncBlockHeight();
         syncGroupHeight();
         syncGroup(0)
+        queryNodeInfo()
+        setInterval(function () {
+            queryNodeInfo()
+        }, 3000)
         setInterval(function () {
             if (groups.length > 0) {
                 syncGroup(groups[groups.length-1]["height"]+1)

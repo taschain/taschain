@@ -129,7 +129,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 		}
 	}
 
-	gtas.waitingUtilSyncFinished()
+	//gtas.waitingUtilSyncFinished()
 	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
@@ -343,7 +343,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return errors.New("consensus module error")
 	}
 
-	//mediator.Proc.BeginGenesisGroupMember()
+	mediator.Proc.BeginGenesisGroupMember()
 	return nil
 }
 
