@@ -15,10 +15,11 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 		return
 	}
 	p.removeFutureVerifyMsgs(hash)
-
+	mtype := "FUTURE_VERIFY"
 	for _, msg := range futures {
-		logStart("FUTURE_VERIFY", msg.BH.Height, msg.BH.QueueNumber, GetIDPrefix(msg.SI.SignMember), "size %v", len(futures))
-		p.doVerify("FUTURE_VERIFY", msg, nil)
+		tlog := newBlockTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
+		tlog.logStart("size %v", len(futures))
+		p.doVerify(mtype, msg, nil, tlog, newBizLog(mtype))
 	}
 
 }
@@ -28,19 +29,22 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		return
 	}
 	block := message.GetData().(types.Block)
+	bh := block.Header
 	preHeader := block.Header
 
-	gid := *groupsig.DeserializeId(block.Header.GroupId)
+	gid := groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
 		bc := p.GetBlockContext(gid)
 		if bc == nil {
 			panic("get blockContext nil")
 		}
-		bc.AddCastedHeight(block.Header.Height)
-		_, vctx := bc.GetVerifyContextByHeight(block.Header.Height)
-		if vctx != nil && vctx.prevBH.Hash == block.Header.PreHash {
+		bc.AddCastedHeight(bh.Height)
+		vctx := bc.GetVerifyContextByHeight(bh.Height)
+		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 			vctx.markCastSuccess()
+			p.reqRewardTransSign(vctx, bh)
 		}
+
 	}
 
 	for {
@@ -51,11 +55,16 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 		for _, msg := range futureMsgs {
 			tbh := msg.Block.Header
-			logHalfway("OMB", tbh.Height, tbh.QueueNumber, "", "trigger cached future block")
+			tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+			tlog.log( "%v", "trigger cached future block")
 			p.receiveBlock(&msg.Block, preHeader)
 		}
 		p.removeFutureBlockMsgs(preHeader.Hash)
 		preHeader = p.MainChain.QueryTopBlock()
+	}
+	vrf := p.getVrfWorker()
+	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
+		vrf.markSuccess()
 	}
 	p.triggerCastCheck()
 
@@ -68,8 +77,11 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(types.Group)
+	if group.Id == nil || len(group.Id) == 0 {
+		return
+	}
 	sgi := NewSGIFromCoreGroup(&group)
-	log.Printf("groupAddEventHandler receive message, groupId=%v\n", GetIDPrefix(sgi.GroupID))
+	log.Printf("groupAddEventHandler receive message, groupId=%v\n", sgi.GroupID.ShortS())
 	p.acceptGroup(sgi)
 }
 

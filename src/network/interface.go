@@ -59,6 +59,10 @@ const (
 
 	CreateGroupSign uint32 = 0x1a
 
+	//==================铸块分红=========
+	CastRewardSignReq uint32 = 0x1b
+	CastRewardSignGot uint32 = 0x1c
+
 )
 
 type Message struct {

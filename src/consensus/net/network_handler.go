@@ -137,8 +137,8 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 			logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
 			return  e
 		}
-		logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,m.Block.Header.QueueNumber)
-		statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,m.Block.Header.Height,m.Block.Header.QueueNumber,len(m.Block.Transactions),-1,
+		logger.Debugf("Rcv new block %d-%d",m.Block.Header.Height,0)
+		statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,m.Block.Header.Height,0,len(m.Block.Transactions),-1,
 			time.Now().UnixNano(),"","",common.InstanceIndex,m.Block.Header.CurTime.UnixNano())
 		c.processor.OnMessageBlock(m)
 		return nil
@@ -160,6 +160,22 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message)error{
 
 		c.processor.OnMessageCreateGroupSign(m)
 		return nil
+	case network.CastRewardSignReq:
+		m, e := unMarshalCastRewardReqMessage(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard CastRewardSignReqMessage because of unmarshal error%s", e.Error())
+			return e
+		}
+
+		c.processor.OnMessageCastRewardSignReq(m)
+	case network.CastRewardSignGot:
+		m, e := unMarshalCastRewardSignMessage(body)
+		if e != nil {
+			network.Logger.Errorf("[handler]Discard CastRewardSignMessage because of unmarshal error%s", e.Error())
+			return e
+		}
+
+		c.processor.OnMessageCastRewardSign(m)
 	}
 	return nil
 }
@@ -383,7 +399,7 @@ func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummar
 	mhash.SetBytes(m.MemberHash)
 	message := model.ConsensusGroupInitSummary{
 		ParentID: parentId,
-		PrevGroupID: *groupsig.DeserializeId(m.PrevGroupID),
+		PrevGroupID: groupsig.DeserializeId(m.PrevGroupID),
 		Authority: *m.Authority,
 		Name: name,
 		DummyID: dummyID,
@@ -488,7 +504,7 @@ func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGr
 
 	for _, idByte := range message.Ids {
 		id := groupsig.DeserializeId(idByte)
-		ids = append(ids, *id)
+		ids = append(ids, id)
 	}
 	base := model.BaseSignedMessage{SI: *sign}
 	m := model.ConsensusCreateGroupRawMessage{GI: *gi, IDs: ids, BaseSignedMessage: base}
@@ -509,4 +525,59 @@ func unMarshalConsensusCreateGroupSignMessage(b []byte) (*model.ConsensusCreateG
 	base := model.BaseSignedMessage{SI: *sign}
 	m := model.ConsensusCreateGroupSignMessage{GI: *gi, BaseSignedMessage: base}
 	return &m, nil
+}
+
+func pbToBonus(b *tas_middleware_pb.Bonus) *types.Bonus {
+	return &types.Bonus{
+		TxHash: common.BytesToHash(b.TxHash),
+		TargetIds: b.TargetIds,
+		BlockHash: common.BytesToHash(b.BlockHash),
+		GroupId: b.GroupId,
+		Sign: b.Sign,
+		TotalValue: *b.TotalValue,
+	}
+}
+
+func unMarshalCastRewardReqMessage(b []byte) (*model.CastRewardTransSignReqMessage, error) {
+	message := new(tas_middleware_pb.CastRewardTransSignReqMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]unMarshalCastRewardReqMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	rw := pbToBonus(message.Reward)
+	sign := pbToSignData(message.Sign)
+	base := model.BaseSignedMessage{SI: *sign}
+
+	signPieces := make([]groupsig.Signature, len(message.SignedPieces))
+	for idx, sp := range message.SignedPieces {
+		signPieces[idx] = *groupsig.DeserializeSign(sp)
+	}
+
+	m := &model.CastRewardTransSignReqMessage{
+		BaseSignedMessage: base,
+		Reward: *rw,
+		SignedPieces: signPieces,
+	}
+	return m, nil
+}
+
+func unMarshalCastRewardSignMessage(b []byte) (*model.CastRewardTransSignMessage, error) {
+	message := new(tas_middleware_pb.CastRewardTransSignMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]unMarshalCastRewardSignMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	sign := pbToSignData(message.Sign)
+	base := model.BaseSignedMessage{SI: *sign}
+
+	m := &model.CastRewardTransSignMessage{
+		BaseSignedMessage: base,
+		ReqHash: common.BytesToHash(message.ReqHash),
+		BlockHash: common.BytesToHash(message.BlockHash),
+	}
+	return m, nil
 }

@@ -44,7 +44,7 @@ func init()  {
 }
 
 type node interface {
-	fstring(string) string
+	fstring(string,*Trie) string
 	cache() (hashNode, bool)
 	canUnload(cachegen, cachelimit uint16) bool
 	magic() byte
@@ -105,10 +105,10 @@ func (n valueNode) encode(w io.Writer) error  { return encode(w, n.magic(), n) }
 
 
 // Pretty printing.
-func (n *fullNode) String() string  { return n.fstring("") }
-func (n *shortNode) String() string { return n.fstring("") }
-func (n hashNode) String() string   { return n.fstring("") }
-func (n valueNode) String() string  { return n.fstring("") }
+func (n *fullNode) String() string  { return n.fstring("",nil) }
+func (n *shortNode) String() string { return n.fstring("",nil) }
+func (n hashNode) String() string   { return n.fstring("",nil) }
+func (n valueNode) String() string  { return n.fstring("",nil) }
 
 func encode(w io.Writer,magic byte,node node) error{
 	encoder := gob.NewEncoder(w)
@@ -117,24 +117,26 @@ func encode(w io.Writer,magic byte,node node) error{
 	return encoder.Encode(node)
 }
 
-func (n *fullNode) fstring(ind string) string {
+func (n *fullNode) fstring(ind string,trie *Trie) string {
 	resp := fmt.Sprintf("[\n%s  ", ind)
 	for i, node := range n.Children {
 		if node == nil {
 			resp += fmt.Sprintf("%s: <nil> ", indices[i])
 		} else {
-			resp += fmt.Sprintf("%s: %v", indices[i], node.fstring(ind+"  "))
+			resp += fmt.Sprintf("%s: %v", indices[i], node.fstring(ind+"  ",trie))
 		}
 	}
 	return resp + fmt.Sprintf("\n%s] ", ind)
 }
-func (n *shortNode) fstring(ind string) string {
-	return fmt.Sprintf("{short %x: %v} ", n.Key, n.Val.fstring(ind+"  "))
+func (n *shortNode) fstring(ind string,trie *Trie) string {
+	return fmt.Sprintf("{short %x: %v} ", n.Key, n.Val.fstring(ind+"  ",trie))
 }
-func (n hashNode) fstring(ind string) string {
-	return fmt.Sprintf("hash <%x> ", []byte(n))
+func (n hashNode) fstring(ind string,trie *Trie) string {
+	node,_ := trie.resolveHash(n,nil)
+	return node.fstring(ind, trie)
+	//return fmt.Sprintf("hash <%x> ", []byte(n))
 }
-func (n valueNode) fstring(ind string) string {
+func (n valueNode) fstring(ind string,trie *Trie) string {
 	return fmt.Sprintf("value %x ", []byte(n))
 }
 
@@ -161,6 +163,7 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 			err := decoder.Decode(&n)
 			n.flags.hash = hash
 			n.flags.dirty = false
+			n.flags.gen = cachegen
 			return &n,err
 		case magicShort:
 			var n shortNode
@@ -168,6 +171,7 @@ func decodeNode(hash, buf []byte, cachegen uint16) (node, error)  {
 			//n.Key = compactToHex(n.Key)
 			n.flags.hash = hash
 			n.flags.dirty = false
+			n.flags.gen = cachegen
 			return &n,err
 		case magicHash:
 			var n hashNode

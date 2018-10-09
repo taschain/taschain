@@ -77,6 +77,11 @@ func (sec Seckey) GetHexString() string {
 	return sec.getHex()
 }
 
+func (sec *Seckey) ShortS() string {
+	str := sec.GetHexString()
+	return common.ShortHex12(str)
+}
+
 //由字节切片初始化私钥
 func (sec *Seckey) Deserialize(b []byte) error {
 	//to do : 对字节切片做检查

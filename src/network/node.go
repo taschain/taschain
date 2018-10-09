@@ -20,9 +20,30 @@ const (
 	BASE_SECTION = "network"
 
 	PRIVATE_KEY = "private_key"
+	NodeIdLength = 66
 )
 
-type NodeID =  common.Address
+type NodeID [NodeIdLength]byte
+
+func (nid NodeID) GetHexString() string {
+    return string(nid[:])
+}
+func newNodeID(hex string) NodeID {
+    var nid NodeID
+    nid.SetBytes([]byte(hex))
+    return nid
+}
+
+func (nid *NodeID) SetBytes(b []byte)  {
+	if len(nid) < len(b) {
+		b = b[:len(nid)]
+	}
+	copy(nid[:], b)
+}
+
+func (nid NodeID) Bytes() []byte {
+    return nid[:]
+}
 
 // Node Kad 节点
 type Node struct {
@@ -162,7 +183,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 	return b
 }
 
-func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
+func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	var privateKey common.PrivateKey
 
@@ -174,7 +195,6 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 		privateKey = *common.HexStringToSecKey(privateKeyStr)
 	}
 	publicKey := privateKey.GetPubKey()
-	id := publicKey.GetAddress()
 	ip := getLocalIp()
 	basePort := BASE_PORT
 	port := SUPER_BASE_PORT;
@@ -184,7 +204,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
 	}
 
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: NodeID(id), Ip: nnet.ParseIP(ip), Port: port}
+	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: nnet.ParseIP(ip), Port: port}
 	fmt.Print(n.String())
 	return &n, nil
 }

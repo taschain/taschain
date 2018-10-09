@@ -12,12 +12,10 @@ import (
 	"os"
 	"consensus/model"
 	"middleware"
-	"network"
-	"core/net/handler"
-	chandler "consensus/net"
+	"consensus/base"
 )
 
-const CONF_PATH_PREFIX = `/Users/mac/TASchain/tas_node`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -27,30 +25,16 @@ func TestBelongGroups(t *testing.T) {
 	belongs.load()
 	gs := belongs.getAllGroups()
 	for _, g := range gs {
-		log.Println(GetIDPrefix(g.GroupID))
+		log.Println(g.GroupID.ShortS())
 	}
 	t.Log(belongs)
 }
-//
-//func GetIdFromPublicKey(p common.PublicKey) string {
-//	pubKey := &p2p.Pubkey{PublicKey: p}
-//	pID, e := peer.IDFromPublicKey(pubKey)
-//	if e != nil {
-//		log.Printf("[Network]IDFromPublicKey error:%s", e.Error())
-//		panic("GetIdFromPublicKey error!")
-//	}
-//	id := pID.Pretty()
-//	return id
-//}
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
-	scm := cm.GetSectionManager("network")
-	privateKey := common.HexStringToSecKey(scm.GetString("private_key", ""))
-	pk := privateKey.GetPubKey()
-	id := pk.GetAddress().GetHexString()
 	proc := new(Processor)
-	proc.Init(model.NewMinerInfo(id, cm.GetString("gtas", "secret", "")))
+	proc.Init(model.NewSelfMinerDO(cm.GetString("gtas", "secret", "")))
+	log.Printf("%v", proc.mi.VrfPK)
 	return proc
 }
 
@@ -65,31 +49,6 @@ func processors() (map[string]*Processor, map[string]int) {
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
 	}
-
-
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("siren", "850701"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("juanzi", "123456"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("wild children", "111111"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("gebaini", "999999"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("wenqin", "2342245"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
-	//
-	//proc = new(Processor)
-	//proc.Init(NewMinerInfo("baozhu", "23420949"))
-	//procs[proc.GetMinerID().GetHexString()] = proc
 
 	return procs, indexs
 }
@@ -123,7 +82,7 @@ func TestGenesisGroup(t *testing.T) {
 		panic(err)
 	}
 
-	network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
+	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
 
 	InitConsensus()
 	model.InitParam()
@@ -206,7 +165,7 @@ func TestGenesisGroup(t *testing.T) {
 			gc := p.joiningGroups.GetGroup(spkm.DummyID)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
-				log.Printf("processor %v join group gid %v\n", p.getPrefix(), GetIDPrefix(jg.GroupID))
+				log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
 				p.joinGroup(jg, true)
 				var msg = new(model.ConsensusGroupInitedMessage)
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
@@ -245,15 +204,27 @@ func TestGenesisGroup(t *testing.T) {
 		sgi := p.globalGroups.GetAvailableGroups(0)[0]
 		jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 		if jg == nil {
-			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),GetIDPrefix(sgi.GroupID))
+			log.Printf("jg is nil!!!!!! p=%v, gid=%v\n", p.getPrefix(),sgi.GroupID.ShortS())
 			continue
 		}
 		jgByte, _ := json.Marshal(jg)
 
 		if !write {
 			write = true
+
+
+			genesis := new(genesisGroup)
+			genesis.Group = *sgi
+
+			vrfpks := make(map[string]base.VRFPublicKey, 0)
+			for _, mem := range sgi.Members {
+				_p := procs[mem.ID.GetHexString()]
+				vrfpks[mem.ID.GetHexString()]= _p.mi.VrfPK
+			}
+			genesis.VrfPK = vrfpks
+
 			log.Println("=======", id, "============")
-			sgiByte, _ := json.Marshal(sgi)
+			sgiByte, _ := json.Marshal(genesis)
 
 			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
 
@@ -266,10 +237,6 @@ func TestGenesisGroup(t *testing.T) {
 		log.Println()
 
 		//ioutil.WriteFile(fmt.Sprintf("%s/genesis_jg.config.%v", CONF_PATH_PREFIX, index), jgByte, os.ModePerm)
-
-		var sig groupsig.Signature
-		sig.Deserialize(jg.GroupSec.SecretSign)
-		log.Println(groupsig.VerifySig(sgi.GroupPK, jg.GroupSec.DataHash.Bytes(), sig))
 	}
 
 
@@ -278,6 +245,10 @@ func TestGenesisGroup(t *testing.T) {
 
 }
 
-func writeGroup(p *Processor) {
+func TestLoadGenesisGroup(t *testing.T) {
+	file := CONF_PATH_PREFIX + "/genesis_sgi.config"
+	gg := genGenesisStaticGroupInfo(file)
 
+	json, _ := json.Marshal(gg)
+	t.Log(string(json))
 }

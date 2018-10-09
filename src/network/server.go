@@ -40,7 +40,7 @@ func (n *server) Send(id string, msg Message) error {
 		n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(common.HexStringToAddress(id), nil, bytes)
+	go n.netCore.Send(newNodeID(id), nil, bytes)
 	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -52,7 +52,7 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId, bytes, common.HexStringToAddress(id))
+	n.netCore.SendGroupMember(groupId, bytes, newNodeID(id))
 	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -135,7 +135,7 @@ func (n *server) ConnInfo() []Conn {
 func (n *server) BuildGroupNet(groupId string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
-		nodes = append(nodes, common.HexStringToAddress(id))
+		nodes = append(nodes, newNodeID(id))
 	}
 	n.netCore.groupManager.addGroup(groupId, nodes)
 }
@@ -147,7 +147,7 @@ func (n *server) DissolveGroupNet(groupId string) {
 func (n *server) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
-		nodes = append(nodes, common.HexStringToAddress(id))
+		nodes = append(nodes, newNodeID(id))
 	}
 	return n.netCore.groupManager.addGroup(groupId, nodes)
 }
@@ -183,7 +183,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	code := message.Code
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
-		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign:
+		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
 	case ReqTransactionMsg, ReqBlockChainTotalQnMsg, BlockChainTotalQnMsg, ReqBlockInfo, BlockInfo,
 		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:

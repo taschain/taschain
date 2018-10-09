@@ -118,7 +118,7 @@ func (ig *InitingGroup) convergence() bool {
 	}
 
 	if maxCnt >= threshold && atomic.CompareAndSwapInt32(&ig.status, INITING, INIT_SUCCESS){
-		log.Printf("found max maxCnt gpk=%v, maxCnt=%v.\n", GetPubKeyPrefix(gpk), maxCnt)
+		log.Printf("found max maxCnt gpk=%v, maxCnt=%v.\n", gpk.ShortS(), maxCnt)
 		ig.gpk = gpk
 		return true
 	}
@@ -144,9 +144,9 @@ func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(dummyId.GetHexString(), initingGroup)
 	if load {
-		log.Printf("InitingGroup dummy_gid=%v already exist.\n", GetIDPrefix(dummyId))
+		log.Printf("InitingGroup dummy_gid=%v already exist.\n", dummyId.ShortS())
 	} else {
-		log.Printf("add initing group %p ok, dummyId=%v.\n", initingGroup, GetIDPrefix(dummyId))
+		log.Printf("add initing group %p ok, dummyId=%v.\n", initingGroup, dummyId.ShortS())
 	}
 	return !load
 }
@@ -169,7 +169,7 @@ func (ngg *NewGroupGenerator) removeInitingGroup(dummyId groupsig.ID)  {
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
 func (ngg *NewGroupGenerator) ReceiveData(sgs *model.StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
 	id := sgs.GIS.DummyID
-	log.Printf("generator ReceiveData, dummy_gid=%v...\n", GetIDPrefix(id))
+	log.Printf("generator ReceiveData, dummy_gid=%v...\n", id.ShortS())
 	initingGroup := ngg.getInitingGroup(id)
 
 	if initingGroup == nil { //不存在该组
@@ -263,16 +263,16 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //}
 
 //从秘密分享消息创建GroupContext结构
-func CreateGroupContextWithPieceMessage(spm model.ConsensusSharePieceMessage, mi model.MinerInfo) *GroupContext {
-	gc := new(GroupContext)
-	gc.is = GIS_PIECE
-	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
-	gc.node.InitForGroup(spm.GISHash)
-	return gc
-}
+//func CreateGroupContextWithPieceMessage(spm model.ConsensusSharePieceMessage, mi model.SelfMinerDO) *GroupContext {
+//	gc := new(GroupContext)
+//	gc.is = GIS_PIECE
+//	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+//	gc.node.InitForGroup(spm.GISHash)
+//	return gc
+//}
 
 //从组初始化消息创建GroupContext结构
-func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
+func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
 	if len(grm.MEMS) != model.Param.GetGroupMemberNum() || len(grm.MEMS) != int(grm.GI.Members) {
 		log.Printf("group member size failed=%v.\n", len(grm.MEMS))
 		return nil
@@ -289,7 +289,7 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *m
 	gc.gis = grm.GI
 	gc.is = GIS_RAW
 	gc.node.memberNum = len(gc.mems)
-	gc.node.InitForMiner(mi.GetMinerID(), mi.SecretSeed)
+	gc.node.InitForMiner(mi)
 	gc.node.InitForGroup(grm.GI.GenHash())
 	return gc
 }
@@ -360,7 +360,7 @@ func NewJoiningGroups() *JoiningGroups {
 	}
 }
 
-func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.MinerInfo) *GroupContext {
+func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
 	if v := jgs.GetGroup(grm.GI.DummyID); v != nil {
 		gs := v.GetGroupStatus()
 		log.Printf("found initing group info BY RAW, status=%v...\n", gs)

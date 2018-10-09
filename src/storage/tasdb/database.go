@@ -315,6 +315,10 @@ func (dt *table) Close() {
 
 }
 
+func (dt *table) NewIterator() iterator.Iterator {
+	return nil
+}
+
 type tableBatch struct {
 	batch  Batch
 	prefix string

@@ -30,7 +30,6 @@ import (
 	"consensus/groupsig"
 	"common"
 	"consensus/mediator"
-	"consensus/logical"
 	"middleware/types"
 )
 
@@ -39,8 +38,8 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64) (*Result, error) {
-	hash, contractAddr, err := walletManager.transaction(from, to, amount, code,nonce)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64, cmd int32) (*Result, error) {
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code, nonce, cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +164,7 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	blockDetail["height"] = bh.Height
 	blockDetail["pre_hash"] = bh.PreHash.Hex()
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["queue_number"] = bh.ProveValue
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	var castorId groupsig.ID
 	castorId.Deserialize(bh.Castor)
@@ -192,7 +191,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["height"] = bh.Height
 	blockDetail["pre_hash"] = bh.PreHash.Hex()
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.QueueNumber
+	blockDetail["queue_number"] = bh.ProveValue
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
@@ -202,7 +201,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().GetTotalReceivedTxCount()
-	blockDetail["miner_id"] = logical.GetIDPrefix(mediator.Proc.GetPubkeyInfo().ID)
+	blockDetail["miner_id"] = mediator.Proc.GetPubkeyInfo().ID.ShortS()
 	return &Result{"success", blockDetail}, nil
 }
 
@@ -214,14 +213,14 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {
-		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Id))
+		gmap["group_id"] = groupsig.DeserializeId(g.Id).ShortS()
 		gmap["dummy"] = false
 	} else {
-		gmap["group_id"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Dummy))
+		gmap["group_id"] = groupsig.DeserializeId(g.Dummy).ShortS()
 		gmap["dummy"] = true
 	}
-	gmap["parent"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.Parent))
-	gmap["pre"] = logical.GetIDPrefix(*groupsig.DeserializeId(g.PreGroup))
+	gmap["parent"] = groupsig.DeserializeId(g.Parent).ShortS()
+	gmap["pre"] = groupsig.DeserializeId(g.PreGroup).ShortS()
 	gmap["begin_height"] = g.BeginHeight
 	gmap["dismiss_height"] = g.DismissHeight
 	mems := make([]string, 0)
@@ -262,12 +261,12 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 
 	for _, g := range groups {
 		gmap := make(map[string]interface{})
-		gmap["id"] = logical.GetIDPrefix(g.GroupID)
-		gmap["parent"] = logical.GetIDPrefix(g.ParentId)
-		gmap["pre"] = logical.GetIDPrefix(g.PrevGroupID)
+		gmap["id"] = g.GroupID.ShortS()
+		gmap["parent"] = g.ParentId.ShortS()
+		gmap["pre"] = g.PrevGroupID.ShortS()
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
-			mems = append(mems, logical.GetIDPrefix(mem.ID))
+			mems = append(mems, mem.ID.ShortS())
 		}
 		gmap["group_members"] = mems
 		gmap["begin_height"] = g.BeginHeight

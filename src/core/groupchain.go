@@ -29,6 +29,7 @@ import (
 	"middleware/notify"
 	"utility"
 	"bytes"
+	"errors"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
@@ -53,6 +54,8 @@ type GroupChain struct {
 	lock sync.RWMutex
 
 	lastGroup *types.Group
+
+	activeGroups []*types.Group
 
 	//preCache map[string]*types.Group
 	//preCache *sync.Map
@@ -100,7 +103,7 @@ func ClearGroup(config *GroupChainConfig) {
 	os.RemoveAll("database")
 }
 
-func initGroupChain() error {
+func initGroupChain(genesisInfo *types.GenesisInfo) error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
 		//preCache: new(sync.Map),
@@ -113,13 +116,13 @@ func initGroupChain() error {
 		return err
 	}
 
-	build(chain)
+	build(chain,genesisInfo)
 
 	GroupChainImpl = chain
 	return nil
 }
 
-func build(chain *GroupChain) {
+func build(chain *GroupChain,genesisInfo *types.GenesisInfo) {
 	lastId, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	count,_ := chain.groups.Get([]byte(GROUP_COUNT_KEY))
 	var lastGroup *types.Group
@@ -130,6 +133,9 @@ func build(chain *GroupChain) {
 			panic("build group Unmarshal fail")
 		}
 		chain.count = utility.ByteToUInt64(count)
+	} else {
+		lastGroup = &genesisInfo.Group
+		chain.AddGroup(lastGroup,nil,nil)
 	}
 	chain.lastGroup = lastGroup
 
@@ -401,9 +407,10 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 }
 
 func (chain *GroupChain) save(group *types.Group) error {
-	var overWrite bool
 	if nil != group.Id {
-		overWrite, _ = chain.groups.Has(group.Id)
+		if exist, _ := chain.groups.Has(group.Id);exist{
+			return errors.New("group already exist")
+		}
 	}
 
 	data, err := json.Marshal(group)
@@ -412,16 +419,40 @@ func (chain *GroupChain) save(group *types.Group) error {
 	}
 	chain.groups.Put(generateKey(chain.count), group.Id)
 	chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
-	if !overWrite {
-		chain.count++
-		chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
-	}
-	fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
+	chain.count++
+	chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
+
+	//fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
 
 	err = chain.groups.Put(group.Id, data)
 	if nil == err {
 		chain.lastGroup = group
+		chain.activeGroups = append(chain.activeGroups, group)
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 	}
 	return err
+}
+
+func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64)  {
+	chain.lock.Lock()
+	defer chain.lock.Unlock()
+	for ;len(chain.activeGroups) > 0;{
+		group := chain.activeGroups[0]
+		if group.DismissHeight <= blockHeight{
+			chain.activeGroups = chain.activeGroups[1:]
+		} else {
+			break
+		}
+	}
+}
+
+func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte) bool{
+	for _,group := range chain.activeGroups{
+		for _,member := range group.Members{
+			if bytes.Equal(member.Id,id){
+				return true
+			}
+		}
+	}
+	return false
 }

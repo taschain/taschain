@@ -19,6 +19,17 @@ import (
 	"common"
 	"encoding/json"
 	"time"
+	"math/big"
+)
+
+const (
+	TransactionTypeTransfer = 0
+	TransactionTypeContractCreate = 1
+	TransactionTypeContractCall = 2
+	TransactionTypeBonus = 3
+	TransactionTypeMinerApply = 4
+	TransactionTypeMinerAbort = 5
+	TransactionTypeMinerRefund = 6
 )
 
 type Transaction struct {
@@ -27,6 +38,7 @@ type Transaction struct {
 	Nonce  uint64
 	Source *common.Address
 	Target *common.Address
+	Type   int32
 
 	GasLimit uint64
 	GasPrice uint64
@@ -96,14 +108,42 @@ func (pt *PriorityTransactions) Pop() interface{} {
 	return item
 }
 
+type Bonus struct {
+	TxHash		common.Hash
+	TargetIds	[]int32
+	BlockHash	common.Hash
+	GroupId		[]byte
+	Sign		[]byte
+	TotalValue	uint64
+}
+
+const (
+	MinerTypeLight  = 0
+	MinerTypeHeavy  = 1
+	MinerStatusNormal = 0
+	MinerStatusAbort = 1
+)
+
+type Miner struct {
+	Id				[]byte
+	PublicKey 		[]byte
+	VrfPublicKey 	[]byte
+	ApplyHeight 	uint64
+	Stake			uint64
+	AbortHeight		uint64
+	Type			byte
+	Status			byte
+}
+
+
 //区块头结构
 type BlockHeader struct {
 	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
+	ProveValue   *big.Int      //轮转序号
+	TotalPV      *big.Int      //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -122,8 +162,8 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	QueueNumber  uint64        //轮转序号
-	TotalQN      uint64        //整条链的QN
+	ProveValue  *big.Int        //轮转序号
+	TotalPV      *big.Int        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -141,8 +181,8 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		Height:       bh.Height,
 		PreHash:      bh.PreHash,
 		PreTime:      bh.PreTime,
-		QueueNumber:  bh.QueueNumber,
-		TotalQN:      bh.TotalQN,
+		ProveValue:  bh.ProveValue,
+		TotalPV:      bh.TotalPV,
 		CurTime:      bh.CurTime,
 		Castor:       bh.Castor,
 		GroupId:      bh.GroupId,

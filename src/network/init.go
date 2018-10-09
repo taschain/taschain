@@ -41,16 +41,17 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string) (id string, err error) {
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string, nodeIDHex string)(err error){
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
-	self, err := InitSelfNode(config, isSuper)
+
+	self, err := InitSelfNode(config, isSuper, newNodeID(nodeIDHex))
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
-		return "", err
+		return err
 	}
-	id = self.Id.GetHexString()
-	if seedIp == "" {
+	//id = self.Id
+	if seedIp == ""{
 		seedIp = seedDefaultIp
 	}
 	seedId, _, seedPort := getSeedInfo(config)

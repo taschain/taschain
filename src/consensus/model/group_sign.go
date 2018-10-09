@@ -4,6 +4,7 @@ import (
 	"consensus/groupsig"
 	"sync"
 	"fmt"
+	"log"
 )
 
 /*
@@ -56,6 +57,9 @@ func (gs *GroupSignGenerator) generate() bool {
 		return false
 	}
 	gs.gSign = *sig
+	if len(gs.gSign.Serialize()) == 0 {
+		log.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!1sign is empty!")
+	}
 	return true
 }
 
@@ -84,6 +88,12 @@ func (gs *GroupSignGenerator) Recovered() bool {
     gs.lock.RLock()
     defer gs.lock.RUnlock()
     return gs.gSign.IsValid()
+}
+
+func (gs *GroupSignGenerator) GetWitnesses() map[string]groupsig.Signature {
+    gs.lock.RLock()
+    defer gs.lock.RUnlock()
+    return gs.witnesses
 }
 
 func (gs *GroupSignGenerator) Brief() string {

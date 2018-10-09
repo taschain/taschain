@@ -26,6 +26,7 @@ import (
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
+	"github.com/vmihailenco/msgpack"
 )
 
 var emptyHash = common.Hash{}
@@ -35,19 +36,25 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 		return emptyHash
 	}
 
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
+	//keybuf := new(bytes.Buffer)
+	//trie := new(trie.Trie)
+	//for i := 0; i < len(tx); i++ {
+	//	if tx[i] != nil {
+	//		keybuf.Reset()
+	//		serialize.Encode(keybuf, uint(i))
+	//		encode, _ := serialize.EncodeToBytes(tx[i])
+	//		trie.Update(keybuf.Bytes(), encode)
+	//	}
+	//}
+	//hash := trie.Hash()
+	//
+	//return common.BytesToHash(hash.Bytes())
+	buf := new(bytes.Buffer)
 	for i := 0; i < len(tx); i++ {
-		if tx[i] != nil {
-			keybuf.Reset()
-			serialize.Encode(keybuf, uint(i))
-			encode, _ := serialize.EncodeToBytes(tx[i])
-			trie.Update(keybuf.Bytes(), encode)
-		}
+		encode, _ := msgpack.Marshal(tx[i])
+		serialize.Encode(buf, encode)
 	}
-	hash := trie.Hash()
-
-	return common.BytesToHash(hash.Bytes())
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
 func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
@@ -71,14 +78,14 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
+func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
-
+	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
-		ExtraData:   common.Sha256([]byte("tas")),
-		CurTime:     time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
-		QueueNumber: 0,
-		TotalQN:     0,
+		ExtraData:  common.Sha256([]byte("tas")),
+		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
+		ProveValue: pv,
+		TotalPV:    pv,
 	}
 
 	blockByte, _ := json.Marshal(block)
@@ -97,6 +104,16 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("10"))), big.NewInt(1000000))
+
+	miners := make([]*types.Miner,0)
+	for i,member := range genesisInfo.Group.Members{
+		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
+		miners = append(miners,miner)
+	}
+	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
+	stateDB.SetNonce(common.BonusStorageAddress,1)
+	stateDB.SetNonce(common.HeavyDBAddress,1)
+	stateDB.SetNonce(common.LightDBAddress,1)
 	stateDB.IntermediateRoot(false)
 	root, _ := stateDB.Commit(false)
 	triedb.Commit(root, false)

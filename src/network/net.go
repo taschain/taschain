@@ -10,7 +10,6 @@ import (
 	nnet "net"
 	"time"
 
-	"common"
 	"github.com/gogo/protobuf/proto"
 	"middleware/statistics"
 )
@@ -98,6 +97,7 @@ func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) 
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
 	}
+
 
 	n := NewNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
 
@@ -410,7 +410,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 	count := 0
 	//先找已经连接的
 	for i := 0; i < len(groupMembers) && count < MaxSendCount; i++ {
-		id := common.HexStringToAddress(groupMembers[i])
+		id := newNodeID(groupMembers[i])
 		p := nc.peerManager.peerByID(id)
 		if p != nil && p.seesionId > 0 {
 			count += 1
@@ -421,7 +421,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 	//已经连接的不够，通过穿透服务器连接
 	for i := 0; i < len(groupMembers) && count < MaxSendCount && count < len(groupMembers); i++ {
-		id := common.HexStringToAddress(groupMembers[i])
+		id := newNodeID(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
 			count += 1
 			nc.peerManager.write(id, nil, packet)
@@ -572,7 +572,8 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 
 	switch msgType {
 	case MessageType_MessagePing:
-		fromId = common.BytesToAddress(msg.(*MsgPing).NodeId)
+		//fromId = common.BytesToAddress(msg.(*MsgPing).NodeId)
+		fromId.SetBytes(msg.(*MsgPing).NodeId)
 		if fromId != p.Id {
 			p.Id = fromId
 		}

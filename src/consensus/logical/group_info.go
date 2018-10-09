@@ -91,14 +91,14 @@ func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *Init
 
 func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	sgi := &StaticGroupInfo{
-		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
-		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
+		GroupID:     groupsig.DeserializeId(coreGroup.Id),
+		GroupPK:     groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
 		BeginHeight: coreGroup.BeginHeight,
 		Members:     make([]model.PubKeyInfo, 0),
 		MemIndex:    make(map[string]int),
 		DismissHeight: coreGroup.DismissHeight,
-		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
-		PrevGroupID:   *groupsig.DeserializeId(coreGroup.PreGroup),
+		ParentId:      groupsig.DeserializeId(coreGroup.Parent),
+		PrevGroupID:   groupsig.DeserializeId(coreGroup.PreGroup),
 		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
 		Authority:     coreGroup.Authority,
 		Name:          coreGroup.Name,
@@ -107,7 +107,7 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	for _, cMem := range coreGroup.Members {
 		id := groupsig.DeserializeId(cMem.Id)
 		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)
-		pkInfo := model.NewPubKeyInfo(*id, *pk)
+		pkInfo := model.NewPubKeyInfo(id, pk)
 		sgi.addMember(&pkInfo)
 	}
 	return sgi
@@ -131,22 +131,8 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 	return sgi.GroupPK
 }
 
-//由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
-	sgi := &StaticGroupInfo{
-		GIS:      grm.GI,
-		Members:  make([]model.PubKeyInfo, 0),
-		MemIndex: make(map[string]int),
-	}
-	for _, v := range grm.MEMS {
-		sgi.Members = append(sgi.Members, v)
-		sgi.MemIndex[v.GetID().GetHexString()] = len(sgi.Members) - 1
-	}
-	return sgi
-}
 
-
-func (sgi *StaticGroupInfo) GetLen() int {
+func (sgi *StaticGroupInfo) GetMemberCount() int {
 	return len(sgi.Members)
 }
 
@@ -174,10 +160,6 @@ func (sgi *StaticGroupInfo) addMember(m *model.PubKeyInfo) {
 	}
 }
 
-func (sgi *StaticGroupInfo) CanGroupSign() bool {
-	return sgi.GroupPK.IsValid()
-}
-
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 	_, ok := sgi.MemIndex[uid.GetHexString()]
 	return ok
@@ -185,35 +167,26 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 
 //ok:是否组内成员
 //m:组内成员矿工公钥
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
-	var i int
-	i, ok = sgi.MemIndex[uid.GetHexString()]
-	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
-	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
-	if ok {
-		m = sgi.Members[i]
-	} else {
-		i := 0
-		for k, _ := range sgi.MemIndex {
-			fmt.Printf("---mem(%v)=%v.\n", i, k)
-			i++
-		}
-	}
-	return
-}
+//func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
+//	var i int
+//	i, ok = sgi.MemIndex[uid.GetHexString()]
+//	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
+//	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
+//	if ok {
+//		m = sgi.Members[i]
+//	} else {
+//		i := 0
+//		for k, _ := range sgi.MemIndex {
+//			fmt.Printf("---mem(%v)=%v.\n", i, k)
+//			i++
+//		}
+//	}
+//	return
+//}
 
-//取得某个成员在组内的排位
-func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.MemIndex[uid.GetHexString()]
-	if ok {
-		return int32(i)
-	} else {
-		return int32(-1)
-	}
-}
 
 //取得指定位置的铸块人
-func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
+func (sgi *StaticGroupInfo) GetMemberID(i int) groupsig.ID {
 	var m groupsig.ID
 	if i >= 0 && i < len(sgi.Members) {
 		m = sgi.Members[i].GetID()
@@ -239,10 +212,11 @@ func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	chain 		*core.GroupChain
+	chain 	  	*core.GroupChain
 	groups    []*StaticGroupInfo
 	gIndex    map[string]int     //string(ID)->索引
 	generator *NewGroupGenerator //新组处理器(组外处理器)
+	orphanCache map[string]*StaticGroupInfo	//缓存前一组未到达的组
 	lock      sync.RWMutex
 }
 
@@ -252,6 +226,7 @@ func NewGlobalGroups(chain *core.GroupChain) *GlobalGroups {
 		gIndex:    make(map[string]int),
 		generator: CreateNewGroupGenerator(),
 		chain: 		chain,
+		orphanCache: make(map[string]*StaticGroupInfo),
 	}
 }
 
@@ -274,43 +249,56 @@ func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
 }
 
 func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
-	if len(gg.groups) <= 1 {
-		return true
+	if len(gg.groups) == 0 {
+		return g.BeginHeight == 0
 	}
 	last := gg.lastGroup()
 	return last.GroupID.IsEqual(g.PrevGroupID)
 }
 
+func (gg *GlobalGroups) pushBack(g *StaticGroupInfo) bool {
+	if len(gg.groups) > 0 {
+		last := gg.lastGroup()
+		if last.BeginHeight >= g.BeginHeight {
+			panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+		}
+		if !last.GroupID.IsEqual(g.PrevGroupID) {
+			panic(fmt.Sprintf("preGroupID not exist!last=%v, pre receive=%v， size=%v", last.GroupID.ShortS(), g.PrevGroupID.ShortS(), len(gg.groups)))
+		}
+	}
+	gg.groups = append(gg.groups, g)
+	gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+	log.Printf("*****Group(%v) BeginHeight(%v)*****\n", g.GroupID.ShortS(),g.BeginHeight)
+	return true
+}
+
 //增加一个合法铸块组
+//在组同步的时候，该方法有可能并发调用，导致组的顺序也是乱序的
 func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
-	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
+	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, beginHeight=%v...\n", g.GroupID.ShortS(), g.BeginHeight)
+	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
 		if gg.canAdd(g) {
-			if len(gg.groups) > 0 {
-				last := gg.lastGroup()
-				if last.BeginHeight >= g.BeginHeight {
-					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+			tmpG := g
+			for {
+				gg.pushBack(tmpG)
+				hex := tmpG.GroupID.GetHexString()
+				tmpG, ok = gg.orphanCache[hex]
+				if !ok {
+					break
 				}
+				delete(gg.orphanCache, hex)
 			}
-			gg.groups = append(gg.groups, g)
-			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
 			return true
 		} else {
-			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", GetIDPrefix(g.GroupID), GetIDPrefix(g.PrevGroupID), GetIDPrefix(gg.lastGroup().GroupID))
+			gg.orphanCache[g.PrevGroupID.GetHexString()] = g
+			log.Printf("AddStaticGroup fail, preGroup not found, cached! gid=%v, preGid=%v\n", g.GroupID.ShortS(), g.PrevGroupID.ShortS())
 			return false
 		}
 	} else {
-		if gg.groups[idx].BeginHeight < g.BeginHeight {
-			gg.groups[idx].BeginHeight = g.BeginHeight
-			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
-		} else {
-			log.Printf("already exist this group, ignored.\n")
-		}
-
+		log.Printf("already exist this group, ignored.\n")
 	}
 	return false
 }
@@ -360,9 +348,9 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
-		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", GetIDPrefix(id))
+		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
-			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", GetIDPrefix(g.GroupID))
+			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
 		}
 		g = &StaticGroupInfo{}
 	}
@@ -378,7 +366,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 
 	gids := make([]string, 0)
 	for _, g := range qualifiedGS {
-		gids = append(gids, GetIDPrefix(g.GroupID))
+		gids = append(gids, g.GroupID.ShortS())
 	}
 
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {

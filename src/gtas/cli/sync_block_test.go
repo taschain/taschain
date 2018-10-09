@@ -372,7 +372,7 @@ func printBlockInfo() {
 		if bh == nil {
 			log.Printf("Block height:%d is nil", i)
 		} else {
-			log.Printf("Block height:%d,qn is:%d,hash is: %x", bh.Height, bh.QueueNumber, bh.Hash)
+			log.Printf("Block height:%d,qn is:%d,hash is: %x", bh.Height, bh.ProveValue, bh.Hash)
 		}
 	}
 }

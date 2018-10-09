@@ -43,6 +43,7 @@ import (
 	"consensus/model"
 	"redis"
 	"runtime/debug"
+	"consensus/logical"
 )
 
 const (
@@ -129,7 +130,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 
 	gtas.waitingUtilSyncFinished()
-	redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
+	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
 	gtas.inited = true
@@ -281,7 +282,8 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	err := core.InitCore()
+	genesis := &logical.GenesisGeneratorImpl{}
+	err := core.InitCore(genesis.Generate())
 	if err != nil {
 		return err
 	}
@@ -301,13 +303,20 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 	// 初始化中间件
 	middleware.InitMiddleware()
 
+	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore()
+	err = core.InitCore(genesis.Generate())
 	if err != nil {
 		return err
 	}
-
-	id, err := network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp)
+	secret := (*configManager).GetString(Section, "secret", "")
+	if secret == "" {
+		secret = getRandomString(5)
+		(*configManager).SetString(Section, "secret", secret)
+	}
+	minerInfo := model.NewSelfMinerDO(secret)
+	id := minerInfo.ID.GetHexString()
+	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
@@ -323,15 +332,10 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 
 	if isSuper {
 		//超级节点启动前先把Redis数据清空
-		redis.CleanRedisData()
+		//redis.CleanRedisData()
 	}
 
-	secret := (*configManager).GetString(Section, "secret", "")
-	if secret == "" {
-		secret = getRandomString(5)
-		(*configManager).SetString(Section, "secret", secret)
-	}
-	minerInfo := model.NewMinerInfo(id, secret)
+
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo)
@@ -339,7 +343,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return errors.New("consensus module error")
 	}
 
-	mediator.Proc.BeginGenesisGroupMember()
+	//mediator.Proc.BeginGenesisGroupMember()
 	return nil
 }
 
@@ -365,7 +369,7 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info model.MinerInfo, id string) {
+func ShowPubKeyInfo(info model.SelfMinerDO, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})

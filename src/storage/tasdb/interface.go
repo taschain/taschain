@@ -15,6 +15,8 @@
 
 package tasdb
 
+import "github.com/syndtr/goleveldb/leveldb/iterator"
+
 const IdealBatchSize = 100 * 1024
 
 type Putter interface {
@@ -37,4 +39,5 @@ type Database interface {
 	Delete(key []byte) error
 	Close()
 	NewBatch() Batch
+	NewIterator() iterator.Iterator
 }

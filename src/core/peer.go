@@ -21,13 +21,14 @@ import (
 	"middleware/pb"
 	"middleware/types"
 	"network"
+	"math/big"
 )
 
 type TransactionRequestMessage struct {
 	TransactionHashes []common.Hash
 	CurrentBlockHash  common.Hash
 	BlockHeight       uint64
-	BlockQn           uint64
+	BlockPv           *big.Int
 }
 
 type BlockHashesReq struct {
@@ -38,7 +39,7 @@ type BlockHashesReq struct {
 type BlockHash struct {
 	Height uint64 //所在链高度
 	Hash   common.Hash
-	Qn     uint64
+	Pv     *big.Int
 }
 
 type BlockRequestInfo struct {
@@ -63,13 +64,13 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockPv, len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	go network.GetNetInstance().Send(castorId, message)
 }
 
 //本地查询到交易，返回请求方
-func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uint64, blockQn uint64) {
+func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uint64, blockPv *big.Int) {
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
@@ -170,7 +171,7 @@ func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, err
 	}
 
 	currentBlockHash := m.CurrentBlockHash.Bytes()
-	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: &m.BlockHeight, BlockQn: &m.BlockQn}
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: &m.BlockHeight, BlockPv: m.BlockPv.Bytes()}
 	return proto.Marshal(&message)
 }
 

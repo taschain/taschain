@@ -16,11 +16,9 @@
 package mediator
 
 import (
-	"consensus/groupsig"
 	"consensus/logical"
 	"consensus/model"
 	"consensus/net"
-	"consensus/base"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -34,22 +32,16 @@ var Proc logical.Processor
 //id:矿工id，需要全网唯一性。
 //secret：种子字符串，为空则采用系统默认强随机数作为种子。种子字符串越复杂，则矿工私钥的安全系数越高。
 //返回：成功返回矿工结构，该结构包含挖矿私钥信息，请妥善保管。
-func NewMiner(id string, secret string) (mi model.MinerInfo, ok bool) {
-	mi = model.NewMinerInfo(id, secret)
-	ok = true
-	return
-}
-
-func NewMinerEx(id groupsig.ID, secret string) (mi model.MinerInfo, ok bool) {
-	mi.Init(id, base.RandFromString(secret))
-	ok = true
-	return
-}
+//func NewMiner(id string, secret string) (mi model.SelfMinerDO, ok bool) {
+//	mi = model.NewSelfMinerDO(id, secret)
+//	ok = true
+//	return
+//}
 
 //共识初始化
 //mid: 矿工ID
 //返回：true初始化成功，可以启动铸块。内部会和链进行交互，进行初始数据加载和预处理。失败返回false。
-func ConsensusInit(mi model.MinerInfo) bool {
+func ConsensusInit(mi model.SelfMinerDO) bool {
 	model.InitParam()
 	logical.InitConsensus()
 	//groupsig.Init(1)
@@ -66,6 +58,7 @@ func StartMiner() bool {
 
 //结束矿工进程，不再参与铸块。
 func StopMiner() {
+	Proc.Stop()
 	Proc.Finalize()
 	return
 }
