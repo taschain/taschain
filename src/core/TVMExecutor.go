@@ -107,27 +107,30 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				if mexist == nil{
 					amount := big.NewInt(int64(transaction.Value))
 					if CanTransfer(accountdb, *transaction.Source, amount){
-						Logger.Debugf("TVMExecutor Execute MinerApply Transaction %s",transaction.Hash.Hex())
-						MinerManagerImpl.AddMiner(transaction.Source[:],&miner)
-						accountdb.SubBalance(*transaction.Source,amount)
+						if MinerManagerImpl.AddMiner(transaction.Source[:],&miner,accountdb) > 0 {
+							accountdb.SubBalance(*transaction.Source, amount)
+							Logger.Debugf("TVMExecutor Execute MinerApply Success Source %s",transaction.Source.GetHexString())
+						}
 					} else {
 						fail = true
+						Logger.Debugf("TVMExecutor Execute MinerApply Fail(Balance Not Enough) Source %s",transaction.Source.GetHexString())
 					}
 				} else {
 					fail = true
+					Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s",transaction.Source.GetHexString())
 				}
 			case types.TransactionTypeMinerAbort:
 				if transaction.Data == nil{
 					fail = true
 					continue
 				}
-				fail = !MinerManagerImpl.AbortMiner(transaction.Source[:],transaction.Data[0],transaction.Value)
+				fail = !MinerManagerImpl.AbortMiner(transaction.Source[:],transaction.Data[0],transaction.Value,accountdb)
 				Logger.Debugf("TVMExecutor Execute MinerAbort Transaction %s",transaction.Hash.Hex())
 			case types.TransactionTypeMinerRefund:
 				mexist := MinerManagerImpl.GetMinerById(transaction.Source[:],transaction.Data[0])
 				if mexist != nil && mexist.Status == types.MinerStatusAbort{
 					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
-						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type)
+						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type,accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
 						Logger.Debugf("TVMExecutor Execute MinerRefund Transaction %s",transaction.Hash.Hex())
