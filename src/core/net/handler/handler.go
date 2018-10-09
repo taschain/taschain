@@ -105,8 +105,8 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		ghi := sync.GroupHeightInfo{Height: height, SourceId: sourceId}
 		sync.GroupSyncer.HeightCh <- ghi
 	case network.ReqGroupMsg:
-		baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := sync.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
+		//baseHeight := utility.ByteToUInt64(msg.Body)
+		gri := sync.GroupRequestInfo{GroupId: msg.Body, SourceId: sourceId}
 		sync.GroupSyncer.ReqGroupCh <- gri
 	case network.GroupMsg:
 		m, e := unMarshalGroupInfo(msg.Body)

@@ -413,6 +413,7 @@ func (chain *GroupChain) save(group *types.Group) error {
 		}
 	}
 
+	group.GroupHeight = chain.count
 	data, err := json.Marshal(group)
 	if nil != err {
 		return err
@@ -431,6 +432,15 @@ func (chain *GroupChain) save(group *types.Group) error {
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 	}
 	return err
+}
+
+func (chain *GroupChain) GetSyncGroupsById(id []byte) []*types.Group {
+	result := make([]*types.Group,0)
+	group := chain.getGroupById(id)
+	if group == nil{
+		return result
+	}
+	return chain.GetSyncGroupsByHeight(group.GroupHeight + 1, 5)
 }
 
 func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64)  {
