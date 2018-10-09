@@ -37,6 +37,8 @@ var (
 
 	ErrHash = errors.New("invalid transaction hash")
 
+	ErrExist = errors.New("transaction already exist in pool")
+
 	ErrInvalidSender = errors.New("invalid sender")
 
 	ErrNonceTooLow = errors.New("nonce too low")
@@ -203,7 +205,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
-		return false, nil
+		return false, ErrExist
 	}
 
 	pool.received.Push(tx)

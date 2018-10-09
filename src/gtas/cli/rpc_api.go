@@ -53,13 +53,13 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 
 func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
-	address := minerInfo.ID.Serialize()
-	miner := core.MinerManagerImpl.GetMinerById(address, byte(mtype))
+	address := common.BytesToAddress(minerInfo.ID.Serialize())
+	miner := core.MinerManagerImpl.GetMinerById(address[:], byte(mtype))
 	js,err := json.Marshal(miner)
 	if err != nil {
 		return &Result{Message:err.Error(), Data:nil}, err
 	}
-	return &Result{Message:string(js)}, nil
+	return &Result{Message:address.GetHexString(),Data:string(js)}, nil
 }
 
 func (api *GtasAPI) MinerAbort(height uint64, mtype int32) (*Result, error) {
@@ -71,7 +71,7 @@ func (api *GtasAPI) MinerAbort(height uint64, mtype int32) (*Result, error) {
 		Data: []byte{byte(mtype)},
 		Source: &address,
 		Value: height,
-		Type: types.TransactionTypeMinerApply,
+		Type: types.TransactionTypeMinerAbort,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)

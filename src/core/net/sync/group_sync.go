@@ -208,7 +208,7 @@ func (gs *groupSyncer) loop() {
 
 //广播索要组链高度
 func requestGroupChainHeight() {
-	//logger.Debugf("[GroupSyncer]Req group height for neighbor!")
+	logger.Debugf("[GroupSyncer]Req group height for neighbor!")
 	message := network.Message{Code: network.ReqGroupChainCountMsg}
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
