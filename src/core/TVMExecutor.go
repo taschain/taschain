@@ -26,7 +26,6 @@ import (
 	"tvm"
 	"bytes"
 	"github.com/vmihailenco/msgpack"
-	"log"
 )
 
 var castorReward = big.NewInt(50)
@@ -97,7 +96,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					fail = true
 				}
 			case types.TransactionTypeMinerApply:
-				log.Printf("--------miner apply tx found! from %v\n", transaction.Source.GetHexString())
+				Logger.Debugf("--------miner apply tx found! from %v\n", transaction.Source.GetHexString())
 				if transaction.Data == nil{
 					fail = true
 					continue
