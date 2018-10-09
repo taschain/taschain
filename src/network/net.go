@@ -99,7 +99,7 @@ func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) 
 	}
 
 
-	n := NewNode(common.HexStringToAddress(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
+	n := NewNode(newNodeID(rn.Id), nnet.ParseIP(rn.Ip), int(rn.Port))
 
 	err := n.validateComplete()
 	return n, err
