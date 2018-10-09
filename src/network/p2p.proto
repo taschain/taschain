@@ -16,6 +16,7 @@ enum DataType
     DataNormal = 0;
     DataGroup = 1;
 	DataGlobal= 2;
+	DataGlobalRandom= 3;
 };
 message RpcNode  {
     string Ip = 1;
