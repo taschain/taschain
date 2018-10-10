@@ -69,7 +69,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.Accou
 			miner.Type = types.MinerTypeHeavy
 			data,_ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
-			Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
+			//Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
 		}
 		if accountdb.GetData(dbl, string(miner.Id)) == nil{
 			miner.Type = types.MinerTypeLight

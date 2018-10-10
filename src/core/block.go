@@ -104,18 +104,21 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
 	stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
-
+	stage := stateDB.IntermediateRoot(false)
+	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
 	miners := make([]*types.Miner,0)
 	for i,member := range genesisInfo.Group.Members{
 		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
 		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
+	stage = stateDB.IntermediateRoot(false)
+	Logger.Debugf("GenesisBlock Stage2 Root:%s",stage.Hex())
 	stateDB.SetNonce(common.BonusStorageAddress,1)
 	stateDB.SetNonce(common.HeavyDBAddress,1)
 	stateDB.SetNonce(common.LightDBAddress,1)
-	stateDB.IntermediateRoot(false)
-	root, _ := stateDB.Commit(false)
+
+	root, _ := stateDB.Commit(true)
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 

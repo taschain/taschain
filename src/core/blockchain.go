@@ -222,6 +222,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			chain.saveBlock(block)
 			chain.latestStateDB = state
+			chain.latestBlock = block.Header
 		}
 	}
 
@@ -358,8 +359,7 @@ func (chain *BlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction
 func (chain *BlockChain) QueryTopBlock() *types.BlockHeader {
 	chain.lock.RLock("QueryTopBlock")
 	defer chain.lock.RUnlock("QueryTopBlock")
-	result := *chain.latestBlock
-	return &result
+	return chain.latestBlock
 }
 
 //根据指定哈希查询块
@@ -446,7 +446,7 @@ func (chain *BlockChain) queryBlockHeaderByHeight(height interface{}, cache bool
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
-	latestBlock := chain.latestBlock
+	latestBlock := chain.QueryTopBlock()
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Debugf("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
@@ -689,10 +689,7 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
-		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.AddExecuted(receipts, b.Transactions)
-		chain.latestStateDB = state
-		Logger.Debugf("blockchain update latestStateDB to:%s",b.Header.StateTree.Hex())
+
 		//iter := state.DataIterator(common.HeavyDBAddress,"heavy")
 		//for iter.Next(){
 		//	Logger.Debugf("DataIterator Key:%+v", iter.Key)
@@ -702,6 +699,12 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+
+		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
+		chain.transactionPool.AddExecuted(receipts, b.Transactions)
+		chain.latestStateDB = state
+		chain.latestBlock = b.Header
+		Logger.Debugf("blockchain update latestStateDB to:%s",b.Header.StateTree.Hex())
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
 		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
@@ -786,7 +789,7 @@ func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 	}
 
 	// 持久化保存最新块信息
-	chain.latestBlock = b.Header
+
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
