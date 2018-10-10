@@ -71,7 +71,7 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
     rets := make([]model.MinerDO, 0)
 	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
-		access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
+		//access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
 		}

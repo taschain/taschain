@@ -56,7 +56,7 @@ func (p *Processor) prepareMiner()  {
 			continue
 		}
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v, topHeight=%v\n", sgi.GroupID.ShortS(), topHeight)
+		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
 		if sgi.Dismissed(topHeight) {
 			break
 		}
@@ -166,11 +166,14 @@ func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
 func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 	h := p.MainChain.QueryTopBlock().Height
     groups := p.globalGroups.GetAvailableGroups(h)
-    avail = len(groups)
 	for _, g := range groups {
+		if !g.MemExist(p.GetMinerID()) {
+			continue
+		}
 		if g.CastQualified(h) {
 			work++
 		}
+		avail++
 	}
 	return
 }

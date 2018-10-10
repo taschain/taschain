@@ -106,6 +106,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
+		p.futureRewardReqs.remove(block.Header.Hash)
 	}
 
 	return result

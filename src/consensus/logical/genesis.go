@@ -25,13 +25,22 @@ type genesisGroup struct {
 	VrfPK map[string]base.VRFPublicKey
 }
 
+var genesisGroupInfo *genesisGroup
+
+func GetGenesisGroupInfo() *genesisGroup {
+	if genesisGroupInfo == nil {
+		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
+		genesisGroupInfo = genGenesisStaticGroupInfo(f)
+	}
+	return genesisGroupInfo
+}
+
 type GenesisGeneratorImpl struct {
 
 }
 
 func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
-	f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
-	genesis := genGenesisStaticGroupInfo(f)
+	genesis := GetGenesisGroupInfo()
 	sgi := &genesis.Group
 	coreGroup := ConvertStaticGroup2CoreGroup(sgi, false)
 	vrfPKs := make(map[int][]byte)
@@ -47,29 +56,25 @@ func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
 }
 
 //生成创世组成员信息
-func (p *Processor) BeginGenesisGroupMember() model.PubKeyInfo {
-	f := consensusConfManager.GetString("genesis_sgi_conf", "genesis_sgi.config")
+func (p *Processor) BeginGenesisGroupMember() {
 
-	genesis := genGenesisStaticGroupInfo(f)
-	//p.globalGroups.AddStaticGroup(sgi)
-	p.groupManager.AddGroupOnChain(&genesis.Group, false)
-	miners := make([]*types.Miner, len(genesis.Group.Members))
-	blog := newBizLog("BeginGenesisGroupMember")
-	for idx, mem := range genesis.Group.Members {
-		miner := &types.Miner{
-			Id: mem.ID.Serialize(),
-			PublicKey: mem.PK.Serialize(),
-			VrfPublicKey: genesis.VrfPK[mem.ID.GetHexString()],
-			ApplyHeight: 0,
-			AbortHeight: 0,
-			Stake: 10,
-		}
-		miners[idx] = miner
-		blog.log("minerInfo %v %v", miner.VrfPublicKey, miner.Id)
+	genesis := GetGenesisGroupInfo()
+	if !genesis.Group.MemExist(p.GetMinerID()) {
+		return
 	}
-	//p.minerReader.genesisMiner(miners)
+	sgi := &genesis.Group
+	storeFile := p.genBelongGroupStoreFile()
+	belongs := NewBelongGroups(storeFile)
+	if !belongs.load() {
+		panic("genesisMember load join_group fail")
+	}
 
-	return model.PubKeyInfo{}
+	jg := belongs.getJoinedGroup(sgi.GroupID)
+	if jg == nil {
+		panic("genesisMember find join_group fail")
+	}
+	p.joinGroup(jg, false)
+
 }
 
 func GenGenesisGroupSummary() model.ConsensusGroupInitSummary {

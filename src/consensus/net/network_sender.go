@@ -118,7 +118,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 //-----------------------------------------------------------------组铸币----------------------------------------------
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
+func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief) {
 	body, e := marshalConsensusCastMessage(ccm)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
@@ -134,8 +134,11 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage) {
 	}
 	timeFromCast :=  time.Since(ccm.BH.CurTime)
 	begin := time.Now()
-	go ns.net.Multicast(groupId.GetHexString(), m)
-	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
+
+	mems := id2String(group.MemIds)
+
+	go ns.net.SpreadOverGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke SpreadOverGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -161,7 +164,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 }
 
 //对外广播经过组签名的block 全网广播
-func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *NextGroup) {
+func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
 	timeFromCast :=  time.Since(cbm.Block.Header.CurTime)
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
@@ -175,8 +178,6 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	groupMembers := id2String(group.MemIds)
 
 	go ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
-
-
 
 
 	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)

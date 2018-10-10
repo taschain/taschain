@@ -85,7 +85,12 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
 	allCandidates := gchecker.access.getCanJoinGroupMinersAt(height)
-	blog.log("=======allCandidates height %v, %v size %v", height, allCandidates, len(allCandidates))
+
+	ids := make([]string, len(allCandidates))
+	for idx, can := range allCandidates {
+		ids[idx] = can.ID.ShortS()
+	}
+	blog.log("=======allCandidates height %v, %v size %v", height, ids, len(allCandidates))
 	if len(allCandidates) < min {
 		return
 	}
@@ -115,9 +120,10 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	seqs := rand.RandomPerm(num, model.Param.GetGroupMemberNum())
 
 	result := make([]model.PubKeyInfo, len(seqs))
-	for i := 0; i < len(result); i++ {
-		result[i] = model.NewPubKeyInfo(candidates[i].ID, candidates[i].PK)
+	for i, seq := range seqs {
+		result[i] = model.NewPubKeyInfo(candidates[seq].ID, candidates[seq].PK)
 	}
+
 	str := ""
 	for _, id := range result {
 		str += id.ID.ShortS() + ","

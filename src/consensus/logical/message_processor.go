@@ -746,26 +746,10 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 	}
 }
 
-func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
-	mtype := "OMCRSR"
-	blog := newBizLog(mtype)
-	reward := &msg.Reward
-	tlog := newBlockTraceLog("OMCRSR", reward.BlockHash, msg.SI.GetID())
-	tlog.logStart("txHash=%v", reward.TxHash.ShortS())
-
-	send := "fail"
-	defer func() {
-		tlog.logEnd("%v", send)
-	}()
-
-	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
-	bh := p.getBlockHeaderByHash(reward.BlockHash)
-	if bh == nil {
-		blog.log("block not exist, hash=%v", reward.BlockHash.ShortS())
-		return
-	}
+func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, blog *bizLog) (send bool) {
 	gid := groupsig.DeserializeId(bh.GroupId)
 	group := p.getGroup(gid)
+	reward := &msg.Reward
 	if group == nil {
 		panic("group is nil")
 	}
@@ -834,7 +818,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 		return
 	}
 
-	send = "success"
+	send = true
 	//自己签名
 	signMsg := &model.CastRewardTransSignMessage{
 		ReqHash: reward.TxHash,
@@ -845,6 +829,31 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), signMsg)
 	p.NetServer.SendCastRewardSign(signMsg)
 	blog.log("SendCastRewardSign to %v", msg.SI.GetID().ShortS())
+	return
+}
+
+func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
+	mtype := "OMCRSR"
+	blog := newBizLog(mtype)
+	reward := &msg.Reward
+	tlog := newBlockTraceLog("OMCRSR", reward.BlockHash, msg.SI.GetID())
+	tlog.logStart("txHash=%v", reward.TxHash.ShortS())
+
+	send := false
+	defer func() {
+		tlog.logEnd("%v", send)
+	}()
+
+	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
+	//此时块不一定在链上
+	bh := p.getBlockHeaderByHash(reward.BlockHash)
+	if bh == nil {
+		blog.log("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
+		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
+		return
+	}
+
+	send = p.signCastRewardReq(msg, bh, blog)
 }
 
 func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {

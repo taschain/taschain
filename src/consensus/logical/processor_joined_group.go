@@ -119,6 +119,7 @@ func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
+	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 }

@@ -45,7 +45,7 @@ type MessageProcessor interface {
 	OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage)
 }
 
-type NextGroup struct {
+type GroupBrief struct {
 	Gid groupsig.ID
 	MemIds []groupsig.ID
 }
@@ -60,11 +60,11 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage)
+	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 
-	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, nextGroup *NextGroup)
+	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief)
 
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 
