@@ -110,20 +110,22 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte,accountdb vm.AccountDB
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
 func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64,accountdb vm.AccountDB) bool{
-	Logger.Debugf("MinerManager AbortMiner %d",ttype)
 	miner := mm.GetMinerById(id,ttype)
 
 	if miner != nil && miner.Status == types.MinerStatusNormal{
 		miner.Status = types.MinerStatusAbort
 		miner.AbortHeight = height
-		if ttype == types.MinerTypeHeavy {
-			mm.cache.Remove(string(id))
-		}
+
 		db := mm.getMinerDatabase(ttype)
 		data,_ := msgpack.Marshal(miner)
 		accountdb.SetData(db,string(id),data)
+		Logger.Debugf("MinerManager AbortMiner Update Success %+v",miner)
+		if ttype == types.MinerTypeHeavy {
+			mm.cache.Remove(string(id))
+		}
 		return true
 	} else {
+		Logger.Debugf("MinerManager AbortMiner Update Fail %+v",miner)
 		return false
 	}
 }

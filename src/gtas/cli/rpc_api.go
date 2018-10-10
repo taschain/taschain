@@ -59,7 +59,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	return &Result{Message:address.GetHexString(),Data:string(js)}, nil
 }
 
-func (api *GtasAPI) MinerAbort(height uint64, mtype int32) (*Result, error) {
+func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
@@ -67,8 +67,24 @@ func (api *GtasAPI) MinerAbort(height uint64, mtype int32) (*Result, error) {
 		Nonce: uint64(nonce),
 		Data: []byte{byte(mtype)},
 		Source: &address,
-		Value: height,
 		Type: types.TransactionTypeMinerAbort,
+	}
+	tx.Hash = tx.GenHash()
+	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
+	if !ok {
+		return &Result{Message:err.Error(), Data:nil}, nil
+	}
+	return &Result{Message:"success"}, nil
+}
+
+func (api *GtasAPI) MinerRefund() (*Result, error) {
+	minerInfo := mediator.Proc.GetMinerInfo()
+	address := common.BytesToAddress(minerInfo.ID.Serialize())
+	nonce := time.Now().UnixNano()
+	tx := &types.Transaction{
+		Nonce: uint64(nonce),
+		Source: &address,
+		Type: types.TransactionTypeMinerRefund,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
