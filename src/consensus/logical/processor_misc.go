@@ -162,3 +162,15 @@ func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
 	}
 	return miner.CanCastAt(h)
 }
+
+func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
+	h := p.MainChain.QueryTopBlock().Height
+    groups := p.globalGroups.GetAvailableGroups(h)
+    avail = len(groups)
+	for _, g := range groups {
+		if g.CastQualified(h) {
+			work++
+		}
+	}
+	return
+}

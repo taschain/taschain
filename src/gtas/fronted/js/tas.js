@@ -629,6 +629,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     $("#tb_node_balance").text(d.balance)
                     $("#tb_node_status").text(d.status)
                     $("#tb_node_type").text(d.n_type)
+                    $("#tb_node_wg").text(d.w_group_num)
+                    $("#tb_node_ag").text(d.a_group_num)
                     $("#tb_stake_body").html("")
                     $.each(d.mort_gages, function (i, v) {
                         tr = "<tr>"

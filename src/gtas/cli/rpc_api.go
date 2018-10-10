@@ -188,6 +188,10 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		}
 		ni.NType = t
 		ni.MortGages = morts
+
+		wg, ag := p.GetJoinedWorkGroupNums()
+		ni.WGroupNum = wg
+		ni.AGroupNum = ag
 	}
 	return successResult(ni)
 

@@ -105,6 +105,8 @@ type NodeInfo struct {
 	ID string `json:"id"`
 	Balance uint64 `json:"balance"`
 	Status string `json:"status"`
+	WGroupNum int `json:"w_group_num"`
+	AGroupNum int `json:"a_group_num"`
 	NType string `json:"n_type"`
 	MortGages []MortGage `json:"mort_gages"`
 }
