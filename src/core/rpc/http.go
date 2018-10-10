@@ -165,16 +165,23 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//return
 	}
 	if r.Method == http.MethodGet {
-		switch r.URL.Path {
-		case "/":
-			bs, err := asset.Asset("src/gtas/fronted/c.html")
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
+		assetFile := ""
+		if r.URL.Path == "/" {
+			assetFile = "gtas/fronted/c.html"
+		} else {
+			if r.URL.Path[0] == '/' {
+				assetFile = r.URL.Path[1:]
+			} else {
+				assetFile = r.URL.Path
 			}
-			w.Write(bs)
+		}
+		bs, err := asset.Asset(assetFile)
+		if err != nil {
+			w.Write([]byte(err.Error()))
 			return
 		}
+		w.Write(bs)
+		return
 	}
 
 	if code, err := validateRequest(r); err != nil {
