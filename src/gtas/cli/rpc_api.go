@@ -77,12 +77,13 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	return &Result{Message:"success"}, nil
 }
 
-func (api *GtasAPI) MinerRefund() (*Result, error) {
+func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
 		Nonce: uint64(nonce),
+		Data: []byte{byte(mtype)},
 		Source: &address,
 		Type: types.TransactionTypeMinerRefund,
 	}
