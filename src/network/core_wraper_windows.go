@@ -152,7 +152,7 @@ import (
 )
 
 func P2PConfig(id uint64) {
-	C.p2p_config(C.ulonglong(id))
+	C.p2p_config(C.ulong(id))
 }
 
 func P2PProxy(ip string, port uint16) {
@@ -168,7 +168,7 @@ func P2PClose() {
 }
 
 func P2PConnect(id uint64, ip string, port uint16) {
-	C.p2p_connect(C.ulonglong(id), C.CString(ip), C.ushort(port))
+	C.p2p_connect(C.ulong(id), C.CString(ip), C.ushort(port))
 }
 
 func P2PShutdown(session uint32) {
