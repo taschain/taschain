@@ -62,7 +62,7 @@ type BlockChainConfig struct {
 
 type FullBlockChain struct {
 	prototypeChain
-	config *BlockChainConfig
+	config      *BlockChainConfig
 	castedBlock *lru.Cache
 }
 
@@ -254,9 +254,8 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, queueNumber 
 		state:    state,
 		receipts: receipts,
 	})
-	chain.castedBlock.Add(block.Header.Hash,block)
-	Logger.Debugf("CastingBlock into cache! Height:%d-%d,Hash:%x,stateHash:%x,len tx:%d", height,block.Header.QueueNumber,block.Header.Hash,block.Header.StateTree,len(block.Transactions))
-
+	chain.castedBlock.Add(block.Header.Hash, block)
+	Logger.Debugf("CastingBlock into cache! Height:%d-%d,Hash:%x,stateHash:%x,len tx:%d", height, block.Header.QueueNumber, block.Header.Hash, block.Header.StateTree, len(block.Transactions))
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
 	return block
@@ -427,7 +426,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
-		Logger.Debugf("ON chain succ! Height:%d,Hash:%x",b.Header.Height,b.Header.Hash)
+		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
@@ -493,10 +492,10 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 	localHeight := chain.latestBlock.Height
 
 	bh := chain.QueryBlockHeaderByHeight(height, true)
-	if bh == nil{
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh is nil",height)
-	}else {
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh hash:%x,hash:%x,verifyHash:%t",height,bh.Hash,hash,verifyHash)
+	if bh == nil {
+		Logger.Debugf("[QueryBlockInfo]height:%d,bh is nil", height)
+	} else {
+		Logger.Debugf("[QueryBlockInfo]height:%d,bh hash:%x,hash:%x,verifyHash:%t", height, bh.Hash, hash, verifyHash)
 	}
 	if (bh != nil && bh.Hash == hash) || !verifyHash {
 		//当前结点和请求结点在同一条链上
@@ -702,20 +701,16 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
 	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
-	var nodes map[string]*[]byte = make(map[string]*[]byte)
-	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodes)
+	var nodesOnBranch = make(map[string]*[]byte)
+	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
 	if err != nil {
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.Execute2(state, transactions, nodes, isInit)
-	//if err != nil{
-	//	Logger.Infof("GetTrieNodesByExecuteTransactions execute transactions error,height=%d,hash=%v \n",header.Height,header.StateTree)
-	//	return nil
-	//}
+	chain.executor.GetBranches(state, transactions, nodesOnBranch)
 
 	data := []types.StateNode{}
-	for key, value := range nodes {
+	for key, value := range nodesOnBranch {
 		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
 	}
 	return &data

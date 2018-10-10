@@ -37,7 +37,9 @@ func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []*types.Transaction,nodes map[string]*[]byte,isInit bool) {
+//获取交易中包含账户所在的分支
+func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions []*types.Transaction, nodes map[string]*[]byte) {
+	//todo  合约如何实现
 	for _, transaction := range transactions {
 		//var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
@@ -55,29 +57,22 @@ func (executor *TVMExecutor) Execute2(accountdb *core.AccountDB, transactions []
 			//}
 
 		} else {
-				tr,_:=accountdb.GetTrie().(*trie.Trie)
-				source := *transaction.Source
-				target := *transaction.Target
-				tr.GetValueNode(source[:],nodes)
-				tr.GetValueNode(target[:],nodes)
+			tr, _ := accountdb.GetTrie().(*trie.Trie)
+			source := *transaction.Source
+			target := *transaction.Target
+			tr.GetBranch(source[:], nodes)
+			tr.GetBranch(target[:], nodes)
 		}
 	}
-
-
 }
 
-func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*types.Transaction,[]*t.Receipt, error) {
-	noExecuteTransactions := []*types.Transaction{}
-	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(true)
-		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
-		return hash, nil, nil,nil
-	}
-	receipts := make([]*t.Receipt, len(block.Transactions))
-	Logger.Infof("Execute3 block height:%d-%d,len(block.Transactions):%d", block.Header.Height,block.Header.QueueNumber,len(block.Transactions))
-	for i, transaction := range block.Transactions {
-		var fail = false
-		var contractAddress common.Address
+func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) []*types.Transaction {
+	missingAccountTransactions := []*types.Transaction{}
+	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.QueueNumber, len(block.Transactions))
+	for _, transaction := range block.Transactions {
+		//todo 此处是否需要考虑合约？
+		//var fail = false
+		//var contractAddress common.Address
 		//if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
 		//	controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		//	contractAddress, _ = createContract(accountdb, transaction)
@@ -94,35 +89,12 @@ func (executor *TVMExecutor) Execute3(accountdb *core.AccountDB, block *types.Bl
 		//
 		//} else {
 
-			//todo 账号不存在的情况,或者新增账号删除账号可能会有问题，另外这里性能有问题。每次交易还要判断存不存在账号
-			amount := big.NewInt(int64(transaction.Value))
-			if !IsAccountExist(accountdb,*transaction.Source){
-				noExecuteTransactions = append(noExecuteTransactions,transaction)
-			}else{
-				if CanTransfer(accountdb, *transaction.Source, amount) {
-					if !IsAccountExist(accountdb,*transaction.Target){
-						noExecuteTransactions = append(noExecuteTransactions,transaction)
-					}else{
-						Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-					}
-				} else {
-					fail = true
-				}
-			}
-		//}
-
-
-
-		receipt := t.NewReceipt(nil, fail, 0)
-		receipt.TxHash = transaction.Hash
-		receipt.ContractAddress = contractAddress
-		receipts[i] = receipt
+		if !IsAccountExist(accountdb, *transaction.Source) {
+			missingAccountTransactions = append(missingAccountTransactions, transaction)
+		}
 	}
-
-	if len(noExecuteTransactions) > 0{
-		return common.Hash{}, noExecuteTransactions, nil,nil
-	}
-	return accountdb.IntermediateRoot(true), nil,receipts, nil
+	accountdb.IntermediateRoot(true)
+	return missingAccountTransactions
 }
 
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, error) {
@@ -131,7 +103,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
 		return hash, nil, nil
 	}
-	Logger.Infof("Execute block height:%d-%d,len(block.Transactions):%d", block.Header.Height,block.Header.QueueNumber,len(block.Transactions))
+	Logger.Infof("Execute block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.QueueNumber, len(block.Transactions))
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	for i, transaction := range block.Transactions {
 		var fail = false
@@ -191,9 +163,9 @@ func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (
 	Transfer(accountdb, *transaction.Source, contractAddr, amount)
 	return contractAddr, nil
 }
-func IsAccountExist(db vm.AccountDB,addr common.Address)bool{
-	data,_:=db.GetTrie().TryGet(addr[:])
-	if  data == nil{
+func IsAccountExist(db vm.AccountDB, addr common.Address) bool {
+	data, _ := db.GetTrie().TryGet(addr[:])
+	if data == nil {
 		return false
 	}
 	return true
