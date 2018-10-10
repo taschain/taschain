@@ -16,8 +16,25 @@ import (
 **  Date: 2018/9/30 下午4:34
 **  Description: 
 */
+func successResult(data interface{}) (*Result, error) {
+	return &Result{
+		Message:"success",
+		Data:data,
+	}, nil
+}
+func failResult(err string) (*Result, error) {
+	return &Result{
+		Message:err,
+		Data:nil,
+	}, nil
+}
 
 func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
+	info := core.MinerManagerImpl.GetMinerById(mediator.Proc.GetMinerID().Serialize(), byte(mtype))
+	if info != nil {
+		return failResult("已经申请过该类型矿工")
+	}
+
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
@@ -43,9 +60,9 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
 	if !ok {
-		return &Result{Message:err.Error(), Data:nil}, nil
+		return failResult(err.Error())
 	}
-	return &Result{Message:"success"}, nil
+	return successResult(nil)
 }
 
 func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
@@ -72,9 +89,9 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
 	if !ok {
-		return &Result{Message:err.Error(), Data:nil}, nil
+		return failResult(err.Error())
 	}
-	return &Result{Message:"success"}, nil
+	return successResult(nil)
 }
 
 func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
@@ -137,5 +154,45 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	ret := make(map[string]map[string]int32)
 	ret["proposer"] = pmap
 	ret["group"] = gmap
-	return &Result{Message:"success", Data:ret}, nil
+	return successResult(ret)
+}
+
+func (api *GtasAPI) NodeInfo() (*Result, error) {
+	ni := &NodeInfo{}
+	p := mediator.Proc
+	ac := p.MainChain.(core.AccountRepository)
+	ni.ID = p.GetMinerID().GetHexString()
+	bi := ac.GetBalance(p.GetMinerID().ToAddress())
+	if bi != nil {
+		ni.Balance = bi.Uint64()
+	}
+	if !p.Ready() {
+		ni.Status = "节点未准备就绪"
+	} else {
+		ni.Status = "运行中"
+		morts := make([]MortGage, 0)
+		t := "--"
+		heavyInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeHeavy)
+		if heavyInfo != nil {
+			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
+			if heavyInfo.AbortHeight == 0 {
+				t = "重节点"
+			}
+		}
+		lightInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeLight)
+		if lightInfo != nil {
+			morts = append(morts, *NewMortGageFromMiner(lightInfo))
+			if lightInfo.AbortHeight == 0 {
+				t += " 轻节点"
+			}
+		}
+		ni.NType = t
+		ni.MortGages = morts
+
+		wg, ag := p.GetJoinedWorkGroupNums()
+		ni.WGroupNum = wg
+		ni.AGroupNum = ag
+	}
+	return successResult(ni)
+
 }

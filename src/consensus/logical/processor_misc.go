@@ -143,12 +143,11 @@ func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
     p.vrf.Store(vrf)
 }
 
-func (p *Processor) getSelfMinerDO() *model.SelfMinerDO {
+func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
     md := p.minerReader.getProposeMiner(p.GetMinerID())
-	if md == nil {
-		panic("self miner info nil")
+	if md != nil {
+		p.mi.MinerDO = *md
 	}
-	p.mi.MinerDO = *md
 	return p.mi
 }
 
@@ -162,4 +161,16 @@ func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
 		return false
 	}
 	return miner.CanCastAt(h)
+}
+
+func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
+	h := p.MainChain.QueryTopBlock().Height
+    groups := p.globalGroups.GetAvailableGroups(h)
+    avail = len(groups)
+	for _, g := range groups {
+		if g.CastQualified(h) {
+			work++
+		}
+	}
+	return
 }

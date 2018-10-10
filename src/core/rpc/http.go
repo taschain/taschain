@@ -31,6 +31,7 @@ import (
 
 	"github.com/rs/cors"
 	"strings"
+	"asset"
 )
 
 const (
@@ -159,10 +160,30 @@ func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Permit dumb empty requests for remote health-checks (AWS)
 	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
-		html := strings.Replace(HTMLTEM, "127.0.0.1:8088", r.Host, -1)
-		w.Write([]byte(html))
+		//html := strings.Replace(HTMLTEM, "127.0.0.1:8088", r.Host, -1)
+		//w.Write([]byte(html))
+		//return
+	}
+	if r.Method == http.MethodGet {
+		assetFile := ""
+		if r.URL.Path == "/" {
+			assetFile = "gtas/fronted/c.html"
+		} else {
+			if r.URL.Path[0] == '/' {
+				assetFile = r.URL.Path[1:]
+			} else {
+				assetFile = r.URL.Path
+			}
+		}
+		bs, err := asset.Asset(assetFile)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
+		w.Write(bs)
 		return
 	}
+
 	if code, err := validateRequest(r); err != nil {
 		http.Error(w, err.Error(), code)
 		return
