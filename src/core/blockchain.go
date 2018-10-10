@@ -489,7 +489,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *b
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, chain.voteProcessor)
+	statehash, receipts, err := chain.executor.Execute(state, block, height)
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -602,7 +602,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
 	begin := time.Now()
-	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
