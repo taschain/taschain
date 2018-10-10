@@ -46,7 +46,7 @@ func (mm *MinerManager) getMinerDatabase(ttype byte) (common.Address){
 }
 
 //返回值：1成功添加，-1旧数据仍然存在，添加失败
-func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
+func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner,accountdb vm.AccountDB) int {
 	Logger.Debugf("MinerManager AddMiner %d",miner.Type)
 	db := mm.getMinerDatabase(miner.Type)
 
@@ -54,7 +54,7 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner) int {
 		return -1
 	} else {
 		data,_ := msgpack.Marshal(miner)
-		mm.blockchain.latestStateDB.SetData(db, string(id), data)
+		accountdb.SetData(db, string(id), data)
 		return 1
 	}
 }
@@ -99,31 +99,33 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte) *types.Miner {
 	return nil
 }
 
-func (mm *MinerManager) RemoveMiner(id []byte, ttype byte){
+func (mm *MinerManager) RemoveMiner(id []byte, ttype byte,accountdb vm.AccountDB){
 	Logger.Debugf("MinerManager RemoveMiner %d",ttype)
 	if ttype == types.MinerTypeHeavy {
 		mm.cache.Remove(string(id))
 	}
 	db := mm.getMinerDatabase(ttype)
-	mm.blockchain.latestStateDB.SetData(db,string(id),emptyValue[:])
+	accountdb.SetData(db,string(id),emptyValue[:])
 }
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
-func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64) bool{
-	Logger.Debugf("MinerManager AbortMiner %d",ttype)
+func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64,accountdb vm.AccountDB) bool{
 	miner := mm.GetMinerById(id,ttype)
 
 	if miner != nil && miner.Status == types.MinerStatusNormal{
 		miner.Status = types.MinerStatusAbort
 		miner.AbortHeight = height
+
+		db := mm.getMinerDatabase(ttype)
+		data,_ := msgpack.Marshal(miner)
+		accountdb.SetData(db,string(id),data)
+		Logger.Debugf("MinerManager AbortMiner Update Success %+v",miner)
 		if ttype == types.MinerTypeHeavy {
 			mm.cache.Remove(string(id))
 		}
-		db := mm.getMinerDatabase(ttype)
-		data,_ := msgpack.Marshal(miner)
-		mm.blockchain.latestStateDB.SetData(db,string(id),data)
 		return true
 	} else {
+		Logger.Debugf("MinerManager AbortMiner Update Fail %+v",miner)
 		return false
 	}
 }

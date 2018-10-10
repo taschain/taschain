@@ -143,12 +143,11 @@ func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
     p.vrf.Store(vrf)
 }
 
-func (p *Processor) getSelfMinerDO() *model.SelfMinerDO {
+func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
     md := p.minerReader.getProposeMiner(p.GetMinerID())
-	if md == nil {
-		panic("self miner info nil")
+	if md != nil {
+		p.mi.MinerDO = *md
 	}
-	p.mi.MinerDO = *md
 	return p.mi
 }
 
