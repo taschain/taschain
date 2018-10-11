@@ -22,7 +22,6 @@ import (
 	"core/datasource"
 	"os"
 
-	"encoding/json"
 	"sort"
 	"storage/tasdb"
 	vtypes "storage/core/types"
@@ -30,6 +29,8 @@ import (
 	"middleware"
 	"container/heap"
 	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"time"
 )
 
 var (
@@ -55,7 +56,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 1
+	sendingListLength = 50
 )
 
 // 配置文件
@@ -76,6 +77,7 @@ type TransactionPool struct {
 	sendingList []*types.Transaction
 
 	sendingTxLock sync.Mutex
+	sendingTimer *time.Timer
 
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed tasdb.Database
@@ -119,6 +121,7 @@ func NewTransactionPool() *TransactionPool {
 		batchLock:     sync.Mutex{},
 		sendingList:   make([]*types.Transaction, 0),
 		sendingTxLock: sync.Mutex{},
+		sendingTimer: time.NewTimer(time.Second),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 	pool.reserved, _ = lru.New(100)
@@ -130,6 +133,13 @@ func NewTransactionPool() *TransactionPool {
 	}
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
+	go func() {
+		for  {
+			<-pool.sendingTimer.C
+			pool.CheckAndSend(true)
+			pool.sendingTimer.Reset(time.Second)
+		}
+	}()
 	return pool
 }
 
@@ -218,18 +228,22 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()
 
-		if sendingListLength == len(pool.sendingList) {
-			pool.sendingTxLock.Lock()
-			txs := make([]*types.Transaction, sendingListLength)
-			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, 0)
-			pool.sendingTxLock.Unlock()
-			Logger.Debugf("Broadcast txs,len:%d", len(txs))
-			go BroadcastTransactions(txs)
-		}
+		pool.CheckAndSend(false)
 	}
 
 	return true, nil
+}
+
+func (pool *TransactionPool) CheckAndSend(immediately bool){
+	length := len(pool.sendingList)
+	if immediately && length > 0|| sendingListLength <= length {
+		pool.sendingTxLock.Lock()
+		txs := pool.sendingList
+		pool.sendingList = make([]*types.Transaction, 0)
+		pool.sendingTxLock.Unlock()
+		Logger.Debugf("Broadcast txs,len:%d", len(txs))
+		go BroadcastTransactions(txs)
+	}
 }
 
 // 从池子里移除一批交易
@@ -359,7 +373,8 @@ func (pool *TransactionPool) AddExecuted(receipts vtypes.Receipts, txs []*types.
 				Transaction: getTransaction(txs, hash, i),
 			}
 
-			receiptJson, err := json.Marshal(receiptWrapper)
+			//receiptJson, err := json.Marshal(receiptWrapper)
+			receiptJson, err := msgpack.Marshal(receiptWrapper)
 			if nil != err {
 				continue
 			}
@@ -403,7 +418,8 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	}
 
 	var receipt *ReceiptWrapper
-	err := json.Unmarshal(receiptJson, &receipt)
+	//err := json.Unmarshal(receiptJson, &receipt)
+	err := msgpack.Unmarshal(receiptJson, &receipt)
 	if err != nil || receipt == nil {
 		return nil
 	}

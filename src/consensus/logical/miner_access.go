@@ -43,7 +43,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 }
 
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
-	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy)
+	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy, nil)
 	if miner == nil {
 		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil

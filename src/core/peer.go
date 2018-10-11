@@ -88,14 +88,15 @@ func BroadcastTransactions(txs []*types.Transaction) {
 			Logger.Errorf("[peer]Runtime error caught: %v", r)
 		}
 	}()
-
-	body, e := types.MarshalTransactions(txs)
-	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
-		return
+	if len(txs) > 0 {
+		body, e := types.MarshalTransactions(txs)
+		if e != nil {
+			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
+			return
+		}
+		message := network.Message{Code: network.TransactionMsg, Body: body}
+		go network.GetNetInstance().Relay(message, 3)
 	}
-	message := network.Message{Code: network.TransactionMsg, Body: body}
-	go network.GetNetInstance().Relay(message, 3)
 }
 
 //向某一节点请求Block信息

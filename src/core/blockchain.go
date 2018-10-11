@@ -207,7 +207,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
 		chain.buildCache(chain.topBlocks)
-		Logger.Infof("initBlockChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
+		Logger.Infof("initBlockChain chain.latestBlock.StateTree Hash:%s Height:%d",chain.latestBlock.StateTree.Hex(),chain.latestBlock.Height)
 		state, err := core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
@@ -489,7 +489,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, proveValue *b
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, height)
+	statehash, receipts, err := chain.executor.Execute(state, block, height,"Casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -602,7 +602,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	//Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
 	begin := time.Now()
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height)
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"verify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil

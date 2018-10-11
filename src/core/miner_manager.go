@@ -80,14 +80,17 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.Accou
 	}
 }
 
-func (mm *MinerManager) GetMinerById(id []byte, ttype byte) *types.Miner {
-	if ttype == types.MinerTypeHeavy {
+func (mm *MinerManager) GetMinerById(id []byte, ttype byte,accountdb vm.AccountDB) *types.Miner {
+	if accountdb == nil && ttype == types.MinerTypeHeavy {
 		if result, ok := mm.cache.Get(string(id)); ok {
 			return result.(*types.Miner)
 		}
 	}
+	if accountdb == nil{
+		accountdb = mm.blockchain.latestStateDB
+	}
 	db := mm.getMinerDatabase(ttype)
-	data := mm.blockchain.latestStateDB.GetData(db,string(id))
+	data := accountdb.GetData(db,string(id))
 	if data != nil {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
@@ -110,7 +113,7 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte,accountdb vm.AccountDB
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
 func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64,accountdb vm.AccountDB) bool{
-	miner := mm.GetMinerById(id,ttype)
+	miner := mm.GetMinerById(id,ttype, accountdb)
 
 	if miner != nil && miner.Status == types.MinerStatusNormal{
 		miner.Status = types.MinerStatusAbort
