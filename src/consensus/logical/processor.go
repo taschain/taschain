@@ -56,7 +56,7 @@ type Processor struct {
 	ready 		bool //是否已初始化完成
 
 	//////链接口
-	MainChain  core.BlockChainI
+	MainChain  core.BlockChain
 	GroupChain *core.GroupChain
 
 	minerReader *MinerPoolReader

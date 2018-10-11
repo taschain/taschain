@@ -45,7 +45,7 @@ const (
 	BLOCK_CHAIN_ADJUST_TIME_OUT = 10 * time.Second
 )
 
-var BlockChainImpl BlockChainI
+var BlockChainImpl BlockChain
 
 var Logger taslog.Logger
 
@@ -458,7 +458,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	if 0 == status {
 		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.AddExecuted(receipts, b.Transactions)
+		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		chain.latestStateDB = state
 		chain.latestBlock = b.Header
 		root, _ := state.Commit(true)
@@ -627,10 +627,7 @@ func (chain *FullBlockChain) Remove(header *types.BlockHeader) {
 	if 0 == len(txs) {
 		return
 	}
-	chain.transactionPool.GetLock().Lock("remove block")
-	defer chain.transactionPool.GetLock().Unlock("remove block")
-	chain.transactionPool.RemoveExecuted(txs)
-	chain.transactionPool.AddTxs(txs)
+	chain.transactionPool.UnMarkExecuted(txs)
 }
 
 //清除链所有数据
@@ -725,10 +722,7 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	if 0 == len(txs) {
 		return
 	}
-	chain.transactionPool.GetLock().Lock("remove block")
-	defer chain.transactionPool.GetLock().Unlock("remove block")
-	chain.transactionPool.RemoveExecuted(txs)
-	chain.transactionPool.AddTxs(txs)
+	chain.transactionPool.UnMarkExecuted(txs)
 }
 
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
@@ -841,7 +835,7 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 }
 
 func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction){
-	chain.GetTransactionPool().(*TransactionPool).addInner(transaction, false)
+	chain.GetTransactionPool().AddTransaction(transaction)
 }
 
 func (chain *FullBlockChain) GetBonusManager() *BonusManager{

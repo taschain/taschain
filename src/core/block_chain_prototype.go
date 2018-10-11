@@ -19,7 +19,7 @@ type prototypeChain struct {
 	//key: height, value: blockHeader
 	blockHeight tasdb.Database
 
-	transactionPool TransactionPoolI
+	transactionPool TransactionPool
 
 	//已上链的最新块
 	latestBlock   *types.BlockHeader
@@ -165,7 +165,7 @@ func (chain *prototypeChain) GetTransactionByHash(h common.Hash) (*types.Transac
 	return chain.transactionPool.GetTransaction(h)
 }
 
-func (chain *prototypeChain) GetTransactionPool() TransactionPoolI {
+func (chain *prototypeChain) GetTransactionPool() TransactionPool {
 	return chain.transactionPool
 }
 
@@ -242,3 +242,4 @@ func generateHeightKey(height uint64) []byte {
 	binary.BigEndian.PutUint64(h, height)
 	return h
 }
+

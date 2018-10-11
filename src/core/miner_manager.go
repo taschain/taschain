@@ -17,7 +17,7 @@ const HeavyPrefix  = "heavy"
 const LightPrefix  = "light"
 
 type MinerManager struct {
-	blockchain BlockChainI
+	blockchain BlockChain
 	cache   *lru.Cache
 	lock 	sync.Mutex
 }
@@ -29,7 +29,7 @@ type MinerIterator struct {
 
 var MinerManagerImpl *MinerManager
 
-func initMinerManager(blockchain BlockChainI) error {
+func initMinerManager(blockchain BlockChain) error {
 	cache,_ := lru.New(500)
 	MinerManagerImpl = &MinerManager{cache:cache,blockchain:blockchain}
 	return nil

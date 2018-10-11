@@ -28,7 +28,7 @@ var (
 )
 
 type BlockChainConnector struct {
-	chain BlockChainI
+	chain BlockChain
 }
 
 type GroupChainConnector struct {

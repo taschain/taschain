@@ -81,7 +81,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 	chain := &LightChain{
 		config: getLightChainConfig(),
 		prototypeChain: prototypeChain{
-			transactionPool: NewLightTransactionPool(),
+			transactionPool: NewTransactionPool(),
 			latestBlock:     nil,
 
 			lock:         middleware.NewLoglock("lightchain"),
@@ -446,21 +446,9 @@ func (chain *LightChain) SaveBlock(b *types.Block) int8 {
 
 // 删除块
 func (chain *LightChain) Remove(header *types.BlockHeader) {
-	block := chain.QueryBlockByHeight(header.Height)
+	hash := header.Hash
+	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
-
-	// 删除块的交易，返回transactionpool
-	if nil == block {
-		return
-	}
-	//todo 此处轻结点 不将交易加回交易池
-	//txs := block.Transactions
-	//if 0 == len(txs) {
-	//	return
-	//}
-	//chain.transactionPool.GetLock().Lock("remove block")
-	//defer chain.transactionPool.GetLock().Unlock("remove block")
-	//chain.transactionPool.AddTxs(txs)
 }
 
 //清除链所有数据
@@ -544,9 +532,7 @@ func (chain *LightChain) remove(header *types.BlockHeader) {
 	if 0 == len(txs) {
 		return
 	}
-	chain.transactionPool.GetLock().Lock("remove block")
-	defer chain.transactionPool.GetLock().Unlock("remove block")
-	chain.transactionPool.AddTxs(txs)
+	chain.transactionPool.AddTransactions(txs)
 }
 
 func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {

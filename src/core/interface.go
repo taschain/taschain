@@ -21,11 +21,10 @@ import (
 	"math/big"
 	"middleware/types"
 	"storage/core"
-	"middleware"
 )
 
 //主链接口
-type BlockChainI interface {
+type BlockChain interface {
 
 	IsLightMiner() bool
 
@@ -68,7 +67,7 @@ type BlockChainI interface {
 	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
 
 	// 返回等待入块的交易池
-	GetTransactionPool() TransactionPoolI
+	GetTransactionPool() TransactionPool
 
 	GetBalance(address common.Address)*big.Int
 
@@ -101,19 +100,17 @@ type BlockChainI interface {
 	GetBonusManager() *BonusManager
 }
 
-type TransactionPoolI interface {
-
-	AddTxs(txs []*types.Transaction)
-
-	AddTransactions(txs []*types.Transaction) error
+type TransactionPool interface {
 
 	AddTransaction(tx *types.Transaction)(bool,error)
 
-	AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
+	AddTransactions(txs []*types.Transaction) error
+
+	MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
 
 	Remove(hash common.Hash, transactions []common.Hash)
 
-	RemoveExecuted(txs []*types.Transaction)
+	UnMarkExecuted(txs []*types.Transaction)
 
 	GetTransaction(hash common.Hash) (*types.Transaction, error)
 
@@ -126,8 +123,6 @@ type TransactionPoolI interface {
 	GetReceived() []*types.Transaction
 
 	Clear()
-
-	GetLock() *middleware.Loglock
 }
 
 //组管理接口

@@ -33,10 +33,10 @@ var castorReward = big.NewInt(50)
 var bonusReward = big.NewInt(20)
 
 type TVMExecutor struct {
-	bc BlockChainI
+	bc BlockChain
 }
 
-func NewTVMExecutor(bc BlockChainI) *TVMExecutor {
+func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	return &TVMExecutor{
 		bc: bc,
 	}
