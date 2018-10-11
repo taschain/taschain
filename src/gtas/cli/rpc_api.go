@@ -30,7 +30,7 @@ func failResult(err string) (*Result, error) {
 }
 
 func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
-	info := core.MinerManagerImpl.GetMinerById(mediator.Proc.GetMinerID().Serialize(), byte(mtype))
+	info := core.MinerManagerImpl.GetMinerById(mediator.Proc.GetMinerID().Serialize(), byte(mtype), nil)
 	if info != nil {
 		return failResult("已经申请过该类型矿工")
 	}
@@ -68,7 +68,7 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
-	miner := core.MinerManagerImpl.GetMinerById(address[:], byte(mtype))
+	miner := core.MinerManagerImpl.GetMinerById(address[:], byte(mtype), nil)
 	js,err := json.Marshal(miner)
 	if err != nil {
 		return &Result{Message:err.Error(), Data:nil}, err
@@ -172,14 +172,14 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		ni.Status = "运行中"
 		morts := make([]MortGage, 0)
 		t := "--"
-		heavyInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeHeavy)
+		heavyInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeHeavy, nil)
 		if heavyInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
 			if heavyInfo.AbortHeight == 0 {
 				t = "重节点"
 			}
 		}
-		lightInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeLight)
+		lightInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeLight, nil)
 		if lightInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(lightInfo))
 			if lightInfo.AbortHeight == 0 {

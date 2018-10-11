@@ -27,8 +27,11 @@ import (
 	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
+	"container/heap"
 	"github.com/hashicorp/golang-lru"
 	"sort"
+	"github.com/vmihailenco/msgpack"
+	"time"
 )
 
 var (
@@ -54,7 +57,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 1
+	sendingListLength = 50
 )
 
 // 配置文件
@@ -68,21 +71,25 @@ type TxPool struct {
 
 	config *TransactionPoolConfig
 
+	// 读写锁
 	lock middleware.Loglock
 
+	// 待上块的交易
 	received    *container
 	reserved    *lru.Cache
 	sendingList []*types.Transaction
 
 	sendingTxLock sync.Mutex
+	sendingTimer *time.Timer
 
-	totalReceived uint64
 
 	// 已经在块上的交易 key ：txhash value： receipt
 	executed tasdb.Database
 
 	batch     tasdb.Batch
 	batchLock sync.Mutex
+
+	totalReceived uint64
 }
 
 type ReceiptWrapper struct {
@@ -117,8 +124,10 @@ func NewTransactionPool() TransactionPool {
 			sendingList: make([]*types.Transaction, 0),
 			sendingTxLock: sync.Mutex{},
 			batchLock:   sync.Mutex{},
+			sendingTimer: time.NewTimer(time.Second),
+
 	}
-	pool.received = newContainer(2000)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -128,6 +137,13 @@ func NewTransactionPool() TransactionPool {
 	}
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
+	go func() {
+		for  {
+			<-pool.sendingTimer.C
+			pool.CheckAndSend(true)
+			pool.sendingTimer.Reset(time.Second)
+		}
+	}()
 	return pool
 }
 
@@ -189,18 +205,24 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()
 
-		if sendingListLength == len(pool.sendingList) {
-			pool.sendingTxLock.Lock()
-			txs := make([]*types.Transaction, sendingListLength)
-			copy(txs, pool.sendingList)
-			pool.sendingList = make([]*types.Transaction, 0)
-			pool.sendingTxLock.Unlock()
-			Logger.Debugf("Broadcast txs,len:%d", len(txs))
-			go BroadcastTransactions(txs)
-		}
+		pool.CheckAndSend(false)
 	}
+
 	return true, nil
 }
+
+func (pool *TxPool) CheckAndSend(immediately bool){
+	length := len(pool.sendingList)
+	if immediately && length > 0|| sendingListLength <= length {
+		pool.sendingTxLock.Lock()
+		txs := pool.sendingList
+		pool.sendingList = make([]*types.Transaction, 0)
+		pool.sendingTxLock.Unlock()
+		Logger.Debugf("Broadcast txs,len:%d", len(txs))
+		go BroadcastTransactions(txs)
+	}
+}
+
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
 func (pool *TxPool) MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {
@@ -398,7 +420,8 @@ func (pool *TxPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	}
 
 	var receipt *ReceiptWrapper
-	err := json.Unmarshal(receiptJson, &receipt)
+	//err := json.Unmarshal(receiptJson, &receipt)
+	err := msgpack.Unmarshal(receiptJson, &receipt)
 	if err != nil || receipt == nil {
 		return nil
 	}

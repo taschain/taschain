@@ -8,7 +8,7 @@ import (
 	"storage/core/vm"
 	"storage/trie"
 	"sync"
-	"errors"
+	"github.com/pkg/errors"
 )
 
 var emptyValue [0]byte
@@ -17,7 +17,7 @@ const HeavyPrefix  = "heavy"
 const LightPrefix  = "light"
 
 type MinerManager struct {
-	blockchain BlockChain
+	blockchain *BlockChain
 	cache   *lru.Cache
 	lock 	sync.Mutex
 }
@@ -29,7 +29,7 @@ type MinerIterator struct {
 
 var MinerManagerImpl *MinerManager
 
-func initMinerManager(blockchain BlockChain) error {
+func initMinerManager(blockchain *BlockChain) error {
 	cache,_ := lru.New(500)
 	MinerManagerImpl = &MinerManager{cache:cache,blockchain:blockchain}
 	return nil
@@ -80,14 +80,17 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner,accountdb vm.Accou
 	}
 }
 
-func (mm *MinerManager) GetMinerById(id []byte, ttype byte) *types.Miner {
-	if ttype == types.MinerTypeHeavy {
+func (mm *MinerManager) GetMinerById(id []byte, ttype byte,accountdb vm.AccountDB) *types.Miner {
+	if accountdb == nil && ttype == types.MinerTypeHeavy {
 		if result, ok := mm.cache.Get(string(id)); ok {
 			return result.(*types.Miner)
 		}
 	}
+	if accountdb == nil{
+		accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+	}
 	db := mm.getMinerDatabase(ttype)
-	data := mm.blockchain.(*FullBlockChain).latestStateDB.GetData(db,string(id))
+	data := accountdb.GetData(db,string(id))
 	if data != nil {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
@@ -110,7 +113,7 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte,accountdb vm.AccountDB
 
 //返回值：true Abort添加，false 数据不存在或状态不对，Abort失败
 func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64,accountdb vm.AccountDB) bool{
-	miner := mm.GetMinerById(id,ttype)
+	miner := mm.GetMinerById(id,ttype, accountdb)
 
 	if miner != nil && miner.Status == types.MinerStatusNormal{
 		miner.Status = types.MinerStatusAbort
@@ -152,7 +155,7 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 		}
 	}
 	if total == 0{
-		Logger.Errorf("GetTotalStakeByHeight get 0 %d %s",height,mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
+		Logger.Errorf("GetTotalStakeByHeight get 0 %d %s",height,mm.blockchain.latestBlock.StateTree.Hex())
 		iter = mm.MinerIterator(types.MinerTypeHeavy,nil)
 		for ;iter.Next(); {
 			miner, _ := iter.Current()
