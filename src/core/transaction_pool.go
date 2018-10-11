@@ -27,7 +27,6 @@ import (
 	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
-	"container/heap"
 	"github.com/hashicorp/golang-lru"
 	"sort"
 	"github.com/vmihailenco/msgpack"

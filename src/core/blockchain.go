@@ -252,7 +252,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, height)
+	statehash, receipts, err := chain.executor.Execute(state, block, height,"casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
