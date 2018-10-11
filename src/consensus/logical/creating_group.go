@@ -41,7 +41,7 @@ func PIECE_RESULT(ret int8) string {
 type CreatingGroup struct {
 	gis            *model.ConsensusGroupInitSummary
 	createGroup    *StaticGroupInfo
-	ids            []groupsig.ID
+	pkis            []model.PubKeyInfo
 	gSignGenerator *model.GroupSignGenerator
 }
 
@@ -51,14 +51,22 @@ type CreatingGroups struct {
 	//lock sync.RWMutex
 }
 
-func newCreateGroup(gis *model.ConsensusGroupInitSummary, ids []groupsig.ID, creator *StaticGroupInfo) *CreatingGroup {
+func newCreateGroup(gis *model.ConsensusGroupInitSummary, pkis []model.PubKeyInfo, creator *StaticGroupInfo) *CreatingGroup {
 	cg := &CreatingGroup{
 		gis:            gis,
-		ids:            ids,
+		pkis:            pkis,
 		createGroup:    creator,
-		gSignGenerator: model.NewGroupSignGenerator(model.Param.GetGroupK(creator.GetLen())),
+		gSignGenerator: model.NewGroupSignGenerator(model.Param.GetGroupK(creator.GetMemberCount())),
 	}
 	return cg
+}
+
+func (cg *CreatingGroup) getIDs() []groupsig.ID {
+    ids := make([]groupsig.ID, len(cg.pkis))
+	for idx, pki := range cg.pkis {
+		ids[idx] = pki.ID
+	}
+	return ids
 }
 
 func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) int8 {

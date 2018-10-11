@@ -23,7 +23,6 @@ type JoinedGroup struct {
 	SignKey groupsig.Seckey      //矿工签名私钥
 	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
 	Members groupsig.PubkeyMapID //组成员签名公钥
-	GroupSec GroupSecret
 }
 
 
@@ -34,10 +33,6 @@ func (jg *JoinedGroup) Init() {
 //取得组内某个成员的签名公钥
 func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
 	return jg.Members[mid.GetHexString()]
-}
-
-func (jg *JoinedGroup) setGroupSecretHeight(height uint64)  {
-	jg.GroupSec.EffectHeight = height
 }
 
 type BelongGroups struct {
@@ -124,6 +119,7 @@ func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
+	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 }
@@ -158,7 +154,7 @@ func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
 func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
-	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), GetIDPrefix(g.GroupID))
+	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {
@@ -186,12 +182,3 @@ func (p *Processor) IsMinerGroup(gid groupsig.ID) bool {
 func (p Processor) getMinerGroups() map[string]JoinedGroup {
 	return p.belongGroups.getAllGroups()
 }
-
-func (p *Processor) getGroupSecret(gid groupsig.ID) *GroupSecret {
-	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
-		return &jg.GroupSec
-	} else {
-		return nil
-	}
-}
-

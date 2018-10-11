@@ -27,6 +27,7 @@ import (
 	"taslog"
 	"common"
 	"time"
+	"math/big"
 )
 
 // middleware模块统一logger
@@ -155,11 +156,20 @@ func MarshalGroup(g *Group) ([]byte, error) {
 //}
 
 func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
-	source := common.BytesToAddress(t.Source)
-	target := common.BytesToAddress(t.Target)
-	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: &source,
-		Target: &target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType}
+	var source,target *common.Address
+	if t.Source != nil{
+		s := common.BytesToAddress(t.Source)
+		source = &s
+	}
+	if t.Target != nil{
+		t := common.BytesToAddress(t.Target)
+		target = &t
+	}
+
+	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: source,
+		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type:*t.Type}
+	//logger.Debugf("pbToTransaction %+v",transaction)
 	return &transaction
 }
 
@@ -213,11 +223,12 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	}
 
 	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
-
+	pv := &big.Int{}
+	totalPv := &big.Int{}
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		QueueNumber: *h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: pv.SetBytes(h.ProveValue), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalQN: *h.TotalQN, Random: h.Random}
+		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalPV: totalPv.SetBytes(h.TotalPV), Random: h.Random}
 	return &header
 }
 
@@ -272,14 +283,20 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	if t == nil {
 		return nil
 	}
-	var target []byte
+	var (
+		target []byte
+		source []byte
+	)
 	if t.Target != nil {
 		target = t.Target.Bytes()
 	}
+	if t.Source != nil {
+		source = t.Source.Bytes()
+	}
 
-	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: t.Source.Bytes(),
+	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType}
+		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType,Type:&t.Type}
 	return &transaction
 }
 
@@ -329,9 +346,9 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	evictedTxs := tas_middleware_pb.Hashes{Hashes: eBytes}
 
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		QueueNumber: &h.QueueNumber, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: h.ProveValue.Bytes(), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalQN: &h.TotalQN, Random: h.Random}
+		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalPV: h.TotalPV.Bytes(), Random: h.Random}
 	return &header
 }
 

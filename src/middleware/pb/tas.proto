@@ -20,7 +20,7 @@ message Transaction{
 
     required uint64 Nonce = 3;
 
-    required bytes Source  = 4 ;
+    optional bytes Source  = 4 ;
 
     optional bytes Target  = 5 ;
 
@@ -33,6 +33,8 @@ message Transaction{
     optional bytes ExtraData  = 9 ;
 
     optional int32 ExtraDataType  = 10 ;
+
+    required int32 Type = 11;
 }
 
 message TransactionRequestMessage{
@@ -43,7 +45,7 @@ message TransactionRequestMessage{
 
     required uint64 BlockHeight = 3;
 
-    required uint64 BlockQn = 4;
+    required bytes BlockPv = 4;
 }
 
 message TrieNodes{
@@ -68,9 +70,9 @@ message BlockHeader{
 
      optional bytes PreTime  = 4 ;
 
-     optional uint64 QueueNumber = 5;
+     optional bytes ProveValue = 5;
 
-     optional uint64 TotalQN = 6;
+     optional bytes TotalPV = 6;
 
      optional bytes CurTime  = 7 ;
 
@@ -390,4 +392,25 @@ message ConsensusCreateGroupSignMessage{
 
     required SignData sign = 2;
 
+}
+
+message Bonus{
+    required	bytes   TxHash = 1;
+    repeated	int32   TargetIds = 2;
+    required	bytes   BlockHash	= 3;
+    required	bytes   GroupId	= 4;
+    optional	bytes   Sign = 5;
+    required	uint64  TotalValue = 6;
+}
+
+message CastRewardTransSignReqMessage {
+	required SignData Sign = 1;
+	required Bonus Reward = 2;
+	repeated bytes SignedPieces = 3;
+}
+
+message CastRewardTransSignMessage {
+	required SignData Sign = 1;
+    required bytes ReqHash = 2;
+    required bytes BlockHash = 3;
 }

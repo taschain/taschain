@@ -97,6 +97,10 @@ type BlockChainI interface {
 	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
+
+	AddBonusTrasanction(transaction *types.Transaction)
+
+	GetBonusManager() *BonusManager
 }
 
 type TransactionPoolI interface {
@@ -125,6 +129,12 @@ type TransactionPoolI interface {
 
 	GetLock() *middleware.Loglock
 
+
+    //GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
+
+	AddBonusTrasanction(transaction *types.Transaction)
+
+	GetBonusManager() *BonusManager
 }
 
 //组管理接口

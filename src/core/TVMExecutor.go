@@ -25,7 +25,12 @@ import (
 	"fmt"
 	"tvm"
 	"storage/trie"
+	"bytes"
+	"github.com/vmihailenco/msgpack"
 )
+
+var castorReward = big.NewInt(50)
+var bonusReward = big.NewInt(20)
 
 type TVMExecutor struct {
 	bc BlockChainI
@@ -97,63 +102,137 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.Acc
 	return missingAccountTransactions
 }
 
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, error) {
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64) (common.Hash,[]*t.Receipt,error) {
 	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(true)
-		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
+		hash := accountdb.IntermediateRoot(false)
+		Logger.Infof("TVMExecutor Execute Empty State:%s",hash.Hex())
 		return hash, nil, nil
 	}
-	Logger.Infof("Execute block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.QueueNumber, len(block.Transactions))
-	receipts := make([]*t.Receipt, len(block.Transactions))
-	for i, transaction := range block.Transactions {
+	receipts := make([]*t.Receipt,len(block.Transactions))
+	Logger.Debugf("TVMExecutor Begin Execute State %s",block.Header.StateTree.Hex())
+	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contractAddress, _ = createContract(accountdb, transaction)
-			contract := tvm.LoadContract(contractAddress)
-			controller.Deploy(transaction.Source, contract)
-		} else if len(transaction.Data) > 0 {
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contract := tvm.LoadContract(*transaction.Target)
+		//Logger.Debugf("TVMExecutor Execute %+v",transaction)
 
-			snapshot := controller.AccountDB.Snapshot()
-			if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
-				controller.AccountDB.RevertToSnapshot(snapshot)
-			}
-
-		} else {
+		switch transaction.Type {
+		case types.TransactionTypeTransfer:
 			amount := big.NewInt(int64(transaction.Value))
-			if CanTransfer(accountdb, *transaction.Source, amount) {
+			if CanTransfer(accountdb, *transaction.Source, amount){
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+				Logger.Debugf("TVMExecutor Execute Transfer Transaction %s",transaction.Hash.Hex())
 			} else {
 				fail = true
 			}
+		case types.TransactionTypeContractCreate:
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			contractAddress, _ = createContract(accountdb, transaction)
+			contract := tvm.LoadContract(contractAddress)
+			fail = !controller.Deploy(transaction.Source, contract)
+			Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s",transaction.Hash.Hex())
+		case types.TransactionTypeContractCall:
+			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+			contract := tvm.LoadContract(*transaction.Target)
+			fail = !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+			Logger.Debugf("TVMExecutor Execute ContractCall Transaction %s",transaction.Hash.Hex())
+		case types.TransactionTypeBonus:
+			if executor.bc.bonusManager.Contain(transaction.Data,accountdb) == false{
+				Logger.Debugf("TVMExecutor Execute Bonus Transaction")
+				reader := bytes.NewReader(transaction.ExtraData)
+				groupId := make([]byte,common.GroupIdLength)
+				addr := make([]byte,common.AddressLength)
+				value := big.NewInt(int64(transaction.Value))
+				if n,_ := reader.Read(groupId);n != common.GroupIdLength{
+					panic("TVMExecutor Read GroupId Fail")
+				}
+				for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
+					address := common.BytesToAddress(addr)
+					accountdb.AddBalance(address,value)
+					Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d",address.GetHexString(),transaction.Value)
+				}
+				executor.bc.bonusManager.Put(transaction.Data, transaction.Hash[:],accountdb)
+				//分红交易奖励
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
+			} else {
+				fail = true
+			}
+		case types.TransactionTypeMinerApply:
+			Logger.Debugf("--------miner apply tx found! from %v\n", transaction.Source.GetHexString())
+			if transaction.Data == nil{
+				fail = true
+				continue
+			}
+			var miner types.Miner
+			msgpack.Unmarshal(transaction.Data,&miner)
+			mexist := MinerManagerImpl.GetMinerById(transaction.Source[:],miner.Type)
+			if mexist == nil{
+				amount := big.NewInt(int64(transaction.Value))
+				if CanTransfer(accountdb, *transaction.Source, amount){
+					miner.ApplyHeight = height
+					if MinerManagerImpl.AddMiner(transaction.Source[:],&miner,accountdb) > 0 {
+						accountdb.SubBalance(*transaction.Source, amount)
+						Logger.Debugf("TVMExecutor Execute MinerApply Success Source %s",transaction.Source.GetHexString())
+					}
+				} else {
+					fail = true
+					Logger.Debugf("TVMExecutor Execute MinerApply Fail(Balance Not Enough) Source %s",transaction.Source.GetHexString())
+				}
+			} else {
+				fail = true
+				Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s",transaction.Source.GetHexString())
+			}
+		case types.TransactionTypeMinerAbort:
+			if transaction.Data == nil{
+				fail = true
+				continue
+			}
+			fail = !MinerManagerImpl.AbortMiner(transaction.Source[:],transaction.Data[0],height,accountdb)
+			Logger.Debugf("TVMExecutor Execute MinerAbort %s Success:%t",transaction.Source.GetHexString(),!fail)
+		case types.TransactionTypeMinerRefund:
+			mexist := MinerManagerImpl.GetMinerById(transaction.Source[:],transaction.Data[0])
+			if mexist != nil && mexist.Status == types.MinerStatusAbort{
+				if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
+					MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type,accountdb)
+					amount := big.NewInt(int64(mexist.Stake))
+					accountdb.AddBalance(*transaction.Source, amount)
+					Logger.Debugf("TVMExecutor Execute MinerRefund Success %s",transaction.Source.GetHexString())
+				} else {
+					fail = true
+					Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Still In Active Group) %s",transaction.Source.GetHexString())
+				}
+			} else {
+				fail = true
+				Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Not Exist Or Not Abort) %s",transaction.Source.GetHexString())
+			}
 		}
-		receipt := t.NewReceipt(nil, fail, 0)
+
+		receipt := t.NewReceipt(nil,fail,0)
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
+	//筑块奖励
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
-
-	return accountdb.IntermediateRoot(true), receipts, nil
+	state := accountdb.IntermediateRoot(false)
+	Logger.Debugf("TVMExecutor End Execute State %s",state.Hex())
+	return state, receipts, nil
 }
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
 	amount := big.NewInt(int64(transaction.Value))
-	if !CanTransfer(accountdb, *transaction.Source, amount) {
+	if !CanTransfer(accountdb, *transaction.Source, amount){
 		return common.Address{}, fmt.Errorf("balance not enough")
 	}
 
 	nance := accountdb.GetNonce(*transaction.Source)
-	accountdb.SetNonce(*transaction.Source, nance+1)
+	accountdb.SetNonce(*transaction.Source, nance + 1)
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nance))))
 
-	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}) {
+	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}){
 		return common.Address{}, fmt.Errorf("contract address conflict")
 	}
 	accountdb.CreateAccount(contractAddr)

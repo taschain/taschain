@@ -35,7 +35,7 @@ type GroupChainConnector struct {
 	chain *GroupChain
 }
 
-func InitCore(light bool) error {
+func InitCore(light bool,genesisInfo *types.GenesisInfo) error {
 	// 默认是debug模式
 	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
 	if isDebug {
@@ -47,7 +47,7 @@ func InitCore(light bool) error {
 		if light{
 			err = initLightChain()
 		}else{
-			err = initBlockChain()
+			err = initBlockChain(genesisInfo)
 		}
 		if nil != err {
 			return err
@@ -58,7 +58,7 @@ func InitCore(light bool) error {
 	}
 
 	if nil == GroupChainImpl {
-		err := initGroupChain()
+		err := initGroupChain(genesisInfo)
 		if nil != err {
 			return err
 		}

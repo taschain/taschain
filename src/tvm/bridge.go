@@ -219,7 +219,7 @@ func CoinBase() *C.char {
 
 //export Difficulty
 func Difficulty() C.ulonglong {
-	return C.ulonglong(controller.BlockHeader.TotalQN)
+	return C.ulonglong(controller.BlockHeader.TotalPV.Uint64())
 }
 
 //export Number

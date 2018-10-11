@@ -287,7 +287,7 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(db Database, prefix []byte) *trie.Iterator{
+func (self *accountObject) DataIterator(db Database,prefix []byte) *trie.Iterator{
 	if self.trie == nil{
 		self.getTrie(db)
 	}
@@ -344,4 +344,11 @@ func (self *accountObject) Nonce() uint64 {
 
 func (self *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
+}
+
+func (self *accountObject) fstring() string {
+	if self.trie == nil{
+		self.trie = self.getTrie(self.db.db)
+	}
+	return self.trie.Fstring()
 }

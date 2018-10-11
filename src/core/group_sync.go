@@ -45,7 +45,8 @@ type GroupHeightInfo struct {
 }
 
 type GroupRequestInfo struct {
-	Height	uint64
+	//Height	uint64
+	GroupId []byte
 	SourceId string
 }
 
@@ -71,8 +72,8 @@ type groupSyncer struct {
 
 func InitGroupSyncer() {
 	logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
-	GroupSyncer = groupSyncer{ReqHeightCh: make(chan string), HeightCh: make(chan GroupHeightInfo),
-		ReqGroupCh: make(chan GroupRequestInfo), GroupCh: make(chan GroupInfo), maxHeight: 0, init: false, replyCount: 0}
+	GroupSyncer = groupSyncer{ReqHeightCh: make(chan string,100), HeightCh: make(chan GroupHeightInfo,100),
+		ReqGroupCh: make(chan GroupRequestInfo,100), GroupCh: make(chan GroupInfo,100), maxHeight: 0, init: false, replyCount: 0}
 	go GroupSyncer.start()
 }
 
@@ -120,7 +121,7 @@ func (gs *groupSyncer) sync() {
 	} else {
 		logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.\nSync from %s!\n", maxHeight, localHeight, bestNode)
 		if bestNode != "" {
-			requestGroupByHeight(bestNode, localHeight)
+			requestGroupByGroupId(bestNode, core.GroupChainImpl.LastGroup().Id)
 		}
 	}
 }
@@ -148,8 +149,8 @@ func (gs *groupSyncer) loop() {
 			gs.lock.Unlock()
 		case gri := <-gs.ReqGroupCh:
 			//收到组请求
-			logger.Debugf("[GroupSyncer]Rcv group from:%s,height:%d\n", gri.SourceId, gri.Height)
-			groups := GroupChainImpl.GetSyncGroupsByHeight(gri.Height, 5)
+			logger.Debugf("[GroupSyncer]Rcv group from:%s,id:%v\n", gri.SourceId, gri.GroupId)
+			groups := GroupChainImpl.GetSyncGroupsById(gri.GroupId)
 			l := len(groups)
 			if l == 0 {
 				logger.Errorf("[GroupSyncer]Get nil group by id:%s", gri.SourceId)
@@ -164,19 +165,22 @@ func (gs *groupSyncer) loop() {
 			}
 		case groupInfos := <-gs.GroupCh:
 			//收到组信息
-			logger.Debugf("[GroupSyncer]Rcv groups len :%d,from:%d", len(groupInfos.Groups),groupInfos.SourceId)
+			logger.Debugf("[GroupSyncer]Rcv groups len:%d,from:%s", len(groupInfos.Groups),groupInfos.SourceId)
 			for _,group := range groupInfos.Groups {
 				e := GroupChainImpl.AddGroup(group, nil, nil)
+				logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v",core.GroupChainImpl.Count() - 1,
+					common.BytesToAddress(group.Id).GetHexString(),e)
 				if e != nil {
 					logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 					//TODO  上链失败 异常处理
-					return
+					continue
 				}
 			}
 
 			if !groupInfos.IsTopGroup {
-				localHeight := GroupChainImpl.Count()
-				requestGroupByHeight(groupInfos.SourceId, localHeight+1)
+				//localHeight := core.GroupChainImpl.Count()
+				//requestGroupByHeight(groupInfos.SourceId, localHeight+1)
+				requestGroupByGroupId(groupInfos.SourceId, core.GroupChainImpl.LastGroup().Id)
 			} else {
 				if !gs.init {
 					fmt.Printf("group sync init finish,local group height:%d\n", GroupChainImpl.Count())

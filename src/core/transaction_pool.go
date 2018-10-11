@@ -35,6 +35,8 @@ var (
 
 	ErrHash = errors.New("invalid transaction hash")
 
+	ErrExist = errors.New("transaction already exist in pool")
+
 	ErrInvalidSender = errors.New("invalid sender")
 
 	ErrNonceTooLow = errors.New("nonce too low")
@@ -51,7 +53,7 @@ var (
 
 	ErrOversizedData = errors.New("oversized data")
 
-	sendingListLength = 50
+	sendingListLength = 1
 )
 
 // 配置文件
@@ -107,7 +109,7 @@ func NewTransactionPool() *TransactionPool {
 			},
 			batchLock:   sync.Mutex{},
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -267,9 +269,12 @@ func (pool *TransactionPool) Clear() {
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
 }
 
+func (pool *TransactionPool) GetReceived() []*types.Transaction {
+	return pool.received.txs
+}
 
 
 // 不加锁
@@ -316,7 +321,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
 		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
-		return false, nil
+		return false, ErrExist
 	}
 
 	pool.received.Push(tx)
@@ -324,7 +329,7 @@ func (pool *TransactionPool) addInner(tx *types.Transaction, isBroadcast bool) (
 	// batch broadcast
 	if isBroadcast {
 		//交易不广播
-		return  true, nil
+		//return true, nil
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()

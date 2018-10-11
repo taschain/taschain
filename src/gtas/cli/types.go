@@ -15,6 +15,8 @@
 
 package cli
 
+import "middleware/types"
+
 // Result rpc请求成功返回的可变参数部分
 type Result struct {
 	Message string      `json:"message"`
@@ -60,4 +62,51 @@ type ConnInfo struct {
 	Id      string `json:"id"`
 	Ip      string `json:"ip"`
 	TcpPort string `json:"tcp_port"`
+}
+
+type GroupStat struct {
+	Dismissed bool `json:"dismissed"`
+	VCount		int32 `json:"v_count"`
+}
+
+type ProposerStat struct {
+	Stake 	uint64 `json:"stake"`
+	StakeRatio float64 `json:"stake_ratio"`
+	PCount	int32 `json:"p_count"`
+}
+
+type CastStat struct {
+	Group map[string]GroupStat `json:"group"`
+	Proposer map[string]ProposerStat `json:"proposer"`
+}
+
+type MortGage struct {
+	Stake uint64 `json:"stake"`
+	ApplyHeight uint64 `json:"apply_height"`
+	AbortHeight uint64 `json:"abort_height"`
+	Type string `json:"type"`
+}
+
+func NewMortGageFromMiner(miner *types.Miner) *MortGage {
+	t := "重节点"
+	if miner.Type == types.MinerTypeLight {
+		t = "轻节点"
+	}
+	mg := &MortGage{
+		Stake: miner.Stake,
+		ApplyHeight: miner.ApplyHeight,
+		AbortHeight: miner.AbortHeight,
+		Type: t,
+	}
+	return mg
+}
+
+type NodeInfo struct {
+	ID string `json:"id"`
+	Balance uint64 `json:"balance"`
+	Status string `json:"status"`
+	WGroupNum int `json:"w_group_num"`
+	AGroupNum int `json:"a_group_num"`
+	NType string `json:"n_type"`
+	MortGages []MortGage `json:"mort_gages"`
 }

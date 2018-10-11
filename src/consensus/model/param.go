@@ -25,7 +25,7 @@ const (
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
-	EPOCH uint64 = 8
+	EPOCH uint64 = 4
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 5	//组准备就绪后, 等待可以铸块的间隔为4个epoch
 	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
@@ -47,6 +47,10 @@ type ConsensusParam struct {
 	GroupGetReadyGap uint64
 	GroupCastQualifyGap uint64
 	GroupCastDuration	uint64
+	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
+
+	CastTotalBonus			uint64	//铸块总奖励
+	ProposalBonusPercent 	float64	//提案者奖励占比
 }
 
 var Param ConsensusParam
@@ -67,6 +71,9 @@ func InitParam() {
 		GroupGetReadyGap: GROUP_GET_READY_GAP,
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
+		EffectGapAfterApply: EPOCH,
+		CastTotalBonus: 30,
+		ProposalBonusPercent: 0.5,
 	}
 	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
@@ -88,4 +95,12 @@ func (p *ConsensusParam) GetGroupMemberNum() int {
 
 func (p *ConsensusParam) CreateGroupMinCandidates() int {
     return p.GroupMember * p.CandidatesMinRatio
+}
+
+func (p *ConsensusParam) GetProposalBonus() uint64 {
+    return uint64(math.Floor(float64(p.CastTotalBonus) * p.ProposalBonusPercent))
+}
+
+func (p *ConsensusParam) GetVerifierBonus() uint64 {
+    return p.CastTotalBonus - p.GetProposalBonus()
 }

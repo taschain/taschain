@@ -27,6 +27,7 @@ import (
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
 	"time"
+	"math/big"
 )
 
 type ChainHandler struct {
@@ -57,8 +58,8 @@ func NewChainHandler() network.MsgHandler {
 
 	headerPending := make(map[common.Hash]blockHeaderNotify)
 	complete, _ := lru.New(256)
-	headerCh := make(chan blockHeaderNotify)
-	bodyCh := make(chan blockBodyNotify)
+	headerCh := make(chan blockHeaderNotify, 100)
+	bodyCh := make(chan blockBodyNotify, 100)
 	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
 
 	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
@@ -106,8 +107,8 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		ghi := core.GroupHeightInfo{Height: height, SourceId: sourceId}
 		core.GroupSyncer.HeightCh <- ghi
 	case network.ReqGroupMsg:
-		baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := core.GroupRequestInfo{Height: baseHeight, SourceId: sourceId}
+		//baseHeight := utility.ByteToUInt64(msg.Body)
+		gri := core.GroupRequestInfo{GroupId: msg.Body, SourceId: sourceId}
 		core.GroupSyncer.ReqGroupCh <- gri
 	case network.GroupMsg:
 		m, e := unMarshalGroupInfo(msg.Body)
@@ -121,13 +122,11 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	case network.ReqBlockChainTotalQnMsg:
 		core.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
-		totalQnInfo, e := unmarshalTotalQnInfo(msg.Body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard BlockChainTotalQnMsg because of unmarshal error:%s", e.Error())
-			return e
-		}
-		totalQnInfo.SourceId = sourceId
-		core.BlockSyncer.TotalQnCh <- totalQnInfo
+		//totalQn := utility.ByteToUInt64(msg.Body)
+		totalQn := &big.Int{}
+		totalQn.SetBytes(msg.Body)
+		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
+		sync.BlockSyncer.TotalQnCh <- s
 	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
@@ -323,7 +322,7 @@ func (ch ChainHandler) loop() {
 
 //接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockQn,len(m.TransactionHashes))
+	//core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.BlockPv,len(m.TransactionHashes))
 	//本地查询transaction
 	if nil == core.BlockChainImpl {
 		return nil
@@ -334,7 +333,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 	}
 
 	if nil != transactions && 0 != len(transactions) {
-		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockQn)
+		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockPv)
 	}
 
 	return nil
@@ -399,7 +398,7 @@ func onBlockInfo(blockInfo core.BlockInfo, sourceId string) {
 	}
 	block := blockInfo.Block
 	if block != nil {
-		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d,Hash:%x,preHash:%x,isTopBlock:%t", block.Header.Height, block.Header.QueueNumber, block.Header.Hash, block.Header.PreHash, blockInfo.IsTopBlock)
+		core.Logger.Debugf("[handler] onBlockInfo receive block,height:%d,qn:%d",block.Header.Height,block.Header.ProveValue)
 		code := core.BlockChainImpl.AddBlockOnChain(block)
 		if code < 0 {
 			core.BlockChainImpl.SetAdujsting(false)
@@ -451,7 +450,9 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	}
 
 	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
-	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockQn: *m.BlockQn}
+	blockPv := &big.Int{}
+	blockPv.SetBytes(m.BlockPv)
+	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
 	return &message, nil
 }
 

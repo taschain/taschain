@@ -15,7 +15,7 @@ type Group struct {
 	id             		string
 	members        		[]NodeID
 	needConnectNodes    []NodeID
-
+	mutex  sync.Mutex
 	resolvingNodes map[NodeID]time.Time
 	curIndex int
 }
@@ -38,6 +38,7 @@ func (g Group) Swap(i, j int) {
 func newGroup(id string, members []NodeID) *Group {
 
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
+
 	Logger.Debugf("new group id：%v", id)
 	for i:= 0;i<len(g.members);i++ {
 		Logger.Debugf("before id：%v", g.members[i].GetHexString())
@@ -49,7 +50,7 @@ func newGroup(id string, members []NodeID) *Group {
 
 	g.curIndex =0
 	for i:= 0;i<len(g.members);i++ {
-		if g.members[i] == net.netCore.id {
+		if g.members[i] == netCore.id {
 			g.curIndex = i
 			break
 		}
@@ -69,7 +70,10 @@ func newGroup(id string, members []NodeID) *Group {
 	peerSize := len(g.members)
 	maxCount := int(math.Sqrt(float64(peerSize)));
 	maxCount -=  len(g.needConnectNodes)
-	step :=  len(g.members)/ maxCount
+	step := 1
+	if maxCount > 0 {
+		step = len(g.members)/ maxCount
+	}
 	for i:=0;i<maxCount ;i++ {
 		nextIndex += step
 		if nextIndex >= len(g.members) {
@@ -98,26 +102,28 @@ func (g Group) getNextIndex(index int) int {
 }
 
 func (g *Group) doRefresh() {
-	memberSize := len(g.needConnectNodes)
 
-	Logger.Debugf("Group doRefresh  id： %v", g.id)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+	memberSize := len(g.needConnectNodes)
 
 	for i := 0; i < memberSize; i++ {
 		id := g.needConnectNodes[i]
-		if id == net.netCore.id {
+		if id == netCore.id {
 			continue
 		}
 
-		p := net.netCore.peerManager.peerByID(id)
+		p := netCore.peerManager.peerByID(id)
 		if p != nil {
 			continue
 		}
-		node := net.netCore.kad.find(id)
+		node := netCore.kad.find(id)
 		if node != nil && node.Ip != nil && node.Port > 0 {
 			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-			go net.netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
+			go netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
 		} else {
-			go net.netCore.ping(id, nil)
+			go netCore.ping(id, nil)
 
 			Logger.Debugf("Group doRefresh node can not find in KAD ,resolve ....  id：%v ", id.GetHexString())
 			g.resolve(id)
@@ -132,7 +138,7 @@ func (g *Group) resolve(id NodeID) {
 		return
 	}
 	g.resolvingNodes[id] = time.Now()
-	go net.netCore.kad.resolve(id)
+	go netCore.kad.resolve(id)
 }
 
 func (g *Group) send(packet *bytes.Buffer) {
@@ -142,24 +148,24 @@ func (g *Group) send(packet *bytes.Buffer) {
 	other := 0
 	for i := 0; i < len(g.needConnectNodes); i++ {
 		id := g.needConnectNodes[i]
-		if id == net.netCore.id {
+		if id == netCore.id {
 			continue
 		}
-		p := net.netCore.peerManager.peerByID(id)
+		p := netCore.peerManager.peerByID(id)
 		if p != nil {
 			connected +=1
-			go net.netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
+			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
 		} else {
-			node := net.netCore.kad.find(id)
+			node := netCore.kad.find(id)
 			if node != nil && node.Ip != nil && node.Port > 0 {
-				Logger.Debugf("sendGroup node not connected ,but found in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
+				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 				kad +=1
-				go net.netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
 			} else {
-				Logger.Debugf("sendGroup node not connected and not found in KAD : id：%v", id.GetHexString())
+				Logger.Debugf("SendGroup node not connected and not in KAD : id：%v", id.GetHexString())
 
 				other+=1
-				go net.netCore.peerManager.write(id, nil, packet)
+				netCore.peerManager.write(id, nil, packet)
 			}
 		}
 	}
@@ -192,7 +198,7 @@ func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
 
 	g := newGroup(ID, members)
 	gm.groups[ID] = g
-	go gm.doRefresh()
+	go g.doRefresh()
 	return g
 }
 
@@ -213,13 +219,13 @@ func (gm *GroupManager) removeGroup(id string) {
 	//
 	//for i := 0; i < memberSize; i++ {
 	//	id := g.members[i]
-	//	if id == net.netCore.id {
+	//	if id == netCore.id {
 	//		continue
 	//	}
 	//
-	//	node := net.netCore.kad.find(id)
+	//	node := netCore.kad.find(id)
 	//	if node == nil {
-	//		net.netCore.peerManager.disconnect(id)
+	//		netCore.peerManager.disconnect(id)
 	//	}
 	//}
 	delete(gm.groups, id)
@@ -228,20 +234,15 @@ func (gm *GroupManager) removeGroup(id string) {
 func (gm *GroupManager) loop() {
 
 	const refreshInterval = 5 * time.Second
-	const peerInfoInterval = 30 * time.Second
 
 	var (
 		refresh = time.NewTicker(refreshInterval)
-		peerInfo = time.NewTicker(peerInfoInterval)
 	)
 	defer refresh.Stop()
-	defer peerInfo.Stop()
 	for {
 		select {
 		case <-refresh.C:
 			go gm.doRefresh()
-		case <-peerInfo.C:
-			go net.netCore.peerManager.print()
 		}
 	}
 
@@ -268,7 +269,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
 		Logger.Debugf("SendGroup not found group.")
 		return
 	}
-	g.send(packet)
+	go g.send(packet)
 
 	return
 }

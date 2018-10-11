@@ -129,6 +129,10 @@ func (db *PrefixedDatabase) Delete(key []byte) error {
 	return db.db.Delete(generateKey(key, db.prefix))
 }
 
+func (db *PrefixedDatabase) NewIterator() iterator.Iterator {
+	return db.db.NewIteratorWithPrefix([]byte(db.prefix))
+}
+
 func (db *PrefixedDatabase) NewBatch() tasdb.Batch {
 
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}

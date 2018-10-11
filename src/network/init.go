@@ -30,7 +30,7 @@ const (
 
 	seedPortKey = "seed_port"
 
-	seedDefaultId = "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"
+	seedDefaultId = "0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307"
 
 	seedDefaultIp = "47.105.70.31"
 
@@ -41,22 +41,23 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string)(id string,err error){
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string, nodeIDHex string)(err error){
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
-	self, err := InitSelfNode(config, isSuper)
+
+	self, err := InitSelfNode(config, isSuper, newNodeID(nodeIDHex))
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
-		return "",err
+		return err
 	}
-	id = self.Id.GetHexString()
+	//id = self.Id
 	if seedIp == ""{
 		seedIp = seedDefaultIp
 	}
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := newNode(common.HexStringToAddress(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(newNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
 
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
@@ -66,22 +67,20 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var natEnable bool
 	if testMode {
 		natEnable = false
-		listenAddr =  nnet.UDPAddr{IP:nnet.ParseIP(seedIp), Port: self.Port}
+		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(seedIp), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{ Id: self.Id, ListenAddr:&listenAddr , Seeds: seeds, NatTraversalEnable: natEnable}
+	netConfig := NetCoreConfig{Id: self.Id, ListenAddr: &listenAddr, Seeds: seeds, NatTraversalEnable: natEnable}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
-	return
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
+	return nil
 }
 
-
-
-func GetNetInstance()Network{
+func GetNetInstance() Network {
 	return net
 }
 

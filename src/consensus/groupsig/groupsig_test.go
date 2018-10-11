@@ -506,6 +506,27 @@ func BenchmarkValidation(b *testing.B) {
 	}
 }
 
+func BenchmarkValidation2(b *testing.B) {
+	b.StopTimer()
+	r := base.NewRand() //生成随机数
+	for n := 0; n < b.N; n++ {
+		sec := NewSeckeyFromRand(r.Deri(1))
+		pub := NewPubkeyFromSeckey(*sec)
+		m := strconv.Itoa(n) + "abc"
+
+		sig := Sign(*sec, []byte(m))
+		buf := sig.Serialize()
+		sig2 := DeserializeSign(buf)
+
+		b.StartTimer()
+		result := VerifySig(*pub, []byte(m), *sig2)
+		if result != true {
+			fmt.Println("VerifySig failed.")
+		}
+		b.StopTimer()
+	}
+}
+
 func benchmarkDeriveSeckeyShare(k int, b *testing.B) {
 	b.StopTimer()
 

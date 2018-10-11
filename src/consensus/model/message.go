@@ -220,3 +220,28 @@ type ConsensusCreateGroupSignMessage struct {
 func (msg *ConsensusCreateGroupSignMessage) GenHash() common.Hash {
 	return msg.GI.GenHash()
 }
+
+//==============================奖励交易==============================
+type CastRewardTransSignReqMessage struct {
+	BaseSignedMessage
+	Reward 		types.Bonus
+	SignedPieces []groupsig.Signature
+}
+
+func (msg *CastRewardTransSignReqMessage) GenHash() common.Hash {
+	return msg.Reward.TxHash
+}
+
+type CastRewardTransSignMessage struct {
+	BaseSignedMessage
+	ReqHash	common.Hash
+	BlockHash common.Hash
+
+	//不序列化
+	GroupID groupsig.ID
+	Launcher groupsig.ID
+}
+
+func (msg *CastRewardTransSignMessage) GenHash() common.Hash {
+	return msg.ReqHash
+}

@@ -39,9 +39,13 @@ type MessageProcessor interface {
 	OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)
 
 	OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)
+
+	OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage)
 }
 
-type NextGroup struct {
+type GroupBrief struct {
 	Gid groupsig.ID
 	MemIds []groupsig.ID
 }
@@ -56,11 +60,11 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage)
+	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 
-	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, nextGroup *NextGroup)
+	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief)
 
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 
@@ -69,4 +73,8 @@ type NetworkServer interface {
 	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
 
 	ReleaseGroupNet(gid groupsig.ID)
+
+	SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	SendCastRewardSign(msg *model.CastRewardTransSignMessage)
 }

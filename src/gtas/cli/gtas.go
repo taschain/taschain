@@ -41,6 +41,8 @@ import (
 	"strconv"
 	"consensus/model"
 	"redis"
+	"runtime/debug"
+	"consensus/logical"
 )
 
 const (
@@ -114,9 +116,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
-	middleware.SetupStackTrap("/Users/daijia/stack.log") //todo: absolute path?
-	err := gtas.fullInit(super, testMode, seedIp,light)
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
+	gtas.runtimeInit()
+	err := gtas.fullInit(super, testMode, seedIp)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -130,13 +132,20 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 
 	gtas.waitingUtilSyncFinished()
-	redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
+	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
 	gtas.inited = true
 	if !ok {
 		return
 	}
+}
+
+func (gtas *Gtas) runtimeInit()  {
+	debug.SetGCPercent(70)
+	debug.SetMaxStack(2*1000000000)
+    fmt.Println("setting gc 70%, max memory 2g")
+
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
@@ -209,6 +218,7 @@ func (gtas *Gtas) Run() {
 
 	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
+	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -238,6 +248,9 @@ func (gtas *Gtas) Run() {
 		network.NatServerIp = *nat
 		log.Printf("NAT server ip:%s", *nat)
 	}
+
+	common.BootId = *buildId
+	log.Printf("Boot id:%d",common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
@@ -274,7 +287,8 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock() error {
-	err := core.InitCore(lightMiner)
+	genesis := &logical.GenesisGeneratorImpl{}
+	err := core.InitCore(genesis.Generate())
 	if err != nil {
 		return err
 	}
@@ -294,13 +308,20 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 	// 初始化中间件
 	middleware.InitMiddleware()
 
+	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore(light)
+	err = core.InitCore(light,genesis.Generate())
 	if err != nil {
 		return err
 	}
-
-	id, err := network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp)
+	secret := (*configManager).GetString(Section, "secret", "")
+	if secret == "" {
+		secret = getRandomString(5)
+		(*configManager).SetString(Section, "secret", secret)
+	}
+	minerInfo := model.NewSelfMinerDO(secret)
+	id := minerInfo.ID.GetHexString()
+	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
@@ -316,15 +337,10 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 
 	if isSuper {
 		//超级节点启动前先把Redis数据清空
-		redis.CleanRedisData()
+		//redis.CleanRedisData()
 	}
 
-	secret := (*configManager).GetString(Section, "secret", "")
-	if secret == "" {
-		secret = getRandomString(5)
-		(*configManager).SetString(Section, "secret", secret)
-	}
-	minerInfo := model.NewMinerInfo(id, secret)
+
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo)
@@ -358,7 +374,7 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 	return pubKeyInfos
 }
 
-func ShowPubKeyInfo(info model.MinerInfo, id string) {
+func ShowPubKeyInfo(info model.SelfMinerDO, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
 	fmt.Printf("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})

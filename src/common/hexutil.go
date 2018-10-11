@@ -222,3 +222,11 @@ func mapError(err error) error {
 	}
 	return err
 }
+
+func ShortHex12(hex string) string {
+	s := len(hex)
+	if s < 12 {
+		return hex
+	}
+	return hex[0:6] + "-" + hex[s-6:]
+}

@@ -210,6 +210,7 @@ func (self *AccountDB) HasSuicided(addr common.Address) bool {
 	return false
 }
 
+
 func (self *AccountDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
@@ -245,7 +246,7 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (self *AccountDB) SetData(addr common.Address, key string, value []byte) {
+func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)
@@ -283,15 +284,7 @@ func (self *AccountDB) deleteAccountObject(stateObject *accountObject) {
 	self.setError(self.trie.TryDelete(addr[:]))
 }
 
-func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
-
-	if obj := self.accountObjects[addr]; obj != nil {
-		if obj.deleted {
-			return nil
-		}
-		return obj
-	}
-
+func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObject *accountObject) {
 	enc, err := self.trie.TryGet(addr[:])
 	if len(enc) == 0 {
 		self.setError(err)
@@ -304,7 +297,24 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 	}
 
 	obj := newAccountObject(self, addr, data, self.MarkAccountObjectDirty)
-	self.setAccountObject(obj)
+	//self.setAccountObject(obj)
+	return obj
+}
+
+
+func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
+
+	if obj := self.accountObjects[addr]; obj != nil {
+		if obj.deleted {
+			return nil
+		}
+		return obj
+	}
+
+	obj := self.getAccountObjectFromTrie(addr)
+	if obj != nil{
+		self.setAccountObject(obj)
+	}
 	return obj
 }
 
@@ -344,10 +354,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator {
-	stateObject := self.GetOrNewAccountObject(addr)
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db, []byte(prefix))
+		return stateObject.DataIterator(self.db,[]byte(prefix))
 	} else {
 		return nil
 	}
@@ -358,8 +368,8 @@ func (self *AccountDB) Copy() *AccountDB {
 	defer self.lock.Unlock()
 
 	state := &AccountDB{
-		db:                  self.db,
-		trie:                self.trie,
+		db:                self.db,
+		trie:              self.trie,
 		accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
 		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
 		refund:              self.refund,
@@ -372,6 +382,7 @@ func (self *AccountDB) Copy() *AccountDB {
 	}
 	return state
 }
+
 
 func (self *AccountDB) Snapshot() int {
 	id := self.nextRevisionId
@@ -490,8 +501,11 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	return root, err
 }
 
-func (s *AccountDB) Fstring() {
-	if s.trie != nil {
-		fmt.Print(s.trie.Fstring())
-	}
+func (s *AccountDB) Fstring(address common.Address) string{
+	obj := s.getAccountObjectFromTrie(address)
+	return obj.fstring()
+	//if s.trie != nil {
+	//	fmt.Print(s.trie.Fstring())
+	//}
+	return ""
 }

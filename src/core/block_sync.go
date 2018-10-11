@@ -117,7 +117,7 @@ func (bs *blockSyncer) sync() {
 	bestNodeId := bs.bestNode
 	bestNodeHeight := bs.bestNodeHeight
 	bs.lock.Unlock()
-	if maxTotalQN <= localTotalQN {
+	if maxTotalQN.Cmp(localTotalQN) <= 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			bs.init = true
@@ -161,7 +161,7 @@ func (bs *blockSyncer) loop() {
 				bs.replyCount++
 			}
 			bs.lock.Lock()
-			if h.TotalQn > bs.maxTotalQn {
+			if h.TotalQn.Cmp(bs.maxTotalQn) > 0 {
 				bs.maxTotalQn = h.TotalQn
 				bs.bestNode = h.SourceId
 				bs.bestNodeHeight = h.Height
@@ -177,6 +177,8 @@ func (bs *blockSyncer) loop() {
 	}
 }
 
+
+
 //广播索要链的QN值
 func requestBlockChainTotalQn() {
 	logger.Debugf("[BlockSyncer]Req block total qn for neighbor!")
@@ -185,7 +187,7 @@ func requestBlockChainTotalQn() {
 }
 
 //返回自身链QN值
-func sendBlockTotalQn(targetId string, localTotalQN uint64, height uint64) {
+func sendBlockTotalQn(targetId string, localTotalQN *big.Int, height uint64) {
 	logger.Debugf("[BlockSyncer]Send local total qn %d to %s!", localTotalQN, targetId)
 	body, e := marshalTotalQnInfo(TotalQnInfo{TotalQn: localTotalQN, Height: height})
 	if e != nil {

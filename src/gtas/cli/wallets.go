@@ -30,7 +30,7 @@ type wallets []wallet
 var mutex sync.Mutex
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64) (*common.Hash, *common.Address, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64, cmd int32) (*common.Hash, *common.Address, error) {
 	if source == "" {
 		source = (*ws)[0].Address
 	}
@@ -45,10 +45,9 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	//}
 	var transaction *types.Transaction
 	var contractAddr common.Address
-
 	var i uint64 = 0
 	for ; i < 1; i++ {
-		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0)
+		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0, cmd)
 		transaction.Hash = transaction.GenHash()
 		//todo 此处轻节点如何处理？
 		_, err := txpool.(*core.TransactionPool).Add(transaction)
@@ -56,8 +55,7 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 			return nil, nil, err
 		}
 		if code != "" {
-			lastNonce := core.BlockChainImpl.GetNonce(common.BytesToAddress(transaction.Source[:]))
-			contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(lastNonce))))
+			contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nonce))))
 		}
 	}
 

@@ -5,10 +5,7 @@ import (
 	"log"
 	"time"
 	"core"
-	"middleware/types"
-	"math/big"
 	"fmt"
-	"common"
 	"consensus/model"
 	"consensus/base"
 	"strings"
@@ -26,6 +23,7 @@ type GroupManager struct {
 	mainChain      core.BlockChainI
 	processor      *Processor
 	creatingGroups *CreatingGroups
+	checker 		*GroupCreateChecker
 }
 
 func NewGroupManager(processor *Processor) *GroupManager {
@@ -34,6 +32,7 @@ func NewGroupManager(processor *Processor) *GroupManager {
 		mainChain:      processor.MainChain,
 		groupChain:     processor.GroupChain,
 		creatingGroups: &CreatingGroups{},
+		checker: 		newGroupCreateChecker(processor),
 	}
 }
 
@@ -46,172 +45,18 @@ func (gm *GroupManager) removeCreatingGroup(id groupsig.ID)  {
 }
 
 
-//检查当前用户是否是属于建组的组, 返回组id
-func (gm *GroupManager) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, theBH *types.BlockHeader) {
-	defer func() {
-		log.Printf("checkCreateNextGroup topHeight=%v, create %v\n", topHeight, create)
-	}()
-	if topHeight % model.Param.CreateGroupInterval != 0 {
-		return
-	}
-	blockHeight := topHeight - model.Param.CreateGroupInterval
-
-	theBH = gm.mainChain.QueryBlockByHeight(blockHeight)
-	if theBH == nil || theBH.GroupId == nil || len(theBH.GroupId) == 0 {
-		create = false
-		return
-	}
-
-	castGID := groupsig.DeserializeId(theBH.GroupId)
-	if gm.processor.IsMinerGroup(*castGID) {
-		sgi = gm.processor.getGroup(*castGID)
-		if sgi.CastQualified(topHeight) {
-			log.Printf("checkCreateNextGroup, topHeight=%v, theBH height=%v, king=%v\n", topHeight, theBH.Height, gm.processor.getPrefix())
-			create = true
-			return
-		}
-	}
-
-	create = false
-	return
-}
-
-
-//检查当前用户是否是建组发起人
-func (gm *GroupManager) checkKing(bh *types.BlockHeader, group *StaticGroupInfo) groupsig.ID {
-	secret := gm.processor.getGroupSecret(group.GroupID)
-	if secret == nil {
-		return groupsig.ID{}
-	}
-	data := secret.SecretSign
-	data = append(data, bh.Signature...)
-	hash := base.Data2CommonHash(data)
-	biHash := hash.Big()
-
-	var index int32 = -1
-	mem := len(group.Members)
-	if biHash.BitLen() > 0 {
-		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
-	}
-	log.Printf("checkCreateNextGroup king index=%v, id=%v\n", index, GetIDPrefix(group.GetCastor(int(index))))
-	if index < 0 {
-		return groupsig.ID{}
-	}
-	return group.GetCastor(int(index))
-}
-
-//todo 从链上获取所有候选者
-func (gm *GroupManager) getAllCandidates() []groupsig.ID {
-    memBytes, _ := gm.groupChain.GetCandidates()
-    ids := make([]groupsig.ID, 0)
-	for _, mem := range memBytes {
-		id := groupsig.DeserializeId(mem)
-		ids = append(ids, *id)
-	}
-	str := ""
-	for _, id := range ids {
-		str += GetIDPrefix(id) + ","
-	}
-	log.Printf("=============getAllCandidates %v\n", str)
-	return ids
-}
-
-func (gm *GroupManager) selectCandidates(randSeed common.Hash, height uint64) (bool, []groupsig.ID) {
-	allCandidates := gm.getAllCandidates()
-	groups := gm.processor.GetAvailableGroupsAt(height)
-	log.Printf("selectCandidates available groupsize %v\n", len(groups))
-
-	candidates := make([]groupsig.ID, 0)
-	for _, id := range allCandidates {
-		joinedNum := 0
-		for _, g := range groups {
-			if g.MemExist(id) {
-				joinedNum++
-			}
-		}
-		if joinedNum < model.Param.MinerMaxJoinGroup {
-			candidates = append(candidates, id)
-		}
-	}
-	min := model.Param.CreateGroupMinCandidates()
-	num := len(candidates)
-	if len(candidates) < min {
-		log.Printf("selectCandidates not enough candidates, expect %v, got %v\n", min, num)
-		return false, []groupsig.ID{}
-	}
-
-	rand := base.RandFromBytes(randSeed.Bytes())
-	seqs := rand.RandomPerm(num, model.Param.GetGroupMemberNum())
-
-	result := make([]groupsig.ID, len(seqs))
-	for i := 0; i < len(result); i++ {
-		result[i] = candidates[seqs[i]]
-	}
-	str := ""
-	for _, id := range result {
-		str += GetIDPrefix(id) + ","
-	}
-	log.Printf("=============selectCandidates %v\n", str)
-	return true, result
-}
-
-func (gm *GroupManager) getPubkeysByIds(ids []groupsig.ID) []groupsig.Pubkey {
-	pubs := make([]groupsig.Pubkey, 0)
-
-	idBytes := make([][]byte, 0)
-	for _, id := range ids {
-		idBytes = append(idBytes, id.Serialize())
-	}
-
-	pubBytes := gm.groupChain.GetMemberPubkeyByIDs(idBytes)
-	log.Printf("=============getPubkeyByIds idsize %v, puksize %v\n", len(idBytes), len(pubBytes))
-	for idx, pbyte := range pubBytes {
-		if pbyte == nil || len(pbyte) == 0 {
-			s := fmt.Sprintf("get pubkey bytes failed, idbytes=%v, id=%v, ret=%v", idBytes[idx], GetIDPrefix(ids[idx]), pbyte)
-			panic(s)
-		}
-		pk := groupsig.DeserializePubkeyBytes(pbyte)
-		if pk == nil {
-			s := fmt.Sprintf("deserialize pubkey bytes failed, bytes=%v", pbyte)
-			panic(s)
-		}
-		pubs = append(pubs, *pk)
-	}
-    return pubs
-}
-
-func (gm *GroupManager) CheckGIS(gis *model.ConsensusGroupInitSummary, isGroupMember bool) bool {
-	//topGroup := gm.groupChain.LastGroup()
-	//topBH := gm.mainChain.QueryTopBlock()
-	//
-	//blog := newBizLog("CheckGIS")
-	//deltaH := topBH.Height - gis.TopHeight
-	//if deltaH < 0 || deltaH >= model.Param.CreateGroupInterval {
-	//	blog.log("topHeight error. topHeight=%v, gis topHeight=%v",  topBH.Height, gis.TopHeight)
-	//	return false
-	//}
-	//
-	//create, group, bh := gm.checkCreateGroup(gis.TopHeight)
-	//if group == nil {
-	//	log.Printf("CheckGIS")
-	//	return false
-	//}
-
-	return true
-}
-
 func (gm *GroupManager) CreateNextGroupRoutine() {
-	topBH := gm.mainChain.QueryTopBlock()
-	topHeight := topBH.Height
+	top := gm.mainChain.QueryTopBlock()
+	topHeight := top.Height
+	blog := newBizLog("CreateNextGroupRoutine")
 
-	create, group, bh := gm.checkCreateGroup(topHeight)
+	create, group, king, theBH := gm.checker.checkCreateGroup(topHeight)
 	//不是当前组铸
 	if !create {
 		return
 	}
-	castor := gm.checkKing(bh, group)
 	//不是当期用户铸
-	if !castor.IsEqual(gm.processor.GetMinerID()) {
+	if !king.IsEqual(gm.processor.GetMinerID()) {
 		return
 	}
 
@@ -220,18 +65,18 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	var gis model.ConsensusGroupInitSummary
 
 	gis.ParentID = group.GroupID
-	gis.PrevGroupID = *groupsig.DeserializeId(topGroup.Id)
+	gis.PrevGroupID = groupsig.DeserializeId(topGroup.Id)
 
-	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), bh.Height)
+	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
 	bi := base.Data2CommonHash([]byte(gn)).Big()
 	gis.DummyID = *groupsig.NewIDFromBigInt(bi)
 
 	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		log.Printf("CreateNextGroupRoutine ingored, dummyId already onchain! dummyId=%v\n", GetIDPrefix(gis.DummyID))
+		blog.log("ingored, dummyId already onchain! dummyId=%v", gis.DummyID.ShortS())
 		return
 	}
 
-	log.Printf("CreateNextGroupRoutine, group name=%v, group dummy id=%v.\n", gn, GetIDPrefix(gis.DummyID))
+	blog.log("group name=%v, group dummy id=%v.", gn, gis.DummyID.ShortS())
 	gis.Authority = 777
 	if len(gn) <= 64 {
 		copy(gis.Name[:], gn[:])
@@ -249,10 +94,13 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 	gis.Extends = "Dummy"
 
-	randSeed := base.Data2CommonHash(bh.Signature)
-	enough, memIds := gm.selectCandidates(randSeed, topHeight)
+	enough, memPkis := gm.checker.selectCandidates(theBH, topHeight)
 	if !enough {
 		return
+	}
+	memIds := make([]groupsig.ID, len(memPkis))
+	for idx, mem := range memPkis {
+		memIds[idx] = mem.ID
 	}
 	gis.WithMemberIds(memIds)
 
@@ -262,63 +110,71 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(group.GroupID)), msg)
 
-	creatingGroup := newCreateGroup(&gis, memIds, group)
+	creatingGroup := newCreateGroup(&gis, memPkis, group)
 	gm.addCreatingGroup(creatingGroup)
 
-	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), GetIDPrefix(gis.DummyID))
+	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), gis.DummyID.ShortS())
 	log.Printf("call network service SendCreateGroupRawMessage...\n")
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
-		memIdStrs = append(memIdStrs, GetIDPrefix(mem))
+		memIdStrs = append(memIdStrs, mem.ShortS())
 	}
-	logKeyword("CreateGroupRoutine", GetIDPrefix(gis.DummyID), gm.processor.getPrefix(), "parent %v, members %v", GetIDPrefix(gis.ParentID), strings.Join(memIdStrs, ","))
+	newGroupTraceLog("CreateGroupRoutine", gis.DummyID, gm.processor.GetMinerID()).log( "parent %v, members %v", gis.ParentID.ShortS(), strings.Join(memIdStrs, ","))
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {
-	log.Printf("OnMessageCreateGroupRaw dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+	blog := newBizLog("OMCGR")
+	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
-		log.Printf("ConsensusCreateGroupRawMessage hash diff\n")
+		blog.log("hash diff")
 		return false
 	}
 
 	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
 	if preGroup == nil {
-		log.Printf("ConsensusCreateGroupRawMessage preGroup is nil, preGroupId=%v\n", GetIDPrefix(msg.GI.PrevGroupID))
+		blog.log("preGroup is nil, preGroupId=%v", msg.GI.PrevGroupID.ShortS())
 		return false
 	}
 
 	memHash := model.GenMemberHashByIds(msg.IDs)
 	if memHash != gis.MemberHash {
-		log.Printf("ConsensusCreateGroupRawMessage memberHash diff\n")
+		blog.log("memberHash diff")
 		return false
 	}
-	create, group, bh := gm.checkCreateGroup(gis.TopHeight)
+	bh := gm.mainChain.QueryBlockByHeight(gis.TopHeight)
+	if bh == nil {
+		blog.log("theBH is nil, height=%v", gis.TopHeight)
+		return false
+	}
+	create, _, king, theBH := gm.checker.checkCreateGroup(gis.TopHeight)
 	if !create {
-		log.Printf("ConsensusCreateGroupRawMessage current group is not the next CastGroup!")
+		blog.log("current group is not the next CastGroup!")
 		return false
 	}
-	castor := gm.checkKing(bh, group)
-	if !castor.IsEqual(msg.SI.SignMember) {
-		log.Printf("ConsensusCreateGroupRawMessage not the user for casting! expect user is %v, receive user is %v\n", GetIDPrefix(castor), GetIDPrefix(msg.SI.SignMember))
+	if !king.IsEqual(msg.SI.SignMember) {
+		blog.log("not the user for casting! expect user is %v, receive user is %v", king.ShortS(), msg.SI.SignMember.ShortS())
 		return false
 	}
 
-	randSeed := base.Data2CommonHash(bh.Signature)
-	enough, memIds := gm.selectCandidates(randSeed, gis.TopHeight)
+	enough, memPkis := gm.checker.selectCandidates(theBH, gis.TopHeight)
 	if !enough {
 		return false
 	}
+	memIds := make([]groupsig.ID, len(memPkis))
+	for idx, mem := range memPkis {
+		memIds[idx] = mem.ID
+	}
 	if len(memIds) != len(msg.IDs) {
-		log.Printf("ConsensusCreateGroupRawMessage member len not equal, expect len %v, receive len %v\n", len(memIds), len(msg.IDs))
+		blog.log("member len not equal, expect len %v, receive len %v", len(memIds), len(msg.IDs))
 		return  false
 	}
 
 	for idx, id := range memIds {
 		if !id.IsEqual(msg.IDs[idx]) {
-			log.Printf("ConsensusCreateGroupRawMessage member diff [%v, %v]", GetIDPrefix(id), GetIDPrefix(msg.IDs[idx]))
+			blog.log("member diff [%v, %v]", id.ShortS(), msg.IDs[idx].ShortS())
 			return  false
 		}
 	}
@@ -327,33 +183,34 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 }
 
 func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) bool {
-	log.Printf("ConsensusCreateGroupSignMessage dummyId=%v, sender=%v\n", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+	blog := newBizLog("OMCGS")
+	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
 	gis := &msg.GI
 	if gis.GenHash() != msg.SI.DataHash {
-		log.Printf("OnMessageCreateGroupSign hash diff\n")
+		blog.log("hash diff")
 		return false
 	}
 
 	creating := gm.creatingGroups.getCreatingGroup(gis.DummyID)
 	if creating == nil {
-		log.Printf("OnMessageCreateGroupSign get creating group nil!\n")
+		blog.log("get creating group nil!")
 		return false
 	}
 
-	memHash := model.GenMemberHashByIds(creating.ids)
+	memHash := model.GenMemberHashByIds(creating.getIDs())
 	if memHash != gis.MemberHash {
-		log.Printf("OnMessageCreateGroupSign memberHash diff\n")
+		blog.log("memberHash diff")
 		return false
 	}
 
 	height := gm.processor.MainChain.QueryTopBlock().Height
 	if gis.ReadyTimeout(height) {
-		log.Printf("OnMessageCreateGroupSign gis expired!\n")
+		blog.log("gis expired!")
 		return false
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
-	log.Printf("OnMessageCreateGroupSign accept result %v\n", accept)
-	logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
+	blog.log("accept result %v", accept)
+	newGroupTraceLog("OMCGS", msg.GI.DummyID, msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
 		sig := creating.gSignGenerator.GetGroupSign()
 		msg.GI.Signature = sig
@@ -366,17 +223,17 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 	group := ConvertStaticGroup2CoreGroup(sgi, isDummy)
 	err := gm.groupChain.AddGroup(group, nil, nil)
 	if err != nil {
-		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, GetIDPrefix(sgi.GIS.DummyID), err.Error())
+		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, sgi.GIS.DummyID.ShortS(), err.Error())
 		return
 	}
 	if isDummy {
-		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", GetIDPrefix(sgi.GIS.DummyID), gm.groupChain.Count())
+		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", sgi.GIS.DummyID.ShortS(), gm.groupChain.Count())
 	} else {
-		mems := make([]groupsig.ID, 0)
-		for _, mem := range sgi.Members {
-			mems = append(mems, mem.ID)
-		}
-		gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
-		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", GetIDPrefix(sgi.GroupID), gm.groupChain.Count())
+		//mems := make([]groupsig.ID, 0)
+		//for _, mem := range sgi.Members {
+		//	mems = append(mems, mem.ID)
+		//}
+		//gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
+		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 	}
 }

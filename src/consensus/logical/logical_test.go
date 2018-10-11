@@ -328,7 +328,7 @@ package logical
 ////测试成为当前高度的铸块组
 //func testBlockCurrent(t *testing.T) {
 //	var proc Processor
-//	miner := NewMinerInfo("thiefox", "710208")
+//	miner := NewSelfMinerDO("thiefox", "710208")
 //	if !proc.Init(miner) {
 //		return
 //	}
@@ -469,7 +469,7 @@ package logical
 //	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GetGroupMemberNum(), GetGroupK(GetGroupMemberNum()))
 //	//初始化
 //	fmt.Printf("begin init data...\n")
-//	root := NewMinerInfo("root", "TASchain")
+//	root := NewSelfMinerDO("root", "TASchain")
 //	gis := genDummyGIS(root, "64-2")
 //
 //	nodes := genAllNodes(gis)
@@ -537,23 +537,23 @@ package logical
 //	procs := make(map[string]*Processor, GetGroupMemberNum())
 //
 //	proc := new(Processor)
-//	proc.Init(NewMinerInfo("thiefox", "710208"))
+//	proc.Init(NewSelfMinerDO("thiefox", "710208"))
 //	procs[proc.GetMinerID().GetHexString()] = proc
 //
 //	proc = new(Processor)
-//	proc.Init(NewMinerInfo("siren", "850701"))
+//	proc.Init(NewSelfMinerDO("siren", "850701"))
 //	procs[proc.GetMinerID().GetHexString()] = proc
 //
 //	proc = new(Processor)
-//	proc.Init(NewMinerInfo("juanzi", "123456"))
+//	proc.Init(NewSelfMinerDO("juanzi", "123456"))
 //	procs[proc.GetMinerID().GetHexString()] = proc
 //
 //	proc = new(Processor)
-//	proc.Init(NewMinerInfo("wild children", "111111"))
+//	proc.Init(NewSelfMinerDO("wild children", "111111"))
 //	procs[proc.GetMinerID().GetHexString()] = proc
 //
 //	proc = new(Processor)
-//	proc.Init(NewMinerInfo("gebaini", "999999"))
+//	proc.Init(NewSelfMinerDO("gebaini", "999999"))
 //	procs[proc.GetMinerID().GetHexString()] = proc
 //
 //	return procs
@@ -577,11 +577,11 @@ package logical
 //
 //func testLogicGroupInitEx(t *testing.T) {
 //	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
-//	root := NewMinerInfo("root", "TASchain")
+//	root := NewSelfMinerDO("root", "TASchain")
 //	fmt.Printf("root mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 //	{
 //		save_buf := root.Serialize()
-//		var root2 MinerInfo
+//		var root2 SelfMinerDO
 //		root2.Deserialize(save_buf)
 //		fmt.Printf("root2 Deserialized, mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 //	}
@@ -1076,7 +1076,7 @@ package logical
 //////测试成为当前高度的铸块组
 ////func testBlockCurrent(t *testing.T) {
 ////	var proc Processor
-////	miner := NewMinerInfo("thiefox", "710208")
+////	miner := NewSelfMinerDO("thiefox", "710208")
 ////	if !proc.Init(miner) {
 ////		return
 ////	}
@@ -1217,7 +1217,7 @@ package logical
 ////	fmt.Printf("Group Size=%v, K THRESHOLD=%v.\n", GetGroupMemberNum(), GetGroupK(GetGroupMemberNum()))
 ////	//初始化
 ////	fmt.Printf("begin init data...\n")
-////	root := NewMinerInfo("root", "TASchain")
+////	root := NewSelfMinerDO("root", "TASchain")
 ////	gis := genDummyGIS(root, "64-2")
 ////
 ////	nodes := genAllNodes(gis)
@@ -1285,23 +1285,23 @@ package logical
 ////	procs := make(map[string]*Processor, GetGroupMemberNum())
 ////
 ////	proc := new(Processor)
-////	proc.Init(NewMinerInfo("thiefox", "710208"))
+////	proc.Init(NewSelfMinerDO("thiefox", "710208"))
 ////	procs[proc.GetMinerID().GetHexString()] = proc
 ////
 ////	proc = new(Processor)
-////	proc.Init(NewMinerInfo("siren", "850701"))
+////	proc.Init(NewSelfMinerDO("siren", "850701"))
 ////	procs[proc.GetMinerID().GetHexString()] = proc
 ////
 ////	proc = new(Processor)
-////	proc.Init(NewMinerInfo("juanzi", "123456"))
+////	proc.Init(NewSelfMinerDO("juanzi", "123456"))
 ////	procs[proc.GetMinerID().GetHexString()] = proc
 ////
 ////	proc = new(Processor)
-////	proc.Init(NewMinerInfo("wild children", "111111"))
+////	proc.Init(NewSelfMinerDO("wild children", "111111"))
 ////	procs[proc.GetMinerID().GetHexString()] = proc
 ////
 ////	proc = new(Processor)
-////	proc.Init(NewMinerInfo("gebaini", "999999"))
+////	proc.Init(NewSelfMinerDO("gebaini", "999999"))
 ////	procs[proc.GetMinerID().GetHexString()] = proc
 ////
 ////	return procs
@@ -1325,11 +1325,11 @@ package logical
 ////
 ////func testLogicGroupInitEx(t *testing.T) {
 ////	fmt.Printf("\nbegin testLogicGroupInitEx..\n")
-////	root := NewMinerInfo("root", "TASchain")
+////	root := NewSelfMinerDO("root", "TASchain")
 ////	fmt.Printf("root mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 ////	{
 ////		save_buf := root.Serialize()
-////		var root2 MinerInfo
+////		var root2 SelfMinerDO
 ////		root2.Deserialize(save_buf)
 ////		fmt.Printf("root2 Deserialized, mi: id=%v, seed=%v.\n", GetIDPrefix(root.MinerID), root.SecretSeed.GetHexString())
 ////	}
