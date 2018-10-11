@@ -30,7 +30,7 @@ type BlockChainI interface {
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -46,7 +46,7 @@ type BlockChainI interface {
 
 	Height() uint64
 
- 	TotalQN() uint64
+ 	TotalQN() *big.Int
 
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
@@ -56,8 +56,6 @@ type BlockChainI interface {
 
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
-
-	QueryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader
 
 	QueryBlockBody(blockHash common.Hash) []*types.Transaction
 
@@ -109,6 +107,8 @@ type TransactionPoolI interface {
 
 	AddTransactions(txs []*types.Transaction) error
 
+	AddTransaction(tx *types.Transaction)(bool,error)
+
 	AddExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
 
 	Remove(hash common.Hash, transactions []common.Hash)
@@ -128,13 +128,6 @@ type TransactionPoolI interface {
 	Clear()
 
 	GetLock() *middleware.Loglock
-
-
-    //GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
-
-	AddBonusTrasanction(transaction *types.Transaction)
-
-	GetBonusManager() *BonusManager
 }
 
 //组管理接口

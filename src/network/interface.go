@@ -64,8 +64,8 @@ const (
 	StateInfoMsg uint32 = 0x1c
 
 	//==================铸块分红=========
-	CastRewardSignReq uint32 = 0x1b
-	CastRewardSignGot uint32 = 0x1c
+	CastRewardSignReq uint32 = 0x1d
+	CastRewardSignGot uint32 = 0x1e
 
 )
 

@@ -214,7 +214,7 @@ message BlockHashesReq{
 
 message TotalQnInfo{
 
-    required uint64 TotalQn = 1;
+    required bytes TotalQn = 1;
 
     required uint64 Height = 2;
 }

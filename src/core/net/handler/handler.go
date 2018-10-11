@@ -122,11 +122,13 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	case network.ReqBlockChainTotalQnMsg:
 		core.BlockSyncer.ReqTotalQnCh <- sourceId
 	case network.BlockChainTotalQnMsg:
-		//totalQn := utility.ByteToUInt64(msg.Body)
-		totalQn := &big.Int{}
-		totalQn.SetBytes(msg.Body)
-		s := sync.TotalQnInfo{TotalQn: totalQn, SourceId: sourceId}
-		sync.BlockSyncer.TotalQnCh <- s
+		m, e := unmarshalTotalQnInfo(msg.Body)
+		if e != nil {
+			core.Logger.Errorf("[handler]Discard BlockChainTotalQnMsg because of unmarshal error:%s", e.Error())
+			return e
+		}
+		s := core.TotalQnInfo{TotalQn: m.TotalQn, SourceId: sourceId,Height:m.Height}
+		core.BlockSyncer.TotalQnCh <- s
 	case network.ReqBlockInfo:
 		m, e := unMarshalBlockRequestInfo(msg.Body)
 		if e != nil {
@@ -242,7 +244,7 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
 	if message.IsInit {
 		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
-		core.Logger.Debugf("stateInfoReqHandler,height:%d,qn:%d,tx len:%d", header.Height, header.QueueNumber, len(message.Transactions))
+		core.Logger.Debugf("stateInfoReqHandler,height:%d,qn:%d,tx len:%d", header.Height, header.ProveValue, len(message.Transactions))
 	}
 	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.IsInit)
 	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.StateTree)
@@ -652,6 +654,8 @@ func unmarshalTotalQnInfo(b []byte) (core.TotalQnInfo, error) {
 		core.Logger.Errorf("[handler]unmarshalTotalQnInfo error:%s", e.Error())
 		return core.TotalQnInfo{}, e
 	}
-	totalQnInfo := core.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
+	var totalQn *big.Int
+	totalQn = totalQn.SetBytes(message.TotalQn)
+	totalQnInfo := core.TotalQnInfo{TotalQn: totalQn, Height: *message.Height,}
 	return totalQnInfo, nil
 }

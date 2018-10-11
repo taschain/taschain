@@ -904,9 +904,9 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
 	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
 	if accept && recover && slot.StatusTransform(SS_REWARD_REQ, SS_REWARD_SEND) {
-		 ok, err := p.MainChain.GetTransactionPool().Add(slot.rewardTrans)
+		 _,err := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		 send = "success && send"
-		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v %v", slot.rewardTrans.Hash.ShortS(), ok, err)
+		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err)
 	} else {
 		send = "success && not send"
 	}

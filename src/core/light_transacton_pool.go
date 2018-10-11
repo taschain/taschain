@@ -105,3 +105,6 @@ func (pool *LightTransactionPool) Clear() {
 }
 
 
+func (pool *LightTransactionPool) AddTransaction(tx *types.Transaction)(bool,error) {
+	return true,nil
+}

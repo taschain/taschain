@@ -17,6 +17,7 @@ import (
 	"fmt"
 	vtypes "storage/core/types"
 	"sync"
+	"math/big"
 )
 
 const (
@@ -73,7 +74,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	}
 }
 
-func initLightChain() error {
+func initLightChain(genesisInfo *types.GenesisInfo) error {
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 	Logger.Debugf("in initLightChain")
 
@@ -87,6 +88,7 @@ func initLightChain() error {
 			init:         true,
 			isAdujsting:  false,
 			isLightMiner: true,
+			genesisInfo: genesisInfo,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -122,7 +124,7 @@ func initLightChain() error {
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
-	chain.latestBlock = chain.QueryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
+	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
@@ -131,7 +133,7 @@ func initLightChain() error {
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
-			block := GenesisBlock(state, chain.stateCache.TrieDB())
+			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
 			chain.SaveBlock(block)
 		}
 	}
@@ -141,7 +143,7 @@ func initLightChain() error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *LightChain) CastBlock(height uint64, nonce uint64, queueNumber uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *LightChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")
 	return nil
 }
@@ -195,7 +197,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return nil, -1, nil, nil
 	}
-	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height)
 
 	chain.FreeMissNodeState(bh.Hash)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
@@ -239,7 +241,7 @@ func (chain *LightChain) missTransaction(bh types.BlockHeader, txs []*types.Tran
 			panic("[LightChain]Groupsig id deserialize error:" + error.Error())
 		}
 		//向CASTOR索取交易
-		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockQn: bh.QueueNumber,}
+		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
 		go RequestTransaction(*m, castorId.String())
 		return true, missing
 	}
@@ -271,7 +273,7 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 		if error != nil {
 			Logger.Errorf("castorId.Deserialize error!", error.Error())
 		}
-		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.QueueNumber, missingAccountTxs, false, b.Header.Hash)
+		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, false, b.Header.Hash)
 	}
 	return missingAccountTxs
 }
@@ -322,7 +324,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.SaveBlock(b)
-	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV)<=0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
@@ -358,7 +360,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		if e != nil {
 			headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: h}
 			network.GetNetInstance().Relay(headerMsg, 1)
-			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.QueueNumber, len(h), b.Header.Hash)
+			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(h), b.Header.Hash)
 		}
 
 	}
@@ -425,7 +427,7 @@ func (chain *LightChain) SaveBlock(b *types.Block) int8 {
 		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
 		return -1
 	}
-	err = chain.blockHeight.Put(GenerateHeightKey(b.Header.Height), headerJson)
+	err = chain.blockHeight.Put(generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
 		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1
@@ -445,7 +447,7 @@ func (chain *LightChain) SaveBlock(b *types.Block) int8 {
 // 删除块
 func (chain *LightChain) Remove(header *types.BlockHeader) {
 	block := chain.QueryBlockByHeight(header.Height)
-	chain.blockHeight.Delete(GenerateHeightKey(header.Height))
+	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
 	// 删除块的交易，返回transactionpool
 	if nil == block {
@@ -483,7 +485,7 @@ func (chain *LightChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB())
+		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
 		chain.SaveBlock(block)
 	}
 	chain.init = true
@@ -503,7 +505,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		//删除自身链的结点
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header := chain.QueryBlockHeaderByHeight(height, true)
+			header := chain.queryBlockHeaderByHeight(height, true)
 			if header == nil {
 				continue
 			}
@@ -511,7 +513,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 			chain.topBlocks.Remove(header.Height)
 		}
 		for h := blockHash.Height; h >= 0; h-- {
-			header := chain.QueryBlockHeaderByHeight(h, true)
+			header := chain.queryBlockHeaderByHeight(h, true)
 			if header != nil {
 				chain.latestBlock = header
 				break
@@ -532,7 +534,7 @@ func (chain *LightChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
 	block := chain.queryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(GenerateHeightKey(header.Height))
+	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
 	// 删除块的交易，返回transactionpool
 	if nil == block {
@@ -618,4 +620,12 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
+}
+
+func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction){
+	panic("Not support!")
+}
+
+func (chain *LightChain) GetBonusManager() *BonusManager{
+	panic("Not support!")
 }

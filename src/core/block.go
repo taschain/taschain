@@ -26,6 +26,7 @@ import (
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
+	"github.com/vmihailenco/msgpack"
 )
 
 var emptyHash = common.Hash{}

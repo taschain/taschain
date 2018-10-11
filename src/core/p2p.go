@@ -45,7 +45,7 @@ func InitCore(light bool,genesisInfo *types.GenesisInfo) error {
 	if nil == BlockChainImpl {
 		var err error
 		if light{
-			err = initLightChain()
+			err = initLightChain(genesisInfo)
 		}else{
 			err = initBlockChain(genesisInfo)
 		}

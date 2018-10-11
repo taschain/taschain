@@ -109,7 +109,7 @@ func NewTransactionPool() *TransactionPool {
 			},
 			batchLock:   sync.Mutex{},
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
+	pool.received = newContainer(2000)
 	pool.reserved, _ = lru.New(100)
 
 	executed, err := datasource.NewDatabase(pool.config.tx)
@@ -269,7 +269,7 @@ func (pool *TransactionPool) Clear() {
 	executed, _ := datasource.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(pool.config.maxReceivedPoolSize, 2000)
+	pool.received = newContainer(2000)
 }
 
 func (pool *TransactionPool) GetReceived() []*types.Transaction {
@@ -297,12 +297,6 @@ func (pool *TransactionPool) AddTransactions(txs []*types.Transaction) error {
 }
 
 
-func (pool *TransactionPool) Add(tx *types.Transaction) (bool, error) {
-	pool.lock.Lock("Add")
-	defer pool.lock.Unlock("Add")
-
-	return pool.addInner(tx, true)
-}
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
@@ -397,4 +391,12 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 
 func (p *TransactionPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
+}
+
+func (pool *TransactionPool) AddTransaction(tx *types.Transaction)(bool,error){
+	pool.lock.Lock("Add")
+	defer pool.lock.Unlock("Add")
+
+	b, err:= pool.addInner(tx, true)
+	return b,err
 }

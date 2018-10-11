@@ -39,7 +39,7 @@ var BlockSyncer blockSyncer
 var lightMiner bool
 
 type TotalQnInfo struct {
-	TotalQn  uint64
+	TotalQn  *big.Int
 	Height   uint64
 	SourceId string
 }
@@ -48,7 +48,7 @@ type blockSyncer struct {
 	ReqTotalQnCh chan string
 	TotalQnCh    chan TotalQnInfo
 
-	maxTotalQn     uint64
+	maxTotalQn     *big.Int
 	bestNode       string
 	bestNodeHeight uint64
 	lock           sync.Mutex
@@ -63,7 +63,7 @@ func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0, init: false, syncedFirstBlock: false}
+	BlockSyncer = blockSyncer{maxTotalQn: big.NewInt(0), ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0, init: false, syncedFirstBlock: false}
 	go BlockSyncer.start()
 }
 
@@ -200,6 +200,6 @@ func sendBlockTotalQn(targetId string, localTotalQN *big.Int, height uint64) {
 }
 
 func marshalTotalQnInfo(totalQnInfo TotalQnInfo) ([]byte, error) {
-	t := tas_middleware_pb.TotalQnInfo{TotalQn: &totalQnInfo.TotalQn, Height: &totalQnInfo.Height}
+	t := tas_middleware_pb.TotalQnInfo{TotalQn: totalQnInfo.TotalQn.Bytes(), Height: &totalQnInfo.Height}
 	return proto.Marshal(&t)
 }

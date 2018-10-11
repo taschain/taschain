@@ -178,7 +178,7 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	go network.GetNetInstance().Send(targetNode, message)
 }
 
-func ReqStateInfo(targetNode string, blockHeight uint64,qn uint64, txs types.Transactions, isInit bool,blockHash common.Hash) {
+func ReqStateInfo(targetNode string, blockHeight uint64,qn *big.Int, txs types.Transactions, isInit bool,blockHash common.Hash) {
 	Logger.Debugf("Req state info to:%s,blockHeight:%d,qn:%d,len txs:%v,isInit:%t", targetNode, blockHeight,qn, len(txs),isInit)
 	m := StateInfoReq{Height: blockHeight, Transactions: txs, IsInit: isInit,BlockHash:blockHash}
 	body, e := marshalStateInfoReq(m)

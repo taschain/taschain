@@ -502,6 +502,10 @@ func (db *LRUMemDatabase) NewBatch() tasdb.Batch {
 	return &LruMemBatch{db: db}
 }
 
+func (db *LRUMemDatabase)NewIterator() iterator.Iterator{
+	panic("Not support")
+}
+
 type LruMemBatch struct {
 	db     *LRUMemDatabase
 	writes []kv

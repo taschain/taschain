@@ -121,7 +121,7 @@ func (gs *groupSyncer) sync() {
 	} else {
 		logger.Debugf("[GroupSyncer]Neightbor max group height %d is greater than self group height %d.\nSync from %s!\n", maxHeight, localHeight, bestNode)
 		if bestNode != "" {
-			requestGroupByGroupId(bestNode, core.GroupChainImpl.LastGroup().Id)
+			requestGroupByGroupId(bestNode, GroupChainImpl.LastGroup().Id)
 		}
 	}
 }
@@ -168,7 +168,7 @@ func (gs *groupSyncer) loop() {
 			logger.Debugf("[GroupSyncer]Rcv groups len:%d,from:%s", len(groupInfos.Groups),groupInfos.SourceId)
 			for _,group := range groupInfos.Groups {
 				e := GroupChainImpl.AddGroup(group, nil, nil)
-				logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v",core.GroupChainImpl.Count() - 1,
+				logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v",GroupChainImpl.Count() - 1,
 					common.BytesToAddress(group.Id).GetHexString(),e)
 				if e != nil {
 					logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
@@ -180,7 +180,7 @@ func (gs *groupSyncer) loop() {
 			if !groupInfos.IsTopGroup {
 				//localHeight := core.GroupChainImpl.Count()
 				//requestGroupByHeight(groupInfos.SourceId, localHeight+1)
-				requestGroupByGroupId(groupInfos.SourceId, core.GroupChainImpl.LastGroup().Id)
+				requestGroupByGroupId(groupInfos.SourceId, GroupChainImpl.LastGroup().Id)
 			} else {
 				if !gs.init {
 					fmt.Printf("group sync init finish,local group height:%d\n", GroupChainImpl.Count())

@@ -116,9 +116,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp)
+	err := gtas.fullInit(super, testMode, seedIp,light)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -275,7 +275,7 @@ func (gtas *Gtas) Run() {
 		lightMiner = *light
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
 	case clearCmd.FullCommand():
-		err := ClearBlock()
+		err := ClearBlock(*light)
 		if err != nil {
 			fmt.Println(err)
 		} else {
@@ -286,9 +286,9 @@ func (gtas *Gtas) Run() {
 }
 
 // ClearBlock 删除本地的chainblock数据。
-func ClearBlock() error {
+func ClearBlock(light bool) error {
 	genesis := &logical.GenesisGeneratorImpl{}
-	err := core.InitCore(genesis.Generate())
+	err := core.InitCore(light,genesis.Generate())
 	if err != nil {
 		return err
 	}

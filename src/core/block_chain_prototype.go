@@ -10,6 +10,7 @@ import (
 	"math"
 	"time"
 	"math/big"
+	"encoding/binary"
 )
 
 type prototypeChain struct {
@@ -42,6 +43,7 @@ type prototypeChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
+	genesisInfo *types.GenesisInfo
 }
 
 func (chain *prototypeChain) IsLightMiner() bool {
@@ -71,11 +73,11 @@ func (chain *prototypeChain) Height() uint64 {
 	return chain.latestBlock.Height
 }
 
-func (chain *prototypeChain) TotalQN() uint64 {
+func (chain *prototypeChain) TotalQN()*big.Int {
 	if nil == chain.latestBlock {
-		return 0
+		return nil
 	}
-	return chain.latestBlock.TotalQN
+	return chain.latestBlock.ProveValue
 }
 
 //查询最高块
@@ -92,11 +94,11 @@ func (chain *prototypeChain) QueryBlockByHeight(height uint64) *types.BlockHeade
 	chain.lock.RLock("QueryBlockByHeight")
 	defer chain.lock.RUnlock("QueryBlockByHeight")
 
-	return chain.QueryBlockHeaderByHeight(height, true)
+	return chain.queryBlockHeaderByHeight(height, true)
 }
 
 // 根据指定高度查询块
-func (chain *prototypeChain) QueryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader {
+func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader {
 	var key []byte
 	switch height.(type) {
 	case []byte:
@@ -113,7 +115,7 @@ func (chain *prototypeChain) QueryBlockHeaderByHeight(height interface{}, cache 
 			}
 		}
 
-		key = GenerateHeightKey(height.(uint64))
+		key = generateHeightKey(height.(uint64))
 	}
 
 	// 从持久化存储中查询
@@ -144,9 +146,9 @@ func (chain *prototypeChain) getBlockHashesFromLocalChain(height uint64, length 
 	var i uint64
 	r := make([]*BlockHash, 0)
 	for i = 0; i < length; {
-		bh := BlockChainImpl.QueryBlockHeaderByHeight(height, true)
+		bh := chain.queryBlockHeaderByHeight(height, true)
 		if bh != nil {
-			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Qn: bh.QueueNumber}
+			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Pv: bh.ProveValue}
 			r = append(r, &cbh)
 			i++
 		}
@@ -223,7 +225,7 @@ func (chain *prototypeChain) getStartIndex(size uint64) uint64 {
 
 func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 	for i := chain.getStartIndex(size); i < chain.latestBlock.Height; i++ {
-		chain.topBlocks.Add(i, chain.QueryBlockHeaderByHeight(i, false))
+		chain.topBlocks.Add(i, chain.queryBlockHeaderByHeight(i, false))
 	}
 }
 
@@ -233,4 +235,10 @@ func (chain *prototypeChain) SetLastBlockHash(bh *BlockHash) {
 }
 func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
 	return chain.latestStateDB
+}
+
+func generateHeightKey(height uint64) []byte {
+	h := make([]byte, 8)
+	binary.BigEndian.PutUint64(h, height)
+	return h
 }
