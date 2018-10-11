@@ -34,6 +34,7 @@ func (p *Processor) prepareMiner()  {
 
 	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
+        needBreak := false
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
@@ -41,7 +42,11 @@ func (p *Processor) prepareMiner()  {
 		sgi := NewSGIFromCoreGroup(coreGroup)
 		log.Printf("load group=%v, topHeight=%v\n", GetIDPrefix(sgi.GroupID), topHeight)
 		if sgi.Dismissed(topHeight) {
-			break
+                        group,_ := p.GroupChain.GetGroupsByHeight(0)
+                        sgi = NewSGIFromCoreGroup(group[0])
+                        needBreak = true
+                        log.Printf("iterator break for Dismissed Group, Get GenesisGroup")
+                        needBreak = true
 		}
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
@@ -52,6 +57,9 @@ func (p *Processor) prepareMiner()  {
 			}
 		}
 		p.acceptGroup(sgi)
+                if needBreak == true {
+                    break
+                }
 	}
 }
 
