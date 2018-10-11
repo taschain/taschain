@@ -73,7 +73,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) []*types.Transaction {
 	missingAccountTransactions := []*types.Transaction{}
-	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.QueueNumber, len(block.Transactions))
+	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
 		//todo 此处是否需要考虑合约？
 		//var fail = false
