@@ -284,9 +284,12 @@ func (p *Processor) blockProposal() {
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
+		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
+			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
+			return
+		}
 		ccm.GenRandomSign(skey, worker.baseBH.Random)
-		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v", bh.CurTime.Sub(bh.PreTime).Seconds())
+		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb)
 
 		worker.markProposed()
