@@ -199,6 +199,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 		return
 	}
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
+		blog.log("not belong to the group!gid=%v, hash=%v, id=%v", cgs.GroupID.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
 	blog.log("proc(%v) begin group=%v, sender=%v, height=%v, hash=%v, castor=%v...", p.getPrefix(), cgs.GroupID.ShortS(), si.GetID().ShortS(), bh.Height, bh.Hash.ShortS(), cgs.Castor.ShortS())
