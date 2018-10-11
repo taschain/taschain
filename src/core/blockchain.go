@@ -220,9 +220,8 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		if nil == err {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
-			chain.saveBlock(block)
-			chain.latestStateDB = state
-			chain.latestBlock = block.Header
+			_,headerJson := chain.saveBlock(block)
+			chain.updateLastBlock(state, block.Header, headerJson)
 		}
 	}
 
@@ -320,7 +319,8 @@ func (chain *BlockChain) Clear() error {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
 
-		chain.saveBlock(block)
+		_,headerJson := chain.saveBlock(block)
+		chain.updateLastBlock(state, block.Header, headerJson)
 	}
 
 	chain.init = true
@@ -664,13 +664,14 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
-		status = chain.saveBlock(b)
+		status,headerJson = chain.saveBlock(b)
 	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.remove(chain.latestBlock)
-		status = chain.saveBlock(b)
+		status,headerJson = chain.saveBlock(b)
 	} else {
 		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
@@ -699,25 +700,34 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
+		if chain.updateLastBlock(state, b.Header, headerJson) == -1{
+			return -1
+		}
 
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.AddExecuted(receipts, b.Transactions)
-		chain.latestStateDB = state
-		chain.latestBlock = b.Header
-		Logger.Debugf("blockchain update latestStateDB to:%s",b.Header.StateTree.Hex())
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
 		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-		h, e := types.MarshalBlockHeader(b.Header)
-		if e != nil {
-			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			network.GetNetInstance().Relay(headerMsg,1)
-			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(h), b.Header.Hash)
-		}
 
+		headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:headerJson}
+		network.GetNetInstance().Relay(headerMsg,1)
+		network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height,
+			b.Header.ProveValue, len(headerJson), b.Header.Hash)
 	}
 	return status
+}
 
+func (chain *BlockChain) updateLastBlock(state *core.AccountDB,header *types.BlockHeader,headerJson []byte) int8 {
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		fmt.Printf("[block]fail to put current, error:%s \n", err)
+		return -1
+	}
+	chain.latestStateDB = state
+	chain.latestBlock = header
+	Logger.Debugf("blockchain update latestStateDB:%s height:%d",header.StateTree.Hex(),header.Height)
+	return 0
 }
 
 func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
@@ -761,17 +771,17 @@ func (chain *BlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 //result code:
 // -1 保存失败
 // 0 保存成功
-func (chain *BlockChain) saveBlock(b *types.Block) int8 {
+func (chain *BlockChain) saveBlock(b *types.Block) (int8,[]byte) {
 	// 根据hash存block
 	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
 		log.Printf("[block]fail to json Marshal, error:%s \n", err)
-		return -1
+		return -1,nil
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
 		log.Printf("[block]fail to put key:hash value:block, error:%s \n", err)
-		return -1
+		return -1,nil
 	}
 
 	// 根据height存blockheader
@@ -779,25 +789,20 @@ func (chain *BlockChain) saveBlock(b *types.Block) int8 {
 	if err != nil {
 
 		log.Printf("[block]fail to json Marshal header, error:%s \n", err)
-		return -1
+		return -1,nil
 	}
 
 	err = chain.blockHeight.Put(chain.generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
 		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
-		return -1
+		return -1,nil
 	}
 
 	// 持久化保存最新块信息
 
 	chain.topBlocks.Add(b.Header.Height, b.Header)
-	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		fmt.Printf("[block]fail to put current, error:%s \n", err)
-		return -1
-	}
 
-	return 0
+	return 0,headerJson
 }
 
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
