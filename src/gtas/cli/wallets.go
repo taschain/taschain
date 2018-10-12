@@ -49,7 +49,8 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	for ; i < 1; i++ {
 		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0, cmd)
 		transaction.Hash = transaction.GenHash()
-		_, err := txpool.Add(transaction)
+		//todo 此处轻节点如何处理？
+		_, err := txpool.AddTransaction(transaction)
 		if err != nil {
 			return nil, nil, err
 		}

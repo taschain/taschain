@@ -48,6 +48,12 @@ message TransactionRequestMessage{
     required bytes BlockPv = 4;
 }
 
+message TrieNodes{
+
+    repeated TrieNode TrieNodes = 1;
+}
+
+
 message TransactionSlice{
 
     repeated Transaction transactions = 1;
@@ -169,6 +175,7 @@ message BlockRequestInfo{
 
 	required bytes SourceCurrentHash =2;
 
+    required bool VerifyHash =3;
 }
 
 
@@ -203,6 +210,43 @@ message BlockHashesReq{
 	required  uint64 Height = 1;
 
 	required uint64 Length = 2;
+}
+
+message TotalQnInfo{
+
+    required bytes TotalQn = 1;
+
+    required uint64 Height = 2;
+}
+
+message StateInfoReq{
+
+    required uint64 Height = 1;
+
+    optional TransactionSlice Transactions = 2;
+
+    required bool IsInit = 3;
+
+    required bytes BlockHash = 4;
+}
+
+message  StateInfo  {
+    required uint64 Height = 1;
+
+    repeated TrieNode TrieNodes = 2;
+
+    required bytes BlockHash = 3;
+
+    required bytes ProBlockStateRoot = 4;
+
+}
+
+message TrieNode{
+
+    required bytes Key  = 1;
+
+    required bytes Data  = 2;
+
 }
 
 

@@ -20,7 +20,7 @@ import (
 
 type GroupManager struct {
 	groupChain     *core.GroupChain
-	mainChain      core.BlockChainI
+	mainChain      core.BlockChain
 	processor      *Processor
 	creatingGroups *CreatingGroups
 	checker 		*GroupCreateChecker

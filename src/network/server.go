@@ -208,6 +208,12 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		//Logger.Debugf("Receive BlockBodyMsg from %s", from)
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
+	case ReqStateInfoMsg:
+		msg := notify.StateInfoReqMessage{StateInfoReqByte:message.Body,Peer:from}
+		notify.BUS.Publish(notify.StateInfoReq,&msg)
+	case StateInfoMsg:
+		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
+		notify.BUS.Publish(notify.StateInfo,&msg)
 	}
 	n.netCore.onHandleDataMessageDone(from)
 	if time.Since(begin) > 100*time.Millisecond {

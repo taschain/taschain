@@ -199,6 +199,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 		return
 	}
 	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
+		blog.log("not belong to the group!gid=%v, hash=%v, id=%v", cgs.GroupID.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
 	blog.log("proc(%v) begin group=%v, sender=%v, height=%v, hash=%v, castor=%v...", p.getPrefix(), cgs.GroupID.ShortS(), si.GetID().ShortS(), bh.Height, bh.Hash.ShortS(), cgs.Castor.ShortS())
@@ -904,9 +905,9 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
 	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
 	if accept && recover && slot.StatusTransform(SS_REWARD_REQ, SS_REWARD_SEND) {
-		 ok, err := p.MainChain.GetTransactionPool().Add(slot.rewardTrans)
+		 _,err := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		 send = "success && send"
-		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v %v", slot.rewardTrans.Hash.ShortS(), ok, err)
+		 blog.log("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err)
 	} else {
 		send = "success && not send"
 	}

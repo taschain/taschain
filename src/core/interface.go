@@ -24,15 +24,12 @@ import (
 )
 
 //主链接口
-type BlockChainI interface {
-	//主要方法族
+type BlockChain interface {
 
-	//根据哈希取得某个交易
-	// 如果本地有，则立即返回。否则需要调用p2p远程获取
-	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
+	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastingBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -40,37 +37,92 @@ type BlockChainI interface {
 	//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 	//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
 	//返回缺失交易列表
-	VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts)
+	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts)
 
 	//铸块成功，上链
 	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
 	AddBlockOnChain(b *types.Block) int8
 
-	//辅助方法族
+	Height() uint64
+
+ 	TotalQN() *big.Int
+
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
 
 	//根据指定哈希查询块
 	QueryBlockByHash(hash common.Hash) *types.BlockHeader
 
-	QueryBlockBody(blockHash common.Hash) []*types.Transaction
-
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
 
-	// 返回等待入块的交易池
-	GetTransactionPool() *TransactionPool
+	QueryBlockBody(blockHash common.Hash) []*types.Transaction
 
-	//清除链所有数据
-	Clear() error
+	QueryBlockHashes(height uint64, length uint64) []*BlockHash
+
+	QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo
+
+	//根据哈希取得某个交易
+	// 如果本地有，则立即返回。否则需要调用p2p远程获取
+	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
+
+	// 返回等待入块的交易池
+	GetTransactionPool() TransactionPool
+
+	GetBalance(address common.Address)*big.Int
+
+	GetNonce(address common.Address) uint64
+
+	GetSateCache()core.Database
+
 	//是否正在调整分叉
 	IsAdujsting() bool
 
-    //GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus,*types.Transaction)
+	SetAdujsting(isAjusting bool)
+
+	//saveBlock(b *types.Block) int8
+
+	Remove(header *types.BlockHeader)
+
+	//清除链所有数据
+	Clear() error
+
+	Close()
+
+	CompareChainPiece(bhs []*BlockHash, sourceId string)
+
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode
+
+	InsertStateNode(nodes *[]types.StateNode)
 
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
+}
+
+type TransactionPool interface {
+
+	AddTransaction(tx *types.Transaction)(bool,error)
+
+	AddTransactions(txs []*types.Transaction) error
+
+	MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
+
+	Remove(hash common.Hash, transactions []common.Hash)
+
+	UnMarkExecuted(txs []*types.Transaction)
+
+	GetTransaction(hash common.Hash) (*types.Transaction, error)
+
+	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
+
+	GetTransactionsForCasting() []*types.Transaction
+
+	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
+
+	GetReceived() []*types.Transaction
+
+	Clear()
 }
 
 //组管理接口

@@ -58,7 +58,7 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 		Type: types.TransactionTypeMinerApply,
 	}
 	tx.Hash = tx.GenHash()
-	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
+	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
 	if !ok {
 		return failResult(err.Error())
 	}
@@ -87,7 +87,7 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 		Type: types.TransactionTypeMinerAbort,
 	}
 	tx.Hash = tx.GenHash()
-	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
+	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
 	if !ok {
 		return failResult(err.Error())
 	}
@@ -105,7 +105,7 @@ func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
 		Type: types.TransactionTypeMinerRefund,
 	}
 	tx.Hash = tx.GenHash()
-	ok, err := core.BlockChainImpl.GetTransactionPool().Add(tx)
+	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
 	if !ok {
 		return &Result{Message:err.Error(), Data:nil}, nil
 	}
@@ -195,4 +195,143 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 	}
 	return successResult(ni)
 
+}
+
+func (api *GtasAPI) PageGetBlocks(page, limit int) (*Result, error) {
+	chain := core.BlockChainImpl
+	total := chain.Height()+1
+	pageObject := PageObjects{
+		Total: total,
+		Data: make([]interface{}, 0),
+	}
+	if page < 1 {
+		page = 1
+	}
+	i := 0
+	num := uint64((page - 1)* limit)
+	if total < num {
+		return successResult(pageObject)
+	}
+	b := int64(total - num)
+
+	for i < limit && b >= 0 {
+		bh := chain.QueryBlockByHeight(uint64(b))
+		b--
+		if bh == nil {
+			continue
+		}
+		block := &Block{
+			Height: bh.Height,
+			Hash: bh.Hash,
+			PreHash: bh.PreHash,
+			CurTime: bh.CurTime,
+			PreTime: bh.PreTime,
+			Castor: groupsig.DeserializeId(bh.Castor),
+			GroupID: groupsig.DeserializeId(bh.GroupId),
+			Prove: bh.ProveValue,
+			Txs: bh.Transactions,
+		}
+		pageObject.Data = append(pageObject.Data, block)
+		i++
+	}
+	return successResult(pageObject)
+}
+
+func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
+	chain := core.GroupChainImpl
+	total := chain.Count()
+	pageObject := PageObjects{
+		Total: total,
+		Data: make([]interface{}, 0),
+	}
+
+	i := 0
+	b := int64(0)
+	if page < 1 {
+		page = 1
+	}
+	num := uint64((page - 1)* limit)
+	if total < num {
+		return successResult(pageObject)
+	}
+	b = int64(total - num)
+
+	for i < limit && b >= 0 {
+		g := chain.GetGroupByHeight(uint64(b))
+		b--
+		if g == nil {
+			continue
+		}
+
+		mems := make([]string, 0)
+		for _, mem := range g.Members {
+			mems = append(mems, groupsig.DeserializeId(mem.Id).ShortS())
+		}
+
+		group := &Group{
+			Height: uint64(b+1),
+			Id: groupsig.DeserializeId(g.Id),
+			PreId: groupsig.DeserializeId(g.PreGroup),
+			ParentId: groupsig.DeserializeId(g.Parent),
+			BeginHeight: g.BeginHeight,
+			DismissHeight: g.DismissHeight,
+			Members: mems,
+		}
+		pageObject.Data = append(pageObject.Data, group)
+		i++
+	}
+	return successResult(pageObject)
+}
+
+func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
+	chain := core.BlockChainImpl
+	bh := chain.QueryBlockByHash(common.HexToHash(h))
+	block := &Block{
+		Height: bh.Height,
+		Hash: bh.Hash,
+		PreHash: bh.PreHash,
+		CurTime: bh.CurTime,
+		PreTime: bh.PreTime,
+		Castor: groupsig.DeserializeId(bh.Castor),
+		GroupID: groupsig.DeserializeId(bh.GroupId),
+		Prove: bh.ProveValue,
+		Txs: bh.Transactions,
+	}
+	bonus := chain.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
+	var bonusHash common.Hash
+	if bonus != nil {
+		bonusHash = bonus.Hash
+	}
+	bd := &BlockDetail{
+		Block: *block,
+		TxCnt: len(block.Txs),
+		BonusHash: bonusHash,
+		Signature: *groupsig.DeserializeSign(bh.Signature),
+		Random: *groupsig.DeserializeSign(bh.Random),
+	}
+	return successResult(bd)
+}
+
+func (api *GtasAPI) TransDetail(h string) (*Result, error) {
+	tx, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(h))
+	if err != nil {
+		return failResult(err.Error())
+	}
+	if tx != nil {
+		trans := &Transaction{
+			Hash: tx.Hash,
+			Source: tx.Source,
+			Target: tx.Target,
+			Type: tx.Type,
+			GasLimit: tx.GasLimit,
+			GasPrice: tx.GasPrice,
+			Data: tx.Data,
+			ExtraData: tx.ExtraData,
+			ExtraDataType: tx.ExtraDataType,
+			Nonce: tx.Nonce,
+			Value: tx.Value,
+		}
+		return successResult(trans)
+	}
+	return successResult(nil)
 }

@@ -64,3 +64,29 @@ func (m *BlockBodyNotifyMessage) GetRaw() []byte {
 func (m *BlockBodyNotifyMessage) GetData() interface{} {
 	return m
 }
+
+type StateInfoReqMessage struct {
+	StateInfoReqByte []byte
+
+	Peer string
+}
+
+func (m *StateInfoReqMessage) GetRaw() []byte {
+	return nil
+}
+func (m *StateInfoReqMessage) GetData() interface{} {
+	return m
+}
+
+type StateInfoMessage struct {
+	StateInfoByte []byte
+
+	Peer string
+}
+
+func (m *StateInfoMessage) GetRaw() []byte {
+	return nil
+}
+func (m *StateInfoMessage) GetData() interface{} {
+	return m
+}

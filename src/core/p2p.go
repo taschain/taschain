@@ -28,14 +28,14 @@ var (
 )
 
 type BlockChainConnector struct {
-	chain *BlockChain
+	chain BlockChain
 }
 
 type GroupChainConnector struct {
 	chain *GroupChain
 }
 
-func InitCore(genesisInfo *types.GenesisInfo) error {
+func InitCore(light bool,genesisInfo *types.GenesisInfo) error {
 	// 默认是debug模式
 	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
 	if isDebug {
@@ -43,7 +43,12 @@ func InitCore(genesisInfo *types.GenesisInfo) error {
 	}
 
 	if nil == BlockChainImpl {
-		err := initBlockChain(genesisInfo)
+		var err error
+		if light{
+			err = initLightChain(genesisInfo)
+		}else{
+			err = initBlockChain(genesisInfo)
+		}
 		if nil != err {
 			return err
 		}

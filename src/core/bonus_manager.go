@@ -35,11 +35,11 @@ func (bm *BonusManager) WhetherBonusTransaction(transaction *types.Transaction) 
 }
 
 func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction{
-	transactionHash := BlockChainImpl.latestStateDB.GetData(common.BonusStorageAddress, string(blockHash))
+	transactionHash := BlockChainImpl.(*FullBlockChain).latestStateDB.GetData(common.BonusStorageAddress, string(blockHash))
 	if transactionHash == nil{
 		return nil
 	}
-	transaction,_ := BlockChainImpl.transactionPool.getTransaction(common.BytesToHash(transactionHash))
+	transaction,_ := BlockChainImpl.(*FullBlockChain).transactionPool.GetTransaction(common.BytesToHash(transactionHash))
 	return transaction
 }
 

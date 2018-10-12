@@ -38,7 +38,7 @@ var (
 
 	emptyCode = sha3.Sum256(nil)
 
-    logger = taslog.GetLogger(taslog.DefaultConfig)
+	logger = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 type AccountDB struct {
@@ -63,6 +63,19 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
+func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte) (*AccountDB, error) {
+	tr, err := db.OpenTrieWithMap(root,nodes)
+	if err != nil {
+		return nil, err
+	}
+	return &AccountDB{
+		db:                  db,
+		trie:                tr,
+		accountObjects:      make(map[common.Address]*accountObject),
+		accountObjectsDirty: make(map[common.Address]struct{}),
+	}, nil
+}
+
 func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
@@ -74,6 +87,10 @@ func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 		accountObjects:      make(map[common.Address]*accountObject),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}, nil
+}
+
+func (self *AccountDB) GetTrie() Trie {
+	return self.trie
 }
 
 func (self *AccountDB) setError(err error) {
@@ -230,11 +247,6 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
-	//if bytes.Equal(addr.Bytes(),common.HeavyDBAddress.Bytes()){
-	//	logger.Debugf("AccountDB SetData Key:%s Value:%v",key,value)
-	//	debug.PrintStack()
-	//}
-
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)

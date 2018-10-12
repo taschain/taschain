@@ -27,6 +27,7 @@ import (
 	"common"
 	"bytes"
 	"storage/tasdb"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -446,6 +447,92 @@ func (b *memBatch) ValueSize() int {
 }
 
 func (b *memBatch) Reset() {
+	b.writes = b.writes[:0]
+	b.size = 0
+}
+
+type LRUMemDatabase struct {
+	db  *lru.Cache
+	lock sync.RWMutex
+}
+
+func NewLRUMemDatabase(size int) (*LRUMemDatabase, error) {
+	cache,_:=lru.New(size)
+	return &LRUMemDatabase{
+		db:cache,
+	}, nil
+}
+
+func (db *LRUMemDatabase) Put(key []byte, value []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.db.Add(string(key),common.CopyBytes(value))
+	return nil
+}
+
+func (db *LRUMemDatabase) Has(key []byte) (bool, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	_, ok := db.db.Get(string(key))
+	return ok, nil
+}
+
+func (db *LRUMemDatabase) Get(key []byte) ([]byte, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	if entry, ok := db.db.Get(string(key)); ok {
+		vl,_:= entry.([]byte)
+		return common.CopyBytes(vl), nil
+	}
+	return nil, nil
+}
+
+func (db *LRUMemDatabase) Delete(key []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.db.Remove(string(key))
+	return nil
+}
+
+func (db *LRUMemDatabase) Close() {}
+
+func (db *LRUMemDatabase) NewBatch() tasdb.Batch {
+	return &LruMemBatch{db: db}
+}
+
+func (db *LRUMemDatabase)NewIterator() iterator.Iterator{
+	panic("Not support")
+}
+
+type LruMemBatch struct {
+	db     *LRUMemDatabase
+	writes []kv
+	size   int
+}
+
+func (b *LruMemBatch) Put(key, value []byte) error {
+	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
+	b.size += len(value)
+	return nil
+}
+
+func (b *LruMemBatch) Write() error {
+	b.db.lock.Lock()
+	defer b.db.lock.Unlock()
+
+	for _, kv := range b.writes {
+		b.db.db.Add(string(kv.k),kv.v)
+	}
+	return nil
+}
+
+func (b *LruMemBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *LruMemBatch) Reset() {
 	b.writes = b.writes[:0]
 	b.size = 0
 }

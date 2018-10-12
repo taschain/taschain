@@ -143,6 +143,7 @@ func MarshalMember(m *Member) ([]byte, error) {
 	return proto.Marshal(member)
 }
 
+
 // 序列化*Group
 func MarshalGroup(g *Group) ([]byte, error) {
 	group := GroupToPb(g)

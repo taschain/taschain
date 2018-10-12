@@ -59,15 +59,12 @@ func NewDatabase(diskdb tasdb.Database) *Database {
 }
 
 func (db *Database) Node(hash common.Hash) ([]byte, error) {
-
 	db.lock.RLock()
 	node := db.nodes[hash]
 	db.lock.RUnlock()
-
 	if node != nil {
 		return node.blob, nil
 	}
-
 	return db.diskdb.Get(hash[:])
 }
 
