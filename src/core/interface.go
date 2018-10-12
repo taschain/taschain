@@ -80,7 +80,7 @@ type BlockChain interface {
 
 	SetAdujsting(isAjusting bool)
 
-	SaveBlock(b *types.Block) int8
+	//saveBlock(b *types.Block) int8
 
 	Remove(header *types.BlockHeader)
 
