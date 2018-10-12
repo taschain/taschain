@@ -94,8 +94,14 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.Acc
 		//
 		//} else {
 
-		if !IsAccountExist(accountdb, *transaction.Source) {
+		if transaction.Source != nil && !IsAccountExist(accountdb, *transaction.Source) {
 			missingAccountTransactions = append(missingAccountTransactions, transaction)
+			continue
+		}
+
+		if transaction.Target != nil && !IsAccountExist(accountdb, *transaction.Target) {
+			missingAccountTransactions = append(missingAccountTransactions, transaction)
+			continue
 		}
 	}
 	accountdb.IntermediateRoot(true)
@@ -110,11 +116,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
-	Logger.Debugf("TVMExecutor Begin Execute State %s",block.Header.StateTree.Hex())
+	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d",block.Header.StateTree.Hex(),block.Header.Height,len(block.Transactions))
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		//Logger.Debugf("TVMExecutor Execute %+v",transaction)
+		Logger.Debugf("TVMExecutor Execute %v,type:%d",transaction.Hash, transaction.Type)
 
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:

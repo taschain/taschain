@@ -71,7 +71,6 @@ type FullBlockChain struct {
 	prototypeChain
 	config      *BlockChainConfig
 	castedBlock *lru.Cache
-	bonusManager *BonusManager
 }
 
 type castingBlock struct {
@@ -832,12 +831,4 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
-}
-
-func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction){
-	chain.GetTransactionPool().AddTransaction(transaction)
-}
-
-func (chain *FullBlockChain) GetBonusManager() *BonusManager{
-	return chain.bonusManager
 }

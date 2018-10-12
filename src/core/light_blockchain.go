@@ -98,6 +98,8 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		preBlockStateRootLock: middleware.NewLoglock("lightchain"),
 	}
 
+
+
 	var err error
 	chain.blockCache, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
@@ -132,12 +134,16 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			chain.latestStateDB = state
-			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			chain.SaveBlock(block)
+			chain.latestStateDB = state
+			chain.latestBlock = block.Header
 		}
 	}
 
+	chain.bonusManager = newBonusManager()
+	initMinerManager(chain)
 	BlockChainImpl = chain
 	return nil
 }
@@ -164,7 +170,7 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 
-	Logger.Debugf("Verify block height:%d,preHash:%v", bh.Height, bh.PreHash.String())
+	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(),len(txs))
 	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
 	if !hasPreBlock {
 		return nil, 2, nil, nil
@@ -606,12 +612,4 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
-}
-
-func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction){
-	panic("Not support!")
-}
-
-func (chain *LightChain) GetBonusManager() *BonusManager{
-	panic("Not support!")
 }
