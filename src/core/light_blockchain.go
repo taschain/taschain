@@ -45,9 +45,6 @@ type LightChainConfig struct {
 	blockHeight string
 
 	state string
-
-	//组内能出的最大QN值
-	qn uint64
 }
 
 func getLightChainConfig() *LightChainConfig {
@@ -60,8 +57,6 @@ func getLightChainConfig() *LightChainConfig {
 		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
-
-		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 	}
 }
 
@@ -70,7 +65,6 @@ func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
 		state:       "light_state",
-		qn:          4,
 	}
 }
 
@@ -88,7 +82,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 			init:         true,
 			isAdujsting:  false,
 			isLightMiner: true,
-			genesisInfo: genesisInfo,
+			genesisInfo:  genesisInfo,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -133,7 +127,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
-			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			chain.SaveBlock(block)
 		}
 	}
@@ -197,7 +191,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return nil, -1, nil, nil
 	}
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"verify")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "verify")
 
 	chain.FreeMissNodeState(bh.Hash)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
@@ -324,7 +318,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
 		status = chain.SaveBlock(b)
-	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV)<=0 || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
@@ -473,7 +467,7 @@ func (chain *LightChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
 		chain.SaveBlock(block)
 	}
 	chain.init = true
@@ -608,10 +602,10 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	delete(chain.preBlockStateRoot, blockHash)
 }
 
-func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction){
+func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction) {
 	panic("Not support!")
 }
 
-func (chain *LightChain) GetBonusManager() *BonusManager{
+func (chain *LightChain) GetBonusManager() *BonusManager {
 	panic("Not support!")
 }

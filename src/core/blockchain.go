@@ -57,9 +57,6 @@ type BlockChainConfig struct {
 
 	state string
 
-	//组内能出的最大QN值
-	qn uint64
-
 	bonus string
 
 	heavy string
@@ -69,8 +66,8 @@ type BlockChainConfig struct {
 
 type FullBlockChain struct {
 	prototypeChain
-	config      *BlockChainConfig
-	castedBlock *lru.Cache
+	config       *BlockChainConfig
+	castedBlock  *lru.Cache
 	bonusManager *BonusManager
 }
 
@@ -87,8 +84,6 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 		blockHeight: "height",
 
 		state: "state",
-
-		qn: 4,
 
 		bonus: "bonus",
 
@@ -110,8 +105,6 @@ func getBlockChainConfig() *BlockChainConfig {
 		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
-
-		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 
 		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
 
@@ -135,9 +128,8 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 			init:            true,
 			isAdujsting:     false,
 			isLightMiner:    false,
-			genesisInfo: genesisInfo,
+			genesisInfo:     genesisInfo,
 		},
-
 	}
 
 	var err error
@@ -215,7 +207,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
 	totalPV := &big.Int{}
-	totalPV.Add(latestBlock.TotalPV,proveValue)
+	totalPV.Add(latestBlock.TotalPV, proveValue)
 	block.Header = &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     height,
@@ -252,7 +244,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, height,"casting")
+	statehash, receipts, err := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -345,13 +337,13 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 
 	txtree := calcTxTree(transactions)
 
-	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+	if !bytes.Equal(txtree.Bytes(), bh.TxTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 
 	//执行交易
-	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(),bh.Height)
+	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(), bh.Height)
 	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
 	if len(txs) > 0 {
 		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s",
@@ -371,7 +363,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	b.Transactions = transactions
 
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"cast")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "cast")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
@@ -469,8 +461,8 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
-			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			network.GetNetInstance().Relay(headerMsg,1)
+			headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: h}
+			network.GetNetInstance().Relay(headerMsg, 1)
 			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(h), b.Header.Hash)
 		}
 
@@ -660,7 +652,7 @@ func (chain *FullBlockChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
 
 		chain.SaveBlock(block)
 	}
@@ -834,10 +826,10 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction){
+func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction) {
 	chain.GetTransactionPool().AddTransaction(transaction)
 }
 
-func (chain *FullBlockChain) GetBonusManager() *BonusManager{
+func (chain *FullBlockChain) GetBonusManager() *BonusManager {
 	return chain.bonusManager
 }
