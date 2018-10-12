@@ -114,6 +114,7 @@ type NodeInfo struct {
 	WGroupNum int `json:"w_group_num"`
 	AGroupNum int `json:"a_group_num"`
 	NType string `json:"n_type"`
+	TxPoolNum int `json:"tx_pool_num"`
 	MortGages []MortGage `json:"mort_gages"`
 }
 
@@ -167,4 +168,12 @@ type Transaction struct {
 
 	ExtraData     []byte `json:"extra_data"`
 	ExtraDataType int32 `json:"extra_data_type"`
+}
+
+type Dashboard struct {
+	BlockHeight uint64 `json:"block_height"`
+	GroupHeight uint64 `json:"group_height"`
+	WorkGNum int `json:"work_g_num"`
+	NodeInfo *NodeInfo `json:"node_info"`
+	Conns []ConnInfo `json:"conns"`
 }
