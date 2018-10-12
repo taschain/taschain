@@ -258,8 +258,12 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 	}
-
-	missingAccountTxs := chain.executor.FilterMissingAccountTransaction(state, b)
+	var missingAccountTxs []*types.Transaction
+	if chain.Height() == 0{
+		missingAccountTxs = b.Transactions
+	}else {
+		missingAccountTxs = chain.executor.FilterMissingAccountTransaction(state, b)
+	}
 
 	if len(missingAccountTxs) != 0 {
 		Logger.Debugf("len(noExecuteTxs) != 0,len:%d", len(missingAccountTxs))
@@ -317,13 +321,14 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	var headerJson []byte
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
-		status = chain.SaveBlock(b)
+		status,headerJson = chain.saveBlock(b)
 	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV)<=0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
-		status = chain.SaveBlock(b)
+		status,headerJson= chain.saveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		if chain.isAdujsting {
@@ -542,6 +547,7 @@ func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHe
 }
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
+	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
 		chain.statedb.Put(node.Key, node.Value)
@@ -608,12 +614,4 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
-}
-
-func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction){
-	panic("Not support!")
-}
-
-func (chain *LightChain) GetBonusManager() *BonusManager{
-	panic("Not support!")
 }

@@ -26,7 +26,6 @@ import (
 	"middleware/pb"
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
-	"time"
 	"math/big"
 )
 
@@ -229,7 +228,7 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 
 	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
 	if header == nil {
-		//todo
+		//正在出这一块，链上没有
 		core.Logger.Debugf("stateInfoReqHandler,local chain has no block! Get from block cache !height:%d,blockhash:%x", message.Height, message.BlockHash)
 		b := core.BlockChainImpl.(*core.FullBlockChain).GetCastingBlock(message.BlockHash)
 		if b == nil {
@@ -237,7 +236,6 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 			panic("Header is nil! ")
 		}
 		header = b.Header
-		time.Sleep(time.Second * 3)
 		core.Logger.Debugf("stateInfoReqHandler, Get block from block cache !height:%d,blockhash:%x", header.Height, header.Hash)
 	}
 	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)

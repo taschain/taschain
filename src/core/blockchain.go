@@ -831,10 +831,4 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction) {
-	chain.GetTransactionPool().AddTransaction(transaction)
-}
 
-func (chain *FullBlockChain) GetBonusManager() *BonusManager {
-	return chain.bonusManager
-}
