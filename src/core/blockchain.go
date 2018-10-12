@@ -57,9 +57,6 @@ type BlockChainConfig struct {
 
 	state string
 
-	//组内能出的最大QN值
-	qn uint64
-
 	bonus string
 
 	heavy string
@@ -69,8 +66,9 @@ type BlockChainConfig struct {
 
 type FullBlockChain struct {
 	prototypeChain
-	config      *BlockChainConfig
-	castedBlock *lru.Cache
+	config       *BlockChainConfig
+	castedBlock  *lru.Cache
+	bonusManager *BonusManager
 }
 
 type castingBlock struct {
@@ -78,16 +76,14 @@ type castingBlock struct {
 	receipts vtypes.Receipts
 }
 
-// 默认配置
-func DefaultBlockChainConfig() *BlockChainConfig {
-	return &BlockChainConfig{
+func getBlockChainConfig() *BlockChainConfig {
+	defaultConfig := &BlockChainConfig{
 		block: "block",
 
 		blockHeight: "height",
 
 		state: "state",
 
-		qn: 4,
 
 		bonus: "bonus",
 
@@ -95,10 +91,7 @@ func DefaultBlockChainConfig() *BlockChainConfig {
 
 		heavy: "heavy",
 	}
-}
 
-func getBlockChainConfig() *BlockChainConfig {
-	defaultConfig := DefaultBlockChainConfig()
 	if nil == common.GlobalConf {
 		return defaultConfig
 	}
@@ -110,7 +103,6 @@ func getBlockChainConfig() *BlockChainConfig {
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
 
-		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 
 		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
 
@@ -134,9 +126,8 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 			init:            true,
 			isAdujsting:     false,
 			isLightMiner:    false,
-			genesisInfo: genesisInfo,
+			genesisInfo:     genesisInfo,
 		},
-
 	}
 
 	var err error
@@ -172,6 +163,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
+
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -190,9 +182,8 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		if nil == err {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
-			chain.SaveBlock(block)
-			chain.latestStateDB = state
-			chain.latestBlock = block.Header
+			_, headerJson := chain.saveBlock(block)
+			chain.updateLastBlock(state, block.Header, headerJson)
 		}
 	}
 
@@ -214,7 +205,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
 	totalPV := &big.Int{}
-	totalPV.Add(latestBlock.TotalPV,proveValue)
+	totalPV.Add(latestBlock.TotalPV, proveValue)
 	block.Header = &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     height,
@@ -251,7 +242,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, height,"casting")
+	statehash, receipts, err := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -344,13 +335,13 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 
 	txtree := calcTxTree(transactions)
 
-	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
+	if !bytes.Equal(txtree.Bytes(), bh.TxTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
 		return missing, -1, nil, nil
 	}
 
 	//执行交易
-	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(),bh.Height)
+	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(), bh.Height)
 	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
 	if len(txs) > 0 {
 		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s",
@@ -370,7 +361,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	b.Transactions = transactions
 
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"cast")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "cast")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
@@ -430,13 +421,14 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
-		status = chain.SaveBlock(b)
+		status, headerJson = chain.saveBlock(b)
 	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
-		status = chain.SaveBlock(b)
+		status, headerJson = chain.saveBlock(b)
 	} else {
 		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
@@ -456,26 +448,36 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	// 上链成功，移除pool中的交易
 	if 0 == status {
 		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
-		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
-		chain.latestStateDB = state
-		chain.latestBlock = b.Header
+
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
-
+		if chain.updateLastBlock(state, b.Header, headerJson) == -1 {
+			return -1
+		}
+		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
+		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
 		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-		h, e := types.MarshalBlockHeader(b.Header)
-		if e != nil {
-			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			network.GetNetInstance().Relay(headerMsg,1)
-			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(h), b.Header.Hash)
-		}
 
+		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
+		network.GetNetInstance().Relay(headerMsg, 1)
+		network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(headerJson), b.Header.Hash)
 	}
 	return status
 
+}
+
+func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		fmt.Printf("[block]fail to put current, error:%s \n", err)
+		return -1
+	}
+	chain.latestStateDB = state
+	chain.latestBlock = header
+	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
+	return 0
 }
 
 //根据指定哈希查询块
@@ -572,17 +574,17 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 //result code:
 // -1 保存失败
 // 0 保存成功
-func (chain *FullBlockChain) SaveBlock(b *types.Block) int8 {
+func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 	// 根据hash存block
 	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
 		log.Printf("[block]fail to json Marshal, error:%s \n", err)
-		return -1
+		return -1, nil
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
 		log.Printf("[block]fail to put key:hash value:block, error:%s \n", err)
-		return -1
+		return -1, nil
 	}
 
 	// 根据height存blockheader
@@ -590,25 +592,20 @@ func (chain *FullBlockChain) SaveBlock(b *types.Block) int8 {
 	if err != nil {
 
 		log.Printf("[block]fail to json Marshal header, error:%s \n", err)
-		return -1
+		return -1, nil
 	}
 
 	err = chain.blockHeight.Put(generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
 		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
-		return -1
+		return -1, nil
 	}
 
 	// 持久化保存最新块信息
 
 	chain.topBlocks.Add(b.Header.Height, b.Header)
-	err = chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		fmt.Printf("[block]fail to put current, error:%s \n", err)
-		return -1
-	}
 
-	return 0
+	return 0, headerJson
 }
 
 // 删除块
@@ -659,9 +656,10 @@ func (chain *FullBlockChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
 
-		chain.SaveBlock(block)
+		_, headerJson := chain.saveBlock(block)
+		chain.updateLastBlock(state, block.Header, headerJson)
 	}
 
 	chain.init = true
@@ -831,4 +829,12 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
+}
+
+func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction) {
+	chain.GetTransactionPool().AddTransaction(transaction)
+}
+
+func (chain *FullBlockChain) GetBonusManager() *BonusManager {
+	return chain.bonusManager
 }

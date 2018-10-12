@@ -55,11 +55,17 @@ func (p *Processor) prepareMiner()  {
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
+		needBreak := false
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
 		if sgi.Dismissed(topHeight) {
-			break
+			needBreak = true
+			genesis := p.GroupChain.GetGroupByHeight(0)
+			if coreGroup == nil {
+				panic("get genesis group nil")
+			}
+			sgi = NewSGIFromCoreGroup(genesis)
 		}
+		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
@@ -69,6 +75,9 @@ func (p *Processor) prepareMiner()  {
 			}
 		}
 		p.acceptGroup(sgi)
+		if needBreak {
+			break
+		}
 	}
 	log.Printf("prepare finished")
 }
