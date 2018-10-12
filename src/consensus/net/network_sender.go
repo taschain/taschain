@@ -43,6 +43,9 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
 	ns.net.DissolveGroupNet(gid.GetHexString())
 }
 
+func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message)  {
+	go MessageHandler.Handle(self.String(), m)
+}
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
 //广播 组初始化消息  全网广播
@@ -55,7 +58,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 
 	m := network.Message{Code: network.GroupInitMsg, Body: body}
 	//给自己发
-	go MessageHandler.Handle(grm.SI.SignMember.String(), m)
+	ns.send2Self(grm.SI.GetID(), m)
 
 	e = ns.net.Broadcast(m)
 
@@ -72,7 +75,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 	m := network.Message{Code: network.KeyPieceMsg, Body: body}
 	if spm.SI.SignMember.IsEqual(spm.Dest) {
-		go MessageHandler.Handle(spm.SI.SignMember.String(), m)
+		ns.send2Self(spm.SI.GetID(), m)
 		return
 	}
 
@@ -91,7 +94,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 
 	m := network.Message{Code: network.SignPubkeyMsg, Body: body}
 	//给自己发
-	go MessageHandler.Handle(spkm.SI.SignMember.String(), m)
+	ns.send2Self(spkm.SI.GetID(), m)
 
 	begin := time.Now()
 	go ns.net.Multicast(spkm.DummyID.GetHexString(), m)
@@ -108,7 +111,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 
 	m := network.Message{Code: network.GroupInitDoneMsg, Body: body}
 	//给自己发
-	go MessageHandler.Handle(cgm.SI.SignMember.String(), m)
+	ns.send2Self(cgm.SI.GetID(), m)
 
 	go ns.net.Broadcast(m)
 	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
@@ -155,6 +158,10 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
+
+	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
+	ns.send2Self(cvm.SI.GetID(), m)
+
 	timeFromCast :=  time.Since(cvm.BH.CurTime)
 	begin := time.Now()
 	go ns.net.Multicast(groupId.GetHexString(), m)

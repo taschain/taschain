@@ -508,9 +508,11 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 }
                 //工作组数量
                 $("#work_group_num").text(d.work_g_num)
-                //节点和质押信息
-                $("#tb_node_id").text(d.node_info.id)
-                $("#tx_send_from").val(d.node_info.id)
+                if ($("#tb_node_id").text() != d.node_info.id) {
+                    //节点和质押信息
+                    $("#tb_node_id").text(d.node_info.id)
+                    $("#tx_send_from").val(d.node_info.id)
+                }
                 $("#tb_node_balance").text(d.node_info.balance)
                 $("#tb_node_status").text(d.node_info.status)
                 $("#tb_node_type").text(d.node_info.n_type)

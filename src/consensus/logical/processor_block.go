@@ -102,7 +102,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	blog.log("proc(%v) core.AddBlockOnChain, height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newBlockTraceLog("doAddOnChain", bh.Hash, castor)
-	tlog.log("result=%v,castor=%v", result, castor)
+	tlog.log("result=%v,castor=%v", result, castor.ShortS())
 
 	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
