@@ -45,9 +45,6 @@ type LightChainConfig struct {
 	blockHeight string
 
 	state string
-
-	//组内能出的最大QN值
-	qn uint64
 }
 
 func getLightChainConfig() *LightChainConfig {
@@ -60,8 +57,6 @@ func getLightChainConfig() *LightChainConfig {
 		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
-
-		qn: uint64(common.GlobalConf.GetInt(CONFIG_SEC, "qn", int(defaultConfig.qn))),
 	}
 }
 
@@ -70,7 +65,6 @@ func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
 		state:       "light_state",
-		qn:          4,
 	}
 }
 
@@ -88,7 +82,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 			init:         true,
 			isAdujsting:  false,
 			isLightMiner: true,
-			genesisInfo: genesisInfo,
+			genesisInfo:  genesisInfo,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -133,8 +127,8 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
-			block := GenesisBlock(state, chain.stateCache.TrieDB(),genesisInfo)
-			_,headerJson := chain.saveBlock(block)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
 		}
 	}
@@ -165,7 +159,7 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 
-	Logger.Debugf("Verify block height:%d,preHash:%v", bh.Height, bh.PreHash.String())
+	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(),len(txs))
 	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
 	if !hasPreBlock {
 		return nil, 2, nil, nil
@@ -264,8 +258,12 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 	}
-
-	missingAccountTxs := chain.executor.FilterMissingAccountTransaction(state, b)
+	var missingAccountTxs []*types.Transaction
+	if chain.Height() == 0{
+		missingAccountTxs = b.Transactions
+	}else {
+		missingAccountTxs = chain.executor.FilterMissingAccountTransaction(state, b)
+	}
 
 	if len(missingAccountTxs) != 0 {
 		Logger.Debugf("len(noExecuteTxs) != 0,len:%d", len(missingAccountTxs))
@@ -322,6 +320,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
+
 	var headerJson []byte
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
 		status,headerJson = chain.saveBlock(b)
@@ -329,7 +328,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
-		status,headerJson = chain.saveBlock(b)
+		status,headerJson= chain.saveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		if chain.isAdujsting {
@@ -354,7 +353,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
 		triedb.Commit(root, false)
-		if chain.updateLastBlock(state, b.Header, headerJson) == -1{
+		if chain.updateLastBlock(state, b.Header, headerJson) == -1 {
 			return -1
 		}
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
@@ -368,7 +367,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 }
 
-func (chain *LightChain) updateLastBlock(state *core.AccountDB,header *types.BlockHeader,headerJson []byte) int8 {
+func (chain *LightChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		fmt.Printf("[block]fail to put current, error:%s \n", err)
@@ -376,7 +375,7 @@ func (chain *LightChain) updateLastBlock(state *core.AccountDB,header *types.Blo
 	}
 	chain.latestStateDB = state
 	chain.latestBlock = header
-	Logger.Debugf("blockchain update latestStateDB:%s height:%d",header.StateTree.Hex(),header.Height)
+	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
 	return 0
 }
 
@@ -421,34 +420,34 @@ func (chain *LightChain) queryBlockByHash(hash common.Hash) *types.Block {
 //result code:
 // -1 保存失败
 // 0 保存成功
-func (chain *LightChain) saveBlock(b *types.Block) (int8,[]byte) {
+func (chain *LightChain) saveBlock(b *types.Block) (int8, []byte) {
 	// 根据hash存block
 	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
 		log.Printf("[lightblock]fail to json Marshal, error:%s \n", err)
-		return -1,nil
+		return -1, nil
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
 		log.Printf("[lightblock]fail to put key:hash value:block, error:%s \n", err)
-		return -1,nil
+		return -1, nil
 	}
 	// 根据height存blockheader
 	headerJson, err := types.MarshalBlockHeader(b.Header)
 	if err != nil {
 		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
-		return -1,nil
+		return -1, nil
 	}
 	err = chain.blockHeight.Put(generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
 		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
-		return -1,nil
+		return -1, nil
 	}
 
 	// 持久化保存最新块信息
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 
-	return 0,headerJson
+	return 0, headerJson
 }
 
 // 删除块
@@ -480,8 +479,8 @@ func (chain *LightChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(),chain.genesisInfo)
-		_,headerJson := chain.saveBlock(block)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
+		_, headerJson := chain.saveBlock(block)
 		chain.updateLastBlock(state, block.Header, headerJson)
 	}
 	chain.init = true
@@ -548,6 +547,7 @@ func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHe
 }
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
+	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
 		chain.statedb.Put(node.Key, node.Value)
@@ -614,12 +614,4 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
-}
-
-func (chain *LightChain) AddBonusTrasanction(transaction *types.Transaction){
-	panic("Not support!")
-}
-
-func (chain *LightChain) GetBonusManager() *BonusManager{
-	panic("Not support!")
 }

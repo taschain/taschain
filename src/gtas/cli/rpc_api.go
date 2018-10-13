@@ -192,6 +192,10 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		wg, ag := p.GetJoinedWorkGroupNums()
 		ni.WGroupNum = wg
 		ni.AGroupNum = ag
+
+		if txs := core.BlockChainImpl.GetTransactionPool().GetReceived(); txs != nil {
+			ni.TxPoolNum = len(txs)
+		}
 	}
 	return successResult(ni)
 
@@ -334,4 +338,20 @@ func (api *GtasAPI) TransDetail(h string) (*Result, error) {
 		return successResult(trans)
 	}
 	return successResult(nil)
+}
+
+func (api *GtasAPI) Dashboard() (*Result, error) {
+    blockHeight := core.BlockChainImpl.Height()
+    groupHeight := core.GroupChainImpl.Count()
+    workNum := len(mediator.Proc.GetCastQualifiedGroups(blockHeight))
+    nodeResult, _ := api.NodeInfo()
+    consResult, _ := api.ConnectedNodes()
+    dash := &Dashboard{
+    	BlockHeight: blockHeight,
+    	GroupHeight: groupHeight,
+    	WorkGNum: workNum,
+    	NodeInfo: nodeResult.Data.(*NodeInfo),
+    	Conns: consResult.Data.([]ConnInfo),
+	}
+	return successResult(dash)
 }

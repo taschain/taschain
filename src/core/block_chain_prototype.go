@@ -44,6 +44,9 @@ type prototypeChain struct {
 
 	lastBlockHash *BlockHash
 	genesisInfo *types.GenesisInfo
+
+	bonusManager *BonusManager
+
 }
 
 func (chain *prototypeChain) IsLightMiner() bool {
@@ -243,3 +246,10 @@ func generateHeightKey(height uint64) []byte {
 	return h
 }
 
+func (chain *prototypeChain) AddBonusTrasanction(transaction *types.Transaction){
+	chain.GetTransactionPool().AddTransaction(transaction)
+}
+
+func (chain *prototypeChain) GetBonusManager() *BonusManager{
+	return chain.bonusManager
+}

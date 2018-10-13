@@ -248,7 +248,7 @@ func (vc *VerifyContext) getSlot(idx int) *SlotContext {
 
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, summary *model.CastGroupSummary) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if bh.GenHash() != signData.DataHash {
 		panic("acceptCV arg failed, hash not samed 1.")
 	}
@@ -256,11 +256,10 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 		panic("acceptCV arg failed, hash not samed 2")
 	}
 
-	idPrefix := vc.blockCtx.Proc.getPrefix()
 	blog := newBizLog("UserVerified")
 
 	slot, info, idx := vc.consensusFindSlot(bh)
-	blog.log("proc(%v) consensusFindSlot, hash=%v, i=%v, info=%v.", idPrefix, bh.Hash.ShortS(), idx, info)
+	blog.log("consensusFindSlot, hash=%v, i=%v, info=%v.", bh.Hash.ShortS(), idx, info)
 
 	//找到有效的插槽
 	if info == QQSR_EMPTY_SLOT {
@@ -278,6 +277,10 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	//警惕并发
 	if slot.IsFailed() {
 		return CBMR_STATUS_FAIL
+	}
+	//如果是提案者，因为提案者没有对块进行签名，则直接返回
+	if slot.castor.IsEqual(signData.GetID()) {
+		return CBMR_PIECE_NORMAL
 	}
 	result := slot.AcceptVerifyPiece(bh, signData)
 	return result

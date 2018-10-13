@@ -8,7 +8,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     var ref;
     var host_ele = $("#host");
     var online=false;
-    var current_block_height = 0;
+    var current_block_height = -1;
     host_ele.text(HOST);
     var blocks = [];
     var groups = [];
@@ -272,201 +272,6 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         return false;
     });
 
-    // 同步已链接节点
-    function syncNodes() {
-        let params = {
-            "method": "GTAS_connectedNodes",
-            "params": [],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined){
-                    let nodes_table = $("#nodes_table");
-                    nodes_table.empty();
-                    rdata.result.data.sort(function (a, b) {
-                        return parseInt(a.ip.split(".")[3]) - parseInt(b.ip.split(".")[3])
-                    });
-                    $.each(rdata.result.data, function (i,val) {
-                        nodes_table.append(
-                            " <tr><td>id</td><td>ip</td><td>port</td></tr>".replace("ip", val.ip).replace("id", val.id).replace("port", val.tcp_port)
-                        )
-                    })
-                }
-                if (rdata.error !== undefined){
-                    // $("#t_error").text(rdata.error.message)
-                }
-            },
-            error: function () {
-                let nodes_table = $("#nodes_table");
-                nodes_table.empty();
-            }
-        });
-    }
-
-    // 同步缓冲区交易
-    function syncTrans() {
-        let params = {
-            "method": "GTAS_transPool",
-            "params": [],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined){
-                    let trans_table = $("#trans_table");
-                    trans_table.empty();
-                    rdata.result.data.sort(function (a, b) {
-                        return parseInt(b.value) - parseInt(a.value)
-                    });
-                    $.each(rdata.result.data, function (i,val) {
-                        trans_table.append(
-                            " <tr><td>source</td><td>target</td><td>value</td></tr>"
-                                .replace("value", val.value)
-                                .replace("source",  val.source.slice(0, 7) + "..." + val.source.slice(-6))
-                                .replace("target",  val.target.slice(0, 7) + "..." + val.target.slice(-6))
-                        )
-                    })
-                }
-                if (rdata.error !== undefined){
-                    // $("#t_error").text(rdata.error.message)
-                }
-            },
-            error: function () {
-                let trans_table = $("#trans_table");
-                trans_table.empty();
-            }
-        });
-    }
-
-    // 同步块高
-    function syncBlockHeight() {
-        let params = {
-            "method": "GTAS_blockHeight",
-            "params": [],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined){
-                    let block_height = $("#block_height");
-                    block_height.text(rdata.result.data)
-                }
-                if (rdata.error !== undefined){
-                    // $("#t_error").text(rdata.error.message)
-                }
-                if(!online) {
-                    online = true;
-                    $("#online_flag").addClass("layui-bg-green")
-                }
-                if (current_block_height > rdata.result.data) {
-                    current_block_height = 0;
-                    blocks = [];
-                    block_table.reload({
-                        data: blocks
-                    });
-                }
-                syncWorkGroupNum(rdata.result.data)
-                let count = 0;
-                for(let i=current_block_height+1; i<=rdata.result.data; i++) {
-                    syncBlock(i);
-                    count ++;
-                    if (count >= 50) {
-                        current_block_height = i;
-                        return
-                    }
-                }
-                current_block_height = rdata.result.data
-            },
-            error: function () {
-                if(online) {
-                    online = false;
-                    $("#online_flag").removeClass("layui-bg-green")
-                }
-            }
-        });
-    }
-
-    // 同步组高
-    function syncGroupHeight() {
-        let params = {
-            "method": "GTAS_groupHeight",
-            "params": [],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined){
-                    let block_height = $("#group_height");
-                    block_height.text(rdata.result.data)
-                    if (groups.length > 0 && rdata.result.data < groups[groups.length - 1]["height"]) {
-                        groups = []
-                        groupIds.clear()
-                        syncGroup(0)
-                    }
-                }
-                if (rdata.error !== undefined){
-                    // $("#t_error").text(rdata.error.message)
-                }
-            },
-        });
-    }
-
-    // 同步组高
-    function syncWorkGroupNum(height) {
-        let params = {
-            "method": "GTAS_workGroupNum",
-            "params": [height],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined){
-                    let block_height = $("#work_group_num");
-                    block_height.text(rdata.result.data)
-                }
-                if (rdata.error !== undefined){
-                    // $("#t_error").text(rdata.error.message)
-                }
-            },
-        });
-    }
-
     // 同步块信息
     function syncBlock(height) {
         let params = {
@@ -485,10 +290,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             success: function (rdata) {
                 if (rdata.result !== undefined){
                     blocks.push(rdata.result.data);
-                    block_table.reload({
-                            data: blocks
-                        }
-                    )
+                    if (current_block_height < rdata.result.data) {
+                        current_block_height = rdata.result.data
+                    }
+                    // block_table.reload({
+                    //         data: blocks
+                    //     }
+                    // )
                 }
                 if (rdata.error !== undefined){
                     // $("#t_error").text(rdata.error.message)
@@ -521,10 +329,10 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                             groupIds.add(retArr[i]["group_id"])
                         }
                     }
-                    group_table.reload({
-                            data: groups
-                        }
-                    )
+                    // group_table.reload({
+                    //         data: groups
+                    //     }
+                    // )
                 }
                 if (rdata.error !== undefined){
                     // $("#t_error").text(rdata.error.message)
@@ -606,59 +414,6 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             }
         });
     })
-    //查询工作组
-    function queryNodeInfo() {
-        let params = {
-            "method": "GTAS_nodeInfo",
-            "params": [],
-            "jsonrpc": "2.0",
-            "id": "1"
-        };
-        $.ajax({
-            type: 'POST',
-            url: HOST,
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Content-Type", "application/json");
-            },
-            data: JSON.stringify(params),
-            success: function (rdata) {
-                if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
-                    d = rdata.result.data
-                    $("#tb_node_id").text(d.id)
-                    $("#tx_send_from").val(d.id)
-                    $("#tb_node_balance").text(d.balance)
-                    $("#tb_node_status").text(d.status)
-                    $("#tb_node_type").text(d.n_type)
-                    $("#tb_node_wg").text(d.w_group_num)
-                    $("#tb_node_ag").text(d.a_group_num)
-                    $("#tb_stake_body").html("")
-                    $.each(d.mort_gages, function (i, v) {
-                        tr = "<tr>"
-                        tr += "<td>" + v.stake + "</td>"
-                        tr += "<td>" + v.type + "</td>"
-                        tr += "<td>" + v.apply_height + "</td>"
-                        tr += "<td>" + v.abort_height + "</td>"
-                        mtype = 0
-                        if (v.type == "重节点") {
-                            mtype = 1
-                        }
-                        if (v.abort_height > 0) {
-                            tr += "<td><a href=\"javascript:void(0);\" name='miner_oper_a' method='GTAS_minerRefund' mtype=" + mtype + ">退款</a></td>"
-                        } else {
-                            tr += "<td><a href=\"javascript:void(0);\" name='miner_oper_a' method='GTAS_minerAbort' mtype=" + mtype + ">取消</a></td>"
-                        }
-                        tr += "</tr>"
-                        $("#tb_stake_body").append(tr)
-                    })
-
-                }
-            },
-            error: function (err) {
-                console.log(err)
-                $("#tb_node_status").text("已停止")
-            }
-        });
-    }
 
     $("#apply_a").click(function () {
         f = $("#apply_miner_div")
@@ -698,40 +453,151 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         });
     })
 
+    function reloadBlocksTable() {
+        block_table.reload({
+            data: blocks
+        })
+    }
+    function reloadGroupsTable() {
+        group_table.reload({
+            data: groups
+        })
+    }
+
+    function dashboardLoad() {
+        let params = {
+            "method": "GTAS_dashboard",
+            "params": [],
+            "jsonrpc": "2.0",
+            "id": "1"
+        };
+        $.ajax({
+            type: 'POST',
+            url: HOST,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader("Content-Type", "application/json");
+            },
+            data: JSON.stringify(params),
+            success: function (rdata) {
+                d = rdata.result.data
+                //块高
+                $("#block_height").text(d.block_height)
+                if (d.block_height == 0 && block.length > 0 && blocks[0]["height"] == 0) {
+                    current_block_height = 0;
+                    blocks = [];
+                    reloadBlocksTable()
+                }
+
+                for(let i=current_block_height+1; i<=d.block_height; i++) {
+                    syncBlock(i);
+                }
+                current_block_height = d.block_height
+
+                //组高
+                $("#group_height").text(d.group_height)
+                if (groups.length > 0 && d.group_height < groups[groups.length - 1]["height"]) {
+                    groups = []
+                    groupIds.clear()
+                    reloadGroupsTable()
+                } else {
+                    if (groups.length == 0) {
+                        syncGroup(0)
+                    } else if (groups[groups.length-1]["height"]+1 < d.group_height) {
+                        syncGroup(groups[groups.length-1]["height"]+1)
+                    }
+                }
+                //工作组数量
+                $("#work_group_num").text(d.work_g_num)
+                if ($("#tb_node_id").text() != d.node_info.id) {
+                    //节点和质押信息
+                    $("#tb_node_id").text(d.node_info.id)
+                    $("#tx_send_from").val(d.node_info.id)
+                }
+                $("#tb_node_balance").text(d.node_info.balance)
+                $("#tb_node_status").text(d.node_info.status)
+                $("#tb_node_type").text(d.node_info.n_type)
+                $("#tb_node_wg").text(d.node_info.w_group_num)
+                $("#tb_node_ag").text(d.node_info.a_group_num)
+                $("#tb_node_txnum").text(d.node_info.tx_pool_num)
+                $("#tb_stake_body").html("")
+                $.each(d.node_info.mort_gages, function (i, v) {
+                    tr = "<tr>"
+                    tr += "<td>" + v.stake + "</td>"
+                    tr += "<td>" + v.type + "</td>"
+                    tr += "<td>" + v.apply_height + "</td>"
+                    tr += "<td>" + v.abort_height + "</td>"
+                    mtype = 0
+                    if (v.type == "重节点") {
+                        mtype = 1
+                    }
+                    if (v.abort_height > 0) {
+                        tr += "<td><a href=\"javascript:void(0);\" name='miner_oper_a' method='GTAS_minerRefund' mtype=" + mtype + ">退款</a></td>"
+                    } else {
+                        tr += "<td><a href=\"javascript:void(0);\" name='miner_oper_a' method='GTAS_minerAbort' mtype=" + mtype + ">取消</a></td>"
+                    }
+                    tr += "</tr>"
+                    $("#tb_stake_body").append(tr)
+                })
+
+                //链接节点
+                let nodes_table = $("#nodes_table");
+                nodes_table.empty();
+                d.conns.sort(function (a, b) {
+                    return parseInt(a.ip.split(".")[3]) - parseInt(b.ip.split(".")[3])
+                });
+                $.each(d.conns, function (i,val) {
+                    nodes_table.append(
+                        " <tr><td>id</td><td>ip</td><td>port</td></tr>".replace("ip", val.ip).replace("id", val.id).replace("port", val.tcp_port)
+                    )
+                })
+            },
+            error: function (err) {
+                console.log(err)
+                $("#tb_node_status").text("已停止")
+                $("#trans_table").empty();
+                $("#nodes_table").empty();
+            }
+        });
+    }
+
     // dashboard同步数据
-    syncNodes();
-    syncTrans();
-    syncBlockHeight();
-    syncGroupHeight();
+    // syncNodes();
+    // syncTrans();
+    // syncBlockHeight();
+    // syncGroupHeight();
     syncGroup(0)
-    queryNodeInfo()
-    setInterval(function () {
-        queryNodeInfo()
-    }, 3000)
-    setInterval(function () {
-        if (groups.length > 0) {
-            syncGroup(groups[groups.length-1]["height"]+1)
-        } else {
-            syncGroup(0)
-        }
-        syncBlockHeight();
-    }, 1000);
-    ref = setInterval(function(){
-        syncNodes();
-        syncTrans();
-        syncGroupHeight();
+    dashboardLoad()
+
+    dashboard = setInterval(function(){
+        dashboardLoad();
     },1000);
 
+    blocktable_inter = 0
+    grouptable_inter = 0
+
     element.on('tab(demo)', function(data){
-        if(data.index === 0) {
-            ref = setInterval(function(){
-                syncNodes();
-                syncTrans();
-                syncGroupHeight();
-            },1000);
+        // if(data.index === 0) {
+        //     clearInterval(dashboard)
+        //     dashboard = setInterval(function(){
+        //         dashboardLoad()
+        //     },1000);
+        // } else {
+        //     clearInterval(dashboard)
+        // }
+
+        if (data.index == 5) {
+            reloadBlocksTable()
+            blocktable_inter = setInterval(reloadBlocksTable, 1000);
         } else {
-            clearInterval(ref)
+            clearInterval(blocktable_inter)
         }
+        if (data.index == 6) {
+           reloadGroupsTable()
+            grouptable_inter = setInterval(reloadGroupsTable, 1000);
+        } else {
+            clearInterval(grouptable_inter)
+        }
+
     });
 
 });

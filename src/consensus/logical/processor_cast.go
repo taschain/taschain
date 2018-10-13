@@ -279,7 +279,7 @@ func (p *Processor) blockProposal() {
 	tlog.logStart("height=%v,pi=%v", bh.Height, pi.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
-		skey := p.getSignKey(gid)
+		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
@@ -288,7 +288,7 @@ func (p *Processor) blockProposal() {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		ccm.GenRandomSign(skey, worker.baseBH.Random)
+		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
 		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb)
 

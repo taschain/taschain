@@ -45,14 +45,17 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 //获取交易中包含账户所在的分支
 func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions []*types.Transaction, nodes map[string]*[]byte) {
 	//todo  合约如何实现
+	Logger.Debugf("GetBranches, tx len:%d",len(transactions))
 	for _, transaction := range transactions {
 		//var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
+			Logger.Debug("transaction.Target == nil")
 			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			//contractAddress, _ = createContract(accountdb, transaction)
 			//contract := tvm.LoadContract(contractAddress)
 			//controller.Deploy(transaction.Source, contract)
 		} else if len(transaction.Data) > 0 {
+			Logger.Debug("len(transaction.Data) > 0 ")
 			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			//contract := tvm.LoadContract(*transaction.Target)
 
@@ -63,10 +66,16 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 
 		} else {
 			tr, _ := accountdb.GetTrie().(*trie.Trie)
-			source := *transaction.Source
-			target := *transaction.Target
-			tr.GetBranch(source[:], nodes)
-			tr.GetBranch(target[:], nodes)
+			source := transaction.Source
+			target := transaction.Target
+			Logger.Debugf("source:%v.target:%v",source,target)
+
+			if source != nil{
+				tr.GetBranch(source[:], nodes)
+			}
+			if target != nil{
+				tr.GetBranch(target[:], nodes)
+			}
 		}
 	}
 }
@@ -93,9 +102,15 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.Acc
 		//	}
 		//
 		//} else {
-
-		if !IsAccountExist(accountdb, *transaction.Source) {
+		Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v",transaction.Source,transaction.Target )
+		if transaction.Source != nil && !IsAccountExist(accountdb, *transaction.Source) {
 			missingAccountTransactions = append(missingAccountTransactions, transaction)
+			continue
+		}
+		//todo 分红交易查看涉及到的账户  extraData 涉及到的账户， castor涉及到的账户
+		if transaction.Target != nil && !IsAccountExist(accountdb, *transaction.Target) {
+			missingAccountTransactions = append(missingAccountTransactions, transaction)
+			continue
 		}
 	}
 	accountdb.IntermediateRoot(true)
@@ -110,11 +125,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt,len(block.Transactions))
-	Logger.Debugf("TVMExecutor Begin Execute State %s",block.Header.StateTree.Hex())
+	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d",block.Header.StateTree.Hex(),block.Header.Height,len(block.Transactions))
 	for i,transaction := range block.Transactions{
 		var fail = false
 		var contractAddress common.Address
-		//Logger.Debugf("TVMExecutor Execute %+v",transaction)
+		Logger.Debugf("TVMExecutor Execute %v,type:%d",transaction.Hash, transaction.Type)
 
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
