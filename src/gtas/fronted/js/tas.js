@@ -482,7 +482,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 d = rdata.result.data
                 //块高
                 $("#block_height").text(d.block_height)
-                if (d.block_height == 0 && block.length > 0 && blocks[0]["height"] == 0) {
+                if (d.block_height == 0 && blocks.length > 0 && blocks[0]["height"] == 0) {
                     current_block_height = 0;
                     blocks = [];
                     reloadBlocksTable()
