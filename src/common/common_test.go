@@ -1,6 +1,9 @@
 package common
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 /*
 **  Creator: pxf
@@ -16,4 +19,8 @@ func TestHash_Hex(t *testing.T) {
 	s := "0xf3be4592802e6bfa85bf449c41eea1fc7a695220590c677c46d84339a13eec1a"
 	h = HexToHash(s)
 	t.Log(h.Hex())
+}
+
+func TestAddressGenFunc(t *testing.T){
+	fmt.Println(BytesToAddress(Sha256([]byte("4"))).GetHexString())
 }

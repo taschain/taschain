@@ -239,7 +239,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
-	//筑块奖励
+	// 铸块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
 	//if nil != processor {

@@ -868,6 +868,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	return
 }
 
+// 收到分红奖励消息
 func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {
 	mtype := "OMCRS"
 	blog := newBizLog(mtype)

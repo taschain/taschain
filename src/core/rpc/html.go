@@ -27,6 +27,11 @@ const HTMLTEM = `<!DOCTYPE html>
 </head>
 <body>
 <div style="margin: 20px 5%" >
+    <div>
+        <label class="layui-label" id="host"></label>
+        <span class="layui-badge-dot" style="position: relative; top: -2px; left: -2px" id="online_flag"></span>
+        <button class="layui-btn layui-btn-xs" id="change_host">更换host</button>
+    </div>
     <div class="layui-tab" lay-filter="demo" style="margin: 20px 0">
         <ul class="layui-tab-title">
             <li class="layui-this">Dashboard</li>
@@ -37,6 +42,7 @@ const HTMLTEM = `<!DOCTYPE html>
             <li>查询块信息</li>
             <li>查询组信息</li>
             <li>查询工作组</li>
+            <li>共识验证</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -390,6 +396,21 @@ const HTMLTEM = `<!DOCTYPE html>
 
                 <table id="work_group_detail" lay-filter="block_detail"></table>
             </div>
+
+            <!-- 共识验证部分 -->
+            <div class="layui-tab-item">
+                <table class="layui-table">
+                    <tr>
+                        <td width="40%">
+                            <input type="text" name="consensus_stat"   autocomplete="off" class="layui-input"
+                                   placeholder="根据高度统计共识算法执行情况" id="consensus_stat_input">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="consensus_stat_btn">统计</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -427,7 +448,7 @@ const HTMLTEM = `<!DOCTYPE html>
         var group_table = table.render({
             elem: '#group_detail' //指定原始表格元素选择器（推荐id选择器）
             ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},
-			{field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
+                {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
                 {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
                 {field:'members', title: '成员列表'}]] //设置表头
             ,data: groups
@@ -937,8 +958,8 @@ const HTMLTEM = `<!DOCTYPE html>
                 alert("请输入查询高度")
                 return
             }
-			queryWorkGroup(parseInt(h))
-        })
+            queryWorkGroup(parseInt(h))
+        });
         //查询工作组
         function queryWorkGroup(height) {
             let params = {
@@ -972,6 +993,42 @@ const HTMLTEM = `<!DOCTYPE html>
             });
         }
 
+        $("#consensus_stat_btn").click(function () {
+            var h = $("#consensus_stat_input").val()
+            if (h == null || h == undefined || h == '') {
+                alert("请输入查询高度")
+                return
+            }
+            doConsensusStat(parseInt(h))
+        });
+
+        function doConsensusStat(height){
+            let params = {
+                "method": "GTAS_consensusStat",
+                "params": [height],
+                "jsonrpc": "2.0",
+                "id": "1"
+            };
+            $.ajax({
+                type: 'POST',
+                url: HOST,
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                },
+                data: JSON.stringify(params),
+                success: function (rdata) {
+                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
+                        alert("successs")
+                    }
+                    if (rdata.error !== undefined){
+                        // $("#t_error").text(rdata.error.message)
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
 
         // dashboard同步数据
         syncNodes();

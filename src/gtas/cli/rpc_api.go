@@ -355,3 +355,8 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 	}
 	return successResult(dash)
 }
+
+func (api *GtasAPI) ConsensusStat(height uint64)  (*Result, error){
+	core.BlockChainImpl.GetBonusManager().StatBonusByBlockHeight(height)
+	return &Result{Message:"success", Data:nil}, nil
+}

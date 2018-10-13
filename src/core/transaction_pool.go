@@ -196,6 +196,8 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 
 	pool.received.Push(tx)
 
+	// 日志记录分红交易信息
+
 	// batch broadcast
 	if isBroadcast {
 		//交易不广播
