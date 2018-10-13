@@ -179,6 +179,9 @@ func (n *server) handleMessage(b []byte, from string) {
 }
 
 func (n *server) handleMessageInner(message *Message, from string) {
+
+	defer n.netCore.onHandleDataMessageDone(from)
+
 	begin := time.Now()
 	code := message.Code
 	switch code {
@@ -215,7 +218,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
 		notify.BUS.Publish(notify.StateInfo,&msg)
 	}
-	n.netCore.onHandleDataMessageDone(from)
+
 	if time.Since(begin) > 100*time.Millisecond {
 		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
 	}
