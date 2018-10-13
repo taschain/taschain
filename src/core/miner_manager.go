@@ -161,9 +161,10 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64{
 			miner, _ := iter.Current()
 			Logger.Debugf("GetTotalStakeByHeight %+v",miner)
 		}
-	} else {
-		Logger.Debugf("GetTotalStakeByHeight get %d",total)
 	}
+	//else {
+	//	Logger.Debugf("GetTotalStakeByHeight get %d",total)
+	//}
 	return total
 }
 

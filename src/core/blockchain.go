@@ -203,7 +203,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
-	latestBlock := chain.latestBlock
+	latestBlock := chain.QueryTopBlock()
 	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Debugf("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
@@ -370,16 +370,16 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	b.Transactions = transactions
 
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"cast")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
 		return nil, -1, nil, nil
 	}
-	//receiptsTree := calcReceiptsTree(receipts).Bytes()
-	//if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
-	//	Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
-	//	return nil, 1, nil, nil
-	//}
+	receiptsTree := calcReceiptsTree(receipts).Bytes()
+	if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
+		return nil, 1, nil, nil
+	}
 
 	chain.blockCache.Add(bh.Hash, &castingBlock{
 		state:    state,
