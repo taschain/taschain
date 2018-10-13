@@ -227,7 +227,6 @@ import (
 	"bytes"
 	"strconv"
 	"storage/core/vm"
-	"middleware/types"
 )
 
 var controller *Controller = nil
@@ -240,87 +239,7 @@ type CallTask struct {
 	Params string
 }
 
-type Controller struct {
-	BlockHeader *types.BlockHeader
-	Transaction *types.Transaction
-	AccountDB vm.AccountDB
-	Reader vm.ChainReader
-	Vm *Tvm
-	Tasks []*CallTask
-	LibPath string
-}
 
-func NewController(accountDB vm.AccountDB,
-	chainReader vm.ChainReader,
-	header *types.BlockHeader,
-	transaction *types.Transaction, libPath string) *Controller {
-	if controller == nil {
-		controller = &Controller{}
-	}
-	controller.BlockHeader = header
-	controller.Transaction = transaction
-	controller.AccountDB = accountDB
-	controller.Reader = chainReader
-	controller.Tasks = make([]*CallTask, 0)
-	controller.Vm = nil
-	controller.LibPath = libPath
-	return controller
-}
-
-
-func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
-	var succeed bool
-	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
-	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	snapshot := con.AccountDB.Snapshot()
-	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
-	if !succeed {
-		con.AccountDB.RevertToSnapshot(snapshot)
-	}
-	con.Vm.DelTvm()
-	con.ExecuteTask()
-	return succeed
-}
-
-func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
-	var succeed bool
-	con.Vm  = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
-	snapshot := con.AccountDB.Snapshot()
-	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-	if !succeed {
-		con.AccountDB.RevertToSnapshot(snapshot)
-	}
-	con.Vm.DelTvm()
-	con.ExecuteTask()
-	return succeed
-}
-
-func(con *Controller) ExecuteTask() {
-	var succeed bool
-	for _, task := range con.Tasks {
-		contract := LoadContract(*task.ContractAddr)
-		gasLeft := con.Vm.Gas()
-		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-		con.Vm.SetGas(gasLeft)
-		snapshot := con.AccountDB.Snapshot()
-		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
-		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		fmt.Println(abi)
-		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-		if !succeed {
-			if con.Vm.Gas() == 0 {
-				con.Vm.DelTvm()
-				return
-			}
-			con.AccountDB.RevertToSnapshot(snapshot)
-			con.Vm.DelTvm()
-			continue
-		}
-	}
-}
 
 func Call(_contractAddr string, funcName string, params string) bool {
 	conAddr := common.HexStringToAddress(_contractAddr)
@@ -422,11 +341,13 @@ func(tvm *Tvm) StoreData() bool {
 import account
 import ujson
 for k in tas_%s.__dict__:
-#	print(k)
-#	print(type(k))
-#	print(tas_%s.__dict__[k])
-#	print(type(tas_%s.__dict__[k]))
-	account.set_data(k, ujson.dumps(tas_%s.__dict__[k]))`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+    #	print(k)
+    #	print(type(k))
+    #	print(tas_%s.__dict__[k])
+    #	print(type(tas_%s.__dict__[k]))
+    value = ujson.dumps(tas_%s.__dict__[k])
+    if TAS_PARAMS_DICT.get(k) != value:
+        account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -466,12 +387,15 @@ func(tvm *Tvm) LoadContractCode() bool {
 	script = fmt.Sprintf(`
 import account
 import ujson
+TAS_PARAMS_DICT = {}
 for k in tas_%s.__dict__:
-#	print(k)
-#	print(type(k))
-#	value = ujson.loads(account.get_state("", k))
-#	print(value)
-	setattr(tas_%s, k, ujson.loads(account.get_data(k)))`, tvm.ContractName, tvm.ContractName)
+    #	print(k)
+    #	print(type(k))
+    #	value = ujson.loads(account.get_state("", k))
+    #	print(value)
+    value = account.get_data(k)
+    TAS_PARAMS_DICT[k] = value
+    setattr(tas_%s, k, ujson.loads(value))`, tvm.ContractName, tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -501,6 +425,7 @@ func (tvm *Tvm)Deploy(msg Msg) bool {
 	}
 
 	script := fmt.Sprintf(`
+TAS_PARAMS_DICT = {}
 tas_%s = %s()
 tas_%s.deploy()
 `, tvm.ContractName, tvm.ContractName, tvm.ContractName)

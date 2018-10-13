@@ -57,6 +57,8 @@ type SlotContext struct {
 	slotStatus     int32
 	lostTxHash     set.Interface
 
+	castor 		groupsig.ID
+
 	//奖励相关
 	rewardTrans 	*types.Transaction
 	rewardGSignGen	*model.GroupSignGenerator	//奖励交易签名产生器
@@ -85,7 +87,10 @@ func (sc *SlotContext) IsFailed() bool {
 	st := sc.GetSlotStatus()
 	return st == SS_FAILED
 }
-
+func (sc *SlotContext) IsRewardSent() bool {
+	st := sc.GetSlotStatus()
+	return st == SS_REWARD_SEND
+}
 func (sc *SlotContext) GetSlotStatus() int32 {
 	return atomic.LoadInt32(&sc.slotStatus)
 }
@@ -163,6 +168,7 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 	if si.DataHash != sc.BH.Hash {
 		return CBMR_BH_HASH_DIFF
 	}
+
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 
 	if !add { //已经收到过该成员的验签
@@ -170,8 +176,8 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 		return CBMR_IGNORE_REPEAT
 	} else { //没有收到过该用户的签名
 		rsign := groupsig.DeserializeSign(bh.Random)
-		if rsign == nil {
-			panic("SlotContext:randSign deserialize nil")
+		if !rsign.IsValid() {
+			panic(fmt.Sprintf("rsign is invalid, bhHash=%v, height=%v, random=%v", bh.Hash.ShortS(), bh.Height, bh.Random))
 		}
 		radd, rgen := sc.rSignGenerator.AddWitness(si.SignMember, *rsign)
 
@@ -196,9 +202,10 @@ func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 		sc.BH = *bh
 		sc.vrfValue = bh.ProveValue
 		log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+		ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
 		log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
 		sc.addLostTrans(ltl)
+		sc.castor = groupsig.DeserializeId(bh.Castor)
 		if ccr == -1 {
 			sc.setSlotStatus(SS_FAILED)
 		}

@@ -12,4 +12,8 @@ const (
 	BlockBodyReq = "block_body_req"
 
 	BlockBody = "block_body"
+
+	StateInfoReq = "state_info_req"
+
+	StateInfo = "state_info"
 )

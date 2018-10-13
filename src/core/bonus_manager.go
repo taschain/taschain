@@ -35,11 +35,11 @@ func (bm *BonusManager) WhetherBonusTransaction(transaction *types.Transaction) 
 }
 
 func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction{
-	transactionHash := BlockChainImpl.latestStateDB.GetData(common.BonusStorageAddress, string(blockHash))
+	transactionHash := BlockChainImpl.(*FullBlockChain).latestStateDB.GetData(common.BonusStorageAddress, string(blockHash))
 	if transactionHash == nil{
 		return nil
 	}
-	transaction,_ := BlockChainImpl.transactionPool.getTransaction(common.BytesToHash(transactionHash))
+	transaction,_ := BlockChainImpl.(*FullBlockChain).transactionPool.GetTransaction(common.BytesToHash(transactionHash))
 	return transaction
 }
 
@@ -47,9 +47,11 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	group := GroupChainImpl.getGroupById(groupId)
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupId)
+	Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
 	for i:=0;i<len(targetIds);i++{
 		index := targetIds[i]
 		buffer.Write(group.Members[index].Id)
+		Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()

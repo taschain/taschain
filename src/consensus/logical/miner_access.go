@@ -6,6 +6,7 @@ import (
 	"consensus/groupsig"
 	"middleware/types"
 	"core"
+	"log"
 )
 
 /*
@@ -39,11 +40,15 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		ApplyHeight: miner.ApplyHeight,
 		AbortHeight: miner.AbortHeight,
 	}
+	if !md.ID.IsValid() {
+		log.Printf("invalid id %v, %v", miner.Id, md.ID.GetHexString())
+		panic("id not valid")
+	}
 	return md
 }
 
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
-	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy)
+	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy, nil)
 	if miner == nil {
 		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
@@ -71,7 +76,7 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
     rets := make([]model.MinerDO, 0)
 	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
-		access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
+		//access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
 		}

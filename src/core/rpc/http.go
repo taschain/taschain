@@ -31,6 +31,7 @@ import (
 
 	"github.com/rs/cors"
 	"strings"
+	"asset"
 )
 
 const (
@@ -155,14 +156,47 @@ func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 	return &http.Server{Handler: handler}
 }
 
+func rewriteBody(r *http.Request) io.Reader {
+	if !strings.HasPrefix(r.URL.Path, "/page") {
+		return r.Body
+	}
+	bs := make([]byte, r.ContentLength)
+	r.Body.Read(bs)
+	var params map[string]interface{}
+	json.Unmarshal(bs, &params)
+
+	p := params["params"].([]interface{})
+	p = append(p, params["page"])
+	p = append(p, params["limit"])
+	params["params"] = p
+
+	bs, _ = json.Marshal(params)
+	return bytes.NewBuffer(bs)
+}
+
 // ServeHTTP serves JSON-RPC requests over HTTP.
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Permit dumb empty requests for remote health-checks (AWS)
-	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
-		html := strings.Replace(HTMLTEM, "127.0.0.1:8088", r.Host, -1)
-		w.Write([]byte(html))
+	if r.Method == http.MethodGet {
+		assetFile := ""
+		if r.URL.Path == "/" {
+			assetFile = "gtas/fronted/c.html"
+		} else {
+			if r.URL.Path[0] == '/' {
+				assetFile = r.URL.Path[1:]
+			} else {
+				assetFile = r.URL.Path
+			}
+		}
+		bs, err := asset.Asset(assetFile)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
+		w.Write(bs)
 		return
 	}
+
 	if code, err := validateRequest(r); err != nil {
 		http.Error(w, err.Error(), code)
 		return
@@ -170,7 +204,7 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// All checks passed, create a codec that reads direct from the request body
 	// untilEOF and writes the response to w and order the server to process a
 	// single request.
-	codec := NewJSONCodec(&httpReadWriteNopCloser{r.Body, w})
+	codec := NewJSONCodec(&httpReadWriteNopCloser{rewriteBody(r), w})
 	defer codec.Close()
 
 	w.Header().Set("content-type", contentType)

@@ -53,6 +53,9 @@ func (bg *BelongGroups) commit() bool {
 	if atomic.LoadInt32(&bg.dirty) != 1 {
 		return false
 	}
+	if bg.groupSize() == 0 {
+		return false
+	}
 	log.Printf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
     gs := make([]*JoinedGroup, 0)
     bg.groups.Range(func(key, value interface{}) bool {
@@ -88,7 +91,7 @@ func (bg *BelongGroups) load() bool {
 	}
 	log.Println("load belongGroups size", bg.groupSize())
 	for _, jg := range gs {
-		bg.addJoinedGroup(jg)
+		bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	}
 	return true
 }
@@ -119,6 +122,7 @@ func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
+	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
 	bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
 }

@@ -55,11 +55,17 @@ func (p *Processor) prepareMiner()  {
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
+		needBreak := false
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		log.Printf("load group=%v, topHeight=%v\n", sgi.GroupID.ShortS(), topHeight)
 		if sgi.Dismissed(topHeight) {
-			break
+			needBreak = true
+			genesis := p.GroupChain.GetGroupByHeight(0)
+			if coreGroup == nil {
+				panic("get genesis group nil")
+			}
+			sgi = NewSGIFromCoreGroup(genesis)
 		}
+		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
@@ -69,6 +75,9 @@ func (p *Processor) prepareMiner()  {
 			}
 		}
 		p.acceptGroup(sgi)
+		if needBreak {
+			break
+		}
 	}
 	log.Printf("prepare finished")
 }
@@ -143,12 +152,11 @@ func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
     p.vrf.Store(vrf)
 }
 
-func (p *Processor) getSelfMinerDO() *model.SelfMinerDO {
+func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
     md := p.minerReader.getProposeMiner(p.GetMinerID())
-	if md == nil {
-		panic("self miner info nil")
+	if md != nil {
+		p.mi.MinerDO = *md
 	}
-	p.mi.MinerDO = *md
 	return p.mi
 }
 
@@ -162,4 +170,19 @@ func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
 		return false
 	}
 	return miner.CanCastAt(h)
+}
+
+func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
+	h := p.MainChain.QueryTopBlock().Height
+    groups := p.globalGroups.GetAvailableGroups(h)
+	for _, g := range groups {
+		if !g.MemExist(p.GetMinerID()) {
+			continue
+		}
+		if g.CastQualified(h) {
+			work++
+		}
+		avail++
+	}
+	return
 }

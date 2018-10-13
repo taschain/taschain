@@ -51,10 +51,7 @@ func CacheUnloads() int64 {
 type LeafCallback func(leaf []byte, parent common.Hash) error
 
 type Trie struct {
-	db           *Database
-	root         node
-	originalRoot common.Hash
-
+	PublicTrie
 	cachegen, cachelimit uint16
 }
 
@@ -66,44 +63,70 @@ func (t *Trie) newFlag() nodeFlag {
 	return nodeFlag{dirty: true, gen: t.cachegen}
 }
 
+func (t *Trie) GetRoot() node {
+	return t.RootNode
+}
+
 func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}
 	trie := &Trie{
-		db:           db,
-		originalRoot: root,
+		PublicTrie: PublicTrie{
+			db:           db,
+			originalRoot: root,
+		},
 	}
 	if (root != common.Hash{}) && root != emptyRoot {
 		rootnode, err := trie.resolveHash(root[:], nil)
 		if err != nil {
 			return nil, err
 		}
-		trie.root = rootnode
+		trie.RootNode = rootnode
+	}
+	return trie, nil
+}
+
+func NewTrieWithMap(root common.Hash, db *Database, nodes map[string]*[]byte) (*Trie, error) {
+	if db == nil {
+		panic("trie.NewTrie called without a database")
+	}
+	trie := &Trie{
+		PublicTrie: PublicTrie{
+			db:           db,
+			originalRoot: root,
+		},
+	}
+	if (root != common.Hash{}) && root != emptyRoot {
+		rootnode, err := trie.resolveHashNodeIntoBranch(root[:], nil, nodes)
+		if err != nil {
+			return nil, err
+		}
+		trie.RootNode = rootnode
 	}
 	return trie, nil
 }
 
 func (t *Trie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		fmt.Printf(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
 func (t *Trie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
 	if len(value) != 0 {
-		_, n, err := t.insert(t.root, nil, k, valueNode(value))
+		_, n, err := t.insert(t.RootNode, nil, k, valueNode(value))
 		if err != nil {
 			return err
 		}
-		t.root = n
+		t.RootNode = n
 	} else {
-		_, n, err := t.delete(t.root, nil, k)
+		_, n, err := t.delete(t.RootNode, nil, k)
 		if err != nil {
 			return err
 		}
-		t.root = n
+		t.RootNode = n
 	}
 	return nil
 }
@@ -116,11 +139,60 @@ func (t *Trie) Get(key []byte) []byte {
 	return res
 }
 
+func (t *Trie) GetBranch(key []byte, nodes map[string]*[]byte) {
+	key = keybytesToHex(key)
+	_, newroot, didResolve, err := t.tryGetBranch(t.RootNode, key, 0, nodes)
+	if err == nil && didResolve {
+		t.RootNode = newroot
+	}
+	if err != nil {
+		fmt.Printf("Unhandled trie error: %s", err.Error())
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	}
+}
+
+func (t *Trie) tryGetBranch(origNode node, key []byte, pos int, nodes map[string]*[]byte) (value []byte, newnode node, didResolve bool, err error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, false, nil
+	case valueNode:
+		return n, n, false, nil
+	case *shortNode:
+		if len(key)-pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
+			return nil, n, false, nil
+		}
+		value, newnode, didResolve, err = t.tryGetBranch(n.Val, key, pos+len(n.Key), nodes)
+		if err == nil && didResolve {
+			n = n.copy()
+			n.Val = newnode
+			n.flags.gen = t.cachegen
+		}
+		return value, n, didResolve, err
+	case *fullNode:
+		value, newnode, didResolve, err = t.tryGetBranch(n.Children[key[pos]], key, pos+1, nodes)
+		if err == nil && didResolve {
+			n = n.copy()
+			n.flags.gen = t.cachegen
+			n.Children[key[pos]] = newnode
+		}
+		return value, n, didResolve, err
+	case hashNode:
+		child, err := t.resolveHashNodeIntoBranch(n, key[:pos], nodes)
+		if err != nil {
+			return nil, n, true, err
+		}
+		value, newnode, _, err := t.tryGetBranch(child, key, pos, nodes)
+		return value, newnode, true, err
+	default:
+		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
+	}
+}
+
 func (t *Trie) TryGet(key []byte) ([]byte, error) {
 	key = keybytesToHex(key)
-	value, newroot, didResolve, err := t.tryGet(t.root, key, 0)
+	value, newroot, didResolve, err := t.tryGet(t.RootNode, key, 0)
 	if err == nil && didResolve {
-		t.root = newroot
+		t.RootNode = newroot
 	}
 	return value, err
 }
@@ -235,11 +307,11 @@ func (t *Trie) Delete(key []byte) {
 
 func (t *Trie) TryDelete(key []byte) error {
 	k := keybytesToHex(key)
-	_, n, err := t.delete(t.root, nil, k)
+	_, n, err := t.delete(t.RootNode, nil, k)
 	if err != nil {
 		return err
 	}
-	t.root = n
+	t.RootNode = n
 	return nil
 }
 
@@ -329,6 +401,17 @@ func concat(s1 []byte, s2 ...byte) []byte {
 	return r
 }
 
+//func (t *Trie) Commit2(nodes map[string]*[]byte) (err error) {
+//	if t.db == nil {
+//		panic("commit called on trie with nil database")
+//	}
+//	err = t.hashRoot2(nodes)
+//	if err != nil {
+//		return  err
+//	}
+//	return nil
+//}
+
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if t.db == nil {
 		panic("commit called on trie with nil database")
@@ -337,7 +420,7 @@ func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	if err != nil {
 		return common.Hash{}, err
 	}
-	t.root = cached
+	t.RootNode = cached
 	t.cachegen++
 	return common.BytesToHash(hash.(hashNode)), nil
 }
@@ -347,6 +430,18 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 		return t.resolveHash(n, prefix)
 	}
 	return n, nil
+}
+
+func (t *Trie) resolveHashNodeIntoBranch(n hashNode, prefix []byte, nodes map[string]*[]byte) (node, error) {
+	cacheMissCounter.Inc(1)
+	hash := common.BytesToHash(n)
+	enc, err := t.db.Node(hash)
+	nodes[string(hash[:])] = &enc
+	fmt.Printf("----------------try get node hash=%x\n", hash[:])
+	if err != nil || enc == nil {
+		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
+	}
+	return mustDecodeNode(n, enc, t.cachegen), nil
 }
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
@@ -363,26 +458,34 @@ func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 
-func (t *Trie) Hash() common.Hash {
-	hash, cached, _ := t.hashRoot(nil, nil)
-	t.root = cached
+func (t *Trie) Hash2(nodes map[string]*[]byte, isInit bool) common.Hash {
+	hash, _ := t.hashRoot2(nodes, isInit)
 	return common.BytesToHash(hash.(hashNode))
 }
 
+func (t *Trie) Hash() common.Hash {
+	hash, cached, _ := t.hashRoot(nil, nil)
+	t.RootNode = cached
+	return common.BytesToHash(hash.(hashNode))
+}
+
+func (t *Trie) hashRoot2(nodes map[string]*[]byte, isInit bool) (node, error) {
+	if t.RootNode == nil {
+		return hashNode(emptyRoot.Bytes()), nil
+	}
+	h := newHasher2()
+	defer returnHasherToPool(h)
+	hash, _, _, err := h.hash2(t.RootNode, true, nodes, isInit)
+	return hash, err
+}
+
 func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
-	if t.root == nil {
+	if t.RootNode == nil {
 		return hashNode(emptyRoot.Bytes()), nil, nil
 	}
 	h := newHasher(t.cachegen, t.cachelimit, onleaf)
 	defer returnHasherToPool(h)
-	return h.hash(t.root, db, true)
-}
-
-func (t *Trie) Fstring() string{
-	if t.root == nil{
-		return ""
-	}
-	return t.root.fstring("",t)
+	return h.hash(t.RootNode, db, true)
 }
 
 func (t *Trie) NodeIterator(start []byte) NodeIterator {

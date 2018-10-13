@@ -140,7 +140,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		blog.log("already working on that block, status=%v", worker.getStatus())
 		return false
 	} else {
-		worker = newVRFWorker(p.getSelfMinerDO(), top, castHeight, expireTime)
+		worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime)
 		p.setVrfWorker(worker)
 		p.blockProposal()
 	}
@@ -169,6 +169,22 @@ func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *gr
 	return &selectGroup
 }
 
+func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
+	nextId := p.calcVerifyGroup(bh, height)
+	if nextId == nil {
+		return nil
+	}
+	group := p.getGroup(*nextId)
+	mems := make([]groupsig.ID, len(group.Members))
+	for idx, mem := range group.Members {
+		mems[idx] = mem.ID
+	}
+	g := &net.GroupBrief{
+		Gid: *nextId,
+		MemIds: mems,
+	}
+	return g
+}
 
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
@@ -201,19 +217,16 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		Block: *block,
 	}
 
-	nextId := p.calcVerifyGroup(bh, bh.Height+1)
-	group := p.getGroup(*nextId)
-	mems := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		mems[idx] = mem.ID
-	}
-	next := &net.NextGroup{
-		Gid: *nextId,
-		MemIds: mems,
-	}
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log( "height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
-		p.NetServer.BroadcastNewBlock(cbm, next)
+		gb := p.spreadGroupBrief(bh, bh.Height+1)
+		if gb == nil {
+			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+			return
+		}
+		p.NetServer.BroadcastNewBlock(cbm, gb)
+		p.reqRewardTransSign(vctx, bh)
+
 		blog.log("bh hash %v, bh sign %v, bh rand %v", block.Header.Hash.ShortS(), block.Header.Signature, block.Header.Random)
 		blog.log("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
 	}
@@ -248,13 +261,14 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	gid := p.calcVerifyGroup(top, height)
-	if gid == nil {
-		blog.log("calc verify group is nil!height=%v", height)
+	gb := p.spreadGroupBrief(top, height)
+	if gb == nil {
+		blog.log("spreadGroupBrief nil, bh=%v, height=%v", top.Hash.ShortS(), height)
 		return
 	}
+	gid := gb.Gid
 
-	block := p.MainChain.CastingBlock(uint64(height), 0, new(big.Int).SetBytes(pi), p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), 0, new(big.Int).SetBytes(pi), p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -265,15 +279,18 @@ func (p *Processor) blockProposal() {
 	tlog.logStart("height=%v,pi=%v", bh.Height, pi.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
-		skey := p.getSignKey(*gid)
+		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
 		//ccm.GroupID = gid
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
-		ccm.GenRandomSign(skey, worker.baseBH.Random)
-		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v", bh.CurTime.Sub(bh.PreTime).Seconds())
-		p.NetServer.SendCastVerify(&ccm)
+		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
+			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
+			return
+		}
+		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
+		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
+		p.NetServer.SendCastVerify(&ccm, gb)
 
 		worker.markProposed()
 

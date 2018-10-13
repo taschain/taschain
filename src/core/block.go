@@ -38,17 +38,31 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 
 	//keybuf := new(bytes.Buffer)
 	//trie := new(trie.Trie)
+	//Logger.Infof("calcTxTree transaction size:%d",len(tx))
 	//for i := 0; i < len(tx); i++ {
 	//	if tx[i] != nil {
 	//		keybuf.Reset()
 	//		serialize.Encode(keybuf, uint(i))
-	//		encode, _ := serialize.EncodeToBytes(tx[i])
+	//		//encode, _ := serialize.EncodeToBytes(tx[i])
+	//		encode, _ := msgpack.Marshal(tx[i])
+	//		len1 := -1
+	//		if tx[i].Data != nil{
+	//			len1 = len(tx[i].Data)
+	//		}
+	//		len2 := -1
+	//		if tx[i].ExtraData != nil{
+	//			len2 = len(tx[i].ExtraData)
+	//		}
+	//		Logger.Infof("calcTxTree %d len1:%d len2:%d source1:%s target1:%s %v",i,len1,len2,
+	//			tx[i].Source.GetHexString(),tx[i].Target.GetHexString(),encode)
 	//		trie.Update(keybuf.Bytes(), encode)
+	//	} else {
+	//		Logger.Error("calcTxTree exist empty transaction %d",i)
 	//	}
 	//}
 	//hash := trie.Hash()
-	//
 	//return common.BytesToHash(hash.Bytes())
+
 	buf := new(bytes.Buffer)
 	for i := 0; i < len(tx); i++ {
 		encode, _ := msgpack.Marshal(tx[i])
@@ -104,18 +118,21 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
 	stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
-
+	stage := stateDB.IntermediateRoot(false)
+	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
 	miners := make([]*types.Miner,0)
 	for i,member := range genesisInfo.Group.Members{
 		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
 		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
+	stage = stateDB.IntermediateRoot(false)
+	Logger.Debugf("GenesisBlock Stage2 Root:%s",stage.Hex())
 	stateDB.SetNonce(common.BonusStorageAddress,1)
 	stateDB.SetNonce(common.HeavyDBAddress,1)
 	stateDB.SetNonce(common.LightDBAddress,1)
-	stateDB.IntermediateRoot(false)
-	root, _ := stateDB.Commit(false)
+
+	root, _ := stateDB.Commit(true)
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 

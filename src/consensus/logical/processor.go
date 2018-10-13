@@ -27,6 +27,7 @@ import (
 	"middleware/notify"
 	"storage/tasdb"
 	"sync/atomic"
+	"fmt"
 )
 
 var PROC_TEST_MODE bool
@@ -50,12 +51,13 @@ type Processor struct {
 
 	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
+	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 
 	storage 	tasdb.Database
 	ready 		bool //是否已初始化完成
 
 	//////链接口
-	MainChain  core.BlockChainI
+	MainChain  core.BlockChain
 	GroupChain *core.GroupChain
 
 	minerReader *MinerPoolReader
@@ -86,6 +88,7 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.ready = false
 	p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
+	p.futureRewardReqs = NewFutureMessageHolder()
 	p.MainChain = core.BlockChainImpl
 	p.GroupChain = core.GroupChainImpl
 	p.mi = &mi
@@ -142,65 +145,43 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 }
 
 //检查铸块组是否合法
-func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
+func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, err error) {
 	blog := newBizLog("isCastLegal")
 	castor := groupsig.DeserializeId(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
 	if minerDO == nil {
-		blog.log("minerDO is nil")
-		return false
+		err = fmt.Errorf("minerDO is nil, id=%v", castor.ShortS())
+		return
 	}
 	if !p.minerCanProposalAt(castor, bh.Height) {
-		blog.log("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
-		return false
+		err = fmt.Errorf("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
+		return
 	}
 	totalStake := p.minerReader.getTotalStake(bh.Height)
 	blog.log("totalStake %v", totalStake)
-	if ok, err := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok {
-		blog.log("vrf verify block fail, err=%v", err)
-		return false
+	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
+		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
+		return
 	}
 
-	var gid groupsig.ID
-	if gid.Deserialize(bh.GroupId) != nil {
-		panic("isCastLegal, group id Deserialize failed.")
-	}
+	var gid = groupsig.DeserializeId(bh.GroupId)
 
 	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
-		return false
+		return
 	}
 	if !selectGroupId.IsEqual(gid) {
-		blog.log("failed, expect group=%v, receive cast group=%v", selectGroupId.ShortS(), gid.ShortS())
-		blog.log("qualified group num is %v", len(p.GetCastQualifiedGroups(bh.Height)))
-		return false
+		err = fmt.Errorf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		return
 	}
 
 	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
 	if !groupInfo.GroupID.IsValid() {
-		blog.log("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
-		return false
+		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
+		return
 	}
-
-	return true
-}
-
-//检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.ConsensusBlockMessageBase, preBH *types.BlockHeader) bool {
-
-	gmi := model.NewGroupMinerID(cgs.GroupID, msg.SI.GetID())
-	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	bizlog := newBizLog("verifyCastSign")
-	if !signPk.IsValid() {
-		bizlog.log("signPK is not valid")
-		return false
-	}
-	if msg.VerifySign(signPk) { //消息合法
-		return msg.VerifyRandomSign(signPk, preBH.Random)
-	} else {
-		bizlog.log("msg verifysign fail")
-		return false
-	}
+	ok = true
+	return true, nil
 }
 
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {

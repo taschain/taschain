@@ -19,9 +19,41 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	for _, msg := range futures {
 		tlog := newBlockTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		p.doVerify(mtype, msg, nil, tlog, newBizLog(mtype))
+		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype))
+		if err != nil {
+			tlog.logEnd("result=%v", err.Error())
+		}
 	}
 
+}
+
+func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
+	futures := p.futureRewardReqs.getMessages(bh.Hash)
+	if futures == nil || len(futures) == 0 {
+		return
+	}
+	p.futureRewardReqs.remove(bh.Hash)
+	mtype := "CMCRSR-Future"
+	for _, msg := range futures {
+		blog := newBizLog(mtype)
+		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh)
+		blog.log("send %v, result %v", send, err)
+	}
+}
+
+func (p *Processor) triggerFutureBlockMsg(preBH *types.BlockHeader) {
+	futureMsgs := p.getFutureBlockMsgs(preBH.Hash)
+	if futureMsgs == nil || len(futureMsgs) == 0 {
+		return
+	}
+	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
+	for _, msg := range futureMsgs {
+		tbh := msg.Block.Header
+		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+		tlog.log( "%v", "trigger cached future block")
+		p.receiveBlock(&msg.Block, preBH)
+	}
+	p.removeFutureBlockMsgs(preBH.Hash)
 }
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
@@ -30,7 +62,6 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	}
 	block := message.GetData().(types.Block)
 	bh := block.Header
-	preHeader := block.Header
 
 	gid := groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
@@ -42,37 +73,22 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vctx := bc.GetVerifyContextByHeight(bh.Height)
 		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 			vctx.markCastSuccess()
-			p.reqRewardTransSign(vctx, bh)
 		}
 
 	}
 
-	for {
-		futureMsgs := p.getFutureBlockMsgs(preHeader.Hash)
-		if futureMsgs == nil || len(futureMsgs) == 0 {
-			break
-		}
-		log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
-		for _, msg := range futureMsgs {
-			tbh := msg.Block.Header
-			tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
-			tlog.log( "%v", "trigger cached future block")
-			p.receiveBlock(&msg.Block, preHeader)
-		}
-		p.removeFutureBlockMsgs(preHeader.Hash)
-		preHeader = p.MainChain.QueryTopBlock()
-	}
 	vrf := p.getVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
 		vrf.markSuccess()
 	}
 	p.triggerCastCheck()
 
-	p.triggerFutureVerifyMsg(block.Header.Hash)
+	p.triggerFutureBlockMsg(bh)
+	p.triggerFutureVerifyMsg(bh.Hash)
+	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()
-	p.cleanVerifyContext(preHeader.Height)
 
-
+	p.cleanVerifyContext(bh.Height)
 }
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {

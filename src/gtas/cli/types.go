@@ -15,6 +15,14 @@
 
 package cli
 
+import (
+	"middleware/types"
+	"common"
+	"time"
+	"consensus/groupsig"
+	"math/big"
+)
+
 // Result rpc请求成功返回的可变参数部分
 type Result struct {
 	Message string      `json:"message"`
@@ -76,4 +84,96 @@ type ProposerStat struct {
 type CastStat struct {
 	Group map[string]GroupStat `json:"group"`
 	Proposer map[string]ProposerStat `json:"proposer"`
+}
+
+type MortGage struct {
+	Stake uint64 `json:"stake"`
+	ApplyHeight uint64 `json:"apply_height"`
+	AbortHeight uint64 `json:"abort_height"`
+	Type string `json:"type"`
+}
+
+func NewMortGageFromMiner(miner *types.Miner) *MortGage {
+	t := "重节点"
+	if miner.Type == types.MinerTypeLight {
+		t = "轻节点"
+	}
+	mg := &MortGage{
+		Stake: miner.Stake,
+		ApplyHeight: miner.ApplyHeight,
+		AbortHeight: miner.AbortHeight,
+		Type: t,
+	}
+	return mg
+}
+
+type NodeInfo struct {
+	ID string `json:"id"`
+	Balance uint64 `json:"balance"`
+	Status string `json:"status"`
+	WGroupNum int `json:"w_group_num"`
+	AGroupNum int `json:"a_group_num"`
+	NType string `json:"n_type"`
+	TxPoolNum int `json:"tx_pool_num"`
+	MortGages []MortGage `json:"mort_gages"`
+}
+
+type PageObjects struct {
+	Total uint64 `json:"count"`
+	Data []interface{} `json:"data"`
+}
+
+type Block struct {
+	Height uint64 `json:"height"`
+	Hash common.Hash `json:"hash"`
+	PreHash common.Hash `json:"pre_hash"`
+	CurTime time.Time `json:"cur_time"`
+	PreTime time.Time `json:"pre_time"`
+	Castor groupsig.ID `json:"castor"`
+	GroupID groupsig.ID `json:"group_id"`
+	Prove  *big.Int `json:"prove"`
+	Txs 	[]common.Hash `json:"txs"`
+}
+
+type BlockDetail struct {
+	Block
+	TxCnt 	int `json:"tx_cnt"`
+	BonusHash common.Hash `json:"bonus_hash"`
+	Signature groupsig.Signature `json:"signature"`
+	Random 	groupsig.Signature `json:"random"`
+}
+
+type Group struct {
+	Height uint64 `json:"height"`
+	Id groupsig.ID `json:"id"`
+	PreId groupsig.ID `json:"pre_id"`
+	ParentId groupsig.ID `json:"parent_id"`
+	BeginHeight uint64 `json:"begin_height"`
+	DismissHeight uint64 `json:"dismiss_height"`
+	Members []string `json:"members"`
+}
+
+
+type Transaction struct {
+	Data   []byte `json:"data"`
+	Value  uint64 `json:"value"`
+	Nonce  uint64 `json:"nonce"`
+	Source *common.Address `json:"source"`
+	Target *common.Address `json:"target"`
+	Type   int32 `json:"type"`
+
+	GasLimit uint64 `json:"gas_limit"`
+	GasPrice uint64 `json:"gas_price"`
+	Hash     common.Hash `json:"hash"`
+
+	ExtraData     []byte `json:"extra_data"`
+	ExtraDataType int32 `json:"extra_data_type"`
+}
+
+type Dashboard struct {
+	BlockHeight uint64 `json:"block_height"`
+	GroupHeight uint64 `json:"group_height"`
+	WorkGNum int `json:"work_g_num"`
+	NodeInfo *NodeInfo `json:"node_info"`
+	Conns []ConnInfo `json:"conns"`
 }

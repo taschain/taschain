@@ -165,3 +165,7 @@ func (id ID) String() string {
 	//return string(b)
 	return id.GetHexString()
 }
+
+func (id ID) ToAddress() common.Address {
+    return common.BytesToAddress(id.Serialize())
+}

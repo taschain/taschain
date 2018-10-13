@@ -102,10 +102,11 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	blog.log("proc(%v) core.AddBlockOnChain, height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newBlockTraceLog("doAddOnChain", bh.Hash, castor)
-	tlog.log("result=%v,castor=%v", result, castor)
+	tlog.log("result=%v,castor=%v", result, castor.ShortS())
 
 	if result == -1 {
 		p.removeFutureVerifyMsgs(block.Header.Hash)
+		p.futureRewardReqs.remove(block.Header.Hash)
 	}
 
 	return result
@@ -172,7 +173,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 }
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
-	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }

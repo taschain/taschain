@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"consensus/groupsig"
 	"taslog"
-	"core/net/sync"
 	_ "net/http/pprof"
 	"net/http"
 	"middleware"
@@ -64,11 +63,14 @@ const (
 
 	statisticsSection = "statistics"
 
+	nodetypeSection = "nodetype"
+
 	redis_prefix = "aliyun_"
 )
 
 var configManager = &common.GlobalConf
 var walletManager wallets
+var lightMiner bool
 
 type Gtas struct {
 	inited bool
@@ -105,7 +107,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 func (gtas *Gtas) waitingUtilSyncFinished() {
 	log.Println("waiting for block and group sync finished....")
 	for {
-		if sync.BlockSyncer.IsInit() && sync.GroupSyncer.IsInit() {
+		if core.BlockSyncer.IsInit() && core.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
@@ -114,9 +116,9 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp)
+	err := gtas.fullInit(super, testMode, seedIp,light)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -207,6 +209,8 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
+	//light node
+	light := mineCmd.Flag("light", "light node").Bool()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
@@ -268,9 +272,10 @@ func (gtas *Gtas) Run() {
 		fmt.Println("Please Remember Your PrivateKey!")
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc)
+		lightMiner = *light
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
 	case clearCmd.FullCommand():
-		err := ClearBlock()
+		err := ClearBlock(*light)
 		if err != nil {
 			fmt.Println(err)
 		} else {
@@ -281,9 +286,9 @@ func (gtas *Gtas) Run() {
 }
 
 // ClearBlock 删除本地的chainblock数据。
-func ClearBlock() error {
+func ClearBlock(light bool) error {
 	genesis := &logical.GenesisGeneratorImpl{}
-	err := core.InitCore(genesis.Generate())
+	err := core.InitCore(light,genesis.Generate())
 	if err != nil {
 		return err
 	}
@@ -295,7 +300,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) error {
 	var err error
 	// 椭圆曲线初始化
 	//groupsig.Init(1)
@@ -305,7 +310,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 
 	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore(genesis.Generate())
+	err = core.InitCore(light,genesis.Generate())
 	if err != nil {
 		return err
 	}
@@ -321,8 +326,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return err
 	}
 
-	sync.InitGroupSyncer()
-	sync.InitBlockSyncer()
+	core.InitGroupSyncer()
+	core.InitBlockSyncer(light)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)
@@ -343,7 +348,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string) error {
 		return errors.New("consensus module error")
 	}
 
-	//mediator.Proc.BeginGenesisGroupMember()
+	mediator.Proc.BeginGenesisGroupMember()
 	return nil
 }
 
