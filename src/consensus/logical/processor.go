@@ -136,7 +136,7 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 		return false
 	}
 
-	blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
+	//blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
 	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
 		blog.log("verifyGroupSig fail")
 		return false

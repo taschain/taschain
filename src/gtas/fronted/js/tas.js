@@ -12,6 +12,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     host_ele.text(HOST);
     var blocks = [];
     var groups = [];
+    var lastReloadBlockSize = 0
+    var lastReloadGroupSize = 0
     var workGroups = [];
     var groupIds = new Set();
     var table = layui.table;
@@ -454,14 +456,20 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     })
 
     function reloadBlocksTable() {
+        if (blocks.length == lastReloadBlockSize)
+            return
         block_table.reload({
             data: blocks
         })
+        lastReloadBlockSize = blocks.length
     }
     function reloadGroupsTable() {
+        if (groups.length == lastReloadGroupSize)
+            return
         group_table.reload({
             data: groups
         })
+        lastReloadGroupSize = groups.length
     }
 
     function dashboardLoad() {

@@ -171,7 +171,7 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 		h.sha.Reset()
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
-		fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
+		//fmt.Printf("=====>write:hash=%v,encodeLen=%d,node=%v \n",hash,len(h.tmp.Bytes()),n.print())
 	}
 	if db != nil {
 
