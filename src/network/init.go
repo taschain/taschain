@@ -45,7 +45,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
-	self, err := InitSelfNode(config, isSuper, newNodeID(nodeIDHex))
+	self, err := InitSelfNode(config, isSuper, NewNodeID(nodeIDHex))
 	if err != nil {
 		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
 		return err
@@ -57,7 +57,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	seedId, _, seedPort := getSeedInfo(config)
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := NewNode(newNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(NewNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
 
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)

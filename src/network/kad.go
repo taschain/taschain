@@ -91,11 +91,15 @@ func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node)
 
 //print 打印桶成员信息
 func (kad *Kad) print() {
+	Logger.Debugf(" [kad] print bucket size: %v", kad.len())
+
 	for i, b := range kad.buckets {
 		for _, n := range b.entries {
-			Logger.Debugf(" [kad] bucket:%v id:%v  addr: IP:%v    Port:%v", i,n.Id.GetHexString(),n.Ip, n.Port)
+			Logger.Debugf(" [kad] print bucket:%v id:%v  addr: IP:%v    Port:%v", i,n.Id.GetHexString(),n.Ip, n.Port)
 		}
 	}
+
+
 	return
 }
 
@@ -307,12 +311,8 @@ loop:
 				go kad.doRefresh(refreshDone)
 			}
 		case <-check.C:
-			if kad.setupCheckCount >  maxSetupCheckCount {
-				check.Stop()
-			} else {
 				kad.setupCheckCount = kad.setupCheckCount +1
 				go kad.doCheck()
-			}
 
 		case <-refreshDone:
 			for _, ch := range waiting {
@@ -356,10 +356,10 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 
 func (kad *Kad) doCheck() {
 
-	Logger.Debugf("doCheck ... bucket size:%v ", kad.len())
-	//if kad.len() <= len(kad.nursery) * 3{
-	kad.refresh()
-	///}
+	Logger.Debugf("[kad] check ... bucket size:%v ", kad.len())
+	if kad.len() <= len(kad.seeds) || kad.setupCheckCount <  maxSetupCheckCount{
+		kad.refresh()
+	}
 }
 
 
