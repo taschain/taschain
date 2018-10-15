@@ -245,7 +245,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
-	state := accountdb.IntermediateRoot(false)
+	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s",state.Hex())
 	return state, receipts, nil
 }
