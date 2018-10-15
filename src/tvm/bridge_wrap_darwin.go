@@ -417,12 +417,12 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 
 // 获取剩余gas
 func (tvm *Tvm) Gas() int {
-	return int(C.getGas())
+	return int(C.tvm_get_gas())
 }
 
 // 设置可使用gas, init成功后设置
 func (tvm *Tvm) SetGas(gas int) {
-	C.setGas(C.int(gas))
+	C.tvm_set_gas(C.int(gas))
 }
 
 func (tvm *Tvm) Pycode2bytecode(str string) {
