@@ -122,7 +122,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
 	miners := make([]*types.Miner,0)
 	for i,member := range genesisInfo.Group.Members{
-		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:uint64(10 * (i+1))}
+		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
 		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
