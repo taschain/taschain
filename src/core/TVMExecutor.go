@@ -52,7 +52,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contractAddress, _ = createContract(accountdb, transaction)
-			controller.Transaction.GasLimit = controller.Transaction.GasLimit - uint64(float32(len(transaction.Data)) * CodeBytePrice)
+			controller.Transaction.GasLimit -= uint64(float32(len(transaction.Data)) * CodeBytePrice)
+			//fmt.Printf("gas: %d\n", controller.Transaction.GasLimit)
 			contract := tvm.LoadContract(contractAddress)
 			snapshot := controller.AccountDB.Snapshot()
 			if !controller.Deploy(transaction.Source, contract) {

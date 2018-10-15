@@ -41,8 +41,8 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
 	con.Vm.SetGas(int(con.Transaction.GasLimit))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
 	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
+	con.Vm.DelTvm()
 	if !succeed {
-		con.Vm.DelTvm()
 		return false
 	}
 	succeed = con.ExecuteTask()
