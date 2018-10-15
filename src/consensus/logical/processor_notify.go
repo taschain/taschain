@@ -81,7 +81,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
 		vrf.markSuccess()
 	}
-	p.triggerCastCheck()
+	//p.triggerCastCheck()
 
 	p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh.Hash)

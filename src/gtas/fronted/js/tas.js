@@ -21,6 +21,10 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
     var block_table = table.render({
         elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
+        ,initSort: {
+            field: 'height',
+            type: 'asc'
+        }
         ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
             {field:'pre_time', title: 'pre_time', width: 189},{field:'queue_number', title: 'queue_number'},
             {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
@@ -31,6 +35,10 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
     var group_table = table.render({
         elem: '#group_detail' //指定原始表格元素选择器（推荐id选择器）
+        ,initSort: {
+            field: 'begin_height',
+            type: 'asc'
+        }
         ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},
             {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
             {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},

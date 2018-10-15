@@ -24,9 +24,10 @@ func (p *Processor) genBelongGroupStoreFile() string {
 
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
-	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
+	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 2)
 	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
 	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
+	p.triggerCastCheck()
 	p.prepareMiner()
 	p.ready = true
 	return true
