@@ -421,6 +421,10 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	latest := chain.latestBlock
+	Logger.Debugf("hhhhhhhhhhh hash=%v, preH=%v, height=%v, tophash=%v, topPreH=%v, %v", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height,
+		latest.Hash.Hex(), latest.PreHash.Hex(), b.Header.TotalPV.Cmp(latest.TotalPV))
+
 	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status, headerJson = chain.saveBlock(b)
@@ -432,6 +436,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	} else {
 		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
+			Logger.Debugf("chainisadjusting. topHash=%v, height=%v", chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
 			return 2
 		}
 		var castorId groupsig.ID
@@ -441,6 +446,8 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
+		bh := b.Header
+		Logger.Debugf("startAdjusting, hash=%v, pre=%v, height=%v, topHash=%v, topheight=%v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, latest.Hash.Hex(), latest.Height)
 		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash, true)
 		status = 2
 	}
@@ -678,6 +685,12 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
+		s := make([]string, len(bhs))
+		for i, bh := range bhs {
+			s[i] = bh.Hash.ShortS()
+		}
+		Logger.Debugf("bbbbbbbbbbbbbbb,comming chain piece %v, common ancestor %v, sid=%v", s, blockHash.Hash.ShortS(), sourceId)
+		removeHs := make([]string, 0)
 		//删除自身链的结点
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
@@ -685,8 +698,10 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 				continue
 			}
 			chain.remove(header)
+			removeHs = append(removeHs, header.Hash.ShortS())
 			chain.topBlocks.Remove(header.Height)
 		}
+		Logger.Debugf("bbbbbbbbbbbbbbb,remove local chain headers %v", removeHs)
 		for h := blockHash.Height; h >= 0; h-- {
 			header := chain.queryBlockHeaderByHeight(h, true)
 			if header != nil {

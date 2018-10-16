@@ -22,6 +22,7 @@ import (
 	"middleware/types"
 	"network"
 	"math/big"
+	"time"
 )
 
 type TransactionRequestMessage struct {
@@ -79,7 +80,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
 }
