@@ -53,7 +53,7 @@ class Address(object):
             env["storage"] = glovar.storage
             env["this"] = Address(self.value)
             # env["Address"] = Address
-            env["msg"] = glovar.msg
+            env["msg"] = msg
             owner = self.data.get_owner()
             env["owner"] = Address(owner)
 

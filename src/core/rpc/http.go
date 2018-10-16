@@ -159,7 +159,7 @@ func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Permit dumb empty requests for remote health-checks (AWS)
 	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
-		html := strings.Replace(HTMLTEM, "127.0.0.1:8088", r.Host, -1)
+		html := strings.Replace(HTMLTEM, "127.0.0.1:8101", r.Host, -1)
 		w.Write([]byte(html))
 		return
 	}

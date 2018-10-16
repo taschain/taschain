@@ -39,8 +39,8 @@ type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) T(from string, to string, amount uint64, code string,nonce uint64) (*Result, error) {
-	hash, contractAddr, err := walletManager.transaction(from, to, amount, code,nonce)
+func (api *GtasAPI) T(from string, to string, amount uint64, code string, nonce uint64) (*Result, error) {
+	hash, contractAddr, err := walletManager.transaction(from, to, amount, code, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +156,36 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail["target"] = transaction.Target.Hash().Hex()
 	detail["value"] = transaction.Value
 	return &Result{"success", detail}, nil
+}
+
+func (api *GtasAPI) GetContractData(contractAddr, key string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	value := stateDb.GetData(addr, key)
+	return &Result{"success", string(value)}, nil
+}
+
+func (api *GtasAPI) GetNonce(contractAddr string) (*Result, error) {
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	addr := common.HexStringToAddress(contractAddr)
+	nonce := stateDb.GetNonce(addr)
+	return &Result{"success", nonce}, nil
+}
+
+func(api *GtasAPI) GetContractDatas(contractAddr string) (*Result, error) {
+	addr := common.HexStringToAddress(contractAddr)
+	stateDb := core.BlockChainImpl.LatestStateDB()
+	iterator := stateDb.DataIterator(addr, "")
+	kv := make(map[string]string)
+	for iterator != nil {
+		if len(iterator.Key) != 0 {
+			kv[string(iterator.Key)] = string(iterator.Value)
+		}
+		if !iterator.Next() {
+			break
+		}
+	}
+	return &Result{"success", kv}, nil
 }
 
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
@@ -275,6 +305,42 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 		ret = append(ret, gmap)
 	}
 	return &Result{"success", ret}, nil
+}
+
+func (api *GtasAPI) GetTransByAccount(account string) (*Result, error) {
+	height := core.BlockChainImpl.Height()
+	res := make([]*Transactions, 0)
+	for i := uint64(1); i <= height; i++ {
+		block := core.BlockChainImpl.QueryBlockByHeight(i)
+		if block == nil {
+			fmt.Println("i: ", i, " heighttt: ", height)
+			continue
+		}
+		for _, hash := range block.Transactions {
+			transaction, err := core.BlockChainImpl.GetTransactionByHash(hash)
+			if err != nil {
+				continue
+			}
+			if transaction.Source.GetHexString() == account || transaction.Target.GetHexString() == account {
+				t := &Transactions{}
+				t.Hash = transaction.Hash.Hex()
+				t.Source = transaction.Source.GetHexString()
+				t.Target = transaction.Target.GetHexString()
+				t.Value = strconv.FormatUint(transaction.Value, 10)
+				t.Height = block.Height
+				t.BlockHash = block.Hash.Hex()
+				res = append(res, t)
+			}
+		}
+	}
+	return &Result{"success", res}, nil
+}
+
+func(api *GtasAPI) ContractCode(contractAddrStr string) (*Result, error) {
+	contractAddr := common.HexStringToAddress(contractAddrStr)
+	db := core.BlockChainImpl.LatestStateDB()
+	code := db.GetCode(contractAddr)
+	return &Result{"success", string(code)}, nil
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.

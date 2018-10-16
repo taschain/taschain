@@ -1,6 +1,5 @@
 
 
-from clib.tas_runtime import glovar
 from clib.tas_runtime.address_tas import Address
 from lib.base.event import Event
 from lib.base.utils_tas import *
@@ -32,35 +31,35 @@ class TokenERC20(object):
         Event.emit("Transfer", _from, _to, _value)
 
     def transfer(self, _to, _value):
-        self._transfer(glovar.msg.sender, _to, _value)
+        self._transfer(msg.sender, _to, _value)
 
     def transfer_from(self, _from, _to, _value):
-        require(_value <= self.allowance[_from][glovar.msg.sender])
-        self.allowance[_from][glovar.msg.sender] -= _value
+        require(_value <= self.allowance[_from][msg.sender])
+        self.allowance[_from][msg.sender] -= _value
         self._transfer(_from, _to, _value)
         return True
 
     def approve(self, _spender, _value):
-        if glovar.msg.sender not in self.allowance:
-            self.allowance[glovar.msg.sender] = {}
-        self.allowance[glovar.msg.sender][_spender] = _value
-        Event.emit("Approval", glovar.msg.sender, _spender, _value)
+        if msg.sender not in self.allowance:
+            self.allowance[msg.sender] = {}
+        self.allowance[msg.sender][_spender] = _value
+        Event.emit("Approval", msg.sender, _spender, _value)
         return True
 
     def approveAndCall(self, _spender, _value, _extraData):
         spender = Address(_spender)
         if self.approve(_spender, _value):
-            spender.call("receive_approval", glovar.msg.sender, _value, glovar.this, _extraData)
+            spender.call("receive_approval", msg.sender, _value, this, _extraData)
             return True
         else:
             return False
 
     def burn(self, _value):
         #检查账户余额
-        require(self.balanceOf[glovar.msg.sender] >= _value)
-        self.balanceOf[glovar.msg.sender] -= _value
+        require(self.balanceOf[msg.sender] >= _value)
+        self.balanceOf[msg.sender] -= _value
         self.totalSupply -= _value
-        Event.emit("Burn", glovar.msg.sender, _value)
+        Event.emit("Burn", msg.sender, _value)
         return True
 
     def burnFrom(self, _from, _value):
@@ -68,9 +67,9 @@ class TokenERC20(object):
         #     self.balanceOf[_from] = 0
         #检查账户余额
         require(self.balanceOf[_from] >= _value)
-        require(_value <= self.allowance[_from][glovar.msg.sender])
+        require(_value <= self.allowance[_from][msg.sender])
         self.balanceOf[_from] -= _value
-        self.allowance[_from][glovar.msg.sender] -= _value
+        self.allowance[_from][msg.sender] -= _value
         self.totalSupply -= _value
         Event.emit("Burn", _from, _value)
         return True

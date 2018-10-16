@@ -5,19 +5,19 @@
 #ifndef TVM_TVM_H
 #define TVM_TVM_H
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 // 设置python lib的路径
 void tvm_set_lib_path(const char* path);
 void tvm_start(void);
-void setGas(int value);
-int getGas();
 void tvm_test(void);
 _Bool tvm_execute(char *str);
 typedef int (*callback_fcn)(int);
 typedef void (*testAry_fcn)(void*);
+
+_Bool pycode2bytecode(char *str);
+_Bool runbytecode(char *buf, int len);
 void some_c_func(callback_fcn);
 void tvm_setup_func(callback_fcn callback);
 void tvm_set_testAry_func(testAry_fcn);
@@ -27,6 +27,15 @@ testAry_fcn testAry;
 typedef void (*TransferFunc)(const char*, const char*);
 TransferFunc transferFunc;
 void setTransferFunc(TransferFunc);
+
+
+/***********************/
+
+void tvm_set_gas(int limit);
+int tvm_get_gas();
+void tvm_gas_report();
+
+
 /*********************************************************************************************/
 typedef void (*Function1) (const char*);
 typedef char* (*Function2) (const char*);
@@ -43,6 +52,7 @@ typedef void (*Function12) (int);
 typedef int (*Function13)();
 typedef char* (*Function14) (unsigned long long);
 typedef char* (*Function15) ();
+typedef void (*Function16)(const char*, int len);
 
 
 
@@ -78,6 +88,7 @@ Function9 timestamp;
 Function15 origin;
 //
 Function11 contract_call;
+Function16 set_bytecode;
 
 
 

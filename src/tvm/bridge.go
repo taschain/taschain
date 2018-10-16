@@ -17,13 +17,13 @@ package tvm
 
 /*
 #include <stdlib.h>
- */
+*/
 import "C"
 import (
-	"fmt"
-	"unsafe"
 	"common"
+	"fmt"
 	"math/big"
+	"unsafe"
 )
 
 //export callOnMeGo
@@ -238,13 +238,20 @@ func TxOrigin() *C.char {
 }
 
 //export TxGasLimit
-func TxGasLimit() C.ulonglong{
+func TxGasLimit() C.ulonglong {
 	return C.ulonglong(controller.Transaction.GasLimit)
 }
 
 //export ContractCall
 func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
 	Call(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+}
+
+//export SetBytecode
+func SetBytecode(code *C.char, len C.int) {
+	fmt.Println(C.GoString(code))
+	RunByteCode(code, len)
+	fmt.Println(C.GoString(code))
 }
 
 //TODO 合约call合约
