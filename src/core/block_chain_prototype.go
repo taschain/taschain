@@ -80,7 +80,7 @@ func (chain *prototypeChain) TotalQN()*big.Int {
 	if nil == chain.latestBlock {
 		return nil
 	}
-	return chain.latestBlock.ProveValue
+	return chain.latestBlock.TotalPV
 }
 
 //查询最高块
