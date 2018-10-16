@@ -66,32 +66,20 @@ func (bc *BlockContext) GetVerifyContextByHeight(height uint64) (*VerifyContext)
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 
+	return bc.getVctxByHeight(height)
+}
+
+func (bc *BlockContext) getVctxByHeight(height uint64) (*VerifyContext) {
 	if v, ok := bc.vctxs[height]; ok {
 		return v
 	}
 	return nil
 }
 
-func (bc *BlockContext) AddVerifyContext(vctx *VerifyContext) bool {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
-	bc.vctxs[vctx.castHeight] = vctx
-	return true
-}
-
-func (bc *BlockContext) replaceVerifyCtx(old *VerifyContext,height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
+func (bc *BlockContext) replaceVerifyCtx(height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
 	vctx := newVerifyContext(bc, height, expireTime, preBH)
-	_vt := bc.vctxs[vctx.castHeight]
-	if _vt == old {
-		bc.vctxs[vctx.castHeight] = vctx
-		return vctx
-	} else if _vt.prevBH.Hash == vctx.prevBH.Hash {
-		return _vt
-	} else {
-		return nil
-	}
+	bc.vctxs[vctx.castHeight] = vctx
+	return vctx
 }
 
 func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
@@ -99,9 +87,9 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 	blog := newBizLog("getOrNewVctx")
 
 	//若该高度还没有verifyContext， 则创建一个
-	if vctx = bc.GetVerifyContextByHeight(height); vctx == nil {
+	if vctx = bc.getVctxByHeight(height); vctx == nil {
 		vctx = newVerifyContext(bc, height, expireTime, preBH)
-		bc.AddVerifyContext(vctx)
+		bc.vctxs[vctx.castHeight] = vctx
 		blog.log("add vctx expire %v", expireTime)
 	} else {
 		// hash不一致的情况下，
@@ -110,7 +98,7 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 			preOld := bc.Proc.getBlockHeaderByHash(vctx.prevBH.Hash)
 			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
 			if preOld == nil {
-				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preBH)
+				vctx = bc.replaceVerifyCtx(height, expireTime, preBH)
 				return vctx
 			}
 			preNew := bc.Proc.getBlockHeaderByHash(preBH.Hash)
@@ -120,7 +108,7 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 			}
 			//新旧preBH都非空， 取高度高的preBH？
 			if preOld.Height < preNew.Height {
-				vctx = bc.replaceVerifyCtx(vctx, height, expireTime, preNew)
+				vctx = bc.replaceVerifyCtx(height, expireTime, preNew)
 			}
 		} else {
 			if height == 1 && expireTime.After(vctx.expireTime) {
@@ -156,6 +144,9 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	}
 
 	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime)
+
+	bc.lock.Lock()
+	defer bc.lock.Unlock()
 
 	vctx := bc.getOrNewVctx(bh.Height, expireTime, preBH)
 	return vctx

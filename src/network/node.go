@@ -28,7 +28,7 @@ type NodeID [NodeIdLength]byte
 func (nid NodeID) GetHexString() string {
     return string(nid[:])
 }
-func newNodeID(hex string) NodeID {
+func NewNodeID(hex string) NodeID {
     var nid NodeID
     nid.SetBytes([]byte(hex))
     return nid

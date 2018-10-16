@@ -885,7 +885,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 
 	defer func() {
 		tlog.logEnd("bonus send:%v, ret:%v", send, err)
-		blog.log("blockHash=%v, result=%v %v", msg.BlockHash.ShortS(), send, err)
+		blog.log("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
 	}()
 
 
@@ -929,6 +929,6 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		 send = true
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
 	} else {
-		err = fmt.Errorf("accept %v, recover %v, slotStatus %v", accept, recover, slot.GetSlotStatus())
+		err = fmt.Errorf("accept %v, recover %v, %v", accept, recover, slot.rewardGSignGen.Brief())
 	}
 }

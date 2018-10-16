@@ -169,7 +169,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
 	//bc.registerTicker()
-	p.triggerCastCheck()
+	//p.triggerCastCheck()
 }
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {

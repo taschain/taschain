@@ -81,8 +81,8 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) bool {
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
 	pi := base.VRFProve(bh.ProveValue.Bytes())
 	ok, err := base.VRF_verify(miner.VrfPK, pi, preBH.Random)
-	blog := newBizLog("vrfVerifyBlock")
-	blog.log("pi %v", pi.ShortS())
+	//blog := newBizLog("vrfVerifyBlock")
+	//blog.log("pi %v", pi.ShortS())
 	if !ok {
 		return ok ,err
 	}

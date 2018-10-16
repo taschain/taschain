@@ -110,6 +110,10 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	}
 
 	top := p.MainChain.QueryTopBlock()
+	if time.Since(top.CurTime).Seconds() < 1.0 {
+		blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
+		return false
+	}
 
 	var (
 		expireTime time.Time
@@ -227,8 +231,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		p.NetServer.BroadcastNewBlock(cbm, gb)
 		p.reqRewardTransSign(vctx, bh)
 
-		blog.log("bh hash %v, bh sign %v, bh rand %v", block.Header.Hash.ShortS(), block.Header.Signature, block.Header.Random)
-		blog.log("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
+		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 
 	return
@@ -276,7 +279,7 @@ func (p *Processor) blockProposal() {
 	bh := block.Header
 	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, pi=%v...", bh.Hash.ShortS(), height, pi.ShortS())
-	tlog.logStart("height=%v,pi=%v", bh.Height, pi.ShortS())
+	tlog.logStart("height=%v,pi=%v, preHash=%v", bh.Height, pi.ShortS(), bh.PreHash.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥

@@ -129,8 +129,10 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		p.connecting = false
 		pm.addPeer(netId, p)
 	}
+
+	Logger.Infof("write Id:%v netid:%v session:%v size %v", toid.GetHexString(),netId, p.seesionId, len(packet.Bytes()))
+
 	if p.seesionId > 0 {
-		Logger.Infof("P2PSend Id:%v session:%v size %v", toid.GetHexString(), p.seesionId, len(packet.Bytes()))
 		p.write(packet)
 	} else {
 
@@ -171,10 +173,8 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 		pm.addPeer(id, p)
 	} else if session > 0 {
-		if p.seesionId == 0 {
-			p.recvList = list.New()
-			p.seesionId = session
-		}
+		p.recvList = list.New()
+		p.seesionId = session
 	}
 	p.connecting = false
 
@@ -194,7 +194,7 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		Logger.Infof("OnDisconnected id：%v ip:%v port:%v ", p.Id.GetHexString(), p.Ip, p.Port)
+		Logger.Infof("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
@@ -231,9 +231,13 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 	pm.checkPeerSource()
+	Logger.Infof("SendAll total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		if p.seesionId > 0 && p.source == PeerSourceKad {
+		//if p.seesionId > 0 && p.source == PeerSourceKad {
+		//	p.write(packet)
+		//}
+		if p.seesionId > 0 {
 			p.write(packet)
 		}
 	}

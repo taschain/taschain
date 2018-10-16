@@ -35,15 +35,15 @@ import (
 */
 
 const (
-	SS_INVALID  int32 = iota
-	SS_WAITING   //等待签名片段达到阈值
-	SS_SIGNED    //自己是否签名过
-	SS_RECOVERD  //恢复出组签名
-	SS_VERIFIED  //组签名用组公钥验证通过
-	SS_SUCCESS   //已上链广播
-	SS_FAILED    //铸块过程中失败，不可逆
-	SS_REWARD_REQ //分红交易签名请求已发
-	SS_REWARD_SEND //分红交易已广播
+	SS_INITING     int32 = iota
+	SS_WAITING        //等待签名片段达到阈值
+	SS_SIGNED          //自己是否签名过
+	SS_RECOVERD      //恢复出组签名
+	SS_VERIFIED      //组签名用组公钥验证通过
+	SS_SUCCESS        //已上链广播
+	SS_FAILED          //铸块过程中失败，不可逆
+	SS_REWARD_REQ   //分红交易签名请求已发
+	SS_REWARD_SEND  //分红交易已广播
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
@@ -64,14 +64,30 @@ type SlotContext struct {
 	rewardGSignGen	*model.GroupSignGenerator	//奖励交易签名产生器
 }
 
-func createSlotContext(threshold int) *SlotContext {
+func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
-		//QueueNumber:    model.INVALID_QN,
-		slotStatus:     SS_INVALID,
+		BH:             *bh,
+		vrfValue:       bh.ProveValue,
+		castor:         groupsig.DeserializeId(bh.Castor),
+		slotStatus:     SS_INITING,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
 		rewardGSignGen: model.NewGroupSignGenerator(threshold),
 		lostTxHash:     set.New(set.ThreadSafe),
+	}
+}
+
+func (sc *SlotContext) init(bh *types.BlockHeader) bool {
+	log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
+	ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
+	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
+	sc.addLostTrans(ltl)
+	if ccr == -1 {
+		sc.setSlotStatus(SS_FAILED)
+		return false
+	} else {
+		sc.setSlotStatus(SS_WAITING)
+		return true
 	}
 }
 
@@ -196,26 +212,10 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 	return CBMR_ERROR_UNKNOWN
 }
 
-//根据（某个QN值）接收到的第一包数据生成一个新的插槽
-func (sc *SlotContext) init(bh *types.BlockHeader) bool {
-	if sc.StatusTransform(SS_INVALID, SS_WAITING) {
-		sc.BH = *bh
-		sc.vrfValue = bh.ProveValue
-		log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-		ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
-		log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
-		sc.addLostTrans(ltl)
-		sc.castor = groupsig.DeserializeId(bh.Castor)
-		if ccr == -1 {
-			sc.setSlotStatus(SS_FAILED)
-		}
-		return true
-	}
-	return false
-}
+
 
 func (sc *SlotContext) IsValid() bool {
-	return sc.GetSlotStatus() != SS_INVALID
+	return sc.GetSlotStatus() != SS_INITING
 }
 
 func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
