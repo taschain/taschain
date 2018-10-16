@@ -22,7 +22,6 @@ import (
 	"core/datasource"
 	"os"
 
-	"encoding/json"
 	"storage/tasdb"
 	vtypes "storage/core/types"
 	"middleware/types"
@@ -240,7 +239,7 @@ func (pool *TxPool) MarkExecuted(receipts vtypes.Receipts, txs []*types.Transact
 				Transaction: getTransaction(txs, hash, i),
 			}
 
-			receiptJson, err := json.Marshal(receiptWrapper)
+			receiptJson, err := msgpack.Marshal(receiptWrapper)
 			if nil != err {
 				continue
 			}
