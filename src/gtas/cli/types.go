@@ -137,10 +137,11 @@ type Block struct {
 
 type BlockDetail struct {
 	Block
-	TxCnt 	int `json:"tx_cnt"`
-	BonusHash common.Hash `json:"bonus_hash"`
-	Signature groupsig.Signature `json:"signature"`
-	Random 	groupsig.Signature `json:"random"`
+	GenBonusTx *BonusTransaction `json:"gen_bonus_tx"`
+	//Signature groupsig.Signature `json:"signature"`
+	//Random 	groupsig.Signature `json:"random"`
+	Trans 	[]Transaction `json:"trans"`
+	BodyBonusTxs []BonusTransaction `json:"body_bonus_txs"`
 }
 
 type Group struct {
@@ -168,6 +169,14 @@ type Transaction struct {
 
 	ExtraData     []byte `json:"extra_data"`
 	ExtraDataType int32 `json:"extra_data_type"`
+}
+
+type BonusTransaction struct {
+	Hash common.Hash `json:"hash"`
+	BlockHash common.Hash `json:"block_hash"`
+	GroupID groupsig.ID `json:"group_id"`
+	TargetIDs []groupsig.ID `json:"target_ids"`
+	Value uint64 `json:"value"`
 }
 
 type Dashboard struct {

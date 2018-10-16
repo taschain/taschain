@@ -224,17 +224,7 @@ func (api *GtasAPI) PageGetBlocks(page, limit int) (*Result, error) {
 		if bh == nil {
 			continue
 		}
-		block := &Block{
-			Height: bh.Height,
-			Hash: bh.Hash,
-			PreHash: bh.PreHash,
-			CurTime: bh.CurTime,
-			PreTime: bh.PreTime,
-			Castor: groupsig.DeserializeId(bh.Castor),
-			GroupID: groupsig.DeserializeId(bh.GroupId),
-			Prove: bh.ProveValue,
-			Txs: bh.Transactions,
-		}
+		block := convertBlockHeader(bh)
 		pageObject.Data = append(pageObject.Data, block)
 		i++
 	}
@@ -289,29 +279,33 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	chain := core.BlockChainImpl
-	bh := chain.QueryBlockHeaderByHash(common.HexToHash(h))
-	block := &Block{
-		Height: bh.Height,
-		Hash: bh.Hash,
-		PreHash: bh.PreHash,
-		CurTime: bh.CurTime,
-		PreTime: bh.PreTime,
-		Castor: groupsig.DeserializeId(bh.Castor),
-		GroupID: groupsig.DeserializeId(bh.GroupId),
-		Prove: bh.ProveValue,
-		Txs: bh.Transactions,
+	b := chain.QueryBlockByHash(common.HexToHash(h))
+	if b == nil {
+		return successResult(nil)
 	}
-	bonus := chain.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-	var bonusHash common.Hash
-	if bonus != nil {
-		bonusHash = bonus.Hash
+	bh := b.Header
+	block := convertBlockHeader(bh)
+
+	trans := make([]Transaction, 0)
+	bonusTxs := make([]BonusTransaction, 0)
+	for _, tx := range b.Transactions {
+		if tx.Type == types.TransactionTypeBonus {
+			bonusTxs = append(bonusTxs, *convertBonusTransaction(tx))
+		} else {
+			trans = append(trans, *convertTransaction(tx))
+		}
 	}
+
+	var genBonus *BonusTransaction
+	if bonusTx := chain.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx != nil {
+		genBonus = convertBonusTransaction(bonusTx)
+	}
+
 	bd := &BlockDetail{
 		Block: *block,
-		TxCnt: len(block.Txs),
-		BonusHash: bonusHash,
-		Signature: *groupsig.DeserializeSign(bh.Signature),
-		Random: *groupsig.DeserializeSign(bh.Random),
+		GenBonusTx: genBonus,
+		Trans: trans,
+		BodyBonusTxs: bonusTxs,
 	}
 	return successResult(bd)
 }
@@ -322,19 +316,7 @@ func (api *GtasAPI) TransDetail(h string) (*Result, error) {
 		return failResult(err.Error())
 	}
 	if tx != nil {
-		trans := &Transaction{
-			Hash: tx.Hash,
-			Source: tx.Source,
-			Target: tx.Target,
-			Type: tx.Type,
-			GasLimit: tx.GasLimit,
-			GasPrice: tx.GasPrice,
-			Data: tx.Data,
-			ExtraData: tx.ExtraData,
-			ExtraDataType: tx.ExtraDataType,
-			Nonce: tx.Nonce,
-			Value: tx.Value,
-		}
+		trans := convertTransaction(tx)
 		return successResult(trans)
 	}
 	return successResult(nil)

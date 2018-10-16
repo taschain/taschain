@@ -26,8 +26,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             type: 'asc'
         }
         ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
-            {field:'pre_time', title: 'pre_time', width: 189},{field:'queue_number', title: 'queue_number'},
-            {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
+            {field:'pre_time', title: 'pre_time', width: 189},{field:'cur_time', title: 'cur_time', width: 189},
+            {field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'txs', title: 'tx_count'}]] //设置表头
         ,data: blocks
         ,page: true
         ,limit:15
@@ -498,10 +498,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 d = rdata.result.data
                 //块高
                 $("#block_height").text(d.block_height)
-                if (d.block_height == 0 && block.length > 0 && blocks[0]["height"] == 0) {
+                clear = $("#tb_node_status").text() == "已停止" && d.node_info.status == "运行中"
+                if (clear) {
                     current_block_height = 0;
                     blocks = [];
-                    reloadBlocksTable()
+                    block_table.reload({
+                        data: blocks
+                    })
                 }
 
                 for(let i=current_block_height+1; i<=d.block_height; i++) {
@@ -511,10 +514,12 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
                 //组高
                 $("#group_height").text(d.group_height)
-                if (groups.length > 0 && d.group_height < groups[groups.length - 1]["height"]) {
+                if (clear) {
                     groups = []
                     groupIds.clear()
-                    reloadGroupsTable()
+                    group_table.reload({
+                        data: groups
+                    })
                 } else {
                     if (groups.length == 0) {
                         syncGroup(0)
