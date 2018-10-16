@@ -258,21 +258,28 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 	}
+	var missingAccouts []common.Address
 	var missingAccountTxs []*types.Transaction
-	if chain.Height() == 0{
+	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil{
 		missingAccountTxs = b.Transactions
+		castor := common.BytesToAddress(b.Header.Castor)
+
+		missingAccouts = append(missingAccouts,castor)
+		missingAccouts = append(missingAccouts,common.BonusStorageAddress)
+		missingAccouts = append(missingAccouts,common.LightDBAddress)
+		missingAccouts = append(missingAccouts,common.HeavyDBAddress)
 	}else {
-		missingAccountTxs = chain.executor.FilterMissingAccountTransaction(state, b)
+		missingAccountTxs,missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
 	}
 
-	if len(missingAccountTxs) != 0 {
-		Logger.Debugf("len(noExecuteTxs) != 0,len:%d", len(missingAccountTxs))
+	if len(missingAccountTxs) != 0 || len(missingAccouts) !=0 {
+		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs),len(missingAccouts))
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
 			Logger.Errorf("castorId.Deserialize error!", error.Error())
 		}
-		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, false, b.Header.Hash)
+		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, missingAccouts, b.Header.Hash)
 	}
 	return missingAccountTxs
 }
@@ -542,7 +549,7 @@ func (chain *LightChain) remove(header *types.BlockHeader) {
 	chain.transactionPool.AddTransactions(txs)
 }
 
-func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
+func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	panic("Not support!")
 }
 
