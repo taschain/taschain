@@ -286,7 +286,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 
 	block := &cbm.Block
 
-	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
+	preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
 	if preHeader == nil {
 		p.addFutureBlockMsg(cbm)
 		result = "父块未到达"

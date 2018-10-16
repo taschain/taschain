@@ -488,12 +488,12 @@ func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *type
 }
 
 //根据指定哈希查询块
-func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
+func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
 func (chain *FullBlockChain) QueryBlockBody(blockHash common.Hash) []*types.Transaction {
-	block := chain.queryBlockByHash(blockHash)
+	block := chain.QueryBlockByHash(blockHash)
 	if nil == block {
 		return nil
 	}
@@ -501,14 +501,14 @@ func (chain *FullBlockChain) QueryBlockBody(blockHash common.Hash) []*types.Tran
 }
 
 func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	if nil == block {
 		return nil
 	}
 	return block.Header
 }
 
-func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
+func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
@@ -545,7 +545,7 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 			if nil == bh {
 				continue
 			}
-			b = chain.queryBlockByHash(bh.Hash)
+			b = chain.QueryBlockByHash(bh.Hash)
 			if nil == b {
 				continue
 			}
@@ -612,7 +612,7 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 // 删除块
 func (chain *FullBlockChain) Remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
@@ -716,7 +716,7 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 // 删除块
 func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 

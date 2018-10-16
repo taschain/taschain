@@ -289,7 +289,7 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	chain := core.BlockChainImpl
-	bh := chain.QueryBlockByHash(common.HexToHash(h))
+	bh := chain.QueryBlockHeaderByHash(common.HexToHash(h))
 	block := &Block{
 		Height: bh.Height,
 		Hash: bh.Hash,

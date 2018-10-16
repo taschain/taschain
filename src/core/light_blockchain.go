@@ -380,12 +380,12 @@ func (chain *LightChain) updateLastBlock(state *core.AccountDB, header *types.Bl
 }
 
 //根据指定哈希查询块
-func (chain *LightChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
+func (chain *LightChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
 func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	if nil == block {
 		return nil
 	}
@@ -400,7 +400,7 @@ func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash, verifyH
 	panic("Not support!")
 }
 
-func (chain *LightChain) queryBlockByHash(hash common.Hash) *types.Block {
+func (chain *LightChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
@@ -527,7 +527,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 // 删除块
 func (chain *LightChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 

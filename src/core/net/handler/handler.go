@@ -240,7 +240,7 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 		core.Logger.Debugf("stateInfoReqHandler, Get block from block cache !height:%d,blockhash:%x", header.Height, header.Hash)
 	}
 	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)
-	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
+	preHeader := core.BlockChainImpl.QueryBlockHeaderByHash(header.PreHash)
 	if message.IsInit {
 		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
 		core.Logger.Debugf("stateInfoReqHandler,height:%d,qn:%d,tx len:%d", header.Height, header.ProveValue, len(message.Transactions))
