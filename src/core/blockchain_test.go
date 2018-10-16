@@ -251,7 +251,7 @@ def Test(a, b, c, d):
 	}
 	blockHeader = BlockChainImpl.QueryBlockByHash(block2.Header.Hash)
 	if nil == blockHeader {
-		t.Fatalf("fail to QueryBlockByHash, hash: %x ", block2.Header.Hash)
+		t.Fatalf("fail to QueryBlockHeaderByHash, hash: %x ", block2.Header.Hash)
 	}
 
 	blockHeader = BlockChainImpl.QueryBlockByHeight(2)

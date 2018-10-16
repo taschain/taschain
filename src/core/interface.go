@@ -51,7 +51,9 @@ type BlockChain interface {
 	QueryTopBlock() *types.BlockHeader
 
 	//根据指定哈希查询块
-	QueryBlockByHash(hash common.Hash) *types.BlockHeader
+	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
+
+	QueryBlockByHash(hash common.Hash) *types.Block
 
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader

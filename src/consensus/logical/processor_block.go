@@ -122,7 +122,7 @@ func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-    b := p.MainChain.QueryBlockByHash(hash)
+    b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
 

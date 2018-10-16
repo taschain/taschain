@@ -47,11 +47,11 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	group := GroupChainImpl.getGroupById(groupId)
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupId)
-	Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
+	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
 	for i:=0;i<len(targetIds);i++{
 		index := targetIds[i]
 		buffer.Write(group.Members[index].Id)
-		Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
+		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
@@ -60,4 +60,22 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
 	return &types.Bonus{TxHash:transaction.Hash,TargetIds:targetIds,BlockHash:blockHash,GroupId:groupId,TotalValue:totalValue},transaction
+}
+
+func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction)([]byte,[][]byte,common.Hash,uint64){
+	reader := bytes.NewReader(transaction.ExtraData)
+	groupId := make([]byte,common.GroupIdLength)
+	addr := make([]byte,common.AddressLength)
+	if n,_ := reader.Read(groupId);n != common.GroupIdLength{
+		panic("ParseBonusTransaction Read GroupId Fail")
+	}
+	ids := make([][]byte,0)
+	for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
+		if n != common.AddressLength{
+			panic("ParseBonusTransaction Read Address Fail")
+		}
+		ids = append(ids, addr)
+	}
+	blockHash := common.BytesToHash(transaction.Data)
+	return groupId,ids,blockHash,transaction.Value
 }

@@ -83,7 +83,7 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 		//cvm.GroupID = gId
 		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm)
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
-		newBizLog("normalPieceVerify").log("call network service SendVerifiedCast sign=%v, random=%v sk=%v", cvm.SI.DataSign.ShortS(), cvm.BH.Random, skey.ShortS())
+		newBizLog("normalPieceVerify").log("call network service SendVerifiedCast hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
 		traceLog.log("SendVerifiedCast height=%v, castor=%v", bh.Height, slot.castor.ShortS())
 		//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 		p.NetServer.SendVerifiedCast(&cvm)
@@ -286,7 +286,7 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 
 	block := &cbm.Block
 
-	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
+	preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
 	if preHeader == nil {
 		p.addFutureBlockMsg(cbm)
 		result = "父块未到达"
@@ -316,7 +316,12 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 	mtype := "OMNT"
 	blog := newBizLog(mtype)
 
-	blog.log("proc(%v) begin %v, trans count=%v...", p.getPrefix(),mtype, len(ths))
+	txstrings := make([]string, len(ths))
+	for idx, tx := range ths {
+		txstrings[idx] = tx.ShortS()
+	}
+
+	blog.log("proc(%v) begin %v, trans count=%v %v...", p.getPrefix(),mtype, len(ths), txstrings)
 
 	p.blockContexts.forEach(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
