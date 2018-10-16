@@ -524,7 +524,7 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 }
 
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
-//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公公祖先
+//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公共祖先
 func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
 	chain.lock.RLock("GetBlockInfo")
 	defer chain.lock.RUnlock("GetBlockInfo")
@@ -555,13 +555,7 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 			return nil
 		}
 
-		var isTopBlock bool
-		if b.Header.Height == chain.Height() {
-			isTopBlock = true
-		} else {
-			isTopBlock = false
-		}
-		return &BlockInfo{Block: b, IsTopBlock: isTopBlock}
+		return &BlockInfo{Block: b, IsTopBlock: b.Header.Height == chain.Height()}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
@@ -845,5 +839,3 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 
 	chain.voteProcessor = processor
 }
-
-
