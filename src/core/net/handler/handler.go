@@ -240,11 +240,7 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	}
 	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)
 	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
-	if message.IsInit {
-		message.Transactions = core.BlockChainImpl.QueryBlockBody(header.Hash)
-		core.Logger.Debugf("stateInfoReqHandler,height:%d,qn:%d,tx len:%d", header.Height, header.ProveValue, len(message.Transactions))
-	}
-	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.IsInit)
+	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.Addresses)
 	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.StateTree)
 }
 
@@ -622,7 +618,11 @@ func unMarshalStateInfoReq(b []byte) (core.StateInfoReq, error) {
 		transactions = types.PbToTransactions(message.Transactions.Transactions)
 	}
 
-	stateInfoReq := core.StateInfoReq{Height: *message.Height, Transactions: transactions, IsInit: *message.IsInit, BlockHash: common.BytesToHash(message.BlockHash)}
+	var addresses []common.Address
+	for _,addr := range message.Addresses{
+		addresses = append(addresses,common.BytesToAddress(addr))
+	}
+	stateInfoReq := core.StateInfoReq{Height: *message.Height, Transactions: transactions, Addresses: addresses, BlockHash: common.BytesToHash(message.BlockHash)}
 	return stateInfoReq, nil
 }
 

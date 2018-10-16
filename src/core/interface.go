@@ -91,7 +91,7 @@ type BlockChain interface {
 
 	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 

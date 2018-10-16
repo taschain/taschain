@@ -722,7 +722,7 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	chain.transactionPool.UnMarkExecuted(txs)
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
 	var nodesOnBranch = make(map[string]*[]byte)
 	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
@@ -730,7 +730,7 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.GetBranches(state, transactions, nodesOnBranch)
+	chain.executor.GetBranches(state, transactions,addresses, nodesOnBranch)
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {

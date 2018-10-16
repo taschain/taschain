@@ -247,7 +247,6 @@ func (t *LightTrie) Update(key, value []byte) {
 
 func (t *LightTrie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
-	fmt.Printf("instert key = %v,%v,%v\n",key,k,hexToCompact(k))
 	if len(value) != 0 {
 		_, n, err := t.insert(t.RootNode, nil, k, valueNode(value))
 		if err != nil {
