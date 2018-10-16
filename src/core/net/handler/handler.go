@@ -241,8 +241,8 @@ func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
 	}
 	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)
 	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
-	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader, message.Transactions, message.Addresses)
-	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.StateTree)
+	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader.Header, message.Transactions, message.Addresses)
+	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.Header.StateTree)
 }
 
 //只有轻节点
