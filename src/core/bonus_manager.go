@@ -47,11 +47,11 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	group := GroupChainImpl.getGroupById(groupId)
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupId)
-	Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
+	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
 	for i:=0;i<len(targetIds);i++{
 		index := targetIds[i]
 		buffer.Write(group.Members[index].Id)
-		Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
+		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()

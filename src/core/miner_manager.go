@@ -88,7 +88,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
-	if data != nil {
+	if data != nil && len(data) > 0{
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
 		if ttype == types.MinerTypeHeavy {
