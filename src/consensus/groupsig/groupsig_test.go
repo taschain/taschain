@@ -628,3 +628,12 @@ func BenchmarkRecoverSignature100(b *testing.B)  { benchmarkRecoverSignature(100
 func BenchmarkRecoverSignature200(b *testing.B)  { benchmarkRecoverSignature(200, b) }
 func BenchmarkRecoverSignature500(b *testing.B)  { benchmarkRecoverSignature(500, b) }
 func BenchmarkRecoverSignature1000(b *testing.B) { benchmarkRecoverSignature(1000, b) }
+
+func TestSignature_MarshalJSON(t *testing.T) {
+	var sig Signature
+	sig.SetHexString("0x0724b751e096becd93127a5be441989a9fd8fe328828f6ce5e1817c70bf10f2f00")
+	bs := sig.GetHexString()
+
+	t.Log("len of bs:", len(bs))
+	t.Log(string(bs))
+}

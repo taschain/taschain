@@ -122,6 +122,10 @@ func (sig *Signature) SetHexString(s string) error {
 	}
 	buf := s[len(PREFIX):]
 
+        if sig.value.IsNil() {
+            sig.value = bn_curve.G1{}
+	}
+
 	sig.value.Unmarshal(common.Hex2Bytes(buf))
 	return nil
 }
