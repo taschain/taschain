@@ -216,17 +216,15 @@ type GlobalGroups struct {
 	groups    []*StaticGroupInfo
 	gIndex    map[string]int     //string(ID)->索引
 	generator *NewGroupGenerator //新组处理器(组外处理器)
-	orphanCache map[string]*StaticGroupInfo	//缓存前一组未到达的组
 	lock      sync.RWMutex
 }
 
 func NewGlobalGroups(chain *core.GroupChain) *GlobalGroups {
 	return &GlobalGroups{
-		groups:    make([]*StaticGroupInfo, 0),
+		groups:    make([]*StaticGroupInfo, 1),
 		gIndex:    make(map[string]int),
 		generator: CreateNewGroupGenerator(),
 		chain: 		chain,
-		orphanCache: make(map[string]*StaticGroupInfo),
 	}
 }
 
@@ -248,27 +246,30 @@ func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
 	return gg.groups[len(gg.groups)-1]
 }
 
-func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
-	if len(gg.groups) == 0 {
-		return g.BeginHeight == 0
+func (gg *GlobalGroups) findPos(g *StaticGroupInfo) (idx int, right bool){
+	cnt := len(gg.groups)
+	if cnt == 1 {
+		return 1, true
 	}
 	last := gg.lastGroup()
-	return last.GroupID.IsEqual(g.PrevGroupID)
-}
-
-func (gg *GlobalGroups) pushBack(g *StaticGroupInfo) bool {
-	if len(gg.groups) > 0 {
-		last := gg.lastGroup()
-		if last.BeginHeight >= g.BeginHeight {
-			panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
-		}
-		if !last.GroupID.IsEqual(g.PrevGroupID) {
-			panic(fmt.Sprintf("preGroupID not exist!last=%v, pre receive=%v， size=%v", last.GroupID.ShortS(), g.PrevGroupID.ShortS(), len(gg.groups)))
+	if g.PrevGroupID.IsEqual(last.GroupID) {	//刚好能与最后一个连接上，大部分时候是这个情况
+		return cnt, true
+	}
+	if g.BeginHeight > last.BeginHeight {	//属于更后面的组， 先append到最后
+		return cnt, false
+	}
+	for i := 1; i < cnt; cnt++	{
+		if gg.groups[i].BeginHeight > g.BeginHeight {
+			return i, g.GroupID.IsEqual(gg.groups[i].PrevGroupID) && (i ==1 || g.PrevGroupID.IsEqual(gg.groups[i-1].GroupID))
 		}
 	}
+	return -1, false
+}
+
+
+func (gg *GlobalGroups) append(g *StaticGroupInfo) bool {
 	gg.groups = append(gg.groups, g)
 	gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-	log.Printf("*****Group(%v) BeginHeight(%v)*****\n", g.GroupID.ShortS(),g.BeginHeight)
 	return true
 }
 
@@ -278,27 +279,45 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, beginHeight=%v...\n", g.GroupID.ShortS(), g.BeginHeight)
+	result := ""
+	blog := newBizLog("AddStaticGroup")
+	defer func() {
+		blog.log("id=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.BeginHeight, result)
+	}()
+
 	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
-		if gg.canAdd(g) {
-			tmpG := g
-			for {
-				gg.pushBack(tmpG)
-				hex := tmpG.GroupID.GetHexString()
-				tmpG, ok = gg.orphanCache[hex]
-				if !ok {
-					break
+		if g.BeginHeight == 0 {	//创世组
+			gg.groups[0] = g
+			gg.gIndex[g.GroupID.GetHexString()] = 0
+			result = "success"
+			return true
+		}
+		if idx, right := gg.findPos(g); idx >= 0 {
+			cnt := len(gg.groups)
+			if idx == cnt {
+				gg.append(g)
+				result = "append"
+			} else {
+				gg.groups = append(gg.groups, g)
+				for i:= cnt; i > idx; i-- {
+					gg.groups[i+1] = gg.groups[i]
+					gg.gIndex[gg.groups[i].GroupID.GetHexString()] = i+1
 				}
-				delete(gg.orphanCache, hex)
+				gg.groups[idx] = g
+				gg.gIndex[g.GroupID.GetHexString()] = idx
+				result = "insert"
+			}
+			if right {
+				result += "and linked"
+			} else {
+				result += "but not linked"
 			}
 			return true
 		} else {
-			gg.orphanCache[g.PrevGroupID.GetHexString()] = g
-			log.Printf("AddStaticGroup fail, preGroup not found, cached! gid=%v, preGid=%v\n", g.GroupID.ShortS(), g.PrevGroupID.ShortS())
-			return false
+			result = "can't find insert pos"
 		}
 	} else {
-		log.Printf("already exist this group, ignored.\n")
+		result = "already exist this group, ignored"
 	}
 	return false
 }
@@ -332,6 +351,9 @@ func (gg *GlobalGroups) getGroupFromCache(id groupsig.ID) (g *StaticGroupInfo, e
 	index, ok := gg.gIndex[id.GetHexString()]
 	if ok {
 		g, err = gg.getGroupByIndex(index)
+		if !g.GroupID.IsEqual(id) {
+			panic("ggIndex error")
+		}
 	}
 	return
 }
