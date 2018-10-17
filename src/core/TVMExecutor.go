@@ -158,26 +158,26 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	}
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
-	tr := accountdb.GetTrie()
-	Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
-
-	var addrList = make([]common.Address, 0)
-	v1, _ := tr.TryGet(common.BonusStorageAddress[:])
-	addrList = append(addrList, common.BonusStorageAddress)
-	Logger.Debugf("Before Execute addr:%v,value:%v", common.BonusStorageAddress.GetHexString(),v1)
-
-	v2, _ := tr.TryGet(common.LightDBAddress[:])
-	addrList = append(addrList, common.LightDBAddress)
-	Logger.Debugf("Before Execute addr:%v,value:%v", common.LightDBAddress.GetHexString(), v2)
-
-	v3, _ := tr.TryGet(common.HeavyDBAddress[:])
-	addrList = append(addrList, common.HeavyDBAddress)
-	Logger.Debugf("Before Execute addr:%v,value:%v", common.HeavyDBAddress.GetHexString(),v3)
-
-	castor := common.BytesToAddress(block.Header.Castor)
-	v4, _ := tr.TryGet(castor[:])
-	addrList = append(addrList, common.BytesToAddress(block.Header.Castor))
-	Logger.Debugf("Before Execute castor addr:%v,value:%v", castor.GetHexString(), v4)
+	//tr := accountdb.GetTrie()
+	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
+	//
+	//var addrList = make([]common.Address, 0)
+	//v1, _ := tr.TryGet(common.BonusStorageAddress[:])
+	//addrList = append(addrList, common.BonusStorageAddress)
+	//Logger.Debugf("Before Execute addr:%v,value:%v", common.BonusStorageAddress.GetHexString(),v1)
+	//
+	//v2, _ := tr.TryGet(common.LightDBAddress[:])
+	//addrList = append(addrList, common.LightDBAddress)
+	//Logger.Debugf("Before Execute addr:%v,value:%v", common.LightDBAddress.GetHexString(), v2)
+	//
+	//v3, _ := tr.TryGet(common.HeavyDBAddress[:])
+	//addrList = append(addrList, common.HeavyDBAddress)
+	//Logger.Debugf("Before Execute addr:%v,value:%v", common.HeavyDBAddress.GetHexString(),v3)
+	//
+	//castor := common.BytesToAddress(block.Header.Castor)
+	//v4, _ := tr.TryGet(castor[:])
+	//addrList = append(addrList, common.BytesToAddress(block.Header.Castor))
+	//Logger.Debugf("Before Execute castor addr:%v,value:%v", castor.GetHexString(), v4)
 
 	for i, transaction := range block.Transactions {
 		var fail = false
@@ -217,17 +217,19 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 					address := common.BytesToAddress(addr)
-					v, _ := tr.TryGet(addr[:])
-					Logger.Debugf("Before Execute addr:%v,value:%v", address.GetHexString(), v)
+					//v, _ := tr.TryGet(addr[:])
+					//Logger.Debugf("Before Execute addr:%v,value:%v", address.GetHexString(), v)
 					accountdb.AddBalance(address, value)
 					Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", address.GetHexString(), transaction.Value)
-					addrList = append(addrList, address)
+					//addrList = append(addrList, address)
 				}
 
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
+				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
+					transaction.Hash.Hex())
 				//分红交易奖励
 				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
-				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, bonusReward)
+				//Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, bonusReward)
 			} else {
 				fail = true
 			}
@@ -276,7 +278,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
-					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
@@ -301,7 +303,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
 	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
-	Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
+	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 	state := accountdb.IntermediateRoot(false)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 

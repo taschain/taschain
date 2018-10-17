@@ -428,7 +428,7 @@ func (chain *GroupChain) save(group *types.Group) error {
 	err = chain.groups.Put(group.Id, data)
 	if nil == err {
 		chain.lastGroup = group
-		chain.activeGroups = append(chain.activeGroups, group)
+		//chain.activeGroups = append(chain.activeGroups, group)
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 	}
 	return err
@@ -456,8 +456,36 @@ func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64)  {
 	}
 }
 
-func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte) bool{
-	for _,group := range chain.activeGroups{
+func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte,currentHeight uint64, applyHeight uint64, abortHeight uint64) bool{
+	//for _,group := range chain.activeGroups{
+	//	for _,member := range group.Members{
+	//		if bytes.Equal(member.Id,id){
+	//			return true
+	//		}
+	//	}
+	//}
+
+	middle := chain.count / 2
+	for i := middle;i < chain.count;i++{
+		group := chain.GetGroupByHeight(i)
+		if group.BeginHeight > abortHeight{
+			break
+		}
+		for _,member := range group.Members{
+			if bytes.Equal(member.Id,id){
+				return true
+			}
+		}
+	}
+	for j := middle-1;j >= 0;j--{
+		group := chain.GetGroupByHeight(j)
+		if group == nil{
+			Logger.Debugf("WhetherMemberInActiveGroup Group nil height:%d",j)
+			break
+		}
+		if group.DismissHeight < applyHeight || group.DismissHeight < currentHeight{
+			break
+		}
 		for _,member := range group.Members{
 			if bytes.Equal(member.Id,id){
 				return true

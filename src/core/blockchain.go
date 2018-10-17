@@ -466,7 +466,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+		//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 
 		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
 		network.GetNetInstance().Relay(headerMsg, 1)
