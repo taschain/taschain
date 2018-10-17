@@ -85,7 +85,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 table.render({
                     elem: '#bonus_balance_table' //指定原始表格元素选择器（推荐id选择器）
                     ,cols: [[{field:'id',title: '矿工id'}, {field:'explain', title: '奖励类型'},{field:'pre_balance', title: '前块余额'}
-                        ,{field:'curr_balance', title: '当前余额'},{field:'expect_balance', title: '期望余额'}]] //设置表头
+                        ,{field:'curr_balance', title: '当前余额'},{field:'expect_balance', title: '期望余额'},{field:'expect_balance', title: '结果', templet: function (d) {
+                                if (d.expect_balance == d.curr_balance) {
+                                    return '<span style="color: green;">正确</span>'
+                                } else {
+                                    return '<span style="color: red;">错误</span>'
+                                }
+                            }}]] //设置表头
                     ,data: d.miner_bonus
                 });
                 table.render({
