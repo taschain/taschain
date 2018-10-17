@@ -152,7 +152,7 @@ func getBonusAddress(t types.Transaction) []common.Address {
 }
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
 	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(false)
+		hash := accountdb.IntermediateRoot(true)
 		Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
 		return hash, nil, nil
 	}
@@ -304,7 +304,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 
 	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
 	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
-	state := accountdb.IntermediateRoot(false)
+	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
 	return state, receipts, nil
