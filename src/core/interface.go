@@ -102,7 +102,7 @@ type BlockChain interface {
 
 	GetBonusManager() *BonusManager
 
-	GetAccountDBByHeight(height uint64) (vm.AccountDB,error)
+	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 }
 
 type TransactionPool interface {

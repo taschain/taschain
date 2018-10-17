@@ -29,8 +29,8 @@ import (
 	"storage/trie"
 )
 
-var castorReward = big.NewInt(50)
-var bonusReward = big.NewInt(20)
+//var castorReward = big.NewInt(50)
+//var bonusReward = big.NewInt(20)
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -228,8 +228,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
 					transaction.Hash.Hex())
 				//分红交易奖励
-				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
-				//Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, bonusReward)
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetPackBonus())
+				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, common.GetPackBonus())
 			} else {
 				fail = true
 			}
@@ -300,7 +300,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipts[i] = receipt
 	}
 	//筑块奖励
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetProposalBonus())
 
 	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
 	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())

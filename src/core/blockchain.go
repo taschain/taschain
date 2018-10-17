@@ -841,7 +841,7 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB,error){
-	header := chain.QueryBlockByHeight(height)
+func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }

@@ -624,7 +624,7 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	delete(chain.preBlockStateRoot, blockHash)
 }
 
-func (chain *LightChain) GetAccountDBByHeight(height uint64) (vm.AccountDB,error){
-	header := chain.QueryBlockByHeight(height)
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }
