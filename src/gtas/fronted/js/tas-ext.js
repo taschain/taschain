@@ -20,17 +20,27 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         pan = $("#recent_query_block")
         pan.html('')
         for (i = recent_query.length-1; i >=0; i--) {
-            pan.append('<div class="layui-col-md1"><a href="javascript:void(0);" name="a_recent_query" style="float: left;width: 95%">' + recent_query[i].substr(0, 10) + '</a></div>')
+            pan.append('<div class="layui-col-md1"><a href="javascript:void(0);" name="a_recent_query" class="layui-table-link" hash="' + recent_query[i] + '">' + recent_query[i].substr(0, 10) + '</a></div>')
         }
     }
     $(document).on("click", "a[name='a_recent_query']", function () {
-        queryBlockDetail($(this).text())
+        h = $(this).attr("hash")
+        queryBlockDetail(h)
     })
-
-    function queryBlockDetail(hash) {
+    $(document).on("click", "a[name='block_table_hash_row']", function () {
+        element.tabChange("demo", "block_detail_tab")
+        h = $(this).text()
+        queryBlockDetail(h)
+    })
+    $(document).on("click", "a[name='bonus_table_hash_row']", function () {
+        h = $(this).text()
+        queryBlockDetail(h)
+    })
+    function queryBlockDetail(h) {
+        $("#query_block_hash").val(h)
         let params = {
             "method": "GTAS_blockDetail",
-            "params": [hash],
+            "params": [h],
             "jsonrpc": "2.0",
             "id": "1"
         };
@@ -58,12 +68,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 $("#block_group").text(d.group_id)
                 $("#block_tx_cnt").text(d.txs.length)
 
-                gbt = d.gen_bouns_tx
+                gbt = d.gen_bonus_tx
                 if (gbt != null && gbt != undefined) {
                     $("#gen_bonus_hash").text(gbt.hash)
                     $("#gen_bouns_value").text(gbt.value)
                     target = $("#gen_bonus_targets")
-                    $.each(d.target_ids, function (i, v) {
+                    target.html('')
+                    $.each(gbt.target_ids, function (i, v) {
                         target.append('<div class="layui-row">' + v + '</div>')
                     })
                 } else {
@@ -74,7 +85,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
                 table.render({
                     elem: '#bonus_table' //指定原始表格元素选择器（推荐id选择器）
-                    ,cols: [[{field:'hash',title: 'hash', sort:true},{field:'block_hash',title: '块hash'}, {field:'value', title: '奖励', width:80},{field:'group_id', title: '组id'},
+                    ,cols: [[{field:'hash',title: 'hash', sort:true},
+                        {field:'block_hash',title: '块hash', templet: '<div><a href="javascript:void(0);" class="layui-table-link" name="bonus_table_hash_row">{{d.block_hash}}</a></div>'},
+                        {field:'value', title: '奖励', width:80},{field:'group_id', title: '组id'},
                         {field:'target_ids', title: '目标id列表'}]] //设置表头
                     ,data: d.body_bonus_txs
                 });
@@ -86,7 +99,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     ,data: d.trans
                 });
 
-                addRecentQuery(hash)
+                addRecentQuery(h)
             },
             error: function (err) {
                 console.log(err)
