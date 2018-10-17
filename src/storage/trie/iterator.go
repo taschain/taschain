@@ -260,6 +260,18 @@ func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
 	return nil
 }
 
+func (st *nodeIteratorState) resolveLight(tr *LightTrie, path []byte) error {
+	if hash, ok := st.node.(hashNode); ok {
+		resolved, err := tr.resolveHash(hash, path)
+		if err != nil {
+			return err
+		}
+		st.node = resolved
+		st.hash = common.BytesToHash(hash)
+	}
+	return nil
+}
+
 func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Hash) (*nodeIteratorState, []byte, bool) {
 	switch node := parent.node.(type) {
 	case *fullNode:

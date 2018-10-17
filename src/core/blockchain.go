@@ -743,6 +743,7 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {
+		Logger.Infof("GetTrieNodesByExecuteTransactions print key:%v,value:%v \n", common.BytesToAddress(([]byte)(key)).GetHexString(),*value)
 		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
 	}
 	return &data

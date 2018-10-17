@@ -27,6 +27,10 @@ import (
 	"bytes"
 	"github.com/vmihailenco/msgpack"
 	"storage/trie"
+	"storage/serialize"
+	dcore "storage/core"
+	"golang.org/x/crypto/sha3"
+	"time"
 )
 
 var castorReward = big.NewInt(50)
@@ -58,11 +62,11 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 			if n, _ := reader.Read(groupId); n != common.GroupIdLength {
 				panic("TVMExecutor Read GroupId Fail")
 			}
-			Logger.Debugf("Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
+			Logger.Debugf("Bonus Transaction:%s", common.BytesToHash(transaction.Data).Hex())
 			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 				address := common.BytesToAddress(addr)
 				tr.GetBranch(address[:], nodes)
-				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(),tr.Get(address[:]))
+				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
 			}
 		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
 			//todo 合约交易
@@ -70,11 +74,11 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 			//转账交易
 			source := transaction.Source
 			target := transaction.Target
-			Logger.Debugf("source:%v.target:%v", source, target)
+			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
-				Logger.Debugf("source:%v,value:%v", source.GetHexString(),tr.Get(source[:]))
+				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
 			}
 			if target != nil {
 				tr.GetBranch(target[:], nodes)
@@ -85,9 +89,54 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 
 	for _, account := range addresses {
 		tr.GetBranch(account[:], nodes)
-		Logger.Debugf("Accounts addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+		Logger.Debugf("GetBranches Account addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+		if account == common.BonusStorageAddress || account == common.LightDBAddress || account == common.HeavyDBAddress {
+			getNodeTrie(account[:], nodes, accountdb)
+		}
 	}
 
+	//iterator := trie.NewIterator(accountdb.GetTrie().NodeIterator(nil))
+	//for{
+	//	if iterator.Next() {
+	//		key := iterator.Key
+	//		value := iterator.Value
+	//		log.Printf("%v,GetBranches Trie iterator addr:%v,value:%v",time.Now(),common.BytesToAddress(key).GetHexString(), value)
+	//		nodes[string(iterator.Key)] = &value
+	//	}else {
+	//		break
+	//	}
+	//}
+}
+
+func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.AccountDB) {
+	data, err := accountdb.GetTrie().TryGet(address[:])
+	if err != nil {
+		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
+		return
+	}
+
+	var account dcore.Account
+	if err := serialize.DecodeBytes(data, &account); err != nil {
+		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	root := account.Root
+	t, err := accountdb.Database().OpenStorageTrie(sha3.Sum256(address[:]), root)
+	if err != nil {
+		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	iterator := trie.NewIterator(t.NodeIterator(nil))
+	for{
+		if iterator.Next() {
+			key := iterator.Key
+			value := iterator.Value
+			Logger.Debugf("getNodeTrie addr:%v,value:%v", common.BytesToAddress(key).GetHexString(), value)
+			nodes[string(iterator.Key)] = &value
+		}else {
+			break
+		}
+	}
 }
 
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
@@ -156,6 +205,20 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
 		return hash, nil, nil
 	}
+
+	Logger.Debugf("Before execute iterator tree!")
+	iterator := trie.NewIterator(accountdb.GetTrie().NodeIterator(nil))
+	for{
+		if iterator.Next() {
+			key := iterator.Key
+			value := iterator.Value
+			Logger.Debugf("%v,Trie iterator addr:%v,value:%v",time.Now(),common.BytesToAddress(key).GetHexString(), value)
+		}else {
+			break
+		}
+	}
+	Logger.Debugf("End  iterator tree!")
+
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	tr := accountdb.GetTrie()
@@ -164,7 +227,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	var addrList = make([]common.Address, 0)
 	v1, _ := tr.TryGet(common.BonusStorageAddress[:])
 	addrList = append(addrList, common.BonusStorageAddress)
-	Logger.Debugf("Before Execute addr:%v,value:%v", common.BonusStorageAddress.GetHexString(),v1)
+	Logger.Debugf("Before Execute addr:%v,value:%v", common.BonusStorageAddress.GetHexString(), v1)
 
 	v2, _ := tr.TryGet(common.LightDBAddress[:])
 	addrList = append(addrList, common.LightDBAddress)
@@ -172,7 +235,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 
 	v3, _ := tr.TryGet(common.HeavyDBAddress[:])
 	addrList = append(addrList, common.HeavyDBAddress)
-	Logger.Debugf("Before Execute addr:%v,value:%v", common.HeavyDBAddress.GetHexString(),v3)
+	Logger.Debugf("Before Execute addr:%v,value:%v", common.HeavyDBAddress.GetHexString(), v3)
 
 	castor := common.BytesToAddress(block.Header.Castor)
 	v4, _ := tr.TryGet(castor[:])
@@ -300,7 +363,6 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
-	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
 	Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 	state := accountdb.IntermediateRoot(false)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())

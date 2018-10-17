@@ -278,6 +278,7 @@ func (self *AccountDB) updateAccountObject(stateObject *accountObject) {
 		panic(fmt.Errorf("can't serialize object at %x: %v", addr[:], err))
 	}
 	self.setError(self.trie.TryUpdate(addr[:], data))
+	log.Printf("%v updateAccountObject key:%v,data hash:%v\n",time.Now(),common.BytesToAddress(addr[:]).GetHexString(),data)
 }
 
 func (self *AccountDB) deleteAccountObject(stateObject *accountObject) {

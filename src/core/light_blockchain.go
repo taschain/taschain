@@ -113,8 +113,11 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
+
+	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
+	initMinerManager(chain)
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
@@ -123,10 +126,9 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 	} else {
-		// 创始块
+		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
@@ -557,7 +559,11 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
-		chain.statedb.Put(node.Key, node.Value)
+		Logger.Infof("InsertStateNode  key:%v,value:%v \n", common.BytesToAddress(([]byte)(node.Key)).GetHexString(),node.Value)
+		err := chain.statedb.Put(node.Key, node.Value)
+		if err != nil{
+			panic("InsertStateNode error:"+err.Error())
+		}
 	}
 }
 

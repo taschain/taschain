@@ -148,6 +148,7 @@ func (t *Trie) GetBranch(key []byte, nodes map[string]*[]byte) {
 	if err != nil {
 		fmt.Printf("Unhandled trie error: %s", err.Error())
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		panic("Unhandled trie error: %v"+ err.Error())
 	}
 }
 
