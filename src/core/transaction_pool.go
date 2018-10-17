@@ -298,7 +298,7 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	wrapper := pool.GetExecuted(hash)
 	if wrapper == nil{
-		return -1, ErrNil
+		return 0, ErrNil
 	} else {
 		return wrapper.Receipt.Status, nil
 	}

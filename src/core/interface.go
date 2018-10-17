@@ -123,6 +123,8 @@ type TransactionPool interface {
 
 	GetTransactionsForCasting() []*types.Transaction
 
+	GetTransactionStatus(hash common.Hash) (uint, error)
+
 	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
 
 	GetReceived() []*types.Transaction
