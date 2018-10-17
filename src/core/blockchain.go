@@ -33,6 +33,7 @@ import (
 	"middleware/notify"
 	"network"
 	"math/big"
+	"storage/core/vm"
 )
 
 const (
@@ -838,4 +839,9 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
+}
+
+func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB,error){
+	header := chain.QueryBlockByHeight(height)
+	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }

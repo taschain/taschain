@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"middleware/types"
 	"storage/core"
+	"storage/core/vm"
 )
 
 //主链接口
@@ -100,6 +101,8 @@ type BlockChain interface {
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
+
+	GetAccountDBByHeight(height uint64) (vm.AccountDB,error)
 }
 
 type TransactionPool interface {
