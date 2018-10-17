@@ -378,7 +378,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 		receipts: receipts,
 	})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
