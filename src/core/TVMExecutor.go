@@ -175,11 +175,6 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	return result
 }
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	//if 0 == len(block.Transactions) {
-	//	hash := accountdb.IntermediateRoot(true)
-	//	Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
-	//	return hash, nil, nil
-	//}
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	tr := accountdb.GetTrie()
