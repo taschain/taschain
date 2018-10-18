@@ -141,7 +141,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *LightChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
+func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")
 	return nil
 }
@@ -334,7 +334,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	var headerJson []byte
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
 		status,headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV)<=0 || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalQN - chain.latestBlock.TotalQN <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)

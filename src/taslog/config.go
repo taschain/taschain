@@ -17,7 +17,7 @@ package taslog
 
 
 const(
- DefaultConfig = `<seelog minlevel="debug">
+ DefaultConfig = `<seelog minlevel="info">
 						<outputs formatid="default">
 							<rollingfile type="size" filename="./logs/default.log" maxsize="500000000" maxrolls="10"/>
 						</outputs>

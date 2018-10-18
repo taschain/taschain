@@ -193,7 +193,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.QueryTopBlock()
 	//校验高度
@@ -205,16 +205,13 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	block := new(types.Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
-	totalPV := &big.Int{}
-	totalPV.Add(latestBlock.TotalPV, proveValue)
 	block.Header = &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     height,
-		Nonce:      nonce,
 		ProveValue: proveValue,
 		Castor:     castor,
 		GroupId:    groupid,
-		TotalPV:    totalPV, //todo:latestBlock != nil?
+		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 	}
 
@@ -263,7 +260,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	for i, tx := range block.Transactions {
 		block.Header.Transactions[i] = tx.Hash
 	}
-	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
@@ -424,12 +420,12 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	latest := chain.latestBlock
 	Logger.Debugf("hhhhhhhhhhh hash=%v, preH=%v, height=%v, tophash=%v, topPreH=%v, %v", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height,
-		latest.Hash.Hex(), latest.PreHash.Hex(), b.Header.TotalPV.Cmp(latest.TotalPV))
+		latest.Hash.Hex(), latest.PreHash.Hex(), b.Header.TotalQN - latest.TotalQN)
 
 	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status, headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)

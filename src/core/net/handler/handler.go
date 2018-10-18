@@ -653,7 +653,6 @@ func unmarshalTotalQnInfo(b []byte) (core.TotalQnInfo, error) {
 		core.Logger.Errorf("[handler]unmarshalTotalQnInfo error:%s", e.Error())
 		return core.TotalQnInfo{}, e
 	}
-	totalQn := new(big.Int).SetBytes(message.TotalQn)
-	totalQnInfo := core.TotalQnInfo{TotalQn: totalQn, Height: *message.Height,}
+	totalQnInfo := core.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
 	return totalQnInfo, nil
 }
