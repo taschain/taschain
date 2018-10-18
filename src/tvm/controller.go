@@ -75,7 +75,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}
 
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.LoadContractCode(msg)
+	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 	if succeed {
 		succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
 		if succeed {
@@ -105,7 +105,7 @@ func (con *Controller) ExecuteTask() bool{
 		con.Vm.SetGas(int(gasLeft))
 		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
 		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		succeed = con.Vm.LoadContractCode(msg)
+		succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 		if succeed {
 			succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
 		}

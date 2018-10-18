@@ -108,7 +108,7 @@ func TestVmTest2(t *testing.T)  {
 	contract := tvm.Contract{code, "Recharge", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0x00000001")
+	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 	OnChainFunc(string(jsonString), contractAddress.GetHexString())
 }
 
@@ -126,7 +126,7 @@ func TestVmTest3(t *testing.T)  {
 	//VmTest1(`{"FuncName": "burn", "Args": [2500]}`)
 	//VmTest1(`{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`)
 
-	//VmTest1(`{"FuncName": "approveAndCall", "Args": ["0x27fe3e1d80e80c70f64055ed67cf428b36b5f994", 50, "13968999999"]}`)
+	//VmTest1(`{"FuncName": "approveAndCall", "Args": ["0xe4d60f63188f69980e762cb38aad8727ceb86bbe", 50, "13968999999"]}`)
 }
 
 func TestContractOnChain(t *testing.T)  {

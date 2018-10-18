@@ -436,17 +436,7 @@ func (tvm *Tvm) DelTvm() {
 
 func (tvm *Tvm) StoreData() bool {
 	var c_bool C._Bool
-	script := fmt.Sprintf(`
-import account
-import ujson
-for k in tas_%s.__dict__:
-    #print(k)
-    #print(type(k))
-    #print(tas_%s.__dict__[k])
-    #print(type(tas_%s.__dict__[k]))
-    value = ujson.dumps(tas_%s.__dict__[k])
-    if TAS_PARAMS_DICT.get(k) != value:
-        account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+	script := PycodeStoreContractData(tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -476,28 +466,22 @@ type Msg struct {
 	Sender string
 }
 
+func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
+	if !tvm.loadMsg(msg) {
+		return false
+	}
+	var c_bool C._Bool
+	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
 func (tvm *Tvm) LoadContractCode(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
 	var c_bool C._Bool
-	script := fmt.Sprintf("%s\ntas_%s = %s()", tvm.Code, tvm.ContractName, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	if !bool(c_bool) {
-		return false
-	}
-	script = fmt.Sprintf(`
-import account
-import ujson
-TAS_PARAMS_DICT = {}
-for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	value = ujson.loads(account.get_data("", k))
-    #	print(value)
-    value = account.get_data(k)
-    TAS_PARAMS_DICT[k] = value
-    setattr(tas_%s, k, ujson.loads(value))`, tvm.ContractName, tvm.ContractName)
+	script := PycodeLoadContractData(tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
 	return bool(c_bool)
 }
@@ -509,14 +493,7 @@ func (tvm *Tvm) Execute(script string) bool {
 }
 
 func (tvm *Tvm) loadMsg(msg Msg) bool {
-	script := fmt.Sprintf(`
-from clib.tas_runtime.msgxx import Msg
-from clib.tas_runtime.address_tas import Address
-
-import builtins
-builtins.msg = Msg(data=bytes(), sender="%s", value=%d)
-builtins.this = "%s"
-`, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
 
@@ -524,13 +501,8 @@ func (tvm *Tvm) Deploy(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
-	tvm.Execute(tvm.Code)
 
-	script := fmt.Sprintf(`
-TAS_PARAMS_DICT = {}
-tas_%s = %s()
-tas_%s.deploy()
-`, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)
 	return tvm.Execute(script)
 }
 
