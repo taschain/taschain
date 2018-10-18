@@ -74,6 +74,7 @@ func InitParam() {
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
 		EffectGapAfterApply: EPOCH,
+
 		CastTotalBonus: 30,
 		ProposalBonusPercent: 0.5,
 		PotentialProposers: POTENTIAL_PROPOSERS,
@@ -105,5 +106,5 @@ func (p *ConsensusParam) GetProposalBonus() uint64 {
 }
 
 func (p *ConsensusParam) GetVerifierBonus() uint64 {
-    return p.CastTotalBonus - p.GetProposalBonus()
+    return common.GetVerifyBonus().Uint64()
 }

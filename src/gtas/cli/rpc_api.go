@@ -9,6 +9,10 @@ import (
 	"consensus/groupsig"
 	"time"
 	"encoding/json"
+	"fmt"
+	"math/big"
+	"log"
+	types2 "storage/core/types"
 )
 
 /*
@@ -285,15 +289,85 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	}
 	bh := b.Header
 	block := convertBlockHeader(bh)
+	castor := block.Castor.GetHexString()
 
 	trans := make([]Transaction, 0)
 	bonusTxs := make([]BonusTransaction, 0)
+	minerBonus := make(map[string]*MinerBonusBalance)
+	uniqueBonusBlockHash := make(map[common.Hash]byte)
+	minerVerifyBlockHash := make(map[string][]common.Hash)
+	blockVerifyBonus := make(map[common.Hash]uint64)
+
+	minerBonus[castor] = genMinerBalance(block.Castor, bh)
+
 	for _, tx := range b.Transactions {
 		if tx.Type == types.TransactionTypeBonus {
-			bonusTxs = append(bonusTxs, *convertBonusTransaction(tx))
+			btx := *convertBonusTransaction(tx)
+			if st, err := mediator.Proc.MainChain.GetTransactionPool().GetTransactionStatus(tx.Hash); err != nil {
+				log.Printf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
+				btx.StatusReport = "获取状态错误" + err.Error()
+			} else {
+				if st == types2.ReceiptStatusSuccessful {
+					btx.StatusReport = "成功"
+					btx.Success = true
+				} else {
+					btx.StatusReport = "失败"
+				}
+			}
+			bonusTxs = append(bonusTxs, btx)
+			blockVerifyBonus[btx.BlockHash] = btx.Value
+			for _, tid := range btx.TargetIDs {
+				if _, ok := minerBonus[tid.GetHexString()]; !ok {
+					minerBonus[tid.GetHexString()] = genMinerBalance(tid, bh)
+				}
+				if !btx.Success {
+					continue
+				}
+				if hs, ok := minerVerifyBlockHash[tid.GetHexString()]; ok {
+					find := false
+					for _, h := range hs {
+						if h == btx.BlockHash {
+							find = true
+							break
+						}
+					}
+					if !find {
+						hs = append(hs, btx.BlockHash)
+						minerVerifyBlockHash[tid.GetHexString()] = hs
+					}
+				} else {
+					hs = make([]common.Hash, 0)
+					hs = append(hs, btx.BlockHash)
+					minerVerifyBlockHash[tid.GetHexString()] = hs
+				}
+			}
+			if btx.Success {
+				uniqueBonusBlockHash[btx.BlockHash] = 1
+			}
 		} else {
 			trans = append(trans, *convertTransaction(tx))
 		}
+	}
+
+	mbs := make([]*MinerBonusBalance, 0)
+	for id, mb := range minerBonus {
+		mb.Explain = ""
+		increase := uint64(0)
+		if id == castor {
+			mb.Proposal = true
+			mb.PackBonusTx = len(uniqueBonusBlockHash)
+			increase += common.GetProposalBonus().Uint64() + uint64(mb.PackBonusTx) * common.GetPackBonus().Uint64()
+			mb.Explain = fmt.Sprintf("提案 打包分红交易%v个", mb.PackBonusTx)
+		}
+		if hs, ok := minerVerifyBlockHash[id]; ok {
+			for _, h := range hs {
+				increase += blockVerifyBonus[h]
+			}
+			mb.VerifyBlock = len(hs)
+			mb.Explain = fmt.Sprintf("%v 验证%v块", mb.Explain, mb.VerifyBlock)
+		}
+		mb.ExpectBalance = new(big.Int).SetUint64(mb.PreBalance.Uint64() + increase)
+		mbs = append(mbs, mb)
 	}
 
 	var genBonus *BonusTransaction
@@ -302,10 +376,11 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	}
 
 	bd := &BlockDetail{
-		Block: *block,
-		GenBonusTx: genBonus,
-		Trans: trans,
+		Block:        *block,
+		GenBonusTx:   genBonus,
+		Trans:        trans,
 		BodyBonusTxs: bonusTxs,
+		MinerBonus:   mbs,
 	}
 	return successResult(bd)
 }

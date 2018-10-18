@@ -295,6 +295,15 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 	return pool.getTransaction(hash)
 }
 
+func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
+	wrapper := pool.GetExecuted(hash)
+	if wrapper == nil{
+		return 0, ErrNil
+	} else {
+		return wrapper.Receipt.Status, nil
+	}
+}
+
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
 	// 先从received里获取
 	result := pool.received.Get(hash)

@@ -378,7 +378,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 		receipts: receipts,
 	})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
@@ -466,7 +466,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+		//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 
 		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
 		network.GetNetInstance().Relay(headerMsg, 1)
@@ -677,7 +677,7 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 	chain.lock.Lock("CompareChainPiece")
 	defer chain.lock.Unlock("CompareChainPiece")
 	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
+	blockHash, hasCommonAncestor, _ := chain.FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		s := make([]string, len(bhs))
@@ -740,7 +740,7 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.GetBranches(state, transactions,addresses, nodesOnBranch)
+	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {
@@ -761,69 +761,6 @@ func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {
 	return v.(*types.Block)
 }
 
-func FindCommonAncestor(bhs []*BlockHash, l int, r int) (*BlockHash, bool, int) {
-
-	if l > r || r < 0 || l >= len(bhs) {
-		return nil, false, -1
-	}
-	m := (l + r) / 2
-	result := isCommonAncestor(bhs, m)
-	if result == 0 {
-		return bhs[m], true, m
-	}
-
-	if result == 1 {
-		return FindCommonAncestor(bhs, l, m-1)
-	}
-
-	if result == -1 {
-		return FindCommonAncestor(bhs, m+1, r)
-	}
-	return nil, false, -1
-}
-
-//bhs 中没有空值
-//返回值
-// 0  当前HASH相等，后面一块HASH不相等 是共同祖先
-//1   当前HASH相等，后面一块HASH相等
-//-1  当前HASH不相等
-//-100 参数不合法
-func isCommonAncestor(bhs []*BlockHash, index int) int {
-	if index < 0 || index >= len(bhs) {
-		return -100
-	}
-	he := bhs[index]
-	bh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
-	if bh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
-		return -1
-	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
-	if index == 0 && bh.Hash == he.Hash {
-		return 0
-	}
-	if index == 0 {
-		return -1
-	}
-	//判断链更后面的一块
-	afterHe := bhs[index-1]
-	afterbh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(afterHe.Height, true)
-	if afterbh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
-		if afterHe != nil && bh.Hash == he.Hash {
-			return 0
-		}
-		return -1
-	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
-	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
-		return 0
-	}
-	if afterHe.Hash == afterbh.Hash && bh.Hash == he.Hash {
-		return 1
-	}
-	return -1
-}
 
 func Clear() {
 	path := datasource.DEFAULT_FILE
@@ -841,7 +778,7 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB,error){
-	header := chain.QueryBlockByHeight(height)
+func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }

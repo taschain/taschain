@@ -102,7 +102,7 @@ type BlockChain interface {
 
 	GetBonusManager() *BonusManager
 
-	GetAccountDBByHeight(height uint64) (vm.AccountDB,error)
+	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 }
 
 type TransactionPool interface {
@@ -122,6 +122,8 @@ type TransactionPool interface {
 	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
 
 	GetTransactionsForCasting() []*types.Transaction
+
+	GetTransactionStatus(hash common.Hash) (uint, error)
 
 	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
 

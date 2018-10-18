@@ -140,8 +140,9 @@ type BlockDetail struct {
 	GenBonusTx *BonusTransaction `json:"gen_bonus_tx"`
 	//Signature groupsig.Signature `json:"signature"`
 	//Random 	groupsig.Signature `json:"random"`
-	Trans 	[]Transaction `json:"trans"`
-	BodyBonusTxs []BonusTransaction `json:"body_bonus_txs"`
+	Trans        []Transaction        `json:"trans"`
+	BodyBonusTxs []BonusTransaction   `json:"body_bonus_txs"`
+	MinerBonus   []*MinerBonusBalance `json:"miner_bonus"`
 }
 
 type Group struct {
@@ -154,6 +155,16 @@ type Group struct {
 	Members []string `json:"members"`
 }
 
+type MinerBonusBalance struct {
+	ID groupsig.ID `json:"id"`
+	Proposal bool `json:"proposal"`	//是否有提案
+	PackBonusTx int `json:"pack_bonus_tx"`	//打包分红交易个数
+	VerifyBlock int `json:"verify_block"`	//验证块数
+	PreBalance *big.Int `json:"pre_balance"`
+	CurrBalance *big.Int `json:"curr_balance"`
+	ExpectBalance *big.Int `json:"expect_balance"`
+	Explain string `json:"explain"`
+}
 
 type Transaction struct {
 	Data   []byte `json:"data"`
@@ -177,6 +188,8 @@ type BonusTransaction struct {
 	GroupID groupsig.ID `json:"group_id"`
 	TargetIDs []groupsig.ID `json:"target_ids"`
 	Value uint64 `json:"value"`
+	StatusReport string `json:"status_report"`
+	Success bool `json:"success"`
 }
 
 type Dashboard struct {

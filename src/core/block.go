@@ -133,8 +133,8 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	stateDB.SetNonce(common.LightDBAddress,1)
 
 	root, _ := stateDB.Commit(true)
+	Logger.Debugf("GenesisBlock final Root:%s",root.Hex())
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
-
 	return block
 }

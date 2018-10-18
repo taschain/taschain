@@ -114,8 +114,11 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
+
+	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
+	initMinerManager(chain)
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
@@ -124,10 +127,9 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 	} else {
-		// 创始块
+		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
@@ -503,7 +505,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	chain.lock.Lock("CompareChainPiece")
 	defer chain.lock.Unlock("CompareChainPiece")
 	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
+	blockHash, hasCommonAncestor, _ := chain.FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		//删除自身链的结点
@@ -555,10 +557,12 @@ func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHe
 }
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
-	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
-		chain.statedb.Put(node.Key, node.Value)
+		err := chain.statedb.Put(node.Key, node.Value)
+		if err != nil{
+			panic("InsertStateNode error:"+err.Error())
+		}
 	}
 }
 
@@ -624,7 +628,7 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	delete(chain.preBlockStateRoot, blockHash)
 }
 
-func (chain *LightChain) GetAccountDBByHeight(height uint64) (vm.AccountDB,error){
-	header := chain.QueryBlockByHeight(height)
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }
