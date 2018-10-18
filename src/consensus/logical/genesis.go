@@ -9,7 +9,6 @@ import (
 	"consensus/model"
 	"common"
 	"middleware/types"
-	"consensus/base"
 	"log"
 )
 
@@ -23,7 +22,7 @@ const GENESIS_GROUP_INFO = `{"GroupID":"0xa85a46d7fde553e2dbfe19750faee0144d3616
 
 type genesisGroup struct {
 	Group StaticGroupInfo
-	VrfPK map[string]base.VRFPublicKey
+	VrfPK map[string]common.VRFPublicKey
 }
 
 var genesisGroupInfo *genesisGroup

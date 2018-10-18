@@ -30,7 +30,7 @@ type BlockChain interface {
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -46,7 +46,7 @@ type BlockChain interface {
 
 	Height() uint64
 
- 	TotalQN() *big.Int
+ 	TotalQN() uint64
 
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader

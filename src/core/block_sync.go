@@ -23,7 +23,6 @@ import (
 	"network"
 	"middleware/pb"
 	"github.com/gogo/protobuf/proto"
-	"math/big"
 )
 
 const (
@@ -39,7 +38,7 @@ var BlockSyncer blockSyncer
 var lightMiner bool
 
 type TotalQnInfo struct {
-	TotalQn  *big.Int
+	TotalQn  uint64
 	Height   uint64
 	SourceId string
 }
@@ -48,7 +47,7 @@ type blockSyncer struct {
 	ReqTotalQnCh chan string
 	TotalQnCh    chan TotalQnInfo
 
-	maxTotalQn     *big.Int
+	maxTotalQn     uint64
 	bestNode       string
 	bestNodeHeight uint64
 	lock           sync.Mutex
@@ -63,7 +62,7 @@ func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: big.NewInt(0), ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0, init: false, syncedFirstBlock: false}
+	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0, init: false, syncedFirstBlock: false}
 	go BlockSyncer.start()
 }
 
@@ -118,7 +117,7 @@ func (bs *blockSyncer) sync() {
 	bestNodeId := bs.bestNode
 	bestNodeHeight := bs.bestNodeHeight
 	bs.lock.Unlock()
-	if maxTotalQN.Cmp(localTotalQN) <= 0 {
+	if maxTotalQN - localTotalQN <= 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			bs.init = true
@@ -162,7 +161,7 @@ func (bs *blockSyncer) loop() {
 				bs.replyCount++
 			}
 			bs.lock.Lock()
-			if h.TotalQn.Cmp(bs.maxTotalQn) > 0 {
+			if h.TotalQn - bs.maxTotalQn > 0 {
 				bs.maxTotalQn = h.TotalQn
 				bs.bestNode = h.SourceId
 				bs.bestNodeHeight = h.Height
@@ -188,7 +187,7 @@ func requestBlockChainTotalQn() {
 }
 
 //返回自身链QN值
-func sendBlockTotalQn(targetId string, localTotalQN *big.Int, height uint64) {
+func sendBlockTotalQn(targetId string, localTotalQN uint64, height uint64) {
 	logger.Debugf("[BlockSyncer]Send local total qn %d to %s!", localTotalQN, targetId)
 	body, e := marshalTotalQnInfo(TotalQnInfo{TotalQn: localTotalQN, Height: height})
 	if e != nil {
@@ -200,6 +199,6 @@ func sendBlockTotalQn(targetId string, localTotalQN *big.Int, height uint64) {
 }
 
 func marshalTotalQnInfo(totalQnInfo TotalQnInfo) ([]byte, error) {
-	t := tas_middleware_pb.TotalQnInfo{TotalQn: totalQnInfo.TotalQn.Bytes(), Height: &totalQnInfo.Height}
+	t := tas_middleware_pb.TotalQnInfo{TotalQn: &totalQnInfo.TotalQn, Height: &totalQnInfo.Height}
 	return proto.Marshal(&t)
 }
