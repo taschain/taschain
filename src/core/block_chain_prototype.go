@@ -80,7 +80,7 @@ func (chain *prototypeChain) TotalQN()*big.Int {
 	if nil == chain.latestBlock {
 		return nil
 	}
-	return chain.latestBlock.ProveValue
+	return chain.latestBlock.TotalPV
 }
 
 //查询最高块
@@ -198,6 +198,7 @@ func (chain *prototypeChain) IsAdujsting() bool {
 }
 
 func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
+	Logger.Debugf("aaaaaaaaa SetAdujsting %v, topHash=%v, height=%v", isAjusting, chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
 	chain.isAdujsting = isAjusting
 	if isAjusting == true {
 		go func() {

@@ -17,7 +17,7 @@ import (
 func (p *Processor) genBelongGroupStoreFile() string {
 	storeFile := consensusConfManager.GetString("joined_group_store", "")
 	if strings.TrimSpace(storeFile) == "" {
-		storeFile = "/Users/lxf/tas-test/daily/joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
+		storeFile = "joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
 	}
 	return storeFile
 }
@@ -51,7 +51,8 @@ func (p *Processor) prepareMiner() {
 
 	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n", belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
-	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
+	groups := make([]*StaticGroupInfo, 0)
+	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
 		log.Printf("get group from core, id=%v", coreGroup.Id)
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
@@ -66,6 +67,7 @@ func (p *Processor) prepareMiner() {
 			}
 			sgi = NewSGIFromCoreGroup(genesis)
 		}
+		groups = append(groups, sgi)
 		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
@@ -75,10 +77,12 @@ func (p *Processor) prepareMiner() {
 				p.joinGroup(jg, true)
 			}
 		}
-		p.acceptGroup(sgi)
 		if needBreak {
 			break
 		}
+	}
+	for i := len(groups)-1; i >=0; i-- {
+		p.acceptGroup(groups[i])
 	}
 	log.Printf("prepare finished")
 }

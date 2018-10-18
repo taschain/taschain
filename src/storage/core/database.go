@@ -59,6 +59,7 @@ type Trie interface {
 	Hash() common.Hash
 	NodeIterator(startKey []byte) trie.NodeIterator
 	Fstring() string
+	GetAllNodes(nodes map[string]*[]byte)
 }
 
 func NewDatabase(db tasdb.Database) Database {

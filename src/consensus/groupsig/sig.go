@@ -33,6 +33,14 @@ type Signature struct {
 	value bn_curve.G1
 }
 
+//func (sig Signature) UnmarshalJSON(b []byte) error {
+//	return sig.SetHexString(string(b))
+//}
+//
+//func (sig Signature) MarshalJSON() ([]byte, error) {
+//	return []byte(sig.GetHexString()), nil
+//}
+
 func (sig *Signature) IsNil () bool {
 	return sig.value.IsNil()
 }

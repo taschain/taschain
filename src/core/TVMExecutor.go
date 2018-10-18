@@ -16,21 +16,22 @@
 package core
 
 import (
-	"bytes"
 	"common"
-	"fmt"
 	"github.com/vmihailenco/msgpack"
 	"math/big"
 	"middleware/types"
 	"storage/core"
 	t "storage/core/types"
 	"storage/core/vm"
-	"storage/trie"
+	"fmt"
 	"tvm"
+	"bytes"
+	"storage/trie"
+	"storage/serialize"
 )
 
-var castorReward = big.NewInt(50)
-var bonusReward = big.NewInt(20)
+//var castorReward = big.NewInt(50)
+//var bonusReward = big.NewInt(20)
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -43,88 +44,150 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 }
 
 //获取交易中包含账户所在的分支
-func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions []*types.Transaction, nodes map[string]*[]byte) {
+func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
 	//todo  合约如何实现
-	Logger.Debugf("GetBranches, tx len:%d", len(transactions))
+	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
+	tr, _ := accountdb.GetTrie().(*trie.Trie)
+
 	for _, transaction := range transactions {
-		//var contractAddress common.Address
-		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
-			Logger.Debug("transaction.Target == nil")
-			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			//contractAddress, _ = createContract(accountdb, transaction)
-			//contract := tvm.LoadContract(contractAddress)
-			//controller.Deploy(transaction.Source, contract)
-		} else if len(transaction.Data) > 0 {
-			Logger.Debug("len(transaction.Data) > 0 ")
-			//controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			//contract := tvm.LoadContract(*transaction.Target)
-
-			//snapshot := controller.AccountDB.Snapshot()
-			//if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
-			//	controller.AccountDB.RevertToSnapshot(snapshot)
-			//}
-
-		} else {
-			tr, _ := accountdb.GetTrie().(*trie.Trie)
+		switch transaction.Type {
+		case types.TransactionTypeBonus:
+			//分红交易
+			reader := bytes.NewReader(transaction.ExtraData)
+			groupId := make([]byte, common.GroupIdLength)
+			addr := make([]byte, common.AddressLength)
+			if n, _ := reader.Read(groupId); n != common.GroupIdLength {
+				panic("TVMExecutor Read GroupId Fail")
+			}
+			Logger.Debugf("Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
+			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
+				address := common.BytesToAddress(addr)
+				tr.GetBranch(address[:], nodes)
+				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(),tr.Get(address[:]))
+			}
+		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
+			//todo 合约交易
+		default:
+			//转账交易
 			source := transaction.Source
 			target := transaction.Target
-			Logger.Debugf("source:%v.target:%v", source, target)
+
+			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
+				Logger.Debugf("source:%v,value:%v", source.GetHexString(),tr.Get(source[:]))
 			}
 			if target != nil {
 				tr.GetBranch(target[:], nodes)
+				Logger.Debugf("target:%v,value:%v", target.GetHexString(), tr.Get(target[:]))
 			}
 		}
 	}
+
+	for _, account := range addresses {
+		tr.GetBranch(account[:], nodes)
+		//Logger.Debugf("GetBranches Account addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+		if account == common.BonusStorageAddress || account == common.LightDBAddress || account == common.HeavyDBAddress {
+			getNodeTrie(account[:], nodes, accountdb)
+		}
+	}
 }
 
-func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) []*types.Transaction {
+func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.AccountDB) {
+	data, err := accountdb.GetTrie().TryGet(address[:])
+	if err != nil {
+		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
+		return
+	}
+
+	var account core.Account
+	if err := serialize.DecodeBytes(data, &account); err != nil {
+		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	root := account.Root
+	t, err := accountdb.Database().OpenTrieWithMap(root,nodes)
+	if err != nil {
+		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	t.GetAllNodes(nodes)
+}
+
+func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
 	missingAccountTransactions := []*types.Transaction{}
+	missingAccounts := []common.Address{}
 	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
-		//todo 此处是否需要考虑合约？
-		//var fail = false
-		//var contractAddress common.Address
-		//if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
-		//	controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-		//	contractAddress, _ = createContract(accountdb, transaction)
-		//	contract := tvm.LoadContract(contractAddress)
-		//	controller.Deploy(transaction.Source, contract)
-		//} else if len(transaction.Data) > 0 {
-		//	controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-		//	contract := tvm.LoadContract(*transaction.Target)
-		//
-		//	snapshot := controller.AccountDB.Snapshot()
-		//	if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
-		//		controller.AccountDB.RevertToSnapshot(snapshot)
-		//	}
-		//
-		//} else {
-		Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
-		if transaction.Source != nil && !IsAccountExist(accountdb, *transaction.Source) {
-			missingAccountTransactions = append(missingAccountTransactions, transaction)
-			continue
+
+		//Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
+		switch transaction.Type {
+		case types.TransactionTypeBonus:
+			addresses := getBonusAddress(*transaction)
+			for _, addr := range addresses {
+				if !IsAccountExist(accountdb, addr) {
+					missingAccountTransactions = append(missingAccountTransactions, transaction)
+				}
+			}
+			castor := common.BytesToAddress(block.Header.Castor)
+			if !IsAccountExist(accountdb, castor) {
+				missingAccounts = append(missingAccounts, castor)
+			}
+		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
+			//todo 合约交易
+		default:
+			//转账交易
+			if transaction.Source != nil && !IsAccountExist(accountdb, *transaction.Source) {
+				missingAccountTransactions = append(missingAccountTransactions, transaction)
+				continue
+			}
+			if transaction.Target != nil && !IsAccountExist(accountdb, *transaction.Target) {
+				missingAccountTransactions = append(missingAccountTransactions, transaction)
+				continue
+			}
 		}
-		//todo 分红交易查看涉及到的账户  extraData 涉及到的账户， castor涉及到的账户
-		if transaction.Target != nil && !IsAccountExist(accountdb, *transaction.Target) {
-			missingAccountTransactions = append(missingAccountTransactions, transaction)
-			continue
-		}
+	}
+	if !IsAccountExist(accountdb, common.BonusStorageAddress) {
+		missingAccounts = append(missingAccounts, common.BonusStorageAddress)
+	}
+	if !IsAccountExist(accountdb, common.LightDBAddress) {
+		missingAccounts = append(missingAccounts, common.LightDBAddress)
+	}
+	if !IsAccountExist(accountdb, common.HeavyDBAddress) {
+		missingAccounts = append(missingAccounts, common.HeavyDBAddress)
 	}
 	accountdb.IntermediateRoot(true)
-	return missingAccountTransactions
+	return missingAccountTransactions, missingAccounts
 }
 
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(false)
-		Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
-		return hash, nil, nil
+
+func getBonusAddress(t types.Transaction) []common.Address {
+	var result = make([]common.Address, 0)
+
+	reader := bytes.NewReader(t.ExtraData)
+	groupId := make([]byte, common.GroupIdLength)
+	addr := make([]byte, common.AddressLength)
+	if n, _ := reader.Read(groupId); n != common.GroupIdLength {
+		panic("TVMExecutor Read GroupId Fail")
 	}
+	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
+		address := common.BytesToAddress(addr)
+		result = append(result, address)
+	}
+	return result
+}
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
+	//if 0 == len(block.Transactions) {
+	//	hash := accountdb.IntermediateRoot(true)
+	//	Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
+	//	return hash, nil, nil
+	//}
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
+	tr := accountdb.GetTrie()
+	Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
+
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
@@ -164,11 +227,15 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 					address := common.BytesToAddress(addr)
 					accountdb.AddBalance(address, value)
-					Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", address.GetHexString(), transaction.Value)
+
 				}
+
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
+				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
+					transaction.Hash.Hex())
 				//分红交易奖励
-				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetPackBonus())
+				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, common.GetPackBonus())
 			} else {
 				fail = true
 			}
@@ -217,7 +284,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
-					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
+
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
@@ -238,12 +306,12 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
 	}
-	// 铸块奖励
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
 
-	//if nil != processor {
-	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
-	//}
+	//筑块奖励
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetProposalBonus())
+
+	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
+	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 	return state, receipts, nil

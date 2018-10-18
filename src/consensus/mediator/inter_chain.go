@@ -39,7 +39,7 @@ type AddBlockOnChain func(b core.Block) int
 type QueryTopBlock func() core.BlockHeader
 
 //根据指定哈希查询块，不存在则返回nil。
-type QueryBlockByHash func() *core.BlockHeader
+type QueryBlockHeaderByHash func() *core.BlockHeader
 
 //根据指定高度查询块，不存在则返回nil。
 type QueryBlockByHeight func() *core.BlockHeader

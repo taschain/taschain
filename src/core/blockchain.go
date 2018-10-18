@@ -33,6 +33,7 @@ import (
 	"middleware/notify"
 	"network"
 	"math/big"
+	"storage/core/vm"
 )
 
 
@@ -392,7 +393,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 		receipts: receipts,
 	})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
@@ -436,6 +437,10 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	latest := chain.latestBlock
+	Logger.Debugf("hhhhhhhhhhh hash=%v, preH=%v, height=%v, tophash=%v, topPreH=%v, %v", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height,
+		latest.Hash.Hex(), latest.PreHash.Hex(), b.Header.TotalPV.Cmp(latest.TotalPV))
+
 	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status, headerJson = chain.saveBlock(b)
@@ -447,6 +452,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	} else {
 		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
+			Logger.Debugf("chainisadjusting. topHash=%v, height=%v", chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
 			return 2
 		}
 		var castorId groupsig.ID
@@ -456,6 +462,8 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 		chain.SetAdujsting(true)
+		bh := b.Header
+		Logger.Debugf("startAdjusting, hash=%v, pre=%v, height=%v, topHash=%v, topheight=%v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, latest.Hash.Hex(), latest.Height)
 		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash, true)
 		status = 2
 	}
@@ -473,7 +481,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+		//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 
 		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
 		network.GetNetInstance().Relay(headerMsg, 1)
@@ -496,12 +504,12 @@ func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *type
 }
 
 //根据指定哈希查询块
-func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
+func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
 func (chain *FullBlockChain) QueryBlockBody(blockHash common.Hash) []*types.Transaction {
-	block := chain.queryBlockByHash(blockHash)
+	block := chain.QueryBlockByHash(blockHash)
 	if nil == block {
 		return nil
 	}
@@ -509,14 +517,14 @@ func (chain *FullBlockChain) QueryBlockBody(blockHash common.Hash) []*types.Tran
 }
 
 func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	if nil == block {
 		return nil
 	}
 	return block.Header
 }
 
-func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
+func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
@@ -532,7 +540,7 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 }
 
 //进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
-//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公公祖先
+//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公共祖先
 func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
 	chain.lock.RLock("GetBlockInfo")
 	defer chain.lock.RUnlock("GetBlockInfo")
@@ -553,7 +561,7 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 			if nil == bh {
 				continue
 			}
-			b = chain.queryBlockByHash(bh.Hash)
+			b = chain.QueryBlockByHash(bh.Hash)
 			if nil == b {
 				continue
 			}
@@ -563,13 +571,7 @@ func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, ver
 			return nil
 		}
 
-		var isTopBlock bool
-		if b.Header.Height == chain.Height() {
-			isTopBlock = true
-		} else {
-			isTopBlock = false
-		}
-		return &BlockInfo{Block: b, IsTopBlock: isTopBlock}
+		return &BlockInfo{Block: b, IsTopBlock: b.Header.Height == chain.Height()}
 	} else {
 		//当前结点和请求结点不在同一条链
 		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
@@ -626,7 +628,7 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 // 删除块
 func (chain *FullBlockChain) Remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
@@ -693,6 +695,12 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
+		s := make([]string, len(bhs))
+		for i, bh := range bhs {
+			s[i] = bh.Hash.ShortS()
+		}
+		Logger.Debugf("bbbbbbbbbbbbbbb,comming chain piece %v, common ancestor %v, sid=%v", s, blockHash.Hash.ShortS(), sourceId)
+		removeHs := make([]string, 0)
 		//删除自身链的结点
 		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
 			header := chain.queryBlockHeaderByHeight(height, true)
@@ -700,8 +708,10 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 				continue
 			}
 			chain.remove(header)
+			removeHs = append(removeHs, header.Hash.ShortS())
 			chain.topBlocks.Remove(header.Height)
 		}
+		Logger.Debugf("bbbbbbbbbbbbbbb,remove local chain headers %v", removeHs)
 		for h := blockHash.Height; h >= 0; h-- {
 			header := chain.queryBlockHeaderByHeight(h, true)
 			if header != nil {
@@ -722,7 +732,7 @@ func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string
 // 删除块
 func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
@@ -737,7 +747,7 @@ func (chain *FullBlockChain) remove(header *types.BlockHeader) {
 	chain.transactionPool.UnMarkExecuted(txs)
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
+func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
 	var nodesOnBranch = make(map[string]*[]byte)
 	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
@@ -745,7 +755,7 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.GetBranches(state, transactions, nodesOnBranch)
+	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {
@@ -798,7 +808,13 @@ func isCommonAncestor(bhs []*BlockHash, index int) int {
 		return -100
 	}
 	he := bhs[index]
-	bh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+
+	var bh *types.BlockHeader
+	if BlockChainImpl.IsLightMiner() {
+		bh = BlockChainImpl.(*LightChain).queryBlockHeaderByHeight(he.Height, true)
+	} else {
+		bh = BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+	}
 	if bh == nil {
 		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1
@@ -846,4 +862,7 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-
+func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
+	return core.NewAccountDB(header.StateTree,chain.stateCache)
+}

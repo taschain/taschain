@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"fmt"
 	"strings"
+	"math/big"
+	"log"
 )
 
 /*
@@ -59,4 +61,18 @@ func TestRegex(t *testing.T) {
 	s := strings.Replace(data, data, string(sub[1]) + ".ShortS()", 1)
 	fmt.Printf(s)
 
+}
+
+func TestVRF_prove(t *testing.T) {
+
+	pk, sk, _ := VRF_GenerateKey(nil)
+	for i := 0; i < 1000000000; i ++ {
+		pi, _ := VRF_prove(pk, sk, NewRand().Bytes())
+		bi := new(big.Int).SetBytes(pi)
+		if bi.Cmp(new(big.Int).SetUint64(0)) < 0 {
+			log.Println(bi)
+		} else {
+			//log.Println(bi)
+		}
+	}
 }

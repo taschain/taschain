@@ -47,7 +47,13 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	Logger.Debugf("MinerManager AddMiner %d", miner.Type)
 	db := mm.getMinerDatabase(miner.Type)
 
-	if mm.blockchain.(*FullBlockChain).latestStateDB.GetData(db, string(id)) != nil {
+	var latestStateDB vm.AccountDB
+	if mm.blockchain.IsLightMiner() {
+		latestStateDB = mm.blockchain.(*LightChain).latestStateDB
+	} else {
+		latestStateDB = mm.blockchain.(*FullBlockChain).latestStateDB
+	}
+	if latestStateDB.GetData(db, string(id)) != nil {
 		return -1
 	} else {
 		data, _ := msgpack.Marshal(miner)
@@ -84,11 +90,15 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 		}
 	}
 	if accountdb == nil {
-		accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		if mm.blockchain.IsLightMiner() {
+			accountdb = mm.blockchain.(*LightChain).latestStateDB
+		} else {
+			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		}
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
-	if data != nil {
+	if data != nil && len(data) > 0 {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
 		if ttype == types.MinerTypeHeavy {
@@ -152,7 +162,7 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
 		}
 	}
 	if total == 0 {
-		Logger.Errorf("GetTotalStakeByHeight get 0 %d %s", height, mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
+		//Logger.Errorf("GetTotalStakeByHeight get 0 %d %s", height, mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
 		iter = mm.MinerIterator(types.MinerTypeHeavy, nil)
 		for ; iter.Next(); {
 			miner, _ := iter.Current()
@@ -166,7 +176,11 @@ func (mm *MinerManager) MinerIterator(ttype byte, accountdb vm.AccountDB) *Miner
 	db := mm.getMinerDatabase(ttype)
 	if accountdb == nil {
 		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
-		accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		if mm.blockchain.IsLightMiner() {
+			accountdb = mm.blockchain.(*LightChain).latestStateDB
+		} else {
+			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		}
 	}
 	iterator := &MinerIterator{iter: accountdb.DataIterator(db, "")}
 	if ttype == types.MinerTypeHeavy {

@@ -22,7 +22,6 @@ import (
 	"core/datasource"
 	"os"
 
-	"encoding/json"
 	"storage/tasdb"
 	vtypes "storage/core/types"
 	"middleware/types"
@@ -242,7 +241,7 @@ func (pool *TxPool) MarkExecuted(receipts vtypes.Receipts, txs []*types.Transact
 				Transaction: getTransaction(txs, hash, i),
 			}
 
-			receiptJson, err := json.Marshal(receiptWrapper)
+			receiptJson, err := msgpack.Marshal(receiptWrapper)
 			if nil != err {
 				continue
 			}
@@ -296,6 +295,15 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 	defer pool.lock.RUnlock("GetTransaction")
 
 	return pool.getTransaction(hash)
+}
+
+func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
+	wrapper := pool.GetExecuted(hash)
+	if wrapper == nil{
+		return 0, ErrNil
+	} else {
+		return wrapper.Receipt.Status, nil
+	}
 }
 
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {

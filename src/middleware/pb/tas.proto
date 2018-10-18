@@ -225,7 +225,7 @@ message StateInfoReq{
 
     optional TransactionSlice Transactions = 2;
 
-    required bool IsInit = 3;
+    repeated  bytes Addresses = 3;
 
     required bytes BlockHash = 4;
 }

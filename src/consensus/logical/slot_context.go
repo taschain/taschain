@@ -79,9 +79,14 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 
 func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-	ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
-	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
-	sc.addLostTrans(ltl)
+
+	lostTxs, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
+	lostTxsStrings := make([]string, len(lostTxs))
+	for idx, tx := range lostTxs {
+		lostTxsStrings[idx] = tx.ShortS()
+	}
+	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
+	sc.addLostTrans(lostTxs)
 	if ccr == -1 {
 		sc.setSlotStatus(SS_FAILED)
 		return false

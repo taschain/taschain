@@ -45,7 +45,8 @@ type AccountDB struct {
 	db   Database
 	trie Trie
 
-	accountObjects      map[common.Address]*accountObject
+	//accountObjects      map[common.Address]*accountObject
+	accountObjects		sync.Map
 	accountObjectsDirty map[common.Address]struct{}
 
 	dbErr error
@@ -71,7 +72,7 @@ func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte)
 	return &AccountDB{
 		db:                  db,
 		trie:                tr,
-		accountObjects:      make(map[common.Address]*accountObject),
+		//accountObjects:      make(map[common.Address]*accountObject),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}, nil
 }
@@ -81,12 +82,13 @@ func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &AccountDB{
+	accountdb:= &AccountDB{
 		db:                  db,
 		trie:                tr,
-		accountObjects:      make(map[common.Address]*accountObject),
+		//accountObjects:      make(map[common.Address]*accountObject),
 		accountObjectsDirty: make(map[common.Address]struct{}),
-	}, nil
+	}
+	return accountdb,nil
 }
 
 func (self *AccountDB) GetTrie() Trie {
@@ -109,7 +111,7 @@ func (self *AccountDB) Reset(root common.Hash) error {
 		return err
 	}
 	self.trie = tr
-	self.accountObjects = make(map[common.Address]*accountObject)
+	self.accountObjects = sync.Map{}
 	self.accountObjectsDirty = make(map[common.Address]struct{})
 	self.thash = common.Hash{}
 	self.bhash = common.Hash{}
@@ -304,11 +306,12 @@ func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObjec
 
 func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
 
-	if obj := self.accountObjects[addr]; obj != nil {
-		if obj.deleted {
+	if obj,ok := self.accountObjects.Load(addr); ok {
+		obj2 := obj.(*accountObject)
+		if obj2.deleted {
 			return nil
 		}
-		return obj
+		return obj2
 	}
 
 	obj := self.getAccountObjectFromTrie(addr)
@@ -319,7 +322,7 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 }
 
 func (self *AccountDB) setAccountObject(object *accountObject) {
-	self.accountObjects[object.Address()] = object
+	self.accountObjects.Store(object.Address(), object)
 }
 
 func (self *AccountDB) GetOrNewAccountObject(addr common.Address) *accountObject {
@@ -370,14 +373,14 @@ func (self *AccountDB) Copy() *AccountDB {
 	state := &AccountDB{
 		db:                self.db,
 		trie:              self.trie,
-		accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
+		//accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
 		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
 		refund:              self.refund,
 		logSize:             self.logSize,
 	}
 
 	for addr := range self.accountObjectsDirty {
-		state.accountObjects[addr] = self.accountObjects[addr].deepCopy(state, state.MarkAccountObjectDirty)
+		//state.accountObjects[addr] = self.accountObjects[addr].deepCopy(state, state.MarkAccountObjectDirty)
 		state.accountObjectsDirty[addr] = struct{}{}
 	}
 	return state
@@ -415,7 +418,8 @@ func (self *AccountDB) GetRefund() uint64 {
 
 func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range s.accountObjectsDirty {
-		accountObject := s.accountObjects[addr]
+		object,_ := s.accountObjects.Load(addr)
+		accountObject := object.(*accountObject)
 		if accountObject.suicided || (deleteEmptyObjects && accountObject.empty()) {
 			s.deleteAccountObject(accountObject)
 		} else {
@@ -442,7 +446,8 @@ func (s *AccountDB) DeleteSuicides() {
 	s.clearJournalAndRefund()
 
 	for addr := range s.accountObjectsDirty {
-		accountObject := s.accountObjects[addr]
+		object,_ := s.accountObjects.Load(addr)
+		accountObject := object.(*accountObject)
 
 		if accountObject.suicided {
 			accountObject.deleted = true
@@ -459,9 +464,12 @@ func (s *AccountDB) clearJournalAndRefund() {
 
 func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) {
 	defer s.clearJournalAndRefund()
-
-	for addr, accountObject := range s.accountObjects {
+	var e *error
+	s.accountObjects.Range(func(key, value interface{}) bool {
+	//for addr, accountObject := range s.accountObjects {
+		addr := key.(common.Address)
 		_, isDirty := s.accountObjectsDirty[addr]
+		accountObject := value.(*accountObject)
 		switch {
 		case accountObject.suicided || (isDirty && deleteEmptyObjects && accountObject.empty()):
 
@@ -474,12 +482,18 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 			}
 
 			if err := accountObject.CommitTrie(s.db); err != nil {
-				return common.Hash{}, err
+				e = &err
+				return false
+				//return common.Hash{}, err
 			}
 
 			s.updateAccountObject(accountObject)
 		}
 		delete(s.accountObjectsDirty, addr)
+		return true
+	})
+	if e != nil{
+		return common.Hash{},*e
 	}
 
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {

@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"storage/tasdb"
 	"github.com/hashicorp/golang-lru"
-	"fmt"
 )
 
 const (
@@ -468,7 +467,6 @@ func (db *LRUMemDatabase) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	db.db.Add(string(key),common.CopyBytes(value))
-	fmt.Printf("Light LRUMemDatabase put.key:%v,value:%v",key,value)
 	return nil
 }
 
@@ -484,13 +482,10 @@ func (db *LRUMemDatabase) Get(key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	fmt.Printf("Light LRUMemDatabase Get.key:%v",key)
 	if entry, ok := db.db.Get(string(key)); ok {
 		vl,_:= entry.([]byte)
-		fmt.Printf("Light LRUMemDatabase Get.key:%v,value:%v",key,vl)
 		return common.CopyBytes(vl), nil
 	}
-	fmt.Printf("Light LRUMemDatabase Get.key:%v,value is nil!",key)
 	return nil, nil
 }
 

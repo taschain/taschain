@@ -108,10 +108,10 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	}
 
 	top := p.MainChain.QueryTopBlock()
-	if time.Since(top.CurTime).Seconds() < 1.0 {
-		blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
-		return false
-	}
+	//if time.Since(top.CurTime).Seconds() < 1.0 {
+	//	blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
+	//	return false
+	//}
 
 	var (
 		expireTime  time.Time

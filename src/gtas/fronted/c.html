@@ -9,6 +9,7 @@
     </style>
     <script src="https://mvp.taschain.cn/static/layui/layui.js" type="application/javascript"></script>
     <script src="gtas/fronted/js/tas.js" type="application/javascript"></script>
+    <script src="gtas/fronted/js/tas-ext.js" type="application/javascript"></script>
 </head>
 <body>
 <div style="margin: 20px 5%" >
@@ -24,10 +25,11 @@
             <li>转账演示</li>
             <li>查询余额</li>
             <li>投票</li>
-            <li>查询块信息</li>
-            <li>查询组信息</li>
+            <li>块链</li>
+            <li>组链</li>
             <li>查询工作组</li>
             <li>共识验证</li>
+            <li lay-id="block_detail_tab">块详情</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -476,6 +478,112 @@
                 <label style="text-align: left">截止该块高节点节点出块汇总信息</label>
                 <table id="cast_block_total_detail" lay-filter="cast_block_total_detail"></table>
 
+            </div>
+
+            <!-- 块详情 -->
+            <div class="layui-tab-item">
+                <div class="layui-row layui-col-space20">
+                    <div class="layui-col-md2"></div>
+                    <div class="layui-col-md4">
+                        <input type="text" name="account"   autocomplete="off" class="layui-input" placeholder="块hash" id="query_block_hash">
+                    </div>
+                    <div class="layui-col-md1">
+                        <button class="layui-btn query_btn" id="query_block_btn">查询</button>
+                    </div>
+                    <div class="layui-col-md2"></div>
+                </div>
+                <div class="layui-row">
+                    <fieldset class="layui-elem-field">
+                        <legend>最近查询</legend>
+                        <div class="layui-field-box">
+                            <div class="layui-row layui-col-space10" id="recent_query_block">
+
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="layui-row" id="block_detail_result">
+                    <div class="layui-row layui-col-space20">
+                        <div class="layui-col-md6">
+                        <fieldset class="layui-elem-field">
+                            <legend>块头详情</legend>
+                            <div class="layui-field-box">
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">高度：</div>
+                                    <div class="layui-col-md1" id="block__detail_height">11111</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">hash：</div>
+                                    <div class="layui-col-md4" id="block_hash">0x5c7c6ebb94b93f360eb74cad9eeb436e768b3e8851c553418171e2d1dc465807</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">前块hash：</div>
+                                    <div class="layui-col-md4" id="block_pre_hash">0x5c7c6ebb94b93f360eb74cad9eeb436e768b3e8851c553418171e2d1dc465807</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">时间戳：</div>
+                                    <div class="layui-col-md4" id="block_ts">2018-10-20 10:00:00</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">前块时间戳：</div>
+                                    <div class="layui-col-md4" id="block_pre_ts">2018-10-20 10:00:00</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">提案者：</div>
+                                    <div class="layui-col-md4" id="block_castor">0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">验证组：</div>
+                                    <div class="layui-col-md4" id="block_group">0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">交易数：</div>
+                                    <div class="layui-col-md4" id="block_tx_cnt">11</div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        </div>
+                        <div class="layui-col-md6">
+                        <fieldset class="layui-elem-field">
+                            <legend>本块产生的分红交易</legend>
+                            <div class="layui-field-box">
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">交易hash：</div>
+                                    <div class="layui-col-md4" id="gen_bonus_hash">0x5c7c6ebb94b93f360eb74cad9eeb436e768b3e8851c553418171e2d1dc465807</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">每ID奖励：</div>
+                                    <div class="layui-col-md4" id="gen_bouns_value">5</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">目标ID列表：</div>
+                                    <div class="layui-col-md4" id="gen_bonus_targets">--</div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        </div>
+                    </div>
+                    <div class="layui-row layui-col-space20">
+                        <fieldset class="layui-elem-field">
+                            <legend>奖励情况</legend>
+                            <div class="layui-field-box">
+                                <table id="bonus_balance_table" lay-filter="bonus_balance_table"></table>
+                            </div>
+                        </fieldset>
+                        <fieldset class="layui-elem-field">
+                            <legend>分红交易</legend>
+                            <div class="layui-field-box">
+                                <table id="bonus_table" lay-filter="bonus_table"></table>
+                            </div>
+                        </fieldset>
+                        <fieldset class="layui-elem-field">
+                            <legend>普通交易</legend>
+                            <div class="layui-field-box">
+                                <table id="txs_table" lay-filter="txs_table"></table>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

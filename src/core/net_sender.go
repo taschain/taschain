@@ -22,6 +22,7 @@ import (
 	"middleware/types"
 	"network"
 	"math/big"
+	"time"
 )
 
 type TransactionRequestMessage struct {
@@ -58,7 +59,7 @@ type StateInfoReq struct {
 	Height       uint64
 	BlockHash common.Hash
 	Transactions types.Transactions
-	IsInit       bool
+	Addresses    []common.Address
 }
 
 type StateInfo struct {
@@ -79,7 +80,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	//network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.BlockQn, len(m.TransactionHashes), time.Now())
+	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
 }
@@ -179,9 +180,9 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	go network.GetNetInstance().Send(targetNode, message)
 }
 
-func ReqStateInfo(targetNode string, blockHeight uint64,qn *big.Int, txs types.Transactions, isInit bool,blockHash common.Hash) {
-	Logger.Debugf("Req state info to:%s,blockHeight:%d,qn:%d,len txs:%v,isInit:%t", targetNode, blockHeight,qn, len(txs),isInit)
-	m := StateInfoReq{Height: blockHeight, Transactions: txs, IsInit: isInit,BlockHash:blockHash}
+func ReqStateInfo(targetNode string, blockHeight uint64,qn *big.Int, txs types.Transactions,addresses []common.Address, blockHash common.Hash) {
+	Logger.Debugf("Req state info to:%s,blockHeight:%d,qn:%d,len txs:%d,len addresses:%d", targetNode, blockHeight,qn, len(txs),len(addresses))
+	m := StateInfoReq{Height: blockHeight, Transactions: txs, Addresses: addresses,BlockHash:blockHash}
 	body, e := marshalStateInfoReq(m)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalStateInfoReq because of marshal error:%s!", e.Error())
@@ -305,7 +306,11 @@ func marshalStateInfoReq(stateInfoReq StateInfoReq) ([]byte, error) {
 		txSlice = tas_middleware_pb.TransactionSlice{Transactions: txs}
 	}
 
-	message := tas_middleware_pb.StateInfoReq{Height: &stateInfoReq.Height, Transactions: &txSlice, IsInit: &stateInfoReq.IsInit,BlockHash:stateInfoReq.BlockHash.Bytes()}
+	var addresses [][]byte
+	for _,addr := range stateInfoReq.Addresses{
+		addresses = append(addresses,addr.Bytes())
+	}
+	message := tas_middleware_pb.StateInfoReq{Height: &stateInfoReq.Height, Transactions: &txSlice, Addresses: addresses,BlockHash:stateInfoReq.BlockHash.Bytes()}
 	return proto.Marshal(&message)
 }
 

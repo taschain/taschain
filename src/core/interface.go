@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"middleware/types"
 	"storage/core"
+	"storage/core/vm"
 )
 
 //主链接口
@@ -51,7 +52,9 @@ type BlockChain interface {
 	QueryTopBlock() *types.BlockHeader
 
 	//根据指定哈希查询块
-	QueryBlockByHash(hash common.Hash) *types.BlockHeader
+	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
+
+	QueryBlockByHash(hash common.Hash) *types.Block
 
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
@@ -91,13 +94,15 @@ type BlockChain interface {
 
 	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,isInit bool) *[]types.StateNode
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
+
+	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 }
 
 type TransactionPool interface {
@@ -117,6 +122,8 @@ type TransactionPool interface {
 	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
 
 	GetTransactionsForCasting() []*types.Transaction
+
+	GetTransactionStatus(hash common.Hash) (uint, error)
 
 	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
 

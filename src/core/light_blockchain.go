@@ -18,6 +18,7 @@ import (
 	vtypes "storage/core/types"
 	"sync"
 	"math/big"
+	"storage/core/vm"
 )
 
 const (
@@ -113,8 +114,11 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
+
+	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
+	initMinerManager(chain)
 
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
@@ -123,10 +127,9 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 	} else {
-		// 创始块
+		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			chain.latestStateDB = state
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
@@ -258,21 +261,28 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 	}
+	var missingAccouts []common.Address
 	var missingAccountTxs []*types.Transaction
-	if chain.Height() == 0{
+	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil{
 		missingAccountTxs = b.Transactions
+		castor := common.BytesToAddress(b.Header.Castor)
+
+		missingAccouts = append(missingAccouts,castor)
+		missingAccouts = append(missingAccouts,common.BonusStorageAddress)
+		missingAccouts = append(missingAccouts,common.LightDBAddress)
+		missingAccouts = append(missingAccouts,common.HeavyDBAddress)
 	}else {
-		missingAccountTxs = chain.executor.FilterMissingAccountTransaction(state, b)
+		missingAccountTxs,missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
 	}
 
-	if len(missingAccountTxs) != 0 {
-		Logger.Debugf("len(noExecuteTxs) != 0,len:%d", len(missingAccountTxs))
+	if len(missingAccountTxs) != 0 || len(missingAccouts) !=0 {
+		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs),len(missingAccouts))
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
 			Logger.Errorf("castorId.Deserialize error!", error.Error())
 		}
-		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, false, b.Header.Hash)
+		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, missingAccouts, b.Header.Hash)
 	}
 	return missingAccountTxs
 }
@@ -380,12 +390,12 @@ func (chain *LightChain) updateLastBlock(state *core.AccountDB, header *types.Bl
 }
 
 //根据指定哈希查询块
-func (chain *LightChain) QueryBlockByHash(hash common.Hash) *types.BlockHeader {
+func (chain *LightChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
 }
 
 func (chain *LightChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	if nil == block {
 		return nil
 	}
@@ -400,7 +410,7 @@ func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash, verifyH
 	panic("Not support!")
 }
 
-func (chain *LightChain) queryBlockByHash(hash common.Hash) *types.Block {
+func (chain *LightChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
@@ -527,7 +537,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 // 删除块
 func (chain *LightChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
+	block := chain.QueryBlockByHash(hash)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
@@ -542,7 +552,7 @@ func (chain *LightChain) remove(header *types.BlockHeader) {
 	chain.transactionPool.AddTransactions(txs)
 }
 
-func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, isInit bool) *[]types.StateNode {
+func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	panic("Not support!")
 }
 
@@ -550,7 +560,11 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
-		chain.statedb.Put(node.Key, node.Value)
+		Logger.Infof("InsertStateNode  key:%v,value:%v \n", common.BytesToAddress(([]byte)(node.Key)).GetHexString(),node.Value)
+		err := chain.statedb.Put(node.Key, node.Value)
+		if err != nil{
+			panic("InsertStateNode error:"+err.Error())
+		}
 	}
 }
 
@@ -614,4 +628,9 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
+}
+
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
+	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }

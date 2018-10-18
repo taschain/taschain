@@ -60,6 +60,6 @@ type AccountDB interface {
 type ChainReader interface {
 	Height() uint64
 	QueryTopBlock() *types.BlockHeader
-	QueryBlockByHash(hash common.Hash) *types.BlockHeader
+	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
 	QueryBlockByHeight(height uint64) *types.BlockHeader
 }
