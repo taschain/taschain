@@ -458,13 +458,24 @@
                     <tr>
                         <td width="40%">
                             <input type="text" name="consensus_stat"   autocomplete="off" class="layui-input"
-                                   placeholder="根据高度统计共识算法执行情况" id="consensus_stat_input">
+                                   placeholder="请输入区块高度" id="block_height_input">
                         </td>
                         <td>
-                            <button class="layui-btn query_btn" id="consensus_stat_btn">统计</button>
+                            <button class="layui-btn query_btn" id="block_height_btn">统计</button>
                         </td>
                     </tr>
                 </table>
+
+                <label style="text-align: left">节点分红信息</label>
+                <table id="bonus_transaction_detail" lay-filter="bonus_detail"></table>
+
+
+                <label style="text-align: left">截止该块高节点分红汇总信息</label>
+                <table id="bonus_transaction_total_detail" lay-filter="bonus_total_detail"></table>
+
+                <label style="text-align: left">截止该块高节点节点出块汇总信息</label>
+                <table id="cast_block_total_detail" lay-filter="cast_block_total_detail"></table>
+
             </div>
         </div>
     </div>

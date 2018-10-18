@@ -16,11 +16,11 @@
 package network
 
 import (
-	"taslog"
 	"common"
+	"taslog"
 
-	nnet "net"
 	"middleware/statistics"
+	nnet "net"
 )
 
 const (
@@ -41,7 +41,7 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool,seedIp string, nodeIDHex string)(err error){
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, nodeIDHex string) (err error) {
 	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
@@ -51,7 +51,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 		return err
 	}
 	//id = self.Id
-	if seedIp == ""{
+	if seedIp == "" {
 		seedIp = seedDefaultIp
 	}
 	seedId, _, seedPort := getSeedInfo(config)
@@ -76,7 +76,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
 	return nil
 }
 

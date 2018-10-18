@@ -16,11 +16,11 @@
 package cli
 
 import (
-	"middleware/types"
 	"common"
-	"time"
 	"consensus/groupsig"
 	"math/big"
+	"middleware/types"
+	"time"
 )
 
 // Result rpc请求成功返回的可变参数部分
@@ -176,4 +176,32 @@ type Dashboard struct {
 	WorkGNum int `json:"work_g_num"`
 	NodeInfo *NodeInfo `json:"node_info"`
 	Conns []ConnInfo `json:"conns"`
+}
+
+type BonusInfo struct {
+	BlockHeight uint64 `json:"block_height"`
+	BlockHash common.Hash `json:"block_hash"`
+	BonusTxHash common.Hash `json:"bonus_tx_hash"`
+	GroupId string `json:"group_id"`
+	CasterId string `json:"caster_id"`
+	MemberIds []string `json:"members"`
+	BonusValue uint64  `json:"bonus_value"`
+}
+
+type BonusStatInfo struct {
+	MemberId string `json:"member"`
+	BonusNum uint64 `json:"bonus_num"`
+	TotalBonusValue uint64 `json:"total_bonus_value"`
+}
+
+type CastBlockStatInfo struct {
+	CasterId string `json:"casterId"`
+	Stake uint64 `json:"stake"`
+	CastBlockNum uint64 `json:"castBlockNum"`
+}
+
+type CastBlockAndBonusResult struct {
+	BonusInfoAtHeight BonusInfo `json:"bonus_info_at_height"`
+	BonusStatInfos []BonusStatInfo `json:"bonuses"`
+	CastBlockStatInfos []CastBlockStatInfo `json:"castBlocks"`
 }

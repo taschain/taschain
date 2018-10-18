@@ -77,7 +77,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 func(bm *BonusManager) StatBonusByBlockHeight(blockHeight uint64){
 	var i uint64
 	for i = 1; i <= blockHeight; i++{
-		blockHeader := BlockChainImpl.QueryBlockByHeight(blockHeight)
+		blockHeader := BlockChainImpl.QueryBlockByHeight(i)
 
 		// 打印铸块信息
 		casterId := blockHeader.Castor
@@ -121,6 +121,10 @@ func(bm *BonusManager) StatBonusByBlockHeight(blockHeight uint64){
 			BonusLogger.Infof(genMinerBonusLogInfo(i, blockHeader.Hash, bonusTx.Hash, groupId, casterId, address, balance, value))
 		}
 	}
+}
+
+func(bm *BonusManager) GetBonusInfoByHeight(blockHeight uint64){
+
 }
 
 func genMinerBonusLogInfo(blockHeight uint64, bh common.Hash, th common.Hash, groupId []byte, casterId []byte, address common.Address, balance *big.Int, bonus *big.Int) string{

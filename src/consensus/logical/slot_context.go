@@ -16,52 +16,52 @@
 package logical
 
 import (
-	"consensus/groupsig"
 	"common"
-	"sync/atomic"
-	"middleware/types"
-	"core"
+	"consensus/groupsig"
 	"consensus/model"
-	"log"
-	"gopkg.in/fatih/set.v0"
+	"core"
 	"fmt"
+	"gopkg.in/fatih/set.v0"
+	"log"
 	"math/big"
+	"middleware/types"
+	"sync/atomic"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/5/21 下午5:49
-**  Description: 
-*/
+**  Description:
+ */
 
 const (
 	SS_INITING     int32 = iota
-	SS_WAITING        //等待签名片段达到阈值
-	SS_SIGNED          //自己是否签名过
-	SS_RECOVERD      //恢复出组签名
-	SS_VERIFIED      //组签名用组公钥验证通过
-	SS_SUCCESS        //已上链广播
-	SS_FAILED          //铸块过程中失败，不可逆
-	SS_REWARD_REQ   //分红交易签名请求已发
-	SS_REWARD_SEND  //分红交易已广播
+	SS_WAITING           //等待签名片段达到阈值
+	SS_SIGNED            //自己是否签名过
+	SS_RECOVERD          //恢复出组签名
+	SS_VERIFIED          //组签名用组公钥验证通过
+	SS_SUCCESS           //已上链广播
+	SS_FAILED            //铸块过程中失败，不可逆
+	SS_REWARD_REQ        //分红交易签名请求已发
+	SS_REWARD_SEND       //分红交易已广播
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
 	//验证相关
-	BH             types.BlockHeader //出块头详细数据
+	BH types.BlockHeader //出块头详细数据
 	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
-	vrfValue 		*big.Int
-	gSignGenerator *model.GroupSignGenerator	//块签名产生器
-	rSignGenerator *model.GroupSignGenerator	//随机数签名产生器
+	vrfValue       *big.Int
+	gSignGenerator *model.GroupSignGenerator //块签名产生器
+	rSignGenerator *model.GroupSignGenerator //随机数签名产生器
 	slotStatus     int32
 	lostTxHash     set.Interface
 
-	castor 		groupsig.ID
+	castor groupsig.ID
 
 	//奖励相关
-	rewardTrans 	*types.Transaction
-	rewardGSignGen	*model.GroupSignGenerator	//奖励交易签名产生器
+	rewardTrans    *types.Transaction
+	rewardGSignGen *model.GroupSignGenerator //奖励交易签名产生器
 }
 
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
@@ -80,7 +80,7 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	ltl, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
-	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
+	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(ltl), ccr)
 	sc.addLostTrans(ltl)
 	if ccr == -1 {
 		sc.setSlotStatus(SS_FAILED)
@@ -126,7 +126,7 @@ func (sc *SlotContext) addLostTrans(txs []common.Hash) {
 
 //用接收到的新交易更新缺失的交易集
 //返回接收前以及接收后是否不在缺失交易
-func (sc *SlotContext) AcceptTrans(ths []common.Hash) (bool) {
+func (sc *SlotContext) AcceptTrans(ths []common.Hash) bool {
 	l := sc.lostTransSize()
 	if l == 0 { //已经无缺失
 		return false
@@ -177,7 +177,6 @@ func (sc *SlotContext) IsSuccess() bool {
 	return sc.GetSlotStatus() == SS_SUCCESS
 }
 
-
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
 func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
@@ -212,8 +211,6 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 	return CBMR_ERROR_UNKNOWN
 }
 
-
-
 func (sc *SlotContext) IsValid() bool {
 	return sc.GetSlotStatus() != SS_INITING
 }
@@ -223,7 +220,7 @@ func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
 }
 
 func (sc *SlotContext) TransBrief() string {
-    return fmt.Sprintf("总交易数%v，缺失%v", len(sc.BH.Transactions), sc.lostTransSize())
+	return fmt.Sprintf("总交易数%v，缺失%v", len(sc.BH.Transactions), sc.lostTransSize())
 }
 
 func (sc *SlotContext) SetRewardTrans(tx *types.Transaction) bool {

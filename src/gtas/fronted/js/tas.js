@@ -498,6 +498,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 d = rdata.result.data
                 //块高
                 $("#block_height").text(d.block_height)
+
+                // 重置数据
                 if (d.block_height == 0 && blocks.length > 0 && blocks[0]["height"] == 0) {
                     current_block_height = 0;
                     blocks = [];
@@ -572,6 +574,43 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 $("#tb_node_status").text("已停止")
                 $("#trans_table").empty();
                 $("#nodes_table").empty();
+            }
+        });
+    }
+
+    $("#block_height_btn").click(function () {
+        var h = $("#block_height_input").val()
+        if (h == null || h == undefined || h == '') {
+            alert("请输入查询高度")
+            return
+        }
+        doConsensusStat(parseInt(h))
+    });
+
+    function doConsensusStat(height) {
+        let params = {
+            "method": "GTAS_castBlockAndBonusStat",
+            "params": [height],
+            "jsonrpc": "2.0",
+            "id": "1"
+        };
+        $.ajax({
+            type: 'POST',
+            url: HOST,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader("Content-Type", "application/json");
+            },
+            data: JSON.stringify(params),
+            success: function (rdata) {
+                if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success') {
+                    console.log(rdata.result.data)
+                }
+                if (rdata.error !== undefined) {
+                    // $("#t_error").text(rdata.error.message)
+                }
+            },
+            error: function (err) {
+                console.log(err)
             }
         });
     }

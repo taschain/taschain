@@ -13,9 +13,9 @@ import (
 type PeerSource int32
 
 const (
-	PeerSourceUnkown PeerSource =0
-	PeerSourceKad PeerSource =1
-	PeerSourceGroup PeerSource =2
+	PeerSourceUnkown PeerSource = 0
+	PeerSourceKad    PeerSource = 1
+	PeerSourceGroup  PeerSource = 2
 )
 
 //Peer 节点连接对象
@@ -29,12 +29,12 @@ type Peer struct {
 	expiration uint64
 	mutex      sync.RWMutex
 	connecting bool
-	source		PeerSource
+	source     PeerSource
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(),source:PeerSourceUnkown}
+	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(), source: PeerSourceUnkown}
 
 	return p
 }
@@ -130,7 +130,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId, p)
 	}
 
-	Logger.Infof("write Id:%v netid:%v session:%v size %v", toid.GetHexString(),netId, p.seesionId, len(packet.Bytes()))
+	Logger.Infof("write Id:%v netid:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
 
 	if p.seesionId > 0 {
 		p.write(packet)
@@ -247,9 +247,9 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 
 func (pm *PeerManager) checkPeerSource() {
 	for _, p := range pm.peers {
-		if p.seesionId > 0 &&  p.source == PeerSourceUnkown {
+		if p.seesionId > 0 && p.source == PeerSourceUnkown {
 			node := netCore.kad.find(p.Id)
-			if node != nil  {
+			if node != nil {
 				p.source = PeerSourceKad
 			} else {
 				p.source = PeerSourceGroup

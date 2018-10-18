@@ -33,6 +33,14 @@ import (
 	"middleware/types"
 )
 
+// 分红价值统计
+var BonusValueStatMap = make(map[uint64]map[string]uint64, 10)
+
+// 分红次数统计
+var BonusNumStatMap = make(map[uint64]map[string]uint64, 10)
+
+var CastBlockStatMap = make(map[uint64]map[string]uint64, 10)
+
 // GtasAPI is a single-method API handler to be returned by test services.
 type GtasAPI struct {
 }

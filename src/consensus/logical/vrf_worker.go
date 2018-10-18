@@ -1,25 +1,25 @@
 package logical
 
 import (
-	"middleware/types"
-	"time"
-	"sync/atomic"
-	"consensus/model"
-	"math/big"
-	"errors"
 	"consensus/base"
+	"consensus/model"
+	"errors"
+	"math/big"
+	"middleware/types"
+	"sync/atomic"
+	"time"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/9/12 上午11:46
-**  Description: 
-*/
+**  Description:
+ */
 
 const (
-	prove int32 = 0
-	proposed  = 1
-	success  = 2
+	prove    int32 = 0
+	proposed       = 1
+	success        = 2
 )
 
 var max256 *big.Rat
@@ -32,21 +32,21 @@ func init() {
 
 type vrfWorker struct {
 	//read only
-	miner  *model.SelfMinerDO
-	baseBH *types.BlockHeader
+	miner      *model.SelfMinerDO
+	baseBH     *types.BlockHeader
 	castHeight uint64
-	expire time.Time
+	expire     time.Time
 	//writable
 	status int32
 }
 
 func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time) *vrfWorker {
-    return &vrfWorker{
-    	miner: miner,
-    	baseBH: bh,
-    	castHeight: castHeight,
-    	expire: expire,
-    	status: prove,
+	return &vrfWorker{
+		miner:      miner,
+		baseBH:     bh,
+		castHeight: castHeight,
+		expire:     expire,
+		status:     prove,
 	}
 }
 
@@ -58,7 +58,7 @@ func (vrf *vrfWorker) prove(totalStake uint64) (base.VRFProve, error) {
 	if vrfSatisfy(pi, vrf.miner.Stake, totalStake) {
 		return pi, nil
 	}
-    return nil, errors.New("proof fail")
+	return nil, errors.New("proof fail")
 }
 
 func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) bool {
@@ -84,7 +84,7 @@ func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *mode
 	//blog := newBizLog("vrfVerifyBlock")
 	//blog.log("pi %v", pi.ShortS())
 	if !ok {
-		return ok ,err
+		return ok, err
 	}
 	if vrfSatisfy(pi, miner.Stake, totalStake) {
 		return true, nil
@@ -92,11 +92,11 @@ func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *mode
 	return false, errors.New("proof not satisfy")
 }
 
-func (vrf *vrfWorker) markProposed()  {
+func (vrf *vrfWorker) markProposed() {
 	atomic.CompareAndSwapInt32(&vrf.status, prove, proposed)
 }
 
-func (vrf *vrfWorker) markSuccess()  {
+func (vrf *vrfWorker) markSuccess() {
 	atomic.CompareAndSwapInt32(&vrf.status, proposed, success)
 }
 
@@ -113,7 +113,7 @@ func (vrf *vrfWorker) isProposed() bool {
 }
 
 func (vrf *vrfWorker) getStatus() int32 {
-    return atomic.LoadInt32(&vrf.status)
+	return atomic.LoadInt32(&vrf.status)
 }
 
 func (vrf *vrfWorker) workingOn(bh *types.BlockHeader, castHeight uint64) bool {
@@ -121,5 +121,5 @@ func (vrf *vrfWorker) workingOn(bh *types.BlockHeader, castHeight uint64) bool {
 }
 
 func (vrf *vrfWorker) timeout() bool {
-    return time.Now().After(vrf.expire)
+	return time.Now().After(vrf.expire)
 }

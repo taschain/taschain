@@ -18,16 +18,16 @@ package logical
 import (
 	"consensus/groupsig"
 
-	"core"
-	"log"
-	"consensus/ticker"
-	"middleware/types"
 	"consensus/model"
 	"consensus/net"
+	"consensus/ticker"
+	"core"
+	"fmt"
+	"log"
 	"middleware/notify"
+	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
-	"fmt"
 )
 
 var PROC_TEST_MODE bool
@@ -53,15 +53,15 @@ type Processor struct {
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 
-	storage 	tasdb.Database
-	ready 		bool //是否已初始化完成
+	storage tasdb.Database
+	ready   bool //是否已初始化完成
 
 	//////链接口
 	MainChain  core.BlockChain
 	GroupChain *core.GroupChain
 
 	minerReader *MinerPoolReader
-	vrf	 atomic.Value		//vrfWorker
+	vrf         atomic.Value //vrfWorker
 
 	NetServer net.NetworkServer
 }

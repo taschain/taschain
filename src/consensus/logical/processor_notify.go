@@ -1,12 +1,12 @@
 package logical
 
 import (
-	"middleware/notify"
-	"log"
-	"middleware/types"
-	"consensus/model"
-	"consensus/groupsig"
 	"common"
+	"consensus/groupsig"
+	"consensus/model"
+	"log"
+	"middleware/notify"
+	"middleware/types"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
@@ -50,7 +50,7 @@ func (p *Processor) triggerFutureBlockMsg(preBH *types.BlockHeader) {
 	for _, msg := range futureMsgs {
 		tbh := msg.Block.Header
 		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
-		tlog.log( "%v", "trigger cached future block")
+		tlog.log("%v", "trigger cached future block")
 		p.receiveBlock(&msg.Block, preBH)
 	}
 	p.removeFutureBlockMsgs(preBH.Hash)
@@ -101,15 +101,12 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	p.acceptGroup(sgi)
 }
 
-func (p *Processor) onNewBlockReceive(message notify.Message)  {
+func (p *Processor) onNewBlockReceive(message notify.Message) {
 	if !p.Ready() {
 		return
 	}
-    msg := &model.ConsensusBlockMessage{
-    	Block: message.GetData().(types.Block),
+	msg := &model.ConsensusBlockMessage{
+		Block: message.GetData().(types.Block),
 	}
-    p.OnMessageBlock(msg)
+	p.OnMessageBlock(msg)
 }
-
-
-

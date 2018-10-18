@@ -29,7 +29,7 @@ var genesisGroupInfo *genesisGroup
 
 func GetGenesisGroupInfo() *genesisGroup {
 	if genesisGroupInfo == nil {
-		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
+		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "/Users/lxf/tas-test/daily/genesis_sgi.config")
 		genesisGroupInfo = genGenesisStaticGroupInfo(f)
 	}
 	return genesisGroupInfo

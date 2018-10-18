@@ -5,11 +5,11 @@ import (
 
 	"middleware/pb"
 
-	"strconv"
 	"common"
 	"golang.org/x/crypto/sha3"
-	"middleware/statistics"
 	"middleware/notify"
+	"middleware/statistics"
+	"strconv"
 	"time"
 )
 
@@ -212,15 +212,15 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	case ReqStateInfoMsg:
-		msg := notify.StateInfoReqMessage{StateInfoReqByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfoReq,&msg)
+		msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.StateInfoReq, &msg)
 	case StateInfoMsg:
-		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfo,&msg)
+		msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.StateInfo, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {
-		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
+		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(), code)
 	}
 }
 

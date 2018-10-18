@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	alpha           = 3  // 并发限制
-	bucketSize      = 35 // kad桶大小
-	maxReplacements = 10 // kad 预备桶成员大小
+	alpha              = 3  // 并发限制
+	bucketSize         = 35 // kad桶大小
+	maxReplacements    = 10 // kad 预备桶成员大小
 	maxSetupCheckCount = 12
 
 	hashBits          = 256
@@ -24,7 +24,7 @@ const (
 	bucketMinDistance = hashBits - nBuckets // 最近桶的对数距离
 
 	refreshInterval    = 5 * time.Minute
-	checkInterval	= 	12 * time.Second
+	checkInterval      = 12 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
 	seedMinTableTime   = 5 * time.Minute
@@ -41,7 +41,7 @@ func makeSha256Hash(data []byte) []byte {
 type Kad struct {
 	mutex   sync.Mutex        // 保护成员 buckets, bucket content, nursery, rand
 	buckets [nBuckets]*bucket // 根据节点距离排序的节点的索引
-	seeds []*Node           // 启动节点列表
+	seeds   []*Node           // 启动节点列表
 	rand    *mrand.Rand       // 随机数生成器
 
 	refreshReq chan chan struct{}
@@ -66,7 +66,7 @@ type bucket struct {
 	replacements []*Node // 备用补充节点
 }
 
-func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node) (*Kad, error) {
+func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr, seeds []*Node) (*Kad, error) {
 	kad := &Kad{
 		net:        t,
 		self:       NewNode(ourID, ourAddr.IP, ourAddr.Port),
@@ -80,8 +80,7 @@ func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr,  seeds []*Node)
 		return nil, err
 	}
 	for i := range kad.buckets {
-		kad.buckets[i] = &bucket{
-		}
+		kad.buckets[i] = &bucket{}
 	}
 	kad.seedRand()
 	kad.loadSeedNodes(false)
@@ -95,10 +94,9 @@ func (kad *Kad) print() {
 
 	for i, b := range kad.buckets {
 		for _, n := range b.entries {
-			Logger.Debugf(" [kad] print bucket:%v id:%v  addr: IP:%v    Port:%v", i,n.Id.GetHexString(),n.Ip, n.Port)
+			Logger.Debugf(" [kad] print bucket:%v id:%v  addr: IP:%v    Port:%v", i, n.Id.GetHexString(), n.Ip, n.Port)
 		}
 	}
-
 
 	return
 }
@@ -112,11 +110,9 @@ func (kad *Kad) seedRand() {
 	kad.mutex.Unlock()
 }
 
-
 func (kad *Kad) Self() *Node {
 	return kad.self
 }
-
 
 func (kad *Kad) readRandomNodes(buf []*Node) (n int) {
 	if !kad.isInitDone() {
@@ -197,7 +193,6 @@ func (kad *Kad) find(targetID NodeID) *Node {
 
 	return nil
 }
-
 
 func (kad *Kad) resolve(targetID NodeID) *Node {
 	hash := makeSha256Hash(targetID[:])
@@ -284,11 +279,11 @@ func (kad *Kad) refresh() <-chan struct{} {
 
 func (kad *Kad) loop() {
 	var (
-		refresh        = time.NewTicker(refreshInterval)
-		check        = time.NewTicker(checkInterval)
-		copyNodes      = time.NewTicker(copyNodesInterval)
-		refreshDone    = make(chan struct{})           // where doRefresh reports completion
-		waiting        = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
+		refresh     = time.NewTicker(refreshInterval)
+		check       = time.NewTicker(checkInterval)
+		copyNodes   = time.NewTicker(copyNodesInterval)
+		refreshDone = make(chan struct{})           // where doRefresh reports completion
+		waiting     = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
 	)
 	defer refresh.Stop()
 	defer copyNodes.Stop()
@@ -311,8 +306,8 @@ loop:
 				go kad.doRefresh(refreshDone)
 			}
 		case <-check.C:
-				kad.setupCheckCount = kad.setupCheckCount +1
-				go kad.doCheck()
+			kad.setupCheckCount = kad.setupCheckCount + 1
+			go kad.doCheck()
 
 		case <-refreshDone:
 			for _, ch := range waiting {
@@ -338,7 +333,6 @@ loop:
 	close(kad.closed)
 }
 
-
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
 	kad.print()
@@ -353,15 +347,13 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 	}
 }
 
-
 func (kad *Kad) doCheck() {
 
 	Logger.Debugf("[kad] check ... bucket size:%v ", kad.len())
-	if kad.len() <= len(kad.seeds) || kad.setupCheckCount <  maxSetupCheckCount{
+	if kad.len() <= len(kad.seeds) || kad.setupCheckCount < maxSetupCheckCount {
 		kad.refresh()
 	}
 }
-
 
 func (kad *Kad) loadSeedNodes(bond bool) {
 	seeds := make([]*Node, 0, 16)
@@ -376,7 +368,6 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 	}
 }
 
-
 func (kad *Kad) copyBondedNodes() {
 	kad.mutex.Lock()
 	defer kad.mutex.Unlock()
@@ -390,7 +381,6 @@ func (kad *Kad) copyBondedNodes() {
 		}
 	}
 }
-
 
 func (kad *Kad) closest(target []byte, nresults int) *nodesByDistance {
 
@@ -427,7 +417,7 @@ func (kad *Kad) pingAll(nodes []*Node) (result []*Node) {
 	return result
 }
 
-func (kad *Kad) pingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
+func (kad *Kad) pingNode(id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
 	if id == kad.self.Id {
 		return nil, errors.New("is self")
@@ -437,7 +427,7 @@ func (kad *Kad) pingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 	node = kad.find(id)
 	age := nodeBondExpiration
 	fails := 0
-	pinged :=  false
+	pinged := false
 	if node != nil {
 		age = time.Since(node.pingAt)
 		fails = int(node.fails)
@@ -446,14 +436,14 @@ func (kad *Kad) pingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 	}
 
 	var result error
-	if !pinged && ( fails > 0 || age >= nodeBondExpiration) {
+	if !pinged && (fails > 0 || age >= nodeBondExpiration) {
 		kad.net.ping(id, addr)
 	}
 
 	return node, result
 }
 
-func (kad *Kad) onPingNode( id NodeID, addr *nnet.UDPAddr) (*Node, error) {
+func (kad *Kad) onPingNode(id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
 	if id == kad.self.Id {
 		return nil, errors.New("is self")
@@ -486,7 +476,6 @@ func (kad *Kad) bucket(sha []byte) *bucket {
 	}
 	return kad.buckets[d-bucketMinDistance-1]
 }
-
 
 func (kad *Kad) add(new *Node) {
 
@@ -591,7 +580,6 @@ func (kad *Kad) deleteInBucket(b *bucket, n *Node) {
 	b.entries = deleteNode(b.entries, n)
 	kad.removeIP(b, n.Ip)
 }
-
 
 func pushNode(list []*Node, n *Node, max int) ([]*Node, *Node) {
 	if len(list) < max {

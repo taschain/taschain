@@ -2,14 +2,14 @@ package network
 
 import (
 	"common"
+	"errors"
+	"fmt"
+	"log"
+	"math/rand"
 	nnet "net"
 	"strconv"
-	"log"
 	"taslog"
-	"math/rand"
 	"time"
-	"fmt"
-	"errors"
 )
 
 const (
@@ -19,22 +19,22 @@ const (
 
 	BASE_SECTION = "network"
 
-	PRIVATE_KEY = "private_key"
+	PRIVATE_KEY  = "private_key"
 	NodeIdLength = 66
 )
 
 type NodeID [NodeIdLength]byte
 
 func (nid NodeID) GetHexString() string {
-    return string(nid[:])
+	return string(nid[:])
 }
 func NewNodeID(hex string) NodeID {
-    var nid NodeID
-    nid.SetBytes([]byte(hex))
-    return nid
+	var nid NodeID
+	nid.SetBytes([]byte(hex))
+	return nid
 }
 
-func (nid *NodeID) SetBytes(b []byte)  {
+func (nid *NodeID) SetBytes(b []byte) {
 	if len(nid) < len(b) {
 		b = b[:len(nid)]
 	}
@@ -42,29 +42,27 @@ func (nid *NodeID) SetBytes(b []byte)  {
 }
 
 func (nid NodeID) Bytes() []byte {
-    return nid[:]
+	return nid[:]
 }
 
 // Node Kad 节点
 type Node struct {
-
 	PrivateKey common.PrivateKey
 
 	PublicKey common.PublicKey
-	Id      NodeID
-	Ip     	nnet.IP
-	Port    int
-	NatType int
+	Id        NodeID
+	Ip        nnet.IP
+	Port      int
+	NatType   int
 
 	// kad
 
 	sha     []byte
 	addedAt time.Time
-	fails  int
-	pingAt time.Time
-	pinged bool
+	fails   int
+	pingAt  time.Time
+	pinged  bool
 }
-
 
 // NewNode 新建节点
 func NewNode(id NodeID, ip nnet.IP, port int) *Node {
@@ -101,7 +99,6 @@ func (n *Node) validateComplete() error {
 	return nil
 }
 
-
 func distanceCompare(target, a, b []byte) int {
 	for i := range target {
 		da := a[i] ^ target[i]
@@ -115,7 +112,7 @@ func distanceCompare(target, a, b []byte) int {
 	return 0
 }
 
-var  leadingZeroCount = [256]int{
+var leadingZeroCount = [256]int{
 	8, 7, 6, 6, 5, 5, 5, 5,
 	4, 4, 4, 4, 4, 4, 4, 4,
 	3, 3, 3, 3, 3, 3, 3, 3,
@@ -197,18 +194,16 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 	publicKey := privateKey.GetPubKey()
 	ip := getLocalIp()
 	basePort := BASE_PORT
-	port := SUPER_BASE_PORT;
+	port := SUPER_BASE_PORT
 	if !isSuper {
 		basePort += 16
 		port = getAvailablePort(ip, BASE_PORT)
 	}
 
-
 	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: nnet.ParseIP(ip), Port: port}
 	fmt.Print(n.String())
 	return &n, nil
 }
-
 
 //内网IP
 func getLocalIp() string {
@@ -253,7 +248,7 @@ func getAvailablePort(ip string, port int) int {
 
 func (s *Node) String() string {
 	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
+		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port) + "\n"
 	return str
 }
 
