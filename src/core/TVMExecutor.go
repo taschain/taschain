@@ -27,6 +27,7 @@ import (
 	"bytes"
 	"github.com/vmihailenco/msgpack"
 	"storage/trie"
+	"storage/serialize"
 )
 
 //var castorReward = big.NewInt(50)
@@ -99,7 +100,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.Accou
 		return
 	}
 
-	var account dcore.Account
+	var account core.Account
 	if err := serialize.DecodeBytes(data, &account); err != nil {
 		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
 		return
