@@ -53,7 +53,7 @@ func (r *rtLog) log(format string, p ...interface{})  {
 }
 
 func (r *rtLog) end()  {
-	log.Printf(fmt.Sprintf("%v:%v cost %v. %v", time.Now().Format(TIMESTAMP_LAYOUT), r.key))
+	log.Printf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TIMESTAMP_LAYOUT), r.key))
 }
 
 //消息追踪日志，记录到文件

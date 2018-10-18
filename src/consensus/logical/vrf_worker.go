@@ -67,15 +67,13 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) bool {
 	v := br.Quo(br, max256)
 
 	brTStake := new(big.Rat).SetInt64(int64(totalStake))
-	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake)), brTStake)
-
+	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposers))), brTStake)
 	s1, _ := v.Float64()
 	s2, _ := vs.Float64()
 	blog := newBizLog("vrfSatisfy")
 	blog.log("value %v stake %v", s1, s2)
 
-	//return v.Cmp(vs) < 0
-	return true
+	return v.Cmp(vs) < 0
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {

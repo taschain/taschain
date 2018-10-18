@@ -76,8 +76,10 @@ func TestGenesisGroup(t *testing.T) {
 	//groupsig.Init(1)
 	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
+
+	genesis := &GenesisGeneratorImpl{}
 	// block初始化
-	err := core.InitCore()
+	err := core.InitCore(genesis.Generate())
 	if err != nil {
 		panic(err)
 	}
