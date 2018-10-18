@@ -49,9 +49,8 @@ type ConsensusParam struct {
 	GroupCastDuration	uint64
 	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
 
-	CastTotalBonus			uint64	//铸块总奖励
-	ProposalBonusPercent 	float64	//提案者奖励占比
 }
+
 
 var Param ConsensusParam
 
@@ -72,8 +71,6 @@ func InitParam() {
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
 		EffectGapAfterApply: EPOCH,
-		CastTotalBonus: 30,
-		ProposalBonusPercent: 0.5,
 	}
 	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
@@ -97,10 +94,6 @@ func (p *ConsensusParam) CreateGroupMinCandidates() int {
     return p.GroupMember * p.CandidatesMinRatio
 }
 
-func (p *ConsensusParam) GetProposalBonus() uint64 {
-    return uint64(math.Floor(float64(p.CastTotalBonus) * p.ProposalBonusPercent))
-}
-
 func (p *ConsensusParam) GetVerifierBonus() uint64 {
-    return p.CastTotalBonus - p.GetProposalBonus()
+    return common.GetVerifyBonus().Uint64()
 }

@@ -27,12 +27,10 @@ import (
 	"bytes"
 	"github.com/vmihailenco/msgpack"
 	"storage/trie"
-	"storage/serialize"
-	dcore "storage/core"
 )
 
-var castorReward = big.NewInt(50)
-var bonusReward = big.NewInt(20)
+//var castorReward = big.NewInt(50)
+//var bonusReward = big.NewInt(20)
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -60,11 +58,11 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 			if n, _ := reader.Read(groupId); n != common.GroupIdLength {
 				panic("TVMExecutor Read GroupId Fail")
 			}
-			Logger.Debugf("Bonus Transaction:%s", common.BytesToHash(transaction.Data).Hex())
+			Logger.Debugf("Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
 			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 				address := common.BytesToAddress(addr)
 				tr.GetBranch(address[:], nodes)
-				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
+				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(),tr.Get(address[:]))
 			}
 		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
 			//todo 合约交易
@@ -76,7 +74,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
-				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
+				Logger.Debugf("source:%v,value:%v", source.GetHexString(),tr.Get(source[:]))
 			}
 			if target != nil {
 				tr.GetBranch(target[:], nodes)
@@ -176,11 +174,11 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	return result
 }
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	if 0 == len(block.Transactions) {
-		hash := accountdb.IntermediateRoot(false)
-		Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
-		return hash, nil, nil
-	}
+	//if 0 == len(block.Transactions) {
+	//	hash := accountdb.IntermediateRoot(true)
+	//	Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
+	//	return hash, nil, nil
+	//}
 	receipts := make([]*t.Receipt, len(block.Transactions))
 	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	tr := accountdb.GetTrie()
@@ -228,9 +226,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				}
 
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
+				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
+					transaction.Hash.Hex())
 				//分红交易奖励
-				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), bonusReward)
-				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, bonusReward)
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetPackBonus())
+				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, common.GetPackBonus())
 			} else {
 				fail = true
 			}
@@ -279,7 +279,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
-					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:]) {
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
@@ -301,10 +301,11 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipts[i] = receipt
 	}
 	//筑块奖励
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), castorReward)
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetProposalBonus())
 
-	Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
-	state := accountdb.IntermediateRoot(false)
+	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
+	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
+	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
 	return state, receipts, nil

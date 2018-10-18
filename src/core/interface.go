@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"middleware/types"
 	"storage/core"
+	"storage/core/vm"
 )
 
 //主链接口
@@ -100,6 +101,8 @@ type BlockChain interface {
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
+
+	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 }
 
 type TransactionPool interface {
@@ -119,6 +122,8 @@ type TransactionPool interface {
 	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
 
 	GetTransactionsForCasting() []*types.Transaction
+
+	GetTransactionStatus(hash common.Hash) (uint, error)
 
 	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
 

@@ -18,6 +18,7 @@ import (
 	vtypes "storage/core/types"
 	"sync"
 	"math/big"
+	"storage/core/vm"
 )
 
 const (
@@ -627,4 +628,9 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	defer chain.preBlockStateRootLock.Unlock("FreePreBlockStateRoot")
 
 	delete(chain.preBlockStateRoot, blockHash)
+}
+
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
+	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }

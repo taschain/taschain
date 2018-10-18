@@ -75,6 +75,7 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction)([]
 			panic("ParseBonusTransaction Read Address Fail")
 		}
 		ids = append(ids, addr)
+		addr = make([]byte,common.AddressLength)
 	}
 	blockHash := common.BytesToHash(transaction.Data)
 	return groupId,ids,blockHash,transaction.Value

@@ -102,7 +102,7 @@ func getRichAccount(addr string, port int, accounts []string) (string, error) {
 }
 
 func transaction(addr string, port int, from, to string,nounce uint64) {
-	res, err := rpcPost(addr, port, "GTAS_t", from, to, 1, "",nounce)
+	res, err := rpcPost(addr, port, "GTAS_t", from, to, 1, "",nounce,0)
 	if err != nil {
 		fmt.Println("err:", err)
 		return
@@ -124,7 +124,7 @@ func main() {
 	interval := flag.Duration("i", time.Second*3, "转账时间间隔")
 	total := flag.Int("t", 100, "转账总笔数")
 	accountsString := flag.String("a", "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b,d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35,4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce", "互转账号，用逗号隔开")
-	list := flag.String("l", "127.0.0.1:8088,127.0.0.1:8089", "随机发送地址列表")
+	list := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102", "随机发送地址列表")
 	flag.Parse()
 
 	accounts := strings.Split(*accountsString, ",")
