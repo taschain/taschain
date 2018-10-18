@@ -4,6 +4,7 @@ import (
 	"middleware/types"
 	"consensus/groupsig"
 	"consensus/mediator"
+	"log"
 )
 
 /*
@@ -61,4 +62,23 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 		TargetIDs: targets,
 		Value: value,
 	}
+}
+
+func genMinerBalance(id groupsig.ID, bh *types.BlockHeader) *MinerBonusBalance {
+	mb :=  &MinerBonusBalance{
+		ID: id,
+	}
+	db, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.Hash)
+	if err != nil {
+		log.Printf("GetAccountDBByHash err %v, hash %v", err, bh.Hash)
+		return mb
+	}
+	mb.CurrBalance = db.GetBalance(id.ToAddress())
+	preDB, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.PreHash)
+	if err != nil {
+		log.Printf("GetAccountDBByHash err %v hash %v", err, bh.PreHash)
+		return mb
+	}
+	mb.PreBalance = preDB.GetBalance(id.ToAddress())
+	return mb
 }

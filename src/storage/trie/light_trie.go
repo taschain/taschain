@@ -15,7 +15,7 @@ func NewLightTrie(root common.Hash, db *Database) (*LightTrie, error) {
 		panic("trie.NewTrie called without a database")
 	}
 	trie := &LightTrie{
-		PublicTrie:PublicTrie{
+		PublicTrie: PublicTrie{
 			db:           db,
 			originalRoot: root,
 		},
@@ -30,16 +30,16 @@ func NewLightTrie(root common.Hash, db *Database) (*LightTrie, error) {
 	return trie, nil
 }
 
-
 func (t *LightTrie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		panic("Light tri get key:" + common.BytesToAddress(key).GetHexString() + err.Error())
 	}
 	return res
 }
 
-func (t *LightTrie)Hash2(nodes map[string]*[]byte,isInit bool){
+func (t *LightTrie) Hash2(nodes map[string]*[]byte, isInit bool) {
 
 }
 
@@ -173,19 +173,17 @@ func (t *LightTrie) resolve(n node, prefix []byte) (node, error) {
 	return n, nil
 }
 
-
 func (t *LightTrie) resolveHash(n hashNode, prefix []byte) (node, error) {
 	hash := common.BytesToHash(n)
 	enc, err := t.db.Node(hash)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
-	if enc == nil{
+	if enc == nil {
 		return nil, nil
 	}
 	return mustDecodeNode(n, enc, t.cachegen), nil
 }
-
 
 func (t *LightTrie) Delete(key []byte) {
 	if err := t.TryDelete(key); err != nil {
@@ -270,7 +268,7 @@ func (t *LightTrie) insert(n node, prefix, key []byte, value node) (bool, node, 
 		}
 		return true, value, nil
 	}
-        	switch n := n.(type) {
+	switch n := n.(type) {
 	case *shortNode:
 		matchlen := prefixLen(key, n.Key)
 
@@ -328,7 +326,10 @@ func (t *LightTrie) insert(n node, prefix, key []byte, value node) (bool, node, 
 	}
 }
 
-
 func (t *LightTrie) NodeIterator(start []byte) NodeIterator {
-	return nil
+	return newLightNodeIterator(t, start)
+}
+
+func (t *LightTrie)GetAllNodes(nodes map[string]*[]byte){
+	panic("Not support!")
 }

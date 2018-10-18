@@ -28,7 +28,7 @@
             <li>块链</li>
             <li>组链</li>
             <li>查询工作组</li>
-            <li>块详情</li>
+            <li lay-id="block_detail_tab">块详情</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -537,6 +537,12 @@
                         </div>
                     </div>
                     <div class="layui-row layui-col-space20">
+                        <fieldset class="layui-elem-field">
+                            <legend>奖励情况</legend>
+                            <div class="layui-field-box">
+                                <table id="bonus_balance_table" lay-filter="bonus_balance_table"></table>
+                            </div>
+                        </fieldset>
                         <fieldset class="layui-elem-field">
                             <legend>分红交易</legend>
                             <div class="layui-field-box">

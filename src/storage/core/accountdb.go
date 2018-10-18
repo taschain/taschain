@@ -26,8 +26,6 @@ import (
 	"golang.org/x/crypto/sha3"
 	"common"
 	"taslog"
-	"log"
-	"time"
 )
 
 type revision struct {
@@ -422,8 +420,6 @@ func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range s.accountObjectsDirty {
 		object,_ := s.accountObjects.Load(addr)
 		accountObject := object.(*accountObject)
-		log.Printf("%v,Finalise key:%v,Balance:%d,Nonce:%d,codeHash:%v,root:%s\n",time.Now(),common.BytesToAddress(addr[:]).GetHexString(),
-			accountObject.data.Balance.Uint64(),accountObject.data.Nonce,accountObject.data.CodeHash,accountObject.data.Root.String())
 		if accountObject.suicided || (deleteEmptyObjects && accountObject.empty()) {
 			s.deleteAccountObject(accountObject)
 		} else {

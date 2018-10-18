@@ -33,6 +33,7 @@ import (
 	"middleware/notify"
 	"network"
 	"math/big"
+	"storage/core/vm"
 )
 
 const (
@@ -377,7 +378,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 		receipts: receipts,
 	})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, state, receipts
 }
 
 //铸块成功，上链
@@ -465,7 +466,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
 		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+		//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 
 		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
 		network.GetNetInstance().Relay(headerMsg, 1)
@@ -739,7 +740,7 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.GetBranches(state, transactions,addresses, nodesOnBranch)
+	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {
@@ -792,7 +793,13 @@ func isCommonAncestor(bhs []*BlockHash, index int) int {
 		return -100
 	}
 	he := bhs[index]
-	bh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+
+	var bh *types.BlockHeader
+	if BlockChainImpl.IsLightMiner() {
+		bh = BlockChainImpl.(*LightChain).queryBlockHeaderByHeight(he.Height, true)
+	} else {
+		bh = BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+	}
 	if bh == nil {
 		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1
@@ -838,4 +845,9 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	defer chain.lock.Unlock("SetVoteProcessor")
 
 	chain.voteProcessor = processor
+}
+
+func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+	header := chain.QueryBlockHeaderByHash(hash)
+	return core.NewAccountDB(header.StateTree,chain.stateCache)
 }
