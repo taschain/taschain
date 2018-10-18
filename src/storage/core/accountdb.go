@@ -65,8 +65,8 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte) (*AccountDB, error) {
-	tr, err := db.OpenTrieWithMap(root,nodes)
+func NewAccountDBWithMap(root common.Hash, db Database, nodes map[string]*[]byte) (*AccountDB, error) {
+	tr, err := db.OpenTrieWithMap(root, nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,6 @@ func (self *AccountDB) HasSuicided(addr common.Address) bool {
 	return false
 }
 
-
 func (self *AccountDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
@@ -248,7 +247,7 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
+func (self *AccountDB) SetData(addr common.Address, key string, value []byte) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)
@@ -278,7 +277,7 @@ func (self *AccountDB) updateAccountObject(stateObject *accountObject) {
 		panic(fmt.Errorf("can't serialize object at %x: %v", addr[:], err))
 	}
 	self.setError(self.trie.TryUpdate(addr[:], data))
-	log.Printf("%v updateAccountObject key:%v,data hash:%v\n",time.Now(),common.BytesToAddress(addr[:]).GetHexString(),data)
+	log.Printf("%v updateAccountObject key:%v,data hash:%v\n", time.Now(), common.BytesToAddress(addr[:]).GetHexString(), data)
 }
 
 func (self *AccountDB) deleteAccountObject(stateObject *accountObject) {
@@ -304,7 +303,6 @@ func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObjec
 	return obj
 }
 
-
 func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
 
 	if obj := self.accountObjects[addr]; obj != nil {
@@ -315,7 +313,7 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 	}
 
 	obj := self.getAccountObjectFromTrie(addr)
-	if obj != nil{
+	if obj != nil {
 		self.setAccountObject(obj)
 	}
 	return obj
@@ -357,10 +355,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator {
 	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,[]byte(prefix))
+		return stateObject.DataIterator(self.db, []byte(prefix))
 	} else {
 		return nil
 	}
@@ -371,8 +369,8 @@ func (self *AccountDB) Copy() *AccountDB {
 	defer self.lock.Unlock()
 
 	state := &AccountDB{
-		db:                self.db,
-		trie:              self.trie,
+		db:                  self.db,
+		trie:                self.trie,
 		accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
 		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
 		refund:              self.refund,
@@ -385,7 +383,6 @@ func (self *AccountDB) Copy() *AccountDB {
 	}
 	return state
 }
-
 
 func (self *AccountDB) Snapshot() int {
 	id := self.nextRevisionId
@@ -419,8 +416,6 @@ func (self *AccountDB) GetRefund() uint64 {
 func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range s.accountObjectsDirty {
 		accountObject := s.accountObjects[addr]
-		log.Printf("%v,Finalise key:%v,Balance:%d,Nonce:%d,codeHash:%v,root:%s\n",time.Now(),common.BytesToAddress(addr[:]).GetHexString(),
-			accountObject.data.Balance.Uint64(),accountObject.data.Nonce,accountObject.data.CodeHash,accountObject.data.Root.String())
 		if accountObject.suicided || (deleteEmptyObjects && accountObject.empty()) {
 			s.deleteAccountObject(accountObject)
 		} else {
@@ -506,7 +501,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	return root, err
 }
 
-func (s *AccountDB) Fstring(address common.Address) string{
+func (s *AccountDB) Fstring(address common.Address) string {
 	obj := s.getAccountObjectFromTrie(address)
 	return obj.fstring()
 	//if s.trie != nil {

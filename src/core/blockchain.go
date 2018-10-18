@@ -739,11 +739,10 @@ func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.Blo
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
 	}
-	chain.executor.GetBranches(state, transactions,addresses, nodesOnBranch)
+	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
 
 	data := []types.StateNode{}
 	for key, value := range nodesOnBranch {
-		Logger.Infof("GetTrieNodesByExecuteTransactions print key:%v,value:%v \n", common.BytesToAddress(([]byte)(key)).GetHexString(),*value)
 		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
 	}
 	return &data
@@ -793,7 +792,13 @@ func isCommonAncestor(bhs []*BlockHash, index int) int {
 		return -100
 	}
 	he := bhs[index]
-	bh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+
+	var bh *types.BlockHeader
+	if BlockChainImpl.IsLightMiner() {
+		bh = BlockChainImpl.(*LightChain).queryBlockHeaderByHeight(he.Height, true)
+	} else {
+		bh = BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
+	}
 	if bh == nil {
 		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
 		return -1

@@ -98,7 +98,7 @@ func NewTrieWithMap(root common.Hash, db *Database, nodes map[string]*[]byte) (*
 		},
 	}
 	if (root != common.Hash{}) && root != emptyRoot {
-		rootnode, err := trie.resolveHashNodeIntoBranch(root[:], nil, nodes)
+		rootnode, err := trie.resolveHashNodeIntoMap(root[:], nil, nodes)
 		if err != nil {
 			return nil, err
 		}
@@ -139,6 +139,43 @@ func (t *Trie) Get(key []byte) []byte {
 	return res
 }
 
+func (t *Trie) GetAllNodes(nodes map[string]*[]byte) {
+	err := t.traverse(t.RootNode, nodes)
+	if err != nil {
+		panic("GetAllNodes traverse error!" + err.Error())
+	}
+	return
+}
+
+func (t *Trie) traverse(origNode node, nodes map[string]*[]byte) error {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil
+	case valueNode:
+		return nil
+	case *shortNode:
+		err := t.traverse(n.Val, nodes)
+		return err
+	case *fullNode:
+		var err error
+		for i := 0; i < 16; i++ {
+			if n.Children[i] != nil {
+				err = t.traverse(n.Children[i], nodes)
+			}
+		}
+		return err
+	case hashNode:
+		child, err := t.resolveHashNodeIntoMap(n, nil, nodes)
+		if err != nil {
+			return err
+		}
+		err = t.traverse(child, nodes)
+		return err
+	default:
+		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
+	}
+}
+
 func (t *Trie) GetBranch(key []byte, nodes map[string]*[]byte) {
 	key = keybytesToHex(key)
 	_, newroot, didResolve, err := t.tryGetBranch(t.RootNode, key, 0, nodes)
@@ -148,7 +185,7 @@ func (t *Trie) GetBranch(key []byte, nodes map[string]*[]byte) {
 	if err != nil {
 		fmt.Printf("Unhandled trie error: %s", err.Error())
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
-		panic("Unhandled trie error: %v"+ err.Error())
+		panic("Unhandled trie error: %v" + err.Error())
 	}
 }
 
@@ -178,7 +215,7 @@ func (t *Trie) tryGetBranch(origNode node, key []byte, pos int, nodes map[string
 		}
 		return value, n, didResolve, err
 	case hashNode:
-		child, err := t.resolveHashNodeIntoBranch(n, key[:pos], nodes)
+		child, err := t.resolveHashNodeIntoMap(n, key[:pos], nodes)
 		if err != nil {
 			return nil, n, true, err
 		}
@@ -433,7 +470,7 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 	return n, nil
 }
 
-func (t *Trie) resolveHashNodeIntoBranch(n hashNode, prefix []byte, nodes map[string]*[]byte) (node, error) {
+func (t *Trie) resolveHashNodeIntoMap(n hashNode, prefix []byte, nodes map[string]*[]byte) (node, error) {
 	cacheMissCounter.Inc(1)
 	hash := common.BytesToHash(n)
 	enc, err := t.db.Node(hash)

@@ -329,3 +329,7 @@ func (t *LightTrie) insert(n node, prefix, key []byte, value node) (bool, node, 
 func (t *LightTrie) NodeIterator(start []byte) NodeIterator {
 	return newLightNodeIterator(t, start)
 }
+
+func (t *LightTrie)GetAllNodes(nodes map[string]*[]byte){
+	panic("Not support!")
+}
