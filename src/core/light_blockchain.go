@@ -505,7 +505,7 @@ func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
 	chain.lock.Lock("CompareChainPiece")
 	defer chain.lock.Unlock("CompareChainPiece")
 	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
+	blockHash, hasCommonAncestor, _ := chain.FindCommonAncestor(bhs, 0, len(bhs)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
 		//删除自身链的结点
@@ -557,10 +557,8 @@ func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHe
 }
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
-	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
-		Logger.Infof("InsertStateNode  key:%v,value:%v \n", common.BytesToAddress(([]byte)(node.Key)).GetHexString(),node.Value)
 		err := chain.statedb.Put(node.Key, node.Value)
 		if err != nil{
 			panic("InsertStateNode error:"+err.Error())

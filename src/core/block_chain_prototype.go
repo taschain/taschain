@@ -254,3 +254,64 @@ func (chain *prototypeChain) AddBonusTrasanction(transaction *types.Transaction)
 func (chain *prototypeChain) GetBonusManager() *BonusManager{
 	return chain.bonusManager
 }
+
+func (chain *prototypeChain) FindCommonAncestor(bhs []*BlockHash, l int, r int) (*BlockHash, bool, int) {
+
+	if l > r || r < 0 || l >= len(bhs) {
+		return nil, false, -1
+	}
+	m := (l + r) / 2
+	result := chain.isCommonAncestor(bhs, m)
+	if result == 0 {
+		return bhs[m], true, m
+	}
+
+	if result == 1 {
+		return chain.FindCommonAncestor(bhs, l, m-1)
+	}
+
+	if result == -1 {
+		return chain.FindCommonAncestor(bhs, m+1, r)
+	}
+	return nil, false, -1
+}
+
+//bhs 中没有空值
+//返回值
+// 0  当前HASH相等，后面一块HASH不相等 是共同祖先
+//1   当前HASH相等，后面一块HASH相等
+//-1  当前HASH不相等
+//-100 参数不合法
+func (chain *prototypeChain) isCommonAncestor(bhs []*BlockHash, index int) int {
+	if index < 0 || index >= len(bhs) {
+		return -100
+	}
+	he := bhs[index]
+
+	bh := chain.queryBlockHeaderByHeight(he.Height, true)
+	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	if index == 0 && bh.Hash == he.Hash {
+		return 0
+	}
+	if index == 0 {
+		return -1
+	}
+	//判断链更后面的一块
+	afterHe := bhs[index-1]
+	afterbh := chain.queryBlockHeaderByHeight(afterHe.Height, true)
+	if afterbh == nil {
+		Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
+		if afterHe != nil && bh.Hash == he.Hash {
+			return 0
+		}
+		return -1
+	}
+	Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
+		return 0
+	}
+	if afterHe.Hash == afterbh.Hash && bh.Hash == he.Hash {
+		return 1
+	}
+	return -1
+}
