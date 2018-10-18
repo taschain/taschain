@@ -107,7 +107,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     elem: '#txs_table' //指定原始表格元素选择器（推荐id选择器）
                     ,cols: [[{field:'hash',title: 'hash', sort:true}, {field:'type', title: '类型'},{field:'source', title: '来源'}
                         ,{field:'target', title: '目标'},{field:'value', title: '金额'}]] //设置表头
-                    ,data: d.trans
+                    ,data: d.trans,
+                    page: true,
+                    limit: 20
                 });
 
                 addRecentQuery(h)
