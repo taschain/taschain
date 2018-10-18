@@ -406,8 +406,8 @@ func (gg *GlobalGroups) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo
 	defer gg.lock.RUnlock()
 
 	gs := make([]*StaticGroupInfo, 0)
-	for idx, g := range gg.groups {
-		if idx == 0 {
+	for _, g := range gg.groups {
+		if g == nil {
 			continue
 		}
 		if g.CastQualified(height) {
@@ -422,8 +422,8 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 	defer gg.lock.RUnlock()
 
 	gs := make([]*StaticGroupInfo, 0)
-	for idx, g := range gg.groups {
-		if idx == 0 {
+	for _, g := range gg.groups {
+		if g == nil {
 			continue
 		}
 		if !g.Dismissed(height) {
@@ -442,8 +442,8 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
     defer gg.lock.RUnlock()
 
     ids := make([]groupsig.ID, 0)
-	for idx, g := range gg.groups {
-		if idx == 0 {
+	for _, g := range gg.groups {
+		if g == nil {
 			continue
 		}
 		if g.Dismissed(height) {
@@ -464,8 +464,8 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 		removeIdMap[gid.GetHexString()] = true
 	}
 	newGS := make([]*StaticGroupInfo, 0)
-	for idx, g := range gg.groups {
-		if idx == 0 {
+	for _, g := range gg.groups {
+		if g == nil {
 			continue
 		}
 		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
