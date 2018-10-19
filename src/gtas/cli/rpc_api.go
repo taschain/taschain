@@ -289,6 +289,9 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	}
 	bh := b.Header
 	block := convertBlockHeader(bh)
+
+	preBH := chain.QueryBlockHeaderByHash(bh.PreHash)
+
 	castor := block.Castor.GetHexString()
 
 	trans := make([]Transaction, 0)
@@ -381,6 +384,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 		Trans:        trans,
 		BodyBonusTxs: bonusTxs,
 		MinerBonus:   mbs,
+		PreTotalQN:   preBH.TotalQN,
 	}
 	return successResult(bd)
 }

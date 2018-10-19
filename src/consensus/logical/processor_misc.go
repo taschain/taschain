@@ -6,6 +6,7 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/groupsig"
+	"middleware/types"
 )
 
 /*
@@ -166,15 +167,11 @@ func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
 }
 
 func (p *Processor) canProposalAt(h uint64) bool {
-   	return p.minerCanProposalAt(p.GetMinerID(), h)
-}
-
-func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
-	miner := p.minerReader.getProposeMiner(id)
+	miner := p.minerReader.getProposeMiner(p.GetMinerID())
 	if miner == nil {
 		return false
 	}
-	return miner.CanCastAt(h)
+   	return miner.CanCastAt(h)
 }
 
 func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
@@ -190,4 +187,17 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 		avail++
 	}
 	return
+}
+
+func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
+	pi := common.VRFProve(bh.ProveValue.Bytes())
+	castor := groupsig.DeserializeId(bh.Castor)
+	miner := p.minerReader.getProposeMiner(castor)
+	if miner == nil {
+		log.Printf("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
+		return 0
+	}
+	totalStake := p.minerReader.getTotalStake(bh.Height)
+	_, qn := vrfSatisfy(pi, miner.Stake, totalStake)
+	return qn
 }
