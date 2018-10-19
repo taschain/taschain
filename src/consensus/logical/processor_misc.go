@@ -7,6 +7,7 @@ import (
 	"consensus/model"
 	"consensus/groupsig"
 	"middleware/types"
+	"consensus/base"
 )
 
 /*
@@ -190,7 +191,7 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 }
 
 func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
-	pi := common.VRFProve(bh.ProveValue.Bytes())
+	pi := base.VRFProve(bh.ProveValue.Bytes())
 	castor := groupsig.DeserializeId(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {

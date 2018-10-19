@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"log"
 	types2 "storage/core/types"
+	"consensus/model"
 )
 
 /*
@@ -359,7 +360,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 		if id == castor {
 			mb.Proposal = true
 			mb.PackBonusTx = len(uniqueBonusBlockHash)
-			increase += common.GetProposalBonus().Uint64() + uint64(mb.PackBonusTx) * common.GetPackBonus().Uint64()
+			increase += model.Param.ProposalBonus + uint64(mb.PackBonusTx) * model.Param.PackBonus
 			mb.Explain = fmt.Sprintf("提案 打包分红交易%v个", mb.PackBonusTx)
 		}
 		if hs, ok := minerVerifyBlockHash[id]; ok {

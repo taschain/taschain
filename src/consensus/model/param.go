@@ -49,6 +49,10 @@ type ConsensusParam struct {
 	GroupCastDuration	uint64
 	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
 	PotentialProposal	int 	//潜在提案者
+
+	ProposalBonus 		uint64	//提案奖励
+	PackBonus 			uint64	//打包一个分红交易奖励
+	VerifyBonus 		uint64	//验证者总奖励
 }
 
 
@@ -72,6 +76,9 @@ func InitParam() {
 		GroupCastDuration: GROUP_CAST_DURATION,
 		EffectGapAfterApply: EPOCH,
 		PotentialProposal: 5,
+		ProposalBonus: 	50,
+		PackBonus: 10,
+		VerifyBonus: 100,
 	}
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
@@ -94,6 +101,3 @@ func (p *ConsensusParam) CreateGroupMinCandidates() int {
     return p.GroupMember * p.CandidatesMinRatio
 }
 
-func (p *ConsensusParam) GetVerifierBonus() uint64 {
-    return common.GetVerifyBonus().Uint64()
-}

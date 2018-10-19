@@ -12,6 +12,7 @@ import (
 	"os"
 	"consensus/model"
 	"middleware"
+	"consensus/base"
 )
 
 const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
@@ -217,7 +218,7 @@ func TestGenesisGroup(t *testing.T) {
 			genesis := new(genesisGroup)
 			genesis.Group = *sgi
 
-			vrfpks := make(map[string]common.VRFPublicKey, 0)
+			vrfpks := make(map[string]base.VRFPublicKey, 0)
 			for _, mem := range sgi.Members {
 				_p := procs[mem.ID.GetHexString()]
 				vrfpks[mem.ID.GetHexString()]= _p.mi.VrfPK
