@@ -48,7 +48,7 @@ type ConsensusParam struct {
 	GroupCastQualifyGap uint64
 	GroupCastDuration	uint64
 	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
-
+	PotentialProposal	int 	//潜在提案者
 }
 
 
@@ -61,7 +61,7 @@ func InitParam() {
 		SSSSThreshold: cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD),
 		MaxUserCastTime: cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME),
 		MaxGroupCastTime: MAX_GROUP_BLOCK_TIME,
-		MaxQN: (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME,
+		MaxQN: 5,
 		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
 		Epoch: EPOCH,
@@ -71,8 +71,8 @@ func InitParam() {
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
 		EffectGapAfterApply: EPOCH,
+		PotentialProposal: 5,
 	}
-	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
 

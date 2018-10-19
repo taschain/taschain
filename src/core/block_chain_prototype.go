@@ -76,11 +76,11 @@ func (chain *prototypeChain) Height() uint64 {
 	return chain.latestBlock.Height
 }
 
-func (chain *prototypeChain) TotalQN()*big.Int {
+func (chain *prototypeChain) TotalQN() uint64 {
 	if nil == chain.latestBlock {
-		return nil
+		return 0
 	}
-	return chain.latestBlock.TotalPV
+	return chain.latestBlock.TotalQN
 }
 
 //查询最高块

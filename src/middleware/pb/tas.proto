@@ -72,7 +72,7 @@ message BlockHeader{
 
      optional bytes ProveValue = 5;
 
-     optional bytes TotalPV = 6;
+     optional uint64 TotalQN = 6;
 
      optional bytes CurTime  = 7 ;
 
@@ -94,9 +94,7 @@ message BlockHeader{
 
      optional bytes ExtraData  = 16 ;
 
-     optional Hashes EvictedTxs  = 17;
-
-     optional bytes Random = 18;
+     optional bytes Random = 17;
 }
 
 message BlockBody{
@@ -214,7 +212,7 @@ message BlockHashesReq{
 
 message TotalQnInfo{
 
-    required bytes TotalQn = 1;
+    required uint64 TotalQn = 1;
 
     required uint64 Height = 2;
 }

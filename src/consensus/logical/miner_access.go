@@ -1,12 +1,12 @@
 package logical
 
 import (
-	"consensus/base"
 	"consensus/model"
 	"consensus/groupsig"
 	"middleware/types"
 	"core"
 	"log"
+	"common"
 )
 
 /*
@@ -34,7 +34,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 	md := &model.MinerDO{
 		ID: groupsig.DeserializeId(miner.Id),
 		PK: groupsig.DeserializePubkeyBytes(miner.PublicKey),
-		VrfPK: base.VRFPublicKey(miner.VrfPublicKey),
+		VrfPK: common.VRFPublicKey(miner.VrfPublicKey),
 		Stake: miner.Stake,
 		NType: miner.Type,
 		ApplyHeight: miner.ApplyHeight,
@@ -87,6 +87,10 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
 	return access.minerPool.GetTotalStakeByHeight(h)
 	//return 30
+}
+
+func (access *MinerPoolReader) getValidProposersAt(h uint64) uint64 {
+	return access.minerPool.GetTotalStakeByHeight(h)
 }
 
 //func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {

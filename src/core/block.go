@@ -99,7 +99,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 		ExtraData:  common.Sha256([]byte("tas")),
 		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
 		ProveValue: pv,
-		TotalPV:    pv,
+		TotalQN:    0,
 	}
 
 	blockByte, _ := json.Marshal(block)

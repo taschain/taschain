@@ -12,13 +12,12 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-package base
+package common
 
 import (
 	"io"
 	"common/ed25519"
 	"math/big"
-	"common"
 )
 
 // Hash helpers
@@ -48,7 +47,7 @@ type VRFProve ed25519.VRFProve  //ProveSize = 81 in bytes
 func (vp VRFProve) ShortS() string {
     bi := new(big.Int).SetBytes(vp)
     hex := bi.Text(16)
-    return common.ShortHex12(hex)
+    return ShortHex12(hex)
 }
 
 // GenerateKey generates a public/private key pair using entropy from rand.
@@ -70,4 +69,16 @@ func VRF_proof2hash(pi VRFProve) VRFRandomValue {
 
 func VRF_verify(pk VRFPublicKey, pi VRFProve, m []byte) (bool, error) {
 	return ed25519.ECVRF_verify(ed25519.PublicKey(pk), ed25519.VRFProve(pi), m)
+}
+
+func VRF_bigproof2value(pi *big.Int) *big.Int {
+	return VRF_proof2hash(VRFProve(pi.Bytes())).Big()
+}
+
+func (pi VRFProve) Big() *big.Int {
+    return new(big.Int).SetBytes([]byte(pi))
+}
+
+func (rv VRFRandomValue) Big() *big.Int {
+    return new(big.Int).SetBytes([]byte(rv))
 }
