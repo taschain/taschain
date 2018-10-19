@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"errors"
 	"common"
+	"math"
+	"log"
 )
 
 /*
@@ -23,11 +25,13 @@ const (
 )
 
 var max256 *big.Rat
+var rat1 	*big.Rat
 
 func init() {
 	t := new(big.Int)
 	t.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	max256 = new(big.Rat).SetInt(t)
+	rat1 = new(big.Rat).SetInt64(1)
 }
 
 type vrfWorker struct {
@@ -50,30 +54,49 @@ func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight ui
 	}
 }
 
-func (vrf *vrfWorker) prove(totalStake uint64) (common.VRFProve, error) {
+func (vrf *vrfWorker) prove(totalStake uint64) (common.VRFProve, uint64, error) {
 	pi, err := common.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if vrfSatisfy(pi, vrf.miner.Stake, totalStake) {
-		return pi, nil
+	if ok, pr, sr := vrfSatisfy(pi, vrf.miner.Stake, totalStake); ok {
+		//计算qn
+		if sr.Cmp(rat1) > 0 {
+			sr.Set(rat1)
+		}
+		s1, _ := pr.Float64()
+		s2, _ := sr.Float64()
+
+		step := sr.Quo(sr, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
+
+		st, _ := step.Float64()
+
+		r, _ := pr.Quo(pr, step).Float64()
+		qn := uint64(math.Floor(r) + 1)
+
+		log.Printf("vrf prove pr %v, sr %v, step %v, qn %v", s1, s2, st, r, qn)
+		return pi, qn, nil
 	}
-    return nil, errors.New("proof fail")
+    return nil, 0, errors.New("proof fail")
 }
 
-func vrfSatisfy(pi common.VRFProve, stake uint64, totalStake uint64) bool {
+func vrfSatisfy(pi common.VRFProve, stake uint64, totalStake uint64) (ok bool, piRat *big.Rat, sRat *big.Rat) {
 	value := common.VRF_proof2hash(pi)
+
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	v := br.Quo(br, max256)
 
 	brTStake := new(big.Rat).SetInt64(int64(totalStake))
-	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposers))), brTStake)
+	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
+
 	s1, _ := v.Float64()
 	s2, _ := vs.Float64()
-	blog := newBizLog("vrfSatisfy")
-	blog.log("value %v stake %v", s1, s2)
+	//blog := newBizLog("vrfSatisfy")
+	//blog.log("value %v stake %v", s1, s2)
+	log.Printf("varffffffff 1 pr %v, sr %v", s1, s2)
 
-	return v.Cmp(vs) < 0
+	return v.Cmp(vs) < 0, v, vs
+	//return true
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
@@ -84,7 +107,7 @@ func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *mode
 	if !ok {
 		return ok ,err
 	}
-	if vrfSatisfy(pi, miner.Stake, totalStake) {
+	if ok, _, _ := vrfSatisfy(pi, miner.Stake, totalStake); ok {
 		return true, nil
 	}
 	return false, errors.New("proof not satisfy")

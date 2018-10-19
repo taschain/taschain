@@ -11,7 +11,6 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
-	"math/big"
 	"strings"
 )
 
@@ -253,7 +252,7 @@ func (p *Processor) blockProposal() {
 
 	totalStake := p.minerReader.getTotalStake(height)
 	blog.log("totalStake height=%v, stake=%v", height, totalStake)
-	pi, err := worker.prove(totalStake)
+	pi, qn, err := worker.prove(totalStake)
 	if err != nil {
 		blog.log("vrf prove not ok! %v", err)
 		return
@@ -271,15 +270,15 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	block := p.MainChain.CastBlock(uint64(height), new(big.Int).SetBytes(pi), 0, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height),  pi.Big(), qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
 	}
 	bh := block.Header
 	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
-	blog.log("begin proposal, hash=%v, height=%v, pi=%v...", bh.Hash.ShortS(), height, pi.ShortS())
-	tlog.logStart("height=%v,pi=%v, preHash=%v", bh.Height, pi.ShortS(), bh.PreHash.ShortS())
+	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
+	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥

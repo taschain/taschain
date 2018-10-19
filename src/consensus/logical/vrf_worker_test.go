@@ -28,3 +28,17 @@ func TestBigIntDiv(t *testing.T) {
 	t.Log(v2.Float64())
 	t.Log( v2.FloatString(5))
 }
+
+func TestCMP(t *testing.T) {
+	rat := new(big.Rat).SetInt64(1)
+
+	i := 1
+	for i < 1000 {
+		i++
+		v := new(big.Rat).SetFloat64(1.66666666666666666666667)
+		if v.Cmp(rat) > 0 {
+			v = rat
+		}
+		t.Log(v.Quo(v, new(big.Rat).SetFloat64(0.5)), rat)
+	}
+}

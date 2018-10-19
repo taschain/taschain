@@ -72,6 +72,13 @@ func VRF_verify(pk VRFPublicKey, pi VRFProve, m []byte) (bool, error) {
 }
 
 func VRF_bigproof2value(pi *big.Int) *big.Int {
-	v := VRF_proof2hash(pi.Bytes())
-	return new(big.Int).SetBytes(v)
+	return VRF_proof2hash(VRFProve(pi.Bytes())).Big()
+}
+
+func (pi VRFProve) Big() *big.Int {
+    return new(big.Int).SetBytes([]byte(pi))
+}
+
+func (rv VRFRandomValue) Big() *big.Int {
+    return new(big.Int).SetBytes([]byte(rv))
 }
