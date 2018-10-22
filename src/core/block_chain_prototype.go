@@ -38,7 +38,7 @@ type prototypeChain struct {
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
 
-	blockCache *lru.Cache
+	verifiedBlocks *lru.Cache
 
 	isAdujsting bool
 

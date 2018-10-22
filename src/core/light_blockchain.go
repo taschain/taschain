@@ -94,7 +94,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.blockCache, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
+	chain.verifiedBlocks, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
 		return err
@@ -203,7 +203,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return nil, -1, nil, nil
 	}
 
-	chain.blockCache.Add(bh.Hash, &castingBlock{state: state, receipts: receipts,})
+	chain.verifiedBlocks.Add(bh.Hash, &castingBlock{state: state, receipts: receipts,})
 	//return nil, 0, state, receipts
 	return nil, 0, state, nil
 }
@@ -312,12 +312,11 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
 	//if false {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state
-		chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否有问题
 		_, status, state, _ = chain.verifyCastingBlock(*b.Header, b.Transactions)

@@ -28,7 +28,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"time"
-	"github.com/vmihailenco/msgpack"
 )
 
 type ChainHandler struct {
