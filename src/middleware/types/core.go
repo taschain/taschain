@@ -30,6 +30,8 @@ const (
 	TransactionTypeMinerApply = 4
 	TransactionTypeMinerAbort = 5
 	TransactionTypeMinerRefund = 6
+
+	TransactionTypeToBeRemoved = -1
 )
 
 type Transaction struct {
@@ -92,7 +94,13 @@ func (pt PriorityTransactions) Swap(i, j int) {
 	pt[i], pt[j] = pt[j], pt[i]
 }
 func (pt PriorityTransactions) Less(i, j int) bool {
-	return pt[i].GasPrice < pt[j].GasPrice
+	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved{
+		return true
+	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved{
+		return false
+	} else{
+		return pt[i].GasPrice < pt[j].GasPrice
+	}
 }
 func (pt *PriorityTransactions) Push(x interface{}) {
 	item := x.(*Transaction)

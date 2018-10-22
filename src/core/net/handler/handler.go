@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"time"
+	"github.com/vmihailenco/msgpack"
 )
 
 type ChainHandler struct {
@@ -129,6 +130,11 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		core.BlockSyncer.TotalQnCh <- s
 	}
 	return nil
+}
+
+func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte){
+	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
+	network.GetNetInstance().Send(targetId, message)
 }
 
 func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {

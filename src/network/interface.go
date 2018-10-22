@@ -65,6 +65,9 @@ const (
 	CastRewardSignReq uint32 = 0x1d
 	CastRewardSignGot uint32 = 0x1e
 
+	//==================Trace=========
+	RequestTraceMsg uint32 = 0x20
+	ResponseTraceMsg uint32 = 0x21
 )
 
 type Message struct {
