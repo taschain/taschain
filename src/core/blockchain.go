@@ -219,14 +219,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn ui
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
-	if len(block.Transactions) > 0 {
-		Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s",
-			height, latestBlock.Hash.Hex(), preRoot.Hex())
-	}
+	//if len(block.Transactions) > 0 {
+	//	Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s", height, latestBlock.Hash.Hex(), preRoot.Hex())
+	//}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -265,6 +263,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn ui
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
+	defer Logger.Infof("casting block %d,hash:%v,qn:%d", height, block.Header.Hash.String(),block.Header.TotalQN)
 
 	chain.blockCache.Add(block.Header.Hash, &castingBlock{
 		state:    state,
