@@ -460,15 +460,15 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 
 			casterId := groupsig.DeserializeId(bh.Castor)
 
-			// 获取验证分红的交易信息
-			// 此方法取到的分红交易有时候为空
-			bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-
 			bonusValuePreMap := BonusValueStatMap[j - 1]
 			bonusNumPreMap := BonusNumStatMap[j - 1]
 			castBlockPreMap := CastBlockStatMap[j - 1]
 
-			if bonusTx == nil {
+			// 获取验证分红的交易信息
+			// 此方法取到的分红交易有时候为空
+			var bonusTx *types.Transaction
+			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil {
+				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v",height, bh.Hash.ShortS())
 				BonusValueStatMap[j] = bonusValuePreMap
 				BonusNumStatMap[j] = bonusNumPreMap
 				CastBlockStatMap[j] = castBlockPreMap
