@@ -79,11 +79,11 @@ func initLightChain(helper types.ConsensusHelper) error {
 			transactionPool: NewTransactionPool(),
 			latestBlock:     nil,
 
-			lock:         middleware.NewLoglock("lightchain"),
-			init:         true,
-			isAdujsting:  false,
-			isLightMiner: true,
-			consensusHelper:  helper,
+			lock:            middleware.NewLoglock("lightchain"),
+			init:            true,
+			isAdujsting:     false,
+			isLightMiner:    true,
+			consensusHelper: helper,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -162,7 +162,7 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 
-	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(),len(txs))
+	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(), len(txs))
 	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
 	if !hasPreBlock {
 		return nil, 2, nil, nil
@@ -195,7 +195,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return nil, -1, nil, nil
 	}
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"lightverify")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "lightverify")
 
 	chain.FreeMissNodeState(bh.Hash)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
@@ -263,20 +263,20 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	}
 	var missingAccouts []common.Address
 	var missingAccountTxs []*types.Transaction
-	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil{
+	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil {
 		missingAccountTxs = b.Transactions
 		castor := common.BytesToAddress(b.Header.Castor)
 
-		missingAccouts = append(missingAccouts,castor)
-		missingAccouts = append(missingAccouts,common.BonusStorageAddress)
-		missingAccouts = append(missingAccouts,common.LightDBAddress)
-		missingAccouts = append(missingAccouts,common.HeavyDBAddress)
-	}else {
-		missingAccountTxs,missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
+		missingAccouts = append(missingAccouts, castor)
+		missingAccouts = append(missingAccouts, common.BonusStorageAddress)
+		missingAccouts = append(missingAccouts, common.LightDBAddress)
+		missingAccouts = append(missingAccouts, common.HeavyDBAddress)
+	} else {
+		missingAccountTxs, missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
 	}
 
-	if len(missingAccountTxs) != 0 || len(missingAccouts) !=0 {
-		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs),len(missingAccouts))
+	if len(missingAccountTxs) != 0 || len(missingAccouts) != 0 {
+		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs), len(missingAccouts))
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
@@ -333,12 +333,12 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
 	var headerJson []byte
 	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
-		status,headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalQN - chain.latestBlock.TotalQN <= 0 || b.Header.Hash == chain.latestBlock.Hash {
+		status, headerJson = chain.saveBlock(b)
+	} else if b.Header.TotalQN-chain.latestBlock.TotalQN <= 0 || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.PreHash == chain.latestBlock.PreHash {
 		chain.Remove(chain.latestBlock)
-		status,headerJson= chain.saveBlock(b)
+		status, headerJson = chain.saveBlock(b)
 	} else {
 		//b.Header.TotalQN > chain.latestBlock.TotalQN
 		if chain.isAdujsting {
@@ -406,7 +406,7 @@ func (chain *LightChain) QueryBlockBody(blockHash common.Hash) []*types.Transact
 	return nil
 }
 
-func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
+func (chain *LightChain) QueryBlock(height uint64) *types.Block {
 	panic("Not support!")
 }
 
@@ -560,8 +560,8 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
 		err := chain.statedb.Put(node.Key, node.Value)
-		if err != nil{
-			panic("InsertStateNode error:"+err.Error())
+		if err != nil {
+			panic("InsertStateNode error:" + err.Error())
 		}
 	}
 }
@@ -628,7 +628,7 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	delete(chain.preBlockStateRoot, blockHash)
 }
 
-func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
-	return core.NewAccountDB(header.StateTree,chain.stateCache)
+	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }

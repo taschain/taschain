@@ -63,7 +63,7 @@ type BlockChain interface {
 
 	QueryBlockHashes(height uint64, length uint64) []*BlockHash
 
-	QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo
+	QueryBlock(height uint64) *types.Block
 
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取

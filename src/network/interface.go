@@ -34,13 +34,11 @@ const (
 	BlockBodyMsg uint32 = 0x0e
 
 	//-----------块同步---------------------------------
-	ReqBlockChainTotalQnMsg uint32 = 0x0f
-
 	BlockChainTotalQnMsg uint32 = 0x10
 
-	ReqBlockInfo uint32 = 0x11
+	ReqBlock uint32 = 0x11
 
-	BlockInfo uint32 = 0x12
+	BlockMsg uint32 = 0x12
 
 	//-----------组同步---------------------------------
 	ReqGroupChainCountMsg uint32 = 0x13

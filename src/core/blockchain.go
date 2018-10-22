@@ -519,51 +519,24 @@ func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	}
 }
 
-//进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
-//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公共祖先
-func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
-	chain.lock.RLock("GetBlockInfo")
-	defer chain.lock.RUnlock("GetBlockInfo")
-	localHeight := chain.latestBlock.Height
 
-	bh := chain.queryBlockHeaderByHeight(height, true)
-	if bh == nil {
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh is nil", height)
-	} else {
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh hash:%x,hash:%x,verifyHash:%t", height, bh.Hash, hash, verifyHash)
+func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
+	chain.lock.RLock("QueryBlock")
+	defer chain.lock.RUnlock("QueryBlock")
+
+	var b *types.Block
+	for i := height + 1; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		b = chain.QueryBlockByHash(bh.Hash)
+		if nil == b {
+			continue
+		}
+		break
 	}
-	if (bh != nil && bh.Hash == hash) || !verifyHash {
-		//当前结点和请求结点在同一条链上
-		Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
-		var b *types.Block
-		for i := height + 1; i <= chain.Height(); i++ {
-			bh := chain.queryBlockHeaderByHeight(i, true)
-			if nil == bh {
-				continue
-			}
-			b = chain.QueryBlockByHash(bh.Hash)
-			if nil == b {
-				continue
-			}
-			break
-		}
-		if b == nil {
-			return nil
-		}
-
-		return &BlockInfo{Block: b, IsTopBlock: b.Header.Height == chain.Height()}
-	} else {
-		//当前结点和请求结点不在同一条链
-		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
-		var bhs []*BlockHash
-		if height >= localHeight {
-			bhs = chain.getBlockHashesFromLocalChain(localHeight-1, CHAIN_BLOCK_HASH_INIT_LENGTH)
-		} else {
-			bhs = chain.getBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
-		}
-		return &BlockInfo{ChainPiece: bhs}
-	}
-
+	return b
 }
 
 // 保存block到ldb

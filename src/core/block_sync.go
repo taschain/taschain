@@ -44,7 +44,6 @@ type TotalQnInfo struct {
 }
 
 type blockSyncer struct {
-	ReqTotalQnCh chan string
 	TotalQnCh    chan TotalQnInfo
 
 	maxTotalQn     uint64
@@ -54,7 +53,7 @@ type blockSyncer struct {
 
 	init             bool
 	syncedFirstBlock bool
-	replyCount       int
+	hasNeighbor      bool
 }
 
 func InitBlockSyncer(isLightMiner bool) {
@@ -62,7 +61,7 @@ func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0, ReqTotalQnCh: make(chan string), TotalQnCh: make(chan TotalQnInfo), replyCount: 0, init: false, syncedFirstBlock: false}
+	BlockSyncer = blockSyncer{maxTotalQn: 0,  TotalQnCh: make(chan TotalQnInfo), hasNeighbor: false, init: false, syncedFirstBlock: false}
 	go BlockSyncer.start()
 }
 
@@ -82,14 +81,14 @@ func (bs *blockSyncer) SetSyncedFirstBlock(syncedFirstBlock bool) {
 	bs.syncedFirstBlock = syncedFirstBlock
 }
 
+
 func (bs *blockSyncer) start() {
 	go bs.loop()
 	logger.Debug("[BlockSyncer]Wait for connecting...")
+	detectConnTicker := time.NewTicker(INIT_INTERVAL)
 	for {
-		requestBlockChainTotalQn()
-		t := time.NewTimer(INIT_INTERVAL)
-		<-t.C
-		if bs.replyCount > 0 {
+		<-detectConnTicker.C
+		if bs.hasNeighbor {
 			logger.Debug("[BlockSyncer]Detect node and start sync block...")
 			break
 		}
@@ -98,26 +97,22 @@ func (bs *blockSyncer) start() {
 }
 
 func (bs *blockSyncer) sync() {
-	requestBlockChainTotalQn()
-	t := time.NewTimer(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
-
-	<-t.C
 	if nil == BlockChainImpl {
 		panic("BlockChainImpl should not be nil!")
 		return
-	}
-	var currentHash common.Hash
-	topBlock := BlockChainImpl.QueryTopBlock()
-	if topBlock != nil {
-		currentHash = topBlock.Hash
 	}
 	localTotalQN, localHeight := BlockChainImpl.TotalQN(), BlockChainImpl.Height()
 	bs.lock.Lock()
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
 	bestNodeHeight := bs.bestNodeHeight
+
+	bs.maxTotalQn = 0
+	bs.bestNode = ""
+	bs.bestNodeHeight = 0
 	bs.lock.Unlock()
-	if maxTotalQN - localTotalQN <= 0 {
+
+	if maxTotalQN-localTotalQN <= 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			bs.init = true
@@ -129,15 +124,15 @@ func (bs *blockSyncer) sync() {
 			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
 			return
 		}
-		if lightMiner && BlockChainImpl.Height()==0 {
+		if lightMiner && BlockChainImpl.Height() == 0 {
 			var height uint64 = 0
 			if bestNodeHeight > 11 {
 				height = bestNodeHeight - 10
 			}
-			RequestBlockInfoByHeight(bestNodeId, height, common.Hash{}, false)
+			RequestBlock(bestNodeId, height)
 			return
 		}
-		RequestBlockInfoByHeight(bestNodeId, localHeight, currentHash, true)
+		RequestBlock(bestNodeId, localHeight+1)
 	}
 
 }
@@ -146,28 +141,22 @@ func (bs *blockSyncer) loop() {
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
 		select {
-		case sourceId := <-bs.ReqTotalQnCh:
-			if lightMiner {
-				continue
-			}
-			logger.Debugf("[BlockSyncer] Rcv total qn req from:%s", sourceId)
-			if nil == BlockChainImpl {
-				panic("core.BlockChainImpl can not be nil!")
-			}
-			sendBlockTotalQn(sourceId, BlockChainImpl.TotalQN(), BlockChainImpl.Height())
 		case h := <-bs.TotalQnCh:
 			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
-			if !bs.init {
-				bs.replyCount++
+			if !bs.hasNeighbor {
+				bs.hasNeighbor = true
 			}
 			bs.lock.Lock()
-			if h.TotalQn - bs.maxTotalQn > 0 {
+			if h.TotalQn-bs.maxTotalQn > 0 {
 				bs.maxTotalQn = h.TotalQn
 				bs.bestNode = h.SourceId
 				bs.bestNodeHeight = h.Height
 			}
 			bs.lock.Unlock()
 		case <-t.C:
+			if BlockChainImpl.TotalQN() > 0 {
+				sendBlockTotalQnToNeighbor(BlockChainImpl.TotalQN(), BlockChainImpl.Height())
+			}
 			if !bs.init {
 				continue
 			}
@@ -177,25 +166,15 @@ func (bs *blockSyncer) loop() {
 	}
 }
 
-
-
-//广播索要链的QN值
-func requestBlockChainTotalQn() {
-	logger.Debugf("[BlockSyncer]Req block total qn for neighbor!")
-	message := network.Message{Code: network.ReqBlockChainTotalQnMsg}
-	network.GetNetInstance().TransmitToNeighbor(message)
-}
-
-//返回自身链QN值
-func sendBlockTotalQn(targetId string, localTotalQN uint64, height uint64) {
-	logger.Debugf("[BlockSyncer]Send local total qn %d to %s!", localTotalQN, targetId)
+func sendBlockTotalQnToNeighbor(localTotalQN uint64, height uint64) {
+	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", localTotalQN)
 	body, e := marshalTotalQnInfo(TotalQnInfo{TotalQn: localTotalQN, Height: height})
 	if e != nil {
 		logger.Errorf("[BlockSyncer]marshal TotalQnInfo error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: body}
-	network.GetNetInstance().Send(targetId, message)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 func marshalTotalQnInfo(totalQnInfo TotalQnInfo) ([]byte, error) {

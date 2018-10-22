@@ -11,6 +11,7 @@ import (
 	"middleware/statistics"
 	"middleware/notify"
 	"time"
+	"middleware/types"
 )
 
 type server struct {
@@ -188,7 +189,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, ReqBlockChainTotalQnMsg, BlockChainTotalQnMsg, ReqBlockInfo, BlockInfo,
+	case ReqTransactionMsg, BlockChainTotalQnMsg,
 		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
 		n.chainHandler.Handle(from, *message)
 	case NewBlockMsg:
@@ -217,6 +218,16 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case StateInfoMsg:
 		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
 		notify.BUS.Publish(notify.StateInfo,&msg)
+	case ReqBlock:
+		msg := notify.BlockReqMessage{HeightByte:message.Body,Peer:from}
+		notify.BUS.Publish(notify.BlockReq,&msg)
+	case BlockMsg:
+		block,e := types.UnMarshalBlock(message.Body)
+		if e != nil{
+			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
+		}
+		msg := notify.BlockMessage{Block: *block}
+		notify.BUS.Publish(notify.NewBlock, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {

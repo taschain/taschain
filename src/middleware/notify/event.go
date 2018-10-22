@@ -16,4 +16,6 @@ const (
 	StateInfoReq = "state_info_req"
 
 	StateInfo = "state_info"
+
+	BlockReq = "block_req"
 )
