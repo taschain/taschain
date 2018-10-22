@@ -120,7 +120,7 @@ func (c *container) Remove(keys []common.Hash) {
 				continue
 			}
 			delete(c.txsMap, key)
-			//Logger.Debugf("txsMap delete value contain tx map len %d",len(c.txsMap))
+			//Logger.Debugf("txsMap delete Value contain tx map len %d",len(c.txsMap))
 
 			index := -1
 			for i, tx := range c.txs {

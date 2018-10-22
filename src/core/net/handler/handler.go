@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"time"
+	"github.com/vmihailenco/msgpack"
 )
 
 type ChainHandler struct {
@@ -157,8 +158,26 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		onBlockHashes(cbh, sourceId)
+	case network.RequestTraceMsg:
+		data := core.TraceChainImpl.GetTraceHeaderRawByHash(msg.Body)
+		if data != nil{
+			go c.onRequestTraceMsg(sourceId, data)
+		}
+	case network.ResponseTraceMsg:
+		var header core.TraceHeader
+		err := msgpack.Unmarshal(msg.Body,&header)
+		if err != nil {
+			core.Logger.Errorf("[handler]Discard ResponseTraceMsg because of unmarshal error:%s", err.Error())
+			return err
+		}
+		core.TraceChainImpl.TraceResponseCh <- &header
 	}
 	return nil
+}
+
+func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte){
+	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
+	network.GetNetInstance().Send(targetId, message)
 }
 
 func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {

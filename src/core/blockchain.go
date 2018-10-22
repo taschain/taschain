@@ -164,7 +164,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
-
+	initTraceChain()
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -417,6 +417,8 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
+	trace := &TraceHeader{Hash:b.Header.Hash,PreHash:b.Header.PreHash,Value:common.VRF_bigproof2value(b.Header.ProveValue),TotalQn:b.Header.TotalQN,Height:b.Header.Height}
+	TraceChainImpl.AddTrace(trace)
 
 	latest := chain.latestBlock
 	Logger.Debugf("hhhhhhhhhhh hash=%v, preH=%v, height=%v, tophash=%v, topPreH=%v, %v", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height,
@@ -425,12 +427,24 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	var headerJson []byte
 	if b.Header.PreHash == chain.latestBlock.Hash {
 		status, headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalQN <= chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
+	} else if b.Header.TotalQN < chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
-	} else if b.Header.PreHash == chain.latestBlock.PreHash {
-		chain.Remove(chain.latestBlock)
-		status, headerJson = chain.saveBlock(b)
-	} else {
+	} else if b.Header.TotalQN == chain.latestBlock.TotalQN{
+		replace,hash,err := TraceChainImpl.FindCommonAncestor(chain.latestBlock.Hash.Bytes(),b.Header.Hash.Bytes())
+		Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v",b.Header.Height,hash.Hex(),replace,err)
+		if err == nil {
+			if b.Header.PreHash == hash && replace {
+				chain.Remove(chain.latestBlock)
+				status, headerJson = chain.saveBlock(b)
+				Logger.Debugf("TraceChain Hash:%s Replace Latest:%s Success",b.Header.Hash.Hex(),chain.latestBlock.Hash.Hex())
+			}
+			if !replace{
+				return 1
+			} else {
+				Logger.Debugf("TraceChain hash=%v, replace=%t Should Adjust",hash.Hex(),replace)
+			}
+		}
+	}else {
 		//b.Header.TotalPV > chain.latestBlock.TotalPV
 		if chain.isAdujsting {
 			Logger.Debugf("chainisadjusting. topHash=%v, height=%v", chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
@@ -451,7 +465,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 上链成功，移除pool中的交易
 	if 0 == status {
-		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
+		Logger.Debugf("ON chain succ! height=%d,hash=%s", b.Header.Height, b.Header.Hash.Hex())
 
 		root, _ := state.Commit(true)
 		triedb := chain.stateCache.TrieDB()
