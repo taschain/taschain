@@ -421,15 +421,7 @@ func bonusStatByHeight(height uint64)  BonusInfo{
 	casterId := bh.Castor
 	groupId := bh.GroupId
 
-	// 获取验证分红的交易信息
-	var bonusTx *types.Transaction
-	block := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
-	for _, tx := range block.Transactions {
-		if tx.Type == types.TransactionTypeBonus {
-			bonusTx = tx
-			break
-		}
-	}
+	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
 
 	// 从交易信息中解析出targetId列表
 	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
@@ -469,15 +461,8 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 			casterId := groupsig.DeserializeId(bh.Castor)
 
 			// 获取验证分红的交易信息
-			// bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())  此方法取到的分红交易有时候为空
-			var bonusTx *types.Transaction
-			block := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
-			for _, tx := range block.Transactions {
-				if tx.Type == types.TransactionTypeBonus {
-					bonusTx = tx
-					break
-				}
-			}
+			// 此方法取到的分红交易有时候为空
+			bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
 
 			bonusValuePreMap := BonusValueStatMap[j - 1]
 			bonusNumPreMap := BonusNumStatMap[j - 1]
