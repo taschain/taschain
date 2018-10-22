@@ -417,7 +417,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
-	trace := &TraceHeader{Hash:b.Header.Hash,PreHash:b.Header.PreHash,Value:common.VRF_bigproof2value(b.Header.ProveValue),TotalQn:b.Header.TotalQN,Height:b.Header.Height}
+	trace := &TraceHeader{Hash:b.Header.Hash,PreHash:b.Header.PreHash,Value:chain.consensusHelper.VRFProve2Value(b.Header.ProveValue),TotalQn:b.Header.TotalQN,Height:b.Header.Height}
 	TraceChainImpl.AddTrace(trace)
 
 	latest := chain.latestBlock
