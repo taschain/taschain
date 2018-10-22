@@ -114,7 +114,7 @@ func getBlockChainConfig() *BlockChainConfig {
 
 }
 
-func initBlockChain(genesisInfo *types.GenesisInfo) error {
+func initBlockChain(helper types.ConsensusHelper) error {
 
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
@@ -127,7 +127,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 			init:            true,
 			isAdujsting:     false,
 			isLightMiner:    false,
-			genesisInfo:     genesisInfo,
+			consensusHelper:  helper,
 		},
 	}
 
@@ -181,7 +181,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
@@ -668,7 +668,7 @@ func (chain *FullBlockChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 
 		_, headerJson := chain.saveBlock(block)
 		chain.updateLastBlock(state, block.Header, headerJson)

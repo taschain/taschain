@@ -69,7 +69,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	}
 }
 
-func initLightChain(genesisInfo *types.GenesisInfo) error {
+func initLightChain(helper types.ConsensusHelper) error {
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 	Logger.Debugf("in initLightChain")
 
@@ -83,7 +83,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 			init:         true,
 			isAdujsting:  false,
 			isLightMiner: true,
-			genesisInfo:  genesisInfo,
+			consensusHelper:  helper,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -130,7 +130,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
 		}
@@ -489,7 +489,7 @@ func (chain *LightChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 		_, headerJson := chain.saveBlock(block)
 		chain.updateLastBlock(state, block.Header, headerJson)
 	}

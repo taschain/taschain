@@ -15,6 +15,14 @@
 
 package mediator
 
+import (
+	"math/big"
+	"middleware/types"
+	"consensus/model"
+	"consensus/base"
+	"consensus/logical"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 /*
 //主链提供给共识模块的接口
@@ -49,3 +57,32 @@ type QueryBlockByHeight func() *core.BlockHeader
 */
 ///////////////////////////////////////////////////////////////////////////////
 //共识模块提供给外部的数据
+
+type ConsensusHelperImpl struct {
+
+}
+
+func NewConsensusHelper() types.ConsensusHelper {
+	return &ConsensusHelperImpl{}
+}
+
+func (helper *ConsensusHelperImpl) ProposalBonus() *big.Int {
+	return new(big.Int).SetUint64(model.Param.ProposalBonus)
+}
+
+func (helper *ConsensusHelperImpl) PackBonus() *big.Int {
+	return new(big.Int).SetUint64(model.Param.PackBonus)
+}
+
+func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
+	return logical.GenerateGenesis()
+}
+
+func (helper *ConsensusHelperImpl) VRFProve2Value(prove *big.Int) *big.Int {
+	return base.VRF_proof2hash(base.VRFProve(prove.Bytes())).Big()
+}
+
+
+func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
+	return Proc.CalcBlockHeaderQN(bh)
+}
