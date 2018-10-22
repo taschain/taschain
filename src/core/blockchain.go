@@ -430,10 +430,10 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	} else if b.Header.TotalQN < chain.latestBlock.TotalQN || b.Header.Hash == chain.latestBlock.Hash {
 		return 1
 	} else if b.Header.TotalQN == chain.latestBlock.TotalQN{
-		replace,hash,err := TraceChainImpl.FindCommonAncestor(chain.latestBlock.Hash.Bytes(),b.Header.Hash.Bytes())
-		Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v",b.Header.Height,hash.Hex(),replace,err)
+		replace,traceHeader,err := TraceChainImpl.FindCommonAncestor(chain.latestBlock.Hash.Bytes(),b.Header.Hash.Bytes())
+		Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v",traceHeader.Height,traceHeader.Hash,replace,err)
 		if err == nil {
-			if b.Header.PreHash == hash && replace {
+			if b.Header.PreHash == traceHeader.Hash && replace {
 				chain.Remove(chain.latestBlock)
 				status, headerJson = chain.saveBlock(b)
 				Logger.Debugf("TraceChain Hash:%s Replace Latest:%s Success",b.Header.Hash.Hex(),chain.latestBlock.Hash.Hex())
@@ -441,7 +441,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			if !replace{
 				return 1
 			} else {
-				Logger.Debugf("TraceChain hash=%v, replace=%t Should Adjust",hash.Hex(),replace)
+				Logger.Debugf("TraceChain hash=%v, replace=%t Should Adjust",traceHeader.Hash.Hex(),replace)
 			}
 		}
 	}else {
