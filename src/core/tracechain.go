@@ -90,7 +90,7 @@ func (tc *TraceChain) GetTraceHeaderByHash(hash []byte) *TraceHeader{
 	return &header
 }
 
-func (tc *TraceChain) FindCommonAncestor(localHash []byte, remoteHash []byte) (bool,common.Hash,error) {
+func (tc *TraceChain) FindCommonAncestor(localHash []byte, remoteHash []byte) (bool,*TraceHeader,error) {
 	tc.lock.RLock()
 	defer tc.lock.RUnlock()
 
@@ -104,7 +104,7 @@ func (tc *TraceChain) FindCommonAncestor(localHash []byte, remoteHash []byte) (b
 	for{
 		if nextLocal.PreHash == nextRemote.PreHash {
 			replace := nextRemote.Value.Cmp(nextLocal.Value) > 0
-			return replace, nextLocal.PreHash,nil
+			return replace, tc.GetTraceHeaderByHash(nextLocal.PreHash.Bytes()),nil
 		}
 		switch flag {
 		case 0:
@@ -117,7 +117,7 @@ func (tc *TraceChain) FindCommonAncestor(localHash []byte, remoteHash []byte) (b
 		}
 
 		if local == nil || remote == nil{
-			return false, common.Hash{}, ErrMissingTrace
+			return false, nil, ErrMissingTrace
 		}
 		if local.Height > remote.Height {
 			nextLocal = local
