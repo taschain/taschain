@@ -8,7 +8,7 @@ void* p2p_api(const char* api)
     static void* p2p_core = 0;
     if (p2p_core == 0)
     {
-        p2p_core = dlopen("./p2p_core.dylib", RTLD_LAZY);
+        p2p_core = dlopen("/Users/lxf/tas-test/daily/p2p_core.dylib", RTLD_LAZY);
  		if (p2p_core == 0){
         	printf("p2p_core load lib failed !\n");
         }

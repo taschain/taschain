@@ -17,7 +17,7 @@ import (
 func (p *Processor) genBelongGroupStoreFile() string {
 	storeFile := consensusConfManager.GetString("joined_group_store", "")
 	if strings.TrimSpace(storeFile) == "" {
-		storeFile = "joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
+		storeFile = "/Users/lxf/tas-test/daily/joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
 	}
 	return storeFile
 }

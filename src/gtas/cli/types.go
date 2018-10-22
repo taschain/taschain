@@ -211,19 +211,19 @@ type BonusInfo struct {
 }
 
 type BonusStatInfo struct {
-	MemberId string `json:"member"`
+	MemberId string `json:"member_id"`
 	BonusNum uint64 `json:"bonus_num"`
 	TotalBonusValue uint64 `json:"total_bonus_value"`
 }
 
 type CastBlockStatInfo struct {
-	CasterId string `json:"casterId"`
+	CasterId string `json:"caster_id"`
 	Stake uint64 `json:"stake"`
-	CastBlockNum uint64 `json:"castBlockNum"`
+	CastBlockNum uint64 `json:"cast_block_num"`
 }
 
 type CastBlockAndBonusResult struct {
 	BonusInfoAtHeight BonusInfo `json:"bonus_info_at_height"`
 	BonusStatInfos []BonusStatInfo `json:"bonuses"`
-	CastBlockStatInfos []CastBlockStatInfo `json:"castBlocks"`
+	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
 }

@@ -1,20 +1,19 @@
 package cli
 
 import (
-	"bytes"
-	"consensus/mediator"
-	"middleware/types"
-	"core"
 	"common"
-	"github.com/vmihailenco/msgpack"
 	"consensus/groupsig"
-	"taslog"
-	"time"
+	"consensus/mediator"
+	"core"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"github.com/vmihailenco/msgpack"
 	"log"
+	"math/big"
+	"middleware/types"
 	types2 "storage/core/types"
+	"taslog"
+	"time"
 )
 
 /*
@@ -417,35 +416,27 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 	return successResult(dash)
 }
 
-func (api *GtasAPI) ConsensusStat(height uint64)  (*Result, error){
-	core.BlockChainImpl.GetBonusManager().StatBonusByBlockHeight(height)
-	return &Result{Message:"success", Data:nil}, nil
-}
-
 func bonusStatByHeight(height uint64)  BonusInfo{
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
 	casterId := bh.Castor
 	groupId := bh.GroupId
 
 	// 获取验证分红的交易信息
-	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-
-	// 从交易信息中解析出targetId列表
-	reader := bytes.NewReader(bonusTx.ExtraData)
-	groupIdExtra := make([]byte,common.GroupIdLength)
-	addr := make([]byte,common.AddressLength)
-
-	// 分配给每一个验证节点的分红交易
-	value := big.NewInt(int64(bonusTx.Value))
-
-	if n,_ := reader.Read(groupIdExtra);n != common.GroupIdLength{
-		panic("TVMExecutor Read GroupId Fail")
+	var bonusTx *types.Transaction
+	block := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
+	for _, tx := range block.Transactions {
+		if tx.Type == types.TransactionTypeBonus {
+			bonusTx = tx
+			break
+		}
 	}
 
-	mems := make([]string, 0)
+	// 从交易信息中解析出targetId列表
+	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
 
-	for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
-		mems = append(mems, groupsig.DeserializeId(addr).ShortS())
+	mems := make([]string, 0)
+	for _,memId := range memIds{
+		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
 	}
 
 	data := BonusInfo{
@@ -455,7 +446,7 @@ func bonusStatByHeight(height uint64)  BonusInfo{
 		GroupId:groupsig.DeserializeId(groupId).ShortS(),
 		CasterId:groupsig.DeserializeId(casterId).ShortS(),
 		MemberIds:mems,
-		BonusValue:value.Uint64(),
+		BonusValue:value,
 	}
 
 	return data
@@ -472,48 +463,41 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 			}
 		}
 
-		BonusLogger.Infof("i : %v", i)
-
 		for j := i; j <= height; j++{
 			bh := core.BlockChainImpl.QueryBlockByHeight(j)
 
 			casterId := groupsig.DeserializeId(bh.Castor)
 
-			BonusLogger.Infof("height :%v | casterId: %v", j, casterId.ShortS())
-
 			// 获取验证分红的交易信息
-			bm := core.BlockChainImpl.GetBonusManager();
-
-			bonusTx := bm.GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-			if bonusTx == nil {
-				BonusLogger.Infof("bonux tx is null")
-				continue
-			}
-
-			BonusLogger.Infof("tx hash:", bonusTx.Hash.String())
-			BonusLogger.Infof("tx type:", bonusTx.Type)
-			BonusLogger.Infof("tx bonusTx.ExtraData :", bonusTx.ExtraData)
-
-
-			// 从交易信息中解析出targetId列表
-			reader := bytes.NewReader(bonusTx.ExtraData)
-			groupIdExtra := make([]byte,common.GroupIdLength)
-			addr := make([]byte,common.AddressLength)
-
-			// 分配给每一个验证节点的分红交易
-			value := big.NewInt(int64(bonusTx.Value))
-
-			if n,_ := reader.Read(groupIdExtra);n != common.GroupIdLength{
-				panic("TVMExecutor Read GroupId Fail")
+			// bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())  此方法取到的分红交易有时候为空
+			var bonusTx *types.Transaction
+			block := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
+			for _, tx := range block.Transactions {
+				if tx.Type == types.TransactionTypeBonus {
+					bonusTx = tx
+					break
+				}
 			}
 
 			bonusValuePreMap := BonusValueStatMap[j - 1]
 			bonusNumPreMap := BonusNumStatMap[j - 1]
 			castBlockPreMap := CastBlockStatMap[j - 1]
 
-			bonusValueCurrentMap := make(map[string]uint64, 10)
-			bonusNumCurrentMap := make(map[string]uint64, 10)
-			castBlockCurrentMap := make(map[string]uint64, 10)
+			if bonusTx == nil {
+				BonusValueStatMap[j] = bonusValuePreMap
+				BonusNumStatMap[j] = bonusNumPreMap
+				CastBlockStatMap[j] = castBlockPreMap
+				continue
+			}
+
+			// 从交易信息中解析出targetId列表
+			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
+
+			BonusLogger.Infof("height: %v | castBlockMap: %v", (j - 1), castBlockPreMap)
+
+			bonusValueCurrentMap := make(map[string]uint64)
+			bonusNumCurrentMap := make(map[string]uint64)
+			castBlockCurrentMap := make(map[string]uint64)
 
 			for k,v := range bonusValuePreMap {
 				bonusValueCurrentMap[k] = v
@@ -527,26 +511,24 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 				castBlockCurrentMap[k] = v
 			}
 
-			for n,_ := reader.Read(addr);n > 0;n,_ = reader.Read(addr){
-				memId := groupsig.DeserializeId(addr).GetHexString()
-
-				BonusLogger.Infof("memberId: %v", memId)
+			for _, mv := range memIds{
+				memId := groupsig.DeserializeId(mv).GetHexString()
 
 				if v, ok := bonusValueCurrentMap[memId]; ok{
-					bonusValueCurrentMap[memId] = value.Uint64() + v
+					bonusValueCurrentMap[memId] = value + v
 					if v, ok := bonusNumCurrentMap[memId]; ok {
 						bonusNumCurrentMap[memId] = v + 1
 					} else {
 						bonusNumCurrentMap[memId] = 1
 					}
 				} else {
-					bonusValueCurrentMap[memId] = value.Uint64()
+					bonusValueCurrentMap[memId] = value
 					bonusNumCurrentMap[memId] = 1
 				}
 			}
 
 			if v,ok := castBlockCurrentMap[casterId.GetHexString()];ok{
-				castBlockCurrentMap[casterId.GetHexString()] += v
+				castBlockCurrentMap[casterId.GetHexString()] = v + 1
 			} else {
 				castBlockCurrentMap[casterId.GetHexString()] = 1
 			}
@@ -561,26 +543,24 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 	bonusNumMap = BonusNumStatMap[height]
 	castBlockNumMap = CastBlockStatMap[height]
 
-	BonusLogger.Infof("bonus:%v | num:%v | castBlock:%v", bonusValueMap, bonusNumMap, castBlockNumMap)
-
-	group := core.GroupChainImpl.GetGroupByHeight(height)
-	bonusStatResults := make([]BonusStatInfo,10)
-	for _, mem := range group.Members {
-		memId := groupsig.DeserializeId(mem.Id)
-
+	bonusStatResults := make([]BonusStatInfo,0,10)
+	lightMinerIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
+	for lightMinerIter.Next() {
+		miner, _ := lightMinerIter.Current()
+		minerId := groupsig.DeserializeId(miner.Id)
 		bonusStatItem := BonusStatInfo{
-			MemberId:memId.ShortS(),
-			BonusNum:bonusNumMap[memId.GetHexString()],
-			TotalBonusValue:bonusValueMap[memId.GetHexString()],
+			MemberId:minerId.ShortS(),
+			BonusNum:bonusNumMap[minerId.GetHexString()],
+			TotalBonusValue:bonusValueMap[minerId.GetHexString()],
 		}
 
 		bonusStatResults = append(bonusStatResults, bonusStatItem)
 	}
 
-	castBlockResults := make([]CastBlockStatInfo, 10)
-	iter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
-	for iter.Next() {
-		miner, _ := iter.Current()
+	castBlockResults := make([]CastBlockStatInfo,0,10)
+	heavyIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
+	for heavyIter.Next() {
+		miner, _ := heavyIter.Current()
 		minerId := groupsig.DeserializeId(miner.Id)
 		castBlockItem := CastBlockStatInfo{
 			CasterId: minerId.ShortS(),
@@ -597,6 +577,5 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 		BonusStatInfos:bonusStatResults,
 		CastBlockStatInfos:castBlockResults,
 	}
-
 	return successResult(result)
 }
