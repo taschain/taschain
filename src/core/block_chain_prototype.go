@@ -43,7 +43,8 @@ type prototypeChain struct {
 	isAdujsting bool
 
 	lastBlockHash *BlockHash
-	genesisInfo *types.GenesisInfo
+
+	consensusHelper	types.ConsensusHelper
 
 	bonusManager *BonusManager
 
@@ -314,4 +315,8 @@ func (chain *prototypeChain) isCommonAncestor(bhs []*BlockHash, index int) int {
 		return 1
 	}
 	return -1
+}
+
+func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
+    return chain.consensusHelper
 }

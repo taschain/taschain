@@ -6,7 +6,7 @@ import (
 	"middleware/types"
 	"core"
 	"log"
-	"common"
+	"consensus/base"
 )
 
 /*
@@ -34,7 +34,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 	md := &model.MinerDO{
 		ID: groupsig.DeserializeId(miner.Id),
 		PK: groupsig.DeserializePubkeyBytes(miner.PublicKey),
-		VrfPK: common.VRFPublicKey(miner.VrfPublicKey),
+		VrfPK: base.VRFPublicKey(miner.VrfPublicKey),
 		Stake: miner.Stake,
 		NType: miner.Type,
 		ApplyHeight: miner.ApplyHeight,

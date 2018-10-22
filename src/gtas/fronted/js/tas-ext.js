@@ -59,7 +59,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 }
                 $("#block_detail_result").show()
                 d = rdata.result.data
-                $("#block__detail_height").text(d.height)
+                $("#block_detail_height").text(d.height)
                 $("#block_castor").text(d.castor)
                 $("#block_hash").text(d.hash)
                 $("#block_pre_hash").text(d.pre_hash)
@@ -67,6 +67,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 $("#block_pre_ts").text(d.pre_time)
                 $("#block_group").text(d.group_id)
                 $("#block_tx_cnt").text(d.txs.length)
+                $("#block_qn").text(d.qn)
+                $("#block_total_qn").text(d.total_qn)
+                $("#block_pre_total_qn").text(d.pre_total_qn)
 
                 gbt = d.gen_bonus_tx
                 if (gbt != null && gbt != undefined) {

@@ -768,7 +768,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
 		return
 	}
-	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	if genBonus.TxHash != reward.TxHash {
 		err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
 		return

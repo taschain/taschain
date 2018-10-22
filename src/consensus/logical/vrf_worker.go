@@ -7,9 +7,9 @@ import (
 	"consensus/model"
 	"math/big"
 	"errors"
-	"common"
 	"math"
-	"log"
+	"fmt"
+	"consensus/base"
 )
 
 /*
@@ -54,60 +54,60 @@ func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight ui
 	}
 }
 
-func (vrf *vrfWorker) prove(totalStake uint64) (common.VRFProve, uint64, error) {
-	pi, err := common.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
+func (vrf *vrfWorker) prove(totalStake uint64) (base.VRFProve, uint64, error) {
+	pi, err := base.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
 	if err != nil {
 		return nil, 0, err
 	}
-	if ok, pr, sr := vrfSatisfy(pi, vrf.miner.Stake, totalStake); ok {
-		//计算qn
-		if sr.Cmp(rat1) > 0 {
-			sr.Set(rat1)
-		}
-		s1, _ := pr.Float64()
-		s2, _ := sr.Float64()
+	if ok, qn := vrfSatisfy(pi, vrf.miner.Stake, totalStake); ok {
 
-		step := sr.Quo(sr, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
-
-		st, _ := step.Float64()
-
-		r, _ := pr.Quo(pr, step).Float64()
-		qn := uint64(math.Floor(r) + 1)
-
-		log.Printf("vrf prove pr %v, sr %v, step %v, qn %v", s1, s2, st, r, qn)
 		return pi, qn, nil
 	}
     return nil, 0, errors.New("proof fail")
 }
 
-func vrfSatisfy(pi common.VRFProve, stake uint64, totalStake uint64) (ok bool, piRat *big.Rat, sRat *big.Rat) {
-	value := common.VRF_proof2hash(pi)
+func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn uint64) {
+	value := base.VRF_proof2hash(pi)
 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
-	v := br.Quo(br, max256)
+	pr := br.Quo(br, max256)
 
 	brTStake := new(big.Rat).SetInt64(int64(totalStake))
 	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
 
-	s1, _ := v.Float64()
+	s1, _ := pr.Float64()
 	s2, _ := vs.Float64()
-	//blog := newBizLog("vrfSatisfy")
-	//blog.log("value %v stake %v", s1, s2)
-	log.Printf("varffffffff 1 pr %v, sr %v", s1, s2)
+	blog := newBizLog("vrfSatisfy")
 
-	return v.Cmp(vs) < 0, v, vs
+	ok = pr.Cmp(vs) < 0
+	//计算qn
+	if vs.Cmp(rat1) > 0 {
+		vs.Set(rat1)
+	}
+
+	step := vs.Quo(vs, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
+
+	st, _ := step.Float64()
+
+	r, _ := pr.Quo(pr, step).Float64()
+	qn = uint64(math.Floor(r) + 1)
+
+	blog.log("proveValue %v, stake %v, step %v, qn %v", s1, s2, st, qn)
+
+	return
 	//return true
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
-	pi := common.VRFProve(bh.ProveValue.Bytes())
-	ok, err := common.VRF_verify(miner.VrfPK, pi, preBH.Random)
-	//blog := newBizLog("vrfVerifyBlock")
-	//blog.log("pi %v", pi.ShortS())
+	pi := base.VRFProve(bh.ProveValue.Bytes())
+	ok, err := base.VRF_verify(miner.VrfPK, pi, preBH.Random)
 	if !ok {
 		return ok ,err
 	}
-	if ok, _, _ := vrfSatisfy(pi, miner.Stake, totalStake); ok {
+	if ok, qn := vrfSatisfy(pi, miner.Stake, totalStake); ok {
+		if bh.TotalQN != qn + preBH.TotalQN {
+			return false, errors.New(fmt.Sprintf("qn error.bh hash=%v, height=%v, qn=%v,totalQN=%v, preBH totalQN=%v", bh.Hash.ShortS(), bh.Height, qn, bh.TotalQN, preBH.TotalQN))
+		}
 		return true, nil
 	}
 	return false, errors.New("proof not satisfy")

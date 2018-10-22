@@ -10,6 +10,7 @@ import (
 	"common"
 	"middleware/types"
 	"log"
+	"consensus/base"
 )
 
 /*
@@ -22,7 +23,7 @@ const GENESIS_GROUP_INFO = `{"GroupID":"0xa85a46d7fde553e2dbfe19750faee0144d3616
 
 type genesisGroup struct {
 	Group StaticGroupInfo
-	VrfPK map[string]common.VRFPublicKey
+	VrfPK map[string]base.VRFPublicKey
 }
 
 var genesisGroupInfo *genesisGroup
@@ -36,11 +37,8 @@ func GetGenesisGroupInfo() *genesisGroup {
 	return genesisGroupInfo
 }
 
-type GenesisGeneratorImpl struct {
 
-}
-
-func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
+func GenerateGenesis() *types.GenesisInfo {
 	genesis := GetGenesisGroupInfo()
 	sgi := &genesis.Group
 	coreGroup := ConvertStaticGroup2CoreGroup(sgi, false)

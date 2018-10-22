@@ -103,6 +103,8 @@ type BlockChain interface {
 	GetBonusManager() *BonusManager
 
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
+
+	GetConsensusHelper() types.ConsensusHelper
 }
 
 type TransactionPool interface {

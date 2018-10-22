@@ -225,8 +225,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
 					transaction.Hash.Hex())
 				//分红交易奖励
-				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetPackBonus())
-				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, common.GetPackBonus())
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().PackBonus())
+				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, executor.bc.GetConsensusHelper().PackBonus())
 			} else {
 				fail = true
 			}
@@ -297,7 +297,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipts[i] = receipt
 	}
 	//筑块奖励
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetProposalBonus())
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
 	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
 	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
