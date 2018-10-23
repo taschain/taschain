@@ -243,7 +243,6 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 	result := core.BlockChainImpl.AddBlockOnChain(b)
 	if result == 0 {
 		core.BlockChainImpl.(*core.LightChain).RemoveFromCache(b)
-		core.BlockSyncer.SetSyncedFirstBlock(true)
 		core.RequestBlock(m.Peer, core.BlockChainImpl.Height()+1)
 	}
 }

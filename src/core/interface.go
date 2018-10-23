@@ -61,8 +61,6 @@ type BlockChain interface {
 
 	QueryBlockBody(blockHash common.Hash) []*types.Transaction
 
-	QueryBlockHashes(height uint64, length uint64) []*BlockHash
-
 	QueryBlock(height uint64) *types.Block
 
 	//根据哈希取得某个交易
@@ -78,12 +76,9 @@ type BlockChain interface {
 
 	GetSateCache()core.Database
 
-	//是否正在调整分叉
 	IsAdujsting() bool
 
 	SetAdujsting(isAjusting bool)
-
-	//saveBlock(b *types.Block) int8
 
 	Remove(header *types.BlockHeader)
 
@@ -91,8 +86,6 @@ type BlockChain interface {
 	Clear() error
 
 	Close()
-
-	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
 	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,addresses []common.Address) *[]types.StateNode
 

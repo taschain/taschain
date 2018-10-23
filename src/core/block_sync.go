@@ -26,16 +26,12 @@ import (
 )
 
 const (
-	BLOCK_TOTAL_QN_RECEIVE_INTERVAL = 1 * time.Second
-
 	BLOCK_SYNC_INTERVAL = 3 * time.Second
 
 	INIT_INTERVAL = 3 * time.Second
 )
 
 var BlockSyncer blockSyncer
-
-var lightMiner bool
 
 type TotalQnInfo struct {
 	TotalQn  uint64
@@ -44,43 +40,29 @@ type TotalQnInfo struct {
 }
 
 type blockSyncer struct {
-	TotalQnCh    chan TotalQnInfo
+	TotalQnCh chan TotalQnInfo
 
 	maxTotalQn     uint64
 	bestNode       string
 	bestNodeHeight uint64
 	lock           sync.Mutex
 
-	init             bool
-	syncedFirstBlock bool
-	hasNeighbor      bool
+	init        bool
+	hasNeighbor bool
+	lightMiner  bool
 }
 
 func InitBlockSyncer(isLightMiner bool) {
-	lightMiner = isLightMiner
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0,  TotalQnCh: make(chan TotalQnInfo), hasNeighbor: false, init: false, syncedFirstBlock: false}
+	BlockSyncer = blockSyncer{maxTotalQn: 0, TotalQnCh: make(chan TotalQnInfo), hasNeighbor: false, init: false, lightMiner: isLightMiner}
 	go BlockSyncer.start()
 }
 
 func (bs *blockSyncer) IsInit() bool {
 	return bs.init
 }
-
-func (bs *blockSyncer) SetInit(init bool) {
-	bs.init = init
-}
-
-func (bs *blockSyncer) IsSyncedFirstBlock() bool {
-	return bs.syncedFirstBlock
-}
-
-func (bs *blockSyncer) SetSyncedFirstBlock(syncedFirstBlock bool) {
-	bs.syncedFirstBlock = syncedFirstBlock
-}
-
 
 func (bs *blockSyncer) start() {
 	go bs.loop()
@@ -93,10 +75,10 @@ func (bs *blockSyncer) start() {
 			break
 		}
 	}
-	bs.sync()
+	bs.Sync()
 }
 
-func (bs *blockSyncer) sync() {
+func (bs *blockSyncer) Sync() {
 	if nil == BlockChainImpl {
 		panic("BlockChainImpl should not be nil!")
 		return
@@ -106,25 +88,22 @@ func (bs *blockSyncer) sync() {
 	maxTotalQN := bs.maxTotalQn
 	bestNodeId := bs.bestNode
 	bestNodeHeight := bs.bestNodeHeight
-
-	bs.maxTotalQn = 0
-	bs.bestNode = ""
-	bs.bestNodeHeight = 0
 	bs.lock.Unlock()
 
 	if maxTotalQN-localTotalQN <= 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
+			logger.Info("Block first sync finished!")
 			bs.init = true
+		}
+
+		if BlockChainImpl.IsAdujsting() {
+			BlockChainImpl.SetAdujsting(false)
 		}
 		return
 	} else {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
-		if BlockChainImpl.IsAdujsting() {
-			logger.Debugf("[BlockSyncer]Local chain is adujsting, don't sync")
-			return
-		}
-		if lightMiner && BlockChainImpl.Height() == 0 {
+		if bs.lightMiner && BlockChainImpl.Height() == 0 {
 			var height uint64 = 0
 			if bestNodeHeight > 11 {
 				height = bestNodeHeight - 10
@@ -154,14 +133,14 @@ func (bs *blockSyncer) loop() {
 			}
 			bs.lock.Unlock()
 		case <-t.C:
-			if BlockChainImpl.TotalQN() > 0 {
+			if BlockChainImpl.TotalQN() >= 0 {
 				sendBlockTotalQnToNeighbor(BlockChainImpl.TotalQN(), BlockChainImpl.Height())
 			}
 			if !bs.init {
 				continue
 			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-			go bs.sync()
+			go bs.Sync()
 		}
 	}
 }
