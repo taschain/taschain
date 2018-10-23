@@ -3,12 +3,12 @@ package core
 import (
 	"storage/tasdb"
 	"common"
-	"math/big"
 	"github.com/vmihailenco/msgpack"
 	"sync"
 	"time"
 	"network"
 	"core/datasource"
+	"math/big"
 )
 
 const timerDuration  = time.Second * 2
@@ -27,7 +27,7 @@ type TraceChain struct {
 type TraceHeader struct {
 	Hash 	common.Hash
 	PreHash common.Hash
-	Value   *big.Int
+	Value   []byte
 	TotalQn uint64
 	Height  uint64
 }
@@ -66,7 +66,9 @@ func (tc *TraceChain) addTrace(header *TraceHeader) error {
 		return err
 	}
 
-	if exist,_ := tc.tracedb.Has(header.PreHash.Bytes());exist{
+	tc.missdb.Delete(header.Hash.Bytes())
+
+	if exist,_ := tc.tracedb.Has(header.PreHash.Bytes());!exist{
 		tc.missdb.Put(header.PreHash.Bytes(),[]byte{})
 	}
 
@@ -103,7 +105,11 @@ func (tc *TraceChain) FindCommonAncestor(localHash []byte, remoteHash []byte) (b
 	var local,remote *TraceHeader
 	for{
 		if nextLocal.PreHash == nextRemote.PreHash {
-			replace := nextRemote.Value.Cmp(nextLocal.Value) > 0
+			removeValue := &big.Int{}
+			removeValue.SetBytes(nextRemote.Value)
+			localValue := &big.Int{}
+			localValue.SetBytes(nextLocal.Value)
+			replace := removeValue.Cmp(localValue) > 0
 			return replace, tc.GetTraceHeaderByHash(nextLocal.PreHash.Bytes()),nil
 		}
 		switch flag {
