@@ -622,3 +622,7 @@ func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, err
 	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }
+
+func (chain *LightChain) GetTraceHeader(hash []byte) *types.BlockHeader{
+	return nil
+}

@@ -25,7 +25,6 @@ import (
 	"consensus/model"
 	"middleware/statistics"
 	"bytes"
-	"core"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -286,14 +285,13 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
 
 	block := &cbm.Block
-	pre := core.TraceChainImpl.GetTraceHeaderRawByHash(block.Header.PreHash.Bytes())
-	//preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
-	if pre == nil {
+
+	preHeader := p.MainChain.GetTraceHeader(block.Header.PreHash.Bytes())
+	if preHeader == nil {
 		p.addFutureBlockMsg(cbm)
 		result = "父块未到达"
 		return
 	}
-	preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
 	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
 	verify := p.verifyGroupSign(cbm, preHeader)
 	if !verify {

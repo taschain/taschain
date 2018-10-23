@@ -98,6 +98,8 @@ type BlockChain interface {
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 
 	GetConsensusHelper() types.ConsensusHelper
+
+	GetTraceHeader(hash []byte) *types.BlockHeader
 }
 
 type TransactionPool interface {

@@ -416,28 +416,26 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
-	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
+	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(),
+		TotalQn: b.Header.TotalQN, Height: b.Header.Height, Random:b.Header.Random}
 	TraceChainImpl.AddTrace(trace)
+
+	if  b.Header.Hash == topBlock.Hash{
+		return 1
+	}
 
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
 	if b.Header.PreHash == topBlock.Hash {
-		result, headerByte := chain.insertBlock(b, state, receipts)
-		if result == 0 {
-			chain.successOnChainCallBack(b, headerByte)
-		}
+		result, _ := chain.insertBlock(b, state, receipts)
 		return result
 	}
 
-	if b.Header.TotalQN < topBlock.TotalQN || b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+	if b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
 	}
-	result, headerJson := chain.processFork(topBlock, b, state, receipts)
-	if result == 0 {
-		chain.successOnChainCallBack(b, headerJson)
-	}
-	return result
+	return chain.processFork(topBlock, b, state, receipts)
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
@@ -457,7 +455,7 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.A
 	return 0, headerByte
 }
 
-func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) int8 {
 	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
 	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
 	if err == ErrMissingTrace {
@@ -467,10 +465,10 @@ func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remot
 
 	if remoteBlock.Header.TotalQN > localTopBlock.TotalQN || replace {
 		if remoteBlock.Header.PreHash == commonAncestor.Hash {
-			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
+			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s height=%d", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex(),remoteBlock.Header.Height)
 			chain.Remove(chain.latestBlock)
-			result, headerJson := chain.insertBlock(remoteBlock, state, receipts)
-			return result, headerJson
+			result, _ := chain.insertBlock(remoteBlock, state, receipts)
+			return result
 		}
 
 		for i := commonAncestor.Height + 1; i <= chain.Height(); i++ {
@@ -481,9 +479,9 @@ func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remot
 			remoteBlock.Header.Hash.Hex(), commonAncestor.Height+1, chain.Height())
 		chain.isAdujsting = true
 		BlockSyncer.Sync()
-		return 2, nil
+		return 2
 	}
-	return 1, nil
+	return 1
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
@@ -725,4 +723,12 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree, chain.stateCache)
+}
+
+func (chain *FullBlockChain) GetTraceHeader(hash []byte) *types.BlockHeader{
+	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
+	if traceHeader == nil{
+		return nil
+	}
+	return &types.BlockHeader{Random:traceHeader.Random,TotalQN:traceHeader.TotalQn,Height:traceHeader.Height}
 }

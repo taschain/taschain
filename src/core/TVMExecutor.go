@@ -190,8 +190,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-				Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s", transaction.Source.GetHexString(),
-					transaction.Target.GetHexString(), transaction.Value, height, mark)
+				//Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s", transaction.Source.GetHexString(),
+				//	transaction.Target.GetHexString(), transaction.Value, height, mark)
 			} else {
 				fail = true
 			}
