@@ -42,7 +42,6 @@ import (
 	"consensus/model"
 	"redis"
 	"runtime/debug"
-	"consensus/logical"
 )
 
 const (
@@ -131,7 +130,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 		}
 	}
 
-	//gtas.waitingUtilSyncFinished()
+	gtas.waitingUtilSyncFinished()
 	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
@@ -287,8 +286,7 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock(light bool) error {
-	genesis := &logical.GenesisGeneratorImpl{}
-	err := core.InitCore(light,genesis.Generate())
+	err := core.InitCore(light, mediator.NewConsensusHelper())
 	if err != nil {
 		return err
 	}
@@ -308,9 +306,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 	// 初始化中间件
 	middleware.InitMiddleware()
 
-	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore(light,genesis.Generate())
+	err = core.InitCore(light, mediator.NewConsensusHelper())
 	if err != nil {
 		return err
 	}

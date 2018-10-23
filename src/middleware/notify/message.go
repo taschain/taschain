@@ -90,3 +90,17 @@ func (m *StateInfoMessage) GetRaw() []byte {
 func (m *StateInfoMessage) GetData() interface{} {
 	return m
 }
+
+
+type BlockReqMessage struct {
+	HeightByte []byte
+
+	Peer string
+}
+
+func (m *BlockReqMessage) GetRaw() []byte {
+	return nil
+}
+func (m *BlockReqMessage) GetData() interface{} {
+	return m
+}

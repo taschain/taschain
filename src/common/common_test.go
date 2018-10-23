@@ -1,8 +1,9 @@
 package common
 
 import (
-	"fmt"
 	"testing"
+	"encoding/json"
+	"log"
 )
 
 /*
@@ -21,6 +22,10 @@ func TestHash_Hex(t *testing.T) {
 	t.Log(h.Hex())
 }
 
-func TestAddressGenFunc(t *testing.T){
-	fmt.Println(BytesToAddress(Sha256([]byte("4"))).GetHexString())
+
+func TestAddress_MarshalJSON(t *testing.T) {
+	addr := HexToAddress("0x123")
+
+	bs, _ := json.Marshal(&addr)
+	log.Printf(string(bs))
 }

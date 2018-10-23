@@ -9,8 +9,8 @@ import (
 	"consensus/model"
 	"common"
 	"middleware/types"
-	"consensus/base"
 	"log"
+	"consensus/base"
 )
 
 /*
@@ -37,11 +37,8 @@ func GetGenesisGroupInfo() *genesisGroup {
 	return genesisGroupInfo
 }
 
-type GenesisGeneratorImpl struct {
 
-}
-
-func (gen *GenesisGeneratorImpl) Generate() *types.GenesisInfo {
+func GenerateGenesis() *types.GenesisInfo {
 	genesis := GetGenesisGroupInfo()
 	sgi := &genesis.Group
 	coreGroup := ConvertStaticGroup2CoreGroup(sgi, false)

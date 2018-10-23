@@ -30,7 +30,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         ,cols: [[{field:'height',title: '块高', sort:true},
             {field:'hash', title: 'hash', templet: '<div><a href="javascript:void(0);" class="layui-table-link" name="block_table_hash_row">{{d.hash}}</a></div>'},
             {field:'pre_hash', title: 'pre_hash'},{field:'pre_time', title: 'pre_time', width: 189},{field:'cur_time', title: 'cur_time', width: 189},
-            {field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'txs', title: 'tx_count'}]] //设置表头
+            {field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'txs', title: 'tx_count'}, {field:'qn', title: 'qn'}
+            , {field:'total_qn', title: 'totalQN'}]] //设置表头
         ,data: blocks
         ,page: true
         ,limit:15

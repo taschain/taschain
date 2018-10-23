@@ -30,7 +30,7 @@ type BlockChain interface {
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -46,7 +46,7 @@ type BlockChain interface {
 
 	Height() uint64
 
- 	TotalQN() *big.Int
+ 	TotalQN() uint64
 
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
@@ -61,9 +61,7 @@ type BlockChain interface {
 
 	QueryBlockBody(blockHash common.Hash) []*types.Transaction
 
-	QueryBlockHashes(height uint64, length uint64) []*BlockHash
-
-	QueryBlockInfo(height uint64, hash common.Hash,verifyHash bool) *BlockInfo
+	QueryBlock(height uint64) *types.Block
 
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取
@@ -78,12 +76,9 @@ type BlockChain interface {
 
 	GetSateCache()core.Database
 
-	//是否正在调整分叉
 	IsAdujsting() bool
 
 	SetAdujsting(isAjusting bool)
-
-	//saveBlock(b *types.Block) int8
 
 	Remove(header *types.BlockHeader)
 
@@ -91,8 +86,6 @@ type BlockChain interface {
 	Clear() error
 
 	Close()
-
-	CompareChainPiece(bhs []*BlockHash, sourceId string)
 
 	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,addresses []common.Address) *[]types.StateNode
 
@@ -103,6 +96,8 @@ type BlockChain interface {
 	GetBonusManager() *BonusManager
 
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
+
+	GetConsensusHelper() types.ConsensusHelper
 }
 
 type TransactionPool interface {

@@ -30,6 +30,8 @@ const (
 	TransactionTypeMinerApply = 4
 	TransactionTypeMinerAbort = 5
 	TransactionTypeMinerRefund = 6
+
+	TransactionTypeToBeRemoved = -1
 )
 
 type Transaction struct {
@@ -92,7 +94,13 @@ func (pt PriorityTransactions) Swap(i, j int) {
 	pt[i], pt[j] = pt[j], pt[i]
 }
 func (pt PriorityTransactions) Less(i, j int) bool {
-	return pt[i].GasPrice < pt[j].GasPrice
+	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved{
+		return true
+	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved{
+		return false
+	} else{
+		return pt[i].GasPrice < pt[j].GasPrice
+	}
 }
 func (pt *PriorityTransactions) Push(x interface{}) {
 	item := x.(*Transaction)
@@ -143,7 +151,7 @@ type BlockHeader struct {
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	ProveValue   *big.Int      //轮转序号
-	TotalPV      *big.Int      //整条链的QN
+	TotalQN      uint64      //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -153,7 +161,6 @@ type BlockHeader struct {
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
-	EvictedTxs   []common.Hash
 	ExtraData    []byte
 	Random       []byte
 }
@@ -162,8 +169,8 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue  *big.Int        //轮转序号
-	TotalPV      *big.Int        //整条链的QN
+	ProveValue   *big.Int        //轮转序号
+	TotalQN      uint64       //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -181,17 +188,15 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		Height:       bh.Height,
 		PreHash:      bh.PreHash,
 		PreTime:      bh.PreTime,
-		ProveValue:  bh.ProveValue,
-		TotalPV:      bh.TotalPV,
+		ProveValue:   bh.ProveValue,
+		TotalQN:      bh.TotalQN,
 		CurTime:      bh.CurTime,
 		Castor:       bh.Castor,
-		GroupId:      bh.GroupId,
 		Nonce:        bh.Nonce,
 		Transactions: bh.Transactions,
 		TxTree:       bh.TxTree,
 		ReceiptTree:  bh.ReceiptTree,
 		StateTree:    bh.StateTree,
-		EvictedTxs:   bh.EvictedTxs,
 		ExtraData:    bh.ExtraData,
 	}
 	blockByte, _ := json.Marshal(header)

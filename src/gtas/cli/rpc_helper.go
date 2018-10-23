@@ -41,6 +41,8 @@ func convertBlockHeader(bh *types.BlockHeader) *Block {
 		GroupID: groupsig.DeserializeId(bh.GroupId),
 		Prove: bh.ProveValue,
 		Txs: bh.Transactions,
+		TotalQN: bh.TotalQN,
+		Qn: mediator.Proc.CalcBlockHeaderQN(bh),
 	}
 	return block
 }

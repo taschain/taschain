@@ -1,6 +1,5 @@
 package network
 
-
 const (
 	//-----------组初始化---------------------------------
 
@@ -34,13 +33,11 @@ const (
 	BlockBodyMsg uint32 = 0x0e
 
 	//-----------块同步---------------------------------
-	ReqBlockChainTotalQnMsg uint32 = 0x0f
-
 	BlockChainTotalQnMsg uint32 = 0x10
 
-	ReqBlockInfo uint32 = 0x11
+	ReqBlock uint32 = 0x11
 
-	BlockInfo uint32 = 0x12
+	BlockMsg uint32 = 0x12
 
 	//-----------组同步---------------------------------
 	ReqGroupChainCountMsg uint32 = 0x13
@@ -67,6 +64,11 @@ const (
 	CastRewardSignReq uint32 = 0x1d
 	CastRewardSignGot uint32 = 0x1e
 
+	//==================Trace=========
+	RequestTraceMsg  uint32 = 0x20
+	ResponseTraceMsg uint32 = 0x21
+
+	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 )
 
 type Message struct {
@@ -94,19 +96,19 @@ type Network interface {
 
 	//Send message to the node which id represents. If self doesn't connect to the node,
 	// send message to the guys which belongs to the same group with the node and they will rely the message to the node
-	SendWithGroupRelay(id string, groupId string,msg Message)error
+	SendWithGroupRelay(id string, groupId string, msg Message) error
 
 	//Broadcast the message among the group which self belongs to
 	Multicast(groupId string, msg Message) error
 
 	//Broadcast the message to the group which self do not belong to
-	SpreadOverGroup(groupId string, groupMembers []string,msg Message,digest MsgDigest) error
+	SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error
 
 	//Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error
 
 	//Send the message to part nodes it connects to and they will also broadcast the message to part of their neighbor util relayCount
-	Relay(msg Message,relayCount int32)error
+	Relay(msg Message, relayCount int32) error
 
 	//Send the message to all nodes it connects to and the node which receive the message also broadcast the message to their neighbor once
 	Broadcast(msg Message) error
@@ -117,5 +119,4 @@ type Network interface {
 	BuildGroupNet(groupId string, members []string)
 
 	DissolveGroupNet(groupId string)
-
 }

@@ -72,7 +72,7 @@ message BlockHeader{
 
      optional bytes ProveValue = 5;
 
-     optional bytes TotalPV = 6;
+     optional uint64 TotalQN = 6;
 
      optional bytes CurTime  = 7 ;
 
@@ -94,9 +94,7 @@ message BlockHeader{
 
      optional bytes ExtraData  = 16 ;
 
-     optional Hashes EvictedTxs  = 17;
-
-     optional bytes Random = 18;
+     optional bytes Random = 17;
 }
 
 message BlockBody{
@@ -169,14 +167,6 @@ message GroupRequestInfo{
     optional GroupIdSlice ExistGroupIds =2;
 }
 
-message BlockRequestInfo{
-
-	required uint64 SourceHeight  =1;
-
-	required bytes SourceCurrentHash =2;
-
-    required bool VerifyHash =3;
-}
 
 
 message Hashes{
@@ -184,37 +174,10 @@ message Hashes{
     repeated bytes hashes = 1;
 }
 
-message BlockHash{
-
-	required  uint64 Height = 1;
-
-	required  bytes  Hash = 2;
-}
-
-message BlockChainPiece{
-
-    repeated BlockHash BlockHashes = 1;
-}
-
-message BlockInfo{
-
-	optional Block Block = 1;
-
-	optional BlockChainPiece ChainPiece = 2;
-
-	optional bool IsTopBlock = 3;
-}
-
-message BlockHashesReq{
-
-	required  uint64 Height = 1;
-
-	required uint64 Length = 2;
-}
 
 message TotalQnInfo{
 
-    required bytes TotalQn = 1;
+    required uint64 TotalQn = 1;
 
     required uint64 Height = 2;
 }

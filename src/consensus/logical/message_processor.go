@@ -18,13 +18,13 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
-
 	"bytes"
 	"consensus/model"
 	"fmt"
 	"middleware/statistics"
 	"middleware/types"
 	"time"
+	"core"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -285,13 +285,14 @@ func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
 		gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
 
 	block := &cbm.Block
-
-	preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
-	if preHeader == nil {
+	pre := core.TraceChainImpl.GetTraceHeaderRawByHash(block.Header.PreHash.Bytes())
+	//preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
+	if pre == nil {
 		p.addFutureBlockMsg(cbm)
 		result = "父块未到达"
 		return
 	}
+	preHeader := p.MainChain.QueryBlockHeaderByHash(block.Header.PreHash)
 	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
 	verify := p.verifyGroupSign(cbm, preHeader)
 	if !verify {
@@ -765,7 +766,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
 		return
 	}
-	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	if genBonus.TxHash != reward.TxHash {
 		err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
 		return

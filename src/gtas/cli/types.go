@@ -132,6 +132,8 @@ type Block struct {
 	Castor groupsig.ID `json:"castor"`
 	GroupID groupsig.ID `json:"group_id"`
 	Prove  *big.Int `json:"prove"`
+	TotalQN uint64 `json:"total_qn"`
+	Qn 		uint64 `json:"qn"`
 	Txs 	[]common.Hash `json:"txs"`
 }
 
@@ -143,6 +145,7 @@ type BlockDetail struct {
 	Trans        []Transaction        `json:"trans"`
 	BodyBonusTxs []BonusTransaction   `json:"body_bonus_txs"`
 	MinerBonus   []*MinerBonusBalance `json:"miner_bonus"`
+	PreTotalQN	uint64 `json:"pre_total_qn"`
 }
 
 type Group struct {

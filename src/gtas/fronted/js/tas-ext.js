@@ -59,7 +59,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 }
                 $("#block_detail_result").show()
                 d = rdata.result.data
-                $("#block__detail_height").text(d.height)
+                $("#block_detail_height").text(d.height)
                 $("#block_castor").text(d.castor)
                 $("#block_hash").text(d.hash)
                 $("#block_pre_hash").text(d.pre_hash)
@@ -67,6 +67,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 $("#block_pre_ts").text(d.pre_time)
                 $("#block_group").text(d.group_id)
                 $("#block_tx_cnt").text(d.txs.length)
+                $("#block_qn").text(d.qn)
+                $("#block_total_qn").text(d.total_qn)
+                $("#block_pre_total_qn").text(d.pre_total_qn)
 
                 gbt = d.gen_bonus_tx
                 if (gbt != null && gbt != undefined) {
@@ -107,7 +110,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     elem: '#txs_table' //指定原始表格元素选择器（推荐id选择器）
                     ,cols: [[{field:'hash',title: 'hash', sort:true}, {field:'type', title: '类型'},{field:'source', title: '来源'}
                         ,{field:'target', title: '目标'},{field:'value', title: '金额'}]] //设置表头
-                    ,data: d.trans
+                    ,data: d.trans,
+                    page: true,
+                    limit: 20
                 });
 
                 addRecentQuery(h)

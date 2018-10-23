@@ -8,7 +8,6 @@ import (
 	"middleware"
 	"common"
 	"math"
-	"time"
 	"math/big"
 	"encoding/binary"
 )
@@ -38,12 +37,11 @@ type prototypeChain struct {
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
 
-	blockCache *lru.Cache
+	verifiedBlocks *lru.Cache
 
 	isAdujsting bool
 
-	lastBlockHash *BlockHash
-	genesisInfo *types.GenesisInfo
+	consensusHelper	types.ConsensusHelper
 
 	bonusManager *BonusManager
 
@@ -76,11 +74,11 @@ func (chain *prototypeChain) Height() uint64 {
 	return chain.latestBlock.Height
 }
 
-func (chain *prototypeChain) TotalQN()*big.Int {
+func (chain *prototypeChain) TotalQN() uint64 {
 	if nil == chain.latestBlock {
-		return nil
+		return 0
 	}
-	return chain.latestBlock.TotalPV
+	return chain.latestBlock.TotalQN
 }
 
 //查询最高块
@@ -136,32 +134,6 @@ func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache 
 	}
 }
 
-//从当前链上获取block hash
-//height 起始高度
-//length 起始高度向下算非空块的长度
-func (chain *prototypeChain) QueryBlockHashes(height uint64, length uint64) []*BlockHash {
-	chain.lock.RLock("GetBlockHashesFromLocalChain")
-	defer chain.lock.RUnlock("GetBlockHashesFromLocalChain")
-	return chain.getBlockHashesFromLocalChain(height, length)
-}
-
-func (chain *prototypeChain) getBlockHashesFromLocalChain(height uint64, length uint64) []*BlockHash {
-	var i uint64
-	r := make([]*BlockHash, 0)
-	for i = 0; i < length; {
-		bh := chain.queryBlockHeaderByHeight(height, true)
-		if bh != nil {
-			cbh := BlockHash{Hash: bh.Hash, Height: bh.Height, Pv: bh.ProveValue}
-			r = append(r, &cbh)
-			i++
-		}
-		if height == 0 {
-			break
-		}
-		height--
-	}
-	return r
-}
 
 //根据哈希取得某个交易
 func (chain *prototypeChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
@@ -200,15 +172,6 @@ func (chain *prototypeChain) IsAdujsting() bool {
 func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
 	Logger.Debugf("aaaaaaaaa SetAdujsting %v, topHash=%v, height=%v", isAjusting, chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
 	chain.isAdujsting = isAjusting
-	if isAjusting == true {
-		go func() {
-			t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
-
-			<-t.C
-			Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!")
-			chain.isAdujsting = false
-		}()
-	}
 }
 
 func (chain *prototypeChain) Close() {
@@ -233,10 +196,6 @@ func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 	}
 }
 
-
-func (chain *prototypeChain) SetLastBlockHash(bh *BlockHash) {
-	chain.lastBlockHash = bh
-}
 func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
 	return chain.latestStateDB
 }
@@ -253,4 +212,10 @@ func (chain *prototypeChain) AddBonusTrasanction(transaction *types.Transaction)
 
 func (chain *prototypeChain) GetBonusManager() *BonusManager{
 	return chain.bonusManager
+}
+
+
+
+func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
+    return chain.consensusHelper
 }

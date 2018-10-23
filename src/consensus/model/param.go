@@ -48,7 +48,11 @@ type ConsensusParam struct {
 	GroupCastQualifyGap uint64
 	GroupCastDuration	uint64
 	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
+	PotentialProposal	int 	//潜在提案者
 
+	ProposalBonus 		uint64	//提案奖励
+	PackBonus 			uint64	//打包一个分红交易奖励
+	VerifyBonus 		uint64	//验证者总奖励
 }
 
 
@@ -61,7 +65,7 @@ func InitParam() {
 		SSSSThreshold: cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD),
 		MaxUserCastTime: cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME),
 		MaxGroupCastTime: MAX_GROUP_BLOCK_TIME,
-		MaxQN: (MAX_GROUP_BLOCK_TIME) / MAX_USER_CAST_TIME,
+		MaxQN: 5,
 		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
 		Epoch: EPOCH,
@@ -71,8 +75,11 @@ func InitParam() {
 		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
 		GroupCastDuration: GROUP_CAST_DURATION,
 		EffectGapAfterApply: EPOCH,
+		PotentialProposal: 5,
+		ProposalBonus: 	50,
+		PackBonus: 10,
+		VerifyBonus: 100,
 	}
-	Param.MaxQN = Param.MaxGroupCastTime / Param.MaxUserCastTime
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
 
@@ -94,6 +101,3 @@ func (p *ConsensusParam) CreateGroupMinCandidates() int {
     return p.GroupMember * p.CandidatesMinRatio
 }
 
-func (p *ConsensusParam) GetVerifierBonus() uint64 {
-    return common.GetVerifyBonus().Uint64()
-}

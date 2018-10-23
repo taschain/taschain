@@ -99,7 +99,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 		ExtraData:  common.Sha256([]byte("tas")),
 		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
 		ProveValue: pv,
-		TotalPV:    pv,
+		TotalQN:    0,
 	}
 
 	blockByte, _ := json.Marshal(block)
@@ -108,25 +108,29 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
 	// 创始块账户创建
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
-	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
-	//stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
-	//stage := stateDB.IntermediateRoot(false)
-	//Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
+	stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0xa88ebed9c691f709788da55aa61548f23fad2f20e19f7c4cf8997894cd90662d"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x60113e78f3fec8482a23df56b1a49c11e6017e3c193fb42a4837585aa2cef9ac"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x31e59225ec0f5eb904899541ab91e23dbc73115509711901ee4d20f0d51f777a"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x273cf6a73494922bd207a40e02f4b4540586fa2b71fb05dada16e65bde62b51"), big.NewInt(1000000))
+	stage := stateDB.IntermediateRoot(false)
+	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
 	miners := make([]*types.Miner,0)
 	for i,member := range genesisInfo.Group.Members{
 		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
 		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
-	stage := stateDB.IntermediateRoot(false)
+	stage = stateDB.IntermediateRoot(false)
 	Logger.Debugf("GenesisBlock Stage2 Root:%s",stage.Hex())
 	stateDB.SetNonce(common.BonusStorageAddress,1)
 	stateDB.SetNonce(common.HeavyDBAddress,1)

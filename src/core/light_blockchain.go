@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"consensus/groupsig"
 	"middleware/notify"
-	"network"
 	"log"
 	"fmt"
 	vtypes "storage/core/types"
@@ -69,7 +68,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	}
 }
 
-func initLightChain(genesisInfo *types.GenesisInfo) error {
+func initLightChain(helper types.ConsensusHelper) error {
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 	Logger.Debugf("in initLightChain")
 
@@ -79,11 +78,11 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 			transactionPool: NewTransactionPool(),
 			latestBlock:     nil,
 
-			lock:         middleware.NewLoglock("lightchain"),
-			init:         true,
-			isAdujsting:  false,
-			isLightMiner: true,
-			genesisInfo:  genesisInfo,
+			lock:            middleware.NewLoglock("lightchain"),
+			init:            true,
+			isAdujsting:     false,
+			isLightMiner:    true,
+			consensusHelper: helper,
 		},
 		pending:               make(map[uint64]*types.Block),
 		pendingLock:           sync.Mutex{},
@@ -94,7 +93,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 	}
 
 	var err error
-	chain.blockCache, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
+	chain.verifiedBlocks, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
 		return err
@@ -119,7 +118,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
-
+	initTraceChain()
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -130,7 +129,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
 		}
@@ -141,7 +140,7 @@ func initLightChain(genesisInfo *types.GenesisInfo) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *LightChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
+func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")
 	return nil
 }
@@ -162,7 +161,7 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8,
 
 func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
 
-	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(),len(txs))
+	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(), len(txs))
 	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
 	if !hasPreBlock {
 		return nil, 2, nil, nil
@@ -195,7 +194,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return nil, -1, nil, nil
 	}
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height,"lightverify")
+	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "lightverify")
 
 	chain.FreeMissNodeState(bh.Hash)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
@@ -203,7 +202,7 @@ func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return nil, -1, nil, nil
 	}
 
-	chain.blockCache.Add(bh.Hash, &castingBlock{state: state, receipts: receipts,})
+	chain.verifiedBlocks.Add(bh.Hash, &castingBlock{state: state, receipts: receipts,})
 	//return nil, 0, state, receipts
 	return nil, 0, state, nil
 }
@@ -263,20 +262,20 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	}
 	var missingAccouts []common.Address
 	var missingAccountTxs []*types.Transaction
-	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil{
+	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil {
 		missingAccountTxs = b.Transactions
 		castor := common.BytesToAddress(b.Header.Castor)
 
-		missingAccouts = append(missingAccouts,castor)
-		missingAccouts = append(missingAccouts,common.BonusStorageAddress)
-		missingAccouts = append(missingAccouts,common.LightDBAddress)
-		missingAccouts = append(missingAccouts,common.HeavyDBAddress)
-	}else {
-		missingAccountTxs,missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
+		missingAccouts = append(missingAccouts, castor)
+		missingAccouts = append(missingAccouts, common.BonusStorageAddress)
+		missingAccouts = append(missingAccouts, common.LightDBAddress)
+		missingAccouts = append(missingAccouts, common.HeavyDBAddress)
+	} else {
+		missingAccountTxs, missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
 	}
 
-	if len(missingAccountTxs) != 0 || len(missingAccouts) !=0 {
-		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs),len(missingAccouts))
+	if len(missingAccountTxs) != 0 || len(missingAccouts) != 0 {
+		Logger.Debugf("len(noExecuteTxs):%d,len(missingAccoutns):%d", len(missingAccountTxs), len(missingAccouts))
 		var castorId groupsig.ID
 		error := castorId.Deserialize(b.Header.Castor)
 		if error != nil {
@@ -305,76 +304,103 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
+
 	var (
-		state  *core.AccountDB
-		status int8
+		state    *core.AccountDB
+		receipts vtypes.Receipts
+		status   int8
 	)
 
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
 	//if false {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state
-		chain.blockCache.Remove(b.Header.Hash)
+		receipts = cache.(*castingBlock).receipts
 	} else {
 		// 验证块是否有问题
-		_, status, state, _ = chain.verifyCastingBlock(*b.Header, b.Transactions)
-		Logger.Errorf("[LightChain]verifyCastingBlock,status:%d \n", status)
+		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status == 3 {
 			return 3
 		}
 		if status != 0 {
-			Logger.Errorf("[LightChain]fail to VerifyCastingBlock, reason code:%d \n", status)
+			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
+	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
+	TraceChainImpl.AddTrace(trace)
 
-	var headerJson []byte
-	if chain.Height() == 0 || b.Header.PreHash == chain.latestBlock.Hash {
-		status,headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV)<=0 || b.Header.Hash == chain.latestBlock.Hash {
+	topBlock := chain.latestBlock
+	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
+	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
+
+	if b.Header.PreHash == topBlock.Hash {
+		result, headerByte := chain.insertBlock(b, state, receipts)
+		if result == 0 {
+			chain.successOnChainCallBack(b, headerByte)
+		}
+		return result
+	}
+
+	if b.Header.TotalQN < topBlock.TotalQN || b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
-	} else if b.Header.PreHash == chain.latestBlock.PreHash {
-		chain.Remove(chain.latestBlock)
-		status,headerJson= chain.saveBlock(b)
-	} else {
-		//b.Header.TotalQN > chain.latestBlock.TotalQN
-		if chain.isAdujsting {
-			return 2
-		}
-		var castorId groupsig.ID
-		error := castorId.Deserialize(b.Header.Castor)
-		if error != nil {
-			log.Printf("[LightChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-			return -1
-		}
-		chain.SetAdujsting(true)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash, true)
-		status = 2
+
+	}
+	return chain.processFork(topBlock, b, state, receipts)
+}
+
+func (chain *LightChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+	result, headerByte := chain.saveBlock(remoteBlock)
+	if result != 0 {
+		return -1, headerByte
+	}
+	root, _ := state.Commit(true)
+	triedb := chain.stateCache.TrieDB()
+	triedb.Commit(root, false)
+	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
+		return -1, headerByte
+	}
+	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
+	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
+	chain.successOnChainCallBack(remoteBlock, headerByte)
+	return 0, headerByte
+}
+
+func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) int8 {
+	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
+	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
+	if err == ErrMissingTrace {
+		//分叉分支缺结点
+		panic("Local trace chain miss block!!")
 	}
 
-	// 上链成功，移除pool中的交易
-	if 0 == status {
-		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
-
-		chain.latestStateDB = state
-		root, _ := state.Commit(true)
-		triedb := chain.stateCache.TrieDB()
-		triedb.Commit(root, false)
-		if chain.updateLastBlock(state, b.Header, headerJson) == -1 {
-			return -1
+	if replace {
+		if remoteBlock.Header.PreHash == commonAncestor.Hash {
+			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
+			chain.Remove(chain.latestBlock)
+			result, _ := chain.insertBlock(remoteBlock, state, receipts)
+			return result
 		}
-		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
 
-		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
-		network.GetNetInstance().Relay(headerMsg, 1)
-		network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(headerJson), b.Header.Hash)
+		for i := commonAncestor.Height; i <= chain.Height(); i++ {
+			header := chain.queryBlockHeaderByHeight(i, true)
+			chain.Remove(header)
+		}
+		chain.isAdujsting = true
+		BlockSyncer.Sync()
+		return 2
 	}
-	return status
+	return 1
+}
 
+func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
+	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+	BlockSyncer.Sync()
 }
 
 func (chain *LightChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
@@ -406,7 +432,7 @@ func (chain *LightChain) QueryBlockBody(blockHash common.Hash) []*types.Transact
 	return nil
 }
 
-func (chain *LightChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
+func (chain *LightChain) QueryBlock(height uint64) *types.Block {
 	panic("Not support!")
 }
 
@@ -489,49 +515,13 @@ func (chain *LightChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 		_, headerJson := chain.saveBlock(block)
 		chain.updateLastBlock(state, block.Header, headerJson)
 	}
 	chain.init = true
 	chain.transactionPool.Clear()
 	return err
-}
-
-func (chain *LightChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
-	if bhs == nil || len(bhs) == 0 {
-		return
-	}
-	chain.lock.Lock("CompareChainPiece")
-	defer chain.lock.Unlock("CompareChainPiece")
-	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
-	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
-		//删除自身链的结点
-		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header := chain.queryBlockHeaderByHeight(height, true)
-			if header == nil {
-				continue
-			}
-			chain.remove(header)
-			chain.topBlocks.Remove(header.Height)
-		}
-		for h := blockHash.Height; h >= 0; h-- {
-			header := chain.queryBlockHeaderByHeight(h, true)
-			if header != nil {
-				chain.latestBlock = header
-				break
-			}
-		}
-		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash, true)
-	} else {
-		chain.SetLastBlockHash(bhs[0])
-		cbhr := BlockHashesReq{Height: bhs[len(bhs)-1].Height, Length: uint64(len(bhs) * 10)}
-		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d", sourceId, cbhr.Height, cbhr.Length)
-		RequestBlockHashes(sourceId, cbhr)
-	}
-
 }
 
 // 删除块
@@ -557,13 +547,11 @@ func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHe
 }
 
 func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
-	Logger.Debugf("InsertStateNode len nodes:%d",len(*nodes))
 	//TODO:put里面的索粒度太小了。增加putwithnolock方法
 	for _, node := range *nodes {
-		Logger.Infof("InsertStateNode  key:%v,value:%v \n", common.BytesToAddress(([]byte)(node.Key)).GetHexString(),node.Value)
 		err := chain.statedb.Put(node.Key, node.Value)
-		if err != nil{
-			panic("InsertStateNode error:"+err.Error())
+		if err != nil {
+			panic("InsertStateNode error:" + err.Error())
 		}
 	}
 }
@@ -630,7 +618,7 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 	delete(chain.preBlockStateRoot, blockHash)
 }
 
-func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
-	return core.NewAccountDB(header.StateTree,chain.stateCache)
+	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }

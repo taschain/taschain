@@ -30,10 +30,9 @@ import (
 	"middleware"
 	"middleware/types"
 	"taslog"
-	"middleware/notify"
-	"network"
 	"math/big"
 	"storage/core/vm"
+	"middleware/notify"
 )
 
 
@@ -55,10 +54,6 @@ const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
-
-	CHAIN_BLOCK_HASH_INIT_LENGTH uint64 = 10
-
-	BLOCK_CHAIN_ADJUST_TIME_OUT = 10 * time.Second
 )
 
 var BlockChainImpl BlockChain
@@ -129,7 +124,7 @@ func getBlockChainConfig() *BlockChainConfig {
 
 }
 
-func initBlockChain(genesisInfo *types.GenesisInfo) error {
+func initBlockChain(helper types.ConsensusHelper) error {
 
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
 
@@ -142,12 +137,12 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 			init:            true,
 			isAdujsting:     false,
 			isLightMiner:    false,
-			genesisInfo:     genesisInfo,
+			consensusHelper: helper,
 		},
 	}
 
 	var err error
-	chain.blockCache, err = lru.New(20)
+	chain.verifiedBlocks, err = lru.New(20)
 	chain.topBlocks, _ = lru.New(1000)
 	if err != nil {
 		return err
@@ -179,7 +174,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
-
+	initTraceChain()
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -196,7 +191,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 		// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(), genesisInfo)
+			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
@@ -208,7 +203,7 @@ func initBlockChain(genesisInfo *types.GenesisInfo) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *big.Int, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.QueryTopBlock()
 	//校验高度
@@ -220,16 +215,13 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	block := new(types.Block)
 
 	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
-	totalPV := &big.Int{}
-	totalPV.Add(latestBlock.TotalPV, proveValue)
 	block.Header = &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     height,
-		Nonce:      nonce,
 		ProveValue: proveValue,
 		Castor:     castor,
 		GroupId:    groupid,
-		TotalPV:    totalPV, //todo:latestBlock != nil?
+		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 	}
 
@@ -237,14 +229,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
-	if len(block.Transactions) > 0 {
-		Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s",
-			height, latestBlock.Hash.Hex(), preRoot.Hex())
-	}
+	//if len(block.Transactions) > 0 {
+	//	Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s", height, latestBlock.Hash.Hex(), preRoot.Hex())
+	//}
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -278,19 +268,20 @@ func (chain *FullBlockChain) CastBlock(height uint64, nonce uint64, proveValue *
 	for i, tx := range block.Transactions {
 		block.Header.Transactions[i] = tx.Hash
 	}
-	block.Header.EvictedTxs = []common.Hash{}
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
+	defer Logger.Infof("casting block %d,hash:%v,qn:%d", height, block.Header.Hash.String(), block.Header.TotalQN)
 
-	chain.blockCache.Add(block.Header.Hash, &castingBlock{
+	//自己铸的块 自己不需要验证
+	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
 		state:    state,
 		receipts: receipts,
 	})
 	chain.castedBlock.Add(block.Header.Hash, block)
-	Logger.Debugf("CastingBlock into cache! Height:%d-%d,Hash:%x,stateHash:%x,len tx:%d", height, block.Header.ProveValue, block.Header.Hash, block.Header.StateTree, len(block.Transactions))
+	//Logger.Debugf("CastingBlock into cache! Height:%d-%d,Hash:%x,stateHash:%x,len tx:%d", height, block.Header.ProveValue, block.Header.Hash, block.Header.StateTree, len(block.Transactions))
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
 	return block
@@ -310,6 +301,8 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 }
 
 func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v", bh.Hash.String(), bh.Height, bh.TotalQN,bh.PreHash.String())
+
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
@@ -357,7 +350,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	}
 
 	//执行交易
-	Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(), bh.Height)
+	//Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(), bh.Height)
 	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
 	if len(txs) > 0 {
 		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s",
@@ -376,7 +369,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	b.Header = &bh
 	b.Transactions = transactions
 
-	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
+	//Logger.Infof("verifyBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
 	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
@@ -388,7 +381,7 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 		return nil, 1, nil, nil
 	}
 
-	chain.blockCache.Add(bh.Hash, &castingBlock{
+	chain.verifiedBlocks.Add(bh.Hash, &castingBlock{
 		state:    state,
 		receipts: receipts,
 	})
@@ -413,6 +406,9 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
+	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString())
+	topBlock := chain.latestBlock
+	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 	var (
 		state    *core.AccountDB
 		receipts vtypes.Receipts
@@ -421,13 +417,12 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
 	//if false {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state
 		receipts = cache.(*castingBlock).receipts
-		defer chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否有问题
 		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
@@ -436,65 +431,87 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			return -1
 		}
 	}
+	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
+	TraceChainImpl.AddTrace(trace)
 
-	latest := chain.latestBlock
-	Logger.Debugf("hhhhhhhhhhh hash=%v, preH=%v, height=%v, tophash=%v, topPreH=%v, %v", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height,
-		latest.Hash.Hex(), latest.PreHash.Hex(), b.Header.TotalPV.Cmp(latest.TotalPV))
+	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
+	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
-	var headerJson []byte
-	if b.Header.PreHash == chain.latestBlock.Hash {
-		status, headerJson = chain.saveBlock(b)
-	} else if b.Header.TotalPV.Cmp(chain.latestBlock.TotalPV) <= 0 || b.Header.Hash == chain.latestBlock.Hash {
+	if b.Header.PreHash == topBlock.Hash {
+		result, headerByte := chain.insertBlock(b, state, receipts)
+		if result == 0 {
+			chain.successOnChainCallBack(b, headerByte)
+		}
+		return result
+	}
+
+	if b.Header.TotalQN < topBlock.TotalQN || b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
-	} else if b.Header.PreHash == chain.latestBlock.PreHash {
-		chain.Remove(chain.latestBlock)
-		status, headerJson = chain.saveBlock(b)
-	} else {
-		//b.Header.TotalPV > chain.latestBlock.TotalPV
-		if chain.isAdujsting {
-			Logger.Debugf("chainisadjusting. topHash=%v, height=%v", chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
-			return 2
-		}
-		var castorId groupsig.ID
-		error := castorId.Deserialize(b.Header.Castor)
-		if error != nil {
-			log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-			return -1
-		}
-		chain.SetAdujsting(true)
-		bh := b.Header
-		Logger.Debugf("startAdjusting, hash=%v, pre=%v, height=%v, topHash=%v, topheight=%v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, latest.Hash.Hex(), latest.Height)
-		RequestBlockInfoByHeight(castorId.String(), chain.latestBlock.Height, chain.latestBlock.Hash, true)
-		status = 2
+	}
+	result, headerJson := chain.processFork(topBlock, b, state, receipts)
+	if result == 0 {
+		chain.successOnChainCallBack(b, headerJson)
+	}
+	return result
+}
+
+func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+	result, headerByte := chain.saveBlock(remoteBlock)
+	if result != 0 {
+		return -1, headerByte
+	}
+	root, _ := state.Commit(true)
+	triedb := chain.stateCache.TrieDB()
+	triedb.Commit(root, false)
+	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
+		return -1, headerByte
+	}
+	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
+	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
+	chain.successOnChainCallBack(remoteBlock, headerByte)
+	return 0, headerByte
+}
+
+func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
+	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
+	if err == ErrMissingTrace {
+		//分叉分支缺结点
+		panic("Local trace chain miss block!!")
 	}
 
-	// 上链成功，移除pool中的交易
-	if 0 == status {
-		Logger.Debugf("ON chain succ! Height:%d,Hash:%x", b.Header.Height, b.Header.Hash)
-
-		root, _ := state.Commit(true)
-		triedb := chain.stateCache.TrieDB()
-		triedb.Commit(root, false)
-		if chain.updateLastBlock(state, b.Header, headerJson) == -1 {
-			return -1
+	if remoteBlock.Header.TotalQN > localTopBlock.TotalQN || replace {
+		if remoteBlock.Header.PreHash == commonAncestor.Hash {
+			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
+			chain.Remove(chain.latestBlock)
+			result, headerJson := chain.insertBlock(remoteBlock, state, receipts)
+			return result, headerJson
 		}
-		chain.transactionPool.Remove(b.Header.Hash, b.Header.Transactions)
-		chain.transactionPool.MarkExecuted(receipts, b.Transactions)
-		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 
-		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
-		network.GetNetInstance().Relay(headerMsg, 1)
-		network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.ProveValue, len(headerJson), b.Header.Hash)
+		for i := commonAncestor.Height + 1; i <= chain.Height(); i++ {
+			header := chain.queryBlockHeaderByHeight(i, true)
+			chain.Remove(header)
+		}
+		Logger.Debugf("processFork trigger by height=%d hash=%s, remove from height=%d to height=%d", remoteBlock.Header.Height,
+			remoteBlock.Header.Hash.Hex(), commonAncestor.Height+1, chain.Height())
+		chain.isAdujsting = true
+		BlockSyncer.Sync()
+		return 2, nil
 	}
-	return status
+	return 1, nil
+}
 
+func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
+	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
+	BlockSyncer.Sync()
 }
 
 func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
-		fmt.Printf("[block]fail to put current, error:%s \n", err)
+		Logger.Errorf("[block]fail to put current, error:%s \n", err)
 		return -1
 	}
 	chain.latestStateDB = state
@@ -539,51 +556,23 @@ func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	}
 }
 
-//进行HASH校验，如果请求结点和当前结点在同一条链上面 返回height到本地高度之间所有的块
-//否则返回本地链从height向前开始一定长度的非空块hash 用于查找公共祖先
-func (chain *FullBlockChain) QueryBlockInfo(height uint64, hash common.Hash, verifyHash bool) *BlockInfo {
-	chain.lock.RLock("GetBlockInfo")
-	defer chain.lock.RUnlock("GetBlockInfo")
-	localHeight := chain.latestBlock.Height
+func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
+	chain.lock.RLock("QueryBlock")
+	defer chain.lock.RUnlock("QueryBlock")
 
-	bh := chain.queryBlockHeaderByHeight(height, true)
-	if bh == nil {
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh is nil", height)
-	} else {
-		Logger.Debugf("[QueryBlockInfo]height:%d,bh hash:%x,hash:%x,verifyHash:%t", height, bh.Hash, hash, verifyHash)
+	var b *types.Block
+	for i := height + 1; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		b = chain.QueryBlockByHash(bh.Hash)
+		if nil == b {
+			continue
+		}
+		break
 	}
-	if (bh != nil && bh.Hash == hash) || !verifyHash {
-		//当前结点和请求结点在同一条链上
-		Logger.Debugf("[BlockChain]Self is on the same branch with request node!")
-		var b *types.Block
-		for i := height + 1; i <= chain.Height(); i++ {
-			bh := chain.queryBlockHeaderByHeight(i, true)
-			if nil == bh {
-				continue
-			}
-			b = chain.QueryBlockByHash(bh.Hash)
-			if nil == b {
-				continue
-			}
-			break
-		}
-		if b == nil {
-			return nil
-		}
-
-		return &BlockInfo{Block: b, IsTopBlock: b.Header.Height == chain.Height()}
-	} else {
-		//当前结点和请求结点不在同一条链
-		Logger.Debugf("[BlockChain]GetBlockMessage:Self is not on the same branch with request node!")
-		var bhs []*BlockHash
-		if height >= localHeight {
-			bhs = chain.getBlockHashesFromLocalChain(localHeight-1, CHAIN_BLOCK_HASH_INIT_LENGTH)
-		} else {
-			bhs = chain.getBlockHashesFromLocalChain(height, CHAIN_BLOCK_HASH_INIT_LENGTH)
-		}
-		return &BlockInfo{ChainPiece: bhs}
-	}
-
+	return b
 }
 
 // 保存block到ldb
@@ -673,7 +662,7 @@ func (chain *FullBlockChain) Clear() error {
 	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.genesisInfo)
+		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 
 		_, headerJson := chain.saveBlock(block)
 		chain.updateLastBlock(state, block.Header, headerJson)
@@ -683,50 +672,6 @@ func (chain *FullBlockChain) Clear() error {
 
 	chain.transactionPool.Clear()
 	return err
-}
-
-func (chain *FullBlockChain) CompareChainPiece(bhs []*BlockHash, sourceId string) {
-	if bhs == nil || len(bhs) == 0 {
-		return
-	}
-	chain.lock.Lock("CompareChainPiece")
-	defer chain.lock.Unlock("CompareChainPiece")
-	//Logger.Debugf("[BlockChain] CompareChainPiece get block hashes,length:%d,lowest height:%d", len(bhs), bhs[len(bhs)-1].Height)
-	blockHash, hasCommonAncestor, _ := FindCommonAncestor(bhs, 0, len(bhs)-1)
-	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", blockHash.Height, chain.Height())
-		s := make([]string, len(bhs))
-		for i, bh := range bhs {
-			s[i] = bh.Hash.ShortS()
-		}
-		Logger.Debugf("bbbbbbbbbbbbbbb,comming chain piece %v, common ancestor %v, sid=%v", s, blockHash.Hash.ShortS(), sourceId)
-		removeHs := make([]string, 0)
-		//删除自身链的结点
-		for height := blockHash.Height + 1; height <= chain.latestBlock.Height; height++ {
-			header := chain.queryBlockHeaderByHeight(height, true)
-			if header == nil {
-				continue
-			}
-			chain.remove(header)
-			removeHs = append(removeHs, header.Hash.ShortS())
-			chain.topBlocks.Remove(header.Height)
-		}
-		Logger.Debugf("bbbbbbbbbbbbbbb,remove local chain headers %v", removeHs)
-		for h := blockHash.Height; h >= 0; h-- {
-			header := chain.queryBlockHeaderByHeight(h, true)
-			if header != nil {
-				chain.latestBlock = header
-				break
-			}
-		}
-		RequestBlockInfoByHeight(sourceId, blockHash.Height, blockHash.Hash, true)
-	} else {
-		chain.SetLastBlockHash(bhs[0])
-		cbhr := BlockHashesReq{Height: bhs[len(bhs)-1].Height, Length: uint64(len(bhs) * 10)}
-		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d,length:%d", sourceId, cbhr.Height, cbhr.Length)
-		RequestBlockHashes(sourceId, cbhr)
-	}
-
 }
 
 // 删除块
@@ -776,76 +721,6 @@ func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {
 	return v.(*types.Block)
 }
 
-func FindCommonAncestor(bhs []*BlockHash, l int, r int) (*BlockHash, bool, int) {
-
-	if l > r || r < 0 || l >= len(bhs) {
-		return nil, false, -1
-	}
-	m := (l + r) / 2
-	result := isCommonAncestor(bhs, m)
-	if result == 0 {
-		return bhs[m], true, m
-	}
-
-	if result == 1 {
-		return FindCommonAncestor(bhs, l, m-1)
-	}
-
-	if result == -1 {
-		return FindCommonAncestor(bhs, m+1, r)
-	}
-	return nil, false, -1
-}
-
-//bhs 中没有空值
-//返回值
-// 0  当前HASH相等，后面一块HASH不相等 是共同祖先
-//1   当前HASH相等，后面一块HASH相等
-//-1  当前HASH不相等
-//-100 参数不合法
-func isCommonAncestor(bhs []*BlockHash, index int) int {
-	if index < 0 || index >= len(bhs) {
-		return -100
-	}
-	he := bhs[index]
-
-	var bh *types.BlockHeader
-	if BlockChainImpl.IsLightMiner() {
-		bh = BlockChainImpl.(*LightChain).queryBlockHeaderByHeight(he.Height, true)
-	} else {
-		bh = BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(he.Height, true)
-	}
-	if bh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%s,coming hash:%x\n", he.Height, "null", he.Hash)
-		return -1
-	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
-	if index == 0 && bh.Hash == he.Hash {
-		return 0
-	}
-	if index == 0 {
-		return -1
-	}
-	//判断链更后面的一块
-	afterHe := bhs[index-1]
-	afterbh := BlockChainImpl.(*FullBlockChain).queryBlockHeaderByHeight(afterHe.Height, true)
-	if afterbh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
-		if afterHe != nil && bh.Hash == he.Hash {
-			return 0
-		}
-		return -1
-	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
-	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
-		return 0
-	}
-	if afterHe.Hash == afterbh.Hash && bh.Hash == he.Hash {
-		return 1
-	}
-	return -1
-}
-
 func Clear() {
 	path := datasource.DEFAULT_FILE
 	if nil != common.GlobalConf {
@@ -862,7 +737,7 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 	chain.voteProcessor = processor
 }
 
-func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error){
+func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
-	return core.NewAccountDB(header.StateTree,chain.stateCache)
+	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }

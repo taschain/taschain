@@ -179,6 +179,8 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	}
 	blockDetail["transactions"] = trans
 	blockDetail["txs"] = len(bh.Transactions)
+	blockDetail["total_qn"] = bh.TotalQN
+	blockDetail["qn"] = mediator.Proc.CalcBlockHeaderQN(bh)
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 	return &Result{"success", blockDetail}, nil
 }
