@@ -95,7 +95,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 
 //向某一节点请求Block信息
 func RequestBlock(id string, height uint64) {
-	Logger.Debugf("Req block info to:%s,height:%d", id, height)
+	Logger.Debugf("Req block to:%s,height:%d", id, height)
 	body := utility.UInt64ToByte(height)
 	message := network.Message{Code: network.ReqBlock, Body: body}
 	go network.GetNetInstance().Send(id, message)
