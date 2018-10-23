@@ -429,9 +429,12 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	if b.Header.TotalQN < topBlock.TotalQN || b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
-
 	}
-	return chain.processFork(topBlock, b, state, receipts)
+	result, headerJson := chain.processFork(topBlock, b, state, receipts)
+	if result == 0 {
+		chain.successOnChainCallBack(b, headerJson)
+	}
+	return result
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
@@ -451,7 +454,7 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.A
 	return 0, headerByte
 }
 
-func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) int8 {
+func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8,[]byte) {
 	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
 	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
 	if err == ErrMissingTrace {
@@ -459,23 +462,25 @@ func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remot
 		panic("Local trace chain miss block!!")
 	}
 
-	if replace {
+	if remoteBlock.Header.TotalQN > localTopBlock.TotalQN || replace {
 		if remoteBlock.Header.PreHash == commonAncestor.Hash {
 			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
 			chain.Remove(chain.latestBlock)
-			result, _ := chain.insertBlock(remoteBlock, state, receipts)
-			return result
+			result, headerJson := chain.insertBlock(remoteBlock, state, receipts)
+			return result, headerJson
 		}
 
-		for i := commonAncestor.Height; i <= chain.Height(); i++ {
+		for i := commonAncestor.Height + 1; i <= chain.Height(); i++ {
 			header := chain.queryBlockHeaderByHeight(i, true)
 			chain.Remove(header)
 		}
+		Logger.Debugf("processFork trigger by height=%d hash=%s, remove from height=%d to height=%d",remoteBlock.Header.Height,
+			remoteBlock.Header.Hash.Hex(),commonAncestor.Height + 1, chain.Height())
 		chain.isAdujsting = true
 		BlockSyncer.Sync()
-		return 2
+		return 2,nil
 	}
-	return 1
+	return 1,nil
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
