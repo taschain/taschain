@@ -1,6 +1,9 @@
 package types
 
-import "math/big"
+import (
+	"math/big"
+	"common"
+)
 
 /*
 **  Creator: pxf
@@ -15,10 +18,10 @@ type GenesisInfo struct {
 
 type ConsensusHelper interface {
 
-	//generateo genesis group and member pk info
+	//generate genesis group and member pk info
 	GenerateGenesisInfo() *GenesisInfo
 
-	//vrf prove 2 value
+	//vrf prove to value
 	VRFProve2Value(prove *big.Int) *big.Int
 
 	//bonus for proposal a block
@@ -27,8 +30,10 @@ type ConsensusHelper interface {
 	//bonus for packing one bonus transaction
 	PackBonus() *big.Int
 
-	//calcaulate the blockheader qn
-	//it needs to be equal to the totalQN - preHeader totalQN
+	//calcaulate the blockheader's qn
+	//it needs to be equal to the blockheader's totalQN - preHeader's totalQN
 	CalculateQN(bh *BlockHeader) uint64
 
+	//generate verify hash of the block for current light node
+	VerifyHash(b *Block) common.Hash
 }
