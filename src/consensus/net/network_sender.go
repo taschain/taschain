@@ -10,20 +10,18 @@ import (
 	"time"
 	"middleware/statistics"
 	"common"
+	"core"
 )
 
 type NetworkServerImpl struct {
 	net network.Network
 }
 
-
-
 func NewNetworkServer() NetworkServer {
 	return &NetworkServerImpl{
 		net: network.GetNetInstance(),
 	}
 }
-
 
 func id2String(ids []groupsig.ID) []string {
 	idStrs := make([]string, len(ids))
@@ -32,6 +30,7 @@ func id2String(ids []groupsig.ID) []string {
 	}
 	return idStrs
 }
+
 //------------------------------------组网络管理-----------------------
 
 func (ns *NetworkServerImpl) BuildGroupNet(gid groupsig.ID, mems []groupsig.ID) {
@@ -43,9 +42,10 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid groupsig.ID) {
 	ns.net.DissolveGroupNet(gid.GetHexString())
 }
 
-func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message)  {
+func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message) {
 	go MessageHandler.Handle(self.String(), m)
 }
+
 //----------------------------------------------------组初始化-----------------------------------------------------------
 
 //广播 组初始化消息  全网广播
@@ -135,13 +135,13 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gro
 		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
 		return
 	}
-	timeFromCast :=  time.Since(ccm.BH.CurTime)
+	timeFromCast := time.Since(ccm.BH.CurTime)
 	begin := time.Now()
 
 	mems := id2String(group.MemIds)
 
 	go ns.net.SpreadOverGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
-	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke SpreadOverGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
+	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke SpreadOverGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin), timeFromCast, m.Hash())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -162,17 +162,17 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 	ns.send2Self(cvm.SI.GetID(), m)
 
-	timeFromCast :=  time.Since(cvm.BH.CurTime)
+	timeFromCast := time.Since(cvm.BH.CurTime)
 	begin := time.Now()
 	go ns.net.Multicast(groupId.GetHexString(), m)
-	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.ProveValue, time.Since(begin),timeFromCast, m.Hash())
-	statistics.AddBlockLog(common.BootId,statistics.SendVerified,cvm.BH.Height,cvm.BH.ProveValue.Uint64(),-1,-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.ProveValue, time.Since(begin), timeFromCast, m.Hash())
+	statistics.AddBlockLog(common.BootId, statistics.SendVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
+		time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
 }
 
 //对外广播经过组签名的block 全网广播
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
-	timeFromCast :=  time.Since(cbm.Block.Header.CurTime)
+	timeFromCast := time.Since(cbm.Block.Header.CurTime)
 	body, e := marshalConsensusBlockMessage(cbm)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
@@ -184,21 +184,22 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	nextCastGroupId := group.Gid.GetHexString()
 	groupMembers := id2String(group.MemIds)
 
-	go ns.net.SpreadOverGroup(nextCastGroupId,groupMembers,blockMsg,blockHash.Bytes())
-
+	//广播给重节点的虚拟组
+	go ns.net.Multicast(network.FULL_NODE_VIRTUAL_GROUP_ID, blockMsg)
+	//广播给轻节点的下一个组
+	go ns.net.SpreadOverGroup(nextCastGroupId, groupMembers, blockMsg, blockHash.Bytes())
 
 	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:headerByte}
-	go ns.net.Relay(headerMsg,1)
-	//network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
-	network.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
-	statistics.AddBlockLog(common.BootId,statistics.BroadBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),len(body),
-		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
-	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, 0, len(cbm.Block.Header.Transactions),len(headerByte),len(body),timeFromCast,nextCastGroupId)
+	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
+	go ns.net.Relay(headerMsg, 1)
+	core.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.ProveValue, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
+	statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
+		time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
+	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, 0, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
 
 }
 
@@ -339,7 +340,7 @@ func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_midd
 	}
 	message := tas_middleware_pb.ConsensusGroupInitSummary{
 		ParentID:        m.ParentID.Serialize(),
-		PrevGroupID: 	 m.PrevGroupID.Serialize(),
+		PrevGroupID:     m.PrevGroupID.Serialize(),
 		Authority:       &m.Authority,
 		Name:            name,
 		DummyID:         m.DummyID.Serialize(),
@@ -407,13 +408,13 @@ func marshalConsensusCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignM
 }
 
 func bonusToPB(bonus *types.Bonus) *tas_middleware_pb.Bonus {
-    return &tas_middleware_pb.Bonus{
-    	TxHash: bonus.TxHash.Bytes(),
-    	TargetIds: bonus.TargetIds,
-    	BlockHash: bonus.BlockHash.Bytes(),
-    	GroupId: bonus.GroupId,
-    	Sign: bonus.Sign,
-    	TotalValue: &bonus.TotalValue,
+	return &tas_middleware_pb.Bonus{
+		TxHash:     bonus.TxHash.Bytes(),
+		TargetIds:  bonus.TargetIds,
+		BlockHash:  bonus.BlockHash.Bytes(),
+		GroupId:    bonus.GroupId,
+		Sign:       bonus.Sign,
+		TotalValue: &bonus.TotalValue,
 	}
 }
 
@@ -425,8 +426,8 @@ func marshalCastRewardTransSignReqMessage(msg *model.CastRewardTransSignReqMessa
 		pieces = append(pieces, sp.Serialize())
 	}
 	message := &tas_middleware_pb.CastRewardTransSignReqMessage{
-		Sign: si,
-		Reward: b,
+		Sign:         si,
+		Reward:       b,
 		SignedPieces: pieces,
 	}
 	return proto.Marshal(message)
@@ -435,8 +436,8 @@ func marshalCastRewardTransSignReqMessage(msg *model.CastRewardTransSignReqMessa
 func marshalCastRewardTransSignMessage(msg *model.CastRewardTransSignMessage) ([]byte, error) {
 	si := signDataToPb(&msg.SI)
 	message := &tas_middleware_pb.CastRewardTransSignMessage{
-		Sign: si,
-		ReqHash: msg.ReqHash.Bytes(),
+		Sign:      si,
+		ReqHash:   msg.ReqHash.Bytes(),
 		BlockHash: msg.BlockHash.Bytes(),
 	}
 	return proto.Marshal(message)

@@ -33,7 +33,6 @@ import (
 	"math/big"
 	"storage/core/vm"
 	"middleware/notify"
-	"network"
 )
 
 const (
@@ -487,11 +486,6 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-
-	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
-	network.GetNetInstance().Relay(headerMsg, 1)
-	network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", remoteBlock.Header.Height, remoteBlock.Header.ProveValue, len(headerJson), remoteBlock.Header.Hash)
-
 	BlockSyncer.Sync()
 }
 
