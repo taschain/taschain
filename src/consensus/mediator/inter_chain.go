@@ -21,6 +21,9 @@ import (
 	"consensus/model"
 	"consensus/base"
 	"consensus/logical"
+	"common"
+	"github.com/vmihailenco/msgpack"
+	"fmt"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -62,6 +65,7 @@ type ConsensusHelperImpl struct {
 
 }
 
+
 func NewConsensusHelper() types.ConsensusHelper {
 	return &ConsensusHelperImpl{}
 }
@@ -85,4 +89,14 @@ func (helper *ConsensusHelperImpl) VRFProve2Value(prove *big.Int) *big.Int {
 
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
+}
+
+func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
+	buf, err := msgpack.Marshal(b)
+	if err != nil {
+		panic(fmt.Sprintf("marshal block error, hash=%v, err=%v", b.Header.Hash.ShortS(), err))
+	}
+	id := Proc.GetMinerID().Serialize()
+	buf = append(buf, id...)
+	return base.Data2CommonHash(buf)
 }
