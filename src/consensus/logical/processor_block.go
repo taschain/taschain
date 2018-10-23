@@ -53,8 +53,8 @@ func (holder *FutureMessageHolder) addMessage(hash common.Hash, msg interface{})
 }
 
 func (holder *FutureMessageHolder) getMessages(hash common.Hash) []interface{} {
-    if vs, ok := holder.messages.Load(hash); ok {
-    	return vs.([]interface{})
+	if vs, ok := holder.messages.Load(hash); ok {
+		return vs.([]interface{})
 	}
 	return nil
 }
@@ -96,7 +96,6 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	result = p.MainChain.AddBlockOnChain(block)
 
-
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	blog.log("proc(%v) core.AddBlockOnChain, height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
@@ -122,7 +121,7 @@ func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-    b := p.MainChain.QueryBlockHeaderByHash(hash)
+	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
 
@@ -149,10 +148,10 @@ func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
-    return fmt.Sprintf("hash=%v, height=%v, curTime=%v, preHash=%v, preTime=%v", bh.Hash.ShortS(), bh.Height, bh.CurTime, bh.PreHash.ShortS(), bh.PreTime)
+	return fmt.Sprintf("hash=%v, height=%v, curTime=%v, preHash=%v, preTime=%v", bh.Hash.ShortS(), bh.Height, bh.CurTime, bh.PreHash.ShortS(), bh.PreTime)
 }
 
-func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
+func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	//组建组网络
 	mems := make([]groupsig.ID, 0)
 	for _, mem := range sgi.Members {
@@ -173,7 +172,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 }
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
-	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
+	lostTransHash, ret := core.BlockChainImpl.VerifyBlock(*bh)
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }

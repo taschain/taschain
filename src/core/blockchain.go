@@ -278,22 +278,22 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn ui
 // -1，验证失败
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
-func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8) {
 	chain.lock.Lock("VerifyCastingBlock")
 	defer chain.lock.Unlock("VerifyCastingBlock")
 
-	return chain.verifyCastingBlock(bh, nil)
+	return chain.verifyBlock(bh, nil)
 }
 
-func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
-	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v", bh.Hash.String(), bh.Height, bh.TotalQN,bh.PreHash.String())
+func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
+	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String())
 
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
-		return nil, 2, nil, nil
+		return nil, 2
 	}
 
 	// 验证交易
@@ -308,12 +308,11 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 	}
 
 	if 0 != len(missing) {
-
 		var castorId groupsig.ID
 		error := castorId.Deserialize(bh.Castor)
 		if error != nil {
 			log.Printf("[BlockChain]Give up request txs because of groupsig id deserialize error:%s", error.Error())
-			return nil, 1, nil, nil
+			return nil, 1
 		}
 
 		//向CASTOR索取交易
@@ -324,54 +323,16 @@ func (chain *FullBlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*typ
 			BlockPv:           bh.ProveValue,
 		}
 		go RequestTransaction(*m, castorId.String())
-		return missing, 1, nil, nil
+		return missing, 1
 	}
 
 	txtree := calcTxTree(transactions)
 
 	if !bytes.Equal(txtree.Bytes(), bh.TxTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
-		return missing, -1, nil, nil
+		return missing, -1
 	}
-
-	//执行交易
-	//Logger.Debugf("verifyCastingBlock NewAccountDB hash:%s, height:%d", preBlock.StateTree.Hex(), bh.Height)
-	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
-	if len(txs) > 0 {
-		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s",
-			bh.Height, bh.StateTree.Hex(), preHash.Hex(), preRoot.Hex())
-	}
-	state, err := core.NewAccountDB(preRoot, chain.stateCache)
-	if err != nil {
-		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
-		return nil, -1, nil, nil
-	}
-	//else {
-	//	log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
-	//}
-
-	b := new(types.Block)
-	b.Header = &bh
-	b.Transactions = transactions
-
-	//Logger.Infof("verifyBlock height:%d StateTree Hash:%s", b.Header.Height, b.Header.StateTree.Hex())
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "fullverify")
-	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
-		return nil, -1, nil, nil
-	}
-	receiptsTree := calcReceiptsTree(receipts).Bytes()
-	if common.ToHex(receiptsTree) != common.ToHex(b.Header.ReceiptTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, b.Header.ReceiptTree.Bytes())
-		return nil, 1, nil, nil
-	}
-
-	chain.verifiedBlocks.Add(bh.Hash, &castingBlock{
-		state:    state,
-		receipts: receipts,
-	})
-	//return nil, 0, state, receipts
-	return nil, 0, state, receipts
+	return nil, 0
 }
 
 //铸块成功，上链
@@ -394,51 +355,43 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString())
 	topBlock := chain.latestBlock
 	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
-	var (
-		state    *core.AccountDB
-		receipts vtypes.Receipts
-		status   int8
-	)
 
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
+	//todo 需要先验证HASH 是否一致然后才能使用该缓存
 	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
 	//if false {
-	if cache != nil {
-		status = 0
-		state = cache.(*castingBlock).state
-		receipts = cache.(*castingBlock).receipts
-	} else {
+	if cache == nil {
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		_, status := chain.verifyBlock(*b.Header, b.Transactions)
 		if status != 0 {
 			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
 	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(),
-		TotalQn: b.Header.TotalQN, Height: b.Header.Height, Random:b.Header.Random}
+		TotalQn: b.Header.TotalQN, Height: b.Header.Height, Random: b.Header.Random}
 	TraceChainImpl.AddTrace(trace)
 
-	if  b.Header.Hash == topBlock.Hash{
-		return 1
-	}
-
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
-	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
+	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
 	if b.Header.PreHash == topBlock.Hash {
-		result, _ := chain.insertBlock(b, state, receipts)
+		result, _ := chain.insertBlock(b)
 		return result
 	}
 
-	if b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
 	}
-	return chain.processFork(topBlock, b, state, receipts)
+	return chain.processFork(topBlock, b)
 }
 
-func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
+	if !executeTxResult {
+		return -1, nil
+	}
 	result, headerByte := chain.saveBlock(remoteBlock)
 	if result != 0 {
 		return -1, headerByte
@@ -455,7 +408,37 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block, state *core.A
 	return 0, headerByte
 }
 
-func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) int8 {
+func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *core.AccountDB, vtypes.Receipts) {
+	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
+	if preBlock == nil {
+		panic("Pre block nil !!")
+	}
+	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
+	if len(block.Transactions) > 0 {
+		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
+	}
+	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	if err != nil {
+		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
+		return false, state, nil
+	}
+
+	statehash, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
+		return false, state, receipts
+	}
+	receiptsTree := calcReceiptsTree(receipts).Bytes()
+	if common.ToHex(receiptsTree) != common.ToHex(block.Header.ReceiptTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, block.Header.ReceiptTree.Bytes())
+		return false, state, receipts
+	}
+
+	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{state: state, receipts: receipts,})
+	return true, state, receipts
+}
+
+func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block) int8 {
 	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
 	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
 	if err == ErrMissingTrace {
@@ -465,9 +448,9 @@ func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remot
 
 	if remoteBlock.Header.TotalQN > localTopBlock.TotalQN || replace {
 		if remoteBlock.Header.PreHash == commonAncestor.Hash {
-			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s height=%d", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex(),remoteBlock.Header.Height)
+			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s height=%d", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex(), remoteBlock.Header.Height)
 			chain.Remove(chain.latestBlock)
-			result, _ := chain.insertBlock(remoteBlock, state, receipts)
+			result, _ := chain.insertBlock(remoteBlock)
 			return result
 		}
 
@@ -725,10 +708,10 @@ func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,
 	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }
 
-func (chain *FullBlockChain) GetTraceHeader(hash []byte) *types.BlockHeader{
+func (chain *FullBlockChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
-	if traceHeader == nil{
+	if traceHeader == nil {
 		return nil
 	}
-	return &types.BlockHeader{Random:traceHeader.Random,TotalQN:traceHeader.TotalQn,Height:traceHeader.Height}
+	return &types.BlockHeader{Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }

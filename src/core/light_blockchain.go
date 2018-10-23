@@ -152,59 +152,42 @@ func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, qn uint64
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 //3 无法验证(缺少账户状态信息) 只有轻节点有
-func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8) {
 	chain.lock.Lock("VerifyCastingLightChainBlock")
 	defer chain.lock.Unlock("VerifyCastingLightChainBlock")
 
-	return chain.verifyCastingBlock(bh, nil)
+	return chain.verifyBlock(bh, nil)
 }
 
-func (chain *LightChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
-
+func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
 	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(), len(txs))
 	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
 	if !hasPreBlock {
-		return nil, 2, nil, nil
+		return nil, 2
 	}
 
 	if miss, missingTx := chain.missTransaction(bh, txs); miss {
-		return missingTx, 1, nil, nil
+		return missingTx, 1
 	}
 
 	if !chain.validateTxRoot(bh.TxTree, txs) {
-		return nil, -1, nil, nil
+		return nil, -1
 	}
 
 	b := &types.Block{Header: &bh, Transactions: txs}
 	var preBlockStateTree []byte
 	if preBlock == nil {
-		preBlockStateTree = chain.GetPreBlockStateRoot(b.Header.Hash).Bytes()
+		preBlockStateTree = chain.getPreBlockStateRoot(b.Header.Hash).Bytes()
 	} else {
 		preBlockStateTree = preBlock.StateTree.Bytes()
 	}
 	preRoot := common.BytesToHash(preBlockStateTree)
-
 	missingAccountTxs := chain.getMissingAccountTransactions(preRoot, b)
 	if len(missingAccountTxs) != 0 {
-		return nil, 3, nil, nil
+		return nil, 3
 	}
 
-	state, err := core.NewAccountDB(preRoot, chain.stateCache)
-	if err != nil {
-		panic("Fail to new statedb, error:%s" + err.Error())
-		return nil, -1, nil, nil
-	}
-	statehash, receipts, err := chain.executor.Execute(state, b, bh.Height, "lightverify")
-
-	chain.FreeMissNodeState(bh.Hash)
-	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
-		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
-		return nil, -1, nil, nil
-	}
-
-	chain.verifiedBlocks.Add(bh.Hash, &castingBlock{state: state, receipts: receipts,})
-	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0
 }
 
 func (chain *LightChain) hasPreBlock(bh types.BlockHeader, txs []*types.Transaction) (bool, *types.BlockHeader) {
@@ -305,23 +288,14 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 
-	var (
-		state    *core.AccountDB
-		receipts vtypes.Receipts
-		status   int8
-	)
-
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
+	//todo 需要先验证HASH 是否一致然后才能使用该缓存
 	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
 	//if false {
-	if cache != nil {
-		status = 0
-		state = cache.(*castingBlock).state
-		receipts = cache.(*castingBlock).receipts
-	} else {
+	if cache == nil {
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		_, status := chain.verifyBlock(*b.Header, b.Transactions)
 		if status == 3 {
 			return 3
 		}
@@ -338,7 +312,7 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
 	if b.Header.PreHash == topBlock.Hash {
-		result, headerByte := chain.insertBlock(b, state, receipts)
+		result, headerByte := chain.insertBlock(b)
 		if result == 0 {
 			chain.successOnChainCallBack(b, headerByte)
 		}
@@ -349,10 +323,15 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		return 1
 
 	}
-	return chain.processFork(topBlock, b, state, receipts)
+	return chain.processFork(topBlock, b)
 }
 
-func (chain *LightChain) insertBlock(remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) (int8, []byte) {
+func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
+	if !executeTxResult {
+		return -1, nil
+	}
+
 	result, headerByte := chain.saveBlock(remoteBlock)
 	if result != 0 {
 		return -1, headerByte
@@ -369,7 +348,33 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block, state *core.Accou
 	return 0, headerByte
 }
 
-func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block, state *core.AccountDB, receipts vtypes.Receipts) int8 {
+func (chain *LightChain) executeTransaction(block *types.Block) (bool, *core.AccountDB, vtypes.Receipts) {
+	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
+	var preBlockStateTree []byte
+	if preBlock == nil {
+		preBlockStateTree = chain.getPreBlockStateRoot(block.Header.Hash).Bytes()
+	} else {
+		preBlockStateTree = preBlock.StateTree.Bytes()
+	}
+	preRoot := common.BytesToHash(preBlockStateTree)
+	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	if err != nil {
+		panic("Fail to new statedb, error:%s" + err.Error())
+		return false, state, nil
+	}
+	statehash, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
+
+	chain.FreeMissNodeState(block.Header.Hash)
+	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
+		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
+		return false, state, receipts
+	}
+
+	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{state: state, receipts: receipts,})
+	return true, state, receipts
+}
+
+func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block) int8 {
 	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
 	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
 	if err == ErrMissingTrace {
@@ -381,7 +386,7 @@ func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlo
 		if remoteBlock.Header.PreHash == commonAncestor.Hash {
 			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
 			chain.Remove(chain.latestBlock)
-			result, _ := chain.insertBlock(remoteBlock, state, receipts)
+			result, _ := chain.insertBlock(remoteBlock)
 			return result
 		}
 
@@ -604,7 +609,7 @@ func (chain *LightChain) SetPreBlockStateRoot(blockHash common.Hash, preBlockSta
 	chain.preBlockStateRoot[blockHash] = preBlockStateRoot
 }
 
-func (chain *LightChain) GetPreBlockStateRoot(blockHash common.Hash) common.Hash {
+func (chain *LightChain) getPreBlockStateRoot(blockHash common.Hash) common.Hash {
 	chain.preBlockStateRootLock.Lock("GetPreBlockStateRoot")
 	defer chain.preBlockStateRootLock.Unlock("GetPreBlockStateRoot")
 
@@ -623,6 +628,6 @@ func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, err
 	return core.NewAccountDB(header.StateTree, chain.stateCache)
 }
 
-func (chain *LightChain) GetTraceHeader(hash []byte) *types.BlockHeader{
+func (chain *LightChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	return nil
 }
