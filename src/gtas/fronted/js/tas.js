@@ -80,7 +80,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         elem : '#bonus_transaction_total_detail',
         cols : [[
             {field:'member_id', title:'轻节点ID'},
-            {field:'bonus_num', title:'分红次数'},
+            {field:'bonus_num', title:'验证次数'},
             {field:'total_bonus_value', title:'分红总额'}
         ]],
         page : true,
