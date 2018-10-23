@@ -193,6 +193,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
 		n.chainHandler.Handle(from, *message)
 	case NewBlockMsg:
+		Logger.Debugf("Receive NewBlockMsg from %s", from)
 		n.consensusHandler.Handle(from, *message)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
@@ -226,6 +227,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		if e != nil{
 			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
 		}
+		Logger.Debugf("Receive BlockMsg from %s,hash:%v,height:%d,totalQn:%d", from,block.Header.Hash.String(),block.Header.Height,block.Header.TotalQN)
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
 	}

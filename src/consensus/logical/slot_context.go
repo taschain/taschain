@@ -84,7 +84,7 @@ func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	for idx, tx := range lostTxs {
 		lostTxsStrings[idx] = tx.ShortS()
 	}
-	log.Printf("initSlotContext verifyCastingBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
+	log.Printf("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
 	sc.addLostTrans(lostTxs)
 	if ccr == -1 {
 		sc.setSlotStatus(SS_FAILED)
