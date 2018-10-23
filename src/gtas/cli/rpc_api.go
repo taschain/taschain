@@ -468,7 +468,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 			// 此方法取到的分红交易有时候为空
 			var bonusTx *types.Transaction
 			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil {
-				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v",height, bh.Hash.ShortS())
+				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
 				BonusValueStatMap[j] = bonusValuePreMap
 				BonusNumStatMap[j] = bonusNumPreMap
 				CastBlockStatMap[j] = castBlockPreMap
@@ -478,7 +478,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 			// 从交易信息中解析出targetId列表
 			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
 
-			BonusLogger.Infof("height: %v | castBlockMap: %v", (j - 1), castBlockPreMap)
+			BonusLogger.Infof("height: %v | castBlockMap: %v", j - 1, castBlockPreMap)
 
 			bonusValueCurrentMap := make(map[string]uint64)
 			bonusNumCurrentMap := make(map[string]uint64)
