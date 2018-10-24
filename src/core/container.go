@@ -114,7 +114,7 @@ func (c *container) Remove(keys []common.Hash) {
 	defer c.lock.Unlock()
 
 	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
-	if len(keys) < 50 {
+	//if len(keys) < 50 {
 		for _, key := range keys {
 			if c.txsMap[key] == nil {
 				continue
@@ -131,41 +131,41 @@ func (c *container) Remove(keys []common.Hash) {
 			}
 			heap.Remove(&c.txs, index)
 		}
-	} else {
-		queryMap := make(map[common.Hash]struct{})
-		var num int
-		for _, key := range keys {
-			transaction := c.txsMap[key]
-			if transaction != nil{
-				transaction.Type = types.TransactionTypeToBeRemoved
-				num++
-				queryMap[key] = struct{}{}
-			} else {
-				for i := len(c.txs) - 1;i >= 0;i--{
-					if c.txs[i].Hash == key {
-						c.txs[i].Type = types.TransactionTypeToBeRemoved
-						num++
-						break
-					}
-				}
-			}
-			delete(c.txsMap, key)
-		}
-		heap.Init(&c.txs)
-		toRemove := c.txs[:num]
-		c.txs = c.txs[num:]
-
-		for _,item := range toRemove{
-			if _,ok := queryMap[item.Hash];!ok{
-				for i,tx := range c.txs{
-					if _,ok := queryMap[tx.Hash];ok{
-						c.txs[i] = item
-						break
-					}
-				}
-			}
-		}
-		heap.Init(&c.txs)
-	}
+	//} else {
+	//	queryMap := make(map[common.Hash]struct{})
+	//	var num int
+	//	for _, key := range keys {
+	//		transaction := c.txsMap[key]
+	//		if transaction != nil{
+	//			transaction.Type = types.TransactionTypeToBeRemoved
+	//			num++
+	//			queryMap[key] = struct{}{}
+	//		} else {
+	//			for i := len(c.txs) - 1;i >= 0;i--{
+	//				if c.txs[i].Hash == key {
+	//					c.txs[i].Type = types.TransactionTypeToBeRemoved
+	//					num++
+	//					break
+	//				}
+	//			}
+	//		}
+	//		delete(c.txsMap, key)
+	//	}
+	//	heap.Init(&c.txs)
+	//	toRemove := c.txs[:num]
+	//	c.txs = c.txs[num:]
+	//
+	//	for _,item := range toRemove{
+	//		if _,ok := queryMap[item.Hash];!ok{
+	//			for i,tx := range c.txs{
+	//				if _,ok := queryMap[tx.Hash];ok{
+	//					c.txs[i] = item
+	//					break
+	//				}
+	//			}
+	//		}
+	//	}
+	//	heap.Init(&c.txs)
+	//}
 	//Logger.Debugf("[Remove111:]After remove,contain tx map len %d,contain txs len %d",len(c.txsMap),len(c.txs))
 }

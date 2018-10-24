@@ -163,6 +163,7 @@ type BlockHeader struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	Random       []byte
+	ProveRoot	 common.Hash
 }
 
 type header struct {

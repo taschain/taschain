@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"encoding/binary"
+	"utility"
 )
 
 type prototypeChain struct {
@@ -45,6 +46,12 @@ type prototypeChain struct {
 
 	bonusManager *BonusManager
 
+	checkdb		tasdb.Database
+}
+
+func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error{
+	key := utility.UInt64ToByte(height)
+	return chain.checkdb.Put(key, hash)
 }
 
 func (chain *prototypeChain) IsLightMiner() bool {
