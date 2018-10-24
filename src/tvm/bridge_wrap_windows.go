@@ -15,342 +15,559 @@
 
 package tvm
 
-///*
-//#cgo CFLAGS:  -I ../../include
-//#cgo LDFLAGS: -L ../../lib/windows -lmicropython
-//
-//#include "tvm.h"
-//
-//#include <stdio.h>
-//
-//
-//// The gateway function
-//int callOnMeGo_cgo(int in)
-//{
-//	//printf("C.callOnMeGo_cgo(): called with arg = %d\n", in);
-//	int callOnMeGo(int);
-//	return callOnMeGo(in);
+/*
+#cgo CFLAGS:  -I ../../include
+#cgo LDFLAGS: -L ../../lib/windows -lmicropython
+
+#include "tvm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+// The gateway function
+int callOnMeGo_cgo(int in)
+{
+	//printf("C.callOnMeGo_cgo(): called with arg = %d\n", in);
+	int callOnMeGo(int);
+	return callOnMeGo(in);
+}
+
+
+void wrap_testAry(void* p)
+{
+    void go_testAry(void*);
+    go_testAry(p);
+}
+
+void wrap_transfer(const char* p2, const char* value)
+{
+    void Transfer(const char*, const char* value);
+    Transfer(p2, value);
+}
+
+void wrap_create_account(const char* address)
+{
+	void CreateAccount(const char*);
+	CreateAccount(address);
+}
+
+void wrap_sub_balance(const char* address, const char* value)
+{
+	void SubBalance(const char*, const char*);
+	SubBalance(address, value);
+}
+
+void wrap_add_balance(const char* address, const char* value)
+{
+	void AddBalance(const char*, const char*);
+	AddBalance(address, value);
+}
+
+char* wrap_get_balance(const char* address)
+{
+	char* GetBalance(const char*);
+	return GetBalance(address);
+}
+
+unsigned long long wrap_get_nonce(const char* address)
+{
+	unsigned long long GetNonce(const char*);
+	return GetNonce(address);
+}
+
+void wrap_set_nonce(const char* address, unsigned long long nonce)
+{
+	void SetNonce(const char*, unsigned long long);
+	SetNonce(address, nonce);
+}
+
+char* wrap_get_code_hash(char* address)
+{
+	char* GetCodeHash(char*);
+	return GetCodeHash(address);
+}
+
+char* wrap_get_code(char* address)
+{
+	char* GetCode(char*);
+	return GetCode(address);
+}
+
+void wrap_set_code(char* address, char* code)
+{
+	void SetCode(char*, char*);
+	SetCode(address, code);
+}
+
+int wrap_get_code_size(char* address)
+{
+	int GetCodeSize(char*);
+	return GetCodeSize(address);
+}
+
+void wrap_add_refund(unsigned long long refund)
+{
+	void AddRefund(unsigned long long);
+	AddRefund(refund);
+}
+
+unsigned long long wrap_get_refund()
+{
+	unsigned long long GetRefund();
+	return GetRefund();
+}
+
+char* wrap_get_data(char* key)
+{
+	char* GetData(char*);
+	return GetData(key);
+}
+
+void wrap_set_data(char* key, char* value)
+{
+	void SetData(char*, char*);
+	SetData(key, value);
+}
+
+_Bool wrap_suicide(char* address)
+{
+	_Bool Suicide(char*);
+	return Suicide(address);
+}
+
+_Bool wrap_has_suicide(char* address)
+{
+	_Bool HasSuicided(char*);
+	return HasSuicided(address);
+}
+
+_Bool wrap_exists(char* address)
+{
+	_Bool Exist(char*);
+	return Exist(address);
+}
+
+_Bool wrap_empty(char* address)
+{
+	_Bool Empty(char*);
+	return Empty(address);
+}
+
+void wrap_revert_to_snapshot(int i)
+{
+	void RevertToSnapshot(int);
+	RevertToSnapshot(i);
+}
+
+int wrap_snapshot()
+{
+	int Snapshot();
+	return Snapshot();
+}
+
+void wrap_add_preimage(char* hash, char* preimage)
+{
+	void AddPreimage(char*, char*);
+	AddPreimage(hash, preimage);
+}
+
+char* wrap_block_hash(unsigned long long height)
+{
+	char* BlockHash(unsigned long long);
+	return BlockHash(height);
+}
+
+char* wrap_coin_base()
+{
+	char* CoinBase();
+	return CoinBase();
+}
+
+unsigned long long wrap_difficulty()
+{
+	unsigned long long Difficulty();
+	return Difficulty();
+}
+
+unsigned long long wrap_number()
+{
+	unsigned long long Number();
+	return Number();
+}
+
+unsigned long long wrap_timestamp()
+{
+	unsigned long long Timestamp();
+	return Timestamp();
+}
+
+char* wrap_tx_origin()
+{
+	char* TxOrigin();
+	return TxOrigin();
+}
+
+unsigned long long wrap_tx_gas_limit()
+{
+	unsigned long long TxGasLimit();
+	return TxGasLimit();
+}
+
+void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+{
+    void ContractCall();
+    ContractCall(address, func_name, json_parms);
+}
+
+void wrap_set_bytecode(const char* code, int len)
+{
+	void SetBytecode();
+	SetBytecode(code, len);
+}
+*/
+import "C"
+import (
+	"bytes"
+	"common"
+	"encoding/json"
+	"fmt"
+	"storage/core/vm"
+	"strconv"
+	"unsafe"
+	//"middleware/types"
+)
+
+var controller *Controller = nil
+
+type CallTask struct {
+	Sender       *common.Address
+	ContractAddr *common.Address
+	FuncName     string
+	Params       string
+}
+
+//type Controller struct {
+//	BlockHeader *types.BlockHeader
+//	Transaction *types.Transaction
+//	AccountDB vm.AccountDB
+//	Reader vm.ChainReader
+//	Vm *Tvm
+//	Tasks []*CallTask
+//	LibPath string
 //}
 //
-//void wrap_testAry(void* p)
-//{
-//    void go_testAry(void*);
-//    go_testAry(p);
-//}
-//
-//void wrap_transfer(const char* p1, const char* p2, int p3)
-//{
-//    void transfer(const char*, const char*, int);
-//    transfer(p1, p2, p3);
-//}
-//
-//void wrap_create_account(const char* address)
-//{
-//	void CreateAccount(const char*);
-//	CreateAccount(address);
-//}
-//
-//void wrap_sub_balance(const char* address, const char* value)
-//{
-//	void SubBalance(const char*, const char*);
-//	SubBalance(address, value);
-//}
-//
-//void wrap_add_balance(const char* address, const char* value)
-//{
-//	void AddBalance(const char*, const char*);
-//	AddBalance(address, value);
-//}
-//
-//char* wrap_get_balance(const char* address)
-//{
-//	char* GetBalance(const char*);
-//	return GetBalance(address);
-//}
-//
-//unsigned long long wrap_get_nonce(const char* address)
-//{
-//	unsigned long long GetNonce(const char*);
-//	return GetNonce(address);
-//}
-//
-//void wrap_set_nonce(const char* address, unsigned long long nonce)
-//{
-//	void SetNonce(const char*, unsigned long long);
-//	SetNonce(address, nonce);
-//}
-//
-//char* wrap_get_code_hash(char* address)
-//{
-//	char* GetCodeHash(char*);
-//	return GetCodeHash(address);
-//}
-//
-//char* wrap_get_code(char* address)
-//{
-//	char* GetCode(char*);
-//	return GetCode(address);
-//}
-//
-//void wrap_set_code(char* address, char* code)
-//{
-//	void SetCode(char*, char*);
-//	SetCode(address, code);
-//}
-//
-//int wrap_get_code_size(char* address)
-//{
-//	int GetCodeSize(char*);
-//	return GetCodeSize(address);
-//}
-//
-//void wrap_add_refund(unsigned long long refund)
-//{
-//	void AddRefund(unsigned long long);
-//	AddRefund(refund);
-//}
-//
-//unsigned long long wrap_get_refund()
-//{
-//	unsigned long long GetRefund();
-//	return GetRefund();
-//}
-//
-//char* wrap_get_state(char* address, char* hash)
-//{
-//	char* GetData(char*, char*);
-//	return GetData(address, hash);
-//}
-//
-//void wrap_set_state(char* address, char* hash, char* state)
-//{
-//	void SetData(char*, char*, char*);
-//	SetData(address, hash, state);
-//}
-//
-//_Bool wrap_suicide(char* address)
-//{
-//	_Bool Suicide(char*);
-//	return Suicide(address);
-//}
-//
-//_Bool wrap_has_suicide(char* address)
-//{
-//	_Bool HasSuicided(char*);
-//	return HasSuicided(address);
-//}
-//
-//_Bool wrap_exists(char* address)
-//{
-//	_Bool Exist(char*);
-//	return Exist(address);
-//}
-//
-//_Bool wrap_empty(char* address)
-//{
-//	_Bool Empty(char*);
-//	return Empty(address);
-//}
-//
-//void wrap_revert_to_snapshot(int i)
-//{
-//	void RevertToSnapshot(int);
-//	RevertToSnapshot(i);
-//}
-//
-//int wrap_snapshot()
-//{
-//	int Snapshot();
-//	return Snapshot();
-//}
-//
-//void wrap_add_preimage(char* hash, char* preimage)
-//{
-//	void AddPreimage(char*, char*);
-//	AddPreimage(hash, preimage);
-//}
-//
-//char* wrap_block_hash(unsigned long long height)
-//{
-//	char* BlockHash(unsigned long long);
-//	return BlockHash(height);
-//}
-//
-//char* wrap_coin_base()
-//{
-//	char* CoinBase();
-//	return CoinBase();
-//}
-//
-//unsigned long long wrap_difficulty()
-//{
-//	unsigned long long Difficulty();
-//	return Difficulty();
-//}
-//
-//unsigned long long wrap_number()
-//{
-//	unsigned long long Number();
-//	return Number();
-//}
-//
-//unsigned long long wrap_timestamp()
-//{
-//	unsigned long long Timestamp();
-//	return Timestamp();
-//}
-//
-//char* wrap_tx_origin()
-//{
-//	char* TxOrigin();
-//	return TxOrigin();
-//}
-//
-//unsigned long long wrap_tx_gas_limit()
-//{
-//	unsigned long long TxGasLimit();
-//	return TxGasLimit();
-//}
-//
-//*/
-//import "C"
-//import (
-//	"unsafe"
-//	"encoding/json"
-//	"fmt"
-//	"bytes"
-//	"strconv"
-//	"storage/core/vm"
-//	"middleware/types"
-//)
-//
-//var currentBlockHeader *types.BlockHeader = nil
-//var currentTransaction *types.Transaction = nil
-//var reader vm.ChainReader
-//
-//
-//var tvm *Tvm
-//
-//func bridge_init() {
-//	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
-//	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
-//	C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
-//	C.create_account = (C.Function1)(unsafe.Pointer(C.wrap_create_account))
-//	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
-//	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
-//	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
-//	C.get_nonce = (C.Function3)(unsafe.Pointer( C.wrap_get_nonce))
-//	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
-//	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
-//	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
-//	C.set_code = (C.Function5)(unsafe.Pointer(C.wrap_set_code))
-//	C.get_code_size = (C.Function7)(unsafe.Pointer(C.wrap_get_code_size))
-//	C.add_refund = (C.Function8)(unsafe.Pointer(C.wrap_add_refund))
-//	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
-//	C.get_state = (C.Function10)(unsafe.Pointer(C.wrap_get_state))
-//	C.set_state = (C.Function11)(unsafe.Pointer(C.wrap_set_state))
-//	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
-//	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
-//	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
-//	C.empty = (C.Function4)(unsafe.Pointer(C.wrap_empty))
-//	C.revert_to_snapshot = (C.Function12)(unsafe.Pointer(C.wrap_revert_to_snapshot))
-//	C.snapshot = (C.Function13)(unsafe.Pointer(C.wrap_snapshot))
-//	C.add_preimage = (C.Function5)(unsafe.Pointer(C.wrap_add_preimage))
-//	// block
-//	C.blockhash = (C.Function14)(unsafe.Pointer(C.wrap_block_hash))
-//	C.coinbase = (C.Function15)(unsafe.Pointer(C.wrap_coin_base))
-//	C.difficulty = (C.Function9)(unsafe.Pointer(C.wrap_difficulty))
-//	C.number = (C.Function9)(unsafe.Pointer(C.wrap_number))
-//	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
-//	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
-//	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
-//}
-//
-//
-//type Tvm struct {
-//	state vm.AccountDB
-//}
-//
-//func NewTvm(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
-//	if tvm == nil {
-//		tvm = &Tvm{}
+//func NewController(accountDB vm.AccountDB,
+//	chainReader vm.ChainReader,
+//	header *types.BlockHeader,
+//	transaction *types.Transaction, libPath string) *Controller {
+//	if controller == nil {
+//		controller = &Controller{}
 //	}
-//	reader = chainReader
-//	tvm.state = accountDB
+//	controller.BlockHeader = header
+//	controller.Transaction = transaction
+//	controller.AccountDB = accountDB
+//	controller.Reader = chainReader
+//	controller.Tasks = make([]*CallTask, 0)
+//	controller.Vm = nil
+//	controller.LibPath = libPath
+//	return controller
+//}
+
+func RunBinaryCode(buf *C.char, len C.int) {
+	C.runbytecode(buf, len)
+}
+
 //
-//	C.tvm_start()
-//	bridge_init()
-//
-//	return tvm
+//func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
+//	var succeed bool
+//	con.Vm = NewTvm(sender, contract, con.LibPath)
+//	con.Vm.SetGas(int(con.Transaction.GasLimit))
+//	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+//	snapshot := con.AccountDB.Snapshot()
+//	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
+//	if !succeed {
+//		con.AccountDB.RevertToSnapshot(snapshot)
+//	}
+//	con.Vm.DelTvm()
+//	con.ExecuteTask()
+//	return succeed
 //}
 //
-//func (tvm *Tvm)Execute(script string, header *types.BlockHeader, transaction *types.Transaction) bool {
-//	if header != nil  {
-//		currentBlockHeader = header
+//func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
+//	var succeed bool
+//	con.Vm  = NewTvm(sender, contract, con.LibPath)
+//	con.Vm.SetGas(int(con.Transaction.GasLimit))
+//	snapshot := con.AccountDB.Snapshot()
+//	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+//	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+//	if !succeed {
+//		con.AccountDB.RevertToSnapshot(snapshot)
 //	}
-//	if transaction != nil {
-//		currentTransaction = transaction
-//	}
-//	var c_bool C._Bool
-//	c_bool = C.tvm_execute(C.CString(script))
-//	return bool(c_bool)
+//	con.Vm.DelTvm()
+//	con.ExecuteTask()
+//	return succeed
 //}
 //
-//type ABI struct {
-//	FuncName string
-//	Args []interface{}
-//}
-//func (tvm *Tvm) ExecuteABIJson(j string) bool{
-//	res := ABI{}
-//	json.Unmarshal([]byte(j), &res)
-//	fmt.Println(res)
-//
-//	var buf bytes.Buffer
-//	buf.WriteString(res.FuncName)
-//	buf.WriteString("(")
-//	for _, value := range res.Args {
-//		tvm.jsonValueToBuf(&buf, value)
-//		buf.WriteString(", ")
-//	}
-//	if len(res.Args) > 0 {
-//		buf.Truncate(buf.Len() - 2)
-//	}
-//	buf.WriteString(")")
-//	fmt.Println(buf.String())
-//	return tvm.Execute(buf.String(),nil, nil)
-//}
-//
-//func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
-//	switch value.(type) {
-//	case float64:
-//		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
-//	case string:
-//		buf.WriteString(`"`)
-//		buf.WriteString(value.(string))
-//		buf.WriteString(`"`)
-//	case []interface{}:
-//		buf.WriteString("[")
-//		for _, item := range value.([]interface{}) {
-//			tvm.jsonValueToBuf(buf, item)
-//			buf.WriteString(", ")
+//func(con *Controller) ExecuteTask() {
+//	var succeed bool
+//	for _, task := range con.Tasks {
+//		contract := LoadContract(*task.ContractAddr)
+//		gasLeft := con.Vm.Gas()
+//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
+//		con.Vm.SetGas(gasLeft)
+//		snapshot := con.AccountDB.Snapshot()
+//		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
+//		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+//		fmt.Println(abi)
+//		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+//		if !succeed {
+//			if con.Vm.Gas() == 0 {
+//				con.Vm.DelTvm()
+//				return
+//			}
+//			con.AccountDB.RevertToSnapshot(snapshot)
+//			con.Vm.DelTvm()
+//			continue
 //		}
-//		if len(value.([]interface{})) > 0 {
-//			buf.Truncate(buf.Len() - 2)
-//		}
-//		buf.WriteString("]")
-//	case map[string]interface{}:
-//		buf.WriteString("{")
-//		for key, item := range value.(map[string]interface{}) {
-//			tvm.jsonValueToBuf(buf, key)
-//			buf.WriteString(": ")
-//			tvm.jsonValueToBuf(buf, item)
-//			buf.WriteString(", ")
-//		}
-//		if len(value.(map[string]interface{})) > 0 {
-//			buf.Truncate(buf.Len() - 2)
-//		}
-//		buf.WriteString("}")
-//	default:
-//		panic("")
 //	}
 //}
+
+func Call(_contractAddr string, funcName string, params string) bool {
+	conAddr := common.HexStringToAddress(_contractAddr)
+	task := CallTask{controller.Vm.ContractAddress, &conAddr, funcName, params}
+	controller.Tasks = append(controller.Tasks, &task)
+	return true
+}
+
+func RunByteCode(code *C.char, len C.int) {
+	C.runbytecode(code, len)
+}
+
+func bridge_init() {
+	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
+	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
+	//C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
+	C.transferFunc = (C.TransferFunc)(unsafe.Pointer(C.wrap_transfer))
+	C.create_account = (C.Function1)(unsafe.Pointer(C.wrap_create_account))
+	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
+	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
+	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
+	C.get_nonce = (C.Function3)(unsafe.Pointer(C.wrap_get_nonce))
+	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
+	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
+	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
+	C.set_code = (C.Function5)(unsafe.Pointer(C.wrap_set_code))
+	C.get_code_size = (C.Function7)(unsafe.Pointer(C.wrap_get_code_size))
+	C.add_refund = (C.Function8)(unsafe.Pointer(C.wrap_add_refund))
+	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
+	C.get_data = (C.Function10)(unsafe.Pointer(C.wrap_get_data))
+	C.set_data = (C.Function5)(unsafe.Pointer(C.wrap_set_data))
+	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
+	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
+	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
+	C.empty = (C.Function4)(unsafe.Pointer(C.wrap_empty))
+	C.revert_to_snapshot = (C.Function12)(unsafe.Pointer(C.wrap_revert_to_snapshot))
+	C.snapshot = (C.Function13)(unsafe.Pointer(C.wrap_snapshot))
+	C.add_preimage = (C.Function5)(unsafe.Pointer(C.wrap_add_preimage))
+	// block
+	C.blockhash = (C.Function14)(unsafe.Pointer(C.wrap_block_hash))
+	C.coinbase = (C.Function15)(unsafe.Pointer(C.wrap_coin_base))
+	C.difficulty = (C.Function9)(unsafe.Pointer(C.wrap_difficulty))
+	C.number = (C.Function9)(unsafe.Pointer(C.wrap_number))
+	C.timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
+	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
+	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
+	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
+	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
+}
+
+type Contract struct {
+	Code            string          `json:"code"`
+	ContractName    string          `json:"contract_name"`
+	ContractAddress *common.Address `json:"-"`
+}
+
+func LoadContract(address common.Address) *Contract {
+	jsonString := controller.AccountDB.GetCode(address)
+	con := &Contract{}
+	json.Unmarshal([]byte(jsonString), con)
+	con.ContractAddress = &address
+	return con
+}
+
+type Tvm struct {
+	*Contract
+	Sender *common.Address
+
+	Block func() bool
+}
+
+func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
+	tvm := &Tvm{
+		contract,
+		sender,
+		nil,
+	}
+	C.tvm_set_lib_path(C.CString(libPath))
+	C.tvm_start()
+	bridge_init()
+	return tvm
+}
+
+// 获取剩余gas
+func (tvm *Tvm) Gas() int {
+	return int(C.tvm_get_gas())
+}
+
+// 设置可使用gas, init成功后设置
+func (tvm *Tvm) SetGas(gas int) {
+	C.tvm_set_gas(C.int(gas))
+}
+
+func (tvm *Tvm) Pycode2bytecode(str string) {
+	C.pycode2bytecode(C.CString(str))
+}
+
+func (tvm *Tvm) DelTvm() {
+	C.tvm_gas_report()
+	//TODO 释放tvm环境 tvmObj
+}
+
+func (tvm *Tvm) StoreData() bool {
+	var c_bool C._Bool
+	script := PycodeStoreContractData(tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
+func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
+	//if tvmObj == nil {
+	//	tvmObj = NewTvm(nil, nil, "")
+	//}
+	//Reader = chainReader
+	//AccountDB = accountDB
+	//
+	//C.tvm_start()
+	//C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
+	//bridge_init()
+	//
+	//return tvmObj
+	return nil
+}
+
+func (tvm *Tvm) AddLibPath(path string) {
+	C.tvm_set_lib_path(C.CString(path))
+}
+
+type Msg struct {
+	Data   []byte
+	Value  uint64
+	Sender string
+}
+
+func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
+	if !tvm.loadMsg(msg) {
+		return false
+	}
+	var c_bool C._Bool
+	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
+func (tvm *Tvm) LoadContractCode(msg Msg) bool {
+	if !tvm.loadMsg(msg) {
+		return false
+	}
+	var c_bool C._Bool
+	script := PycodeLoadContractData(tvm.ContractName)
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
+func (tvm *Tvm) Execute(script string) bool {
+	var c_bool C._Bool
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
+func (tvm *Tvm) loadMsg(msg Msg) bool {
+	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	return tvm.Execute(script)
+}
+
+func (tvm *Tvm) Deploy(msg Msg) bool {
+	if !tvm.loadMsg(msg) {
+		return false
+	}
+
+	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)
+	return tvm.Execute(script)
+}
+
+type ABI struct {
+	FuncName string
+	Args     []interface{}
+}
+
+// `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
+func (tvm *Tvm) ExecuteABIJson(j string) bool {
+	res := ABI{}
+	json.Unmarshal([]byte(j), &res)
+	fmt.Println(res)
+
+	var buf bytes.Buffer
+	//类名
+	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
+	//函数名
+	buf.WriteString(res.FuncName)
+	//参数
+	buf.WriteString("(")
+	for _, value := range res.Args {
+		tvm.jsonValueToBuf(&buf, value)
+		buf.WriteString(", ")
+	}
+	if len(res.Args) > 0 {
+		buf.Truncate(buf.Len() - 2)
+	}
+	buf.WriteString(")")
+	fmt.Println(buf.String())
+	return tvm.Execute(buf.String())
+}
+
+func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
+	switch value.(type) {
+	case float64:
+		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
+	case string:
+		buf.WriteString(`"`)
+		buf.WriteString(value.(string))
+		buf.WriteString(`"`)
+	case []interface{}:
+		buf.WriteString("[")
+		for _, item := range value.([]interface{}) {
+			tvm.jsonValueToBuf(buf, item)
+			buf.WriteString(", ")
+		}
+		if len(value.([]interface{})) > 0 {
+			buf.Truncate(buf.Len() - 2)
+		}
+		buf.WriteString("]")
+	case map[string]interface{}:
+		buf.WriteString("{")
+		for key, item := range value.(map[string]interface{}) {
+			tvm.jsonValueToBuf(buf, key)
+			buf.WriteString(": ")
+			tvm.jsonValueToBuf(buf, item)
+			buf.WriteString(", ")
+		}
+		if len(value.(map[string]interface{})) > 0 {
+			buf.Truncate(buf.Len() - 2)
+		}
+		buf.WriteString("}")
+	default:
+		fmt.Println(value)
+		//panic("")
+	}
+}
