@@ -342,6 +342,8 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
 		return -1, headerByte
 	}
+	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
+	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)

@@ -100,6 +100,8 @@ type BlockChain interface {
 	GetConsensusHelper() types.ConsensusHelper
 
 	GetTraceHeader(hash []byte) *types.BlockHeader
+
+	GetCheckValue(height uint64) ([]byte,error)
 }
 
 type TransactionPool interface {
