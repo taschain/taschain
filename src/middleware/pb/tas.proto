@@ -336,6 +336,8 @@ message ConsensusBlockMessageBase{
     optional bytes	GroupID = 2;
 
     required SignData	Sign = 3;
+
+    repeated bytes  ProveHash = 4;
 }
 
 message ConsensusBlockMessage{

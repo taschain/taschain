@@ -130,7 +130,7 @@ func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *typ
 	}
 
 	blog := newBizLog("verifyGroupSign")
-	groupInfo := p.getGroup(gid)
+	groupInfo := p.GetGroup(gid)
 	if !groupInfo.GroupID.IsValid() {
 		blog.log("get group is nil!, gid=" + gid.ShortS())
 		return false
@@ -175,17 +175,18 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return
 	}
 
-	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
-	if !groupInfo.GroupID.IsValid() {
-		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), groupInfo.GroupID.ShortS())
+	group := p.GetGroup(*selectGroupId) //取得合法的铸块组
+	if !group.GroupID.IsValid() {
+		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), group.GroupID.ShortS())
 		return
 	}
+
 	ok = true
 	return true, nil
 }
 
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
-	sgi := p.getGroup(gid)
+	sgi := p.GetGroup(gid)
 	return int32(sgi.GetMinerPos(uid))
 }
 
@@ -214,7 +215,7 @@ func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey 
 }
 
 //取得特定的组
-func (p Processor) getGroup(gid groupsig.ID) *StaticGroupInfo {
+func (p Processor) GetGroup(gid groupsig.ID) *StaticGroupInfo {
 	if g, err := p.globalGroups.GetGroupByID(gid); err != nil {
 		panic("GetSelfGroup failed.")
 	} else {

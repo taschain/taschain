@@ -300,22 +300,26 @@ func marshalConsensusGroupInitedMessage(m *model.ConsensusGroupInitedMessage) ([
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 
-func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
+func consensusBlockMessageBase2Pb(m *model.ConsensusBlockMessageBase) ([]byte, error) {
 	bh := types.BlockHeaderToPb(&m.BH)
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
+	hashs := make([][]byte, len(m.ProveHash))
+	for i, h := range m.ProveHash {
+		hashs[i] = h.Bytes()
+	}
+
+	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si, ProveHash:hashs}
 	return proto.Marshal(&message)
 }
 
-func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
-	bh := types.BlockHeaderToPb(&m.BH)
-	//groupId := m.GroupID.Serialize()
-	si := signDataToPb(&m.SI)
+func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
+	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
+}
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
-	return proto.Marshal(&message)
+func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
+	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
 }
 
 func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error) {

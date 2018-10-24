@@ -73,13 +73,14 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 
 }
 
-func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
+func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, proveHash []common.Hash, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
 	bh := &slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
 		skey := p.getSignKey(gid)
 		var cvm model.ConsensusVerifyMessage
 		cvm.BH = *bh
+		cvm.ProveHash = proveHash
 		//cvm.GroupID = gId
 		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm)
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
@@ -113,8 +114,21 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 			return
 		}
 	}
-	if ok, err := p.isCastLegal(bh, preBH); !ok {
-		return err
+	if ok, err2 := p.isCastLegal(bh, preBH); !ok {
+		err = err2
+		return
+	}
+	//校验提案者是否有全量账本
+	sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
+	realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
+	if !existHash.IsValid() {
+		err = fmt.Errorf("MainChain GetCheckValue error, height=%v, err=%v", sampleHeight, err)
+		return
+	}
+	vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
+	if vHash != existHash {
+		err = fmt.Errorf("check prove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
+		return
 	}
 
 	bc := p.GetBlockContext(gid)
@@ -161,7 +175,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		}
 
 	case CBMR_PIECE_NORMAL:
-		p.normalPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
+		p.normalPieceVerify(mtype, sender, gid, msg.ProveHash, vctx, slot, traceLog)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 	}
@@ -181,8 +195,8 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 
 	result := ""
 	defer func() {
-		traceLog.logEnd("height=%v, preHash=%v, result=%v", bh.Height, bh.PreHash.ShortS(), result)
-		blog.log("height=%v, preHash=%v, result=%v", bh.Height, bh.PreHash.ShortS(), result)
+		traceLog.logEnd("height=%v, hash=%v, preHash=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), result)
+		blog.log("height=%v, hash=%v, preHash=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), result)
 	}()
 
 	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
@@ -193,6 +207,12 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	//castor要忽略自己的消息
 	if castor.IsEqual(p.GetMinerID()) && si.GetID().IsEqual(p.GetMinerID()) {
 		result = "ignore self message"
+		return
+	}
+
+	if msg.GenHash() != si.DataHash {
+		blog.log("msg proveHash=%v", msg.ProveHash)
+		result = fmt.Sprintf("msg genHash %v diff from si.DataHash %v", msg.GenHash().ShortS(), si.DataHash.ShortS())
 		return
 	}
 
@@ -371,7 +391,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	if grm.SI.DataHash != grm.GI.GenHash() {
 		panic("grm gis hash diff")
 	}
-	parentGroup := p.getGroup(grm.GI.ParentID)
+	parentGroup := p.GetGroup(grm.GI.ParentID)
 	if !parentGroup.CastQualified(grm.GI.TopHeight) {
 		blog.log("parent group has no qualify to cast group. gid=%v, height=%v", parentGroup.GroupID.ShortS(), grm.GI.TopHeight)
 		return
@@ -615,7 +635,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 	if gim.SI.DataHash != gim.GI.GenHash() {
 		panic("grm gis hash diff")
 	}
-	parentGroup := p.getGroup(gim.GI.GIS.ParentID)
+	parentGroup := p.GetGroup(gim.GI.GIS.ParentID)
 	if !parentGroup.CastQualified(gim.GI.GIS.TopHeight) {
 		blog.log("parent group has no qualify to cast group. gid=%v, height=%v", parentGroup.GroupID.ShortS(), gim.GI.GIS.TopHeight)
 		return
@@ -754,7 +774,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader) (send bool, err error) {
 	gid := groupsig.DeserializeId(bh.GroupId)
-	group := p.getGroup(gid)
+	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
 		panic("group is nil")
@@ -900,7 +920,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	}
 
 	gid := groupsig.DeserializeId(bh.GroupId)
-	group := p.getGroup(gid)
+	group := p.GetGroup(gid)
 	if group == nil {
 		panic("group is nil")
 	}

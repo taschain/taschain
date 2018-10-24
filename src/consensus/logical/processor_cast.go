@@ -12,6 +12,7 @@ import (
 	"consensus/net"
 	"middleware/statistics"
 	"strings"
+	"bytes"
 )
 
 /*
@@ -177,7 +178,7 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 	if nextId == nil {
 		return nil
 	}
-	group := p.getGroup(*nextId)
+	group := p.GetGroup(*nextId)
 	mems := make([]groupsig.ID, len(group.Members))
 	for idx, mem := range group.Members {
 		mems[idx] = mem.ID
@@ -236,6 +237,31 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	return
 }
 
+//对该id进行区块抽样
+func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
+    return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
+}
+
+func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
+	hashs := make([]common.Hash, len(ids))
+
+	blog := newBizLog("GenProveHashs")
+	for idx, id := range ids {
+		h := p.sampleBlockHeight(heightLimit, rand, id)
+		b := p.getNearestBlockByHeight(h)
+		hashs[idx] = p.GenVerifyHash(b, id)
+		blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+	}
+	proves = hashs
+
+	buf := bytes.Buffer{}
+	for _, hash := range hashs {
+		buf.Write(hash.Bytes())
+	}
+	root = base.Data2CommonHash(buf.Bytes())
+	return
+}
+
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -270,7 +296,10 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	block := p.MainChain.CastBlock(uint64(height),  pi.Big(), qn, p.GetMinerID().Serialize(), gid.Serialize())
+	//随机抽取n个块，生成proveHash
+	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+
+	block := p.MainChain.CastBlock(uint64(height),  pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -285,11 +314,13 @@ func (p *Processor) blockProposal() {
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
+		ccm.ProveHash = proveHash
 		//ccm.GroupID = gid
 		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
+		blog.log("hash=%v, proveRoot=%v", bh.Hash.ShortS(), root.ShortS())
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
 		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb)
@@ -323,7 +354,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
-	group := p.getGroup(groupID)
+	group := p.GetGroup(groupID)
 
 	witnesses := slot.gSignGenerator.GetWitnesses()
 	size := len(witnesses)

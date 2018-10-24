@@ -358,6 +358,12 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
+
+	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
+		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
+		return -1
+	}
+
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))

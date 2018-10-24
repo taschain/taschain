@@ -176,3 +176,29 @@ func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }
+
+func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
+    for  {
+    	bh := p.MainChain.QueryBlockByHeight(h)
+		if bh != nil {
+			return p.MainChain.QueryBlockByHash(bh.Hash)
+		}
+		if h == 0 {
+			panic("cannot find block of height 0")
+		}
+		h--
+	}
+}
+
+func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
+	for  {
+		hash, err := p.MainChain.GetCheckValue(h)
+		if err == nil {
+			return h, hash
+		}
+		if h == 0 {
+			panic("cannot find verifyHash of height 0")
+		}
+		h--
+	}
+}

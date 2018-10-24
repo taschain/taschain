@@ -13,6 +13,7 @@ import (
 	"consensus/model"
 	"middleware"
 	"consensus/base"
+	"consensus/mediator"
 )
 
 const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
@@ -77,9 +78,8 @@ func TestGenesisGroup(t *testing.T) {
 	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 
-	genesis := &GenesisGeneratorImpl{}
 	// block初始化
-	err := core.InitCore(false, genesis.Generate())
+	err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
 	if err != nil {
 		panic(err)
 	}

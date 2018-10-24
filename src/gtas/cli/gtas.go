@@ -130,9 +130,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 		}
 	}
 
-	gtas.waitingUtilSyncFinished()
+	//gtas.waitingUtilSyncFinished()
 	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
+
+	core.InitGroupSyncer()
+	core.InitBlockSyncer(light)
 
 	gtas.inited = true
 	if !ok {
@@ -286,7 +289,7 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock(light bool) error {
-	err := core.InitCore(light, mediator.NewConsensusHelper())
+	err := core.InitCore(light, mediator.NewConsensusHelper(groupsig.ID{}))
 	if err != nil {
 		return err
 	}
@@ -300,31 +303,28 @@ func (gtas *Gtas) simpleInit(configPath string) {
 
 func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) error {
 	var err error
+
 	// 椭圆曲线初始化
 	//groupsig.Init(1)
-
 	// 初始化中间件
 	middleware.InitMiddleware()
-
 	// block初始化
-	err = core.InitCore(light, mediator.NewConsensusHelper())
-	if err != nil {
-		return err
-	}
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewSelfMinerDO(secret)
+
+	err = core.InitCore(light, mediator.NewConsensusHelper(minerInfo.ID))
+	if err != nil {
+		return err
+	}
 	id := minerInfo.ID.GetHexString()
 	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
-
-	core.InitGroupSyncer()
-	core.InitBlockSyncer(light)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)

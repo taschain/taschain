@@ -18,7 +18,6 @@ package core
 import (
 	"bytes"
 	"common"
-	"encoding/json"
 	"math/big"
 	"time"
 	"storage/core"
@@ -92,7 +91,7 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
+func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
 	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
@@ -100,11 +99,11 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *t
 		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
 		ProveValue: pv,
 		TotalQN:    0,
-		Transactions: make([]common.Hash,0),
+		Transactions: make([]common.Hash, 0),	//important!!
 	}
 
-	blockByte, _ := json.Marshal(block)
-	block.Header.Hash = common.BytesToHash(common.Sha256(blockByte))
+	//blockByte, _ := json.Marshal(block)
+	//block.Header.Hash = common.BytesToHash(common.Sha256(blockByte))
 	block.Header.Signature = common.Sha256([]byte("tas"))
 	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
@@ -124,22 +123,24 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *t
 	stateDB.SetBalance(common.HexStringToAddress("0x31e59225ec0f5eb904899541ab91e23dbc73115509711901ee4d20f0d51f777a"), big.NewInt(1000000))
 	stateDB.SetBalance(common.HexStringToAddress("0x273cf6a73494922bd207a40e02f4b4540586fa2b71fb05dada16e65bde62b51"), big.NewInt(1000000))
 	stage := stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
-	miners := make([]*types.Miner, 0)
-	for i, member := range genesisInfo.Group.Members {
-		miner := &types.Miner{Id: member.Id, PublicKey: member.PubKey, VrfPublicKey: genesisInfo.VrfPKs[i], Stake: 10}
-		miners = append(miners, miner)
+	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
+	miners := make([]*types.Miner,0)
+	for i,member := range genesisInfo.Group.Members{
+		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
+		miners = append(miners,miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
 	stage = stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage2 Root:%s", stage.Hex())
-	stateDB.SetNonce(common.BonusStorageAddress, 1)
-	stateDB.SetNonce(common.HeavyDBAddress, 1)
-	stateDB.SetNonce(common.LightDBAddress, 1)
+	Logger.Debugf("GenesisBlock Stage2 Root:%s",stage.Hex())
+	stateDB.SetNonce(common.BonusStorageAddress,1)
+	stateDB.SetNonce(common.HeavyDBAddress,1)
+	stateDB.SetNonce(common.LightDBAddress,1)
 
 	root, _ := stateDB.Commit(true)
-	Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
+	Logger.Debugf("GenesisBlock final Root:%s",root.Hex())
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
+	block.Header.Hash = block.Header.GenHash()
+	//block.Transactions = make([]*types.Transaction, 0)
 	return block
 }

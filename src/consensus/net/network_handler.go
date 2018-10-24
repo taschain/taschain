@@ -307,46 +307,45 @@ func unMarshalConsensusCurrentMessage(b []byte) (*model.ConsensusCurrentMessage,
 	return &message, nil
 }
 
-func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error) {
+func pb2ConsensusBlockMessageBase(b []byte) (*model.ConsensusBlockMessageBase, error) {
 	m := new(tas_middleware_pb.ConsensusBlockMessageBase)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("[handler]UnMarshalConsensusCastMessage error:%s", e.Error())
+		logger.Errorf("[handler]pb2ConsensusBlockMessageBase error:%s", e.Error())
 		return nil, e
 	}
 
 	bh := types.PbToBlockHeader(m.Bh)
-	//var groupId groupsig.ID
-	//e1 := groupId.Deserialize(m.GroupID)
-	//if e1 != nil {
-	//	logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
-	//	return nil, e1
-	//}
+
 	si := pbToSignData(m.Sign)
 
+	hashs := make([]common.Hash, len(m.ProveHash))
+	for i, h := range m.ProveHash {
+		hashs[i] = common.BytesToHash(h)
+	}
+
 	base := model.BaseSignedMessage{SI: *si}
-	message := model.ConsensusCastMessage{ConsensusBlockMessageBase: model.ConsensusBlockMessageBase{BH: *bh, BaseSignedMessage: base}}
+	return &model.ConsensusBlockMessageBase{
+		BH: *bh,
+		ProveHash:hashs,
+		BaseSignedMessage: base,
+	}, nil
+}
+func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error) {
+	base, err := pb2ConsensusBlockMessageBase(b)
+	if err != nil {
+		return nil, err
+	}
+	message := model.ConsensusCastMessage{ConsensusBlockMessageBase: *base}
 	return &message, nil
 }
 
 func unMarshalConsensusVerifyMessage(b []byte) (*model.ConsensusVerifyMessage, error) {
-	m := new(tas_middleware_pb.ConsensusBlockMessageBase)
-	e := proto.Unmarshal(b, m)
-	if e != nil {
-		logger.Errorf("[handler]UnMarshalConsensusVerifyMessage error:%s", e.Error())
-		return nil, e
+	base, err := pb2ConsensusBlockMessageBase(b)
+	if err != nil {
+		return nil, err
 	}
-
-	bh := types.PbToBlockHeader(m.Bh)
-	//var groupId groupsig.ID
-	//e1 := groupId.Deserialize(m.GroupID)
-	//if e1 != nil {
-	//	logger.Errorf("groupsig.ID Deserialize error:%s", e1.Error())
-	//	return nil, e1
-	//}
-	si := pbToSignData(m.Sign)
-	base := model.BaseSignedMessage{SI: *si}
-	message := model.ConsensusVerifyMessage{ConsensusBlockMessageBase: model.ConsensusBlockMessageBase{BH: *bh, BaseSignedMessage: base}}
+	message := model.ConsensusVerifyMessage{ConsensusBlockMessageBase: *base}
 	return &message, nil
 }
 

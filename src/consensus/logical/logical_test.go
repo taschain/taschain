@@ -14,6 +14,12 @@
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package logical
+
+import (
+	"core"
+	"log"
+)
+
 //
 //import (
 //	"common"
@@ -1503,3 +1509,4 @@ package logical
 ////		log.Println("TRANS_ACCEPT_FULL_THRESHOLD full")
 ////	}
 ////}
+
