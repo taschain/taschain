@@ -70,9 +70,6 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipts[i] = receipt
 	}
 
-	//if nil != processor {
-	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
-	//}
 	return accountdb.IntermediateRoot(true), receipts, nil
 }
 

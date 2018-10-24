@@ -423,7 +423,7 @@ func TestBlockChain_GetTopBlocks(t *testing.T) {
 }
 
 func TestBlockChain_StateTree(t *testing.T) {
-
+	common.InitConf("tas1.ini")
 	Clear()
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -435,7 +435,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 		t.Fatalf("clear data fail")
 	}
 
-	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 100 {
+	if BlockChainImpl.latestStateDB.GetBalance(common.BytesToAddress(genHash("1"))).Int64() != 1000000 {
 		t.Fatalf("fail to init 1 balace to 100")
 	}
 

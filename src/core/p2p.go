@@ -19,6 +19,8 @@ import (
 	"common"
 	"fmt"
 	"middleware/types"
+	"middleware/notify"
+	"yunkuai"
 )
 
 var (
@@ -47,7 +49,11 @@ func InitCore() error {
 		if nil != err {
 			return err
 		}
+
+		// yunkuai交易处理器
+		notify.BUS.Subscribe(notify.BlockAddSucc, yunkuai.GetYunKuaiProcessor().AfterBlockOnBlock)
 	}
+
 	BlockChainConnectorImpl = &BlockChainConnector{
 		chain: BlockChainImpl,
 	}

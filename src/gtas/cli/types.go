@@ -19,6 +19,7 @@ package cli
 type Result struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
+	Success bool        `json:"succ"`
 }
 
 // ErrorResult rpc请求错误返回的可变参数部分
@@ -45,7 +46,7 @@ type RPCResObj struct {
 
 // 缓冲池交易列表中的transactions
 type Transactions struct {
-	Hash string `json:"hash"`
+	Hash   string `json:"hash"`
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Value  string `json:"value"`
@@ -53,7 +54,7 @@ type Transactions struct {
 
 type PubKeyInfo struct {
 	PubKey string `json:"pub_key"`
-	ID string `json:"id"`
+	ID     string `json:"id"`
 }
 
 type ConnInfo struct {

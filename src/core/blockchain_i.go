@@ -87,5 +87,5 @@ type AccountRepository interface {
 // chain 对于投票事件接口
 type VoteProcessor interface {
 	BeforeExecuteTransaction(b *types.Block, db core.AccountDB, tx *types.Transaction) ([]byte, error)
-	AfterAllTransactionExecuted(b *types.Block, stateDB core.AccountDB, receipts vtypes.Receipts) error
+	AfterAllTransactionExecuted(b *types.Block, stateDB *core.AccountDB, receipts vtypes.Receipts) error
 }
