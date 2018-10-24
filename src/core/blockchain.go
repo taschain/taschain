@@ -254,11 +254,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn ui
 		block.Header.Transactions[i] = tx.Hash
 	}
 	block.Header.TxTree = calcTxTree(block.Transactions)
+
 	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
-	defer Logger.Infof("casting block %d,hash:%v,qn:%d", height, block.Header.Hash.String(), block.Header.TotalQN)
+	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,", height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex())
 
 	//自己铸的块 自己不需要验证
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
