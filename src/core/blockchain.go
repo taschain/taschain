@@ -190,6 +190,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
+			verifyHash := chain.consensusHelper.VerifyHash(block)
+			chain.PutCheckValue(0, verifyHash.Bytes())
 		}
 	}
 
