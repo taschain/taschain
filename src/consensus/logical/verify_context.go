@@ -247,10 +247,10 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) *SlotC
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
 func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
 	if bh.GenHash() != signData.DataHash {
-		panic("acceptCV arg failed, hash not samed 1.")
+		//panic("acceptCV arg failed, hash not samed 1.")
 	}
 	if bh.Hash != signData.DataHash {
-		panic("acceptCV arg failed, hash not samed 2")
+		//panic("acceptCV arg failed, hash not samed 2")
 	}
 
 	blog := newBizLog("UserVerified")
