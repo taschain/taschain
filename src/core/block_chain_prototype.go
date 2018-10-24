@@ -54,9 +54,10 @@ func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error{
 	return chain.checkdb.Put(key, hash)
 }
 
-func (chain *prototypeChain) GetCheckValue(height uint64) ([]byte,error){
+func (chain *prototypeChain) GetCheckValue(height uint64) (common.Hash,error){
 	key := utility.UInt64ToByte(height)
-	return chain.checkdb.Get(key)
+	raw,err := chain.checkdb.Get(key)
+	return common.BytesToHash(raw),err
 }
 
 func (chain *prototypeChain) IsLightMiner() bool {

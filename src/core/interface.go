@@ -101,7 +101,7 @@ type BlockChain interface {
 
 	GetTraceHeader(hash []byte) *types.BlockHeader
 
-	GetCheckValue(height uint64) ([]byte,error)
+	GetCheckValue(height uint64) (common.Hash,error)
 }
 
 type TransactionPool interface {
