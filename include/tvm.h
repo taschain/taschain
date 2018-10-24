@@ -10,9 +10,9 @@ extern "C" {
 #endif
 // 设置python lib的路径
 void tvm_set_lib_path(const char* path);
-void tvm_start(void);
-void tvm_test(void);
+
 _Bool tvm_execute(char *str);
+_Bool tvm_execute_2(char *str, char *file_name);
 typedef int (*callback_fcn)(int);
 typedef void (*testAry_fcn)(void*);
 
@@ -28,13 +28,19 @@ typedef void (*TransferFunc)(const char*, const char*);
 TransferFunc transferFunc;
 void setTransferFunc(TransferFunc);
 
+/***********************/
+
+void tvm_start(void);
+
+// deep <= 10
+_Bool tvm_create_context();
+void tvm_remove_context();
 
 /***********************/
 
 void tvm_set_gas(int limit);
 int tvm_get_gas();
 void tvm_gas_report();
-
 
 /*********************************************************************************************/
 typedef void (*Function1) (const char*);

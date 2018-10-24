@@ -49,7 +49,6 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
-
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			snapshot := controller.AccountDB.Snapshot()
 			contractAddress, err := createContract(accountdb, transaction)
@@ -70,7 +69,6 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		} else if len(transaction.Data) > 0 {
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contract := tvm.LoadContract(*transaction.Target)
-
 			snapshot := controller.AccountDB.Snapshot()
 			if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
 				controller.AccountDB.RevertToSnapshot(snapshot)
@@ -105,7 +103,6 @@ func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (
 	nance := accountdb.GetNonce(*transaction.Source)
 	accountdb.SetNonce(*transaction.Source, nance+1)
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nance))))
-
 	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}) {
 		return common.Address{}, fmt.Errorf("contract address conflict")
 	}

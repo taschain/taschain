@@ -43,9 +43,11 @@ func OnChainFunc(code string, source string) {
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 	txpool := BlockChainImpl.GetTransactionPool()
-	index := BlockChainImpl.latestStateDB.GetNonce(common.HexStringToAddress(source))
+	index := uint64(time.Now().Unix())
+	fmt.Println(index)
 	txpool.Add(genContractTx(123456, source, "", index, 0, []byte(code), nil, 0))
-	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(index))))
+	fmt.Println("nonce:", BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
@@ -76,7 +78,7 @@ func CallContract2(address, abi string, source string) {
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 500, []byte(abi), nil, 0))
+	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
@@ -139,24 +141,33 @@ class A():
 	
 	def deploy(self):
 		print("deploy")
-
+	
+	@register.public()
 	def test(self):
-		account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
+		print("test")
+		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
+		pass
+
+	
+	def test2(self):
+		print("test2")
+		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
+		pass
 `
 	contract := tvm.Contract{code, "A", nil}
 	jsonString, _ := json.Marshal(contract)
 	fmt.Println(string(jsonString))
-	//OnChainFunc(string(jsonString), "0x1234")
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
 func TestCallConstract(t *testing.T)  {
-	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
+	contractAddr := "0xf744049b3381ca85b36c50ed3cced8c17bb5ea28"
 	abi := `{"FuncName": "test", "Args": []}`
 	CallContract(contractAddr, abi)
 }
 
 func TestCallConstract2(t *testing.T)  {
-	contractAddr := "0x9610b83c5c03aa0824f2d5da225553ca43ad65a6"
+	contractAddr := "0xf744049b3381ca85b36c50ed3cced8c17bb5ea28"
 	abi := `{"FuncName": "test2", "Args": []}`
 	CallContract(contractAddr, abi)
 }

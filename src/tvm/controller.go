@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"common"
 	"math/big"
+	"encoding/json"
 )
 
 type Controller struct {
@@ -59,7 +60,7 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) bool {
 	var succeed bool
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.Transaction.GasLimit))
@@ -77,7 +78,10 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
 	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 	if succeed {
-		succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
+		abi := ABI{}
+		json.Unmarshal([]byte(abiJson), &abi)
+		fmt.Println(abi)
+		succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
 		if succeed {
 			con.Vm.DelTvm()
 			con.Transaction.GasLimit = uint64(con.Vm.Gas())
@@ -104,10 +108,12 @@ func (con *Controller) ExecuteTask() bool{
 		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
 		con.Vm.SetGas(int(gasLeft))
 		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
-		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+		abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
 		succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 		if succeed {
-			succeed = con.Vm.ExecuteABIJson(abi) && con.Vm.StoreData()
+			abi := ABI{}
+			json.Unmarshal([]byte(abiJson), &abi)
+			succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
 		}
 		if !succeed {
 			con.Vm.DelTvm()

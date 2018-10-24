@@ -50,12 +50,34 @@ func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {
 from clib.tas_runtime.msgxx import Msg
 from clib.tas_runtime.address_tas import Address
 
+class Register(object):
+    def __init__(self):
+        self.funcinfo = {}
+
+    def public(self , *dargs):
+        def wrapper(func):
+            paraname = func.__para__   #func.__para__
+            tmp = {}
+            for i in range(1, len(paraname)):
+               tmp[paraname[i]] =  dargs[i]
+            self.funcinfo[func.__name__] = tmp
+            print(self.funcinfo)
+            
+            def _wrapper(*args , **kargs):
+                return func(*args, **kargs)
+            return _wrapper
+        return wrapper
+
 import builtins
+builtins.register = Register()
 builtins.msg = Msg(data=bytes(), sender="%s", value=%d)
 builtins.this = "%s"`, sender, value, contractAddr)
 }
 
-
+func PycodeCheckAbi(abi ABI) string {
+	return fmt.Sprintf(`if "%s" not in register.funcinfo:
+	raise Exception("cannot call this function: %s")`, abi.FuncName, abi.FuncName)
+}
 
 
 
