@@ -434,6 +434,13 @@ func (tvm *Tvm) DelTvm() {
 	//TODO 释放tvm环境 tvmObj
 }
 
+func (tvm *Tvm) checkABI(abi ABI) bool{
+	var c_bool C._Bool
+	script := PycodeCheckAbi(abi)
+	c_bool = C.tvm_execute(C.CString(script))
+	return bool(c_bool)
+}
+
 func (tvm *Tvm) StoreData() bool {
 	var c_bool C._Bool
 	script := PycodeStoreContractData(tvm.ContractName)
@@ -477,9 +484,9 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 }
 
 func (tvm *Tvm) LoadContractCode(msg Msg) bool {
-	if !tvm.loadMsg(msg) {
-		return false
-	}
+	//if !tvm.loadMsg(msg) {
+	//	return false
+	//}
 	var c_bool C._Bool
 	script := PycodeLoadContractData(tvm.ContractName)
 	c_bool = C.tvm_execute(C.CString(script))
@@ -512,10 +519,7 @@ type ABI struct {
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIJson(j string) bool {
-	res := ABI{}
-	json.Unmarshal([]byte(j), &res)
-	fmt.Println(res)
+func (tvm *Tvm) ExecuteABI(res ABI) bool {
 
 	var buf bytes.Buffer
 	//类名
