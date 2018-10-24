@@ -45,6 +45,8 @@ type LightChainConfig struct {
 	blockHeight string
 
 	state string
+
+	check string
 }
 
 func getLightChainConfig() *LightChainConfig {
@@ -57,6 +59,8 @@ func getLightChainConfig() *LightChainConfig {
 		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
+
+		check: common.GlobalConf.GetString(CONFIG_SEC, "check", defaultConfig.check),
 	}
 }
 
@@ -65,6 +69,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
 		state:       "light_state",
+		check:		 "light_check",
 	}
 }
 
@@ -109,6 +114,11 @@ func initLightChain(helper types.ConsensusHelper) error {
 		return err
 	}
 	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	if err != nil {
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		return err
+	}
+	chain.checkdb, err = datasource.NewDatabase(chain.config.check)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err

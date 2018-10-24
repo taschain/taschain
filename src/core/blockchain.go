@@ -58,6 +58,8 @@ type BlockChainConfig struct {
 	heavy string
 
 	light string
+
+	check string
 }
 
 type FullBlockChain struct {
@@ -80,12 +82,13 @@ func getBlockChainConfig() *BlockChainConfig {
 
 		state: "state",
 
-
 		bonus: "bonus",
 
 		light: "light",
 
 		heavy: "heavy",
+
+		check: "check",
 	}
 
 	if nil == common.GlobalConf {
@@ -99,12 +102,13 @@ func getBlockChainConfig() *BlockChainConfig {
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
 
-
 		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
 
 		heavy: common.GlobalConf.GetString(CONFIG_SEC, "heavy", defaultConfig.heavy),
 
 		light: common.GlobalConf.GetString(CONFIG_SEC, "light", defaultConfig.light),
+
+		check: common.GlobalConf.GetString(CONFIG_SEC, "check", defaultConfig.check),
 	}
 
 }
@@ -149,6 +153,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 
 	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	if err != nil {
+		//todo: 日志
+		return err
+	}
+
+	chain.checkdb, err = datasource.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
