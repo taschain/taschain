@@ -45,6 +45,8 @@ type LightChainConfig struct {
 	blockHeight string
 
 	state string
+
+	check string
 }
 
 func getLightChainConfig() *LightChainConfig {
@@ -57,6 +59,8 @@ func getLightChainConfig() *LightChainConfig {
 		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
+
+		check: common.GlobalConf.GetString(CONFIG_SEC, "check", defaultConfig.check),
 	}
 }
 
@@ -65,6 +69,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
 		state:       "light_state",
+		check:		 "light_check",
 	}
 }
 
@@ -113,6 +118,11 @@ func initLightChain(helper types.ConsensusHelper) error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
+	chain.checkdb, err = datasource.NewDatabase(chain.config.check)
+	if err != nil {
+		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		return err
+	}
 
 	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
@@ -140,7 +150,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")
 	return nil
 }
@@ -342,6 +352,8 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
 		return -1, headerByte
 	}
+	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
+	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)

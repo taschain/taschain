@@ -95,6 +95,8 @@ message BlockHeader{
      optional bytes ExtraData  = 16 ;
 
      optional bytes Random = 17;
+
+     optional bytes ProveRoot = 18;
 }
 
 message BlockBody{

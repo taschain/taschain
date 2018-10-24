@@ -58,6 +58,8 @@ type BlockChainConfig struct {
 	heavy string
 
 	light string
+
+	check string
 }
 
 type FullBlockChain struct {
@@ -80,12 +82,13 @@ func getBlockChainConfig() *BlockChainConfig {
 
 		state: "state",
 
-
 		bonus: "bonus",
 
 		light: "light",
 
 		heavy: "heavy",
+
+		check: "check",
 	}
 
 	if nil == common.GlobalConf {
@@ -99,12 +102,13 @@ func getBlockChainConfig() *BlockChainConfig {
 
 		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
 
-
 		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
 
 		heavy: common.GlobalConf.GetString(CONFIG_SEC, "heavy", defaultConfig.heavy),
 
 		light: common.GlobalConf.GetString(CONFIG_SEC, "light", defaultConfig.light),
+
+		check: common.GlobalConf.GetString(CONFIG_SEC, "check", defaultConfig.check),
 	}
 
 }
@@ -154,6 +158,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		return err
 	}
 
+	chain.checkdb, err = datasource.NewDatabase(chain.config.state)
+	if err != nil {
+		//todo: 日志
+		return err
+	}
+
 	chain.bonusManager = newBonusManager()
 	chain.stateCache = core.NewDatabase(chain.statedb)
 
@@ -188,7 +198,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int,proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.QueryTopBlock()
 	//校验高度
@@ -208,6 +218,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, qn ui
 		GroupId:    groupid,
 		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
+		ProveRoot:  proveRoot,
 	}
 
 	if latestBlock != nil {
@@ -403,6 +414,8 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
 		return -1, headerByte
 	}
+	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
+	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
@@ -483,6 +496,7 @@ func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *type
 	}
 	chain.latestStateDB = state
 	chain.latestBlock = header
+
 	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
 	return 0
 }
