@@ -198,7 +198,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int,proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//beginTime := time.Now()
 	latestBlock := chain.QueryTopBlock()
 	//校验高度
@@ -470,7 +470,9 @@ func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remot
 
 		for i := commonAncestor.Height + 1; i <= chain.Height(); i++ {
 			header := chain.queryBlockHeaderByHeight(i, true)
-			chain.Remove(header)
+			if header != nil {
+				chain.Remove(header)
+			}
 		}
 		Logger.Debugf("processFork trigger by height=%d hash=%s, remove from height=%d to height=%d", remoteBlock.Header.Height,
 			remoteBlock.Header.Hash.Hex(), commonAncestor.Height+1, chain.Height())
