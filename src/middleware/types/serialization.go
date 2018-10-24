@@ -174,10 +174,10 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 }
 
 func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
-	if txs == nil {
-		return nil
-	}
 	result := make([]*Transaction, 0)
+	if txs == nil {
+		return result
+	}
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
 		result = append(result, transaction)
@@ -186,7 +186,6 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 }
 
 func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
-
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
 
