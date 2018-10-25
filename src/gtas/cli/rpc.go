@@ -302,11 +302,14 @@ func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string,
 	return nil
 }
 
+var GtasAPIImpl *GtasAPI
+
 // StartRPC RPC 功能
 func StartRPC(host string, port uint) error {
 	var err error
+	GtasAPIImpl = &GtasAPI{}
 	apis := []rpc.API{
-		{Namespace: "GTAS", Version: "1", Service: &GtasAPI{}, Public: true},
+		{Namespace: "GTAS", Version: "1", Service: GtasAPIImpl, Public: true},
 	}
 	for plus := 0; plus < 40; plus ++ {
 		err = startHTTP(fmt.Sprintf("%s:%d", host, port+uint(plus)), apis, []string{}, []string{}, []string{})

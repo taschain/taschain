@@ -115,7 +115,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp,light)
 	if err != nil {
@@ -136,7 +136,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 
 	core.InitGroupSyncer()
 	core.InitBlockSyncer(light)
-
+	switch apply {
+		case "heavy":
+			GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+		case "light":
+			GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+	}
 	gtas.inited = true
 	if !ok {
 		return
@@ -213,6 +218,7 @@ func (gtas *Gtas) Run() {
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	//light node
 	light := mineCmd.Flag("light", "light node").Bool()
+	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
@@ -275,7 +281,7 @@ func (gtas *Gtas) Run() {
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		lightMiner = *light
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
