@@ -238,7 +238,7 @@ func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.
 	var transactions []*types.Transaction
 	if nil == txs {
 		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
-	}else {
+	} else {
 		transactions = txs
 	}
 
@@ -257,7 +257,6 @@ func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.
 }
 
 func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []*types.Transaction) bool {
-	Logger.Errorf("validateTxRoot,tx len:%d", len(txs))
 	txTree := calcTxTree(txs)
 
 	if !bytes.Equal(txTree.Bytes(), txMerkleTreeRoot.Bytes()) {

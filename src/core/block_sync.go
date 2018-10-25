@@ -108,7 +108,7 @@ func (bs *blockSyncer) Sync() {
 			if bestNodeHeight > 11 {
 				height = bestNodeHeight - 10
 			}
-			RequestBlock(bestNodeId, height)
+			RequestBlock(bestNodeId, height+1)
 			return
 		}
 		RequestBlock(bestNodeId, localHeight+1)

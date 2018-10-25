@@ -545,7 +545,7 @@ func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
 	defer chain.lock.RUnlock("QueryBlock")
 
 	var b *types.Block
-	for i := height + 1; i <= chain.Height(); i++ {
+	for i := height; i <= chain.Height(); i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
 		if nil == bh {
 			continue
