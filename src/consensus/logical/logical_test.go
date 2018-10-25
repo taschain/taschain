@@ -15,10 +15,6 @@
 
 package logical
 
-import (
-	"core"
-	"log"
-)
 
 //
 //import (

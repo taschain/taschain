@@ -5,7 +5,6 @@ import (
 	"consensus/groupsig"
 	"log"
 	"encoding/json"
-	"core"
 	"common"
 	"fmt"
 	"io/ioutil"
@@ -13,10 +12,9 @@ import (
 	"consensus/model"
 	"middleware"
 	"consensus/base"
-	"consensus/mediator"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/pre`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -79,10 +77,10 @@ func TestGenesisGroup(t *testing.T) {
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 
 	// block初始化
-	err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
-	if err != nil {
-		panic(err)
-	}
+	//err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
 
