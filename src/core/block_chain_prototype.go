@@ -264,6 +264,9 @@ func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 }
 
 func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader, pre *types.BlockHeader) bool {
+	if bh.Height == 0 {
+		return true
+	}
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre)
 	if err != nil {
 		Logger.Errorf("validateGroupSig error:%s", err.Error())

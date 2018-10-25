@@ -91,15 +91,16 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *types.GenesisInfo) *types.Block {
+func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
 	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
-		ExtraData:  common.Sha256([]byte("tas")),
-		CurTime:    time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
-		ProveValue: pv,
-		TotalQN:    0,
-		Transactions: make([]common.Hash, 0),	//important!!
+		Height:       0,
+		ExtraData:    common.Sha256([]byte("tas")),
+		CurTime:      time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
+		ProveValue:   pv,
+		TotalQN:      0,
+		Transactions: make([]common.Hash, 0), //important!!
 	}
 
 	//blockByte, _ := json.Marshal(block)
@@ -165,21 +166,21 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database,genesisInfo *ty
 	stateDB.SetBalance(common.HexStringToAddress("0x9712520461d960151b65d5171c2eca87cb82896234e16e7b1f0e178b62014553"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x90ad4cebd328480baa6833a76f7ef07a72348be7af5d9c79729247c1b2f25980"), big.NewInt(10000))
 	stage := stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage1 Root:%s",stage.Hex())
-	miners := make([]*types.Miner,0)
-	for i,member := range genesisInfo.Group.Members{
-		miner := &types.Miner{Id:member.Id,PublicKey:member.PubKey,VrfPublicKey:genesisInfo.VrfPKs[i],Stake:10}
-		miners = append(miners,miner)
+	Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
+	miners := make([]*types.Miner, 0)
+	for i, member := range genesisInfo.Group.Members {
+		miner := &types.Miner{Id: member.Id, PublicKey: member.PubKey, VrfPublicKey: genesisInfo.VrfPKs[i], Stake: 10}
+		miners = append(miners, miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
 	stage = stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage2 Root:%s",stage.Hex())
-	stateDB.SetNonce(common.BonusStorageAddress,1)
-	stateDB.SetNonce(common.HeavyDBAddress,1)
-	stateDB.SetNonce(common.LightDBAddress,1)
+	Logger.Debugf("GenesisBlock Stage2 Root:%s", stage.Hex())
+	stateDB.SetNonce(common.BonusStorageAddress, 1)
+	stateDB.SetNonce(common.HeavyDBAddress, 1)
+	stateDB.SetNonce(common.LightDBAddress, 1)
 
 	root, _ := stateDB.Commit(true)
-	Logger.Debugf("GenesisBlock final Root:%s",root.Hex())
+	Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 	block.Header.Hash = block.Header.GenHash()
