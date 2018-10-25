@@ -24,27 +24,27 @@ import (
 	"storage/core/vm"
 	"fmt"
 	"tvm"
+	"yunkuai"
 )
 
 type TVMExecutor struct {
-	bc     *BlockChain
+	bc *BlockChain
 }
 
 func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	return &TVMExecutor{
-		bc:     bc,
+		bc: bc,
 	}
 }
 
-
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash,[]*t.Receipt,error) {
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, error) {
 	if 0 == len(block.Transactions) {
 		hash := accountdb.IntermediateRoot(true)
-		Logger.Infof("TVMExecutor Execute Hash:%s",hash.Hex())
+		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
 		return hash, nil, nil
 	}
-	receipts := make([]*t.Receipt,len(block.Transactions))
-	for i,transaction := range block.Transactions{
+	receipts := make([]*t.Receipt, len(block.Transactions))
+	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil {
@@ -52,7 +52,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			contractAddress, _ = createContract(accountdb, transaction)
 			contract := tvm.LoadContract(contractAddress)
 			controller.Deploy(transaction.Source, contract)
-		} else if len(transaction.Data) > 0 {
+		} else if len(transaction.Data) > 0 && transaction.ExtraDataType != yunkuai.Yunkuai_DataType {
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contract := tvm.LoadContract(*transaction.Target)
 			controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
@@ -64,7 +64,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				fail = true
 			}
 		}
-		receipt := t.NewReceipt(nil,fail,0)
+		receipt := t.NewReceipt(nil, fail, 0)
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
@@ -75,15 +75,15 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 
 func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
 	amount := big.NewInt(int64(transaction.Value))
-	if !CanTransfer(accountdb, *transaction.Source, amount){
+	if !CanTransfer(accountdb, *transaction.Source, amount) {
 		return common.Address{}, fmt.Errorf("balance not enough")
 	}
 
 	nance := accountdb.GetNonce(*transaction.Source)
-	accountdb.SetNonce(*transaction.Source, nance + 1)
+	accountdb.SetNonce(*transaction.Source, nance+1)
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nance))))
 
-	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}){
+	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}) {
 		return common.Address{}, fmt.Errorf("contract address conflict")
 	}
 	accountdb.CreateAccount(contractAddr)
