@@ -131,7 +131,7 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	return nil
 }
 
-func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte){
+func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte) {
 	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
 	network.GetNetInstance().Send(targetId, message)
 }
@@ -232,23 +232,21 @@ func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
 		return
 	}
 	core.BlockChainImpl.InsertStateNode(message.TrieNodes)
-	core.BlockChainImpl.(*core.LightChain).MarkMissNodeState(message.BlockHash)
-	core.BlockChainImpl.(*core.LightChain).SetPreBlockStateRoot(message.BlockHash, message.PreBlockSateRoot)
 
-	b := core.BlockChainImpl.(*core.LightChain).GetCachedBlock(message.Height)
+	core.BlockChainImpl.(*core.LightChain).SetPreBlockStateRoot(message.BlockHash, message.PreBlockSateRoot)
+	//todo 此处插入后默认不再缺少账户 但是缺少验证 有安全风险
+	b := core.BlockChainImpl.(*core.LightChain).MarkFullAccountBlock(message.BlockHash)
 	if b == nil {
 		return
 	}
 	core.Logger.Debugf("After InsertStateNode,get cached node to add on chain! height:%d", b.Header.Height)
 	result := core.BlockChainImpl.AddBlockOnChain(b)
 	if result == 0 {
-		core.BlockChainImpl.(*core.LightChain).RemoveFromCache(b)
 		core.RequestBlock(m.Peer, core.BlockChainImpl.Height()+1)
 	}
 }
 
-
-func (ch ChainHandler) blockReqHandler(msg notify.Message){
+func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	if core.BlockChainImpl.IsLightMiner() {
 		return
 	}
@@ -385,7 +383,6 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 //	}
 //	return result, nil
 //}
-
 
 //func unMarshalGroups(b []byte) ([]*types.Group, error) {
 //	message := new(tas_middleware_pb.GroupSlice)
