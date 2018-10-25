@@ -189,7 +189,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			_, headerJson := chain.saveBlock(block)
-			trace := &TraceHeader{Hash: block.Header.Hash, Value: chain.consensusHelper.VRFProve2Value(block.Header.ProveValue).Bytes(),
+			trace := &TraceHeader{Hash: block.Header.Hash, Value: block.Header.ProveValue.Bytes(),
 				TotalQn: block.Header.TotalQN, Height: block.Header.Height, Random: block.Header.Random}
 			TraceChainImpl.AddTrace(trace)
 			chain.updateLastBlock(state, block.Header, headerJson)
