@@ -213,7 +213,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 		err = fmt.Errorf("block hash error")
 		return
 	}
-	if preBH.Hash != bh.PreHash || preBH.Hash != preBH.GenHash() {
+	if preBH.Hash != bh.PreHash {
 		err = fmt.Errorf("preHash error")
 		return
 	}
