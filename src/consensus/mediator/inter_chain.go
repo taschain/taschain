@@ -116,3 +116,11 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 	}
 
 }
+
+func (helper *ConsensusHelperImpl ) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
+    return Proc.VerifyBlock(bh, preBH)
+}
+
+func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error)  {
+    return Proc.VerifyBlockHeader(bh)
+}

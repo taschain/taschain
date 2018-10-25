@@ -49,7 +49,7 @@ type Processor struct {
 	GroupProcs map[string]*Processor
 	Ticker     *ticker.GlobalTicker //全局定时器, 组初始化完成后启动
 
-	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
+	//futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 
@@ -86,7 +86,7 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 //初始化矿工数据（和组无关）
 func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.ready = false
-	p.futureBlockMsgs = NewFutureMessageHolder()
+	//p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
 	p.futureRewardReqs = NewFutureMessageHolder()
 	p.MainChain = core.BlockChainImpl
@@ -120,32 +120,32 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 	return &p.mi.MinerDO
 }
 
-//验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
-	b := &msg.Block
-	bh := b.Header
-	var gid groupsig.ID
-	if gid.Deserialize(bh.GroupId) != nil {
-		panic("verifyGroupSign: group id Deserialize failed.")
-	}
-
-	blog := newBizLog("verifyGroupSign")
-	groupInfo := p.GetGroup(gid)
-	if !groupInfo.GroupID.IsValid() {
-		blog.log("get group is nil!, gid=" + gid.ShortS())
-		return false
-	}
-
-	//blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
-	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
-		blog.log("verifyGroupSig fail")
-		return false
-	}
-	return true
-}
+////验证块的组签名是否正确
+//func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
+//	b := &msg.Block
+//	bh := b.Header
+//	var gid groupsig.ID
+//	if gid.Deserialize(bh.GroupId) != nil {
+//		panic("verifyGroupSign: group id Deserialize failed.")
+//	}
+//
+//	blog := newBizLog("verifyGroupSign")
+//	groupInfo := p.GetGroup(gid)
+//	if !groupInfo.GroupID.IsValid() {
+//		blog.log("get group is nil!, gid=" + gid.ShortS())
+//		return false
+//	}
+//
+//	//blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
+//	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
+//		blog.log("verifyGroupSig fail")
+//		return false
+//	}
+//	return true
+//}
 
 //检查铸块组是否合法
-func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, err error) {
+func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
 	blog := newBizLog("isCastLegal")
 	castor := groupsig.DeserializeId(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
@@ -175,14 +175,14 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return
 	}
 
-	group := p.GetGroup(*selectGroupId) //取得合法的铸块组
+	group = p.GetGroup(*selectGroupId) //取得合法的铸块组
 	if !group.GroupID.IsValid() {
 		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), group.GroupID.ShortS())
 		return
 	}
 
 	ok = true
-	return true, nil
+	return
 }
 
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {

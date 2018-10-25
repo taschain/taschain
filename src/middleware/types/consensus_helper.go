@@ -39,4 +39,11 @@ type ConsensusHelper interface {
 
 	//check the prove root hash for weight node when add block on chain
 	CheckProveRoot(bh *BlockHeader) (bool, error)
+
+	//check the new block
+	//mainly verify the cast legality, group signature
+	VerifyNewBlock(bh *BlockHeader, preBH *BlockHeader) (bool, error)
+
+	//verify the blockheader: mainly verify the group signature
+	VerifyBlockHeader(bh *BlockHeader) (bool, error)
 }

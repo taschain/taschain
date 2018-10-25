@@ -114,7 +114,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 			return
 		}
 	}
-	if ok, err2 := p.isCastLegal(bh, preBH); !ok {
+	if ok, _, err2 := p.isCastLegal(bh, preBH); !ok {
 		err = err2
 		return
 	}
@@ -261,18 +261,18 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase, )
 }
 
-func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
-	if ok, err := p.isCastLegal(block.Header, preBH); ok { //铸块组合法
-		result := p.doAddOnChain(block)
-		if result == 0 || result == 1 {
-			return true
-		}
-	} else {
-		//丢弃该块
-		newBizLog("receiveBlock").log("received invalid new block, height=%v, err=%v", block.Header.Height, err.Error())
-	}
-	return false
-}
+//func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
+//	if ok, err := p.isCastLegal(block.Header, preBH); ok { //铸块组合法
+//		result := p.doAddOnChain(block)
+//		if result == 0 || result == 1 {
+//			return true
+//		}
+//	} else {
+//		//丢弃该块
+//		newBizLog("receiveBlock").log("received invalid new block, height=%v, err=%v", block.Header.Height, err.Error())
+//	}
+//	return false
+//}
 
 func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 	p.blockContexts.forEach(func(bc *BlockContext) bool {
@@ -283,49 +283,49 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
-	bh := cbm.Block.Header
-	blog := newBizLog("OMB")
-	tlog := newBlockTraceLog("OMB", bh.Hash, groupsig.DeserializeId(bh.Castor))
-	tlog.logStart("height=%v, preHash=%v", bh.Height, bh.PreHash.ShortS())
-	result := ""
-	defer func() {
-		tlog.logEnd("height=%v, preHash=%v, result=%v", bh.Height, bh.PreHash.ShortS(), result)
-	}()
-
-	if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
-		//blog.log("OMB receive block already on chain! bh=%v", p.blockPreview(cbm.Block.Header))
-		result = "已经在链上"
-		return
-	}
-	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
-
-	blog.log("proc(%v) begin OMB, group=%v, height=%v, hash=%v...", p.getPrefix(),
-		gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
-
-	block := &cbm.Block
-
-	preHeader := p.MainChain.GetTraceHeader(block.Header.PreHash.Bytes())
-	if preHeader == nil {
-		p.addFutureBlockMsg(cbm)
-		result = "父块未到达"
-		return
-	}
-	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
-	verify := p.verifyGroupSign(cbm, preHeader)
-	if !verify {
-		result = "组签名未通过"
-		blog.log("OMB verifyGroupSign result=%v.", verify)
-		return
-	}
-
-	ret := p.receiveBlock(block, preHeader)
-	if ret {
-		result = "上链成功"
-	} else {
-		result = "上链失败"
-	}
+	//statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),-1,
+	//	time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
+	//bh := cbm.Block.Header
+	//blog := newBizLog("OMB")
+	//tlog := newBlockTraceLog("OMB", bh.Hash, groupsig.DeserializeId(bh.Castor))
+	//tlog.logStart("height=%v, preHash=%v", bh.Height, bh.PreHash.ShortS())
+	//result := ""
+	//defer func() {
+	//	tlog.logEnd("height=%v, preHash=%v, result=%v", bh.Height, bh.PreHash.ShortS(), result)
+	//}()
+	//
+	//if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
+	//	//blog.log("OMB receive block already on chain! bh=%v", p.blockPreview(cbm.Block.Header))
+	//	result = "已经在链上"
+	//	return
+	//}
+	//var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
+	//
+	//blog.log("proc(%v) begin OMB, group=%v, height=%v, hash=%v...", p.getPrefix(),
+	//	gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
+	//
+	//block := &cbm.Block
+	//
+	//preHeader := p.MainChain.GetTraceHeader(block.Header.PreHash.Bytes())
+	//if preHeader == nil {
+	//	p.addFutureBlockMsg(cbm)
+	//	result = "父块未到达"
+	//	return
+	//}
+	////panic("isBHCastLegal: cannot find pre block header!,ignore block")
+	//verify := p.verifyGroupSign(cbm, preHeader)
+	//if !verify {
+	//	result = "组签名未通过"
+	//	blog.log("OMB verifyGroupSign result=%v.", verify)
+	//	return
+	//}
+	//
+	//ret := p.receiveBlock(block, preHeader)
+	//if ret {
+	//	result = "上链成功"
+	//} else {
+	//	result = "上链失败"
+	//}
 
 	//blog.log("proc(%v) end OMB, group=%v, sender=%v...", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return
