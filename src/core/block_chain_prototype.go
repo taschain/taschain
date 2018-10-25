@@ -267,7 +267,7 @@ func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 }
 
 func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
-	if bh.Height == 0 {
+	if chain.Height() == 0 {
 		return true
 	}
 	pre := chain.GetTraceHeader(bh.PreHash.Bytes())

@@ -96,6 +96,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
+	chain.futureBlocks, err = lru.New(20)
 	chain.fullAccountBlockCache, _ = lru.New(LightFullAccountBlockCacheSize)
 	chain.verifiedBlocks, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
@@ -270,10 +271,6 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 		return -1
 	}
 
-	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
-		return -1
-	}
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
@@ -299,10 +296,10 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
-	if !chain.validateGroupSig(b.Header) {
-		Logger.Debugf("Fail to validate group sig!")
-		return -1
-	}
+	//if !chain.validateGroupSig(b.Header) {
+	//	Logger.Debugf("Fail to validate group sig!")
+	//	return -1
+	//}
 	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
 	TraceChainImpl.AddTrace(trace)
 
@@ -310,7 +307,8 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
-	if b.Header.PreHash == topBlock.Hash {
+	//轻节点第一次同步直接上链
+	if b.Header.PreHash == topBlock.Hash || chain.Height() == 0 {
 		result, headerByte := chain.insertBlock(b)
 		if result == 0 {
 			chain.successOnChainCallBack(b, headerByte)
@@ -601,8 +599,4 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
 	return core.NewAccountDB(header.StateTree, chain.stateCache)
-}
-
-func (chain *LightChain) GetTraceHeader(hash []byte) *types.BlockHeader {
-	return nil
 }

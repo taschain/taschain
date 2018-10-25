@@ -195,8 +195,10 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
-	go ns.net.Relay(headerMsg, 1)
+	if !core.BlockChainImpl.IsLightMiner() {
+		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
+		go ns.net.TransmitToNeighbor(headerMsg)
+	}
 	core.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
 	statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
 		time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
@@ -310,7 +312,7 @@ func consensusBlockMessageBase2Pb(m *model.ConsensusBlockMessageBase) ([]byte, e
 		hashs[i] = h.Bytes()
 	}
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si, ProveHash:hashs}
+	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si, ProveHash: hashs}
 	return proto.Marshal(&message)
 }
 

@@ -135,6 +135,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	ok := mediator.StartMiner()
 
 	core.InitGroupSyncer()
+	//for {
+	//	if core.GroupSyncer.IsInit() {
+	//		break
+	//	}
+	//	time.Sleep(time.Millisecond * 500)
+	//}
 	core.InitBlockSyncer(light)
 	switch apply {
 		case "heavy":

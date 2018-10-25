@@ -65,8 +65,9 @@ func (bs *blockSyncer) IsInit() bool {
 }
 
 func (bs *blockSyncer) start() {
-	go bs.loop()
 	logger.Debug("[BlockSyncer]Wait for connecting...")
+	go bs.loop()
+
 	detectConnTicker := time.NewTicker(INIT_INTERVAL)
 	for {
 		<-detectConnTicker.C

@@ -118,6 +118,11 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *t
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
+	//小熊本地测试轻节点账户
+	stateDB.SetBalance(common.HexStringToAddress("0xa88ebed9c691f709788da55aa61548f23fad2f20e19f7c4cf8997894cd90662d"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x60113e78f3fec8482a23df56b1a49c11e6017e3c193fb42a4837585aa2cef9ac"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x31e59225ec0f5eb904899541ab91e23dbc73115509711901ee4d20f0d51f777a"), big.NewInt(1000000))
+	//阿里云账户
 	stateDB.SetBalance(common.HexStringToAddress("0x1dd93e465350d356b873c9f41266bffd28e1b4125ac138e7393ee3c966c11a3c"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x5a664fe67e5a6d6eee691b5e7b9711e92ed20ae31ea6706db8c88da0cf7ab19c"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x51d8148462cef13d43aed048c670c1890fd24dac978dd68aa7a951db1256308e"), big.NewInt(10000))

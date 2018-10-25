@@ -189,8 +189,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, BlockChainTotalQnMsg,
-		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
+	case ReqTransactionMsg, BlockChainTotalQnMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
 		n.chainHandler.Handle(from, *message)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
@@ -208,17 +207,17 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	case ReqStateInfoMsg:
-		msg := notify.StateInfoReqMessage{StateInfoReqByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfoReq,&msg)
+		msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.StateInfoReq, &msg)
 	case StateInfoMsg:
-		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfo,&msg)
+		msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.StateInfo, &msg)
 	case ReqBlock:
-		msg := notify.BlockReqMessage{HeightByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.BlockReq,&msg)
-	case BlockMsg,NewBlockMsg:
-		block,e := types.UnMarshalBlock(message.Body)
-		if e != nil{
+		msg := notify.BlockReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockReq, &msg)
+	case BlockMsg, NewBlockMsg:
+		block, e := types.UnMarshalBlock(message.Body)
+		if e != nil {
 			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
 		}
 		msg := notify.BlockMessage{Block: *block}
@@ -226,7 +225,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {
-		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(),code)
+		Logger.Debugf("handle message cost time:%v,hash:%s,code:%d", time.Since(begin), message.Hash(), code)
 	}
 }
 
