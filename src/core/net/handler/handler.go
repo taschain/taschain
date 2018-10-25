@@ -68,6 +68,7 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.StateInfoReq, handler.stateInfoReqHandler)
 	notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
+	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 
 	go handler.loop()
 	return &handler
@@ -257,6 +258,14 @@ func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	}
 	block := core.BlockChainImpl.QueryBlock(utility.ByteToUInt64(m.HeightByte))
 	core.SendBlock(m.Peer, block)
+}
+
+func (ch ChainHandler) newBlockHandler(msg notify.Message) {
+	m, ok := msg.GetData().(types.Block)
+	if !ok {
+		return
+	}
+	core.BlockChainImpl.AddBlockOnChain(&m)
 }
 
 func (ch ChainHandler) loop() {

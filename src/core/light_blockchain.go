@@ -9,7 +9,6 @@ import (
 	"core/datasource"
 	"storage/core"
 	"common"
-	"bytes"
 	"consensus/groupsig"
 	"middleware/notify"
 	"log"
@@ -171,8 +170,17 @@ func (chain *LightChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8)
 
 func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
 	Logger.Debugf("Verify block height:%d,preHash:%v,tx len:%d", bh.Height, bh.PreHash.String(), len(txs))
-	hasPreBlock, preBlock := chain.hasPreBlock(bh, txs)
+
+	if bh.Hash != bh.GenHash() {
+		Logger.Debugf("Validate block hash error!")
+		return nil, -1
+	}
+
+	hasPreBlock, preBlock := chain.hasPreBlock(bh)
 	if !hasPreBlock {
+		if txs != nil {
+			chain.futureBlocks.Add(bh.PreHash, types.Block{Header: &bh, Transactions: txs})
+		}
 		return nil, 2
 	}
 
@@ -192,6 +200,7 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 		preBlockStateTree = preBlock.StateTree.Bytes()
 	}
 	preRoot := common.BytesToHash(preBlockStateTree)
+	//todo 这里分叉如何处理？
 	missingAccountTxs := chain.getMissingAccountTransactions(preRoot, b)
 	if len(missingAccountTxs) != 0 {
 		return nil, 3
@@ -200,9 +209,8 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 	return nil, 0
 }
 
-func (chain *LightChain) hasPreBlock(bh types.BlockHeader, txs []*types.Transaction) (bool, *types.BlockHeader) {
-	preHash := bh.PreHash
-	preBlock := chain.queryBlockHeaderByHash(preHash)
+func (chain *LightChain) hasPreBlock(bh types.BlockHeader) (bool, *types.BlockHeader) {
+	preBlock := chain.GetTraceHeader(bh.PreHash.Bytes())
 
 	var isEmpty bool
 	if chain.Height() == 0 {
@@ -215,37 +223,6 @@ func (chain *LightChain) hasPreBlock(bh types.BlockHeader, txs []*types.Transact
 		return false, preBlock
 	}
 	return true, preBlock
-}
-
-func (chain *LightChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash) {
-	// 验证交易
-	var missing []common.Hash
-	if nil == txs {
-		_, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
-	}
-
-	if 0 != len(missing) {
-		var castorId groupsig.ID
-		error := castorId.Deserialize(bh.Castor)
-		if error != nil {
-			panic("[LightChain]Groupsig id deserialize error:" + error.Error())
-		}
-		//向CASTOR索取交易
-		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
-		go RequestTransaction(*m, castorId.String())
-		return true, missing
-	}
-	return false, missing
-}
-
-func (chain *LightChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []*types.Transaction) bool {
-	txTree := calcTxTree(txs)
-
-	if !bytes.Equal(txTree.Bytes(), txMerkleTreeRoot.Bytes()) {
-		Logger.Errorf("Fail to verify txTree, hash1:%s hash2:%s", txTree.Hex(), txMerkleTreeRoot.Hex())
-		return false
-	}
-	return true
 }
 
 func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash, b *types.Block) []*types.Transaction {
@@ -291,10 +268,14 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
+
+	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
+		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
+		return -1
+	}
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
-
 	return chain.addBlockOnChain(b)
 }
 
@@ -417,6 +398,12 @@ func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlo
 func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.PreHash); value != nil {
+		block := value.(types.Block)
+		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
+		chain.addBlockOnChain(&block)
+		return
+	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	BlockSyncer.Sync()
 }
