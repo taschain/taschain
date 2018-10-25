@@ -15,27 +15,27 @@ import (
 	"log"
 	"fmt"
 	vtypes "storage/core/types"
-	"sync"
 	"math/big"
 	"storage/core/vm"
 )
 
 const (
-	LIGHT_BLOCK_CACHE_SIZE       = 20
-	LIGHT_BLOCKHEIGHT_CACHE_SIZE = 100
-	LIGHT_BLOCKBODY_CACHE_SIZE   = 100
-	LIGHT_LRU_SIZE               = 5000000
+	LightFullAccountBlockCacheSize = 20
+	LIGHT_BLOCK_CACHE_SIZE         = 20
+	LIGHT_BLOCKHEIGHT_CACHE_SIZE   = 100
+	LIGHT_BLOCKBODY_CACHE_SIZE     = 100
+	LIGHT_LRU_SIZE                 = 5000000
 )
 
 type LightChain struct {
-	config      *LightChainConfig
+	config                   *LightChainConfig
 	prototypeChain
-	pending     map[uint64]*types.Block
-	pendingLock sync.Mutex
+	missingAccountBlocks     map[common.Hash]*types.Block
+	missingAccountBlocksLock middleware.Loglock
 
-	missingNodeState map[common.Hash]bool
-	missingNodeLock  middleware.Loglock
+	fullAccountBlockCache *lru.Cache
 
+	//todo 这里其实只存储轻节点冷启动的第一块的PRE，其实也可以去掉  待测试
 	preBlockStateRoot     map[common.Hash]common.Hash
 	preBlockStateRootLock middleware.Loglock
 }
@@ -69,7 +69,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 	return &LightChainConfig{
 		blockHeight: "light_height",
 		state:       "light_state",
-		check:		 "light_check",
+		check:       "light_check",
 	}
 }
 
@@ -89,15 +89,15 @@ func initLightChain(helper types.ConsensusHelper) error {
 			isLightMiner:    true,
 			consensusHelper: helper,
 		},
-		pending:               make(map[uint64]*types.Block),
-		pendingLock:           sync.Mutex{},
-		missingNodeState:      make(map[common.Hash]bool),
-		missingNodeLock:       middleware.NewLoglock("lightchain"),
-		preBlockStateRoot:     make(map[common.Hash]common.Hash),
-		preBlockStateRootLock: middleware.NewLoglock("lightchain"),
+
+		missingAccountBlocks:     make(map[common.Hash]*types.Block),
+		missingAccountBlocksLock: middleware.NewLoglock("lightchain"),
+		preBlockStateRoot:        make(map[common.Hash]common.Hash),
+		preBlockStateRootLock:    middleware.NewLoglock("lightchain"),
 	}
 
 	var err error
+	chain.fullAccountBlockCache, _ = lru.New(LightFullAccountBlockCacheSize)
 	chain.verifiedBlocks, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
@@ -255,7 +255,8 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 	}
 	var missingAccouts []common.Address
 	var missingAccountTxs []*types.Transaction
-	if chain.Height() == 0 && chain.GetCachedBlock(b.Header.Height) == nil {
+	_, ok := chain.fullAccountBlockCache.Get(b.Header.Hash)
+	if chain.Height() == 0 && !ok {
 		missingAccountTxs = b.Transactions
 		castor := common.BytesToAddress(b.Header.Castor)
 
@@ -263,7 +264,7 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 		missingAccouts = append(missingAccouts, common.BonusStorageAddress)
 		missingAccouts = append(missingAccouts, common.LightDBAddress)
 		missingAccouts = append(missingAccouts, common.HeavyDBAddress)
-	} else {
+	} else if !ok {
 		missingAccountTxs, missingAccouts = chain.executor.FilterMissingAccountTransaction(state, b)
 	}
 
@@ -275,6 +276,7 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 			Logger.Errorf("castorId.Deserialize error!", error.Error())
 		}
 		ReqStateInfo(castorId.String(), b.Header.Height, b.Header.ProveValue, missingAccountTxs, missingAccouts, b.Header.Hash)
+		chain.missingAccountBlocks[b.Header.Hash] = b
 	}
 	return missingAccountTxs
 }
@@ -376,7 +378,6 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *core.Acc
 	}
 	statehash, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
 
-	chain.FreeMissNodeState(block.Header.Hash)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
@@ -573,45 +574,14 @@ func (chain *LightChain) InsertStateNode(nodes *[]types.StateNode) {
 	}
 }
 
-func (chain *LightChain) Cache(b *types.Block) {
-	chain.pendingLock.Lock()
-	defer chain.pendingLock.Unlock()
+func (chain *LightChain) MarkFullAccountBlock(blockHash common.Hash) *types.Block {
+	chain.missingAccountBlocksLock.Lock("MarkFullAccountBlock")
+	defer chain.missingAccountBlocksLock.Unlock("MarkFullAccountBlock")
 
-	chain.pending[b.Header.Height] = b
-}
-
-func (chain *LightChain) GetCachedBlock(blockHeight uint64) *types.Block {
-	chain.pendingLock.Lock()
-	defer chain.pendingLock.Unlock()
-	return chain.pending[blockHeight]
-}
-
-func (chain *LightChain) RemoveFromCache(b *types.Block) {
-	chain.pendingLock.Lock()
-	defer chain.pendingLock.Unlock()
-
-	delete(chain.pending, b.Header.Height)
-}
-
-func (chain *LightChain) MarkMissNodeState(blockHash common.Hash) {
-	chain.missingNodeLock.Lock("MarkMissNodeState")
-	defer chain.missingNodeLock.Unlock("MarkMissNodeState")
-
-	chain.missingNodeState[blockHash] = true
-}
-
-func (chain *LightChain) GetNodeState(blockHash common.Hash) bool {
-	chain.missingNodeLock.RLock("GetNodeState")
-	defer chain.missingNodeLock.RUnlock("GetNodeState")
-
-	return chain.missingNodeState[blockHash]
-}
-
-func (chain *LightChain) FreeMissNodeState(blockHash common.Hash) {
-	chain.missingNodeLock.Lock("FreeMissNodeState")
-	defer chain.missingNodeLock.Unlock("FreeMissNodeState")
-
-	delete(chain.missingNodeState, blockHash)
+	b := chain.missingAccountBlocks[blockHash]
+	chain.fullAccountBlockCache.Add(blockHash, nil)
+	delete(chain.missingAccountBlocks, blockHash)
+	return b
 }
 
 func (chain *LightChain) SetPreBlockStateRoot(blockHash common.Hash, preBlockStateRoot common.Hash) {
