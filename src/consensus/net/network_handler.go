@@ -11,7 +11,6 @@ import (
 	"log"
 	"fmt"
 	"consensus/model"
-	"middleware/statistics"
 )
 
 type ConsensusHandler struct {
@@ -130,17 +129,6 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			txHashes = append(txHashes, tx.Hash)
 		}
 		c.processor.OnMessageNewTransactions(txHashes)
-	case network.NewBlockMsg:
-		m, e := unMarshalConsensusBlockMessage(body)
-		if e != nil {
-			logger.Errorf("[handler]Discard ConsensusBlockMessage because of unmarshal error%s", e.Error())
-			return e
-		}
-		logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d", m.Block.Header.Hash, m.Block.Header.Height, m.Block.Header.TotalQN)
-		statistics.AddBlockLog(common.BootId, statistics.RcvNewBlock, m.Block.Header.Height, 0, len(m.Block.Transactions), -1,
-			time.Now().UnixNano(), "", "", common.InstanceIndex, m.Block.Header.CurTime.UnixNano())
-		c.processor.OnMessageBlock(m)
-		return nil
 	case network.CreateGroupaRaw:
 		m, e := unMarshalConsensusCreateGroupRawMessage(body)
 		if e != nil {

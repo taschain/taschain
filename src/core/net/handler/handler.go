@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"time"
+	"middleware/statistics"
 )
 
 type ChainHandler struct {
@@ -265,6 +266,9 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
+	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN)
+	statistics.AddBlockLog(common.BootId, statistics.RcvNewBlock, m.Header.Height, 0, len(m.Transactions), -1,
+		time.Now().UnixNano(), "", "", common.InstanceIndex, m.Header.CurTime.UnixNano())
 	core.BlockChainImpl.AddBlockOnChain(&m)
 }
 

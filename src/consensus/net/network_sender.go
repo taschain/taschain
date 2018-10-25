@@ -173,7 +173,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 //对外广播经过组签名的block 全网广播
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
 	timeFromCast := time.Since(cbm.Block.Header.CurTime)
-	body, e := marshalConsensusBlockMessage(cbm)
+	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
