@@ -277,5 +277,5 @@ func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	if traceHeader == nil {
 		return nil
 	}
-	return &types.BlockHeader{Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
+	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash:traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }
