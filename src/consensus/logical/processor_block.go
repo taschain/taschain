@@ -63,27 +63,27 @@ func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
 
-func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
-	b := msg.Block
-	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
-
-	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
-}
-
-func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
-	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
-		ret := make([]*model.ConsensusBlockMessage, len(vs))
-		for idx, m := range vs {
-			ret[idx] = m.(*model.ConsensusBlockMessage)
-		}
-		return ret
-	}
-	return nil
-}
-
-func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
-	p.futureBlockMsgs.remove(hash)
-}
+//func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
+//	b := msg.Block
+//	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
+//
+//	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
+//}
+//
+//func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
+//	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
+//		ret := make([]*model.ConsensusBlockMessage, len(vs))
+//		for idx, m := range vs {
+//			ret[idx] = m.(*model.ConsensusBlockMessage)
+//		}
+//		return ret
+//	}
+//	return nil
+//}
+//
+//func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
+//	p.futureBlockMsgs.remove(hash)
+//}
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//begin := time.Now()

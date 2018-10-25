@@ -49,7 +49,7 @@ type Processor struct {
 	GroupProcs map[string]*Processor
 	Ticker     *ticker.GlobalTicker //全局定时器, 组初始化完成后启动
 
-	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
+	//futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 
@@ -86,7 +86,7 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 //初始化矿工数据（和组无关）
 func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.ready = false
-	p.futureBlockMsgs = NewFutureMessageHolder()
+	//p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
 	p.futureRewardReqs = NewFutureMessageHolder()
 	p.MainChain = core.BlockChainImpl
