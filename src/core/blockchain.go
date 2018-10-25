@@ -310,35 +310,30 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return nil, -1
 	}
 
-	hasPreBlock, pre := chain.hasPreBlock(bh)
-	if !hasPreBlock {
+	if !chain.hasPreBlock(bh) {
 		if txs != nil {
 			chain.futureBlocks.Add(bh.PreHash, types.Block{Header: &bh, Transactions: txs})
 		}
 		return nil, 2
 	}
 
-	if !chain.validateGroupSig(&bh, pre) {
-		Logger.Debugf("Fail to validate group sig!")
-		return nil, -1
-	}
-
-	if miss, missingTx := chain.missTransaction(bh, txs); miss {
+	miss, missingTx, transactions := chain.missTransaction(bh, txs)
+	if miss {
 		return missingTx, 1
 	}
 
-	if !chain.validateTxRoot(bh.TxTree, txs) {
+	if !chain.validateTxRoot(bh.TxTree, transactions) {
 		return nil, -1
 	}
 	return nil, 0
 }
 
-func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) (bool, *types.BlockHeader) {
+func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 	pre := chain.GetTraceHeader(bh.PreHash.Bytes())
 	if pre == nil {
-		return false, nil
+		return false
 	}
-	return true, pre
+	return true
 }
 
 //铸块成功，上链
@@ -375,6 +370,11 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
+	}
+
+	if !chain.validateGroupSig(b.Header) {
+		Logger.Debugf("Fail to validate group sig!")
+		return -1
 	}
 	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(),
 		TotalQn: b.Header.TotalQN, Height: b.Header.Height, Random: b.Header.Random}

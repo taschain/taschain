@@ -233,10 +233,13 @@ func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
 	return chain.consensusHelper
 }
 
-func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash) {
+func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash, []*types.Transaction) {
 	var missing []common.Hash
+	var transactions []*types.Transaction
 	if nil == txs {
-		_, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+	}else {
+		transactions = txs
 	}
 
 	if 0 != len(missing) {
@@ -248,12 +251,13 @@ func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.
 		//向CASTOR索取交易
 		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
 		go RequestTransaction(*m, castorId.String())
-		return true, missing
+		return true, missing, transactions
 	}
-	return false, missing
+	return false, missing, transactions
 }
 
 func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []*types.Transaction) bool {
+	Logger.Errorf("validateTxRoot,tx len:%d", len(txs))
 	txTree := calcTxTree(txs)
 
 	if !bytes.Equal(txTree.Bytes(), txMerkleTreeRoot.Bytes()) {
@@ -263,10 +267,11 @@ func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 	return true
 }
 
-func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader, pre *types.BlockHeader) bool {
+func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 	if bh.Height == 0 {
 		return true
 	}
+	pre := chain.GetTraceHeader(bh.PreHash.Bytes())
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre)
 	if err != nil {
 		Logger.Errorf("validateGroupSig error:%s", err.Error())
@@ -280,5 +285,5 @@ func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	if traceHeader == nil {
 		return nil
 	}
-	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash:traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
+	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }
