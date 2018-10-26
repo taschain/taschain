@@ -21,17 +21,17 @@ type Group struct {
 }
 
 
-func (g Group) Len() int {
+func (g *Group) Len() int {
 	return len(g.members)
 }
 
 
-func (g Group) Less(i, j int) bool {
+func (g *Group) Less(i, j int) bool {
 	return g.members[i].GetHexString() < g.members[j].GetHexString()
 }
 
 
-func (g Group) Swap(i, j int) {
+func (g *Group) Swap(i, j int) {
 	g.members[i], g.members[j] = g.members[j], g.members[i]
 }
 
@@ -40,13 +40,26 @@ func newGroup(id string, members []NodeID) *Group {
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
 
 	Logger.Debugf("new group id：%v", id)
-	for i:= 0;i<len(g.members);i++ {
-		Logger.Debugf("before id：%v", g.members[i].GetHexString())
-	}
+	g.genConnectNodes()
+	return g
+}
+
+
+func (g* Group) rebuildGroup( members []NodeID) {
+
+	Logger.Debugf("rebuild group id：%v", g.id)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+	g.members = members
+	g.genConnectNodes()
+
+	go g.doRefresh()
+}
+
+func (g* Group) genConnectNodes() {
+
 	sort.Sort(g)
-	for i:= 0;i<len(g.members);i++ {
-		Logger.Debugf("after id：%v", g.members[i].GetHexString())
-	}
 
 	g.curIndex =0
 	for i:= 0;i<len(g.members);i++ {
@@ -55,8 +68,6 @@ func newGroup(id string, members []NodeID) *Group {
 			break
 		}
 	}
-	Logger.Debugf("curIndex：%v", g.curIndex)
-
 	connectCount := GroupBaseConnectNodeCount;
 	if connectCount >  len(g.members) -1 {
 		connectCount = len(g.members) -1
@@ -68,12 +79,14 @@ func newGroup(id string, members []NodeID) *Group {
 	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
 
 	peerSize := len(g.members)
-	maxCount := int(math.Sqrt(float64(peerSize)));
+	maxCount := int(math.Sqrt(float64(peerSize))/2);
 	maxCount -=  len(g.needConnectNodes)
 	step := 1
+
 	if maxCount > 0 {
 		step = len(g.members)/ maxCount
 	}
+
 	for i:=0;i<maxCount ;i++ {
 		nextIndex += step
 		if nextIndex >= len(g.members) {
@@ -82,18 +95,10 @@ func newGroup(id string, members []NodeID) *Group {
 		g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
 	}
 
-
-	//for i:= 0;i<len(g.members);i++ {
-	//	g.needConnectNodes = append(g.needConnectNodes,g.members[i])
-	//}
-
-	for i:= 0;i<len(g.needConnectNodes);i++ {
-		Logger.Debugf("needConnectNodes  id：%v", g.needConnectNodes[i].GetHexString())
-	}
-	return g
 }
 
-func (g Group) getNextIndex(index int) int {
+
+func (g *Group) getNextIndex(index int) int {
 	index = index +1
 	if index >= len(g.members) {
 		index=0
@@ -189,15 +194,20 @@ func newGroupManager() *GroupManager {
 	return gm
 }
 
-//AddGroup 添加组
-func (gm *GroupManager) addGroup(ID string, members []NodeID) *Group {
+//buildGroup 创建组，如果组已经存在，则重建组网络
+func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
 	Logger.Debugf("AddGroup node id:%v len:%v", ID, len(members))
 
-	g := newGroup(ID, members)
-	gm.groups[ID] = g
+	g,isExist := gm.groups[ID]
+	if !isExist {
+		g := newGroup(ID, members)
+		gm.groups[ID] = g
+	} else {
+		g.rebuildGroup(members)
+	}
 	go g.doRefresh()
 	return g
 }
