@@ -203,7 +203,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 
 	g,isExist := gm.groups[ID]
 	if !isExist {
-		g := newGroup(ID, members)
+		g = newGroup(ID, members)
 		gm.groups[ID] = g
 	} else {
 		g.rebuildGroup(members)
