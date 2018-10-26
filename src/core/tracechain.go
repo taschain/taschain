@@ -30,6 +30,7 @@ type TraceHeader struct {
 	Value   []byte
 	TotalQn uint64
 	Height  uint64
+	Random  []byte
 }
 
 func initTraceChain() error {

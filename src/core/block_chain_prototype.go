@@ -10,6 +10,9 @@ import (
 	"math"
 	"math/big"
 	"encoding/binary"
+	"utility"
+	"consensus/groupsig"
+	"bytes"
 )
 
 type prototypeChain struct {
@@ -37,14 +40,27 @@ type prototypeChain struct {
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
 
+	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
 	isAdujsting bool
 
-	consensusHelper	types.ConsensusHelper
+	consensusHelper types.ConsensusHelper
 
 	bonusManager *BonusManager
 
+	checkdb tasdb.Database
+}
+
+func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error {
+	key := utility.UInt64ToByte(height)
+	return chain.checkdb.Put(key, hash)
+}
+
+func (chain *prototypeChain) GetCheckValue(height uint64) (common.Hash, error) {
+	key := utility.UInt64ToByte(height)
+	raw, err := chain.checkdb.Get(key)
+	return common.BytesToHash(raw), err
 }
 
 func (chain *prototypeChain) IsLightMiner() bool {
@@ -134,7 +150,6 @@ func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache 
 	}
 }
 
-
 //根据哈希取得某个交易
 func (chain *prototypeChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
@@ -206,16 +221,68 @@ func generateHeightKey(height uint64) []byte {
 	return h
 }
 
-func (chain *prototypeChain) AddBonusTrasanction(transaction *types.Transaction){
+func (chain *prototypeChain) AddBonusTrasanction(transaction *types.Transaction) {
 	chain.GetTransactionPool().AddTransaction(transaction)
 }
 
-func (chain *prototypeChain) GetBonusManager() *BonusManager{
+func (chain *prototypeChain) GetBonusManager() *BonusManager {
 	return chain.bonusManager
 }
 
-
-
 func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
-    return chain.consensusHelper
+	return chain.consensusHelper
+}
+
+func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash, []*types.Transaction) {
+	var missing []common.Hash
+	var transactions []*types.Transaction
+	if nil == txs {
+		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+	} else {
+		transactions = txs
+	}
+
+	if 0 != len(missing) {
+		var castorId groupsig.ID
+		error := castorId.Deserialize(bh.Castor)
+		if error != nil {
+			panic("Groupsig id deserialize error:" + error.Error())
+		}
+		//向CASTOR索取交易
+		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
+		go RequestTransaction(*m, castorId.String())
+		return true, missing, transactions
+	}
+	return false, missing, transactions
+}
+
+func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []*types.Transaction) bool {
+	txTree := calcTxTree(txs)
+
+	if !bytes.Equal(txTree.Bytes(), txMerkleTreeRoot.Bytes()) {
+		Logger.Errorf("Fail to verify txTree, hash1:%s hash2:%s", txTree.Hex(), txMerkleTreeRoot.Hex())
+		return false
+	}
+	return true
+}
+
+func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
+	if chain.Height() == 0 {
+		return true
+	}
+	pre := chain.GetTraceHeader(bh.PreHash.Bytes())
+	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre)
+	if err != nil {
+		Logger.Errorf("validateGroupSig error:%s", err.Error())
+		return false
+	}
+	return result
+}
+
+func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
+	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
+	if traceHeader == nil {
+		return nil
+	}
+	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }

@@ -95,6 +95,8 @@ message BlockHeader{
      optional bytes ExtraData  = 16 ;
 
      optional bytes Random = 17;
+
+     optional bytes ProveRoot = 18;
 }
 
 message BlockBody{
@@ -334,6 +336,8 @@ message ConsensusBlockMessageBase{
     optional bytes	GroupID = 2;
 
     required SignData	Sign = 3;
+
+    repeated bytes  ProveHash = 4;
 }
 
 message ConsensusBlockMessage{

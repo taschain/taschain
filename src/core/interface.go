@@ -30,7 +30,7 @@ type BlockChain interface {
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, proveValue *big.Int, qn uint64, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -38,7 +38,7 @@ type BlockChain interface {
 	//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
 	//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
 	//返回缺失交易列表
-	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts)
+	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8)
 
 	//铸块成功，上链
 	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
@@ -98,6 +98,10 @@ type BlockChain interface {
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
 
 	GetConsensusHelper() types.ConsensusHelper
+
+	GetTraceHeader(hash []byte) *types.BlockHeader
+
+	GetCheckValue(height uint64) (common.Hash,error)
 }
 
 type TransactionPool interface {

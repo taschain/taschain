@@ -34,6 +34,16 @@ type ConsensusHelper interface {
 	//it needs to be equal to the blockheader's totalQN - preHeader's totalQN
 	CalculateQN(bh *BlockHeader) uint64
 
-	//generate verify hash of the block for current light node
+	//generate verify hash of the block for current node
 	VerifyHash(b *Block) common.Hash
+
+	//check the prove root hash for weight node when add block on chain
+	CheckProveRoot(bh *BlockHeader) (bool, error)
+
+	//check the new block
+	//mainly verify the cast legality, group signature
+	VerifyNewBlock(bh *BlockHeader, preBH *BlockHeader) (bool, error)
+
+	//verify the blockheader: mainly verify the group signature
+	VerifyBlockHeader(bh *BlockHeader) (bool, error)
 }

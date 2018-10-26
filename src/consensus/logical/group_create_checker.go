@@ -70,7 +70,7 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	if !gchecker.processor.IsMinerGroup(castGID) {
 		return
 	}
-	sgi = gchecker.processor.getGroup(castGID)
+	sgi = gchecker.processor.GetGroup(castGID)
 	if !sgi.CastQualified(topHeight) {
 		return
 	}

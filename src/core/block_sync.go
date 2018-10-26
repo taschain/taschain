@@ -65,8 +65,9 @@ func (bs *blockSyncer) IsInit() bool {
 }
 
 func (bs *blockSyncer) start() {
-	go bs.loop()
 	logger.Debug("[BlockSyncer]Wait for connecting...")
+	go bs.loop()
+
 	detectConnTicker := time.NewTicker(INIT_INTERVAL)
 	for {
 		<-detectConnTicker.C
@@ -90,7 +91,7 @@ func (bs *blockSyncer) Sync() {
 	bestNodeHeight := bs.bestNodeHeight
 	bs.lock.Unlock()
 
-	if maxTotalQN-localTotalQN <= 0 {
+	if maxTotalQN < localTotalQN {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -108,7 +109,7 @@ func (bs *blockSyncer) Sync() {
 			if bestNodeHeight > 11 {
 				height = bestNodeHeight - 10
 			}
-			RequestBlock(bestNodeId, height)
+			RequestBlock(bestNodeId, height+1)
 			return
 		}
 		RequestBlock(bestNodeId, localHeight+1)
@@ -121,7 +122,7 @@ func (bs *blockSyncer) loop() {
 	for {
 		select {
 		case h := <-bs.TotalQnCh:
-			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d", h.SourceId, h.TotalQn)
+			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", h.SourceId, h.TotalQn, h.Height)
 			if !bs.hasNeighbor {
 				bs.hasNeighbor = true
 			}
@@ -133,9 +134,8 @@ func (bs *blockSyncer) loop() {
 			}
 			bs.lock.Unlock()
 		case <-t.C:
-			if BlockChainImpl.TotalQN() >= 0 {
-				sendBlockTotalQnToNeighbor(BlockChainImpl.TotalQN(), BlockChainImpl.Height())
-			}
+			sendBlockTotalQnToNeighbor(BlockChainImpl.TotalQN(), BlockChainImpl.Height())
+
 			if !bs.init {
 				continue
 			}

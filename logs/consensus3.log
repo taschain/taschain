@@ -1,0 +1,3 @@
+2018-10-26 11:00:45.830  [Info]  [logger.go:49] ProcessorId:0xbbc0-07152e
+2018-10-26 11:00:46.810  [Info]  [logger.go:49] CASTBLOCK-begin,#0x0434-35d4f9#,0xbbc0-07152e,height=1,qn=4, preHash=0x1a1d-c493f7
+2018-10-26 11:00:46.810  [Info]  [logger.go:49] CASTBLOCK,#0x0434-35d4f9#,0xbbc0-07152e,铸块成功, SendVerifiedCast, 时间间隔 1.1581246809853936e+07, castor=0xbbc0-07152e

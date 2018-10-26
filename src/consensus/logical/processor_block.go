@@ -63,27 +63,27 @@ func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
 
-func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
-	b := msg.Block
-	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
-
-	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
-}
-
-func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
-	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
-		ret := make([]*model.ConsensusBlockMessage, len(vs))
-		for idx, m := range vs {
-			ret[idx] = m.(*model.ConsensusBlockMessage)
-		}
-		return ret
-	}
-	return nil
-}
-
-func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
-	p.futureBlockMsgs.remove(hash)
-}
+//func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
+//	b := msg.Block
+//	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
+//
+//	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
+//}
+//
+//func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
+//	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
+//		ret := make([]*model.ConsensusBlockMessage, len(vs))
+//		for idx, m := range vs {
+//			ret[idx] = m.(*model.ConsensusBlockMessage)
+//		}
+//		return ret
+//	}
+//	return nil
+//}
+//
+//func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
+//	p.futureBlockMsgs.remove(hash)
+//}
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//begin := time.Now()
@@ -121,7 +121,7 @@ func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-    b := p.MainChain.QueryBlockHeaderByHash(hash)
+	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
 
@@ -172,7 +172,88 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 }
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
-	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
+	lostTransHash, ret := core.BlockChainImpl.VerifyBlock(*bh)
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
+}
+
+func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
+    for  {
+    	bh := p.MainChain.QueryBlockByHeight(h)
+		if bh != nil {
+			return p.MainChain.QueryBlockByHash(bh.Hash)
+		}
+		if h == 0 {
+			panic("cannot find block of height 0")
+		}
+		h--
+	}
+}
+
+func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
+	for  {
+		hash, err := p.MainChain.GetCheckValue(h)
+		if err == nil {
+			return h, hash
+		}
+		if h == 0 {
+			panic("cannot find verifyHash of height 0")
+		}
+		h--
+	}
+}
+
+func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {
+	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
+	defer func() {
+		tlog.log("preHash=%v, height=%v, result=%v %v", bh.PreHash.ShortS(), bh.Height, ok, err)
+		newBizLog("VerifyBlock").log("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
+	}()
+	if bh.Hash != bh.GenHash() {
+		err = fmt.Errorf("block hash error")
+		return
+	}
+	if preBH.Hash != bh.PreHash {
+		err = fmt.Errorf("preHash error")
+		return
+	}
+
+	if ok2, group, err2 := p.isCastLegal(bh, preBH); !ok2 {
+		err = err2
+		return
+	} else {
+		gpk := group.GroupPK
+		sig := groupsig.DeserializeSign(bh.Signature)
+		b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
+		if !b {
+			err = fmt.Errorf("signature verify fail")
+			return
+		}
+		rsig := groupsig.DeserializeSign(bh.Random)
+		b = groupsig.VerifySig(gpk, preBH.Random, *rsig)
+		if !b {
+			err = fmt.Errorf("random verify fail")
+			return
+		}
+	}
+	ok = true
+	return
+}
+
+func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error) {
+	if bh.Hash != bh.GenHash() {
+		err = fmt.Errorf("block hash error")
+		return
+	}
+
+	gid := groupsig.DeserializeId(bh.GroupId)
+	gpk := p.getGroupPubKey(gid)
+	sig := groupsig.DeserializeSign(bh.Signature)
+	b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
+	if !b {
+		err = fmt.Errorf("signature verify fail")
+		return
+	}
+	ok = true
+	return
 }

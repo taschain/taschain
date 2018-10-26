@@ -191,7 +191,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	// 检查交易是否已经存在
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
-		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		//Logger.Debugf("Discarding already known transaction,hash:%s", hash.Hex())
 		return false, ErrExist
 	}
 
@@ -220,7 +220,7 @@ func (pool *TxPool) CheckAndSend(immediately bool){
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
 		pool.sendingTxLock.Unlock()
-		Logger.Debugf("Broadcast txs,len:%d", len(txs))
+		//Logger.Debugf("Broadcast txs,len:%d", len(txs))
 		go BroadcastTransactions(txs)
 	}
 }

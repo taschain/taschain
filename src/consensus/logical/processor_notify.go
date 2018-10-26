@@ -41,20 +41,20 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	}
 }
 
-func (p *Processor) triggerFutureBlockMsg(preBH *types.BlockHeader) {
-	futureMsgs := p.getFutureBlockMsgs(preBH.Hash)
-	if futureMsgs == nil || len(futureMsgs) == 0 {
-		return
-	}
-	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
-	for _, msg := range futureMsgs {
-		tbh := msg.Block.Header
-		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
-		tlog.log("%v", "trigger cached future block")
-		p.receiveBlock(&msg.Block, preBH)
-	}
-	p.removeFutureBlockMsgs(preBH.Hash)
-}
+//func (p *Processor) triggerFutureBlockMsg(preBH *types.BlockHeader) {
+//	futureMsgs := p.getFutureBlockMsgs(preBH.Hash)
+//	if futureMsgs == nil || len(futureMsgs) == 0 {
+//		return
+//	}
+//	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
+//	for _, msg := range futureMsgs {
+//		tbh := msg.Block.Header
+//		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+//		tlog.log( "%v", "trigger cached future block")
+//		p.receiveBlock(&msg.Block, preBH)
+//	}
+//	p.removeFutureBlockMsgs(preBH.Hash)
+//}
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
@@ -62,6 +62,9 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	}
 	block := message.GetData().(types.Block)
 	bh := block.Header
+
+	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")
+	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
 	gid := groupsig.DeserializeId(bh.GroupId)
 	if p.IsMinerGroup(gid) {
@@ -83,7 +86,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	}
 	//p.triggerCastCheck()
 
-	p.triggerFutureBlockMsg(bh)
+	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh.Hash)
 	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()

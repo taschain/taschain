@@ -189,12 +189,8 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, BlockChainTotalQnMsg,
-		ReqGroupChainCountMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg, BlockHashesReq, BlockHashes:
+	case ReqTransactionMsg, BlockChainTotalQnMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
 		n.chainHandler.Handle(from, *message)
-	case NewBlockMsg:
-		Logger.Debugf("Receive NewBlockMsg from %s", from)
-		n.consensusHandler.Handle(from, *message)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
 		if error != nil {
@@ -202,32 +198,28 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		n.consensusHandler.Handle(from, *message)
 	case NewBlockHeaderMsg:
-		//Logger.Debugf("Receive NewBlockHeaderMsg from %s", from)
 		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)
 	case BlockBodyReqMsg:
-		//Logger.Debugf("Receive BlockBodyReqMsg from %s", from)
 		msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBodyReq, &msg)
 	case BlockBodyMsg:
-		//Logger.Debugf("Receive BlockBodyMsg from %s", from)
 		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockBody, &msg)
 	case ReqStateInfoMsg:
 		msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.StateInfoReq, &msg)
 	case StateInfoMsg:
-		msg := notify.StateInfoMessage{StateInfoByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.StateInfo,&msg)
+		msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.StateInfo, &msg)
 	case ReqBlock:
-		msg := notify.BlockReqMessage{HeightByte:message.Body,Peer:from}
-		notify.BUS.Publish(notify.BlockReq,&msg)
-	case BlockMsg:
-		block,e := types.UnMarshalBlock(message.Body)
-		if e != nil{
+		msg := notify.BlockReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockReq, &msg)
+	case BlockMsg, NewBlockMsg:
+		block, e := types.UnMarshalBlock(message.Body)
+		if e != nil {
 			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
 		}
-		Logger.Debugf("Receive BlockMsg from %s,hash:%v,height:%d,totalQn:%d", from,block.Header.Hash.String(),block.Header.Height,block.Header.TotalQN)
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
 	}

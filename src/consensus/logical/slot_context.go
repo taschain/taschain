@@ -36,14 +36,14 @@ import (
 
 const (
 	SS_INITING     int32 = iota
-	SS_WAITING           //等待签名片段达到阈值
-	SS_SIGNED            //自己是否签名过
-	SS_RECOVERD          //恢复出组签名
-	SS_VERIFIED          //组签名用组公钥验证通过
-	SS_SUCCESS           //已上链广播
-	SS_FAILED            //铸块过程中失败，不可逆
-	SS_REWARD_REQ        //分红交易签名请求已发
-	SS_REWARD_SEND       //分红交易已广播
+	SS_WAITING      //等待签名片段达到阈值
+	SS_SIGNED       //自己是否签名过
+	SS_RECOVERD     //恢复出组签名
+	SS_VERIFIED     //组签名用组公钥验证通过
+	SS_SUCCESS      //已上链广播
+	SS_FAILED       //铸块过程中失败，不可逆
+	SS_REWARD_REQ   //分红交易签名请求已发
+	SS_REWARD_SEND  //分红交易已广播
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
@@ -79,13 +79,12 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 
 func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 	log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-
-	lostTxs, ccr, _, _ := core.BlockChainImpl.VerifyBlock(*bh)
+	lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
 	lostTxsStrings := make([]string, len(lostTxs))
 	for idx, tx := range lostTxs {
 		lostTxsStrings[idx] = tx.ShortS()
 	}
-	log.Printf("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n",  bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
+	log.Printf("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
 	sc.addLostTrans(lostTxs)
 	if ccr == -1 {
 		sc.setSlotStatus(SS_FAILED)
@@ -185,7 +184,7 @@ func (sc *SlotContext) IsSuccess() bool {
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
 func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
-	if si.DataHash != sc.BH.Hash {
+	if bh.Hash != sc.BH.Hash {
 		return CBMR_BH_HASH_DIFF
 	}
 

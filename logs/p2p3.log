@@ -1,0 +1,47 @@
+2018-10-26 11:00:45.826  [Debug]  [logger.go:45] kad id: 0xbbc0fbd4f77c046fc4dae0ee1770dd2dc5c80bc8c037c31c7739ee6ef607152e 
+2018-10-26 11:00:45.826  [Debug]  [logger.go:45] P2PConfig: 11477977905242822347 
+2018-10-26 11:00:45.829  [Debug]  [logger.go:45] P2PListen: 10.0.0.129 22570
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45]  [kad] print bucket size: 1
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45]  [kad] print bucket:13 id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307  addr: IP:10.0.0.129    Port:1122
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45] ping node, id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307, ip:10.0.0.129, port:1122
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 119
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45] P2PConnect[direct]: id: 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 ip: 10.0.0.129 port:1122 
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 82
+2018-10-26 11:00:45.830  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] AddGroup node id:0x47f87aa461a280de0b9c17a9b82b7aa9a56963844bd87cc97496afe2052dea13 len:3
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] new group id：0x47f87aa461a280de0b9c17a9b82b7aa9a56963844bd87cc97496afe2052dea13
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] before id：0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] before id：0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] before id：0xbbc0fbd4f77c046fc4dae0ee1770dd2dc5c80bc8c037c31c7739ee6ef607152e
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] after id：0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] after id：0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] after id：0xbbc0fbd4f77c046fc4dae0ee1770dd2dc5c80bc8c037c31c7739ee6ef607152e
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] curIndex：2
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] needConnectNodes  id：0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] needConnectNodes  id：0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] Group doRefresh node can not find in KAD ,resolve ....  id：0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7 
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] ping node, id:0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7, ip:<nil>, port:0
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] write Id:0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7 netid:314984976554975680 session:0 size 111
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 82
+2018-10-26 11:00:45.954  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:46.332  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 82
+2018-10-26 11:00:46.332  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:46.811  [Debug]  [logger.go:45] GroupBroadcastWithMembers: group id:0x47f87aa461a280de0b9c17a9b82b7aa9a56963844bd87cc97496afe2052dea13
+2018-10-26 11:00:46.811  [Debug]  [logger.go:45] encodeDataPacket  DataType:DataGroup messageId:D2F3682B00000001 ,BizMessageId:[4 52 172 1 65 100 64 199 223 207 40 168 135 76 155 199 164 129 151 91 35 99 63 244 171 242 74 241 82 53 212 249] ,RelayCount:-1 
+2018-10-26 11:00:46.811  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 824
+2018-10-26 11:00:46.811  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:46.811  [Debug]  [logger.go:45] write Id:0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7 netid:314984976554975680 session:0 size 824
+2018-10-26 11:00:46.834  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 82
+2018-10-26 11:00:46.834  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:47.336  [Debug]  [logger.go:45] write Id:0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 netid:4136021633077383196 session:0 size 82
+2018-10-26 11:00:47.336  [Debug]  [logger.go:45] write  error : 0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307 
+2018-10-26 11:00:47.816  [Debug]  [logger.go:45] SendAll len: 45
+2018-10-26 11:00:47.816  [Debug]  [logger.go:45] encodeDataPacket  DataType:DataNormal messageId:D2F3682B00000002 ,BizMessageId:[] ,RelayCount:-1 
+2018-10-26 11:00:47.816  [Debug]  [logger.go:45] SendAll total peer size:2
+2018-10-26 11:00:48.845  [Debug]  [logger.go:45] OnDisconnected id：0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307  session:2022263494 ip:10.0.0.129 port:1122 
+2018-10-26 11:00:48.959  [Debug]  [logger.go:45] SendAll len: 8
+2018-10-26 11:00:48.959  [Debug]  [logger.go:45] encodeDataPacket  DataType:DataNormal messageId:D2F3682B00000003 ,BizMessageId:[] ,RelayCount:-1 
+2018-10-26 11:00:48.959  [Debug]  [logger.go:45] SendAll total peer size:2
+2018-10-26 11:00:48.960  [Debug]  [logger.go:45] SendAll len: 12
+2018-10-26 11:00:48.960  [Debug]  [logger.go:45] encodeDataPacket  DataType:DataNormal messageId:D2F3682B00000004 ,BizMessageId:[] ,RelayCount:-1 
+2018-10-26 11:00:48.960  [Debug]  [logger.go:45] SendAll total peer size:2

@@ -173,7 +173,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 //对外广播经过组签名的block 全网广播
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
 	timeFromCast := time.Since(cbm.Block.Header.CurTime)
-	body, e := marshalConsensusBlockMessage(cbm)
+	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
@@ -195,8 +195,10 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
-	go ns.net.Relay(headerMsg, 1)
+	if !core.BlockChainImpl.IsLightMiner() {
+		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
+		go ns.net.TransmitToNeighbor(headerMsg)
+	}
 	core.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
 	statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
 		time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
@@ -300,22 +302,26 @@ func marshalConsensusGroupInitedMessage(m *model.ConsensusGroupInitedMessage) ([
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 
-func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
+func consensusBlockMessageBase2Pb(m *model.ConsensusBlockMessageBase) ([]byte, error) {
 	bh := types.BlockHeaderToPb(&m.BH)
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
+	hashs := make([][]byte, len(m.ProveHash))
+	for i, h := range m.ProveHash {
+		hashs[i] = h.Bytes()
+	}
+
+	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si, ProveHash: hashs}
 	return proto.Marshal(&message)
 }
 
-func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
-	bh := types.BlockHeaderToPb(&m.BH)
-	//groupId := m.GroupID.Serialize()
-	si := signDataToPb(&m.SI)
+func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
+	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
+}
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si}
-	return proto.Marshal(&message)
+func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
+	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
 }
 
 func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error) {
