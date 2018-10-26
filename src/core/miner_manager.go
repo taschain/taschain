@@ -9,6 +9,8 @@ import (
 	"storage/trie"
 	"sync"
 	"errors"
+	"network"
+	"consensus/groupsig"
 )
 
 var emptyValue [0]byte
@@ -58,6 +60,8 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	} else {
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
+		gid := groupsig.DeserializeId(id)
+		network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, []string{gid.String()})
 		return 1
 	}
 }
