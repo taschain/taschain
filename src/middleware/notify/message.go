@@ -104,3 +104,43 @@ func (m *BlockReqMessage) GetRaw() []byte {
 func (m *BlockReqMessage) GetData() interface{} {
 	return m
 }
+
+type TotalQnMessage struct {
+	BlockHeaderByte []byte
+
+	Peer string
+}
+
+func (m *TotalQnMessage) GetRaw() []byte {
+	return m.BlockHeaderByte
+}
+
+func (m *TotalQnMessage) GetData() interface{} {
+	return m
+}
+
+type ChainPieceReqMessage struct {
+	HeightByte []byte
+
+	Peer string
+}
+
+func (m *ChainPieceReqMessage) GetRaw() []byte {
+	return nil
+}
+func (m *ChainPieceReqMessage) GetData() interface{} {
+	return m
+}
+
+type ChainPieceMessage struct {
+	ChainPieceByte []byte
+
+	Peer string
+}
+
+func (m *ChainPieceMessage) GetRaw() []byte {
+	return nil
+}
+func (m *ChainPieceMessage) GetData() interface{} {
+	return m
+}

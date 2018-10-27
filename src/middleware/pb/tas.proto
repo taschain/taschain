@@ -59,6 +59,9 @@ message TransactionSlice{
     repeated Transaction transactions = 1;
 }
 
+message ChainPiece{
+    repeated BlockHeader BlockHeaders = 1;
+}
 
 message BlockHeader{
 

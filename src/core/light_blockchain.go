@@ -128,7 +128,6 @@ func initLightChain(helper types.ConsensusHelper) error {
 	chain.stateCache = core.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
-	initTraceChain()
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -212,7 +211,7 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 }
 
 func (chain *LightChain) hasPreBlock(bh types.BlockHeader) (bool, *types.BlockHeader) {
-	preBlock := chain.GetTraceHeader(bh.PreHash.Bytes())
+	preBlock := chain.queryBlockHeaderByHash(bh.PreHash)
 
 	var isEmpty bool
 	if chain.Height() == 0 {
@@ -300,8 +299,6 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	//	Logger.Debugf("Fail to validate group sig!")
 	//	return -1
 	//}
-	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
-	TraceChainImpl.AddTrace(trace)
 
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
@@ -320,7 +317,15 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		return 1
 
 	}
-	return chain.processFork(topBlock, b)
+	//var castorId groupsig.ID
+	//error := castorId.Deserialize(b.Header.Castor)
+	//if error != nil {
+	//	log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
+	//	return -1
+	//}
+	//BlockChainImpl.SetAdujsting(true)
+	//RequestChainPiece(castorId.String(), b.Header.Height)
+	return 2
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -370,33 +375,6 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *core.Acc
 
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{state: state, receipts: receipts,})
 	return true, state, receipts
-}
-
-func (chain *LightChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block) int8 {
-	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
-	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
-	if err == ErrMissingTrace {
-		//分叉分支缺结点
-		panic("Local trace chain miss block!!")
-	}
-
-	if replace {
-		if remoteBlock.Header.PreHash == commonAncestor.Hash {
-			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex())
-			chain.Remove(chain.latestBlock)
-			result, _ := chain.insertBlock(remoteBlock)
-			return result
-		}
-
-		for i := commonAncestor.Height; i <= chain.Height(); i++ {
-			header := chain.queryBlockHeaderByHeight(i, true)
-			chain.Remove(header)
-		}
-		chain.isAdujsting = true
-		BlockSyncer.Sync()
-		return 2
-	}
-	return 1
 }
 
 func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {

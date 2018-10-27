@@ -13,7 +13,10 @@ import (
 	"utility"
 	"consensus/groupsig"
 	"bytes"
+	"time"
 )
+
+const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
 
 type prototypeChain struct {
 	isLightMiner bool
@@ -185,8 +188,17 @@ func (chain *prototypeChain) IsAdujsting() bool {
 }
 
 func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
-	Logger.Debugf("aaaaaaaaa SetAdujsting %v, topHash=%v, height=%v", isAjusting, chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
+	Logger.Debugf("SetAdujsting %v, topHash=%v, height=%v", isAjusting, chain.latestBlock.Hash.Hex(), chain.latestBlock.Height)
 	chain.isAdujsting = isAjusting
+	if isAjusting == true {
+		go func() {
+			t := time.NewTimer(BLOCK_CHAIN_ADJUST_TIME_OUT)
+
+			<-t.C
+			Logger.Debugf("[BlockChain]Local block adjusting time up.change the state!")
+			chain.isAdujsting = false
+		}()
+	}
 }
 
 func (chain *prototypeChain) Close() {
@@ -270,8 +282,11 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 	if chain.Height() == 0 {
 		return true
 	}
-	pre := chain.GetTraceHeader(bh.PreHash.Bytes())
-	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre)
+	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
+	if pre == nil {
+		panic("Pre should not be nil")
+	}
+	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
 	if err != nil {
 		Logger.Errorf("validateGroupSig error:%s", err.Error())
 		return false
@@ -285,4 +300,102 @@ func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 		return nil
 	}
 	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
+}
+
+func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.BlockHeader) {
+	if !chain.verifyChainPiece(chainPiece) {
+		return
+	}
+	commonAncestor, hasCommonAncestor, _ := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
+	if hasCommonAncestor {
+		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
+		//删除自身链的结点
+		for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
+			header := chain.queryBlockHeaderByHeight(height, true)
+			if header == nil {
+				continue
+			}
+			BlockChainImpl.Remove(header)
+			chain.topBlocks.Remove(header.Height)
+			Logger.Debugf("Remove local chain headers %d", header.Height)
+		}
+		for h := commonAncestor.Height; h >= 0; h-- {
+			header := chain.queryBlockHeaderByHeight(h, true)
+			if header != nil {
+				chain.latestBlock = header
+				break
+			}
+		}
+		RequestBlock(id, commonAncestor.Height+1)
+	} else {
+		//chain.SetLastBlockHash(bhs[0])
+		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
+		RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height-1)
+	}
+}
+
+func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader) bool {
+	//todo
+	return true
+}
+
+func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader, l int, r int) (*types.BlockHeader, bool, int) {
+
+	if l > r || r < 0 || l >= len(chainPiece) {
+		return nil, false, -1
+	}
+	m := (l + r) / 2
+	result := chain.isCommonAncestor(chainPiece, m)
+	if result == 0 {
+		return chainPiece[m], true, m
+	}
+
+	if result == 1 {
+		return chain.findCommonAncestor(chainPiece, l, m-1)
+	}
+
+	if result == -1 {
+		return chain.findCommonAncestor(chainPiece, m+1, r)
+	}
+	return nil, false, -1
+}
+
+//bhs 中没有空值
+//返回值
+// 0  当前HASH相等，后面一块HASH不相等 是共同祖先
+//1   当前HASH相等，后面一块HASH相等
+//-1  当前HASH不相等
+//-100 参数不合法
+func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, index int) int {
+	if index < 0 || index >= len(chainPiece) {
+		return -100
+	}
+	he := chainPiece[index]
+
+	bh := chain.queryBlockHeaderByHeight(he.Height, true)
+	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	if index == 0 && bh.Hash == he.Hash {
+		return 0
+	}
+	if index == 0 {
+		return -1
+	}
+	//判断链更后面的一块
+	afterHe := chainPiece[index-1]
+	afterbh := chain.queryBlockHeaderByHeight(afterHe.Height, true)
+	if afterbh == nil {
+		Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
+		if afterHe != nil && bh.Hash == he.Hash {
+			return 0
+		}
+		return -1
+	}
+	Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
+		return 0
+	}
+	if afterHe.Hash == afterbh.Hash && bh.Hash == he.Hash {
+		return 1
+	}
+	return -1
 }

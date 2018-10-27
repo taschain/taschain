@@ -189,7 +189,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, BlockChainTotalQnMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
+	case ReqTransactionMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
 		n.chainHandler.Handle(from, *message)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
@@ -197,6 +197,9 @@ func (n *server) handleMessageInner(message *Message, from string) {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case BlockChainTotalQnMsg:
+		msg := notify.TotalQnMessage{BlockHeaderByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockChainTotalQn, &msg)
 	case NewBlockHeaderMsg:
 		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)
@@ -222,6 +225,12 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
+	case ChainPieceReq:
+		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceReq, &msg)
+	case ChainPiece:
+		msg := notify.ChainPieceMessage{ChainPieceByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPiece, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {

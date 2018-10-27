@@ -169,7 +169,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
-	initTraceChain()
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
@@ -189,9 +188,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 			_, headerJson := chain.saveBlock(block)
-			trace := &TraceHeader{Hash: block.Header.Hash, Value: block.Header.ProveValue.Bytes(),
-				TotalQn: block.Header.TotalQN, Height: block.Header.Height, Random: block.Header.Random}
-			TraceChainImpl.AddTrace(trace)
 			chain.updateLastBlock(state, block.Header, headerJson)
 			verifyHash := chain.consensusHelper.VerifyHash(block)
 			chain.PutCheckValue(0, verifyHash.Bytes())
@@ -329,7 +325,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 }
 
 func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
-	pre := chain.GetTraceHeader(bh.PreHash.Bytes())
+	pre := chain.queryBlockHeaderByHash(bh.PreHash)
 	if pre == nil {
 		return false
 	}
@@ -376,9 +372,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		Logger.Debugf("Fail to validate group sig!")
 		return -1
 	}
-	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(),
-		TotalQn: b.Header.TotalQN, Height: b.Header.Height, Random: b.Header.Random}
-	TraceChainImpl.AddTrace(trace)
 
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
@@ -391,7 +384,17 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
 	}
-	return chain.processFork(topBlock, b)
+
+	//var castorId groupsig.ID
+	//error := castorId.Deserialize(b.Header.Castor)
+	//if error != nil {
+	//	log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
+	//	return -1
+	//}
+	//BlockChainImpl.SetAdujsting(true)
+	//RequestChainPiece(castorId.String(), b.Header.Height)
+	//return 2
+	panic("Should not be here!")
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -445,37 +448,6 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *core
 
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{state: state, receipts: receipts,})
 	return true, state, receipts
-}
-
-func (chain *FullBlockChain) processFork(localTopBlock *types.BlockHeader, remoteBlock *types.Block) int8 {
-	replace, commonAncestor, err := TraceChainImpl.FindCommonAncestor(localTopBlock.Hash.Bytes(), remoteBlock.Header.Hash.Bytes())
-	Logger.Debugf("TraceChain height=%d, hash=%v, replace=%t, err=%v", remoteBlock.Header.Height, commonAncestor.Hash.Hex(), replace, err)
-	if err == ErrMissingTrace {
-		//分叉分支缺结点
-		panic("Local trace chain miss block!!")
-	}
-
-	if remoteBlock.Header.TotalQN > localTopBlock.TotalQN || replace {
-		if remoteBlock.Header.PreHash == commonAncestor.Hash {
-			Logger.Debugf("TraceChain Hash:%s Replace Latest:%s height=%d", remoteBlock.Header.Hash.Hex(), chain.latestBlock.Hash.Hex(), remoteBlock.Header.Height)
-			chain.Remove(chain.latestBlock)
-			result, _ := chain.insertBlock(remoteBlock)
-			return result
-		}
-
-		for i := commonAncestor.Height + 1; i <= chain.Height(); i++ {
-			header := chain.queryBlockHeaderByHeight(i, true)
-			if header != nil {
-				chain.Remove(header)
-			}
-		}
-		Logger.Debugf("processFork trigger by height=%d hash=%s, remove from height=%d to height=%d", remoteBlock.Header.Height,
-			remoteBlock.Header.Hash.Hex(), commonAncestor.Height+1, chain.Height())
-		chain.isAdujsting = true
-		BlockSyncer.Sync()
-		return 2
-	}
-	return 1
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
