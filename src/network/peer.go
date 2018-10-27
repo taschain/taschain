@@ -182,7 +182,6 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 
 	for e := p.sendList.Front(); e != nil; e = e.Next() {
 		buf := e.Value.(*bytes.Buffer)
-		//P2PSend(p.seesionId, buf.Bytes())
 		p.write(buf)
 	}
 	p.sendList = list.New()
@@ -234,12 +233,12 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	Logger.Debugf("SendAll total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		//if p.seesionId > 0 && p.source == PeerSourceKad {
-		//	p.write(packet)
-		//}
-		if p.seesionId > 0 {
+		if p.seesionId > 0 && p.source == PeerSourceKad {
 			p.write(packet)
 		}
+		//if p.seesionId > 0 {
+		//	p.write(packet)
+		//}
 	}
 
 	return

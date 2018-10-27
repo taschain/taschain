@@ -138,7 +138,7 @@ func (n *server) BuildGroupNet(groupId string, members []string) {
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	n.netCore.groupManager.addGroup(groupId, nodes)
+	n.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
 func (n *server) DissolveGroupNet(groupId string) {
@@ -150,7 +150,7 @@ func (n *server) AddGroup(groupId string, members []string) *Group {
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	return n.netCore.groupManager.addGroup(groupId, nodes)
+	return n.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
