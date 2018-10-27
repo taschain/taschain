@@ -11,6 +11,7 @@ import (
 	"errors"
 	"network"
 	"consensus/groupsig"
+	"time"
 )
 
 var emptyValue [0]byte
@@ -19,7 +20,11 @@ type MinerManager struct {
 	blockchain BlockChain
 	cache      *lru.Cache
 	lock       sync.Mutex
+	heavyupdate bool
+	heavytrigger *time.Timer
 }
+
+const heavyTriggerDuration  = time.Second * 10
 
 type MinerIterator struct {
 	iter  *trie.Iterator
@@ -30,8 +35,27 @@ var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
 	cache, _ := lru.New(500)
-	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain}
+	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate:true, heavytrigger:time.NewTimer(heavyTriggerDuration)}
+	go MinerManagerImpl.loop()
 	return nil
+}
+
+func (mm *MinerManager) loop(){
+	for{
+		<-mm.heavytrigger.C
+		if mm.heavyupdate{
+			iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
+			array := make([]string,0)
+			for iter.Next() {
+				miner, _ := iter.Current()
+				gid := groupsig.DeserializeId(miner.Id)
+				array = append(array, gid.String())
+			}
+			network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
+			mm.heavyupdate = false
+		}
+		mm.heavytrigger.Reset(heavyTriggerDuration)
+	}
 }
 
 func (mm *MinerManager) getMinerDatabase(ttype byte) (common.Address) {
@@ -60,8 +84,9 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	} else {
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
-		gid := groupsig.DeserializeId(id)
-		network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, []string{gid.String()})
+		if miner.Type == types.MinerTypeHeavy{
+			mm.heavyupdate = true
+		}
 		return 1
 	}
 }
@@ -117,6 +142,7 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte, accountdb vm.AccountD
 	Logger.Debugf("MinerManager RemoveMiner %d", ttype)
 	if ttype == types.MinerTypeHeavy {
 		mm.cache.Remove(string(id))
+		mm.heavyupdate = true
 	}
 	db := mm.getMinerDatabase(ttype)
 	accountdb.SetData(db, string(id), emptyValue[:])
