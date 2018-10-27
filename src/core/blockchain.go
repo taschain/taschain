@@ -385,6 +385,21 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		return 1
 	}
 
+	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
+	if b.Header.TotalQN > topBlock.TotalQN {
+		//删除自身链的结点
+		chain.removeFromCommonAncestor(commonAncestor)
+		return chain.addBlockOnChain(b)
+	}
+
+	if b.Header.TotalQN == topBlock.TotalQN {
+		if chain.compareValue(commonAncestor, b.Header) {
+			return 1
+		}
+		chain.removeFromCommonAncestor(commonAncestor)
+		return chain.addBlockOnChain(b)
+	}
+
 	//var castorId groupsig.ID
 	//error := castorId.Deserialize(b.Header.Castor)
 	//if error != nil {

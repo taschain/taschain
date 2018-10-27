@@ -277,7 +277,7 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 			i++
 		}
 	}
-	core.SendChainPiece(id, chainPiece)
+	core.SendChainPiece(id, core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: core.BlockChainImpl.QueryTopBlock()})
 }
 
 func (ch ChainHandler) chainPieceHandler(msg notify.Message) {
@@ -286,12 +286,12 @@ func (ch ChainHandler) chainPieceHandler(msg notify.Message) {
 		return
 	}
 
-	chainPiece, err := unMarshalChainPiece(chainPieceMessage.ChainPieceByte)
+	chainPieceInfo, err := unMarshalChainPieceInfo(chainPieceMessage.ChainPieceInfoByte)
 	if err != nil {
 		core.Logger.Errorf("[handler]unMarshalChainPiece error:%s", err.Error())
 		return
 	}
-	core.BlockChainImpl.ProcessChainPiece(chainPieceMessage.Peer, chainPiece)
+	core.BlockChainImpl.ProcessChainPiece(chainPieceMessage.Peer, chainPieceInfo.ChainPiece, chainPieceInfo.TopHeader)
 
 }
 
@@ -455,11 +455,11 @@ func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
 	return stateInfo, nil
 }
 
-func unMarshalChainPiece(b []byte) ([]*types.BlockHeader, error) {
-	message := new(tas_middleware_pb.ChainPiece)
+func unMarshalChainPieceInfo(b []byte) (*core.ChainPieceInfo, error) {
+	message := new(tas_middleware_pb.ChainPieceInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalChainPiece error:%s", e.Error())
+		core.Logger.Errorf("[handler]unMarshalChainPieceInfo error:%s", e.Error())
 		return nil, e
 	}
 
@@ -468,7 +468,9 @@ func unMarshalChainPiece(b []byte) ([]*types.BlockHeader, error) {
 		h := types.PbToBlockHeader(header)
 		chainPiece = append(chainPiece, h)
 	}
-	return chainPiece, nil
+	topHeader := types.PbToBlockHeader(message.TopHeader)
+	chainPieceInfo := core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: topHeader}
+	return &chainPieceInfo, nil
 }
 
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {

@@ -47,6 +47,10 @@ type StateInfo struct {
 	PreBlockSateRoot common.Hash
 }
 
+type ChainPieceInfo struct {
+	ChainPiece []*types.BlockHeader
+	TopHeader  *types.BlockHeader
+}
 
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
@@ -95,7 +99,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 }
 
 //向某一节点请求Block信息
-func RequestBlock(id string,height uint64) {
+func RequestBlock(id string, height uint64) {
 	Logger.Debugf("Req block to:%s,height:%d", id, height)
 	body := utility.UInt64ToByte(height)
 	message := network.Message{Code: network.ReqBlock, Body: body}
@@ -160,17 +164,18 @@ func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.Sta
 
 func RequestChainPiece(targetNode string, height uint64) {
 	Logger.Debugf("Req chain piece to:%s,lcoal height:%d", targetNode, height)
-	body:= utility.UInt64ToByte(height)
+	body := utility.UInt64ToByte(height)
 	message := network.Message{Code: network.ChainPieceReq, Body: body}
 	network.GetNetInstance().Send(targetNode, message)
 }
 
-func SendChainPiece(targetNode string, chainPiece []*types.BlockHeader){
-	if len(chainPiece) == 0{
+func SendChainPiece(targetNode string, chainPieceInfo ChainPieceInfo) {
+	chainPiece := chainPieceInfo.ChainPiece
+	if len(chainPiece) == 0 {
 		return
 	}
-	Logger.Debugf("Send chain piece %d-%d to:%s",chainPiece[len(chainPiece)-1],chainPiece[0],targetNode)
-	body, e := marshalChainPiece(chainPiece)
+	Logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1], chainPiece[0], targetNode)
+	body, e := marshalChainPieceInfo(chainPieceInfo)
 	if e != nil {
 		Logger.Errorf("[peer]Discard marshalChainPiece because of marshal error:%s!", e.Error())
 		return
@@ -178,6 +183,7 @@ func SendChainPiece(targetNode string, chainPiece []*types.BlockHeader){
 	message := network.Message{Code: network.ChainPiece, Body: body}
 	network.GetNetInstance().Send(targetNode, message)
 }
+
 //--------------------------------------------------Transaction---------------------------------------------------------------
 func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, error) {
 	txHashes := make([][]byte, 0)
@@ -228,12 +234,13 @@ func marshalStateInfo(stateInfo StateInfo) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-
-func marshalChainPiece(chainPiece []*types.BlockHeader)([]byte, error) {
-	headers := make([]*tas_middleware_pb.BlockHeader,0)
-	for _,header :=range chainPiece{
+func marshalChainPieceInfo(chainPieceInfo ChainPieceInfo) ([]byte, error) {
+	headers := make([]*tas_middleware_pb.BlockHeader, 0)
+	for _, header := range chainPieceInfo.ChainPiece {
 		h := types.BlockHeaderToPb(header)
-		headers = append(headers,h)
+		headers = append(headers, h)
 	}
-	return proto.Marshal(&tas_middleware_pb.ChainPiece{BlockHeaders:headers})
+	topHeader := types.BlockHeaderToPb(chainPieceInfo.TopHeader)
+	message := tas_middleware_pb.ChainPieceInfo{TopHeader: topHeader, BlockHeaders: headers}
+	return proto.Marshal(&message)
 }

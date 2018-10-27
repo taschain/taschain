@@ -229,7 +229,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPieceReq, &msg)
 	case ChainPiece:
-		msg := notify.ChainPieceMessage{ChainPieceByte: message.Body, Peer: from}
+		msg := notify.ChainPieceMessage{ChainPieceInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPiece, &msg)
 	}
 

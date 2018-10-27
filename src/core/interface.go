@@ -102,7 +102,7 @@ type BlockChain interface {
 
 	GetCheckValue(height uint64) (common.Hash, error)
 
-	ProcessChainPiece(id string, chainPiece []*types.BlockHeader)
+	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
 }
 
 type TransactionPool interface {

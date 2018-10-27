@@ -91,7 +91,6 @@ func (m *StateInfoMessage) GetData() interface{} {
 	return m
 }
 
-
 type BlockReqMessage struct {
 	HeightByte []byte
 
@@ -133,7 +132,7 @@ func (m *ChainPieceReqMessage) GetData() interface{} {
 }
 
 type ChainPieceMessage struct {
-	ChainPieceByte []byte
+	ChainPieceInfoByte []byte
 
 	Peer string
 }

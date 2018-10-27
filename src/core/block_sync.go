@@ -98,6 +98,8 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 
+	logger.Debugf("[BlockSyncer]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
+	logger.Debugf("[BlockSyncer]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
 	BlockChainImpl.SetAdujsting(true)
 	if candidatePreHash == localHash {
 		RequestBlock(candidateId, candidateHeight)
@@ -183,12 +185,13 @@ func (bs *blockSyncer) totalQnHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) verifyTotalQnMsg(blockHeader *types.BlockHeader) bool {
-	if blockHeader.Hash != blockHeader.GenHash() {
-		return false
-	}
-	result, err := BlockChainImpl.GetConsensusHelper().VerifyBlockHeader(blockHeader)
-	if err != nil {
-		Logger.Errorf("verifyTotalQnMsg error:%s", err.Error())
-	}
-	return result
+	//if blockHeader.Hash != blockHeader.GenHash() {
+	//	return false
+	//}
+	//result, err := BlockChainImpl.GetConsensusHelper().VerifyBlockHeader(blockHeader)
+	//if err != nil {
+	//	Logger.Errorf("verifyTotalQnMsg error:%s", err.Error())
+	//}
+	//return result
+	return true
 }
