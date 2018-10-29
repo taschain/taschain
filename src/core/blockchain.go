@@ -314,7 +314,7 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 }
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
-	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String())
+	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs))
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -333,6 +333,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return missingTx, 1
 	}
 
+	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs,miss len:%d", bh.TxTree, transactions, len(missingTx))
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
 		return nil, -1
 	}
@@ -369,7 +370,7 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	topBlock := chain.latestBlock
-	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString())
+	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
 	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 
 	// 自己铸块的时候，会将块临时存放到blockCache里

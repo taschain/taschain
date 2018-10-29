@@ -129,6 +129,9 @@ func ReqBlockBody(targetNode string, blockHash common.Hash) {
 }
 
 func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*types.Transaction) {
+	if len(transactions) == 0 {
+		return
+	}
 	body, e := marshalBlockBody(blockHash, transactions)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
