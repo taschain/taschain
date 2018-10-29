@@ -258,7 +258,7 @@ func (gg *GlobalGroups) findPos(g *StaticGroupInfo) (idx int, right bool){
 	if g.BeginHeight > last.BeginHeight {	//属于更后面的组， 先append到最后
 		return cnt, false
 	}
-	for i := 1; i < cnt; cnt++	{
+	for i := 1; i < cnt; i++	{
 		if gg.groups[i].BeginHeight > g.BeginHeight {
 			return i, g.GroupID.IsEqual(gg.groups[i].PrevGroupID) && (i ==1 || g.PrevGroupID.IsEqual(gg.groups[i-1].GroupID))
 		}
