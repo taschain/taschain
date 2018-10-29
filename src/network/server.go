@@ -138,7 +138,7 @@ func (n *server) BuildGroupNet(groupId string, members []string) {
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	n.netCore.groupManager.addGroup(groupId, nodes)
+	n.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
 func (n *server) DissolveGroupNet(groupId string) {
@@ -150,7 +150,7 @@ func (n *server) AddGroup(groupId string, members []string) *Group {
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	return n.netCore.groupManager.addGroup(groupId, nodes)
+	return n.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
@@ -189,7 +189,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, BlockChainTotalQnMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
+	case ReqTransactionMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
 		n.chainHandler.Handle(from, *message)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
@@ -197,6 +197,9 @@ func (n *server) handleMessageInner(message *Message, from string) {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case BlockChainTotalQnMsg:
+		msg := notify.TotalQnMessage{BlockHeaderByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockChainTotalQn, &msg)
 	case NewBlockHeaderMsg:
 		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)
@@ -222,6 +225,14 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
+	case ChainPieceReq:
+		Logger.Debugf("Rcv ChainPieceReq from %s", from)
+		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceReq, &msg)
+	case ChainPiece:
+		Logger.Debugf("Rcv ChainPiece from %s", from)
+		msg := notify.ChainPieceMessage{ChainPieceInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPiece, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {

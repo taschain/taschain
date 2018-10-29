@@ -174,8 +174,8 @@ func (nc *NetCore) close() {
 	close(nc.closing)
 }
 
-func (nc *NetCore) AddGroup(id string, members []NodeID) *Group {
-	return nc.groupManager.addGroup(id, members)
+func (nc *NetCore) buildGroup(id string, members []NodeID) *Group {
+	return nc.groupManager.buildGroup(id, members)
 }
 
 func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {

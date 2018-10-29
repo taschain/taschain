@@ -144,9 +144,11 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	core.InitBlockSyncer(light)
 	switch apply {
 		case "heavy":
-			GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+			result,_ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+			core.Logger.Debugf("initial apply heavy result:%v",result)
 		case "light":
-			GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+			result,_ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+			core.Logger.Debugf("initial apply light result:%v",result)
 	}
 	gtas.inited = true
 	if !ok {

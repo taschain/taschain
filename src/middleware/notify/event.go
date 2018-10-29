@@ -18,4 +18,10 @@ const (
 	StateInfo = "state_info"
 
 	BlockReq = "block_req"
+
+	BlockChainTotalQn = "block_chain_total_qn"
+
+	ChainPieceReq = "chain_piece_req"
+
+	ChainPiece = "chain_piece"
 )

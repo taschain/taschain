@@ -181,7 +181,13 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
     for  {
     	bh := p.MainChain.QueryBlockByHeight(h)
 		if bh != nil {
-			return p.MainChain.QueryBlockByHash(bh.Hash)
+			b := p.MainChain.QueryBlockByHash(bh.Hash)
+			if b != nil {
+				return b
+			} else {
+				log.Printf("get bh not nil, but block is nil! hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+				continue
+			}
 		}
 		if h == 0 {
 			panic("cannot find block of height 0")

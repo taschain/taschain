@@ -237,6 +237,10 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 
 //对该id进行区块抽样
 func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
+	//随机抽取10块前的块，确保不抽取到分叉上的块
+	if heightLimit > 10 {
+		heightLimit -= 10
+	}
     return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
 }
 

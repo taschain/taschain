@@ -185,7 +185,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	groupMembers := id2String(group.MemIds)
 
 	//广播给重节点的虚拟组
-	//go ns.net.Multicast(network.FULL_NODE_VIRTUAL_GROUP_ID, blockMsg)
+	go ns.net.Multicast(network.FULL_NODE_VIRTUAL_GROUP_ID, blockMsg)
 	//广播给轻节点的下一个组
 	go ns.net.SpreadOverGroup(nextCastGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
 	core.Logger.Debugf("BroadcastNewBlock: next group id:%s,members:%v,height:%d,hash:%v", nextCastGroupId, groupMembers, cbm.Block.Header.Height, cbm.Block.Header.Hash)

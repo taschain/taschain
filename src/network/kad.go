@@ -279,14 +279,12 @@ func (kad *Kad) refresh() <-chan struct{} {
 
 func (kad *Kad) loop() {
 	var (
-		refresh     = time.NewTicker(refreshInterval)
-		check       = time.NewTicker(checkInterval)
-		copyNodes   = time.NewTicker(copyNodesInterval)
-		refreshDone = make(chan struct{})           // where doRefresh reports completion
-		waiting     = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
+		refresh        = time.NewTicker(refreshInterval)
+		check        = time.NewTicker(checkInterval)
+		refreshDone    = make(chan struct{})           // where doRefresh reports completion
+		waiting        = []chan struct{}{kad.initDone} // holds waiting callers while doRefresh runs
 	)
 	defer refresh.Stop()
-	defer copyNodes.Stop()
 
 	go kad.doRefresh(refreshDone)
 
@@ -306,7 +304,7 @@ loop:
 				go kad.doRefresh(refreshDone)
 			}
 		case <-check.C:
-			kad.setupCheckCount = kad.setupCheckCount + 1
+			kad.setupCheckCount = kad.setupCheckCount +1
 			go kad.doCheck()
 
 		case <-refreshDone:
@@ -314,8 +312,6 @@ loop:
 				close(ch)
 			}
 			waiting, refreshDone = nil, nil
-		case <-copyNodes.C:
-			go kad.copyBondedNodes()
 		case <-kad.closeReq:
 			break loop
 		}
@@ -356,29 +352,13 @@ func (kad *Kad) doCheck() {
 }
 
 func (kad *Kad) loadSeedNodes(bond bool) {
-	seeds := make([]*Node, 0, 16)
 
-	seeds = append(seeds, kad.seeds...)
 	if bond {
-		seeds = kad.pingAll(seeds)
+		kad.pingAll(kad.seeds)
 	}
-	for i := range seeds {
-		seed := seeds[i]
-		kad.add(seed)
-	}
-}
 
-func (kad *Kad) copyBondedNodes() {
-	kad.mutex.Lock()
-	defer kad.mutex.Unlock()
-
-	now := time.Now()
-	for _, b := range kad.buckets {
-		for _, n := range b.entries {
-			if now.Sub(n.addedAt) >= seedMinTableTime {
-				//kad.db.updateNode(n)
-			}
-		}
+	for i := range kad.seeds {
+		kad.add(kad.seeds[i])
 	}
 }
 
