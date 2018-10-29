@@ -112,23 +112,16 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 
+	if BlockChainImpl.Height() == 0 {
+		if BlockChainImpl.IsLightMiner(){
+			RequestBlock(candidateId, candidateHeight)
+		}else {
+			RequestBlock(candidateId, 1)
+		}
+		return
+	}
 	RequestChainPiece(candidateId, localHeight)
 	return
-
-	//} else {
-	//	logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
-	//	if bs.lightMiner && BlockChainImpl.Height() == 0 {
-	//		var height uint64 = 0
-	//		if bestNodeHeight > 11 {
-	//			height = bestNodeHeight - 10
-	//		}
-	//		RequestBlock(bestNodeId, height+1)
-	//		return
-	//	}
-	//
-	//	RequestBlock(bestNodeId, localHeight+1)
-	//}
-
 }
 
 func (bs *blockSyncer) loop() {

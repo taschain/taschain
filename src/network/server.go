@@ -226,9 +226,11 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
 	case ChainPieceReq:
+		Logger.Debugf("Rcv ChainPieceReq from %s", from)
 		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPieceReq, &msg)
 	case ChainPiece:
+		Logger.Debugf("Rcv ChainPiece from %s", from)
 		msg := notify.ChainPieceMessage{ChainPieceInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPiece, &msg)
 	}

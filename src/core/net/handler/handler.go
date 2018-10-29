@@ -266,15 +266,16 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 	id := chainPieceReqMessage.Peer
 
 	chainPiece := make([]*types.BlockHeader, 0)
-	var i uint64
-	for i = 0; i < ChainPieceLength; {
-		if height-i < 0 {
-			break
-		}
+	var i, len uint64
+	for i, len = 0, 0; len < ChainPieceLength; i++ {
+		core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
 		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
 		if header != nil {
 			chainPiece = append(chainPiece, header)
-			i++
+			len++
+		}
+		if height-i == 0 {
+			break
 		}
 	}
 	core.SendChainPiece(id, core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: core.BlockChainImpl.QueryTopBlock()})
@@ -299,7 +300,7 @@ func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d", headerNotify.header.Hash.Hex(), headerNotify.peer, len(headerNotify.header.Transactions), headerNotify.header.Height, headerNotify.header.TotalQN)
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d", headerNotify.header.Hash.Hex(), headerNotify.peer, len(headerNotify.header.Transactions), headerNotify.header.Height, headerNotify.header.TotalQN)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
@@ -315,7 +316,7 @@ func (ch ChainHandler) loop() {
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
+			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
@@ -491,7 +492,7 @@ func unMarshalChainPieceInfo(b []byte) (*core.ChainPieceInfo, error) {
 //}
 
 //func unMarshalGroups(b []byte) ([]*types.Group, error) {
-//	message := new(tas_middleware_pb.GroupSlice)
+//	message := new(tas_middlewstateInfoReqHandlerare_pb.GroupSlice)
 //	e := proto.Unmarshal(b, message)
 //	if e != nil {
 //		core.Logger.Errorf("[handler]Unmarshal Groups error:%s", e.Error())
