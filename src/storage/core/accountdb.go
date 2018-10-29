@@ -46,7 +46,7 @@ type AccountDB struct {
 	trie Trie
 
 	//accountObjects      map[common.Address]*accountObject
-	accountObjects		sync.Map
+	accountObjects		*sync.Map
 	accountObjectsDirty map[common.Address]struct{}
 
 	dbErr error
@@ -86,6 +86,7 @@ func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
 		db:                  db,
 		trie:                tr,
 		//accountObjects:      make(map[common.Address]*accountObject),
+		accountObjects:		new(sync.Map),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}
 	return accountdb,nil
@@ -111,7 +112,7 @@ func (self *AccountDB) Reset(root common.Hash) error {
 		return err
 	}
 	self.trie = tr
-	self.accountObjects = sync.Map{}
+	self.accountObjects = new(sync.Map)
 	self.accountObjectsDirty = make(map[common.Address]struct{})
 	self.thash = common.Hash{}
 	self.bhash = common.Hash{}
