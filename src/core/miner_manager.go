@@ -9,6 +9,9 @@ import (
 	"storage/trie"
 	"sync"
 	"errors"
+	"network"
+	"consensus/groupsig"
+	"time"
 )
 
 var emptyValue [0]byte
@@ -17,7 +20,11 @@ type MinerManager struct {
 	blockchain BlockChain
 	cache      *lru.Cache
 	lock       sync.Mutex
+	heavyupdate bool
+	heavytrigger *time.Timer
 }
+
+const heavyTriggerDuration  = time.Second * 10
 
 type MinerIterator struct {
 	iter  *trie.Iterator
@@ -28,8 +35,27 @@ var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
 	cache, _ := lru.New(500)
-	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain}
+	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate:true, heavytrigger:time.NewTimer(heavyTriggerDuration)}
+	go MinerManagerImpl.loop()
 	return nil
+}
+
+func (mm *MinerManager) loop(){
+	for{
+		<-mm.heavytrigger.C
+		if mm.heavyupdate{
+			iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
+			array := make([]string,0)
+			for iter.Next() {
+				miner, _ := iter.Current()
+				gid := groupsig.DeserializeId(miner.Id)
+				array = append(array, gid.String())
+			}
+			network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
+			mm.heavyupdate = false
+		}
+		mm.heavytrigger.Reset(heavyTriggerDuration)
+	}
 }
 
 func (mm *MinerManager) getMinerDatabase(ttype byte) (common.Address) {
@@ -47,11 +73,20 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	Logger.Debugf("MinerManager AddMiner %d", miner.Type)
 	db := mm.getMinerDatabase(miner.Type)
 
-	if mm.blockchain.(*FullBlockChain).latestStateDB.GetData(db, string(id)) != nil {
+	var latestStateDB vm.AccountDB
+	if mm.blockchain.IsLightMiner() {
+		latestStateDB = mm.blockchain.(*LightChain).latestStateDB
+	} else {
+		latestStateDB = mm.blockchain.(*FullBlockChain).latestStateDB
+	}
+	if latestStateDB.GetData(db, string(id)) != nil {
 		return -1
 	} else {
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
+		if miner.Type == types.MinerTypeHeavy{
+			mm.heavyupdate = true
+		}
 		return 1
 	}
 }
@@ -84,11 +119,15 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 		}
 	}
 	if accountdb == nil {
-		accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		if mm.blockchain.IsLightMiner() {
+			accountdb = mm.blockchain.(*LightChain).latestStateDB
+		} else {
+			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		}
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
-	if data != nil && len(data) > 0{
+	if data != nil && len(data) > 0 {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
 		if ttype == types.MinerTypeHeavy {
@@ -103,6 +142,7 @@ func (mm *MinerManager) RemoveMiner(id []byte, ttype byte, accountdb vm.AccountD
 	Logger.Debugf("MinerManager RemoveMiner %d", ttype)
 	if ttype == types.MinerTypeHeavy {
 		mm.cache.Remove(string(id))
+		mm.heavyupdate = true
 	}
 	db := mm.getMinerDatabase(ttype)
 	accountdb.SetData(db, string(id), emptyValue[:])
@@ -152,7 +192,7 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
 		}
 	}
 	if total == 0 {
-		Logger.Errorf("GetTotalStakeByHeight get 0 %d %s", height, mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
+		//Logger.Errorf("GetTotalStakeByHeight get 0 %d %s", height, mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
 		iter = mm.MinerIterator(types.MinerTypeHeavy, nil)
 		for ; iter.Next(); {
 			miner, _ := iter.Current()
@@ -166,7 +206,11 @@ func (mm *MinerManager) MinerIterator(ttype byte, accountdb vm.AccountDB) *Miner
 	db := mm.getMinerDatabase(ttype)
 	if accountdb == nil {
 		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
-		accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		if mm.blockchain.IsLightMiner() {
+			accountdb = mm.blockchain.(*LightChain).latestStateDB
+		} else {
+			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
+		}
 	}
 	iterator := &MinerIterator{iter: accountdb.DataIterator(db, "")}
 	if ttype == types.MinerTypeHeavy {

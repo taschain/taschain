@@ -203,7 +203,6 @@ func (self *accountObject) updateRoot(db Database) {
 	self.data.Root = self.trie.Hash()
 }
 
-
 func (self *accountObject) CommitTrie(db Database) error {
 	self.updateTrie(db)
 	if self.dbErr != nil {
@@ -287,8 +286,8 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(db Database,prefix []byte) *trie.Iterator{
-	if self.trie == nil{
+func (self *accountObject) DataIterator(db Database, prefix []byte) *trie.Iterator {
+	if self.trie == nil {
 		self.getTrie(db)
 	}
 	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
@@ -347,7 +346,7 @@ func (self *accountObject) Value() *big.Int {
 }
 
 func (self *accountObject) fstring() string {
-	if self.trie == nil{
+	if self.trie == nil {
 		self.trie = self.getTrie(self.db.db)
 	}
 	return self.trie.Fstring()

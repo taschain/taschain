@@ -53,6 +53,10 @@ var (
 //160位地址
 type Address [AddressLength]byte
 
+func (a Address) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + a.GetHexString() + "\""), nil
+}
+
 //构造函数族
 func BytesToAddress(b []byte) Address {
 	var a Address

@@ -27,6 +27,7 @@ import (
 	"bytes"
 	"github.com/vmihailenco/msgpack"
 	"storage/trie"
+	"storage/serialize"
 )
 
 //var castorReward = big.NewInt(50)
@@ -70,7 +71,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 			//转账交易
 			source := transaction.Source
 			target := transaction.Target
-			Logger.Debugf("source:%v.target:%v", source, target)
+			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
@@ -85,9 +86,32 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 
 	for _, account := range addresses {
 		tr.GetBranch(account[:], nodes)
-		Logger.Debugf("Accounts addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+		//Logger.Debugf("GetBranches Account addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+		if account == common.BonusStorageAddress || account == common.LightDBAddress || account == common.HeavyDBAddress {
+			getNodeTrie(account[:], nodes, accountdb)
+		}
+	}
+}
+
+func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.AccountDB) {
+	data, err := accountdb.GetTrie().TryGet(address[:])
+	if err != nil {
+		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
+		return
 	}
 
+	var account core.Account
+	if err := serialize.DecodeBytes(data, &account); err != nil {
+		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	root := account.Root
+	t, err := accountdb.Database().OpenTrieWithMap(root,nodes)
+	if err != nil {
+		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
+		return
+	}
+	t.GetAllNodes(nodes)
 }
 
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
@@ -95,7 +119,7 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.Acc
 	missingAccounts := []common.Address{}
 	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
-		Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
+		//Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
 		switch transaction.Type {
 		case types.TransactionTypeBonus:
 			addresses := getBonusAddress(*transaction)
@@ -151,46 +175,23 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	return result
 }
 func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	//if 0 == len(block.Transactions) {
-	//	hash := accountdb.IntermediateRoot(true)
-	//	Logger.Infof("TVMExecutor Execute Empty State:%s", hash.Hex())
-	//	return hash, nil, nil
-	//}
 	receipts := make([]*t.Receipt, len(block.Transactions))
-	Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
+	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	//tr := accountdb.GetTrie()
 	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
-	//
-	//var addrList = make([]common.Address, 0)
-	//v1, _ := tr.TryGet(common.BonusStorageAddress[:])
-	//addrList = append(addrList, common.BonusStorageAddress)
-	//Logger.Debugf("Before Execute addr:%v,value:%v", common.BonusStorageAddress.GetHexString(),v1)
-	//
-	//v2, _ := tr.TryGet(common.LightDBAddress[:])
-	//addrList = append(addrList, common.LightDBAddress)
-	//Logger.Debugf("Before Execute addr:%v,value:%v", common.LightDBAddress.GetHexString(), v2)
-	//
-	//v3, _ := tr.TryGet(common.HeavyDBAddress[:])
-	//addrList = append(addrList, common.HeavyDBAddress)
-	//Logger.Debugf("Before Execute addr:%v,value:%v", common.HeavyDBAddress.GetHexString(),v3)
-	//
-	//castor := common.BytesToAddress(block.Header.Castor)
-	//v4, _ := tr.TryGet(castor[:])
-	//addrList = append(addrList, common.BytesToAddress(block.Header.Castor))
-	//Logger.Debugf("Before Execute castor addr:%v,value:%v", castor.GetHexString(), v4)
 
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
-		Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
+		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
-				Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s", transaction.Source.GetHexString(),
-					transaction.Target.GetHexString(), transaction.Value, height, mark)
+				//Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s", transaction.Source.GetHexString(),
+				//	transaction.Target.GetHexString(), transaction.Value, height, mark)
 			} else {
 				fail = true
 			}
@@ -214,22 +215,18 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				if n, _ := reader.Read(groupId); n != common.GroupIdLength {
 					panic("TVMExecutor Read GroupId Fail")
 				}
-				Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
+				//Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 					address := common.BytesToAddress(addr)
-					//v, _ := tr.TryGet(addr[:])
-					//Logger.Debugf("Before Execute addr:%v,value:%v", address.GetHexString(), v)
 					accountdb.AddBalance(address, value)
-					Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", address.GetHexString(), transaction.Value)
-					//addrList = append(addrList, address)
 				}
 
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
-				Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
-					transaction.Hash.Hex())
+				//Logger.Debugf("TVMExecutor Bonus BonusManager Put BlockHash:%s TransactionHash:%s", common.BytesToHash(transaction.Data).Hex(),
+				//	transaction.Hash.Hex())
 				//分红交易奖励
-				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetPackBonus())
-				Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, common.GetPackBonus())
+				accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().PackBonus())
+				//Logger.Debugf("TVMExecutor Bonus AddBalance Addr:%s Value:%d", block.Header.Castor, executor.bc.GetConsensusHelper().PackBonus())
 			} else {
 				fail = true
 			}
@@ -300,7 +297,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		receipts[i] = receipt
 	}
 	//筑块奖励
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), common.GetProposalBonus())
+	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
 	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
 	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())

@@ -42,7 +42,6 @@ import (
 	"consensus/model"
 	"redis"
 	"runtime/debug"
-	"consensus/logical"
 )
 
 const (
@@ -116,7 +115,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint,light bool) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp,light)
 	if err != nil {
@@ -135,6 +134,20 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
+	core.InitGroupSyncer()
+	//for {
+	//	if core.GroupSyncer.IsInit() {
+	//		break
+	//	}
+	//	time.Sleep(time.Millisecond * 500)
+	//}
+	core.InitBlockSyncer(light)
+	switch apply {
+		case "heavy":
+			GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+		case "light":
+			GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+	}
 	gtas.inited = true
 	if !ok {
 		return
@@ -211,6 +224,7 @@ func (gtas *Gtas) Run() {
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	//light node
 	light := mineCmd.Flag("light", "light node").Bool()
+	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
@@ -273,7 +287,7 @@ func (gtas *Gtas) Run() {
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		lightMiner = *light
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc,*light)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -287,8 +301,7 @@ func (gtas *Gtas) Run() {
 
 // ClearBlock 删除本地的chainblock数据。
 func ClearBlock(light bool) error {
-	genesis := &logical.GenesisGeneratorImpl{}
-	err := core.InitCore(light,genesis.Generate())
+	err := core.InitCore(light, mediator.NewConsensusHelper(groupsig.ID{}))
 	if err != nil {
 		return err
 	}
@@ -302,32 +315,28 @@ func (gtas *Gtas) simpleInit(configPath string) {
 
 func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) error {
 	var err error
+
 	// 椭圆曲线初始化
 	//groupsig.Init(1)
-
 	// 初始化中间件
 	middleware.InitMiddleware()
-
-	genesis := &logical.GenesisGeneratorImpl{}
 	// block初始化
-	err = core.InitCore(light,genesis.Generate())
-	if err != nil {
-		return err
-	}
 	secret := (*configManager).GetString(Section, "secret", "")
 	if secret == "" {
 		secret = getRandomString(5)
 		(*configManager).SetString(Section, "secret", secret)
 	}
 	minerInfo := model.NewSelfMinerDO(secret)
+
+	err = core.InitCore(light, mediator.NewConsensusHelper(minerInfo.ID))
+	if err != nil {
+		return err
+	}
 	id := minerInfo.ID.GetHexString()
 	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
-
-	core.InitGroupSyncer()
-	core.InitBlockSyncer(light)
 
 	// TODO gov, ConsensusInit? StartMiner?
 	//ok := global.InitGov(core.BlockChainImpl)

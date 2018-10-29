@@ -7,6 +7,7 @@ import (
 	"unsafe"
 	"sync/atomic"
 	"log"
+	"math"
 )
 
 /*
@@ -70,4 +71,47 @@ func TestAtomic(t *testing.T) {
 	v = atomic.LoadPointer(&p2)
 	v2 := (*bool)(v)
 	log.Println(*v2)
+}
+
+func TestRand_RandomPermUint64(t *testing.T) {
+	r := RandFromBytes([]byte("3"))
+	t.Log(r.ModuloUint64(math.MaxUint64))
+}
+
+type aa interface {
+	Func()
+}
+type parent struct {
+
+}
+
+func (p parent) Func() {
+	log.Println("parent")
+}
+
+func (p parent) Test()  {
+    var a aa
+    a = &p
+    a.Func()
+}
+
+type son1 struct {
+	parent
+}
+
+func (son1) Func() {
+	log.Println("son1")
+}
+
+type son2 struct {
+	parent
+}
+
+func (son2) Func() {
+	log.Println("son2")
+}
+
+func TestParent(t *testing.T) {
+	p := &son1{}
+	p.Test()
 }

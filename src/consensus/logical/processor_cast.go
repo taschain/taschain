@@ -11,8 +11,8 @@ import (
 	"consensus/base"
 	"consensus/net"
 	"middleware/statistics"
-	"math/big"
 	"strings"
+	"bytes"
 )
 
 /*
@@ -178,7 +178,7 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 	if nextId == nil {
 		return nil
 	}
-	group := p.getGroup(*nextId)
+	group := p.GetGroup(*nextId)
 	mems := make([]groupsig.ID, len(group.Members))
 	for idx, mem := range group.Members {
 		mems[idx] = mem.ID
@@ -237,6 +237,35 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	return
 }
 
+//对该id进行区块抽样
+func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
+	//随机抽取10块前的块，确保不抽取到分叉上的块
+	if heightLimit > 10 {
+		heightLimit -= 10
+	}
+    return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
+}
+
+func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
+	hashs := make([]common.Hash, len(ids))
+
+	blog := newBizLog("GenProveHashs")
+	for idx, id := range ids {
+		h := p.sampleBlockHeight(heightLimit, rand, id)
+		b := p.getNearestBlockByHeight(h)
+		hashs[idx] = p.GenVerifyHash(b, id)
+		blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+	}
+	proves = hashs
+
+	buf := bytes.Buffer{}
+	for _, hash := range hashs {
+		buf.Write(hash.Bytes())
+	}
+	root = base.Data2CommonHash(buf.Bytes())
+	return
+}
+
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -253,7 +282,7 @@ func (p *Processor) blockProposal() {
 
 	totalStake := p.minerReader.getTotalStake(height)
 	blog.log("totalStake height=%v, stake=%v", height, totalStake)
-	pi, err := worker.prove(totalStake)
+	pi, qn, err := worker.prove(totalStake)
 	if err != nil {
 		blog.log("vrf prove not ok! %v", err)
 		return
@@ -271,26 +300,31 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	block := p.MainChain.CastBlock(uint64(height), 0, new(big.Int).SetBytes(pi), p.GetMinerID().Serialize(), gid.Serialize())
+	//随机抽取n个块，生成proveHash
+	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+
+	block := p.MainChain.CastBlock(uint64(height),  pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
 	}
 	bh := block.Header
 	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
-	blog.log("begin proposal, hash=%v, height=%v, pi=%v...", bh.Hash.ShortS(), height, pi.ShortS())
-	tlog.logStart("height=%v,pi=%v, preHash=%v", bh.Height, pi.ShortS(), bh.PreHash.ShortS())
+	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
+	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
+		ccm.ProveHash = proveHash
 		//ccm.GroupID = gid
 		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
+		blog.log("hash=%v, proveRoot=%v", bh.Hash.ShortS(), root.ShortS())
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
 		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb)
@@ -324,7 +358,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
-	group := p.getGroup(groupID)
+	group := p.GetGroup(groupID)
 
 	witnesses := slot.gSignGenerator.GetWitnesses()
 	size := len(witnesses)
@@ -342,7 +376,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		i++
 	}
 
-	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.GetVerifierBonus())
+	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
 	tlog := newBlockTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())

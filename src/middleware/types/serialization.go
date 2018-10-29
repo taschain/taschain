@@ -174,10 +174,10 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 }
 
 func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
-	if txs == nil {
-		return nil
-	}
 	result := make([]*Transaction, 0)
+	if txs == nil {
+		return result
+	}
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
 		result = append(result, transaction)
@@ -186,7 +186,6 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 }
 
 func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
-
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
 
@@ -212,23 +211,12 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 		return nil
 	}
 
-	eTxs := h.EvictedTxs
-	evictedTxs := make([]common.Hash, 0)
-
-	if eTxs != nil {
-		for _, etx := range eTxs.Hashes {
-			hash := common.BytesToHash(etx)
-			evictedTxs = append(evictedTxs, hash)
-		}
-	}
-
 	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 	pv := &big.Int{}
-	totalPv := &big.Int{}
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
 		ProveValue: pv.SetBytes(h.ProveValue), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData, EvictedTxs: evictedTxs, TotalPV: totalPv.SetBytes(h.TotalPV), Random: h.Random}
+		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random, ProveRoot: common.BytesToHash(h.ProveRoot)}
 	return &header
 }
 
@@ -335,20 +323,10 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 		return nil
 	}
 
-	eTxs := h.EvictedTxs
-	eBytes := make([][]byte, 0)
-
-	if eTxs != nil {
-		for _, etx := range eTxs {
-			eBytes = append(eBytes, etx.Bytes())
-		}
-	}
-	evictedTxs := tas_middleware_pb.Hashes{Hashes: eBytes}
-
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
 		ProveValue: h.ProveValue.Bytes(), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, EvictedTxs: &evictedTxs, TotalPV: h.TotalPV.Bytes(), Random: h.Random}
+		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, ProveRoot:h.ProveRoot.Bytes()}
 	return &header
 }
 

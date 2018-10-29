@@ -141,10 +141,17 @@ func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 type ConsensusBlockMessageBase struct {
 	BH types.BlockHeader
 	//GroupID groupsig.ID
+	ProveHash []common.Hash
 	BaseSignedMessage
 }
 
 func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
+	//buf := bytes.Buffer{}
+	//buf.Write(msg.BH.GenHash().Bytes())
+	//for _, h := range msg.ProveHash {
+	//	buf.Write(h.Bytes())
+	//}
+	//return base.Data2CommonHash(buf.Bytes())
 	return msg.BH.GenHash()
 }
 

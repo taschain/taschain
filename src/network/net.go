@@ -174,8 +174,8 @@ func (nc *NetCore) close() {
 	close(nc.closing)
 }
 
-func (nc *NetCore) AddGroup(id string, members []NodeID) *Group {
-	return nc.groupManager.addGroup(id, members)
+func (nc *NetCore) buildGroup(id string, members []NodeID) *Group {
+	return nc.groupManager.buildGroup(id, members)
 }
 
 func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
@@ -191,7 +191,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		NodeId:     nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
-	Logger.Info("ping node, id:%v, ip:%v, port:%v", toid.GetHexString(), to.Ip, to.Port)
+	Logger.Debugf("ping node, id:%v, ip:%v, port:%v", toid.GetHexString(), to.Ip, to.Port)
 
 	packet, _, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
@@ -357,7 +357,7 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 
 //SendAll 向所有已经连接的节点发送自定义数据包
 func (nc *NetCore) SendAll(data []byte, broadcast bool, msgDigest MsgDigest, relayCount int32) {
-	Logger.Infof("SendAll len: %v", len(data))
+	Logger.Debugf("SendAll len: %v", len(data))
 	dataType := DataType_DataNormal
 	if broadcast {
 		dataType = DataType_DataGlobal
@@ -399,7 +399,7 @@ func (nc *NetCore) SendGroup(id string, data []byte, broadcast bool) {
 //GroupBroadcastWithMembers 通过组成员发组广播
 func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest MsgDigest, groupMembers []string) {
 	dataType := DataType_DataGroup
-	Logger.Infof("GroupBroadcastWithMembers: group id:%v", id)
+	Logger.Debugf("GroupBroadcastWithMembers: group id:%v", id)
 
 	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, msgDigest, -1)
 	if err != nil {
@@ -433,20 +433,20 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
-	Logger.Infof("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
+	Logger.Debugf("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if (p != nil && p.seesionId > 0) || nc.natTraversalEnable {
-		//Logger.Infof("node id:%v connected send packet", memberId.GetHexString())
+		//Logger.Debugf("node id:%v connected send packet", memberId.GetHexString())
 		go nc.Send(memberId, nil, data)
 	} else {
 		node := net.netCore.kad.find(memberId)
 		if node != nil && node.Ip != nil && node.Port > 0 {
-			Logger.Infof("node id:%v found in kad send packet", memberId.GetHexString())
+			Logger.Debugf("node id:%v found in kad send packet", memberId.GetHexString())
 
 			go nc.Send(memberId, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, data)
 		} else {
-			Logger.Infof("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
+			Logger.Debugf("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
 
 			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, id, &memberId, nil, -1)
 			if err != nil {
@@ -463,7 +463,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte) ([]byte, error) {
 	packet, hash, err := nc.encodeDataPacket(data, DataType_DataNormal, "", nil, nil, -1)
 	if err != nil {
-		Logger.Infof("Send encodeDataPacket err :%v ", toid.GetHexString())
+		Logger.Debugf("Send encodeDataPacket err :%v ", toid.GetHexString())
 		return hash, err
 	}
 	return hash, nc.peerManager.write(toid, toaddr, packet)
@@ -500,7 +500,7 @@ func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 }
 
 func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
-	//Logger.Infof("recvData netid:%v  session:%v len:%v ", netId ,session,len(data))
+	//Logger.Debugf("recvData netid:%v  session:%v len:%v ", netId ,session,len(data))
 
 	p := nc.peerManager.peerByNetID(netId)
 	if p == nil {
@@ -531,7 +531,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, groupId stri
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
-	Logger.Infof("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
+	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
@@ -568,7 +568,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	}
 	fromId := p.Id
 
-	//Logger.Infof("handleMessage : msgType: %v ", msgType)
+	//Logger.Debugf("handleMessage : msgType: %v ", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -670,7 +670,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, erro
 
 func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 
-	//	Logger.Infof("handlePing from ip:%v %v to ip:%v %v ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
+	//	Logger.Debugf("handlePing from ip:%v %v to ip:%v %v ", req.From.Ip, req.From.Port, req.To.Ip, req.To.Port)
 
 	if expired(req.Expiration) {
 		return errExpired
@@ -731,7 +731,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error {
 	srcNodeId := NodeID{}
 	srcNodeId.SetBytes(req.SrcNodeId)
-	Logger.Infof("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
+	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
@@ -781,7 +781,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 					dataBuffer = bytes.NewBuffer(packet)
 
 				}
-				Logger.Infof("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString())
+				Logger.Debugf("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString())
 
 				if req.DataType == DataType_DataGroup {
 					nc.groupManager.sendGroup(req.GroupId, dataBuffer)

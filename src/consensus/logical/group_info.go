@@ -300,8 +300,8 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 			} else {
 				gg.groups = append(gg.groups, g)
 				for i:= cnt; i > idx; i-- {
-					gg.groups[i+1] = gg.groups[i]
-					gg.gIndex[gg.groups[i].GroupID.GetHexString()] = i+1
+					gg.groups[i] = gg.groups[i-1]
+					gg.gIndex[gg.groups[i].GroupID.GetHexString()] = i
 				}
 				gg.groups[idx] = g
 				gg.gIndex[g.GroupID.GetHexString()] = idx
@@ -407,6 +407,9 @@ func (gg *GlobalGroups) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo
 
 	gs := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if g.CastQualified(height) {
 			gs = append(gs, g)
 		}
@@ -420,6 +423,9 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 
 	gs := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if !g.Dismissed(height) {
 			gs = append(gs, g)
 		}
@@ -437,6 +443,9 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
 
     ids := make([]groupsig.ID, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if g.Dismissed(height) {
 			ids = append(ids, g.GroupID)
 		} else {
@@ -456,6 +465,9 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	}
 	newGS := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
 			newGS = append(newGS, g)
 		}

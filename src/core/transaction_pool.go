@@ -39,6 +39,8 @@ var (
 
 	ErrExist = errors.New("transaction already exist in pool")
 
+	ErrMissingTrace = errors.New("trace not found")
+
 	ErrInvalidSender = errors.New("invalid sender")
 
 	ErrNonceTooLow = errors.New("nonce too low")
@@ -47,11 +49,11 @@ var (
 
 	ErrUnderpriced = errors.New("transaction underpriced")
 
-	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
+	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + Value")
 
 	ErrExisted = errors.New("executed transaction")
 
-	ErrNegativeValue = errors.New("negative value")
+	ErrNegativeValue = errors.New("negative Value")
 
 	ErrOversizedData = errors.New("oversized data")
 
@@ -81,7 +83,7 @@ type TxPool struct {
 	sendingTimer *time.Timer
 
 
-	// 已经在块上的交易 key ：txhash value： receipt
+	// 已经在块上的交易 key ：txhash Value： receipt
 	executed tasdb.Database
 
 	batch     tasdb.Batch
@@ -189,7 +191,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	// 检查交易是否已经存在
 	hash := tx.Hash
 	if pool.isTransactionExisted(hash) {
-		Logger.Debugf("Discarding already known transaction,hash:%v", hash)
+		//Logger.Debugf("Discarding already known transaction,hash:%s", hash.Hex())
 		return false, ErrExist
 	}
 
@@ -216,7 +218,7 @@ func (pool *TxPool) CheckAndSend(immediately bool){
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
 		pool.sendingTxLock.Unlock()
-		Logger.Debugf("Broadcast txs,len:%d", len(txs))
+		//Logger.Debugf("Broadcast txs,len:%d", len(txs))
 		go BroadcastTransactions(txs)
 	}
 }

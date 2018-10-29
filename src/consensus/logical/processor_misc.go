@@ -6,6 +6,10 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/groupsig"
+	"middleware/types"
+	"consensus/base"
+	"github.com/vmihailenco/msgpack"
+	"fmt"
 )
 
 /*
@@ -166,15 +170,11 @@ func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
 }
 
 func (p *Processor) canProposalAt(h uint64) bool {
-   	return p.minerCanProposalAt(p.GetMinerID(), h)
-}
-
-func (p *Processor) minerCanProposalAt(id groupsig.ID, h uint64) bool {
-	miner := p.minerReader.getProposeMiner(id)
+	miner := p.minerReader.getProposeMiner(p.GetMinerID())
 	if miner == nil {
 		return false
 	}
-	return miner.CanCastAt(h)
+   	return miner.CanCastAt(h)
 }
 
 func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
@@ -190,4 +190,48 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 		avail++
 	}
 	return
+}
+
+func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
+	pi := base.VRFProve(bh.ProveValue.Bytes())
+	castor := groupsig.DeserializeId(bh.Castor)
+	miner := p.minerReader.getProposeMiner(castor)
+	if miner == nil {
+		log.Printf("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
+		return 0
+	}
+	totalStake := p.minerReader.getTotalStake(bh.Height)
+	_, qn := vrfSatisfy(pi, miner.Stake, totalStake)
+	return qn
+}
+
+func marshalBlock(b types.Block) ([]byte, error) {
+	if b.Transactions != nil && len(b.Transactions) == 0 {
+		b.Transactions = nil
+	}
+	if b.Header.Transactions != nil && len(b.Header.Transactions) == 0 {
+		b.Header.Transactions = nil
+	}
+	return msgpack.Marshal(&b)
+}
+
+func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
+	buf, err := marshalBlock(*b)
+	if err != nil {
+		panic(fmt.Sprintf("marshal block error, hash=%v, err=%v", b.Header.Hash.ShortS(), err))
+	}
+	//header := &b.Header
+	//log.Printf("GenVerifyHash aaa bufHash=%v, buf %v", base.Data2CommonHash(buf).ShortS(), buf)
+	//log.Printf("GenVerifyHash aaa headerHash=%v, genHash=%v", b.Header.Hash.ShortS(), b.Header.GenHash().ShortS())
+
+	//headBuf, _ := msgpack.Marshal(header)
+	//log.Printf("GenVerifyHash aaa headerBufHash=%v, headerBuf=%v", base.Data2CommonHash(headBuf).ShortS(), headBuf)
+
+	//log.Printf("GenVerifyHash height:%v,id:%v,%v, bbbbbuf %v", b.Header.Height,id.ShortS(), b.Transactions == nil, buf)
+	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf ids %v", b.Header.Height,id.ShortS(),id.Serialize())
+	buf = append(buf, id.Serialize()...)
+	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf after %v", b.Header.Height,id.ShortS(),buf)
+	h := base.Data2CommonHash(buf)
+	log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
+	return h
 }

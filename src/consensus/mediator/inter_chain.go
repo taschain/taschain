@@ -15,6 +15,18 @@
 
 package mediator
 
+import (
+	"math/big"
+	"middleware/types"
+	"consensus/model"
+	"consensus/base"
+	"consensus/logical"
+	"common"
+	"errors"
+	"fmt"
+	"consensus/groupsig"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 /*
 //主链提供给共识模块的接口
@@ -49,3 +61,66 @@ type QueryBlockByHeight func() *core.BlockHeader
 */
 ///////////////////////////////////////////////////////////////////////////////
 //共识模块提供给外部的数据
+
+type ConsensusHelperImpl struct {
+	ID 	groupsig.ID
+}
+
+func NewConsensusHelper(id groupsig.ID) types.ConsensusHelper {
+	return &ConsensusHelperImpl{ID:id}
+}
+
+func (helper *ConsensusHelperImpl) ProposalBonus() *big.Int {
+	return new(big.Int).SetUint64(model.Param.ProposalBonus)
+}
+
+func (helper *ConsensusHelperImpl) PackBonus() *big.Int {
+	return new(big.Int).SetUint64(model.Param.PackBonus)
+}
+
+func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
+	return logical.GenerateGenesis()
+}
+
+func (helper *ConsensusHelperImpl) VRFProve2Value(prove *big.Int) *big.Int {
+	return base.VRF_proof2hash(base.VRFProve(prove.Bytes())).Big()
+}
+
+func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
+	return Proc.CalcBlockHeaderQN(bh)
+}
+
+
+func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
+	return Proc.GenVerifyHash(b, helper.ID)
+}
+
+func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
+	preBH := Proc.MainChain.QueryBlockHeaderByHash(bh.PreHash)
+	if preBH == nil {
+		return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+	group := Proc.GetGroup(gid)
+	if !group.GroupID.IsValid() {
+		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
+	}
+	memIds := make([]groupsig.ID, len(group.Members))
+	for idx, mem := range group.Members {
+		memIds[idx] = mem.ID
+	}
+	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, memIds); root == bh.ProveRoot {
+		return true, nil
+	} else {
+		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveValue, root))
+	}
+
+}
+
+func (helper *ConsensusHelperImpl ) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
+    return Proc.VerifyBlock(bh, preBH)
+}
+
+func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error)  {
+    return Proc.VerifyBlockHeader(bh)
+}
