@@ -47,6 +47,11 @@ type StateInfo struct {
 	PreBlockSateRoot common.Hash
 }
 
+type ChainPieceInfo struct {
+	ChainPiece []*types.BlockHeader
+	TopHeader  *types.BlockHeader
+}
+
 //验证节点 交易集缺失，向CASTOR索要特定交易
 func RequestTransaction(m TransactionRequestMessage, castorId string) {
 	if castorId == "" {
@@ -124,6 +129,9 @@ func ReqBlockBody(targetNode string, blockHash common.Hash) {
 }
 
 func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*types.Transaction) {
+	if len(transactions) == 0 {
+		return
+	}
 	body, e := marshalBlockBody(blockHash, transactions)
 	if e != nil {
 		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
@@ -154,6 +162,28 @@ func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.Sta
 		return
 	}
 	message := network.Message{Code: network.StateInfoMsg, Body: body}
+	network.GetNetInstance().Send(targetNode, message)
+}
+
+func RequestChainPiece(targetNode string, height uint64) {
+	Logger.Debugf("Req chain piece to:%s,local height:%d", targetNode, height)
+	body := utility.UInt64ToByte(height)
+	message := network.Message{Code: network.ChainPieceReq, Body: body}
+	network.GetNetInstance().Send(targetNode, message)
+}
+
+func SendChainPiece(targetNode string, chainPieceInfo ChainPieceInfo) {
+	chainPiece := chainPieceInfo.ChainPiece
+	if len(chainPiece) == 0 {
+		return
+	}
+	Logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, targetNode)
+	body, e := marshalChainPieceInfo(chainPieceInfo)
+	if e != nil {
+		Logger.Errorf("[peer]Discard marshalChainPiece because of marshal error:%s!", e.Error())
+		return
+	}
+	message := network.Message{Code: network.ChainPiece, Body: body}
 	network.GetNetInstance().Send(targetNode, message)
 }
 
@@ -204,5 +234,16 @@ func marshalStateInfo(stateInfo StateInfo) ([]byte, error) {
 
 	message := tas_middleware_pb.StateInfo{Height: &stateInfo.Height, TrieNodes: trieNodes,
 		BlockHash: stateInfo.BlockHash.Bytes(), ProBlockStateRoot: stateInfo.PreBlockSateRoot.Bytes()}
+	return proto.Marshal(&message)
+}
+
+func marshalChainPieceInfo(chainPieceInfo ChainPieceInfo) ([]byte, error) {
+	headers := make([]*tas_middleware_pb.BlockHeader, 0)
+	for _, header := range chainPieceInfo.ChainPiece {
+		h := types.BlockHeaderToPb(header)
+		headers = append(headers, h)
+	}
+	topHeader := types.BlockHeaderToPb(chainPieceInfo.TopHeader)
+	message := tas_middleware_pb.ChainPieceInfo{TopHeader: topHeader, BlockHeaders: headers}
 	return proto.Marshal(&message)
 }

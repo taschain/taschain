@@ -30,6 +30,8 @@ import (
 	"middleware/statistics"
 )
 
+const ChainPieceLength = 10
+
 type ChainHandler struct {
 	headerPending map[common.Hash]blockHeaderNotify
 
@@ -69,6 +71,8 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
+	notify.BUS.Subscribe(notify.ChainPieceReq, handler.chainPieceReqHandler)
+	notify.BUS.Subscribe(notify.ChainPiece, handler.chainPieceHandler)
 
 	go handler.loop()
 	return &handler
@@ -110,14 +114,6 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		m.SourceId = sourceId
 		core.GroupSyncer.GroupCh <- *m
-	case network.BlockChainTotalQnMsg:
-		m, e := unmarshalTotalQnInfo(msg.Body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard BlockChainTotalQnMsg because of unmarshal error:%s", e.Error())
-			return e
-		}
-		s := core.TotalQnInfo{TotalQn: m.TotalQn, SourceId: sourceId, Height: m.Height}
-		core.BlockSyncer.TotalQnCh <- s
 	}
 	return nil
 }
@@ -255,17 +251,56 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
-	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN)
+	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d,tx len:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN, len(m.Transactions))
 	statistics.AddBlockLog(common.BootId, statistics.RcvNewBlock, m.Header.Height, 0, len(m.Transactions), -1,
 		time.Now().UnixNano(), "", "", common.InstanceIndex, m.Header.CurTime.UnixNano())
 	core.BlockChainImpl.AddBlockOnChain(&m)
+}
+
+func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
+	chainPieceReqMessage, ok := msg.GetData().(*notify.ChainPieceReqMessage)
+	if !ok {
+		return
+	}
+	height := utility.ByteToUInt64(chainPieceReqMessage.HeightByte)
+	id := chainPieceReqMessage.Peer
+
+	chainPiece := make([]*types.BlockHeader, 0)
+	var i, len uint64
+	for i, len = 0, 0; len < ChainPieceLength; i++ {
+		core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
+		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
+		if header != nil {
+			chainPiece = append(chainPiece, header)
+			len++
+		}
+		if height-i == 0 {
+			break
+		}
+	}
+	core.SendChainPiece(id, core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: core.BlockChainImpl.QueryTopBlock()})
+}
+
+func (ch ChainHandler) chainPieceHandler(msg notify.Message) {
+	chainPieceMessage, ok := msg.GetData().(*notify.ChainPieceMessage)
+	if !ok {
+		return
+	}
+
+	chainPieceInfo, err := unMarshalChainPieceInfo(chainPieceMessage.ChainPieceInfoByte)
+	if err != nil {
+		core.Logger.Errorf("[handler]unMarshalChainPiece error:%s", err.Error())
+		return
+	}
+	core.BlockChainImpl.ProcessChainPiece(chainPieceMessage.Peer, chainPieceInfo.ChainPiece, chainPieceInfo.TopHeader)
+
 }
 
 func (ch ChainHandler) loop() {
 	for {
 		select {
 		case headerNotify := <-ch.headerCh:
-			core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d",headerNotify.header.Hash.Hex(),headerNotify.peer,len(headerNotify.header.Transactions),headerNotify.header.Height,headerNotify.header.TotalQN)
+			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d", headerNotify.header.Hash.Hex(), headerNotify.peer, len(headerNotify.header.Transactions), headerNotify.header.Height, headerNotify.header.TotalQN)
 			hash := headerNotify.header.Hash
 			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
 				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
@@ -278,10 +313,18 @@ func (ch ChainHandler) loop() {
 				break
 			}
 
+			if len(headerNotify.header.Transactions) == 0 {
+				block := types.Block{Header: &headerNotify.header, Transactions: nil}
+				msg := notify.BlockMessage{Block: block}
+				ch.complete.Add(block.Header.Hash, block)
+				delete(ch.headerPending, block.Header.Hash)
+				notify.BUS.Publish(notify.NewBlock, &msg)
+				break
+			}
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d",bodyNotify.blockHash.Hex(),bodyNotify.peer,len(bodyNotify.body))
+			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
@@ -333,9 +376,6 @@ func onMessageTransaction(txs []*types.Transaction) error {
 	return nil
 }
 
-
-
-
 //--------------------------------------------------deserialization---------------------------------------------------------------
 func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessage, error) {
 	m := new(tas_middleware_pb.TransactionRequestMessage)
@@ -356,7 +396,6 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
 	return &message, nil
 }
-
 
 func unMarshalGroupInfo(b []byte) (*core.GroupInfo, error) {
 	message := new(tas_middleware_pb.GroupInfo)
@@ -425,17 +464,23 @@ func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
 	return stateInfo, nil
 }
 
-func unmarshalTotalQnInfo(b []byte) (core.TotalQnInfo, error) {
-	message := new(tas_middleware_pb.TotalQnInfo)
+func unMarshalChainPieceInfo(b []byte) (*core.ChainPieceInfo, error) {
+	message := new(tas_middleware_pb.ChainPieceInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		core.Logger.Errorf("[handler]unmarshalTotalQnInfo error:%s", e.Error())
-		return core.TotalQnInfo{}, e
+		core.Logger.Errorf("[handler]unMarshalChainPieceInfo error:%s", e.Error())
+		return nil, e
 	}
-	totalQnInfo := core.TotalQnInfo{TotalQn: *message.TotalQn, Height: *message.Height,}
-	return totalQnInfo, nil
-}
 
+	chainPiece := make([]*types.BlockHeader, 0)
+	for _, header := range message.BlockHeaders {
+		h := types.PbToBlockHeader(header)
+		chainPiece = append(chainPiece, h)
+	}
+	topHeader := types.PbToBlockHeader(message.TopHeader)
+	chainPieceInfo := core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: topHeader}
+	return &chainPieceInfo, nil
+}
 
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)
@@ -455,7 +500,7 @@ func unmarshalTotalQnInfo(b []byte) (core.TotalQnInfo, error) {
 //}
 
 //func unMarshalGroups(b []byte) ([]*types.Group, error) {
-//	message := new(tas_middleware_pb.GroupSlice)
+//	message := new(tas_middlewstateInfoReqHandlerare_pb.GroupSlice)
 //	e := proto.Unmarshal(b, message)
 //	if e != nil {
 //		core.Logger.Errorf("[handler]Unmarshal Groups error:%s", e.Error())

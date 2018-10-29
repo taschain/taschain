@@ -21,8 +21,8 @@ import (
 	"taslog"
 	"common"
 	"network"
-	"middleware/pb"
-	"github.com/gogo/protobuf/proto"
+	"middleware/types"
+	"middleware/notify"
 )
 
 const (
@@ -33,30 +33,29 @@ const (
 
 var BlockSyncer blockSyncer
 
-type TotalQnInfo struct {
-	TotalQn  uint64
-	Height   uint64
-	SourceId string
-}
-
 type blockSyncer struct {
-	TotalQnCh chan TotalQnInfo
-
-	maxTotalQn     uint64
-	bestNode       string
-	bestNodeHeight uint64
-	lock           sync.Mutex
+	candidate blockSyncCandidate
+	lock      sync.Mutex
 
 	init        bool
 	hasNeighbor bool
 	lightMiner  bool
 }
 
+type blockSyncCandidate struct {
+	id      string
+	totalQn uint64
+	hash    common.Hash
+	preHash common.Hash
+	height  uint64
+}
+
 func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{maxTotalQn: 0, TotalQnCh: make(chan TotalQnInfo), hasNeighbor: false, init: false, lightMiner: isLightMiner}
+	BlockSyncer = blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
+	notify.BUS.Subscribe(notify.BlockChainTotalQn, BlockSyncer.totalQnHandler)
 	go BlockSyncer.start()
 }
 
@@ -80,19 +79,14 @@ func (bs *blockSyncer) start() {
 }
 
 func (bs *blockSyncer) Sync() {
-	if nil == BlockChainImpl {
-		panic("BlockChainImpl should not be nil!")
-		return
-	}
-	localTotalQN, localHeight := BlockChainImpl.TotalQN(), BlockChainImpl.Height()
+	topBlock := BlockChainImpl.QueryTopBlock()
+	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
-	maxTotalQN := bs.maxTotalQn
-	bestNodeId := bs.bestNode
-	bestNodeHeight := bs.bestNodeHeight
+	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
-	if maxTotalQN < localTotalQN {
-		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", maxTotalQN, localTotalQN)
+	if candidateQN < localTotalQN || candidateHash == localHash {
+		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
 			bs.init = true
@@ -102,52 +96,53 @@ func (bs *blockSyncer) Sync() {
 			BlockChainImpl.SetAdujsting(false)
 		}
 		return
-	} else {
-		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d is greater than self chain's totalQN: %d.\nSync from %s!", maxTotalQN, localTotalQN, bestNodeId)
-		if bs.lightMiner && BlockChainImpl.Height() == 0 {
-			var height uint64 = 0
-			if bestNodeHeight > 11 {
-				height = bestNodeHeight - 10
-			}
-			RequestBlock(bestNodeId, height+1)
-			return
-		}
-		RequestBlock(bestNodeId, localHeight+1)
 	}
 
+	logger.Debugf("[BlockSyncer]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
+	logger.Debugf("[BlockSyncer]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
+	BlockChainImpl.SetAdujsting(true)
+	if candidatePreHash == localHash {
+		RequestBlock(candidateId, candidateHeight)
+		return
+	}
+
+	if candidatePreHash == localPreHash {
+		BlockChainImpl.Remove(topBlock)
+		RequestBlock(candidateId, candidateHeight)
+		return
+	}
+
+	if BlockChainImpl.Height() == 0 {
+		if BlockChainImpl.IsLightMiner(){
+			RequestBlock(candidateId, candidateHeight)
+		}else {
+			RequestBlock(candidateId, 1)
+		}
+		return
+	}
+	RequestChainPiece(candidateId, localHeight)
+	return
 }
 
 func (bs *blockSyncer) loop() {
 	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
 	for {
-		select {
-		case h := <-bs.TotalQnCh:
-			logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", h.SourceId, h.TotalQn, h.Height)
-			if !bs.hasNeighbor {
-				bs.hasNeighbor = true
-			}
-			bs.lock.Lock()
-			if h.TotalQn-bs.maxTotalQn > 0 {
-				bs.maxTotalQn = h.TotalQn
-				bs.bestNode = h.SourceId
-				bs.bestNodeHeight = h.Height
-			}
-			bs.lock.Unlock()
-		case <-t.C:
-			sendBlockTotalQnToNeighbor(BlockChainImpl.TotalQN(), BlockChainImpl.Height())
-
-			if !bs.init {
-				continue
-			}
-			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-			go bs.Sync()
+		<-t.C
+		if !BlockChainImpl.IsLightMiner() {
+			sendBlockTotalQnToNeighbor(BlockChainImpl.QueryTopBlock())
 		}
+
+		if !bs.init {
+			continue
+		}
+		logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
+		go bs.Sync()
 	}
 }
 
-func sendBlockTotalQnToNeighbor(localTotalQN uint64, height uint64) {
-	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", localTotalQN)
-	body, e := marshalTotalQnInfo(TotalQnInfo{TotalQn: localTotalQN, Height: height})
+func sendBlockTotalQnToNeighbor(topBlockHeader *types.BlockHeader) {
+	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", topBlockHeader.TotalQN)
+	body, e := types.MarshalBlockHeader(topBlockHeader)
 	if e != nil {
 		logger.Errorf("[BlockSyncer]marshal TotalQnInfo error:%s", e.Error())
 		return
@@ -156,7 +151,40 @@ func sendBlockTotalQnToNeighbor(localTotalQN uint64, height uint64) {
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
-func marshalTotalQnInfo(totalQnInfo TotalQnInfo) ([]byte, error) {
-	t := tas_middleware_pb.TotalQnInfo{TotalQn: &totalQnInfo.TotalQn, Height: &totalQnInfo.Height}
-	return proto.Marshal(&t)
+func (bs *blockSyncer) totalQnHandler(msg notify.Message) {
+	totalQnMsg, ok := msg.GetData().(*notify.TotalQnMessage)
+	if !ok {
+		Logger.Debugf("[ChainHandler]totalQnHandler GetData assert not ok!")
+		return
+	}
+	header, e := types.UnMarshalBlockHeader(totalQnMsg.BlockHeaderByte)
+	if e != nil {
+		Logger.Errorf("[handler]Discard totalQnHandler because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	if !bs.verifyTotalQnMsg(header) {
+		return
+	}
+	logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", totalQnMsg.Peer, header.TotalQN, header.Height)
+	if !bs.hasNeighbor {
+		bs.hasNeighbor = true
+	}
+	bs.lock.Lock()
+	if header.TotalQN > bs.candidate.totalQn {
+		bs.candidate = blockSyncCandidate{id: totalQnMsg.Peer, totalQn: header.TotalQN, hash: header.Hash, preHash: header.PreHash, height: header.Height}
+	}
+	bs.lock.Unlock()
+}
+
+func (bs *blockSyncer) verifyTotalQnMsg(blockHeader *types.BlockHeader) bool {
+	//if blockHeader.Hash != blockHeader.GenHash() {
+	//	return false
+	//}
+	//result, err := BlockChainImpl.GetConsensusHelper().VerifyBlockHeader(blockHeader)
+	//if err != nil {
+	//	Logger.Errorf("verifyTotalQnMsg error:%s", err.Error())
+	//}
+	//return result
+	return true
 }

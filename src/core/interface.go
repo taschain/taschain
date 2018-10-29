@@ -26,7 +26,6 @@ import (
 
 //主链接口
 type BlockChain interface {
-
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
@@ -46,7 +45,7 @@ type BlockChain interface {
 
 	Height() uint64
 
- 	TotalQN() uint64
+	TotalQN() uint64
 
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
@@ -70,11 +69,11 @@ type BlockChain interface {
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
 
-	GetBalance(address common.Address)*big.Int
+	GetBalance(address common.Address) *big.Int
 
 	GetNonce(address common.Address) uint64
 
-	GetSateCache()core.Database
+	GetSateCache() core.Database
 
 	IsAdujsting() bool
 
@@ -87,7 +86,7 @@ type BlockChain interface {
 
 	Close()
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader,transactions []*types.Transaction,addresses []common.Address) *[]types.StateNode
+	GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 
@@ -95,18 +94,19 @@ type BlockChain interface {
 
 	GetBonusManager() *BonusManager
 
-	GetAccountDBByHash(hash common.Hash) (vm.AccountDB,error)
+	GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error)
 
 	GetConsensusHelper() types.ConsensusHelper
 
 	GetTraceHeader(hash []byte) *types.BlockHeader
 
-	GetCheckValue(height uint64) (common.Hash,error)
+	GetCheckValue(height uint64) (common.Hash, error)
+
+	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
 }
 
 type TransactionPool interface {
-
-	AddTransaction(tx *types.Transaction)(bool,error)
+	AddTransaction(tx *types.Transaction) (bool, error)
 
 	AddTransactions(txs []*types.Transaction) error
 
