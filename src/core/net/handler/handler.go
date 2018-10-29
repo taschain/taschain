@@ -251,7 +251,7 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
-	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN)
+	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d,tx len:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN, len(m.Transactions))
 	statistics.AddBlockLog(common.BootId, statistics.RcvNewBlock, m.Header.Height, 0, len(m.Transactions), -1,
 		time.Now().UnixNano(), "", "", common.InstanceIndex, m.Header.CurTime.UnixNano())
 	core.BlockChainImpl.AddBlockOnChain(&m)
@@ -313,10 +313,18 @@ func (ch ChainHandler) loop() {
 				break
 			}
 
+			if len(headerNotify.header.Transactions) == 0 {
+				block := types.Block{Header: &headerNotify.header, Transactions: nil}
+				msg := notify.BlockMessage{Block: block}
+				ch.complete.Add(block.Header.Hash, block)
+				delete(ch.headerPending, block.Header.Hash)
+				notify.BUS.Publish(notify.NewBlock, &msg)
+				break
+			}
 			ch.headerPending[hash] = headerNotify
 			core.ReqBlockBody(headerNotify.peer, hash)
 		case bodyNotify := <-ch.bodyCh:
-			//core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
+			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
 			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
 			if !ok {
 				break
