@@ -336,22 +336,55 @@ func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHe
 	return true
 }
 
+// 删除块
+func (chain *prototypeChain) remove(header *types.BlockHeader) {
+	hash := header.Hash
+	block := BlockChainImpl.QueryBlockByHash(hash)
+	chain.blocks.Delete(hash.Bytes())
+	chain.blockHeight.Delete(generateHeightKey(header.Height))
+
+	// 删除块的交易，返回transactionpool
+	if nil == block {
+		return
+	}
+	txs := block.Transactions
+	if 0 == len(txs) {
+		return
+	}
+	chain.transactionPool.UnMarkExecuted(txs)
+	if header.Hash == chain.latestBlock.Hash{
+		chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
+		chain.latestStateDB,_ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+	}
+}
+
+func (chain *prototypeChain) Remove(header *types.BlockHeader) {
+	chain.lock.Lock("Remove Top")
+	defer chain.lock.Unlock("Remove Top")
+	chain.remove(header)
+}
+
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
+	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
+			Logger.Debugf("removeFromCommonAncestor nil height:%d",height)
 			continue
 		}
-		BlockChainImpl.Remove(header)
+		chain.remove(header)
 		chain.topBlocks.Remove(header.Height)
 		Logger.Debugf("Remove local chain headers %d", header.Height)
 	}
 	chain.latestBlock = commonAncestor
+	chain.latestStateDB,_ = core.NewAccountDB(commonAncestor.StateTree, chain.stateCache)
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
+	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
+	time.Sleep(100 * time.Millisecond)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
