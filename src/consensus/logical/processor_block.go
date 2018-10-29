@@ -218,7 +218,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 		return
 	}
 
-	if ok2, group, err2 := p.isCastLegal(bh, preBH); !ok2 {
+	if ok2, group, err2 := p.isCastLegal(0, bh, preBH); !ok2 {
 		err = err2
 		return
 	} else {

@@ -1,18 +1,19 @@
 package core
 
 import (
-	"storage/tasdb"
-	"github.com/hashicorp/golang-lru"
-	"middleware/types"
-	"storage/core"
-	"middleware"
+	"bytes"
 	"common"
+	"consensus/groupsig"
+	"encoding/binary"
+	"github.com/hashicorp/golang-lru"
 	"math"
 	"math/big"
-	"encoding/binary"
+	"middleware"
+	"middleware/statistics"
+	"middleware/types"
+	"storage/core"
+	"storage/tasdb"
 	"utility"
-	"consensus/groupsig"
-	"bytes"
 )
 
 type prototypeChain struct {
@@ -282,7 +283,13 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
 	if traceHeader == nil {
+		statistics.VrfLogger.Debugf("TraceHeader is nil")
 		return nil
+	}
+	if traceHeader.Random == nil || len(traceHeader.Random) == 0 {
+		statistics.VrfLogger.Debugf("PreBlock Random is nil")
+	} else {
+		statistics.VrfLogger.Debugf("PreBlock Random : %v", common.Bytes2Hex(traceHeader.Random))
 	}
 	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }

@@ -1,2 +1,0 @@
-2018-10-26 11:00:45.825  [Debug]  [logger.go:61] [Trie cache stats after commit misses 0 unloads 0]
-2018-10-26 11:00:45.825  [Debug]  [logger.go:61] [Persisted trie from memory database nodes 86 size 29535 time 370.982µs gcnodes 0 gcsize 0 gctime 0s livenodes 1 livesize 0]

@@ -291,15 +291,15 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 			return 3
 		}
 		if status != 0 {
-			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
+			Logger.Errorf("[LightChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
 		}
 	}
 
-	//if !chain.validateGroupSig(b.Header) {
-	//	Logger.Debugf("Fail to validate group sig!")
-	//	return -1
-	//}
+	if !chain.validateGroupSig(b.Header) {
+		Logger.Debugf("Fail to validate group sig!")
+		return -1
+	}
 	trace := &TraceHeader{Hash: b.Header.Hash, PreHash: b.Header.PreHash, Value: chain.consensusHelper.VRFProve2Value(b.Header.ProveValue).Bytes(), TotalQn: b.Header.TotalQN, Height: b.Header.Height}
 	TraceChainImpl.AddTrace(trace)
 

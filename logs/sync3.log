@@ -1,4 +1,0 @@
-2018-10-26 11:00:45.954  [Debug]  [logger.go:61] [[BlockSyncer]Wait for connecting...]
-2018-10-26 11:00:45.954  [Debug]  [logger.go:61] [[GroupSyncer]Wait for connecting...]
-2018-10-26 11:00:48.959  [Debug]  [logger.go:45] [BlockSyncer]Send local total qn 0 to neighbor!
-2018-10-26 11:00:48.959  [Debug]  [logger.go:45] [GroupSyncer]Send local group height 1 to neighbor!
