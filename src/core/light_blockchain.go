@@ -134,6 +134,12 @@ func initLightChain(helper types.ConsensusHelper) error {
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
+		state, err := core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+		if nil == err {
+			chain.latestStateDB = state
+		} else {
+			panic(err)
+		}
 	} else {
 		//// 创始块
 		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
