@@ -39,7 +39,7 @@ type prototypeChain struct {
 	init bool
 
 	statedb    tasdb.Database
-	stateCache core.Database // State database to reuse between imports (contains state cache)
+	stateCache core.AccountDatabase // State database to reuse between imports (contains state cache)
 
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
@@ -181,7 +181,7 @@ func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
 
-func (chain *prototypeChain) GetSateCache() core.Database {
+func (chain *prototypeChain) GetSateCache() core.AccountDatabase {
 	return chain.stateCache
 }
 func (chain *prototypeChain) IsAdujsting() bool {

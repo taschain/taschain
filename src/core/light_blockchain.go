@@ -6,7 +6,7 @@ import (
 	"middleware/types"
 
 	"taslog"
-	"core/datasource"
+
 	"storage/core"
 	"common"
 	"consensus/groupsig"
@@ -16,6 +16,7 @@ import (
 	vtypes "storage/core/types"
 	"math/big"
 	"storage/core/vm"
+	"storage/tasdb"
 )
 
 const (
@@ -103,22 +104,22 @@ func initLightChain(helper types.ConsensusHelper) error {
 	if err != nil {
 		return err
 	}
-	chain.blocks, err = datasource.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
+	chain.blocks, err = tasdb.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
-	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
+	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
-	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
-	chain.checkdb, err = datasource.NewDatabase(chain.config.check)
+	chain.checkdb, err = tasdb.NewDatabase(chain.config.check)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
@@ -489,7 +490,7 @@ func (chain *LightChain) Clear() error {
 	var err error
 	chain.blockHeight.Close()
 	chain.statedb.Close()
-	chain.statedb, err = datasource.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err

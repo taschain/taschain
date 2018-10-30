@@ -32,13 +32,13 @@ type DatabaseReader interface {
 type Database struct {
 	diskdb tasdb.Database
 
-	nodes     map[common.Hash]*cachedNode
+	nodes map[common.Hash]*cachedNode
 
 	gctime  time.Duration
 	gcnodes uint64
 	gcsize  common.StorageSize
 
-	nodesSize     common.StorageSize
+	nodesSize common.StorageSize
 
 	lock sync.RWMutex
 }
@@ -68,7 +68,6 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	return db.diskdb.Get(hash[:])
 }
 
-
 func (db *Database) Nodes() []common.Hash {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -82,14 +81,12 @@ func (db *Database) Nodes() []common.Hash {
 	return hashes
 }
 
-
 func (db *Database) Reference(child common.Hash, parent common.Hash) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
 	db.reference(child, parent)
 }
-
 
 func (db *Database) reference(child common.Hash, parent common.Hash) {
 
@@ -105,7 +102,6 @@ func (db *Database) reference(child common.Hash, parent common.Hash) {
 	db.nodes[parent].children[child]++
 }
 
-
 func (db *Database) Dereference(child common.Hash, parent common.Hash) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -120,7 +116,6 @@ func (db *Database) Dereference(child common.Hash, parent common.Hash) {
 	log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 }
-
 
 func (db *Database) dereference(child common.Hash, parent common.Hash) {
 
@@ -157,7 +152,6 @@ func (db *Database) Insert(hash common.Hash, blob []byte) {
 	db.insert(hash, blob)
 }
 
-
 func (db *Database) insert(hash common.Hash, blob []byte) {
 	if _, ok := db.nodes[hash]; ok {
 		return
@@ -175,7 +169,6 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	start := time.Now()
 	batch := db.diskdb.NewBatch()
 
-
 	nodes, storage := len(db.nodes), db.nodesSize
 	if err := db.commit(node, batch); err != nil {
 		log.Error("Failed to commit trie from trie database", "err", err)
@@ -190,7 +183,6 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	}
 	db.lock.RUnlock()
 
-
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -203,12 +195,10 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	logger("Persisted trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 
-
 	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0
 
 	return nil
 }
-
 
 func (db *Database) commit(hash common.Hash, batch tasdb.Batch) error {
 

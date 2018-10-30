@@ -17,7 +17,6 @@ package core
 
 import (
 	"common"
-	"core/datasource"
 	"time"
 	"os"
 	"storage/core"
@@ -32,6 +31,7 @@ import (
 	"math/big"
 	"storage/core/vm"
 	"middleware/notify"
+	"storage/tasdb"
 )
 
 
@@ -155,25 +155,25 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.castedBlock, err = lru.New(20)
 
 	//从磁盘文件中初始化leveldb
-	chain.blocks, err = datasource.NewDatabase(chain.config.block)
+	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
+	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.checkdb, err = datasource.NewDatabase(chain.config.state)
+	chain.checkdb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -402,7 +402,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
-	Logger.Debugf("commonAncestor hash:%s height:%d",commonAncestor.Hash.Hex(),commonAncestor.Height)
+	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		//删除自身链的结点
 		chain.removeFromCommonAncestor(commonAncestor)
@@ -430,13 +430,13 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
-	Logger.Debugf("insertBlock begin hash:%s",remoteBlock.Header.Hash.Hex())
+	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
-	Logger.Debugf("insertBlock saveBlock hash:%s result:%d",remoteBlock.Header.Hash.Hex(),result)
+	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
 		return -1, headerByte
 	}
@@ -604,7 +604,6 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 	return 0, headerJson
 }
 
-
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
 	chain.lock.Lock("Clear")
@@ -620,9 +619,9 @@ func (chain *FullBlockChain) Clear() error {
 	chain.blockHeight.Close()
 	chain.statedb.Close()
 
-	os.RemoveAll(datasource.DEFAULT_FILE)
+	os.RemoveAll(tasdb.DEFAULT_FILE)
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -677,9 +676,9 @@ func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {
 }
 
 func Clear() {
-	path := datasource.DEFAULT_FILE
+	path := tasdb.DEFAULT_FILE
 	if nil != common.GlobalConf {
-		path = common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE)
+		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
 	}
 	os.RemoveAll(path)
 

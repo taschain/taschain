@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package datasource
+package tasdb
 
 import (
 	"testing"
@@ -79,25 +79,25 @@ func TestCreateLDB(t *testing.T) {
 }
 
 func TestLRUMemDatabase(t *testing.T) {
-	mem,_:=NewLRUMemDatabase(10)
-	for i:=(byte)(0);i<11 ;i++  {
-		mem.Put([]byte{i},[]byte{i})
+	mem, _ := NewLRUMemDatabase(10)
+	for i := (byte)(0); i < 11; i++ {
+		mem.Put([]byte{i}, []byte{i})
 	}
-	data,_:=mem.Get([]byte{0})
-	if data != nil{
+	data, _ := mem.Get([]byte{0})
+	if data != nil {
 		t.Errorf("expected value nil")
 	}
-	data,_=mem.Get([]byte{10})
-	if data == nil{
+	data, _ = mem.Get([]byte{10})
+	if data == nil {
 		t.Errorf("expected value not nil")
 	}
-	data,_=mem.Get([]byte{5})
-	if data == nil{
+	data, _ = mem.Get([]byte{5})
+	if data == nil {
 		t.Errorf("expected value not nil")
 	}
 	mem.Delete([]byte{5})
-	data,_=mem.Get([]byte{5})
-	if data != nil{
+	data, _ = mem.Get([]byte{5})
+	if data != nil {
 		t.Errorf("expected value nil")
 	}
 }
@@ -115,7 +115,6 @@ func TestClearLDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to put key in testldb\n")
 	}
-
 
 	if err != nil {
 		t.Fatalf("error to clear ldb : %s\n", "testldb")
