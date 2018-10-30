@@ -18,7 +18,6 @@ package core
 import (
 	"middleware/types"
 	"common"
-	t "storage/account/types"
 	"storage/account"
 	"math/big"
 	"storage/vm"
@@ -174,8 +173,8 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*t.Receipt, error) {
-	receipts := make([]*t.Receipt, 0)
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error) {
+	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
@@ -294,7 +293,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		}
 		if !fail {
 			transactions = append(transactions, transaction)
-			receipt := t.NewReceipt(nil, fail, 0)
+			receipt := types.NewReceipt(nil, fail, 0)
 			receipt.TxHash = transaction.Hash
 			receipt.ContractAddress = contractAddress
 			receipts = append(receipts, receipt)

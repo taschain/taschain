@@ -20,7 +20,6 @@ import (
 	"time"
 	"os"
 	"storage/account"
-	vtypes "storage/account/types"
 	"github.com/hashicorp/golang-lru"
 	"fmt"
 	"bytes"
@@ -70,7 +69,7 @@ type FullBlockChain struct {
 
 type castingBlock struct {
 	state    *account.AccountDB
-	receipts vtypes.Receipts
+	receipts types.Receipts
 }
 
 func getBlockChainConfig() *BlockChainConfig {
@@ -453,7 +452,7 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 	return 0, headerByte
 }
 
-func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, vtypes.Receipts) {
+func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
 		panic("Pre block nil !!")

@@ -21,7 +21,6 @@ import (
 	"math/big"
 	"time"
 	"storage/account"
-	vtypes "storage/account/types"
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
@@ -70,7 +69,7 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
-func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
+func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
 		return emptyHash
 	}

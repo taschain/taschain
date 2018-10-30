@@ -4,16 +4,13 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"middleware"
 	"middleware/types"
-
 	"taslog"
-
 	"storage/account"
 	"common"
 	"consensus/groupsig"
 	"middleware/notify"
 	"log"
 	"fmt"
-	vtypes "storage/account/types"
 	"math/big"
 	"storage/vm"
 	"storage/tasdb"
@@ -359,7 +356,7 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	return 0, headerByte
 }
 
-func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, vtypes.Receipts) {
+func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	var preBlockStateTree []byte
 	if preBlock == nil {
