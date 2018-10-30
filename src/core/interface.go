@@ -138,7 +138,7 @@ type GroupInfoI interface {
 
 // VM执行器
 type VMExecutor interface {
-	//Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error)
+
 	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 
