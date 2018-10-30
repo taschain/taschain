@@ -85,6 +85,7 @@ func (bs *blockSyncer) Sync() {
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
+	logger.Debugf("sync localHeight:%d", localHeight)
 	if candidateQN < localTotalQN || candidateHash == localHash {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
@@ -98,8 +99,8 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 
-	logger.Debugf("[BlockSyncer]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
-	logger.Debugf("[BlockSyncer]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
+	logger.Debugf("[Sync]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
+	logger.Debugf("[Sync]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
 	BlockChainImpl.SetAdujsting(true)
 	if candidatePreHash == localHash {
 		RequestBlock(candidateId, candidateHeight)

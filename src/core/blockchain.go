@@ -476,11 +476,10 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
-	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.PreHash); value != nil {
+	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
 		chain.addBlockOnChain(&block)
-		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	go BlockSyncer.Sync()
