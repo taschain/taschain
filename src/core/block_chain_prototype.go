@@ -38,7 +38,7 @@ type prototypeChain struct {
 	init bool
 
 	statedb    tasdb.Database
-	stateCache core.Database // State database to reuse between imports (contains state cache)
+	stateCache core.AccountDatabase // State database to reuse between imports (contains state cache)
 
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
