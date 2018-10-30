@@ -4,10 +4,11 @@ import (
 	"testing"
 	"common"
 	"core/datasource"
+	"storage/tasdb"
 )
 
 func TestLightInsertAndDel(t *testing.T) {
-	db, _ := datasource.NewMemDatabase()
+	db, _ := tasdb.NewMemDatabase()
 	triedb := NewDatabase(db)
 	trie,_:=NewLightTrie(common.Hash{}, triedb)
 	updateLightString(trie,"key1","2")
