@@ -75,7 +75,7 @@ type BlockChain interface {
 
 	GetNonce(address common.Address) uint64
 
-	GetSateCache() core.Database
+	GetSateCache() core.AccountDatabase
 
 	IsAdujsting() bool
 

@@ -17,7 +17,6 @@ package core
 
 import (
 	"common"
-	"core/datasource"
 	"time"
 	"os"
 	"storage/core"
@@ -32,6 +31,7 @@ import (
 	"math/big"
 	"storage/core/vm"
 	"middleware/notify"
+	"storage/tasdb"
 )
 
 const (
@@ -140,25 +140,25 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.castedBlock, err = lru.New(20)
 
 	//从磁盘文件中初始化leveldb
-	chain.blocks, err = datasource.NewDatabase(chain.config.block)
+	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
+	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.checkdb, err = datasource.NewDatabase(chain.config.state)
+	chain.checkdb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -597,9 +597,9 @@ func (chain *FullBlockChain) Clear() error {
 	chain.blockHeight.Close()
 	chain.statedb.Close()
 
-	os.RemoveAll(datasource.DEFAULT_FILE)
+	os.RemoveAll(tasdb.DEFAULT_FILE)
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
@@ -654,9 +654,9 @@ func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {
 }
 
 func Clear() {
-	path := datasource.DEFAULT_FILE
+	path := tasdb.DEFAULT_FILE
 	if nil != common.GlobalConf {
-		path = common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE)
+		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
 	}
 	os.RemoveAll(path)
 

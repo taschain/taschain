@@ -16,48 +16,174 @@
 package tasdb
 
 import (
-	"strconv"
-	"strings"
 	"sync"
-	"time"
-
-	"storage/metrics"
+	"os"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-
-	gometrics "github.com/rcrowley/go-metrics"
-	"taslog"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"common"
+	"bytes"
+	"github.com/hashicorp/golang-lru"
 )
 
-var logger = taslog.GetLogger(taslog.DefaultConfig)
+const (
+	CONFIG_SEC   = "chain"
+	DEFAULT_FILE = "database"
+)
 
-var OpenFileLimit = 64
+var (
+	ErrLDBInit   = errors.New("LDB instance not inited")
+	instance     *LDBDatabase
+	instanceLock = sync.RWMutex{}
+)
+
+type PrefixedDatabase struct {
+	db     *LDBDatabase
+	prefix string
+}
+
+type databaseConfig struct {
+	database string
+	cache    int
+	handler  int
+}
+
+func NewDatabase(prefix string) (Database, error) {
+	dbInner, err := getInstance()
+	if nil != err {
+		return nil, err
+	}
+
+	return &PrefixedDatabase{
+		db:     dbInner,
+		prefix: prefix,
+	}, nil
+}
+
+func getInstance() (*LDBDatabase, error) {
+	instanceLock.Lock()
+	defer instanceLock.Unlock()
+
+	var (
+		instanceInner *LDBDatabase
+		err           error
+	)
+	if nil != instance {
+		return instance, nil
+	}
+
+	defaultConfig := &databaseConfig{
+		database: DEFAULT_FILE,
+		cache:    128,
+		handler:  1024,
+	}
+
+	if nil == common.GlobalConf {
+		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
+
+	} else {
+		instanceInner, err = NewLDBDatabase(common.GlobalConf.GetString(CONFIG_SEC, "database", defaultConfig.database), common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+	}
+
+	if nil == err {
+		instance = instanceInner
+	}
+
+	return instance, err
+}
+
+//func (db *PrefixedDatabase) Clear() error {
+//	inner := db.db
+//	if nil == inner {
+//		return ErrLDBInit
+//	}
+//
+//	return inner.Clear()
+//}
+
+func (db *PrefixedDatabase) Close() {
+	instanceLock.Lock()
+	defer instanceLock.Unlock()
+
+	instance = nil
+	db.db.Close()
+}
+
+func (db *PrefixedDatabase) Put(key []byte, value []byte) error {
+	return db.db.Put(generateKey(key, db.prefix), value)
+}
+
+func (db *PrefixedDatabase) Get(key []byte) ([]byte, error) {
+	return db.db.Get(generateKey(key, db.prefix))
+}
+
+func (db *PrefixedDatabase) Has(key []byte) (bool, error) {
+	return db.db.Has(generateKey(key, db.prefix))
+}
+
+func (db *PrefixedDatabase) Delete(key []byte) error {
+	return db.db.Delete(generateKey(key, db.prefix))
+}
+
+func (db *PrefixedDatabase) NewIterator() iterator.Iterator {
+	return db.db.NewIteratorWithPrefix([]byte(db.prefix))
+}
+
+func (db *PrefixedDatabase) NewBatch() Batch {
+
+	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
+}
+
+type prefixBatch struct {
+	db     *leveldb.DB
+	b      *leveldb.Batch
+	size   int
+	prefix string
+}
+
+func (b *prefixBatch) Put(key, value []byte) error {
+	b.b.Put(generateKey(key, b.prefix), value)
+	b.size += len(value)
+	return nil
+}
+
+func (b *prefixBatch) Write() error {
+	return b.db.Write(b.b, nil)
+}
+
+func (b *prefixBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *prefixBatch) Reset() {
+	b.b.Reset()
+	b.size = 0
+}
+
+// 加入前缀的key
+func generateKey(raw []byte, prefix string) []byte {
+	bytesBuffer := bytes.NewBuffer([]byte(prefix))
+	bytesBuffer.Write(raw)
+	return bytesBuffer.Bytes()
+}
 
 type LDBDatabase struct {
-	fn string      // filename for reporting
-	db *leveldb.DB // LevelDB instance
+	db *leveldb.DB
 
-	getTimer       gometrics.Timer // Timer for measuring the database get request counts and latencies
-	putTimer       gometrics.Timer // Timer for measuring the database put request counts and latencies
-	delTimer       gometrics.Timer // Timer for measuring the database delete request counts and latencies
-	missMeter      gometrics.Meter // Meter for measuring the missed database get requests
-	readMeter      gometrics.Meter // Meter for measuring the database get request data usage
-	writeMeter     gometrics.Meter // Meter for measuring the database put request data usage
-	compTimeMeter  gometrics.Meter // Meter for measuring the total time spent in database compaction
-	compReadMeter  gometrics.Meter // Meter for measuring the data read during compaction
-	compWriteMeter gometrics.Meter // Meter for measuring the data written during compaction
+	quitLock sync.Mutex
+	quitChan chan chan error
 
-	quitLock sync.Mutex      // Mutex protecting the quit channel access
-	quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
+	filename      string
+	cacheConfig   int
+	handlesConfig int
 
-	log taslog.Logger // Contextual logger tracking the database path
+	inited bool
 }
 
 func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
-
 
 	if cache < 16 {
 		cache = 16
@@ -65,15 +191,30 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if handles < 16 {
 		handles = 16
 	}
-	logger.Info("Allocated cache and file handles", "cache", cache, "handles", handles)
 
+	db, err := newLevelDBInstance(file, cache, handles)
+	if err != nil {
+		return nil, err
+	}
 
+	return &LDBDatabase{
+		filename:      file,
+		db:            db,
+		cacheConfig:   cache,
+		handlesConfig: handles,
+		inited:        true,
+	}, nil
+}
+
+// 生成leveldb实例
+func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
 	db, err := leveldb.OpenFile(file, &opt.Options{
 		OpenFilesCacheCapacity: handles,
 		BlockCacheCapacity:     cache / 2 * opt.MiB,
 		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
 		Filter:                 filter.NewBloomFilter(10),
 	})
+
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
 		db, err = leveldb.RecoverFile(file, nil)
 	}
@@ -81,161 +222,84 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LDBDatabase{
-		fn:  file,
-		db:  db,
-		log: logger,
-	}, nil
+
+	return db, nil
 }
 
+func (ldb *LDBDatabase) Clear() error {
+	ldb.inited = false
+	ldb.Close()
+
+	// todo: 直接删除文件，是不是过于粗暴？
+	os.RemoveAll(ldb.Path())
+
+	db, err := newLevelDBInstance(ldb.Path(), ldb.cacheConfig, ldb.handlesConfig)
+	if err != nil {
+		return err
+	}
+
+	ldb.db = db
+	ldb.inited = true
+	return nil
+}
+
+// Path returns the path to the database directory.
 func (db *LDBDatabase) Path() string {
-	return db.fn
+	return db.filename
+}
+
+// Put puts the given key / value to the queue
+func (db *LDBDatabase) Put(key []byte, value []byte) error {
+	if !db.inited {
+		return ErrLDBInit
+	}
+
+	return db.db.Put(key, value, nil)
 }
 
 func (db *LDBDatabase) Has(key []byte) (bool, error) {
+	if !db.inited {
+		return false, ErrLDBInit
+	}
+
 	return db.db.Has(key, nil)
 }
 
+// Get returns the given key if it's present.
 func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
-
-	if db.getTimer != nil {
-		defer db.getTimer.UpdateSince(time.Now())
+	if !db.inited {
+		return nil, ErrLDBInit
 	}
 
 	dat, err := db.db.Get(key, nil)
 	if err != nil {
-		if db.missMeter != nil {
-			db.missMeter.Mark(1)
-		}
 		return nil, err
-	}
-
-	if db.readMeter != nil {
-		db.readMeter.Mark(int64(len(dat)))
 	}
 	return dat, nil
 
 }
 
-func (db *LDBDatabase) Put(key []byte, value []byte) error {
-
-	if db.putTimer != nil {
-		defer db.putTimer.UpdateSince(time.Now())
-	}
-
-	if db.writeMeter != nil {
-		db.writeMeter.Mark(int64(len(value)))
-	}
-	return db.db.Put(key, value, nil)
-}
-
+// Delete deletes the key from the queue and database
 func (db *LDBDatabase) Delete(key []byte) error {
-
-	if db.delTimer != nil {
-		defer db.delTimer.UpdateSince(time.Now())
+	if !db.inited {
+		return ErrLDBInit
 	}
-
 	return db.db.Delete(key, nil)
 }
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
+	if !db.inited {
+		return nil
+	}
 	return db.db.NewIterator(nil, nil)
 }
 
-func (db *LDBDatabase) LDB() *leveldb.DB {
-	return db.db
-}
-
-func (db *LDBDatabase) Meter(prefix string) {
-
-	if !metrics.Enabled {
-		return
-	}
-
-	db.getTimer = metrics.NewTimer(prefix + "user/gets")
-	db.putTimer = metrics.NewTimer(prefix + "user/puts")
-	db.delTimer = metrics.NewTimer(prefix + "user/dels")
-	db.missMeter = metrics.NewMeter(prefix + "user/misses")
-	db.readMeter = metrics.NewMeter(prefix + "user/reads")
-	db.writeMeter = metrics.NewMeter(prefix + "user/writes")
-	db.compTimeMeter = metrics.NewMeter(prefix + "compact/time")
-	db.compReadMeter = metrics.NewMeter(prefix + "compact/input")
-	db.compWriteMeter = metrics.NewMeter(prefix + "compact/output")
-
-	db.quitLock.Lock()
-	db.quitChan = make(chan chan error)
-	db.quitLock.Unlock()
-
-	go db.meter(3 * time.Second)
-}
-
-func (db *LDBDatabase) meter(refresh time.Duration) {
-
-	counters := make([][]float64, 2)
-	for i := 0; i < 2; i++ {
-		counters[i] = make([]float64, 3)
-	}
-
-	for i := 1; ; i++ {
-
-		stats, err := db.db.GetProperty("leveldb.stats")
-		if err != nil {
-			db.log.Error("Failed to read database stats", "err", err)
-			return
-		}
-
-		lines := strings.Split(stats, "\n")
-		for len(lines) > 0 && strings.TrimSpace(lines[0]) != "Compactions" {
-			lines = lines[1:]
-		}
-		if len(lines) <= 3 {
-			db.log.Error("Compaction table not found")
-			return
-		}
-		lines = lines[3:]
-
-		for j := 0; j < len(counters[i%2]); j++ {
-			counters[i%2][j] = 0
-		}
-		for _, line := range lines {
-			parts := strings.Split(line, "|")
-			if len(parts) != 6 {
-				break
-			}
-			for idx, counter := range parts[3:] {
-				value, err := strconv.ParseFloat(strings.TrimSpace(counter), 64)
-				if err != nil {
-					db.log.Error("Compaction entry parsing failed", "err", err)
-					return
-				}
-				counters[i%2][idx] += value
-			}
-		}
-
-		if db.compTimeMeter != nil {
-			db.compTimeMeter.Mark(int64((counters[i%2][0] - counters[(i-1)%2][0]) * 1000 * 1000 * 1000))
-		}
-		if db.compReadMeter != nil {
-			db.compReadMeter.Mark(int64((counters[i%2][1] - counters[(i-1)%2][1]) * 1024 * 1024))
-		}
-		if db.compWriteMeter != nil {
-			db.compWriteMeter.Mark(int64((counters[i%2][2] - counters[(i-1)%2][2]) * 1024 * 1024))
-		}
-
-		select {
-		case errc := <-db.quitChan:
-
-			errc <- nil
-			return
-
-		case <-time.After(refresh):
-
-		}
-	}
+// NewIteratorWithPrefix returns a iterator to iterate over subset of database content with a particular prefix.
+func (db *LDBDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
+	return db.db.NewIterator(util.BytesPrefix(prefix), nil)
 }
 
 func (db *LDBDatabase) Close() {
-
 	db.quitLock.Lock()
 	defer db.quitLock.Unlock()
 
@@ -243,15 +307,17 @@ func (db *LDBDatabase) Close() {
 		errc := make(chan error)
 		db.quitChan <- errc
 		if err := <-errc; err != nil {
-			db.log.Error("Metrics collection failed", "err", err)
+			//db.log.Error("Metrics collection failed", "err", err)
 		}
 	}
-	err := db.db.Close()
-	if err == nil {
-		db.log.Info("Database closed")
-	} else {
-		db.log.Error("Failed to close database", "err", err)
-	}
+
+	db.db.Close()
+	//err := db.db.Close()
+	//if err == nil {
+	//	db.log.Info("Database closed")
+	//} else {
+	//	db.log.Error("Failed to close database", "err", err)
+	//}
 }
 
 func (db *LDBDatabase) NewBatch() Batch {
@@ -283,67 +349,193 @@ func (b *ldbBatch) Reset() {
 	b.size = 0
 }
 
-type table struct {
-	db     Database
-	prefix string
+type MemDatabase struct {
+	db   map[string][]byte
+	lock sync.RWMutex
 }
 
-func NewTable(db Database, prefix string) Database {
-	return &table{
-		db:     db,
-		prefix: prefix,
-	}
+func NewMemDatabase() (*MemDatabase, error) {
+	return &MemDatabase{
+		db: make(map[string][]byte),
+	}, nil
 }
 
-func (dt *table) Get(key []byte) ([]byte, error) {
-	return dt.db.Get(append([]byte(dt.prefix), key...))
+func (db *MemDatabase) Clear() error {
+	db.db = make(map[string][]byte)
+	return nil
 }
+func (db *MemDatabase) Put(key []byte, value []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
 
-func (dt *table) Put(key []byte, value []byte) error {
-	return dt.db.Put(append([]byte(dt.prefix), key...), value)
-}
-
-func (dt *table) Has(key []byte) (bool, error) {
-	return dt.db.Has(append([]byte(dt.prefix), key...))
-}
-
-func (dt *table) Delete(key []byte) error {
-	return dt.db.Delete(append([]byte(dt.prefix), key...))
-}
-
-func (dt *table) Close() {
-
-}
-
-func (dt *table) NewIterator() iterator.Iterator {
+	db.db[string(key)] = common.CopyBytes(value)
 	return nil
 }
 
-type tableBatch struct {
-	batch  Batch
-	prefix string
+func (db *MemDatabase) Has(key []byte) (bool, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	_, ok := db.db[string(key)]
+	return ok, nil
 }
 
-func NewTableBatch(db Database, prefix string) Batch {
-	return &tableBatch{db.NewBatch(), prefix}
+func (db *MemDatabase) Get(key []byte) ([]byte, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	if entry, ok := db.db[string(key)]; ok {
+		return common.CopyBytes(entry), nil
+	}
+	return nil, errors.New("not found")
 }
 
-func (dt *table) NewBatch() Batch {
-	return &tableBatch{dt.db.NewBatch(), dt.prefix}
+func (db *MemDatabase) Keys() [][]byte {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	keys := [][]byte{}
+	for key := range db.db {
+		keys = append(keys, []byte(key))
+	}
+	return keys
 }
 
-func (tb *tableBatch) Write() error {
-	return tb.batch.Write()
+func (db *MemDatabase) NewIterator() iterator.Iterator {
+	panic("Not support")
 }
 
-func (tb *tableBatch) Put(key, value []byte) error {
-	return tb.batch.Put(append([]byte(tb.prefix), key...), value)
+func (db *MemDatabase) Delete(key []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	delete(db.db, string(key))
+	return nil
 }
 
-func (tb *tableBatch) Reset() {
-	tb.batch.Reset()
+func (db *MemDatabase) Close() {}
+
+func (db *MemDatabase) NewBatch() Batch {
+	return &memBatch{db: db}
 }
 
-func (tb *tableBatch) ValueSize() int {
-	return tb.batch.ValueSize()
+func (db *MemDatabase) Len() int { return len(db.db) }
+
+type kv struct{ k, v []byte }
+
+type memBatch struct {
+	db     *MemDatabase
+	writes []kv
+	size   int
+}
+
+func (b *memBatch) Put(key, value []byte) error {
+	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
+	b.size += len(value)
+	return nil
+}
+
+func (b *memBatch) Write() error {
+	b.db.lock.Lock()
+	defer b.db.lock.Unlock()
+
+	for _, kv := range b.writes {
+		b.db.db[string(kv.k)] = kv.v
+	}
+	return nil
+}
+
+func (b *memBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *memBatch) Reset() {
+	b.writes = b.writes[:0]
+	b.size = 0
+}
+
+type LRUMemDatabase struct {
+	db   *lru.Cache
+	lock sync.RWMutex
+}
+
+func NewLRUMemDatabase(size int) (*LRUMemDatabase, error) {
+	cache, _ := lru.New(size)
+	return &LRUMemDatabase{
+		db: cache,
+	}, nil
+}
+
+func (db *LRUMemDatabase) Put(key []byte, value []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.db.Add(string(key), common.CopyBytes(value))
+	return nil
+}
+
+func (db *LRUMemDatabase) Has(key []byte) (bool, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	_, ok := db.db.Get(string(key))
+	return ok, nil
+}
+
+func (db *LRUMemDatabase) Get(key []byte) ([]byte, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	if entry, ok := db.db.Get(string(key)); ok {
+		vl, _ := entry.([]byte)
+		return common.CopyBytes(vl), nil
+	}
+	return nil, nil
+}
+
+func (db *LRUMemDatabase) Delete(key []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.db.Remove(string(key))
+	return nil
+}
+
+func (db *LRUMemDatabase) Close() {}
+
+func (db *LRUMemDatabase) NewBatch() Batch {
+	return &LruMemBatch{db: db}
+}
+
+func (db *LRUMemDatabase) NewIterator() iterator.Iterator {
+	panic("Not support")
+}
+
+type LruMemBatch struct {
+	db     *LRUMemDatabase
+	writes []kv
+	size   int
+}
+
+func (b *LruMemBatch) Put(key, value []byte) error {
+	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
+	b.size += len(value)
+	return nil
+}
+
+func (b *LruMemBatch) Write() error {
+	b.db.lock.Lock()
+	defer b.db.lock.Unlock()
+
+	for _, kv := range b.writes {
+		b.db.db.Add(string(kv.k), kv.v)
+	}
+	return nil
+}
+
+func (b *LruMemBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *LruMemBatch) Reset() {
+	b.writes = b.writes[:0]
+	b.size = 0
 }

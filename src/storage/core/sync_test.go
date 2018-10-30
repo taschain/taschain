@@ -35,7 +35,7 @@ type testAccount struct {
 }
 
 // makeTestState create a sample test state to test node-wise reconstruction.
-func makeTestState() (Database, common.Hash, []*testAccount) {
+func makeTestState() (AccountDatabase, common.Hash, []*testAccount) {
 	// Create an empty state
 	diskdb, _ := tasdb.NewMemDatabase()
 	db := NewDatabase(diskdb)
