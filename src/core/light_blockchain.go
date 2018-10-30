@@ -79,7 +79,6 @@ func initLightChain(helper types.ConsensusHelper) error {
 		prototypeChain: prototypeChain{
 			transactionPool: NewTransactionPool(),
 			latestBlock:     nil,
-
 			lock:            middleware.NewLoglock("lightchain"),
 			init:            true,
 			isAdujsting:     false,
@@ -95,8 +94,17 @@ func initLightChain(helper types.ConsensusHelper) error {
 
 	var err error
 	chain.futureBlocks, err = lru.New(20)
+	if err != nil {
+		return err
+	}
 	chain.fullAccountBlockCache, _ = lru.New(LightFullAccountBlockCacheSize)
+	if err != nil {
+		return err
+	}
 	chain.verifiedBlocks, err = lru.New(LIGHT_BLOCK_CACHE_SIZE)
+	if err != nil {
+		return err
+	}
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
 	if err != nil {
 		return err
@@ -124,6 +132,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 
 	chain.bonusManager = newBonusManager()
 	chain.stateCache = account.NewLightDatabase(chain.statedb)
+
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
 	// 恢复链状态 height,latestBlock
@@ -145,6 +154,8 @@ func initLightChain(helper types.ConsensusHelper) error {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
+			verifyHash := chain.consensusHelper.VerifyHash(block)
+			chain.PutCheckValue(0, verifyHash.Bytes())
 		}
 	}
 
@@ -180,7 +191,7 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 		return nil, -1
 	}
 
-	hasPreBlock, preBlock := chain.hasPreBlock(bh)
+	hasPreBlock := chain.hasPreBlock(bh)
 	if !hasPreBlock {
 		if txs != nil {
 			chain.futureBlocks.Add(bh.PreHash, types.Block{Header: &bh, Transactions: txs})
@@ -197,37 +208,44 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 		return nil, -1
 	}
 
-	b := &types.Block{Header: &bh, Transactions: txs}
-	var preBlockStateTree []byte
-	if preBlock == nil {
-		preBlockStateTree = chain.getPreBlockStateRoot(b.Header.Hash).Bytes()
-	} else {
-		preBlockStateTree = preBlock.StateTree.Bytes()
-	}
-	preRoot := common.BytesToHash(preBlockStateTree)
-	//todo 这里分叉如何处理？
-	missingAccountTxs := chain.getMissingAccountTransactions(preRoot, b)
-	if len(missingAccountTxs) != 0 {
-		return nil, 3
-	}
+	//从第0块开始同步，不需要以下
+	//b := &types.Block{Header: &bh, Transactions: txs}
+	//var preBlockStateTree []byte
+	//if preBlock == nil {
+	//	preBlockStateTree = chain.getPreBlockStateRoot(b.Header.Hash).Bytes()
+	//} else {
+	//	preBlockStateTree = preBlock.StateTree.Bytes()
+	//}
+	//preRoot := common.BytesToHash(preBlockStateTree)
+	////todo 这里分叉如何处理？
+	//missingAccountTxs := chain.getMissingAccountTransactions(preRoot, b)
+	//if len(missingAccountTxs) != 0 {
+	//	return nil, 3
+	//}
 
 	return nil, 0
 }
 
-func (chain *LightChain) hasPreBlock(bh types.BlockHeader) (bool, *types.BlockHeader) {
-	preBlock := chain.queryBlockHeaderByHash(bh.PreHash)
+func (chain *LightChain) hasPreBlock(bh types.BlockHeader) bool {
+	//preBlock := chain.queryBlockHeaderByHash(bh.PreHash)
+	//
+	//var isEmpty bool
+	//if chain.Height() == 0 {
+	//	isEmpty = true
+	//} else {
+	//	isEmpty = false
+	//}
+	////轻节点初始化同步的时候不是从第一块开始同步，因此同步第一块的时候不验证preblock
+	//if !isEmpty && preBlock == nil {
+	//	return false, preBlock
+	//}
+	//return true, preBlock
 
-	var isEmpty bool
-	if chain.Height() == 0 {
-		isEmpty = true
-	} else {
-		isEmpty = false
+	pre := chain.queryBlockHeaderByHash(bh.PreHash)
+	if pre == nil {
+		return false
 	}
-	//轻节点初始化同步的时候不是从第一块开始同步，因此同步第一块的时候不验证preblock
-	if !isEmpty && preBlock == nil {
-		return false, preBlock
-	}
-	return true, preBlock
+	return true
 }
 
 func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash, b *types.Block) []*types.Transaction {
@@ -281,55 +299,32 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
+	topBlock := chain.latestBlock
+	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
+	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 
-	// 自己铸块的时候，会将块临时存放到blockCache里
-	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	//todo 需要先验证HASH 是否一致然后才能使用该缓存
-	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
-	//if false {
-	if cache == nil {
-		// 验证块是否有问题
-		_, status := chain.verifyBlock(*b.Header, b.Transactions)
-		if status == 3 {
-			return 3
-		}
-		if status != 0 {
-			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
-			return -1
-		}
+	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
+		Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		return -1
 	}
 
-	//if !chain.validateGroupSig(b.Header) {
-	//	Logger.Debugf("Fail to validate group sig!")
-	//	return -1
-	//}
+	if !chain.validateGroupSig(b.Header) {
+		Logger.Debugf("Fail to validate group sig!")
+		return -1
+	}
 
-	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
-	//轻节点第一次同步直接上链
-	if b.Header.PreHash == topBlock.Hash || chain.Height() == 0 {
-		result, headerByte := chain.insertBlock(b)
-		if result == 0 {
-			chain.successOnChainCallBack(b, headerByte)
-		}
+	if b.Header.PreHash == topBlock.Hash {
+		result, _ := chain.insertBlock(b)
 		return result
 	}
 
-	if b.Header.TotalQN < topBlock.TotalQN || b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
-
 	}
-	//var castorId groupsig.ID
-	//error := castorId.Deserialize(b.Header.Castor)
-	//if error != nil {
-	//	log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-	//	return -1
-	//}
-	//BlockChainImpl.SetAdujsting(true)
-	//RequestChainPiece(castorId.String(), b.Header.Height)
-	return 2
+	panic("Should not be here!")
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -358,13 +353,13 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 
 func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
-	var preBlockStateTree []byte
 	if preBlock == nil {
-		preBlockStateTree = chain.getPreBlockStateRoot(block.Header.Hash).Bytes()
-	} else {
-		preBlockStateTree = preBlock.StateTree.Bytes()
+		panic("Pre block nil !!")
 	}
-	preRoot := common.BytesToHash(preBlockStateTree)
+	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
+	if len(block.Transactions) > 0 {
+		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
+	}
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
@@ -374,6 +369,12 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
+		return false, state, receipts
+	}
+
+	receiptsTree := calcReceiptsTree(receipts).Bytes()
+	if common.ToHex(receiptsTree) != common.ToHex(block.Header.ReceiptTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, block.Header.ReceiptTree.Bytes())
 		return false, state, receipts
 	}
 
@@ -391,7 +392,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	BlockSyncer.Sync()
+	go BlockSyncer.Sync()
 }
 
 func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
@@ -481,9 +482,11 @@ func (chain *LightChain) saveBlock(b *types.Block) (int8, []byte) {
 func (chain *LightChain) Clear() error {
 	chain.lock.Lock("Clear")
 	defer chain.lock.Unlock("Clear")
+
 	chain.init = false
 	chain.latestBlock = nil
 	chain.topBlocks, _ = lru.New(LIGHT_BLOCKHEIGHT_CACHE_SIZE)
+
 	var err error
 	chain.blockHeight.Close()
 	chain.statedb.Close()
@@ -492,6 +495,7 @@ func (chain *LightChain) Clear() error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
+
 	chain.stateCache = account.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 
@@ -506,24 +510,6 @@ func (chain *LightChain) Clear() error {
 	chain.init = true
 	chain.transactionPool.Clear()
 	return err
-}
-
-// 删除块
-func (chain *LightChain) remove(header *types.BlockHeader) {
-	hash := header.Hash
-	block := chain.QueryBlockByHash(hash)
-	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(generateHeightKey(header.Height))
-
-	// 删除块的交易，返回transactionpool
-	if nil == block {
-		return
-	}
-	txs := block.Transactions
-	if 0 == len(txs) {
-		return
-	}
-	chain.transactionPool.AddTransactions(txs)
 }
 
 func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {

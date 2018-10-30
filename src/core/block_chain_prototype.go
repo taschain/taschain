@@ -127,12 +127,9 @@ func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache 
 	default:
 		if cache {
 			h := height.(uint64)
-			if h > (chain.latestBlock.Height - 1000) {
-				result, ok := chain.topBlocks.Get(h)
-				if ok && nil != result {
-					return result.(*types.BlockHeader)
-				}
-
+			result, ok := chain.topBlocks.Get(h)
+			if ok && nil != result {
+				return result.(*types.BlockHeader)
 			}
 		}
 
@@ -247,6 +244,7 @@ func (chain *prototypeChain) GetBonusManager() *BonusManager {
 func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
 	return chain.consensusHelper
 }
+
 
 func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash, []*types.Transaction) {
 	var missing []common.Hash
