@@ -185,8 +185,13 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
 			if b != nil {
 				return b
 			} else {
-				log.Printf("get bh not nil, but block is nil! hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
-				continue
+				bh2 := p.MainChain.QueryBlockByHeight(h)
+				log.Printf("get bh not nil, but block is nil! hash1=%v, hash2=%v, height=%v", bh.Hash.ShortS(), bh2.Hash.ShortS(), bh.Height)
+				if bh2.Hash == bh.Hash {
+					panic("chain queryBlockByHash nil!")
+				} else {
+					continue
+				}
 			}
 		}
 		if h == 0 {
