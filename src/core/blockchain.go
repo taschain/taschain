@@ -384,6 +384,15 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v", topBlock.PreHash.Hex(), b.Header.PreHash.Hex())
+	//if chain.Height() != 0 {
+	//	pre := BlockChainImpl.QueryBlockByHash(topBlock.PreHash)
+	//	if pre == nil {
+	//		time.Sleep(time.Second)
+	//		panic("Pre should not be nil before validateGroupSig")
+	//	}
+	//}
+
 	if !chain.validateGroupSig(b.Header) {
 		Logger.Debugf("Fail to validate group sig!")
 		return -1
@@ -497,19 +506,6 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	go BlockSyncer.Sync()
 }
 
-func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
-	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		Logger.Errorf("[block]fail to put current, error:%s \n", err)
-		return -1
-	}
-	chain.latestStateDB = state
-	chain.latestBlock = header
-
-	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
-	return 0
-}
-
 //根据指定哈希查询块
 func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return chain.queryBlockHeaderByHash(hash)
@@ -596,9 +592,6 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1, nil
 	}
-
-	// 持久化保存最新块信息
-
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 
 	return 0, headerJson
