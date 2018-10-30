@@ -245,7 +245,6 @@ func (chain *prototypeChain) GetConsensusHelper() types.ConsensusHelper {
 	return chain.consensusHelper
 }
 
-
 func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash, []*types.Transaction) {
 	var missing []common.Hash
 	var transactions []*types.Transaction
@@ -398,6 +397,9 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)
 	}
+	if localValue == nil {
+		time.Sleep(time.Second)
+	}
 	if localValue.Cmp(remoteValue) >= 0 {
 		return true
 	}
@@ -438,6 +440,10 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 	he := chainPiece[index]
 
 	bh := chain.queryBlockHeaderByHeight(he.Height, true)
+	if bh == nil {
+		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, nil, he.Hash)
+		return -1
+	}
 	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 0
