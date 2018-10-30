@@ -50,31 +50,6 @@ type Receipt struct {
 	GasUsed         uint64         `json:"gasUsed"`
 }
 
-type receiptMarshaling struct {
-	PostState         []byte
-	Status            uint
-	CumulativeGasUsed uint64
-	GasUsed           uint64
-}
-
-// receiptRLP is the consensus encoding of a receipt.
-type receiptRLP struct {
-	PostStateOrStatus []byte
-	CumulativeGasUsed uint64
-	Bloom             Bloom
-	Logs              []*Log
-}
-
-type receiptStorageRLP struct {
-	PostStateOrStatus []byte
-	CumulativeGasUsed uint64
-	Bloom             Bloom
-	TxHash            common.Hash
-	ContractAddress   common.Address
-	Logs              []*LogForStorage
-	GasUsed           uint64
-}
-
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 	r := &Receipt{PostState: common.CopyBytes(root), CumulativeGasUsed: cumulativeGasUsed}
 	if failed {

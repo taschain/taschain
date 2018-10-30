@@ -18,7 +18,6 @@ package core
 import (
 	"middleware/types"
 	"common"
-	t "storage/account/types"
 	"storage/account"
 	"math/big"
 	"storage/vm"
@@ -174,8 +173,8 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	receipts := make([]*t.Receipt, len(block.Transactions))
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*types.Receipt, error) {
+	receipts := make([]*types.Receipt, len(block.Transactions))
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	//tr := accountdb.GetTrie()
 	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
@@ -291,7 +290,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			}
 		}
 
-		receipt := t.NewReceipt(nil, fail, 0)
+		receipt := types.NewReceipt(nil, fail, 0)
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt

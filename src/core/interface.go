@@ -17,7 +17,6 @@ package core
 
 import (
 	"common"
-	vtypes "storage/account/types"
 	"math/big"
 	"middleware/types"
 	"storage/account"
@@ -112,7 +111,7 @@ type TransactionPool interface {
 
 	AddTransactions(txs []*types.Transaction) error
 
-	MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
+	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 
 	Remove(hash common.Hash, transactions []common.Hash)
 
@@ -140,7 +139,7 @@ type GroupInfoI interface {
 // VM执行器
 type VMExecutor interface {
 	//Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error)
-	Execute(statedb *account.AccountDB, block *types.Block) (vtypes.Receipts, *common.Hash, uint64, error)
+	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 
 // 账户查询接口
@@ -153,5 +152,5 @@ type AccountRepository interface {
 // chain 对于投票事件接口
 type VoteProcessor interface {
 	BeforeExecuteTransaction(b *types.Block, db account.AccountDB, tx *types.Transaction) ([]byte, error)
-	AfterAllTransactionExecuted(b *types.Block, stateDB account.AccountDB, receipts vtypes.Receipts) error
+	AfterAllTransactionExecuted(b *types.Block, stateDB account.AccountDB, receipts types.Receipts) error
 }
