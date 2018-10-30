@@ -29,7 +29,7 @@ type DatabaseReader interface {
 	Has(key []byte) (bool, error)
 }
 
-type Database struct {
+type NodeDatabase struct {
 	diskdb tasdb.Database
 
 	nodes map[common.Hash]*cachedNode
@@ -49,8 +49,8 @@ type cachedNode struct {
 	children map[common.Hash]int
 }
 
-func NewDatabase(diskdb tasdb.Database) *Database {
-	return &Database{
+func NewDatabase(diskdb tasdb.Database) *NodeDatabase {
+	return &NodeDatabase{
 		diskdb: diskdb,
 		nodes: map[common.Hash]*cachedNode{
 			{}: {children: make(map[common.Hash]int)},
@@ -58,7 +58,7 @@ func NewDatabase(diskdb tasdb.Database) *Database {
 	}
 }
 
-func (db *Database) Node(hash common.Hash) ([]byte, error) {
+func (db *NodeDatabase) Node(hash common.Hash) ([]byte, error) {
 	db.lock.RLock()
 	node := db.nodes[hash]
 	db.lock.RUnlock()
@@ -68,7 +68,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	return db.diskdb.Get(hash[:])
 }
 
-func (db *Database) Nodes() []common.Hash {
+func (db *NodeDatabase) Nodes() []common.Hash {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -81,14 +81,14 @@ func (db *Database) Nodes() []common.Hash {
 	return hashes
 }
 
-func (db *Database) Reference(child common.Hash, parent common.Hash) {
+func (db *NodeDatabase) Reference(child common.Hash, parent common.Hash) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
 	db.reference(child, parent)
 }
 
-func (db *Database) reference(child common.Hash, parent common.Hash) {
+func (db *NodeDatabase) reference(child common.Hash, parent common.Hash) {
 
 	node, ok := db.nodes[child]
 	if !ok {
@@ -102,7 +102,7 @@ func (db *Database) reference(child common.Hash, parent common.Hash) {
 	db.nodes[parent].children[child]++
 }
 
-func (db *Database) Dereference(child common.Hash, parent common.Hash) {
+func (db *NodeDatabase) Dereference(child common.Hash, parent common.Hash) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -117,7 +117,7 @@ func (db *Database) Dereference(child common.Hash, parent common.Hash) {
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 }
 
-func (db *Database) dereference(child common.Hash, parent common.Hash) {
+func (db *NodeDatabase) dereference(child common.Hash, parent common.Hash) {
 
 	node := db.nodes[parent]
 
@@ -141,18 +141,18 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 	}
 }
 
-func (db *Database) DiskDB() DatabaseReader {
+func (db *NodeDatabase) DiskDB() DatabaseReader {
 	return db.diskdb
 }
 
-func (db *Database) Insert(hash common.Hash, blob []byte) {
+func (db *NodeDatabase) Insert(hash common.Hash, blob []byte) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
 	db.insert(hash, blob)
 }
 
-func (db *Database) insert(hash common.Hash, blob []byte) {
+func (db *NodeDatabase) insert(hash common.Hash, blob []byte) {
 	if _, ok := db.nodes[hash]; ok {
 		return
 	}
@@ -163,7 +163,7 @@ func (db *Database) insert(hash common.Hash, blob []byte) {
 	db.nodesSize += common.StorageSize(common.HashLength + len(blob))
 }
 
-func (db *Database) Commit(node common.Hash, report bool) error {
+func (db *NodeDatabase) Commit(node common.Hash, report bool) error {
 	db.lock.RLock()
 
 	start := time.Now()
@@ -200,7 +200,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	return nil
 }
 
-func (db *Database) commit(hash common.Hash, batch tasdb.Batch) error {
+func (db *NodeDatabase) commit(hash common.Hash, batch tasdb.Batch) error {
 
 	node, ok := db.nodes[hash]
 	if !ok {
@@ -224,7 +224,7 @@ func (db *Database) commit(hash common.Hash, batch tasdb.Batch) error {
 	return nil
 }
 
-func (db *Database) uncache(hash common.Hash) {
+func (db *NodeDatabase) uncache(hash common.Hash) {
 
 	node, ok := db.nodes[hash]
 	if !ok {
@@ -238,7 +238,7 @@ func (db *Database) uncache(hash common.Hash) {
 	db.nodesSize -= common.StorageSize(common.HashLength + len(node.blob))
 }
 
-func (db *Database) Size() common.StorageSize {
+func (db *NodeDatabase) Size() common.StorageSize {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 

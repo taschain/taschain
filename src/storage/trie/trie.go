@@ -67,7 +67,7 @@ func (t *Trie) GetRoot() node {
 	return t.RootNode
 }
 
-func NewTrie(root common.Hash, db *Database) (*Trie, error) {
+func NewTrie(root common.Hash, db *NodeDatabase) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}
@@ -87,7 +87,7 @@ func NewTrie(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
-func NewTrieWithMap(root common.Hash, db *Database, nodes map[string]*[]byte) (*Trie, error) {
+func NewTrieWithMap(root common.Hash, db *NodeDatabase, nodes map[string]*[]byte) (*Trie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}
@@ -517,7 +517,7 @@ func (t *Trie) hashRoot2(nodes map[string]*[]byte, isInit bool) (node, error) {
 	return hash, err
 }
 
-func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
+func (t *Trie) hashRoot(db *NodeDatabase, onleaf LeafCallback) (node, node, error) {
 	if t.RootNode == nil {
 		return hashNode(emptyRoot.Bytes()), nil, nil
 	}
