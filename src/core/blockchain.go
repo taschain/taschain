@@ -369,7 +369,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
-	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v",topBlock.PreHash.Hex(),b.Header.PreHash.Hex())
+	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v", topBlock.PreHash.Hex(), b.Header.PreHash.Hex())
 	//if chain.Height() != 0 {
 	//	pre := BlockChainImpl.QueryBlockByHash(topBlock.PreHash)
 	//	if pre == nil {
@@ -396,7 +396,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
-	Logger.Debugf("commonAncestor hash:%s height:%d",commonAncestor.Hash.Hex(),commonAncestor.Height)
+	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		//删除自身链的结点
 		chain.removeFromCommonAncestor(commonAncestor)
@@ -424,13 +424,13 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
-	Logger.Debugf("insertBlock begin hash:%s",remoteBlock.Header.Hash.Hex())
+	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
-	Logger.Debugf("insertBlock saveBlock hash:%s result:%d",remoteBlock.Header.Hash.Hex(),result)
+	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
 		return -1, headerByte
 	}
@@ -490,8 +490,6 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	go BlockSyncer.Sync()
 }
-
-
 
 //根据指定哈希查询块
 func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
@@ -579,14 +577,10 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1, nil
 	}
-
-	// 持久化保存最新块信息
-
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 
 	return 0, headerJson
 }
-
 
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {

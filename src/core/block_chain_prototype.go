@@ -340,33 +340,38 @@ func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHe
 	return true
 }
 
-// 删除块
-func (chain *prototypeChain) remove(header *types.BlockHeader) {
+// 删除块 只删除最高块
+func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
+	if header.Hash != chain.latestBlock.Hash {
+		return false
+	}
+
+	Logger.Debugf("remove hash:%s height:%d ", header.Hash.Hex(), header.Height)
 	hash := header.Hash
 	block := BlockChainImpl.QueryBlockByHash(hash)
 	chain.topBlocks.Remove(header.Height)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
-	if header.Hash == chain.latestBlock.Hash {
-		chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
-		chain.latestStateDB, _ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
-	}
+	chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
+	chain.latestStateDB, _ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+
 	// 删除块的交易，返回transactionpool
 	if nil == block {
-		return
+		return true
 	}
 	txs := block.Transactions
 	if 0 == len(txs) {
-		return
+		return true
 	}
 	chain.transactionPool.UnMarkExecuted(txs)
+	return true
 }
 
-func (chain *prototypeChain) Remove(header *types.BlockHeader) {
+func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
 	chain.lock.Lock("Remove Top")
 	defer chain.lock.Unlock("Remove Top")
-	chain.remove(header)
+	return chain.remove(header)
 }
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
@@ -388,8 +393,10 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	time.Sleep(100 * time.Millisecond)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
+		Logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
+			Logger.Debugf("compareValue queryBlockHeaderByHeight nil !height:%d ", height)
 			continue
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)

@@ -81,7 +81,7 @@ type BlockChain interface {
 
 	SetAdujsting(isAjusting bool)
 
-	Remove(header *types.BlockHeader)
+	Remove(header *types.BlockHeader) bool
 
 	//清除链所有数据
 	Clear() error
