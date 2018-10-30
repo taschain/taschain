@@ -28,8 +28,9 @@ type prototypeChain struct {
 
 	//已上链的最新块
 	latestBlock   *types.BlockHeader
-	topBlocks     *lru.Cache
 	latestStateDB *core.AccountDB
+
+	topBlocks *lru.Cache
 
 	// 读写锁
 	lock middleware.Loglock
@@ -102,8 +103,8 @@ func (chain *prototypeChain) TotalQN() uint64 {
 
 //查询最高块
 func (chain *prototypeChain) QueryTopBlock() *types.BlockHeader {
-	//chain.lock.RLock("QueryTopBlock")
-	//defer chain.lock.RUnlock("QueryTopBlock")
+	chain.lock.RLock("QueryTopBlock")
+	defer chain.lock.RUnlock("QueryTopBlock")
 	result := *chain.latestBlock
 	return &result
 }
@@ -224,6 +225,8 @@ func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 }
 
 func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
+	//chain.lock.RLock("LatestStateDB")
+	//defer chain.lock.RUnlock("LatestStateDB")
 	return chain.latestStateDB
 }
 
@@ -284,6 +287,7 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 	}
 	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
 	if pre == nil {
+		time.Sleep(time.Second)
 		panic("Pre should not be nil")
 	}
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
@@ -340,9 +344,14 @@ func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHe
 func (chain *prototypeChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
 	block := BlockChainImpl.QueryBlockByHash(hash)
+	chain.topBlocks.Remove(header.Height)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
+	if header.Hash == chain.latestBlock.Hash {
+		chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
+		chain.latestStateDB, _ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+	}
 	// 删除块的交易，返回transactionpool
 	if nil == block {
 		return
@@ -352,10 +361,6 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) {
 		return
 	}
 	chain.transactionPool.UnMarkExecuted(txs)
-	if header.Hash == chain.latestBlock.Hash{
-		chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
-		chain.latestStateDB,_ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
-	}
 }
 
 func (chain *prototypeChain) Remove(header *types.BlockHeader) {
@@ -365,25 +370,22 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) {
 }
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
-	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
-	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
+	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
+	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
-			Logger.Debugf("removeFromCommonAncestor nil height:%d",height)
+			Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
 			continue
 		}
 		chain.remove(header)
-		chain.topBlocks.Remove(header.Height)
 		Logger.Debugf("Remove local chain headers %d", header.Height)
 	}
-	chain.latestBlock = commonAncestor
-	chain.latestStateDB,_ = core.NewAccountDB(commonAncestor.StateTree, chain.stateCache)
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
-	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
+	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	time.Sleep(100 * time.Millisecond)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		header := chain.queryBlockHeaderByHeight(height, true)
@@ -457,4 +459,17 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 		return 1
 	}
 	return -1
+}
+
+func (chain *prototypeChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		Logger.Errorf("[block]fail to put current, error:%s \n", err)
+		return -1
+	}
+	chain.latestStateDB = state
+	chain.latestBlock = header
+
+	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
+	return 0
 }
