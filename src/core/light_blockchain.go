@@ -479,13 +479,6 @@ func (chain *LightChain) saveBlock(b *types.Block) (int8, []byte) {
 	return 0, headerJson
 }
 
-// 删除块
-func (chain *LightChain) Remove(header *types.BlockHeader) {
-	hash := header.Hash
-	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(generateHeightKey(header.Height))
-}
-
 //清除链所有数据
 func (chain *LightChain) Clear() error {
 	chain.lock.Lock("Clear")
