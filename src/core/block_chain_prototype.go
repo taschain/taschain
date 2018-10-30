@@ -4,7 +4,7 @@ import (
 	"storage/tasdb"
 	"github.com/hashicorp/golang-lru"
 	"middleware/types"
-	"storage/core"
+	"storage/account"
 	"middleware"
 	"common"
 	"math"
@@ -29,7 +29,7 @@ type prototypeChain struct {
 	//已上链的最新块
 	latestBlock   *types.BlockHeader
 	topBlocks     *lru.Cache
-	latestStateDB *core.AccountDB
+	latestStateDB *account.AccountDB
 
 	// 读写锁
 	lock middleware.Loglock
@@ -38,7 +38,7 @@ type prototypeChain struct {
 	init bool
 
 	statedb    tasdb.Database
-	stateCache core.AccountDatabase // State database to reuse between imports (contains state cache)
+	stateCache account.AccountDatabase // State database to reuse between imports (contains state cache)
 
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
@@ -180,7 +180,7 @@ func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
 
-func (chain *prototypeChain) GetSateCache() core.AccountDatabase {
+func (chain *prototypeChain) GetSateCache() account.AccountDatabase {
 	return chain.stateCache
 }
 func (chain *prototypeChain) IsAdujsting() bool {
@@ -223,7 +223,7 @@ func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 	}
 }
 
-func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
+func (chain *prototypeChain) LatestStateDB() *account.AccountDB {
 	return chain.latestStateDB
 }
 
@@ -352,9 +352,9 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) {
 		return
 	}
 	chain.transactionPool.UnMarkExecuted(txs)
-	if header.Hash == chain.latestBlock.Hash{
+	if header.Hash == chain.latestBlock.Hash {
 		chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
-		chain.latestStateDB,_ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+		chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 	}
 }
 
@@ -365,11 +365,11 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) {
 }
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
-	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
+	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
-			Logger.Debugf("removeFromCommonAncestor nil height:%d",height)
+			Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
 			continue
 		}
 		chain.remove(header)
@@ -377,13 +377,13 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 		Logger.Debugf("Remove local chain headers %d", header.Height)
 	}
 	chain.latestBlock = commonAncestor
-	chain.latestStateDB,_ = core.NewAccountDB(commonAncestor.StateTree, chain.stateCache)
+	chain.latestStateDB, _ = account.NewAccountDB(commonAncestor.StateTree, chain.stateCache)
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
-	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d",commonAncestor.Hash.Hex(),commonAncestor.Height,chain.latestBlock.Height)
+	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	time.Sleep(100 * time.Millisecond)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		header := chain.queryBlockHeaderByHeight(height, true)

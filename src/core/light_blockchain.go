@@ -7,15 +7,15 @@ import (
 
 	"taslog"
 
-	"storage/core"
+	"storage/account"
 	"common"
 	"consensus/groupsig"
 	"middleware/notify"
 	"log"
 	"fmt"
-	vtypes "storage/core/types"
+	vtypes "storage/account/types"
 	"math/big"
-	"storage/core/vm"
+	"storage/account/vm"
 	"storage/tasdb"
 )
 
@@ -126,7 +126,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 
 	chain.bonusManager = newBonusManager()
-	chain.stateCache = core.NewLightDatabase(chain.statedb)
+	chain.stateCache = account.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
 	// 恢复链状态 height,latestBlock
@@ -135,7 +135,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
 		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
-		state, err := core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+		state, err := account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
 		} else {
@@ -143,7 +143,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 		}
 	} else {
 		//// 创始块
-		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
+		state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			_, headerJson := chain.saveBlock(block)
@@ -234,7 +234,7 @@ func (chain *LightChain) hasPreBlock(bh types.BlockHeader) (bool, *types.BlockHe
 }
 
 func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash, b *types.Block) []*types.Transaction {
-	state, err := core.NewAccountDB(preStateRoot, chain.stateCache)
+	state, err := account.NewAccountDB(preStateRoot, chain.stateCache)
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 	}
@@ -359,7 +359,7 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	return 0, headerByte
 }
 
-func (chain *LightChain) executeTransaction(block *types.Block) (bool, *core.AccountDB, vtypes.Receipts) {
+func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, vtypes.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	var preBlockStateTree []byte
 	if preBlock == nil {
@@ -368,7 +368,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *core.Acc
 		preBlockStateTree = preBlock.StateTree.Bytes()
 	}
 	preRoot := common.BytesToHash(preBlockStateTree)
-	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return false, state, nil
@@ -397,7 +397,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 	BlockSyncer.Sync()
 }
 
-func (chain *LightChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
+func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		fmt.Printf("[block]fail to put current, error:%s \n", err)
@@ -495,11 +495,11 @@ func (chain *LightChain) Clear() error {
 		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
 		return err
 	}
-	chain.stateCache = core.NewLightDatabase(chain.statedb)
+	chain.stateCache = account.NewLightDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 
 	// 创始块
-	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
+	state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
@@ -576,5 +576,5 @@ func (chain *LightChain) FreePreBlockStateRoot(blockHash common.Hash) {
 
 func (chain *LightChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
-	return core.NewAccountDB(header.StateTree, chain.stateCache)
+	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }

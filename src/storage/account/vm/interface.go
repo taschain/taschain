@@ -21,13 +21,13 @@ import (
 	"common"
 	"middleware/types"
 	"storage/trie"
-	storagecore "storage/core"
+	"storage/account"
 )
 
 type AccountDB interface {
 	CreateAccount(common.Address)
 
-	GetTrie() storagecore.Trie
+	GetTrie() account.Trie
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int

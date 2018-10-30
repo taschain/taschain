@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"storage/tasdb"
-	vtypes "storage/core/types"
+	vtypes "storage/account/types"
 	"middleware/types"
 	"middleware"
 	"github.com/hashicorp/golang-lru"

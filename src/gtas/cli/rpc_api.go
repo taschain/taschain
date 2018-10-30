@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"log"
-	types2 "storage/core/types"
+	types2 "storage/account/types"
 	"consensus/model"
 )
 

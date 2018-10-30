@@ -1,4 +1,4 @@
-package core
+package account
 
 import (
 	"testing"
