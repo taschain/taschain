@@ -40,7 +40,6 @@ import (
 	"log"
 	"strconv"
 	"consensus/model"
-	"redis"
 	"runtime/debug"
 )
 
@@ -61,8 +60,6 @@ const (
 	databaseKey = "database"
 
 	statisticsSection = "statistics"
-
-	nodetypeSection = "nodetype"
 
 	redis_prefix = "aliyun_"
 )
@@ -117,7 +114,7 @@ func (gtas *Gtas) waitingUtilSyncFinished() {
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp,light)
+	err := gtas.fullInit(super, testMode, seedIp, light)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -143,12 +140,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	//}
 	core.InitBlockSyncer(light)
 	switch apply {
-		case "heavy":
-			result,_ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
-			core.Logger.Debugf("initial apply heavy result:%v",result)
-		case "light":
-			result,_ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
-			core.Logger.Debugf("initial apply light result:%v",result)
+	case "heavy":
+		result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+		core.Logger.Debugf("initial apply heavy result:%v", result)
+	case "light":
+		result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+		core.Logger.Debugf("initial apply light result:%v", result)
 	}
 	gtas.inited = true
 	if !ok {
@@ -156,10 +153,10 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	}
 }
 
-func (gtas *Gtas) runtimeInit()  {
+func (gtas *Gtas) runtimeInit() {
 	debug.SetGCPercent(70)
-	debug.SetMaxStack(2*1000000000)
-    fmt.Println("setting gc 70%, max memory 2g")
+	debug.SetMaxStack(2 * 1000000000)
+	fmt.Println("setting gc 70%, max memory 2g")
 
 }
 
@@ -170,7 +167,7 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-		redis.NodeOffline(mediator.Proc.GetMinerID().Serialize())
+
 		fmt.Println("exit success")
 		quit <- true
 	} else {
@@ -266,7 +263,7 @@ func (gtas *Gtas) Run() {
 	}
 
 	common.BootId = *buildId
-	log.Printf("Boot id:%d",common.BootId)
+	log.Printf("Boot id:%d", common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
@@ -315,7 +312,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -350,7 +347,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,light bool) err
 		//超级节点启动前先把Redis数据清空
 		//redis.CleanRedisData()
 	}
-
 
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)

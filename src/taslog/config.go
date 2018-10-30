@@ -26,15 +26,6 @@ const(
 						</formats>
 					</seelog>`
 
- P2PConfig = `<seelog minlevel="debug">
-						<outputs formatid="default">
-							<rollingfile type="size" filename="./logs/p2p.log" maxsize="256000000" maxrolls="2"/>
-						</outputs>
-						<formats>
-							<format id="default" format="%Date(2006-01-02 15:04:05.000)  [%Level]  [%File:%Line] %Msg%n" />
-						</formats>
-					</seelog>`
-
  BonusStatConfig = `<seelog minlevel="info">
 						<outputs formatid="default">
 							<rollingfile type="date" filename="./logs/bonus_stat.log" datepattern="2006-01-02" maxrolls="30"/>

@@ -17,11 +17,10 @@ package core
 
 import (
 	"common"
-	vtypes "storage/core/types"
 	"math/big"
 	"middleware/types"
-	"storage/core"
-	"storage/core/vm"
+	"storage/account"
+	"storage/vm"
 )
 
 //主链接口
@@ -50,7 +49,7 @@ type BlockChain interface {
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
 
-	LatestStateDB() *core.AccountDB
+	LatestStateDB() *account.AccountDB
 
 	//根据指定哈希查询块
 	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
@@ -75,7 +74,7 @@ type BlockChain interface {
 
 	GetNonce(address common.Address) uint64
 
-	GetSateCache() core.AccountDatabase
+	GetSateCache() account.AccountDatabase
 
 	IsAdujsting() bool
 
@@ -112,9 +111,9 @@ type TransactionPool interface {
 
 	AddTransactions(txs []*types.Transaction) error
 
-	MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
+	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 
-	Remove(hash common.Hash, transactions []common.Hash)
+	Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash)
 
 	UnMarkExecuted(txs []*types.Transaction)
 
@@ -139,8 +138,8 @@ type GroupInfoI interface {
 
 // VM执行器
 type VMExecutor interface {
-	//Execute(statedb *state.StateDB, block *Block) (types.Receipts, *common.Hash, uint64, error)
-	Execute(statedb *core.AccountDB, block *types.Block) (vtypes.Receipts, *common.Hash, uint64, error)
+
+	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 
 // 账户查询接口
@@ -152,6 +151,6 @@ type AccountRepository interface {
 
 // chain 对于投票事件接口
 type VoteProcessor interface {
-	BeforeExecuteTransaction(b *types.Block, db core.AccountDB, tx *types.Transaction) ([]byte, error)
-	AfterAllTransactionExecuted(b *types.Block, stateDB core.AccountDB, receipts vtypes.Receipts) error
+	BeforeExecuteTransaction(b *types.Block, db account.AccountDB, tx *types.Transaction) ([]byte, error)
+	AfterAllTransactionExecuted(b *types.Block, stateDB account.AccountDB, receipts types.Receipts) error
 }

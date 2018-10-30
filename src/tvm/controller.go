@@ -1,7 +1,7 @@
 package tvm
 
 import (
-	"storage/core/vm"
+	"storage/vm"
 	"middleware/types"
 	"fmt"
 	"common"

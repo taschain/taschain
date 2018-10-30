@@ -17,7 +17,7 @@ package cli
 
 import (
 	"net"
-	"core/rpc"
+	"gtas/rpc"
 
 	"fmt"
 	"network"

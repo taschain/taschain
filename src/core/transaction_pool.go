@@ -20,9 +20,7 @@ import (
 	"sync"
 	"common"
 	"os"
-
 	"storage/tasdb"
-	vtypes "storage/core/types"
 	"middleware/types"
 	"middleware"
 	"github.com/hashicorp/golang-lru"
@@ -89,7 +87,7 @@ type TxPool struct {
 }
 
 type ReceiptWrapper struct {
-	Receipt     *vtypes.Receipt
+	Receipt     *types.Receipt
 	Transaction *types.Transaction
 }
 
@@ -220,7 +218,7 @@ func (pool *TxPool) CheckAndSend(immediately bool) {
 }
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
-func (pool *TxPool) MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {
+func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
@@ -431,10 +429,12 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 }
 
 // 从池子里移除一批交易
-func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash) {
+func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
 	pool.received.Remove(transactions)
+	pool.received.Remove(evictedTxs)
 	pool.reserved.Remove(hash)
 	pool.removeFromSendinglist(transactions)
+	pool.removeFromSendinglist(evictedTxs)
 }
 
 // 返回待处理的transaction数组

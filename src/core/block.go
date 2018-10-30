@@ -20,8 +20,7 @@ import (
 	"common"
 	"math/big"
 	"time"
-	"storage/core"
-	vtypes "storage/core/types"
+	"storage/account"
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
@@ -70,7 +69,7 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
-func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
+func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
 		return emptyHash
 	}
@@ -91,7 +90,7 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
+func GenesisBlock(stateDB *account.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
 	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
@@ -101,6 +100,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *t
 		ProveValue:   pv,
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
+		EvictedTxs: make([]common.Hash, 0), //important!!
 	}
 
 	//blockByte, _ := json.Marshal(block)
