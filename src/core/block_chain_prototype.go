@@ -4,7 +4,7 @@ import (
 	"storage/tasdb"
 	"github.com/hashicorp/golang-lru"
 	"middleware/types"
-	"storage/core"
+	"storage/account"
 	"middleware"
 	"common"
 	"math"
@@ -28,7 +28,7 @@ type prototypeChain struct {
 
 	//已上链的最新块
 	latestBlock   *types.BlockHeader
-	latestStateDB *core.AccountDB
+	latestStateDB *account.AccountDB
 
 	topBlocks *lru.Cache
 
@@ -39,7 +39,7 @@ type prototypeChain struct {
 	init bool
 
 	statedb    tasdb.Database
-	stateCache core.AccountDatabase // State database to reuse between imports (contains state cache)
+	stateCache account.AccountDatabase // State database to reuse between imports (contains state cache)
 
 	executor      *TVMExecutor
 	voteProcessor VoteProcessor
@@ -181,7 +181,7 @@ func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
 
-func (chain *prototypeChain) GetSateCache() core.AccountDatabase {
+func (chain *prototypeChain) GetSateCache() account.AccountDatabase {
 	return chain.stateCache
 }
 func (chain *prototypeChain) IsAdujsting() bool {
@@ -224,7 +224,7 @@ func (chain *prototypeChain) buildCache(size uint64, cache *lru.Cache) {
 	}
 }
 
-func (chain *prototypeChain) LatestStateDB() *core.AccountDB {
+func (chain *prototypeChain) LatestStateDB() *account.AccountDB {
 	//chain.lock.RLock("LatestStateDB")
 	//defer chain.lock.RUnlock("LatestStateDB")
 	return chain.latestStateDB
@@ -354,7 +354,7 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
 	chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
-	chain.latestStateDB, _ = core.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+	chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 
 	// 删除块的交易，返回transactionpool
 	if nil == block {
@@ -467,7 +467,7 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 	return -1
 }
 
-func (chain *prototypeChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
+func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		Logger.Errorf("[block]fail to put current, error:%s \n", err)

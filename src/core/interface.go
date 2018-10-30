@@ -50,7 +50,7 @@ type BlockChain interface {
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
 
-	LatestStateDB() *core.AccountDB
+	LatestStateDB() *account.AccountDB
 
 	//根据指定哈希查询块
 	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
