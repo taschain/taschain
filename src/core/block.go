@@ -101,6 +101,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *t
 		ProveValue:   pv,
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
+		EvictedTxs: make([]common.Hash, 0), //important!!
 	}
 
 	//blockByte, _ := json.Marshal(block)

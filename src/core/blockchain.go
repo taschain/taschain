@@ -245,7 +245,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, height, "casting")
+	statehash, transactionHashes, receipts, err := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -261,11 +261,32 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	//block.Transactions = executedTxs
 	//block.Header.EvictedTxs = errTxs
 
-	block.Header.Transactions = make([]common.Hash, len(block.Transactions))
-	for i, tx := range block.Transactions {
-		block.Header.Transactions[i] = tx.Hash
+	block.Header.Transactions = transactionHashes
+	transactions := make([]*types.Transaction, 0)
+	evictedTxs := make([]common.Hash, 0)
+	i := 0
+	j := 0
+	length := len(block.Transactions)
+	length2 := len(transactionHashes)
+	Logger.Debugf("Transactions:%d Hashes:%d",length, len(transactionHashes))
+	if length > 0 && length2 > 0 {
+		for {
+			if i >= length || j >= length2{
+				break
+			}
+			if block.Transactions[i].Hash == transactionHashes[j] {
+				transactions = append(transactions, block.Transactions[i])
+				i++
+				j++
+			} else {
+				i++
+				evictedTxs = append(evictedTxs, block.Transactions[i].Hash)
+			}
+		}
 	}
+	block.Transactions = transactions
 	block.Header.TxTree = calcTxTree(block.Transactions)
+	block.Header.EvictedTxs = evictedTxs
 
 	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
@@ -433,7 +454,7 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 	}
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
-	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
+	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
 	return 0, headerByte
@@ -454,7 +475,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *core
 		return false, state, nil
 	}
 
-	statehash, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts

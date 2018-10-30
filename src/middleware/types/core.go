@@ -164,6 +164,7 @@ type BlockHeader struct {
 	ExtraData    []byte
 	Random       []byte
 	ProveRoot	 common.Hash
+	EvictedTxs   []common.Hash
 }
 
 type header struct {
@@ -182,6 +183,7 @@ type header struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	ProveRoot	 common.Hash
+	EvictedTxs   []common.Hash
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
@@ -200,6 +202,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 		StateTree:    bh.StateTree,
 		ExtraData:    bh.ExtraData,
 		ProveRoot:    bh.ProveRoot,
+		EvictedTxs:   bh.EvictedTxs,
 	}
 	blockByte, _ := json.Marshal(header)
 	result := common.BytesToHash(common.Sha256(blockByte))

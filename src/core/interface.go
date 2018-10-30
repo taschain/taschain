@@ -112,7 +112,7 @@ type TransactionPool interface {
 
 	MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction)
 
-	Remove(hash common.Hash, transactions []common.Hash)
+	Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash)
 
 	UnMarkExecuted(txs []*types.Transaction)
 
