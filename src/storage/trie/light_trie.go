@@ -25,7 +25,7 @@ type LightTrie struct {
 	PublicTrie
 }
 
-func NewLightTrie(root common.Hash, db *Database) (*LightTrie, error) {
+func NewLightTrie(root common.Hash, db *NodeDatabase) (*LightTrie, error) {
 	if db == nil {
 		panic("trie.NewTrie called without a database")
 	}
@@ -66,7 +66,7 @@ func (t *LightTrie) Hash() common.Hash {
 	return common.BytesToHash(hash.(hashNode))
 }
 
-func (t *LightTrie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
+func (t *LightTrie) hashRoot(db *NodeDatabase, onleaf LeafCallback) (node, node, error) {
 	if t.RootNode == nil {
 		return hashNode(emptyRoot.Bytes()), nil, nil
 	}

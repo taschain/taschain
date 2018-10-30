@@ -84,7 +84,7 @@ func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte,isInit bool) 
 	return hashed, cached,true, nil
 }
 
-func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
+func (h *hasher) hash(n node, db *NodeDatabase, force bool) (node, node, error) {
 	if hash, dirty := n.cache(); hash != nil {
 		if db == nil {
 			return hash, n, nil
@@ -153,7 +153,7 @@ func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte,needStore bo
 	return hash, nil
 }
 
-func (h *hasher) store(n node, db *Database, force bool) (node, error) {
+func (h *hasher) store(n node, db *NodeDatabase, force bool) (node, error) {
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil
 	}
@@ -213,7 +213,7 @@ func (h *hasher) store(n node, db *Database, force bool) (node, error) {
 }
 
 
-func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
+func (h *hasher) hashChildren(original node, db *NodeDatabase) (node, node, error) {
 	var err error
 	switch n := original.(type) {
 	case *shortNode:
