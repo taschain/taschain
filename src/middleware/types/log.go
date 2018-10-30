@@ -55,12 +55,6 @@ type Log struct {
 	Removed bool `json:"removed"`
 }
 
-type logMarshaling struct {
-	Data        []byte
-	BlockNumber uint64
-	TxIndex     uint
-	Index       uint
-}
 
 type rlpLog struct {
 	Address common.Address
