@@ -107,15 +107,17 @@ func (bs *blockSyncer) Sync() {
 	}
 
 	if candidatePreHash == localPreHash {
-		BlockChainImpl.Remove(topBlock)
-		RequestBlock(candidateId, candidateHeight)
+		result := BlockChainImpl.Remove(topBlock)
+		if result {
+			RequestBlock(candidateId, candidateHeight)
+		}
 		return
 	}
 
 	if BlockChainImpl.Height() == 0 {
-		if BlockChainImpl.IsLightMiner(){
+		if BlockChainImpl.IsLightMiner() {
 			RequestBlock(candidateId, candidateHeight)
-		}else {
+		} else {
 			RequestBlock(candidateId, 1)
 		}
 		return

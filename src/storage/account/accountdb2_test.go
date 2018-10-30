@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package core
+package account
 
 import (
 	"testing"
@@ -31,7 +31,7 @@ func TestAccountDB_AddBalance(t *testing.T) {
 	triedb := NewDatabase(db)
 	//state, _ := NewAccountDB(common.Hash{}, triedb)
 	state, _ := NewAccountDB(common.HexToHash("0xb9642a136059a6723b481d43969bd3b2c749d440af17d1a49b056728f60e9033"), triedb)
-	state.Fstring()
+
 	//state.SetBalance(common.BytesToAddress([]byte("1")), big.NewInt(1000000))
 	//state.AddBalance(common.BytesToAddress([]byte("3")), big.NewInt(1))
 	//state.SubBalance(common.BytesToAddress([]byte("2")), big.NewInt(2))

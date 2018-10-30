@@ -20,8 +20,8 @@ import (
 	"common"
 	"math/big"
 	"time"
-	"storage/core"
-	vtypes "storage/core/types"
+	"storage/account"
+	vtypes "storage/account/types"
 	"storage/trie"
 	"middleware/types"
 	"storage/serialize"
@@ -91,7 +91,7 @@ func calcReceiptsTree(receipts vtypes.Receipts) common.Hash {
 }
 
 // 创始块
-func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
+func GenesisBlock(stateDB *account.AccountDB, triedb *trie.Database, genesisInfo *types.GenesisInfo) *types.Block {
 	block := new(types.Block)
 	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{

@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package core
+package account
 
 import (
 	"bytes"
@@ -135,7 +135,7 @@ func (c *accountObject) touch() {
 	c.touched = true
 }
 
-func (c *accountObject) getTrie(db Database) Trie {
+func (c *accountObject) getTrie(db AccountDatabase) Trie {
 	if c.trie == nil {
 		var err error
 		c.trie, err = db.OpenStorageTrie(c.addrHash, c.data.Root)
@@ -147,7 +147,7 @@ func (c *accountObject) getTrie(db Database) Trie {
 	return c.trie
 }
 
-func (self *accountObject) GetData(db Database, key string) []byte {
+func (self *accountObject) GetData(db AccountDatabase, key string) []byte {
 	value, exists := self.cachedStorage[key]
 	if exists {
 		return value
@@ -165,7 +165,7 @@ func (self *accountObject) GetData(db Database, key string) []byte {
 	return value
 }
 
-func (self *accountObject) SetData(db Database, key string, value []byte) {
+func (self *accountObject) SetData(db AccountDatabase, key string, value []byte) {
 	self.db.transitions = append(self.db.transitions, storageChange{
 		account:  &self.address,
 		key:      key,
@@ -184,7 +184,7 @@ func (self *accountObject) setData(key string, value []byte) {
 	}
 }
 
-func (self *accountObject) updateTrie(db Database) Trie {
+func (self *accountObject) updateTrie(db AccountDatabase) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
@@ -198,12 +198,12 @@ func (self *accountObject) updateTrie(db Database) Trie {
 	return tr
 }
 
-func (self *accountObject) updateRoot(db Database) {
+func (self *accountObject) updateRoot(db AccountDatabase) {
 	self.updateTrie(db)
 	self.data.Root = self.trie.Hash()
 }
 
-func (self *accountObject) CommitTrie(db Database) error {
+func (self *accountObject) CommitTrie(db AccountDatabase) error {
 	self.updateTrie(db)
 	if self.dbErr != nil {
 		return self.dbErr
@@ -271,7 +271,7 @@ func (c *accountObject) Address() common.Address {
 	return c.address
 }
 
-func (self *accountObject) Code(db Database) []byte {
+func (self *accountObject) Code(db AccountDatabase) []byte {
 	if self.code != nil {
 		return self.code
 	}
@@ -286,7 +286,7 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(db Database, prefix []byte) *trie.Iterator {
+func (self *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.Iterator {
 	if self.trie == nil {
 		self.getTrie(db)
 	}

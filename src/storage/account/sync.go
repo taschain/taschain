@@ -13,12 +13,27 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package metrics
+package account
 
-// DiskStats is the per process disk io stats.
-type DiskStats struct {
-	ReadCount  int64 // Number of read operations executed
-	ReadBytes  int64 // Total number of bytes read
-	WriteCount int64 // Number of write operations executed
-	WriteBytes int64 // Total number of byte written
+import (
+	"bytes"
+
+	"common"
+	"storage/trie"
+	"storage/serialize"
+)
+
+func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync {
+	var syncer *trie.TrieSync
+	callback := func(leaf []byte, parent common.Hash) error {
+		var obj Account
+		if err := serialize.Decode(bytes.NewReader(leaf), &obj); err != nil {
+			return err
+		}
+		syncer.AddSubTrie(obj.Root, 64, parent, nil)
+		syncer.AddRawEntry(common.BytesToHash(obj.CodeHash), 64, parent)
+		return nil
+	}
+	syncer = trie.NewTrieSync(root, database, callback)
+	return syncer
 }

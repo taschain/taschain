@@ -18,10 +18,10 @@ package core
 import (
 	"middleware/types"
 	"common"
-	t "storage/core/types"
-	"storage/core"
+	t "storage/account/types"
+	"storage/account"
 	"math/big"
-	"storage/core/vm"
+	"storage/vm"
 	"fmt"
 	"tvm"
 	"bytes"
@@ -44,7 +44,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 }
 
 //获取交易中包含账户所在的分支
-func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
+func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
 	//todo  合约如何实现
 	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
 	tr, _ := accountdb.GetTrie().(*trie.Trie)
@@ -93,14 +93,14 @@ func (executor *TVMExecutor) GetBranches(accountdb *core.AccountDB, transactions
 	}
 }
 
-func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.AccountDB) {
+func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.AccountDB) {
 	data, err := accountdb.GetTrie().TryGet(address[:])
 	if err != nil {
 		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
 		return
 	}
 
-	var account core.Account
+	var account account.Account
 	if err := serialize.DecodeBytes(data, &account); err != nil {
 		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
 		return
@@ -114,7 +114,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *core.Accou
 	t.GetAllNodes(nodes)
 }
 
-func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *core.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
+func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
 	missingAccountTransactions := []*types.Transaction{}
 	missingAccounts := []common.Address{}
 	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
@@ -174,9 +174,10 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*t.Receipt, error) {
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*t.Receipt, error) {
 	receipts := make([]*t.Receipt, 0)
-	transactions := make([]common.Hash, 0)
+	transactions := make([]*types.Transaction, 0)
+	evictedTxs := make([]common.Hash, 0)
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	//tr := accountdb.GetTrie()
 	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
@@ -292,11 +293,13 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			}
 		}
 		if !fail {
-			transactions = append(transactions, transaction.Hash)
+			transactions = append(transactions, transaction)
 			receipt := t.NewReceipt(nil, fail, 0)
 			receipt.TxHash = transaction.Hash
 			receipt.ContractAddress = contractAddress
 			receipts = append(receipts, receipt)
+		} else {
+			evictedTxs = append(evictedTxs, transaction.Hash)
 		}
 	}
 	//筑块奖励
@@ -307,10 +310,10 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
-	return state, transactions, receipts, nil
+	return state, evictedTxs, transactions, receipts, nil
 }
 
-func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
+func createContract(accountdb *account.AccountDB, transaction *types.Transaction) (common.Address, error) {
 	amount := big.NewInt(int64(transaction.Value))
 	if !CanTransfer(accountdb, *transaction.Source, amount) {
 		return common.Address{}, fmt.Errorf("balance not enough")

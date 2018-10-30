@@ -5,7 +5,7 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"github.com/hashicorp/golang-lru"
 	"common"
-	"storage/core/vm"
+	"storage/vm"
 	"storage/trie"
 	"sync"
 	"errors"
@@ -73,12 +73,7 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	Logger.Debugf("MinerManager AddMiner %d", miner.Type)
 	db := mm.getMinerDatabase(miner.Type)
 
-	var latestStateDB vm.AccountDB
-	if mm.blockchain.IsLightMiner() {
-		latestStateDB = mm.blockchain.(*LightChain).latestStateDB
-	} else {
-		latestStateDB = mm.blockchain.(*FullBlockChain).latestStateDB
-	}
+	latestStateDB := mm.blockchain.LatestStateDB()
 	if latestStateDB.GetData(db, string(id)) != nil {
 		return -1
 	} else {
@@ -119,11 +114,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 		}
 	}
 	if accountdb == nil {
-		if mm.blockchain.IsLightMiner() {
-			accountdb = mm.blockchain.(*LightChain).latestStateDB
-		} else {
-			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
-		}
+		accountdb = mm.blockchain.LatestStateDB()
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
@@ -206,11 +197,7 @@ func (mm *MinerManager) MinerIterator(ttype byte, accountdb vm.AccountDB) *Miner
 	db := mm.getMinerDatabase(ttype)
 	if accountdb == nil {
 		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
-		if mm.blockchain.IsLightMiner() {
-			accountdb = mm.blockchain.(*LightChain).latestStateDB
-		} else {
-			accountdb = mm.blockchain.(*FullBlockChain).latestStateDB
-		}
+		accountdb = mm.blockchain.LatestStateDB()
 	}
 	iterator := &MinerIterator{iter: accountdb.DataIterator(db, "")}
 	if ttype == types.MinerTypeHeavy {

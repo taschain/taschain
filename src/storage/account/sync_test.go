@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package core
+package account
 
 import (
 	"bytes"
@@ -35,7 +35,7 @@ type testAccount struct {
 }
 
 // makeTestState create a sample test state to test node-wise reconstruction.
-func makeTestState() (Database, common.Hash, []*testAccount) {
+func makeTestState() (AccountDatabase, common.Hash, []*testAccount) {
 	// Create an empty state
 	diskdb, _ := tasdb.NewMemDatabase()
 	db := NewDatabase(diskdb)

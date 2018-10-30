@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package core
+package account
 
 import (
 	"sync"
@@ -25,24 +25,20 @@ import (
 	"fmt"
 )
 
-var MaxTrieCacheGen = uint16(20)
-
 const (
-	maxPastTries = 10
-
 	codeSizeCacheSize = 100000
 )
 
-type Database interface {
+type AccountDatabase interface {
 	OpenTrie(root common.Hash) (Trie, error)
 
-	OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error)
+	OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error)
 
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
 	CopyTrie(Trie) Trie
 
-	PushTrie(root common.Hash,t Trie)
+	PushTrie(root common.Hash, t Trie)
 
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 
@@ -62,20 +58,20 @@ type Trie interface {
 	GetAllNodes(nodes map[string]*[]byte)
 }
 
-func NewDatabase(db tasdb.Database) Database {
+func NewDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &storageDB{
-		publicStorageDB:publicStorageDB{
+		publicStorageDB: publicStorageDB{
 			db:            trie.NewDatabase(db),
 			codeSizeCache: csc,
 		},
 	}
 }
 
-func NewLightDatabase(db tasdb.Database) Database {
+func NewLightDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &lightStorageDB{
-		publicStorageDB:publicStorageDB{
+		publicStorageDB: publicStorageDB{
 			db:            trie.NewDatabase(db),
 			codeSizeCache: csc,
 		},
@@ -83,10 +79,10 @@ func NewLightDatabase(db tasdb.Database) Database {
 }
 
 type publicStorageDB struct {
-	db            *trie.Database
-	mu            sync.Mutex
+	db *trie.Database
+	mu sync.Mutex
 	//pastTries     []Trie
-	codeSizeCache 	  *lru.Cache
+	codeSizeCache *lru.Cache
 }
 
 type storageDB struct {
@@ -120,11 +116,11 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	return len(code), err
 }
 
-func (db *storageDB) OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error) {
+func (db *storageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	tr, err := trie.NewTrieWithMap(root, db.db,nodes)
+	tr, err := trie.NewTrieWithMap(root, db.db, nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +163,7 @@ func (db *storageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
 func (db *storageDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
 	case *trie.Trie:
-		newTrie,_ := trie.NewTrie(t.Hash(), db.db)
+		newTrie, _ := trie.NewTrie(t.Hash(), db.db)
 		return newTrie
 	default:
 		panic(fmt.Errorf("unknown trie type %T", t))
@@ -178,9 +174,7 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 //	return nilsss
 //}
 
-
-
-func (db *lightStorageDB)OpenTrieWithMap(root common.Hash,nodes map[string]*[]byte) (Trie, error){
+func (db *lightStorageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
 	panic("not support")
 }
 
@@ -213,18 +207,9 @@ func (db *lightStorageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, err
 func (db *lightStorageDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
 	case *trie.Trie:
-		newTrie,_ := trie.NewTrie(t.Hash(), db.db)
+		newTrie, _ := trie.NewTrie(t.Hash(), db.db)
 		return newTrie
 	default:
 		panic(fmt.Errorf("unknown trie type %T", t))
 	}
 }
-
-func (db *lightStorageDB) CopyCompleteTrie(root common.Hash) Trie {
-	return nil
-}
-
-
-
-
-

@@ -17,11 +17,10 @@ package core
 
 import (
 	"common"
-	"core/datasource"
 	"time"
 	"os"
-	"storage/core"
-	vtypes "storage/core/types"
+	"storage/account"
+	vtypes "storage/account/types"
 	"github.com/hashicorp/golang-lru"
 	"fmt"
 	"bytes"
@@ -30,8 +29,9 @@ import (
 	"middleware/types"
 	"taslog"
 	"math/big"
-	"storage/core/vm"
+	"storage/vm"
 	"middleware/notify"
+	"storage/tasdb"
 )
 
 const (
@@ -69,7 +69,7 @@ type FullBlockChain struct {
 }
 
 type castingBlock struct {
-	state    *core.AccountDB
+	state    *account.AccountDB
 	receipts vtypes.Receipts
 }
 
@@ -140,32 +140,32 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.castedBlock, err = lru.New(20)
 
 	//从磁盘文件中初始化leveldb
-	chain.blocks, err = datasource.NewDatabase(chain.config.block)
+	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.blockHeight, err = datasource.NewDatabase(chain.config.blockHeight)
+	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.checkdb, err = datasource.NewDatabase(chain.config.state)
+	chain.checkdb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
 	chain.bonusManager = newBonusManager()
-	chain.stateCache = core.NewDatabase(chain.statedb)
+	chain.stateCache = account.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain)
@@ -175,7 +175,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	if nil != chain.latestBlock {
 		chain.buildCache(1000, chain.topBlocks)
 		Logger.Infof("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
-		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
+		state, err := account.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
 		} else {
@@ -183,7 +183,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		}
 	} else {
 		// 创始块
-		state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
+		state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 		if nil == err {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Infof("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
@@ -232,7 +232,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	//if len(block.Transactions) > 0 {
 	//	Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s", height, latestBlock.Hash.Hex(), preRoot.Hex())
 	//}
-	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
 		buffer.WriteString("fail to new statedb, lateset height: ")
@@ -245,7 +245,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, transactionHashes, receipts, err := chain.executor.Execute(state, block, height, "casting")
+	statehash, evictedTxs, transactions, receipts, err := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -261,30 +261,14 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	//block.Transactions = executedTxs
 	//block.Header.EvictedTxs = errTxs
 
-	block.Header.Transactions = transactionHashes
-	transactions := make([]*types.Transaction, 0)
-	evictedTxs := make([]common.Hash, 0)
-	i := 0
-	j := 0
-	length := len(block.Transactions)
-	length2 := len(transactionHashes)
-	Logger.Debugf("Transactions:%d Hashes:%d",length, len(transactionHashes))
-	if length > 0 && length2 > 0 {
-		for {
-			if i >= length || j >= length2{
-				break
-			}
-			if block.Transactions[i].Hash == transactionHashes[j] {
-				transactions = append(transactions, block.Transactions[i])
-				i++
-				j++
-			} else {
-				i++
-				evictedTxs = append(evictedTxs, block.Transactions[i].Hash)
-			}
-		}
-	}
+
+	transactionHashes := make([]common.Hash, len(transactions))
+
 	block.Transactions = transactions
+	for i, transaction := range transactions{
+		transactionHashes[i] = transaction.Hash
+	}
+	block.Header.Transactions = transactionHashes
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	block.Header.EvictedTxs = evictedTxs
 
@@ -390,6 +374,15 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		}
 	}
 
+	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v", topBlock.PreHash.Hex(), b.Header.PreHash.Hex())
+	//if chain.Height() != 0 {
+	//	pre := BlockChainImpl.QueryBlockByHash(topBlock.PreHash)
+	//	if pre == nil {
+	//		time.Sleep(time.Second)
+	//		panic("Pre should not be nil before validateGroupSig")
+	//	}
+	//}
+
 	if !chain.validateGroupSig(b.Header) {
 		Logger.Debugf("Fail to validate group sig!")
 		return -1
@@ -408,7 +401,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
-	Logger.Debugf("commonAncestor hash:%s height:%d",commonAncestor.Hash.Hex(),commonAncestor.Height)
+	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		//删除自身链的结点
 		chain.removeFromCommonAncestor(commonAncestor)
@@ -436,13 +429,13 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
-	Logger.Debugf("insertBlock begin hash:%s",remoteBlock.Header.Hash.Hex())
+	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
-	Logger.Debugf("insertBlock saveBlock hash:%s result:%d",remoteBlock.Header.Hash.Hex(),result)
+	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
 		return -1, headerByte
 	}
@@ -460,7 +453,7 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 	return 0, headerByte
 }
 
-func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *core.AccountDB, vtypes.Receipts) {
+func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, vtypes.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
 		panic("Pre block nil !!")
@@ -469,13 +462,13 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *core
 	if len(block.Transactions) > 0 {
 		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
 	}
-	state, err := core.NewAccountDB(preRoot, chain.stateCache)
+	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
 		return false, state, nil
 	}
 
-	statehash, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
@@ -501,19 +494,6 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	go BlockSyncer.Sync()
-}
-
-func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
-	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		Logger.Errorf("[block]fail to put current, error:%s \n", err)
-		return -1
-	}
-	chain.latestStateDB = state
-	chain.latestBlock = header
-
-	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
-	return 0
 }
 
 //根据指定哈希查询块
@@ -602,14 +582,10 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 		log.Printf("[block]fail to put key:height value:headerjson, error:%s \n", err)
 		return -1, nil
 	}
-
-	// 持久化保存最新块信息
-
 	chain.topBlocks.Add(b.Header.Height, b.Header)
 
 	return 0, headerJson
 }
-
 
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
@@ -626,19 +602,19 @@ func (chain *FullBlockChain) Clear() error {
 	chain.blockHeight.Close()
 	chain.statedb.Close()
 
-	os.RemoveAll(datasource.DEFAULT_FILE)
+	os.RemoveAll(tasdb.DEFAULT_FILE)
 
-	chain.statedb, err = datasource.NewDatabase(chain.config.state)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		//todo: 日志
 		return err
 	}
 
-	chain.stateCache = core.NewDatabase(chain.statedb)
+	chain.stateCache = account.NewDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 
 	// 创始块
-	state, err := core.NewAccountDB(common.Hash{}, chain.stateCache)
+	state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil == err {
 		chain.latestStateDB = state
 		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
@@ -656,7 +632,7 @@ func (chain *FullBlockChain) Clear() error {
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
 	var nodesOnBranch = make(map[string]*[]byte)
-	state, err := core.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
+	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
 	if err != nil {
 		Logger.Infof("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
 		return nil
@@ -683,9 +659,9 @@ func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {
 }
 
 func Clear() {
-	path := datasource.DEFAULT_FILE
+	path := tasdb.DEFAULT_FILE
 	if nil != common.GlobalConf {
-		path = common.GlobalConf.GetString(CONFIG_SEC, "database", datasource.DEFAULT_FILE)
+		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
 	}
 	os.RemoveAll(path)
 
@@ -700,5 +676,5 @@ func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
 
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	header := chain.QueryBlockHeaderByHash(hash)
-	return core.NewAccountDB(header.StateTree, chain.stateCache)
+	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }

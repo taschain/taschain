@@ -1,4 +1,4 @@
-package core
+package account
 
 import (
 	"testing"
@@ -36,17 +36,13 @@ func TestExpandTrie(t *testing.T) {
 	root,_:=trie1.Commit(nil)
 	triedb.TrieDB().Commit(root,false)
 
-
-	t1:= triedb.CopyCompleteTrie(root)
-
-	fff,_:= t1.(*trie.Trie)
 	for i:=0;i<100;i++{
-		vl:= string(getString(fff,strconv.Itoa(i)))
+		vl:= string(getString(trie1,strconv.Itoa(i)))
 		if vl != strconv.Itoa(i){
 			t.Errorf("wrong value: %v", vl)
 		}
 	}
-	data := encode(fff)
+	data := encode(trie1)
 
 
 	newTrie:=decode(data)
