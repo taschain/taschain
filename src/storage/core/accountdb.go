@@ -42,7 +42,7 @@ var (
 )
 
 type AccountDB struct {
-	db   Database
+	db   AccountDatabase
 	trie Trie
 
 	//accountObjects      map[common.Address]*accountObject
@@ -64,7 +64,7 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte) (*AccountDB, error) {
+func NewAccountDBWithMap(root common.Hash, db AccountDatabase,nodes map[string]*[]byte) (*AccountDB, error) {
 	tr, err := db.OpenTrieWithMap(root,nodes)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func NewAccountDBWithMap(root common.Hash, db Database,nodes map[string]*[]byte)
 	}, nil
 }
 
-func NewAccountDB(root common.Hash, db Database) (*AccountDB, error) {
+func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (self *AccountDB) GetData(a common.Address, b string) []byte {
 	return nil
 }
 
-func (self *AccountDB) Database() Database {
+func (self *AccountDB) Database() AccountDatabase {
 	return self.db
 }
 

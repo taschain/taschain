@@ -25,15 +25,11 @@ import (
 	"fmt"
 )
 
-var MaxTrieCacheGen = uint16(20)
-
 const (
-	maxPastTries = 10
-
 	codeSizeCacheSize = 100000
 )
 
-type Database interface {
+type AccountDatabase interface {
 	OpenTrie(root common.Hash) (Trie, error)
 
 	OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error)
@@ -62,7 +58,7 @@ type Trie interface {
 	GetAllNodes(nodes map[string]*[]byte)
 }
 
-func NewDatabase(db tasdb.Database) Database {
+func NewDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &storageDB{
 		publicStorageDB: publicStorageDB{
@@ -72,7 +68,7 @@ func NewDatabase(db tasdb.Database) Database {
 	}
 }
 
-func NewLightDatabase(db tasdb.Database) Database {
+func NewLightDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &lightStorageDB{
 		publicStorageDB: publicStorageDB{
