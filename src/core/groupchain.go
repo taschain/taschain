@@ -24,7 +24,6 @@ import (
 	"common"
 	"storage/tasdb"
 	"middleware/types"
-	"redis"
 	"middleware/notify"
 	"utility"
 	"bytes"
@@ -164,20 +163,6 @@ func (chain *GroupChain) Count() uint64 {
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
-}
-
-func (chain *GroupChain) GetMemberPubkeyByID(id []byte) []byte {
-	pubKey, _ := redis.GetPubKeyById(id)
-	return pubKey
-}
-
-func (chain *GroupChain) GetMemberPubkeyByIDs(ids [][]byte) [][]byte {
-	result, _ := redis.GetPubKeyByIds(ids)
-	return result
-}
-
-func (chain *GroupChain) GetCandidates() ([][]byte, error) {
-	return redis.GetAllNodeIds()
 }
 
 func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
