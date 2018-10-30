@@ -303,22 +303,13 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
+	topBlock := chain.latestBlock
+	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
+	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 
-	// 自己铸块的时候，会将块临时存放到blockCache里
-	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	//todo 需要先验证HASH 是否一致然后才能使用该缓存
-	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
-	//if false {
-	if cache == nil {
-		// 验证块是否有问题
-		_, status := chain.verifyBlock(*b.Header, b.Transactions)
-		if status == 3 {
-			return 3
-		}
-		if status != 0 {
-			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
-			return -1
-		}
+	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
+		Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		return -1
 	}
 
 	if !chain.validateGroupSig(b.Header) {
@@ -326,12 +317,10 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		return -1
 	}
 
-	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
-	//轻节点第一次同步直接上链
-	if b.Header.PreHash == topBlock.Hash{
+	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
 	}
@@ -526,17 +515,6 @@ func (chain *LightChain) Clear() error {
 	chain.transactionPool.Clear()
 	return err
 }
-
-
-
-
-
-
-
-
-
-
-
 
 func (chain *LightChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
 	panic("Not support!")

@@ -268,11 +268,10 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	//block.Transactions = executedTxs
 	//block.Header.EvictedTxs = errTxs
 
-
 	transactionHashes := make([]common.Hash, len(transactions))
 
 	block.Transactions = transactions
-	for i, transaction := range transactions{
+	for i, transaction := range transactions {
 		transactionHashes[i] = transaction.Hash
 	}
 	block.Header.Transactions = transactionHashes
@@ -337,7 +336,6 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	return nil, 0
 }
 
-
 func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 	pre := chain.queryBlockHeaderByHash(bh.PreHash)
 	if pre == nil {
@@ -366,23 +364,14 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
-
 	topBlock := chain.latestBlock
 	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
 	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 
-	// 自己铸块的时候，会将块临时存放到blockCache里
-	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
-	cache, _ := chain.verifiedBlocks.Get(b.Header.Hash)
-	if cache == nil {
-		_, status := chain.verifyBlock(*b.Header, b.Transactions)
-		if status != 0 {
-			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
-			return -1
-		}
+	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
+		Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		return -1
 	}
-
-	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v", topBlock.PreHash.Hex(), b.Header.PreHash.Hex())
 
 	if !chain.validateGroupSig(b.Header) {
 		Logger.Debugf("Fail to validate group sig!")
