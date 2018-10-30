@@ -227,7 +227,7 @@ import (
 	"fmt"
 	"bytes"
 	"strconv"
-	"storage/core/vm"
+	"storage/vm"
 )
 
 var controller *Controller = nil

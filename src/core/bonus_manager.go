@@ -2,7 +2,7 @@ package core
 
 import (
 	"sync"
-	"storage/account/vm"
+	"storage/vm"
 	"common"
 	"middleware/types"
 	"bytes"

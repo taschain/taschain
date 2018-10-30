@@ -15,7 +15,7 @@ import (
 	"fmt"
 	vtypes "storage/account/types"
 	"math/big"
-	"storage/account/vm"
+	"storage/vm"
 	"storage/tasdb"
 )
 

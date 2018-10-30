@@ -21,7 +21,7 @@ import (
 	t "storage/account/types"
 	"storage/account"
 	"math/big"
-	"storage/account/vm"
+	"storage/vm"
 	"fmt"
 	"tvm"
 	"bytes"
