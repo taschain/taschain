@@ -15,16 +15,13 @@
 
 package common
 
-import (
-
-)
-
 var InstanceIndex int
 var BootId int
+
 type AccountData struct {
-	sk   []byte   //secure key
-	pk 	 []byte   //public key
-	addr []byte   //address
+	sk   []byte //secure key
+	pk   []byte //public key
+	addr []byte //address
 }
 
 //创建一个交易账户
