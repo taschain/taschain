@@ -292,10 +292,6 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 		return -1
 	}
 
-	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
-		return -1
-	}
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
@@ -397,7 +393,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	BlockSyncer.Sync()
+	go BlockSyncer.Sync()
 }
 
 func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {

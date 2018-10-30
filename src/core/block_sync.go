@@ -115,11 +115,7 @@ func (bs *blockSyncer) Sync() {
 	}
 
 	if BlockChainImpl.Height() == 0 {
-		if BlockChainImpl.IsLightMiner() {
-			RequestBlock(candidateId, candidateHeight)
-		} else {
-			RequestBlock(candidateId, 1)
-		}
+		RequestBlock(candidateId, 1)
 		return
 	}
 	RequestChainPiece(candidateId, localHeight)
