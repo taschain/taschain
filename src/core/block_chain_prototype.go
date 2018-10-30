@@ -391,7 +391,6 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
 	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
-	time.Sleep(100 * time.Millisecond)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		Logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
 		header := chain.queryBlockHeaderByHeight(height, true)
