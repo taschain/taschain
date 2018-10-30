@@ -19,7 +19,6 @@ import (
 	"errors"
 	"sync"
 	"common"
-	"core/datasource"
 	"os"
 
 	"storage/tasdb"
@@ -66,9 +65,7 @@ type TransactionPoolConfig struct {
 	tx                  string
 }
 
-
 type TxPool struct {
-
 	config *TransactionPoolConfig
 
 	// 读写锁
@@ -80,8 +77,7 @@ type TxPool struct {
 	sendingList []*types.Transaction
 
 	sendingTxLock sync.Mutex
-	sendingTimer *time.Timer
-
+	sendingTimer  *time.Timer
 
 	// 已经在块上的交易 key ：txhash Value： receipt
 	executed tasdb.Database
@@ -119,18 +115,17 @@ func getPoolConfig() *TransactionPoolConfig {
 
 func NewTransactionPool() TransactionPool {
 	pool := &TxPool{
-			config:      getPoolConfig(),
-			lock:        middleware.NewLoglock("txpool"),
-			sendingList: make([]*types.Transaction, 0),
-			sendingTxLock: sync.Mutex{},
-			batchLock:   sync.Mutex{},
-			sendingTimer: time.NewTimer(time.Second),
-
+		config:        getPoolConfig(),
+		lock:          middleware.NewLoglock("txpool"),
+		sendingList:   make([]*types.Transaction, 0),
+		sendingTxLock: sync.Mutex{},
+		batchLock:     sync.Mutex{},
+		sendingTimer:  time.NewTimer(time.Second),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
 
-	executed, err := datasource.NewDatabase(pool.config.tx)
+	executed, err := tasdb.NewDatabase(pool.config.tx)
 	if err != nil {
 		//todo: rebuild executedPool
 		return nil
@@ -138,7 +133,7 @@ func NewTransactionPool() TransactionPool {
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
 	go func() {
-		for  {
+		for {
 			<-pool.sendingTimer.C
 			pool.CheckAndSend(true)
 			pool.sendingTimer.Reset(time.Second)
@@ -147,12 +142,12 @@ func NewTransactionPool() TransactionPool {
 	return pool
 }
 
-func (pool *TxPool) AddTransaction(tx *types.Transaction)(bool,error){
+func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 
-	b, err:= pool.addInner(tx, true)
-	return b,err
+	b, err := pool.addInner(tx, true)
+	return b, err
 }
 
 // 不加锁
@@ -173,7 +168,6 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
 
 	return nil
 }
-
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
@@ -211,9 +205,9 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	return true, nil
 }
 
-func (pool *TxPool) CheckAndSend(immediately bool){
+func (pool *TxPool) CheckAndSend(immediately bool) {
 	length := len(pool.sendingList)
-	if immediately && length > 0|| sendingListLength <= length {
+	if immediately && length > 0 || sendingListLength <= length {
 		pool.sendingTxLock.Lock()
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
@@ -222,7 +216,6 @@ func (pool *TxPool) CheckAndSend(immediately bool){
 		go BroadcastTransactions(txs)
 	}
 }
-
 
 // 外部加锁，AddExecuted通常和remove操作是依次执行的，所以由外部控制锁
 func (pool *TxPool) MarkExecuted(receipts vtypes.Receipts, txs []*types.Transaction) {
@@ -285,10 +278,9 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx,false)
+		pool.addInner(tx, false)
 	}
 }
-
 
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	pool.lock.RLock("GetTransaction")
@@ -299,7 +291,7 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 
 func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	wrapper := pool.GetExecuted(hash)
-	if wrapper == nil{
+	if wrapper == nil {
 		return 0, ErrNil
 	} else {
 		return wrapper.Receipt.Status, nil
@@ -370,13 +362,12 @@ func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction,
 	return nil, nil
 }
 
-
 func (pool *TxPool) Clear() {
 	pool.lock.Lock("Clear")
 	defer pool.lock.Unlock("Clear")
 
 	os.RemoveAll(pool.config.tx)
-	executed, _ := datasource.NewDatabase(pool.config.tx)
+	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
 	pool.received = newContainer(2000)
@@ -385,16 +376,6 @@ func (pool *TxPool) Clear() {
 func (pool *TxPool) GetReceived() []*types.Transaction {
 	return pool.received.txs
 }
-
-
-
-
-
-
-
-
-
-
 
 // 根据交易的hash判断交易是否存在：
 // 1）已存在待处理列表
@@ -420,7 +401,6 @@ func (pool *TxPool) validate(tx *types.Transaction) error {
 	return nil
 }
 
-
 // 从磁盘读取，不需要加锁（ldb自行保证）
 func (pool *TxPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	receiptJson, _ := pool.executed.Get(hash.Bytes())
@@ -438,13 +418,9 @@ func (pool *TxPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	return receipt
 }
 
-
-
 func (p *TxPool) GetTotalReceivedTxCount() uint64 {
 	return p.totalReceived
 }
-
-
 
 // 外部加锁
 // 加缓冲区
@@ -466,7 +442,6 @@ func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	return txs
 }
 
-
 // 返回待处理的transaction数组
 func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transaction) {
 	if 0 == len(txs) {
@@ -475,7 +450,7 @@ func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transacti
 	pool.reserved.Add(hash, txs)
 }
 
-func (pool *TxPool)GetLock() *middleware.Loglock{
+func (pool *TxPool) GetLock() *middleware.Loglock {
 	return &pool.lock
 }
 
