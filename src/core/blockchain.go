@@ -131,13 +131,21 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	var err error
 	chain.futureBlocks, err = lru.New(20)
+	if err != nil {
+		return err
+	}
 	chain.verifiedBlocks, err = lru.New(20)
+	if err != nil {
+		return err
+	}
 	chain.topBlocks, _ = lru.New(1000)
 	if err != nil {
 		return err
 	}
-
 	chain.castedBlock, err = lru.New(20)
+	if err != nil {
+		return err
+	}
 
 	//从磁盘文件中初始化leveldb
 	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
@@ -325,6 +333,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	return nil, 0
 }
 
+
 func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 	pre := chain.queryBlockHeaderByHash(bh.PreHash)
 	if pre == nil {
@@ -370,13 +379,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	Logger.Debugf("before validateGroupSig,topPreHash:%v,remotePreHash:%v", topBlock.PreHash.Hex(), b.Header.PreHash.Hex())
-	//if chain.Height() != 0 {
-	//	pre := BlockChainImpl.QueryBlockByHash(topBlock.PreHash)
-	//	if pre == nil {
-	//		time.Sleep(time.Second)
-	//		panic("Pre should not be nil before validateGroupSig")
-	//	}
-	//}
 
 	if !chain.validateGroupSig(b.Header) {
 		Logger.Debugf("Fail to validate group sig!")
@@ -659,7 +661,6 @@ func Clear() {
 		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
 	}
 	os.RemoveAll(path)
-
 }
 
 func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
