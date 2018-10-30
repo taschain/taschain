@@ -180,7 +180,7 @@ func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
 
-func (chain *prototypeChain) GetSateCache() core.Database {
+func (chain *prototypeChain) GetSateCache() core.AccountDatabase {
 	return chain.stateCache
 }
 func (chain *prototypeChain) IsAdujsting() bool {
