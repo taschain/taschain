@@ -333,7 +333,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return missingTx, 1
 	}
 
-	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs,miss len:%d", bh.TxTree, transactions, len(missingTx))
+	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d,miss len:%d", bh.TxTree.Hex(), len(transactions), len(missingTx))
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
 		return nil, -1
 	}
@@ -402,6 +402,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	}
 
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
+	Logger.Debugf("commonAncestor hash:%s height:%d",commonAncestor.Hash.Hex(),commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		//删除自身链的结点
 		chain.removeFromCommonAncestor(commonAncestor)
@@ -429,11 +430,13 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+	Logger.Debugf("insertBlock begin hash:%s",remoteBlock.Header.Hash.Hex())
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
+	Logger.Debugf("insertBlock saveBlock hash:%s result:%d",remoteBlock.Header.Hash.Hex(),result)
 	if result != 0 {
 		return -1, headerByte
 	}
@@ -491,7 +494,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	BlockSyncer.Sync()
+	go BlockSyncer.Sync()
 }
 
 func (chain *FullBlockChain) updateLastBlock(state *core.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
@@ -601,23 +604,6 @@ func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
 	return 0, headerJson
 }
 
-// 删除块
-func (chain *FullBlockChain) Remove(header *types.BlockHeader) {
-	hash := header.Hash
-	block := chain.QueryBlockByHash(hash)
-	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(generateHeightKey(header.Height))
-
-	// 删除块的交易，返回transactionpool
-	if nil == block {
-		return
-	}
-	txs := block.Transactions
-	if 0 == len(txs) {
-		return
-	}
-	chain.transactionPool.UnMarkExecuted(txs)
-}
 
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
@@ -659,24 +645,6 @@ func (chain *FullBlockChain) Clear() error {
 
 	chain.transactionPool.Clear()
 	return err
-}
-
-// 删除块
-func (chain *FullBlockChain) remove(header *types.BlockHeader) {
-	hash := header.Hash
-	block := chain.QueryBlockByHash(hash)
-	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(generateHeightKey(header.Height))
-
-	// 删除块的交易，返回transactionpool
-	if nil == block {
-		return
-	}
-	txs := block.Transactions
-	if 0 == len(txs) {
-		return
-	}
-	chain.transactionPool.UnMarkExecuted(txs)
 }
 
 func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
