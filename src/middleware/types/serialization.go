@@ -328,7 +328,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 			hashBytes2 = append(hashBytes2, hash.Bytes())
 		}
 	}
-	evictedTxs := tas_middleware_pb.Hashes{Hashes: hashBytes}
+	evictedTxs := tas_middleware_pb.Hashes{Hashes: hashBytes2}
 	preTime, e1 := h.PreTime.MarshalBinary()
 	if e1 != nil {
 		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
