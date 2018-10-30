@@ -50,6 +50,8 @@ type BlockChain interface {
 	//查询最高块
 	QueryTopBlock() *types.BlockHeader
 
+	LatestStateDB() *core.AccountDB
+
 	//根据指定哈希查询块
 	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
 
@@ -79,7 +81,7 @@ type BlockChain interface {
 
 	SetAdujsting(isAjusting bool)
 
-	Remove(header *types.BlockHeader)
+	Remove(header *types.BlockHeader) bool
 
 	//清除链所有数据
 	Clear() error
