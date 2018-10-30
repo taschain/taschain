@@ -26,8 +26,8 @@ import (
 //go:generate gencodec -type Receipt -field-override receiptMarshaling -out gen_receipt_json.go
 
 var (
-	receiptStatusFailedRLP     = []byte{}
-	receiptStatusSuccessfulRLP = []byte{0x01}
+	receiptStatusFailed     = []byte{}
+	receiptStatusSuccessful = []byte{0x01}
 )
 
 const (
@@ -37,42 +37,15 @@ const (
 )
 
 type Receipt struct {
-	// Consensus fields
 	PostState         []byte `json:"root"`
 	Status            uint   `json:"status"`
 	CumulativeGasUsed uint64 `json:"cumulativeGasUsed"`
 	Bloom             Bloom  `json:"logsBloom"`
 	Logs              []*Log `json:"logs"`
 
-	// Implementation fields (don't reorder!)
 	TxHash          common.Hash    `json:"transactionHash" gencodec:"required"`
 	ContractAddress common.Address `json:"contractAddress"`
 	GasUsed         uint64         `json:"gasUsed"`
-}
-
-type receiptMarshaling struct {
-	PostState         []byte
-	Status            uint
-	CumulativeGasUsed uint64
-	GasUsed           uint64
-}
-
-// receiptRLP is the consensus encoding of a receipt.
-type receiptRLP struct {
-	PostStateOrStatus []byte
-	CumulativeGasUsed uint64
-	Bloom             Bloom
-	Logs              []*Log
-}
-
-type receiptStorageRLP struct {
-	PostStateOrStatus []byte
-	CumulativeGasUsed uint64
-	Bloom             Bloom
-	TxHash            common.Hash
-	ContractAddress   common.Address
-	Logs              []*LogForStorage
-	GasUsed           uint64
 }
 
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
@@ -87,9 +60,9 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 
 func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 	switch {
-	case bytes.Equal(postStateOrStatus, receiptStatusSuccessfulRLP):
+	case bytes.Equal(postStateOrStatus, receiptStatusSuccessful):
 		r.Status = ReceiptStatusSuccessful
-	case bytes.Equal(postStateOrStatus, receiptStatusFailedRLP):
+	case bytes.Equal(postStateOrStatus, receiptStatusFailed):
 		r.Status = ReceiptStatusFailed
 	case len(postStateOrStatus) == len(common.Hash{}):
 		r.PostState = postStateOrStatus
@@ -97,16 +70,6 @@ func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 		return fmt.Errorf("invalid receipt status %x", postStateOrStatus)
 	}
 	return nil
-}
-
-func (r *Receipt) statusEncoding() []byte {
-	if len(r.PostState) == 0 {
-		if r.Status == ReceiptStatusFailed {
-			return receiptStatusFailedRLP
-		}
-		return receiptStatusSuccessfulRLP
-	}
-	return r.PostState
 }
 
 func (r *Receipt) Size() common.StorageSize {
@@ -125,8 +88,6 @@ func (r *Receipt) String() string {
 	}
 	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs)
 }
-
-type ReceiptForStorage Receipt
 
 type Receipts []*Receipt
 

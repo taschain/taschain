@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/big"
 	"log"
-	types2 "storage/account/types"
 	"consensus/model"
 )
 
@@ -23,14 +22,14 @@ import (
 */
 func successResult(data interface{}) (*Result, error) {
 	return &Result{
-		Message:"success",
-		Data:data,
+		Message: "success",
+		Data:    data,
 	}, nil
 }
 func failResult(err string) (*Result, error) {
 	return &Result{
-		Message:err,
-		Data:nil,
+		Message: err,
+		Data:    nil,
 	}, nil
 }
 
@@ -45,22 +44,22 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 	nonce := time.Now().UnixNano()
 
 	miner := &types.Miner{
-		Id: minerInfo.ID.Serialize(),
-		PublicKey: minerInfo.PK.Serialize(),
+		Id:           minerInfo.ID.Serialize(),
+		PublicKey:    minerInfo.PK.Serialize(),
 		VrfPublicKey: minerInfo.VrfPK,
-		Stake: stake,
-		Type: byte(mtype),
+		Stake:        stake,
+		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(miner)
 	if err != nil {
-		return &Result{Message:err.Error(), Data:nil}, nil
+		return &Result{Message: err.Error(), Data: nil}, nil
 	}
 	tx := &types.Transaction{
-		Nonce: uint64(nonce),
-		Data: data,
+		Nonce:  uint64(nonce),
+		Data:   data,
 		Source: &address,
-		Value: stake,
-		Type: types.TransactionTypeMinerApply,
+		Value:  stake,
+		Type:   types.TransactionTypeMinerApply,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
@@ -74,11 +73,11 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	miner := core.MinerManagerImpl.GetMinerById(address[:], byte(mtype), nil)
-	js,err := json.Marshal(miner)
+	js, err := json.Marshal(miner)
 	if err != nil {
-		return &Result{Message:err.Error(), Data:nil}, err
+		return &Result{Message: err.Error(), Data: nil}, err
 	}
-	return &Result{Message:address.GetHexString(),Data:string(js)}, nil
+	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
 }
 
 func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
@@ -86,10 +85,10 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
-		Nonce: uint64(nonce),
-		Data: []byte{byte(mtype)},
+		Nonce:  uint64(nonce),
+		Data:   []byte{byte(mtype)},
 		Source: &address,
-		Type: types.TransactionTypeMinerAbort,
+		Type:   types.TransactionTypeMinerAbort,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
@@ -104,17 +103,17 @@ func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
-		Nonce: uint64(nonce),
-		Data: []byte{byte(mtype)},
+		Nonce:  uint64(nonce),
+		Data:   []byte{byte(mtype)},
 		Source: &address,
-		Type: types.TransactionTypeMinerRefund,
+		Type:   types.TransactionTypeMinerRefund,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
 	if !ok {
-		return &Result{Message:err.Error(), Data:nil}, nil
+		return &Result{Message: err.Error(), Data: nil}, nil
 	}
-	return &Result{Message:"success"}, nil
+	return &Result{Message: "success"}, nil
 }
 
 //铸块统计
@@ -134,13 +133,13 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 		}
 		p := string(bh.Castor)
 		if v, ok := proposerStat[p]; ok {
-			proposerStat[p] = v+1
+			proposerStat[p] = v + 1
 		} else {
 			proposerStat[p] = 1
 		}
 		g := string(bh.GroupId)
 		if v, ok := groupStat[g]; ok {
-			groupStat[g] = v+1
+			groupStat[g] = v + 1
 		} else {
 			groupStat[g] = 1
 		}
@@ -208,16 +207,16 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 
 func (api *GtasAPI) PageGetBlocks(page, limit int) (*Result, error) {
 	chain := core.BlockChainImpl
-	total := chain.Height()+1
+	total := chain.Height() + 1
 	pageObject := PageObjects{
 		Total: total,
-		Data: make([]interface{}, 0),
+		Data:  make([]interface{}, 0),
 	}
 	if page < 1 {
 		page = 1
 	}
 	i := 0
-	num := uint64((page - 1)* limit)
+	num := uint64((page - 1) * limit)
 	if total < num {
 		return successResult(pageObject)
 	}
@@ -241,7 +240,7 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 	total := chain.Count()
 	pageObject := PageObjects{
 		Total: total,
-		Data: make([]interface{}, 0),
+		Data:  make([]interface{}, 0),
 	}
 
 	i := 0
@@ -249,7 +248,7 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 	if page < 1 {
 		page = 1
 	}
-	num := uint64((page - 1)* limit)
+	num := uint64((page - 1) * limit)
 	if total < num {
 		return successResult(pageObject)
 	}
@@ -268,13 +267,13 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 		}
 
 		group := &Group{
-			Height: uint64(b+1),
-			Id: groupsig.DeserializeId(g.Id),
-			PreId: groupsig.DeserializeId(g.PreGroup),
-			ParentId: groupsig.DeserializeId(g.Parent),
-			BeginHeight: g.BeginHeight,
+			Height:        uint64(b + 1),
+			Id:            groupsig.DeserializeId(g.Id),
+			PreId:         groupsig.DeserializeId(g.PreGroup),
+			ParentId:      groupsig.DeserializeId(g.Parent),
+			BeginHeight:   g.BeginHeight,
 			DismissHeight: g.DismissHeight,
-			Members: mems,
+			Members:       mems,
 		}
 		pageObject.Data = append(pageObject.Data, group)
 		i++
@@ -311,7 +310,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 				log.Printf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
 				btx.StatusReport = "获取状态错误" + err.Error()
 			} else {
-				if st == types2.ReceiptStatusSuccessful {
+				if st == types.ReceiptStatusSuccessful {
 					btx.StatusReport = "成功"
 					btx.Success = true
 				} else {
@@ -360,7 +359,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 		if id == castor {
 			mb.Proposal = true
 			mb.PackBonusTx = len(uniqueBonusBlockHash)
-			increase += model.Param.ProposalBonus + uint64(mb.PackBonusTx) * model.Param.PackBonus
+			increase += model.Param.ProposalBonus + uint64(mb.PackBonusTx)*model.Param.PackBonus
 			mb.Explain = fmt.Sprintf("提案 打包分红交易%v个", mb.PackBonusTx)
 		}
 		if hs, ok := minerVerifyBlockHash[id]; ok {
@@ -403,17 +402,17 @@ func (api *GtasAPI) TransDetail(h string) (*Result, error) {
 }
 
 func (api *GtasAPI) Dashboard() (*Result, error) {
-    blockHeight := core.BlockChainImpl.Height()
-    groupHeight := core.GroupChainImpl.Count()
-    workNum := len(mediator.Proc.GetCastQualifiedGroups(blockHeight))
-    nodeResult, _ := api.NodeInfo()
-    consResult, _ := api.ConnectedNodes()
-    dash := &Dashboard{
-    	BlockHeight: blockHeight,
-    	GroupHeight: groupHeight,
-    	WorkGNum: workNum,
-    	NodeInfo: nodeResult.Data.(*NodeInfo),
-    	Conns: consResult.Data.([]ConnInfo),
+	blockHeight := core.BlockChainImpl.Height()
+	groupHeight := core.GroupChainImpl.Count()
+	workNum := len(mediator.Proc.GetCastQualifiedGroups(blockHeight))
+	nodeResult, _ := api.NodeInfo()
+	consResult, _ := api.ConnectedNodes()
+	dash := &Dashboard{
+		BlockHeight: blockHeight,
+		GroupHeight: groupHeight,
+		WorkGNum:    workNum,
+		NodeInfo:    nodeResult.Data.(*NodeInfo),
+		Conns:       consResult.Data.([]ConnInfo),
 	}
 	return successResult(dash)
 }

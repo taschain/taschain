@@ -13,7 +13,6 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 package types
 
 import (
@@ -28,14 +27,9 @@ type bytesBacked interface {
 }
 
 const (
-	// BloomByteLength represents the number of bytes used in a header log bloom.
 	BloomByteLength = 256
-
-	// BloomBitLength represents the number of bits used in a header log bloom.
-	BloomBitLength = 8 * BloomByteLength
 )
 
-// Bloom represents a 2048 bit bloom filter.
 type Bloom [BloomByteLength]byte
 
 // BytesToBloom converts a byte slice to a bloom filter.
@@ -46,8 +40,6 @@ func BytesToBloom(b []byte) Bloom {
 	return bloom
 }
 
-// SetBytes sets the content of b to the given bytes.
-// It panics if d is not of suitable size.
 func (b *Bloom) SetBytes(d []byte) {
 	if len(b) < len(d) {
 		panic(fmt.Sprintf("bloom bytes too big %d %d", len(b), len(d)))
@@ -79,16 +71,6 @@ func (b Bloom) TestBytes(test []byte) bool {
 	return b.Test(new(big.Int).SetBytes(test))
 
 }
-
-// MarshalText encodes b as a hex string with 0x prefix.
-//func (b Bloom) MarshalText() ([]byte, error) {
-//	return hexutil.Bytes(b[:]).MarshalText()
-//}
-//
-//// UnmarshalText b as a hex string with 0x prefix.
-//func (b *Bloom) UnmarshalText(input []byte) error {
-//	return hexutil.UnmarshalFixedText("Bloom", input, b[:])
-//}
 
 func CreateBloom(receipts Receipts) Bloom {
 	bin := new(big.Int)

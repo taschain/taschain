@@ -18,10 +18,9 @@ package core
 import (
 	"middleware/types"
 	"common"
-	t "storage/account/types"
 	"storage/account"
 	"math/big"
-	"storage/account/vm"
+	"storage/vm"
 	"fmt"
 	"tvm"
 	"bytes"
@@ -174,13 +173,15 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []*t.Receipt, error) {
-	receipts := make([]*t.Receipt, len(block.Transactions))
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error) {
+	receipts := make([]*types.Receipt, 0)
+	transactions := make([]*types.Transaction, 0)
+	evictedTxs := make([]common.Hash, 0)
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 	//tr := accountdb.GetTrie()
 	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 
-	for i, transaction := range block.Transactions {
+	for _, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
@@ -290,11 +291,15 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Not Exist Or Not Abort) %s", transaction.Source.GetHexString())
 			}
 		}
-
-		receipt := t.NewReceipt(nil, fail, 0)
-		receipt.TxHash = transaction.Hash
-		receipt.ContractAddress = contractAddress
-		receipts[i] = receipt
+		if !fail {
+			transactions = append(transactions, transaction)
+			receipt := types.NewReceipt(nil, fail, 0)
+			receipt.TxHash = transaction.Hash
+			receipt.ContractAddress = contractAddress
+			receipts = append(receipts, receipt)
+		} else {
+			evictedTxs = append(evictedTxs, transaction.Hash)
+		}
 	}
 	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
@@ -304,7 +309,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
-	return state, receipts, nil
+	return state, evictedTxs, transactions, receipts, nil
 }
 
 func createContract(accountdb *account.AccountDB, transaction *types.Transaction) (common.Address, error) {

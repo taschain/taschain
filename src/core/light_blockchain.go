@@ -4,18 +4,15 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"middleware"
 	"middleware/types"
-
 	"taslog"
-
 	"storage/account"
 	"common"
 	"consensus/groupsig"
 	"middleware/notify"
 	"log"
 	"fmt"
-	vtypes "storage/account/types"
 	"math/big"
-	"storage/account/vm"
+	"storage/vm"
 	"storage/tasdb"
 )
 
@@ -363,13 +360,13 @@ func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	}
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
-	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions)
+	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
 	return 0, headerByte
 }
 
-func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, vtypes.Receipts) {
+func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
 		panic("Pre block nil !!")
@@ -383,7 +380,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return false, state, nil
 	}
-	statehash, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
+	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
 
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())

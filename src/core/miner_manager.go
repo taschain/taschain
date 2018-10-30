@@ -5,7 +5,7 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"github.com/hashicorp/golang-lru"
 	"common"
-	"storage/account/vm"
+	"storage/vm"
 	"storage/trie"
 	"sync"
 	"errors"
