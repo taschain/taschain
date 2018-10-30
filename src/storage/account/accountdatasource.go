@@ -44,7 +44,7 @@ type AccountDatabase interface {
 
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
 
-	TrieDB() *trie.Database
+	TrieDB() *trie.NodeDatabase
 }
 
 type Trie interface {
@@ -79,7 +79,7 @@ func NewLightDatabase(db tasdb.Database) AccountDatabase {
 }
 
 type publicStorageDB struct {
-	db *trie.Database
+	db *trie.NodeDatabase
 	mu sync.Mutex
 	//pastTries     []Trie
 	codeSizeCache *lru.Cache
@@ -93,7 +93,7 @@ type lightStorageDB struct {
 	publicStorageDB
 }
 
-func (db *publicStorageDB) TrieDB() *trie.Database {
+func (db *publicStorageDB) TrieDB() *trie.NodeDatabase {
 	return db.db
 }
 
