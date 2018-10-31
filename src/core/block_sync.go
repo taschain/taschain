@@ -88,7 +88,7 @@ func (bs *blockSyncer) Sync() {
 	if bs.candidate.id == "" {
 		return
 	}
-	if candidateQN < localTotalQN || candidateHash == localHash || candidateHeight == 0 {
+	if candidateQN <= localTotalQN || candidateHash == localHash || candidateHeight == 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
