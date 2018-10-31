@@ -63,6 +63,8 @@ const (
 	clearMessageCacheTimeout = time.Minute
 	expiration               = 30 * time.Second
 	connectTimeout           = 3 * time.Second
+	groupRefreshInterval 	 = 5 * time.Second
+
 )
 
 //NetCore p2p网络传输类
@@ -183,13 +185,13 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	return nc, nil
 }
 
-// 关闭
+
 func (nc *NetCore) close() {
 	P2PClose()
 	close(nc.closing)
 }
 
-func (nc *NetCore) buildGroup(id string, members []NodeID) *Group {
+func (nc *NetCore) BuildGroup(id string, members []NodeID) *Group {
 	return nc.groupManager.buildGroup(id, members)
 }
 
@@ -221,18 +223,22 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
 func (nc *NetCore) findNode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([]*Node, error) {
 	nodes := make([]*Node, 0, bucketSize)
-	nreceived := 0
+	Logger.Debugf("find node send req:%v",toid.GetHexString())
 	errc := nc.pending(toid, MessageType_MessageNeighbors, func(r interface{}) bool {
+		nreceived := 0
 		reply := r.(*MsgNeighbors)
 		for _, rn := range reply.Nodes {
-			nreceived++
 			n, err := nc.nodeFromRPC(toaddr, *rn)
 			if err != nil {
 				continue
 			}
-			//fmt.Printf("find node:%v, %v, %v",n.ID.GetHexString(),n.IP,n.Port)
+			nreceived++
+
+			Logger.Debugf("find node:%v, %v, %v",n.Id.GetHexString(),n.Ip,n.Port)
 			nodes = append(nodes, n)
 		}
+		Logger.Debugf("find node count:%v",nreceived)
+
 		return nreceived >= bucketSize
 	})
 	nc.SendMessage(toid, toaddr, MessageType_MessageFindnode, &MsgFindNode{
@@ -240,6 +246,7 @@ func (nc *NetCore) findNode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 	err := <-errc
+
 	return nodes, err
 }
 
@@ -283,36 +290,13 @@ func (nc *NetCore) decodeLoop() {
 func (nc *NetCore) loop() {
 	var (
 		plist             = list.New()
-		timeout           = time.NewTimer(0)
 		clearMessageCache = time.NewTicker(clearMessageCacheTimeout)
-		nextTimeout       *pending
-		contTimeouts      = 0
+		groupRefresh = time.NewTicker(groupRefreshInterval)
 	)
-	<-timeout.C // ignore first timeout
-	defer timeout.Stop()
 	defer clearMessageCache.Stop()
-
-	resetTimeout := func() {
-		if plist.Front() == nil || nextTimeout == plist.Front().Value {
-			return
-		}
-		now := time.Now()
-		for el := plist.Front(); el != nil; el = el.Next() {
-			nextTimeout = el.Value.(*pending)
-			if dist := nextTimeout.deadline.Sub(now); dist < 2*respTimeout {
-				timeout.Reset(dist)
-				return
-			}
-
-			nextTimeout.errc <- errClockWarp
-			plist.Remove(el)
-		}
-		nextTimeout = nil
-		timeout.Stop()
-	}
+	defer groupRefresh.Stop()
 
 	for {
-		resetTimeout()
 
 		select {
 		case <-nc.closing:
@@ -334,25 +318,13 @@ func (nc *NetCore) loop() {
 						p.errc <- nil
 						plist.Remove(el)
 					}
-					contTimeouts = 0
 				}
 			}
 			r.matched <- matched
-
-		case now := <-timeout.C:
-			nextTimeout = nil
-			for el := plist.Front(); el != nil; el = el.Next() {
-				p := el.Value.(*pending)
-				if now.After(p.deadline) || now.Equal(p.deadline) {
-					p.errc <- errTimeout
-					plist.Remove(el)
-					contTimeouts++
-				}
-			}
-
 		case <-clearMessageCache.C:
 			nc.messageManager.clear()
-
+		case <-groupRefresh.C:
+			go nc.groupManager.doRefresh()
 		}
 	}
 }

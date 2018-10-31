@@ -40,9 +40,7 @@ const (
 
 	refreshInterval    = 5 * time.Minute
 	checkInterval	= 	12 * time.Second
-	copyNodesInterval  = 30 * time.Second
 	nodeBondExpiration = 5 * time.Second
-	seedMinTableTime   = 5 * time.Minute
 )
 
 // getSha256Hash 计算哈希
@@ -514,29 +512,15 @@ func (kad *Kad) delete(node *Node) {
 	kad.deleteInBucket(kad.bucket(node.sha), node)
 }
 
-func (kad *Kad) addIP(b *bucket, ip nnet.IP) bool {
-
-	return true
-}
-
-func (kad *Kad) removeIP(b *bucket, ip nnet.IP) {
-
-}
-
 func (kad *Kad) addReplacement(b *bucket, n *Node) {
 	for _, e := range b.replacements {
 		if e.Id == n.Id {
 			return
 		}
 	}
-	if !kad.addIP(b, n.Ip) {
-		return
-	}
-	var removed *Node
-	b.replacements, removed = pushNode(b.replacements, n, maxReplacements)
-	if removed != nil {
-		kad.removeIP(b, removed.Ip)
-	}
+
+	b.replacements, _ = pushNode(b.replacements, n, maxReplacements)
+
 }
 
 func (kad *Kad) replace(b *bucket, last *Node) *Node {
@@ -550,7 +534,7 @@ func (kad *Kad) replace(b *bucket, last *Node) *Node {
 	r := b.replacements[kad.rand.Intn(len(b.replacements))]
 	b.replacements = deleteNode(b.replacements, r)
 	b.entries[len(b.entries)-1] = r
-	kad.removeIP(b, last.Ip)
+
 	return r
 }
 
@@ -570,7 +554,7 @@ func (kad *Kad) bumpOrAdd(b *bucket, n *Node) bool {
 	if b.bump(n) {
 		return true
 	}
-	if len(b.entries) >= bucketSize || !kad.addIP(b, n.Ip) {
+	if len(b.entries) >= bucketSize {
 		return false
 	}
 	b.entries, _ = pushNode(b.entries, n, bucketSize)
@@ -582,7 +566,6 @@ func (kad *Kad) bumpOrAdd(b *bucket, n *Node) bool {
 
 func (kad *Kad) deleteInBucket(b *bucket, n *Node) {
 	b.entries = deleteNode(b.entries, n)
-	kad.removeIP(b, n.Ip)
 }
 
 
