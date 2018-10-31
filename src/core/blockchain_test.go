@@ -37,7 +37,7 @@ func init() {
 
 
 func OnChainFunc(code string, source string) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//Clear()
 	initBlockChain()
@@ -67,7 +67,7 @@ func CallContract(address, abi string) {
 }
 
 func CallContract2(address, abi string, source string) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -131,40 +131,63 @@ func TestVmTest3(t *testing.T)  {
 	//VmTest1(`{"FuncName": "approveAndCall", "Args": ["0xe4d60f63188f69980e762cb38aad8727ceb86bbe", 50, "13968999999"]}`)
 }
 
-func TestContractOnChain(t *testing.T)  {
 
-	code := `
-import account
-class A():
-	def __init__(self):
-		self.a = 10
-	
-	def deploy(self):
-		print("deploy")
-	
-	@register.public()
-	def test(self):
-		print("test")
-		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
-		pass
 
-	
-	def test2(self):
-		print("test2")
-		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
-		pass
-`
-	contract := tvm.Contract{code, "A", nil}
+
+
+
+
+
+
+func Test_Deploy_Contract1(t *testing.T)  {
+	code := tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_becalled.py")
+	contract := tvm.Contract{code, "ContractBeCalled", nil}
 	jsonString, _ := json.Marshal(contract)
-	fmt.Println(string(jsonString))
+	//fmt.Println(string(jsonString))
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
+func Test_Deploy_Contract2(t *testing.T)  {
+	code := tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_game.py")
+	contract := tvm.Contract{code, "ContractGame", nil}
+	jsonString, _ := json.Marshal(contract)
+	//fmt.Println(string(jsonString))
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+}
+
+
 func TestCallConstract(t *testing.T)  {
-	contractAddr := "0xf744049b3381ca85b36c50ed3cced8c17bb5ea28"
-	abi := `{"FuncName": "test", "Args": []}`
+	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
+	abi := `{"FuncName": "contract", "Args": []}`
 	CallContract(contractAddr, abi)
 }
+
+
+func Test_Clear(t *testing.T){
+	Clear()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 func TestCallConstract2(t *testing.T)  {
 	contractAddr := "0xf744049b3381ca85b36c50ed3cced8c17bb5ea28"
@@ -173,7 +196,7 @@ func TestCallConstract2(t *testing.T)  {
 }
 
 func TestBlockChain_AddBlock(t *testing.T) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()

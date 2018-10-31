@@ -59,7 +59,7 @@ class Register(object):
             paraname = func.__para__   #func.__para__
             tmp = {}
             for i in range(1, len(paraname)):
-               tmp[paraname[i]] =  dargs[i]
+               tmp[paraname[i]] =  dargs[i-1]
             self.funcinfo[func.__name__] = tmp
             print(self.funcinfo)
             
