@@ -34,9 +34,8 @@ const (
 var BlockSyncer blockSyncer
 
 type blockSyncer struct {
-	candidate blockSyncCandidate
-	lock      sync.Mutex
-
+	candidate   blockSyncCandidate
+	lock        sync.Mutex
 	init        bool
 	hasNeighbor bool
 	lightMiner  bool
