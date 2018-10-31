@@ -98,22 +98,6 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		err := onMessageTransaction(m)
 		return err
-	case network.GroupChainCountMsg:
-		height := utility.ByteToUInt64(msg.Body)
-		ghi := core.GroupHeightInfo{Height: height, SourceId: sourceId}
-		core.GroupSyncer.HeightCh <- ghi
-	case network.ReqGroupMsg:
-		//baseHeight := utility.ByteToUInt64(msg.Body)
-		gri := core.GroupRequestInfo{GroupId: msg.Body, SourceId: sourceId}
-		core.GroupSyncer.ReqGroupCh <- gri
-	case network.GroupMsg:
-		m, e := unMarshalGroupInfo(msg.Body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
-			return e
-		}
-		m.SourceId = sourceId
-		core.GroupSyncer.GroupCh <- *m
 	}
 	return nil
 }
@@ -395,21 +379,6 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	blockPv.SetBytes(m.BlockPv)
 	message := core.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
 	return &message, nil
-}
-
-func unMarshalGroupInfo(b []byte) (*core.GroupInfo, error) {
-	message := new(tas_middleware_pb.GroupInfo)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
-		return nil, e
-	}
-	groups := make([]*types.Group, len(message.Groups))
-	for i, g := range message.Groups {
-		groups[i] = types.PbToGroup(g)
-	}
-	groupInfo := core.GroupInfo{Groups: groups, IsTopGroup: *message.IsTopGroup}
-	return &groupInfo, nil
 }
 
 func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {

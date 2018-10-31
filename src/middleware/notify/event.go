@@ -24,4 +24,10 @@ const (
 	ChainPieceReq = "chain_piece_req"
 
 	ChainPiece = "chain_piece"
+
+	GroupHeight = "group_height"
+
+	GroupReq = "group_req"
+
+	Group = "group"
 )
