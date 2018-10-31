@@ -86,7 +86,10 @@ func (bs *blockSyncer) Sync() {
 	bs.lock.Unlock()
 
 	logger.Debugf("sync localHeight:%d", localHeight)
-	if candidateQN < localTotalQN || candidateHash == localHash {
+	if bs.candidate.id == "" {
+		return
+	}
+	if candidateQN < localTotalQN || candidateHash == localHash || candidateHeight == 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -107,12 +110,13 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 
-	if candidatePreHash == localPreHash {
+	if candidatePreHash == localPreHash && candidateQN > localTotalQN {
 		result := BlockChainImpl.Remove(topBlock)
 		if result {
 			RequestBlock(candidateId, candidateHeight)
 		}
 		return
+
 	}
 
 	if BlockChainImpl.Height() == 0 {
@@ -120,7 +124,6 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 	RequestChainPiece(candidateId, localHeight)
-	return
 }
 
 func (bs *blockSyncer) loop() {
