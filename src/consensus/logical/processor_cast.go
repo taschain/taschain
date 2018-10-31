@@ -234,6 +234,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 			return
 		}
 		p.NetServer.BroadcastNewBlock(cbm, gb)
+		vctx.markCastSuccess()	//onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.reqRewardTransSign(vctx, bh)
 
 		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
