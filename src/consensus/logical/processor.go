@@ -145,7 +145,7 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 //}
 
 //检查铸块组是否合法
-func (p *Processor) isCastLegal(source int, bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
+func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
 	blog := newBizLog("isCastLegal")
 	castor := groupsig.DeserializeId(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
@@ -159,7 +159,7 @@ func (p *Processor) isCastLegal(source int, bh *types.BlockHeader, preHeader *ty
 	}
 	totalStake := p.minerReader.getTotalStake(bh.Height)
 	blog.log("totalStake %v", totalStake)
-	if ok2, err2 := vrfVerifyBlock(source, bh, preHeader, minerDO, totalStake); !ok2 {
+	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
 		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
 		return
 	}

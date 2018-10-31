@@ -113,7 +113,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 			return
 		}
 	}
-	if ok, _, err2 := p.isCastLegal(1, bh, preBH); !ok {
+	if ok, _, err2 := p.isCastLegal(bh, preBH); !ok {
 		err = err2
 		return
 	}

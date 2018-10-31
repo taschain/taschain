@@ -17,13 +17,11 @@ package ed25519
 
 import (
 	"bytes"
-	"common"
 	"common/ed25519/edwards25519"
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
 	"math/big"
-	"middleware/statistics"
 	"middleware/types"
 )
 
@@ -89,19 +87,7 @@ func ECVRF_proof2hash(pi VRFProve) []byte {
 	return pi[1 : N2 + 1]
 }
 
-func ECVRF_verify(source int, pk PublicKey, pi VRFProve, m []byte, height uint64, preBH *types.BlockHeader) (bool, error) {
-	if source == 0 {
-		if preBH == nil {
-			statistics.VrfLogger.Debugf("PreHeader is nil")
-		}
-
-		if preBH.Random == nil || len(preBH.Random) == 0 {
-			statistics.VrfLogger.Debugf("PreHash: %v, preBH.Random is empty", preBH.Hash.ShortS())
-		}
-
-		statistics.VrfLogger.Debugf("Height: %d | PK: %s | Prove: %s | Msg: %s", height, common.Bytes2Hex(pk), common.Bytes2Hex(pi), common.Bytes2Hex(m))
-	}
-
+func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte, height uint64, preBH *types.BlockHeader) (bool, error) {
 	r, c, s, err := ECVRF_decode_proof(pi)
 	if err != nil {
 		return false, err
