@@ -682,9 +682,9 @@ func (nc *NetCore) handleFindNode(req *MsgFindNode, fromId NodeID) error {
 	if expired(req.Expiration) {
 		return errExpired
 	}
-	if !nc.kad.hasPinged(fromId) {
-		return errUnknownNode
-	}
+	//if !nc.kad.hasPinged(fromId) {
+	//	return errUnknownNode
+	//}
 	target := req.Target
 	nc.kad.mutex.Lock()
 	closest := nc.kad.closest(target, bucketSize).entries
@@ -701,6 +701,7 @@ func (nc *NetCore) handleFindNode(req *MsgFindNode, fromId NodeID) error {
 	if len(p.Nodes) > 0 {
 		nc.SendMessage(fromId, nil, MessageType_MessageNeighbors, &p)
 	}
+	Logger.Debugf("handleFindNode from id:%v count:%v", fromId.GetHexString(), len(p.Nodes))
 
 	return nil
 }
