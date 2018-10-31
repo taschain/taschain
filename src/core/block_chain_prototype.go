@@ -47,6 +47,7 @@ type prototypeChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
+	// 是否在调整分叉 true：正在调整
 	isAdujsting bool
 
 	consensusHelper types.ConsensusHelper
