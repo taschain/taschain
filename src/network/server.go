@@ -37,7 +37,6 @@ type server struct {
 	consensusHandler MsgHandler
 
 	chainHandler MsgHandler
-
 }
 
 func (n *server) Send(id string, msg Message) error {
@@ -207,6 +206,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		n.consensusHandler.Handle(from, *message)
 	case BlockChainTotalQnMsg:
+		Logger.Debugf("Rcv BlockChainTotalQnMsg from %s", from)
 		msg := notify.TotalQnMessage{BlockHeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockChainTotalQn, &msg)
 	case NewBlockHeaderMsg:
