@@ -223,6 +223,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
 func (nc *NetCore) findNode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([]*Node, error) {
 	nodes := make([]*Node, 0, bucketSize)
+	Logger.Debugf("find node send req:%v",toid.GetHexString())
 	errc := nc.pending(toid, MessageType_MessageNeighbors, func(r interface{}) bool {
 		nreceived := 0
 		reply := r.(*MsgNeighbors)
@@ -245,6 +246,7 @@ func (nc *NetCore) findNode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 	err := <-errc
+
 	return nodes, err
 }
 
