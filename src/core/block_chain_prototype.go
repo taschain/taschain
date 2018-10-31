@@ -325,14 +325,14 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 			chain.removeFromCommonAncestor(commonAncestor)
 			RequestBlock(id, commonAncestor.Height+1)
 		}
-		if topHeader.TotalQN == chain.latestBlock.TotalQN {
-			if chain.compareValue(commonAncestor, topHeader) {
-				chain.SetAdujsting(false)
-				return
-			}
-			chain.removeFromCommonAncestor(commonAncestor)
-			RequestBlock(id, commonAncestor.Height+1)
-		}
+		//if topHeader.TotalQN == chain.latestBlock.TotalQN {
+		//	if chain.compareValue(commonAncestor, topHeader) {
+		//		chain.SetAdujsting(false)
+		//		return
+		//	}
+		//	chain.removeFromCommonAncestor(commonAncestor)
+		//	RequestBlock(id, commonAncestor.Height+1)
+		//}
 	} else {
 		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
 		RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
