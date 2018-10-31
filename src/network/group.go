@@ -205,7 +205,6 @@ func newGroupManager() *GroupManager {
 	gm := &GroupManager{
 		groups: make(map[string]*Group),
 	}
-	go gm.loop()
 	return gm
 }
 
@@ -254,23 +253,6 @@ func (gm *GroupManager) removeGroup(id string) {
 	//	}
 	//}
 	delete(gm.groups, id)
-}
-
-func (gm *GroupManager) loop() {
-
-	const refreshInterval = 5 * time.Second
-
-	var (
-		refresh = time.NewTicker(refreshInterval)
-	)
-	defer refresh.Stop()
-	for {
-		select {
-		case <-refresh.C:
-			go gm.doRefresh()
-		}
-	}
-
 }
 
 func (gm *GroupManager) doRefresh() {
