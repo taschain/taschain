@@ -17,6 +17,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     var workGroups = [];
     var groupIds = new Set();
     var table = layui.table;
+    var dashboard_update_switch = true
 
 
     var block_table = table.render({
@@ -60,6 +61,16 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         ,limit:15
     });
 
+    $("#dashboard_update_div").click(function () {
+        console.log('dashboard_update_switch click')
+        if ($("#dashboard_update_switch").is(':checked')){
+            dashboard_update_switch = true
+            updateDashboardUpdate()
+        } else {
+            dashboard_update_switch = false
+            updateDashboardUpdate()
+        }
+    });
 
     $("#change_host").click(function () {
         layer.prompt({
@@ -595,6 +606,16 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         dashboardLoad();
     },1000);
 
+    function updateDashboardUpdate(){
+        if (dashboard_update_switch){
+            dashboard = setInterval(function(){
+                dashboardLoad();
+            },1000);
+        } else{
+            clearInterval(dashboard)
+        }
+    }
+
     blocktable_inter = 0
     grouptable_inter = 0
 
@@ -610,7 +631,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
         if (data.index == 5) {
             reloadBlocksTable()
-            blocktable_inter = setInterval(reloadBlocksTable, 1000);
+            blocktable_inter = setInterval(GGTreloadBlocksTable, 1000);
         } else {
             clearInterval(blocktable_inter)
         }

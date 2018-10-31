@@ -33,7 +33,7 @@
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
                 <div class="layui-row layui-col-space10 layui-bg-green">
-                    <div class="layui-col-md4">
+                    <div class="layui-col-md2">
                     </div>
                     <div class="layui-col-md2" style="font-size: 20px">
                         <span>当前块高：</span><span id="block_height">0</span>
@@ -44,14 +44,24 @@
                     <div class="layui-col-md2" style="font-size: 20px">
                         <span>工作组数量：</span><span id="work_group_num">0</span>
                     </div>
-                    <div class="layui-col-md4">
+                    <div class="layui-col-md2" >
+                        <form class="layui-form" action="">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">刷新</label>
+                                <div id="dashboard_update_div" class="layui-input-block">
+                                    <input type="checkbox" id="dashboard_update_switch" name="switch" checked="true" lay-skin="switch">
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
+
                 <hr/>
                 <label style="text-align: left">节点信息</label>
                 <span style="margin-left: 100px">
                     <button lay-submit style="width: 100px; height: 30px;" lay-filter="t_form" id="apply_a">申请成为矿工</button>
                 </span>
+
                 <div id="node_info">
                     <table class="layui-table" id="node_info">
                         <thead>
