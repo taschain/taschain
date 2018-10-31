@@ -306,6 +306,11 @@ func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) {
 	chain.lock.Lock("ProcessChainPiece")
 	defer chain.lock.Unlock("ProcessChainPiece")
+
+	if topHeader.TotalQN <= chain.latestBlock.TotalQN {
+		return
+	}
+
 	if !chain.verifyChainPiece(chainPiece, topHeader) {
 		return
 	}
@@ -314,10 +319,9 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 	commonAncestor, hasCommonAncestor, _ := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
-		if topHeader.TotalQN >= chain.latestBlock.TotalQN {
-			chain.removeFromCommonAncestor(commonAncestor)
-			RequestBlock(id, commonAncestor.Height+1)
-		}
+		chain.removeFromCommonAncestor(commonAncestor)
+		RequestBlock(id, commonAncestor.Height+1)
+
 		//if topHeader.TotalQN == chain.latestBlock.TotalQN {
 		//	if chain.compareValue(commonAncestor, topHeader) {
 		//		chain.SetAdujsting(false)

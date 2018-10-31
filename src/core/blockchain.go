@@ -405,16 +405,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.removeFromCommonAncestor(commonAncestor)
 		return chain.addBlockOnChain(b)
 	}
-
-	//var castorId groupsig.ID
-	//error := castorId.Deserialize(b.Header.Castor)
-	//if error != nil {
-	//	log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-	//	return -1
-	//}
-	//BlockChainImpl.SetAdujsting(true)
-	//RequestChainPiece(castorId.String(), b.Header.Height)
-	//return 2
 	panic("Should not be here!")
 }
 
