@@ -323,7 +323,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	hashes2 := h.EvictedTxs
 	hashBytes2 := make([][]byte, 0)
 
-	if hashes != nil {
+	if hashes2 != nil {
 		for _, hash := range hashes2 {
 			hashBytes2 = append(hashBytes2, hash.Bytes())
 		}
