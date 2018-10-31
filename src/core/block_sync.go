@@ -56,40 +56,24 @@ func InitBlockSyncer(isLightMiner bool) {
 	}
 	BlockSyncer = blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
 	notify.BUS.Subscribe(notify.BlockChainTotalQn, BlockSyncer.totalQnHandler)
-	go BlockSyncer.start()
+	go BlockSyncer.loop()
 }
 
 func (bs *blockSyncer) IsInit() bool {
 	return bs.init
 }
 
-func (bs *blockSyncer) start() {
-	logger.Debug("[BlockSyncer]Wait for connecting...")
-	go bs.loop()
-
-	detectConnTicker := time.NewTicker(INIT_INTERVAL)
-	for {
-		<-detectConnTicker.C
-		if bs.hasNeighbor {
-			logger.Debug("[BlockSyncer]Detect node and start sync block...")
-			break
-		}
-	}
-	bs.Sync()
-}
-
 func (bs *blockSyncer) Sync() {
+	if bs.candidate.id == "" {
+		return
+	}
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
-	logger.Debugf("sync localHeight:%d", localHeight)
-	if bs.candidate.id == "" {
-		return
-	}
-	if candidateQN <= localTotalQN || candidateHash == localHash || candidateHeight == 0 {
+	if candidateQN <= localTotalQN  || candidateHeight == 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -105,18 +89,9 @@ func (bs *blockSyncer) Sync() {
 	logger.Debugf("[Sync]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
 	logger.Debugf("[Sync]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
 	BlockChainImpl.SetAdujsting(true)
-	if candidatePreHash == localHash {
+	if candidatePreHash == localHash || (candidatePreHash == localPreHash && candidateQN > localTotalQN) {
 		RequestBlock(candidateId, candidateHeight)
 		return
-	}
-
-	if candidatePreHash == localPreHash && candidateQN > localTotalQN {
-		result := BlockChainImpl.Remove(topBlock)
-		if result {
-			RequestBlock(candidateId, candidateHeight)
-		}
-		return
-
 	}
 
 	if BlockChainImpl.Height() == 0 {
@@ -134,9 +109,6 @@ func (bs *blockSyncer) loop() {
 			sendBlockTotalQnToNeighbor(BlockChainImpl.QueryTopBlock())
 		}
 
-		if !bs.init {
-			continue
-		}
 		logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 		go bs.Sync()
 	}
