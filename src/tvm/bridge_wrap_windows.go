@@ -236,9 +236,8 @@ import (
 	"strconv"
 	"unsafe"
 	//"middleware/types"
+	"strings"
 )
-
-var controller *Controller = nil
 
 type CallTask struct {
 	Sender       *common.Address
@@ -333,11 +332,48 @@ func RunBinaryCode(buf *C.char, len C.int) {
 //	}
 //}
 
-func Call(_contractAddr string, funcName string, params string) bool {
+func CallContract(_contractAddr string, funcName string, params string) string {
+	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
-	task := CallTask{controller.Vm.ContractAddress, &conAddr, funcName, params}
-	controller.Tasks = append(controller.Tasks, &task)
-	return true
+	contract := LoadContract(conAddr)
+	oneVm := &Tvm{contract, controller.Vm.ContractAddress}
+
+	//准备vm的环境
+	controller.Vm.CreateContext()
+	controller.StoreVmContext(oneVm)
+
+	//调用合约
+	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
+	prepredSucceed := controller.Vm.CreateContractInstance(msg) && controller.Vm.LoadContractCode(msg)
+	if !prepredSucceed {
+		//todo 异常处理
+		return ""
+	}
+	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
+	if strings.EqualFold("[true]",params){
+		params = "[true]"
+	}else if strings.EqualFold("[false]",params){
+		params = "[false]"
+	}
+	abi := ABI{}
+	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
+	json.Unmarshal([]byte(abiJson), &abi)
+	succeed := controller.Vm.checkABI(abi)
+	if !succeed {
+		//todo 异常处理
+		return ""
+	}
+
+	//返回结果：需要支持正常、异常；正常包含各种类型以及None返回
+	//todo
+	result := controller.Vm.ExecuteABI(abi, true)
+	fmt.Printf("CallContract result %s\n", result)
+
+	//恢复vm的环境
+	controller.Vm.RemoveContext()
+	controller.RecoverVmContext()
+
+	return result
 }
 
 func RunByteCode(code *C.char, len C.int) {
@@ -399,15 +435,12 @@ func LoadContract(address common.Address) *Contract {
 type Tvm struct {
 	*Contract
 	Sender *common.Address
-
-	Block func() bool
 }
 
 func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
-		nil,
 	}
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()
@@ -434,18 +467,15 @@ func (tvm *Tvm) DelTvm() {
 	//TODO 释放tvm环境 tvmObj
 }
 
-func (tvm *Tvm) checkABI(abi ABI) bool{
-	var c_bool C._Bool
-	script := PycodeCheckAbi(abi)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+func (tvm *Tvm) checkABI(abi ABI) bool {
+	//script := PycodeCheckAbi(abi)
+	//return tvm.Execute(script)
+	return true
 }
 
 func (tvm *Tvm) StoreData() bool {
-	var c_bool C._Bool
 	script := PycodeStoreContractData(tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+	return tvm.Execute(script)
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
@@ -477,26 +507,39 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
-	var c_bool C._Bool
 	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+	return tvm.Execute(script)
 }
 
 func (tvm *Tvm) LoadContractCode(msg Msg) bool {
 	//if !tvm.loadMsg(msg) {
 	//	return false
 	//}
-	var c_bool C._Bool
 	script := PycodeLoadContractData(tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+	return tvm.Execute(script)
 }
 
 func (tvm *Tvm) Execute(script string) bool {
-	var c_bool C._Bool
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+	abc := tvm.executeCommon(script, false)
+	return ExecutedVmSucceed(abc)
+}
+
+func (tvm *Tvm) ExecuteWithResult(script string) string {
+	return tvm.executeCommon(script, true)
+}
+
+func (tvm *Tvm) executeCommon(script string, withResult bool) string {
+	var c_result *C.char
+	var param *C.char = C.CString(script)
+	if withResult {
+		c_result = C.tvm_execute_with_result(param)
+	} else {
+		c_result = C.tvm_execute(param)
+	}
+
+	abc := C.GoString(c_result)
+	C.free(unsafe.Pointer(c_result))
+	return abc
 }
 
 func (tvm *Tvm) loadMsg(msg Msg) bool {
@@ -513,14 +556,23 @@ func (tvm *Tvm) Deploy(msg Msg) bool {
 	return tvm.Execute(script)
 }
 
+//合约调用合约时使用，用来创建vm新的上下文
+func (tvm *Tvm) CreateContext() {
+	C.tvm_create_context()
+}
+
+//合约调用合约时使用，用来删除vm当前的上下文
+func (tvm *Tvm) RemoveContext() {
+	C.tvm_remove_context()
+}
+
 type ABI struct {
 	FuncName string
 	Args     []interface{}
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABI(res ABI) bool {
-
+func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 	var buf bytes.Buffer
 	//类名
 	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
@@ -537,13 +589,24 @@ func (tvm *Tvm) ExecuteABI(res ABI) bool {
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	return tvm.Execute(buf.String())
-}
+	if withResult {
+		return tvm.ExecuteWithResult(buf.String())
+	} else {
+		return tvm.executeCommon(buf.String(), false)
+	}
 
+}
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 	switch value.(type) {
 	case float64:
 		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
+	case bool:
+		x:= value.(bool)
+		if x{
+			buf.WriteString("True")
+		}else{
+			buf.WriteString("False")
+		}
 	case string:
 		buf.WriteString(`"`)
 		buf.WriteString(value.(string))
