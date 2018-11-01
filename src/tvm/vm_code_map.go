@@ -55,12 +55,18 @@ class Register(object):
         self.funcinfo = {}
 
     def public(self , *dargs):
+        #print(dargs)
         def wrapper(func):
-            paraname = func.__para__   #func.__para__
-            tmp = {}
-            for i in range(1, len(paraname)):
-               tmp[paraname[i]] =  dargs[i]
-            self.funcinfo[func.__name__] = tmp
+            paranametuple = func.__para__
+            paraname = list(paranametuple)
+            paraname.remove("self")
+            #print(paraname)
+            #print(len(paraname))
+            paratype = []
+            for i in range(len(paraname)):
+                #print(dargs[i])
+                paratype.append(dargs[i])
+            self.funcinfo[func.__name__] = [paraname,paratype]
             print(self.funcinfo)
             
             def _wrapper(*args , **kargs):
@@ -74,9 +80,78 @@ builtins.msg = Msg(data=bytes(), sender="%s", value=%d)
 builtins.this = "%s"`, sender, value, contractAddr)
 }
 
+func GetInterfaceType(value interface{}) string{
+	switch value.(type) {
+	case float64:
+		return "1"
+	//case bool:
+	//	return "bool"
+	case string:
+		return "\"str\""
+	case []interface{}:
+		return "[list]"
+	case map[string]interface{}:
+		return "{\"dict\":\"test\"}"
+	default:
+		fmt.Println(value)
+		return "unknow"
+		//panic("")
+	}
+	return ""
+}
+
 func PycodeCheckAbi(abi ABI) string {
-	return fmt.Sprintf(`if "%s" not in register.funcinfo:
-	raise Exception("cannot call this function: %s")`, abi.FuncName, abi.FuncName)
+	//return fmt.Sprintf(`if "%s" not in register.funcinfo:
+	//raise Exception("cannot call this function: %s")`, abi.FuncName, abi.FuncName)
+
+	var str string //:=`__ABIParaTypes = ["`
+	//var types []string
+
+//	if len(abi.Args) == 0 {
+//		str = `
+//__ABIParaTypes=[]`
+//	}else {
+//		str = `__ABIParaTypes = ["`
+//		for i := 0; i < len(abi.Args); i++ {
+//			tmp := GetInterfaceType(abi.Args[i])
+//			types = append(types, tmp)
+//			//fmt.Println(types[i])
+//			str += types[i]
+//			if i == len(abi.Args)-1 {
+//				str += `"]
+//`
+//			} else {
+//				str += `","`
+//			}
+//		}
+//	}
+
+	str = `
+__ABIParaTypes=[]`
+    for i := 0; i < len(abi.Args); i++ {
+    	str += fmt.Sprintf("\n" + "__ABIParaTypes.append(type(%s))",GetInterfaceType(abi.Args[i]))
+	}
+	//str += fmt.Sprintf("\nprint(__ABIParaTypes)")
+	//fmt.Println(str)
+
+	str += fmt.Sprintf(`
+if "%s" in register.funcinfo:
+    if len(register.funcinfo["%s"][1]) == len(__ABIParaTypes):
+        for i in range(len(__ABIParaTypes)):
+            #print(__ABIParaTypes[i])
+            #print(register.funcinfo["%s"][1][i])
+            if __ABIParaTypes[i] != register.funcinfo["%s"][1][i]:
+                raise Exception('function %s para wrong')
+    else:
+        raise Exception("function %s para wrong!")
+else:
+    raise Exception("cannot call this function: %s")
+`, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
+
+	fmt.Println(str)
+
+
+	return str
 }
 
 

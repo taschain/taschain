@@ -25,7 +25,6 @@ import (
 	"github.com/gin-gonic/gin/json"
 	"middleware/types"
 	"network"
-	"os"
 	"middleware"
 	"taslog"
 	"tvm"
@@ -37,7 +36,7 @@ func init() {
 
 
 func OnChainFunc(code string, source string) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf("d:/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//Clear()
 	initBlockChain()
@@ -67,7 +66,7 @@ func CallContract(address, abi string) {
 }
 
 func CallContract2(address, abi string, source string) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf("d:/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -136,33 +135,36 @@ func TestContractOnChain(t *testing.T)  {
 	code := `
 import account
 class A():
-	def __init__(self):
-		self.a = 10
-	
-	def deploy(self):
-		print("deploy")
-	
-	@register.public()
-	def test(self):
-		print("test")
-		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
-		pass
+    def __init__(self):
+        self.a = 10
 
-	
-	def test2(self):
-		print("test2")
-		#account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
-		pass
+    def deploy(self):
+        print("deploy")
+
+    @register.public(int,str,list,dict)
+    def test(self,aa,bb,cc,dd):
+        print(aa)
+        print(bb)
+        print(cc)
+        print(dd)
+        #account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
+        pass
+
+    
+    def test2(self):
+        print("test2")
+        #account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
+        pass
 `
-	contract := tvm.Contract{code, "A", nil}
-	jsonString, _ := json.Marshal(contract)
-	fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+    contract := tvm.Contract{code, "A", nil}
+    jsonString, _ := json.Marshal(contract)
+    fmt.Println(string(jsonString))
+    OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
 func TestCallConstract(t *testing.T)  {
-	contractAddr := "0xf744049b3381ca85b36c50ed3cced8c17bb5ea28"
-	abi := `{"FuncName": "test", "Args": []}`
+	contractAddr := "0x917909ca5862bcf51cba7412769f2415bb288950"
+	abi := `{"FuncName": "test", "Args": [10,"fffff",["aa","bb",33],{"name":"xxxx","value":777}]}`
 	CallContract(contractAddr, abi)
 }
 
@@ -173,7 +175,7 @@ func TestCallConstract2(t *testing.T)  {
 }
 
 func TestBlockChain_AddBlock(t *testing.T) {
-	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+	common.InitConf("d:/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	Clear()
 	initBlockChain()

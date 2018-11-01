@@ -17,16 +17,27 @@ package tvm
 
 import (
 	"testing"
+	"encoding/json"
+	"fmt"
 )
 
 func TestVmTest(t *testing.T) {
 	//db, _ := tasdb.NewMemDatabase()
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
 	vm := NewTvm(nil, nil, "")
-	script := `
-import utime
-print(utime.time())
-`
-	vm.Execute(script)
+//	script := `
+//import utime
+//print(utime.time())
+//`
+//	vm.Execute(script)
+
+	abiJson := `{"FuncName": "Test", "Args": [10, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`;//fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+	abi := ABI{}
+	json.Unmarshal([]byte(abiJson), &abi)
+
+	str := PycodeCheckAbi(abi)
+	fmt.Println(str)
+	ret := vm.Execute(str)
+	fmt.Println(ret)
 }
 

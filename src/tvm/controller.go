@@ -7,6 +7,7 @@ import (
 	"common"
 	"math/big"
 	"encoding/json"
+	"log"
 )
 
 type Controller struct {
@@ -79,8 +80,11 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 	if succeed {
 		abi := ABI{}
-		json.Unmarshal([]byte(abiJson), &abi)
-		fmt.Println(abi)
+		err := json.Unmarshal([]byte(abiJson), &abi)
+		if err != nil {
+			log.Println(err)
+		}
+		//fmt.Println(abi)
 		succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
 		if succeed {
 			con.Vm.DelTvm()
