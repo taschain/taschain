@@ -23,9 +23,9 @@ import (
 
 	"fmt"
 	"github.com/gin-gonic/gin/json"
+	"middleware"
 	"middleware/types"
 	"network"
-	"middleware"
 	"taslog"
 	"tvm"
 )
@@ -197,10 +197,6 @@ func TestCallConstract(t *testing.T)  {
 func Test_Clear(t *testing.T){
 	Clear()
 }
-
-
-
-
 
 
 

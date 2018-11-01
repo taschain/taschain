@@ -1,4 +1,4 @@
-# import account
+import account
 
 class ContractBeCalled():
     def __init__(self):
@@ -28,9 +28,13 @@ class ContractBeCalled():
         print("ContractBeCalled is called 4")
         pass
 
+    def count_deep(self):
+        print("===deeper start==")
+        account.contractCall("0x9a6bf01ba09a5853f898b2e9e6569157a01a7a00", "deepest", "[]")
+        print("===deeper end==")
+        pass
 
-    # def deep(self):
-    #     count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count", "[10]")
+
 # contractBeCalled = ContractBeCalled()
 # contractBeCalled.count_str("abc")
 # print("123")
