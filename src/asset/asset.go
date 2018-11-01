@@ -87,7 +87,7 @@ func gtasFrontedCHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 30836, mode: os.FileMode(420), modTime: time.Unix(1540287016, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 30836, mode: os.FileMode(420), modTime: time.Unix(1541038843, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -147,7 +147,7 @@ func gtasFrontedJsTasJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/js/tas.js", size: 24630, mode: os.FileMode(420), modTime: time.Unix(1540287016, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/js/tas.js", size: 24630, mode: os.FileMode(420), modTime: time.Unix(1541038843, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
