@@ -631,13 +631,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
         if (data.index == 5) {
             reloadBlocksTable()
-            blocktable_inter = setInterval(GGTreloadBlocksTable, 1000);
+            blocktable_inter = setInterval(GGTreloadBlocksTable, 5000);
         } else {
             clearInterval(blocktable_inter)
         }
         if (data.index == 6) {
            reloadGroupsTable()
-            grouptable_inter = setInterval(reloadGroupsTable, 1000);
+            grouptable_inter = setInterval(reloadGroupsTable, 5000);
         } else {
             clearInterval(grouptable_inter)
         }
