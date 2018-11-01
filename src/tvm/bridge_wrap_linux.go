@@ -17,7 +17,7 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
-#cgo LDFLAGS: -L ../../lib/darwin_amd64 -lmicropython
+#cgo LDFLAGS: -L ../../lib/linux -lmicropython
 
 #include "tvm.h"
 #include <stdio.h>
@@ -214,10 +214,10 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
-void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+char* wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
 {
-    void ContractCall();
-    ContractCall(address, func_name, json_parms);
+    char* ContractCall();
+    return ContractCall(address, func_name, json_parms);
 }
 
 void wrap_set_bytecode(const char* code, int len)
@@ -234,6 +234,7 @@ import (
 	"fmt"
 	"storage/core/vm"
 	"strconv"
+	"strings"
 	"unsafe"
 	//"middleware/types"
 )
@@ -245,91 +246,9 @@ type CallTask struct {
 	Params       string
 }
 
-//type Controller struct {
-//	BlockHeader *types.BlockHeader
-//	Transaction *types.Transaction
-//	AccountDB vm.AccountDB
-//	Reader vm.ChainReader
-//	Vm *Tvm
-//	Tasks []*CallTask
-//	LibPath string
-//}
-//
-//func NewController(accountDB vm.AccountDB,
-//	chainReader vm.ChainReader,
-//	header *types.BlockHeader,
-//	transaction *types.Transaction, libPath string) *Controller {
-//	if controller == nil {
-//		controller = &Controller{}
-//	}
-//	controller.BlockHeader = header
-//	controller.Transaction = transaction
-//	controller.AccountDB = accountDB
-//	controller.Reader = chainReader
-//	controller.Tasks = make([]*CallTask, 0)
-//	controller.Vm = nil
-//	controller.LibPath = libPath
-//	return controller
-//}
-
 func RunBinaryCode(buf *C.char, len C.int) {
 	C.runbytecode(buf, len)
 }
-
-//
-//func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
-//	var succeed bool
-//	con.Vm = NewTvm(sender, contract, con.LibPath)
-//	con.Vm.SetGas(int(con.Transaction.GasLimit))
-//	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-//	snapshot := con.AccountDB.Snapshot()
-//	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
-//	if !succeed {
-//		con.AccountDB.RevertToSnapshot(snapshot)
-//	}
-//	con.Vm.DelTvm()
-//	con.ExecuteTask()
-//	return succeed
-//}
-//
-//func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
-//	var succeed bool
-//	con.Vm  = NewTvm(sender, contract, con.LibPath)
-//	con.Vm.SetGas(int(con.Transaction.GasLimit))
-//	snapshot := con.AccountDB.Snapshot()
-//	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-//	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-//	if !succeed {
-//		con.AccountDB.RevertToSnapshot(snapshot)
-//	}
-//	con.Vm.DelTvm()
-//	con.ExecuteTask()
-//	return succeed
-//}
-//
-//func(con *Controller) ExecuteTask() {
-//	var succeed bool
-//	for _, task := range con.Tasks {
-//		contract := LoadContract(*task.ContractAddr)
-//		gasLeft := con.Vm.Gas()
-//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-//		con.Vm.SetGas(gasLeft)
-//		snapshot := con.AccountDB.Snapshot()
-//		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
-//		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-//		fmt.Println(abi)
-//		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-//		if !succeed {
-//			if con.Vm.Gas() == 0 {
-//				con.Vm.DelTvm()
-//				return
-//			}
-//			con.AccountDB.RevertToSnapshot(snapshot)
-//			con.Vm.DelTvm()
-//			continue
-//		}
-//	}
-//}
 
 func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
@@ -348,7 +267,12 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 		//todo 异常处理
 		return ""
 	}
-
+	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
+	if strings.EqualFold("[true]",params){
+		params = "[true]"
+	}else if strings.EqualFold("[false]",params){
+		params = "[false]"
+	}
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
 	json.Unmarshal([]byte(abiJson), &abi)
@@ -358,8 +282,8 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 		return ""
 	}
 
-	//返回结果：需要支持正常、异常；正常包含各种类型以及None返回
-	//todo
+	//返回结果：支持正常、异常；正常包含各种类型以及None返回
+	//todo 异常处理
 	result := controller.Vm.ExecuteABI(abi, true)
 	fmt.Printf("CallContract result %s\n", result)
 
@@ -594,6 +518,13 @@ func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 	switch value.(type) {
 	case float64:
 		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
+	case bool:
+		x:= value.(bool)
+		if x{
+			buf.WriteString("True")
+		}else{
+			buf.WriteString("False")
+		}
 	case string:
 		buf.WriteString(`"`)
 		buf.WriteString(value.(string))
