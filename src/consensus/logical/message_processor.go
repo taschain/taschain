@@ -16,15 +16,29 @@
 package logical
 
 import (
+	"bytes"
 	"common"
 	"consensus/groupsig"
 	"consensus/model"
+	"container/list"
 	"fmt"
 	"middleware/statistics"
 	"middleware/types"
 	"time"
-	"bytes"
 )
+
+// 签出的块统计
+var SignedBlockStatMap = make(map[uint64]*list.List, 50)
+
+func syncSignedBlockStatMap(height uint64, blockHashString string) {
+	if signedBlockList, ok:= SignedBlockStatMap[height]; ok{
+		signedBlockList.PushBack(blockHashString)
+	} else {
+		signedBlockList := list.New()
+		signedBlockList.PushBack(blockHashString)
+		SignedBlockStatMap[height] = signedBlockList
+	}
+}
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
 	var gid groupsig.ID
@@ -137,6 +151,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 	if bc.IsHeightCasted(bh.Height) {
 		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		syncSignedBlockStatMap(bh.Height, bh.Hash.ShortS())
 		return
 	}
 
@@ -158,6 +173,12 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 
 	blog.log("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
 	verifyResult := vctx.UserVerified(bh, si)
+
+	// 签名块统计验证
+	if verifyResult == CBMR_THRESHOLD_SUCCESS {
+		syncSignedBlockStatMap(bh.Height, bh.Hash.ShortS())
+	}
+
 	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {

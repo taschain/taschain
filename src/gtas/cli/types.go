@@ -225,8 +225,15 @@ type CastBlockStatInfo struct {
 	CastBlockNum uint64 `json:"cast_block_num"`
 }
 
+type SignedBlockInfo struct {
+	Height uint64 `json:"height"`
+	OnchainBlock string `json:"onchain_block"`
+	SignedBlocks []string `json:"signed_blocks"`
+}
+
 type CastBlockAndBonusResult struct {
 	BonusInfoAtHeight BonusInfo `json:"bonus_info_at_height"`
 	BonusStatInfos []BonusStatInfo `json:"bonuses"`
 	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
+	SignedBlockInfo SignedBlockInfo `json:"signed_block_info"`
 }

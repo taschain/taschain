@@ -3,7 +3,9 @@ package cli
 import (
 	"common"
 	"consensus/groupsig"
+	"consensus/logical"
 	"consensus/mediator"
+	"consensus/model"
 	"core"
 	"encoding/json"
 	"fmt"
@@ -13,7 +15,6 @@ import (
 	"middleware/types"
 	"taslog"
 	"time"
-	"consensus/model"
 )
 
 /*
@@ -561,10 +562,25 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 
 	bonusInfo := bonusStatByHeight(height)
 
+	signedBlocks := make([]string, 0, 10)
+	if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
+		for e := signedBlockList.Front(); e != nil; e = e.Next(){
+			signedBlocks = append(signedBlocks, e.Value.(string))
+		}
+	}
+
+	signedBlockInfo := SignedBlockInfo{
+		Height:height,
+		OnchainBlock:bonusInfo.BlockHash.ShortS(),
+		SignedBlocks:signedBlocks,
+	}
+
 	result := CastBlockAndBonusResult{
 		BonusInfoAtHeight:bonusInfo,
 		BonusStatInfos:bonusStatResults,
 		CastBlockStatInfos:castBlockResults,
+		SignedBlockInfo:signedBlockInfo,
 	}
+
 	return successResult(result)
 }

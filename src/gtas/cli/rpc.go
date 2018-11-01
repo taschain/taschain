@@ -16,30 +16,31 @@
 package cli
 
 import (
-	"net"
 	"gtas/rpc"
+	"net"
 
-	"fmt"
-	"network"
-	"strconv"
+	"common"
+	"consensus/groupsig"
+	"consensus/mediator"
 	"core"
 	"encoding/hex"
-	"strings"
+	"fmt"
 	"log"
 	"math"
-	"consensus/groupsig"
-	"common"
-	"consensus/mediator"
 	"middleware/types"
+	"network"
+	"strconv"
+	"strings"
 )
 
 // 分红价值统计
-var BonusValueStatMap = make(map[uint64]map[string]uint64, 10)
+var BonusValueStatMap = make(map[uint64]map[string]uint64, 50)
 
 // 分红次数统计
-var BonusNumStatMap = make(map[uint64]map[string]uint64, 10)
+var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
 
-var CastBlockStatMap = make(map[uint64]map[string]uint64, 10)
+var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
+
 
 // GtasAPI is a single-method API handler to be returned by test services.
 type GtasAPI struct {
