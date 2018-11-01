@@ -569,10 +569,22 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 		}
 	}
 
+	var mutiSignedBlockNum uint64 = 0
+	var i uint64 = 1
+	for ; i <= height; i++{
+		if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
+			if signedBlockList.Len() > 1 {
+				mutiSignedBlockNum++
+				BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
+			}
+		}
+	}
+
 	signedBlockInfo := SignedBlockInfo{
 		Height:height,
 		OnchainBlock:bonusInfo.BlockHash.ShortS(),
 		SignedBlocks:signedBlocks,
+		MutiSignedBlockNum:mutiSignedBlockNum,
 	}
 
 	result := CastBlockAndBonusResult{

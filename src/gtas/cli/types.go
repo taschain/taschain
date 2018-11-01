@@ -229,6 +229,7 @@ type SignedBlockInfo struct {
 	Height uint64 `json:"height"`
 	OnchainBlock string `json:"onchain_block"`
 	SignedBlocks []string `json:"signed_blocks"`
+	MutiSignedBlockNum uint64 `json:"muti_signed_block_num"`
 }
 
 type CastBlockAndBonusResult struct {

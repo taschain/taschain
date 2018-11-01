@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"middleware/statistics"
 	"middleware/types"
+	"strings"
 	"time"
 )
 
@@ -32,6 +33,12 @@ var SignedBlockStatMap = make(map[uint64]*list.List, 50)
 
 func syncSignedBlockStatMap(height uint64, blockHashString string) {
 	if signedBlockList, ok:= SignedBlockStatMap[height]; ok{
+		for e := signedBlockList.Front(); e != nil; e = e.Next(){
+			s := e.Value.(string)
+			if strings.Compare(s, blockHashString) == 0 {
+				return
+			}
+		}
 		signedBlockList.PushBack(blockHashString)
 	} else {
 		signedBlockList := list.New()

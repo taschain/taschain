@@ -708,7 +708,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         signed_block_info_table.reload({
             data:signedBlockInfo
         });
-
+        $("#muti_signed_block_num").text(data.signed_block_info.muti_signed_block_num)
     }
 
     // dashboard同步数据
