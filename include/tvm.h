@@ -11,7 +11,19 @@ extern "C" {
 
 
 void tvm_set_lib_path(const char* path);
+/*
+	没有返回结果的调用
+	返回mp_const_none或者异常的结构
+	param: str合约执行代码
+	retsult:type|errorcode|content
+*/
+
 char* tvm_execute(char *str);
+/*
+有返回结果的调用
+param: str合约执行代码
+retsult:type|errorcode|content
+*/
 char* tvm_execute_with_result(char *str);
 typedef int (*callback_fcn)(int);
 typedef void (*testAry_fcn)(void*);
@@ -31,8 +43,7 @@ void setTransferFunc(TransferFunc);
 
 void tvm_start(void);
 
-// deep <= 10
-_Bool tvm_create_context();
+void tvm_create_context();
 void tvm_remove_context();
 
 /***********************/
