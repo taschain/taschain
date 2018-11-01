@@ -221,6 +221,11 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		Block: *block,
 	}
 
+	if vctx.castSuccess() {//并发时可能会签出多块，这里多一重判断
+		blog.log("vctx castSuccess, won't broadcast this block, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		return
+	}
+
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
 		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log( "height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		gb := p.spreadGroupBrief(bh, bh.Height+1)
@@ -229,6 +234,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 			return
 		}
 		p.NetServer.BroadcastNewBlock(cbm, gb)
+		vctx.markCastSuccess()	//onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.reqRewardTransSign(vctx, bh)
 
 		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
@@ -326,7 +332,7 @@ func (p *Processor) blockProposal() {
 		}
 		blog.log("hash=%v, proveRoot=%v", bh.Hash.ShortS(), root.ShortS())
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
-		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS())
+		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb)
 
 		worker.markProposed()
