@@ -214,10 +214,10 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
-void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+char* wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
 {
-    void ContractCall();
-    ContractCall(address, func_name, json_parms);
+    char* ContractCall();
+    return ContractCall(address, func_name, json_parms);
 }
 
 void wrap_set_bytecode(const char* code, int len)
@@ -245,91 +245,9 @@ type CallTask struct {
 	Params       string
 }
 
-//type Controller struct {
-//	BlockHeader *types.BlockHeader
-//	Transaction *types.Transaction
-//	AccountDB vm.AccountDB
-//	Reader vm.ChainReader
-//	Vm *Tvm
-//	Tasks []*CallTask
-//	LibPath string
-//}
-//
-//func NewController(accountDB vm.AccountDB,
-//	chainReader vm.ChainReader,
-//	header *types.BlockHeader,
-//	transaction *types.Transaction, libPath string) *Controller {
-//	if controller == nil {
-//		controller = &Controller{}
-//	}
-//	controller.BlockHeader = header
-//	controller.Transaction = transaction
-//	controller.AccountDB = accountDB
-//	controller.Reader = chainReader
-//	controller.Tasks = make([]*CallTask, 0)
-//	controller.Vm = nil
-//	controller.LibPath = libPath
-//	return controller
-//}
-
 func RunBinaryCode(buf *C.char, len C.int) {
 	C.runbytecode(buf, len)
 }
-
-//
-//func(con *Controller) Deploy(sender *common.Address, contract *Contract) bool{
-//	var succeed bool
-//	con.Vm = NewTvm(sender, contract, con.LibPath)
-//	con.Vm.SetGas(int(con.Transaction.GasLimit))
-//	msg := Msg{Data:[]byte{}, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-//	snapshot := con.AccountDB.Snapshot()
-//	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
-//	if !succeed {
-//		con.AccountDB.RevertToSnapshot(snapshot)
-//	}
-//	con.Vm.DelTvm()
-//	con.ExecuteTask()
-//	return succeed
-//}
-//
-//func(con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
-//	var succeed bool
-//	con.Vm  = NewTvm(sender, contract, con.LibPath)
-//	con.Vm.SetGas(int(con.Transaction.GasLimit))
-//	snapshot := con.AccountDB.Snapshot()
-//	msg := Msg{Data:con.Transaction.Data, Value:con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-//	succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-//	if !succeed {
-//		con.AccountDB.RevertToSnapshot(snapshot)
-//	}
-//	con.Vm.DelTvm()
-//	con.ExecuteTask()
-//	return succeed
-//}
-//
-//func(con *Controller) ExecuteTask() {
-//	var succeed bool
-//	for _, task := range con.Tasks {
-//		contract := LoadContract(*task.ContractAddr)
-//		gasLeft := con.Vm.Gas()
-//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-//		con.Vm.SetGas(gasLeft)
-//		snapshot := con.AccountDB.Snapshot()
-//		msg := Msg{Data:[]byte{}, Value:0, Sender: task.Sender.GetHexString()}
-//		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-//		fmt.Println(abi)
-//		succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-//		if !succeed {
-//			if con.Vm.Gas() == 0 {
-//				con.Vm.DelTvm()
-//				return
-//			}
-//			con.AccountDB.RevertToSnapshot(snapshot)
-//			con.Vm.DelTvm()
-//			continue
-//		}
-//	}
-//}
 
 func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
