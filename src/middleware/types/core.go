@@ -23,13 +23,13 @@ import (
 )
 
 const (
-	TransactionTypeTransfer = 0
+	TransactionTypeTransfer       = 0
 	TransactionTypeContractCreate = 1
-	TransactionTypeContractCall = 2
-	TransactionTypeBonus = 3
-	TransactionTypeMinerApply = 4
-	TransactionTypeMinerAbort = 5
-	TransactionTypeMinerRefund = 6
+	TransactionTypeContractCall   = 2
+	TransactionTypeBonus          = 3
+	TransactionTypeMinerApply     = 4
+	TransactionTypeMinerAbort     = 5
+	TransactionTypeMinerRefund    = 6
 
 	TransactionTypeToBeRemoved = -1
 )
@@ -94,11 +94,11 @@ func (pt PriorityTransactions) Swap(i, j int) {
 	pt[i], pt[j] = pt[j], pt[i]
 }
 func (pt PriorityTransactions) Less(i, j int) bool {
-	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved{
+	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved {
 		return true
-	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved{
+	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved {
 		return false
-	} else{
+	} else {
 		return pt[i].GasPrice < pt[j].GasPrice
 	}
 }
@@ -112,37 +112,36 @@ func (pt *PriorityTransactions) Pop() interface{} {
 	n := len(old)
 	item := old[n-1]
 
-	*pt = old[0: n-1]
+	*pt = old[0 : n-1]
 	return item
 }
 
 type Bonus struct {
-	TxHash		common.Hash
-	TargetIds	[]int32
-	BlockHash	common.Hash
-	GroupId		[]byte
-	Sign		[]byte
-	TotalValue	uint64
+	TxHash     common.Hash
+	TargetIds  []int32
+	BlockHash  common.Hash
+	GroupId    []byte
+	Sign       []byte
+	TotalValue uint64
 }
 
 const (
-	MinerTypeLight  = 0
-	MinerTypeHeavy  = 1
+	MinerTypeLight    = 0
+	MinerTypeHeavy    = 1
 	MinerStatusNormal = 0
-	MinerStatusAbort = 1
+	MinerStatusAbort  = 1
 )
 
 type Miner struct {
-	Id				[]byte
-	PublicKey 		[]byte
-	VrfPublicKey 	[]byte
-	ApplyHeight 	uint64
-	Stake			uint64
-	AbortHeight		uint64
-	Type			byte
-	Status			byte
+	Id           []byte
+	PublicKey    []byte
+	VrfPublicKey []byte
+	ApplyHeight  uint64
+	Stake        uint64
+	AbortHeight  uint64
+	Type         byte
+	Status       byte
 }
-
 
 //区块头结构
 type BlockHeader struct {
@@ -151,7 +150,7 @@ type BlockHeader struct {
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
 	ProveValue   *big.Int      //轮转序号
-	TotalQN      uint64      //整条链的QN
+	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -163,7 +162,7 @@ type BlockHeader struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	Random       []byte
-	ProveRoot	 common.Hash
+	ProveRoot    common.Hash
 	EvictedTxs   []common.Hash
 }
 
@@ -171,8 +170,8 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   *big.Int        //轮转序号
-	TotalQN      uint64       //整条链的QN
+	ProveValue   *big.Int      //轮转序号
+	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
 	GroupId      []byte        //组ID，groupsig.ID的二进制表示
@@ -182,7 +181,7 @@ type header struct {
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
 	ExtraData    []byte
-	ProveRoot	 common.Hash
+	ProveRoot    common.Hash
 	EvictedTxs   []common.Hash
 }
 
@@ -210,6 +209,28 @@ func (bh *BlockHeader) GenHash() common.Hash {
 	return result
 }
 
+func (bh *BlockHeader) ToString() string {
+	header := &header{
+		Height:       bh.Height,
+		PreHash:      bh.PreHash,
+		PreTime:      bh.PreTime,
+		ProveValue:   bh.ProveValue,
+		TotalQN:      bh.TotalQN,
+		CurTime:      bh.CurTime,
+		Castor:       bh.Castor,
+		Nonce:        bh.Nonce,
+		Transactions: bh.Transactions,
+		TxTree:       bh.TxTree,
+		ReceiptTree:  bh.ReceiptTree,
+		StateTree:    bh.StateTree,
+		ExtraData:    bh.ExtraData,
+		ProveRoot:    bh.ProveRoot,
+		EvictedTxs:   bh.EvictedTxs,
+	}
+	blockByte, _ := json.Marshal(header)
+	return string(blockByte)
+}
+
 type Block struct {
 	Header       *BlockHeader
 	Transactions []*Transaction
@@ -220,22 +241,22 @@ type Member struct {
 	PubKey []byte
 }
 type Group struct {
-	Id          []byte
-	Members     []Member
-	PubKey      []byte
-	Parent      []byte //父亲组 的组ID
-	PreGroup	[]byte //前一块的ID
-	Dummy       []byte
-	Signature   []byte
-	BeginHeight uint64 //组开始参与铸块的高度
-	DismissHeight uint64				//组解散的高度
-	Authority 	uint64      //权限相关数据（父亲组赋予）
-	Name      	string    //父亲组取的名字
-	Extends   	string      //带外数据
-	GroupHeight uint64
+	Id            []byte
+	Members       []Member
+	PubKey        []byte
+	Parent        []byte //父亲组 的组ID
+	PreGroup      []byte //前一块的ID
+	Dummy         []byte
+	Signature     []byte
+	BeginHeight   uint64 //组开始参与铸块的高度
+	DismissHeight uint64 //组解散的高度
+	Authority     uint64 //权限相关数据（父亲组赋予）
+	Name          string //父亲组取的名字
+	Extends       string //带外数据
+	GroupHeight   uint64
 }
 
 type StateNode struct {
-	Key 	[]byte
-	Value 	[]byte
+	Key   []byte
+	Value []byte
 }

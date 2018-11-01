@@ -298,7 +298,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,", height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex())
-
+	defer Logger.Infof("casting block dump:%s", block.Header.ToString())
 	//自己铸的块 自己不需要验证
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
 		state:    state,
@@ -326,6 +326,7 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
 	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs))
+	Logger.Infof("verifyBlock dump:%s", bh.ToString())
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -420,16 +421,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.removeFromCommonAncestor(commonAncestor)
 		return chain.addBlockOnChain(b)
 	}
-
-	//var castorId groupsig.ID
-	//error := castorId.Deserialize(b.Header.Castor)
-	//if error != nil {
-	//	log.Printf("[BlockChain]Give up ajusting bolck chain because of groupsig id deserialize error:%s", error.Error())
-	//	return -1
-	//}
-	//BlockChainImpl.SetAdujsting(true)
-	//RequestChainPiece(castorId.String(), b.Header.Height)
-	//return 2
 	panic("Should not be here!")
 }
 

@@ -37,7 +37,6 @@ type server struct {
 	consensusHandler MsgHandler
 
 	chainHandler MsgHandler
-
 }
 
 func (n *server) Send(id string, msg Message) error {
@@ -198,8 +197,18 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg, GroupChainCountMsg, ReqGroupMsg, GroupMsg:
+	case ReqTransactionMsg:
 		n.chainHandler.Handle(from, *message)
+	case GroupChainCountMsg:
+		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.GroupHeight, &msg)
+	case ReqGroupMsg:
+		msg := notify.GroupReqMessage{GroupIdByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.GroupReq, &msg)
+	case GroupMsg:
+		Logger.Debugf("Rcv GroupMsg from %s", from)
+		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.Group, &msg)
 	case TransactionMsg, TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
 		if error != nil {
@@ -207,6 +216,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		n.consensusHandler.Handle(from, *message)
 	case BlockChainTotalQnMsg:
+		Logger.Debugf("Rcv BlockChainTotalQnMsg from %s", from)
 		msg := notify.TotalQnMessage{BlockHeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockChainTotalQn, &msg)
 	case NewBlockHeaderMsg:

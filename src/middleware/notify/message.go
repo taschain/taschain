@@ -143,3 +143,42 @@ func (m *ChainPieceMessage) GetRaw() []byte {
 func (m *ChainPieceMessage) GetData() interface{} {
 	return m
 }
+
+type GroupHeightMessage struct {
+	HeightByte []byte
+
+	Peer string
+}
+
+func (m *GroupHeightMessage) GetRaw() []byte {
+	return m.HeightByte
+}
+func (m *GroupHeightMessage) GetData() interface{} {
+	return m
+}
+
+type GroupReqMessage struct {
+	GroupIdByte []byte
+
+	Peer string
+}
+
+func (m *GroupReqMessage) GetRaw() []byte {
+	return m.GroupIdByte
+}
+func (m *GroupReqMessage) GetData() interface{} {
+	return m
+}
+
+type GroupInfoMessage struct {
+	GroupInfoByte []byte
+
+	Peer string
+}
+
+func (m *GroupInfoMessage) GetRaw() []byte {
+	return m.GroupInfoByte
+}
+func (m *GroupInfoMessage) GetData() interface{} {
+	return m
+}
