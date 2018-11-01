@@ -223,7 +223,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 
 func (nc *NetCore) findNode(toid NodeID, toaddr *nnet.UDPAddr, target NodeID) ([]*Node, error) {
 	nodes := make([]*Node, 0, bucketSize)
-	Logger.Debugf("find node send req:%v",toid.GetHexString())
+	//Logger.Debugf("find node send req:%v",toid.GetHexString())
 	errc := nc.pending(toid, MessageType_MessageNeighbors, func(r interface{}) bool {
 		nreceived := 0
 		reply := r.(*MsgNeighbors)
@@ -292,21 +292,58 @@ func (nc *NetCore) loop() {
 		plist             = list.New()
 		clearMessageCache = time.NewTicker(clearMessageCacheTimeout)
 		groupRefresh = time.NewTicker(groupRefreshInterval)
+		timeout           = time.NewTimer(0)
+		nextTimeout       *pending
+		contTimeouts      = 0
+
 	)
 	defer clearMessageCache.Stop()
 	defer groupRefresh.Stop()
+	<-timeout.C // ignore first timeout
+	defer timeout.Stop()
+
+	resetTimeout := func() {
+		if plist.Front() == nil || nextTimeout == plist.Front().Value {
+			return
+		}
+		now := time.Now()
+		for el := plist.Front(); el != nil; el = el.Next() {
+			nextTimeout = el.Value.(*pending)
+			if dist := nextTimeout.deadline.Sub(now); dist < 2*respTimeout {
+				timeout.Reset(dist)
+				return
+			}
+
+			nextTimeout.errc <- errClockWarp
+			plist.Remove(el)
+		}
+		nextTimeout = nil
+		timeout.Stop()
+	}
 
 	for {
+		resetTimeout()
 
 		select {
 		case <-nc.closing:
 			for el := plist.Front(); el != nil; el = el.Next() {
 				el.Value.(*pending).errc <- errClosed
 			}
+
 			return
 		case p := <-nc.addpending:
 			p.deadline = time.Now().Add(respTimeout)
 			plist.PushBack(p)
+		case now := <-timeout.C:
+			nextTimeout = nil
+			for el := plist.Front(); el != nil; el = el.Next() {
+				p := el.Value.(*pending)
+				if now.After(p.deadline) || now.Equal(p.deadline) {
+					p.errc <- errTimeout
+					plist.Remove(el)
+					contTimeouts++
+				}
+			}
 
 		case r := <-nc.gotreply:
 			var matched bool
@@ -318,6 +355,7 @@ func (nc *NetCore) loop() {
 						p.errc <- nil
 						plist.Remove(el)
 					}
+					contTimeouts = 0
 				}
 			}
 			r.matched <- matched

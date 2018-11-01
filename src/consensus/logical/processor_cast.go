@@ -197,6 +197,10 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		panic("SuccessNewBlock arg failed.")
 	}
 	blog := newBizLog("SuccessNewBlock")
+	if vctx.castSuccess() {//并发时可能会签出多块，这里多一重判断
+		blog.log("vctx castSuccess, won't broadcast this block, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		return
+	}
 	if p.blockOnChain(bh) { //已经上链
 		blog.log("core.GenerateBlock is nil! block alreayd onchain!")
 		return
@@ -217,11 +221,6 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 
 	cbm := &model.ConsensusBlockMessage{
 		Block: *block,
-	}
-
-	if vctx.castSuccess() {//并发时可能会签出多块，这里多一重判断
-		blog.log("vctx castSuccess, won't broadcast this block, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
-		return
 	}
 
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
