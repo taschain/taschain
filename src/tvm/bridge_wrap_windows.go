@@ -17,7 +17,7 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
-#cgo LDFLAGS: -L ../../lib/windows -lmicropython
+#cgo LDFLAGS: -L ../../lib/darwin_amd64 -lmicropython
 
 #include "tvm.h"
 #include <stdio.h>
@@ -468,9 +468,8 @@ func (tvm *Tvm) DelTvm() {
 }
 
 func (tvm *Tvm) checkABI(abi ABI) bool {
-	//script := PycodeCheckAbi(abi)
-	//return tvm.Execute(script)
-	return true
+	script := PycodeCheckAbi(abi)
+	return tvm.Execute(script)
 }
 
 func (tvm *Tvm) StoreData() bool {
