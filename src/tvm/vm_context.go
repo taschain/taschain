@@ -6,13 +6,14 @@ package tvm
 
 var controller *Controller; // vm的controller
 
-const MAX_DEPTH int = 128;
+const MAX_DEPTH int = 8; //vm执行的最大深度为8
 
 // 合约调合约场景中（从c回调go时）执行合约call前保存
 func (con *Controller) StoreVmContext(newTvm *Tvm) {
-	if len(con.VmStack) > MAX_DEPTH {
+	if len(con.VmStack) >= MAX_DEPTH {
 		// TODO 向vm抛异常
-		return;
+		print("===== too many levels ====")
+		return
 	}
 
 	currentVm := con.Vm

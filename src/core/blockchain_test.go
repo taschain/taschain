@@ -23,10 +23,10 @@ import (
 
 	"fmt"
 	"github.com/gin-gonic/gin/json"
+	"middleware"
 	"middleware/types"
 	"network"
 	"os"
-	"middleware"
 	"taslog"
 	"tvm"
 )
@@ -155,21 +155,19 @@ func Test_Deploy_Contract2(t *testing.T)  {
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 }
 
-
-func TestCallConstract(t *testing.T)  {
-	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
-	abi := `{"FuncName": "contract", "Args": []}`
-	CallContract(contractAddr, abi)
+func TestCallConstract(t *testing.T) {
+	//for i := 0; i < 100000000000000; i++ {
+		contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
+		abi := `{"FuncName": "contract", "Args": []}`
+		CallContract(contractAddr, abi)
+	//}
 }
+
 
 
 func Test_Clear(t *testing.T){
 	Clear()
 }
-
-
-
-
 
 
 

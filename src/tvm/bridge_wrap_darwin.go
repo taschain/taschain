@@ -234,6 +234,7 @@ import (
 	"fmt"
 	"storage/core/vm"
 	"strconv"
+	"strings"
 	"unsafe"
 	//"middleware/types"
 )
@@ -281,8 +282,8 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 		return ""
 	}
 
-	//返回结果：需要支持正常、异常；正常包含各种类型以及None返回
-	//todo
+	//返回结果：支持正常、异常；正常包含各种类型以及None返回
+	//todo 异常处理
 	result := controller.Vm.ExecuteABI(abi, true)
 	fmt.Printf("CallContract result %s\n", result)
 
