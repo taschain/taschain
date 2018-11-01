@@ -7,7 +7,6 @@ import (
 	"common"
 	"math/big"
 	"encoding/json"
-	"log"
 )
 
 type Controller struct {
@@ -16,8 +15,8 @@ type Controller struct {
 	AccountDB   vm.AccountDB
 	Reader      vm.ChainReader
 	Vm          *Tvm
-	Tasks       []*CallTask
 	LibPath     string
+	VmStack     []*Tvm
 }
 
 func NewController(accountDB vm.AccountDB,
@@ -31,9 +30,9 @@ func NewController(accountDB vm.AccountDB,
 	controller.Transaction = *transaction
 	controller.AccountDB = accountDB
 	controller.Reader = chainReader
-	controller.Tasks = make([]*CallTask, 0)
 	controller.Vm = nil
 	controller.LibPath = libPath
+	controller.VmStack = make([]*Tvm, 0)
 	return controller
 }
 
@@ -47,7 +46,6 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
 	if !succeed {
 		return false
 	}
-	succeed = con.ExecuteTask()
 	con.Transaction.GasLimit = uint64(con.Vm.Gas())
 	return succeed
 }
@@ -80,16 +78,12 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
 	if succeed {
 		abi := ABI{}
-		err := json.Unmarshal([]byte(abiJson), &abi)
-		if err != nil {
-			log.Println(err)
-		}
-		//fmt.Println(abi)
-		succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
+		json.Unmarshal([]byte(abiJson), &abi)
+		fmt.Println(abi)
+		succeed = con.Vm.checkABI(abi) && ExecutedVmSucceed(con.Vm.ExecuteABI(abi,false)) && con.Vm.StoreData()
 		if succeed {
 			con.Vm.DelTvm()
 			con.Transaction.GasLimit = uint64(con.Vm.Gas())
-			succeed = con.ExecuteTask()
 		}else {
 			con.Vm.DelTvm()
 		}
@@ -104,26 +98,26 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 //	return db.GetBalance(addr).Cmp(amount) >= 0
 //}
 
-func (con *Controller) ExecuteTask() bool{
-	succeed := true
-	for _, task := range con.Tasks {
-		contract := LoadContract(*task.ContractAddr)
-		gasLeft := con.Transaction.GasLimit
-		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-		con.Vm.SetGas(int(gasLeft))
-		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
-		abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
-		if succeed {
-			abi := ABI{}
-			json.Unmarshal([]byte(abiJson), &abi)
-			succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
-		}
-		if !succeed {
-			con.Vm.DelTvm()
-			break
-		}
-		con.Transaction.GasLimit = uint64(con.Vm.Gas())
-	}
-	return succeed
-}
+//func (con *Controller) ExecuteTask() bool{
+//	succeed := true
+//	for _, task := range con.Tasks {
+//		contract := LoadContract(*task.ContractAddr)
+//		gasLeft := con.Transaction.GasLimit
+//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
+//		con.Vm.SetGas(int(gasLeft))
+//		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
+//		abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
+//		succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
+//		if succeed {
+//			abi := ABI{}
+//			json.Unmarshal([]byte(abiJson), &abi)
+//			succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
+//		}
+//		if !succeed {
+//			con.Vm.DelTvm()
+//			break
+//		}
+//		con.Transaction.GasLimit = uint64(con.Vm.Gas())
+//	}
+//	return succeed
+//}

@@ -146,7 +146,7 @@ if "%s" in register.funcinfo:
         raise Exception("function %s para wrong!")
 else:
     raise Exception("cannot call this function: %s")
-`, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
+`, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
 
 	fmt.Println(str)
 

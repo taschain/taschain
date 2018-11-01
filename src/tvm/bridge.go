@@ -243,8 +243,9 @@ func TxGasLimit() C.ulonglong {
 }
 
 //export ContractCall
-func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
-	Call(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) *C.char{
+	contractResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+	return C.CString(contractResult);
 }
 
 //export SetBytecode
@@ -252,15 +253,4 @@ func SetBytecode(code *C.char, len C.int) {
 	fmt.Println(C.GoString(code))
 	RunByteCode(code, len)
 	fmt.Println(C.GoString(code))
-}
-
-//TODO 合约call合约
-func callContract() {
-	// extern json
-
-	// tvm.state.GetCode()
-
-	// tvm.exec code
-
-	// tvm.call abi
 }
