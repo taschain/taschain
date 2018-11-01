@@ -266,7 +266,12 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 		//todo 异常处理
 		return ""
 	}
-
+	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
+	if strings.EqualFold("[true]",params){
+		params = "[true]"
+	}else if strings.EqualFold("[false]",params){
+		params = "[false]"
+	}
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
 	json.Unmarshal([]byte(abiJson), &abi)
@@ -512,6 +517,13 @@ func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 	switch value.(type) {
 	case float64:
 		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
+	case bool:
+		x:= value.(bool)
+		if x{
+			buf.WriteString("True")
+		}else{
+			buf.WriteString("False")
+		}
 	case string:
 		buf.WriteString(`"`)
 		buf.WriteString(value.(string))
