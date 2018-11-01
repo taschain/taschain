@@ -334,16 +334,12 @@ func RunBinaryCode(buf *C.char, len C.int) {
 func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
-	contract := LoadContract(conAddr);
+	contract := LoadContract(conAddr)
 	oneVm := &Tvm{contract, controller.Vm.ContractAddress}
 
 	//准备vm的环境
-	created := controller.Vm.CreateContext()
-	if !created {
-		//todo 异常处理
-		return ""
-	}
-	controller.StoreVmContext(oneVm);
+	controller.Vm.CreateContext()
+	controller.StoreVmContext(oneVm)
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
@@ -364,8 +360,8 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//返回结果：需要支持正常、异常；正常包含各种类型以及None返回
 	//todo
-	result := controller.Vm.ExecuteABI(abi,true)
-	fmt.Printf("CallContract result %s", result)
+	result := controller.Vm.ExecuteABI(abi, true)
+	fmt.Printf("CallContract result %s\n", result)
 
 	//恢复vm的环境
 	controller.Vm.RemoveContext()
@@ -517,21 +513,23 @@ func (tvm *Tvm) LoadContractCode(msg Msg) bool {
 }
 
 func (tvm *Tvm) Execute(script string) bool {
-	abc := tvm.executeCommon(script,false)
+	abc := tvm.executeCommon(script, false)
 	return ExecutedVmSucceed(abc)
 }
 
 func (tvm *Tvm) ExecuteWithResult(script string) string {
-	return tvm.executeCommon(script,true)
+	return tvm.executeCommon(script, true)
 }
 
-func (tvm *Tvm) executeCommon(script string, withResult bool) string{
+func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	var c_result *C.char
-	if withResult{
-		c_result = C.tvm_execute_with_result(C.CString(script))
-	}else {
-		c_result = C.tvm_execute(C.CString(script))
+	var param *C.char = C.CString(script)
+	if withResult {
+		c_result = C.tvm_execute_with_result(param)
+	} else {
+		c_result = C.tvm_execute(param)
 	}
+
 	abc := C.GoString(c_result)
 	C.free(unsafe.Pointer(c_result))
 	return abc
@@ -552,10 +550,8 @@ func (tvm *Tvm) Deploy(msg Msg) bool {
 }
 
 //合约调用合约时使用，用来创建vm新的上下文
-func (tvm *Tvm) CreateContext() bool {
-	var c_bool C._Bool
-	c_bool = C.tvm_create_context()
-	return bool(c_bool)
+func (tvm *Tvm) CreateContext() {
+	C.tvm_create_context()
 }
 
 //合约调用合约时使用，用来删除vm当前的上下文
@@ -589,7 +585,7 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 	fmt.Println(buf.String())
 	if withResult {
 		return tvm.ExecuteWithResult(buf.String())
-	} else{
+	} else {
 		return tvm.executeCommon(buf.String(), false)
 	}
 
