@@ -69,7 +69,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		amount := big.NewInt(int64(con.Transaction.Value))
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
-		} else {bridge_wrap_darwin.go
+		} else {
 			return false
 		}
 	}
