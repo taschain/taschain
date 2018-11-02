@@ -17,13 +17,13 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
-#cgo LDFLAGS: -lm
 #cgo LDFLAGS: -L ../../lib/windows -lmicropython
-
 
 #include "tvm.h"
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 // The gateway function
 int callOnMeGo_cgo(int in)
@@ -32,6 +32,7 @@ int callOnMeGo_cgo(int in)
 	int callOnMeGo(int);
 	return callOnMeGo(in);
 }
+
 
 void wrap_testAry(void* p)
 {
@@ -213,41 +214,88 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
-void wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
+char* wrap_contract_call(const char* address, const char* func_name, const char* json_parms)
 {
-    void ContractCall();
-    ContractCall(address, func_name, json_parms);
+    char* ContractCall();
+    return ContractCall(address, func_name, json_parms);
 }
 
+void wrap_set_bytecode(const char* code, int len)
+{
+	void SetBytecode();
+	SetBytecode(code, len);
+}
 */
 import "C"
 import (
-	"unsafe"
+	"bytes"
 	"common"
 	"encoding/json"
 	"fmt"
-	"bytes"
-	"strconv"
 	"storage/core/vm"
+	"strconv"
+	"strings"
+	"unsafe"
+	//"middleware/types"
 )
 
-var controller *Controller = nil
-
-
 type CallTask struct {
-	Sender *common.Address
+	Sender       *common.Address
 	ContractAddr *common.Address
-	FuncName string
-	Params string
+	FuncName     string
+	Params       string
 }
 
+func RunBinaryCode(buf *C.char, len C.int) {
+	C.runbytecode(buf, len)
+}
 
-
-func Call(_contractAddr string, funcName string, params string) bool {
+func CallContract(_contractAddr string, funcName string, params string) string {
+	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
-	task := CallTask{controller.Vm.ContractAddress, &conAddr, funcName, params}
-	controller.Tasks = append(controller.Tasks, &task)
-	return true
+	contract := LoadContract(conAddr)
+	oneVm := &Tvm{contract, controller.Vm.ContractAddress}
+
+	//准备vm的环境
+	controller.Vm.CreateContext()
+	controller.StoreVmContext(oneVm)
+
+	//调用合约
+	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
+	prepredSucceed := controller.Vm.CreateContractInstance(msg) && controller.Vm.LoadContractCode(msg)
+	if !prepredSucceed {
+		//todo 异常处理
+		return ""
+	}
+	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
+	if strings.EqualFold("[true]",params){
+		params = "[true]"
+	}else if strings.EqualFold("[false]",params){
+		params = "[false]"
+	}
+	abi := ABI{}
+	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
+	json.Unmarshal([]byte(abiJson), &abi)
+	succeed := controller.Vm.checkABI(abi)
+	if !succeed {
+		//todo 异常处理
+		return ""
+	}
+
+	//返回结果：支持正常、异常；正常包含各种类型以及None返回
+	//todo 异常处理
+	result := controller.Vm.ExecuteABI(abi, true)
+	fmt.Printf("CallContract result %s\n", result)
+
+	//恢复vm的环境
+	controller.Vm.RemoveContext()
+	controller.RecoverVmContext()
+
+	return result
+}
+
+func RunByteCode(code *C.char, len C.int) {
+	C.runbytecode(code, len)
 }
 
 func bridge_init() {
@@ -259,7 +307,7 @@ func bridge_init() {
 	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
 	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
 	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
-	C.get_nonce = (C.Function3)(unsafe.Pointer( C.wrap_get_nonce))
+	C.get_nonce = (C.Function3)(unsafe.Pointer(C.wrap_get_nonce))
 	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
 	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
 	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
@@ -285,11 +333,12 @@ func bridge_init() {
 	C.origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
+	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
 }
 
 type Contract struct {
-	Code string `json:"code"`
-	ContractName string `json:"contract_name"`
+	Code            string          `json:"code"`
+	ContractName    string          `json:"contract_name"`
 	ContractAddress *common.Address `json:"-"`
 }
 
@@ -304,17 +353,12 @@ func LoadContract(address common.Address) *Contract {
 type Tvm struct {
 	*Contract
 	Sender *common.Address
-
-	Block func() bool
 }
 
-
-
-func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
+func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
-		nil,
 	}
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()
@@ -322,39 +366,40 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string)*Tvm {
 	return tvm
 }
 
-
 // 获取剩余gas
-func (tvm *Tvm)Gas() int {
+func (tvm *Tvm) Gas() int {
 	return int(C.tvm_get_gas())
 }
 
 // 设置可使用gas, init成功后设置
-func (tvm *Tvm)SetGas(gas int) {
+func (tvm *Tvm) SetGas(gas int) {
 	C.tvm_set_gas(C.int(gas))
 }
 
-func (tvm *Tvm)DelTvm(){
+func (tvm *Tvm) Pycode2bytecode(str string) {
+	C.pycode2bytecode(C.CString(str))
+}
+
+func (tvm *Tvm) DelTvm() {
+	C.tvm_gas_report()
 	//TODO 释放tvm环境 tvmObj
 }
 
-func(tvm *Tvm) StoreData() bool {
-	var c_bool C._Bool
-	script := fmt.Sprintf(`
-import account
-import ujson
-for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	print(tas_%s.__dict__[k])
-    #	print(type(tas_%s.__dict__[k]))
-    value = ujson.dumps(tas_%s.__dict__[k])
-    if TAS_PARAMS_DICT.get(k) != value:
-        account.set_data(k, value)`, tvm.ContractName, tvm.ContractName, tvm.ContractName, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
+func (tvm *Tvm) checkABI(abi ABI) bool {
+	script := PycodeCheckAbi(abi)
+	executeResult := tvm.Execute(script)
+	if !executeResult{
+		fmt.Printf("checkABI failed. abi: %s\n", abi.FuncName)
+	}
+	return executeResult
 }
 
-func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader)*Tvm {
+func (tvm *Tvm) StoreData() bool {
+	script := PycodeStoreContractData(tvm.ContractName)
+	return tvm.Execute(script)
+}
+
+func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
 	//if tvmObj == nil {
 	//	tvmObj = NewTvm(nil, nil, "")
 	//}
@@ -374,78 +419,82 @@ func (tvm *Tvm) AddLibPath(path string) {
 }
 
 type Msg struct {
-	Data []byte
-	Value uint64
+	Data   []byte
+	Value  uint64
 	Sender string
 }
 
-func(tvm *Tvm) LoadContractCode(msg Msg) bool {
+func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
-	var c_bool C._Bool
-	script := fmt.Sprintf("%s\ntas_%s = %s()",tvm.Code, tvm.ContractName, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	if !bool(c_bool) {
-		return false
-	}
-	script = fmt.Sprintf(`
-import account
-import ujson
-TAS_PARAMS_DICT = {}
-for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	value = ujson.loads(account.get_state("", k))
-    #	print(value)
-    value = account.get_data(k)
-    TAS_PARAMS_DICT[k] = value
-    setattr(tas_%s, k, ujson.loads(value))`, tvm.ContractName, tvm.ContractName)
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
-}
-
-func (tvm *Tvm)Execute(script string) bool {
-	var c_bool C._Bool
-	c_bool = C.tvm_execute(C.CString(script))
-	return bool(c_bool)
-}
-
-func (tvm *Tvm)loadMsg(msg Msg) bool{
-	script := fmt.Sprintf(`
-from clib.tas_runtime.msgxx import Msg
-from clib.tas_runtime.address_tas import Address
-
-msg = Msg(data=bytes(), sender="%s", value=%d)
-this = "%s"
-`, msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
 	return tvm.Execute(script)
 }
 
-func (tvm *Tvm)Deploy(msg Msg) bool {
+func (tvm *Tvm) LoadContractCode(msg Msg) bool {
+	//if !tvm.loadMsg(msg) {
+	//	return false
+	//}
+	script := PycodeLoadContractData(tvm.ContractName)
+	return tvm.Execute(script)
+}
+
+func (tvm *Tvm) Execute(script string) bool {
+	abc := tvm.executeCommon(script, false)
+	return ExecutedVmSucceed(abc)
+}
+
+func (tvm *Tvm) ExecuteWithResult(script string) string {
+	return tvm.executeCommon(script, true)
+}
+
+func (tvm *Tvm) executeCommon(script string, withResult bool) string {
+	var c_result *C.char
+	var param = C.CString(script)
+	if withResult {
+		c_result = C.tvm_execute_with_result(param)
+	} else {
+		c_result = C.tvm_execute(param)
+	}
+	C.free(unsafe.Pointer(param))
+
+	abc := C.GoString(c_result)
+	C.free(unsafe.Pointer(c_result))
+	return abc
+}
+
+func (tvm *Tvm) loadMsg(msg Msg) bool {
+	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	return tvm.Execute(script)
+}
+
+func (tvm *Tvm) Deploy(msg Msg) bool {
 	if !tvm.loadMsg(msg) {
 		return false
 	}
-	tvm.Execute(tvm.Code)
 
-	script := fmt.Sprintf(`
-TAS_PARAMS_DICT = {}
-tas_%s = %s()
-tas_%s.deploy()
-`, tvm.ContractName, tvm.ContractName, tvm.ContractName)
+	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)
 	return tvm.Execute(script)
+}
+
+//合约调用合约时使用，用来创建vm新的上下文
+func (tvm *Tvm) CreateContext() {
+	C.tvm_create_context()
+}
+
+//合约调用合约时使用，用来删除vm当前的上下文
+func (tvm *Tvm) RemoveContext() {
+	C.tvm_remove_context()
 }
 
 type ABI struct {
 	FuncName string
-	Args []interface{}
+	Args     []interface{}
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIJson(j string) bool{
-	res := ABI{}
-	json.Unmarshal([]byte(j), &res)
-	fmt.Println(res)
+func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 
 	var buf bytes.Buffer
 	//类名
@@ -463,13 +512,24 @@ func (tvm *Tvm) ExecuteABIJson(j string) bool{
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
-	return tvm.Execute(buf.String())
-}
+	if withResult {
+		return tvm.ExecuteWithResult(buf.String())
+	} else {
+		return tvm.executeCommon(buf.String(), false)
+	}
 
+}
 func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 	switch value.(type) {
 	case float64:
 		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
+	case bool:
+		x:= value.(bool)
+		if x{
+			buf.WriteString("True")
+		}else{
+			buf.WriteString("False")
+		}
 	case string:
 		buf.WriteString(`"`)
 		buf.WriteString(value.(string))
@@ -501,12 +561,3 @@ func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 		//panic("")
 	}
 }
-
-
-
-
-
-
-
-
-
