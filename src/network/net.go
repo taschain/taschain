@@ -430,7 +430,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 	if err != nil {
 		return
 	}
-	const MaxSendCount = 3
+	const MaxSendCount = 1
 	nodesHasSend := make(map[NodeID]bool)
 	count := 0
 	//先找已经连接的

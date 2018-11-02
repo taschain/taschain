@@ -75,7 +75,7 @@ func (g* Group) rebuildGroup( members []NodeID) {
 func (g* Group) genConnectNodes() {
 
 	sort.Sort(g)
-
+	peerSize := len(g.members)
 	g.curIndex =0
 	for i:= 0;i<len(g.members);i++ {
 		if g.members[i] == netCore.id {
@@ -90,24 +90,27 @@ func (g* Group) genConnectNodes() {
 
 	nextIndex := g.getNextIndex(g.curIndex)
 	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
-	nextIndex = g.getNextIndex(nextIndex)
-	g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+	if peerSize >=5 {
 
-	peerSize := len(g.members)
-	maxCount := int(math.Sqrt(float64(peerSize))/2);
-	maxCount -=  len(g.needConnectNodes)
-	step := 1
-
-	if maxCount > 0 {
-		step = len(g.members)/ maxCount
-	}
-
-	for i:=0;i<maxCount ;i++ {
-		nextIndex += step
-		if nextIndex >= len(g.members) {
-			nextIndex %= len(g.members)
-		}
+		nextIndex = g.getNextIndex(nextIndex)
 		g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+
+		maxCount := int(math.Sqrt(float64(peerSize))/2);
+		maxCount -=  len(g.needConnectNodes)
+		step := 1
+
+		if maxCount > 0 {
+			step = len(g.members)/ maxCount
+		}
+
+		for i:=0;i<maxCount ;i++ {
+			nextIndex += step
+			if nextIndex >= len(g.members) {
+				nextIndex %= len(g.members)
+			}
+			g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
+		}
+
 	}
 
 }
