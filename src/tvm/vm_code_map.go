@@ -83,8 +83,8 @@ func GetInterfaceType(value interface{}) string{
 	switch value.(type) {
 	case float64:
 		return "1"
-	//case bool:
-	//	return "bool"
+	case bool:
+		return "True"
 	case string:
 		return "\"str\""
 	case []interface{}:
@@ -147,7 +147,7 @@ else:
     raise Exception("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
 
-	fmt.Println(str)
+	//fmt.Println(str)
 
 
 	return str
