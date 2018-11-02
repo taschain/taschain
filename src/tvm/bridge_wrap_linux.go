@@ -387,7 +387,11 @@ func (tvm *Tvm) DelTvm() {
 
 func (tvm *Tvm) checkABI(abi ABI) bool {
 	script := PycodeCheckAbi(abi)
-	return tvm.Execute(script)
+	executeResult := tvm.Execute(script)
+	if !executeResult{
+		fmt.Printf("checkABI failed. abi: %s\n", abi.FuncName)
+	}
+	return executeResult
 }
 
 func (tvm *Tvm) StoreData() bool {
@@ -447,12 +451,13 @@ func (tvm *Tvm) ExecuteWithResult(script string) string {
 
 func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	var c_result *C.char
-	var param *C.char = C.CString(script)
+	var param = C.CString(script)
 	if withResult {
 		c_result = C.tvm_execute_with_result(param)
 	} else {
 		c_result = C.tvm_execute(param)
 	}
+	C.free(unsafe.Pointer(param))
 
 	abc := C.GoString(c_result)
 	C.free(unsafe.Pointer(c_result))
