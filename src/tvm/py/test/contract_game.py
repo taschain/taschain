@@ -11,6 +11,7 @@ class ContractGame():
     def ready(self):
         print("game is ready.")
 
+    @register.public()
     def contract_int(self):
         print("contract is called")
         try:
@@ -21,6 +22,7 @@ class ContractGame():
         except Exception as e:
             print(e.args)
 
+    @register.public()
     def contract_str(self):
         print("contract is called")
         try:
@@ -29,6 +31,7 @@ class ContractGame():
         except Exception as e:
             print(e.args)
 
+    @register.public()
     def contract_bool(self):
         print("contract is called")
         try:
@@ -37,6 +40,7 @@ class ContractGame():
         except Exception as e:
             print(e.args)
 
+    @register.public()
     def contract_none(self):
         print("contract is called")
         try:
@@ -45,6 +49,7 @@ class ContractGame():
         except Exception as e:
             print(e.args)
 
+    @register.public()
     def contract_deep(self):
         print("===deep start==")
         try:

@@ -387,7 +387,11 @@ func (tvm *Tvm) DelTvm() {
 
 func (tvm *Tvm) checkABI(abi ABI) bool {
 	script := PycodeCheckAbi(abi)
-	return tvm.Execute(script)
+	executeResult := tvm.Execute(script)
+	if !executeResult{
+		fmt.Printf("checkABI failed. abi: %s\n", abi.FuncName)
+	}
+	return executeResult
 }
 
 func (tvm *Tvm) StoreData() bool {

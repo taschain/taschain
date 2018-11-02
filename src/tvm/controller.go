@@ -1,12 +1,12 @@
 package tvm
 
 import (
-	"storage/core/vm"
-	"middleware/types"
-	"fmt"
 	"common"
-	"math/big"
 	"encoding/json"
+	"fmt"
+	"math/big"
+	"middleware/types"
+	"storage/core/vm"
 )
 
 type Controller struct {
@@ -69,7 +69,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		amount := big.NewInt(int64(con.Transaction.Value))
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
-		} else {
+		} else {bridge_wrap_darwin.go
 			return false
 		}
 	}
@@ -80,44 +80,17 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		abi := ABI{}
 		json.Unmarshal([]byte(abiJson), &abi)
 		fmt.Println(abi)
-		succeed = con.Vm.checkABI(abi) && ExecutedVmSucceed(con.Vm.ExecuteABI(abi,false)) && con.Vm.StoreData()
+		succeed = con.Vm.checkABI(abi) && ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false)) && con.Vm.StoreData()
 		if succeed {
 			con.Vm.DelTvm()
 			con.Transaction.GasLimit = uint64(con.Vm.Gas())
-		}else {
+		} else {
+			//todo 告知用户明确失败的原因，如ABI非法
 			con.Vm.DelTvm()
 		}
-	}else {
+	} else {
 		con.Vm.DelTvm()
 	}
 	con.Transaction.GasLimit = uint64(con.Vm.Gas())
 	return succeed
 }
-
-//func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
-//	return db.GetBalance(addr).Cmp(amount) >= 0
-//}
-
-//func (con *Controller) ExecuteTask() bool{
-//	succeed := true
-//	for _, task := range con.Tasks {
-//		contract := LoadContract(*task.ContractAddr)
-//		gasLeft := con.Transaction.GasLimit
-//		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-//		con.Vm.SetGas(int(gasLeft))
-//		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
-//		abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-//		succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
-//		if succeed {
-//			abi := ABI{}
-//			json.Unmarshal([]byte(abiJson), &abi)
-//			succeed = con.Vm.checkABI(abi) && con.Vm.ExecuteABI(abi) && con.Vm.StoreData()
-//		}
-//		if !succeed {
-//			con.Vm.DelTvm()
-//			break
-//		}
-//		con.Transaction.GasLimit = uint64(con.Vm.Gas())
-//	}
-//	return succeed
-//}

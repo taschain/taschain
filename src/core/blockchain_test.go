@@ -18,6 +18,7 @@ package core
 import (
 	"common"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -36,8 +37,8 @@ func init() {
 
 
 func OnChainFunc(code string, source string) {
-	common.InitConf("d:/test1.ini")
-	//common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
+	//common.InitConf("d:/test1.ini")
+	common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//Clear()
 	initBlockChain()
