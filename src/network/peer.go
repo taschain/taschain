@@ -145,7 +145,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId, p)
 	}
 
-	Logger.Debugf("write Id:%v netid:%v session:%v size %v", toid.GetHexString(),netId, p.seesionId, len(packet.Bytes()))
+	Logger.Debugf("write Id:%v netid:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
 
 	if p.seesionId > 0 {
 		p.write(packet)

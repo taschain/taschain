@@ -181,14 +181,14 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	blockMsg := network.Message{Code: network.NewBlockMsg, Body: body}
 	//blockHash := cbm.Block.Header.Hash
 
-	nextCastGroupId := group.Gid.GetHexString()
+	nextVerifyGroupId := group.Gid.GetHexString()
 	groupMembers := id2String(group.MemIds)
 
 	//广播给重节点的虚拟组
-	go ns.net.Multicast(network.FULL_NODE_VIRTUAL_GROUP_ID, blockMsg)
+	heavyMinerMembers := core.MinerManagerImpl.GetHeavyMiners()
+	go ns.net.SpreadOverGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMinerMembers, blockMsg, []byte(blockMsg.Hash()))
 	//广播给轻节点的下一个组
-	go ns.net.SpreadOverGroup(nextCastGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
-	core.Logger.Debugf("BroadcastNewBlock: next group id:%s,members:%v,height:%d,hash:%v", nextCastGroupId, groupMembers, cbm.Block.Header.Height, cbm.Block.Header.Hash)
+	go ns.net.SpreadOverGroup(nextVerifyGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
 
 	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)
 	if e != nil {
@@ -197,12 +197,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	}
 	if !core.BlockChainImpl.IsLightMiner() {
 		headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
-		go ns.net.TransmitToNeighbor(headerMsg)
+		go ns.net.Relay(headerMsg, 1)
 	}
-	core.Logger.Debugf("Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
-	statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
-		time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
-	logger.Debugf("After statistics.AddBlockLog Broad new block %d-%d,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, 0, len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextCastGroupId)
+	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextVerifyGroupId)
+	//statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
+	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
 
 }
 
