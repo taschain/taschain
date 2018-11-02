@@ -109,6 +109,8 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		IDs: memIds,
 	}
 	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(group.GroupID)), msg)
+	//fix bug when gi signature is nil
+	msg.GI.Signature = msg.SI.DataSign
 
 	creatingGroup := newCreateGroup(&gis, memPkis, group)
 	gm.addCreatingGroup(creatingGroup)
