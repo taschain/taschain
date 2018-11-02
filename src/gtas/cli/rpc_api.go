@@ -3,7 +3,6 @@ package cli
 import (
 	"common"
 	"consensus/groupsig"
-	"consensus/logical"
 	"consensus/mediator"
 	"consensus/model"
 	"core"
@@ -563,22 +562,22 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 	bonusInfo := bonusStatByHeight(height)
 
 	signedBlocks := make([]string, 0, 10)
-	if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
-		for e := signedBlockList.Front(); e != nil; e = e.Next(){
-			signedBlocks = append(signedBlocks, e.Value.(string))
-		}
-	}
+	//if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
+	//	for e := signedBlockList.Front(); e != nil; e = e.Next(){
+	//		signedBlocks = append(signedBlocks, e.Value.(string))
+	//	}
+	//}
 
 	var mutiSignedBlockNum uint64 = 0
-	var i uint64 = 1
-	for ; i <= height; i++{
-		if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
-			if signedBlockList.Len() > 1 {
-				mutiSignedBlockNum++
-				BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
-			}
-		}
-	}
+	//var i uint64 = 1
+	//for ; i <= height; i++{
+	//	if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
+	//		if signedBlockList.Len() > 1 {
+	//			mutiSignedBlockNum++
+	//			BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
+	//		}
+	//	}
+	//}
 
 	signedBlockInfo := SignedBlockInfo{
 		Height:height,
