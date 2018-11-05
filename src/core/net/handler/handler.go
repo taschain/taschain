@@ -252,7 +252,7 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 	chainPiece := make([]*types.BlockHeader, 0)
 	var i, len uint64
 	for i, len = 0, 0; len < ChainPieceLength; i++ {
-		core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
+		//core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
 		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
 		if header != nil {
 			chainPiece = append(chainPiece, header)
