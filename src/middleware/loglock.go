@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"taslog"
 	"common"
+	"time"
 )
 
 type Loglock struct {
 	lock   sync.RWMutex
 	addr   string
 	logger taslog.Logger
+	begin	time.Time
 }
 
 func NewLoglock(title string) Loglock {
@@ -42,6 +44,7 @@ func (lock *Loglock) Lock(msg string) {
 		lock.logger.Debugf("try to lock: %s, with msg: %s", lock.addr, msg)
 	}
 	lock.lock.Lock()
+	lock.begin = time.Now()
 	if 0 != len(msg) {
 		lock.logger.Debugf("locked: %s, with msg: %s", lock.addr, msg)
 	}
@@ -63,8 +66,9 @@ func (lock *Loglock) Unlock(msg string) {
 		lock.logger.Debugf("try to UnLock: %s, with msg: %s", lock.addr, msg)
 	}
 	lock.lock.Unlock()
+	duration := time.Since(lock.begin)
 	if 0 != len(msg) {
-		lock.logger.Debugf("UnLocked: %s, with msg: %s", lock.addr, msg)
+		lock.logger.Debugf("UnLocked: %s, with msg: %s duration:%v", lock.addr, msg, duration)
 	}
 
 }
