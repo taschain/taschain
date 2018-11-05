@@ -49,34 +49,45 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
-			accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit * transaction.GasPrice)))
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			snapshot := controller.AccountDB.Snapshot()
-			contractAddress, err := createContract(accountdb, transaction)
-			if err != nil {
-				controller.AccountDB.RevertToSnapshot(snapshot)
-			} else {
-				deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
-				if controller.Transaction.GasLimit < deploySpend {
+			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
+			if CanTransfer(accountdb, *transaction.Source, amount) {
+				accountdb.SubBalance(*transaction.Source, amount)
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				snapshot := controller.AccountDB.Snapshot()
+				contractAddress, err := createContract(accountdb, transaction)
+				if err != nil {
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
-					controller.Transaction.GasLimit -= deploySpend
-						contract := tvm.LoadContract(contractAddress)
-					if !controller.Deploy(transaction.Source, contract) {
+					deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
+					if controller.Transaction.GasLimit < deploySpend {
 						controller.AccountDB.RevertToSnapshot(snapshot)
+					} else {
+						controller.Transaction.GasLimit -= deploySpend
+						contract := tvm.LoadContract(contractAddress)
+						if !controller.Deploy(transaction.Source, contract) {
+							controller.AccountDB.RevertToSnapshot(snapshot)
+						}
 					}
 				}
+				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
+			} else {
+				fail = true
 			}
-			accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
+
 		} else if len(transaction.Data) > 0 {
-			accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit * transaction.GasPrice)))
-			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
-			contract := tvm.LoadContract(*transaction.Target)
-			snapshot := controller.AccountDB.Snapshot()
-			if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
-				controller.AccountDB.RevertToSnapshot(snapshot)
+			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
+			if CanTransfer(accountdb, *transaction.Source, amount) {
+				accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit*transaction.GasPrice)))
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				contract := tvm.LoadContract(*transaction.Target)
+				snapshot := controller.AccountDB.Snapshot()
+				if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
+					controller.AccountDB.RevertToSnapshot(snapshot)
+				}
+				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
+			} else {
+				fail = true
 			}
-			accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
