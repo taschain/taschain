@@ -73,7 +73,7 @@ func (n *server) Multicast(groupId string, msg Message) error {
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true)
+	n.netCore.SendGroup(groupId, bytes, true,-1)
 	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -86,7 +86,7 @@ func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Mess
 		return err
 	}
 
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers,-1)
 	//Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 
 	return nil
@@ -182,7 +182,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
-
+	n.netCore.flowMeterBiz.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b
 	go n.handleMessageInner(message, from)
 }

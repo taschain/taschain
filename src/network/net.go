@@ -64,6 +64,7 @@ const (
 	expiration               = 30 * time.Second
 	connectTimeout           = 3 * time.Second
 	groupRefreshInterval 	 = 5 * time.Second
+	flowMeterInterval 		 = 10 * time.Second
 
 )
 
@@ -78,10 +79,13 @@ type NetCore struct {
 	unhandledDataMsg int
 	closing          chan struct{}
 
-	kad                *Kad
-	peerManager        *PeerManager  //节点连接管理器
-	groupManager       *GroupManager //组管理器
-	messageManager     *MessageManager
+	kad               *Kad
+	peerManager       *PeerManager
+	groupManager      *GroupManager
+	messageManager    *MessageManager
+	flowMeter     	  *FlowMeter
+	flowMeterBiz     	  *FlowMeter
+
 	natTraversalEnable bool
 }
 
@@ -158,6 +162,8 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.peerManager.natTraversalEnable = cfg.NatTraversalEnable
 	nc.groupManager = newGroupManager()
 	nc.messageManager = newMessageManager(nc.id)
+	nc.flowMeter = newFlowMeter("p2p")
+	nc.flowMeterBiz = newFlowMeter("biz")
 	realaddr := cfg.ListenAddr
 
 	Logger.Debugf("kad id: %v ", nc.id.GetHexString())
@@ -291,6 +297,7 @@ func (nc *NetCore) loop() {
 	var (
 		plist             = list.New()
 		clearMessageCache = time.NewTicker(clearMessageCacheTimeout)
+		flowMeter = time.NewTicker(flowMeterInterval)
 		groupRefresh = time.NewTicker(groupRefreshInterval)
 		timeout           = time.NewTimer(0)
 		nextTimeout       *pending
@@ -299,8 +306,10 @@ func (nc *NetCore) loop() {
 	)
 	defer clearMessageCache.Stop()
 	defer groupRefresh.Stop()
-	<-timeout.C // ignore first timeout
 	defer timeout.Stop()
+	defer flowMeter.Stop()
+
+	<-timeout.C // ignore first timeout
 
 	resetTimeout := func() {
 		if plist.Front() == nil || nextTimeout == plist.Front().Value {
@@ -361,6 +370,11 @@ func (nc *NetCore) loop() {
 			r.matched <- matched
 		case <-clearMessageCache.C:
 			nc.messageManager.clear()
+		case <-flowMeter.C:
+			nc.flowMeter.print()
+			nc.flowMeter.reset()
+			nc.flowMeterBiz.print()
+			nc.flowMeterBiz.reset()
 		case <-groupRefresh.C:
 			go nc.groupManager.doRefresh()
 		}
@@ -408,12 +422,12 @@ func (nc *NetCore) BroadcastRandom(data []byte, relayCount int32) {
 }
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
-func (nc *NetCore) SendGroup(id string, data []byte, broadcast bool) {
+func (nc *NetCore) SendGroup(id string, data []byte, broadcast bool, relayCount int32) {
 	dataType := DataType_DataNormal
 	if broadcast {
 		dataType = DataType_DataGroup
 	}
-	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, nil, -1)
+	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, nil, relayCount)
 	if err != nil {
 		return
 	}
@@ -422,11 +436,11 @@ func (nc *NetCore) SendGroup(id string, data []byte, broadcast bool) {
 }
 
 //GroupBroadcastWithMembers 通过组成员发组广播
-func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest MsgDigest, groupMembers []string) {
+func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest MsgDigest, groupMembers []string, relayCount int32) {
 	dataType := DataType_DataGroup
 	Logger.Debugf("GroupBroadcastWithMembers: group id:%v", id)
 
-	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, msgDigest, -1)
+	packet, _, err := nc.encodeDataPacket(data, dataType, id, nil, msgDigest, relayCount)
 	if err != nil {
 		return
 	}
@@ -458,7 +472,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, msgDigest M
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, memberId NodeID) {
 
-	Logger.Debugf("SendGroupMember: group id:%v node id :%v", id, memberId.GetHexString())
+	Logger.Debugf("SendGroupMember group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if (p != nil && p.seesionId > 0) || nc.natTraversalEnable {
@@ -586,7 +600,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	if p == nil || p.isEmpty() {
 		return nil
 	}
-	msgType, packetSize, msg, buf, err := decodePacket(p)
+	msgType, packetSize, msg, buf, err := nc.decodePacket(p)
 
 	if err != nil {
 		return err
@@ -597,7 +611,6 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 
 	switch msgType {
 	case MessageType_MessagePing:
-		//fromId = common.BytesToAddress(msg.(*MsgPing).NodeId)
 		fromId.SetBytes(msg.(*MsgPing).NodeId)
 		if fromId != p.Id {
 			p.Id = fromId
@@ -615,7 +628,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	return nil
 }
 
-func decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, error) {
+func (nc *NetCore)decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, error) {
 
 	buffer := p.popData()
 	if buffer == nil {
@@ -670,6 +683,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, erro
 	} else if buffer.Len() > packetSize {
 		p.addDataToHead(bytes.NewBuffer(bufBytes[packetSize:]))
 	}
+
 	data := bufBytes[PacketHeadSize : PacketHeadSize+msgLen]
 	var req proto.Message
 	switch msgType {
@@ -689,6 +703,7 @@ func decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, erro
 	if req != nil {
 		err = proto.Unmarshal(data, req)
 	}
+	nc.flowMeter.recv(int64(msgType),int64(packetSize))
 
 	return msgType, packetSize, req, buffer, err
 }
@@ -792,28 +807,26 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) error 
 				broadcast = true
 			}
 
-			if req.DataType == DataType_DataGlobalRandom && req.RelayCount == 0 {
+			if req.RelayCount == 0 {
 				broadcast = false
 			}
 			if broadcast {
 				var dataBuffer *bytes.Buffer = nil
-				if req.DataType == DataType_DataGlobalRandom && req.RelayCount > 0 {
+				if req.RelayCount > 0 {
 					req.RelayCount = req.RelayCount - 1
 					req.Expiration = uint64(time.Now().Add(expiration).Unix())
 					dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
-					//dataBuffer = bytes.NewBuffer(packet)
 
 				} else {
 					dataBuffer = bytes.NewBuffer(packet)
-
 				}
-				Logger.Debugf("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString())
+				Logger.Debugf("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v RelayCount:%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString(),req.RelayCount,)
 
 				if req.DataType == DataType_DataGroup {
 					nc.groupManager.sendGroup(req.GroupId, dataBuffer)
 				} else if req.DataType == DataType_DataGlobal {
 					nc.peerManager.SendAll(dataBuffer)
-				} else if req.DataType == DataType_DataGlobalRandom && req.RelayCount != -1 {
+				} else if req.DataType == DataType_DataGlobalRandom  {
 					nc.peerManager.BroadcastRandom(dataBuffer)
 				}
 			}
