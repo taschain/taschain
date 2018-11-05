@@ -49,6 +49,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		var fail = false
 		var contractAddress common.Address
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
+			accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit * transaction.GasPrice)))
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			snapshot := controller.AccountDB.Snapshot()
 			contractAddress, err := createContract(accountdb, transaction)
@@ -66,14 +67,16 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					}
 				}
 			}
+			accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
 		} else if len(transaction.Data) > 0 {
+			accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit * transaction.GasPrice)))
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contract := tvm.LoadContract(*transaction.Target)
 			snapshot := controller.AccountDB.Snapshot()
 			if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
 				controller.AccountDB.RevertToSnapshot(snapshot)
 			}
-
+			accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
