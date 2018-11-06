@@ -111,11 +111,14 @@ type Network interface {
 	// send message to the guys which belongs to the same group with the node and they will rely the message to the node
 	SendWithGroupRelay(id string, groupId string, msg Message) error
 
+	//Random broadcast the message to parts nodes in the group which self belongs to
+	RandomSpreadInGroup(groupId string, msg Message) error
+
 	//Broadcast the message among the group which self belongs to
-	Multicast(groupId string, msg Message) error
+	SpreadAmongGroup(groupId string, msg Message) error
 
 	//Broadcast the message to the group which self do not belong to
-	SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error
+	SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error
 
 	//Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error

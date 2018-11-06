@@ -97,7 +97,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	ns.send2Self(spkm.SI.GetID(), m)
 
 	begin := time.Now()
-	go ns.net.Multicast(spkm.DummyID.GetHexString(), m)
+	go ns.net.SpreadAmongGroup(spkm.DummyID.GetHexString(), m)
 	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.DummyID.GetHexString(), time.Since(begin))
 }
 
@@ -121,13 +121,13 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 //-----------------------------------------------------------------组铸币----------------------------------------------
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief) {
-	body, e := marshalConsensusCastMessage(ccm)
+func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction) {
+
+	txs, e := types.MarshalTransactions(body)
 	if e != nil {
-		logger.Errorf("[peer]Discard send ConsensusCastMessage because of marshal error:%s", e.Error())
+		logger.Errorf("[peer]Discard send cast verify because of MarshalTransactions error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.CastVerifyMsg, Body: body}
 
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
@@ -140,7 +140,16 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gro
 
 	mems := id2String(group.MemIds)
 
-	go ns.net.SpreadOverGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
+	txMsg := network.Message{Code: network.TransactionMsg, Body: txs}
+	go ns.net.SpreadToGroup(groupId.GetHexString(), mems, txMsg, ccm.BH.TxTree.Bytes())
+
+	ccMsg, e := marshalConsensusCastMessage(ccm)
+	if e != nil {
+		logger.Errorf("[peer]Discard send cast verify because of marshalConsensusCastMessage error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.CastVerifyMsg, Body: ccMsg}
+	go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
 	logger.Debugf("[peer]send CAST_VERIFY_MSG,%d-%d,invoke SpreadOverGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.ProveValue, time.Since(begin), timeFromCast, m.Hash())
 }
 
@@ -164,7 +173,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 
 	timeFromCast := time.Since(cvm.BH.CurTime)
 	begin := time.Now()
-	go ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.SpreadAmongGroup(groupId.GetHexString(), m)
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.ProveValue, time.Since(begin), timeFromCast, m.Hash())
 	statistics.AddBlockLog(common.BootId, statistics.SendVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
 		time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
@@ -186,9 +195,9 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 
 	//广播给重节点的虚拟组
 	heavyMinerMembers := core.MinerManagerImpl.GetHeavyMiners()
-	go ns.net.SpreadOverGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMinerMembers, blockMsg, []byte(blockMsg.Hash()))
+	go ns.net.SpreadToGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMinerMembers, blockMsg, []byte(blockMsg.Hash()))
 	//广播给轻节点的下一个组
-	go ns.net.SpreadOverGroup(nextVerifyGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
+	go ns.net.SpreadToGroup(nextVerifyGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
 
 	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)
 	if e != nil {
@@ -217,7 +226,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 	m := network.Message{Code: network.CreateGroupaRaw, Body: body}
 
 	var groupId = msg.GI.ParentID
-	go ns.net.Multicast(groupId.GetHexString(), m)
+	go ns.net.SpreadAmongGroup(groupId.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage) {
@@ -241,7 +250,7 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 
 	gid := groupsig.DeserializeId(msg.Reward.GroupId)
 
-	ns.net.Multicast(gid.GetHexString(), m)
+	ns.net.SpreadAmongGroup(gid.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCastRewardSign(msg *model.CastRewardTransSignMessage) {

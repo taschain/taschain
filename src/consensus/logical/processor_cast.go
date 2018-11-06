@@ -197,7 +197,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		panic("SuccessNewBlock arg failed.")
 	}
 	blog := newBizLog("SuccessNewBlock")
-	if vctx.castSuccess() {//并发时可能会签出多块，这里多一重判断
+	if vctx.castSuccess() { //并发时可能会签出多块，这里多一重判断
 		blog.log("vctx castSuccess, won't broadcast this block, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
 		return
 	}
@@ -231,7 +231,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 			return
 		}
 		p.NetServer.BroadcastNewBlock(cbm, gb)
-		vctx.markCastSuccess()	//onBlockAddSuccess方法中也mark了，该处调用是异步的
+		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.reqRewardTransSign(vctx, bh)
 
 		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
@@ -246,7 +246,7 @@ func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groups
 	if heightLimit > 10 {
 		heightLimit -= 10
 	}
-    return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
+	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
 }
 
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
@@ -306,7 +306,7 @@ func (p *Processor) blockProposal() {
 	//随机抽取n个块，生成proveHash
 	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 
-	block := p.MainChain.CastBlock(uint64(height),  pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -329,8 +329,8 @@ func (p *Processor) blockProposal() {
 		}
 		blog.log("hash=%v, proveRoot=%v", bh.Hash.ShortS(), root.ShortS())
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
-		tlog.log( "铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
-		p.NetServer.SendCastVerify(&ccm, gb)
+		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
+		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
 
 		worker.markProposed()
 

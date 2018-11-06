@@ -66,19 +66,31 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 	return nil
 }
 
-func (n *server) Multicast(groupId string, msg Message) error {
+func (n *server) RandomSpreadInGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true,-1)
+	n.netCore.SendGroup(groupId, bytes, true, 1)
 	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
+
+	n.netCore.SendGroup(groupId, bytes, true, -1)
+	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	return nil
+}
+
+func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 
 	bytes, err := marshalMessage(msg)
 	if err != nil {
@@ -86,7 +98,7 @@ func (n *server) SpreadOverGroup(groupId string, groupMembers []string, msg Mess
 		return err
 	}
 
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers,-1)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers, -1)
 	//Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 
 	return nil

@@ -29,6 +29,11 @@ import (
 	"time"
 )
 
+const (
+	SendingListLength    = 50
+	SendingTimerInterval = time.Second * 3
+)
+
 var (
 	ErrNil = errors.New("nil transaction")
 
@@ -53,8 +58,6 @@ var (
 	ErrNegativeValue = errors.New("negative Value")
 
 	ErrOversizedData = errors.New("oversized data")
-
-	sendingListLength = 50
 )
 
 // 配置文件
@@ -118,7 +121,7 @@ func NewTransactionPool() TransactionPool {
 		sendingList:   make([]*types.Transaction, 0),
 		sendingTxLock: sync.Mutex{},
 		batchLock:     sync.Mutex{},
-		sendingTimer:  time.NewTimer(time.Second),
+		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(100)
@@ -134,7 +137,7 @@ func NewTransactionPool() TransactionPool {
 		for {
 			<-pool.sendingTimer.C
 			pool.CheckAndSend(true)
-			pool.sendingTimer.Reset(time.Second)
+			pool.sendingTimer.Reset(SendingTimerInterval)
 		}
 	}()
 	return pool
@@ -207,7 +210,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 
 func (pool *TxPool) CheckAndSend(immediately bool) {
 	length := len(pool.sendingList)
-	if immediately && length > 0 || sendingListLength <= length {
+	if immediately && length > 0 || SendingListLength <= length {
 		pool.sendingTxLock.Lock()
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
