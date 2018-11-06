@@ -13,7 +13,7 @@ func TestContractCallContract(t *testing.T) {
 	Clear()
 
 	print("\n1\n")
-	code := tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_becalled.py")
+	code := tvm.Read0("../tvm/py/test/contract_becalled.py")
 	contract := tvm.Contract{code, "ContractBeCalled", nil}
 	jsonString, _ := json.Marshal(contract)
 	//fmt.Println(string(jsonString))
@@ -21,7 +21,7 @@ func TestContractCallContract(t *testing.T) {
 
 	print("\n2\n")
 	time.Sleep(3 * time.Second)
-	code = tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_game.py")
+	code = tvm.Read0("../tvm/py/test/contract_game.py")
 	contract = tvm.Contract{code, "ContractGame", nil}
 	jsonString, _ = json.Marshal(contract)
 	//fmt.Println(string(jsonString))
@@ -80,7 +80,7 @@ func TestContractMaxLength(t *testing.T) {
 	Clear()
 	//部署合约contract_becalled
 	print("\n1\n")
-	code := tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_becalled.py")
+	code := tvm.Read0("../tvm/py/test/contract_becalled.py")
 	contract := tvm.Contract{code, "ContractBeCalled", nil}
 	jsonString, _ := json.Marshal(contract)
 	//fmt.Println(string(jsonString))
@@ -89,7 +89,7 @@ func TestContractMaxLength(t *testing.T) {
 	//部署合约contract_game
 	time.Sleep(5 * time.Second)
 	print("\n2\n")
-	code = tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_game.py")
+	code = tvm.Read0("../tvm/py/test/contract_game.py")
 	contract = tvm.Contract{code, "ContractGame", nil}
 	jsonString, _ = json.Marshal(contract)
 	//fmt.Println(string(jsonString))
@@ -98,7 +98,7 @@ func TestContractMaxLength(t *testing.T) {
 	//部署合约contract_becalled_deep
 	time.Sleep(5 * time.Second)
 	print("\n3\n")
-	code = tvm.Read0("/Users/mike/tas/code/tas/taschain/taschain/src/tvm/py/test/contract_becalled_deep.py")
+	code = tvm.Read0("../tvm/py/test/contract_becalled_deep.py")
 	contract = tvm.Contract{code, "ContractBeCalledDeep", nil}
 	jsonString, _ = json.Marshal(contract)
 	//fmt.Println(string(jsonString))
