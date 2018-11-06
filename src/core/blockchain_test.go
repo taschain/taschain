@@ -152,12 +152,13 @@ class A():
     def deploy(self):
         print("deploy")
 
-    @register.public(int,str,list,dict)
-    def test(self,aa,bb,cc,dd):
+    @register.public(int,bool,str,list,dict)
+    def test(self,aa,bb,cc,dd,ee):
         print(aa)
         print(bb)
         print(cc)
         print(dd)
+        print(ee)
         #account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
         pass
 
@@ -188,9 +189,21 @@ func Test_Deploy_Contract2(t *testing.T)  {
 }
 
 
-func TestCallConstract(t *testing.T)  {
-	contractAddr := "0xf5f946643f8847e48cfb6e1dbca803246500613e"
-	abi := `{"FuncName": "test", "Args": [10,"fffff",["aa","bb",33],{"name":"xxxx","value":777}]}`
+func TestCallConstractABI_success(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test", "Args": [10,true,"fffff",["aa","bb",33],{"name":"xxxx","value":777}]}`
+	CallContract(contractAddr, abi)
+}
+
+func TestCallConstractABI_fail1(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test1", "Args": []}`
+	CallContract(contractAddr, abi)
+}
+
+func TestCallConstractABI_fail2(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test2", "Args": []}`
 	CallContract(contractAddr, abi)
 }
 
