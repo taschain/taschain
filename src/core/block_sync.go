@@ -99,6 +99,11 @@ func (bs *blockSyncer) Sync() {
 		RequestBlock(candidateId, 1)
 		return
 	}
+
+	if !bs.init {
+		RequestBlock(candidateId, localHeight+1)
+		return
+	}
 	RequestChainPiece(candidateId, localHeight)
 }
 
