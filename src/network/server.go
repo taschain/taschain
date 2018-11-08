@@ -90,8 +90,18 @@ func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 	return nil
 }
 
-func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+	bytes, err := marshalMessage(msg)
+	if err != nil {
+		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		return err
+	}
 
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, nil, groupMembers, 1)
+	return nil
+}
+
+func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())

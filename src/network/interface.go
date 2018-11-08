@@ -117,6 +117,9 @@ type Network interface {
 	//Broadcast the message among the group which self belongs to
 	SpreadAmongGroup(groupId string, msg Message) error
 
+	//send message to random memebers which in special group
+	SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message)error
+
 	//Broadcast the message to the group which self do not belong to
 	SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error
 

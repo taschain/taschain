@@ -98,7 +98,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 			go network.GetNetInstance().RandomSpreadInGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, message)
 		} else {
 			heavyMiners := MinerManagerImpl.GetHeavyMiners()
-			go network.GetNetInstance().SpreadToGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message, nil)
+			go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
 		}
 	}
 }
