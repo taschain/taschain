@@ -33,7 +33,6 @@ import (
 	"storage/tasdb"
 )
 
-
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
 //铸块及奖励分红查看及验证  优先级：0    @小甫
 //安全性验证：模拟节点发送请求给组内组外成员，优先级低       @飞鼠
@@ -486,6 +485,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
 		chain.addBlockOnChain(&block)
+		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	go BlockSyncer.Sync()

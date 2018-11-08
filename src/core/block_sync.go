@@ -26,9 +26,7 @@ import (
 )
 
 const (
-	BLOCK_SYNC_INTERVAL = 3 * time.Second
-
-	INIT_INTERVAL = 3 * time.Second
+	blockSyncInterval = 3 * time.Second
 )
 
 var BlockSyncer blockSyncer
@@ -40,6 +38,7 @@ type blockSyncer struct {
 	init        bool
 	hasNeighbor bool
 	lightMiner  bool
+	syncTimer   *time.Timer
 }
 
 type blockSyncCandidate struct {
@@ -55,6 +54,7 @@ func InitBlockSyncer(isLightMiner bool) {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
 	BlockSyncer = blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
+	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	notify.BUS.Subscribe(notify.BlockChainTotalQn, BlockSyncer.totalQnHandler)
 	go BlockSyncer.loop()
 }
@@ -64,6 +64,7 @@ func (bs *blockSyncer) IsInit() bool {
 }
 
 func (bs *blockSyncer) Sync() {
+	bs.syncTimer.Reset(blockSyncInterval)
 	if bs.candidate.id == "" {
 		return
 	}
@@ -73,7 +74,7 @@ func (bs *blockSyncer) Sync() {
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
-	if candidateQN <= localTotalQN  || candidateHeight == 0 {
+	if candidateQN <= localTotalQN || candidateHeight == 0 {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -102,15 +103,16 @@ func (bs *blockSyncer) Sync() {
 }
 
 func (bs *blockSyncer) loop() {
-	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
+	t := time.NewTicker(blockSyncInterval)
 	for {
-		<-t.C
-		if !BlockChainImpl.IsLightMiner() {
-			sendBlockTotalQnToNeighbor(BlockChainImpl.QueryTopBlock())
+		select {
+		case <-t.C:
+			if !BlockChainImpl.IsLightMiner() {
+				sendBlockTotalQnToNeighbor(BlockChainImpl.QueryTopBlock())
+			}
+		case <-bs.syncTimer.C:
+			go bs.Sync()
 		}
-
-		logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-		go bs.Sync()
 	}
 }
 

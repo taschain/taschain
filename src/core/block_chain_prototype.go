@@ -318,6 +318,10 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 		return
 	}
 
+	if chainPiece[0].Height < chain.latestBlock.Height {
+		return
+	}
+
 	if !chain.verifyChainPiece(chainPiece, topHeader) {
 		return
 	}
