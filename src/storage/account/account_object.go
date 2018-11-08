@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"storage/serialize"
 	"io"
@@ -65,6 +66,7 @@ type accountObject struct {
 	trie Trie
 	code Code
 
+	cachedLock	  sync.RWMutex
 	cachedStorage Storage
 	dirtyStorage  Storage
 
@@ -148,7 +150,9 @@ func (c *accountObject) getTrie(db AccountDatabase) Trie {
 }
 
 func (self *accountObject) GetData(db AccountDatabase, key string) []byte {
+	self.cachedLock.RLock()
 	value, exists := self.cachedStorage[key]
+	self.cachedLock.RUnlock()
 	if exists {
 		return value
 	}
@@ -160,7 +164,9 @@ func (self *accountObject) GetData(db AccountDatabase, key string) []byte {
 	}
 
 	if value != nil {
+		self.cachedLock.Lock()
 		self.cachedStorage[key] = value
+		self.cachedLock.Unlock()
 	}
 	return value
 }
@@ -175,7 +181,9 @@ func (self *accountObject) SetData(db AccountDatabase, key string, value []byte)
 }
 
 func (self *accountObject) setData(key string, value []byte) {
+	self.cachedLock.Lock()
 	self.cachedStorage[key] = value
+	self.cachedLock.Unlock()
 	self.dirtyStorage[key] = value
 
 	if self.onDirty != nil {

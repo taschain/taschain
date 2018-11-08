@@ -1,17 +1,16 @@
 package core
 
 import (
-	"middleware/types"
-	"github.com/vmihailenco/msgpack"
-	"github.com/hashicorp/golang-lru"
 	"common"
-	"storage/account"
-	"storage/vm"
-	"storage/trie"
-	"sync"
-	"errors"
-	"network"
 	"consensus/groupsig"
+	"errors"
+	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"middleware/types"
+	"network"
+	"storage/trie"
+	"storage/vm"
+	"sync"
 	"time"
 )
 
@@ -119,9 +118,7 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 		}
 	}
 	if accountdb == nil {
-		top := mm.blockchain.QueryTopBlock()
-		accountdb,_ = account.NewAccountDB(top.StateTree, mm.blockchain.GetSateCache())
-		//accountdb = mm.blockchain.LatestStateDB()
+		accountdb = mm.blockchain.LatestStateDB()
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
