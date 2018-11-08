@@ -18,6 +18,8 @@ package cli
 import (
 	"common"
 	"encoding/json"
+	"errors"
+	"golang.org/x/time/rate"
 	"log"
 	"core"
 	"sync"
@@ -29,8 +31,17 @@ type wallets []wallet
 
 var mutex sync.Mutex
 
+var limiter *rate.Limiter
+
+func init()  {
+	limiter = rate.NewLimiter(200, 200)
+}
+
 //
 func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64, cmd int32) (*common.Hash, *common.Address, error) {
+	if !limiter.Allow(){
+		return nil, nil, errors.New("rate limit")
+	}
 	if source == "" {
 		source = (*ws)[0].Address
 	}
@@ -47,7 +58,7 @@ func (ws *wallets) transaction(source, target string, value uint64, code string,
 	var contractAddr common.Address
 	var i uint64 = 0
 	for ; i < 100; i++ {
-		transaction = genTx(0, source, target, nonce+i, value, []byte(code), nil, 0, cmd)
+		transaction = genTx(i, source, target, nonce+i, value, []byte(code), nil, 0, cmd)
 		transaction.Hash = transaction.GenHash()
 		_, err := txpool.AddTransaction(transaction)
 		if err != nil {

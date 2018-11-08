@@ -5,6 +5,7 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"github.com/hashicorp/golang-lru"
 	"common"
+	"storage/account"
 	"storage/vm"
 	"storage/trie"
 	"sync"
@@ -108,6 +109,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			Logger.Debugf("AddGenesesMiner Light %+v %+v", miner.Id, data)
 		}
 	}
+	mm.heavyupdate = true
 }
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner {
@@ -117,7 +119,9 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 		}
 	}
 	if accountdb == nil {
-		accountdb = mm.blockchain.LatestStateDB()
+		top := mm.blockchain.QueryTopBlock()
+		accountdb,_ = account.NewAccountDB(top.StateTree, mm.blockchain.GetSateCache())
+		//accountdb = mm.blockchain.LatestStateDB()
 	}
 	db := mm.getMinerDatabase(ttype)
 	data := accountdb.GetData(db, string(id))
