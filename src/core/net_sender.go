@@ -87,14 +87,19 @@ func BroadcastTransactions(txs []*types.Transaction) {
 			Logger.Errorf("[peer]Runtime error caught: %v", r)
 		}
 	}()
-	if len(txs) > 0 && !BlockChainImpl.IsLightMiner() {
+	if len(txs) > 0 {
 		body, e := types.MarshalTransactions(txs)
 		if e != nil {
 			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
 		message := network.Message{Code: network.TransactionMsg, Body: body}
-		go network.GetNetInstance().RandomSpreadInGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, message)
+		if !BlockChainImpl.IsLightMiner() {
+			go network.GetNetInstance().RandomSpreadInGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, message)
+		} else {
+			heavyMiners := MinerManagerImpl.GetHeavyMiners()
+			go network.GetNetInstance().SpreadToGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message, nil)
+		}
 	}
 }
 
