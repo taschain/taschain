@@ -141,7 +141,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	core.InitBlockSyncer(light)
 	if len(apply) > 0 {
 		go func() {
-			timer := time.NewTimer(time.Second * 5)
+			timer := time.NewTimer(time.Second * 10)
 			for{
 				<-timer.C
 				if core.BlockSyncer.IsInit(){
