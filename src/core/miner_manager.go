@@ -1,16 +1,16 @@
 package core
 
 import (
-	"middleware/types"
-	"github.com/vmihailenco/msgpack"
-	"github.com/hashicorp/golang-lru"
 	"common"
-	"storage/vm"
-	"storage/trie"
-	"sync"
-	"errors"
-	"network"
 	"consensus/groupsig"
+	"errors"
+	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"middleware/types"
+	"network"
+	"storage/trie"
+	"storage/vm"
+	"sync"
 	"time"
 )
 
@@ -108,6 +108,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			Logger.Debugf("AddGenesesMiner Light %+v %+v", miner.Id, data)
 		}
 	}
+	mm.heavyupdate = true
 }
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner {
