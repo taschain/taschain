@@ -406,6 +406,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
 		chain.addBlockOnChain(&block)
+		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	go BlockSyncer.Sync()
