@@ -14,10 +14,8 @@
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package vm
-
 import (
 	"math/big"
-
 	"common"
 	"middleware/types"
 	"storage/trie"
@@ -44,6 +42,7 @@ type AccountDB interface {
 	GetData(common.Address, string) []byte
 	SetData(common.Address, string, []byte)
 	DataIterator(common.Address, string) *trie.Iterator
+	DataNext(iterator uintptr)string
 
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool

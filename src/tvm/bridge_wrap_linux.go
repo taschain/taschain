@@ -225,6 +225,18 @@ void wrap_set_bytecode(const char* code, int len)
 	void SetBytecode();
 	SetBytecode(code, len);
 }
+
+unsigned long long wrap_get_data_iter(const char*prefix)
+{
+	unsigned long long DataIterator(const char*);
+	return DataIterator(prefix);
+}
+
+char* wrap_get_data_iter_next(char* iter)
+{
+	char* DataNext(char*);
+	return DataNext(iter);
+}
 */
 import "C"
 import (
@@ -334,6 +346,8 @@ func bridge_init() {
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
+	C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
+	C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
 }
 
 type Contract struct {
@@ -433,11 +447,10 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 }
 
 func (tvm *Tvm) LoadContractCode(msg Msg) bool {
-	//if !tvm.loadMsg(msg) {
-	//	return false
-	//}
-	script := PycodeLoadContractData(tvm.ContractName)
-	return tvm.Execute(script)
+	if !tvm.loadMsg(msg) {
+		return false
+	}
+	return true
 }
 
 func (tvm *Tvm) Execute(script string) bool {

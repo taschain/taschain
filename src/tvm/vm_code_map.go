@@ -4,45 +4,56 @@ import "fmt"
 
 func PycodeStoreContractData(contractName string) string {
 	return fmt.Sprintf(`
-import account
-import ujson
-for k in tas_%s.__dict__:
-    #print(k)
-    #print(type(k))
-    #print(tas_%s.__dict__[k])
-    #print(type(tas_%s.__dict__[k]))
-    value = ujson.dumps(tas_%s.__dict__[k])
-    if TAS_PARAMS_DICT.get(k) != value:
-        account.set_data(k, value)`, contractName, contractName, contractName, contractName)
+TasBaseStoage.flushData()
+`)
 }
 
-func PycodeLoadContractData(contractName string) string {
-	return fmt.Sprintf(`
-import account
-import ujson
-TAS_PARAMS_DICT = {}
-for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	value = ujson.loads(account.get_data("", k))
-    #	print(value)
-    value = account.get_data(k)
-    TAS_PARAMS_DICT[k] = value
-    setattr(tas_%s, k, ujson.loads(value))`, contractName, contractName)
-}
 
 func PycodeCreateContractInstance(code string, contractName string) string {
-	return fmt.Sprintf(`
+	newCode:= fmt.Sprintf(`
 %s
-tas_%s = %s()`, code, contractName, contractName)
+%s
+tas_%s = %s()`, PycodeGetTrueUserCode(code), PycodeContractAddHooks(contractName),contractName, contractName)
+	return newCode
 }
 
-func PycodeContractDeploy(code string, contractName string) string {
+func PycodeContractImports()string{
+	return  "from lib.base.tas_storage_base_property import TasBaseStoage\nfrom lib.base.tas_storage_map_property import TasMapStorage"
+}
+
+func PycodeContractAddHooks(contractName string)string{
+	initHook:=fmt.Sprintf("%s.__init__ = TasBaseStoage.initHook",contractName)
+	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStoage.setAttrHook",contractName)
+	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStoage.getAttrHook",contractName)
 	return fmt.Sprintf(`
 %s
-TAS_PARAMS_DICT = {}
+%s
+%s
+	`,initHook,getAttributeHook,setAttributeHook)
+}
+
+func PycodeGetTrueUserCode(code string)string{
+	usercode:=fmt.Sprintf(`
+%s
+%s
+	`,PycodeContractImports(),code)
+	return usercode
+}
+
+
+func PycodeContractDeploy(code string, contractName string) string {
+	invokeDeploy:=fmt.Sprintf(`
 tas_%s = %s()
-tas_%s.deploy()`, code, contractName, contractName, contractName)
+tas_%s.deploy()
+	`,contractName, contractName, contractName)
+
+	allContractCode:= fmt.Sprintf(`
+%s
+%s
+%s
+`, PycodeGetTrueUserCode(code),PycodeContractAddHooks(contractName),invokeDeploy)
+	return allContractCode
+
 }
 
 func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {

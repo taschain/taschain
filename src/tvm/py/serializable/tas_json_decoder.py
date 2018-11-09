@@ -30,8 +30,11 @@ class TasJson:
         return TasJson.mapFieldName +"_"+ TasJson.mapKey
 
     def decodeValue(self,value):
+        if value.startswith('0'):
+            return 0,""
+        value = value.replace("1","",1)
         data = ujson.loads(value)
-        return data["tp"],data["vl"]
+        return 1,data
 
     def decodeNormal(self,value):
         data = ujson.loads(value)
@@ -39,8 +42,10 @@ class TasJson:
 
 
     def encodeValue(self,type,value):
-        data = {"tp":type,"vl":value}
-        return ujson.dumps(data)
+        if type == 0: #this is map
+            return "0"
+        else:
+            return "1"+ ujson.dumps(value)
 
     @staticmethod
     def checkBaseValue(value, currentDeep):

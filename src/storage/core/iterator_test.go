@@ -35,7 +35,8 @@ func TestNodeIterator(t *testing.T)  {
 	state.SetData(common.StringToAddress("1"),"c",[]byte("d"))
 	state.Commit(true)
 	stateObject := state.getAccountObject(common.StringToAddress("1"))
-	for it2 := stateObject.DataIterator(nil); it2.Next();{
+
+	for it2 := stateObject.DataIterator(db,[]byte("")); it2.Next();{
 		fmt.Printf("%s %s\n",string(it2.Key), it2.Value)
 	}
 

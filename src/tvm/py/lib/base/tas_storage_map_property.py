@@ -20,13 +20,9 @@ class TasMapStorage:
         self.checkValue(value)
         self.readData[key] = value
         self.writeData[key] = value
-        #self.checkSyntax(key,value)
 
-    # def checkSyntax(self,key,value):
-    #     if key in self.readData:
-    #         currentVl = self.readData[key]
-    #         if type(TasMapStorage()) == type(value) == type(currentVl):
-    #             raise Exception("Cannot set dict property to another dict")
+    def __delitem__(self, key):
+        print("del")
 
 
     def __iter__(self):
@@ -99,7 +95,7 @@ class SysNormalIter:
     def getNextKV(self):
         vl = account.get_iterator_next(self.iter)
         jsondata = TasMapStorage.tasJson.decodeNormal(vl)
-        hasValue = jsondata['hasValue']
+        hasValue = jsondata['hasValue']#1normalvalue 0:null data 2:map node
         if hasValue == 0 :
             if  len(self.mem) == 0:#if memory and db all null then return
                 raise StopIteration
@@ -111,17 +107,17 @@ class SysNormalIter:
                 break
             del self.mem[memKey]
             return memKey,memValue
+        elif hasValue == 2:#this is map node
+            return None, None
         value = jsondata['value']
         key = jsondata['key']
         if value == "":  # this is root node
-            return None,None
-        if value['tp'] == 0:#if this is 0,this value is map,not leaf node
             return None,None
         if key in self.mem:#check from memory if thie key exists in memory
             memValue = self.mem[key]
             del self.mem[key]
             return key,memValue
-        return key,value['vl']
+        return key,value
 
     def __next__(self):
         key,vl = self.getNextKV()
