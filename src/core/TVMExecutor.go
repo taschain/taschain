@@ -83,6 +83,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				snapshot := controller.AccountDB.Snapshot()
 				if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
 					controller.AccountDB.RevertToSnapshot(snapshot)
+					fail = true
 				}
 				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {

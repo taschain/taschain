@@ -43,6 +43,7 @@ type AccountDB interface {
 
 	GetData(common.Address, string) []byte
 	SetData(common.Address, string, []byte)
+	RemoveData(common.Address, string)
 	DataIterator(common.Address, string) *trie.Iterator
 
 	Suicide(common.Address) bool
