@@ -94,12 +94,9 @@ func BroadcastTransactions(txs []*types.Transaction) {
 			return
 		}
 		message := network.Message{Code: network.TransactionMsg, Body: body}
-		if !BlockChainImpl.IsLightMiner() {
-			go network.GetNetInstance().RandomSpreadInGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, message)
-		} else {
-			heavyMiners := MinerManagerImpl.GetHeavyMiners()
-			go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
-		}
+		heavyMiners := MinerManagerImpl.GetHeavyMiners()
+		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+
 	}
 }
 

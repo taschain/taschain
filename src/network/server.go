@@ -96,7 +96,7 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d", groupId, len(groupMembers))
 	n.netCore.GroupBroadcastWithMembers(groupId, bytes, nil, groupMembers, 1)
 	return nil
 }
