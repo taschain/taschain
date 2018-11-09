@@ -100,10 +100,10 @@ func (bs *blockSyncer) Sync() {
 		return
 	}
 
-	if candidateQN > localTotalQN+30 {
-		RequestBlock(candidateId, localHeight+1)
-		return
-	}
+	//if candidateQN > localTotalQN+30 {
+	//	RequestBlock(candidateId, localHeight+1)
+	//	return
+	//}
 	RequestChainPiece(candidateId, localHeight)
 }
 
