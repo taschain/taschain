@@ -46,7 +46,7 @@ func OnChainFunc(code string, source string) {
 	txpool := BlockChainImpl.GetTransactionPool()
 	index := uint64(time.Now().Unix())
 	fmt.Println(index)
-	txpool.Add(genContractTx(123456, source, "", index, 0, []byte(code), nil, 0))
+	txpool.Add(genContractTx(1, source, "", index, 0, []byte(code), nil, 0))
 	fmt.Println("nonce:", BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 	castor := new([]byte)
@@ -80,7 +80,7 @@ func CallContract2(address, abi string, source string) {
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0))
+	txpool.Add(genContractTx(1, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
@@ -152,12 +152,13 @@ class A():
     def deploy(self):
         print("deploy")
 
-    @register.public(int,str,list,dict)
-    def test(self,aa,bb,cc,dd):
+    @register.public(int,bool,str,list,dict)
+    def test(self,aa,bb,cc,dd,ee):
         print(aa)
         print(bb)
         print(cc)
         print(dd)
+        print(ee)
         #account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
         pass
 
@@ -188,9 +189,21 @@ func Test_Deploy_Contract2(t *testing.T)  {
 }
 
 
-func TestCallConstract(t *testing.T)  {
-	contractAddr := "0xf5f946643f8847e48cfb6e1dbca803246500613e"
-	abi := `{"FuncName": "test", "Args": [10,"fffff",["aa","bb",33],{"name":"xxxx","value":777}]}`
+func TestCallConstractABI_success(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test", "Args": [10,true,"fffff",["aa","bb",33],{"name":"xxxx","value":777}]}`
+	CallContract(contractAddr, abi)
+}
+
+func TestCallConstractABI_fail1(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test1", "Args": []}`
+	CallContract(contractAddr, abi)
+}
+
+func TestCallConstractABI_fail2(t *testing.T)  {
+	contractAddr := "0xeb60812b2a859bcccae03c0b47e47461ef16cc27"
+	abi := `{"FuncName": "test2", "Args": []}`
 	CallContract(contractAddr, abi)
 }
 
@@ -583,7 +596,7 @@ func genContractTx(price uint64, source string, target string, nonce uint64, val
 	return &types.Transaction{
 		Hash: common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
-		GasLimit:		2000000000,
+		GasLimit:		2000000,
 		GasPrice:      price,
 		Source:        sourceAddr,
 		Target:        targetAddr,

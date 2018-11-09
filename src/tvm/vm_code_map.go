@@ -8,7 +8,6 @@ TasBaseStoage.flushData()
 `)
 }
 
-
 func PycodeCreateContractInstance(code string, contractName string) string {
 	newCode:= fmt.Sprintf(`
 %s
@@ -70,14 +69,10 @@ class Register(object):
             paranametuple = func.__para__
             paraname = list(paranametuple)
             paraname.remove("self")
-            #print(paraname)
-            #print(len(paraname))
             paratype = []
             for i in range(len(paraname)):
-                #print(dargs[i])
                 paratype.append(dargs[i])
             self.funcinfo[func.__name__] = [paraname,paratype]
-            print(self.funcinfo)
             
             def _wrapper(*args , **kargs):
                 return func(*args, **kargs)
@@ -111,38 +106,13 @@ func GetInterfaceType(value interface{}) string{
 }
 
 func PycodeCheckAbi(abi ABI) string {
-	//return fmt.Sprintf(`if "%s" not in register.funcinfo:
-	//raise Exception("cannot call this function: %s")`, abi.FuncName, abi.FuncName)
 
-	var str string //:=`__ABIParaTypes = ["`
-	//var types []string
-
-//	if len(abi.Args) == 0 {
-//		str = `
-//__ABIParaTypes=[]`
-//	}else {
-//		str = `__ABIParaTypes = ["`
-//		for i := 0; i < len(abi.Args); i++ {
-//			tmp := GetInterfaceType(abi.Args[i])
-//			types = append(types, tmp)
-//			//fmt.Println(types[i])
-//			str += types[i]
-//			if i == len(abi.Args)-1 {
-//				str += `"]
-//`
-//			} else {
-//				str += `","`
-//			}
-//		}
-//	}
-
+	var str string
 	str = `
 __ABIParaTypes=[]`
     for i := 0; i < len(abi.Args); i++ {
     	str += fmt.Sprintf("\n" + "__ABIParaTypes.append(type(%s))",GetInterfaceType(abi.Args[i]))
 	}
-	//str += fmt.Sprintf("\nprint(__ABIParaTypes)")
-	//fmt.Println(str)
 
 	str += fmt.Sprintf(`
 if "%s" in register.funcinfo:
@@ -157,8 +127,6 @@ if "%s" in register.funcinfo:
 else:
     raise Exception("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
-
-	//fmt.Println(str)
 
 
 	return str

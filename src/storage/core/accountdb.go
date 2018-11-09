@@ -174,6 +174,10 @@ func (self *AccountDB) GetData(a common.Address, b string) []byte {
 	return nil
 }
 
+func (self *AccountDB) RemoveData(a common.Address, b string) {
+	self.SetData(a, b, nil)
+}
+
 func (self *AccountDB) Database() Database {
 	return self.db
 }
