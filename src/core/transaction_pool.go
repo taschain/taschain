@@ -197,7 +197,6 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	// batch broadcast
 	if isBroadcast {
 		//交易不广播
-		//return true, nil
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()

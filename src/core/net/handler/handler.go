@@ -93,8 +93,8 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil
 		}
-		if msg.Code == network.TransactionGotMsg {
-			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
+		if msg.Code == network.TransactionMsg {
+			network.Logger.Debugf("receive TransactionMsg from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
 		return err
@@ -350,9 +350,6 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 //验证节点接收交易 或者接收来自客户端广播的交易
 func onMessageTransaction(txs []*types.Transaction) error {
 	//验证节点接收交易 加入交易池
-	if nil == core.BlockChainImpl {
-		return nil
-	}
 	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
 		return e
