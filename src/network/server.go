@@ -108,8 +108,8 @@ func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Messag
 		return err
 	}
 
+	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers, -1)
-	//Logger.Debugf("[Sender]SpreadOverGroup to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 
 	return nil
 }
