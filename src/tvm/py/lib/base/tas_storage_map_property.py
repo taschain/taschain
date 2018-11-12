@@ -1,12 +1,6 @@
 import account
 from serializable.tas_json_decoder import TasJson
 class TasMapStorage:
-    TypeInt = type(1)
-    TypeBool = type(True)
-    TypeStr = type("")
-    TypeList = type([])
-    TypeDict = type({})
-    supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict]
     tasJson = TasJson()
 
     def __init__(self,nestin =  1):
@@ -15,6 +9,8 @@ class TasMapStorage:
         self.nestIn = nestin  #max nestin map
 
     def __setitem__(self, key, value):
+        if value is None:
+            return
         TasJson.checkMapKey(key)
         self.checkValue(value)
         self.readData[key] = value

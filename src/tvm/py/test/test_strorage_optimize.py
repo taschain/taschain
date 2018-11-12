@@ -22,6 +22,7 @@ class ContractStorage():
         self.expectValue(True, self.c)
         self.expectValue([1,2,3], self.d)
         self.expectValue({"1":"2","3":"4"}, self.e)
+        self.noneVl=None
 
     @register.public()
     def getBaseNeedSuccess1(self):
@@ -30,6 +31,7 @@ class ContractStorage():
         self.expectValue(True, self.c)
         self.expectValue([1, 2, 3], self.d)
         self.expectValue({"1": "2", "3": "4"}, self.e)
+        self.expectValue(None, self.noneVl)
 
     @register.public()
     def setBaseNeedSuccess2(self):

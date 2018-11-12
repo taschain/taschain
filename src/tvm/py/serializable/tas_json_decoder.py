@@ -7,7 +7,8 @@ class TasJson:
     TypeStr = type("")
     TypeList = type([])
     TypeDict = type({})
-    supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict]
+    TypeNone = type(None)
+    supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict,TypeNone]
 
     @staticmethod
     def setVisitMapField(key):

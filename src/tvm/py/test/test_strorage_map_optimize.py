@@ -17,7 +17,7 @@ class ContractMapStorage():
         self.a["$$$"] = "SADDSDSDFDFDF@$#$#$#"
         self.a["^^&"] = [1,2,3,4]
         self.a[")()!"] = {"1222":454}
-
+        self.a["null"] = None
         self.a["d1"] = 100
         self.a["d2"] = 200
 
@@ -32,6 +32,7 @@ class ContractMapStorage():
         self.expectValue([1,2,3,4], self.a["^^&"])
         self.expectValue({"1222":454}, self.a[")()!"])
         self.expectValue(None, self.a["d1"])
+        self.expectValue(None, self.a["null"])
         del self.a["d2"]
 
     @register.public()
@@ -172,7 +173,7 @@ class ContractMapStorage():
     @register.public()
     def getMapIter(self):
         self.a["x3"] = 333
-        data = {"x1":1,"x3":333,"x2_x21_x22":[1,2,3],"x2_x21_x23":111,"x2_x21_x24":3333}
+        data = {"x1":1,"x3":333,"x2@x21@x22":[1,2,3],"x2@x21@x23":111,"x2@x21@x24":3333}
         for key,value in self.a:
             vl = data[key]
             if value == vl:
