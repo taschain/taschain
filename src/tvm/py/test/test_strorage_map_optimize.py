@@ -171,11 +171,15 @@ class ContractMapStorage():
 
     @register.public()
     def getMapIter(self):
-        data = {"a_x1":1,"a_x2_x21_x22":[1,2,3],"a_x2_x21_x23":111,"a_x2_x21_x24":333}
+        self.a["x3"] = 333
+        data = {"x1":1,"x3":333,"x2_x21_x22":[1,2,3],"x2_x21_x23":111,"x2_x21_x24":3333}
         for key,value in self.a:
-            del data[key]
+            vl = data[key]
+            if value == vl:
+                del data[key]
         if len(data) != 0:
             raise Exception("data must be null")
+
 
         try:  # can not remove a map
             del self.a["x2"]["x21"]

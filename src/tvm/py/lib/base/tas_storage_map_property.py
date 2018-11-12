@@ -106,6 +106,7 @@ class SysNormalIter:
     def __init__(self,father):
         self.iter = account.get_iterator(TasJson.getDbKey())
         self.iterFromMem(father,TasJson.getDbKey())
+        self.relaceStr = TasJson.getDbKey()+"_"
 
     def iterFromMem(self,father,ks):
         self.mem = {}
@@ -131,7 +132,8 @@ class SysNormalIter:
                 memKey = key
                 break
             del self.mem[memKey]
-            return memKey,memValue
+            newKey = memKey.replace(self.relaceStr, "", 1)
+            return newKey,memValue
         elif hasValue == 2:#this is map node
             return None, None
         value = jsondata['value']
@@ -142,7 +144,8 @@ class SysNormalIter:
             memValue = self.mem[key]
             del self.mem[key]
             return key,memValue
-        return key,value
+        newKey = key.replace(self.relaceStr,"",1)
+        return newKey,value
 
     def __next__(self):
         key,vl = self.getNextKV()
