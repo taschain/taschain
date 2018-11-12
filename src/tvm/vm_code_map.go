@@ -47,8 +47,14 @@ tas_%s.deploy()`, code, contractName, contractName, contractName)
 
 func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {
 	return fmt.Sprintf(`
-from clib.tas_runtime.msgxx import Msg
-from clib.tas_runtime.address_tas import Address
+class Msg(object):
+    def __init__(self, data, value, sender):
+        self.data = data
+        self.value = value
+        self.sender = sender
+
+    def __repr__(self):
+        return "data: " + str(self.data) + " value: " + str(self.value) + " sender: " + str(self.sender)
 
 class Register(object):
     def __init__(self):

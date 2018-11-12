@@ -96,5 +96,5 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 }
 
 func(con *Controller) GetGasLeft() uint64{
-	return uint64(con.Vm.Gas())
+	return con.Transaction.GasLimit
 }

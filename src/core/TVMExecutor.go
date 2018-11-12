@@ -61,7 +61,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
 					controller.Transaction.GasLimit -= deploySpend
-						contract := tvm.LoadContract(contractAddress)
+					contract := tvm.LoadContract(contractAddress)
 					if !controller.Deploy(transaction.Source, contract) {
 						controller.AccountDB.RevertToSnapshot(snapshot)
 					}
