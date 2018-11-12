@@ -123,16 +123,16 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
 func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction) {
 
-	txs, e := types.MarshalTransactions(body)
-	if e != nil {
-		logger.Errorf("[peer]Discard send cast verify because of MarshalTransactions error:%s", e.Error())
-		return
-	}
+	//txs, e := types.MarshalTransactions(body)
+	//if e != nil {
+	//	logger.Errorf("[peer]Discard send cast verify because of MarshalTransactions error:%s", e.Error())
+	//	return
+	//}
 
 	var groupId groupsig.ID
 	e1 := groupId.Deserialize(ccm.BH.GroupId)
 	if e1 != nil {
-		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
+		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e1.Error())
 		return
 	}
 	timeFromCast := time.Since(ccm.BH.CurTime)
