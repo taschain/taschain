@@ -16,7 +16,6 @@
 package tvm
 
 /*
-#include "tvm.h"
 #include <stdlib.h>
 */
 import "C"
