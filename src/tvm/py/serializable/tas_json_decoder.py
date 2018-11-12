@@ -82,3 +82,11 @@ class TasJson:
         x = bytes(key, "utf-8")
         if len(x) > 32:
             raise Exception("the length of key cannot more than 32!")
+
+    @staticmethod
+    def checkMapKey(key):
+        if type(key) != TasJson.TypeStr:
+            raise Exception("key must be string")
+        x = bytes(key, "utf-8")
+        if len(x) > 45:
+            raise Exception("the length of key cannot more than 45!")

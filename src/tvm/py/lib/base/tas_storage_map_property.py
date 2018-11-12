@@ -15,7 +15,7 @@ class TasMapStorage:
         self.nestIn = nestin  #max nestin map
 
     def __setitem__(self, key, value):
-        TasJson.checkKey(key)
+        TasJson.checkMapKey(key)
         self.checkValue(value)
         self.readData[key] = value
         self.writeData[key] = value
@@ -52,7 +52,7 @@ class TasMapStorage:
         return self
 
     def __getitem__(self, key):
-        TasJson.checkKey(key)
+        TasJson.checkMapKey(key)
         TasJson.setVisitMapKey(key)
         return self.getValue(key)
 
