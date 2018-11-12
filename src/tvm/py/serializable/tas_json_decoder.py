@@ -17,7 +17,7 @@ class TasJson:
     @staticmethod
     def setVisitMapKey(key):
         if TasJson.mapKey != "":
-            TasJson.mapKey = TasJson.mapKey + "_" + key
+            TasJson.mapKey = TasJson.mapKey + "@" + key
         else:
             TasJson.mapKey = key
 
@@ -28,7 +28,7 @@ class TasJson:
     @staticmethod
     def getDbKey():
         if TasJson.mapKey != "":
-            return TasJson.mapFieldName +"_"+ TasJson.mapKey
+            return TasJson.mapFieldName +"@"+ TasJson.mapKey
         return TasJson.mapFieldName
 
     def decodeValue(self,value):
@@ -80,5 +80,5 @@ class TasJson:
         if type(key) != TasJson.TypeStr:
             raise Exception("key must be string")
         x = bytes(key, "utf-8")
-        if len(x) > 32:  # len = 32 + "_"
+        if len(x) > 32:
             raise Exception("the length of key cannot more than 32!")

@@ -33,7 +33,7 @@ class TasMapStorage:
             value = self.writeData[key]
             self.checkValueCanDel(value)
             del self.writeData[key]
-        dbKey = TasJson.getDbKey() + "_" + key
+        dbKey = TasJson.getDbKey() + "@" + key
         tp, dbValue = self.getDataFromDB(dbKey)
         if tp == -1:#db is null
             return
@@ -91,7 +91,7 @@ class TasMapStorage:
 
     def flushData(self,fieldName):
         for k in self.writeData:
-            newKey=fieldName+"_" + k
+            newKey=fieldName+"@" + k
             toWriteData = self.writeData[k]
             if type(toWriteData) == type(self):
                 account.set_data(newKey, TasMapStorage.tasJson.encodeValue(0, "0"))
@@ -105,12 +105,12 @@ class SysNormalIter:
     def __init__(self,father):
         self.iter = account.get_iterator(TasJson.getDbKey())
         self.iterFromMem(father,TasJson.getDbKey())
-        self.relaceStr = TasJson.getDbKey()+"_"
+        self.relaceStr = TasJson.getDbKey()+"@"
 
     def iterFromMem(self,father,ks):
         self.mem = {}
         for k in father.writeData:
-            newKey = ks+ "_" + k
+            newKey = ks+ "@" + k
             toWriteData = father.writeData[k]
             if type(toWriteData) == type(father):
                 self.iterFromMem(toWriteData,newKey)
