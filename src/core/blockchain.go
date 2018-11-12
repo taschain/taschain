@@ -340,15 +340,21 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return nil, 2
 	}
 
-	//miss, missingTx, transactions := chain.missTransaction(bh, txs)
-	//if miss {
-	//	return missingTx, 1
-	//}
-	//
-	//Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d,miss len:%d", bh.TxTree.Hex(), len(transactions), len(missingTx))
-	//if !chain.validateTxRoot(bh.TxTree, transactions) {
-	//	return nil, -1
-	//}
+	miss, missingTx, transactions := chain.missTransaction(bh, txs)
+	if miss {
+		return missingTx, 1
+	}
+
+	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d,miss len:%d", bh.TxTree.Hex(), len(transactions), len(missingTx))
+	if !chain.validateTxRoot(bh.TxTree, transactions) {
+		return nil, -1
+	}
+
+	block := types.Block{Header: &bh, Transactions: transactions}
+	executeTxResult, _, _ := chain.executeTransaction(&block)
+	if !executeTxResult {
+		return nil, -1
+	}
 	return nil, 0
 }
 
@@ -426,13 +432,18 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
-	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d", remoteBlock.Header.TxTree, len(remoteBlock.Transactions))
-	if !chain.validateTxRoot(remoteBlock.Header.TxTree, remoteBlock.Transactions) {
-		return -1, nil
-	}
-	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
-	if !executeTxResult {
-		return -1, nil
+	var state *account.AccountDB
+	var receipts types.Receipts
+	if value, exit := chain.verifiedBlocks.Get(remoteBlock.Header.Hash); exit {
+		b := value.(*castingBlock)
+		state = b.state
+		receipts = b.receipts
+	} else {
+		var executeTxResult bool
+		executeTxResult, state, receipts = chain.executeTransaction(remoteBlock)
+		if !executeTxResult {
+			return -1, nil
+		}
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
 	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)

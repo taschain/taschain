@@ -142,9 +142,9 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	if len(apply) > 0 {
 		go func() {
 			timer := time.NewTimer(time.Second * 10)
-			for{
+			for {
 				<-timer.C
-				if core.BlockSyncer.IsInit(){
+				if core.BlockSyncer.IsInit() {
 					break
 				} else {
 					timer.Reset(time.Second * 5)
@@ -299,6 +299,8 @@ func (gtas *Gtas) Run() {
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		lightMiner = *light
+		//轻重节点一样
+		lightMiner = false
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
