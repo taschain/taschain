@@ -120,6 +120,10 @@ func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
 		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
 		return
 	}
+	b := core.BlockChainImpl.QueryBlockByHash(header.Hash)
+	if b != nil {
+		return
+	}
 
 	notify := blockHeaderNotify{header: *header, peer: m.Peer}
 	ch.headerCh <- notify

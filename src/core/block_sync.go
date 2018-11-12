@@ -74,7 +74,7 @@ func (bs *blockSyncer) Sync() {
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
-	if candidateQN <= localTotalQN || candidateHeight == 0 {
+	if candidateQN < localTotalQN || candidateHash == localHash {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -99,11 +99,6 @@ func (bs *blockSyncer) Sync() {
 		RequestBlock(candidateId, 1)
 		return
 	}
-
-	//if candidateQN > localTotalQN+30 {
-	//	RequestBlock(candidateId, localHeight+1)
-	//	return
-	//}
 	RequestChainPiece(candidateId, localHeight)
 }
 
@@ -123,6 +118,9 @@ func (bs *blockSyncer) loop() {
 
 func sendBlockTotalQnToNeighbor(topBlockHeader *types.BlockHeader) {
 	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", topBlockHeader.TotalQN)
+	if topBlockHeader.Height == 0 {
+		return
+	}
 	body, e := types.MarshalBlockHeader(topBlockHeader)
 	if e != nil {
 		logger.Errorf("[BlockSyncer]marshal TotalQnInfo error:%s", e.Error())
