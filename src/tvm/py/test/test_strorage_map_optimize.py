@@ -67,6 +67,7 @@ class ContractMapStorage():
     @register.public()
     def setMapNestIn(self):
         self.a = TasMapStorage()
+        self.xxx = TasMapStorage()
         self.a["x1"] = TasMapStorage()
         self.a["x1"]["x12"] = "x12"
         self.a["x1"]["x13"] = 13
@@ -100,6 +101,7 @@ class ContractMapStorage():
             pass
         else:
             raise Exception("exception exception !")
+
 
     @register.public()
     def getMapNestIn(self):
@@ -139,6 +141,12 @@ class ContractMapStorage():
         del deldata2["124"]
         deldata2["125"] = 500
 
+        if self.xxx["1"] == None:
+            self.xxx["1"] = TasMapStorage()
+            newKey = self.xxx["1"]
+            newKey["2"] = 1000
+        self.expectValue(1000, self.xxx["1"]["2"])
+
     @register.public()
     def getMapNestIn2(self):
         self.expectValue(123456, self.a["x1"]["x222"])
@@ -149,6 +157,7 @@ class ContractMapStorage():
         self.expectValue(None, self.a["x1"]["x11"]["123"])
         self.expectValue(None, self.a["x1"]["x11"]["124"])
         self.expectValue(500, self.a["x1"]["x11"]["125"])
+        self.expectValue(1000, self.xxx["1"]["2"])
 
     @register.public()
     def setMapIter(self):
