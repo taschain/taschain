@@ -21,8 +21,28 @@ class TasMapStorage:
         self.readData[key] = value
         self.writeData[key] = value
 
+    def checkValueCanDel(self,value):
+        if type(value) == type(self):
+            raise Exception("can not remove a map!")
+
     def __delitem__(self, key):
-        print("del")
+        if key in self.readData:
+            value = self.readData[key]
+            self.checkValueCanDel(value)
+            del self.readData[key]
+        if key in self.writeData:
+            value = self.writeData[key]
+            self.checkValueCanDel(value)
+            del self.writeData[key]
+        dbKey = TasJson.getDbKey() + "_" + key
+        tp, dbValue = self.getDataFromDB(dbKey)
+        if tp == -1:#db is null
+            return
+        elif tp == 0:#this is map!cannot del
+            raise Exception("can not remove a map!")
+        else:
+            account.remove_data(dbKey)
+
 
 
     def __iter__(self):
@@ -37,22 +57,27 @@ class TasMapStorage:
         TasJson.setVisitMapKey(key)
         return self.getValue(key)
 
+    def getDataFromDB(self,key):
+        value = account.get_data(key)
+        if value == None or value == "":
+            return -1,None
+        tp, value = TasMapStorage.tasJson.decodeValue(value)
+        return tp,value
+
     def getValue(self,key):
         #get value from memory
         if key in self.readData:
             return self.readData[key]
         else:#get value from db
             dbKey = TasJson.getDbKey()
-            value = account.get_data(dbKey)
-            if value == None or value == "":
+            tp, value = self.getDataFromDB(dbKey)
+            if tp == -1:
                 return None
-            else:#put db data into memory
-                tp,value = TasMapStorage.tasJson.decodeValue(value)
-                if tp == 0:
-                    value = TasMapStorage()
-                    self.writeData[key]=value
-                self.readData[key]=value
-                return value
+            elif tp == 0:#put db data into memory(this is map)
+                value = TasMapStorage()
+                self.writeData[key]=value
+            self.readData[key] = value
+            return value
 
     def checkValue(self,value):
         if type(value) == type(self):

@@ -118,6 +118,12 @@ unsigned long long wrap_get_refund()
 	return GetRefund();
 }
 
+void wrap_remove_data(char* key)
+{
+	void RemoveData(char* );
+	RemoveData(key);
+}
+
 char* wrap_get_data(char* key)
 {
 	char* GetData(char*);
@@ -274,7 +280,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	prepredSucceed := controller.Vm.CreateContractInstance(msg) && controller.Vm.LoadContractCode(msg)
+	prepredSucceed := controller.Vm.CreateContractInstance(msg)
 	if !prepredSucceed {
 		//todo 异常处理
 		return ""
@@ -329,6 +335,7 @@ func bridge_init() {
 	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
 	C.get_data = (C.Function10)(unsafe.Pointer(C.wrap_get_data))
 	C.set_data = (C.Function5)(unsafe.Pointer(C.wrap_set_data))
+	C.remove_data = (C.Function1)(unsafe.Pointer(C.wrap_remove_data))
 	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
 	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
 	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
@@ -444,13 +451,6 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 	}
 	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
 	return tvm.Execute(script)
-}
-
-func (tvm *Tvm) LoadContractCode(msg Msg) bool {
-	if !tvm.loadMsg(msg) {
-		return false
-	}
-	return true
 }
 
 func (tvm *Tvm) Execute(script string) bool {

@@ -86,6 +86,7 @@ typedef void (*Function16)(const char*, int len);
  Function8 add_refund;
  Function9 get_refund;
  Function10 get_data;
+ Function1 remove_data;
  Function5 set_data;
  Function4 suicide;
  Function4 has_suicide;

@@ -263,6 +263,12 @@ func DataIterator(prefix *C.char) C.ulonglong{
 	return C.ulonglong(uintptr(unsafe.Pointer(iter)))
 }
 
+//export RemoveData
+func RemoveData(key *C.char){
+	address := *controller.Vm.ContractAddress
+	controller.AccountDB.RemoveData(address,C.GoString(key))
+}
+
 //export DataNext
 func DataNext(cvalue *C.char)*C.char{
 	//C.ulonglong

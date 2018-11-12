@@ -7,7 +7,6 @@ import (
 	"tvm"
 	"encoding/json"
 	"common"
-	"time"
 )
 
 type DATA_TYPE int
@@ -24,14 +23,14 @@ func getFile(fileName string)string{
 	return "../tvm/py/test/"+fileName
 }
 
-func TestBaseLv1(t *testing.T) {
+func TestBaseTypes(t *testing.T) {
 	Clear()
 	code := tvm.Read0(getFile("test_strorage_optimize.py"))
 	contract := tvm.Contract{code, "ContractStorage", nil}
 	jsonString, _ := json.Marshal(contract)
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 
-	for i :=1;i<=2;i++{
+	for i :=1;i<=4;i++{
 		contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
 		abi := fmt.Sprintf(`{"FuncName": "setBaseNeedSuccess%d", "Args": []}`,i)
 		CallContract(contractAddr, abi)
@@ -41,27 +40,120 @@ func TestBaseLv1(t *testing.T) {
 		CallContract(contractAddr, abi)
 	}
 
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setChangeKey", "Args": []}`
+	CallContract(contractAddr, abi)
 
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getChangeKey", "Args": []}`
+	CallContract(contractAddr, abi)
 }
 
-func TestStoreDictForMapTypes(t *testing.T) {
+func TestBaseTypeErrors(t *testing.T) {
 	Clear()
 	code := tvm.Read0(getFile("test_strorage_optimize.py"))
 	contract := tvm.Contract{code, "ContractStorage", nil}
 	jsonString, _ := json.Marshal(contract)
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 
-	time.Sleep(1* time.Second)
 	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
-	abi := `{"FuncName": "setBase", "Args": []}`
+	abi := `{"FuncName": "baseErrors", "Args": []}`
+	CallContract(contractAddr, abi)
+}
+
+
+func TestMapBaseNeedSuccess1(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setMapBaseDataSetNeedSuccess", "Args": []}`
 	CallContract(contractAddr, abi)
 
-	time.Sleep(1* time.Second)
 	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
-	abi = `{"FuncName": "setMap", "Args": []}`
+	abi = `{"FuncName": "getMapBaseDataSetNeedSuccess", "Args": []}`
 	CallContract(contractAddr, abi)
 
-	//GetContractDatas(contractAddr)
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getMapBaseDataSetNeedSuccess2", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	GetContractDatas(contractAddr)
+}
+
+func TestMapCoverValue(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setMapCoverValue", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getMapCoverValue", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	GetContractDatas(contractAddr)
+}
+
+
+func TestMapNestIn(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setMapNestIn", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getMapNestIn", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getMapNestIn2", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	GetContractDatas(contractAddr)
+}
+
+
+func TestMapIter(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setMapIter", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getMapIter", "Args": []}`
+	CallContract(contractAddr, abi)
+
+}
+
+func TestMapErrors(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setMapErrors", "Args": []}`
+	CallContract(contractAddr, abi)
+	GetContractDatas(contractAddr)
 }
 
 

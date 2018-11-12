@@ -26,10 +26,10 @@ class TasBaseStoage:
             return TasBaseStoage.getValue(key)
 
     def setAttrHook(self, key, value):
+        TasJson.checkKey(key)
         if TasBaseStoage.TypeTasMap == type(value):
             TasBaseStoage.tasMapFieldList[key] = value
         else:
-            TasJson.checkKey(key)
             TasBaseStoage.checkValue(value)
             if key in TasBaseStoage.tasMapFieldList:
                 del TasBaseStoage.tasMapFieldList[key]

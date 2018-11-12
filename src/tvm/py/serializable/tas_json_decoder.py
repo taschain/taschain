@@ -27,7 +27,9 @@ class TasJson:
 
     @staticmethod
     def getDbKey():
-        return TasJson.mapFieldName +"_"+ TasJson.mapKey
+        if TasJson.mapKey != "":
+            return TasJson.mapFieldName +"_"+ TasJson.mapKey
+        return TasJson.mapFieldName
 
     def decodeValue(self,value):
         if value.startswith('0'):
@@ -60,8 +62,7 @@ class TasJson:
 
     @staticmethod
     def checkDictValue(value, currentDeep):
-        for data in value:
-            TasJson.checkKey(data)
+        for key,data in value.items():
             TasJson.checkBaseValue(data, currentDeep + 1)
 
     @staticmethod
