@@ -9,7 +9,6 @@
 extern "C" {
 #endif
 
-
 void tvm_set_lib_path(const char* path);
 /*
 	没有返回结果的调用
@@ -26,14 +25,14 @@ retsult:type|errorcode|content
 */
 char* tvm_execute_with_result(char *str);
 typedef int (*callback_fcn)(int);
-typedef void (*testAry_fcn)(void*);
+typedef void (*testAry_fcn)(void*); 
+
 
 _Bool pycode2bytecode(char *str);
 _Bool runbytecode(char *buf, int len);
 void some_c_func(callback_fcn);
 void tvm_setup_func(callback_fcn callback);
 void tvm_set_testAry_func(testAry_fcn);
-
 
 typedef void (*TransferFunc)(const char*, const char*);
 
@@ -87,6 +86,7 @@ typedef void (*Function16)(const char*, int len);
  Function8 add_refund;
  Function9 get_refund;
  Function10 get_data;
+ Function1 remove_data;
  Function5 set_data;
  Function4 suicide;
  Function4 has_suicide;
@@ -107,7 +107,8 @@ typedef void (*Function16)(const char*, int len);
 //
  Function11 contract_call;
  Function16 set_bytecode;
-
+ Function10 get_data_iter_next;
+ Function3 get_data_iter;
 
 
 #ifdef __cplusplus

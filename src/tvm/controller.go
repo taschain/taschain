@@ -75,7 +75,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}
 
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
+	succeed = con.Vm.CreateContractInstance(msg)
 	if succeed {
 		abi := ABI{}
 		json.Unmarshal([]byte(abiJson), &abi)

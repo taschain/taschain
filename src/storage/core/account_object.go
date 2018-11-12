@@ -174,6 +174,10 @@ func (self *accountObject) SetData(db Database, key string, value []byte) {
 	self.setData(key, value)
 }
 
+func (self *accountObject) RemoveData(db Database, key string) {
+	self.SetData(db, key, nil)
+}
+
 func (self *accountObject) setData(key string, value []byte) {
 	self.cachedStorage[key] = value
 	self.dirtyStorage[key] = value

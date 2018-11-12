@@ -118,6 +118,12 @@ unsigned long long wrap_get_refund()
 	return GetRefund();
 }
 
+void wrap_remove_data(char* key)
+{
+	void RemoveData(char* );
+	RemoveData(key);
+}
+
 char* wrap_get_data(char* key)
 {
 	char* GetData(char*);
@@ -225,6 +231,18 @@ void wrap_set_bytecode(const char* code, int len)
 	void SetBytecode();
 	SetBytecode(code, len);
 }
+
+unsigned long long wrap_get_data_iter(const char*prefix)
+{
+	unsigned long long DataIterator(const char*);
+	return DataIterator(prefix);
+}
+
+char* wrap_get_data_iter_next(char* iter)
+{
+	char* DataNext(char*);
+	return DataNext(iter);
+}
 */
 import "C"
 import (
@@ -262,7 +280,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	prepredSucceed := controller.Vm.CreateContractInstance(msg) && controller.Vm.LoadContractCode(msg)
+	prepredSucceed := controller.Vm.CreateContractInstance(msg)
 	if !prepredSucceed {
 		//todo 异常处理
 		return ""
@@ -317,6 +335,7 @@ func bridge_init() {
 	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
 	C.get_data = (C.Function10)(unsafe.Pointer(C.wrap_get_data))
 	C.set_data = (C.Function5)(unsafe.Pointer(C.wrap_set_data))
+	C.remove_data = (C.Function1)(unsafe.Pointer(C.wrap_remove_data))
 	C.suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
 	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
 	C.exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
@@ -334,6 +353,8 @@ func bridge_init() {
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
+	C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
+	C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
 }
 
 type Contract struct {
@@ -429,14 +450,6 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
 		return false
 	}
 	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	return tvm.Execute(script)
-}
-
-func (tvm *Tvm) LoadContractCode(msg Msg) bool {
-	//if !tvm.loadMsg(msg) {
-	//	return false
-	//}
-	script := PycodeLoadContractData(tvm.ContractName)
 	return tvm.Execute(script)
 }
 
