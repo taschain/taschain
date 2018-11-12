@@ -199,14 +199,14 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 		return nil, 2
 	}
 
-	miss, missingTx, transactions := chain.missTransaction(bh, txs)
-	if miss {
-		return missingTx, 1
-	}
-
-	if !chain.validateTxRoot(bh.TxTree, transactions) {
-		return nil, -1
-	}
+	//miss, missingTx, transactions := chain.missTransaction(bh, txs)
+	//if miss {
+	//	return missingTx, 1
+	//}
+	//
+	//if !chain.validateTxRoot(bh.TxTree, transactions) {
+	//	return nil, -1
+	//}
 
 	//从第0块开始同步，不需要以下
 	//b := &types.Block{Header: &bh, Transactions: txs}
@@ -303,7 +303,6 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
 	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
 
-
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
 		Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		return -1
@@ -345,6 +344,11 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
+	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d", remoteBlock.Header.TxTree, len(remoteBlock.Transactions))
+	if !chain.validateTxRoot(remoteBlock.Header.TxTree, remoteBlock.Transactions) {
+		return -1, nil
+	}
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil

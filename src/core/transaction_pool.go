@@ -191,7 +191,9 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	}
 
 	pool.received.Push(tx)
-
+	if tx.Type == types.TransactionTypeMinerApply{
+		go BroadcastTransactions([]*types.Transaction{tx})
+	}
 	// 日志记录分红交易信息
 
 	// batch broadcast

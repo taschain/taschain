@@ -140,8 +140,8 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gro
 
 	mems := id2String(group.MemIds)
 
-	txMsg := network.Message{Code: network.TransactionMsg, Body: txs}
-	go ns.net.SpreadToGroup(groupId.GetHexString(), mems, txMsg, ccm.BH.TxTree.Bytes())
+	//txMsg := network.Message{Code: network.TransactionMsg, Body: txs}
+	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, txMsg, ccm.BH.TxTree.Bytes())
 
 	ccMsg, e := marshalConsensusCastMessage(ccm)
 	if e != nil {
