@@ -3,12 +3,12 @@ import account
 
 class ContractGame():
     def __init__(self):
+        pass
+
+    def deploy(self):
         self.a = 10
         self.mystr = "myabc"
         self.mybool = True
-        self.mynone = None
-
-    def deploy(self):
         print("deploy")
 
     def ready(self):
@@ -47,8 +47,8 @@ class ContractGame():
     def contract_none(self):
         print("contract is called")
         try:
-            self.mynone = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_none", "[]")
-            print("count from another contract. count = " + str(self.mynone))
+            mynone = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_none", "[]")
+            print("count from another contract. count = " + str(mynone))
         except Exception as e:
             print(e.args)
 

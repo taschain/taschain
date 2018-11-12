@@ -37,7 +37,7 @@ func TestContractCallContract(t *testing.T) {
 	//断言
 	result := string(getContractDatas("0xe4d60f63188f69980e762cb38aad8727ceb86bbe", "a"))
 	i, _ := strconv.Atoi(result)
-	if i != 210 {
+	if i != 1210 {//底层非map，默认加了1的前缀
 		t.Fatal("call int failed.")
 	}
 
@@ -48,7 +48,7 @@ func TestContractCallContract(t *testing.T) {
 	abi = `{"FuncName": "contract_str", "Args": []}`
 	CallContract(contractAddr, abi)
 	result = string(getContractDatas("0xe4d60f63188f69980e762cb38aad8727ceb86bbe", "mystr"))
-	if result != "\"myabcbcd\"" {
+	if result != "\"1myabcbcd\"" {
 		t.Fatal("call str failed.")
 	}
 
@@ -59,7 +59,7 @@ func TestContractCallContract(t *testing.T) {
 	abi = `{"FuncName": "contract_bool", "Args": []}`
 	CallContract(contractAddr, abi)
 	result = string(getContractDatas("0xe4d60f63188f69980e762cb38aad8727ceb86bbe", "mybool"))
-	if result != "false" {
+	if result != "1false" {
 		t.Fatal("call bool failed.")
 	}
 
