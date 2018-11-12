@@ -22,6 +22,7 @@ class ContractMapStorage():
         self.a["d2"] = 200
 
         del self.a["d1"]
+        return 1
 
     @register.public()
     def getMapBaseDataSetNeedSuccess(self):
@@ -34,10 +35,12 @@ class ContractMapStorage():
         self.expectValue(None, self.a["d1"])
         self.expectValue(None, self.a["null"])
         del self.a["d2"]
+        return 1
 
     @register.public()
     def getMapBaseDataSetNeedSuccess2(self):
         self.expectValue(None, self.a["d2"])
+        return 1
 
     @register.public()
     def setMapCoverValue(self):
@@ -54,6 +57,7 @@ class ContractMapStorage():
         key1 = self.b
         key1["c1"] = 100
         key1["c2"] = 200
+        return 1
 
     @register.public()
     def getMapCoverValue(self):
@@ -64,6 +68,7 @@ class ContractMapStorage():
 
         self.expectValue(100, self.b["c1"])
         self.expectValue(200, self.b["c2"])
+        return 1
 
     @register.public()
     def setMapNestIn(self):
@@ -102,6 +107,7 @@ class ContractMapStorage():
             pass
         else:
             raise Exception("exception exception !")
+        return 1
 
 
     @register.public()
@@ -147,6 +153,7 @@ class ContractMapStorage():
             newKey = self.xxx["1"]
             newKey["2"] = 1000
         self.expectValue(1000, self.xxx["1"]["2"])
+        return 1
 
     @register.public()
     def getMapNestIn2(self):
@@ -159,6 +166,7 @@ class ContractMapStorage():
         self.expectValue(None, self.a["x1"]["x11"]["124"])
         self.expectValue(500, self.a["x1"]["x11"]["125"])
         self.expectValue(1000, self.xxx["1"]["2"])
+        return 1
 
     @register.public()
     def setMapIter(self):
@@ -169,6 +177,7 @@ class ContractMapStorage():
         self.a["x2"]["x21"]["x22"] = [1,2,3]
         self.a["x2"]["x21"]["x23"] = 111
         self.a["x2"]["x21"]["x24"] = 3333
+        return 1
 
     @register.public()
     def getMapIter(self):
@@ -181,18 +190,19 @@ class ContractMapStorage():
         if len(data) != 0:
             raise Exception("data must be null")
 
-
         try:  # can not remove a map
             del self.a["x2"]["x21"]
         except Exception:
             pass
         else:
             raise Exception("exception exception !")
+        return 1
 
     @register.public()
     def setMapErrors(self):
         self.keyTooLongError()
         self.ValueNotSupportError()
+        return 1
 
     def keyTooLongError(self):
         try:
