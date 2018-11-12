@@ -2,12 +2,6 @@ from lib.base.tas_storage_map_property import TasMapStorage
 from serializable.tas_json_decoder import TasJson
 import account
 class TasBaseStoage:
-    TypeInt  = type(1)
-    TypeBool = type(True)
-    TypeStr  = type("")
-    TypeList = type([])
-    TypeDict = type({})
-    supportType=[TypeInt,TypeBool,TypeStr,TypeList,TypeDict]
     readData = {} #only get,not flush to db
     writeData={}  #write to db
     tasJson=TasJson()

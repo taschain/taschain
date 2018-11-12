@@ -8,7 +8,6 @@ class TasMapStorage:
     TypeDict = type({})
     supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict]
     tasJson = TasJson()
-    size=0
 
     def __init__(self,nestin =  1):
         self.readData = {}  # only get,not flush to db
