@@ -116,7 +116,7 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	groups := GroupChainImpl.GetSyncGroupsById(groupId)
 	l := len(groups)
 	if l == 0 {
-		logger.Errorf("[GroupSyncer]Get nil group by id:%s", groupId)
+		logger.Errorf("[GroupSyncer]Get nil group by id:%v", groupId)
 		return
 	} else {
 		var isTop bool

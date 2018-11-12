@@ -133,13 +133,13 @@ func NewTransactionPool() TransactionPool {
 	}
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
-	go func() {
-		for {
-			<-pool.sendingTimer.C
-			pool.CheckAndSend(true)
-			pool.sendingTimer.Reset(SendingTimerInterval)
-		}
-	}()
+	//go func() {
+	//	for {
+	//		<-pool.sendingTimer.C
+	//		pool.CheckAndSend(true)
+	//		pool.sendingTimer.Reset(SendingTimerInterval)
+	//	}
+	//}()
 	return pool
 }
 
@@ -197,14 +197,14 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	// 日志记录分红交易信息
 
 	// batch broadcast
-	if isBroadcast {
-		//交易不广播
-		pool.sendingTxLock.Lock()
-		pool.sendingList = append(pool.sendingList, tx)
-		pool.sendingTxLock.Unlock()
-
-		pool.CheckAndSend(false)
-	}
+	//if isBroadcast {
+	//	//交易不广播
+	//	pool.sendingTxLock.Lock()
+	//	pool.sendingList = append(pool.sendingList, tx)
+	//	pool.sendingTxLock.Unlock()
+	//
+	//	pool.CheckAndSend(false)
+	//}
 
 	return true, nil
 }
