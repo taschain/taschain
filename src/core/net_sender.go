@@ -93,6 +93,7 @@ func BroadcastTransactions(txs []*types.Transaction) {
 			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
+		Logger.Debugf("BroadcastTransactions len:%d",len(txs))
 		message := network.Message{Code: network.TransactionMsg, Body: body}
 		heavyMiners := MinerManagerImpl.GetHeavyMiners()
 		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
