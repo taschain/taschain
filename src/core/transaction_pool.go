@@ -96,7 +96,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 10000,
+		maxReceivedPoolSize: 100000,
 		tx:                  "tx",
 	}
 }
@@ -380,7 +380,7 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(10000)
+	pool.received = newContainer(100000)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
