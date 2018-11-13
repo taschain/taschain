@@ -374,7 +374,7 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(2000)
+	pool.received = newContainer(10000)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
