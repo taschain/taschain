@@ -8,7 +8,7 @@ class TasJson:
     TypeList = type([])
     TypeDict = type({})
     TypeNone = type(None)
-    supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict,TypeNone]
+    supportType = [TypeInt, TypeBool, TypeStr, TypeNone]
 
     @staticmethod
     def setVisitMapField(key):
@@ -74,7 +74,7 @@ class TasJson:
     @staticmethod
     def checkValueIsInBase(valueType):
         if valueType not in TasJson.supportType:
-            raise Exception("value must be int,bool,string,list,dict,type is " + str(valueType))
+            raise Exception("value must be int,bool,string. type is " + str(valueType))
 
     @staticmethod
     def checkKey(key):

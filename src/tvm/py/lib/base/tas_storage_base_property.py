@@ -44,7 +44,7 @@ class TasBaseStoage:
             return TasBaseStoage.readData[key]
         else:#get value from db
             value = account.get_data(key)
-            if value == None or value == "":
+            if value is None or value == "":
                 return None
             else:#put db data into memory
                 tp,value = TasBaseStoage.tasJson.decodeValue(value)
