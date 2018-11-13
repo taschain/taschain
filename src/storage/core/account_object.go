@@ -291,11 +291,12 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(db Database, prefix []byte) *trie.Iterator{
+func (self *accountObject) DataIterator(db Database, prefix []byte) *DataIterator{
 	if self.trie == nil{
 		self.getTrie(db)
 	}
-	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
+	iter := trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
+	return &DataIterator{Iterator:iter, object:self}
 }
 
 func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
