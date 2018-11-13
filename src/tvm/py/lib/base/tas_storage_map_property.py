@@ -38,14 +38,15 @@ class TasMapStorage:
         else:
             account.remove_data(dbKey)
 
-
-
     def __iter__(self):
-        it = SysNormalIter(self)
-        return it
+        return None
 
-    def items(self):
-        return self
+    # def __iter__(self):
+    #     it = SysNormalIter(self)
+    #     return it
+    #
+    # def items(self):
+    #     return self
 
     def __getitem__(self, key):
         TasJson.checkMapKey(key)
@@ -97,56 +98,56 @@ class TasMapStorage:
                 account.set_data(newKey, TasMapStorage.tasJson.encodeValue(1,self.writeData[k]))
 
 
-class SysNormalIter:
-    def __init__(self,father):
-        self.iter = account.get_iterator(TasJson.getDbKey())
-        self.iterFromMem(father,TasJson.getDbKey())
-        self.relaceStr = TasJson.getDbKey()+"@"
-
-    def iterFromMem(self,father,ks):
-        self.mem = {}
-        for k in father.writeData:
-            newKey = ks+ "@" + k
-            toWriteData = father.writeData[k]
-            if type(toWriteData) == type(father):
-                self.iterFromMem(toWriteData,newKey)
-            else:
-                self.mem[newKey] = toWriteData
-
-    def getNextKV(self):
-        vl = account.get_iterator_next(self.iter)
-        jsondata = TasMapStorage.tasJson.decodeNormal(vl)
-        hasValue = jsondata['hasValue']#1normalvalue 0:null data 2:map node
-        if hasValue == 0 :
-            if  len(self.mem) == 0:#if memory and db all null then return
-                raise StopIteration
-            memValue = None
-            memKey = ""
-            for key,value in self.mem.items():#if db is null,then get data from memory
-                memValue = value
-                memKey = key
-                break
-            del self.mem[memKey]
-            newKey = memKey.replace(self.relaceStr, "", 1)
-            return newKey,memValue
-        elif hasValue == 2:#this is map node
-            return None, None
-        value = jsondata['value']
-        key = jsondata['key']
-        if value == "":  # this is root node
-            return None,None
-        if key in self.mem:#check from memory if thie key exists in memory
-            memValue = self.mem[key]
-            del self.mem[key]
-            return key,memValue
-        newKey = key.replace(self.relaceStr,"",1)
-        return newKey,value
-
-    def __next__(self):
-        key,vl = self.getNextKV()
-        while vl is None:
-            key,vl = self.getNextKV()
-        return key,vl
+# class SysNormalIter:
+#     def __init__(self,father):
+#         self.iter = account.get_iterator(TasJson.getDbKey())
+#         self.iterFromMem(father,TasJson.getDbKey())
+#         self.relaceStr = TasJson.getDbKey()+"@"
+#
+#     def iterFromMem(self,father,ks):
+#         self.mem = {}
+#         for k in father.writeData:
+#             newKey = ks+ "@" + k
+#             toWriteData = father.writeData[k]
+#             if type(toWriteData) == type(father):
+#                 self.iterFromMem(toWriteData,newKey)
+#             else:
+#                 self.mem[newKey] = toWriteData
+#
+#     def getNextKV(self):
+#         vl = account.get_iterator_next(self.iter)
+#         jsondata = TasMapStorage.tasJson.decodeNormal(vl)
+#         hasValue = jsondata['hasValue']#1normalvalue 0:null data 2:map node
+#         if hasValue == 0 :
+#             if  len(self.mem) == 0:#if memory and db all null then return
+#                 raise StopIteration
+#             memValue = None
+#             memKey = ""
+#             for key,value in self.mem.items():#if db is null,then get data from memory
+#                 memValue = value
+#                 memKey = key
+#                 break
+#             del self.mem[memKey]
+#             newKey = memKey.replace(self.relaceStr, "", 1)
+#             return newKey,memValue
+#         elif hasValue == 2:#this is map node
+#             return None, None
+#         value = jsondata['value']
+#         key = jsondata['key']
+#         if value == "":  # this is root node
+#             return None,None
+#         if key in self.mem:#check from memory if thie key exists in memory
+#             memValue = self.mem[key]
+#             del self.mem[key]
+#             return key,memValue
+#         newKey = key.replace(self.relaceStr,"",1)
+#         return newKey,value
+#
+#     def __next__(self):
+#         key,vl = self.getNextKV()
+#         while vl is None:
+#             key,vl = self.getNextKV()
+#         return key,vl
 
 
 

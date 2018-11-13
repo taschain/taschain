@@ -126,22 +126,22 @@ func TestMapNestIn(t *testing.T) {
 }
 
 
-func TestMapIter(t *testing.T) {
-	Clear()
-	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
-	contract := tvm.Contract{code, "ContractMapStorage", nil}
-	jsonString, _ := json.Marshal(contract)
-	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
-
-	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
-	abi := `{"FuncName": "setMapIter", "Args": []}`
-	CallContract(contractAddr, abi)
-
-	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
-	abi = `{"FuncName": "getMapIter", "Args": []}`
-	CallContract(contractAddr, abi)
-
-}
+//func TestMapIter(t *testing.T) {
+//	Clear()
+//	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+//	contract := tvm.Contract{code, "ContractMapStorage", nil}
+//	jsonString, _ := json.Marshal(contract)
+//	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+//
+//	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+//	abi := `{"FuncName": "setMapIter", "Args": []}`
+//	CallContract(contractAddr, abi)
+//
+//	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+//	abi = `{"FuncName": "getMapIter", "Args": []}`
+//	CallContract(contractAddr, abi)
+//
+//}
 
 func TestMapErrors(t *testing.T) {
 	Clear()

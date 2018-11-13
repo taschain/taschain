@@ -169,38 +169,6 @@ class ContractMapStorage():
         return 1
 
     @register.public()
-    def setMapIter(self):
-        self.a = TasMapStorage()
-        self.a["x1"] = 1
-        self.a["x2"] = TasMapStorage()
-        self.a["x2"]["x21"] = TasMapStorage()
-        self.a["x2"]["x21"]["x22"] = [1,2,3]
-        self.a["x2"]["x21"]["x23"] = 111
-        self.a["x2"]["x21"]["x24"] = 3333
-        self.a["x2"]["x21"]["x25"] = 4444
-        return 1
-
-    @register.public()
-    def getMapIter(self):
-        del self.a["x2"]["x21"]["x25"]
-        self.a["x3"] = 333
-        data = {"x1":1,"x3":333,"x2@x21@x22":[1,2,3],"x2@x21@x23":111,"x2@x21@x24":3333}
-        for key,value in self.a:
-            vl = data[key]
-            if value == vl:
-                del data[key]
-        if len(data) != 0:
-            raise Exception("data must be null")
-
-        try:  # can not remove a map
-            del self.a["x2"]["x21"]
-        except Exception:
-            pass
-        else:
-            raise Exception("exception exception !")
-        return 1
-
-    @register.public()
     def setMapErrors(self):
         self.keyTooLongError()
         self.ValueNotSupportError()
