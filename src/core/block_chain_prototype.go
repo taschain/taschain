@@ -77,20 +77,14 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	transactions, missing, _ := chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
-	if len(missing) != 0 {
-		panic("GenerateBlock:should not has missing txs!")
+	block.Transactions = make([]*types.Transaction, len(bh.Transactions))
+	for i, hash := range bh.Transactions {
+		t, _ := chain.transactionPool.GetTransaction(hash)
+		if t == nil {
+			return nil
+		}
+		block.Transactions[i] = t
 	}
-	block.Transactions = transactions
-
-	//block.Transactions = make([]*types.Transaction, len(bh.Transactions))
-	//for i, hash := range bh.Transactions {
-	//	t, _ := chain.transactionPool.GetTransaction(hash)
-	//	if t == nil {
-	//		return nil
-	//	}
-	//	block.Transactions[i] = t
-	//}
 	return block
 }
 
