@@ -14,11 +14,12 @@
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package vm
+
 import (
-	"math/big"
 	"common"
+	"math/big"
 	"middleware/types"
-	"storage/trie"
+	"storage/core"
 )
 
 type AccountDB interface {
@@ -42,7 +43,7 @@ type AccountDB interface {
 	GetData(common.Address, string) []byte
 	SetData(common.Address, string, []byte)
 	RemoveData(common.Address, string)
-	DataIterator(common.Address, string) *trie.Iterator
+	DataIterator(common.Address, string) *core.DataIterator
 	DataNext(iterator uintptr)string
 
 	Suicide(common.Address) bool
