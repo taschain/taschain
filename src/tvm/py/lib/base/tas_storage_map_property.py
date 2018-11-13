@@ -103,9 +103,9 @@ class TasMapStorage:
 #         self.iter = account.get_iterator(TasJson.getDbKey())
 #         self.iterFromMem(father,TasJson.getDbKey())
 #         self.relaceStr = TasJson.getDbKey()+"@"
+#         self.mem = {}
 #
 #     def iterFromMem(self,father,ks):
-#         self.mem = {}
 #         for k in father.writeData:
 #             newKey = ks+ "@" + k
 #             toWriteData = father.writeData[k]
