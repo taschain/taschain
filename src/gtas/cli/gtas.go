@@ -300,7 +300,6 @@ func (gtas *Gtas) Run() {
 	case mineCmd.FullCommand():
 		lightMiner = *light
 		//轻重节点一样
-		lightMiner = false
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
