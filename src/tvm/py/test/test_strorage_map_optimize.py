@@ -15,8 +15,8 @@ class ContractMapStorage():
         self.a["retrt"] = 111111111111111111111111111
         self.a["r454"] = False
         self.a["$$$"] = "SADDSDSDFDFDF@$#$#$#"
-        self.a["^^&"] = [1,2,3,4]
-        self.a[")()!"] = {"1222":454}
+        #self.a["^^&"] = [1,2,3,4]
+        #self.a[")()!"] = {"1222":454}
         self.a["null"] = None
         self.a["d1"] = 100
         self.a["d2"] = 200
@@ -30,8 +30,8 @@ class ContractMapStorage():
         self.expectValue(111111111111111111111111111, self.a["retrt"])
         self.expectValue(False, self.a["r454"])
         self.expectValue("SADDSDSDFDFDF@$#$#$#", self.a["$$$"])
-        self.expectValue([1,2,3,4], self.a["^^&"])
-        self.expectValue({"1222":454}, self.a[")()!"])
+        #self.expectValue([1,2,3,4], self.a["^^&"])
+        #self.expectValue({"1222":454}, self.a[")()!"])
         self.expectValue(None, self.a["d1"])
         self.expectValue(None, self.a["null"])
         del self.a["d2"]
@@ -46,8 +46,8 @@ class ContractMapStorage():
     def setMapCoverValue(self):
         self.a = TasMapStorage()
         self.a["1"]=1000
-        self.a["2"]=[]
-        self.a["3"]={1:2}
+        self.a["2"]="[]"
+        self.a["3"]="{1:2}"
         self.a["4"]=True
         self.a["4"]=self.a["1"]
         self.a["3"]=self.a["4"]
@@ -77,16 +77,16 @@ class ContractMapStorage():
         self.a["x1"] = TasMapStorage()
         self.a["x1"]["x12"] = "x12"
         self.a["x1"]["x13"] = 13
-        self.a["x1"]["x14"] = [1,2,3,4]
+        #self.a["x1"]["x14"] = [1,2,3,4]
         self.a["x1"]["x16"] = "del"
         self.a["x1"]["x11"] = TasMapStorage()
-        self.a["x1"]["x11"]["121"] = {"1":2,"2":[2,3,4]}
+        #self.a["x1"]["x11"]["121"] = {"1":2,"2":[2,3,4]}
         self.a["x1"]["x11"]["122"] = 200
         self.a["x1"]["x11"]["123"] = 300
         self.a["x1"]["x11"]["124"] = 400
         self.a["x1"]["x11"]["x111"] = TasMapStorage()
         self.a["x1"]["x11"]["x111"]["x1111"] = TasMapStorage()
-        self.a["x1"]["x11"]["x111"]["x1111"]["x11112"] = [1,1,2,3,{"3:":111}]
+        #self.a["x1"]["x11"]["x111"]["x1111"]["x11112"] = [1,1,2,3,{"3:":111}]
         try: #nest in too much
             self.a["x1"]["x11"]["x111"]["x1111"]["x11111"] = TasMapStorage()
         except Exception:
@@ -94,12 +94,12 @@ class ContractMapStorage():
         else:
             raise Exception("exception exception !")
 
-        try:
-            self.a["x1"]["x15"] = [1, 2, 3, 4,{"1": 2, "2": [111, 2, 2, 3, {"x1": 2, "x2": [1, 2, 3], "x3": {"xx1": 1}}]}]
-        except Exception:
-            pass
-        else:
-            raise Exception("exception exception !")
+        # try:
+        #     self.a["x1"]["x15"] = [1, 2, 3, 4,{"1": 2, "2": [111, 2, 2, 3, {"x1": 2, "x2": [1, 2, 3], "x3": {"xx1": 1}}]}]
+        # except Exception:
+        #     pass
+        # else:
+        #     raise Exception("exception exception !")
 
         try:#can not remove a map
             del self.a["x1"]["x11"]["x111"]
@@ -114,12 +114,12 @@ class ContractMapStorage():
     def getMapNestIn(self):
         self.expectValue("x12", self.a["x1"]["x12"])
         self.expectValue(13, self.a["x1"]["x13"])
-        self.expectValue([1,2,3,4], self.a["x1"]["x14"])
-        self.expectValue({"1":2,"2":[2,3,4]}, self.a["x1"]["x11"]["121"])
+        #self.expectValue([1,2,3,4], self.a["x1"]["x14"])
+        #self.expectValue({"1":2,"2":[2,3,4]}, self.a["x1"]["x11"]["121"])
         self.expectValue(200, self.a["x1"]["x11"]["122"])
         self.expectValue(300, self.a["x1"]["x11"]["123"])
         self.expectValue(400, self.a["x1"]["x11"]["124"])
-        self.expectValue([1,1,2,3,{"3:":111}],self.a["x1"]["x11"]["x111"]["x1111"]["x11112"])
+        #self.expectValue([1,1,2,3,{"3:":111}],self.a["x1"]["x11"]["x111"]["x1111"]["x11112"])
 
         self.a["x1"]["x222"] = 123456
         self.a["x1"]["x223"] = 123456
