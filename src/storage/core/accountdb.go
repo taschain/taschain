@@ -342,10 +342,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *DataIterator {
 	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,[]byte(prefix))
+		return stateObject.DataIterator(self.db,prefix)
 	} else {
 		return nil
 	}
