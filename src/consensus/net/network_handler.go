@@ -90,6 +90,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return e
 		}
+		logger.Infof("Rcv GroupInitDoneMsg from:%s,dummyId:%s", sourceId, m.GI.GIS.DummyID.GetHexString())
 
 		belongGroup := c.processor.ExistInDummyGroup(m.GI.GIS.DummyID)
 		var machines *StateMachines
@@ -314,8 +315,8 @@ func pb2ConsensusBlockMessageBase(b []byte) (*model.ConsensusBlockMessageBase, e
 
 	base := model.BaseSignedMessage{SI: *si}
 	return &model.ConsensusBlockMessageBase{
-		BH: *bh,
-		ProveHash:hashs,
+		BH:                *bh,
+		ProveHash:         hashs,
 		BaseSignedMessage: base,
 	}, nil
 }
