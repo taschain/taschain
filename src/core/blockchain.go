@@ -512,7 +512,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	go BlockSyncer.Sync()
+	//go BlockSyncer.Sync()
 }
 
 //根据指定哈希查询块
