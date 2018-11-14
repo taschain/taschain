@@ -68,10 +68,12 @@ func (bs *blockSyncer) Sync() {
 	if bs.candidate.id == "" {
 		return
 	}
+	logger.Debugf("Start sync!")
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
+	bs.candidate = blockSyncCandidate{}
 	bs.lock.Unlock()
 
 	if candidateQN < localTotalQN || candidateHash == localHash {

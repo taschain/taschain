@@ -192,7 +192,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 
 	pool.received.Push(tx)
 	if tx.Type == types.TransactionTypeMinerApply {
-		go BroadcastTransactions([]*types.Transaction{tx})
+		BroadcastMinerApplyTransactions([]*types.Transaction{tx})
 	}
 	// 日志记录分红交易信息
 
@@ -286,6 +286,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 }
 
+//GeneratBlock
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
@@ -323,7 +324,7 @@ func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error)
 
 	return nil, ErrNil
 }
-
+//验证组 verify
 func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
 		return nil, nil, ErrNil
