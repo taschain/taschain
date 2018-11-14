@@ -48,7 +48,7 @@ func TestContractCallContract(t *testing.T) {
 	abi = `{"FuncName": "contract_str", "Args": []}`
 	CallContract(contractAddr, abi)
 	result = string(getContractDatas("0xe4d60f63188f69980e762cb38aad8727ceb86bbe", "mystr"))
-	if result != `1"myabcbcd"` {
+	if result != "1\"myabcbcd\"" {
 		t.Fatal("call str failed.")
 	}
 
@@ -70,7 +70,7 @@ func TestContractCallContract(t *testing.T) {
 	abi = `{"FuncName": "contract_none", "Args": []}`
 	CallContract(contractAddr, abi)
 	result = string(getContractDatas("0xe4d60f63188f69980e762cb38aad8727ceb86bbe", "mynone"))
-	if result != "" {
+	if result != "12" {
 		t.Fatal("call none failed.")
 	}
 }

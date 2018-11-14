@@ -7,7 +7,8 @@ class TasJson:
     TypeStr = type("")
     TypeList = type([])
     TypeDict = type({})
-    supportType = [TypeInt, TypeBool, TypeStr, TypeList, TypeDict]
+    TypeNone = type(None)
+    supportType = [TypeInt, TypeBool, TypeStr, TypeNone]
 
     @staticmethod
     def setVisitMapField(key):
@@ -73,7 +74,7 @@ class TasJson:
     @staticmethod
     def checkValueIsInBase(valueType):
         if valueType not in TasJson.supportType:
-            raise Exception("value must be int,bool,string,list,dict,type is " + str(valueType))
+            raise Exception("value must be int,bool,string. type is " + str(valueType))
 
     @staticmethod
     def checkKey(key):
@@ -82,3 +83,11 @@ class TasJson:
         x = bytes(key, "utf-8")
         if len(x) > 32:
             raise Exception("the length of key cannot more than 32!")
+
+    @staticmethod
+    def checkMapKey(key):
+        if type(key) != TasJson.TypeStr:
+            raise Exception("key must be string")
+        x = bytes(key, "utf-8")
+        if len(x) > 45:
+            raise Exception("the length of key cannot more than 45!")

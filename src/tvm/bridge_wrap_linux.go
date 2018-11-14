@@ -353,8 +353,8 @@ func bridge_init() {
 	C.gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
 	C.contract_call = (C.Function11)(unsafe.Pointer(C.wrap_contract_call))
 	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
-	C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
-	C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
+	//C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
+	//C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
 }
 
 type Contract struct {

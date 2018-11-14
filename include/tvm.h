@@ -108,8 +108,8 @@ extern "C" {
 	Function11 contract_call;
 	Function16 set_bytecode;
 	Function1 remove_data;
-	Function10 get_data_iter_next;
-	Function3 get_data_iter;
+	//Function10 get_data_iter_next;
+	//Function3 get_data_iter;
 
 
 

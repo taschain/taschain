@@ -9,6 +9,7 @@ class ContractGame():
         self.a = 10
         self.mystr = "myabc"
         self.mybool = True
+        self.mynone = 1
         print("deploy")
 
     def ready(self):
@@ -49,6 +50,8 @@ class ContractGame():
         try:
             mynone = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_none", "[]")
             print("count from another contract. count = " + str(mynone))
+            if mynone is None:
+                self.mynone = 2
         except Exception as e:
             print(e.args)
 
