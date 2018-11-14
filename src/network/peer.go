@@ -249,16 +249,16 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	pm.checkPeerSource()
+	//pm.checkPeerSource()
 	Logger.Debugf("SendAll total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		if p.seesionId > 0 && p.source == PeerSourceKad {
-			p.write(packet)
-		}
-		//if p.seesionId > 0 {
+		//if p.seesionId > 0 && p.source == PeerSourceKad {
 		//	p.write(packet)
 		//}
+		if p.seesionId > 0 {
+			p.write(packet)
+		}
 	}
 
 	return
