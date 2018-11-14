@@ -9,12 +9,11 @@ import (
 	"middleware"
 	"middleware/types"
 	"network"
-	"os"
-	"path/filepath"
 	"taslog"
 	"testing"
 	"time"
 	"tvm"
+	types2 "storage/core/types"
 )
 
 func init() {
@@ -23,17 +22,8 @@ func init() {
 
 
 func ChainInit() {
-	configString := `
-[tvm]
-pylib = ./
-`
-	fmt.Println(filepath.Abs(filepath.Dir(os.Args[0])))
-	f, _ := os.Create("./test.ini")
-	defer os.Remove("./test.ini")
-	defer f.Close()
-	f.WriteString(configString)
 	Clear()
-	common.InitConf("./test.ini")
+	common.InitConf("../../deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
@@ -82,13 +72,14 @@ func DeployContract(code string, source string, gaslimit uint64, value uint64) c
 	return contractAddr
 }
 
-func ExecuteContract(address, abi string, source string, gaslimit uint64) {
+func ExecuteContract(address, abi string, source string, gaslimit uint64) common.Hash{
 	contractAddr := common.HexStringToAddress(address)
 	code := BlockChainImpl.latestStateDB.GetCode(contractAddr)
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(1, gaslimit, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0))
+	trans := genContractTx(1, gaslimit, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0)
+	txpool.Add(trans)
 	castor := new([]byte)
 	groupid := new([]byte)
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
@@ -96,6 +87,7 @@ func ExecuteContract(address, abi string, source string, gaslimit uint64) {
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 		fmt.Println("fail to add empty block")
 	}
+	return trans.Hash
 }
 
 func TestGasUse(t *testing.T) {
@@ -148,11 +140,78 @@ class A():
 	//}
 }
 
+func TestAccessControl(t *testing.T) {
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+class A():
+    def __init__(self):
+        pass
 
+    def deploy(self):
+        pass
+
+    @register.public(int, bool, str, list, dict)
+    def test(self, aa, bb, cc, dd, ee):
+        assert isinstance(aa, int)
+        assert isinstance(bb, bool)
+        assert isinstance(cc, str)
+        assert isinstance(dd, list)
+        assert isinstance(ee, dict)
+
+    def test2(self):
+        print("test2")
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
+	// 测试正常数据调用
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, "a", [11], {"key": "value"}]}`, source, 2000000)
+	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusSuccessful {
+		t.Errorf("execute: failed, wanted succeed")
+	}
+	// 测试错误数据调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": ["", true, "a", [11], {"key": "value"}]}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+	// 测试错误数据调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, 10, "a", [11], {"key": "value"}]}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+	// 测试错误数据调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, 10, [11], {"key": "value"}]}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+	// 测试错误数据调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, "a", 10, {"key": "value"}]}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+	// 测试错误数据调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, "a", [11], 10]}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+	// 测试私有方法调用
+	hash = ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test2", "Args": []}`, source, 2000000)
+	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
+		t.Errorf("execute: succeed, wanted failed")
+	}
+}
 
 func OnChainFunc(code string, source string) {
 	//common.InitConf("d:/test1.ini")
-	common.InitConf(os.Getenv("HOME") + "/tas/src/tvm/test1.ini")
+	common.InitConf("../../deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//Clear()
 	initBlockChain()
@@ -201,31 +260,31 @@ func CallContract2(address, abi string, source string) {
 	}
 }
 
-func TestVmTest(t *testing.T)  {
-	Clear()
-	code := tvm.Read0("/Users/yushenghui/tas/src/tvm/py/token/contract_token_tas.py")
-
-	contract := tvm.Contract{code, "MyAdvancedToken", nil}
-	jsonString, _ := json.Marshal(contract)
-	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
-	OnChainFunc(string(jsonString), contractAddress.GetHexString())
-}
-
-func VmTest1(code string)  {
-	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
-	abi := code
-	sourceAddr := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
-	CallContract2(contractAddr, abi, sourceAddr.GetHexString())
-}
-
-func TestVmTest2(t *testing.T)  {
-	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/recharge/recharge.py")
-
-	contract := tvm.Contract{code, "Recharge", nil}
-	jsonString, _ := json.Marshal(contract)
-	fmt.Println(string(jsonString))
-	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
-	OnChainFunc(string(jsonString), contractAddress.GetHexString())
-}
+//func TestVmTest(t *testing.T)  {
+//	Clear()
+//	code := tvm.Read0("/Users/yushenghui/tas/src/tvm/py/token/contract_token_tas.py")
+//
+//	contract := tvm.Contract{code, "MyAdvancedToken", nil}
+//	jsonString, _ := json.Marshal(contract)
+//	fmt.Println(string(jsonString))
+//	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+//	OnChainFunc(string(jsonString), contractAddress.GetHexString())
+//}
+//
+//func VmTest1(code string)  {
+//	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+//	abi := code
+//	sourceAddr := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+//	CallContract2(contractAddr, abi, sourceAddr.GetHexString())
+//}
+//
+//func TestVmTest2(t *testing.T)  {
+//	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/recharge/recharge.py")
+//
+//	contract := tvm.Contract{code, "Recharge", nil}
+//	jsonString, _ := json.Marshal(contract)
+//	fmt.Println(string(jsonString))
+//	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+//	OnChainFunc(string(jsonString), contractAddress.GetHexString())
+//}
 

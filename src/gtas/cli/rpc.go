@@ -16,22 +16,22 @@
 package cli
 
 import (
-	"net"
 	"core/rpc"
+	"net"
 
-	"fmt"
-	"network"
-	"strconv"
+	"common"
+	"consensus/groupsig"
+	"consensus/logical"
+	"consensus/mediator"
 	"core"
 	"encoding/hex"
-	"strings"
+	"fmt"
 	"log"
 	"math"
-	"consensus/groupsig"
-	"common"
-	"consensus/mediator"
-	"consensus/logical"
 	"middleware/types"
+	"network"
+	"strconv"
+	"strings"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
