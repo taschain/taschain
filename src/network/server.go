@@ -263,6 +263,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		block, e := types.UnMarshalBlock(message.Body)
 		if e != nil {
 			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
+			return
 		}
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
