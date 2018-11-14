@@ -156,6 +156,49 @@ func TestMapErrors(t *testing.T) {
 	GetContractDatas(contractAddr)
 }
 
+func TestMapNone(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
+	contract := tvm.Contract{code, "ContractMapStorage", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "setNull", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getNull1", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "getNull2", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	GetContractDatas(contractAddr)
+}
+
+
+func TestFomo3d(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("fomo3d.py"))
+	contract := tvm.Contract{code, "Fomo3D", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi := `{"FuncName": "buy", "Args": [10,0,0]}`
+	CallContract(contractAddr, abi)
+
+	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	abi = `{"FuncName": "withdraw", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	GetContractDatas(contractAddr)
+}
+
+
+
 
 func GetContractDatas(contractAddr string)map[string]string{
 	addr := common.HexStringToAddress(contractAddr)

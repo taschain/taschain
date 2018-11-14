@@ -221,6 +221,42 @@ class ContractMapStorage():
         else:
             raise Exception("exception exception !")
 
+    @register.public()
+    def setNull(self):
+        self.m = TasMapStorage()
+        self.m2 = ""
+        self.m3 = 100
+        self.m4 = 200
+        self.m5 = 300
+        try:
+            self.m = None
+        except Exception:
+            pass
+        else:
+            raise Exception("exception exception !")
+
+        self.m2= None
+        self.n = TasMapStorage()
+
+
+    @register.public()
+    def getNull1(self):
+        self.m3 = None
+        self.expectValue(None, self.m3)
+        self.expectValue(200, self.m4)
+        self.m4 = None
+        try:
+            self.n = None
+        except Exception:
+            pass
+        else:
+            raise Exception("exception exception !")
+
+    @register.public()
+    def getNull2(self):
+        self.expectValue(None, self.m3)
+        self.expectValue(None, self.m4)
+        self.expectValue(300, self.m5)
 
 
 

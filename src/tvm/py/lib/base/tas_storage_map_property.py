@@ -9,34 +9,56 @@ class TasMapStorage:
         self.nestIn = nestin  #max nestin map
 
     def __setitem__(self, key, value):
-        if value is None:
-            return
         TasJson.checkMapKey(key)
-        self.checkValue(value)
-        self.readData[key] = value
-        self.writeData[key] = value
+        if value is None:
+            self.removeData(key)
+        else:
+            self.checkValue(value)
+            self.readData[key] = value
+            self.writeData[key] = value
 
     def checkValueCanDel(self,value):
         if type(value) == type(self):
             raise Exception("can not remove a map!")
 
-    def __delitem__(self, key):
+
+    def checkRemoveData(self,key):
+        inReadData = False
+        inWriteData = False
+        inDb = False
         if key in self.readData:
             value = self.readData[key]
             self.checkValueCanDel(value)
-            del self.readData[key]
+            inReadData = True
+
         if key in self.writeData:
             value = self.writeData[key]
             self.checkValueCanDel(value)
-            del self.writeData[key]
+            inWriteData = True
+
         dbKey = TasJson.getDbKey() + "@" + key
         tp, dbValue = self.getDataFromDB(dbKey)
-        if tp == -1:#db is null
-            return
-        elif tp == 0:#this is map!cannot del
+        if tp == -1:  # db is null,
+            pass
+        elif tp == 0:  # this is map!cannot del
             raise Exception("can not remove a map!")
         else:
+            inDb = True
+        return inReadData,inWriteData,inDb
+
+
+    def removeData(self,key):
+        inReadData,inWriteData,inDb = self.checkRemoveData(key)
+        if inReadData:
+            del self.readData[key]
+        if inWriteData:
+            del self.writeData[key]
+        if inDb:
+            dbKey = TasJson.getDbKey() + "@" + key
             account.remove_data(dbKey)
+
+    def __delitem__(self, key):
+       self.removeData(key)
 
     def __iter__(self):
         return None
@@ -55,7 +77,7 @@ class TasMapStorage:
 
     def getDataFromDB(self,key):
         value = account.get_data(key)
-        if value == None or value == "":
+        if value is None or value == "":
             return -1,None
         tp, value = TasMapStorage.tasJson.decodeValue(value)
         return tp,value
