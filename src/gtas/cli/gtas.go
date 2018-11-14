@@ -132,12 +132,14 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	ok := mediator.StartMiner()
 
 	core.InitGroupSyncer()
-	//for {
-	//	if core.GroupSyncer.IsInit() {
-	//		break
-	//	}
-	//	time.Sleep(time.Millisecond * 500)
-	//}
+	core.Logger.Debugf("Waiting for group init done!")
+	for {
+		if core.GroupSyncer.IsInit() {
+			break
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
+	core.Logger.Debugf("Group first init done!\nStart to init block!")
 	core.InitBlockSyncer(light)
 	if len(apply) > 0 {
 		go func() {

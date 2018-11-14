@@ -170,7 +170,7 @@ func (gs *groupSyncer) loop() {
 		select {
 		case <-t.C:
 			sendGroupHeightToNeighbor(GroupChainImpl.Count())
-			gs.sync()
+			go gs.sync()
 		}
 	}
 }
