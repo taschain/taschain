@@ -124,7 +124,7 @@ func NewTransactionPool() TransactionPool {
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.reserved, _ = lru.New(10000)
+	pool.reserved, _ = lru.New(pool.config.maxReceivedPoolSize / 4)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
 	if err != nil {
