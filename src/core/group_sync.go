@@ -143,10 +143,12 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 
 	sourceId := groupInfoMsg.Peer
 	groups := groupInfo.Groups
-	logger.Debugf("[GroupSyncer]Rcv groups ,from:%s,len:%d", sourceId, len(groups))
+	logger.Debugf("[GroupSyncer]Rcv groups ,from:%s,groups:%d-%d", sourceId, groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
 	for _, group := range groupInfo.Groups {
+		logger.Debugf("[GroupSyncer] AddGroup Height:%d,Id:%s,pre id:%s",
+			group.GroupHeight, common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Parent).GetHexString())
+		logger.Debugf("[GroupSyncer] Local height:%d,local top group id:%s", GroupChainImpl.Count(), common.BytesToAddress(GroupChainImpl.LastGroup().Id).GetHexString(), )
 		e := GroupChainImpl.AddGroup(group, nil, nil)
-		logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v", GroupChainImpl.Count()-1, common.BytesToAddress(group.Id).GetHexString(), e)
 		if e != nil {
 			logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 			//TODO  上链失败 异常处理
