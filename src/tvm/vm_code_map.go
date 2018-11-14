@@ -4,7 +4,7 @@ import "fmt"
 
 func PycodeStoreContractData(contractName string) string {
 	return fmt.Sprintf(`
-TasBaseStoage.flushData()
+TasBaseStorage.flushData()
 `)
 }
 
@@ -17,13 +17,13 @@ tas_%s = %s()`, PycodeGetTrueUserCode(code), PycodeContractAddHooks(contractName
 }
 
 func PycodeContractImports()string{
-	return  "from lib.base.tas_storage_base_property import TasBaseStoage\nfrom lib.base.tas_storage_map_property import TasMapStorage"
+	return  "from lib.base.tas_storage_base_property import TasBaseStorage\nfrom lib.base.tas_storage_map_property import TasMapStorage"
 }
 
 func PycodeContractAddHooks(contractName string)string{
-	initHook:=fmt.Sprintf("%s.__init__ = TasBaseStoage.initHook",contractName)
-	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStoage.setAttrHook",contractName)
-	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStoage.getAttrHook",contractName)
+	initHook:=fmt.Sprintf("%s.__init__ = TasBaseStorage.initHook",contractName)
+	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStorage.setAttrHook",contractName)
+	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStorage.getAttrHook",contractName)
 	return fmt.Sprintf(`
 %s
 %s
