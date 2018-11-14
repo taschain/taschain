@@ -380,6 +380,12 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
+
+	if !chain.hasPreBlock(*b.Header) {
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		return 2
+	}
+
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
 		return -1
