@@ -10,7 +10,7 @@ class ContractMapStorage():
 
     @register.public()
     def setMapBaseDataSetNeedSuccess(self):
-        self.a = TasMapStorage()
+        self.a = TasCollectionStorage()
         self.a["1111"] = True
         self.a["retrt"] = 111111111111111111111111111
         self.a["r454"] = False
@@ -44,7 +44,7 @@ class ContractMapStorage():
 
     @register.public()
     def setMapCoverValue(self):
-        self.a = TasMapStorage()
+        self.a = TasCollectionStorage()
         self.a["1"]=1000
         self.a["2"]="[]"
         self.a["3"]="{1:2}"
@@ -53,7 +53,7 @@ class ContractMapStorage():
         self.a["3"]=self.a["4"]
         self.a["2"]=self.a["3"]
 
-        self.b=TasMapStorage()
+        self.b=TasCollectionStorage()
         key1 = self.b
         key1["c1"] = 100
         key1["c2"] = 200
@@ -72,23 +72,23 @@ class ContractMapStorage():
 
     @register.public()
     def setMapNestIn(self):
-        self.a = TasMapStorage()
-        self.xxx = TasMapStorage()
-        self.a["x1"] = TasMapStorage()
+        self.a = TasCollectionStorage()
+        self.xxx = TasCollectionStorage()
+        self.a["x1"] = TasCollectionStorage()
         self.a["x1"]["x12"] = "x12"
         self.a["x1"]["x13"] = 13
         #self.a["x1"]["x14"] = [1,2,3,4]
         self.a["x1"]["x16"] = "del"
-        self.a["x1"]["x11"] = TasMapStorage()
+        self.a["x1"]["x11"] = TasCollectionStorage()
         #self.a["x1"]["x11"]["121"] = {"1":2,"2":[2,3,4]}
         self.a["x1"]["x11"]["122"] = 200
         self.a["x1"]["x11"]["123"] = 300
         self.a["x1"]["x11"]["124"] = 400
-        self.a["x1"]["x11"]["x111"] = TasMapStorage()
-        self.a["x1"]["x11"]["x111"]["x1111"] = TasMapStorage()
+        self.a["x1"]["x11"]["x111"] = TasCollectionStorage()
+        self.a["x1"]["x11"]["x111"]["x1111"] = TasCollectionStorage()
         #self.a["x1"]["x11"]["x111"]["x1111"]["x11112"] = [1,1,2,3,{"3:":111}]
         try: #nest in too much
-            self.a["x1"]["x11"]["x111"]["x1111"]["x11111"] = TasMapStorage()
+            self.a["x1"]["x11"]["x111"]["x1111"]["x11111"] = TasCollectionStorage()
         except Exception:
             pass
         else:
@@ -149,7 +149,7 @@ class ContractMapStorage():
         deldata2["125"] = 500
 
         if self.xxx["1"] == None:
-            self.xxx["1"] = TasMapStorage()
+            self.xxx["1"] = TasCollectionStorage()
             newKey = self.xxx["1"]
             newKey["2"] = 1000
         self.expectValue(1000, self.xxx["1"]["2"])
@@ -176,14 +176,14 @@ class ContractMapStorage():
 
     def keyTooLongError(self):
         try:
-            self.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa = TasMapStorage()
+            self.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa = TasCollectionStorage()
         except Exception:
             pass
         else:
             raise Exception("exception exception !")
 
         try:
-            self.a = TasMapStorage()
+            self.a = TasCollectionStorage()
             self.a["aaaaaaaaaaaaaasdsdsddffffffffffffffffrrgrgrggfgfgfgfgfffffffffffffff"]=10
         except Exception:
             pass
@@ -192,9 +192,9 @@ class ContractMapStorage():
 
 
     def ValueNotSupportError(self):
-        self.a = TasMapStorage()
+        self.a = TasCollectionStorage()
         try:
-            self.a["key1"] = TasMapStorage
+            self.a["key1"] = TasCollectionStorage
         except Exception:
             pass
         else:
@@ -223,7 +223,7 @@ class ContractMapStorage():
 
     @register.public()
     def setNull(self):
-        self.m = TasMapStorage()
+        self.m = TasCollectionStorage()
         self.m2 = ""
         self.m3 = 100
         self.m4 = 200
@@ -236,7 +236,7 @@ class ContractMapStorage():
             raise Exception("exception exception !")
 
         self.m2= None
-        self.n = TasMapStorage()
+        self.n = TasCollectionStorage()
 
 
     @register.public()

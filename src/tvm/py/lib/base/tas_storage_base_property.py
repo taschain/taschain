@@ -1,4 +1,4 @@
-from lib.base.tas_storage_map_property import TasMapStorage
+from lib.base.tas_storage_map_property import TasCollectionStorage
 from serializable.tas_json_decoder import TasJson
 import account
 class TasBaseStorage:
@@ -6,7 +6,7 @@ class TasBaseStorage:
     writeData={}  #write to db
     tasJson=TasJson()
     currentViterKey=""
-    TypeTasMap=type(TasMapStorage())
+    TypeTasMap=type(TasCollectionStorage())
     tasMapFieldList = {}
 
     def initHook(self):
@@ -101,7 +101,7 @@ class TasBaseStorage:
                 tp,value = TasBaseStorage.tasJson.decodeValue(value)
                 if tp == 0:
                     TasJson.setVisitMapField(key)
-                    mapInstance = TasMapStorage()
+                    mapInstance = TasCollectionStorage()
                     TasBaseStorage.tasMapFieldList[key] = mapInstance
                     return mapInstance
                 TasBaseStorage.readData[key]=value

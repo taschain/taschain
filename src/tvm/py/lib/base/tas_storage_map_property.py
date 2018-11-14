@@ -1,6 +1,6 @@
 import account
 from serializable.tas_json_decoder import TasJson
-class TasMapStorage:
+class TasCollectionStorage:
     tasJson = TasJson()
 
     def __init__(self,nestin =  1):
@@ -79,7 +79,7 @@ class TasMapStorage:
         value = account.get_data(key)
         if value is None or value == "":
             return -1,None
-        tp, value = TasMapStorage.tasJson.decodeValue(value)
+        tp, value = TasCollectionStorage.tasJson.decodeValue(value)
         return tp,value
 
     def getValue(self,key):
@@ -92,7 +92,7 @@ class TasMapStorage:
             if tp == -1:
                 return None
             elif tp == 0:#put db data into memory(this is map)
-                value = TasMapStorage()
+                value = TasCollectionStorage()
                 self.writeData[key]=value
             self.readData[key] = value
             return value
@@ -113,11 +113,11 @@ class TasMapStorage:
             newKey=fieldName+"@" + k
             toWriteData = self.writeData[k]
             if type(toWriteData) == type(self):
-                account.set_data(newKey, TasMapStorage.tasJson.encodeValue(0, "0"))
+                account.set_data(newKey, TasCollectionStorage.tasJson.encodeValue(0, "0"))
                 toWriteData.flushData(newKey)
             else:
-                #print(TasMapStorage.tasJson.encodeValue(1,self.writeData[k]))
-                account.set_data(newKey, TasMapStorage.tasJson.encodeValue(1,self.writeData[k]))
+                #print(TasCollectionStorage.tasJson.encodeValue(1,self.writeData[k]))
+                account.set_data(newKey, TasCollectionStorage.tasJson.encodeValue(1,self.writeData[k]))
 
 
 # class SysNormalIter:
@@ -138,7 +138,7 @@ class TasMapStorage:
 #
 #     def getNextKV(self):
 #         vl = account.get_iterator_next(self.iter)
-#         jsondata = TasMapStorage.tasJson.decodeNormal(vl)
+#         jsondata = TasCollectionStorage.tasJson.decodeNormal(vl)
 #         hasValue = jsondata['hasValue']#1normalvalue 0:null data 2:map node
 #         if hasValue == 0 :
 #             if  len(self.mem) == 0:#if memory and db all null then return

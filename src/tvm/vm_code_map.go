@@ -17,7 +17,7 @@ tas_%s = %s()`, PycodeGetTrueUserCode(code), PycodeContractAddHooks(contractName
 }
 
 func PycodeContractImports()string{
-	return  "from lib.base.tas_storage_base_property import TasBaseStorage\nfrom lib.base.tas_storage_map_property import TasMapStorage"
+	return  "from lib.base.tas_storage_base_property import TasBaseStorage\nfrom lib.base.tas_storage_map_property import TasCollectionStorage"
 }
 
 func PycodeContractAddHooks(contractName string)string{
