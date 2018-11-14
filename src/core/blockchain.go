@@ -144,7 +144,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(20)
+	chain.futureBlocks, err = lru.New(200)
 	if err != nil {
 		return err
 	}
