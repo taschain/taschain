@@ -22,6 +22,7 @@ class ContractMapStorage():
         self.map1a["d2"] = 200
 
         del self.map1a["d1"]
+        self.setMapBaseDataSetNeedSuccess = "success"
         return 1
 
     @register.public()
@@ -35,11 +36,13 @@ class ContractMapStorage():
         self.expectValue(None, self.map1a["d1"])
         self.expectValue(None, self.map1a["null"])
         del self.map1a["d2"]
+        self.getMapBaseDataSetNeedSuccess = "success"
         return 1
 
     @register.public()
     def getMapBaseDataSetNeedSuccess2(self):
         self.expectValue(None, self.map1a["d2"])
+        self.getMapBaseDataSetNeedSuccess2 = "success"
         return 1
 
     @register.public()
@@ -57,6 +60,7 @@ class ContractMapStorage():
         key1 = self.map2b
         key1["c1"] = 100
         key1["c2"] = 200
+        self.setMapCoverValue = "success"
         return 1
 
     @register.public()
@@ -68,6 +72,7 @@ class ContractMapStorage():
 
         self.expectValue(100, self.map2b["c1"])
         self.expectValue(200, self.map2b["c2"])
+        self.getMapCoverValue = "success"
         return 1
 
     @register.public()
@@ -88,7 +93,7 @@ class ContractMapStorage():
         self.map3a["x1"]["x11"]["x111"]["x1111"] = TasCollectionStorage()
         #self.a["x1"]["x11"]["x111"]["x1111"]["x11112"] = [1,1,2,3,{"3:":111}]
         try: #nest in too much
-            self.map3["x1"]["x11"]["x111"]["x1111"]["x11111"] = TasCollectionStorage()
+            self.map3a["x1"]["x11"]["x111"]["x1111"]["x11111"] = TasCollectionStorage()
         except Exception:
             pass
         else:
@@ -107,6 +112,7 @@ class ContractMapStorage():
             pass
         else:
             raise Exception("exception exception !")
+        self.setMapNestIn = "success"
         return 1
 
 
@@ -153,6 +159,7 @@ class ContractMapStorage():
             newKey = self.map3xxx["1"]
             newKey["2"] = 1000
         self.expectValue(1000, self.map3xxx["1"]["2"])
+        self.getMapNestIn = "success"
         return 1
 
     @register.public()
@@ -166,12 +173,14 @@ class ContractMapStorage():
         self.expectValue(None, self.map3a["x1"]["x11"]["124"])
         self.expectValue(500, self.map3a["x1"]["x11"]["125"])
         self.expectValue(1000, self.map3xxx["1"]["2"])
+        self.getMapNestIn2 = "success"
         return 1
 
     @register.public()
     def setMapErrors(self):
         self.keyTooLongError()
         self.ValueNotSupportError()
+        self.setMapErrors = "success"
         return 1
 
     def keyTooLongError(self):
@@ -237,6 +246,7 @@ class ContractMapStorage():
 
         self.mapnullm2= None
         self.mapnulln = TasCollectionStorage()
+        self.setNull = "success"
 
 
     @register.public()
@@ -251,12 +261,14 @@ class ContractMapStorage():
             pass
         else:
             raise Exception("exception exception !")
+        self.getNull1 = "success"
 
     @register.public()
     def getNull2(self):
         self.expectValue(None, self.mapnullm3)
         self.expectValue(None, self.mapnullm4)
         self.expectValue(300, self.mapnullm5)
+        self.getNull2 = "success"
 
 
 

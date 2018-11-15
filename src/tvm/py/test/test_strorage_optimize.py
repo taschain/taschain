@@ -23,6 +23,7 @@ class ContractStorage():
         #self.expectValue([1,2,3], self.d)
         #self.expectValue({"1":"2","3":"4"}, self.e)
         self.basenoneVl=None
+        self.setBaseNeedSuccess1 = "success"
         return 1
 
     @register.public()
@@ -33,6 +34,7 @@ class ContractStorage():
         #self.expectValue([1, 2, 3], self.d)
         #self.expectValue({"1": "2", "3": "4"}, self.e)
         self.expectValue(None, self.basenoneVl)
+        self.getBaseNeedSuccess1 = "success"
         return 1
 
     @register.public()
@@ -55,6 +57,7 @@ class ContractStorage():
         self.expectValue(longStr,self.basex2)
         #self.expectValue(longDict, self.y)
         #self.expectValue(longList, self.z)
+        self.setBaseNeedSuccess2 = "success"
         return 1
 
     @register.public()
@@ -75,6 +78,7 @@ class ContractStorage():
         # self.expectValue(longStr, self.x)
         #self.expectValue(longDict, self.y)
         #self.expectValue(longList, self.z)
+        self.getBaseNeedSuccess2 = "success"
         return 1
 
     @register.public()
@@ -99,6 +103,7 @@ class ContractStorage():
         self.expectValue("444444", self.basea3)
 
         #self.expectValue([1, 2, 3, 4, 5, 6, 1, "2", "3", "4", {"1": 2}, {"3": 4}, [1, 2, 3, {"4": 5}]], self.b)
+        self.setBaseNeedSuccess3 = "success"
         return 1
 
     @register.public()
@@ -112,6 +117,7 @@ class ContractStorage():
         #del self.ll["1"]
         #del self.ll["3"]
         #self.expectValue({},self.ll)
+        self.getBaseNeedSuccess3 = "success"
         return 1
 
     @register.public()
@@ -125,6 +131,7 @@ class ContractStorage():
         self.base4y=""
         #self.x1=[]
         #self.y1={}
+        self.setBaseNeedSuccess4 = "success"
         return 1
 
     @register.public()
@@ -138,6 +145,7 @@ class ContractStorage():
         self.expectValue("", self.base4y)
         #self.expectValue([], self.x1)
         #self.expectValue({}, self.y1)
+        self.getBaseNeedSuccess4 = "success"
         return 1
 
     @register.public()
@@ -152,6 +160,7 @@ class ContractStorage():
         #self.x3={1:2,"2":"3",3:4}
         #c=self.x3
         #del c["2"]
+        self.setChangeKey = "success"
         return 1
 
     @register.public()
@@ -159,6 +168,7 @@ class ContractStorage():
         self.expectValue("this is x1", self.base5x1)
         #self.expectValue([1,2,3,4,5,6], self.x2)
         #self.expectValue({1:2,3:4}, self.x3)
+        self.getChangeKey = "success"
         return 1
 
     @register.public()
@@ -168,6 +178,7 @@ class ContractStorage():
         self.mapNestInTooMuchError()
         self.listNestInTooMuchError()
         self.notSupportTypeError()
+        self.baseErrors = "success"
         return 1
 
 
