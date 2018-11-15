@@ -515,7 +515,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	if chain.latestBlock.Height != 0 {
+	if BlockSyncer != nil {
 		go BlockSyncer.Sync()
 	}
 }

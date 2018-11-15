@@ -29,7 +29,7 @@ const (
 	blockSyncInterval = 3 * time.Second
 )
 
-var BlockSyncer blockSyncer
+var BlockSyncer *blockSyncer
 
 type blockSyncer struct {
 	candidate blockSyncCandidate
@@ -53,7 +53,7 @@ func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
+	BlockSyncer = &blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	notify.BUS.Subscribe(notify.BlockChainTotalQn, BlockSyncer.totalQnHandler)
 	go BlockSyncer.loop()
