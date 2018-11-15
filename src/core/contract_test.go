@@ -20,6 +20,14 @@ func init() {
 	middleware.InitMiddleware()
 }
 
+var randValue uint64 = 0
+
+func GeneteRandom()uint64{
+	randValue++
+	return randValue
+}
+
+
 
 func ChainInit() {
 	Clear()
@@ -217,7 +225,7 @@ func OnChainFunc(code string, source string) {
 	initBlockChain()
 	BlockChainImpl.transactionPool.Clear()
 	txpool := BlockChainImpl.GetTransactionPool()
-	index := uint64(time.Now().Unix())
+	index := GeneteRandom()
 	txpool.Add(genContractTx(1, 20000000,  source, "", index, 0, []byte(code), nil, 0))
 	fmt.Println("nonce:", BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
@@ -251,8 +259,8 @@ func CallContract2(address, abi string, source string) {
 	code := BlockChainImpl.latestStateDB.GetCode(contractAddr)
 	fmt.Println(string(code))
 	txpool := BlockChainImpl.GetTransactionPool()
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	txpool.Add(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r.Uint64(), 44, []byte(abi), nil, 0))
+	r := GeneteRandom()
+	txpool.Add(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0))
 	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, 0, *castor, *groupid)
 	block2.Header.QueueNumber = 2
 	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
