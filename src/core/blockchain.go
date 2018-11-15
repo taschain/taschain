@@ -335,7 +335,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 
 	if !chain.hasPreBlock(bh) {
 		if txs != nil {
-			chain.futureBlocks.Add(bh.PreHash, types.Block{Header: &bh, Transactions: txs})
+			chain.futureBlocks.Add(bh.PreHash, &types.Block{Header: &bh, Transactions: txs})
 		}
 		return nil, 2
 	}
