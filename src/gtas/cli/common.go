@@ -98,7 +98,7 @@ func genTx(price uint64, source string, target string, nonce uint64, value uint6
 		Value:         value,
 		ExtraData:     extraData,
 		ExtraDataType: extraDataType,
-		GasLimit: 1000000000,
+		GasLimit: 10000000,
 	}
 }
 
