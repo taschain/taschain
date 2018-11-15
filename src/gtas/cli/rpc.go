@@ -198,7 +198,7 @@ func loadMap(m map[string]string) map[string]interface{}{
 				if tmp[k] == nil {
 					tmp[k] = make(map[string]interface{})
 				}
-				tmp = data[k].(map[string]interface{})
+				tmp = tmp[k].(map[string]interface{})
 			}
 			if strings.HasPrefix(value, "0") {
 				if tmp[atlist[len(atlist)-1]] == nil {
