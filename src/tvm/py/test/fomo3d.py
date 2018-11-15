@@ -11,12 +11,12 @@ class Fomo3D(object):
         self.total_key_count = 0  # 卖出的所有key的数量
         self.current_round_key_count = 0
         self.owner = msg.sender
-        self.balance = TasMapStorage()  # 记录各用户的余额
-        self.round_list = TasMapStorage()  # 记录各round的购买的key的情况
-        self.round_list[str(self.round)] = TasMapStorage()
-        self.round_list_size = TasMapStorage()
-        self.round_list_key = TasMapStorage()
-        self.round_list_key[str(self.round)] = TasMapStorage()
+        self.balance = TasCollectionStorage()  # 记录各用户的余额
+        self.round_list = TasCollectionStorage()  # 记录各round的购买的key的情况
+        self.round_list[str(self.round)] = TasCollectionStorage()
+        self.round_list_size = TasCollectionStorage()
+        self.round_list_key = TasCollectionStorage()
+        self.round_list_key[str(self.round)] = TasCollectionStorage()
         self.jackpot = 0  # 奖池金额
         self.previous_jackpot = 0
         self.last_one = ""  # 最后购买key的地址
@@ -28,8 +28,8 @@ class Fomo3D(object):
         self.time_plus = 5
         self.endtime = block.timestamp() + self.round_time
         self.max_jackpot = 10
-        self.history = TasMapStorage()
-        self.history[str(self.round)] = TasMapStorage()
+        self.history = TasCollectionStorage()
+        self.history[str(self.round)] = TasCollectionStorage()
 
     def _add_balance(self, account, amount):
         if self.balance[account] is None:
@@ -109,9 +109,9 @@ class Fomo3D(object):
 
         self.contract_balance += self.jackpot * to_contract / 100
         self.round += 1
-        self.round_list[str(self.round)] = TasMapStorage()
-        self.round_list_key[str(self.round)] = TasMapStorage()
-        self.history[str(self.round)] = TasMapStorage()
+        self.round_list[str(self.round)] = TasCollectionStorage()
+        self.round_list_key[str(self.round)] = TasCollectionStorage()
+        self.history[str(self.round)] = TasCollectionStorage()
         self.previous_jackpot = self.jackpot * to_jackpot / 100
         self.jackpot = 0
         self.endtime = block.timestamp() + self.round_time
