@@ -3,9 +3,13 @@ import account
 
 class ContractGame():
     def __init__(self):
-        self.a = 10
+        pass
 
     def deploy(self):
+        self.a = 10
+        self.mystr = "myabc"
+        self.mybool = True
+        self.mynone = 1
         print("deploy")
 
     def ready(self):
@@ -16,9 +20,8 @@ class ContractGame():
         print("contract is called")
         try:
             count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_int", "[100]")
-            abc = count +1
-            print ("count from another contract. count 1 ")
-            print ("count from another contract. count = " + str(abc))
+            self.a = self.a + count
+            print("count from another contract. count = " + str(self.a))
         except Exception as e:
             print(e.args)
 
@@ -27,7 +30,8 @@ class ContractGame():
         print("contract is called")
         try:
             count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_str", "[]")
-            print ("count from another contract. count = " + str(count))
+            self.mystr += count
+            print("count from another contract. count = " + self.mystr)
         except Exception as e:
             print(e.args)
 
@@ -35,8 +39,8 @@ class ContractGame():
     def contract_bool(self):
         print("contract is called")
         try:
-            count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_bool", "[True]")
-            print ("count from another contract. count = " + str(count))
+            self.mybool = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_bool", "[True]")
+            print("count from another contract. count = " + str(self.mybool))
         except Exception as e:
             print(e.args)
 
@@ -44,8 +48,10 @@ class ContractGame():
     def contract_none(self):
         print("contract is called")
         try:
-            count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_none", "[]")
-            print ("count from another contract. count = " + str(count))
+            mynone = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_none", "[]")
+            print("count from another contract. count = " + str(mynone))
+            if mynone is None:
+                self.mynone = 2
         except Exception as e:
             print(e.args)
 
@@ -54,9 +60,9 @@ class ContractGame():
         print("===deep start==")
         try:
             count = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "count_deep", "[]")
-            abc = count +1
-            print ("count from another contract. count 1 ")
-            print ("count from another contract. count = " + str(abc))
+            abc = count + 1
+            print("count from another contract. count 1 ")
+            print("count from another contract. count = " + str(abc))
         except Exception as e:
             print(e.args)
         print("===deep end==")

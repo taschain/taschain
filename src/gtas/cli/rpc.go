@@ -16,22 +16,22 @@
 package cli
 
 import (
-	"net"
 	"core/rpc"
+	"net"
 
-	"fmt"
-	"network"
-	"strconv"
+	"common"
+	"consensus/groupsig"
+	"consensus/logical"
+	"consensus/mediator"
 	"core"
 	"encoding/hex"
-	"strings"
+	"fmt"
 	"log"
 	"math"
-	"consensus/groupsig"
-	"common"
-	"consensus/mediator"
-	"consensus/logical"
 	"middleware/types"
+	"network"
+	"strconv"
+	"strings"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -172,6 +172,55 @@ func (api *GtasAPI) GetNonce(contractAddr string) (*Result, error) {
 	return &Result{"success", nonce}, nil
 }
 
+func loadData(s string) interface{} {
+	if strings.HasPrefix(s, "\"") {
+		return s[1: len(s)-1]
+	} else {
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			return i
+		}
+		b, err := strconv.ParseBool(s)
+		if err == nil {
+			return b
+		}
+	}
+	return nil
+}
+
+func loadMap(m map[string]string) map[string]interface{}{
+	data := make(map[string]interface{})
+	for key, value := range m {
+		if strings.Contains(key, "@") {
+			atlist := strings.Split(key, "@")
+			var tmp = data
+			for _, k := range atlist[:len(atlist)-1] {
+				if tmp[k] == nil {
+					tmp[k] = make(map[string]interface{})
+				}
+				tmp = tmp[k].(map[string]interface{})
+			}
+			if strings.HasPrefix(value, "0") {
+				if tmp[atlist[len(atlist)-1]] == nil {
+					tmp[atlist[len(atlist)-1]] = make(map[string]interface{})
+				}
+			} else {
+				tmp[atlist[len(atlist)-1]] = loadData(value[1:])
+			}
+		} else {
+			if strings.HasPrefix(value, "0") {
+				if data[key] == nil {
+					data[key] = make(map[string]interface{})
+				}
+			} else {
+				data[key] = loadData(value[1:])
+			}
+		}
+	}
+	return data
+}
+
+
 func(api *GtasAPI) GetContractDatas(contractAddr string) (*Result, error) {
 	addr := common.HexStringToAddress(contractAddr)
 	stateDb := core.BlockChainImpl.LatestStateDB()
@@ -185,7 +234,8 @@ func(api *GtasAPI) GetContractDatas(contractAddr string) (*Result, error) {
 			break
 		}
 	}
-	return &Result{"success", kv}, nil
+	res := loadMap(kv)
+	return  &Result{"success", res}, nil
 }
 
 func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {

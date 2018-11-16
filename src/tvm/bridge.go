@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/big"
 	"unsafe"
+
 )
 
 //export callOnMeGo
@@ -153,7 +154,6 @@ func GetData(hashC *C.char) *C.char {
 	//hash := common.StringToHash(C.GoString(hashC))
 	address := *controller.Vm.ContractAddress
 	state := controller.AccountDB.GetData(address, C.GoString(hashC))
-
 	return C.CString(string(state))
 }
 
@@ -253,4 +253,28 @@ func SetBytecode(code *C.char, len C.int) {
 	fmt.Println(C.GoString(code))
 	RunByteCode(code, len)
 	fmt.Println(C.GoString(code))
+}
+
+//export DataIterator
+func DataIterator(prefix *C.char) C.ulonglong{
+	address := *controller.Vm.ContractAddress
+	iter := controller.AccountDB.DataIterator(address,C.GoString(prefix))
+	return C.ulonglong(uintptr(unsafe.Pointer(iter)))
+}
+
+//export RemoveData
+func RemoveData(key *C.char){
+	address := *controller.Vm.ContractAddress
+	controller.AccountDB.RemoveData(address,C.GoString(key))
+}
+
+//export DataNext
+func DataNext(cvalue *C.char)*C.char{
+	//C.ulonglong
+	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
+	if !ok{
+		//TODO
+	}
+	data:=controller.AccountDB.DataNext(uintptr(value.Uint64()))
+	return C.CString(data)
 }

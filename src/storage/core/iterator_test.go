@@ -35,7 +35,8 @@ func TestNodeIterator(t *testing.T)  {
 	state.SetData(common.StringToAddress("1"),"c",[]byte("d"))
 	state.Commit(true)
 	stateObject := state.getAccountObject(common.StringToAddress("1"))
-	for it2 := stateObject.DataIterator(nil); it2.Next();{
+
+	for it2 := stateObject.DataIterator(db,""); it2.Next();{
 		fmt.Printf("%s %s\n",string(it2.Key), it2.Value)
 	}
 
@@ -80,5 +81,54 @@ func TestNodeIteratorCoverage(t *testing.T) {
 		if _, ok := hashes[common.BytesToHash(key)]; !ok {
 			t.Errorf("state entry not reported %x", key)
 		}
+	}
+}
+
+
+func TestIterator2(t *testing.T) {
+	diskdb, _ := tasdb.NewMemDatabase()
+	db := NewDatabase(diskdb)
+	state, _ := NewAccountDB(common.Hash{}, db)
+	state.CreateAccount(common.StringToAddress("1"))
+	state.SetCode(common.StringToAddress("1"),[]byte("hello world"))
+
+	state.SetData(common.StringToAddress("1"),"a",[]byte("b"))
+	state.SetData(common.StringToAddress("1"),"c",[]byte("d"))
+
+	vals := []struct{ k, v string }{
+		{"key_price", "key_price"},
+		{"round", "round"},
+		{"total_key_count", "total_key_count"},
+		{"current_round_key_count", "current_round_key_count"},
+		{"owner", "owner"},
+		{"balance", "balance"},
+		{"round_list", "round_list"},
+		{"round_list@0", "round_list@0"},
+		{"round_list_size", "round_list_size"},
+		{"jackpot", "jackpot"},
+		{"previous_jackpot", "previous_jackpot"},
+		{"last_one", "last_one"},
+		{"last_ranks", "last_ranks"},
+		{"airdrop_jackpot", "airdrop_jackpot"},
+		{"multiple", "multiple"},
+		{"contract_balance", "contract_balance"},
+		{"round_time", "round_time"},
+		{"time_plus", "time_plus"},
+		{"endtime", "endtime"},
+		{"max_jackpot", "max_jackpot"},
+		{"history", "history"},
+		{"history@0", "history@0"},
+	}
+
+	all := make(map[string]string)
+	for _, val := range vals {
+		all[val.k] = val.v
+		state.SetData(common.StringToAddress("1"),val.k,[]byte(val.v))
+	}
+	state.Commit(true)
+	stateObject := state.getAccountObject(common.StringToAddress("1"))
+
+	for it2 := stateObject.DataIterator(db,""); it2.Next();{
+		fmt.Printf("%s %s\n",string(it2.Key), it2.Value)
 	}
 }

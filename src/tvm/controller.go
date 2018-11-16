@@ -75,7 +75,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}
 
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.CreateContractInstance(msg) && con.Vm.LoadContractCode(msg)
+	succeed = con.Vm.CreateContractInstance(msg)
 	if succeed {
 		abi := ABI{}
 		json.Unmarshal([]byte(abiJson), &abi)
@@ -93,4 +93,8 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}
 	con.Transaction.GasLimit = uint64(con.Vm.Gas())
 	return succeed
+}
+
+func(con *Controller) GetGasLeft() uint64{
+	return con.Transaction.GasLimit
 }

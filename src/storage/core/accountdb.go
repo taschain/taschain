@@ -16,6 +16,7 @@
 package core
 
 import (
+	"C"
 	"fmt"
 	"math/big"
 	"sort"
@@ -26,6 +27,7 @@ import (
 	"golang.org/x/crypto/sha3"
 	"common"
 	"taslog"
+	"unsafe"
 )
 
 type revision struct {
@@ -170,6 +172,10 @@ func (self *AccountDB) GetData(a common.Address, b string) []byte {
 		return stateObject.GetData(self.db, b)
 	}
 	return nil
+}
+
+func (self *AccountDB) RemoveData(a common.Address, b string) {
+	self.SetData(a, b, nil)
 }
 
 func (self *AccountDB) Database() Database {
@@ -336,13 +342,44 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *DataIterator {
 	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,[]byte(prefix))
+		return stateObject.DataIterator(self.db,prefix)
 	} else {
 		return nil
 	}
+}
+
+func (self *AccountDB) DataNext(iterator uintptr) string  {
+	iter := (*trie.Iterator)(unsafe.Pointer(iterator))
+	if iter == nil{
+		return `{"key":"","value":"","hasValue":0}`
+	}
+	hasValue := 1
+	var key string = ""
+	var value string = ""
+	if len(iter.Key) != 0 {
+		key = string(iter.Key)
+		value = string(iter.Value)
+	}
+	if !iter.Next(){//no data
+		hasValue = 0
+	}
+	if key == "" {
+		return fmt.Sprintf(`{"key":"","value":"","hasValue":%d}`, hasValue)
+	}
+	if len(value) > 0{
+		valueType := value[0:1]
+		if valueType == "0"{//this is map node
+			hasValue = 2
+		}else{
+			value= value[1:]
+		}
+	}else{
+		return `{"key":"","value":"","hasValue":0}`
+	}
+	return fmt.Sprintf(`{"key":"%s","value":%s,"hasValue":%d}`,key,value,hasValue)
 }
 
 func (self *AccountDB) Copy() *AccountDB {

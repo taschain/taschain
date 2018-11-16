@@ -28,7 +28,7 @@ if __name__ == '__main__':
     else:
         YorN = input("{f0} -> {f1}, {f2} ? Y/N ".format(f0=file_name, f1 = file_list[0], f2=file_list[1]))
     if YorN == "Y" or YorN == "y":
-        with open(file_name, "r") as f:
+        with open(file_name, "r",encoding='UTF-8') as f:
             content = f.read()
         for i in range(2):
             with open(file_list[i], "w") as f:

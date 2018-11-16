@@ -4,51 +4,67 @@ import "fmt"
 
 func PycodeStoreContractData(contractName string) string {
 	return fmt.Sprintf(`
-import account
-import ujson
-for k in tas_%s.__dict__:
-    #print(k)
-    #print(type(k))
-    #print(tas_%s.__dict__[k])
-    #print(type(tas_%s.__dict__[k]))
-    value = ujson.dumps(tas_%s.__dict__[k])
-    if TAS_PARAMS_DICT.get(k) != value:
-        account.set_data(k, value)`, contractName, contractName, contractName, contractName)
-}
-
-func PycodeLoadContractData(contractName string) string {
-	return fmt.Sprintf(`
-import account
-import ujson
-TAS_PARAMS_DICT = {}
-for k in tas_%s.__dict__:
-    #	print(k)
-    #	print(type(k))
-    #	value = ujson.loads(account.get_data("", k))
-    #	print(value)
-    value = account.get_data(k)
-    TAS_PARAMS_DICT[k] = value
-    setattr(tas_%s, k, ujson.loads(value))`, contractName, contractName)
+TasBaseStorage.flushData()
+`)
 }
 
 func PycodeCreateContractInstance(code string, contractName string) string {
-	return fmt.Sprintf(`
+	newCode:= fmt.Sprintf(`
 %s
-tas_%s = %s()`, code, contractName, contractName)
+%s
+tas_%s = %s()`, PycodeGetTrueUserCode(code), PycodeContractAddHooks(contractName),contractName, contractName)
+	return newCode
 }
 
-func PycodeContractDeploy(code string, contractName string) string {
+func PycodeContractImports()string{
+	return  "from lib.base.tas_storage_base_property import TasBaseStorage\nfrom lib.base.tas_storage_map_property import TasCollectionStorage"
+}
+
+func PycodeContractAddHooks(contractName string)string{
+	initHook:=fmt.Sprintf("%s.__init__ = TasBaseStorage.initHook",contractName)
+	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStorage.setAttrHook",contractName)
+	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStorage.getAttrHook",contractName)
 	return fmt.Sprintf(`
 %s
-TAS_PARAMS_DICT = {}
+%s
+%s
+	`,initHook,getAttributeHook,setAttributeHook)
+}
+
+func PycodeGetTrueUserCode(code string)string{
+	usercode:=fmt.Sprintf(`
+%s
+%s
+	`,PycodeContractImports(),code)
+	return usercode
+}
+
+
+func PycodeContractDeploy(code string, contractName string) string {
+	invokeDeploy:=fmt.Sprintf(`
 tas_%s = %s()
-tas_%s.deploy()`, code, contractName, contractName, contractName)
+tas_%s.deploy()
+	`,contractName, contractName, contractName)
+
+	allContractCode:= fmt.Sprintf(`
+%s
+%s
+%s
+`, PycodeGetTrueUserCode(code),PycodeContractAddHooks(contractName),invokeDeploy)
+	return allContractCode
+
 }
 
 func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {
 	return fmt.Sprintf(`
-from clib.tas_runtime.msgxx import Msg
-from clib.tas_runtime.address_tas import Address
+class Msg(object):
+    def __init__(self, data, value, sender):
+        self.data = data
+        self.value = value
+        self.sender = sender
+
+    def __repr__(self):
+        return "data: " + str(self.data) + " value: " + str(self.value) + " sender: " + str(self.sender)
 
 class Register(object):
     def __init__(self):
@@ -59,14 +75,10 @@ class Register(object):
             paranametuple = func.__para__
             paraname = list(paranametuple)
             paraname.remove("self")
-            #print(paraname)
-            #print(len(paraname))
             paratype = []
             for i in range(len(paraname)):
-                #print(dargs[i])
                 paratype.append(dargs[i])
             self.funcinfo[func.__name__] = [paraname,paratype]
-            print(self.funcinfo)
             
             def _wrapper(*args , **kargs):
                 return func(*args, **kargs)
@@ -100,38 +112,13 @@ func GetInterfaceType(value interface{}) string{
 }
 
 func PycodeCheckAbi(abi ABI) string {
-	//return fmt.Sprintf(`if "%s" not in register.funcinfo:
-	//raise Exception("cannot call this function: %s")`, abi.FuncName, abi.FuncName)
 
-	var str string //:=`__ABIParaTypes = ["`
-	//var types []string
-
-//	if len(abi.Args) == 0 {
-//		str = `
-//__ABIParaTypes=[]`
-//	}else {
-//		str = `__ABIParaTypes = ["`
-//		for i := 0; i < len(abi.Args); i++ {
-//			tmp := GetInterfaceType(abi.Args[i])
-//			types = append(types, tmp)
-//			//fmt.Println(types[i])
-//			str += types[i]
-//			if i == len(abi.Args)-1 {
-//				str += `"]
-//`
-//			} else {
-//				str += `","`
-//			}
-//		}
-//	}
-
+	var str string
 	str = `
 __ABIParaTypes=[]`
     for i := 0; i < len(abi.Args); i++ {
     	str += fmt.Sprintf("\n" + "__ABIParaTypes.append(type(%s))",GetInterfaceType(abi.Args[i]))
 	}
-	//str += fmt.Sprintf("\nprint(__ABIParaTypes)")
-	//fmt.Println(str)
 
 	str += fmt.Sprintf(`
 if "%s" in register.funcinfo:
@@ -146,8 +133,6 @@ if "%s" in register.funcinfo:
 else:
     raise Exception("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
-
-	//fmt.Println(str)
 
 
 	return str

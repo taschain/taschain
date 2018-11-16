@@ -174,6 +174,10 @@ func (self *accountObject) SetData(db Database, key string, value []byte) {
 	self.setData(key, value)
 }
 
+func (self *accountObject) RemoveData(db Database, key string) {
+	self.SetData(db, key, nil)
+}
+
 func (self *accountObject) setData(key string, value []byte) {
 	self.cachedStorage[key] = value
 	self.dirtyStorage[key] = value
@@ -287,11 +291,12 @@ func (self *accountObject) Code(db Database) []byte {
 	return code
 }
 
-func (self *accountObject) DataIterator(db Database, prefix []byte) *trie.Iterator{
+func (self *accountObject) DataIterator(db Database, prefix string) *DataIterator{
 	if self.trie == nil{
 		self.getTrie(db)
 	}
-	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
+	iter := trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
+	return &DataIterator{Iterator:iter, object:self, prefix:prefix}
 }
 
 func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
