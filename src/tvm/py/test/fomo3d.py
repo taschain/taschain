@@ -105,7 +105,7 @@ class Fomo3D(object):
             if currentRoundAccountSize is not None:
                 for index in range(currentRoundAccountSize):
                     account = self.round_list_key[str(self.round)][str(index)]
-                    self._add_balance(account, give_to_player * self.round_list[self.round][account] / self.current_round_key_count)
+                    self._add_balance(account, give_to_player * self.round_list[str(self.round)][account] / self.current_round_key_count)
 
         self.contract_balance += self.jackpot * to_contract / 100
         self.round += 1
