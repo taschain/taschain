@@ -68,7 +68,7 @@ func (iterator *GroupIterator) Current() *types.Group {
 }
 
 func (iterator *GroupIterator) MovePre() *types.Group {
-	iterator.current = GroupChainImpl.GetGroupById(iterator.current.PreGroup)
+	iterator.current = GroupChainImpl.GetGroupById(iterator.current.Header.PreGroup)
 	return iterator.current
 }
 
@@ -238,8 +238,8 @@ func (chain *GroupChain) getOtherLackGroups(topId []byte, existIds [][]byte) ([]
 }
 
 func (chain *GroupChain) getPreGroup(group *types.Group) *types.Group {
-	if group.PreGroup != nil {
-		return chain.getGroupById(group.PreGroup)
+	if group.Header.PreGroup != nil {
+		return chain.getGroupById(group.Header.PreGroup)
 	} else {
 		return nil
 	}
@@ -345,21 +345,21 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	}
 
 	if !isDebug {
-		if nil != group.Parent {
-			exist, _ := chain.groups.Has(group.Parent)
+		if nil != group.Header.Parent {
+			exist, _ := chain.groups.Has(group.Header.Parent)
 			//parent := chain.getGroupById(group.Parent)
 			//if nil == parent {
 			if !exist {
 				return fmt.Errorf("parent is not existed")
 			}
 		}
-		if nil != group.PreGroup {
+		if nil != group.Header.PreGroup {
 			//exist,_ := chain.groups.Has(group.PreGroup)
 			//if !exist{
 			//	chain.preCache.Store(string(group.PreGroup), group)
 			//	return fmt.Errorf("pre group is not existed")
 			//}
-			if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
+			if !bytes.Equal(chain.lastGroup.Id, group.Header.PreGroup) {
 				return fmt.Errorf("pre not equal lastgroup")
 			}
 		} else {
@@ -439,7 +439,7 @@ func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64) {
 	defer chain.lock.Unlock()
 	for ; len(chain.activeGroups) > 0; {
 		group := chain.activeGroups[0]
-		if group.DismissHeight <= blockHeight {
+		if group.Header.DismissHeight <= blockHeight {
 			chain.activeGroups = chain.activeGroups[1:]
 		} else {
 			break
@@ -459,11 +459,11 @@ func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uin
 	middle := chain.count / 2
 	for i := middle; i < chain.count; i++ {
 		group := chain.GetGroupByHeight(i)
-		if group.BeginHeight > abortHeight {
+		if group.Header.ReadyHeight > abortHeight {
 			break
 		}
 		for _, member := range group.Members {
-			if bytes.Equal(member.Id, id) {
+			if bytes.Equal(member, id) {
 				return true
 			}
 		}
@@ -474,11 +474,11 @@ func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uin
 			Logger.Debugf("WhetherMemberInActiveGroup Group nil height:%d", j)
 			break
 		}
-		if group.DismissHeight < applyHeight || group.DismissHeight < currentHeight {
+		if group.Header.DismissHeight < applyHeight || group.Header.DismissHeight < currentHeight {
 			break
 		}
 		for _, member := range group.Members {
-			if bytes.Equal(member.Id, id) {
+			if bytes.Equal(member, id) {
 				return true
 			}
 		}

@@ -134,27 +134,44 @@ message Member{
     required bytes PubKey  = 2 ;
 }
 
+message GroupHeader{
+    optional bytes Hash = 1;
+
+    optional bytes Parent = 2;
+
+    required bytes PreGroup = 3;
+
+    optional uint64 Authority = 4;
+
+    optional string Name = 5;
+
+    optional bytes BeginTime = 6;
+
+    optional bytes MemberRoot = 7;
+
+    optional uint64 CreateHeight = 8;
+
+    optional uint64 ReadyHeight = 9;
+
+    optional uint64 WorkHeight = 10;
+
+    optional uint64 DismissHeight = 11;
+
+    optional string Extends = 12;
+}
+
 message Group{
+    required GroupHeader Header = 1;
 
-    optional  bytes Id   = 1;
+    optional bytes Id   = 2;
 
-	repeated  Member Members  = 2;
+	optional bytes PubKey = 3;
 
-	optional  bytes PubKey = 3;
+    optional bytes Signature = 4;
 
-	optional  bytes Parent = 4;
+    repeated bytes Members  = 5;
 
-	optional  bytes Dummy = 5;
-
-	optional  bytes Signature  = 6;
-
-	optional  uint64 BeginHeight  = 7;
-
-    optional  uint64  DismissHeight = 8;
-    optional  uint64    Authority = 9;
-    optional  bytes     Name = 10;
-    optional  bytes     Extends = 11;
-    required  bytes     PreGroup = 12;
+    optional uint64 GroupHeight = 6;
 }
 
 

@@ -307,7 +307,7 @@ func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string,
 		return err
 	}
 	go rpc.NewHTTPServer(cors, vhosts, handler).Serve(listener)
-
+	go rpc.NewWSServer(cors, handler).Serve(listener)
 	return nil
 }
 
