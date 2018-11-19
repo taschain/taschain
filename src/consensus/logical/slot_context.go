@@ -16,23 +16,23 @@
 package logical
 
 import (
-	"consensus/groupsig"
 	"common"
-	"sync/atomic"
-	"middleware/types"
-	"core"
+	"consensus/groupsig"
 	"consensus/model"
-	"log"
-	"gopkg.in/fatih/set.v0"
+	"core"
 	"fmt"
+	"gopkg.in/fatih/set.v0"
+	"log"
 	"math/big"
+	"middleware/types"
+	"sync/atomic"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/5/21 下午5:49
-**  Description: 
-*/
+**  Description:
+ */
 
 const (
 	SS_INITING     int32 = iota
@@ -130,7 +130,7 @@ func (sc *SlotContext) addLostTrans(txs []common.Hash) {
 
 //用接收到的新交易更新缺失的交易集
 //返回接收前以及接收后是否不在缺失交易
-func (sc *SlotContext) AcceptTrans(ths []common.Hash) (bool) {
+func (sc *SlotContext) AcceptTrans(ths []common.Hash) bool {
 	l := sc.lostTransSize()
 	if l == 0 { //已经无缺失
 		return false

@@ -1,11 +1,11 @@
 package logical
 
 import (
-		"log"
-	"strings"
 	"common"
-	"consensus/model"
 	"consensus/groupsig"
+	"consensus/model"
+	"log"
+	"strings"
 	"middleware/types"
 	"consensus/base"
 	"github.com/vmihailenco/msgpack"
@@ -15,8 +15,8 @@ import (
 /*
 **  Creator: pxf
 **  Date: 2018/6/12 下午6:12
-**  Description: 
-*/
+**  Description:
+ */
 
 func (p *Processor) genBelongGroupStoreFile() string {
 	storeFile := consensusConfManager.GetString("joined_group_store", "")
@@ -28,7 +28,7 @@ func (p *Processor) genBelongGroupStoreFile() string {
 
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
-	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 2)
+	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 1)
 	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
 	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
 	p.triggerCastCheck()
@@ -42,7 +42,7 @@ func (p *Processor) Stop() {
 	return
 }
 
-func (p *Processor) prepareMiner()  {
+func (p *Processor) prepareMiner() {
 
 	topHeight := p.MainChain.QueryTopBlock().Height
 
@@ -53,7 +53,7 @@ func (p *Processor) prepareMiner()  {
 
 	}
 
-	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n",  belongs.groupSize())
+	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n", belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
@@ -92,14 +92,12 @@ func (p *Processor) prepareMiner()  {
 }
 
 func (p *Processor) Ready() bool {
-    return p.ready
+	return p.ready
 }
-
 
 func (p *Processor) GetAvailableGroupsAt(height uint64) []*StaticGroupInfo {
-    return p.globalGroups.GetAvailableGroups(height)
+	return p.globalGroups.GetAvailableGroups(height)
 }
-
 
 func (p *Processor) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
 	return p.globalGroups.GetCastQualifiedGroups(height)
@@ -130,7 +128,7 @@ func (p *Processor) releaseRoutine() bool {
 		p.NetServer.ReleaseGroupNet(gid)
 	}
 
-    //释放超时未建成组的组网络和相应的dummy组
+	//释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
 		if gc.gis.ReadyTimeout(topHeight) {
 			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", gc.gis.DummyID.ShortS())
@@ -151,18 +149,18 @@ func (p *Processor) releaseRoutine() bool {
 }
 
 func (p *Processor) getVrfWorker() *vrfWorker {
-    if v := p.vrf.Load(); v != nil {
-    	return v.(*vrfWorker)
+	if v := p.vrf.Load(); v != nil {
+		return v.(*vrfWorker)
 	}
 	return nil
 }
 
-func (p *Processor) setVrfWorker(vrf *vrfWorker)  {
-    p.vrf.Store(vrf)
+func (p *Processor) setVrfWorker(vrf *vrfWorker) {
+	p.vrf.Store(vrf)
 }
 
 func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
-    md := p.minerReader.getProposeMiner(p.GetMinerID())
+	md := p.minerReader.getProposeMiner(p.GetMinerID())
 	if md != nil {
 		p.mi.MinerDO = *md
 	}
@@ -179,7 +177,7 @@ func (p *Processor) canProposalAt(h uint64) bool {
 
 func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 	h := p.MainChain.QueryTopBlock().Height
-    groups := p.globalGroups.GetAvailableGroups(h)
+	groups := p.globalGroups.GetAvailableGroups(h)
 	for _, g := range groups {
 		if !g.MemExist(p.GetMinerID()) {
 			continue

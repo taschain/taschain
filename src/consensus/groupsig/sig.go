@@ -86,7 +86,7 @@ func (sig Signature) GetRand() base.Rand {
 	return base.RandFromBytes(sig.Serialize())
 }
 
-func DeserializeSign(b [] byte)  * Signature {
+func DeserializeSign(b []byte)  * Signature {
 	sig := &Signature{}
 	sig.Deserialize(b)
 	return sig
@@ -95,7 +95,7 @@ func DeserializeSign(b [] byte)  * Signature {
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
-		return nil
+		return fmt.Errorf("signature Deserialized failed.")
 	}
 	sig.value.Unmarshal(b)
 	return nil
@@ -147,6 +147,9 @@ func Sign(sec Seckey, msg []byte) (sig Signature) {
 
 //验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
+        if sig.value.IsNil() {
+            return false
+        }
 	bQ := bn_curve.GetG2Base()
 	p1 := bn_curve.Pair(&sig.value, bQ)
 	//fmt.Println("p1:", p1.String())

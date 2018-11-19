@@ -18,16 +18,16 @@ package logical
 import (
 	"consensus/groupsig"
 
-	"core"
-	"log"
-	"consensus/ticker"
-	"middleware/types"
 	"consensus/model"
 	"consensus/net"
+	"consensus/ticker"
+	"core"
+	"fmt"
+	"log"
 	"middleware/notify"
+	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
-	"fmt"
 )
 
 var PROC_TEST_MODE bool

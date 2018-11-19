@@ -104,6 +104,7 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 		Name:          coreGroup.Name,
 		Extends:       coreGroup.Extends,
 	}
+
 	for _, cMem := range coreGroup.Members {
 		id := groupsig.DeserializeId(cMem.Id)
 		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)

@@ -16,46 +16,44 @@
 package logical
 
 import (
-	"time"
 	"common"
-	"sync"
+	"consensus/model"
 	"middleware/types"
 	"strconv"
-	"consensus/model"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/5/29 上午10:19
-**  Description: 
-*/
-
+**  Description:
+ */
 
 const (
 	CBCS_IDLE    int32 = iota //非当前组
-	CBCS_CASTING                                    //正在铸块
-	CBCS_BLOCKED                                    //组内已有铸块完成（已通知到组外）
-	CBCS_TIMEOUT                                    //组铸块超时
+	CBCS_CASTING              //正在铸块
+	CBCS_BLOCKED              //组内已有铸块完成（已通知到组外）
+	CBCS_TIMEOUT              //组铸块超时
 )
-
 
 type CAST_BLOCK_MESSAGE_RESULT int8 //出块和验证消息处理结果枚举
 
 const (
-	CBMR_PIECE_NORMAL         CAST_BLOCK_MESSAGE_RESULT = iota //收到一个分片，接收正常
-	CBMR_PIECE_LOSINGTRANS                                     //收到一个分片, 缺失交易
-	CBMR_THRESHOLD_SUCCESS                                     //收到一个分片且达到阈值，组签名成功
-	CBMR_THRESHOLD_FAILED                                      //收到一个分片且达到阈值，组签名失败
-	CBMR_IGNORE_REPEAT                                         //丢弃：重复收到该消息
-	CBMR_IGNORE_KING_ERROR                                     //丢弃：king错误
-	CBMR_STATUS_FAIL                                           //已经失败的
-	CBMR_ERROR_UNKNOWN                                         //异常：未知异常
-	CBMR_CAST_SUCCESS											//铸块成功
-	CBMR_BH_HASH_DIFF											//slot已经被替换过了
-	CBMR_VERIFY_TIMEOUT											//已超时
-	CBMR_SLOT_INIT_FAIL											//slot初始化失败
-	CBMR_SLOT_REPLACE_FAIL											//slot初始化失败
+	CBMR_PIECE_NORMAL      CAST_BLOCK_MESSAGE_RESULT = iota //收到一个分片，接收正常
+	CBMR_PIECE_LOSINGTRANS                                  //收到一个分片, 缺失交易
+	CBMR_THRESHOLD_SUCCESS                                  //收到一个分片且达到阈值，组签名成功
+	CBMR_THRESHOLD_FAILED                                   //收到一个分片且达到阈值，组签名失败
+	CBMR_IGNORE_REPEAT                                      //丢弃：重复收到该消息
+	CBMR_IGNORE_KING_ERROR                                  //丢弃：king错误
+	CBMR_STATUS_FAIL                                        //已经失败的
+	CBMR_ERROR_UNKNOWN                                      //异常：未知异常
+	CBMR_CAST_SUCCESS                                       //铸块成功
+	CBMR_BH_HASH_DIFF                                       //slot已经被替换过了
+	CBMR_VERIFY_TIMEOUT                                     //已超时
+	CBMR_SLOT_INIT_FAIL                                     //slot初始化失败
+	CBMR_SLOT_REPLACE_FAIL                                  //slot初始化失败
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -89,11 +87,11 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 }
 
 const (
-	TRANS_INVALID_SLOT	int8	= iota	//无效验证槽
-	TRANS_DENY					//拒绝该交易
-	TRANS_ACCEPT_NOT_FULL		//接受交易, 但仍缺失交易
-	TRANS_ACCEPT_FULL_THRESHOLD	//接受交易, 无缺失, 验证已达到门限
-	TRANS_ACCEPT_FULL_PIECE		//接受交易, 无缺失, 未达到门限
+	TRANS_INVALID_SLOT          int8 = iota //无效验证槽
+	TRANS_DENY                              //拒绝该交易
+	TRANS_ACCEPT_NOT_FULL                   //接受交易, 但仍缺失交易
+	TRANS_ACCEPT_FULL_THRESHOLD             //接受交易, 无缺失, 验证已达到门限
+	TRANS_ACCEPT_FULL_PIECE                 //接受交易, 无缺失, 未达到门限
 )
 
 func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
@@ -112,19 +110,18 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 	return strconv.FormatInt(int64(ret), 10)
 }
 
-
 type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
 
 type VerifyContext struct {
-	prevBH 		*types.BlockHeader
-	castHeight  uint64
+	prevBH     *types.BlockHeader
+	castHeight uint64
 	//signedMaxQN int64
-	expireTime	time.Time			//铸块超时时间
-	consensusStatus int32 //铸块状态
-	slots  map[common.Hash]*SlotContext
+	expireTime      time.Time //铸块超时时间
+	consensusStatus int32     //铸块状态
+	slots           map[common.Hash]*SlotContext
 	//castedQNs []int64 //自己铸过的qn
 	blockCtx *BlockContext
-	lock sync.RWMutex
+	lock     sync.RWMutex
 }
 
 func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader) *VerifyContext {
@@ -134,12 +131,11 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		blockCtx:        bc,
 		expireTime:      expire,
 		consensusStatus: CBCS_CASTING,
-		slots: 			make(map[common.Hash]*SlotContext),
+		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
 }
-
 
 func (vc *VerifyContext) isCasting() bool {
 	status := atomic.LoadInt32(&vc.consensusStatus)
@@ -150,7 +146,6 @@ func (vc *VerifyContext) castSuccess() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == CBCS_BLOCKED
 }
 
-
 func (vc *VerifyContext) markTimeout() {
 	atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
 }
@@ -160,7 +155,7 @@ func (vc *VerifyContext) markCastSuccess() {
 }
 
 func (vc *VerifyContext) castExpire() bool {
-    return time.Now().After(vc.expireTime)
+	return time.Now().After(vc.expireTime)
 }
 
 func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {
@@ -228,8 +223,8 @@ func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 //}
 
 func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) *SlotContext {
-    vc.lock.Lock()
-    defer vc.lock.Unlock()
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
 
 	if sc := vc.findSlot(bh.Hash); sc != nil {
 		blog.log("prepareSlot find exist, status %v", sc.GetSlotStatus())
@@ -242,7 +237,6 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) *SlotC
 		return sc
 	}
 }
-
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
 func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData) CAST_BLOCK_MESSAGE_RESULT {

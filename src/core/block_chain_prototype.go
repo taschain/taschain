@@ -7,9 +7,10 @@ import (
 	"storage/account"
 	"middleware"
 	"common"
+	"encoding/binary"
 	"math"
 	"math/big"
-	"encoding/binary"
+	"middleware/statistics"
 	"utility"
 	"consensus/groupsig"
 	"bytes"
@@ -299,7 +300,13 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
 	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
 	if traceHeader == nil {
+		statistics.VrfLogger.Debugf("TraceHeader is nil")
 		return nil
+	}
+	if traceHeader.Random == nil || len(traceHeader.Random) == 0 {
+		statistics.VrfLogger.Debugf("PreBlock Random is nil")
+	} else {
+		statistics.VrfLogger.Debugf("PreBlock Random : %v", common.Bytes2Hex(traceHeader.Random))
 	}
 	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 }
@@ -309,6 +316,10 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 	defer chain.lock.Unlock("ProcessChainPiece")
 
 	if topHeader.TotalQN <= chain.latestBlock.TotalQN {
+		return
+	}
+
+	if chainPiece[0].Height < chain.latestBlock.Height {
 		return
 	}
 

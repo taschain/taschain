@@ -116,7 +116,7 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	groups := GroupChainImpl.GetSyncGroupsById(groupId)
 	l := len(groups)
 	if l == 0 {
-		logger.Errorf("[GroupSyncer]Get nil group by id:%s", groupId)
+		logger.Errorf("[GroupSyncer]Get nil group by id:%v", groupId)
 		return
 	} else {
 		var isTop bool
@@ -143,10 +143,11 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 
 	sourceId := groupInfoMsg.Peer
 	groups := groupInfo.Groups
-	logger.Debugf("[GroupSyncer]Rcv groups ,from:%s,len:%d", sourceId, len(groups))
+	logger.Debugf("[GroupSyncer]Rcv groups ,from:%s,groups len %d", sourceId, len(groups))
 	for _, group := range groupInfo.Groups {
+		logger.Debugf("[GroupSyncer] AddGroup Id:%s,pre id:%s", common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Parent).GetHexString())
+		logger.Debugf("[GroupSyncer] Local height:%d,local top group id:%s", GroupChainImpl.Count(), common.BytesToAddress(GroupChainImpl.LastGroup().Id).GetHexString(), )
 		e := GroupChainImpl.AddGroup(group, nil, nil)
-		logger.Debugf("[GroupSyncer] AddGroup Height:%d Id:%s Err:%v", GroupChainImpl.Count()-1, common.BytesToAddress(group.Id).GetHexString(), e)
 		if e != nil {
 			logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 			//TODO  上链失败 异常处理
@@ -170,7 +171,7 @@ func (gs *groupSyncer) loop() {
 		select {
 		case <-t.C:
 			sendGroupHeightToNeighbor(GroupChainImpl.Count())
-			gs.sync()
+			go gs.sync()
 		}
 	}
 }

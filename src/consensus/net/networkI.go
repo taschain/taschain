@@ -4,6 +4,7 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
+	"middleware/types"
 )
 
 /*
@@ -13,7 +14,6 @@ import (
 */
 
 type MessageProcessor interface {
-
 	Ready() bool
 
 	GetMinerID() groupsig.ID
@@ -46,12 +46,11 @@ type MessageProcessor interface {
 }
 
 type GroupBrief struct {
-	Gid groupsig.ID
+	Gid    groupsig.ID
 	MemIds []groupsig.ID
 }
 
 type NetworkServer interface {
-
 	SendGroupInitMessage(grm *model.ConsensusGroupRawMessage)
 
 	SendKeySharePiece(spm *model.ConsensusSharePieceMessage)
@@ -60,7 +59,7 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief)
+	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 

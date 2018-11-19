@@ -340,6 +340,9 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	if nil == group {
 		return fmt.Errorf("nil group")
 	}
+	if logger != nil {
+		logger.Debugf("GroupChain AddGroup %+v", group)
+	}
 
 	if !isDebug {
 		if nil != group.Parent {
@@ -393,11 +396,15 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 func (chain *GroupChain) save(group *types.Group) error {
 	if nil != group.Id {
 		if exist, _ := chain.groups.Has(group.Id); exist {
+			notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
 			return errors.New("group already exist")
 		}
 	}
 
 	group.GroupHeight = chain.count
+	if logger != nil {
+		logger.Debugf("GroupChain save %+v", group)
+	}
 	data, err := json.Marshal(group)
 	if nil != err {
 		return err

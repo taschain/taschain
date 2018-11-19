@@ -16,21 +16,21 @@
 package logical
 
 import (
-	"log"
 	"common"
-	"fmt"
 	"consensus/groupsig"
-	"middleware/types"
-	"core"
-	"sync"
 	"consensus/model"
+	"core"
+	"fmt"
+	"log"
+	"middleware/types"
+	"sync"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/5/16 下午7:44
-**  Description: 
-*/
+**  Description:
+ */
 type FutureMessageHolder struct {
 	messages sync.Map
 }

@@ -20,9 +20,9 @@ import (
 	"hash"
 	"sync"
 
-	"golang.org/x/crypto/sha3"
 	"common"
 	"fmt"
+	"golang.org/x/crypto/sha3"
 )
 
 type hasher struct {
@@ -49,28 +49,28 @@ func newHasher2() *hasher {
 	return h
 }
 
-func needStore(isInit bool)bool{
-	if isInit{
+func needStore(isInit bool) bool {
+	if isInit {
 		return true
-	}else{
+	} else {
 		return false
 	}
 }
 
-func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte,isInit bool) (node, node,bool, error) {
+func (h *hasher) hash2(n node, force bool, nodes map[string]*[]byte, isInit bool) (node, node, bool, error) {
 	if hash, dirty := n.cache(); hash != nil {
-		return hash, n,needStore(isInit), nil
+		return hash, n, needStore(isInit), nil
 		if !dirty {
-			return hash, n,needStore(isInit), nil
+			return hash, n, needStore(isInit), nil
 		}
 	}
-	collapsed, cached, ns,err := h.hashChildren2(n, nodes,isInit)
+	collapsed, cached, ns, err := h.hashChildren2(n, nodes, isInit)
 	if err != nil {
-		return hashNode{}, n,true, err
+		return hashNode{}, n, true, err
 	}
-	hashed, err := h.store2(collapsed, force,nodes,ns)
+	hashed, err := h.store2(collapsed, force, nodes, ns)
 	if err != nil {
-		return hashNode{}, n,true, err
+		return hashNode{}, n, true, err
 	}
 	cachedHash, _ := hashed.(hashNode)
 	switch cn := cached.(type) {
@@ -81,7 +81,7 @@ func (h *hasher) hash2(n node, force bool,nodes map[string]*[]byte,isInit bool) 
 		cn.flags.hash = cachedHash
 		cn.flags.dirty = false
 	}
-	return hashed, cached,true, nil
+	return hashed, cached, true, nil
 }
 
 func (h *hasher) hash(n node, db *NodeDatabase, force bool) (node, node, error) {
@@ -127,7 +127,7 @@ func returnHasherToPool(h *hasher) {
 	hasherPool.Put(h)
 }
 
-func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte,needStore bool) (node, error) {
+func (h *hasher) store2(n node, force bool, nodes map[string]*[]byte, needStore bool) (node, error) {
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil
 	}
@@ -144,11 +144,11 @@ func (h *hasher) store2(n node, force bool,nodes map[string]*[]byte,needStore bo
 		h.sha.Write(h.tmp.Bytes())
 		hash = hashNode(h.sha.Sum(nil))
 	}
-	if needStore{
+	if needStore {
 		hash2 := common.BytesToHash(hash)
-		vl:=h.tmp.Bytes()
-		nodes[string(hash2[:])] =&vl
-		fmt.Printf("---------------------hash2 put hash=%x\n",hash2[:])
+		vl := h.tmp.Bytes()
+		nodes[string(hash2[:])] = &vl
+		fmt.Printf("---------------------hash2 put hash=%x\n", hash2[:])
 	}
 	return hash, nil
 }
@@ -249,8 +249,7 @@ func (h *hasher) hashChildren(original node, db *NodeDatabase) (node, node, erro
 	}
 }
 
-
-func (h *hasher) hashChildren2(original node,nodes map[string]*[]byte,isInit bool) (node, node,bool, error) {
+func (h *hasher) hashChildren2(original node, nodes map[string]*[]byte, isInit bool) (node, node, bool, error) {
 	var err error
 	switch n := original.(type) {
 	case *shortNode:
@@ -259,28 +258,28 @@ func (h *hasher) hashChildren2(original node,nodes map[string]*[]byte,isInit boo
 		collapsed.Key = hexToCompact(n.Key)
 		cached.Key = common.CopyBytes(n.Key)
 		if _, ok := n.Val.(valueNode); !ok {
-			collapsed.Val, cached.Val,needStore,err = h.hash2(n.Val, false,nodes,isInit)
+			collapsed.Val, cached.Val, needStore, err = h.hash2(n.Val, false, nodes, isInit)
 			if err != nil {
-				return original, original,needStore, err
+				return original, original, needStore, err
 			}
 		}
-		return collapsed, cached, needStore,nil
+		return collapsed, cached, needStore, nil
 
 	case *fullNode:
 		collapsed, cached := n.copy(), n.copy()
 		for i := 0; i < 16; i++ {
 			var needStore bool
 			if n.Children[i] != nil {
-				collapsed.Children[i], cached.Children[i],needStore, err = h.hash2(n.Children[i], false,nodes,isInit)
+				collapsed.Children[i], cached.Children[i], needStore, err = h.hash2(n.Children[i], false, nodes, isInit)
 				if err != nil {
-					return original, original,needStore, err
+					return original, original, needStore, err
 				}
 			}
 		}
 		cached.Children[16] = n.Children[16]
-		return collapsed, cached,true, nil
+		return collapsed, cached, true, nil
 
 	default:
-		return n, original, true,nil
+		return n, original, true, nil
 	}
 }

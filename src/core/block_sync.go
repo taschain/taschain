@@ -21,25 +21,26 @@ import (
 	"taslog"
 	"common"
 	"network"
-	"middleware/types"
 	"middleware/notify"
+	"middleware/pb"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
-	BLOCK_SYNC_INTERVAL = 3 * time.Second
-
-	INIT_INTERVAL = 3 * time.Second
+	blockSyncInterval = 3 * time.Second
 )
 
-var BlockSyncer blockSyncer
+var BlockSyncer *blockSyncer
 
 type blockSyncer struct {
 	candidate blockSyncCandidate
 	lock      sync.Mutex
 
-	init        bool
-	hasNeighbor bool
-	lightMiner  bool
+	init                 bool
+	hasNeighbor          bool
+	lightMiner           bool
+	syncTimer            *time.Timer
+	blockInfoNotifyTimer *time.Timer
 }
 
 type blockSyncCandidate struct {
@@ -50,12 +51,21 @@ type blockSyncCandidate struct {
 	height  uint64
 }
 
+type BlockInfo struct {
+	TotalQn uint64
+	Hash    common.Hash
+	Height  uint64
+	PreHash common.Hash
+}
+
 func InitBlockSyncer(isLightMiner bool) {
 	if logger == nil {
 		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
 	}
-	BlockSyncer = blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
-	notify.BUS.Subscribe(notify.BlockChainTotalQn, BlockSyncer.totalQnHandler)
+	BlockSyncer = &blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
+	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
+	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(blockSyncInterval)
+	notify.BUS.Subscribe(notify.BlockInfoNotify, BlockSyncer.blockInfoHandler)
 	go BlockSyncer.loop()
 }
 
@@ -63,17 +73,80 @@ func (bs *blockSyncer) IsInit() bool {
 	return bs.init
 }
 
-func (bs *blockSyncer) Sync() {
-	if bs.candidate.id == "" {
+func (bs *blockSyncer) loop() {
+	for {
+		select {
+		case <-bs.blockInfoNotifyTimer.C:
+			if !BlockChainImpl.IsLightMiner() {
+				topBlock := BlockChainImpl.QueryTopBlock()
+				topBlockInfo := BlockInfo{Hash: topBlock.Hash, TotalQn: topBlock.TotalQN, Height: topBlock.Height, PreHash: topBlock.PreHash}
+				go bs.SendTopBlockInfoToNeighbor(topBlockInfo)
+			}
+		case <-bs.syncTimer.C:
+			go bs.sync(nil)
+		}
+	}
+}
+
+func (bs *blockSyncer) SendTopBlockInfoToNeighbor(bi BlockInfo) {
+	bs.blockInfoNotifyTimer.Reset(blockSyncInterval)
+	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", bi.TotalQn)
+	if bi.Height == 0 {
 		return
 	}
+	body, e := marshalBlockInfo(bi)
+	if e != nil {
+		logger.Errorf("marshal blockInfo error:%s", e.Error())
+		return
+	}
+	message := network.Message{Code: network.BlockInfoNotifyMsg, Body: body}
+	network.GetNetInstance().TransmitToNeighbor(message)
+}
+
+func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
+	bnm, ok := msg.GetData().(*notify.BlockInfoNotifyMessage)
+	if !ok {
+		Logger.Debugf("[ChainHandler]BlockInfoNotifyMessage GetData assert not ok!")
+		return
+	}
+	blockInfo, e := unMarshalBlockInfo(bnm.BlockInfo)
+	if e != nil {
+		Logger.Errorf("[handler]Discard BlockInfoNotifyMessage because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
+	if !bs.hasNeighbor {
+		bs.hasNeighbor = true
+	}
+	candidate := blockSyncCandidate{id: bnm.Peer, totalQn: blockInfo.TotalQn, hash: blockInfo.Hash, preHash: blockInfo.PreHash, height: blockInfo.Height}
+	go bs.sync(&candidate)
+
+	bs.lock.Lock()
+	if blockInfo.TotalQn > bs.candidate.totalQn {
+		bs.candidate = candidate
+	}
+	bs.lock.Unlock()
+}
+
+func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
+	bs.syncTimer.Reset(blockSyncInterval)
+	if candidate == nil {
+		bs.lock.Lock()
+		candidate = &bs.candidate
+		bs.lock.Unlock()
+	}
+	if candidate.id == "" {
+		return
+	}
+	logger.Debugf("Start sync!")
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
-	if candidateQN <= localTotalQN  || candidateHeight == 0 {
+	if candidateQN < localTotalQN || candidateHash == localHash {
 		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
 			logger.Info("Block first sync finished!")
@@ -88,7 +161,6 @@ func (bs *blockSyncer) Sync() {
 
 	logger.Debugf("[Sync]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
 	logger.Debugf("[Sync]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
-	BlockChainImpl.SetAdujsting(true)
 	if candidatePreHash == localHash || (candidatePreHash == localPreHash && candidateQN > localTotalQN) {
 		RequestBlock(candidateId, candidateHeight)
 		return
@@ -101,64 +173,18 @@ func (bs *blockSyncer) Sync() {
 	RequestChainPiece(candidateId, localHeight)
 }
 
-func (bs *blockSyncer) loop() {
-	t := time.NewTicker(BLOCK_SYNC_INTERVAL)
-	for {
-		<-t.C
-		if !BlockChainImpl.IsLightMiner() {
-			sendBlockTotalQnToNeighbor(BlockChainImpl.QueryTopBlock())
-		}
-
-		logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
-		go bs.Sync()
-	}
+func marshalBlockInfo(bi BlockInfo) ([]byte, error) {
+	blockInfo := tas_middleware_pb.BlockInfo{Hash: bi.Hash.Bytes(), TotalQn: &bi.TotalQn, Height: &bi.Height, PreHash: bi.PreHash.Bytes()}
+	return proto.Marshal(&blockInfo)
 }
 
-func sendBlockTotalQnToNeighbor(topBlockHeader *types.BlockHeader) {
-	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", topBlockHeader.TotalQN)
-	body, e := types.MarshalBlockHeader(topBlockHeader)
+func unMarshalBlockInfo(b []byte) (*BlockInfo, error) {
+	message := new(tas_middleware_pb.BlockInfo)
+	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("[BlockSyncer]marshal TotalQnInfo error:%s", e.Error())
-		return
+		logger.Errorf("unMarshalBlockInfo error:%s", e.Error())
+		return nil, e
 	}
-	message := network.Message{Code: network.BlockChainTotalQnMsg, Body: body}
-	network.GetNetInstance().TransmitToNeighbor(message)
-}
-
-func (bs *blockSyncer) totalQnHandler(msg notify.Message) {
-	totalQnMsg, ok := msg.GetData().(*notify.TotalQnMessage)
-	if !ok {
-		Logger.Debugf("[ChainHandler]totalQnHandler GetData assert not ok!")
-		return
-	}
-	header, e := types.UnMarshalBlockHeader(totalQnMsg.BlockHeaderByte)
-	if e != nil {
-		Logger.Errorf("[handler]Discard totalQnHandler because of unmarshal error:%s", e.Error())
-		return
-	}
-
-	if !bs.verifyTotalQnMsg(header) {
-		return
-	}
-	logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", totalQnMsg.Peer, header.TotalQN, header.Height)
-	if !bs.hasNeighbor {
-		bs.hasNeighbor = true
-	}
-	bs.lock.Lock()
-	if header.TotalQN > bs.candidate.totalQn {
-		bs.candidate = blockSyncCandidate{id: totalQnMsg.Peer, totalQn: header.TotalQN, hash: header.Hash, preHash: header.PreHash, height: header.Height}
-	}
-	bs.lock.Unlock()
-}
-
-func (bs *blockSyncer) verifyTotalQnMsg(blockHeader *types.BlockHeader) bool {
-	//if blockHeader.Hash != blockHeader.GenHash() {
-	//	return false
-	//}
-	//result, err := BlockChainImpl.GetConsensusHelper().VerifyBlockHeader(blockHeader)
-	//if err != nil {
-	//	Logger.Errorf("verifyTotalQnMsg error:%s", err.Error())
-	//}
-	//return result
-	return true
+	blockInfo := BlockInfo{Hash: common.BytesToHash(message.Hash), TotalQn: *message.TotalQn, Height: *message.Height, PreHash: common.BytesToHash(message.PreHash)}
+	return &blockInfo, nil
 }

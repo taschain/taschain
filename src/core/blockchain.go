@@ -33,6 +33,20 @@ import (
 	"storage/tasdb"
 )
 
+//非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
+//铸块及奖励分红查看及验证  优先级：0    @小甫
+//安全性验证：模拟节点发送请求给组内组外成员，优先级低       @飞鼠
+//分叉频率
+//块全网蔓延时间统计
+//组链去掉成员公钥信息   @小甫
+//矿工申请、撤销、退款等验证   优先级：0  @问勤
+//vrf阈值   优先级：0  @花生
+//铸块次数与权益是否正相关验证     @小甫
+//验证组验证次数是否均匀分布    @小甫
+//建组过程需要把矿工申请高度考虑进去，以防把同一时间申请的矿工分到一个组
+//公链联盟链可通过配置灵活切换
+//实现多种共识算法，并可以灵活切换
+
 const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
@@ -129,7 +143,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(20)
+	chain.futureBlocks, err = lru.New(200)
 	if err != nil {
 		return err
 	}
@@ -283,7 +297,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,", height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex())
-	defer Logger.Infof("casting block dump:%s", block.Header.ToString())
+	//defer Logger.Infof("casting block dump:%s", block.Header.ToString())
 	//自己铸的块 自己不需要验证
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
 		state:    state,
@@ -311,7 +325,7 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
 	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs))
-	Logger.Infof("verifyBlock dump:%s", bh.ToString())
+	//Logger.Infof("verifyBlock dump:%s", bh.ToString())
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -320,7 +334,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 
 	if !chain.hasPreBlock(bh) {
 		if txs != nil {
-			chain.futureBlocks.Add(bh.PreHash, types.Block{Header: &bh, Transactions: txs})
+			chain.futureBlocks.Add(bh.PreHash, &types.Block{Header: &bh, Transactions: txs})
 		}
 		return nil, 2
 	}
@@ -334,6 +348,14 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
 		return nil, -1
 	}
+
+	block := types.Block{Header: &bh, Transactions: transactions}
+	executeTxResult, _, _ := chain.executeTransaction(&block)
+	if !executeTxResult {
+		return nil, -1
+	}
+	//txpool满后会删除交易，导致交易缺失，共识达到签名阈值之后GenerateBlock失败
+	chain.transactionPool.ReserveTransactions(bh.Hash, transactions)
 	return nil, 0
 }
 
@@ -354,6 +376,12 @@ func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
+
+	if !chain.hasPreBlock(*b.Header) {
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		return 2
+	}
+
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("[BlockChain]checkProveRoot fail, err=%v", err.Error())
 		return -1
@@ -411,9 +439,18 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
 	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
-	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
-	if !executeTxResult {
-		return -1, nil
+	var state *account.AccountDB
+	var receipts types.Receipts
+	if value, exit := chain.verifiedBlocks.Get(remoteBlock.Header.Hash); exit {
+		b := value.(*castingBlock)
+		state = b.state
+		receipts = b.receipts
+	} else {
+		var executeTxResult bool
+		executeTxResult, state, receipts = chain.executeTransaction(remoteBlock)
+		if !executeTxResult {
+			return -1, nil
+		}
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
 	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
@@ -428,8 +465,8 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 	}
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
-	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
+	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
 	return 0, headerByte
 }
@@ -468,12 +505,17 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
-		block := value.(types.Block)
+		block := value.(*types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
-		chain.addBlockOnChain(&block)
+		chain.addBlockOnChain(block)
+		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	go BlockSyncer.Sync()
+	if BlockSyncer != nil {
+		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
+		go BlockSyncer.sync(nil)
+	}
 }
 
 //根据指定哈希查询块

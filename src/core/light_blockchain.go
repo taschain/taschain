@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/hashicorp/golang-lru"
 	"middleware"
 	"middleware/types"
@@ -10,7 +11,6 @@ import (
 	"consensus/groupsig"
 	"middleware/notify"
 	"log"
-	"fmt"
 	"math/big"
 	"storage/vm"
 	"storage/tasdb"
@@ -199,14 +199,14 @@ func (chain *LightChain) verifyBlock(bh types.BlockHeader, txs []*types.Transact
 		return nil, 2
 	}
 
-	miss, missingTx, transactions := chain.missTransaction(bh, txs)
-	if miss {
-		return missingTx, 1
-	}
-
-	if !chain.validateTxRoot(bh.TxTree, transactions) {
-		return nil, -1
-	}
+	//miss, missingTx, transactions := chain.missTransaction(bh, txs)
+	//if miss {
+	//	return missingTx, 1
+	//}
+	//
+	//if !chain.validateTxRoot(bh.TxTree, transactions) {
+	//	return nil, -1
+	//}
 
 	//从第0块开始同步，不需要以下
 	//b := &types.Block{Header: &bh, Transactions: txs}
@@ -344,6 +344,11 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
+	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d", remoteBlock.Header.TxTree, len(remoteBlock.Transactions))
+	if !chain.validateTxRoot(remoteBlock.Header.TxTree, remoteBlock.Transactions) {
+		return -1, nil
+	}
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
 		return -1, nil
@@ -405,9 +410,14 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
 		chain.addBlockOnChain(&block)
+		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	go BlockSyncer.Sync()
+	if BlockSyncer != nil {
+		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
+		go BlockSyncer.sync(nil)
+	}
 }
 
 func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {

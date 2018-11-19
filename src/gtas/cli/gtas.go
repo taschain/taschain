@@ -132,20 +132,35 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	ok := mediator.StartMiner()
 
 	core.InitGroupSyncer()
-	//for {
-	//	if core.GroupSyncer.IsInit() {
-	//		break
-	//	}
-	//	time.Sleep(time.Millisecond * 500)
-	//}
+	core.Logger.Debugf("Waiting for group init done!")
+	for {
+		if core.GroupSyncer.IsInit() {
+			break
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
+	core.Logger.Debugf("Group first init done!\nStart to init block!")
 	core.InitBlockSyncer(light)
-	switch apply {
-	case "heavy":
-		result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
-		core.Logger.Debugf("initial apply heavy result:%v", result)
-	case "light":
-		result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
-		core.Logger.Debugf("initial apply light result:%v", result)
+	if len(apply) > 0 {
+		go func() {
+			timer := time.NewTimer(time.Second * 10)
+			for {
+				<-timer.C
+				if core.BlockSyncer.IsInit() {
+					break
+				} else {
+					timer.Reset(time.Second * 5)
+				}
+			}
+			switch apply {
+			case "heavy":
+				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+				core.Logger.Debugf("initial apply heavy result:%v", result)
+			case "light":
+				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+				core.Logger.Debugf("initial apply light result:%v", result)
+			}
+		}()
 	}
 	gtas.inited = true
 	if !ok {
@@ -286,6 +301,7 @@ func (gtas *Gtas) Run() {
 		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		lightMiner = *light
+		//轻重节点一样
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)

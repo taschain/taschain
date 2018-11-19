@@ -36,6 +36,7 @@ type GroupChainConnector struct {
 }
 
 func InitCore(light bool, helper types.ConsensusHelper) error {
+	light = false
 	// 默认是debug模式
 	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
 	if isDebug {

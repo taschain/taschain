@@ -28,9 +28,9 @@ import (
 type PeerSource int32
 
 const (
-	PeerSourceUnkown PeerSource =0
-	PeerSourceKad PeerSource =1
-	PeerSourceGroup PeerSource =2
+	PeerSourceUnkown PeerSource = 0
+	PeerSourceKad    PeerSource = 1
+	PeerSourceGroup  PeerSource = 2
 )
 
 //Peer 节点连接对象
@@ -44,12 +44,12 @@ type Peer struct {
 	expiration uint64
 	mutex      sync.RWMutex
 	connecting bool
-	source		PeerSource
+	source     PeerSource
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(),source:PeerSourceUnkown}
+	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(), source: PeerSourceUnkown}
 
 	return p
 }
@@ -145,7 +145,8 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId, p)
 	}
 
-	Logger.Debugf("write Id:%v netid:%v session:%v size %v", toid.GetHexString(),netId, p.seesionId, len(packet.Bytes()))
+	Logger.Debugf("write Id:%v netid:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
+
 
 	if p.seesionId > 0 {
 		p.write(packet)
@@ -154,10 +155,12 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port > 0) || pm.natTraversalEnable) && !p.connecting {
 			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
 			p.connecting = true
+
 			if toaddr != nil {
 				p.Ip = toaddr.IP
 				p.Port = toaddr.Port
 			}
+
 			p.sendList.PushBack(packet)
 
 			if pm.natTraversalEnable {
@@ -175,6 +178,8 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 			Logger.Debugf("write  error : %v ", toid.GetHexString())
 		}
 	}
+
+	netCore.flowMeter.send(0, int64(len(packet.Bytes())))
 
 	return nil
 }
@@ -244,16 +249,16 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	pm.checkPeerSource()
+	//pm.checkPeerSource()
 	Logger.Debugf("SendAll total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		if p.seesionId > 0 && p.source == PeerSourceKad {
-			p.write(packet)
-		}
-		//if p.seesionId > 0 {
+		//if p.seesionId > 0 && p.source == PeerSourceKad {
 		//	p.write(packet)
 		//}
+		if p.seesionId > 0 {
+			p.write(packet)
+		}
 	}
 
 	return
@@ -261,9 +266,9 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer) {
 
 func (pm *PeerManager) checkPeerSource() {
 	for _, p := range pm.peers {
-		if p.seesionId > 0 &&  p.source == PeerSourceUnkown {
+		if p.seesionId > 0 && p.source == PeerSourceUnkown {
 			node := netCore.kad.find(p.Id)
-			if node != nil  {
+			if node != nil {
 				p.source = PeerSourceKad
 			} else {
 				p.source = PeerSourceGroup

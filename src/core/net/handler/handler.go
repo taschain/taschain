@@ -93,8 +93,8 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil
 		}
-		if msg.Code == network.TransactionGotMsg {
-			network.Logger.Debugf("receive TRANSACTION_GOT_MSG from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
+		if msg.Code == network.TransactionMsg {
+			network.Logger.Debugf("receive TransactionMsg from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
 		return err
@@ -118,6 +118,10 @@ func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
 	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
 	if e != nil {
 		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
+		return
+	}
+	b := core.BlockChainImpl.QueryBlockByHash(header.Hash)
+	if b != nil {
 		return
 	}
 
@@ -226,8 +230,23 @@ func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
-	block := core.BlockChainImpl.QueryBlock(utility.ByteToUInt64(m.HeightByte))
-	core.SendBlock(m.Peer, block)
+	reqHeight := utility.ByteToUInt64(m.HeightByte)
+	localHeight := core.BlockChainImpl.Height()
+
+	if localHeight > reqHeight+3 {
+		var count = 0
+		for i := reqHeight; i+3 <= localHeight; i++ {
+			block := core.BlockChainImpl.QueryBlock(i)
+			core.SendBlock(m.Peer, block)
+			count++
+			if count >= 10 {
+				break
+			}
+		}
+	} else {
+		block := core.BlockChainImpl.QueryBlock(reqHeight)
+		core.SendBlock(m.Peer, block)
+	}
 }
 
 func (ch ChainHandler) newBlockHandler(msg notify.Message) {
@@ -252,7 +271,7 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 	chainPiece := make([]*types.BlockHeader, 0)
 	var i, len uint64
 	for i, len = 0, 0; len < ChainPieceLength; i++ {
-		core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
+		//core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
 		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
 		if header != nil {
 			chainPiece = append(chainPiece, header)
@@ -350,9 +369,6 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 //验证节点接收交易 或者接收来自客户端广播的交易
 func onMessageTransaction(txs []*types.Transaction) error {
 	//验证节点接收交易 加入交易池
-	if nil == core.BlockChainImpl {
-		return nil
-	}
 	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 	if e != nil {
 		return e

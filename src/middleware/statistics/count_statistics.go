@@ -20,6 +20,7 @@ type innerItem struct {
 
 var count_map = new(sync.Map)
 var logger taslog.Logger
+var VrfLogger taslog.Logger
 
 func newCountItem() *countItem {
 	return &countItem{new(sync.Map)}
@@ -81,6 +82,8 @@ func AddCount(name string, code uint32, size uint64)  {
 
 func initCount(config common.ConfManager) {
 	logger = taslog.GetLoggerByName("statistics" + config.GetString("instance", "index", ""))
+	VrfLogger = taslog.GetLoggerByName("vrf_debug" + common.GlobalConf.GetString("instance", "index", ""))
+
 	t1 := time.NewTimer(time.Second * 1)
 	go func() {
 		for {

@@ -95,6 +95,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
 	stateDB.SetBalance(common.HexStringToAddress("0x60113e78f3fec8482a23df56b1a49c11e6017e3c193fb42a4837585aa2cef9ac"), big.NewInt(1000000))
 	stateDB.SetBalance(common.HexStringToAddress("0x31e59225ec0f5eb904899541ab91e23dbc73115509711901ee4d20f0d51f777a"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0xa88ebed9c691f709788da55aa61548f23fad2f20e19f7c4cf8997894cd90662d"), big.NewInt(1000000))
 	//阿里云账户
 	stateDB.SetBalance(common.HexStringToAddress("0xd196fb6b6ad3a788d61c61783e00f6568eb72f5ef170a874703a2b3b70eafc49"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x9ab304d9eabcbfe33fec3461261997cfcc981d9cd93e17372777547d1e642bb3"), big.NewInt(10000))

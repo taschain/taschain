@@ -53,9 +53,9 @@ func (c *container) AsSlice() []*types.Transaction {
 
 	var result []*types.Transaction
 	len := c.txs.Len()
-	if len > 1000{
+	if len > 1000 {
 		result = make([]*types.Transaction, 1000)
-		copy(result, c.txs[len - 1000:])
+		copy(result, c.txs[len-1000:])
 	} else {
 		result = make([]*types.Transaction, len)
 		copy(result, c.txs)
@@ -98,7 +98,7 @@ func (c *container) add(tx *types.Transaction) {
 		c.inited = true
 
 	}
-
+	Logger.Infof("TxPool is full! limit:%d", c.limit)
 	evicted := heap.Pop(&c.txs).(*types.Transaction)
 	delete(c.txsMap, evicted.Hash)
 	heap.Push(&c.txs, tx)
@@ -115,22 +115,22 @@ func (c *container) Remove(keys []common.Hash) {
 
 	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
 	//if len(keys) < 50 {
-		for _, key := range keys {
-			if c.txsMap[key] == nil {
-				continue
-			}
-			delete(c.txsMap, key)
-			//Logger.Debugf("txsMap delete Value contain tx map len %d",len(c.txsMap))
-
-			index := -1
-			for i, tx := range c.txs {
-				if tx.Hash == key {
-					index = i
-					break
-				}
-			}
-			heap.Remove(&c.txs, index)
+	for _, key := range keys {
+		if c.txsMap[key] == nil {
+			continue
 		}
+		delete(c.txsMap, key)
+		//Logger.Debugf("txsMap delete Value contain tx map len %d",len(c.txsMap))
+
+		index := -1
+		for i, tx := range c.txs {
+			if tx.Hash == key {
+				index = i
+				break
+			}
+		}
+		heap.Remove(&c.txs, index)
+	}
 	//} else {
 	//	queryMap := make(map[common.Hash]struct{})
 	//	var num int

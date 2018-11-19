@@ -12,6 +12,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     host_ele.text(HOST);
     var blocks = [];
     var groups = [];
+
+
     var lastReloadBlockSize = 0
     var lastReloadGroupSize = 0
     var workGroups = [];
@@ -59,6 +61,54 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         ,data: groups
         ,page: true
         ,limit:15
+    });
+
+    let bonus_info_table =  table.render({
+        elem : '#bonus_transaction_detail',
+        cols : [[
+            {field:'block_height', title:'块高'},
+            {field:'block_hash', title:'块Hash'},
+            {field:'bonus_tx_hash', title:'分红交易Hash'},
+            {field:'group_id', title:'验证组ID'},
+            {field:'caster_id', title:'出块人ID'},
+            {field:'members', title:'分红者列表'},
+            {field:'bonus_value', title:'每人分红金额'}
+        ]],
+        page : true,
+        limit : 15
+    });
+
+    let bonus_stat_table =  table.render({
+        elem : '#bonus_transaction_total_detail',
+        cols : [[
+            {field:'member_id', title:'轻节点ID'},
+            {field:'bonus_num', title:'验证次数'},
+            {field:'total_bonus_value', title:'分红总额'}
+        ]],
+        page : true,
+        limit : 15
+    });
+
+    let cast_block_stat_table =  table.render({
+        elem: '#cast_block_total_detail',
+        cols: [[
+            {field: 'caster_id', title: '重节点ID'},
+            {field: 'cast_block_num', title: '出块次数'},
+            {field: 'stake', title: '质押权益'}
+        ]],
+        page: true,
+        limit: 15
+    });
+
+    let signed_block_info_table = table.render({
+        elem: '#signed_block_info',
+        cols: [[
+            {field: 'height', title: '块高'},
+            {field: 'onchain_block', title: '上链的块'},
+            {field: 'signed_blocks', title: '签出的块'}
+        ]],
+        page: true,
+        limit: 15
     });
 
     $("#dashboard_update_div").click(function () {
@@ -511,6 +561,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 d = rdata.result.data
                 //块高
                 $("#block_height").text(d.block_height)
+
                 clear = $("#tb_node_status").text() == "已停止" && d.node_info.status == "运行中"
                 if (clear) {
                     current_block_height = 0;
@@ -592,6 +643,72 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                 $("#nodes_table").empty();
             }
         });
+    }
+
+    $("#block_height_btn").click(function () {
+        var h = $("#block_height_input").val()
+        if (h == null || h == undefined || h == '') {
+            alert("请输入查询高度")
+            return
+        }
+        doConsensusStat(parseInt(h))
+    });
+
+    function doConsensusStat(height) {
+        let params = {
+            "method": "GTAS_castBlockAndBonusStat",
+            "params": [height],
+            "jsonrpc": "2.0",
+            "id": "1"
+        };
+        $.ajax({
+            type: 'POST',
+            url: HOST,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader("Content-Type", "application/json");
+            },
+            data: JSON.stringify(params),
+            success: function (rdata) {
+                if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success') {
+                    renderBonusInfo(rdata.result.data)
+                }
+            },
+            error: function (err) {
+                console.log(err)
+            }
+        });
+    }
+
+    function renderBonusInfo(data) {
+        var bonuses = [];
+        bonuses.push(data.bonus_info_at_height);
+
+        bonus_info_table.reload({
+            data: bonuses
+        });
+
+        var bonusStat = [];
+        for (i=0,len=data.bonuses.length; i < len; i++) {
+            bonusStat.push(data.bonuses[i]);
+        }
+        bonus_stat_table.reload({
+            data: bonusStat
+        });
+
+        var castBlockStat = [];
+        for (i=0,len=data.cast_blocks.length; i < len; i++) {
+            castBlockStat.push(data.cast_blocks[i]);
+        }
+        cast_block_stat_table.reload({
+            data:castBlockStat
+        });
+
+        var signedBlockInfo = [];
+        signedBlockInfo.push(data.signed_block_info);
+        signed_block_info_table.reload({
+            data:signedBlockInfo
+        });
+        $("#muti_signed_block_num").text(data.signed_block_info.muti_signed_block_num)
     }
 
     // dashboard同步数据

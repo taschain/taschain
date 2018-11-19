@@ -20,13 +20,18 @@ import (
 	"fmt"
 	"taslog"
 	"common"
+	"time"
 )
 
 type Loglock struct {
 	lock   sync.RWMutex
 	addr   string
 	logger taslog.Logger
+	begin	time.Time
 }
+
+const costLimit  = 10 * time.Microsecond
+const durationLimit  = time.Millisecond
 
 func NewLoglock(title string) Loglock {
 	loglock := Loglock{
@@ -38,44 +43,55 @@ func NewLoglock(title string) Loglock {
 }
 
 func (lock *Loglock) Lock(msg string) {
-	if 0 != len(msg) {
-		lock.logger.Debugf("try to lock: %s, with msg: %s", lock.addr, msg)
-	}
+	//if 0 != len(msg) {
+	//	lock.logger.Debugf("try to lock: %s, with msg: %s", lock.addr, msg)
+	//}
+	begin := time.Now()
 	lock.lock.Lock()
-	if 0 != len(msg) {
-		lock.logger.Debugf("locked: %s, with msg: %s", lock.addr, msg)
+	lock.begin = time.Now()
+	cost := time.Since(begin)
+	
+	if 0 != len(msg) && cost > costLimit{
+		lock.logger.Debugf("locked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 
 }
 
 func (lock *Loglock) RLock(msg string) {
-	if 0 != len(msg) {
-		lock.logger.Debugf("try to Rlock: %s, with msg: %s", lock.addr, msg)
-	}
+	//if 0 != len(msg) {
+	//	lock.logger.Debugf("try to Rlock: %s, with msg: %s", lock.addr, msg)
+	//}
+	begin := time.Now()
 	lock.lock.RLock()
-	if 0 != len(msg) {
-		lock.logger.Debugf("Rlocked: %s, with msg: %s", lock.addr, msg)
+	cost := time.Since(begin)
+	if 0 != len(msg) && cost > costLimit{
+		lock.logger.Debugf("Rlocked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 }
 
 func (lock *Loglock) Unlock(msg string) {
-	if 0 != len(msg) {
-		lock.logger.Debugf("try to UnLock: %s, with msg: %s", lock.addr, msg)
-	}
+	//if 0 != len(msg) {
+	//	lock.logger.Debugf("try to UnLock: %s, with msg: %s", lock.addr, msg)
+	//}
+	begin := time.Now()
 	lock.lock.Unlock()
-	if 0 != len(msg) {
-		lock.logger.Debugf("UnLocked: %s, with msg: %s", lock.addr, msg)
+	duration := time.Since(lock.begin)
+	cost := time.Since(begin)
+	if 0 != len(msg) && (cost > costLimit || duration > durationLimit) {
+		lock.logger.Debugf("UnLocked: %s, with msg: %s duration:%v wait: %v", lock.addr, msg, duration, cost)
 	}
 
 }
 
 func (lock *Loglock) RUnlock(msg string) {
-	if 0 != len(msg) {
-		lock.logger.Debugf("try to UnRLock: %s, with msg: %s", lock.addr, msg)
-	}
+	//if 0 != len(msg) {
+	//	lock.logger.Debugf("try to UnRLock: %s, with msg: %s", lock.addr, msg)
+	//}
+	begin := time.Now()
 	lock.lock.RUnlock()
-	if 0 != len(msg) {
-		lock.logger.Debugf("UnRLocked: %s, with msg: %s", lock.addr, msg)
+	cost := time.Since(begin)
+	if 0 != len(msg) && cost > costLimit{
+		lock.logger.Debugf("UnRLocked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 
 }

@@ -1,30 +1,31 @@
 package core
 
 import (
-	"middleware/types"
-	"github.com/vmihailenco/msgpack"
-	"github.com/hashicorp/golang-lru"
 	"common"
-	"storage/vm"
-	"storage/trie"
-	"sync"
-	"errors"
-	"network"
 	"consensus/groupsig"
+	"errors"
+	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"middleware/types"
+	"network"
+	"storage/trie"
+	"storage/vm"
+	"sync"
 	"time"
 )
 
 var emptyValue [0]byte
 
 type MinerManager struct {
-	blockchain BlockChain
-	cache      *lru.Cache
-	lock       sync.Mutex
-	heavyupdate bool
+	blockchain   BlockChain
+	cache        *lru.Cache
+	lock         sync.Mutex
+	heavyupdate  bool
 	heavytrigger *time.Timer
+	heavyMiners  []string
 }
 
-const heavyTriggerDuration  = time.Second * 10
+const heavyTriggerDuration = time.Second * 10
 
 type MinerIterator struct {
 	iter  *trie.Iterator
@@ -35,23 +36,25 @@ var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
 	cache, _ := lru.New(500)
-	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate:true, heavytrigger:time.NewTimer(heavyTriggerDuration)}
+	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0)}
 	go MinerManagerImpl.loop()
 	return nil
 }
 
-func (mm *MinerManager) loop(){
-	for{
+func (mm *MinerManager) loop() {
+	for {
 		<-mm.heavytrigger.C
-		if mm.heavyupdate{
+		if mm.heavyupdate {
 			iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
-			array := make([]string,0)
+			array := make([]string, 0)
 			for iter.Next() {
 				miner, _ := iter.Current()
 				gid := groupsig.DeserializeId(miner.Id)
 				array = append(array, gid.String())
 			}
+			mm.heavyMiners = array
 			network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
+			Logger.Infof("MinerManager HeavyMinerUpdate Size:%d",len(array))
 			mm.heavyupdate = false
 		}
 		mm.heavytrigger.Reset(heavyTriggerDuration)
@@ -79,7 +82,7 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	} else {
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
-		if miner.Type == types.MinerTypeHeavy{
+		if miner.Type == types.MinerTypeHeavy {
 			mm.heavyupdate = true
 		}
 		return 1
@@ -96,6 +99,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			miner.Type = types.MinerTypeHeavy
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
+			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.Id).String())
 			//Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
 		}
 		if accountdb.GetData(dbl, string(miner.Id)) == nil {
@@ -105,6 +109,7 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			Logger.Debugf("AddGenesesMiner Light %+v %+v", miner.Id, data)
 		}
 	}
+	mm.heavyupdate = true
 }
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner {
@@ -236,4 +241,8 @@ func (mi *MinerIterator) Current() (*types.Miner, error) {
 
 func (mi *MinerIterator) Next() bool {
 	return mi.iter.Next()
+}
+
+func (mm *MinerManager) GetHeavyMiners() []string {
+	return mm.heavyMiners
 }

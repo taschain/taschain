@@ -1,18 +1,19 @@
 package cli
 
 import (
-	"consensus/mediator"
-	"middleware/types"
-	"core"
 	"common"
-	"github.com/vmihailenco/msgpack"
 	"consensus/groupsig"
-	"time"
+	"consensus/mediator"
+	"consensus/model"
+	"core"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"github.com/vmihailenco/msgpack"
 	"log"
-	"consensus/model"
+	"math/big"
+	"middleware/types"
+	"taslog"
+	"time"
 )
 
 /*
@@ -20,6 +21,8 @@ import (
 **  Date: 2018/9/30 下午4:34
 **  Description: 
 */
+var BonusLogger = taslog.GetLogger(taslog.BonusStatConfig)
+
 func successResult(data interface{}) (*Result, error) {
 	return &Result{
 		Message: "success",
@@ -415,4 +418,180 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 		Conns:       consResult.Data.([]ConnInfo),
 	}
 	return successResult(dash)
+}
+
+func bonusStatByHeight(height uint64)  BonusInfo{
+	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+	casterId := bh.Castor
+	groupId := bh.GroupId
+
+	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
+
+	// 从交易信息中解析出targetId列表
+	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
+
+	mems := make([]string, 0)
+	for _,memId := range memIds{
+		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
+	}
+
+	data := BonusInfo{
+		BlockHeight:height,
+		BlockHash:bh.Hash,
+		BonusTxHash:bonusTx.Hash,
+		GroupId:groupsig.DeserializeId(groupId).ShortS(),
+		CasterId:groupsig.DeserializeId(casterId).ShortS(),
+		MemberIds:mems,
+		BonusValue:value,
+	}
+
+	return data
+}
+
+func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
+	var bonusValueMap, bonusNumMap, castBlockNumMap map[string]uint64
+
+	if _, ok := BonusValueStatMap[height]; !ok{
+		var i uint64
+		for i = 1; i < height; i++{
+			if _, ok := BonusValueStatMap[i]; !ok{
+				break
+			}
+		}
+
+		for j := i; j <= height; j++{
+			bh := core.BlockChainImpl.QueryBlockByHeight(j)
+
+			casterId := groupsig.DeserializeId(bh.Castor)
+
+			bonusValuePreMap := BonusValueStatMap[j - 1]
+			bonusNumPreMap := BonusNumStatMap[j - 1]
+			castBlockPreMap := CastBlockStatMap[j - 1]
+
+			// 获取验证分红的交易信息
+			// 此方法取到的分红交易有时候为空
+			var bonusTx *types.Transaction
+			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil {
+				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
+				BonusValueStatMap[j] = bonusValuePreMap
+				BonusNumStatMap[j] = bonusNumPreMap
+				CastBlockStatMap[j] = castBlockPreMap
+				continue
+			}
+
+			// 从交易信息中解析出targetId列表
+			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
+
+			BonusLogger.Infof("height: %v | castBlockMap: %v", j - 1, castBlockPreMap)
+
+			bonusValueCurrentMap := make(map[string]uint64)
+			bonusNumCurrentMap := make(map[string]uint64)
+			castBlockCurrentMap := make(map[string]uint64)
+
+			for k,v := range bonusValuePreMap {
+				bonusValueCurrentMap[k] = v
+			}
+
+			for k,v := range bonusNumPreMap {
+				bonusNumCurrentMap[k] = v
+			}
+
+			for k,v := range castBlockPreMap {
+				castBlockCurrentMap[k] = v
+			}
+
+			for _, mv := range memIds{
+				memId := groupsig.DeserializeId(mv).GetHexString()
+
+				if v, ok := bonusValueCurrentMap[memId]; ok{
+					bonusValueCurrentMap[memId] = value + v
+					if v, ok := bonusNumCurrentMap[memId]; ok {
+						bonusNumCurrentMap[memId] = v + 1
+					} else {
+						bonusNumCurrentMap[memId] = 1
+					}
+				} else {
+					bonusValueCurrentMap[memId] = value
+					bonusNumCurrentMap[memId] = 1
+				}
+			}
+
+			if v,ok := castBlockCurrentMap[casterId.GetHexString()];ok{
+				castBlockCurrentMap[casterId.GetHexString()] = v + 1
+			} else {
+				castBlockCurrentMap[casterId.GetHexString()] = 1
+			}
+
+			BonusValueStatMap[j] = bonusValueCurrentMap
+			BonusNumStatMap[j] = bonusNumCurrentMap
+			CastBlockStatMap[j] = castBlockCurrentMap
+		}
+	}
+
+	bonusValueMap =  BonusValueStatMap[height]
+	bonusNumMap = BonusNumStatMap[height]
+	castBlockNumMap = CastBlockStatMap[height]
+
+	bonusStatResults := make([]BonusStatInfo,0,10)
+	lightMinerIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
+	for lightMinerIter.Next() {
+		miner, _ := lightMinerIter.Current()
+		minerId := groupsig.DeserializeId(miner.Id)
+		bonusStatItem := BonusStatInfo{
+			MemberId:minerId.ShortS(),
+			BonusNum:bonusNumMap[minerId.GetHexString()],
+			TotalBonusValue:bonusValueMap[minerId.GetHexString()],
+		}
+
+		bonusStatResults = append(bonusStatResults, bonusStatItem)
+	}
+
+	castBlockResults := make([]CastBlockStatInfo,0,10)
+	heavyIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
+	for heavyIter.Next() {
+		miner, _ := heavyIter.Current()
+		minerId := groupsig.DeserializeId(miner.Id)
+		castBlockItem := CastBlockStatInfo{
+			CasterId: minerId.ShortS(),
+			Stake:miner.Stake,
+			CastBlockNum:castBlockNumMap[minerId.GetHexString()],
+		}
+		castBlockResults = append(castBlockResults, castBlockItem)
+	}
+
+	bonusInfo := bonusStatByHeight(height)
+
+	signedBlocks := make([]string, 0, 10)
+	//if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
+	//	for e := signedBlockList.Front(); e != nil; e = e.Next(){
+	//		signedBlocks = append(signedBlocks, e.Value.(string))
+	//	}
+	//}
+
+	var mutiSignedBlockNum uint64 = 0
+	//var i uint64 = 1
+	//for ; i <= height; i++{
+	//	if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
+	//		if signedBlockList.Len() > 1 {
+	//			mutiSignedBlockNum++
+	//			BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
+	//		}
+	//	}
+	//}
+
+	signedBlockInfo := SignedBlockInfo{
+		Height:height,
+		OnchainBlock:bonusInfo.BlockHash.ShortS(),
+		SignedBlocks:signedBlocks,
+		MutiSignedBlockNum:mutiSignedBlockNum,
+	}
+
+	result := CastBlockAndBonusResult{
+		BonusInfoAtHeight:bonusInfo,
+		BonusStatInfos:bonusStatResults,
+		CastBlockStatInfos:castBlockResults,
+		SignedBlockInfo:signedBlockInfo,
+	}
+
+	return successResult(result)
 }

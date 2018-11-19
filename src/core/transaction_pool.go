@@ -29,6 +29,11 @@ import (
 	"time"
 )
 
+const (
+	SendingListLength    = 50
+	SendingTimerInterval = time.Second * 3
+)
+
 var (
 	ErrNil = errors.New("nil transaction")
 
@@ -53,8 +58,6 @@ var (
 	ErrNegativeValue = errors.New("negative Value")
 
 	ErrOversizedData = errors.New("oversized data")
-
-	sendingListLength = 50
 )
 
 // 配置文件
@@ -118,10 +121,10 @@ func NewTransactionPool() TransactionPool {
 		sendingList:   make([]*types.Transaction, 0),
 		sendingTxLock: sync.Mutex{},
 		batchLock:     sync.Mutex{},
-		sendingTimer:  time.NewTimer(time.Second),
+		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.reserved, _ = lru.New(100)
+	pool.reserved, _ = lru.New(pool.config.maxReceivedPoolSize / 4)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
 	if err != nil {
@@ -130,13 +133,13 @@ func NewTransactionPool() TransactionPool {
 	}
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
-	go func() {
-		for {
-			<-pool.sendingTimer.C
-			pool.CheckAndSend(true)
-			pool.sendingTimer.Reset(time.Second)
-		}
-	}()
+	//go func() {
+	//	for {
+	//		<-pool.sendingTimer.C
+	//		pool.CheckAndSend(true)
+	//		pool.sendingTimer.Reset(SendingTimerInterval)
+	//	}
+	//}()
 	return pool
 }
 
@@ -188,24 +191,27 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	}
 
 	pool.received.Push(tx)
+	if tx.Type == types.TransactionTypeMinerApply {
+		BroadcastMinerApplyTransactions([]*types.Transaction{tx})
+	}
+	// 日志记录分红交易信息
 
 	// batch broadcast
-	if isBroadcast {
-		//交易不广播
-		//return true, nil
-		pool.sendingTxLock.Lock()
-		pool.sendingList = append(pool.sendingList, tx)
-		pool.sendingTxLock.Unlock()
-
-		pool.CheckAndSend(false)
-	}
+	//if isBroadcast {
+	//	//交易不广播
+	//	pool.sendingTxLock.Lock()
+	//	pool.sendingList = append(pool.sendingList, tx)
+	//	pool.sendingTxLock.Unlock()
+	//
+	//	pool.CheckAndSend(false)
+	//}
 
 	return true, nil
 }
 
 func (pool *TxPool) CheckAndSend(immediately bool) {
 	length := len(pool.sendingList)
-	if immediately && length > 0 || sendingListLength <= length {
+	if immediately && length > 0 || SendingListLength <= length {
 		pool.sendingTxLock.Lock()
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
@@ -280,6 +286,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 }
 
+//GeneratBlock
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	pool.lock.RLock("GetTransaction")
 	defer pool.lock.RUnlock("GetTransaction")
@@ -297,6 +304,12 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 }
 
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
+	//为解决交易池被打满后交易丢失无法GenereteBlock的情况
+	reservedRaw, _ := pool.reserved.Get(hash)
+	if nil != reservedRaw {
+		reserved := reservedRaw.(*types.Transaction)
+		return reserved, nil
+	}
 	// 先从received里获取
 	result := pool.received.Get(hash)
 	if nil != result {
@@ -311,7 +324,7 @@ func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error)
 
 	return nil, ErrNil
 }
-
+//验证组 verify
 func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
 		return nil, nil, ErrNil
@@ -368,7 +381,7 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(2000)
+	pool.received = newContainer(100000)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
@@ -433,6 +446,10 @@ func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evicted
 	pool.reserved.Remove(hash)
 	pool.removeFromSendinglist(transactions)
 	pool.removeFromSendinglist(evictedTxs)
+
+	for _, tx := range transactions {
+		pool.reserved.Remove(tx)
+	}
 }
 
 // 返回待处理的transaction数组
@@ -448,6 +465,9 @@ func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transacti
 		return
 	}
 	pool.reserved.Add(hash, txs)
+	for _, tx := range txs {
+		pool.reserved.Add(tx.Hash, tx)
+	}
 }
 
 func (pool *TxPool) GetLock() *middleware.Loglock {

@@ -16,31 +16,30 @@
 package logical
 
 import (
-	"log"
-	"time"
-	"sync"
-	"middleware/types"
 	"consensus/model"
+	"log"
+	"middleware/types"
+	"sync"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
 //组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
 type BlockContext struct {
-	Version         uint
-	GroupMembers    int                        //组成员数量
-	Proc    *Processor   //处理器
-	MinerID *model.GroupMinerID //矿工ID和所属组ID
-	pos     int          //矿工在组内的排位
+	Version      uint
+	GroupMembers int                 //组成员数量
+	Proc         *Processor          //处理器
+	MinerID      *model.GroupMinerID //矿工ID和所属组ID
+	pos          int                 //矿工在组内的排位
 
 	//变化
-	vctxs	map[uint64]*VerifyContext			//height -> *VerifyContext
+	vctxs map[uint64]*VerifyContext //height -> *VerifyContext
 	//currentVCtx    atomic.Value 	//当前铸块的verifycontext
 
 	recentVerifyHeight []uint64
 	verifyCnt          uint64
 
 	lock sync.RWMutex
-
 }
 
 func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
@@ -48,7 +47,7 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 		Proc:               p,
 		MinerID:            model.NewGroupMinerID(sgi.GroupID, p.GetMinerID()),
 		GroupMembers:       len(sgi.Members),
-		vctxs: 				make(map[uint64]*VerifyContext),
+		vctxs:              make(map[uint64]*VerifyContext),
 		Version:            model.CONSENSUS_VERSION,
 		verifyCnt:          0,
 		recentVerifyHeight: make([]uint64, 20),
@@ -58,18 +57,17 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 }
 
 func (bc *BlockContext) threshold() int {
-    return model.Param.GetGroupK(bc.GroupMembers)
+	return model.Param.GetGroupK(bc.GroupMembers)
 }
 
-
-func (bc *BlockContext) GetVerifyContextByHeight(height uint64) (*VerifyContext) {
+func (bc *BlockContext) GetVerifyContextByHeight(height uint64) *VerifyContext {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 
 	return bc.getVctxByHeight(height)
 }
 
-func (bc *BlockContext) getVctxByHeight(height uint64) (*VerifyContext) {
+func (bc *BlockContext) getVctxByHeight(height uint64) *VerifyContext {
 	if v, ok := bc.vctxs[height]; ok {
 		return v
 	}
@@ -83,7 +81,7 @@ func (bc *BlockContext) replaceVerifyCtx(height uint64, expireTime time.Time, pr
 }
 
 func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH *types.BlockHeader) *VerifyContext {
-	var	vctx *VerifyContext
+	var vctx *VerifyContext
 	blog := newBizLog("getOrNewVctx")
 
 	//若该高度还没有verifyContext， 则创建一个
@@ -121,10 +119,10 @@ func (bc *BlockContext) getOrNewVctx(height uint64, expireTime time.Time, preBH 
 }
 
 func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
-    bc.lock.RLock()
-    defer bc.lock.RUnlock()
-    vctx := make([]*VerifyContext, len(bc.vctxs))
-    i := 0
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+	vctx := make([]*VerifyContext, len(bc.vctxs))
+	i := 0
 	for _, vc := range bc.vctxs {
 		vctx[i] = vc
 		i++
@@ -138,7 +136,7 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	)
 	if bh.Height == 1 {
 		d := time.Since(preBH.CurTime)
-		deltaHeightByTime = uint64(d.Seconds()) / uint64(model.Param.MaxGroupCastTime) + 1
+		deltaHeightByTime = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
 	} else {
 		deltaHeightByTime = bh.Height - preBH.Height
 	}
@@ -152,11 +150,11 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 	return vctx
 }
 
-func (bc *BlockContext) CleanVerifyContext(height uint64)  {
+func (bc *BlockContext) CleanVerifyContext(height uint64) {
 	newCtxs := make(map[uint64]*VerifyContext, 0)
 	for _, ctx := range bc.SafeGetVerifyContexts() {
 		bRemove := ctx.shouldRemove(height)
-		if !bRemove  {
+		if !bRemove {
 			newCtxs[ctx.castHeight] = ctx
 		} else {
 			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
@@ -167,8 +165,6 @@ func (bc *BlockContext) CleanVerifyContext(height uint64)  {
 	defer bc.lock.Unlock()
 	bc.vctxs = newCtxs
 }
-
-
 
 func (bc *BlockContext) IsHeightCasted(height uint64) bool {
 	bc.lock.RLock()
@@ -181,14 +177,14 @@ func (bc *BlockContext) IsHeightCasted(height uint64) bool {
 	return false
 }
 
-func (bc *BlockContext) AddCastedHeight(height uint64)  {
+func (bc *BlockContext) AddCastedHeight(height uint64) {
 	if bc.IsHeightCasted(height) {
 		return
 	}
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
-    bc.verifyCnt++
-    idx := bc.verifyCnt % uint64(len(bc.recentVerifyHeight))
-    bc.recentVerifyHeight[idx] = height
+	bc.verifyCnt++
+	idx := bc.verifyCnt % uint64(len(bc.recentVerifyHeight))
+	bc.recentVerifyHeight[idx] = height
 }

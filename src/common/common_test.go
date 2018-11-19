@@ -37,6 +37,7 @@ func TestHash_Hex(t *testing.T) {
 	t.Log(h.Hex())
 }
 
+
 func TestAddress_MarshalJSON(t *testing.T) {
 	addr := HexToAddress("0x123")
 

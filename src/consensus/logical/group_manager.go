@@ -9,6 +9,7 @@ import (
 	"consensus/model"
 	"consensus/base"
 	"strings"
+	"common"
 )
 
 /*
@@ -109,6 +110,8 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		IDs: memIds,
 	}
 	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(group.GroupID)), msg)
+	//fix bug when gi signature is nil
+	msg.GI.Signature = msg.SI.DataSign
 
 	creatingGroup := newCreateGroup(&gis, memPkis, group)
 	gm.addCreatingGroup(creatingGroup)
@@ -221,6 +224,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 
 func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
 	group := ConvertStaticGroup2CoreGroup(sgi, isDummy)
+	log.Printf("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight,common.BytesToAddress(group.Id).GetHexString())
 	err := gm.groupChain.AddGroup(group, nil, nil)
 	if err != nil {
 		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, sgi.GIS.DummyID.ShortS(), err.Error())

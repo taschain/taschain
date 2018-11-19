@@ -19,7 +19,7 @@ const (
 
 	BlockReq = "block_req"
 
-	BlockChainTotalQn = "block_chain_total_qn"
+	BlockInfoNotify = "block_info_notify"
 
 	ChainPieceReq = "chain_piece_req"
 

@@ -19,6 +19,7 @@ import (
 	"common/ed25519"
 	"math/big"
 	"common"
+	"middleware/types"
 )
 
 // Hash helpers
@@ -68,8 +69,8 @@ func VRF_proof2hash(pi VRFProve) VRFRandomValue {
 	return VRFRandomValue(ed25519.ECVRF_proof2hash(ed25519.VRFProve(pi)))
 }
 
-func VRF_verify(pk VRFPublicKey, pi VRFProve, m []byte) (bool, error) {
-	return ed25519.ECVRF_verify(ed25519.PublicKey(pk), ed25519.VRFProve(pi), m)
+func VRF_verify(pk VRFPublicKey, pi VRFProve, m []byte, h uint64, preBH *types.BlockHeader) (bool, error) {
+	return ed25519.ECVRF_verify(ed25519.PublicKey(pk), ed25519.VRFProve(pi), m, h, preBH)
 }
 
 func (pi VRFProve) Big() *big.Int {

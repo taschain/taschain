@@ -16,12 +16,13 @@
 package ed25519
 
 import (
+	"bytes"
+	"common/ed25519/edwards25519"
+	"crypto/sha256"
+	"crypto/sha512"
 	"errors"
 	"math/big"
-	"crypto/sha512"
-	"bytes"
-	"crypto/sha256"
-	"common/ed25519/edwards25519"
+	"middleware/types"
 )
 
 const (
@@ -86,7 +87,7 @@ func ECVRF_proof2hash(pi VRFProve) []byte {
 	return pi[1 : N2 + 1]
 }
 
-func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte) (bool, error) {
+func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte, height uint64, preBH *types.BlockHeader) (bool, error) {
 	r, c, s, err := ECVRF_decode_proof(pi)
 	if err != nil {
 		return false, err

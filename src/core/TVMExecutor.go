@@ -16,15 +16,15 @@
 package core
 
 import (
-	"middleware/types"
 	"common"
+	"github.com/vmihailenco/msgpack"
+	"middleware/types"
 	"storage/account"
 	"math/big"
 	"storage/vm"
 	"fmt"
 	"tvm"
 	"bytes"
-	"github.com/vmihailenco/msgpack"
 	"storage/trie"
 	"storage/serialize"
 )
@@ -70,6 +70,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transacti
 			//转账交易
 			source := transaction.Source
 			target := transaction.Target
+
 			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
 
 			if source != nil {
@@ -118,6 +119,7 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.
 	missingAccounts := []common.Address{}
 	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
+
 		//Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
 		switch transaction.Type {
 		case types.TransactionTypeBonus:
@@ -157,6 +159,7 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.
 	accountdb.IntermediateRoot(true)
 	return missingAccountTransactions, missingAccounts
 }
+
 
 func getBonusAddress(t types.Transaction) []common.Address {
 	var result = make([]common.Address, 0)
@@ -220,6 +223,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 					address := common.BytesToAddress(addr)
 					accountdb.AddBalance(address, value)
+
 				}
 
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
@@ -276,6 +280,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
+
 					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
@@ -301,6 +306,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			evictedTxs = append(evictedTxs, transaction.Hash)
 		}
 	}
+
 	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 

@@ -28,6 +28,7 @@
             <li>块链</li>
             <li>组链</li>
             <li>查询工作组</li>
+            <li>共识验证</li>
             <li lay-id="block_detail_tab">块详情</li>
         </ul>
         <div class="layui-tab-content">
@@ -65,15 +66,15 @@
                 <div id="node_info">
                     <table class="layui-table" id="node_info">
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>余额</th>
-                                <th>节点类型</th>
-                                <th>工作组数</th>
-                                <th>有效组数</th>
-                                <th>缓冲区交易数</th>
-                                <th>节点状态</th>
-                            </tr>
+                        <tr>
+                            <th>ID</th>
+                            <th>余额</th>
+                            <th>节点类型</th>
+                            <th>工作组数</th>
+                            <th>有效组数</th>
+                            <th>缓冲区交易数</th>
+                            <th>节点状态</th>
+                        </tr>
                         </thead>
                         <tr>
                             <td id="tb_node_id">2344424232333333333333333333333333333</td>
@@ -250,66 +251,66 @@
                     </tr>
                     </thead>
                     <tbody id="balance_chart">
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_0">
-                            </td>
-                            <td id="query_balance_0">
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_0">
+                        </td>
+                        <td id="query_balance_0">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_1">
-                            </td>
-                            <td id="query_balance_1">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn"  id="query_btn_0">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_1">
+                        </td>
+                        <td id="query_balance_1">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_2">
-                            </td>
-                            <td id="query_balance_2">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn"  id="query_btn_1">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_2">
+                        </td>
+                        <td id="query_balance_2">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_2">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_3">
-                            </td>
-                            <td id="query_balance_3">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_2">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_3">
+                        </td>
+                        <td id="query_balance_3">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_3">查询</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                       placeholder="请输入查询地址" id="query_input_4">
-                            </td>
-                            <td id="query_balance_4">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_3">查询</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" name="account"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入查询地址" id="query_input_4">
+                        </td>
+                        <td id="query_balance_4">
 
-                            </td>
-                            <td>
-                                <button class="layui-btn query_btn" id="query_btn_4">查询</button>
-                            </td>
-                        </tr>
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="query_btn_4">查询</button>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
                 <div style="padding-top: 30px"></div>
@@ -461,6 +462,34 @@
                 </table>
 
                 <table id="work_group_detail" lay-filter="block_detail"></table>
+            </div>
+
+            <!-- 共识验证部分 -->
+            <div class="layui-tab-item">
+                <table class="layui-table">
+                    <tr>
+                        <td width="40%">
+                            <input type="text" name="consensus_stat"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入区块高度" id="block_height_input">
+                        </td>
+                        <td>
+                            <button class="layui-btn query_btn" id="block_height_btn">统计</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <label style="text-align: left">节点分红信息</label>
+                <table id="bonus_transaction_detail" lay-filter="bonus_detail"></table>
+
+
+                <label style="text-align: left">截止该块高节点分红汇总信息</label>
+                <table id="bonus_transaction_total_detail" lay-filter="bonus_total_detail"></table>
+
+                <label style="text-align: left">截止该块高节点节点出块汇总信息</label>
+                <table id="cast_block_total_detail" lay-filter="cast_block_total_detail"></table>
+
+                <label style="text-align: left">该高度签出的块信息 | </label><span>签出多块的轮数</span><span id="muti_signed_block_num" class="layui-badge">0</span>
+                <table id="signed_block_info" lay-filter="signed_block_info"></table>
             </div>
 
             <!-- 块详情 -->

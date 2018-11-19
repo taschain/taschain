@@ -1,12 +1,12 @@
 package logical
 
 import (
-	"middleware/notify"
-	"log"
-	"middleware/types"
-	"consensus/model"
-	"consensus/groupsig"
 	"common"
+	"consensus/groupsig"
+	"consensus/model"
+	"log"
+	"middleware/notify"
+	"middleware/types"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
@@ -104,15 +104,12 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	p.acceptGroup(sgi)
 }
 
-func (p *Processor) onNewBlockReceive(message notify.Message)  {
+func (p *Processor) onNewBlockReceive(message notify.Message) {
 	if !p.Ready() {
 		return
 	}
-    msg := &model.ConsensusBlockMessage{
-    	Block: message.GetData().(types.Block),
+	msg := &model.ConsensusBlockMessage{
+		Block: message.GetData().(types.Block),
 	}
-    p.OnMessageBlock(msg)
+	p.OnMessageBlock(msg)
 }
-
-
-
