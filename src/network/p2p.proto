@@ -57,6 +57,7 @@ message MsgData {
     bytes SrcNodeId=7;
     bytes Data=8;
     int32 RelayCount=9;
+    int32 MessageCode=10;
 }
 
 
