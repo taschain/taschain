@@ -31,7 +31,6 @@ import (
 	"storage/vm"
 	"middleware/notify"
 	"storage/tasdb"
-	"network"
 )
 
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
@@ -504,9 +503,6 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
-	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerJson}
-	go network.GetNetInstance().Relay(headerMsg, 3)
-
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(*types.Block)
