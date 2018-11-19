@@ -516,7 +516,9 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	if BlockSyncer != nil {
-		go BlockSyncer.Sync()
+		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
+		go BlockSyncer.sync(nil)
 	}
 }
 

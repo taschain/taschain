@@ -48,7 +48,7 @@ const (
 	BlockBodyMsg uint32 = 0x0e
 
 	//-----------块同步---------------------------------
-	BlockChainTotalQnMsg uint32 = 0x10
+	BlockInfoNotifyMsg uint32 = 0x10
 
 	ReqBlock uint32 = 0x11
 
@@ -80,6 +80,8 @@ const (
 	//==================Trace=========
 	RequestTraceMsg  uint32 = 0x20
 	ResponseTraceMsg uint32 = 0x21
+
+
 
 	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 )

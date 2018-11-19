@@ -104,17 +104,17 @@ func (m *BlockReqMessage) GetData() interface{} {
 	return m
 }
 
-type TotalQnMessage struct {
-	BlockHeaderByte []byte
+type BlockInfoNotifyMessage struct {
+	BlockInfo []byte
 
 	Peer string
 }
 
-func (m *TotalQnMessage) GetRaw() []byte {
-	return m.BlockHeaderByte
+func (m *BlockInfoNotifyMessage) GetRaw() []byte {
+	return m.BlockInfo
 }
 
-func (m *TotalQnMessage) GetData() interface{} {
+func (m *BlockInfoNotifyMessage) GetData() interface{} {
 	return m
 }
 

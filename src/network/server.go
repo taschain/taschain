@@ -237,10 +237,10 @@ func (n *server) handleMessageInner(message *Message, from string) {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
-	case BlockChainTotalQnMsg:
-		Logger.Debugf("Rcv BlockChainTotalQnMsg from %s", from)
-		msg := notify.TotalQnMessage{BlockHeaderByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockChainTotalQn, &msg)
+	case BlockInfoNotifyMsg:
+		Logger.Debugf("Rcv BlockInfoNotifyMsg from %s", from)
+		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockInfoNotify, &msg)
 	case NewBlockHeaderMsg:
 		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlockHeader, &msg)

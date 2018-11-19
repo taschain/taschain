@@ -413,7 +413,11 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	go BlockSyncer.Sync()
+	if BlockSyncer != nil {
+		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
+		go BlockSyncer.sync(nil)
+	}
 }
 
 func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {

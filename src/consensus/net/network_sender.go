@@ -199,19 +199,9 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	//广播给轻节点的下一个组
 	go ns.net.SpreadToGroup(nextVerifyGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
 
-	headerByte, e := types.MarshalBlockHeader(cbm.Block.Header)
-	if e != nil {
-		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
-		return
-	}
-	//if !core.BlockChainImpl.IsLightMiner() {
-	//	headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: headerByte}
-	//	go ns.net.Relay(headerMsg, 1)
-	//}
-	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,header size:%d, msg body size:%d,time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(headerByte), len(body), timeFromCast, nextVerifyGroupId)
+	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,msg size:%d, time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(blockMsg.Body), timeFromCast, nextVerifyGroupId)
 	//statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
 	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
-
 }
 
 //====================================建组前共识=======================
