@@ -102,7 +102,7 @@ func getRichAccount(addr string, port int, accounts []string) (string, error) {
 }
 
 func transaction(addr string, port int, from, to string,nounce uint64) {
-	res, err := rpcPost(addr, port, "GTAS_t", from, to, 1, "",nounce,0)
+	res, err := rpcPost(addr, port, "GTAS_tx", from, to, 1, "",nounce,0)
 	if err != nil {
 		fmt.Println("err:", err)
 		return
