@@ -209,6 +209,9 @@ func AddPreimage(hashC *C.char, preimageC *C.char) {
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
 	block := controller.Reader.QueryBlockByHeight(uint64(height))
+	if block == nil {
+		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
+	}
 	return C.CString(block.Hash.String())
 }
 

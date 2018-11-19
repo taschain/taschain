@@ -17,6 +17,7 @@ type Controller struct {
 	Vm          *Tvm
 	LibPath     string
 	VmStack     []*Tvm
+	GasLeft     uint64
 }
 
 func NewController(accountDB vm.AccountDB,
@@ -33,20 +34,21 @@ func NewController(accountDB vm.AccountDB,
 	controller.Vm = nil
 	controller.LibPath = libPath
 	controller.VmStack = make([]*Tvm, 0)
+	controller.GasLeft = transaction.GasLimit
 	return controller
 }
 
 func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
 	var succeed bool
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	con.Vm.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
 	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
 	con.Vm.DelTvm()
 	if !succeed {
 		return false
 	}
-	con.Transaction.GasLimit = uint64(con.Vm.Gas())
+	con.GasLeft = uint64(con.Vm.Gas())
 	return succeed
 }
 
@@ -62,7 +64,7 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) bool {
 	var succeed bool
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	con.Vm.SetGas(int(con.GasLeft))
 
 	//先转账
 	if con.Transaction.Value > 0 {
@@ -83,7 +85,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		succeed = con.Vm.checkABI(abi) && ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false)) && con.Vm.StoreData()
 		if succeed {
 			con.Vm.DelTvm()
-			con.Transaction.GasLimit = uint64(con.Vm.Gas())
+			con.GasLeft = uint64(con.Vm.Gas())
 		} else {
 			//todo 告知用户明确失败的原因，如ABI非法
 			con.Vm.DelTvm()
@@ -91,10 +93,10 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	} else {
 		con.Vm.DelTvm()
 	}
-	con.Transaction.GasLimit = uint64(con.Vm.Gas())
+	con.GasLeft = uint64(con.Vm.Gas())
 	return succeed
 }
 
 func(con *Controller) GetGasLeft() uint64{
-	return con.Transaction.GasLimit
+	return con.GasLeft
 }

@@ -106,7 +106,7 @@ func TestGasUse(t *testing.T) {
 import account
 class A():
     def __init__(self):
-        self.a = 10
+        pass
 
     def deploy(self):
         print("deploy")
@@ -122,22 +122,22 @@ class A():
 	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
 	balance1 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp := big.NewInt(0).Sub(balance0, balance1)
-	if tmp.Int64() != 7544 {
-		t.Errorf("deploy gas used: wannted %d, got %d",7544, tmp.Int64())
+	if tmp.Int64() != 8454 {
+		t.Errorf("deploy gas used: wannted %d, got %d",8454, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10]}`, source, 2000000)
 	balance2 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance1, balance2)
-	if tmp.Int64() != 3714 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",3714, tmp.Int64())
+	if tmp.Int64() != 9251 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",9251, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [20]}`, source, 2000000)
 	balance3 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance2, balance3)
-	if tmp.Int64() != 3874 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",3874, tmp.Int64())
+	if tmp.Int64() != 9411 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",9411, tmp.Int64())
 	}
 	// test run out gas
 	//ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [456]}`, source, 5000)
