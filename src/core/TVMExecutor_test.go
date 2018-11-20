@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/json"
 	"middleware/types"
 	"common"
 	"storage/tasdb"
@@ -9,39 +8,99 @@ import (
 	"testing"
 	"fmt"
 	"os"
-	"tvm"
 )
 
 func ExampleNewTVMExecutor() {
 
 }
 
-func TestBlockLib(t *testing.T) {
-	ChainInit()
-	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
-	code := `
-import block
-class A(object):
-	def __init__(self):
-		pass
-	def deploy(self):
-		if block.blockhash(0) != "0x81107a7a182d1172cdf84b819a827037123557b1b791198207ce198a0e2c0bef":
-			raise Exception("blockhash of 0 error")
-		if block.blockhash(1) != "0x0000000000000000000000000000000000000000000000000000000000000000":
-			raise Exception("blockhash of 1 error")
-		if block.coinbase() != "0x0000000000000000000000000000000000000000":
-			raise Exception("block.coinbase() error")
-		if block.number() != 1:
-			raise Exception("block.number() error")
-		if 2147483648<block.timestamp() or block.timestamp()<1542615541:
-			raise Exception("block.timestamp() error")
-		if block.gaslimit() != 200000:
-			raise Exception("block.gaslimit() error")
+func TestContract(t *testing.T) {
+	scripts := []string{
+		`import account
+account.create_account("0x1234")
+if account.get_balance("0x1234") != 0:
+	raise Exception("get_balance error")
+account.add_balance("0x1234",1000000000000000000)
+if account.get_balance("0x1234") != 1000000000000000000:
+	raise Exception("get_balance error")
+account.sub_balance("0x1234",1)
+if account.get_balance("0x1234") != 999999999999999999:
+	raise Exception("get_balance error")
+account.set_nonce("0x1234", 10)
+if account.get_nonce("0x1234") != 10:
+	raise Exception("get_nonce error")
+account.set_code("0xe8ba89a51b095e63d83f1ec95441483415c64065", "print('hello world')")
+`,
 `
-	contract := tvm.Contract{code, "A", nil}
-	jsonString, _ := json.Marshal(contract)
-	// test deploy
-	DeployContract(string(jsonString), source, 200000, 0)
+import account
+code_hash = account.get_code_hash("0xe8ba89a51b095e63d83f1ec95441483415c64065")
+code = account.get_code("0xe8ba89a51b095e63d83f1ec95441483415c64065")
+assert code == "print('hello world')"
+size = account.get_code_size("0xe8ba89a51b095e63d83f1ec95441483415c64065")
+assert size == 20
+account.add_refund(10)
+account.add_refund(5)
+refund = account.get_refund()
+assert refund == 15
+account.set_data("0xe8ba89a51b095e63d83f1ec95441483415c64066", "test", "right")
+assert account.get_data("0xe8ba89a51b095e63d83f1ec95441483415c64066", "test") == "right"
+before = account.has_suicided("0xe8ba89a51b095e63d83f1ec95441483415c64066")
+account.suicide("0xe8ba89a51b095e63d83f1ec95441483415c64066")
+after = account.has_suicided("0xe8ba89a51b095e63d83f1ec95441483415c64066")
+assert before != after
+assert account.exists("0xe8ba89a51b095e63d83f1ec95441483415c64066") != False
+assert account.exists("0xe8ba89a51b095e63d83f1ec95441483415c64000") != True
+account.create_account("0x123456")
+num = account.snapshot()
+account.add_balance("0x123456",100)
+assert account.get_balance("0x123456") == 100
+account.revert_to_snapshot(num)
+assert account.get_balance("0x123456") == 0
+`,
+	}
+	block := types.Block{}
+	block.Transactions = make([]*types.Transaction, 0)
+	for _, script := range scripts{
+		transaction := types.Transaction{}
+		addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
+		transaction.Source = &addr
+		transaction.Data = []byte(script)
+		block.Transactions = append(block.Transactions, &transaction)
+	}
+	executor := TVMExecutor{}
+	db, err := tasdb.NewLDBDatabase(Home() + "/TasProject/work/test2", 0, 0)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer db.Close()
+	triedb := core.NewDatabase(db)
+	state, _ := core.NewAccountDB(common.Hash{}, triedb)
+	_, receipts, _ := executor.Execute(state, &block, nil)
+	//fmt.Println(hash.Hex())
+	//fmt.Println(receipts[0].ContractAddress.GetHexString())
+	root, _ := state.Commit(false)
+	//fmt.Println(root.Hex())
+	triedb.TrieDB().Commit(root, false)
+
+	block = types.Block{}
+	block.Transactions = make([]*types.Transaction,0)
+	for _, receipt := range receipts{
+		fmt.Println(receipt.ContractAddress.GetHexString())
+		transaction := types.Transaction{}
+		addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
+		transaction.Source = &addr
+		transaction.Data = []byte("{}")
+		addr = receipt.ContractAddress
+		transaction.Target = &addr
+		block.Transactions = append(block.Transactions, &transaction)
+	}
+	executor = TVMExecutor{}
+	triedb = core.NewDatabase(db)
+	state, err = core.NewAccountDB(common.HexToHash(root.Hex()), triedb)
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, receipts, _ = executor.Execute(state, &block, nil)
 }
 
 func Home() string{

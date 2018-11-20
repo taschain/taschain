@@ -61,6 +61,38 @@ tas_%s.deploy()
 
 func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {
 	return fmt.Sprintf(`
+import ujson
+import account
+class TEvent(object):
+    dict = {}
+    def __init__(self):
+        pass
+
+TEvents = TEvent()
+
+class DefEvent(object):
+    class Node(object):
+        def __init__(self,name):
+            self.name = name
+            
+        def __call__(self, index,data):
+            if type(index) != type('a'):
+                raise Exception('index should be string')
+            if type(data) != type({'val':1}):
+                raise Exception('data should be dict')
+            account.eventCall(self.name,index,ujson.dumps(data))
+            #print("name :", self.name)
+            #print("index:",index)
+            #print("data :",ujson.dumps(data))
+
+    def __init__(self,name):
+        #print(name)
+        #def ev_fun(self,index,data):
+        #    print(index)
+        #    print(data)
+        setattr(TEvent,name,DefEvent.Node(name))
+
+
 class Msg(object):
     def __init__(self, data, value, sender):
         self.data = data

@@ -25,6 +25,7 @@ import (
 	"math/big"
 	"unsafe"
 
+	"storage/core/types"
 )
 
 //export callOnMeGo
@@ -249,6 +250,30 @@ func TxGasLimit() C.ulonglong {
 func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) *C.char{
 	contractResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
 	return C.CString(contractResult);
+}
+
+//export EventCall
+func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char{
+	//fmt.Println("111111111111111111111111111111")
+	//fmt.Println(C.GoString(eventName))
+	//fmt.Println(C.GoString(index))
+	//fmt.Println(C.GoString(data))
+
+	var log types.Log
+	log.Topics = append(log.Topics, common.StringToHash(C.GoString(eventName)))
+	log.Topics = append(log.Topics, common.StringToHash(C.GoString(index)))
+	for i:=0; i < len(C.GoString(data)); i++ {
+		log.Data = append(log.Data,C.GoString(data)[i])
+	}
+	log.TxHash = controller.Transaction.Hash
+	log.Address = *controller.Transaction.Target
+	log.BlockNumber = controller.BlockHeader.Height
+	//block is running ,no blockhash this time
+	// log.BlockHash = controller.BlockHeader.Hash
+
+	controller.Vm.Logs = append(controller.Vm.Logs,&log)
+
+	return nil //C.CString(contractResult);
 }
 
 //export SetBytecode

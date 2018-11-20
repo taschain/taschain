@@ -45,6 +45,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt, len(block.Transactions))
+	var logindex uint=0
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
@@ -81,9 +82,25 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				snapshot := controller.AccountDB.Snapshot()
-				if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
+				retval,plogs := controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+				if !retval {
 					controller.AccountDB.RevertToSnapshot(snapshot)
 					fail = true
+				}
+				for j:=0 ; j < len(*plogs); j++{
+					(*plogs)[j].TxIndex = uint(i)
+					(*plogs)[j].Index = logindex
+					(*plogs)[j].Removed = false
+					logindex++
+					fmt.Println((*plogs)[j].Address)
+					fmt.Println((*plogs)[j].Topics)
+					fmt.Println((*plogs)[j].Data)
+					fmt.Println((*plogs)[j].BlockNumber)
+					fmt.Println((*plogs)[j].TxHash)
+					fmt.Println((*plogs)[j].TxIndex)
+					fmt.Println((*plogs)[j].BlockHash)
+					fmt.Println((*plogs)[j].Index)
+					fmt.Println((*plogs)[j].Removed)
 				}
 				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {
