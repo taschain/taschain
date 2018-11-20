@@ -167,12 +167,10 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 
 func (gs *groupSyncer) loop() {
 	t := time.NewTicker(GROUP_SYNC_INTERVAL)
-	for {
-		select {
-		case <-t.C:
-			sendGroupHeightToNeighbor(GroupChainImpl.Count())
-			go gs.sync()
-		}
+	var tick <-chan time.Time
+	for tick = range t.C {
+		go sendGroupHeightToNeighbor(GroupChainImpl.Count())
+		go gs.sync()
 	}
 }
 
