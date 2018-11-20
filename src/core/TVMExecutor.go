@@ -45,7 +45,6 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt, len(block.Transactions))
-	var logindex uint=0
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
@@ -89,9 +88,8 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				}
 				for j:=0 ; j < len(*plogs); j++{
 					(*plogs)[j].TxIndex = uint(i)
-					(*plogs)[j].Index = logindex
+					(*plogs)[j].Index = uint(j)
 					(*plogs)[j].Removed = false
-					logindex++
 					fmt.Println((*plogs)[j].Address)
 					fmt.Println((*plogs)[j].Topics)
 					fmt.Println((*plogs)[j].Data)
