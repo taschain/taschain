@@ -217,6 +217,53 @@ class A():
 	}
 }
 
+func TestEvent(t *testing.T) {
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+DefEvent('a')
+DefEvent('b')
+
+class A():
+    def __init__(self):
+        pass
+
+    def deploy(self):
+        pass
+
+    @register.public(int, bool, str, list, dict)
+    def test(self, aa, bb, cc, dd, ee):
+        assert isinstance(aa, int)
+        assert isinstance(bb, bool)
+        assert isinstance(cc, str)
+        assert isinstance(dd, list)
+        assert isinstance(ee, dict)
+
+        TEvents.a('123',{'val':10})
+        TEvents.b('4321',{'val':99})
+
+        DefEvent('c')
+        DefEvent('d')
+        TEvents.c('ccc',{'val':'cccc'})
+        TEvents.d('ddd',{'val':'dddd'})
+        print('after event send')
+
+    def test2(self):
+        print("test2")
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
+	// 测试正常数据调用
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, "a", [11], {"key": "value"}]}`, source, (2000000))
+	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	fmt.Printf("=============>get hash %x \n",hash)
+	fmt.Println("test receipt", receipt)
+	if receipt.Receipt.Status != types2.ReceiptStatusSuccessful {
+		t.Errorf("execute: failed, wanted succeed")
+	}
+}
+
 func OnChainFunc(code string, source string) {
 	//common.InitConf("d:/test1.ini")
 	common.InitConf("../../deploy/tvm/test1.ini")
