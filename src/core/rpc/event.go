@@ -9,18 +9,24 @@ import (
 	"sync"
 )
 
+const (
+	EventTypeLog = 0
+	EventTypeTransaction = 1
+)
+
 type EventSubscribeReq struct {
+	Type int
 	ContractAddress string
 	EventName string
-	Arguments []string
+	Argument string
 }
 
 type EventSubscribe struct {
 	contractAddress common.Address
-	eventName common.Hash
-	arguments []common.Hash
-	socket *websocket.Conn
-	lock sync.Mutex
+	eventName       common.Hash
+	argument        common.Hash
+	socket          *websocket.Conn
+	lock            sync.Mutex
 }
 
 type WsEventPublisher struct {
@@ -50,20 +56,21 @@ func (wsep *WsEventPublisher) PublishEvent(log *types.Log){
 		for e != nil{
 			item := e.Value.(*EventSubscribe)
 			if log.Topics[0] == item.eventName{
-				logArgs := log.Topics[1:]
-				lengthLog := len(logArgs)
-				lengthSub := len(item.arguments)
-				length := lengthLog
-				if lengthSub < length{
-					length = lengthSub
-				}
-				match := true
-				for i:=0;i<length;i++{
-					if !common.EmptyHash(item.arguments[i]) && item.arguments[i] != logArgs[i]{
-						match = false
-						break
-					}
-				}
+				//logArgs := log.Topics[1:]
+				//lengthLog := len(logArgs)
+				//lengthSub := len(item.argument)
+				//length := lengthLog
+				//if lengthSub < length{
+				//	length = lengthSub
+				//}
+				//match := true
+				//for i:=0;i<length;i++{
+				//	if !common.EmptyHash(item.argument[i]) && item.argument[i] != logArgs[i]{
+				//		match = false
+				//		break
+				//	}
+				//}
+				match := common.EmptyHash(item.argument) || item.argument == log.Topics[1]
 				if match{
 					go wsep.publishEvent(log, item, e)
 				}
@@ -107,15 +114,15 @@ func serveEventRequest(w http.ResponseWriter,r *http.Request){
 		return
 	}
 	logger.Debugf("EventSubscribeReq %+v",req)
-	args := make([]common.Hash,len(req.Arguments))
-	for i,arg := range req.Arguments{
-		if arg == "*"{
-			args[i] = common.Hash{}
-		} else {
-			args[i] = common.BytesToHash(common.Sha256([]byte(arg)))
-		}
-	}
-	subscribe := &EventSubscribe{contractAddress:common.HexStringToAddress(req.ContractAddress),arguments:args,
+	//args := make([]common.Hash,len(req.Arguments))
+	//for i,arg := range req.Arguments{
+	//	if arg == "*"{
+	//		args[i] = common.Hash{}
+	//	} else {
+	//		args[i] = common.BytesToHash(common.Sha256([]byte(arg)))
+	//	}
+	//}
+	subscribe := &EventSubscribe{contractAddress:common.HexStringToAddress(req.ContractAddress), argument:common.BytesToHash(common.Sha256([]byte(req.Argument))),
 		eventName:common.BytesToHash(common.Sha256([]byte(req.EventName))), socket:ws}
 	EventPublisher.addEventSubscribe(subscribe)
 }
