@@ -48,6 +48,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
+		var logs []*t.Log
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
 			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
@@ -81,7 +82,9 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				snapshot := controller.AccountDB.Snapshot()
-				if !controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data)) {
+				var success bool
+				success,logs = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+				if !success{
 					controller.AccountDB.RevertToSnapshot(snapshot)
 					fail = true
 				}
@@ -93,11 +96,14 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+				//logs = make([]*t.Log,1)
+				//logs[0] = &t.Log{Address:*transaction.Source,Topics:[]common.Hash{common.BytesToHash(common.Sha256([]byte("transfer")))}}
 			} else {
 				fail = true
 			}
 		}
 		receipt := t.NewReceipt(nil, fail, 0)
+		receipt.Logs = logs
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt

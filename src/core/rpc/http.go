@@ -152,7 +152,10 @@ func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 	// Wrap the CORS-handler within a host-handler
 	handler := newCorsHandler(srv, cors)
 	handler = newVHostHandler(vhosts, handler)
-	return &http.Server{Handler: handler}
+	mux := http.NewServeMux()
+	mux.Handle("/",handler)
+	mux.HandleFunc("/ws",serveEventRequest)
+	return &http.Server{Handler: mux}
 }
 
 // ServeHTTP serves JSON-RPC requests over HTTP.

@@ -118,7 +118,7 @@ func GenesisBlock(stateDB *core.AccountDB, triedb *trie.Database) *types.Block {
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000000))
 	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("10"))), big.NewInt(1000000000))
+	stateDB.SetBalance(common.HexStringToAddress("0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"), big.NewInt(1000000000))
 	stateDB.IntermediateRoot(false)
 	root, _ := stateDB.Commit(false)
 	triedb.Commit(root, false)
