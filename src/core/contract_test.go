@@ -122,22 +122,29 @@ class A():
 	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
 	balance1 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp := big.NewInt(0).Sub(balance0, balance1)
-	if tmp.Int64() != 7544 {
-		t.Errorf("deploy gas used: wannted %d, got %d",7544, tmp.Int64())
+	if tmp.Int64() != 9389 {
+		t.Errorf("deploy gas used: wannted %d, got %d",9389, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10]}`, source, 2000000)
 	balance2 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance1, balance2)
-	if tmp.Int64() != 3714 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",3714, tmp.Int64())
+	if tmp.Int64() != 10183 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10183, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [20]}`, source, 2000000)
 	balance3 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance2, balance3)
-	if tmp.Int64() != 3874 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",3874, tmp.Int64())
+	if tmp.Int64() != 10343 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10343, tmp.Int64())
+	}
+	// test call "test" function
+	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [30]}`, source, 2000000)
+	balance4 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
+	tmp = big.NewInt(0).Sub(balance3, balance4)
+	if tmp.Int64() != 10503 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10503, tmp.Int64())
 	}
 	// test run out gas
 	//ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [456]}`, source, 5000)
