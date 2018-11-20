@@ -111,7 +111,8 @@ extern "C" {
 	//Function10 get_data_iter_next;
 	//Function3 get_data_iter;
 
-
+    //event
+	Function11 event_call;
 
 #ifdef __cplusplus
 }
