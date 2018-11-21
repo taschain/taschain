@@ -31,7 +31,7 @@ if __name__ == '__main__':
         with open(file_name, "r",encoding='UTF-8') as f:
             content = f.read()
         for i in range(2):
-            with open(file_list[i], "w") as f:
+            with open(file_list[i], "w",encoding='UTF-8') as f:
                 f.write(content.replace(path, path_list[i], 1))
         print("exit")
     else:
