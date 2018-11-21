@@ -114,7 +114,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	ns.send2Self(cgm.SI.GetID(), m)
 
 	go ns.net.Broadcast(m)
-	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, hash:%s, dummyId:%v", m.Hash(), cgm.GI.GIS.DummyID.GetHexString())
+	logger.Debugf("Broadcast GROUP_INIT_DONE_MSG, group id:%s, dummyId:%v", cgm.GI.GroupID.String(), cgm.GI.GIS.DummyID.GetHexString())
 
 }
 
