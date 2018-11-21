@@ -3,9 +3,6 @@ import block
 
 class Fomo3D(object):
     def __init__(self):
-        pass
-
-    def deploy(self):
         self.key_price = 1  #
         self.round = 0  # 当前轮数
         self.total_key_count = 0  # 卖出的所有key的数量

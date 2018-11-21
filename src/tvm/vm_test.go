@@ -16,22 +16,39 @@
 package tvm
 
 import (
-	"fmt"
 	"testing"
-	"time"
 )
 
 func TestVmTest(t *testing.T) {
 	//db, _ := tasdb.NewMemDatabase()
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	tt := time.Now()
 	vm := NewTvm(nil, nil, "")
 	vm.SetGas(9999999999999999)
 	script := `
-
+a = 1.2
 `
-	vm.Execute(script)
-	fmt.Println(time.Now().Sub(tt))
+	if vm.Execute(script) == true {
+		t.Error("wanted false, got true")
+	}
+	script = `
+eval("a = 10")
+`
+	if vm.Execute(script) == true {
+		t.Error("wanted false, got true")
+	}
+	script = `
+exec("a = 10")
+`
+	if vm.Execute(script) == true {
+		t.Error("wanted false, got true")
+	}
+	script = `
+with open("a.txt", "w") as f:
+	f.write("a")
+`
+	if vm.Execute(script) == true {
+		t.Error("wanted false, got true")
+	}
 }
 
 func BenchmarkAdd(b *testing.B) {

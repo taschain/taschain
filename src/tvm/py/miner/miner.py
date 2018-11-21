@@ -107,5 +107,3 @@ class miner(object):
         print(self.register_list)
         print(self.deregister_list)
 
-    def deploy(self):
-        pass

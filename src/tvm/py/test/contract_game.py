@@ -3,9 +3,6 @@ import account
 
 class ContractGame():
     def __init__(self):
-        pass
-
-    def deploy(self):
         self.a = 10
         self.mystr = "myabc"
         self.mybool = True
