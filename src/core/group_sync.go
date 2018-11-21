@@ -169,9 +169,12 @@ func (gs *groupSyncer) loop() {
 	t := time.NewTicker(GROUP_SYNC_INTERVAL)
 	var tick time.Time
 	for tick = range t.C {
+		groupSyncLogger.Debug("start loop")
 		_ = tick
 		go sendGroupHeightToNeighbor(GroupChainImpl.Count())
+		groupSyncLogger.Debug("after sendGroupHeightToNeighbor")
 		go gs.sync()
+		groupSyncLogger.Debug("end loop")
 	}
 }
 
