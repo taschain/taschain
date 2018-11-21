@@ -9,6 +9,7 @@ import (
 	"testing"
 	"fmt"
 	"os"
+	"time"
 	"tvm"
 )
 
@@ -42,6 +43,53 @@ class A(object):
 	jsonString, _ := json.Marshal(contract)
 	// test deploy
 	DeployContract(string(jsonString), source, 200000, 0)
+}
+
+func TestTxLib(t *testing.T) {
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+import tx
+class A(object):
+	def __init__(self):
+		pass
+	def deploy(self):
+		if tx.origin() != "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b":
+			raise Exception("tx.origin() error")
+		if this != "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610":
+			raise Exception("contract address of this error")
+		if msg.value != 1:
+			raise Exception("msg.value error")
+		if msg.sender != "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b":
+			raise Exception("msg.sender error")
+		
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	// test deploy
+	DeployContract(string(jsonString), source, 200000, 1)
+}
+
+func TestCanTransfer(t *testing.T) {
+	tt := time.Now()
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+class A(object):
+	def __init__(self):
+		pass 
+
+	def deploy(self):
+		self.a = 1 
+		for i in range(2000000):
+			self.a += 1
+		
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	// test deploy
+	DeployContract(string(jsonString), source, 20000000000000, 1)
+	fmt.Println(time.Now().Sub(tt))
 }
 
 func Home() string{

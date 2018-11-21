@@ -16,17 +16,36 @@
 package tvm
 
 import (
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestVmTest(t *testing.T) {
 	//db, _ := tasdb.NewMemDatabase()
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
+	tt := time.Now()
 	vm := NewTvm(nil, nil, "")
+	vm.SetGas(9999999999999999)
 	script := `
-import time
-print(utime.time())
+
 `
 	vm.Execute(script)
+	fmt.Println(time.Now().Sub(tt))
+}
+
+func BenchmarkAdd(b *testing.B) {
+	vm := NewTvm(nil, nil, "")
+	vm.SetGas(9999999999999999)
+	script := `
+a = 1
+`
+	vm.Execute(script)
+	script = `
+a += 1
+`
+	for i := 0; i < b.N; i++ { //use b.N for looping
+		vm.Execute(script)
+	}
 }
 

@@ -247,7 +247,7 @@ func hasValue(address string,key string)bool{
 	return true
 }
 
-func GetContractDatas(contractAddr string)map[string]string{
+func GetContractDatas(contractAddr string) map[string]string {
 	addr := common.HexStringToAddress(contractAddr)
 	stateDb := BlockChainImpl.LatestStateDB()
 	iterator := stateDb.DataIterator(addr, "")
