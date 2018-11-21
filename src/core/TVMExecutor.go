@@ -48,6 +48,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
+		var logs []*t.Log
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
 			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
@@ -81,24 +82,25 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				snapshot := controller.AccountDB.Snapshot()
-				retval,plogs := controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+				var retval bool
+				retval,logs = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
 				if !retval {
 					controller.AccountDB.RevertToSnapshot(snapshot)
 					fail = true
 				}
-				for j:=0 ; j < len(*plogs); j++{
-					(*plogs)[j].TxIndex = uint(i)
-					(*plogs)[j].Index = uint(j)
-					(*plogs)[j].Removed = false
-					fmt.Println((*plogs)[j].Address)
-					fmt.Println((*plogs)[j].Topics)
-					fmt.Println((*plogs)[j].Data)
-					fmt.Println((*plogs)[j].BlockNumber)
-					fmt.Println((*plogs)[j].TxHash)
-					fmt.Println((*plogs)[j].TxIndex)
-					fmt.Println((*plogs)[j].BlockHash)
-					fmt.Println((*plogs)[j].Index)
-					fmt.Println((*plogs)[j].Removed)
+				for j:=0 ; j < len(logs); j++{
+					(logs)[j].TxIndex = uint(i)
+					(logs)[j].Index = uint(j)
+					(logs)[j].Removed = false
+					fmt.Println((logs)[j].Address)
+					fmt.Println((logs)[j].Topics)
+					fmt.Println((logs)[j].Data)
+					fmt.Println((logs)[j].BlockNumber)
+					fmt.Println((logs)[j].TxHash)
+					fmt.Println((logs)[j].TxIndex)
+					fmt.Println((logs)[j].BlockHash)
+					fmt.Println((logs)[j].Index)
+					fmt.Println((logs)[j].Removed)
 				}
 				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {
@@ -108,12 +110,18 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			amount := big.NewInt(int64(transaction.Value))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
+				logs = make([]*t.Log,1)
+				logs[0] = &t.Log{Address:*transaction.Source,Topics:[]common.Hash{common.BytesToHash(common.Sha256([]byte("transfer")))}}
 			} else {
 				fail = true
 			}
 		}
 		receipt := t.NewReceipt(nil, fail, 0)
-		receipt.Logs = *plogs
+		if logs!=nil {
+			receipt.Logs = logs
+		}else {
+			receipt.Logs = nil
+		}
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt

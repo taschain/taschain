@@ -260,8 +260,8 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char{
 	//fmt.Println(C.GoString(data))
 
 	var log types.Log
-	log.Topics = append(log.Topics, common.StringToHash(C.GoString(eventName)))
-	log.Topics = append(log.Topics, common.StringToHash(C.GoString(index)))
+	log.Topics = append(log.Topics, common.BytesToHash(common.Sha256([]byte(C.GoString(eventName)))))
+	log.Topics = append(log.Topics, common.BytesToHash(common.Sha256([]byte(C.GoString(index)))))
 	for i:=0; i < len(C.GoString(data)); i++ {
 		log.Data = append(log.Data,C.GoString(data)[i])
 	}
