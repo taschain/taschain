@@ -65,7 +65,7 @@ func (holder *FutureMessageHolder) remove(hash common.Hash) {
 
 func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
 	b := msg.Block
-	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, GetHashPrefix(b.Header.Hash))
+	//log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, GetHashPrefix(b.Header.Hash))
 
 	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
 }
@@ -91,13 +91,13 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
 	//}()
 	bh := block.Header
-	log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, bh.QueueNumber)
+	//log.Printf("start doAddOnChain, height=%v, qn=%v", bh.Height, bh.QueueNumber)
 	result = p.MainChain.AddBlockOnChain(block)
 
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
+	//log.Printf("proc(%v) core.AddBlockOnChain, height=%v, qn=%v, result=%v.\n", p.getPrefix(), bh.Height, bh.QueueNumber, result)
 	logHalfway("doAddOnChain", bh.Height, bh.QueueNumber, p.getPrefix(), "result=%v,castor=%v", result, GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
 
 	if result == -1 {
@@ -123,7 +123,7 @@ func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 
 func (p *Processor) addFutureVerifyMsg(msg *model.ConsensusBlockMessageBase) {
 	b := msg.BH
-	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, GetHashPrefix(b.Hash), GetHashPrefix(b.PreHash))
+	//log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, GetHashPrefix(b.Hash), GetHashPrefix(b.PreHash))
 
 	p.futureVerifyMsgs.addMessage(b.PreHash, msg)
 }
@@ -151,10 +151,10 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 	bc := NewBlockContext(p, sgi)
 
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())
-	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
+	//log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
-	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
+	//log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
 
 	bc.registerTicker()
 	p.triggerCastCheck()
@@ -162,6 +162,6 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
 	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
-	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
+	//log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }
