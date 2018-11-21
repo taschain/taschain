@@ -161,7 +161,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo)  {
 }
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
-	lostTransHash, ret, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+	lostTransHash, ret, _, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
 	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }

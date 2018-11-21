@@ -21,6 +21,15 @@ import (
 	"time"
 )
 
+const (
+	TxErrorCode_BalanceNotEnough = 0
+	TxErrorCode_ContractAddressConflict = 1
+)
+
+var (
+	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
+)
+
 type Transaction struct {
 	Data   []byte
 	Value  uint64
@@ -34,6 +43,15 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
+}
+
+type TransactionError struct {
+	Code int
+	Message string
+}
+
+func NewTransactionError(code int,msg string) *TransactionError {
+	return &TransactionError{Code:code, Message:msg}
 }
 
 func (tx *Transaction) GenHash() common.Hash {
