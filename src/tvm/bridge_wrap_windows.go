@@ -226,6 +226,12 @@ char* wrap_contract_call(const char* address, const char* func_name, const char*
     return ContractCall(address, func_name, json_parms);
 }
 
+char* wrap_event_call(const char* address, const char* func_name, const char* json_parms)
+{
+    char* EventCall();
+    return EventCall(address, func_name, json_parms);
+}
+
 void wrap_set_bytecode(const char* code, int len)
 {
 	void SetBytecode();
@@ -254,6 +260,7 @@ import (
 	"strconv"
 	"strings"
 	"unsafe"
+	"storage/core/types"
 	//"middleware/types"
 )
 
@@ -272,7 +279,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
-	oneVm := &Tvm{contract, controller.Vm.ContractAddress}
+	oneVm := &Tvm{contract, controller.Vm.ContractAddress,nil}
 
 	//准备vm的环境
 	controller.Vm.CreateContext()
@@ -355,6 +362,7 @@ func bridge_init() {
 	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
 	//C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
 	//C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
+	C.event_call = (C.Function11)(unsafe.Pointer(C.wrap_event_call))
 }
 
 type Contract struct {
@@ -374,12 +382,16 @@ func LoadContract(address common.Address) *Contract {
 type Tvm struct {
 	*Contract
 	Sender *common.Address
+
+	//xtm for log
+	Logs              []*types.Log
 }
 
 func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
+		nil,
 	}
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()

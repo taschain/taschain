@@ -226,6 +226,12 @@ char* wrap_contract_call(const char* address, const char* func_name, const char*
     return ContractCall(address, func_name, json_parms);
 }
 
+char* wrap_event_call(const char* address, const char* func_name, const char* json_parms)
+{
+    char* EventCall();
+    return EventCall(address, func_name, json_parms);
+}
+
 void wrap_set_bytecode(const char* code, int len)
 {
 	void SetBytecode();
@@ -254,6 +260,7 @@ import (
 	"strconv"
 	"strings"
 	"unsafe"
+	"storage/core/types"
 	//"middleware/types"
 )
 
@@ -269,23 +276,23 @@ func RunBinaryCode(buf *C.char, len C.int) {
 }
 
 func CallContract(_contractAddr string, funcName string, params string) string {
-	//å‡†å¤‡å‚æ•°ï¼šï¼ˆå› ä¸ºåº•å±‚æ˜¯åŒä¸€ä¸ªvmï¼Œæ‰€ä»¥ä¸éœ€è¦å¤„ç†gasï¼‰
+	//×¼±¸²ÎÊı£º£¨ÒòÎªµ×²ãÊÇÍ¬Ò»¸övm£¬ËùÒÔ²»ĞèÒª´¦Àígas£©
 	conAddr := common.HexStringToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
-	oneVm := &Tvm{contract, controller.Vm.ContractAddress}
+	oneVm := &Tvm{contract, controller.Vm.ContractAddress,nil}
 
-	//å‡†å¤‡vmçš„ç¯å¢ƒ
+	//×¼±¸vmµÄ»·¾³
 	controller.Vm.CreateContext()
 	controller.StoreVmContext(oneVm)
 
-	//è°ƒç”¨åˆçº¦
+	//µ÷ÓÃºÏÔ¼
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
 	prepredSucceed := controller.Vm.CreateContractInstance(msg)
 	if !prepredSucceed {
-		//todo å¼‚å¸¸å¤„ç†
+		//todo Òì³£´¦Àí
 		return ""
 	}
-	//åˆçº¦è°ƒç”¨åˆçº¦çš„æ—¶å€™ï¼Œpythonä»£ç ä¼ é€’true/falseå‚æ•°çš„æ—¶å€™å¯ä»¥ç”¨pythoné£æ ¼çš„true/falseã€‚ä¸ä¼šå’Œjsonçš„true/falseå†²çª
+	//ºÏÔ¼µ÷ÓÃºÏÔ¼µÄÊ±ºò£¬python´úÂë´«µİtrue/false²ÎÊıµÄÊ±ºò¿ÉÒÔÓÃpython·ç¸ñµÄtrue/false¡£²»»áºÍjsonµÄtrue/false³åÍ»
 	if strings.EqualFold("[true]",params){
 		params = "[true]"
 	}else if strings.EqualFold("[false]",params){
@@ -296,16 +303,16 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	json.Unmarshal([]byte(abiJson), &abi)
 	succeed := controller.Vm.checkABI(abi)
 	if !succeed {
-		//todo å¼‚å¸¸å¤„ç†
+		//todo Òì³£´¦Àí
 		return ""
 	}
 
-	//è¿”å›ç»“æœï¼šæ”¯æŒæ­£å¸¸ã€å¼‚å¸¸ï¼›æ­£å¸¸åŒ…å«å„ç§ç±»å‹ä»¥åŠNoneè¿”å›
-	//todo å¼‚å¸¸å¤„ç†
+	//·µ»Ø½á¹û£ºÖ§³ÖÕı³£¡¢Òì³££»Õı³£°üº¬¸÷ÖÖÀàĞÍÒÔ¼°None·µ»Ø
+	//todo Òì³£´¦Àí
 	result := controller.Vm.ExecuteABI(abi, true)
 	fmt.Printf("CallContract result %s\n", result)
 
-	//æ¢å¤vmçš„ç¯å¢ƒ
+	//»Ö¸´vmµÄ»·¾³
 	controller.Vm.RemoveContext()
 	controller.RecoverVmContext()
 
@@ -355,6 +362,7 @@ func bridge_init() {
 	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
 	//C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
 	//C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
+	C.event_call = (C.Function11)(unsafe.Pointer(C.wrap_event_call))
 }
 
 type Contract struct {
@@ -374,12 +382,16 @@ func LoadContract(address common.Address) *Contract {
 type Tvm struct {
 	*Contract
 	Sender *common.Address
+
+	//xtm for log
+	Logs              []*types.Log
 }
 
 func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	tvm := &Tvm{
 		contract,
 		sender,
+		nil,
 	}
 	C.tvm_set_lib_path(C.CString(libPath))
 	C.tvm_start()
@@ -387,12 +399,12 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	return tvm
 }
 
-// è·å–å‰©ä½™gas
+// »ñÈ¡Ê£Óàgas
 func (tvm *Tvm) Gas() int {
 	return int(C.tvm_get_gas())
 }
 
-// è®¾ç½®å¯ä½¿ç”¨gas, initæˆåŠŸåè®¾ç½®
+// ÉèÖÃ¿ÉÊ¹ÓÃgas, init³É¹¦ºóÉèÖÃ
 func (tvm *Tvm) SetGas(gas int) {
 	C.tvm_set_gas(C.int(gas))
 }
@@ -403,7 +415,7 @@ func (tvm *Tvm) Pycode2bytecode(str string) {
 
 func (tvm *Tvm) DelTvm() {
 	C.tvm_gas_report()
-	//TODO é‡Šæ”¾tvmç¯å¢ƒ tvmObj
+	//TODO ÊÍ·Åtvm»·¾³ tvmObj
 }
 
 func (tvm *Tvm) checkABI(abi ABI) bool {
@@ -491,12 +503,12 @@ func (tvm *Tvm) Deploy(msg Msg) bool {
 	return tvm.Execute(script)
 }
 
-//åˆçº¦è°ƒç”¨åˆçº¦æ—¶ä½¿ç”¨ï¼Œç”¨æ¥åˆ›å»ºvmæ–°çš„ä¸Šä¸‹æ–‡
+//ºÏÔ¼µ÷ÓÃºÏÔ¼Ê±Ê¹ÓÃ£¬ÓÃÀ´´´½¨vmĞÂµÄÉÏÏÂÎÄ
 func (tvm *Tvm) CreateContext() {
 	C.tvm_create_context()
 }
 
-//åˆçº¦è°ƒç”¨åˆçº¦æ—¶ä½¿ç”¨ï¼Œç”¨æ¥åˆ é™¤vmå½“å‰çš„ä¸Šä¸‹æ–‡
+//ºÏÔ¼µ÷ÓÃºÏÔ¼Ê±Ê¹ÓÃ£¬ÓÃÀ´É¾³ıvmµ±Ç°µÄÉÏÏÂÎÄ
 func (tvm *Tvm) RemoveContext() {
 	C.tvm_remove_context()
 }
@@ -510,11 +522,11 @@ type ABI struct {
 func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 
 	var buf bytes.Buffer
-	//ç±»å
+	//ÀàÃû
 	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
-	//å‡½æ•°å
+	//º¯ÊıÃû
 	buf.WriteString(res.FuncName)
-	//å‚æ•°
+	//²ÎÊı
 	buf.WriteString("(")
 	for _, value := range res.Args {
 		tvm.jsonValueToBuf(&buf, value)

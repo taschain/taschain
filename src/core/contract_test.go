@@ -106,7 +106,7 @@ func TestGasUse(t *testing.T) {
 import account
 class A():
     def __init__(self):
-        pass
+        self.a = 10
 
     def deploy(self):
         print("deploy")
@@ -122,22 +122,29 @@ class A():
 	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
 	balance1 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp := big.NewInt(0).Sub(balance0, balance1)
-	if tmp.Int64() != 8454 {
-		t.Errorf("deploy gas used: wannted %d, got %d",8454, tmp.Int64())
+	if tmp.Int64() != 9389 {
+		t.Errorf("deploy gas used: wannted %d, got %d",9389, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10]}`, source, 2000000)
 	balance2 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance1, balance2)
-	if tmp.Int64() != 9251 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",9251, tmp.Int64())
+	if tmp.Int64() != 10183 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10183, tmp.Int64())
 	}
 	// test call "test" function
 	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [20]}`, source, 2000000)
 	balance3 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	tmp = big.NewInt(0).Sub(balance2, balance3)
-	if tmp.Int64() != 9411 {
-		t.Errorf("call 'test' function gas used: wannted %d, got %d",9411, tmp.Int64())
+	if tmp.Int64() != 10343 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10343, tmp.Int64())
+	}
+	// test call "test" function
+	ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [30]}`, source, 2000000)
+	balance4 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
+	tmp = big.NewInt(0).Sub(balance3, balance4)
+	if tmp.Int64() != 10503 {
+		t.Errorf("call 'test' function gas used: wannted %d, got %d",10503, tmp.Int64())
 	}
 	// test run out gas
 	//ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [456]}`, source, 5000)
@@ -214,6 +221,53 @@ class A():
 	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
 	if receipt.Receipt.Status != types2.ReceiptStatusFailed {
 		t.Errorf("execute: succeed, wanted failed")
+	}
+}
+
+func TestEvent(t *testing.T) {
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+DefEvent('a')
+DefEvent('b')
+
+class A():
+    def __init__(self):
+        pass
+
+    def deploy(self):
+        pass
+
+    @register.public(int, bool, str, list, dict)
+    def test(self, aa, bb, cc, dd, ee):
+        assert isinstance(aa, int)
+        assert isinstance(bb, bool)
+        assert isinstance(cc, str)
+        assert isinstance(dd, list)
+        assert isinstance(ee, dict)
+
+        TEvents.a('123',{'val':10})
+        TEvents.b('4321',{'val':99})
+
+        DefEvent('c')
+        DefEvent('d')
+        TEvents.c('ccc',{'val':'cccc'})
+        TEvents.d('ddd',{'val':'dddd'})
+        print('after event send')
+
+    def test2(self):
+        print("test2")
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
+	// 测试正常数据调用
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [10, true, "a", [11], {"key": "value"}]}`, source, (2000000))
+	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	fmt.Printf("=============>get hash %x \n",hash)
+	fmt.Println("test receipt", receipt)
+	if receipt.Receipt.Status != types2.ReceiptStatusSuccessful {
+		t.Errorf("execute: failed, wanted succeed")
 	}
 }
 
