@@ -7,8 +7,6 @@ class ContractStorage():
         if expectValue != trueValue:
             raise Exception("error value,expectValue="+str(expectValue)+".getvalue is:" + str(trueValue))
 
-    def deploy(self):
-        pass
 
     @register.public()
     def setBaseNeedSuccess1(self):

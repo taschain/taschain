@@ -21,9 +21,6 @@ class GameRound(object):
 class Baccarat(object):
     def __init__(self):
         self.games = {}  # 记录每局游戏：key为 address + 局数   Value为 GameRound的json
-        self.owner = ""  # 众筹所有者
-
-    def deploy(self):
         self.owner = msg.sender
         print("deploy")
 

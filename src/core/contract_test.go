@@ -106,10 +106,9 @@ func TestGasUse(t *testing.T) {
 import account
 class A():
     def __init__(self):
+        print("__init__")
         self.a = 10
 
-    def deploy(self):
-        print("deploy")
 
     @register.public(int)
     def test(self, i):
@@ -146,13 +145,48 @@ class A():
 	if tmp.Int64() != 10503 {
 		t.Errorf("call 'test' function gas used: wannted %d, got %d",10503, tmp.Int64())
 	}
-	// test run out gas
+	// test run out of gas
 	//ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": [456]}`, source, 5000)
 	//balance4 := BlockChainImpl.GetBalance(common.HexStringToAddress(source))
 	//tmp = big.NewInt(0).Sub(balance3, balance4)
 	//if tmp.Int64() != 5000 {
 	//	t.Errorf("call 'test' function gas used: wannted %d, got %d",5000, tmp.Int64())
 	//}
+}
+
+func TestTimeCoinLib(t *testing.T) {
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+#import time
+import coin
+class A():
+    def __init__(self):
+        print("__init__")
+
+
+    @register.public()
+    def test(self):
+		if coin.Ra != 1:
+			raise Exception("coin.Ra error")
+		if coin.kRa != 1000:
+			raise Exception("coin.kRa error")
+		if coin.mRa != 1000000:
+			raise Exception("coin.mRa error")
+		if coin.TAS != 1000000000:
+			raise Exception("coin.TAS error")
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr := DeployContract(string(jsonString), source, 200000, 0)
+	// 测试正常数据调用
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": []}`, source, 2000000)
+	fmt.Println("hash: ", hash.Hex())
+	time.Sleep(time.Second/100)
+	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	if receipt.Receipt.Status != types2.ReceiptStatusSuccessful {
+		t.Errorf("execute: failed, wanted succeed")
+	}
 }
 
 func TestAccessControl(t *testing.T) {
@@ -163,8 +197,6 @@ class A():
     def __init__(self):
         pass
 
-    def deploy(self):
-        pass
 
     @register.public(int, bool, str, list, dict)
     def test(self, aa, bb, cc, dd, ee):
@@ -235,8 +267,6 @@ class A():
     def __init__(self):
         pass
 
-    def deploy(self):
-        pass
 
     @register.public(int, bool, str, list, dict)
     def test(self, aa, bb, cc, dd, ee):

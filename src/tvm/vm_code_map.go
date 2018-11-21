@@ -35,6 +35,15 @@ func PycodeContractAddHooks(contractName string)string{
 	`,initHook,getAttributeHook,setAttributeHook)
 }
 
+func PycodeContractDeployHooks(contractName string)string{
+	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStorage.setAttrHook",contractName)
+	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStorage.getAttrHook",contractName)
+	return fmt.Sprintf(`
+%s
+%s
+	`,getAttributeHook,setAttributeHook)
+}
+
 func PycodeGetTrueUserCode(code string)string{
 	usercode:=fmt.Sprintf(`
 %s
@@ -47,14 +56,13 @@ func PycodeGetTrueUserCode(code string)string{
 func PycodeContractDeploy(code string, contractName string) string {
 	invokeDeploy:=fmt.Sprintf(`
 tas_%s = %s()
-tas_%s.deploy()
-	`,contractName, contractName, contractName)
+`, contractName, contractName)
 
 	allContractCode:= fmt.Sprintf(`
 %s
 %s
 %s
-`, PycodeGetTrueUserCode(code),PycodeContractAddHooks(contractName),invokeDeploy)
+`, PycodeGetTrueUserCode(code),PycodeContractDeployHooks(contractName),invokeDeploy)
 	return allContractCode
 
 }
@@ -152,8 +160,8 @@ func PycodeCheckAbi(abi ABI) string {
 	var str string
 	str = `
 __ABIParaTypes=[]`
-    for i := 0; i < len(abi.Args); i++ {
-    	str += fmt.Sprintf("\n" + "__ABIParaTypes.append(type(%s))",GetInterfaceType(abi.Args[i]))
+	for i := 0; i < len(abi.Args); i++ {
+		str += fmt.Sprintf("\n" + "__ABIParaTypes.append(type(%s))",GetInterfaceType(abi.Args[i]))
 	}
 
 	str += fmt.Sprintf(`
@@ -512,7 +520,3 @@ class TasCollectionStorage:
 `
 	return code
 }
-
-
-
-

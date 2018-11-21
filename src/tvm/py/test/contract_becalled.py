@@ -2,9 +2,6 @@ import account
 
 class ContractBeCalled():
     def __init__(self):
-        pass
-
-    def deploy(self):
         print("deploy")
 
 

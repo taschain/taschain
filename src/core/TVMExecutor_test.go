@@ -24,8 +24,6 @@ func TestBlockLib(t *testing.T) {
 import block
 class A(object):
 	def __init__(self):
-		pass
-	def deploy(self):
 		if block.blockhash(0) != "0x81107a7a182d1172cdf84b819a827037123557b1b791198207ce198a0e2c0bef":
 			raise Exception("blockhash of 0 error")
 		if block.blockhash(1) != "0x0000000000000000000000000000000000000000000000000000000000000000":
@@ -52,8 +50,6 @@ func TestTxLib(t *testing.T) {
 import tx
 class A(object):
 	def __init__(self):
-		pass
-	def deploy(self):
 		if tx.origin() != "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b":
 			raise Exception("tx.origin() error")
 		if this != "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610":
@@ -77,9 +73,6 @@ func TestCanTransfer(t *testing.T) {
 	code := `
 class A(object):
 	def __init__(self):
-		pass 
-
-	def deploy(self):
 		self.a = 1 
 		for i in range(2000000):
 			self.a += 1

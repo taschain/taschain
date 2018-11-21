@@ -4,9 +4,6 @@ class ContractMapStorage():
         if expectValue != trueValue:
             raise Exception("error value,expectValue="+str(expectValue)+".getvalue is:" + str(trueValue))
 
-    def deploy(self):
-        pass
-        #print("deploy ok")
 
     @register.public()
     def setMapBaseDataSetNeedSuccess(self):
