@@ -178,6 +178,17 @@ func TestMapNestIn(t *testing.T) {
 //
 //}
 
+func TestMapT1(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test1.py"))
+	contract := tvm.Contract{code, "xxx", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0x8b9b5d03019c07d8b6c51f90da3a666eec13ab35")
+	contractAddr := "0x263d21332a876bafce5dc1258c13479eb1e7bf87"
+	abi := `{"FuncName": "sss", "Args": []}`
+	CallContract(contractAddr, abi)
+}
+
 func TestMapErrors(t *testing.T) {
 	Clear()
 	code := tvm.Read0(getFile("test_strorage_map_optimize.py"))
@@ -247,7 +258,7 @@ func hasValue(address string,key string)bool{
 	return true
 }
 
-func GetContractDatas(contractAddr string)map[string]string{
+func GetContractDatas(contractAddr string) map[string]string {
 	addr := common.HexStringToAddress(contractAddr)
 	stateDb := BlockChainImpl.LatestStateDB()
 	iterator := stateDb.DataIterator(addr, "")
