@@ -16,7 +16,7 @@
 package logical
 
 import (
-	"log"
+
 	"common"
 	"fmt"
 	"consensus/groupsig"
