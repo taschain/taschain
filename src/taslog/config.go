@@ -19,7 +19,7 @@ package taslog
 const(
  DefaultConfig = `<seelog minlevel="debug">
 						<outputs formatid="default">
-							<rollingfile type="size" filename="./logs/default.log" maxsize="500000000" maxrolls="5"/>
+							<rollingfile type="size" filename="./logs/default.log" maxsize="500000000" maxrolls="2"/>
 						</outputs>
 						<formats>
 							<format id="default" format="%Date(2006-01-02 15:04:05.000)  [%Level]  [%File:%Line] %Msg%n" />
@@ -28,7 +28,7 @@ const(
 
  P2PConfig = `<seelog minlevel="debug">
 						<outputs formatid="default">
-							<rollingfile type="size" filename="./logs/p2p.log" maxsize="500000000" maxrolls="5"/>
+							<rollingfile type="size" filename="./logs/p2p.log" maxsize="500000000" maxrolls="2"/>
 						</outputs>
 						<formats>
 							<format id="default" format="%Date(2006-01-02 15:04:05.000)  [%Level]  [%File:%Line] %Msg%n" />
