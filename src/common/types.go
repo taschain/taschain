@@ -122,6 +122,10 @@ func (a Address) GetHexString() string {
 	return str
 }
 
+func (a Address) String() string {
+	return a.GetHexString()
+}
+
 func HexStringToAddress(s string) (a Address) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return

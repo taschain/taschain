@@ -113,6 +113,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 			}
 		}
 		receipt := t.NewReceipt(nil, fail, 0)
+		receipt.Logs = *plogs
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
