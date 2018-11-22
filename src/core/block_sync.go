@@ -119,7 +119,7 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 		bs.hasNeighbor = true
 	}
 	candidate := blockSyncCandidate{id: bnm.Peer, totalQn: blockInfo.TotalQn, hash: blockInfo.Hash, preHash: blockInfo.PreHash, height: blockInfo.Height}
-	if candidate.height == BlockChainImpl.Height()+1 {
+	if candidate.height <= BlockChainImpl.Height()+3 {
 		go bs.sync(&candidate)
 	}
 
