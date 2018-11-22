@@ -183,7 +183,7 @@ func sendGroupHeightToNeighbor(localCount uint64) {
 	groupSyncLogger.Debugf("[GroupSyncer]Send local group height %d to neighbor!", localCount)
 	body := utility.UInt64ToByte(localCount)
 	message := network.Message{Code: network.GroupChainCountMsg, Body: body}
-	network.GetNetInstance().Relay(message,1)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 //向某一节点请求Group

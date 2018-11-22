@@ -99,7 +99,7 @@ func (bs *blockSyncer) SendTopBlockInfoToNeighbor(bi BlockInfo) {
 		return
 	}
 	message := network.Message{Code: network.BlockInfoNotifyMsg, Body: body}
-	network.GetNetInstance().Relay(message, 1)
+	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
 func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
