@@ -33,6 +33,8 @@ import (
 const GROUP_STATUS_KEY = "gcurrent"
 const GROUP_COUNT_KEY = "gcount"
 
+var GnesisGroupId = []byte{71, 248, 122, 164, 97, 162, 128, 222, 11, 156, 23, 169, 184, 43, 122, 169, 165, 105, 99, 132, 75, 216, 124, 201, 116, 150, 175, 226, 5, 45, 234, 19}
+
 var GroupChainImpl *GroupChain
 
 type GroupChainConfig struct {
@@ -345,6 +347,11 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	}
 	if Logger != nil {
 		Logger.Debugf("GroupChain AddGroup %+v", group)
+	}
+
+	//创始组直接上链
+	if bytes.Equal(group.Id, GnesisGroupId) {
+		return chain.save(group)
 	}
 
 	if nil != group.Parent {
