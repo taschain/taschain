@@ -275,8 +275,10 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
 		if header != nil {
 			chainPiece = append(chainPiece, header)
-			len++
+		}else {
+			chainPiece = append(chainPiece, &types.BlockHeader{Height:height-i})
 		}
+		len++
 		if height-i == 0 {
 			break
 		}

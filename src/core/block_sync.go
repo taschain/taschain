@@ -99,7 +99,7 @@ func (bs *blockSyncer) SendTopBlockInfoToNeighbor(bi BlockInfo) {
 		return
 	}
 	message := network.Message{Code: network.BlockInfoNotifyMsg, Body: body}
-	network.GetNetInstance().TransmitToNeighbor(message)
+	network.GetNetInstance().Relay(message, 1)
 }
 
 func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
@@ -119,6 +119,9 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 		bs.hasNeighbor = true
 	}
 	candidate := blockSyncCandidate{id: bnm.Peer, totalQn: blockInfo.TotalQn, hash: blockInfo.Hash, preHash: blockInfo.PreHash, height: blockInfo.Height}
+	if candidate.totalQn < BlockChainImpl.TotalQN() {
+		return
+	}
 	if candidate.height <= BlockChainImpl.Height()+3 {
 		go bs.sync(&candidate)
 	}
@@ -131,6 +134,9 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
+	bs.lock.Lock()
+	defer bs.lock.Unlock()
+
 	bs.syncTimer.Reset(blockSyncInterval)
 	if candidate == nil {
 		bs.lock.Lock()
