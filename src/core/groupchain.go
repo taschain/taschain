@@ -362,6 +362,7 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 			return fmt.Errorf("parent is not existed")
 		}
 	}
+
 	if nil != group.PreGroup {
 		//exist,_ := chain.groups.Has(group.PreGroup)
 		//if !exist{
@@ -371,9 +372,8 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 		if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
 			return fmt.Errorf("pre not equal lastgroup")
 		}
-	} else {
-		return chain.save(group)
 	}
+	return chain.save(group)
 
 	// todo: 通过父亲节点公钥校验本组的合法性
 	//if nil != group.PreGroup{
