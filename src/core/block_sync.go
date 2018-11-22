@@ -134,10 +134,6 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
-	bs.lock.Lock()
-	defer bs.lock.Unlock()
-
-	bs.syncTimer.Reset(blockSyncInterval)
 	if candidate == nil {
 		bs.lock.Lock()
 		candidate = &bs.candidate
@@ -150,6 +146,7 @@ func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
+	bs.syncTimer.Reset(blockSyncInterval)
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
