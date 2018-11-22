@@ -344,27 +344,25 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 		Logger.Debugf("GroupChain AddGroup %+v", group)
 	}
 
-	if !isDebug {
-		if nil != group.Parent {
-			exist, _ := chain.groups.Has(group.Parent)
-			//parent := chain.getGroupById(group.Parent)
-			//if nil == parent {
-			if !exist {
-				return fmt.Errorf("parent is not existed")
-			}
+	if nil != group.Parent {
+		exist, _ := chain.groups.Has(group.Parent)
+		//parent := chain.getGroupById(group.Parent)
+		//if nil == parent {
+		if !exist {
+			return fmt.Errorf("parent is not existed")
 		}
-		if nil != group.PreGroup {
-			//exist,_ := chain.groups.Has(group.PreGroup)
-			//if !exist{
-			//	chain.preCache.Store(string(group.PreGroup), group)
-			//	return fmt.Errorf("pre group is not existed")
-			//}
-			if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
-				return fmt.Errorf("pre not equal lastgroup")
-			}
-		} else {
-			return chain.save(group)
+	}
+	if nil != group.PreGroup {
+		//exist,_ := chain.groups.Has(group.PreGroup)
+		//if !exist{
+		//	chain.preCache.Store(string(group.PreGroup), group)
+		//	return fmt.Errorf("pre group is not existed")
+		//}
+		if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
+			return fmt.Errorf("pre not equal lastgroup")
 		}
+	} else {
+		return chain.save(group)
 	}
 
 	// todo: 通过父亲节点公钥校验本组的合法性
@@ -382,7 +380,7 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	//} else {
 	//	return chain.save(group)
 	//}
-	ret := chain.save(group)
+	//ret := chain.save(group)
 	//chain.lastGroup = group
 	//if nil == ret{
 	//	chain.repairPreGroup(group.Id)
@@ -390,7 +388,8 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	//	//	chain.AddGroup(next, sender, signature)
 	//	//}
 	//}
-	return ret
+	//return ret
+	return nil
 }
 
 func (chain *GroupChain) save(group *types.Group) error {
