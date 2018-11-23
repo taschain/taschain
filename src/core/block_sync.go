@@ -31,6 +31,7 @@ const (
 )
 
 var BlockSyncer *blockSyncer
+var blockSyncLogger taslog.Logger
 
 type blockSyncer struct {
 	candidate blockSyncCandidate
@@ -59,9 +60,7 @@ type BlockInfo struct {
 }
 
 func InitBlockSyncer(isLightMiner bool) {
-	if logger == nil {
-		logger = taslog.GetLoggerByName("sync" + common.GlobalConf.GetString("instance", "index", ""))
-	}
+	blockSyncLogger = taslog.GetLoggerByName("block_sync" + common.GlobalConf.GetString("instance", "index", ""))
 	BlockSyncer = &blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(blockSyncInterval)
@@ -90,13 +89,13 @@ func (bs *blockSyncer) loop() {
 
 func (bs *blockSyncer) SendTopBlockInfoToNeighbor(bi BlockInfo) {
 	bs.blockInfoNotifyTimer.Reset(blockSyncInterval)
-	logger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", bi.TotalQn)
+	blockSyncLogger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", bi.TotalQn)
 	if bi.Height == 0 {
 		return
 	}
 	body, e := marshalBlockInfo(bi)
 	if e != nil {
-		logger.Errorf("marshal blockInfo error:%s", e.Error())
+		blockSyncLogger.Errorf("marshal blockInfo error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.BlockInfoNotifyMsg, Body: body}
@@ -115,12 +114,17 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 		return
 	}
 
-	logger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
+	blockSyncLogger.Debugf("[BlockSyncer] Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
 	if !bs.hasNeighbor {
 		bs.hasNeighbor = true
 	}
 	candidate := blockSyncCandidate{id: bnm.Peer, totalQn: blockInfo.TotalQn, hash: blockInfo.Hash, preHash: blockInfo.PreHash, height: blockInfo.Height}
-	go bs.sync(&candidate)
+	if candidate.totalQn < BlockChainImpl.TotalQN() {
+		return
+	}
+	if candidate.height <= BlockChainImpl.Height()+3 {
+		go bs.sync(&candidate)
+	}
 
 	bs.lock.Lock()
 	if blockInfo.TotalQn > bs.candidate.totalQn {
@@ -130,7 +134,6 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
-	bs.syncTimer.Reset(blockSyncInterval)
 	if candidate == nil {
 		bs.lock.Lock()
 		candidate = &bs.candidate
@@ -139,17 +142,18 @@ func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
 	if candidate.id == "" {
 		return
 	}
-	logger.Debugf("Start sync!")
+	blockSyncLogger.Debugf("Start sync!")
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localHash, localPreHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.PreHash, topBlock.Height
 	bs.lock.Lock()
+	bs.syncTimer.Reset(blockSyncInterval)
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
 	bs.lock.Unlock()
 
 	if candidateQN < localTotalQN || candidateHash == localHash {
-		logger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
+		blockSyncLogger.Debugf("[BlockSyncer]Neighbor chain's max totalQN: %d,is less than self chain's totalQN: %d.\nDon't sync!", candidateQN, localTotalQN)
 		if !bs.init {
-			logger.Info("Block first sync finished!")
+			blockSyncLogger.Info("Block first sync finished!")
 			bs.init = true
 		}
 
@@ -159,8 +163,8 @@ func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
 		return
 	}
 
-	logger.Debugf("[Sync]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
-	logger.Debugf("[Sync]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
+	blockSyncLogger.Debugf("[Sync]Neighbor Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", candidateHash.Hex(), candidateHeight, candidateQN, candidatePreHash.Hex())
+	blockSyncLogger.Debugf("[Sync]Local Top hash:%v,height:%d,totalQn:%d,pre hash:%v,!", localHash.Hex(), localHeight, localTotalQN, localPreHash.Hex())
 	if candidatePreHash == localHash || (candidatePreHash == localPreHash && candidateQN > localTotalQN) {
 		RequestBlock(candidateId, candidateHeight)
 		return
@@ -182,7 +186,7 @@ func unMarshalBlockInfo(b []byte) (*BlockInfo, error) {
 	message := new(tas_middleware_pb.BlockInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		logger.Errorf("unMarshalBlockInfo error:%s", e.Error())
+		blockSyncLogger.Errorf("unMarshalBlockInfo error:%s", e.Error())
 		return nil, e
 	}
 	blockInfo := BlockInfo{Hash: common.BytesToHash(message.Hash), TotalQn: *message.TotalQn, Height: *message.Height, PreHash: common.BytesToHash(message.PreHash)}

@@ -33,6 +33,8 @@ import (
 const GROUP_STATUS_KEY = "gcurrent"
 const GROUP_COUNT_KEY = "gcount"
 
+var GnesisGroupId = []byte{71, 248, 122, 164, 97, 162, 128, 222, 11, 156, 23, 169, 184, 43, 122, 169, 165, 105, 99, 132, 75, 216, 124, 201, 116, 150, 175, 226, 5, 45, 234, 19}
+
 var GroupChainImpl *GroupChain
 
 type GroupChainConfig struct {
@@ -133,7 +135,10 @@ func build(chain *GroupChain, genesisInfo *types.GenesisInfo) {
 		chain.count = utility.ByteToUInt64(count)
 	} else {
 		lastGroup = &genesisInfo.Group
-		chain.AddGroup(lastGroup, nil, nil)
+		e := chain.AddGroup(lastGroup, nil, nil)
+		if e != nil {
+			panic("Add genesis group on chain failed:" + e.Error())
+		}
 	}
 	chain.lastGroup = lastGroup
 
@@ -340,32 +345,35 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	if nil == group {
 		return fmt.Errorf("nil group")
 	}
-	if logger != nil {
-		logger.Debugf("GroupChain AddGroup %+v", group)
+	if Logger != nil {
+		Logger.Debugf("GroupChain AddGroup %+v", group)
 	}
 
-	if !isDebug {
-		if nil != group.Parent {
-			exist, _ := chain.groups.Has(group.Parent)
-			//parent := chain.getGroupById(group.Parent)
-			//if nil == parent {
-			if !exist {
-				return fmt.Errorf("parent is not existed")
-			}
-		}
-		if nil != group.PreGroup {
-			//exist,_ := chain.groups.Has(group.PreGroup)
-			//if !exist{
-			//	chain.preCache.Store(string(group.PreGroup), group)
-			//	return fmt.Errorf("pre group is not existed")
-			//}
-			if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
-				return fmt.Errorf("pre not equal lastgroup")
-			}
-		} else {
-			return chain.save(group)
+	//创始组直接上链
+	if bytes.Equal(group.Id, GnesisGroupId) {
+		return chain.save(group)
+	}
+
+	if nil != group.Parent {
+		exist, _ := chain.groups.Has(group.Parent)
+		//parent := chain.getGroupById(group.Parent)
+		//if nil == parent {
+		if !exist {
+			return fmt.Errorf("parent is not existed")
 		}
 	}
+
+	if nil != group.PreGroup {
+		//exist,_ := chain.groups.Has(group.PreGroup)
+		//if !exist{
+		//	chain.preCache.Store(string(group.PreGroup), group)
+		//	return fmt.Errorf("pre group is not existed")
+		//}
+		if !bytes.Equal(chain.lastGroup.Id, group.PreGroup) {
+			return fmt.Errorf("pre not equal lastgroup")
+		}
+	}
+	return chain.save(group)
 
 	// todo: 通过父亲节点公钥校验本组的合法性
 	//if nil != group.PreGroup{
@@ -382,7 +390,7 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	//} else {
 	//	return chain.save(group)
 	//}
-	ret := chain.save(group)
+	//ret := chain.save(group)
 	//chain.lastGroup = group
 	//if nil == ret{
 	//	chain.repairPreGroup(group.Id)
@@ -390,7 +398,8 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 	//	//	chain.AddGroup(next, sender, signature)
 	//	//}
 	//}
-	return ret
+	//return ret
+	return nil
 }
 
 func (chain *GroupChain) save(group *types.Group) error {
@@ -402,8 +411,8 @@ func (chain *GroupChain) save(group *types.Group) error {
 	}
 
 	group.GroupHeight = chain.count
-	if logger != nil {
-		logger.Debugf("GroupChain save %+v", group)
+	if Logger != nil {
+		Logger.Debugf("GroupChain save %+v", group)
 	}
 	data, err := json.Marshal(group)
 	if nil != err {
