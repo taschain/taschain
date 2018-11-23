@@ -24,6 +24,10 @@ import (
 const (
 	TxErrorCode_BalanceNotEnough = 1
 	TxErrorCode_ContractAddressConflict = 2
+
+
+	Sys_Error = 2001
+	Sys_Check_Abi_Error = 2002
 )
 
 var (

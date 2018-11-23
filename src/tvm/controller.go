@@ -39,18 +39,21 @@ func NewController(accountDB vm.AccountDB,
 	return controller
 }
 
-func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
-	var succeed bool
+func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
+	errorCodeDeploy,errorDeployMsg := con.Vm.Deploy(msg)
+	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
 	con.Vm.DelTvm()
-	if !succeed {
-		return false
+	if errorCodeDeploy != 0 {
+		return errorCodeDeploy,errorDeployMsg
+	}
+	if errorCodeStore != 0 {
+		return errorCodeStore,errorStoreMsg
 	}
 	con.GasLeft = uint64(con.Vm.Gas())
-	return succeed
+	return 0,""
 }
 
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
@@ -63,11 +66,13 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 }
 
 func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*t.Log,*types.TransactionError) {
-	var succeed bool
-	var errorMsg string
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 
+	defer func() {
+		con.Vm.DelTvm()
+		con.GasLeft = uint64(con.Vm.Gas())
+	}()
 	//先转账
 	if con.Transaction.Value > 0 {
 		amount := big.NewInt(int64(con.Transaction.Value))
@@ -77,26 +82,27 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 			return false,nil,types.TxErrorBalanceNotEnough
 		}
 	}
-
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.CreateContractInstance(msg)
-	if succeed {
-		abi := ABI{}
-		json.Unmarshal([]byte(abiJson), &abi)
-		fmt.Println(abi)
-		succeed = con.Vm.checkABI(abi) && ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false)) && con.Vm.StoreData()
-		if succeed {
-			con.Vm.DelTvm()
-			con.GasLeft = uint64(con.Vm.Gas())
-		} else {
-			//todo 告知用户明确失败的原因，如ABI非法
-			con.Vm.DelTvm()
-		}
-	} else {
-		con.Vm.DelTvm()
+	errorCode,errorMsg := con.Vm.CreateContractInstance(msg)
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
-	con.GasLeft = uint64(con.Vm.Gas())
-	return succeed,con.Vm.Logs,nil
+	abi := ABI{}
+	json.Unmarshal([]byte(abiJson), &abi)
+	fmt.Println(abi)
+	errorCode,errorMsg = con.Vm.checkABI(abi)//checkABI
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false))//execute
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	errorCode,errorMsg = con.Vm.StoreData()//store
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	return true,con.Vm.Logs,nil
 }
 
 func(con *Controller) GetGasLeft() uint64{

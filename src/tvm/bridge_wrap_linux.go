@@ -262,6 +262,7 @@ import (
 	"unsafe"
 	"storage/core/types"
 	//"middleware/types"
+	types2 "middleware/types"
 )
 
 type CallTask struct {
@@ -287,10 +288,9 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	prepredSucceed := controller.Vm.CreateContractInstance(msg)
-	if !prepredSucceed {
-		//todo 异常处理
-		return ""
+	errorCode,errorMsg := controller.Vm.CreateContractInstance(msg)
+	if errorCode != 0 {
+		return errorMsg
 	}
 	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
 	if strings.EqualFold("[true]",params){
@@ -301,10 +301,9 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
 	json.Unmarshal([]byte(abiJson), &abi)
-	succeed := controller.Vm.checkABI(abi)
-	if !succeed {
-		//todo 异常处理
-		return ""
+	errorCode,errorMsg = controller.Vm.checkABI(abi)
+	if errorCode != 0 {
+		return errorMsg
 	}
 
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
@@ -418,16 +417,20 @@ func (tvm *Tvm) DelTvm() {
 	//TODO 释放tvm环境 tvmObj
 }
 
-func (tvm *Tvm) checkABI(abi ABI) bool {
+func (tvm *Tvm) checkABI(abi ABI) (int,string) {
 	script := PycodeCheckAbi(abi)
-	executeResult := tvm.Execute(script)
-	if !executeResult{
-		fmt.Printf("checkABI failed. abi: %s\n", abi.FuncName)
+	errorCode,errorMsg := tvm.Execute(script)
+	if errorCode != 0{
+		errorCode = types2.Sys_Check_Abi_Error
+		errorMsg =  fmt.Sprintf(`
+			checkABI failed. abi:%s,msg=%s
+		`,abi.FuncName,errorMsg)
+		fmt.Printf(errorMsg)
 	}
-	return executeResult
+	return errorCode,errorMsg
 }
 
-func (tvm *Tvm) StoreData() bool {
+func (tvm *Tvm) StoreData() (int,string) {
 	script := PycodeStoreContractData(tvm.ContractName)
 	return tvm.Execute(script)
 }
@@ -457,15 +460,16 @@ type Msg struct {
 	Sender string
 }
 
-func (tvm *Tvm) CreateContractInstance(msg Msg) bool {
-	if !tvm.loadMsg(msg) {
-		return false
+func (tvm *Tvm) CreateContractInstance(msg Msg) (int,string) {
+	errorCode,errorMsg := tvm.loadMsg(msg)
+	if errorCode!= 0 {
+		return errorCode,errorMsg
 	}
 	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
 	return tvm.Execute(script)
 }
 
-func (tvm *Tvm) Execute(script string) bool {
+func (tvm *Tvm) Execute(script string) (int,string) {
 	abc := tvm.executeCommon(script, false)
 	return ExecutedVmSucceed(abc)
 }
@@ -489,14 +493,15 @@ func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	return abc
 }
 
-func (tvm *Tvm) loadMsg(msg Msg) bool {
+func (tvm *Tvm) loadMsg(msg Msg) (int,string) {
 	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.Execute(script)
 }
 
-func (tvm *Tvm) Deploy(msg Msg) bool {
-	if !tvm.loadMsg(msg) {
-		return false
+func (tvm *Tvm) Deploy(msg Msg) (int,string)  {
+	errorCode,errorMsg := tvm.loadMsg(msg)
+	if errorCode != 0 {
+		return errorCode,errorMsg
 	}
 
 	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)

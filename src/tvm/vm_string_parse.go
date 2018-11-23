@@ -3,6 +3,7 @@ package tvm
 import (
 	"strings"
 	"strconv"
+	"middleware/types"
 )
 
 const split = "|"
@@ -40,9 +41,10 @@ func ExecutedVmSucceed(original string) (int,string) {
 	if parsed[0] == "4" {
 		errorCode,err:=strconv.Atoi(parsed[1])
 		if err != nil{
-
+			return types.Sys_Error,err.Error()
+		}else{
+			return errorCode,parsed[2]
 		}
-		return parsed[1],parsed[2]
 	} else {
 		return 0,""
 	}
