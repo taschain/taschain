@@ -58,15 +58,21 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err := createContract(accountdb, transaction)
 				if err != nil {
+					fail = true
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
 					deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
-					if controller.Transaction.GasLimit < deploySpend {
+					if controller.Transaction.GasLimit < deploySpend {//gas not enough
+						fail = true
+						err = types.TxErrorDeployGasNotEnough
 						controller.AccountDB.RevertToSnapshot(snapshot)
 					} else {
 						controller.Transaction.GasLimit -= deploySpend
 						contract := tvm.LoadContract(contractAddress)
-						if !controller.Deploy(transaction.Source, contract) {
+						errorCode,errorMsg := controller.Deploy(transaction.Source, contract)
+						if errorCode  != 0{
+							fail = true
+							err = types.NewTransactionError(errorCode,errorMsg)
 							controller.AccountDB.RevertToSnapshot(snapshot)
 						}
 					}

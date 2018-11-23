@@ -24,6 +24,7 @@ import (
 const (
 	TxErrorCode_BalanceNotEnough = 1
 	TxErrorCode_ContractAddressConflict = 2
+	TxErrorCode_DeployGasNotEnough = 3
 
 
 	Sys_Error = 2001
@@ -32,6 +33,7 @@ const (
 
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
+	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough,"gas not enough")
 )
 
 type Transaction struct {
