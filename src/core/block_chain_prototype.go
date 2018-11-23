@@ -327,7 +327,7 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 	}
 	Logger.Debugf("ProcessChainPiece id:%s,chainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v",
 		id, chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
-	commonAncestor, hasCommonAncestor, _ := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
+	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
 	if hasCommonAncestor {
 		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
 		if topHeader.TotalQN > chain.latestBlock.TotalQN {
@@ -337,8 +337,17 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 		}
 
 		if topHeader.TotalQN == chain.latestBlock.TotalQN {
-			if chain.compareValue(commonAncestor, topHeader) {
-				chain.SetAdujsting(false)
+			var remoteNext *types.BlockHeader
+			for i := index - 1; i >= 0; i-- {
+				if chainPiece[i].ProveValue != nil {
+					remoteNext = chainPiece[i]
+					break
+				}
+			}
+			if remoteNext == nil {
+				return
+			}
+			if chain.compareValue(commonAncestor, remoteNext) {
 				return
 			}
 			chain.removeFromCommonAncestor(commonAncestor)
@@ -403,6 +412,9 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
+	if commonAncestor.Height == chain.latestBlock.Height {
+		return false
+	}
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
 	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
@@ -414,6 +426,7 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 			continue
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)
+		break
 	}
 	if localValue == nil {
 		time.Sleep(time.Second)
