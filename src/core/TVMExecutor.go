@@ -16,13 +16,12 @@
 package core
 
 import (
-	"middleware/types"
 	"common"
-	t "storage/core/types"
-	"storage/core"
 	"math/big"
+	"middleware/types"
+	"storage/core"
+	t "storage/core/types"
 	"storage/core/vm"
-	"fmt"
 	"tvm"
 )
 
@@ -38,17 +37,19 @@ func NewTVMExecutor(bc *BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, error) {
+func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Block, processor VoteProcessor) (common.Hash, []*t.Receipt, []*types.TransactionError) {
 	if 0 == len(block.Transactions) {
 		hash := accountdb.IntermediateRoot(true)
 		Logger.Infof("TVMExecutor Execute Hash:%s", hash.Hex())
 		return hash, nil, nil
 	}
 	receipts := make([]*t.Receipt, len(block.Transactions))
+	errs := make([]*types.TransactionError, len(block.Transactions))
 	for i, transaction := range block.Transactions {
 		var fail = false
 		var contractAddress common.Address
 		var logs []*t.Log
+		var err *types.TransactionError
 		if transaction.Target == nil || transaction.Target.BigInteger().Int64() == 0 {
 			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
@@ -60,10 +61,10 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
 					deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
-					if controller.GasLeft < deploySpend {
+					if controller.Transaction.GasLimit < deploySpend {
 						controller.AccountDB.RevertToSnapshot(snapshot)
 					} else {
-						controller.GasLeft -= deploySpend
+						controller.Transaction.GasLimit -= deploySpend
 						contract := tvm.LoadContract(contractAddress)
 						if !controller.Deploy(transaction.Source, contract) {
 							controller.AccountDB.RevertToSnapshot(snapshot)
@@ -73,6 +74,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
 			} else {
 				fail = true
+				err = types.TxErrorBalanceNotEnough
 			}
 
 		} else if len(transaction.Data) > 0 {
@@ -82,29 +84,16 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				snapshot := controller.AccountDB.Snapshot()
-				var retval bool
-				retval,logs = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
-				if !retval {
+				var success bool
+				success,logs,err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+				if !success{
 					controller.AccountDB.RevertToSnapshot(snapshot)
 					fail = true
-				}
-				for j:=0 ; j < len(logs); j++{
-					(logs)[j].TxIndex = uint(i)
-					(logs)[j].Index = uint(j)
-					(logs)[j].Removed = false
-					fmt.Println((logs)[j].Address)
-					fmt.Println((logs)[j].Topics)
-					fmt.Println((logs)[j].Data)
-					fmt.Println((logs)[j].BlockNumber)
-					fmt.Println((logs)[j].TxHash)
-					fmt.Println((logs)[j].TxIndex)
-					fmt.Println((logs)[j].BlockHash)
-					fmt.Println((logs)[j].Index)
-					fmt.Println((logs)[j].Removed)
 				}
 				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {
 				fail = true
+				err = types.TxErrorBalanceNotEnough
 			}
 		} else {
 			amount := big.NewInt(int64(transaction.Value))
@@ -114,36 +103,34 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				logs[0] = &t.Log{Address:*transaction.Source,Topics:[]common.Hash{common.BytesToHash(common.Sha256([]byte("transfer")))}}
 			} else {
 				fail = true
+				err = types.TxErrorBalanceNotEnough
 			}
 		}
 		receipt := t.NewReceipt(nil, fail, 0)
-		if logs!=nil {
-			receipt.Logs = logs
-		}else {
-			receipt.Logs = nil
-		}
+		receipt.Logs = logs
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
 		receipts[i] = receipt
+		errs[i] = err
 	}
 
 	//if nil != processor {
 	//	processor.AfterAllTransactionExecuted(block, statedb, receipts)
 	//}
-	return accountdb.IntermediateRoot(true), receipts, nil
+	return accountdb.IntermediateRoot(true), receipts, errs
 }
 
-func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, error) {
+func createContract(accountdb *core.AccountDB, transaction *types.Transaction) (common.Address, *types.TransactionError) {
 	amount := big.NewInt(int64(transaction.Value))
 	if !CanTransfer(accountdb, *transaction.Source, amount) {
-		return common.Address{}, fmt.Errorf("balance not enough")
+		return common.Address{}, types.TxErrorBalanceNotEnough
 	}
 
 	nance := accountdb.GetNonce(*transaction.Source)
 	accountdb.SetNonce(*transaction.Source, nance+1)
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nance))))
 	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}) {
-		return common.Address{}, fmt.Errorf("contract address conflict")
+		return common.Address{}, types.NewTransactionError(types.TxErrorCode_ContractAddressConflict,"contract address conflict")
 	}
 	accountdb.CreateAccount(contractAddr)
 	accountdb.SetCode(contractAddr, transaction.Data)

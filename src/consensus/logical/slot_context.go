@@ -187,7 +187,7 @@ func (sc *SlotContext) init(bh *types.BlockHeader) bool {
 		sc.BH = *bh
 		sc.QueueNumber = int64(bh.QueueNumber)
 		log.Printf("start verifyblock, height=%v, qn=%v", bh.Height, bh.QueueNumber)
-		ltl, ccr, _, _ := core.BlockChainImpl.VerifyCastingBlock(*bh)
+		ltl, ccr, _, _, _:= core.BlockChainImpl.VerifyCastingBlock(*bh)
 		log.Printf("initSlotContext verifyCastingBlock height=%v, qn=%v, lost trans size %v, ret %v\n",  bh.Height, bh.QueueNumber, len(ltl), ccr)
 		sc.addLostTrans(ltl)
 		if ccr == -1 {

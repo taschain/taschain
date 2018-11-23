@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"middleware/types"
 	"storage/core/vm"
-	tt "storage/core/types"
+	t "storage/core/types"
 )
 
 type Controller struct {
@@ -62,7 +62,7 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*tt.Log,string) {
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*t.Log,*types.TransactionError) {
 	var succeed bool
 	var errorMsg string
 	con.Vm = NewTvm(sender, contract, con.LibPath)
@@ -74,7 +74,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
 		} else {
-			return false,nil
+			return false,nil,types.TxErrorBalanceNotEnough
 		}
 	}
 
@@ -96,7 +96,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		con.Vm.DelTvm()
 	}
 	con.GasLeft = uint64(con.Vm.Gas())
-	return succeed,con.Vm.Logs
+	return succeed,con.Vm.Logs,nil
 }
 
 func(con *Controller) GetGasLeft() uint64{

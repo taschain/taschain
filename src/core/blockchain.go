@@ -102,6 +102,7 @@ type BlockChain struct {
 type castingBlock struct {
 	state    *core.AccountDB
 	receipts vtypes.Receipts
+	errs     []*types.TransactionError
 }
 
 // 默认配置
@@ -446,7 +447,8 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, receipts, err := chain.executor.Execute(state, block, chain.voteProcessor)
+	var errs []*types.TransactionError
+	statehash, receipts, errs := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -476,6 +478,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	chain.blockCache.Add(block.Header.Hash, &castingBlock{
 		state:    state,
 		receipts: receipts,
+		errs:     errs,
 	})
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
@@ -488,20 +491,20 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 // -1，验证失败
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
-func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+func (chain *BlockChain) VerifyCastingBlock(bh types.BlockHeader) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts, []*types.TransactionError) {
 	chain.lock.Lock("VerifyCastingBlock")
 	defer chain.lock.Unlock("VerifyCastingBlock")
 
 	return chain.verifyCastingBlock(bh, nil)
 }
 
-func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts) {
+func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8, *core.AccountDB, vtypes.Receipts, []*types.TransactionError) {
 	// 校验父亲块
 	preHash := bh.PreHash
 	preBlock := chain.queryBlockHeaderByHash(preHash)
 
 	if preBlock == nil {
-		return nil, 2, nil, nil
+		return nil, 2, nil, nil, nil
 	}
 
 	// 验证交易
@@ -521,7 +524,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		error := castorId.Deserialize(bh.Castor)
 		if error != nil {
 			log.Printf("[BlockChain]Give up request txs because of groupsig id deserialize error:%s", error.Error())
-			return nil, 1, nil, nil
+			return nil, 1, nil, nil, nil
 		}
 
 		//向CASTOR索取交易
@@ -532,14 +535,14 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 			BlockQn:           bh.QueueNumber,
 		}
 		go RequestTransaction(*m, castorId.String())
-		return missing, 1, nil, nil
+		return missing, 1, nil, nil, nil
 	}
 
 	txtree := calcTxTree(transactions)
 
 	if !bytes.Equal(txtree.Bytes(),bh.TxTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.Hex(), bh.TxTree.Hex())
-		return missing, -1, nil, nil
+		return missing, -1, nil, nil, nil
 	}
 
 	//执行交易
@@ -551,7 +554,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	state, err := core.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		Logger.Errorf("[BlockChain]fail to new statedb, error:%s", err)
-		return nil, -1, nil, nil
+		return nil, -1, nil, nil, nil
 	}
 	//else {
 	//	log.Printf("[BlockChain]state.new %d\n", preBlock.StateTree.Bytes())
@@ -564,11 +567,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 
 	begin := time.Now()
 	Logger.Infof("verifyCastingBlock height:%d StateTree Hash:%s",b.Header.Height,b.Header.StateTree.Hex())
-
-	statehash, receipts, err := chain.executor.Execute(state, b, chain.voteProcessor)
+	statehash, receipts, errs := chain.executor.Execute(state, b, chain.voteProcessor)
 	if common.ToHex(statehash.Bytes()) != common.ToHex(bh.StateTree.Bytes()) {
 		Logger.Debugf("[BlockChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), b.Header.StateTree.Bytes())
-		return nil, -1, nil, nil
+		return nil, -1, nil, nil, nil
 	}
 	Logger.Debugf("verifyCastingBlock executor Execute cost time:%v", time.Since(begin))
 		//receiptsTree := calcReceiptsTree(receipts).Bytes()
@@ -582,7 +584,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		receipts: receipts,
 	})
 	//return nil, 0, state, receipts
-	return nil, 0, state, nil
+	return nil, 0, state, nil, errs
 }
 
 //铸块成功，上链
@@ -612,15 +614,17 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 	// 自己铸块的时候，会将块临时存放到blockCache里
 	// 当组内其他成员验证通过后，自己上链就无需验证、执行交易，直接上链即可
 	cache, _ := chain.blockCache.Get(b.Header.Hash)
+	var errs []*types.TransactionError
 	//if false {
 	if cache != nil {
 		status = 0
 		state = cache.(*castingBlock).state
 		receipts = cache.(*castingBlock).receipts
+		errs = cache.(*castingBlock).errs
 		chain.blockCache.Remove(b.Header.Hash)
 	} else {
 		// 验证块是否有问题
-		_, status, state, receipts = chain.verifyCastingBlock(*b.Header, b.Transactions)
+		_, status, state, receipts, errs = chain.verifyCastingBlock(*b.Header, b.Transactions)
 		if status != 0 {
 			Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", status)
 			return -1
@@ -660,6 +664,14 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		triedb.Commit(root, false)
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
+		for i,receipt := range receipts{
+			//if receipt.Logs != nil {
+			//	for _, log := range receipt.Logs{
+			//		rpc.EventPublisher.PublishEvent(log)
+			//	}
+			//}
+			rpc.EventPublisher.PublishTransaction(receipt, errs[i])
+		}
 
 		for _,receipt := range receipts{
 			if receipt.Logs != nil {
