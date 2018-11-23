@@ -83,7 +83,13 @@ func (g* Group) genConnectNodes() {
 			break
 		}
 	}
-	connectCount := GroupBaseConnectNodeCount;
+
+	Logger.Debugf("[genConnectNodes] curIndex:%v",g.curIndex)
+	for i:= 0;i<len(g.members);i++ {
+		Logger.Debugf("[genConnectNodes] members id：%v",g.members[i].GetHexString())
+	}
+
+	connectCount := GroupBaseConnectNodeCount
 	if connectCount >  len(g.members) -1 {
 		connectCount = len(g.members) -1
 	}
@@ -110,7 +116,10 @@ func (g* Group) genConnectNodes() {
 			}
 			g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
 		}
+	}
 
+	for i:= 0;i<len(g.needConnectNodes);i++ {
+		Logger.Debugf("[genConnectNodes] needConnectNodes id：%v", g.needConnectNodes[i].GetHexString())
 	}
 
 }
@@ -164,7 +173,7 @@ func (g *Group) resolve(id NodeID) {
 	go netCore.kad.resolve(id)
 }
 
-func (g *Group) send(packet *bytes.Buffer) {
+func (g *Group) send(packet *bytes.Buffer,code uint32) {
 
 	connected := 0
 	kad := 0
@@ -177,18 +186,18 @@ func (g *Group) send(packet *bytes.Buffer) {
 		p := netCore.peerManager.peerByID(id)
 		if p != nil {
 			connected +=1
-			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet)
+			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet, code)
 		} else {
 			node := netCore.kad.find(id)
 			if node != nil && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
 				kad +=1
-				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet)
+				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet, code)
 			} else {
 				Logger.Debugf("SendGroup node not connected and not in KAD : id：%v", id.GetHexString())
 
 				other+=1
-				netCore.peerManager.write(id, nil, packet)
+				netCore.peerManager.write(id, nil, packet, code)
 			}
 		}
 	}
@@ -269,7 +278,7 @@ func (gm *GroupManager) doRefresh() {
 }
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
-func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
+func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer ,code uint32) {
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
@@ -279,7 +288,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer) {
 		Logger.Debugf("SendGroup not found group.")
 		return
 	}
-	go g.send(packet)
+	go g.send(packet, code)
 
 	return
 }

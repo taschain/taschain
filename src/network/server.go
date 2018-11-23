@@ -49,7 +49,7 @@ func (n *server) Send(id string, msg Message) error {
 		n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(NewNodeID(id), nil, bytes)
+	go n.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
 	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -61,7 +61,7 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId, bytes, NewNodeID(id))
+	n.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
 	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -73,7 +73,7 @@ func (n *server) RandomSpreadInGroup(groupId string, msg Message) error {
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true, 1)
+	n.netCore.SendGroup(groupId, bytes, msg.Code,true, 1)
 	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -85,7 +85,7 @@ func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true, -1)
+	n.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
 	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -97,7 +97,7 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 		return err
 	}
 	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d", groupId, len(groupMembers))
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, nil, groupMembers, 1)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, groupMembers, 1)
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Messag
 	}
 
 	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers, -1)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, digest, groupMembers, -1)
 
 	return nil
 }
@@ -121,7 +121,7 @@ func (n *server) TransmitToNeighbor(msg Message) error {
 		return err
 	}
 
-	n.netCore.SendAll(bytes, false, nil, -1)
+	n.netCore.SendAll(bytes, msg.Code, false, nil, -1)
 
 	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
@@ -135,7 +135,7 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 		return err
 	}
 	//n.netCore.SendAll(bytes, true,nil,-1)
-	n.netCore.BroadcastRandom(bytes, relayCount)
+	n.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
 	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -146,7 +146,7 @@ func (n *server) Broadcast(msg Message) error {
 		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true, nil, -1)
+	n.netCore.SendAll(bytes, msg.Code, true, nil, -1)
 	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -204,7 +204,7 @@ func (n *server) handleMessage(b []byte, from string) {
 	}
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
-	n.netCore.flowMeterBiz.recv(int64(message.Code), int64(len(b)))
+	n.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b
 	go n.handleMessageInner(message, from)
 }

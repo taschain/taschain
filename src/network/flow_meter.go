@@ -90,7 +90,7 @@ func (fm *FlowMeter) reset() {
 
 func (fm *FlowMeter) print() {
 	fm.mutex.Lock()
-	fm.mutex.Unlock()
+	defer fm.mutex.Unlock()
 
 	if fm.sendSize > 0 {
 		Logger.Debugf("[p2p][FlowMeter][%v_send]  total send size:%v", fm.name,fm.sendSize)
@@ -100,7 +100,7 @@ func (fm *FlowMeter) print() {
 	}
 
 	if fm.recvSize > 0 {
-		Logger.Debugf("[p2p][FlowMeter][%v_recv]  total send size:%v", fm.name, fm.recvSize)
+		Logger.Debugf("[p2p][FlowMeter][%v_recv]  total recv size:%v", fm.name, fm.recvSize)
 		for _, item := range fm.recvItems {
 			Logger.Debugf("[p2p][FlowMeter][%v_recv] code:%v  count:%v  size:%v percentage：%v%%", fm.name,item.code,item.count,item.size,float64(item.size) / float64(fm.recvSize) *100.0)
 		}
