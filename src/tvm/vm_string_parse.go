@@ -2,6 +2,7 @@ package tvm
 
 import (
 	"strings"
+	"strconv"
 )
 
 const split = "|"
@@ -34,12 +35,16 @@ func vmStringParse(original string) *[3]string {
 	return result
 }
 
-func ExecutedVmSucceed(original string) (bool,string) {
+func ExecutedVmSucceed(original string) (int,string) {
 	parsed := vmStringParse(original)
 	if parsed[0] == "4" {
-		return false,parsed[2]
+		errorCode,err:=strconv.Atoi(parsed[1])
+		if err != nil{
+
+		}
+		return parsed[1],parsed[2]
 	} else {
-		return true,""
+		return 0,""
 	}
 
 }

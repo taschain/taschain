@@ -62,8 +62,9 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*tt.Log) {
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*tt.Log,string) {
 	var succeed bool
+	var errorMsg string
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 
