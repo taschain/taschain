@@ -126,14 +126,16 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 		go bs.sync(&candidate)
 	}
 
-	bs.lock.Lock()
 	if blockInfo.TotalQn > bs.candidate.totalQn {
+		bs.lock.Lock()
 		bs.candidate = candidate
+		bs.lock.Unlock()
 		return
 	}
-	bs.lock.Unlock()
 	if blockInfo.TotalQn == bs.candidate.totalQn && blockInfo.Hash != bs.candidate.hash && BlockChainImpl.QueryBlockByHash(candidate.hash) == nil {
+		bs.lock.Lock()
 		bs.candidate = candidate
+		bs.lock.Unlock()
 	}
 
 }
