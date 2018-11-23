@@ -475,6 +475,12 @@ const HTMLTEM = `<!DOCTYPE html>
         var groupIds = new Set();
         var table = layui.table;
         var block_detail_currIndex;//统计块的下表
+		var wsaddr = "ws://"+window.location.host+"/ws";
+		var ws = new WebSocket(wsaddr);
+		console.log(wsaddr)
+		ws.onmessage = function(e) {
+          console.log("event message:" + e.data);
+        };
         // 查询交易信息
         var user_trans_table = table.render({
             elem: '#trans_detail_table' //指定原始表格元素选择器（推荐id选择器）
@@ -833,6 +839,9 @@ const HTMLTEM = `<!DOCTYPE html>
                 success: function (rdata) {
                     if (rdata.result !== undefined){
                         $("#t_message").text(rdata.result.message)
+						var wsdata = {Type:1, Argument:rdata.result.data,ContractAddress:null,EventName:null}
+						ws.send(JSON.stringify(wsdata));
+						console.log(wsdata)
                     }
                     if (rdata.error !== undefined){
                         $("#t_error").text(rdata.error.message)
