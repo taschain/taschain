@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	TxErrorCode_BalanceNotEnough = 0
-	TxErrorCode_ContractAddressConflict = 1
+	TxErrorCode_BalanceNotEnough = 1
+	TxErrorCode_ContractAddressConflict = 2
 )
 
 var (

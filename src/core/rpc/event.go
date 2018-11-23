@@ -2,17 +2,33 @@ package rpc
 
 import (
 	"common"
-	"container/list"
 	"github.com/gorilla/websocket"
+	"github.com/hashicorp/golang-lru"
+	"gopkg.in/fatih/set.v0"
+	"log"
 	"net/http"
 	"storage/core/types"
 	"sync"
+	t "middleware/types"
 )
 
 const (
-	EventTypeLog = 0
-	EventTypeTransaction = 1
+	LogWatch = 0
+	TransactionWatch = 1
+	LogWatchResult = 2
+	TransactionWatchResult = 3
+	LogEvent = 4
+	TransactionEvent = 5
 )
+
+type Hash2 [common.HashLength * 2]byte
+
+func combineToHash2(low , high common.Hash) *Hash2 {
+	var hash2 Hash2
+	copy(hash2[:common.HashLength], low[:])
+	copy(hash2[common.HashLength:], high[:])
+	return &hash2
+}
 
 type EventSubscribeReq struct {
 	Type int
@@ -22,81 +38,142 @@ type EventSubscribeReq struct {
 }
 
 type EventSubscribe struct {
-	contractAddress common.Address
 	eventName       common.Hash
 	argument        common.Hash
+}
+
+type WsHolder struct {
+	subscribeLogMap map[common.Address]set.Interface
 	socket          *websocket.Conn
-	lock            sync.Mutex
+	lock            *sync.Mutex
+	closed			bool
+}
+
+type PushResponse struct {
+	Type int
+	Code int
+	Hash common.Hash
+	Value interface{}
+	Error *t.TransactionError
 }
 
 type WsEventPublisher struct {
-	subscribeLogMap map[common.Address]*list.List
-	sss map[*websocket.Conn]string
+	subscribeLogMap map[common.Address]set.Interface
+	transactionPushCache *lru.Cache
 	lock            *sync.RWMutex
 }
 
-var EventPublisher = WsEventPublisher{subscribeLogMap: make(map[common.Address]*list.List), lock:&sync.RWMutex{}, sss: make(map[*websocket.Conn]string)}
+func (wh *WsHolder) addEventSubscribe(contract common.Address, eventName common.Hash,argument common.Hash)  {
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+	subscribe := EventSubscribe{eventName:eventName, argument:argument}
+	if s,ok := wh.subscribeLogMap[contract];ok{
+		s.Add(subscribe)
+	} else{
+		s = set.New(set.NonThreadSafe)
+		s.Add(subscribe)
+		wh.subscribeLogMap[contract] = s
+		EventPublisher.addEventSubscribe(contract, wh)
+	}
+	log.Printf("addEventSubscribe contract:%s event:%s",contract.GetHexString(),eventName.Hex())
+}
 
-func (wsep *WsEventPublisher) addEventSubscribe(subscribe *EventSubscribe)  {
-	wsep.lock.Lock()
-	defer wsep.lock.Unlock()
-	if l,ok := wsep.subscribeLogMap[subscribe.contractAddress];ok{
-		l.PushBack(subscribe)
-	} else {
-		l := new(list.List)
-		l.PushBack(subscribe)
-		wsep.sss[subscribe.socket] = "aa"
-		wsep.subscribeLogMap[subscribe.contractAddress] = l
+func (wh *WsHolder) close()  {
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+	if !wh.closed {
+		EventPublisher.leave(wh)
+		wh.closed = true
+		log.Printf("WsHolder close")
 	}
 }
 
-func (wsep *WsEventPublisher) PublishTransaction(receipt *types.Receipt){
+var EventPublisher WsEventPublisher
 
+func init()  {
+	transactionPushCache,_ := lru.New(500)
+	EventPublisher = WsEventPublisher{subscribeLogMap: make(map[common.Address]set.Interface), lock:&sync.RWMutex{}, transactionPushCache:transactionPushCache}
 }
 
-func (wsep *WsEventPublisher) PublishEvent(log *types.Log){
+func (wsep *WsEventPublisher) addEventSubscribe(contract common.Address, wh *WsHolder)  {
+	wsep.lock.Lock()
+	defer wsep.lock.Unlock()
+	if s,ok := wsep.subscribeLogMap[contract];ok{
+		s.Add(wh)
+	} else {
+		s = set.New(set.ThreadSafe)
+		s.Add(wh)
+		wsep.subscribeLogMap[contract] = s
+	}
+}
+
+func (wsep *WsEventPublisher) addTransactionSubscribe(transaction common.Hash, wh *WsHolder){
+	wsep.transactionPushCache.Add(transaction, wh)
+}
+
+
+func (wsep *WsEventPublisher) leave(wh *WsHolder){
 	wsep.lock.RLock()
 	defer wsep.lock.RUnlock()
-	if l,ok := wsep.subscribeLogMap[log.Address];ok{
-		e := l.Front()
-		for e != nil{
-			item := e.Value.(*EventSubscribe)
-			if log.Topics[0] == item.eventName{
-				//logArgs := log.Topics[1:]
-				//lengthLog := len(logArgs)
-				//lengthSub := len(item.argument)
-				//length := lengthLog
-				//if lengthSub < length{
-				//	length = lengthSub
-				//}
-				//match := true
-				//for i:=0;i<length;i++{
-				//	if !common.EmptyHash(item.argument[i]) && item.argument[i] != logArgs[i]{
-				//		match = false
-				//		break
-				//	}
-				//}
-				match := common.EmptyHash(item.argument) || item.argument == log.Topics[1]
-				if match{
-					go wsep.publishEvent(log, item, e)
-				}
-			}
-			e = e.Next()
+	for key := range wh.subscribeLogMap{
+		if s,ok := wsep.subscribeLogMap[key];ok{
+			s.Remove(wh)
 		}
 	}
 }
 
-func (wsep *WsEventPublisher) publishEvent(log *types.Log, subscribe *EventSubscribe, e *list.Element){
-	subscribe.lock.Lock()
-	defer subscribe.lock.Unlock()
-	err := subscribe.socket.WriteJSON(log)
-	logger.Debugf("publishEvent %+v %+v", subscribe, log)
+func (wsep *WsEventPublisher) PublishTransaction(receipt *types.Receipt, err *t.TransactionError){
+	if c,ok := wsep.transactionPushCache.Get(receipt.TxHash);ok{
+		holder := c.(*WsHolder)
+		resp := &PushResponse{Value:receipt, Type:TransactionEvent, Error:err}
+		holder.push(resp)
+		wsep.transactionPushCache.Remove(receipt.TxHash)
+	}
+	if receipt.Logs != nil {
+		for _, log := range receipt.Logs {
+			wsep.PublishEvent(log)
+		}
+	}
+}
+
+func (wsep *WsEventPublisher) PublishEvent(tlog *types.Log){
+	log.Printf("PublishEvent %s %v", tlog.Address.GetHexString(),tlog.Topics)
+	wsep.lock.RLock()
+	defer wsep.lock.RUnlock()
+	log.Printf("subscribeLogMap %+v", wsep.subscribeLogMap)
+	if s,ok := wsep.subscribeLogMap[tlog.Address];ok{
+		s.Each(func(i interface{}) bool {
+			holder := i.(*WsHolder)
+			log.Printf("PublishEvent WsHolder %+v",holder)
+			if holder.closed{
+				return true
+			}
+			if ss,ok2 := holder.subscribeLogMap[tlog.Address];ok2{
+				ss.Each(func(j interface{}) bool {
+					subscribe := j.(EventSubscribe)
+					log.Printf("PublishEvent EventSubscribe %+v",subscribe)
+					if tlog.Topics[0] == subscribe.eventName{
+						if common.EmptyHash(subscribe.argument) || subscribe.argument == tlog.Topics[1]{
+							resp := &PushResponse{Value:tlog,Type:LogEvent}
+							holder.push(resp)
+						}
+					}
+					return true
+				})
+			}
+			return true
+		})
+
+	}
+}
+
+func (wh *WsHolder) push(resp *PushResponse){
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+	err := wh.socket.WriteJSON(resp)
+	log.Printf("push %+v", resp)
 	if err != nil{
-		logger.Error(err)
-		wsep.lock.Lock()
-		defer wsep.lock.Unlock()
-		subscribe.socket.Close()
-		wsep.subscribeLogMap[log.Address].Remove(e)
+		go wh.close()
 	}
 }
 
@@ -104,6 +181,40 @@ var upgrader  = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+func loop(holder *WsHolder)  {
+	for{
+		if holder.closed{
+			return
+		}
+		var req EventSubscribeReq
+		err := holder.socket.ReadJSON(&req)
+		if err != nil {
+			logger.Error(err)
+			go holder.close()
+			return
+		}
+		log.Printf("receive %+v", req)
+		switch req.Type{
+		case LogWatch:
+			var arg common.Hash
+			if req.Argument != ""{
+				arg = common.BytesToHash(common.Sha256([]byte(req.Argument)))
+			}
+			eventName := common.BytesToHash(common.Sha256([]byte(req.EventName)))
+			address := common.HexStringToAddress(req.ContractAddress)
+			holder.addEventSubscribe(address, eventName, arg)
+		case TransactionWatch:
+			var arg common.Hash
+			if req.Argument != ""{
+				arg = common.BytesToHash(common.Sha256([]byte(req.Argument)))
+			}
+			if !common.EmptyHash(arg){
+				EventPublisher.addTransactionSubscribe(arg, holder)
+			}
+		}
+	}
 }
 
 func serveEventRequest(w http.ResponseWriter,r *http.Request){
@@ -114,26 +225,6 @@ func serveEventRequest(w http.ResponseWriter,r *http.Request){
 		}
 		return
 	}
-	var req EventSubscribeReq
-	err = ws.ReadJSON(&req)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-	logger.Debugf("EventSubscribeReq %+v",req)
-	//args := make([]common.Hash,len(req.Arguments))
-	//for i,arg := range req.Arguments{
-	//	if arg == "*"{
-	//		args[i] = common.Hash{}
-	//	} else {
-	//		args[i] = common.BytesToHash(common.Sha256([]byte(arg)))
-	//	}
-	//}
-	var arg common.Hash
-	if req.Argument != ""{
-		arg = common.BytesToHash(common.Sha256([]byte(req.Argument)))
-	}
-	subscribe := &EventSubscribe{contractAddress:common.HexStringToAddress(req.ContractAddress), argument:arg,
-		eventName:common.BytesToHash(common.Sha256([]byte(req.EventName))), socket:ws}
-	EventPublisher.addEventSubscribe(subscribe)
+	holder := &WsHolder{socket:ws,subscribeLogMap:make(map[common.Address]set.Interface),lock:&sync.Mutex{}}
+	go loop(holder)
 }

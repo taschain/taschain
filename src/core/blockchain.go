@@ -664,14 +664,15 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 		triedb.Commit(root, false)
 
 		notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *b,})
-		for _,receipt := range receipts{
-			if receipt.Logs != nil {
-				for _, log := range receipt.Logs{
-					rpc.EventPublisher.PublishEvent(log)
-				}
-			}
+		for i,receipt := range receipts{
+			//if receipt.Logs != nil {
+			//	for _, log := range receipt.Logs{
+			//		rpc.EventPublisher.PublishEvent(log)
+			//	}
+			//}
+			rpc.EventPublisher.PublishTransaction(receipt, errs[i])
 		}
-		fmt.Print(errs)
+
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
 			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
