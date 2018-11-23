@@ -10,21 +10,21 @@ extern "C" {
 #endif
 
 
-	void tvm_set_lib_path(const char* path);
-	/*
+void tvm_set_lib_path(const char* path);
+/*
 	没有返回结果的调用
 	返回mp_const_none或者异常的结构
 	param: str合约执行代码
 	retsult:type|errorcode|content
 	*/
 
-	char* tvm_execute(char *str);
+	char* tvm_execute(char *str, char*contract_name);
 	/*
 	有返回结果的调用
 	param: str合约执行代码
 	retsult:type|errorcode|content
 	*/
-	char* tvm_execute_with_result(char *str);
+	char* tvm_execute_with_result(char *str, char*contract_name);
 	typedef int(*callback_fcn)(int);
 	typedef void(*testAry_fcn)(void*);
 
@@ -110,9 +110,8 @@ extern "C" {
 	Function1 remove_data;
 	//Function10 get_data_iter_next;
 	//Function3 get_data_iter;
+	Function11 event_call;
 
-    //event
-    Function11 event_call;
 
 #ifdef __cplusplus
 }

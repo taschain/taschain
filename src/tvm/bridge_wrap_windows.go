@@ -425,7 +425,6 @@ func (tvm *Tvm) checkABI(abi ABI) (int,string) {
 		errorMsg =  fmt.Sprintf(`
 			checkABI failed. abi:%s,msg=%s
 		`,abi.FuncName,errorMsg)
-		fmt.Printf(errorMsg)
 	}
 	return errorCode,errorMsg
 }
@@ -481,13 +480,14 @@ func (tvm *Tvm) ExecuteWithResult(script string) string {
 func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	var c_result *C.char
 	var param = C.CString(script)
+	var contract_name = C.CString(tvm.ContractName)
 	if withResult {
-		c_result = C.tvm_execute_with_result(param)
+		c_result = C.tvm_execute_with_result(param,contract_name)
 	} else {
-		c_result = C.tvm_execute(param)
+		c_result = C.tvm_execute(param,contract_name)
 	}
 	C.free(unsafe.Pointer(param))
-
+	C.free(unsafe.Pointer(contract_name))
 	abc := C.GoString(c_result)
 	C.free(unsafe.Pointer(c_result))
 	return abc
