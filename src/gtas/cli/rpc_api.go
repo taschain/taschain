@@ -266,16 +266,16 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
-			mems = append(mems, groupsig.DeserializeId(mem.Id).ShortS())
+			mems = append(mems, groupsig.DeserializeId(mem).ShortS())
 		}
 
 		group := &Group{
 			Height:        uint64(b + 1),
 			Id:            groupsig.DeserializeId(g.Id),
-			PreId:         groupsig.DeserializeId(g.PreGroup),
-			ParentId:      groupsig.DeserializeId(g.Parent),
-			BeginHeight:   g.BeginHeight,
-			DismissHeight: g.DismissHeight,
+			PreId:         groupsig.DeserializeId(g.Header.PreGroup),
+			ParentId:      groupsig.DeserializeId(g.Header.Parent),
+			BeginHeight:   g.Header.WorkHeight,
+			DismissHeight: g.Header.DismissHeight,
 			Members:       mems,
 		}
 		pageObject.Data = append(pageObject.Data, group)

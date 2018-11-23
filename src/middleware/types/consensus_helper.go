@@ -28,7 +28,8 @@ import (
 
 type GenesisInfo struct {
 	Group Group
-	VrfPKs map[int][]byte
+	VrfPKs [][]byte
+	Pks 	[][]byte
 }
 
 type ConsensusHelper interface {

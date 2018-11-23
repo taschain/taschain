@@ -71,12 +71,8 @@ func newMsgTraceLog(mtype string, key string, sender string) *msgTraceLog {
 	}
 }
 
-func newBlockTraceLog(mtype string, blockHash common.Hash, sid groupsig.ID) *msgTraceLog {
-	return newMsgTraceLog(mtype, blockHash.ShortS(), sid.ShortS())
-}
-
-func newGroupTraceLog(mtype string, gid groupsig.ID, sid groupsig.ID) *msgTraceLog {
-	return newMsgTraceLog(mtype, gid.ShortS(), sid.ShortS())
+func newHashTraceLog(mtype string, hash common.Hash, sid groupsig.ID) *msgTraceLog {
+	return newMsgTraceLog(mtype, hash.ShortS(), sid.ShortS())
 }
 
 

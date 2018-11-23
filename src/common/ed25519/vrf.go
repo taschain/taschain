@@ -22,7 +22,6 @@ import (
 	"crypto/sha512"
 	"errors"
 	"math/big"
-	"middleware/types"
 )
 
 const (
@@ -87,7 +86,7 @@ func ECVRF_proof2hash(pi VRFProve) []byte {
 	return pi[1 : N2 + 1]
 }
 
-func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte, height uint64, preBH *types.BlockHeader) (bool, error) {
+func ECVRF_verify(pk PublicKey, pi VRFProve, m []byte) (bool, error) {
 	r, c, s, err := ECVRF_decode_proof(pi)
 	if err != nil {
 		return false, err

@@ -252,25 +252,8 @@ message SignData{
 
 
 message ConsensusGroupInitSummary{
-
-    required  bytes ParentID  = 1;
-    required  bytes PrevGroupID  = 2;
-
-	required  uint64  Authority = 3;
-
-	required  bytes   Name = 4;
-
-	required  bytes   DummyID = 5;
-
-	required uint64    Members =6;
-	required bytes    BeginTime =7;
-	required bytes    MemberHash =8;
-	required bytes    Signature =9;
-    required uint64     GetReadyHeight=10;
-	required uint64     BeginCastHeight=11;
-	required uint64     DismissHeight=12;
-	required uint64     TopHeight=13;
-	required bytes    Extends =14;
+    required GroupHeader Header = 1;
+	required bytes    Signature = 2;
 }
 
 message PubKeyInfo{
@@ -279,12 +262,13 @@ message PubKeyInfo{
 
       required bytes PublicKey = 2;
 }
-
+message ConsensusGroupInitInfo{
+    required ConsensusGroupInitSummary GI = 1;
+	repeated  bytes Mems  = 2;
+}
 
 message ConsensusGroupRawMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
-
-    repeated  PubKeyInfo Ids  = 2;
+    required ConsensusGroupInitInfo GInfo = 1;
 
     required SignData sign = 3;
 
@@ -297,28 +281,24 @@ message SharePiece {
 }
 
 message ConsensusSharePieceMessage{
-    required bytes GISHash = 1;
+    required bytes GHash = 1;
 
-    required bytes DummyID = 2;
+    required bytes Dest = 2;
 
-    required bytes Dest = 3;
+    required SharePiece  SharePiece = 3;
 
-    required SharePiece  SharePiece = 4;
-
-    required SignData  Sign = 5;
+    required SignData  Sign = 4;
 
 }
 
 message ConsensusSignPubKeyMessage{
-    required bytes GISHash = 1;
+    required bytes GHash = 1;
 
-    required bytes DummyID = 2;
+    required bytes	SignPK  = 2;
 
-    required bytes	SignPK  = 3;
+    required SignData 	SignData = 3;
 
-    required SignData 	SignData = 4;
-
-    required bytes  GISSign = 5;
+    required bytes  GSign = 4;
 
 }
 
@@ -330,15 +310,17 @@ message StaticGroupSummary{
 
     required bytes GroupPK  = 2;
 
-    required ConsensusGroupInitSummary Gis  = 3;
+    required bytes GHash  = 3;
 
 }
 
 message ConsensusGroupInitedMessage{
 
-    required StaticGroupSummary StaticGroupSummary = 1;
+    required bytes GHash = 1;
+    required bytes GroupID = 2;
+    required bytes GroupPK = 3;
 
-    required SignData Sign = 2;
+    required SignData Sign = 4;
 }
 
 message ConsensusCurrentMessage{
@@ -371,17 +353,14 @@ message ConsensusBlockMessage{
 
 
 message ConsensusCreateGroupRawMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
+    required ConsensusGroupInitInfo GInfo = 1;
 
-    repeated  bytes Ids  = 2;
-
-    required SignData sign = 3;
+    required SignData sign = 2;
 
 }
 
 message ConsensusCreateGroupSignMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
-
+    required bytes      GHash =1;
     required SignData sign = 2;
 
 }

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"time"
 	"math/big"
+	"bytes"
 )
 
 const (
@@ -254,6 +255,24 @@ type GroupHeader struct {
 	WorkHeight uint64 //组开始参与铸块的高度
 	DismissHeight uint64 //组解散的高度
 	Extends string //带外数据
+}
+
+func (gh *GroupHeader) GenHash() common.Hash {
+	buf := bytes.Buffer{}
+	buf.Write(gh.Parent)
+	buf.Write(gh.PreGroup)
+	buf.Write(common.Uint64ToByte(gh.Authority))
+	buf.WriteString(gh.Name)
+
+	bt, _ := gh.BeginTime.MarshalBinary()
+	buf.Write(bt)
+	buf.Write(gh.MemberRoot.Bytes())
+	buf.Write(common.Uint64ToByte(gh.CreateHeight))
+	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
+	buf.Write(common.Uint64ToByte(gh.WorkHeight))
+	buf.Write(common.Uint64ToByte(gh.DismissHeight))
+	buf.WriteString(gh.Extends)
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
 type Group struct {

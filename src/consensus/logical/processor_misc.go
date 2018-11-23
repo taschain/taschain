@@ -72,7 +72,7 @@ func (p *Processor) prepareMiner() {
 			sgi = NewSGIFromCoreGroup(genesis)
 		}
 		groups = append(groups, sgi)
-		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
+		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
@@ -125,23 +125,27 @@ func (p *Processor) releaseRoutine() bool {
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
 		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", gid.ShortS())
-		p.NetServer.ReleaseGroupNet(gid)
+		p.NetServer.ReleaseGroupNet(gid.GetHexString())
 	}
 
 	//释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
-		if gc.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", gc.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(gc.gis.DummyID)
-			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
+		gis := &gc.gInfo.GI
+		gHash := gis.GetHash()
+		if gis.ReadyTimeout(topHeight) {
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joiningGroups gHash ", gHash.ShortS())
+			p.NetServer.ReleaseGroupNet(gHash.Hex())
+			p.joiningGroups.RemoveGroup(gHash)
 		}
 		return true
 	})
 	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
-		if cg.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", cg.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(cg.gis.DummyID)
-			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
+		gis := &cg.gInfo.GI
+		gHash := gis.GetHash()
+		if gis.ReadyTimeout(topHeight) {
+			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gHash ", gHash.ShortS())
+			p.NetServer.ReleaseGroupNet(gHash.Hex())
+			p.groupManager.creatingGroups.removeGroup(gHash)
 		}
 		return true
 	})
@@ -230,6 +234,6 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	buf = append(buf, id.Serialize()...)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf after %v", b.Header.Height,id.ShortS(),buf)
 	h := base.Data2CommonHash(buf)
-	log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
+	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
 }

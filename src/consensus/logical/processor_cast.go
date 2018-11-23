@@ -177,13 +177,9 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 		return nil
 	}
 	group := p.GetGroup(*nextId)
-	mems := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		mems[idx] = mem.ID
-	}
 	g := &net.GroupBrief{
 		Gid:    *nextId,
-		MemIds: mems,
+		MemIds: group.GetMembers(),
 	}
 	return g
 }
@@ -224,7 +220,7 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 	}
 
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log("height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+		newHashTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log("height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		gb := p.spreadGroupBrief(bh, bh.Height+1)
 		if gb == nil {
 			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
@@ -312,7 +308,7 @@ func (p *Processor) blockProposal() {
 		return
 	}
 	bh := block.Header
-	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
+	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
 	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
 
@@ -382,7 +378,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
-	tlog := newBlockTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
+	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
 	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
 
 	if slot.SetRewardTrans(tx) {

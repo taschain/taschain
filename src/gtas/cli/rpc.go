@@ -216,18 +216,15 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {
 		gmap["group_id"] = groupsig.DeserializeId(g.Id).ShortS()
-		gmap["dummy"] = false
-	} else {
-		gmap["group_id"] = groupsig.DeserializeId(g.Dummy).ShortS()
-		gmap["dummy"] = true
+		gmap["g_hash"] = g.Header.Hash.ShortS()
 	}
-	gmap["parent"] = groupsig.DeserializeId(g.Parent).ShortS()
-	gmap["pre"] = groupsig.DeserializeId(g.PreGroup).ShortS()
-	gmap["begin_height"] = g.BeginHeight
-	gmap["dismiss_height"] = g.DismissHeight
+	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).ShortS()
+	gmap["pre"] = groupsig.DeserializeId(g.Header.PreGroup).ShortS()
+	gmap["begin_height"] = g.Header.WorkHeight
+	gmap["dismiss_height"] = g.Header.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr :=  groupsig.DeserializeId(mem.Id).GetHexString()
+		memberStr :=  groupsig.DeserializeId(mem).GetHexString()
 		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
@@ -262,17 +259,18 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	ret := make([]map[string]interface{}, 0)
 
 	for _, g := range groups {
+		gh := g.GInfo.GI.GHeader
 		gmap := make(map[string]interface{})
 		gmap["id"] = g.GroupID.ShortS()
 		gmap["parent"] = g.ParentId.ShortS()
 		gmap["pre"] = g.PrevGroupID.ShortS()
 		mems := make([]string, 0)
-		for _, mem := range g.Members {
-			mems = append(mems, mem.ID.ShortS())
+		for _, mem := range g.GetMembers() {
+			mems = append(mems, mem.ShortS())
 		}
 		gmap["group_members"] = mems
-		gmap["begin_height"] = g.BeginHeight
-		gmap["dismiss_height"] = g.DismissHeight
+		gmap["begin_height"] = gh.WorkHeight
+		gmap["dismiss_height"] = gh.DismissHeight
 		ret = append(ret, gmap)
 	}
 	return &Result{"success", ret}, nil

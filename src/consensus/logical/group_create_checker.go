@@ -6,6 +6,8 @@ import (
 	"consensus/base"
 	"math/big"
 	"middleware/types"
+	"time"
+	"fmt"
 )
 
 /*
@@ -36,7 +38,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 	biHash := hash.Big()
 
 	var index int32 = -1
-	mem := len(group.Members)
+	mem := group.GetMemberCount()
 	if biHash.BitLen() > 0 {
 		index = int32(biHash.Mod(biHash, big.NewInt(int64(mem))).Int64())
 	}
@@ -47,7 +49,12 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 	return group.GetMemberID(int(index))
 }
 
-//检查当前用户是否是属于建组的组, 返回组id
+
+/**
+* @Description:  检查是否开始建组
+* @Param:
+* @return:  create 当前是否应该建组, sgi 当前应该启动建组的组，即父亲组， castor 发起建组的组内成员， theBH 基于哪个块建组
+*/
 func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader) {
 	blog := newBizLog("checkCreateGroup")
 	defer func() {
@@ -67,21 +74,18 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	}
 
 	castGID := groupsig.DeserializeId(theBH.GroupId)
-	if !gchecker.processor.IsMinerGroup(castGID) {
-		return
-	}
 	sgi = gchecker.processor.GetGroup(castGID)
 	if !sgi.CastQualified(topHeight) {
 		return
 	}
 	castor = gchecker.selectKing(theBH, sgi)
-	blog.log("topHeight=%v, king=%v", topHeight, castor.ShortS())
+	blog.log("topHeight=%v, group=%v, king=%v", topHeight, sgi.GroupID.ShortS(), castor.ShortS())
 	create = true
 	return
 }
 
 
-func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, height uint64) (enough bool, cands []model.PubKeyInfo) {
+func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, height uint64) (enough bool, cands []groupsig.ID) {
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
 	allCandidates := gchecker.access.getCanJoinGroupMinersAt(height)
@@ -119,36 +123,50 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	rand := base.RandFromBytes(theBH.Random)
 	seqs := rand.RandomPerm(num, model.Param.GetGroupMemberNum())
 
-	result := make([]model.PubKeyInfo, len(seqs))
+	result := make([]groupsig.ID, len(seqs))
 	for i, seq := range seqs {
-		result[i] = model.NewPubKeyInfo(candidates[seq].ID, candidates[seq].PK)
+		result[i] = candidates[seq].ID
 	}
 
 	str := ""
 	for _, id := range result {
-		str += id.ID.ShortS() + ","
+		str += id.ShortS() + ","
 	}
 	blog.log("=============selectCandidates %v", str)
 	return true, result
 }
 
+func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int) {
+	create, group, _, theBH := checker.checkCreateGroup(createHeight)
+	//指定高度不能建组
+	if !create {
+		return
+	}
+	if !group.GroupID.IsValid() {
+		panic("create group init summary failed")
+	}
+	//是否有足够候选人
+	enough, memIds := checker.selectCandidates(theBH, createHeight)
+	if !enough {
+		return
+	}
 
-func (gchecker *GroupCreateChecker) CheckGIS(gis *model.ConsensusGroupInitSummary, isGroupMember bool) bool {
-	//topGroup := gchecker.groupChain.LastGroup()
-	//topBH := gchecker.mainChain.QueryTopBlock()
-	//
-	//blog := newBizLog("CheckGIS")
-	//deltaH := topBH.Height - gis.TopHeight
-	//if deltaH < 0 || deltaH >= model.Param.CreateGroupInterval {
-	//	blog.log("topHeight error. topHeight=%v, gis topHeight=%v",  topBH.Height, gis.TopHeight)
-	//	return false
-	//}
-	//
-	//create, group, bh := gchecker.checkCreateGroup(gis.TopHeight)
-	//if group == nil {
-	//	log.Printf("CheckGIS")
-	//	return false
-	//}
+	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
 
-	return true
+	gh = &types.GroupHeader{
+		Parent: group.GroupID.Serialize(),
+		PreGroup: lastGroup.Id,
+		Name: gn,
+		Authority: 777,
+		BeginTime: time.Now(),
+		CreateHeight: createHeight,
+		ReadyHeight: createHeight + model.Param.GroupGetReadyGap,
+		MemberRoot: model.GenMemberRootByIds(memIds),
+		Extends: "",
+	}
+	gh.WorkHeight = gh.ReadyHeight + model.Param.GroupCastQualifyGap
+	gh.DismissHeight = gh.WorkHeight + model.Param.GroupCastDuration
+
+	gh.Hash = gh.GenHash()
+	return gh, memIds, model.Param.GetGroupK(group.GetMemberCount())
 }

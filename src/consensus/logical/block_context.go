@@ -46,7 +46,7 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 	bc := &BlockContext{
 		Proc:               p,
 		MinerID:            model.NewGroupMinerID(sgi.GroupID, p.GetMinerID()),
-		GroupMembers:       len(sgi.Members),
+		GroupMembers:       sgi.GetMemberCount(),
 		vctxs:              make(map[uint64]*VerifyContext),
 		Version:            model.CONSENSUS_VERSION,
 		verifyCnt:          0,

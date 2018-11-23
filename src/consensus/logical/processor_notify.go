@@ -17,7 +17,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	p.removeFutureVerifyMsgs(hash)
 	mtype := "FUTURE_VERIFY"
 	for _, msg := range futures {
-		tlog := newBlockTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
+		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
 		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype))
 		if err != nil {
@@ -49,7 +49,7 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 //	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 //	for _, msg := range futureMsgs {
 //		tbh := msg.Block.Header
-//		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+//		tlog := newHashTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
 //		tlog.log( "%v", "trigger cached future block")
 //		p.receiveBlock(&msg.Block, preBH)
 //	}

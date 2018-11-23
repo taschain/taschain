@@ -105,11 +105,8 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 	if !group.GroupID.IsValid() {
 		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
 	}
-	memIds := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		memIds[idx] = mem.ID
-	}
-	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, memIds); root == bh.ProveRoot {
+
+	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 		return true, nil
 	} else {
 		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveValue, root))

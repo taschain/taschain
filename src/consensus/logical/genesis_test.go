@@ -14,7 +14,7 @@ import (
 	"consensus/base"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/pre`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/local_test`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -89,15 +89,16 @@ func TestGenesisGroup(t *testing.T) {
 
 	procs, _ := processors()
 
-	mems := make([]model.PubKeyInfo, 0)
+	mems := make([]groupsig.ID, 0)
 	for _, proc := range procs {
-		mems = append(mems, proc.GetPubkeyInfo())
+		mems = append(mems, proc.GetMinerID())
 	}
-	gis := GenGenesisGroupSummary()
-	gis.WithMemberPubs(mems)
+	gh := generateGenesisGroupHeader(mems)
+	gis := &model.ConsensusGroupInitSummary{
+		GHeader: gh,
+	}
 	grm := &model.ConsensusGroupRawMessage{
-		GI: gis,
-		MEMS: mems,
+		GInfo: model.ConsensusGroupInitInfo{GI:*gis, Mems:mems},
 	}
 
 	procSpms := make(map[string][]*model.ConsensusSharePieceMessage)
@@ -105,10 +106,6 @@ func TestGenesisGroup(t *testing.T) {
 	model.Param.GroupMember = len(mems)
 
 	for _, p := range procs {
-		staticGroupInfo := new(StaticGroupInfo)
-		staticGroupInfo.GIS = grm.GI
-		staticGroupInfo.Members = grm.MEMS
-
 		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
 			//dummy 组写入组链 add by 小熊
@@ -126,8 +123,7 @@ func TestGenesisGroup(t *testing.T) {
 			var dest groupsig.ID
 			dest.SetHexString(id)
 			spm := &model.ConsensusSharePieceMessage{
-				GISHash: grm.GI.GenHash(),
-				DummyID: grm.GI.DummyID,
+				GHash: grm.GInfo.GroupHash(),
 				Dest: dest,
 				Share: share,
 			}
@@ -142,16 +138,15 @@ func TestGenesisGroup(t *testing.T) {
 	for id, spms := range procSpms {
 		p := procs[id]
 		for _, spm := range spms {
-			gc := p.joiningGroups.GetGroup(spm.DummyID)
+			gc := p.joiningGroups.GetGroup(spm.GHash)
 			ret := gc.PieceMessage(spm)
 			if ret == 1 {
 				jg := gc.GetGroupInfo()
 				msg := &model.ConsensusSignPubKeyMessage{
-					GISHash: spm.GISHash,
-					DummyID: spm.DummyID,
+					GHash: spm.GHash,
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
 				}
-				msg.GenGISSign(jg.SignKey)
+				msg.GenGSign(jg.SignKey)
 				msg.SI.SignMember = p.GetMinerID()
 				spks[id] = msg
 			}
@@ -162,17 +157,17 @@ func TestGenesisGroup(t *testing.T) {
 
 	for id, p := range procs {
 		for _, spkm := range spks {
-			gc := p.joiningGroups.GetGroup(spkm.DummyID)
+			gc := p.joiningGroups.GetGroup(spkm.GHash)
 			if gc.SignPKMessage(spkm) == 1 {
 				jg := gc.GetGroupInfo()
 				log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
 				p.joinGroup(jg, true)
-				var msg = new(model.ConsensusGroupInitedMessage)
+				var msg = &model.ConsensusGroupInitedMessage{
+					GHash: spkm.GHash,
+					GroupID: jg.GroupID,
+					GroupPK: jg.GroupPK,
+				}
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
-				msg.GI.GIS = gc.gis
-				msg.GI.GroupID = jg.GroupID
-				msg.GI.GroupPK = jg.GroupPK
-
 				msg.GenSign(ski, msg)
 
 				initedMsgs[id] = msg
@@ -182,9 +177,9 @@ func TestGenesisGroup(t *testing.T) {
 
 	for _, p := range procs {
 		for _, msg := range initedMsgs {
-			initingGroup := p.globalGroups.GetInitingGroup(msg.GI.GIS.DummyID)
-			if p.globalGroups.GroupInitedMessage(&msg.GI, msg.SI.SignMember, 0) == INIT_SUCCESS {
-				staticGroup := NewSGIFromStaticGroupSummary(&msg.GI, initingGroup)
+			initingGroup := p.globalGroups.GetInitingGroup(msg.GHash)
+			if p.globalGroups.GroupInitedMessage(msg, 0) == INIT_SUCCESS {
+				staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initingGroup)
 				add := p.globalGroups.AddStaticGroup(staticGroup)
 				if add {
 					//p.groupManager.AddGroupOnChain(staticGroup, false)
@@ -216,12 +211,15 @@ func TestGenesisGroup(t *testing.T) {
 			genesis := new(genesisGroup)
 			genesis.Group = *sgi
 
-			vrfpks := make(map[string]base.VRFPublicKey, 0)
-			for _, mem := range sgi.Members {
-				_p := procs[mem.ID.GetHexString()]
-				vrfpks[mem.ID.GetHexString()]= _p.mi.VrfPK
+			vrfpks := make([]base.VRFPublicKey, sgi.GetMemberCount())
+			pks := make([]groupsig.Pubkey, sgi.GetMemberCount())
+			for i, mem := range sgi.GetMembers() {
+				_p := procs[mem.GetHexString()]
+				vrfpks[i]= _p.mi.VrfPK
+				pks[i] = _p.mi.GetDefaultPubKey()
 			}
 			genesis.VrfPK = vrfpks
+			genesis.Pks = pks
 
 			log.Println("=======", id, "============")
 			sgiByte, _ := json.Marshal(genesis)
