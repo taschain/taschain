@@ -39,12 +39,13 @@ func TestVmStringParse(t *testing.T){
 }
 
 func TestExecutedVmSucceed(t *testing.T){
-
-	if !ExecutedVmSucceed("1|2|dd"){
+	isSuccess,_ := ExecutedVmSucceed("1|2|dd")
+	if !isSuccess{
 		t.Fatal("should Succeed")
 	}
 
-	if ExecutedVmSucceed("4|2|dd"){
+	isSuccess,_ = ExecutedVmSucceed("4|2|dd")
+	if isSuccess{
 		t.Fatal("should Succeed")
 	}
 

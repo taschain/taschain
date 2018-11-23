@@ -34,12 +34,12 @@ func vmStringParse(original string) *[3]string {
 	return result
 }
 
-func ExecutedVmSucceed(original string) bool {
+func ExecutedVmSucceed(original string) (bool,string) {
 	parsed := vmStringParse(original)
 	if parsed[0] == "4" {
-		return false
+		return false,parsed[2]
 	} else {
-		return true
+		return true,""
 	}
 
 }
