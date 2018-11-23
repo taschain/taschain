@@ -109,6 +109,7 @@ func (wsep *WsEventPublisher) addEventSubscribe(contract common.Address, wh *WsH
 
 func (wsep *WsEventPublisher) addTransactionSubscribe(transaction common.Hash, wh *WsHolder){
 	wsep.transactionPushCache.Add(transaction, wh)
+	log.Printf("WsEventPublisher addTransactionSubscribe %s", transaction.Hex())
 }
 
 
@@ -123,6 +124,7 @@ func (wsep *WsEventPublisher) leave(wh *WsHolder){
 }
 
 func (wsep *WsEventPublisher) PublishTransaction(receipt *types.Receipt, err *t.TransactionError){
+	log.Printf("WsEventPublisher PublishTransaction %v %v", receipt, err)
 	if c,ok := wsep.transactionPushCache.Get(receipt.TxHash);ok{
 		holder := c.(*WsHolder)
 		resp := &PushResponse{Value:receipt, Type:TransactionEvent, Error:err}
@@ -137,10 +139,10 @@ func (wsep *WsEventPublisher) PublishTransaction(receipt *types.Receipt, err *t.
 }
 
 func (wsep *WsEventPublisher) PublishEvent(tlog *types.Log){
-	log.Printf("PublishEvent %s %v", tlog.Address.GetHexString(),tlog.Topics)
+	log.Printf("WsEventPublisher PublishEvent %s %v", tlog.Address.GetHexString(),tlog.Topics)
 	wsep.lock.RLock()
 	defer wsep.lock.RUnlock()
-	log.Printf("subscribeLogMap %+v", wsep.subscribeLogMap)
+
 	if s,ok := wsep.subscribeLogMap[tlog.Address];ok{
 		s.Each(func(i interface{}) bool {
 			holder := i.(*WsHolder)
@@ -191,11 +193,11 @@ func loop(holder *WsHolder)  {
 		var req EventSubscribeReq
 		err := holder.socket.ReadJSON(&req)
 		if err != nil {
-			logger.Error(err)
+			log.Printf("WsEventPublisher ReadJSON %v",err)
 			go holder.close()
 			return
 		}
-		log.Printf("receive %+v", req)
+		log.Printf("WsEventPublisher receive %+v", req)
 		switch req.Type{
 		case LogWatch:
 			var arg common.Hash
@@ -208,7 +210,7 @@ func loop(holder *WsHolder)  {
 		case TransactionWatch:
 			var arg common.Hash
 			if req.Argument != ""{
-				arg = common.BytesToHash(common.Sha256([]byte(req.Argument)))
+				arg = common.HexToHash(req.Argument)
 			}
 			if !common.EmptyHash(arg){
 				EventPublisher.addTransactionSubscribe(arg, holder)
@@ -219,9 +221,10 @@ func loop(holder *WsHolder)  {
 
 func serveEventRequest(w http.ResponseWriter,r *http.Request){
 	ws, err := upgrader.Upgrade(w, r, nil)
+	log.Printf("WsEventPublisher serveEventRequest connect")
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
-			logger.Error(err)
+			log.Printf("WsEventPublisher HandshakeError %v",err)
 		}
 		return
 	}

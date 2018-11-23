@@ -19,6 +19,8 @@ package types
 import (
 	"fmt"
 	"math/big"
+	"reflect"
+	"utility"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -26,6 +28,8 @@ import (
 type bytesBacked interface {
 	Bytes() []byte
 }
+
+var bloomT = reflect.TypeOf(Bloom{})
 
 const (
 	// BloomByteLength represents the number of bytes used in a header log bloom.
@@ -81,14 +85,14 @@ func (b Bloom) TestBytes(test []byte) bool {
 }
 
 // MarshalText encodes b as a hex string with 0x prefix.
-//func (b Bloom) MarshalText() ([]byte, error) {
-//	return hexutil.Bytes(b[:]).MarshalText()
-//}
-//
-//// UnmarshalText b as a hex string with 0x prefix.
-//func (b *Bloom) UnmarshalText(input []byte) error {
-//	return hexutil.UnmarshalFixedText("Bloom", input, b[:])
-//}
+func (b Bloom) MarshalText() ([]byte, error) {
+	return utility.Bytes(b[:]).MarshalText()
+}
+
+// UnmarshalText b as a hex string with 0x prefix.
+func (b *Bloom) UnmarshalText(input []byte) error {
+	return utility.UnmarshalFixedJSON(bloomT, input, b[:])
+}
 
 func CreateBloom(receipts Receipts) Bloom {
 	bin := new(big.Int)

@@ -447,7 +447,6 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	}
 
 	// Process block using the parent state as reference point.
-	var errs []*types.TransactionError
 	statehash, receipts, errs := chain.executor.Execute(state, block, chain.voteProcessor)
 
 	// 准确执行了的交易，入块
@@ -582,6 +581,7 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 	chain.blockCache.Add(bh.Hash, &castingBlock{
 		state:    state,
 		receipts: receipts,
+		errs: errs,
 	})
 	//return nil, 0, state, receipts
 	return nil, 0, state, nil, errs
