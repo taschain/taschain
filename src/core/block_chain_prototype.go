@@ -318,10 +318,6 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 		return
 	}
 
-	if chainPiece[0].Height < chain.latestBlock.Height {
-		return
-	}
-
 	if !chain.verifyChainPiece(chainPiece, topHeader) {
 		return
 	}
@@ -354,8 +350,13 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 			RequestBlock(id, commonAncestor.Height+1)
 		}
 	} else {
-		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
-		RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
+		if index == 0 {
+			Logger.Debugf("[BlockChain]Local chain is same with coming chain piece. Ignore it!")
+			return
+		} else {
+			Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
+			RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
+		}
 	}
 }
 
@@ -438,10 +439,10 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 }
 
 func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader, l int, r int) (*types.BlockHeader, bool, int) {
-
-	if l > r || r < 0 || l >= len(chainPiece) {
+	if l > r {
 		return nil, false, -1
 	}
+
 	m := (l + r) / 2
 	result := chain.isCommonAncestor(chainPiece, m)
 	if result == 0 {
@@ -455,6 +456,9 @@ func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader,
 	if result == -1 {
 		return chain.findCommonAncestor(chainPiece, m+1, r)
 	}
+	if result == 100 {
+		return nil, false, 0
+	}
 	return nil, false, -1
 }
 
@@ -462,6 +466,7 @@ func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader,
 //返回值
 // 0  当前HASH相等，后面一块HASH不相等 是共同祖先
 //1   当前HASH相等，后面一块HASH相等
+//100  当前HASH相等，但是到达数组边界，找不到后面一块 无法判断同祖先
 //-1  当前HASH不相等
 //-100 参数不合法
 func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, index int) int {
@@ -477,7 +482,7 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 	}
 	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
-		return 0
+		return 100
 	}
 	if index == 0 {
 		return -1
