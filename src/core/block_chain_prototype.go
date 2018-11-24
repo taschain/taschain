@@ -351,7 +351,12 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 		}
 	} else {
 		if index == 0 {
-			Logger.Debugf("[BlockChain]Local chain is same with coming chain piece. Ignore it!")
+			Logger.Debugf("[BlockChain]Local chain is same with coming chain piece.")
+			if chainPiece[0].Height == chain.latestBlock.Height {
+				RequestBlock(id, chainPiece[0].Height+1)
+				return
+			}
+			Logger.Debugf("[BlockChain]Local height is more than chainPiece[0].Height. Ignore it!")
 			return
 		} else {
 			Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
