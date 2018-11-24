@@ -33,6 +33,7 @@ import (
 	"consensus/logical"
 	"middleware/types"
 	"yunkuai"
+	"bytes"
 )
 
 // GtasAPI is a single-method API handler to be returned by test services.
@@ -40,16 +41,25 @@ type GtasAPI struct {
 }
 
 // 云块交易接口
+// 加入版本号的控制
 func (api *GtasAPI) L(data string, extradata []byte) *Result {
-	if yunkuai.GetYunKuaiProcessor().Contains(data) {
-		return &Result{
-			Message: fmt.Sprintf("duplicated key"),
-			Success: false,
+
+	// 先判断提交内容是否重复
+	result := api.S(data)
+	if nil != result && nil != result.Data {
+		txDetail := result.Data.(map[string]interface{})
+		existed := txDetail["ExtraData"].([]byte)
+		if 0 == bytes.Compare(existed, extradata) {
+			return &Result{
+				Message: fmt.Sprintf("data existed: %s", data),
+				Success: false,
+			}
 		}
 	}
 
 	addr_s := common.BytesToAddress([]byte(yunkuai.Yunkuai_s))
 	addr_t := common.BytesToAddress([]byte(yunkuai.Yunkuai_t))
+	data = yunkuai.GetYunKuaiProcessor().GenerateNewKey(data)
 
 	tx := &types.Transaction{
 		Data:   []byte(data),
@@ -86,19 +96,20 @@ func (api *GtasAPI) L(data string, extradata []byte) *Result {
 
 // 云块交易查询接口
 func (api *GtasAPI) S(index string) *Result {
-	if !yunkuai.GetYunKuaiProcessor().Contains(index) {
+	version := yunkuai.GetYunKuaiProcessor().GenerateLastestKey(index)
+	if !yunkuai.GetYunKuaiProcessor().Contains(version) {
 		return &Result{
 			Message: fmt.Sprintf("not existed: %s", index),
 			Success: false,
 		}
 	}
 
-	hash := yunkuai.GetYunKuaiProcessor().Get(index)
+	hash := yunkuai.GetYunKuaiProcessor().Get(version)
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	tx, _ := txpool.GetTransaction(common.BytesToHash(hash))
 	if nil == tx {
 		return &Result{
-			Message: fmt.Sprintf("not existed: %s", index),
+			Message: fmt.Sprintf("not existed: %s", version),
 			Success: false,
 		}
 	}
@@ -108,7 +119,7 @@ func (api *GtasAPI) S(index string) *Result {
 	txDetail["ExtraData"] = tx.ExtraData
 	txDetail["ExtraDataType"] = tx.ExtraDataType
 	return &Result{
-		Message: fmt.Sprintf("existed: %s", index),
+		Message: fmt.Sprintf("existed: %s", version),
 		Data:    txDetail,
 		Success: true,
 	}

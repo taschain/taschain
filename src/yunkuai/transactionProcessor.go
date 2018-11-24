@@ -6,12 +6,14 @@ import (
 	"core/datasource"
 	"middleware/notify"
 	"middleware/types"
+	"bytes"
 )
 
 const Yunkuai_DataType = 75585
 const Yunkuai_s = "yunkuai_s"
 const Yunkuai_t = "yunkuai_t"
 const yunkuai = "yunkuai"
+const yunkuai_version = "yunkuai_version"
 
 var (
 	instanceLock = sync.RWMutex{}
@@ -24,8 +26,10 @@ func GetYunKuaiProcessor() *YunKuaiProcessor {
 		defer instanceLock.Unlock()
 
 		index, _ := datasource.NewDatabase(yunkuai)
+		version, _ := datasource.NewDatabase(yunkuai_version)
 		instance = &YunKuaiProcessor{
-			index: index,
+			index:   index,
+			version: version,
 		}
 
 	}
@@ -34,7 +38,8 @@ func GetYunKuaiProcessor() *YunKuaiProcessor {
 }
 
 type YunKuaiProcessor struct {
-	index tasdb.Database
+	index   tasdb.Database
+	version tasdb.Database
 }
 
 func (y *YunKuaiProcessor) AfterBlockOnBlock(message notify.Message) {
@@ -66,4 +71,37 @@ func (y *YunKuaiProcessor) Get(index string) []byte {
 	data, _ := y.index.Get([]byte(index))
 
 	return data
+}
+
+func (y *YunKuaiProcessor) getVersion(index string) byte {
+	data, e := y.version.Get([]byte(index))
+	if e != nil || nil == data {
+		return 0
+	}
+
+	return data[0]
+}
+
+func (y *YunKuaiProcessor) GenerateLastestKey(index string) string {
+	version := y.getVersion(index)
+
+	var buf bytes.Buffer
+	buf.WriteString(index)
+	buf.WriteByte(version)
+	return buf.String()
+
+}
+
+func (y *YunKuaiProcessor) GenerateNewKey(index string) string {
+	version := y.getVersion(index) + 1
+
+	data := make([]byte, 1)
+	data[0] = version
+	y.version.Put([]byte(index), data)
+
+	var buf bytes.Buffer
+	buf.WriteString(index)
+	buf.WriteByte(version)
+	return buf.String()
+
 }
