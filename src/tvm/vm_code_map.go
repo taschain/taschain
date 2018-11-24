@@ -1,6 +1,9 @@
 package tvm
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func PycodeStoreContractData(contractName string) string {
 	return fmt.Sprintf(`
@@ -8,12 +11,13 @@ TasBaseStorage.flushData()
 `)
 }
 
-func PycodeCreateContractInstance(code string, contractName string) string {
-	newCode:= fmt.Sprintf(`
+func PycodeCreateContractInstance(code string, contractName string) (string,int) {
+	trueCode,libLine:=PycodeGetTrueUserCode(code)
+		newCode:= fmt.Sprintf(`
 %s
 %s
-tas_%s = %s()`, PycodeGetTrueUserCode(code), PycodeContractAddHooks(contractName),contractName, contractName)
-	return newCode
+tas_%s = %s()`, trueCode, PycodeContractAddHooks(contractName),contractName, contractName)
+	return newCode,libLine
 }
 
 func PycodeContractImports()string{
@@ -44,16 +48,15 @@ func PycodeContractDeployHooks(contractName string)string{
 	`,getAttributeHook,setAttributeHook)
 }
 
-func PycodeGetTrueUserCode(code string)string{
-	usercode:=fmt.Sprintf(`
-%s
-%s
-	`,PycodeContractImports(),code)
-	return usercode
+func PycodeGetTrueUserCode(code string)(string,int){
+	codeLen := calCodeLines(PycodeContractImports())
+	usercode:=fmt.Sprintf(`%s%s`,PycodeContractImports(),code)
+	return usercode,codeLen
 }
 
 
-func PycodeContractDeploy(code string, contractName string) string {
+func PycodeContractDeploy(code string, contractName string) (string,int) {
+	trueCode,libLine:= PycodeGetTrueUserCode(code)
 	invokeDeploy:=fmt.Sprintf(`
 tas_%s = %s()
 `, contractName, contractName)
@@ -62,8 +65,8 @@ tas_%s = %s()
 %s
 %s
 %s
-`, PycodeGetTrueUserCode(code),PycodeContractDeployHooks(contractName),invokeDeploy)
-	return allContractCode
+`, trueCode,PycodeContractDeployHooks(contractName),invokeDeploy)
+	return allContractCode,libLine
 
 }
 
@@ -519,4 +522,7 @@ class TasCollectionStorage:
                 account.set_data(newKey, TasCollectionStorage.tasJson.encodeValue(1,self.writeData[k]))
 `
 	return code
+}
+func calCodeLines(code string)int{
+	return strings.Count(code,"\n")+1
 }

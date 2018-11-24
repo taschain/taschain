@@ -43,7 +43,7 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,s
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	errorCodeDeploy,errorDeployMsg := con.Vm.Deploy(msg)
+	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
 	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
 	con.Vm.DelTvm()
 	if errorCodeDeploy != 0 {
@@ -68,7 +68,6 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*t.Log,*types.TransactionError) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
-
 	defer func() {
 		con.Vm.DelTvm()
 		con.GasLeft = uint64(con.Vm.Gas())
@@ -83,7 +82,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		}
 	}
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	errorCode,errorMsg := con.Vm.CreateContractInstance(msg)
+	errorCode,errorMsg,libLen := con.Vm.CreateContractInstance(msg)
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
@@ -94,6 +93,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
+	con.Vm.SetLibLine(libLen)
 	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false))//execute
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)

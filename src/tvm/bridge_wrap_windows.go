@@ -288,7 +288,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	errorCode,errorMsg := controller.Vm.CreateContractInstance(msg)
+	errorCode,errorMsg,_ := controller.Vm.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return errorMsg
 	}
@@ -408,6 +408,11 @@ func (tvm *Tvm) SetGas(gas int) {
 	C.tvm_set_gas(C.int(gas))
 }
 
+
+func (tvm *Tvm) SetLibLine(line int) {
+	C.tvm_set_lib_line(C.int(line))
+}
+
 func (tvm *Tvm) Pycode2bytecode(str string) {
 	C.pycode2bytecode(C.CString(str))
 }
@@ -459,13 +464,14 @@ type Msg struct {
 	Sender string
 }
 
-func (tvm *Tvm) CreateContractInstance(msg Msg) (int,string) {
+func (tvm *Tvm) CreateContractInstance(msg Msg) (int,string,int) {
 	errorCode,errorMsg := tvm.loadMsg(msg)
 	if errorCode!= 0 {
-		return errorCode,errorMsg
+		return errorCode,errorMsg,0
 	}
-	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	return tvm.Execute(script)
+	script,codeLen := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
+	errorCode,errorMsg = tvm.Execute(script)
+	return errorCode,errorMsg,codeLen
 }
 
 func (tvm *Tvm) Execute(script string) (int,string) {
@@ -503,9 +509,10 @@ func (tvm *Tvm) Deploy(msg Msg) (int,string)  {
 	if errorCode != 0 {
 		return errorCode,errorMsg
 	}
-
-	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)
-	return tvm.Execute(script)
+	script,libLen := PycodeContractDeploy(tvm.Code, tvm.ContractName)
+	tvm.SetLibLine(libLen)
+	errorCode,errorMsg =  tvm.Execute(script)
+	return errorCode,errorMsg
 }
 
 //合约调用合约时使用，用来创建vm新的上下文

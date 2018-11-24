@@ -49,6 +49,7 @@ void tvm_set_lib_path(const char* path);
 	/***********************/
 
 	void tvm_set_gas(int limit);
+	void tvm_set_lib_line(int limit);
 	int tvm_get_gas();
 	void tvm_gas_report();
 
