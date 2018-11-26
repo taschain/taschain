@@ -344,8 +344,10 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 				return
 			}
 			if chain.compareValue(commonAncestor, remoteNext) {
+				Logger.Debugf("[BlockChain]Local value is great than coming value!")
 				return
 			}
+			Logger.Debugf("[BlockChain]Coming value is great than local value!")
 			chain.removeFromCommonAncestor(commonAncestor)
 			RequestBlock(id, commonAncestor.Height+1)
 		}
@@ -437,6 +439,7 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 	if localValue == nil {
 		time.Sleep(time.Second)
 	}
+	Logger.Debugf("local value is:%v,coming value is:%v", localValue, remoteValue)
 	if localValue.Cmp(remoteValue) >= 0 {
 		return true
 	}
