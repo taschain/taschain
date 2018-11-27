@@ -521,6 +521,12 @@ func (nc *NetCore) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
 	nc.peerManager.OnDisconnected(id, session, p2pCode)
 }
 
+//OnSendWaited 发送队列空闲
+func (nc *NetCore) OnSendWaited(id uint64, session uint32) {
+	nc.peerManager.OnSendWaited(id, session)
+	Logger.Debugf("OnSendWaited netid:%v  session:%v ", id ,session)
+}
+
 //OnChecked 网络类型检查
 func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) {
 	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 8686}, 8686)

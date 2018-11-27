@@ -186,6 +186,30 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	return &Result{"success", blockDetail}, nil
 }
 
+
+func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
+	chain := core.BlockChainImpl
+	b := chain.QueryBlock(height)
+	if b == nil {
+		return  failResult("QueryBlock error")
+	}
+	bh := b.Header
+	block := convertBlockHeader(bh)
+
+	trans := make([]Transaction, 0)
+
+
+	for _, tx := range b.Transactions {
+		trans = append(trans, *convertTransaction(tx))
+	}
+
+	bd := &BlockDetail{
+		Block:        *block,
+		Trans:        trans,
+	}
+	return successResult(bd)
+}
+
 func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	bh := core.BlockChainImpl.QueryTopBlock()
 	blockDetail := make(map[string]interface{})

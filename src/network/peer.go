@@ -33,13 +33,166 @@ const (
 	PeerSourceGroup  PeerSource = 2
 )
 
+type SendPriorityType uint32
+
+const (
+	SendPriorityHigh SendPriorityType = 0
+	SendPriorityMedium  SendPriorityType = 1
+	SendPriorityLow   SendPriorityType = 2
+)
+const MaxSendPriority = 3
+const MaxPendingSend = 5
+
+type SendListItem struct {
+	priority int
+	list     *list.List
+	quota    int
+	curQuota int
+}
+
+func newSendListItem(priority int, quota int) *SendListItem {
+
+	item := &SendListItem{priority: priority, quota: quota, list: list.New()}
+
+	return item
+}
+
+type SendList struct {
+	list          [MaxSendPriority]*SendListItem
+	priorityTable map[uint32]SendPriorityType
+	pendingSend   int
+	totalQuota    int
+	curQuota      int
+}
+
+func newSendList() *SendList {
+	PriorityQuota := [MaxSendPriority]int{5, 3, 2}
+
+	sl := &SendList{}
+
+	for i := 0; i < MaxSendPriority; i++ {
+		sl.list[i] = newSendListItem(i, PriorityQuota[i])
+		sl.totalQuota += PriorityQuota[i]
+	}
+
+	sl.priorityTable = map[uint32]SendPriorityType{
+		BlockInfoNotifyMsg: SendPriorityHigh,
+		ReqBlock: SendPriorityHigh,
+		BlockMsg:SendPriorityHigh,
+		GroupChainCountMsg: SendPriorityHigh,
+		ReqGroupMsg: SendPriorityHigh,
+		GroupMsg: SendPriorityHigh,
+		ChainPieceReq: SendPriorityHigh,
+		ChainPiece: SendPriorityHigh,
+
+		CastVerifyMsg: SendPriorityMedium,
+		VerifiedCastMsg: SendPriorityMedium,
+		ReqTransactionMsg: SendPriorityMedium,
+		TransactionGotMsg: SendPriorityMedium,
+		TransactionMsg: SendPriorityMedium,
+		NewBlockMsg: SendPriorityMedium,
+		CastRewardSignReq: SendPriorityMedium,
+		CastRewardSignGot: SendPriorityMedium,
+
+	}
+
+	return sl
+}
+
+func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
+
+	if peer == nil || packet == nil {
+		return
+	}
+	priority, isExist := sendList.priorityTable[uint32(code)]
+	if !isExist {
+		priority = MaxSendPriority - 1
+	}
+	sendListItem := sendList.list[priority]
+	sendListItem.list.PushBack(packet)
+
+	//Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
+
+	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
+	sendList.autoSend(peer)
+}
+
+func (sendList *SendList) isSendAvailable() bool {
+	return sendList.pendingSend < MaxPendingSend
+}
+
+func (sendList *SendList) autoSend(peer *Peer) {
+
+	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
+
+	if peer.seesionId == 0 || !sendList.isSendAvailable() {
+		return
+	}
+
+	remain :=0
+	for i := 0; i < MaxSendPriority && sendList.isSendAvailable() ; i++ {
+		item := sendList.list[i]
+		//Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
+
+		for item.list.Len() > 0 && sendList.isSendAvailable() {
+			e := item.list.Front()
+			if e != nil &&  e.Value ==nil{
+				item.list.Remove(e)
+				break
+			}
+			buf := e.Value.(*bytes.Buffer)
+			P2PSend(peer.seesionId, buf.Bytes())
+			item.list.Remove(e)
+			sendList.pendingSend += 1
+
+			item.curQuota += 1
+			sendList.curQuota += 1
+
+			//Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
+
+
+			if item.curQuota >= item.quota {
+				//Logger.Debugf("SendList.autoSend  item.curQuota >= item.quota break")
+				break
+			}
+		}
+		remain += item.list.Len()
+		if sendList.curQuota >= sendList.totalQuota {
+			//Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
+			sendList.resetQuota()
+		}
+
+	}
+	if remain > 0 && sendList.isSendAvailable() {
+		//Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
+
+		sendList.resetQuota()
+		sendList.autoSend(peer)
+	}
+	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
+
+}
+
+
+func (sendList *SendList) resetQuota() {
+
+	sendList.curQuota = 0
+
+	for i := 0; i < MaxSendPriority; i++ {
+		item := sendList.list[i]
+		item.curQuota = 0
+	}
+
+}
+
+
 //Peer 节点连接对象
 type Peer struct {
 	Id         NodeID
 	seesionId  uint32
 	Ip         nnet.IP
 	Port       int
-	sendList   *list.List
+	sendList   *SendList
 	recvList   *list.List
 	expiration uint64
 	mutex      sync.RWMutex
@@ -49,7 +202,7 @@ type Peer struct {
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
 
-	p := &Peer{Id: Id, seesionId: seesionId, sendList: list.New(), recvList: list.New(), source: PeerSourceUnkown}
+	p := &Peer{Id: Id, seesionId: seesionId, sendList: newSendList(), recvList: list.New(), source: PeerSourceUnkown}
 
 	return p
 }
@@ -81,6 +234,13 @@ func (p *Peer) popData() *bytes.Buffer {
 	return buf
 }
 
+func (p *Peer) onSendWaited() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.sendList.pendingSend = 0
+	p.sendList.autoSend(p)
+}
+
 func (p *Peer) resetData() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -99,12 +259,13 @@ func (p *Peer) isEmpty() bool {
 	return empty
 }
 
-func (p *Peer) write(packet *bytes.Buffer,code uint32) {
+func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	P2PSend(p.seesionId, packet.Bytes())
-	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
+	//P2PSend(p.seesionId, packet.Bytes())
+	//netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 
+	p.sendList.send(p, packet, int(code))
 }
 
 func (p *Peer) getDataSize() int {
@@ -135,48 +296,39 @@ func newPeerManager() *PeerManager {
 	return pm
 }
 
-func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer,code uint32) error {
+func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer, code uint32) error {
 
 	netId := netCoreNodeID(toid)
 	p := pm.peerByNetID(netId)
 	if p == nil {
 		p = newPeer(toid, 0)
-		p.sendList.PushBack(packet)
 		p.expiration = 0
 		p.connecting = false
 		pm.addPeer(netId, p)
 	}
 
-	Logger.Debugf("write Id:%v netid:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
+	Logger.Debugf("write Id:%v net id:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
 
-	if p.seesionId > 0 {
-		p.write(packet,code)
-	} else {
+	p.write(packet, code)
 
-		if ((toaddr != nil && toaddr.IP != nil && toaddr.Port > 0) || pm.natTraversalEnable) && !p.connecting {
-			p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
-			p.connecting = true
+	if p.seesionId != 0 {
+		return nil
+	}
+	if ((toaddr != nil && toaddr.IP != nil && toaddr.Port > 0) || pm.natTraversalEnable) && !p.connecting {
+		p.expiration = uint64(time.Now().Add(connectTimeout).Unix())
+		p.connecting = true
 
-			if toaddr != nil {
-				p.Ip = toaddr.IP
-				p.Port = toaddr.Port
-			}
+		if toaddr != nil {
+			p.Ip = toaddr.IP
+			p.Port = toaddr.Port
+		}
 
-			p.sendList.PushBack(packet)
-
-			if pm.natTraversalEnable {
-				P2PConnect(netId, NatServerIp, NatServerPort)
-				Logger.Debugf("P2PConnect[nat]: %v ", toid.GetHexString())
-			} else {
-				P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
-				Logger.Debugf("P2PConnect[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
-			}
-		} else if p.connecting == true {
-			if p.sendList.Len() > 10 {
-				p.sendList = list.New()
-			}
-			p.sendList.PushBack(packet)
-			Logger.Debugf("write  error : %v ", toid.GetHexString())
+		if pm.natTraversalEnable {
+			P2PConnect(netId, NatServerIp, NatServerPort)
+			Logger.Debugf("P2PConnect[nat]: %v ", toid.GetHexString())
+		} else {
+			P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Debugf("P2PConnect[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -199,13 +351,18 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 
 	netCore.ping(p.Id, nil)
 
-	for e := p.sendList.Front(); e != nil; e = e.Next() {
-		buf := e.Value.(*bytes.Buffer)
-		p.write(buf,0)
-	}
-	p.sendList = list.New()
+	p.sendList.autoSend(p)
 	Logger.Debugf("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 }
+
+//OnSendWaited  发送队列空闲
+func (pm *PeerManager) OnSendWaited(id uint64, session uint32) {
+	p := pm.peerByNetID(id)
+	if p != nil {
+		p.onSendWaited()
+	}
+}
+
 
 //OnDisconnected 处理连接断开的回调
 func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
@@ -245,7 +402,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 }
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
-func (pm *PeerManager) SendAll(packet *bytes.Buffer ,code uint32) {
+func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 	//pm.checkPeerSource()
@@ -256,7 +413,7 @@ func (pm *PeerManager) SendAll(packet *bytes.Buffer ,code uint32) {
 		//	p.write(packet)
 		//}
 		if p.seesionId > 0 {
-			p.write(packet,code)
+			p.write(packet, code)
 		}
 	}
 
@@ -277,7 +434,7 @@ func (pm *PeerManager) checkPeerSource() {
 }
 
 //BroadcastRandom
-func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer,code uint32) {
+func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 	Logger.Debugf("BroadcastRandom total peer size:%v", len(pm.peers))
@@ -299,7 +456,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer,code uint32) {
 	if len(availablePeers) < maxCount {
 		for _, p := range availablePeers {
 			Logger.Debugf("BroadcastRandom send node id:%v", p.Id.GetHexString())
-			p.write(packet,code)
+			p.write(packet, code)
 		}
 	} else {
 		nodesHasSend := make(map[int]bool)
@@ -313,7 +470,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer,code uint32) {
 			nodesHasSend[peerIndex] = true
 			p := availablePeers[peerIndex]
 			Logger.Debugf("BroadcastRandom send node id:%v", p.Id.GetHexString())
-			p.write(packet,code)
+			p.write(packet, code)
 		}
 	}
 

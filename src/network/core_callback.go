@@ -31,3 +31,8 @@ func OnP2PConnected(id uint64, session uint32, p2p_type uint32) {
 func OnP2PDisconnected(id uint64, session uint32, p2p_code uint32) {
 	netCore.OnDisconnected(id, session, p2p_code)
 }
+
+//export OnP2PSendWaited
+func OnP2PSendWaited(session uint32,peer_id uint64) {
+	netCore.OnSendWaited(peer_id, session)
+}
