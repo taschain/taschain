@@ -121,3 +121,7 @@ func (helper *ConsensusHelperImpl ) VerifyNewBlock(bh *types.BlockHeader, preBH 
 func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error)  {
     return Proc.VerifyBlockHeader(bh)
 }
+
+func (helper *ConsensusHelperImpl) CheckGroupHeader(gh *types.GroupHeader) (bool, error) {
+    return Proc.CheckGroupHeader(gh)
+}

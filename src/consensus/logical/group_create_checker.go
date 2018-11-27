@@ -136,7 +136,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	return true, result
 }
 
-func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int) {
+func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, createTime time.Time, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int) {
 	create, group, _, theBH := checker.checkCreateGroup(createHeight)
 	//指定高度不能建组
 	if !create {
@@ -158,7 +158,7 @@ func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, last
 		PreGroup: lastGroup.Id,
 		Name: gn,
 		Authority: 777,
-		BeginTime: time.Now(),
+		BeginTime: createTime,
 		CreateHeight: createHeight,
 		ReadyHeight: createHeight + model.Param.GroupGetReadyGap,
 		MemberRoot: model.GenMemberRootByIds(memIds),

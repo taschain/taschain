@@ -89,10 +89,10 @@ func (bg *BelongGroups) load() bool {
 		log.Printf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
 		return false
 	}
-	log.Println("load belongGroups size", bg.groupSize())
 	for _, jg := range gs {
 		bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	}
+	log.Println("load belongGroups size", bg.groupSize())
 	return true
 }
 

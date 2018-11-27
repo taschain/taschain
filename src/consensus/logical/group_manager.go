@@ -51,7 +51,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	topHeight := top.Height
 	blog := newBizLog("CreateNextGroupRoutine")
 
-	gh, memIds, threshold := gm.checker.generateGroupHeader(topHeight, gm.groupChain.LastGroup())
+	gh, memIds, threshold := gm.checker.generateGroupHeader(topHeight, top.CurTime, gm.groupChain.LastGroup())
 	if gh == nil {
 		return
 	}
@@ -101,11 +101,12 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	}
 
 	//生成组头是否与收到的一致
-	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, gm.groupChain.LastGroup())
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
 	if expectGH == nil {
 		return false, fmt.Errorf("expect GroupHeader is nil")
 	}
 	if expectGH.Hash != gh.Hash {
+		log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
 		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
 	}
 

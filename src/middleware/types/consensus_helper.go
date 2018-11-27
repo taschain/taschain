@@ -62,4 +62,7 @@ type ConsensusHelper interface {
 
 	//verify the blockheader: mainly verify the group signature
 	VerifyBlockHeader(bh *BlockHeader) (bool, error)
+
+	//check group header
+	CheckGroupHeader(gh *GroupHeader) (bool, error)
 }

@@ -57,7 +57,7 @@ func (p *Processor) prepareMiner() {
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
-		log.Printf("get group from core, id=%v", coreGroup.Id)
+		log.Printf("get group from core, id=%+v", coreGroup.Header)
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
@@ -236,4 +236,8 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	h := base.Data2CommonHash(buf)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
+}
+
+func (p *Processor) CheckGroupHeader(gh *types.GroupHeader) (bool, error) {
+    return p.groupManager.isGroupHeaderLegal(gh)
 }

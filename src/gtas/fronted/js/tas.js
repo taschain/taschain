@@ -44,7 +44,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             field: 'begin_height',
             type: 'asc'
         }
-        ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'组hash', title: 'g_hash', width:80},
+        ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'g_hash', title: '组hash', width:140},
             {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
             {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
             {field:'members', title: '成员列表'}]] //设置表头

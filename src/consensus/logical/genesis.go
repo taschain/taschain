@@ -93,8 +93,6 @@ func generateGenesisGroupHeader(memIds []groupsig.ID) *types.GroupHeader {
 		MemberRoot: model.GenMemberRootByIds(memIds),
 		Extends: "",
 	}
-	gh.WorkHeight = gh.ReadyHeight + model.Param.GroupCastQualifyGap
-	gh.DismissHeight = gh.WorkHeight + model.Param.GroupCastDuration
 
 	gh.Hash = gh.GenHash()
 	return gh

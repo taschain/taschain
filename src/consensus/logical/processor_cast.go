@@ -248,12 +248,12 @@ func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groups
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	hashs := make([]common.Hash, len(ids))
 
-	blog := newBizLog("GenProveHashs")
+	//blog := newBizLog("GenProveHashs")
 	for idx, id := range ids {
 		h := p.sampleBlockHeight(heightLimit, rand, id)
 		b := p.getNearestBlockByHeight(h)
 		hashs[idx] = p.GenVerifyHash(b, id)
-		blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+		//blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
 	}
 	proves = hashs
 
