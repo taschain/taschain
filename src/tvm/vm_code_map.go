@@ -178,7 +178,7 @@ if "%s" in register.funcinfo:
     else:
         raise Exception("function %s para wrong!")
 else:
-    raise Exception("cannot call this function: %s")
+    raise NoLineLibException("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)
 
 
@@ -262,7 +262,7 @@ class TasJson:
     @staticmethod
     def checkValueIsInBase(valueType):
         if valueType not in TasJson.supportType:
-            raise Exception("value must be int,bool,string. type is " + str(valueType))
+            raise LibException("value must be int,bool,string. type is " + str(valueType),5)
 
     @staticmethod
     def checkKey(key):
