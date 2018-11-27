@@ -59,7 +59,7 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 	}
 
 	if nil == GroupChainImpl {
-		err := initGroupChain(helper.GenerateGenesisInfo())
+		err := initGroupChain(helper.GenerateGenesisInfo(), helper)
 		if nil != err {
 			return err
 		}

@@ -55,6 +55,8 @@ type GroupChain struct {
 
 	activeGroups []*types.Group
 
+	consensusHelper types.ConsensusHelper
+
 	//preCache map[string]*types.Group
 	//preCache *sync.Map
 }
@@ -101,9 +103,10 @@ func ClearGroup(config *GroupChainConfig) {
 	os.RemoveAll("database")
 }
 
-func initGroupChain(genesisInfo *types.GenesisInfo) error {
+func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.ConsensusHelper) error {
 	chain := &GroupChain{
 		config: getGroupChainConfig(),
+		consensusHelper:consensusHelper,
 		//preCache: new(sync.Map),
 	}
 
@@ -362,6 +365,10 @@ func (chain *GroupChain) AddGroup(group *types.Group, sender []byte, signature [
 			if !bytes.Equal(chain.lastGroup.Id, group.Header.PreGroup) {
 				return fmt.Errorf("pre not equal lastgroup")
 			}
+		}
+		ok,err := chain.consensusHelper.CheckGroupHeader(group.Header)
+		if !ok{
+			return err
 		} else {
 			return chain.save(group)
 		}
