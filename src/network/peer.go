@@ -42,6 +42,7 @@ const (
 )
 const MaxSendPriority = 3
 const MaxPendingSend = 5
+const MaxSendListSize = 64
 
 type SendListItem struct {
 	priority int
@@ -104,14 +105,20 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	if peer == nil || packet == nil {
 		return
 	}
+
 	priority, isExist := sendList.priorityTable[uint32(code)]
 	if !isExist {
 		priority = MaxSendPriority - 1
 	}
+	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
+
 	sendListItem := sendList.list[priority]
+	if sendListItem.list.Len() > MaxSendListSize {
+		Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
+		return
+	}
 	sendListItem.list.PushBack(packet)
 
-	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
 
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 	sendList.autoSend(peer)
