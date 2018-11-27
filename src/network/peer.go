@@ -238,6 +238,7 @@ func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.sendList.pendingSend = 0
+	Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
 	p.sendList.autoSend(p)
 }
 
@@ -262,8 +263,6 @@ func (p *Peer) isEmpty() bool {
 func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	//P2PSend(p.seesionId, packet.Bytes())
-	//netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 
 	p.sendList.send(p, packet, int(code))
 }
