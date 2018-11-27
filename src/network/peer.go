@@ -111,7 +111,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	sendListItem := sendList.list[priority]
 	sendListItem.list.PushBack(packet)
 
-	//Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
+	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
 
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 	sendList.autoSend(peer)
@@ -132,7 +132,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 	remain :=0
 	for i := 0; i < MaxSendPriority && sendList.isSendAvailable() ; i++ {
 		item := sendList.list[i]
-		//Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
+		Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
 
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
@@ -148,7 +148,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			item.curQuota += 1
 			sendList.curQuota += 1
 
-			//Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
+			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
 
 
 			if item.curQuota >= item.quota {
@@ -158,13 +158,13 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		}
 		remain += item.list.Len()
 		if sendList.curQuota >= sendList.totalQuota {
-			//Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
+			Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
 			sendList.resetQuota()
 		}
 
 	}
 	if remain > 0 && sendList.isSendAvailable() {
-		//Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
+		Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
 
 		sendList.resetQuota()
 		sendList.autoSend(peer)
