@@ -300,7 +300,7 @@ class TasBaseStorage:
     @staticmethod
     def checkValueCanDel(value):
         if type(value) == TasBaseStorage.TypeTasMap:
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",5)
 
     @staticmethod
     def getDataFromDB(key):
@@ -313,7 +313,7 @@ class TasBaseStorage:
     @staticmethod
     def checkRemoveData(key):
         if key in TasBaseStorage.tasMapFieldList:
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         inReadData = False
         inWriteData = False
         inDb = False
@@ -332,7 +332,7 @@ class TasBaseStorage:
         if tp == -1:  # db is null,
             pass
         elif tp == 0:  # this is map!cannot del
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         else:
             inDb = True
         return inReadData,inWriteData,inDb
@@ -430,7 +430,7 @@ class TasCollectionStorage:
 
     def checkValueCanDel(self,value):
         if type(value) == type(self):
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",5)
 
 
     def checkRemoveData(self,key):
@@ -452,7 +452,7 @@ class TasCollectionStorage:
         if tp == -1:  # db is null,
             pass
         elif tp == 0:  # this is map!cannot del
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         else:
             inDb = True
         return inReadData,inWriteData,inDb
