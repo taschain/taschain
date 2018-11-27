@@ -42,7 +42,7 @@ const (
 )
 const MaxSendPriority = 3
 const MaxPendingSend = 5
-const MaxSendListSize = 64
+const MaxSendListSize = 256
 
 type SendListItem struct {
 	priority int
