@@ -687,6 +687,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		tlog.log("收到消息数量 %v", initingGroup.receiveSize())
 	} else {
 		result = INIT_SUCCESS
+		tlog.log("组内成员，收到组初始化完成消息")
 	}
 
 	switch result {

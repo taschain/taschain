@@ -24,7 +24,6 @@ import (
 	"time"
 	"consensus/ticker"
 	"fmt"
-	"sync/atomic"
 )
 
 
@@ -38,7 +37,7 @@ type stateNode struct {
 
 	currentIdx int32
 	queue      []*StateMsg
-	lock       sync.RWMutex
+	//lock       sync.RWMutex
 }
 
 type StateMsg struct {
@@ -49,10 +48,11 @@ type StateMsg struct {
 
 type StateMachine struct {
 	Id 	string
-	//Current *stateNode
-	Current atomic.Value
+	Current *stateNode
+	//Current atomic.Value
 	Head *stateNode
 	Time time.Time
+	lock       sync.Mutex
 }
 
 type StateMachines struct {
@@ -109,8 +109,8 @@ func newStateMachine(id string) *StateMachine {
 }
 
 func (n *stateNode) queueSize() int32 {
-	n.lock.RLock()
-	defer n.lock.RUnlock()
+	//n.lock.RLock()
+	//defer n.lock.RUnlock()
     return int32(len(n.queue))
 }
 
@@ -119,8 +119,8 @@ func (n *stateNode) state() string {
 }
 
 func (n *stateNode) dataIndex(id string) int32 {
-	n.lock.RLock()
-	defer n.lock.RUnlock()
+	//n.lock.RLock()
+	//defer n.lock.RUnlock()
 	for idx, d := range n.queue {
 		if d.Id == id {
 			return int32(idx)
@@ -134,22 +134,14 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 	if idx >= 0 {
 		return idx, false
 	}
-	n.lock.Lock()
-	defer n.lock.Unlock()
+	//n.lock.Lock()
+	//defer n.lock.Unlock()
 	n.queue = append(n.queue, stateMsg)
 	return int32(len(n.queue))-1, true
 }
 
-func (n *stateNode) curr() int32 {
-    return atomic.LoadInt32(&n.currentIdx)
-}
-
 func (n *stateNode) finished() bool {
-    return n.curr() >= n.repeat
-}
-
-func (n *stateNode) current2Next()  {
-    atomic.AddInt32(&n.currentIdx, 1)
+    return n.currentIdx >= n.repeat
 }
 
 func (m *StateMachine) findTail() *stateNode {
@@ -161,11 +153,11 @@ func (m *StateMachine) findTail() *stateNode {
 }
 
 func (m *StateMachine) currentNode() *stateNode {
-    return m.Current.Load().(*stateNode)
+    return m.Current
 }
 
 func (m *StateMachine) setCurrent(node *stateNode)  {
-    m.Current.Store(node)
+    m.Current = node
 }
 
 func (m *StateMachine) appendNode(node *stateNode) {
@@ -203,19 +195,36 @@ func (m *StateMachine) expire() bool {
 
 func (m *StateMachine) transform() {
 	node := m.currentNode()
-	if node.queueSize() == 0 {
+	qs := node.queueSize()
+
+	//node.lock.Lock()
+	d := qs - node.currentIdx
+	switch d {
+	case 0:
 		return
+	case 1:
+		msg := node.queue[node.currentIdx]
+		node.handler(msg.Data)
+		node.queue[node.currentIdx].Data = true //释放内存
+		node.currentIdx++
+		logger.Debugf("machine %v handling exec state %v, from %v", m.Id, node.state(), msg.Id)
+	default:
+		wg := sync.WaitGroup{}
+		for node.currentIdx < qs {
+			msg := node.queue[node.currentIdx]
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				node.handler(msg.Data)
+				msg.Data = true //释放内存
+			}()
+			node.currentIdx++
+			logger.Debugf("machine %v handling exec state %v in parallel, from %v", m.Id, node.state(), msg.Id)
+		}
+		wg.Wait()
 	}
 
-	node.lock.Lock()
-
-	for node.curr() < int32(len(node.queue)) {
-		node.handler(node.queue[node.curr()].Data)
-		node.queue[node.curr()].Data = true //释放内存
-		node.current2Next()
-		logger.Debugf("machine %v handling exec state %v", m.Id, node.state())
-	}
-	node.lock.Unlock()
+	//node.lock.Unlock()
 
 	if node.finished() && node.next != nil {
 		m.setCurrent(node.next)
@@ -225,9 +234,13 @@ func (m *StateMachine) transform() {
 }
 
 func (m *StateMachine) Transform(msg *StateMsg) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if m.finish() {
 		return false
 	}
+
 	defer func() {
 		if !m.finish() {
 			curr := m.currentNode()
@@ -242,12 +255,12 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 		logger.Debugf("machine %v handle pre state %v, exec state %v", m.Id, node.code, m.currentNode().state())
 		node.handler(msg.Data)
 	} else if node.code > m.currentNode().code {
-		logger.Debugf("machine %v cache future state %v, exec state %v", m.Id, node.code, m.currentNode().state())
+		logger.Debugf("machine %v cache future state %v from %v, current state %v", m.Id, node.code, msg.Id, m.currentNode().state())
 		node.addData(msg)
 	} else {
 		_, add := node.addData(msg)
 		if !add {
-			logger.Debugf("machine %v ignore redundant state %v, exec state %v", m.Id, node.code, m.currentNode().state())
+			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.Id, node.code, m.currentNode().state())
 			return false
 		}
 		m.transform()
