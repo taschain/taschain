@@ -18,11 +18,9 @@ package types
 
 import (
 	"fmt"
+	"golang.org/x/crypto/sha3"
 	"math/big"
 	"reflect"
-	"utility"
-
-	"golang.org/x/crypto/sha3"
 )
 
 type bytesBacked interface {
@@ -84,15 +82,15 @@ func (b Bloom) TestBytes(test []byte) bool {
 
 }
 
-// MarshalText encodes b as a hex string with 0x prefix.
-func (b Bloom) MarshalText() ([]byte, error) {
-	return utility.Bytes(b[:]).MarshalText()
-}
-
-// UnmarshalText b as a hex string with 0x prefix.
-func (b *Bloom) UnmarshalText(input []byte) error {
-	return utility.UnmarshalFixedJSON(bloomT, input, b[:])
-}
+//// MarshalText encodes b as a hex string with 0x prefix.
+//func (b Bloom) MarshalText() ([]byte, error) {
+//	return utility.Bytes(b[:]).MarshalText()
+//}
+//
+//// UnmarshalText b as a hex string with 0x prefix.
+//func (b *Bloom) UnmarshalText(input []byte) error {
+//	return utility.UnmarshalFixedJSON(bloomT, input, b[:])
+//}
 
 func CreateBloom(receipts Receipts) Bloom {
 	bin := new(big.Int)
