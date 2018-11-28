@@ -1,5 +1,4 @@
 import account
-from serializable.tas_json_decoder import TasJson
 class TasCollectionStorage:
     tasJson = TasJson()
 
@@ -19,7 +18,7 @@ class TasCollectionStorage:
 
     def checkValueCanDel(self,value):
         if type(value) == type(self):
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",5)
 
 
     def checkRemoveData(self,key):
@@ -41,7 +40,7 @@ class TasCollectionStorage:
         if tp == -1:  # db is null,
             pass
         elif tp == 0:  # this is map!cannot del
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         else:
             inDb = True
         return inReadData,inWriteData,inDb
@@ -63,13 +62,6 @@ class TasCollectionStorage:
     def __iter__(self):
         return None
 
-    # def __iter__(self):
-    #     it = SysNormalIter(self)
-    #     return it
-    #
-    # def items(self):
-    #     return self
-
     def __getitem__(self, key):
         TasJson.checkMapKey(key)
         TasJson.setVisitMapKey(key)
@@ -83,7 +75,6 @@ class TasCollectionStorage:
         return tp,value
 
     def getValue(self,key):
-        #get value from memory
         if key in self.readData:
             return self.readData[key]
         else:#get value from db
@@ -100,7 +91,7 @@ class TasCollectionStorage:
     def checkValue(self,value):
         if type(value) == type(self):
             if self.nestIn + 1> 5:
-                raise Exception("map can not be more than nested 5")
+                raise LibException("map can not be more than nested 5",3)
             self.nestIn += 1
             value.nestIn = self.nestIn
             pass
@@ -116,7 +107,6 @@ class TasCollectionStorage:
                 account.set_data(newKey, TasCollectionStorage.tasJson.encodeValue(0, "0"))
                 toWriteData.flushData(newKey)
             else:
-                #print(TasCollectionStorage.tasJson.encodeValue(1,self.writeData[k]))
                 account.set_data(newKey, TasCollectionStorage.tasJson.encodeValue(1,self.writeData[k]))
 
 
