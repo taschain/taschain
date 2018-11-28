@@ -7,7 +7,10 @@ import (
 
 func PycodeStoreContractData(contractName string) string {
 	return fmt.Sprintf(`
-TasBaseStorage.flushData()
+try:
+    TasBaseStorage.flushData()
+except Exception as e:
+    pass
 `)
 }
 
