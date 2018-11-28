@@ -425,6 +425,7 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 	}
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
+	Logger.Debugf("coming hash:%s,coming value is:%v", remoteHeader.Hash.String(), remoteValue)
 	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		Logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
@@ -434,12 +435,12 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 			continue
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)
+		Logger.Debugf("local hash:%s,local value is:%v", header.Hash.String(), localValue)
 		break
 	}
 	if localValue == nil {
 		time.Sleep(time.Second)
 	}
-	Logger.Debugf("local value is:%v,coming value is:%v", localValue, remoteValue)
 	if localValue.Cmp(remoteValue) >= 0 {
 		return true
 	}
