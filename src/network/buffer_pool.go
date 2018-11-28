@@ -98,13 +98,13 @@ func ( pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
 	defer pool.mutex.Unlock()
 	//Logger.Debugf("[BufferPool] GetBuffer size : %v ", size)
 
-	//poolItem := pool.GetPoolItem(size)
-	//if poolItem != nil {
-	//	buf :=  poolItem.GetBuffer()
-	//	//Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v", buf.Cap())
-	//
-	//	return buf
-	//}
+	poolItem := pool.GetPoolItem(size)
+	if poolItem != nil {
+		buf :=  poolItem.GetBuffer()
+		//Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v", buf.Cap())
+
+		return buf
+	}
 
 	return new(bytes.Buffer)
 }
@@ -114,9 +114,9 @@ func ( pool *BufferPool) FreeBuffer( buf *bytes.Buffer) {
 	defer pool.mutex.Unlock()
 
 
-	//poolItem := pool.GetPoolItem(buf.Cap())
-	//if poolItem != nil {
-	//	poolItem.freeBuffer(buf)
-	//	//Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v", buf.Cap(),poolItem.buffers.Len())
-	//}
+	poolItem := pool.GetPoolItem(buf.Cap())
+	if poolItem != nil {
+		poolItem.freeBuffer(buf)
+		//Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v", buf.Cap(),poolItem.buffers.Len())
+	}
 }

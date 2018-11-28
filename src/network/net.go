@@ -688,7 +688,9 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	}
 	msgBytes := msgBuffer.Bytes()
 	if msgBuffer.Len() > packetSize {
-		p.addDataToHead(bytes.NewBuffer(msgBytes[packetSize:]))
+		buf := nc.bufferPool.GetBuffer(len(msgBytes) - packetSize)
+		buf.Write(msgBytes[packetSize:])
+		p.addDataToHead(buf)
 	}
 
 	Logger.Debugf("decodePacket after :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, msgBuffer.Len())
