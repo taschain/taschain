@@ -66,8 +66,7 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 	}
 
 	if slot.IsVerified() {
-		p.SuccessNewBlock(bh, vctx, slot, gid) //上链和组外广播
-		//blog.log("%v remove verifycontext from bccontext! remain size=%v", mtype, len(bc.verifyContexts))
+		p.reserveBlock(vctx, slot)
 	}
 
 }
@@ -274,7 +273,7 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 //}
 
 func (p *Processor) cleanVerifyContext(currentHeight uint64) {
-	p.blockContexts.forEach(func(bc *BlockContext) bool {
+	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
 		bc.CleanVerifyContext(currentHeight)
 		return true
 	})
@@ -342,7 +341,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 
 	blog.log("proc(%v) begin %v, trans count=%v %v...", p.getPrefix(),mtype, len(ths), txstrings)
 
-	p.blockContexts.forEach(func(bc *BlockContext) bool {
+	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
 			for _, slot := range vctx.GetSlots() {
 				acceptRet := vctx.AcceptTrans(slot, ths)

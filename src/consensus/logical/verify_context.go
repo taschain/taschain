@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"consensus/base"
 )
 
 /*
@@ -34,7 +35,8 @@ import (
 const (
 	CBCS_IDLE    int32 = iota //非当前组
 	CBCS_CASTING              //正在铸块
-	CBCS_BLOCKED              //组内已有铸块完成（已通知到组外）
+	CBCS_BLOCKED              //组内已有铸块完成
+	CBCS_BROADCAST				//块已广播
 	CBCS_TIMEOUT              //组铸块超时
 )
 
@@ -116,6 +118,7 @@ type VerifyContext struct {
 	prevBH     *types.BlockHeader
 	castHeight uint64
 	//signedMaxQN int64
+	createTime 		time.Time
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
 	slots           map[common.Hash]*SlotContext
@@ -130,6 +133,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		castHeight:      castHeight,
 		blockCtx:        bc,
 		expireTime:      expire,
+		createTime: 	time.Now(),
 		consensusStatus: CBCS_CASTING,
 		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
@@ -145,6 +149,9 @@ func (vc *VerifyContext) isCasting() bool {
 func (vc *VerifyContext) castSuccess() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == CBCS_BLOCKED
 }
+func (vc *VerifyContext) broadCasted() bool {
+	return atomic.LoadInt32(&vc.consensusStatus) == CBCS_BROADCAST
+}
 
 func (vc *VerifyContext) markTimeout() {
 	atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
@@ -152,6 +159,10 @@ func (vc *VerifyContext) markTimeout() {
 
 func (vc *VerifyContext) markCastSuccess() {
 	atomic.StoreInt32(&vc.consensusStatus, CBCS_BLOCKED)
+}
+
+func (vc *VerifyContext) markBroadcast() bool {
+	return atomic.CompareAndSwapInt32(&vc.consensusStatus, CBCS_BLOCKED, CBCS_BROADCAST)
 }
 
 func (vc *VerifyContext) castExpire() bool {
@@ -307,4 +318,45 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 		slots = append(slots, slot)
 	}
 	return slots
+}
+
+func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
+	blog := newBizLog("checkBroadcast")
+	if !vc.castSuccess() {
+		blog.log("not success st=%v", vc.consensusStatus)
+		return nil
+	}
+	if time.Since(vc.createTime).Seconds() < 2 {
+		blog.log("not the time, creatTime %v, now %v, since %v", vc.createTime, time.Now(), time.Since(vc.createTime).String())
+		return nil
+	}
+	var maxQNSlot *SlotContext
+
+	vc.lock.RLock()
+	defer vc.lock.RUnlock()
+	qns := make([]uint64, 0)
+
+	for _, slot := range vc.slots {
+		if !slot.IsSuccess() {
+			continue
+		}
+		qns = append(qns, slot.BH.TotalQN)
+		if maxQNSlot == nil {
+			maxQNSlot = slot
+		} else {
+			if maxQNSlot.BH.TotalQN < slot.BH.TotalQN {
+				maxQNSlot = slot
+			} else if maxQNSlot.BH.TotalQN == slot.BH.TotalQN {
+				v1 := base.VRF_proof2hash(maxQNSlot.BH.ProveValue.Bytes()).Big()
+				v2 := base.VRF_proof2hash(slot.BH.ProveValue.Bytes()).Big()
+				if v1.Cmp(v2) < 0 {
+					maxQNSlot = slot
+				}
+			}
+		}
+	}
+	if maxQNSlot != nil {
+		blog.log("select max qn=%v, height=%v, hash=%v, all qn=%v", maxQNSlot.BH.TotalQN, maxQNSlot.BH.Height, maxQNSlot.BH.Hash.ShortS(), qns)
+	}
+	return maxQNSlot
 }
