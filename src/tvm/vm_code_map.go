@@ -88,9 +88,9 @@ class DefEvent(object):
             
         def __call__(self, index,data):
             if type(index) != type('a'):
-                raise Exception('index should be string')
+                raise LibException('index should be string',2)
             if type(data) != type({'val':1}):
-                raise Exception('data should be dict')
+                raise LibException('data should be dict',2)
             account.eventCall(self.name,index,ujson.dumps(data))
             #print("name :", self.name)
             #print("index:",index)
@@ -174,9 +174,9 @@ if "%s" in register.funcinfo:
             #print(__ABIParaTypes[i])
             #print(register.funcinfo["%s"][1][i])
             if __ABIParaTypes[i] != register.funcinfo["%s"][1][i]:
-                raise Exception('function %s para wrong')
+                raise NoLineLibException('function %s para wrong')
     else:
-        raise Exception("function %s para wrong!")
+        raise NoLineLibException("function %s para wrong!")
 else:
     raise NoLineLibException("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)

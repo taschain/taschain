@@ -30,6 +30,7 @@ import (
 	"middleware"
 	"container/heap"
 	"github.com/hashicorp/golang-lru"
+	"fmt"
 )
 
 var (
@@ -403,6 +404,7 @@ func (pool *TransactionPool) GetExecuted(hash common.Hash) *ReceiptWrapper {
 	var receipt *ReceiptWrapper
 	err := json.Unmarshal(receiptJson, &receipt)
 	if err != nil || receipt == nil {
+		fmt.Println(err)
 		return nil
 	}
 
