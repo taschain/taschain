@@ -22,50 +22,70 @@ import (
  */
 
 type CastBlockContexts struct {
-	contexts sync.Map //string -> *BlockContext
+	blockCtxs sync.Map //string -> *BlockContext
+	reservedVctx	sync.Map	//uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
 }
 
 func NewCastBlockContexts() *CastBlockContexts {
 	return &CastBlockContexts{
-		contexts: sync.Map{},
+		blockCtxs: sync.Map{},
 	}
 }
 
 func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-	_, load := bctx.contexts.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
+	_, load := bctx.blockCtxs.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
 	return !load
 }
 
 func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
-	if v, ok := bctx.contexts.Load(gid.GetHexString()); ok {
+	if v, ok := bctx.blockCtxs.Load(gid.GetHexString()); ok {
 		return v.(*BlockContext)
 	}
 	return nil
 }
 
-func (bctx *CastBlockContexts) contextSize() int32 {
+func (bctx *CastBlockContexts) blockContextSize() int32 {
 	size := int32(0)
-	bctx.contexts.Range(func(key, value interface{}) bool {
+	bctx.blockCtxs.Range(func(key, value interface{}) bool {
 		size++
 		return true
 	})
 	return size
 }
 
-func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID) {
+func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 	for _, id := range gids {
-		log.Println("removeContexts ", id.ShortS())
+		log.Println("removeBlockContexts ", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()
-			bctx.contexts.Delete(id.GetHexString())
+			bctx.blockCtxs.Delete(id.GetHexString())
+			for _, vctx := range bc.SafeGetVerifyContexts() {
+				bctx.removeReservedVctx(vctx.castHeight)
+			}
 		}
 	}
 }
 
-func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
-	bctx.contexts.Range(func(key, value interface{}) bool {
+func (bctx *CastBlockContexts) forEachBlockContext(f func(bc *BlockContext) bool) {
+	bctx.blockCtxs.Range(func(key, value interface{}) bool {
 		v := value.(*BlockContext)
+		return f(v)
+	})
+}
+
+func (bctx *CastBlockContexts) removeReservedVctx(height uint64)  {
+    bctx.reservedVctx.Delete(height)
+}
+
+func (bctx *CastBlockContexts) addReservedVctx(vctx *VerifyContext) bool {
+	_, load := bctx.reservedVctx.LoadOrStore(vctx.castHeight, vctx)
+	return !load
+}
+
+func (bctx *CastBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) bool)  {
+	bctx.reservedVctx.Range(func(key, value interface{}) bool {
+		v := value.(*VerifyContext)
 		return f(v)
 	})
 }
@@ -83,9 +103,6 @@ func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
 	return p.blockContexts.getBlockContext(gid)
 }
 
-func (p *Processor) getReleaseRoutineName() string {
-	return "release_routine_" + p.getPrefix()
-}
 
 //立即触发一次检查自己是否下个铸块组
 func (p *Processor) triggerCastCheck() {
@@ -93,65 +110,6 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-//检查是否当前组铸块
-func (p *Processor) checkSelfCastRoutine() bool {
-	if !p.Ready() {
-		return false
-	}
-
-	blog := newBizLog("checkSelfCastRoutine")
-
-	if p.MainChain.IsAdujsting() {
-		blog.log("isAdjusting, return...")
-		p.triggerCastCheck()
-		return false
-	}
-
-	top := p.MainChain.QueryTopBlock()
-	//if time.Since(top.CurTime).Seconds() < 1.0 {
-	//	blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
-	//	return false
-	//}
-
-	var (
-		expireTime  time.Time
-		castHeight  uint64
-		deltaHeight uint64
-	)
-	d := time.Since(top.CurTime)
-	if d < 0 {
-		return false
-	}
-
-	deltaHeight = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
-	expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
-
-	if top.Height > 0 {
-		castHeight = top.Height + deltaHeight
-	} else {
-		castHeight = uint64(1)
-	}
-	if !p.canProposalAt(castHeight) {
-		return false
-	}
-
-	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-	worker := p.getVrfWorker()
-
-	if worker != nil && worker.workingOn(top, castHeight) {
-		blog.log("already working on that block, status=%v", worker.getStatus())
-		return false
-	} else {
-		worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime)
-		p.setVrfWorker(worker)
-		p.blockProposal()
-	}
-	return true
-}
-
-func (p *Processor) getCastCheckRoutineName() string {
-	return "self_cast_check_" + p.getPrefix()
-}
 
 func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
@@ -188,19 +146,47 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 	return g
 }
 
+func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
+	bh := &slot.BH
+	blog := newBizLog("reserveBLock")
+	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
+	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
+		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
+		p.blockContexts.addReservedVctx(vctx)
+		if !p.tryBroadcastBlock(vctx) {
+			blog.log("reserved, height=%v", vctx.castHeight)
+		}
+
+	}
+
+	return
+}
+
+func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
+	if sc := vctx.checkBroadcast(); sc != nil {
+		bh := &sc.BH
+		tlog := newBlockTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
+		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
+		p.successNewBlock(vctx, sc) //上链和组外广播
+		p.blockContexts.removeReservedVctx(vctx.castHeight)
+		return true
+	}
+	return false
+}
+
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, slot *SlotContext, gid groupsig.ID) {
+func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
-	if bh == nil {
-		panic("SuccessNewBlock arg failed.")
-	}
-	blog := newBizLog("SuccessNewBlock")
-	if vctx.castSuccess() { //并发时可能会签出多块，这里多一重判断
-		blog.log("vctx castSuccess, won't broadcast this block, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+	bh := &slot.BH
+
+	blog := newBizLog("successNewBlock")
+
+	if vctx.broadCasted() {
 		return
 	}
+
 	if p.blockOnChain(bh) { //已经上链
 		blog.log("core.GenerateBlock is nil! block alreayd onchain!")
 		return
@@ -219,22 +205,24 @@ func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, 
 		return
 	}
 
-	cbm := &model.ConsensusBlockMessage{
-		Block: *block,
-	}
+	tlog := newBlockTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
-	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-		newBlockTraceLog("SuccessNewBlock", bh.Hash, p.GetMinerID()).log("height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
+	if  vctx.markBroadcast() {
+		cbm := &model.ConsensusBlockMessage{
+			Block: *block,
+		}
+
 		gb := p.spreadGroupBrief(bh, bh.Height+1)
 		if gb == nil {
 			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
 			return
 		}
 		p.NetServer.BroadcastNewBlock(cbm, gb)
-		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
+		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		p.reqRewardTransSign(vctx, bh)
-
 		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
+
 	}
 
 	return
@@ -252,12 +240,12 @@ func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groups
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	hashs := make([]common.Hash, len(ids))
 
-	blog := newBizLog("GenProveHashs")
+	//blog := newBizLog("GenProveHashs")
 	for idx, id := range ids {
 		h := p.sampleBlockHeight(heightLimit, rand, id)
 		b := p.getNearestBlockByHeight(h)
 		hashs[idx] = p.GenVerifyHash(b, id)
-		blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+		//blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
 	}
 	proves = hashs
 

@@ -748,7 +748,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
         if (data.index == 5) {
             reloadBlocksTable()
-            blocktable_inter = setInterval(GGTreloadBlocksTable, 1000);
+            blocktable_inter = setInterval(reloadBlocksTable, 1000);
         } else {
             clearInterval(blocktable_inter)
         }

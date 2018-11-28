@@ -165,7 +165,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
-	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.contextSize())
+	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.blockContextSize())
 
 	//bc.registerTicker()
 	//p.triggerCastCheck()

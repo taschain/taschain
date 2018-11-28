@@ -75,7 +75,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		bc.AddCastedHeight(bh.Height)
 		vctx := bc.GetVerifyContextByHeight(bh.Height)
 		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
-			vctx.markCastSuccess()
+			vctx.markBroadcast()
 		}
 
 	}

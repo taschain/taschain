@@ -30,7 +30,9 @@ func (p *Processor) genBelongGroupStoreFile() string {
 func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 1)
 	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
+	p.Ticker.RegisterRoutine(p.getBroadcastRoutineName(), p.broadcastRoutine, 1)
 	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
+	p.Ticker.StartTickerRoutine(p.getBroadcastRoutineName(), false)
 	p.triggerCastCheck()
 	p.prepareMiner()
 	p.ready = true
@@ -109,44 +111,6 @@ func (p *Processor) Finalize() {
 	}
 }
 
-func (p *Processor) releaseRoutine() bool {
-	topHeight := p.MainChain.QueryTopBlock().Height
-	if topHeight <= model.Param.CreateGroupInterval {
-		return true
-	}
-	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证改组解散前夕建的块有效
-	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
-	if len(ids) == 0 {
-		return true
-	}
-	log.Printf("releaseRoutine: clean group %v\n", len(ids))
-	p.globalGroups.RemoveGroups(ids)
-	p.blockContexts.removeContexts(ids)
-	p.belongGroups.leaveGroups(ids)
-	for _, gid := range ids {
-		log.Println("releaseRoutine DissolveGroupNet staticGroup gid ", gid.ShortS())
-		p.NetServer.ReleaseGroupNet(gid)
-	}
-
-	//释放超时未建成组的组网络和相应的dummy组
-	p.joiningGroups.forEach(func(gc *GroupContext) bool {
-		if gc.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", gc.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(gc.gis.DummyID)
-			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
-		}
-		return true
-	})
-	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
-		if cg.gis.ReadyTimeout(topHeight) {
-			log.Println("releaseRoutine DissolveGroupNet dummyGroup from creatingGroups gid ", cg.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(cg.gis.DummyID)
-			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
-		}
-		return true
-	})
-	return true
-}
 
 func (p *Processor) getVrfWorker() *vrfWorker {
 	if v := p.vrf.Load(); v != nil {
@@ -230,6 +194,6 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	buf = append(buf, id.Serialize()...)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf after %v", b.Header.Height,id.ShortS(),buf)
 	h := base.Data2CommonHash(buf)
-	log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
+	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
 }

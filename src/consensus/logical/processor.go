@@ -37,6 +37,7 @@ type Processor struct {
 	joiningGroups *JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
 	blockContexts *CastBlockContexts //组ID->组铸块上下文
+
 	globalGroups  *GlobalGroups      //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
 	groupManager *GroupManager
