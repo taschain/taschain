@@ -53,7 +53,7 @@ class TasJson:
     @staticmethod
     def checkBaseValue(value, currentDeep):
         if currentDeep > 5:
-            raise Exception("map can not be more than nested 5")
+            raise LibException("map can not be more than nested 5",3)
         valueType = type(value)
         TasJson.checkValueIsInBase(valueType)
         if valueType == TasJson.TypeList:
@@ -74,20 +74,20 @@ class TasJson:
     @staticmethod
     def checkValueIsInBase(valueType):
         if valueType not in TasJson.supportType:
-            raise Exception("value must be int,bool,string. type is " + str(valueType))
+            raise LibException("value must be int,bool,string. type is " + str(valueType),5)
 
     @staticmethod
     def checkKey(key):
         if type(key) != TasJson.TypeStr:
-            raise Exception("key must be string")
+            raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         if len(x) > 32:
-            raise Exception("the length of key cannot more than 32!")
+            raise LibException("the length of key cannot more than 32!",3)
 
     @staticmethod
     def checkMapKey(key):
         if type(key) != TasJson.TypeStr:
-            raise Exception("key must be string")
+            raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         if len(x) > 45:
-            raise Exception("the length of key cannot more than 45!")
+            raise LibException("the length of key cannot more than 45!",3)

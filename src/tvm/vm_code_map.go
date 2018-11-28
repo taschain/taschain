@@ -241,7 +241,7 @@ class TasJson:
     @staticmethod
     def checkBaseValue(value, currentDeep):
         if currentDeep > 5:
-            raise Exception("map can not be more than nested 5")
+            raise LibException("map can not be more than nested 5",3)
         valueType = type(value)
         TasJson.checkValueIsInBase(valueType)
         if valueType == TasJson.TypeList:
@@ -267,18 +267,18 @@ class TasJson:
     @staticmethod
     def checkKey(key):
         if type(key) != TasJson.TypeStr:
-            raise Exception("key must be string")
+            raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         if len(x) > 32:
-            raise Exception("the length of key cannot more than 32!")
+            raise LibException("the length of key cannot more than 32!",3)
 
     @staticmethod
     def checkMapKey(key):
         if type(key) != TasJson.TypeStr:
-            raise Exception("key must be string")
+            raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         if len(x) > 45:
-            raise Exception("the length of key cannot more than 45!")
+            raise LibException("the length of key cannot more than 45!",3)
 `
 	return code
 }
@@ -300,7 +300,7 @@ class TasBaseStorage:
     @staticmethod
     def checkValueCanDel(value):
         if type(value) == TasBaseStorage.TypeTasMap:
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",5)
 
     @staticmethod
     def getDataFromDB(key):
@@ -313,7 +313,7 @@ class TasBaseStorage:
     @staticmethod
     def checkRemoveData(key):
         if key in TasBaseStorage.tasMapFieldList:
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         inReadData = False
         inWriteData = False
         inDb = False
@@ -332,7 +332,7 @@ class TasBaseStorage:
         if tp == -1:  # db is null,
             pass
         elif tp == 0:  # this is map!cannot del
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         else:
             inDb = True
         return inReadData,inWriteData,inDb
@@ -430,7 +430,7 @@ class TasCollectionStorage:
 
     def checkValueCanDel(self,value):
         if type(value) == type(self):
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",5)
 
 
     def checkRemoveData(self,key):
@@ -452,7 +452,7 @@ class TasCollectionStorage:
         if tp == -1:  # db is null,
             pass
         elif tp == 0:  # this is map!cannot del
-            raise Exception("can not remove a map!")
+            raise LibException("can not remove a map!",4)
         else:
             inDb = True
         return inReadData,inWriteData,inDb
@@ -503,7 +503,7 @@ class TasCollectionStorage:
     def checkValue(self,value):
         if type(value) == type(self):
             if self.nestIn + 1> 5:
-                raise Exception("map can not be more than nested 5")
+                raise LibException("map can not be more than nested 5",3)
             self.nestIn += 1
             value.nestIn = self.nestIn
             pass
