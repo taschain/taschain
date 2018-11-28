@@ -110,11 +110,11 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	if !isExist {
 		priority = MaxSendPriority - 1
 	}
-	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
+	//Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
 
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-		Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
+	//	Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
 		return
 	}
 	sendListItem.list.PushBack(packet)
@@ -130,7 +130,7 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) autoSend(peer *Peer) {
 
-	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
+	//Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
 
 	if peer.seesionId == 0 || !sendList.isSendAvailable() {
 		return
@@ -139,7 +139,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 	remain :=0
 	for i := 0; i < MaxSendPriority && sendList.isSendAvailable() ; i++ {
 		item := sendList.list[i]
-		Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
+		//Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
 
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
@@ -149,13 +149,16 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			}
 			buf := e.Value.(*bytes.Buffer)
 			P2PSend(peer.seesionId, buf.Bytes())
+
+			netCore.bufferPool.FreeBuffer(buf)
+
 			item.list.Remove(e)
 			sendList.pendingSend += 1
 
 			item.curQuota += 1
 			sendList.curQuota += 1
 
-			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
+			//Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
 
 
 			if item.curQuota >= item.quota {
@@ -165,18 +168,18 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		}
 		remain += item.list.Len()
 		if sendList.curQuota >= sendList.totalQuota {
-			Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
+			//Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
 			sendList.resetQuota()
 		}
 
 	}
 	if remain > 0 && sendList.isSendAvailable() {
-		Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
+		//Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
 
 		sendList.resetQuota()
 		sendList.autoSend(peer)
 	}
-	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
+	//Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
 
 }
 
@@ -215,10 +218,13 @@ func newPeer(Id NodeID, seesionId uint32) *Peer {
 }
 
 func (p *Peer) addData(data []byte) {
+	b := netCore.bufferPool.GetBuffer(len(data))
+	//b := &bytes.Buffer{}
+	b.Write(data)
+
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	b := bytes.NewBuffer(nil)
-	b.Write(data)
+
 	p.recvList.PushBack(b)
 }
 
@@ -245,7 +251,7 @@ func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.sendList.pendingSend = 0
-	Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
+	//Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
 	p.sendList.autoSend(p)
 }
 
