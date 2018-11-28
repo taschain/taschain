@@ -218,13 +218,12 @@ func newPeer(Id NodeID, seesionId uint32) *Peer {
 }
 
 func (p *Peer) addData(data []byte) {
-	b := netCore.bufferPool.GetBuffer(len(data))
-	//b := &bytes.Buffer{}
-	b.Write(data)
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
+	b := netCore.bufferPool.GetBuffer(len(data))
+	//b := &bytes.Buffer{}
+	b.Write(data)
 	p.recvList.PushBack(b)
 }
 
