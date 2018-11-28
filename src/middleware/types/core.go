@@ -25,7 +25,7 @@ const (
 	TxErrorCode_BalanceNotEnough = 1
 	TxErrorCode_ContractAddressConflict = 2
 	TxErrorCode_DeployGasNotEnough = 3
-
+	TxErrorCode_NO_CODE = 4
 
 	Sys_Error = 2001
 	Sys_Check_Abi_Error = 2002
@@ -34,6 +34,7 @@ const (
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
 	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough,"gas not enough")
+	TxErrorNoCode = NewTransactionError(TxErrorCode_NO_CODE,"no code")
 )
 
 type Transaction struct {

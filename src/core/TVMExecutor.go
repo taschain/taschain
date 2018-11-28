@@ -89,14 +89,19 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit*transaction.GasPrice)))
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
-				snapshot := controller.AccountDB.Snapshot()
-				var success bool
-				success,logs,err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
-				if !success{
-					controller.AccountDB.RevertToSnapshot(snapshot)
+				if contract.Code == ""{
+					err =  types.TxErrorNoCode
 					fail = true
+				}else{
+					snapshot := controller.AccountDB.Snapshot()
+					var success bool
+					success,logs,err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+					if !success{
+						controller.AccountDB.RevertToSnapshot(snapshot)
+						fail = true
+					}
+					accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 				}
-				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough

@@ -44,11 +44,13 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,s
 	con.Vm.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
 	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
-	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
-	con.Vm.DelTvm()
+	defer func() {
+		con.Vm.DelTvm()
+	}()
 	if errorCodeDeploy != 0 {
 		return errorCodeDeploy,errorDeployMsg
 	}
+	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
 	if errorCodeStore != 0 {
 		return errorCodeStore,errorStoreMsg
 	}
