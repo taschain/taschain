@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func PycodeStoreContractData(contractName string) string {
+func PycodeStoreContractData() string {
 	return fmt.Sprintf(`
 try:
     TasBaseStorage.flushData()
