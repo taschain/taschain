@@ -4,6 +4,7 @@ import (
 	"strings"
 	"strconv"
 	"middleware/types"
+	"fmt"
 )
 
 const split = "|"
@@ -39,6 +40,7 @@ func vmStringParse(original string) *[3]string {
 func ExecutedVmSucceed(original string) (int,string) {
 	parsed := vmStringParse(original)
 	if parsed[0] == "4" {
+		fmt.Printf("execute error,code=%s,msg=%s \n",parsed[1],parsed[2])
 		errorCode,err:=strconv.Atoi(parsed[1])
 		if err != nil{
 			return types.Sys_Error,err.Error()
