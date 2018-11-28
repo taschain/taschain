@@ -435,7 +435,7 @@ func (tvm *Tvm) checkABI(abi ABI) (int,string) {
 }
 
 func (tvm *Tvm) StoreData() (int,string) {
-	script := PycodeStoreContractData(tvm.ContractName)
+	script := PycodeStoreContractData()
 	return tvm.Execute(script)
 }
 

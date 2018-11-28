@@ -27,6 +27,9 @@ const (
 	TxErrorCode_DeployGasNotEnough = 3
 	TxErrorCode_NO_CODE = 4
 
+	Syntax_Error=1001
+	GasNotEnough = 1002
+
 	Sys_Error = 2001
 	Sys_Check_Abi_Error = 2002
 )
