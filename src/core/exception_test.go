@@ -47,21 +47,20 @@ func storageTest(t *testing.T){
 	jsonString, _ := json.Marshal(contract)
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 
-	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
 	abi := `{"FuncName": "callExcption1", "Args": []}`
 	CallContract(contractAddr, abi)
 	if !hasData(contractAddr,"callExcption1"){
 		t.Fatal("call contract failed.")
 	}
 
-	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+
 	abi = `{"FuncName": "callExcption2", "Args": []}`
 	CallContract(contractAddr, abi)
 	if !hasData(contractAddr,"callExcption2"){
 		t.Fatal("call contract failed.")
 	}
 
-	contractAddr = "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
 	abi = `{"FuncName": "callExcption3", "Args": []}`
 	CallContract(contractAddr, abi)
 	if !hasData(contractAddr,"callExcption3"){
@@ -77,7 +76,7 @@ func TestSyntaxError(t *testing.T) {
 	jsonString, _ := json.Marshal(contract)
 	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
 
-	contractAddr := "0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610"
+	contractAddr := "0x9a6bf01ba09a5853f898b2e9e6569157a01a7a00"
 	abi := `{"FuncName": "callExcption1", "Args": []}`
 	CallContract(contractAddr, abi)
 
