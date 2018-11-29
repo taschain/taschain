@@ -38,13 +38,13 @@ func ( poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
 }
 
 func ( poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer ) {
-	for e := poolItem.buffers.Front(); e != nil; e = e.Next() {
-		item := e.Value.(*bytes.Buffer)
-		if item == buf {
-			Logger.Debugf("[ BufferPool ] double free : %p", buf)
-			return
-		}
-	}
+	//for e := poolItem.buffers.Front(); e != nil; e = e.Next() {
+	//	item := e.Value.(*bytes.Buffer)
+	//	if item == buf {
+	//		Logger.Debugf("[ BufferPool ] double free : %p", buf)
+	//		return
+	//	}
+	//}
 	if buf.Cap() == poolItem.size && poolItem.buffers.Len() < poolItem.max {
 			poolItem.buffers.PushBack(buf)
 	}
@@ -108,7 +108,7 @@ func ( pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
 		poolItem := pool.GetPoolItem(size)
 		if poolItem != nil {
 			buf :=  poolItem.GetBuffer()
-			Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v address: %p ", buf.Cap(),buf)
+		//	Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v address: %p ", buf.Cap(),buf)
 
 			return buf
 		}
@@ -126,7 +126,7 @@ func ( pool *BufferPool) FreeBuffer( buf *bytes.Buffer) {
 		poolItem := pool.GetPoolItem(buf.Cap())
 		if poolItem != nil {
 			poolItem.freeBuffer(buf)
-			Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v address: %p ", buf.Cap(), poolItem.buffers.Len(), buf)
+		//	Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v address: %p ", buf.Cap(), poolItem.buffers.Len(), buf)
 		}
 	}
 }
