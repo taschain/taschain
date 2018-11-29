@@ -179,7 +179,7 @@ if "%s" in register.funcinfo:
             if __ABIParaTypes[i] != register.funcinfo["%s"][1][i]:
                 raise NoLineLibException('function %s para wrong')
     else:
-        raise NoLineLibException("function %s para wrong!")
+        raise NoLineLibException("function %s para count wrong!")
 else:
     raise NoLineLibException("cannot call this function: %s")
 `, abi.FuncName, abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName,abi.FuncName)

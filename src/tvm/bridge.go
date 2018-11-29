@@ -266,7 +266,7 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char{
 		log.Data = append(log.Data,C.GoString(data)[i])
 	}
 	log.TxHash = controller.Transaction.Hash
-	log.Address = *controller.Transaction.Target
+	log.Address = *controller.Vm.ContractAddress //*(controller.Transaction.Target)
 	log.BlockNumber = controller.BlockHeader.Height
 	//block is running ,no blockhash this time
 	// log.BlockHash = controller.BlockHeader.Hash
