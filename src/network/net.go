@@ -392,7 +392,7 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 
 //SendAll 向所有已经连接的节点发送自定义数据包
 func (nc *NetCore) SendAll(data []byte, code uint32, broadcast bool, msgDigest MsgDigest, relayCount int32) {
-	Logger.Debugf("SendAll len: %v", len(data))
+	//Logger.Debugf("SendAll len: %v", len(data))
 	dataType := DataType_DataNormal
 	if broadcast {
 		dataType = DataType_DataGlobal
@@ -468,7 +468,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 
 func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberId NodeID) {
 
-	Logger.Debugf("SendGroupMember group id:%v node id :%v", id, memberId.GetHexString())
+	//Logger.Debugf("SendGroupMember group id:%v node id :%v", id, memberId.GetHexString())
 
 	p := nc.peerManager.peerByID(memberId)
 	if (p != nil && p.seesionId > 0) || nc.natTraversalEnable {
@@ -477,11 +477,11 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberId
 	} else {
 		node := net.netCore.kad.find(memberId)
 		if node != nil && node.Ip != nil && node.Port > 0 {
-			Logger.Debugf("node id:%v found in kad send packet", memberId.GetHexString())
+			//Logger.Debugf("node id:%v found in kad send packet", memberId.GetHexString())
 
 			go nc.Send(memberId, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, data, code)
 		} else {
-			Logger.Debugf("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
+			//Logger.Debugf("node id:%v can not found ,group broadcast packet", memberId.GetHexString())
 
 			packet, _, err := nc.encodeDataPacket(data, DataType_DataGroup, code, id, &memberId, nil, -1)
 			if err != nil {
@@ -526,7 +526,7 @@ func (nc *NetCore) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
 //OnSendWaited 发送队列空闲
 func (nc *NetCore) OnSendWaited(id uint64, session uint32) {
 	nc.peerManager.OnSendWaited(id, session)
-	Logger.Debugf("OnSendWaited netid:%v  session:%v ", id, session)
+	//Logger.Debugf("OnSendWaited netid:%v  session:%v ", id, session)
 }
 
 //OnChecked 网络类型检查
@@ -573,7 +573,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, code uint32,
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
-	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
+	//Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
@@ -629,7 +629,9 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	default:
 		return Logger.Errorf("unknown type: %d", msgType)
 	}
-	nc.bufferPool.FreeBuffer(buf)
+	if buf  != nil {
+		nc.bufferPool.FreeBuffer(buf)
+	}
 	return nil
 }
 
@@ -638,19 +640,23 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	header := p.popData()
 	if header == nil {
 		Logger.Debugf("decodePacket no data.")
-		return MessageType_MessageNone, 0, nil, header, errPacketTooSmall
+		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 
 	for header.Len() < PacketHeadSize && !p.isEmpty() {
 		b := p.popData()
 		if b != nil && b.Len() > 0 {
+			//Logger.Debugf("[ decodePacket ] session : %v  popData size:%v!",p.seesionId,b.Len())
+
 			header.Write(b.Bytes())
 			netCore.bufferPool.FreeBuffer(b)
 		}
 	}
 	if header.Len() < PacketHeadSize {
+		//Logger.Debugf("[ decodePacket ] session : %v   header.Len() < PacketHeadSize header.Len():%v!",p.seesionId,header.Len())
+
 		p.addDataToHead(header)
-		return MessageType_MessageNone, 0, nil, header, errPacketTooSmall
+		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 
 	headerBytes := header.Bytes()
@@ -658,42 +664,44 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	msgLen := binary.BigEndian.Uint32(headerBytes[PacketTypeSize:PacketHeadSize])
 	packetSize := int(msgLen + PacketHeadSize)
 
-	Logger.Debugf("decodePacket :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, header.Len())
+	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(),header)
 
 	if packetSize > 16*1024*1024 || packetSize <= 0 {
-		Logger.Debugf("bad packet reset data!")
+		Logger.Debugf("[ decodePacket ] session : %v bad packet reset data!",p.seesionId)
 		p.resetData()
-		return MessageType_MessageNone, 0, nil, header, errBadPacket
+		return MessageType_MessageNone, 0, nil, nil, errBadPacket
 	}
 
 	msgBuffer := header
 
-	if msgBuffer.Len() < packetSize {
+	if msgBuffer.Cap() < packetSize {
 		msgBuffer = nc.bufferPool.GetBuffer(packetSize)
 		msgBuffer.Write(headerBytes)
-		for msgBuffer.Len() < packetSize && !p.isEmpty() {
-			b := p.popData()
-			if b != nil && b.Len() > 0 {
-				//		Logger.Debugf("popData size:%v!", b.Len())
+		//Logger.Debugf("[ decodePacket ] session : %v msgBuffer.Cap() < packetSize GetBuffer !packetSize: %v msgBuffer.Len: %v  ",p.seesionId,packetSize,msgBuffer.Len())
 
-				msgBuffer.Write(b.Bytes())
-				netCore.bufferPool.FreeBuffer(b)
-			}
+	}
+	for msgBuffer.Len() < packetSize && !p.isEmpty() {
+		b := p.popData()
+		if b != nil && b.Len() > 0 {
+			//Logger.Debugf("[ decodePacket ] session : %v  popData size:%v!",p.seesionId,b.Len())
+
+			msgBuffer.Write(b.Bytes())
+			netCore.bufferPool.FreeBuffer(b)
 		}
 	}
-
 	if msgBuffer.Len() < packetSize {
 		p.addDataToHead(msgBuffer)
-		return MessageType_MessageNone, 0, nil, msgBuffer, errPacketTooSmall
+		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 	msgBytes := msgBuffer.Bytes()
 	if msgBuffer.Len() > packetSize {
+		//Logger.Debugf("[ decodePacket ] session : %v  msgBuffer.Len() > packetSize addDataToHead  !packetSize: %v msgBuffer.Len: %v address:%p  ",p.seesionId,packetSize,msgBuffer.Len(),msgBuffer )
 		buf := nc.bufferPool.GetBuffer(len(msgBytes) - packetSize)
 		buf.Write(msgBytes[packetSize:])
 		p.addDataToHead(buf)
 	}
 
-	Logger.Debugf("decodePacket after :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v ", packetSize, msgType, msgLen, msgBuffer.Len())
+	//Logger.Debugf("[ decodePacket ] after session : %v  :packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v address:%p", p.seesionId, packetSize, msgType, msgLen, msgBuffer.Len(),msgBuffer)
 
 	data := msgBytes[PacketHeadSize : PacketHeadSize+msgLen]
 	var req proto.Message

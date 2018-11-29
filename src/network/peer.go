@@ -150,7 +150,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			buf := e.Value.(*bytes.Buffer)
 			P2PSend(peer.seesionId, buf.Bytes())
 
-			netCore.bufferPool.FreeBuffer(buf)
+			//netCore.bufferPool.FreeBuffer(buf)
 
 			item.list.Remove(e)
 			sendList.pendingSend += 1
@@ -225,13 +225,14 @@ func (p *Peer) addData(data []byte) {
 	//b := &bytes.Buffer{}
 	b.Write(data)
 	p.recvList.PushBack(b)
+	Logger.Debugf("session : %v addData size %v", p.seesionId,len(data))
 }
 
 func (p *Peer) addDataToHead(data *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.recvList.PushFront(data)
-	//Logger.Debugf("addDataToHead size %v", data.Len())
+	Logger.Debugf("session : %v addDataToHead size %v", p.seesionId,data.Len())
 }
 
 func (p *Peer) popData() *bytes.Buffer {
