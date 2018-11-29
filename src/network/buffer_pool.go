@@ -38,9 +38,17 @@ func ( poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
 }
 
 func ( poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer ) {
+	for e := poolItem.buffers.Front(); e != nil; e = e.Next() {
+		item := e.Value.(*bytes.Buffer)
+		if item == buf {
+			Logger.Debugf("[ BufferPool ] double free : %p", buf)
+			return
+		}
+	}
 	if buf.Cap() == poolItem.size && poolItem.buffers.Len() < poolItem.max {
 			poolItem.buffers.PushBack(buf)
 	}
+
 }
 
 //BufferPool
@@ -95,15 +103,17 @@ func ( pool *BufferPool) Print()  {
 func ( pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
-	Logger.Debugf("[BufferPool] GetBuffer size : %v ", size )
+	//Logger.Debugf("[BufferPool] GetBuffer size : %v ", size )
+	if netCore.natTraversalEnable {
+		poolItem := pool.GetPoolItem(size)
+		if poolItem != nil {
+			buf :=  poolItem.GetBuffer()
+			Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v address: %p ", buf.Cap(),buf)
 
-	//poolItem := pool.GetPoolItem(size)
-	//if poolItem != nil {
-	//	buf :=  poolItem.GetBuffer()
-	//	//Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v address: %p ", buf.Cap(),buf)
-	//
-	//	return buf
-	//}
+			return buf
+		}
+	}
+
 
 	return new(bytes.Buffer)
 }
@@ -112,10 +122,11 @@ func ( pool *BufferPool) FreeBuffer( buf *bytes.Buffer) {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
-
-	//poolItem := pool.GetPoolItem(buf.Cap())
-	//if poolItem != nil {
-	//	poolItem.freeBuffer(buf)
-	//	//Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v address: %p ", buf.Cap(),poolItem.buffers.Len(),buf)
-	//}
+	if netCore.natTraversalEnable {
+		poolItem := pool.GetPoolItem(buf.Cap())
+		if poolItem != nil {
+			poolItem.freeBuffer(buf)
+			Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v address: %p ", buf.Cap(), poolItem.buffers.Len(), buf)
+		}
+	}
 }
