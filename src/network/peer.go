@@ -114,7 +114,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-	//	Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
+		Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
 		return
 	}
 	sendListItem.list.PushBack(packet)
