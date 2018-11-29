@@ -545,11 +545,18 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 		buf.Truncate(buf.Len() - 2)
 	}
 	buf.WriteString(")")
+	bufstr := fmt.Sprintf(
+		`
+try:
+    %s
+except Exception:
+    raise ABICheckException("ABI input contract name error,input contract name is %s")
+`,buf.String(),tvm.ContractName)
 	fmt.Println(buf.String())
 	if withResult {
-		return tvm.ExecuteWithResult(buf.String())
+		return tvm.ExecuteWithResult(bufstr)
 	} else {
-		return tvm.executeCommon(buf.String(), false)
+		return tvm.executeCommon(bufstr, false)
 	}
 
 }
