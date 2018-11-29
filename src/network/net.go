@@ -382,12 +382,13 @@ func init() {
 }
 
 //Send 发送包F
-func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageType, req proto.Message, code uint32) ([]byte, error) {
-	packet, hash, err := nc.encodePacket(ptype, req)
+func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageType, req proto.Message, code uint32) {
+	packet, _, err := nc.encodePacket(ptype, req)
 	if err != nil {
-		return hash, err
+		return
 	}
-	return hash, nc.peerManager.write(toid, toaddr, packet, code)
+	nc.peerManager.write(toid, toaddr, packet, code)
+	nc.bufferPool.FreeBuffer(packet)
 }
 
 //SendAll 向所有已经连接的节点发送自定义数据包
@@ -402,6 +403,7 @@ func (nc *NetCore) SendAll(data []byte, code uint32, broadcast bool, msgDigest M
 		return
 	}
 	nc.peerManager.SendAll(packet, code)
+	nc.bufferPool.FreeBuffer(packet)
 	return
 }
 
@@ -414,6 +416,7 @@ func (nc *NetCore) BroadcastRandom(data []byte, code uint32, relayCount int32) {
 		return
 	}
 	nc.peerManager.BroadcastRandom(packet, code)
+	nc.bufferPool.FreeBuffer(packet)
 	return
 }
 
@@ -428,6 +431,7 @@ func (nc *NetCore) SendGroup(id string, data []byte, code uint32, broadcast bool
 		return
 	}
 	nc.groupManager.sendGroup(id, packet, code)
+	nc.bufferPool.FreeBuffer(packet)
 	return
 }
 
@@ -463,6 +467,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		}
 	}
 
+	nc.bufferPool.FreeBuffer(packet)
 	return
 }
 
@@ -489,19 +494,21 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberId
 			}
 
 			nc.groupManager.sendGroup(id, packet, code)
+			nc.bufferPool.FreeBuffer(packet)
 		}
 	}
 	return
 }
 
 //SendData 发送自定义数据包C
-func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uint32) ([]byte, error) {
-	packet, hash, err := nc.encodeDataPacket(data, DataType_DataNormal, code, "", nil, nil, -1)
+func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uint32) {
+	packet, _, err := nc.encodeDataPacket(data, DataType_DataNormal, code, "", nil, nil, -1)
 	if err != nil {
 		Logger.Debugf("Send encodeDataPacket err :%v ", toid.GetHexString())
-		return hash, err
+		return
 	}
-	return hash, nc.peerManager.write(toid, toaddr, packet, code)
+	nc.peerManager.write(toid, toaddr, packet, code)
+	nc.bufferPool.FreeBuffer(packet)
 }
 
 //OnConnected 处理连接成功的回调

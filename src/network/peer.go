@@ -150,7 +150,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			buf := e.Value.(*bytes.Buffer)
 			P2PSend(peer.seesionId, buf.Bytes())
 
-			//netCore.bufferPool.FreeBuffer(buf)
+			netCore.bufferPool.FreeBuffer(buf)
 
 			item.list.Remove(e)
 			sendList.pendingSend += 1
@@ -276,8 +276,10 @@ func (p *Peer) isEmpty() bool {
 func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	p.sendList.send(p, packet, int(code))
+	b := netCore.bufferPool.GetBuffer(packet.Len())
+	//b := &bytes.Buffer{}
+	b.Write(packet.Bytes())
+	p.sendList.send(p, b, int(code))
 }
 
 func (p *Peer) getDataSize() int {
