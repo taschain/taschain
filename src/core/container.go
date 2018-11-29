@@ -98,7 +98,6 @@ func (c *container) add(tx *types.Transaction) {
 		c.inited = true
 
 	}
-	Logger.Infof("TxPool is full! limit:%d", c.limit)
 	evicted := heap.Pop(&c.txs).(*types.Transaction)
 	delete(c.txsMap, evicted.Hash)
 	heap.Push(&c.txs, tx)
