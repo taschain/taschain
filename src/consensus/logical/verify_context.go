@@ -323,11 +323,11 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 	blog := newBizLog("checkBroadcast")
 	if !vc.castSuccess() {
-		blog.log("not success st=%v", vc.consensusStatus)
+		//blog.log("not success st=%v", vc.consensusStatus)
 		return nil
 	}
 	if time.Since(vc.createTime).Seconds() < 2 {
-		blog.log("not the time, creatTime %v, now %v, since %v", vc.createTime, time.Now(), time.Since(vc.createTime).String())
+		//blog.log("not the time, creatTime %v, now %v, since %v", vc.createTime, time.Now(), time.Since(vc.createTime).String())
 		return nil
 	}
 	var maxQNSlot *SlotContext
@@ -356,7 +356,7 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 		}
 	}
 	if maxQNSlot != nil {
-		blog.log("select max qn=%v, height=%v, hash=%v, all qn=%v", maxQNSlot.BH.TotalQN, maxQNSlot.BH.Height, maxQNSlot.BH.Hash.ShortS(), qns)
+		blog.log("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxQNSlot.BH.TotalQN, maxQNSlot.BH.Hash.ShortS(), maxQNSlot.BH.Height, maxQNSlot.BH.Hash.ShortS(), qns)
 	}
 	return maxQNSlot
 }
