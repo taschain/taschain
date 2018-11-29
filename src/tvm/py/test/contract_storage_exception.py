@@ -11,14 +11,14 @@ class ContractStorageException():
             self.s["1"]["1"]["1"] = TasCollectionStorage()
             self.s["1"]["1"]["1"]["1"] = TasCollectionStorage()
             self.s["1"]["1"]["1"]["1"]["1"] = TasCollectionStorage()
-        except LibException as e:
+        except Exception:
             self.callExcption1 = "success"
 
     @register.public()
     def callExcption2(self):
         try:
             self.ssssssssssssssssssssssssssssssssssssssssssss = "sas"
-        except LibException as e:
+        except Exception as e:
             self.callExcption2 = "success"
 
     @register.public()
