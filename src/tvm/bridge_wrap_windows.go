@@ -307,10 +307,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	}
 
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
-	//todo 异常处理
 	result := controller.Vm.ExecuteABI(abi, true)
-	fmt.Printf("CallContract result %s\n", result)
-
 	//恢复vm的环境
 	controller.Vm.RemoveContext()
 	controller.RecoverVmContext()
