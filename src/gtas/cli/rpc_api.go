@@ -294,6 +294,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	block := convertBlockHeader(bh)
 
 	preBH := chain.QueryBlockHeaderByHash(bh.PreHash)
+	block.Qn = bh.TotalQN-preBH.TotalQN
 
 	castor := block.Castor.GetHexString()
 
