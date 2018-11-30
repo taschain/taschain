@@ -287,13 +287,16 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//准备vm的环境
 	controller.Vm.CreateContext()
-	controller.StoreVmContext(oneVm)
+	errorMsg := controller.StoreVmContext(oneVm)
 
 	defer func(){
 		//恢复vm的环境
-		controller.Vm.RemoveContext()
-		controller.RecoverVmContext()
+			controller.Vm.RemoveContext()
+			controller.RecoverVmContext()
 	}()
+	if errorMsg != ""{
+		return errorMsg
+	}
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}

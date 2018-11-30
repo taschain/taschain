@@ -1,5 +1,10 @@
 package tvm
 
+import (
+	"middleware/types"
+	"fmt"
+)
+
 /*
  * 这个用来保存vm：当前设计只考虑单线程，因为区块链交易执行是单线程的
  */
@@ -9,16 +14,16 @@ var controller *Controller; // vm的controller
 const MAX_DEPTH int = 8; //vm执行的最大深度为8
 
 // 合约调合约场景中（从c回调go时）执行合约call前保存
-func (con *Controller) StoreVmContext(newTvm *Tvm) {
+func (con *Controller) StoreVmContext(newTvm *Tvm)string {
 	if len(con.VmStack) >= MAX_DEPTH {
-		// TODO 向vm抛异常
-		print("===== too many levels ====")
-		return
+		print("===== too many call  levels ====")
+		return types.CALL_MAX_DEEP
 	}
 
 	currentVm := con.Vm
 	con.VmStack = append(con.VmStack, currentVm)
 	con.Vm = newTvm
+	return ""
 }
 
 // 恢复tvm上下文
