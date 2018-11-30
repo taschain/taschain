@@ -41,12 +41,13 @@ func NewController(accountDB vm.AccountDB,
 
 func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
 	defer func() {
 		con.Vm.DelTvm()
 	}()
+	con.Vm.SetGas(int(con.GasLeft))
+	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
+
 	if errorCodeDeploy != 0 {
 		return errorCodeDeploy,errorDeployMsg
 	}
