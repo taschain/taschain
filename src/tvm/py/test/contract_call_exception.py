@@ -18,12 +18,6 @@ class ContractException():
                 self.data = "success"
 
     @register.public()
-    def callExcption2(self):
-        xx = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "be_calledException2", "[]")
-
-
-
-    @register.public()
     def be_calledException1(self):
         self.a=dsdsds
 

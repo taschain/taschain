@@ -35,13 +35,18 @@ const (
 	Sys_Abi_JSON_Error = 2003
 )
 var (
-	ABI_JSON_ERROR_MSG = "4|2003|abi json format error"
+	NO_CODE_ERR_MSG = "get code from address %s,but no code!"
 )
+var (
+	ABI_JSON_ERROR = "4|2003|abi json format error"
+	NO_CODE_ERR = "4|4|"+NO_CODE_ERR_MSG
+)
+
+
 
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
 	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough,"gas not enough")
-	TxErrorNoCode = NewTransactionError(TxErrorCode_NO_CODE,"no code")
 	TxErrorAbiJson = NewTransactionError(Sys_Abi_JSON_Error,"abi json format error")
 )
 
