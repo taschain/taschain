@@ -184,11 +184,12 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	blog := newBizLog("successNewBlock")
 
 	if vctx.broadCasted() {
+		blog.log("block broadCasted!")
 		return
 	}
 
 	if p.blockOnChain(bh) { //已经上链
-		blog.log("core.GenerateBlock is nil! block alreayd onchain!")
+		blog.log("block alreayd onchain!")
 		return
 	}
 
