@@ -287,12 +287,11 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 
 	//准备vm的环境
 	controller.Vm.CreateContext()
-	errorMsg := controller.StoreVmContext(oneVm)
+	errorMsg,isAdd := controller.StoreVmContext(oneVm)
 
 	defer func(){
 		//恢复vm的环境
 			controller.Vm.RemoveContext()
-			controller.RecoverVmContext()
 	}()
 	if errorMsg != ""{
 		return errorMsg
@@ -322,8 +321,9 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	}
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
 	result := controller.Vm.ExecuteABI(abi, true,true)
-
-
+	if isAdd{
+		controller.RecoverVmContext()
+	}
 	return result
 }
 
