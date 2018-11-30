@@ -202,7 +202,7 @@ func (g *Group) send(packet *bytes.Buffer,code uint32) {
 		}
 	}
 	Logger.Debugf("SendGroup total :%v connected:%v kad:%v other:%v", len(g.members),connected,kad,other)
-
+	netCore.bufferPool.FreeBuffer(packet)
 	return
 }
 
@@ -288,7 +288,10 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer ,code uint32) 
 		Logger.Debugf("SendGroup not found group.")
 		return
 	}
-	go g.send(packet, code)
+	buf := netCore.bufferPool.GetBuffer(packet.Len())
+	buf.Write(packet.Bytes())
+
+	go g.send(buf, code)
 
 	return
 }

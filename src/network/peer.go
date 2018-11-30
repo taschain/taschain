@@ -110,11 +110,11 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	if !isExist {
 		priority = MaxSendPriority - 1
 	}
-	//Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
+	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
 
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-	//	Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
+		Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
 		return
 	}
 	sendListItem.list.PushBack(packet)
@@ -130,7 +130,7 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) autoSend(peer *Peer) {
 
-	//Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
+	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
 
 	if peer.seesionId == 0 || !sendList.isSendAvailable() {
 		return
@@ -158,7 +158,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			item.curQuota += 1
 			sendList.curQuota += 1
 
-			//Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
+			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
 
 
 			if item.curQuota >= item.quota {
@@ -179,7 +179,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		sendList.resetQuota()
 		sendList.autoSend(peer)
 	}
-	//Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
+	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
 
 }
 
@@ -251,7 +251,7 @@ func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.sendList.pendingSend = 0
-	//Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
+	Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
 	p.sendList.autoSend(p)
 }
 
