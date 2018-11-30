@@ -33,6 +33,13 @@ func TestCallError(t *testing.T) {
 	if !hasData(contractAddr,"data"){
 		t.Fatal("call contract failed.")
 	}
+
+	abi = `{"FuncName": "callExcption2", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	if !hasData(contractAddr,"data"){
+		t.Fatal("call contract failed.")
+	}
 }
 
 func TestLib(t *testing.T){

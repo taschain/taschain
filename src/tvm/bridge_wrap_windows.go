@@ -300,7 +300,10 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	}
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
-	json.Unmarshal([]byte(abiJson), &abi)
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return types2.ABI_JSON_ERROR_MSG
+	}
 	errorCode,errorMsg = controller.Vm.checkABI(abi)
 	if errorCode != 0 {
 		return errorMsg

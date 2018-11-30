@@ -34,6 +34,9 @@ const (
 	Sys_Check_Abi_Error = 2002
 	Sys_Abi_JSON_Error = 2003
 )
+var (
+	ABI_JSON_ERROR_MSG = "4|2003|abi json format error"
+)
 
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
