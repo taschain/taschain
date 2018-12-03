@@ -17,7 +17,7 @@ import (
 	chandler "consensus/net"
 )
 
-const CONF_PATH_PREFIX = `/Users/mac/TASchain/tas_node`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/yunkuai`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -55,7 +55,7 @@ func initProcessor(conf string) *Processor {
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := 3
+	maxProcNum := 9
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
