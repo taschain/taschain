@@ -7,7 +7,14 @@ import (
 	"encoding/json"
 )
 
-func TestLib(t *testing.T) {
+func TestLib(t *testing.T){
+	eventTest(t)
+	storageTest(t)
+	decorateTest(t)
+}
+
+
+func decorateTest(t *testing.T) {
 	ChainInit()
 	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
 	code := `
@@ -52,7 +59,7 @@ class A():
 	fmt.Println("test receipt 3", receipt)
 }
 
-func TestGas(t *testing.T) {
+func eventTest(t *testing.T) {
 	ChainInit()
 	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
 	code := `
@@ -126,4 +133,58 @@ class A():
 	receipt = BlockChainImpl.GetTransactionPool().GetExecuted(hash)
 	fmt.Printf("=============>get hash %x \n",hash)
 	fmt.Println("test receipt", receipt)
+}
+
+func storageTest(t *testing.T){
+	Clear()
+
+	code := tvm.Read0("../tvm/py/test/contract_storage_exception.py")
+	contract := tvm.Contract{code, "ContractStorageException", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
+	abi := `{"FuncName": "callExcption1", "Args": []}`
+	CallContract(contractAddr, abi)
+	if !hasData(contractAddr,"callExcption1"){
+		t.Fatal("call contract failed.")
+	}
+
+
+	abi = `{"FuncName": "callExcption2", "Args": []}`
+	CallContract(contractAddr, abi)
+	if !hasData(contractAddr,"callExcption2"){
+		t.Fatal("call contract failed.")
+	}
+
+	abi = `{"FuncName": "callExcption3", "Args": []}`
+	CallContract(contractAddr, abi)
+	if !hasData(contractAddr,"callExcption3"){
+		t.Fatal("call contract failed.")
+	}
+}
+
+func TestSyntaxError(t *testing.T) {
+	Clear()
+
+	code := tvm.Read0("../tvm/py/test/contract_syntax_exception.py")
+	contract := tvm.Contract{code, "ContractSyntax", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+
+	contractAddr := "0x9a6bf01ba09a5853f898b2e9e6569157a01a7a00"
+	abi := `{"FuncName": "callExcption1", "Args": []}`
+	CallContract(contractAddr, abi)
+
+	if !hasData(contractAddr,"data"){
+		t.Fatal("call contract failed.")
+	}
+}
+
+func hasData(address string,key string)bool{
+	datas := GetContractDatas(address)
+	if datas[key] !=  `1"success"`{
+		return false
+	}
+	return true
 }
