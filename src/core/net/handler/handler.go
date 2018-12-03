@@ -265,22 +265,10 @@ func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
-	height := utility.ByteToUInt64(chainPieceReqMessage.HeightByte)
+	reqHeight := utility.ByteToUInt64(chainPieceReqMessage.HeightByte)
 	id := chainPieceReqMessage.Peer
 
-	chainPiece := make([]*types.BlockHeader, 0)
-	var i, len uint64
-	for i, len = 0, 0; len < ChainPieceLength; i++ {
-		//core.Logger.Debugf("QueryBlockByHeight,height:%d", height-i)
-		header := core.BlockChainImpl.QueryBlockByHeight(height - i)
-		if header != nil {
-			chainPiece = append(chainPiece, header)
-			len++
-		}
-		if height-i == 0 {
-			break
-		}
-	}
+	chainPiece := core.BlockChainImpl.GetChainPiece(reqHeight)
 	core.SendChainPiece(id, core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: core.BlockChainImpl.QueryTopBlock()})
 }
 

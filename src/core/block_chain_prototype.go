@@ -18,6 +18,8 @@ import (
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
+const ChainPieceLength = 9
+
 
 type prototypeChain struct {
 	isLightMiner bool
@@ -527,4 +529,46 @@ func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *t
 
 	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
 	return 0
+}
+
+func (chain *prototypeChain) GetChainPiece(reqHeight uint64) []*types.BlockHeader {
+	chain.lock.Lock("GetChainPiece")
+	defer chain.lock.Unlock("GetChainPiece")
+	localHeight := chain.latestBlock.Height
+	Logger.Debugf("[GetChainPiece]Req height:%d,local height:%d", reqHeight, localHeight)
+
+	var height uint64
+	if reqHeight > localHeight {
+		height = localHeight
+	} else {
+		height = reqHeight
+	}
+
+	var lastChainPieceBlock *types.BlockHeader
+	for i := height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		lastChainPieceBlock = bh
+		break
+	}
+	if lastChainPieceBlock == nil {
+		panic("lastChainPieceBlock should not be nil!")
+	}
+
+	chainPiece := make([]*types.BlockHeader, 0)
+	chainPiece = append(chainPiece, lastChainPieceBlock)
+
+	hash := lastChainPieceBlock.PreHash
+	for i := 0; i < ChainPieceLength; i++ {
+		header := BlockChainImpl.QueryBlockHeaderByHash(hash)
+		if header == nil {
+			//创世块 pre hash 不存在
+			break
+		}
+		chainPiece = append(chainPiece, header)
+		hash = header.PreHash
+	}
+	return chainPiece
 }

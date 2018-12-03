@@ -103,6 +103,8 @@ type BlockChain interface {
 
 	GetCheckValue(height uint64) (common.Hash, error)
 
+	GetChainPiece(reqHeight uint64) []*types.BlockHeader
+
 	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
 }
 
@@ -138,7 +140,6 @@ type GroupInfoI interface {
 
 // VM执行器
 type VMExecutor interface {
-
 	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 
