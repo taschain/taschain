@@ -17,6 +17,7 @@ package common
 
 import (
 	"math/big"
+	"encoding/hex"
 )
 
 type Sign struct {
