@@ -53,9 +53,9 @@ func (c *container) AsSlice() []*types.Transaction {
 
 	var result []*types.Transaction
 	len := c.txs.Len()
-	if len > 1000 {
-		result = make([]*types.Transaction, 1000)
-		copy(result, c.txs[len-1000:])
+	if len > 3000 {
+		result = make([]*types.Transaction, 3000)
+		copy(result, c.txs[len-3000:])
 	} else {
 		result = make([]*types.Transaction, len)
 		copy(result, c.txs)
