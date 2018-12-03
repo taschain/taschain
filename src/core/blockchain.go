@@ -881,6 +881,15 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 	return h
 }
 
+func (chain *BlockChain) RemoveTop(){
+	chain.lock.Lock("RemoveTop")
+	defer chain.lock.Unlock("RemoveTop")
+
+	hash := chain.latestBlock.PreHash
+	chain.remove(chain.latestBlock)
+	chain.latestBlock = chain.QueryBlockByHash(hash)
+}
+
 // 删除块
 func (chain *BlockChain) remove(header *types.BlockHeader) {
 	hash := header.Hash
