@@ -143,6 +143,12 @@ func TestSignBytes(test *testing.T) {
 	copy(sha_buf, sha1_hash[:])
 	sign := pri_k.Sign(sha_buf) //私钥签名
 
+	//测试签名十六进制转换
+	h := sign.GetHexString() 	//签名十六进制表示
+	si := HexStringToSign(h)   	//从十六进制恢复出签名
+	fmt.Println(si.Bytes())		//签名打印
+	fmt.Println(sign_bytes)
+
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
 

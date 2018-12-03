@@ -70,3 +70,20 @@ func BytesToSign(b []byte) *Sign {
 	s = *s.SetBytes(sr)
 	return &Sign{r, s}
 }
+
+func (s Sign) GetHexString() string {
+	buf := s.Bytes()
+	str := PREFIX + hex.EncodeToString(buf)
+	return str
+}
+
+//导入函数
+func HexStringToSign(s string) (si *Sign) {
+	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
+		return
+	}
+	buf, _ := hex.DecodeString(s[len(PREFIX):])
+	si = BytesToSign(buf)
+	return si
+}
+
