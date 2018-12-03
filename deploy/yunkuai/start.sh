@@ -33,4 +33,5 @@ do
 	else
 		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --prefix aly_flow --nat $nat_server --build_id $build_number --pprof $pprof_port > $stdout_log 2>&1 & echo $! > $pid_file
 	fi
+	sleep 1
 done
