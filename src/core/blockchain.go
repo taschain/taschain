@@ -424,7 +424,6 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-	defer network.Logger.Debugf("casting block %d-%d,txtree:%s", height, queueNumber, block.Header.TxTree.String())
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -473,6 +472,7 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 	})
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
+	network.Logger.Debugf("casting block %d-%d,txtree:%s", height, queueNumber, block.Header.TxTree.String())
 	return block
 }
 
@@ -881,7 +881,7 @@ func (chain *BlockChain) generateHeightKey(height uint64) []byte {
 	return h
 }
 
-func (chain *BlockChain) RemoveTop(){
+func (chain *BlockChain) RemoveTop() {
 	chain.lock.Lock("RemoveTop")
 	defer chain.lock.Unlock("RemoveTop")
 
