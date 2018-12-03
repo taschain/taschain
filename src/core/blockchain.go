@@ -182,7 +182,7 @@ func initBlockChain() error {
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
 		chain.buildCache(chain.topBlocks)
-		Logger.Infof("initBlockChain chain.latestBlock.StateTree  Hash:%s",chain.latestBlock.StateTree.Hex())
+		Logger.Infof("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 		state, err := core.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
@@ -417,14 +417,14 @@ func (chain *BlockChain) CastingBlock(height uint64, nonce uint64, queueNumber u
 		QueueNumber: queueNumber,
 		Castor:      castor,
 		GroupId:     groupid,
-		TotalQN:     latestBlock.TotalQN + queueNumber,//todo:latestBlock != nil?
+		TotalQN:     latestBlock.TotalQN + queueNumber, //todo:latestBlock != nil?
 	}
 
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
 	}
-	//defer network.Logger.Debugf("casting block %d-%d cost %v,curtime:%v", height, queueNumber, time.Since(beginTime), block.Header.CurTime)
+	defer network.Logger.Debugf("casting block %d-%d,txtree:%s", height, queueNumber, block.Header.TxTree.String())
 
 	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	state, err := core.NewAccountDB(common.BytesToHash(latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -529,10 +529,10 @@ func (chain *BlockChain) verifyCastingBlock(bh types.BlockHeader, txs []*types.T
 		return missing, 1, nil, nil
 	}
 
-	txtree := calcTxTree(transactions).Bytes()
+	txtree := calcTxTree(transactions)
 
-	if common.ToHex(txtree) != common.ToHex(bh.TxTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree, bh.TxTree.Bytes())
+	if common.ToHex(txtree.Bytes()) != common.ToHex(bh.TxTree.Bytes()) {
+		Logger.Debugf("[BlockChain]fail to verify txtree, hash1:%s hash2:%s", txtree.String(), bh.TxTree.String())
 		return missing, -1, nil, nil
 	}
 
@@ -648,8 +648,8 @@ func (chain *BlockChain) addBlockOnChain(b *types.Block) int8 {
 
 		h, e := types.MarshalBlockHeader(b.Header)
 		if e != nil {
-			headerMsg := network.Message{Code:network.NewBlockHeaderMsg,Body:h}
-			go network.GetNetInstance().Relay(headerMsg,1)
+			headerMsg := network.Message{Code: network.NewBlockHeaderMsg, Body: h}
+			go network.GetNetInstance().Relay(headerMsg, 1)
 			network.Logger.Debugf("After add on chain,spread block %d-%d header to neighbor,header size %d,hash:%v", b.Header.Height, b.Header.QueueNumber, len(h), b.Header.Hash)
 		}
 
@@ -745,7 +745,7 @@ func (chain *BlockChain) GetBlockInfo(height uint64, hash common.Hash) *BlockInf
 	defer chain.lock.RUnlock("GetBlockInfo")
 	localHeight := chain.latestBlock.Height
 
-	bh := chain.queryBlockHeaderByHeight(height,true)
+	bh := chain.queryBlockHeaderByHeight(height, true)
 	if bh != nil && bh.Hash == hash {
 		//当前结点和请求结点在同一条链上
 		//Logger.Debugf("[BlockChain]Self is on the same branch with request node!")

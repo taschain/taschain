@@ -52,9 +52,11 @@ func calcTxTree(tx []*types.Transaction) common.Hash {
 
 	buf := new(bytes.Buffer)
 	for i := 0; i < len(tx); i++ {
+		Logger.Debugf("calcTxTree tx Hash:%s",tx[i].Hash.String())
 		encode, _ := msgpack.Marshal(tx[i])
 		serialize.Encode(buf, encode)
 	}
+	Logger.Debugf("calcTxTree end")
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
