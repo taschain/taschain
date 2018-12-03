@@ -12,12 +12,13 @@ class ContractException():
     def callExcption1(self):
         try:
             xx = account.contractCall("0x2a4e0a5fb3d78a2c725a233b1bccff7560c35610", "be_calledException1", "[]")
-        except Exception:
-            self.data = "success"
-
+        except Exception as e:
+            print("====error is " + str(e))
+            if str(e).count("ddd")>0:
+                self.data = "success"
 
     @register.public()
     def be_calledException1(self):
-        self.a=sadads
+        self.a=ddd
 
 

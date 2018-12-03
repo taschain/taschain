@@ -23,6 +23,7 @@ import (
 	t "storage/core/types"
 	"storage/core/vm"
 	"tvm"
+	"fmt"
 )
 
 const CodeBytePrice = 0.3814697265625
@@ -90,7 +91,7 @@ func (executor *TVMExecutor) Execute(accountdb *core.AccountDB, block *types.Blo
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
 				if contract.Code == ""{
-					err =  types.TxErrorNoCode
+					err =  types.NewTransactionError(types.TxErrorCode_NO_CODE,fmt.Sprintf(types.NO_CODE_ERR_MSG,*transaction.Target))
 					fail = true
 				}else{
 					snapshot := controller.AccountDB.Snapshot()

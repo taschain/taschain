@@ -41,12 +41,13 @@ func NewController(accountDB vm.AccountDB,
 
 func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
 	defer func() {
 		con.Vm.DelTvm()
 	}()
+	con.Vm.SetGas(int(con.GasLeft))
+	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
+
 	if errorCodeDeploy != 0 {
 		return errorCodeDeploy,errorDeployMsg
 	}
@@ -99,7 +100,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
 	con.Vm.SetLibLine(libLen)
-	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false))//execute
+	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false,false))//execute
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}

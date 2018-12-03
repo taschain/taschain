@@ -33,12 +33,22 @@ const (
 	Sys_Error = 2001
 	Sys_Check_Abi_Error = 2002
 	Sys_Abi_JSON_Error = 2003
+	Sys_CONTRACT_CALL_MAX_DEEP_Error = 2004
 )
+var (
+	NO_CODE_ERR_MSG = "get code from address %s,but no code!"
+)
+var (
+	ABI_JSON_ERROR = "4|2003|abi json format error"
+	NO_CODE_ERR = "4|4|"+NO_CODE_ERR_MSG
+	CALL_MAX_DEEP = "4|2004|call max deep cannot more than 8"
+)
+
+
 
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
 	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough,"gas not enough")
-	TxErrorNoCode = NewTransactionError(TxErrorCode_NO_CODE,"no code")
 	TxErrorAbiJson = NewTransactionError(Sys_Abi_JSON_Error,"abi json format error")
 )
 

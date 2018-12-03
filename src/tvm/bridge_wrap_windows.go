@@ -280,11 +280,22 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
+	if contract.Code == "" {
+		return fmt.Sprintf(types2.NO_CODE_ERR,conAddr)
+	}
 	oneVm := &Tvm{contract, controller.Vm.ContractAddress,nil}
 
 	//准备vm的环境
 	controller.Vm.CreateContext()
-	controller.StoreVmContext(oneVm)
+	errorMsg,isAdd := controller.StoreVmContext(oneVm)
+
+	defer func(){
+		//恢复vm的环境
+			controller.Vm.RemoveContext()
+	}()
+	if errorMsg != ""{
+		return errorMsg
+	}
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
@@ -300,18 +311,19 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	}
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
-	json.Unmarshal([]byte(abiJson), &abi)
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return types2.ABI_JSON_ERROR
+	}
 	errorCode,errorMsg = controller.Vm.checkABI(abi)
 	if errorCode != 0 {
 		return errorMsg
 	}
-
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
-	result := controller.Vm.ExecuteABI(abi, true)
-	//恢复vm的环境
-	controller.Vm.RemoveContext()
-	controller.RecoverVmContext()
-
+	result := controller.Vm.ExecuteABI(abi, true,true)
+	if isAdd{
+		controller.RecoverVmContext()
+	}
 	return result
 }
 
@@ -528,7 +540,7 @@ type ABI struct {
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
+func (tvm *Tvm) ExecuteABI(res ABI, withResult bool,isContractCall bool) string {
 
 	var buf bytes.Buffer
 	//类名
@@ -545,18 +557,24 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 		buf.Truncate(buf.Len() - 2)
 	}
 	buf.WriteString(")")
-	bufstr := fmt.Sprintf(
-		`
+	fmt.Println(buf.String())
+	bufStr := buf.String()
+	if !isContractCall{
+		bufStr = fmt.Sprintf(`
 try:
-    %s
+    % s
+except CallException as e:
+    print(e)
 except Exception:
     raise ABICheckException("ABI input contract name error,input contract name is %s")
-`,buf.String(),tvm.ContractName)
-	fmt.Println(buf.String())
+	`,buf.String(),tvm.ContractName)
+	}
+
+
 	if withResult {
-		return tvm.ExecuteWithResult(bufstr)
+		return tvm.ExecuteWithResult(bufStr)
 	} else {
-		return tvm.executeCommon(bufstr, false)
+		return tvm.executeCommon(bufStr, false)
 	}
 
 }
