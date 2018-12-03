@@ -124,7 +124,7 @@ func NewTransactionPool() TransactionPool {
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.reserved, _ = lru.New(pool.config.maxReceivedPoolSize / 4)
+	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
 	if err != nil {
@@ -304,12 +304,6 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 }
 
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
-	//为解决交易池被打满后交易丢失无法GenereteBlock的情况
-	reservedRaw, _ := pool.reserved.Get(hash)
-	if nil != reservedRaw {
-		reserved := reservedRaw.(*types.Transaction)
-		return reserved, nil
-	}
 	// 先从received里获取
 	result := pool.received.Get(hash)
 	if nil != result {
@@ -324,6 +318,7 @@ func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error)
 
 	return nil, ErrNil
 }
+
 //验证组 verify
 func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
 	if nil == hashes || 0 == len(hashes) {
@@ -446,10 +441,6 @@ func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evicted
 	pool.reserved.Remove(hash)
 	pool.removeFromSendinglist(transactions)
 	pool.removeFromSendinglist(evictedTxs)
-
-	for _, tx := range transactions {
-		pool.reserved.Remove(tx)
-	}
 }
 
 // 返回待处理的transaction数组
@@ -465,9 +456,6 @@ func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transacti
 		return
 	}
 	pool.reserved.Add(hash, txs)
-	for _, tx := range txs {
-		pool.reserved.Add(tx.Hash, tx)
-	}
 }
 
 func (pool *TxPool) GetLock() *middleware.Loglock {

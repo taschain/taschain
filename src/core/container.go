@@ -98,6 +98,8 @@ func (c *container) add(tx *types.Transaction) {
 		c.inited = true
 
 	}
+	//Logger.Debugf("tx pool size:%d great than max size,ignore tx!", c.txs.Len())
+	return
 	evicted := heap.Pop(&c.txs).(*types.Transaction)
 	delete(c.txsMap, evicted.Hash)
 	heap.Push(&c.txs, tx)
