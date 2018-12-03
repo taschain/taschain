@@ -55,7 +55,7 @@ class A():
 	jsonString, _ := json.Marshal(contract)
 	contractAddr = DeployContract(string(jsonString), source, 9127, 0)
 	// 测试正常数据调用
-	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": []}`, source, (10135))
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": []}`, source, 9664)
 	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
 	fmt.Printf("=============>get hash %x \n",hash)
 	fmt.Println("test receipt", receipt)
