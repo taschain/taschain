@@ -138,9 +138,6 @@ func (bs *blockSyncer) loop() {
 			}
 			bs.lock.Unlock()
 		case <-syncTicker.C:
-			if !bs.init{
-				continue
-			}
 			logger.Debugf("[BlockSyncer]sync time up, start to block sync!")
 			requestBlockChainTotalQn()
 			totalQnRcvTimer.Reset(BLOCK_TOTAL_QN_RECEIVE_INTERVAL)
