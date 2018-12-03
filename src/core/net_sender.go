@@ -112,7 +112,7 @@ func BroadcastMinerApplyTransactions(txs []*types.Transaction) {
 			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
-		Logger.Debugf("BroadcastMinerApplyTransactions len:%d", len(txs))
+		Logger.Debugf("BroadcastMinerApplyTransactions len:%d,tx[0] hash:%s", len(txs),txs[0].Hash.String())
 		message := network.Message{Code: network.TransactionMsg, Body: body}
 		go network.GetNetInstance().Broadcast(message)
 	}
