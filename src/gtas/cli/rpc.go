@@ -42,6 +42,19 @@ type GtasAPI struct {
 
 // 云块交易接口
 // 加入版本号的控制
+func (api *GtasAPI) R() *Result {
+	height:= core.BlockChainImpl.Height()
+	core.BlockChainImpl.RemoveTop()
+
+	return &Result{
+		Message: fmt.Sprintf("Removed block height: %d", height),
+
+		Success: false,
+	}
+}
+
+// 云块交易接口
+// 加入版本号的控制
 func (api *GtasAPI) L(data string, extradata []byte) *Result {
 
 	// 先判断提交内容是否重复
