@@ -147,7 +147,7 @@ func TestSignBytes(test *testing.T) {
 	h := sign.GetHexString() 	//签名十六进制表示
 	si := HexStringToSign(h)   	//从十六进制恢复出签名
 	fmt.Println(si.Bytes())		//签名打印
-	fmt.Println(sign_bytes)
+        fmt.Println(sign.Bytes())
 
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
