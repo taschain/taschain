@@ -32,12 +32,14 @@ const (
 
 	Sys_Error = 2001
 	Sys_Check_Abi_Error = 2002
+	Sys_Abi_JSON_Error = 2003
 )
 
 var (
 	TxErrorBalanceNotEnough = NewTransactionError(TxErrorCode_BalanceNotEnough,"balance not enough")
 	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough,"gas not enough")
 	TxErrorNoCode = NewTransactionError(TxErrorCode_NO_CODE,"no code")
+	TxErrorAbiJson = NewTransactionError(Sys_Abi_JSON_Error,"abi json format error")
 )
 
 type Transaction struct {

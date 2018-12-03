@@ -89,7 +89,10 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
 	abi := ABI{}
-	json.Unmarshal([]byte(abiJson), &abi)
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return false,nil,types.TxErrorAbiJson
+	}
 	fmt.Println(abi)
 	errorCode,errorMsg = con.Vm.checkABI(abi)//checkABI
 	if errorCode != 0{

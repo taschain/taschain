@@ -19,7 +19,10 @@ func PycodeCreateContractInstance(code string, contractName string) (string,int)
 		newCode:= fmt.Sprintf(`
 %s
 %s
-tas_%s = %s()`, trueCode, PycodeContractAddHooks(contractName),contractName, contractName)
+try:
+    tas_%s = %s()
+except Exception:
+    raise ABICheckException("ABI input contract name error,input contract name is %s")`, trueCode, PycodeContractAddHooks(contractName),contractName, contractName,contractName)
 	return newCode,libLine
 }
 
@@ -32,23 +35,25 @@ func PycodeContractImports()string{
 }
 
 func PycodeContractAddHooks(contractName string)string{
-	initHook:=fmt.Sprintf("%s.__init__ = TasBaseStorage.initHook",contractName)
-	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStorage.setAttrHook",contractName)
-	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStorage.getAttrHook",contractName)
 	return fmt.Sprintf(`
-%s
-%s
-%s
-	`,initHook,getAttributeHook,setAttributeHook)
+try:
+    %s.__init__ = TasBaseStorage.initHook
+    %s.__setattr__= TasBaseStorage.setAttrHook
+    %s.__getattr__= TasBaseStorage.getAttrHook
+except Exception:
+    raise ABICheckException("ABI input contract name error,input contract name is %s")
+`,contractName,contractName,contractName,contractName)
 }
 
 func PycodeContractDeployHooks(contractName string)string{
-	setAttributeHook := fmt.Sprintf("%s.__setattr__= TasBaseStorage.setAttrHook",contractName)
-	getAttributeHook := fmt.Sprintf("%s.__getattr__= TasBaseStorage.getAttrHook",contractName)
 	return fmt.Sprintf(`
-%s
-%s
-	`,getAttributeHook,setAttributeHook)
+try:
+    %s.__setattr__= TasBaseStorage.setAttrHook
+    %s.__getattr__= TasBaseStorage.getAttrHook
+except Exception:
+    raise ABICheckException("ABI input contract name error,input contract name is %s")
+`,contractName,contractName,contractName)
+
 }
 
 func PycodeGetTrueUserCode(code string)(string,int){
@@ -61,8 +66,11 @@ func PycodeGetTrueUserCode(code string)(string,int){
 func PycodeContractDeploy(code string, contractName string) (string,int) {
 	trueCode,libLine:= PycodeGetTrueUserCode(code)
 	invokeDeploy:=fmt.Sprintf(`
-tas_%s = %s()
-`, contractName, contractName)
+try:
+    tas_%s = %s()
+except Exception:
+    raise ABICheckException("ABI input contract name error,input contract name is %s")
+`, contractName, contractName,contractName)
 
 	allContractCode:= fmt.Sprintf(`
 %s
