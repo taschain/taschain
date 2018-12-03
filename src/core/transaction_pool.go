@@ -73,9 +73,11 @@ type TxPool struct {
 	lock middleware.Loglock
 
 	// 待上块的交易
-	received    *container
-	reserved    *lru.Cache
-	sendingList []*types.Transaction
+	received *container
+	//存储自身的分红交易和和矿工申请交易
+	innerReceived *container
+	reserved      *lru.Cache
+	sendingList   []*types.Transaction
 
 	sendingTxLock sync.Mutex
 	sendingTimer  *time.Timer
@@ -124,6 +126,7 @@ func NewTransactionPool() TransactionPool {
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
@@ -190,7 +193,11 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		return false, ErrExist
 	}
 
-	pool.received.Push(tx)
+	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
+		pool.innerReceived.Push(tx)
+	} else {
+		pool.received.Push(tx)
+	}
 	if tx.Type == types.TransactionTypeMinerApply {
 		BroadcastMinerApplyTransactions([]*types.Transaction{tx})
 	}
