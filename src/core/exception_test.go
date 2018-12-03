@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"encoding/json"
+	"common"
 )
 
 func TestLib(t *testing.T){
@@ -13,6 +14,52 @@ func TestLib(t *testing.T){
 	decorateTest(t)
 }
 
+func TestGas(t *testing.T){
+	//onlinegasTest(t)	//it should be failed
+	abigasTest(t)		//it should be failed
+}
+
+var contractAddr common.Address
+func onlinegasTest(t *testing.T){
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+class A():
+    def __init__(self):
+        pass
+
+    @register.public()
+    def test(self):
+        print('this step has gas')
+        print('this step has no gas')
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr = DeployContract(string(jsonString), source, 9126, 0)
+}
+
+func abigasTest(t *testing.T){
+	ChainInit()
+	source := "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+	code := `
+class A():
+    def __init__(self):
+        pass
+
+    @register.public()
+    def test(self):
+        print('this step has gas')
+        print('this step has no gas')
+`
+	contract := tvm.Contract{code, "A", nil}
+	jsonString, _ := json.Marshal(contract)
+	contractAddr = DeployContract(string(jsonString), source, 9127, 0)
+	// 测试正常数据调用
+	hash := ExecuteContract(contractAddr.GetHexString(), `{"FuncName": "test", "Args": []}`, source, (10135))
+	receipt := BlockChainImpl.GetTransactionPool().GetExecuted(hash)
+	fmt.Printf("=============>get hash %x \n",hash)
+	fmt.Println("test receipt", receipt)
+}
 
 func decorateTest(t *testing.T) {
 	ChainInit()
