@@ -15,7 +15,7 @@ class ContractException():
         except Exception as e:
             print("====error is " + str(e))
             if str(e).count("ddd")>0:
-                self.data = "success"
+                self.callExcption1 = "success"
 
     @register.public()
     def be_calledException1(self):
