@@ -402,6 +402,10 @@ func (pool *TxPool) GetReceived() []*types.Transaction {
 // 3）todo：曾经收到过的，不合法的交易
 // 被add调用，外部加锁
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
+	innerReceived := pool.innerReceived.Contains(hash)
+	if innerReceived {
+		return true
+	}
 	result := pool.received.Contains(hash)
 	if result {
 		return true
