@@ -82,6 +82,7 @@ func (bs *blockSyncer) loop() {
 				go bs.SendTopBlockInfoToNeighbor(topBlockInfo)
 			}
 		case <-bs.syncTimer.C:
+			blockSyncLogger.Debugf("[BlockSyncer]block sync time up! sync")
 			go bs.sync(nil)
 		}
 	}
@@ -123,9 +124,6 @@ func (bs *blockSyncer) blockInfoHandler(msg notify.Message) {
 	candidate := blockSyncCandidate{id: bnm.Peer, totalQn: blockInfo.TotalQn, hash: blockInfo.Hash, preHash: blockInfo.PreHash, height: blockInfo.Height}
 	if candidate.totalQn < BlockChainImpl.TotalQN() {
 		return
-	}
-	if candidate.height <= BlockChainImpl.Height()+3 {
-		go bs.sync(&candidate)
 	}
 
 	if blockInfo.TotalQn > bs.candidate.totalQn {
