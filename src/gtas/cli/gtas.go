@@ -170,7 +170,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 
 func (gtas *Gtas) runtimeInit() {
 	debug.SetGCPercent(70)
-	debug.SetMaxStack(2 * 1000000000)
+	debug.SetMaxStack(4 * 1000000000)
 	fmt.Println("setting gc 70%, max memory 2g")
 
 }
