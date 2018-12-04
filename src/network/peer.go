@@ -130,7 +130,7 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) autoSend(peer *Peer) {
 
-	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
+//	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
 
 	if peer.seesionId == 0 || !sendList.isSendAvailable() {
 		return
@@ -158,7 +158,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			item.curQuota += 1
 			sendList.curQuota += 1
 
-			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
+//			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
 
 
 			if item.curQuota >= item.quota {
@@ -179,7 +179,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		sendList.resetQuota()
 		sendList.autoSend(peer)
 	}
-	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
+//	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
 
 }
 
