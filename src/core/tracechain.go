@@ -14,6 +14,11 @@ const timerDuration = time.Second * 2
 
 var TraceChainImpl TraceChain
 
+/*
+**  Creator: Kaede
+**  Date: 2018/10/22 下午2:24
+**  Description: 用于追踪不同的分叉
+*/
 type TraceChain struct {
 	tracedb tasdb.Database
 	//topdb			tasdb.Database

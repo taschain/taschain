@@ -42,7 +42,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-//获取交易中包含账户所在的分支
+//获取交易中包含账户所在的分支，LightChain使用
 func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
 	//todo  合约如何实现
 	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
@@ -114,6 +114,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.Ac
 	t.GetAllNodes(nodes)
 }
 
+//哪些交易涉及的account在AccountDB中缺失，LightChain使用
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
 	missingAccountTransactions := []*types.Transaction{}
 	missingAccounts := []common.Address{}
@@ -160,7 +161,6 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.
 	return missingAccountTransactions, missingAccounts
 }
 
-
 func getBonusAddress(t types.Transaction) []common.Address {
 	var result = make([]common.Address, 0)
 
@@ -176,6 +176,7 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
+
 func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error) {
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
@@ -338,6 +339,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	Transfer(accountdb, *transaction.Source, contractAddr, amount)
 	return contractAddr, nil
 }
+
 func IsAccountExist(db vm.AccountDB, addr common.Address) bool {
 	data, _ := db.GetTrie().TryGet(addr[:])
 	if data == nil {
@@ -345,6 +347,7 @@ func IsAccountExist(db vm.AccountDB, addr common.Address) bool {
 	}
 	return true
 }
+
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }

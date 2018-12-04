@@ -81,7 +81,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 }
 
 //收到交易 全网扩散
-func BroadcastTransactions(txs []*types.Transaction) {
+func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			Logger.Errorf("[peer]Runtime error caught: %v", r)
@@ -95,26 +95,12 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		}
 		Logger.Debugf("BroadcastTransactions len:%d", len(txs))
 		message := network.Message{Code: network.TransactionMsg, Body: body}
-		heavyMiners := MinerManagerImpl.GetHeavyMiners()
-		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
-	}
-}
-
-func BroadcastMinerApplyTransactions(txs []*types.Transaction) {
-	defer func() {
-		if r := recover(); r != nil {
-			Logger.Errorf("[peer]Runtime error caught: %v", r)
+		if heavyOnly {
+			heavyMiners := MinerManagerImpl.GetHeavyMiners()
+			go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+		} else {
+			go network.GetNetInstance().Broadcast(message)
 		}
-	}()
-	if len(txs) > 0 {
-		body, e := types.MarshalTransactions(txs)
-		if e != nil {
-			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
-			return
-		}
-		Logger.Debugf("BroadcastMinerApplyTransactions len:%d", len(txs))
-		message := network.Message{Code: network.TransactionMsg, Body: body}
-		go network.GetNetInstance().Broadcast(message)
 	}
 }
 
