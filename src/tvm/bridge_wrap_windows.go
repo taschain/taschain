@@ -565,8 +565,8 @@ try:
     % s
 except CallException as e:
     print(e)
-except Exception:
-    raise ABICheckException("ABI input contract name error,input contract name is %s")
+#except Exception:
+#    raise ABICheckException("ABI input contract name error,input contract name is %s")
 	`,buf.String(),tvm.ContractName)
 	}
 
