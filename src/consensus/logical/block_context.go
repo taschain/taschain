@@ -141,7 +141,7 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 		deltaHeightByTime = bh.Height - preBH.Height
 	}
 
-	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime)
+	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
 
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
