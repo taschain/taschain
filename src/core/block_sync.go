@@ -88,7 +88,9 @@ func (bs *blockSyncer) loop() {
 }
 
 func (bs *blockSyncer) SendTopBlockInfoToNeighbor(bi BlockInfo) {
+	bs.lock.Lock()
 	bs.blockInfoNotifyTimer.Reset(blockSyncInterval)
+	bs.lock.Unlock()
 	blockSyncLogger.Debugf("[BlockSyncer]Send local total qn %d to neighbor!", bi.TotalQn)
 	if bi.Height == 0 {
 		return
