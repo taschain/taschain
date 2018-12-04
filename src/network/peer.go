@@ -196,6 +196,20 @@ func (sendList *SendList) resetQuota() {
 }
 
 
+func (sendList *SendList) getDataSize() int {
+	size := 0
+	for i := 0; i < MaxSendPriority ; i++ {
+		item := sendList.list[i]
+
+		for e := item.list.Front();e != nil; e = e.Next() {
+			buf := e.Value.(*bytes.Buffer)
+			size += buf.Len()
+		}
+	}
+	return size
+}
+
+
 //Peer 节点连接对象
 type Peer struct {
 	Id         NodeID
@@ -494,11 +508,17 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 func (pm *PeerManager) print() {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	totolRecvBufferSize := 0
+	totalRecvBufferSize := 0
+	totalSendBufferSize := 0
 	for _, p := range pm.peers {
-		totolRecvBufferSize += p.getDataSize()
+		totalRecvBufferSize += p.getDataSize()
+
+		totalSendBufferSize += p.sendList.getDataSize()
+
+		Logger.Debugf("PeerManager Print: peer id: %v, SendBufferSize:%v, RecvBufferSize:%v", p.Id.GetHexString(), p.sendList.getDataSize() ,p.getDataSize())
+
 	}
-	Logger.Debugf("PeerManager Print peer size:%v totolRecvBufferSize:%v", len(pm.peers), totolRecvBufferSize)
+	Logger.Debugf("PeerManager Print: peer size:%v ,SendBufferSize:%v, totolRecvBufferSize:%v", len(pm.peers), totalSendBufferSize, totalRecvBufferSize)
 
 	return
 }
