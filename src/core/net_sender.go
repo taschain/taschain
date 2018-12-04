@@ -112,9 +112,11 @@ func BroadcastMinerApplyTransactions(txs []*types.Transaction) {
 			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
-		Logger.Debugf("BroadcastMinerApplyTransactions len:%d,tx[0] hash:%s", len(txs),txs[0].Hash.String())
+		Logger.Debugf("BroadcastMinerApplyTransactions len:%d,tx[0] hash:%s", len(txs), txs[0].Hash.String())
 		message := network.Message{Code: network.TransactionMsg, Body: body}
-		go network.GetNetInstance().Broadcast(message)
+		//广播给重节点的虚拟组
+		heavyMinerMembers := MinerManagerImpl.GetHeavyMiners()
+		go network.GetNetInstance().SpreadToGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMinerMembers, message, []byte(message.Hash()))
 	}
 }
 

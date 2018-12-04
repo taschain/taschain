@@ -296,7 +296,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
-	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v", height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),chain.consensusHelper.VRFProve2Value(block.Header.ProveValue))
+	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v", height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(), chain.consensusHelper.VRFProve2Value(block.Header.ProveValue))
 	//defer Logger.Infof("casting block dump:%s", block.Header.ToString())
 	//自己铸的块 自己不需要验证
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
@@ -506,6 +506,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(*types.Block)
+		Logger.Debugf("Get block from future blocks,hash:%s,height:%d", block.Header.Hash.String(), block.Header.Height)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
 		chain.addBlockOnChain(block)
 		return
@@ -514,6 +515,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	if BlockSyncer != nil {
 		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
 		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
+		Logger.Debugf("After oN chain succ and future blocks don't have next block.Try sync!")
 		go BlockSyncer.sync(nil)
 	}
 }
