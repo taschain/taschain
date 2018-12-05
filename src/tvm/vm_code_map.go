@@ -16,9 +16,7 @@ except Exception as e:
 
 func PycodeCreateContractInstance(code string, contractName string) (string,int) {
 	trueCode,libLine:=PycodeGetTrueUserCode(code)
-		newCode:= fmt.Sprintf(`
-%s
-%s
+		newCode:= fmt.Sprintf(`%s%s
 try:
     tas_%s = %s()
 except Exception:
@@ -72,11 +70,7 @@ except Exception:
     raise ABICheckException("ABI input contract name error,input contract name is %s")
 `, contractName, contractName,contractName)
 
-	allContractCode:= fmt.Sprintf(`
-%s
-%s
-%s
-`, trueCode,PycodeContractDeployHooks(contractName),invokeDeploy)
+	allContractCode:= fmt.Sprintf(`%s%s%s`, trueCode,PycodeContractDeployHooks(contractName),invokeDeploy)
 	return allContractCode,libLine
 
 }
