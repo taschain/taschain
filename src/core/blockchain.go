@@ -354,8 +354,6 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	if !executeTxResult {
 		return nil, -1
 	}
-	//txpool满后会删除交易，导致交易缺失，共识达到签名阈值之后GenerateBlock失败
-	chain.transactionPool.ReserveTransactions(bh.Hash, transactions)
 	return nil, 0
 }
 
