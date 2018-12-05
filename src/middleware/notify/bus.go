@@ -5,7 +5,9 @@ import (
 )
 
 var BUS *Bus
-
+/*
+	内部消息订阅服务
+ */
 type Bus struct {
 	topics map[string]*Topic
 	lock   sync.RWMutex

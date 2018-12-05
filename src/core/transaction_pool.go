@@ -199,7 +199,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		pool.received.Push(tx)
 	}
 	if tx.Type == types.TransactionTypeMinerApply {
-		BroadcastMinerApplyTransactions([]*types.Transaction{tx})
+		BroadcastTransactions([]*types.Transaction{tx},false)
 	}
 	// 日志记录分红交易信息
 
@@ -224,7 +224,7 @@ func (pool *TxPool) CheckAndSend(immediately bool) {
 		pool.sendingList = make([]*types.Transaction, 0)
 		pool.sendingTxLock.Unlock()
 		//Logger.Debugf("Broadcast txs,len:%d", len(txs))
-		go BroadcastTransactions(txs)
+		go BroadcastTransactions(txs, true)
 	}
 }
 

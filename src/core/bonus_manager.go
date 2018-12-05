@@ -8,6 +8,11 @@ import (
 	"sync"
 )
 
+/*
+**  Creator: Kaede
+**  Date: 2018/9/25 下午3:05
+**  Description: 在AccountDB上使用特殊地址0存储分红交易执行记录，保证一块只执行一次分红交易
+*/
 type BonusManager struct {
 	lock sync.RWMutex
 }

@@ -17,11 +17,8 @@
 package types
 
 import (
-	"fmt"
-	"io"
-
 	"common"
-	"storage/serialize"
+	"fmt"
 )
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
@@ -55,76 +52,6 @@ type Log struct {
 	Removed bool `json:"removed"`
 }
 
-
-type rlpLog struct {
-	Address common.Address
-	Topics  []common.Hash
-	Data    []byte
-}
-
-type rlpStorageLog struct {
-	Address     common.Address
-	Topics      []common.Hash
-	Data        []byte
-	BlockNumber uint64
-	TxHash      common.Hash
-	TxIndex     uint
-	BlockHash   common.Hash
-	Index       uint
-}
-
-// EncodeRLP implements rlp.Encoder.
-func (l *Log) EncodeRLP(w io.Writer) error {
-	return serialize.Encode(w, rlpLog{Address: l.Address, Topics: l.Topics, Data: l.Data})
-}
-
-// DecodeRLP implements rlp.Decoder.
-func (l *Log) DecodeRLP(r io.Reader) error {
-	var dec rlpLog
-	err := serialize.Decode(r, &dec)
-	if err == nil {
-		l.Address, l.Topics, l.Data = dec.Address, dec.Topics, dec.Data
-	}
-	return err
-}
-
 func (l *Log) String() string {
 	return fmt.Sprintf(`log: %x %x %x %x %d %x %d`, l.Address, l.Topics, l.Data, l.TxHash, l.TxIndex, l.BlockHash, l.Index)
-}
-
-// LogForStorage is a wrapper around a Log that flattens and parses the entire content of
-// a log including non-consensus fields.
-type LogForStorage Log
-
-// EncodeRLP implements rlp.Encoder.
-func (l *LogForStorage) EncodeRLP(w io.Writer) error {
-	return serialize.Encode(w, rlpStorageLog{
-		Address:     l.Address,
-		Topics:      l.Topics,
-		Data:        l.Data,
-		BlockNumber: l.BlockNumber,
-		TxHash:      l.TxHash,
-		TxIndex:     l.TxIndex,
-		BlockHash:   l.BlockHash,
-		Index:       l.Index,
-	})
-}
-
-// DecodeRLP implements rlp.Decoder.
-func (l *LogForStorage) DecodeRLP(r io.Reader) error {
-	var dec rlpStorageLog
-	err := serialize.Decode(r, &dec)
-	if err == nil {
-		*l = LogForStorage{
-			Address:     dec.Address,
-			Topics:      dec.Topics,
-			Data:        dec.Data,
-			BlockNumber: dec.BlockNumber,
-			TxHash:      dec.TxHash,
-			TxIndex:     dec.TxIndex,
-			BlockHash:   dec.BlockHash,
-			Index:       dec.Index,
-		}
-	}
-	return err
 }
