@@ -99,7 +99,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 100000,
+		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
 		txspecial:			 "txsp",
 	}
@@ -201,7 +201,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		pool.received.Push(tx)
 	//}
 	if tx.Type == types.TransactionTypeMinerApply {
-		BroadcastTransactions([]*types.Transaction{tx},false)
+		BroadcastTransactions([]*types.Transaction{tx}, false)
 	}
 	// 日志记录分红交易信息
 
@@ -345,6 +345,7 @@ func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Ha
 	reservedRaw, _ := pool.reserved.Get(reservedHash)
 	var reserved []*types.Transaction
 	if nil != reservedRaw {
+		Logger.Debugf("[GetTransactions]hit reserved!")
 		reserved = reservedRaw.([]*types.Transaction)
 	}
 
@@ -475,6 +476,7 @@ func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transacti
 	if 0 == len(txs) {
 		return
 	}
+	Logger.Debugf("ReserveTransactions,hash:%v,len txs:%d", hash.String(), len(txs))
 	pool.reserved.Add(hash, txs)
 }
 
