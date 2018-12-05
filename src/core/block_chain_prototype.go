@@ -81,7 +81,8 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 	txs, missTxs, _ := chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
 
 	if len(missTxs) != 0 {
-		panic("GetTransactions miss tx length is not 0!")
+		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
+		return nil
 	}
 	block.Transactions = txs
 	return block
