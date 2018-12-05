@@ -354,6 +354,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	if !executeTxResult {
 		return nil, -1
 	}
+	chain.transactionPool.ReserveTransactions(bh.Hash, transactions)
 	return nil, 0
 }
 
