@@ -63,6 +63,7 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 		Source: &address,
 		Value:  stake,
 		Type:   types.TransactionTypeMinerApply,
+		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
@@ -92,6 +93,7 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 		Data:   []byte{byte(mtype)},
 		Source: &address,
 		Type:   types.TransactionTypeMinerAbort,
+		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
@@ -110,6 +112,7 @@ func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
 		Data:   []byte{byte(mtype)},
 		Source: &address,
 		Type:   types.TransactionTypeMinerRefund,
+		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
 	ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)

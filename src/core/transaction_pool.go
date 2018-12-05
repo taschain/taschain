@@ -64,6 +64,7 @@ var (
 type TransactionPoolConfig struct {
 	maxReceivedPoolSize int
 	tx                  string
+	txspecial			string
 }
 
 type TxPool struct {
@@ -100,6 +101,7 @@ func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
 		maxReceivedPoolSize: 100000,
 		tx:                  "tx",
+		txspecial:			 "txsp",
 	}
 }
 
@@ -126,7 +128,7 @@ func NewTransactionPool() TransactionPool {
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
+	//pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
@@ -193,11 +195,11 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		return false, ErrExist
 	}
 
-	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
-		pool.innerReceived.Push(tx)
-	} else {
+	//if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
+	//	pool.innerReceived.Push(tx)
+	//} else {
 		pool.received.Push(tx)
-	}
+	//}
 	if tx.Type == types.TransactionTypeMinerApply {
 		BroadcastTransactions([]*types.Transaction{tx},false)
 	}
@@ -313,10 +315,10 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
 
 	// 先从IneerReceived里获取
-	innerReceived := pool.innerReceived.Get(hash)
-	if nil != innerReceived {
-		return innerReceived, nil
-	}
+	//innerReceived := pool.innerReceived.Get(hash)
+	//if nil != innerReceived {
+	//	return innerReceived, nil
+	//}
 	// 先从received里获取
 	result := pool.received.Get(hash)
 	if nil != result {
@@ -402,10 +404,10 @@ func (pool *TxPool) GetReceived() []*types.Transaction {
 // 3）todo：曾经收到过的，不合法的交易
 // 被add调用，外部加锁
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
-	innerReceived := pool.innerReceived.Contains(hash)
-	if innerReceived {
-		return true
-	}
+	//innerReceived := pool.innerReceived.Contains(hash)
+	//if innerReceived {
+	//	return true
+	//}
 	result := pool.received.Contains(hash)
 	if result {
 		return true
@@ -453,7 +455,7 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 
 // 从池子里移除一批交易
 func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
-	pool.innerReceived.Remove(transactions)
+	//pool.innerReceived.Remove(transactions)
 	pool.received.Remove(transactions)
 	pool.received.Remove(evictedTxs)
 	pool.reserved.Remove(hash)
