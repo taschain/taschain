@@ -64,7 +64,7 @@ var (
 type TransactionPoolConfig struct {
 	maxReceivedPoolSize int
 	tx                  string
-	txspecial			string
+	txspecial           string
 }
 
 type TxPool struct {
@@ -101,7 +101,7 @@ func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
 		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
-		txspecial:			 "txsp",
+		txspecial:           "txsp",
 	}
 }
 
@@ -198,10 +198,10 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	//if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
 	//	pool.innerReceived.Push(tx)
 	//} else {
-		pool.received.Push(tx)
+	pool.received.Push(tx)
 	//}
-	if tx.Type == types.TransactionTypeMinerApply {
-		BroadcastTransactions([]*types.Transaction{tx}, false)
+	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus{
+		BroadcastTransactions([]*types.Transaction{tx}, true)
 	}
 	// 日志记录分红交易信息
 
