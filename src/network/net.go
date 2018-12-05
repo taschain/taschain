@@ -371,6 +371,7 @@ func (nc *NetCore) loop() {
 			nc.flowMeter.print()
 			nc.flowMeter.reset()
 			nc.bufferPool.Print()
+			nc.peerManager.print()
 		case <-groupRefresh.C:
 			go nc.groupManager.doRefresh()
 		}

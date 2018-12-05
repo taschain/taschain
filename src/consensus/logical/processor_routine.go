@@ -55,13 +55,13 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	}
 
 	deltaHeight = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
-	expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
-
 	if top.Height > 0 {
 		castHeight = top.Height + deltaHeight
 	} else {
 		castHeight = uint64(1)
 	}
+	expireTime = GetCastExpireTime(top.CurTime, deltaHeight, castHeight)
+
 	if !p.canProposalAt(castHeight) {
 		return false
 	}
