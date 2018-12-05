@@ -754,7 +754,7 @@ func BenchmarkHash(b *testing.B) {
 	//trie.Hash()
 }
 
-func tempDB() (string, *Database) {
+func tempDB() (string, *NodeDatabase) {
 	dir, err := ioutil.TempDir("", "trie-bench")
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))

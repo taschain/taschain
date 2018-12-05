@@ -182,8 +182,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
-	//tr := accountdb.GetTrie()
-	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 
 	for _, transaction := range block.Transactions {
 		var fail = false
@@ -311,8 +309,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
-	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
-	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 

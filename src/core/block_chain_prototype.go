@@ -20,7 +20,6 @@ import (
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
 const ChainPieceLength = 9
 
-
 type prototypeChain struct {
 	isLightMiner bool
 	blocks       tasdb.Database
@@ -79,14 +78,12 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	block.Transactions = make([]*types.Transaction, len(bh.Transactions))
-	for i, hash := range bh.Transactions {
-		t, _ := chain.transactionPool.GetTransaction(hash)
-		if t == nil {
-			return nil
-		}
-		block.Transactions[i] = t
+	txs, missTxs, _ := chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+
+	if len(missTxs) != 0 {
+		panic("GetTransactions miss tx length is not 0!")
 	}
+	block.Transactions = txs
 	return block
 }
 

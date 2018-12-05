@@ -25,6 +25,7 @@ const(
 	RcvVerified = "RcvVerified"
 	BroadBlock = "BroadBlock"
 )
+
 var BatchSize = 1000
 var Duration time.Duration = 5
 var Lock sync.RWMutex

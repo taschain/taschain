@@ -16,8 +16,8 @@
 package types
 
 import (
-	"math/big"
 	"common"
+	"math/big"
 )
 
 /*
@@ -31,6 +31,9 @@ type GenesisInfo struct {
 	VrfPKs map[int][]byte
 }
 
+/*
+	共识接口合集
+ */
 type ConsensusHelper interface {
 
 	//generate genesis group and member pk info
