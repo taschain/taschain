@@ -178,16 +178,16 @@ func TestMapNestIn(t *testing.T) {
 //
 //}
 
-//func TestMapT1(t *testing.T) {
-//	Clear()
-//	code := tvm.Read0(getFile("test1.py"))
-//	contract := tvm.Contract{code, "xxx", nil}
-//	jsonString, _ := json.Marshal(contract)
-//	OnChainFunc(string(jsonString), "0x8b9b5d03019c07d8b6c51f90da3a666eec13ab35")
-//	contractAddr := "0x263d21332a876bafce5dc1258c13479eb1e7bf87"
-//	abi := `{"FuncName": "sss", "Args": []}`
-//	CallContract(contractAddr, abi)
-//}
+func TestMapT1(t *testing.T) {
+	Clear()
+	code := tvm.Read0(getFile("test1.py"))
+	contract := tvm.Contract{code, "xxx", nil}
+	jsonString, _ := json.Marshal(contract)
+	OnChainFunc(string(jsonString), "0x8b9b5d03019c07d8b6c51f90da3a666eec13ab35")
+	contractAddr := "0x263d21332a876bafce5dc1258c13479eb1e7bf87"
+	abi := `{"FuncName": "sss", "Args": []}`
+	CallContract(contractAddr, abi)
+}
 
 func TestMapErrors(t *testing.T) {
 	Clear()
