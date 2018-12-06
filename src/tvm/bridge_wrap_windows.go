@@ -17,7 +17,7 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
-#cgo LDFLAGS: -L ../../lib/windows -lmicropython
+#cgo LDFLAGS: -L ../../lib/windows -ltvm
 
 #include "tvm.h"
 #include <stdio.h>
