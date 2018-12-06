@@ -34,7 +34,7 @@ void some_c_func(callback_fcn);
 void tvm_setup_func(callback_fcn callback);
 void tvm_set_testAry_func(testAry_fcn);
 
-
+void tvm_set_lib_line(int line);
 typedef void (*TransferFunc)(const char*, const char*);
 
 void setTransferFunc(TransferFunc);
