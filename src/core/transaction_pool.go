@@ -99,7 +99,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 50000,
+		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
 		txspecial:           "txsp",
 	}
@@ -293,7 +293,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx, false, true)
+		pool.addInner(tx, false, false)
 	}
 }
 
@@ -471,6 +471,7 @@ func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evicted
 func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
+	Logger.Debugf("PoolStatus received:%d inner:%d cast:%d",len(pool.received.txs),len(pool.innerReceived.txs),len(txs))
 	return txs
 }
 
