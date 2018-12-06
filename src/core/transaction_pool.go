@@ -74,7 +74,7 @@ type TxPool struct {
 	lock middleware.Loglock
 
 	// 待上块的交易
-	received *container
+	received *simpleContainer
 	//存储自身的分红交易和和矿工申请交易
 	innerReceived *container
 	reserved      *lru.Cache
@@ -127,7 +127,8 @@ func NewTransactionPool() TransactionPool {
 		batchLock:     sync.Mutex{},
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	//pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newSimpleContainer(pool.config.maxReceivedPoolSize)
 	//pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
 	pool.reserved, _ = lru.New(50)
 
@@ -392,7 +393,8 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(100000)
+	//pool.received = newContainer(100000)
+	pool.received = newSimpleContainer(100000)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {

@@ -48,6 +48,8 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
+	PubKey *common.PublicKey
+	Sign   *common.Sign
 }
 
 func (tx *Transaction) GenHash() common.Hash {
