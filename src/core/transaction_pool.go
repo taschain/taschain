@@ -99,7 +99,7 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 10000,
+		maxReceivedPoolSize: 50000,
 		tx:                  "tx",
 		txspecial:           "txsp",
 	}
@@ -129,7 +129,7 @@ func NewTransactionPool() TransactionPool {
 	}
 	//pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.received = newSimpleContainer(pool.config.maxReceivedPoolSize)
-	pool.innerReceived = newSimpleContainer(pool.config.maxReceivedPoolSize / 4)
+	pool.innerReceived = newSimpleContainer(pool.config.maxReceivedPoolSize / 2)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
