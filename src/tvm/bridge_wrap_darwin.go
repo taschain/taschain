@@ -17,7 +17,7 @@ package tvm
 
 /*
 #cgo CFLAGS:  -I ../../include
-#cgo LDFLAGS: -L ../../lib/darwin_amd64 -lmicropython
+#cgo LDFLAGS: -L ../../lib/darwin_amd64 -ltvm
 
 #include "tvm.h"
 #include <stdio.h>
@@ -280,15 +280,26 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
 	conAddr := common.HexStringToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
+	if contract.Code == "" {
+		return fmt.Sprintf(types2.NO_CODE_ERR,conAddr)
+	}
 	oneVm := &Tvm{contract, controller.Vm.ContractAddress,nil}
 
 	//准备vm的环境
 	controller.Vm.CreateContext()
-	controller.StoreVmContext(oneVm)
+	errorMsg,isAdd := controller.StoreVmContext(oneVm)
+
+	defer func(){
+		//恢复vm的环境
+			controller.Vm.RemoveContext()
+	}()
+	if errorMsg != ""{
+		return errorMsg
+	}
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	errorCode,errorMsg := controller.Vm.CreateContractInstance(msg)
+	errorCode,errorMsg,_ := controller.Vm.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return errorMsg
 	}
@@ -300,21 +311,19 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	}
 	abi := ABI{}
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
-	json.Unmarshal([]byte(abiJson), &abi)
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return types2.ABI_JSON_ERROR
+	}
 	errorCode,errorMsg = controller.Vm.checkABI(abi)
 	if errorCode != 0 {
 		return errorMsg
 	}
-
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
-	//todo 异常处理
-	result := controller.Vm.ExecuteABI(abi, true)
-	fmt.Printf("CallContract result %s\n", result)
-
-	//恢复vm的环境
-	controller.Vm.RemoveContext()
-	controller.RecoverVmContext()
-
+	result := controller.Vm.ExecuteABI(abi, true,true)
+	if isAdd{
+		controller.RecoverVmContext()
+	}
 	return result
 }
 
@@ -408,6 +417,11 @@ func (tvm *Tvm) SetGas(gas int) {
 	C.tvm_set_gas(C.int(gas))
 }
 
+
+func (tvm *Tvm) SetLibLine(line int) {
+	C.tvm_set_lib_line(C.int(line))
+}
+
 func (tvm *Tvm) Pycode2bytecode(str string) {
 	C.pycode2bytecode(C.CString(str))
 }
@@ -425,13 +439,12 @@ func (tvm *Tvm) checkABI(abi ABI) (int,string) {
 		errorMsg =  fmt.Sprintf(`
 			checkABI failed. abi:%s,msg=%s
 		`,abi.FuncName,errorMsg)
-		fmt.Printf(errorMsg)
 	}
 	return errorCode,errorMsg
 }
 
 func (tvm *Tvm) StoreData() (int,string) {
-	script := PycodeStoreContractData(tvm.ContractName)
+	script := PycodeStoreContractData()
 	return tvm.Execute(script)
 }
 
@@ -460,13 +473,14 @@ type Msg struct {
 	Sender string
 }
 
-func (tvm *Tvm) CreateContractInstance(msg Msg) (int,string) {
+func (tvm *Tvm) CreateContractInstance(msg Msg) (int,string,int) {
 	errorCode,errorMsg := tvm.loadMsg(msg)
 	if errorCode!= 0 {
-		return errorCode,errorMsg
+		return errorCode,errorMsg,0
 	}
-	script := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	return tvm.Execute(script)
+	script,codeLen := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
+	errorCode,errorMsg = tvm.Execute(script)
+	return errorCode,errorMsg,codeLen
 }
 
 func (tvm *Tvm) Execute(script string) (int,string) {
@@ -481,13 +495,14 @@ func (tvm *Tvm) ExecuteWithResult(script string) string {
 func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	var c_result *C.char
 	var param = C.CString(script)
+	var contract_name = C.CString(tvm.ContractName)
 	if withResult {
-		c_result = C.tvm_execute_with_result(param)
+		c_result = C.tvm_execute_with_result(param,contract_name)
 	} else {
-		c_result = C.tvm_execute(param)
+		c_result = C.tvm_execute(param,contract_name)
 	}
 	C.free(unsafe.Pointer(param))
-
+	C.free(unsafe.Pointer(contract_name))
 	abc := C.GoString(c_result)
 	C.free(unsafe.Pointer(c_result))
 	return abc
@@ -503,9 +518,10 @@ func (tvm *Tvm) Deploy(msg Msg) (int,string)  {
 	if errorCode != 0 {
 		return errorCode,errorMsg
 	}
-
-	script := PycodeContractDeploy(tvm.Code, tvm.ContractName)
-	return tvm.Execute(script)
+	script,libLen := PycodeContractDeploy(tvm.Code, tvm.ContractName)
+	tvm.SetLibLine(libLen)
+	errorCode,errorMsg =  tvm.Execute(script)
+	return errorCode,errorMsg
 }
 
 //合约调用合约时使用，用来创建vm新的上下文
@@ -524,7 +540,7 @@ type ABI struct {
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
+func (tvm *Tvm) ExecuteABI(res ABI, withResult bool,isContractCall bool) string {
 
 	var buf bytes.Buffer
 	//类名
@@ -542,10 +558,23 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool) string {
 	}
 	buf.WriteString(")")
 	fmt.Println(buf.String())
+	bufStr := buf.String()
+	if !isContractCall{
+		bufStr = fmt.Sprintf(`
+try:
+    % s
+except CallException as e:
+    print(e)
+#except Exception:
+#    raise ABICheckException("ABI input contract name error,input contract name is %s")
+	`,buf.String(),tvm.ContractName)
+	}
+
+
 	if withResult {
-		return tvm.ExecuteWithResult(buf.String())
+		return tvm.ExecuteWithResult(bufStr)
 	} else {
-		return tvm.executeCommon(buf.String(), false)
+		return tvm.executeCommon(bufStr, false)
 	}
 
 }
