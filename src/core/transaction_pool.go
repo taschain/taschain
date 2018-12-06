@@ -460,6 +460,7 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 // 从池子里移除一批交易
 func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
 	pool.innerReceived.Remove(transactions)
+	pool.innerReceived.Remove(evictedTxs)
 	pool.received.Remove(transactions)
 	pool.received.Remove(evictedTxs)
 	pool.reserved.Remove(hash)

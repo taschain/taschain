@@ -22,7 +22,7 @@ func newSimpleContainer(l int) *simpleContainer {
 		limit:  l,
 		txsMap: map[common.Hash]*types.Transaction{},
 		txs:    types.PriorityTransactions{},
-		ticker:  time.NewTicker(time.Second),
+		ticker:  time.NewTicker(time.Millisecond * 500),
 	}
 	go c.loop()
 	return c
@@ -110,7 +110,7 @@ func (c *simpleContainer) add(tx *types.Transaction) {
 
 	//Logger.Debugf("tx pool size:%d great than max size,ignore tx!", c.txs.Len())
 	for i,oldtx := range c.txs{
-		if tx.GasPrice > oldtx.GasPrice{
+		if tx.GasPrice >= oldtx.GasPrice{
 			delete(c.txsMap, oldtx.Hash)
 			c.txs[i] = tx
 			c.txsMap[tx.Hash] = tx
