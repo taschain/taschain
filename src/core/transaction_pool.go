@@ -76,7 +76,7 @@ type TxPool struct {
 	// 待上块的交易
 	received *simpleContainer
 	//存储自身的分红交易和和矿工申请交易
-	innerReceived *container
+	innerReceived *simpleContainer
 	reserved      *lru.Cache
 	sendingList   []*types.Transaction
 
@@ -129,7 +129,7 @@ func NewTransactionPool() TransactionPool {
 	}
 	//pool.received = newContainer(pool.config.maxReceivedPoolSize)
 	pool.received = newSimpleContainer(pool.config.maxReceivedPoolSize)
-	//pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
+	pool.innerReceived = newSimpleContainer(pool.config.maxReceivedPoolSize / 4)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
@@ -153,12 +153,12 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 
-	b, err := pool.addInner(tx, true)
+	b, err := pool.addInner(tx, true, false)
 	return b, err
 }
 
 // 不加锁
-func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
+func (pool *TxPool) AddTransactions(txs []*types.Transaction, reserved bool) error {
 	pool.lock.Lock("AddTransactions")
 	defer pool.lock.Unlock("AddTransactions")
 
@@ -167,7 +167,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
 	}
 
 	for _, tx := range txs {
-		_, err := pool.addInner(tx, false)
+		_, err := pool.addInner(tx, false, reserved)
 		if nil != err {
 			return err
 		}
@@ -178,7 +178,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
+func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool, inner bool) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -197,16 +197,17 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 	}
 
 	//if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
-	//	pool.innerReceived.Push(tx)
-	//} else {
-	pool.received.Push(tx)
-	//}
+	if inner {
+		pool.innerReceived.Push(tx)
+	} else {
+		pool.received.Push(tx)
+	}
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus{
 		BroadcastTransactions([]*types.Transaction{tx}, true)
 	}
 	// 日志记录分红交易信息
 
-	// batch broadcast
+	// batch broadcasta
 	//if isBroadcast {
 	//	//交易不广播
 	//	pool.sendingTxLock.Lock()
@@ -292,7 +293,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx, false)
+		pool.addInner(tx, false, true)
 	}
 }
 
@@ -316,10 +317,10 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
 
 	// 先从IneerReceived里获取
-	//innerReceived := pool.innerReceived.Get(hash)
-	//if nil != innerReceived {
-	//	return innerReceived, nil
-	//}
+	innerReceived := pool.innerReceived.Get(hash)
+	if nil != innerReceived {
+		return innerReceived, nil
+	}
 	// 先从received里获取
 	result := pool.received.Get(hash)
 	if nil != result {
@@ -407,10 +408,10 @@ func (pool *TxPool) GetReceived() []*types.Transaction {
 // 3）todo：曾经收到过的，不合法的交易
 // 被add调用，外部加锁
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
-	//innerReceived := pool.innerReceived.Contains(hash)
-	//if innerReceived {
-	//	return true
-	//}
+	innerReceived := pool.innerReceived.Contains(hash)
+	if innerReceived {
+		return true
+	}
 	result := pool.received.Contains(hash)
 	if result {
 		return true
@@ -458,7 +459,7 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 
 // 从池子里移除一批交易
 func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
-	//pool.innerReceived.Remove(transactions)
+	pool.innerReceived.Remove(transactions)
 	pool.received.Remove(transactions)
 	pool.received.Remove(evictedTxs)
 	pool.reserved.Remove(hash)
