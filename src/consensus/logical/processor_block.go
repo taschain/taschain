@@ -100,7 +100,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	blog.log("proc(%v) core.AddBlockOnChain, height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
-	tlog := newBlockTraceLog("doAddOnChain", bh.Hash, castor)
+	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
 	tlog.log("result=%v,castor=%v", result, castor.ShortS())
 
 	if result == -1 {
@@ -153,11 +153,7 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	//组建组网络
-	mems := make([]groupsig.ID, 0)
-	for _, mem := range sgi.Members {
-		mems = append(mems, mem.ID)
-	}
-	p.NetServer.BuildGroupNet(sgi.GroupID, mems)
+	p.NetServer.BuildGroupNet(sgi.GroupID.GetHexString(), sgi.GetMembers())
 
 	bc := NewBlockContext(p, sgi)
 

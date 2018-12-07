@@ -30,10 +30,8 @@ type Pubkey struct {
 	value bn_curve.G2
 }
 
-//MAP（地址->公钥）
-type PubkeyMap map[common.Address]Pubkey
 
-type PubkeyMapID map[string]Pubkey
+type PubkeyMap map[string]Pubkey
 
 func (pub Pubkey) IsEmpty() bool {
 	return pub.value.IsEmpty()

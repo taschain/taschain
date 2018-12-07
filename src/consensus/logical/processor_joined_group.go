@@ -18,16 +18,16 @@ import (
 */
 //当前节点参与的铸块组（已初始化完成）
 type JoinedGroup struct {
-	GroupID groupsig.ID          //组ID
-	SeedKey groupsig.Seckey      //（组相关性的）私密私钥
-	SignKey groupsig.Seckey      //矿工签名私钥
-	GroupPK groupsig.Pubkey      //组公钥（backup,可以从全局组上拿取）
-	Members groupsig.PubkeyMapID //组成员签名公钥
+	GroupID groupsig.ID        //组ID
+	SeedKey groupsig.Seckey    //（组相关性的）私密私钥
+	SignKey groupsig.Seckey    //矿工签名私钥
+	GroupPK groupsig.Pubkey    //组公钥（backup,可以从全局组上拿取）
+	Members groupsig.PubkeyMap //组成员签名公钥
 }
 
 
 func (jg *JoinedGroup) Init() {
-	jg.Members = make(groupsig.PubkeyMapID, 0)
+	jg.Members = make(groupsig.PubkeyMap, 0)
 }
 
 //取得组内某个成员的签名公钥
@@ -89,10 +89,10 @@ func (bg *BelongGroups) load() bool {
 		log.Printf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
 		return false
 	}
-	log.Println("load belongGroups size", bg.groupSize())
 	for _, jg := range gs {
 		bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	}
+	log.Println("load belongGroups size", bg.groupSize())
 	return true
 }
 

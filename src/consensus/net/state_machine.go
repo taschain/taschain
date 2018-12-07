@@ -111,7 +111,7 @@ func newStateMachine(id string) *StateMachine {
 func (n *stateNode) queueSize() int32 {
 	//n.lock.RLock()
 	//defer n.lock.RUnlock()
-	return int32(len(n.queue))
+    return int32(len(n.queue))
 }
 
 func (n *stateNode) state() string {
@@ -141,7 +141,7 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 }
 
 func (n *stateNode) finished() bool {
-	return n.currentIdx >= n.repeat
+    return n.currentIdx >= n.repeat
 }
 
 func (m *StateMachine) findTail() *stateNode {
@@ -153,11 +153,11 @@ func (m *StateMachine) findTail() *stateNode {
 }
 
 func (m *StateMachine) currentNode() *stateNode {
-	return m.Current
+    return m.Current
 }
 
 func (m *StateMachine) setCurrent(node *stateNode)  {
-	m.Current = node
+    m.Current = node
 }
 
 func (m *StateMachine) appendNode(node *stateNode) {

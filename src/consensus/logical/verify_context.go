@@ -33,11 +33,11 @@ import (
  */
 
 const (
-	CBCS_IDLE      int32 = iota //非当前组
-	CBCS_CASTING                //正在铸块
-	CBCS_BLOCKED                //组内已有铸块完成
-	CBCS_BROADCAST              //块已广播
-	CBCS_TIMEOUT                //组铸块超时
+	CBCS_IDLE    int32 = iota //非当前组
+	CBCS_CASTING              //正在铸块
+	CBCS_BLOCKED              //组内已有铸块完成
+	CBCS_BROADCAST				//块已广播
+	CBCS_TIMEOUT              //组铸块超时
 )
 
 type CAST_BLOCK_MESSAGE_RESULT int8 //出块和验证消息处理结果枚举
@@ -118,7 +118,7 @@ type VerifyContext struct {
 	prevBH     *types.BlockHeader
 	castHeight uint64
 	//signedMaxQN int64
-	createTime      time.Time
+	createTime 		time.Time
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
 	slots           map[common.Hash]*SlotContext
@@ -133,7 +133,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		castHeight:      castHeight,
 		blockCtx:        bc,
 		expireTime:      expire,
-		createTime:      time.Now(),
+		createTime: 	time.Now(),
 		consensusStatus: CBCS_CASTING,
 		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
@@ -326,7 +326,7 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 		//blog.log("not success st=%v", vc.consensusStatus)
 		return nil
 	}
-	if time.Since(vc.createTime).Seconds() < 1 {
+	if time.Since(vc.createTime).Seconds() < 2 {
 		//blog.log("not the time, creatTime %v, now %v, since %v", vc.createTime, time.Now(), time.Since(vc.createTime).String())
 		return nil
 	}

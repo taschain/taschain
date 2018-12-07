@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"consensus/groupsig"
+	"bytes"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,11 +106,8 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 	if !group.GroupID.IsValid() {
 		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
 	}
-	memIds := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		memIds[idx] = mem.ID
-	}
-	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, memIds); root == bh.ProveRoot {
+
+	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 		return true, nil
 	} else {
 		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveValue, root))
@@ -123,4 +121,21 @@ func (helper *ConsensusHelperImpl ) VerifyNewBlock(bh *types.BlockHeader, preBH 
 
 func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error)  {
     return Proc.VerifyBlockHeader(bh)
+}
+
+func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err error) {
+	if len(g.Signature) == 0 {
+		return false, fmt.Errorf("sign is empty")
+	}
+	//检验头和签名
+    if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
+    	gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
+    	gid := groupsig.NewIDFromPubkey(gpk).Serialize()
+		if !bytes.Equal(gid, g.Id) {
+			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
+		}
+	} else {
+		return false, err
+	}
+	return true, nil
 }

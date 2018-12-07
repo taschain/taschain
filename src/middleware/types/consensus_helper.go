@@ -28,7 +28,8 @@ import (
 
 type GenesisInfo struct {
 	Group Group
-	VrfPKs map[int][]byte
+	VrfPKs [][]byte
+	Pks 	[][]byte
 }
 
 /*
@@ -64,4 +65,7 @@ type ConsensusHelper interface {
 
 	//verify the blockheader: mainly verify the group signature
 	VerifyBlockHeader(bh *BlockHeader) (bool, error)
+
+	//check group
+	CheckGroup(g *Group) (bool, error)
 }

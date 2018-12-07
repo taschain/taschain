@@ -145,9 +145,9 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 	groups := groupInfo.Groups
 	groupSyncLogger.Debugf("[GroupSyncer]Rcv groups ,from:%s,groups len %d", sourceId, len(groups))
 	for _, group := range groupInfo.Groups {
-		groupSyncLogger.Debugf("[GroupSyncer] AddGroup Id:%s,pre id:%s", common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Parent).GetHexString())
+		groupSyncLogger.Debugf("[GroupSyncer] AddGroup Id:%s,pre id:%s", common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Header.Parent).GetHexString())
 		groupSyncLogger.Debugf("[GroupSyncer] Local height:%d,local top group id:%s", GroupChainImpl.Count(), common.BytesToAddress(GroupChainImpl.LastGroup().Id).GetHexString(), )
-		e := GroupChainImpl.AddGroup(group, nil, nil)
+		e := GroupChainImpl.AddGroup(group)
 		if e != nil {
 			groupSyncLogger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 			//TODO  上链失败 异常处理

@@ -135,13 +135,9 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 		return nil
 	}
 	group := p.GetGroup(*nextId)
-	mems := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		mems[idx] = mem.ID
-	}
 	g := &net.GroupBrief{
 		Gid:    *nextId,
-		MemIds: mems,
+		MemIds: group.GetMembers(),
 	}
 	return g
 }
@@ -165,7 +161,7 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 	if sc := vctx.checkBroadcast(); sc != nil {
 		bh := &sc.BH
-		tlog := newBlockTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
+		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
 		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
 		p.successNewBlock(vctx, sc) //上链和组外广播
 		p.blockContexts.removeReservedVctx(vctx.castHeight)
@@ -206,7 +202,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	tlog := newBlockTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
+	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
 	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
 	if  vctx.markBroadcast() {
@@ -223,20 +219,19 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 		p.reqRewardTransSign(vctx, bh)
 		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
-
 	}
-
 	return
 }
 
 //对该id进行区块抽样
 func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
-	//随机抽取10块前的块，确保不抽取到分叉上的块
-	if heightLimit > 10 {
+		//随机抽取10块前的块，确保不抽取到分叉上的块
+		//
+		if heightLimit > 10 {
 		heightLimit -= 10
 	}
-	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
-}
+		return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
+	}
 
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	hashs := make([]common.Hash, len(ids))
@@ -301,7 +296,7 @@ func (p *Processor) blockProposal() {
 		return
 	}
 	bh := block.Header
-	tlog := newBlockTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
+	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
 	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
 
@@ -371,7 +366,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.log("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
-	tlog := newBlockTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
+	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
 	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
 
 	if slot.SetRewardTrans(tx) {

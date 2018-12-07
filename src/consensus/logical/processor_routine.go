@@ -93,36 +93,39 @@ func (p *Processor) releaseRoutine() bool {
 	if topHeight <= model.Param.CreateGroupInterval {
 		return true
 	}
-
-	blog := newBizLog("releaseRoutine")
 	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证改组解散前夕建的块有效
 	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
 	if len(ids) == 0 {
 		return true
 	}
+	blog := newBizLog("releaseRoutine")
 	blog.log("clean group %v\n", len(ids))
 	p.globalGroups.RemoveGroups(ids)
 	p.blockContexts.removeBlockContexts(ids)
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
 		blog.log("DissolveGroupNet staticGroup gid ", gid.ShortS())
-		p.NetServer.ReleaseGroupNet(gid)
+		p.NetServer.ReleaseGroupNet(gid.GetHexString())
 	}
 
 	//释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
-		if gc.gis.ReadyTimeout(topHeight) {
-			blog.log("DissolveGroupNet dummyGroup from joutils.GetngGroups gid ", gc.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(gc.gis.DummyID)
-			p.joiningGroups.RemoveGroup(gc.gis.DummyID)
+		gis := &gc.gInfo.GI
+		gHash := gis.GetHash()
+		if gis.ReadyTimeout(topHeight) {
+			blog.log("DissolveGroupNet dummyGroup from joiningGroups gHash ", gHash.ShortS())
+			p.NetServer.ReleaseGroupNet(gHash.Hex())
+			p.joiningGroups.RemoveGroup(gHash)
 		}
 		return true
 	})
 	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
-		if cg.gis.ReadyTimeout(topHeight) {
-			blog.log("DissolveGroupNet dummyGroup from creatingGroups gid ", cg.gis.DummyID.ShortS())
-			p.NetServer.ReleaseGroupNet(cg.gis.DummyID)
-			p.groupManager.creatingGroups.removeGroup(cg.gis.DummyID)
+		gis := &cg.gInfo.GI
+		gHash := gis.GetHash()
+		if gis.ReadyTimeout(topHeight) {
+			blog.log("DissolveGroupNet dummyGroup from creatingGroups gHash ", gHash.ShortS())
+			p.NetServer.ReleaseGroupNet(gHash.Hex())
+			p.groupManager.creatingGroups.removeGroup(gHash)
 		}
 		return true
 	})

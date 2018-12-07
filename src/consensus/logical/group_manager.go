@@ -3,13 +3,12 @@ package logical
 import (
 	"consensus/groupsig"
 	"log"
-	"time"
 	"core"
 	"fmt"
 	"consensus/model"
-	"consensus/base"
 	"strings"
 	"common"
+	"middleware/types"
 )
 
 /*
@@ -41,9 +40,10 @@ func (gm *GroupManager) addCreatingGroup(group *CreatingGroup)  {
     gm.creatingGroups.addCreatingGroup(group)
 }
 
-func (gm *GroupManager) removeCreatingGroup(id groupsig.ID)  {
-    gm.creatingGroups.removeGroup(id)
+func (gm *GroupManager) removeCreatingGroup(hash common.Hash)  {
+    gm.creatingGroups.removeGroup(hash)
 }
+
 
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
@@ -51,158 +51,88 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	topHeight := top.Height
 	blog := newBizLog("CreateNextGroupRoutine")
 
-	create, group, king, theBH := gm.checker.checkCreateGroup(topHeight)
-	//不是当前组铸
-	if !create {
-		return
-	}
-	//不是当期用户铸
-	if !king.IsEqual(gm.processor.GetMinerID()) {
+	gh, memIds, threshold := gm.checker.generateGroupHeader(topHeight, top.CurTime, gm.groupChain.LastGroup())
+	if gh == nil {
 		return
 	}
 
-	topGroup := gm.groupChain.LastGroup()
+	parentGroupId := groupsig.DeserializeId(gh.Parent)
 
-	var gis model.ConsensusGroupInitSummary
-
-	gis.ParentID = group.GroupID
-	gis.PrevGroupID = groupsig.DeserializeId(topGroup.Id)
-
-	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
-	bi := base.Data2CommonHash([]byte(gn)).Big()
-	gis.DummyID = *groupsig.NewIDFromBigInt(bi)
-
-	if gm.groupChain.GetGroupById(gis.DummyID.Serialize()) != nil {
-		blog.log("ingored, dummyId already onchain! dummyId=%v", gis.DummyID.ShortS())
-		return
+	gInfo := model.ConsensusGroupInitInfo{
+		GI: model.ConsensusGroupInitSummary{GHeader: gh},
+		Mems: memIds,
 	}
-
-	blog.log("group name=%v, group dummy id=%v.", gn, gis.DummyID.ShortS())
-	gis.Authority = 777
-	if len(gn) <= 64 {
-		copy(gis.Name[:], gn[:])
-	} else {
-		copy(gis.Name[:], gn[:64])
-	}
-	gis.BeginTime = time.Now()
-	gis.TopHeight = topHeight
-	gis.GetReadyHeight = topHeight + model.Param.GroupGetReadyGap
-	gis.BeginCastHeight = gis.GetReadyHeight + model.Param.GroupCastQualifyGap
-	gis.DismissHeight = gis.BeginCastHeight + model.Param.GroupCastDuration
-
-	if !gis.ParentID.IsValid() || !gis.DummyID.IsValid() {
-		panic("create group init summary failed")
-	}
-	gis.Extends = "Dummy"
-
-	enough, memPkis := gm.checker.selectCandidates(theBH, topHeight)
-	if !enough {
-		return
-	}
-	memIds := make([]groupsig.ID, len(memPkis))
-	for idx, mem := range memPkis {
-		memIds[idx] = mem.ID
-	}
-	gis.WithMemberIds(memIds)
-
 	msg := &model.ConsensusCreateGroupRawMessage{
-		GI: gis,
-		IDs: memIds,
+		GInfo: gInfo,
 	}
-	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(group.GroupID)), msg)
-	//fix bug when gi signature is nil
-	msg.GI.Signature = msg.SI.DataSign
+	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(parentGroupId)), msg)
 
-	creatingGroup := newCreateGroup(&gis, memPkis, group)
+	creatingGroup := newCreateGroup(&gInfo, threshold)
 	gm.addCreatingGroup(creatingGroup)
 
-	log.Printf("proc(%v) start Create Group consensus, send network msg to members, dummyId=%v...\n", gm.processor.getPrefix(), gis.DummyID.ShortS())
-	log.Printf("call network service SendCreateGroupRawMessage...\n")
+	blog.log("proc(%v) start Create Group consensus, send network msg to members, hash=%v...\n", gm.processor.getPrefix(), gh.Hash.ShortS())
+	blog.log("call network service SendCreateGroupRawMessage...\n")
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
 		memIdStrs = append(memIdStrs, mem.ShortS())
 	}
-	newGroupTraceLog("CreateGroupRoutine", gis.DummyID, gm.processor.GetMinerID()).log( "parent %v, members %v", gis.ParentID.ShortS(), strings.Join(memIdStrs, ","))
+	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log( "parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
+func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) {
+	if gh.Hash != gh.GenHash() {
+		return false, fmt.Errorf("gh hash error, hash=%v, genHash=%v", gh.Hash.ShortS(), gh.GenHash().ShortS())
+	}
+	//前一组，父亲组是否存在
+	preGroup := gm.groupChain.GetGroupById(gh.PreGroup)
+	if preGroup == nil {
+		return false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
+	}
+	parentGroup := gm.groupChain.GetGroupById(gh.Parent)
+	if parentGroup == nil {
+		return false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
+	}
+
+	//建组时高度是否存在
+	bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
+	if bh == nil {
+		return false, fmt.Errorf("createBlock is nil, height=%v", gh.CreateHeight)
+	}
+
+	//生成组头是否与收到的一致
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
+	if expectGH == nil {
+		return false, fmt.Errorf("expect GroupHeader is nil")
+	}
+	if expectGH.Hash != gh.Hash {
+		log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
+		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
+	}
+
+	return true, nil
+}
+
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {
 	blog := newBizLog("OMCGR")
-	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
-	gis := &msg.GI
-	if gis.GenHash() != msg.SI.DataHash {
-		blog.log("hash diff")
-		return false
-	}
+	blog.log("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
 
-	preGroup := gm.groupChain.GetGroupById(msg.GI.PrevGroupID.Serialize())
-	if preGroup == nil {
-		blog.log("preGroup is nil, preGroupId=%v", msg.GI.PrevGroupID.ShortS())
+	if ok, err := gm.isGroupHeaderLegal(msg.GInfo.GI.GHeader); !ok {
+		blog.log(err.Error())
 		return false
-	}
-
-	memHash := model.GenMemberHashByIds(msg.IDs)
-	if memHash != gis.MemberHash {
-		blog.log("memberHash diff")
-		return false
-	}
-	bh := gm.mainChain.QueryBlockByHeight(gis.TopHeight)
-	if bh == nil {
-		blog.log("theBH is nil, height=%v", gis.TopHeight)
-		return false
-	}
-	create, _, king, theBH := gm.checker.checkCreateGroup(gis.TopHeight)
-	if !create {
-		blog.log("current group is not the next CastGroup!")
-		return false
-	}
-	if !king.IsEqual(msg.SI.SignMember) {
-		blog.log("not the user for casting! expect user is %v, receive user is %v", king.ShortS(), msg.SI.SignMember.ShortS())
-		return false
-	}
-
-	enough, memPkis := gm.checker.selectCandidates(theBH, gis.TopHeight)
-	if !enough {
-		return false
-	}
-	memIds := make([]groupsig.ID, len(memPkis))
-	for idx, mem := range memPkis {
-		memIds[idx] = mem.ID
-	}
-	if len(memIds) != len(msg.IDs) {
-		blog.log("member len not equal, expect len %v, receive len %v", len(memIds), len(msg.IDs))
-		return  false
-	}
-
-	for idx, id := range memIds {
-		if !id.IsEqual(msg.IDs[idx]) {
-			blog.log("member diff [%v, %v]", id.ShortS(), msg.IDs[idx].ShortS())
-			return  false
-		}
 	}
 	return true
 
 }
 
-func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) bool {
+func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage, creating *CreatingGroup) bool {
 	blog := newBizLog("OMCGS")
-	blog.log("dummyId=%v, sender=%v", msg.GI.DummyID.ShortS(), msg.SI.SignMember.ShortS())
-	gis := &msg.GI
-	if gis.GenHash() != msg.SI.DataHash {
-		blog.log("hash diff")
-		return false
-	}
+	blog.log("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
+	gis := &creating.gInfo.GI
 
-	creating := gm.creatingGroups.getCreatingGroup(gis.DummyID)
-	if creating == nil {
-		blog.log("get creating group nil!")
-		return false
-	}
-
-	memHash := model.GenMemberHashByIds(creating.getIDs())
-	if memHash != gis.MemberHash {
-		blog.log("memberHash diff")
+	if msg.GHash != gis.GetHash() {
+		blog.log("creating group hash diff, gHash=%v", msg.GHash.ShortS())
 		return false
 	}
 
@@ -211,33 +141,25 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 		blog.log("gis expired!")
 		return false
 	}
-	accept := gm.creatingGroups.acceptPiece(gis.DummyID, msg.SI.SignMember, msg.SI.DataSign)
+	accept := gm.creatingGroups.acceptPiece(gis.GetHash(), msg.SI.SignMember, msg.SI.DataSign)
 	blog.log("accept result %v", accept)
-	newGroupTraceLog("OMCGS", msg.GI.DummyID, msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
+	newHashTraceLog("OMCGS", gis.GetHash(), msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
-		sig := creating.gSignGenerator.GetGroupSign()
-		msg.GI.Signature = sig
+		gis.Signature = creating.gSignGenerator.GetGroupSign()
 		return true
 	}
 	return false
 }
 
-func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo, isDummy bool)  {
-	group := ConvertStaticGroup2CoreGroup(sgi, isDummy)
+func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo)  {
+	group := ConvertStaticGroup2CoreGroup(sgi)
 	log.Printf("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight,common.BytesToAddress(group.Id).GetHexString())
-	err := gm.groupChain.AddGroup(group, nil, nil)
+	err := gm.groupChain.AddGroup(group)
 	if err != nil {
-		log.Printf("ERROR:add group fail! isDummy=%v, dummyId=%v, err=%v\n", isDummy, sgi.GIS.DummyID.ShortS(), err.Error())
+		log.Printf("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
 		return
 	}
-	if isDummy {
-		log.Printf("AddGroupOnChain success, dummyId=%v, height=%v\n", sgi.GIS.DummyID.ShortS(), gm.groupChain.Count())
-	} else {
-		//mems := make([]groupsig.ID, 0)
-		//for _, mem := range sgi.Members {
-		//	mems = append(mems, mem.ID)
-		//}
-		//gm.processor.NetServer.BuildGroupNet(sgi.GroupID, mems)
-		log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
-	}
+
+	log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
+
 }

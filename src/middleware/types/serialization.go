@@ -246,25 +246,38 @@ func PbToBlock(b *tas_middleware_pb.Block) *Block {
 	return &block
 }
 
-func PbToGroup(g *tas_middleware_pb.Group) *Group {
-	members := make([]Member, 0)
-	for _, m := range g.Members {
-		member := pbToMember(m)
-		members = append(members, *member)
-	}
-	group := Group{
-		Id:            g.Id,
-		Members:       members,
-		PubKey:        g.PubKey,
-		Parent:        g.Parent,
-		Dummy:         g.Dummy,
-		PreGroup:      g.PreGroup,
-		Signature:     g.Signature,
-		BeginHeight:   *g.BeginHeight,
+func PbToGroupHeader(g *tas_middleware_pb.GroupHeader) *GroupHeader {
+	var beginTime time.Time
+	beginTime.UnmarshalBinary(g.BeginTime)
+	header := GroupHeader{
+		Hash: common.BytesToHash(g.Hash),
+		Parent: g.Parent,
+		PreGroup: g.PreGroup,
+		Authority: *g.Authority,
+		Name: *g.Name,
+		BeginTime: beginTime,
+		MemberRoot: common.BytesToHash(g.MemberRoot),
+		CreateHeight: *g.CreateHeight,
+		ReadyHeight: *g.ReadyHeight,
+		WorkHeight: *g.WorkHeight,
 		DismissHeight: *g.DismissHeight,
-		Authority:     *g.Authority,
-		Name:          string(g.Name),
-		Extends:       string(g.Extends),
+		Extends: *g.Extends,
+	}
+	return &header
+}
+
+func PbToGroup(g *tas_middleware_pb.Group) *Group {
+	//members := make([]Member, 0)
+	//for _, m := range g.Members {
+	//	member := pbToMember(m)
+	//	members = append(members, *member)
+	//}
+	group := Group{
+		Header: PbToGroupHeader(g.Header),
+		Id:            g.Id,
+		Members:       g.Members,
+		PubKey:        g.PubKey,
+		Signature:     g.Signature,
 	}
 	return &group
 }
@@ -371,25 +384,37 @@ func BlockToPb(b *Block) *tas_middleware_pb.Block {
 	return &block
 }
 
-func GroupToPb(g *Group) *tas_middleware_pb.Group {
-	members := make([]*tas_middleware_pb.Member, 0)
-	for _, m := range g.Members {
-		member := memberToPb(&m)
-		members = append(members, member)
-	}
-	group := tas_middleware_pb.Group{
-		Id:            g.Id,
-		Members:       members,
-		PubKey:        g.PubKey,
-		Parent:        g.Parent,
-		PreGroup:      g.PreGroup,
-		Dummy:         g.Dummy,
-		Signature:     g.Signature,
-		BeginHeight:   &g.BeginHeight,
+func GroupToPbHeader(g *GroupHeader) *tas_middleware_pb.GroupHeader{
+	beginTime,_ := g.BeginTime.MarshalBinary()
+	header := tas_middleware_pb.GroupHeader{
+		Hash: g.Hash.Bytes(),
+		Parent: g.Parent,
+		PreGroup: g.PreGroup,
+		Authority: &g.Authority,
+		Name: &g.Name,
+		BeginTime: beginTime,
+		MemberRoot: g.MemberRoot.Bytes(),
+		CreateHeight: &g.CreateHeight,
+		ReadyHeight: &g.ReadyHeight,
+		WorkHeight: &g.WorkHeight,
 		DismissHeight: &g.DismissHeight,
-		Authority:     &g.Authority,
-		Name:          []byte(g.Name),
-		Extends:       []byte(g.Extends),
+		Extends: &g.Extends,
+	}
+	return &header
+}
+
+func GroupToPb(g *Group) *tas_middleware_pb.Group {
+	//members := make([]*tas_middleware_pb.Member, 0)
+	//for _, m := range g.Members {
+	//	member := memberToPb(&m)
+	//	members = append(members, member)
+	//}
+	group := tas_middleware_pb.Group{
+		Header: GroupToPbHeader(g.Header),
+		Id:            g.Id,
+		Members:       g.Members,
+		PubKey:        g.PubKey,
+		Signature:     g.Signature,
 	}
 	return &group
 }

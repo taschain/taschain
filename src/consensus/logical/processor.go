@@ -28,6 +28,7 @@ import (
 	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
+	"common"
 )
 
 var PROC_TEST_MODE bool
@@ -100,6 +101,8 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.NetServer = net.NewNetworkServer()
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
+	pkPoolInit(p.minerReader)
+
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
@@ -192,28 +195,28 @@ func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
-func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
-	var pub_piece groupsig.Pubkey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		pub_piece = node.GetSeedPubKey()
-	}
-	return pub_piece
-}
-
-//取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
-//用于测试目的，正式版对外不提供。
-func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
-	var secPiece groupsig.Seckey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		secPiece = node.getSeedSecKey()
-	}
-	return secPiece
-}
+////取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
+//func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
+//	var pub_piece groupsig.Pubkey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		pub_piece = node.GetSeedPubKey()
+//	}
+//	return pub_piece
+//}
+//
+////取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
+////用于测试目的，正式版对外不提供。
+//func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
+//	var secPiece groupsig.Seckey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		secPiece = node.getSeedSecKey()
+//	}
+//	return secPiece
+//}
 
 //取得特定的组
 func (p Processor) GetGroup(gid groupsig.ID) *StaticGroupInfo {
@@ -256,8 +259,8 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *model.Si
 	//}
 }
 
-func (p *Processor) ExistInDummyGroup(dummyId groupsig.ID) bool {
-	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
+func (p *Processor) ExistInGroup(gHash common.Hash) bool {
+	initingGroup := p.globalGroups.GetInitingGroup(gHash)
 	if initingGroup == nil {
 		return false
 	}
