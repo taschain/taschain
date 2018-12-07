@@ -368,7 +368,26 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 }
 
 func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) bool {
-	//todo
+	if len(chainPiece) == 0 {
+		return false
+	}
+	if topHeader.Hash != topHeader.GenHash() {
+		Logger.Debugf("invalid topHeader!Hash:%s", topHeader.Hash.String())
+		return false
+	}
+
+	for i := 0; i < len(chainPiece)-1; i++ {
+		bh := chainPiece[i]
+		if bh.Hash != bh.GenHash() {
+			Logger.Debugf("invalid chainPiece element,hash:%s", bh.Hash.String())
+			return false
+		}
+		if bh.PreHash != chainPiece[i+1].Hash {
+			Logger.Debugf("invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
+			return false
+		}
+	}
+
 	return true
 }
 
