@@ -378,7 +378,7 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	p.connecting = false
 
 	netCore.ping(p.Id, nil)
-
+	p.sendList.pendingSend = 0
 	p.sendList.autoSend(p)
 	Logger.Debugf("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 }
