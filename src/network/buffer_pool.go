@@ -46,7 +46,7 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 
 //BufferPool
 type BufferPool struct {
-	items [9]*BufferPoolItem //key为网络ID
+	items [5]*BufferPoolItem //key为网络ID
 	mutex sync.RWMutex
 }
 
@@ -63,15 +63,11 @@ func (pool *BufferPool) Init() {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
-	pool.items[0] = newBufferPoolItem(1024, 1024*8)
-	pool.items[1] = newBufferPoolItem(1024*4, 1024*2)
-	pool.items[2] = newBufferPoolItem(1024*8, 1024)
-	pool.items[3] = newBufferPoolItem(1024*32, 256)
-	pool.items[4] = newBufferPoolItem(1024*64, 128)
-	pool.items[5] = newBufferPoolItem(1024*128, 64)
-	pool.items[6] = newBufferPoolItem(1024*512, 32)
-	pool.items[7] = newBufferPoolItem(1024*1024, 16)
-	pool.items[8] = newBufferPoolItem(1024*1024*1.5, 16)
+	pool.items[0] = newBufferPoolItem(1024, 1024)
+	pool.items[1] = newBufferPoolItem(1024*4, 512)
+	pool.items[2] = newBufferPoolItem(1024*32, 256)
+	pool.items[3] = newBufferPoolItem(1024*512, 64)
+	pool.items[4] = newBufferPoolItem(1024*1024*1.5, 32)
 }
 
 func (pool *BufferPool) GetPoolItem(size int) *BufferPoolItem {
