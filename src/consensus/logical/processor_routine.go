@@ -69,7 +69,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	worker := p.getVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
-		blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
+		//blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
 		return false
 	} else {
 		blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
@@ -104,7 +104,7 @@ func (p *Processor) releaseRoutine() bool {
 	p.blockContexts.removeBlockContexts(ids)
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
-		blog.log("DissolveGroupNet staticGroup gid ", gid.ShortS())
+		blog.debug("DissolveGroupNet staticGroup gid ", gid.ShortS())
 		p.NetServer.ReleaseGroupNet(gid.GetHexString())
 	}
 
@@ -113,7 +113,7 @@ func (p *Processor) releaseRoutine() bool {
 		gis := &gc.gInfo.GI
 		gHash := gis.GetHash()
 		if gis.ReadyTimeout(topHeight) {
-			blog.log("DissolveGroupNet dummyGroup from joiningGroups gHash ", gHash.ShortS())
+			blog.debug("DissolveGroupNet dummyGroup from joiningGroups gHash ", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.joiningGroups.RemoveGroup(gHash)
 		}
@@ -123,7 +123,7 @@ func (p *Processor) releaseRoutine() bool {
 		gis := &cg.gInfo.GI
 		gHash := gis.GetHash()
 		if gis.ReadyTimeout(topHeight) {
-			blog.log("DissolveGroupNet dummyGroup from creatingGroups gHash ", gHash.ShortS())
+			blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash ", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.groupManager.creatingGroups.removeGroup(gHash)
 		}

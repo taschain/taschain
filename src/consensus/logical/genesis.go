@@ -6,7 +6,6 @@ import (
 	"strings"
 	"common"
 	"middleware/types"
-	"log"
 	"consensus/base"
 	"consensus/groupsig"
 	"time"
@@ -32,7 +31,7 @@ var genesisGroupInfo *genesisGroup
 func GetGenesisGroupInfo() *genesisGroup {
 	if genesisGroupInfo == nil {
 		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
-		log.Printf("generate genesis info %v", f)
+		stdLogger.Debug("generate genesis info %v", f)
 		genesisGroupInfo = genGenesisStaticGroupInfo(f)
 	}
 	return genesisGroupInfo

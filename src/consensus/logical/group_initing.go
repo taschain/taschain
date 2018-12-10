@@ -2,7 +2,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"log"
 	"sync"
 	"sync/atomic"
 	"consensus/model"
@@ -65,7 +64,7 @@ func (ig *InitingGroup) receiveSize() int {
 //找出收到最多的相同值
 func (ig *InitingGroup) convergence() bool {
 	threshold := model.Param.GetGroupK(ig.gInfo.MemberSize())
-	log.Printf("begin Convergence, K=%v, mems=%v.\n", threshold, ig.gInfo.MemberSize())
+	stdLogger.Debug("begin Convergence, K=%v, mems=%v.\n", threshold, ig.gInfo.MemberSize())
 
 	type countData struct {
 		count int
@@ -99,7 +98,7 @@ func (ig *InitingGroup) convergence() bool {
 	}
 
 	if maxCnt >= threshold && atomic.CompareAndSwapInt32(&ig.status, INITING, INIT_SUCCESS){
-		log.Printf("found max maxCnt gpk=%v, maxCnt=%v.\n", gpk.ShortS(), maxCnt)
+		stdLogger.Debug("found max maxCnt gpk=%v, maxCnt=%v.\n", gpk.ShortS(), maxCnt)
 		ig.gpk = gpk
 		return true
 	}
@@ -128,9 +127,9 @@ func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(gHash.Hex(), initingGroup)
 	if load {
-		log.Printf("InitingGroup gHash=%v already exist.\n", gHash.ShortS())
+		stdLogger.Debug("InitingGroup gHash=%v already exist.\n", gHash.ShortS())
 	} else {
-		log.Printf("add initing group %p ok, gHash=%v.\n", initingGroup, gHash.ShortS())
+		stdLogger.Debug("add initing group %p ok, gHash=%v.\n", initingGroup, gHash.ShortS())
 	}
 	return !load
 }
@@ -153,14 +152,14 @@ func (ngg *NewGroupGenerator) removeInitingGroup(gHash common.Hash)  {
 //返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
 func (ngg *NewGroupGenerator) ReceiveData(msg *model.ConsensusGroupInitedMessage, height uint64) int32 {
 	gHash := msg.GHash
-	log.Printf("generator ReceiveData, gHash=%v...\n", gHash.ShortS())
+	stdLogger.Debug("generator ReceiveData, gHash=%v...\n", gHash.ShortS())
 	initingGroup := ngg.getInitingGroup(gHash)
 
 	if initingGroup == nil { //不存在该组
 		return INIT_NOTFOUND
 	}
 	if initingGroup.ReadyTimeout(height) { //该组初始化共识已超时
-		log.Printf("ReceiveData failed, group initing timeout.\n")
+		stdLogger.Debug("ReceiveData failed, group initing timeout.\n")
 		atomic.CompareAndSwapInt32(&initingGroup.status, INITING, INIT_FAIL)
 		return INIT_FAIL
 	}
@@ -207,12 +206,12 @@ func (gc GroupContext) MemExist(id groupsig.ID) bool {
 //从组初始化消息创建GroupContext结构
 func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
 	if len(grm.GInfo.Mems) != model.Param.GetGroupMemberNum() {
-		log.Printf("group member size failed=%v.\n", len(grm.GInfo.Mems))
+		stdLogger.Debug("group member size failed=%v.\n", len(grm.GInfo.Mems))
 		return nil
 	}
 	for k, v := range grm.GInfo.Mems {
 		if !v.IsValid() {
-			log.Printf("i=%v, ID failed=%v.\n", k, v.GetHexString())
+			stdLogger.Debug("i=%v, ID failed=%v.\n", k, v.GetHexString())
 			return nil
 		}
 	}
@@ -293,10 +292,10 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 	gHash := grm.GInfo.GroupHash()
 	if v := jgs.GetGroup(gHash); v != nil {
 		gs := v.GetGroupStatus()
-		log.Printf("found initing group info BY RAW, status=%v...\n", gs)
+		stdLogger.Debug("found initing group info BY RAW, status=%v...\n", gs)
 		return v
 	} else {
-		log.Printf("create new initing group info by RAW...\n")
+		stdLogger.Debug("create new initing group info by RAW...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
 			jgs.groups.Store(gHash.Hex(), v)

@@ -5,7 +5,6 @@ import (
 	"consensus/groupsig"
 	"middleware/types"
 	"core"
-	"log"
 	"consensus/base"
 )
 
@@ -41,7 +40,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		AbortHeight: miner.AbortHeight,
 	}
 	if !md.ID.IsValid() {
-		log.Printf("invalid id %v, %v", miner.Id, md.ID.GetHexString())
+		stdLogger.Debugf("invalid id %v, %v", miner.Id, md.ID.GetHexString())
 		panic("id not valid")
 	}
 	return md

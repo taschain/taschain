@@ -43,11 +43,13 @@ ID长度（即地址）：48*8=384位。底层同私钥结构。
 
 
 var consensusLogger taslog.Logger
+var stdLogger  taslog.Logger
 var consensusConfManager common.SectionConfManager
 
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager("consensus")
 	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("instance", "index", ""))
+	stdLogger = taslog.GetLoggerByName("std_consensus" + common.GlobalConf.GetString("instance", "index", ""))
 	consensusConfManager = cc
 	return
 }

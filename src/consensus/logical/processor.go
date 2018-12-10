@@ -23,7 +23,6 @@ import (
 	"consensus/ticker"
 	"core"
 	"fmt"
-	"log"
 	"middleware/notify"
 	"middleware/types"
 	"storage/tasdb"
@@ -106,7 +105,7 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
-	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
+	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)

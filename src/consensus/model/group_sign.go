@@ -4,7 +4,6 @@ import (
 	"consensus/groupsig"
 	"sync"
 	"fmt"
-	"log"
 )
 
 /*
@@ -58,7 +57,7 @@ func (gs *GroupSignGenerator) generate() bool {
 	}
 	gs.gSign = *sig
 	if len(gs.gSign.Serialize()) == 0 {
-		log.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!1sign is empty!")
+		//stdL("!!!!!!!!!!!!!!!!!!!!!!!!!!!1sign is empty!")
 	}
 	return true
 }

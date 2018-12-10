@@ -23,7 +23,6 @@ import (
 	"sync"
 	"core"
 	"middleware/types"
-	"log"
 	"consensus/model"
 )
 
@@ -338,9 +337,9 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
-		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
+		stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
-			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
+			stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
 		}
 		g = &StaticGroupInfo{}
 	}
@@ -362,7 +361,7 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
-		log.Printf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
+		stdLogger.Debugf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")

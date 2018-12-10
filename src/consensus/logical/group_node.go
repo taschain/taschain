@@ -18,7 +18,6 @@ package logical
 import (
 	"common"
 	"consensus/groupsig"
-	"log"
 	"sync"
 	"consensus/model"
 	"consensus/base"
@@ -37,13 +36,13 @@ func newGroupInitPool() *GroupInitPool {
 
 //接收数据
 func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece model.SharePiece) int {
-	log.Printf("GroupInitPool::ReceiveData, sender=%v, share=%v, pub=%v...\n", id.ShortS(), piece.Share.ShortS(), piece.Pub.ShortS())
+	stdLogger.Debugf("GroupInitPool::ReceiveData, sender=%v, share=%v, pub=%v...\n", id.ShortS(), piece.Share.ShortS(), piece.Pub.ShortS())
 	if _, ok := gmd.pool[id.GetHexString()]; !ok {
 		gmd.pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0
 	} else { //收到过
 		if !gmd.pool[id.GetHexString()].IsEqual(piece) { //两次数据不一致
-			log.Printf("GroupInitPool::ReceiveData failed, data diff.\n")
+			stdLogger.Debugf("GroupInitPool::ReceiveData failed, data diff.\n")
 			return -1
 		}
 	}

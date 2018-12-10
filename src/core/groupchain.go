@@ -357,7 +357,6 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	if Logger != nil {
 		Logger.Debugf("GroupChain AddGroup %+v", group)
 	}
-
 	//if !isDebug {
 		if nil != group.Header.Parent {
 			exist, _ := chain.groups.Has(group.Header.Parent)

@@ -17,7 +17,6 @@ package logical
 
 import (
 	"consensus/model"
-	"log"
 	"middleware/types"
 	"sync"
 	"time"
@@ -157,7 +156,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64) {
 		if !bRemove {
 			newCtxs[ctx.castHeight] = ctx
 		} else {
-			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
+			stdLogger.Debug("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
 		}
 	}
 

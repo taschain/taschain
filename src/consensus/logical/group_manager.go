@@ -2,7 +2,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"log"
 	"core"
 	"fmt"
 	"consensus/model"
@@ -95,21 +94,21 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 		return false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
 
-	////建组时高度是否存在
-	//bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
-	//if bh == nil {
-	//	return false, fmt.Errorf("createBlock is nil, height=%v", gh.CreateHeight)
-	//}
-	//
-	////生成组头是否与收到的一致
-	//expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
-	//if expectGH == nil {
-	//	return false, fmt.Errorf("expect GroupHeader is nil")
-	//}
-	//if expectGH.Hash != gh.Hash {
-	//	log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
-	//	return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
-	//}
+	//建组时高度是否存在
+	bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
+	if bh == nil {
+		return false, fmt.Errorf("createBlock is nil, height=%v", gh.CreateHeight)
+	}
+
+	//生成组头是否与收到的一致
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
+	if expectGH == nil {
+		return false, fmt.Errorf("expect GroupHeader is nil")
+	}
+	if expectGH.Hash != gh.Hash {
+		//log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
+		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
+	}
 
 	return true, nil
 }
@@ -153,13 +152,13 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 
 func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo)  {
 	group := ConvertStaticGroup2CoreGroup(sgi)
-	log.Printf("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight,common.BytesToAddress(group.Id).GetHexString())
+	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight,common.BytesToAddress(group.Id).GetHexString())
 	err := gm.groupChain.AddGroup(group)
 	if err != nil {
-		log.Printf("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
+		stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
 		return
 	}
 
-	log.Printf("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
+	stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 
 }

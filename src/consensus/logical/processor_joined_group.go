@@ -56,7 +56,7 @@ func (bg *BelongGroups) commit() bool {
 	if bg.groupSize() == 0 {
 		return false
 	}
-	log.Printf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
+	stdLogger.Debugf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
     gs := make([]*JoinedGroup, 0)
     bg.groups.Range(func(key, value interface{}) bool {
 		jg := value.(*JoinedGroup)
@@ -80,13 +80,13 @@ func (bg *BelongGroups) load() bool {
 	log.Println("load belongGroups from", bg.storeFile)
     data, err := ioutil.ReadFile(bg.storeFile)
 	if err != nil {
-		log.Printf("load file %v fail, err %v", bg.storeFile, err.Error())
+		stdLogger.Debugf("load file %v fail, err %v", bg.storeFile, err.Error())
 		return false
 	}
 	var gs []*JoinedGroup
 	err = json.Unmarshal(data, &gs)
 	if err != nil {
-		log.Printf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
+		stdLogger.Debugf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
 		return false
 	}
 	for _, jg := range gs {
@@ -157,7 +157,7 @@ func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
 func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
-	log.Printf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
+	stdLogger.Debugf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 		if save {

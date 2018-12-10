@@ -21,7 +21,6 @@ import (
 	"consensus/model"
 	"core"
 	"fmt"
-	"log"
 	"middleware/types"
 	"sync"
 )
@@ -127,7 +126,7 @@ func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 
 func (p *Processor) addFutureVerifyMsg(msg *model.ConsensusBlockMessageBase) {
 	b := msg.BH
-	log.Printf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, b.Hash.ShortS(), b.PreHash.ShortS())
+	stdLogger.Debugf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, b.Hash.ShortS(), b.PreHash.ShortS())
 
 	p.futureVerifyMsgs.addMessage(b.PreHash, msg)
 }
@@ -158,10 +157,10 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	bc := NewBlockContext(p, sgi)
 
 	bc.pos = sgi.GetMinerPos(p.GetMinerID())
-	log.Printf("prepareForCast current ID in group pos=%v.\n", bc.pos)
+	stdLogger.Debugf("prepareForCast current ID in group pos=%v.\n", bc.pos)
 	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
 	b := p.AddBlockContext(bc)
-	log.Printf("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.blockContextSize())
+	stdLogger.Infof("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.blockContextSize())
 
 	//bc.registerTicker()
 	//p.triggerCastCheck()
@@ -169,7 +168,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 
 func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
 	lostTransHash, ret := core.BlockChainImpl.VerifyBlock(*bh)
-	log.Printf("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
+	stdLogger.Infof("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
 	return lostTransHash, ret
 }
 
@@ -182,7 +181,7 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
 				return b
 			} else {
 				bh2 := p.MainChain.QueryBlockByHeight(h)
-				log.Printf("get bh not nil, but block is nil! hash1=%v, hash2=%v, height=%v", bh.Hash.ShortS(), bh2.Hash.ShortS(), bh.Height)
+				stdLogger.Debugf("get bh not nil, but block is nil! hash1=%v, hash2=%v, height=%v", bh.Hash.ShortS(), bh2.Hash.ShortS(), bh.Height)
 				if bh2.Hash == bh.Hash {
 					panic("chain queryBlockByHash nil!")
 				} else {

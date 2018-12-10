@@ -17,7 +17,6 @@ package ticker
 
 import (
 	"time"
-	"log"
 	"sync/atomic"
 	"sync"
 )
@@ -92,7 +91,7 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	lastTicker := atomic.LoadUint64(&routine.lastTicker)
 
 	if atomic.LoadInt32(&routine.status) != RUNNING {
-		log.Println("ticker routine already stopped!, trigger return")
+		//stdLo("ticker routine already stopped!, trigger return")
 		return false
 	}
 
@@ -103,9 +102,9 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	} else {
 		if chanVal == 2 {
 			atomic.CompareAndSwapInt32(&routine.triggerNextTick, 0, 1)
-			log.Printf("ticker routine executed this ticker, will trigger next ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
+			//log.Printf("ticker routine executed this ticker, will trigger next ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
 		} else {
-			log.Printf("ticker routine already executed this ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
+			//log.Printf("ticker routine already executed this ticker! id=%v, globalticker=%v, lastTicker=%v, status=%v\n", routine.id, t, routine.lastTicker, routine.status)
 		}
 	}
 	return b
@@ -128,9 +127,9 @@ func (gt *GlobalTicker) routine() {
 }
 
 func (gt *GlobalTicker) RegisterRoutine(name string, routine RoutineFunc, interval uint32)  {
-	log.Printf("RegisterRoutine, id=%v, interval=%v\n", name, interval)
+	//log.Printf("RegisterRoutine, id=%v, interval=%v\n", name, interval)
 	if rt := gt.getRoutine(name); rt != nil {
-		log.Printf("RegisterRoutine, id=%v already exist!\n", name)
+		//log.Printf("RegisterRoutine, id=%v already exist!\n", name)
 		return
 	}
 	r := &TickerRoutine{
@@ -148,7 +147,7 @@ func (gt *GlobalTicker) RegisterRoutine(name string, routine RoutineFunc, interv
 			select {
 			case val := <-r.triggerCh:
 				if val == -1 {
-					log.Println("ticker routine stopped!, name=", r.id)
+					//log.Println("ticker routine stopped!, name=", r.id)
 					break STOP
 				} else {
 					gt.trigger(r, val)
@@ -159,7 +158,7 @@ func (gt *GlobalTicker) RegisterRoutine(name string, routine RoutineFunc, interv
 
 	gt.addRoutine(name, r)
 	gt.routines.Range(func(key, value interface{}) bool {
-		log.Println("ticker name ", key)
+		//log.Println("ticker name ", key)
 		return true
 	})
 }
@@ -170,7 +169,7 @@ func (gt *GlobalTicker) RemoveRoutine(name string)  {
 		return
 	}
 	routine.triggerCh <- -1
-	log.Println("routine removed!, name=", routine.id)
+	//log.Println("routine removed!, name=", routine.id)
 	gt.routines.Delete(name)
 }
 
@@ -180,10 +179,10 @@ func (gt *GlobalTicker) StartTickerRoutine(name string, triggerNextTicker bool) 
 		return
 	}
 	if triggerNextTicker && atomic.CompareAndSwapInt32(&routine.triggerNextTick, 0, 1) {
-		log.Printf("routine will trigger next routine! id=%v\n", routine.id)
+		//log.Printf("routine will trigger next routine! id=%v\n", routine.id)
 	}
 	if atomic.CompareAndSwapInt32(&routine.status, STOPPED, RUNNING) {
-		log.Printf("routine started! id=%v\n", routine.id)
+		//log.Printf("routine started! id=%v\n", routine.id)
 	} else {
 		//log.Printf("routine routine start failed, already in running! id=%v\n", routine.id)
 	}
@@ -196,7 +195,7 @@ func (gt *GlobalTicker) StartAndTriggerRoutine(name string)  {
 	}
 
 	if atomic.CompareAndSwapInt32(&routine.status, STOPPED, RUNNING) {
-		log.Printf("StartAndTriggerRoutine: routine started! id=%v\n", routine.id)
+		//log.Printf("StartAndTriggerRoutine: routine started! id=%v\n", routine.id)
 	} else {
 		//log.Printf("StartAndTriggerRoutine:routine routine start failed, already in running! id=%v\n", routine.id)
 	}
@@ -213,7 +212,7 @@ func (gt *GlobalTicker) StopTickerRoutine(name string)  {
 	}
 
 	if atomic.CompareAndSwapInt32(&routine.status, RUNNING, STOPPED) {
-		log.Printf("routine stopped! id=%v\n", routine.id)
+		//log.Printf("routine stopped! id=%v\n", routine.id)
 	} else {
 		//log.Printf("routine routine stop failed, not in running! id=%v\n", routine.id)
 	}

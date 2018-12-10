@@ -28,7 +28,11 @@ func newBizLog(biz string) *bizLog {
 }
 
 func (bl *bizLog) log(format string, p ...interface{})  {
-    log.Printf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+    stdLogger.Infof("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+}
+
+func (bl *bizLog) debug(format string, p ...interface{})  {
+	stdLogger.Debugf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
 }
 
 //接口rt日志
