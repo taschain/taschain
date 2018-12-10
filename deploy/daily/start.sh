@@ -25,12 +25,10 @@ do
 		kill -9 `cat $pid_file`
 	fi
 
-	#echo -e 'nohup ./gtas miner --config' $config_file '--rpc --rpcport' $rpc_port '--super --instance' $instance_index '--pprof' $pprof_port '>' $stdout_log '2>&1 & echo $! >' $pid_file
-
 	if [ $instance_index -eq 1 ];then
-		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test --prefix lb --seed 10.0.0.66 > $stdout_log 2>&1 & echo $! > $pid_file
+		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test  --seed 10.0.0.66 > $stdout_log 2>&1 & echo $! > $pid_file
 	else
-		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test --prefix lb --seed 10.0.0.66 > $stdout_log 2>&1 & echo $! > $pid_file
+		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test  --seed 10.0.0.66 > $stdout_log 2>&1 & echo $! > $pid_file
 	fi
 	sleep 1
 done

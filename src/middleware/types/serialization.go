@@ -34,12 +34,12 @@ import (
 var logger = taslog.GetLoggerByName("middleware")
 
 // 从[]byte反序列化为*Transaction
-func UnMarshalTransaction(b []byte) (*Transaction, error) {
+func UnMarshalTransaction(b []byte) (Transaction, error) {
 	t := new(tas_middleware_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
 		logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
-		return &Transaction{}, error
+		return Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
 	return transaction, nil
@@ -154,7 +154,7 @@ func MarshalGroup(g *Group) ([]byte, error) {
 //	return proto.Marshal(group)
 //}
 
-func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
+func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 	var source, target *common.Address
 	if t.Source != nil {
 		s := common.BytesToAddress(t.Source)
@@ -169,7 +169,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
 		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type}
 	//logger.Debugf("pbToTransaction %+v",transaction)
-	return &transaction
+	return transaction
 }
 
 func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
@@ -179,7 +179,7 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 	}
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
-		result = append(result, transaction)
+		result = append(result, &transaction)
 	}
 	return result
 }

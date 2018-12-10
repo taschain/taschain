@@ -205,6 +205,7 @@ func (gtas *Gtas) Run() {
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
+	*statisticsEnable = false
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -236,17 +237,14 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
-	//light node
-	light := mineCmd.Flag("light", "light node").Bool()
 	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
+	//light 废弃
+	light := mineCmd.Flag("light", "light node").Bool()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
-
-	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
-	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -266,19 +264,12 @@ func (gtas *Gtas) Run() {
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
 	common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
-	if *prefix == "" {
-		common.GlobalConf.SetString("test", "prefix", redis_prefix)
-	} else {
-		common.GlobalConf.SetString("test", "prefix", *prefix)
-	}
 
 	if *nat != "" {
 		network.NatServerIp = *nat
 		log.Printf("NAT server ip:%s", *nat)
 	}
 
-	common.BootId = *buildId
-	log.Printf("Boot id:%d", common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
