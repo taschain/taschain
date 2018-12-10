@@ -175,9 +175,6 @@ func (g *Group) resolve(id NodeID) {
 
 func (g *Group) send(packet *bytes.Buffer,code uint32) {
 
-	connected := 0
-	kad := 0
-	other := 0
 	for i := 0; i < len(g.needConnectNodes); i++ {
 		id := g.needConnectNodes[i]
 		if id == netCore.id {
@@ -185,23 +182,18 @@ func (g *Group) send(packet *bytes.Buffer,code uint32) {
 		}
 		p := netCore.peerManager.peerByID(id)
 		if p != nil {
-			connected +=1
 			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet, code)
 		} else {
 			node := netCore.kad.find(id)
 			if node != nil && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-				kad +=1
 				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet, code)
 			} else {
 				Logger.Debugf("SendGroup node not connected and not in KAD : id：%v", id.GetHexString())
-
-				other+=1
 				netCore.peerManager.write(id, nil, packet, code)
 			}
 		}
 	}
-	Logger.Debugf("SendGroup total :%v connected:%v kad:%v other:%v", len(g.members),connected,kad,other)
 	netCore.bufferPool.FreeBuffer(packet)
 	return
 }
@@ -225,7 +217,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("AddGroup node id:%v len:%v", ID, len(members))
+	Logger.Debugf("build group, id:%v, count:%v", ID, len(members))
 
 	g,isExist := gm.groups[ID]
 	if !isExist {
@@ -244,26 +236,9 @@ func (gm *GroupManager) removeGroup(id string) {
 	defer gm.mutex.Unlock()
 
 
-	Logger.Debugf("removeGroup :%v.",id)
+	Logger.Debugf("remove group, id:%v.",id)
 
-	//g := gm.groups[id]
-	//if g == nil {
-	//	Logger.Debugf("removeGroup not found group.")
-	//	return
-	//}
-	//memberSize := len(g.members)
-	//
-	//for i := 0; i < memberSize; i++ {
-	//	id := g.members[i]
-	//	if id == netCore.id {
-	//		continue
-	//	}
-	//
-	//	node := netCore.kad.find(id)
-	//	if node == nil {
-	//		netCore.peerManager.disconnect(id)
-	//	}
-	//}
+
 	delete(gm.groups, id)
 }
 
@@ -282,10 +257,10 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer ,code uint32) 
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
-	Logger.Debugf("SendGroup  id:%v", id)
+	Logger.Debugf("send group, id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
-		Logger.Debugf("SendGroup not found group.")
+		Logger.Debugf("group not found.")
 		return
 	}
 	buf := netCore.bufferPool.GetBuffer(packet.Len())

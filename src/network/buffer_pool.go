@@ -10,6 +10,7 @@ type BufferPoolItem struct {
 	buffers *list.List
 	size    int
 	max     int
+	inuse 	int
 }
 
 func newBufferPoolItem(size int, max int) *BufferPoolItem {
@@ -32,7 +33,7 @@ func (poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
 	}
 	buf := bytes.NewBuffer(make([]byte, poolItem.size))
 	buf.Reset()
-
+	poolItem.inuse += 1
 	return buf
 }
 
@@ -41,7 +42,7 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 	if buf.Cap() == poolItem.size && poolItem.buffers.Len() < poolItem.max {
 		poolItem.buffers.PushBack(buf)
 	}
-
+	poolItem.inuse -= 1
 }
 
 //BufferPool
@@ -83,7 +84,7 @@ func (pool *BufferPool) GetPoolItem(size int) *BufferPoolItem {
 func (pool *BufferPool) Print() {
 
 	for i := 0; i < len(pool.items); i++ {
-		Logger.Debugf("[ BufferPool Print ] size :%v  count :%v", pool.items[i].size, pool.items[i].buffers.Len())
+		Logger.Debugf("[ BufferPool Print ] size :%v  count :%v inuse: %v", pool.items[i].size, pool.items[i].buffers.Len(),pool.items[i].inuse)
 	}
 }
 
@@ -107,7 +108,6 @@ func (pool *BufferPool) FreeBuffer(buf *bytes.Buffer) {
 	poolItem := pool.GetPoolItem(buf.Cap())
 	if poolItem != nil {
 		poolItem.freeBuffer(buf)
-		//	Logger.Debugf("[BufferPool] FreeBuffer size : %v buffers :%v address: %p ", buf.Cap(), poolItem.buffers.Len(), buf)
 	}
 
 }
