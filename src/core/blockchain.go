@@ -16,21 +16,21 @@
 package core
 
 import (
+	"bytes"
 	"common"
-	"time"
+	"fmt"
+	"github.com/hashicorp/golang-lru"
+	"log"
+	"math/big"
+	"middleware"
+	"middleware/notify"
+	"middleware/types"
 	"os"
 	"storage/account"
-	"github.com/hashicorp/golang-lru"
-	"fmt"
-	"bytes"
-	"log"
-	"middleware"
-	"middleware/types"
-	"taslog"
-	"math/big"
-	"storage/vm"
-	"middleware/notify"
 	"storage/tasdb"
+	"storage/vm"
+	"taslog"
+	"time"
 )
 
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
@@ -56,6 +56,8 @@ const (
 var BlockChainImpl BlockChain
 
 var Logger taslog.Logger
+
+var consensusLogger taslog.Logger
 
 // 配置
 type BlockChainConfig struct {
@@ -128,6 +130,8 @@ func getBlockChainConfig() *BlockChainConfig {
 func initBlockChain(helper types.ConsensusHelper) error {
 
 	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
+
+	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &FullBlockChain{
 		config: getBlockChainConfig(),
@@ -409,6 +413,11 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
+
+	// 写入consensus日志文件中，core.log文件过大，有很多分叉统计不需要的信息
+	//consensusLogger.Infof("%v,%v,%v", "ForkAdjustComingBlock", groupsig.DeserializeId(topBlock.Castor).ShortS(), fmt.Sprintf("hash=%v, preH=%v, height=%v, totalQn=%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN))
+	//
+	//consensusLogger.Infof("%v,%v,%v", "ForkAdjustLocalBlock", groupsig.DeserializeId(topBlock.Castor).ShortS(), fmt.Sprintf("hash=%v, preH=%v, height=%v, totalQn=%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN))
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
