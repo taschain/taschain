@@ -18,7 +18,7 @@ do
 	rpc_port=$[8100+$instance_index]
 	pprof_port=$[9000+$instance_index]
 	config_file='tas'$instance_index'.ini'
-	stdout_log='logs/stdout_'$instance_index'.log'
+	stdout_log='logs/nohup_out_'$instance_index'.log'
 	pid_file='pid/pid_tas'$instance_index'.txt'
 
 	if [ -e $pid_file ];then
