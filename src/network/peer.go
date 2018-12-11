@@ -112,7 +112,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	}
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-		Logger.Debugf("send list send is full, drop this message!  net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
+		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 		return
 	}
 	sendListItem.list.PushBack(packet)
@@ -336,10 +336,10 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 
 		if pm.natTraversalEnable {
 			P2PConnect(netId, NatServerIp, NatServerPort)
-			Logger.Debugf("connect node ,[nat]: %v ", toid.GetHexString())
+			Logger.Infof("connect node ,[nat]: %v ", toid.GetHexString())
 		} else {
 			P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
-			Logger.Debugf("connect node ,[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("connect node ,[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -363,7 +363,7 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	netCore.ping(p.Id, nil)
 	p.sendList.pendingSend = 0
 	p.sendList.autoSend(p)
-	Logger.Debugf("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
+	Logger.Infof("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 }
 
 //OnSendWaited  发送队列空闲
@@ -380,14 +380,14 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		Logger.Debugf("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
+		Logger.Infof("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
 			p.seesionId = 0
 		}
 	} else {
-		Logger.Debugf("OnDisconnected net id：%v session:%v port:%v code:%v", id, session, p2pCode)
+		Logger.Infof("OnDisconnected net id：%v session:%v port:%v code:%v", id, session, p2pCode)
 	}
 }
 
@@ -400,7 +400,7 @@ func (pm *PeerManager) disconnect(id NodeID) {
 	p, _ := pm.peers[netID]
 	if p != nil {
 
-		Logger.Debugf("disconnect ip:%v port:%v ", p.Ip, p.Port)
+		Logger.Infof("disconnect ip:%v port:%v ", p.Ip, p.Port)
 
 		p.connecting = false
 		delete(pm.peers, netID)
@@ -416,7 +416,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Debugf("send all total peer size:%v", len(pm.peers))
+	Logger.Infof("send all total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
@@ -444,7 +444,7 @@ func (pm *PeerManager) checkPeerSource() {
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Debugf("broadcast random total peer size:%v", len(pm.peers))
+	Logger.Infof("broadcast random total peer size:%v", len(pm.peers))
 
 	pm.checkPeerSource()
 	var availablePeers []*Peer
