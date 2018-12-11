@@ -155,7 +155,7 @@ func (bs *blockSyncer) sync(candidate *blockSyncCandidate) {
 	bs.lock.Lock()
 	bs.syncTimer.Reset(blockSyncInterval)
 	candidateQN, candidateId, candidateHash, candidatePreHash, candidateHeight := bs.candidate.totalQn, bs.candidate.id, bs.candidate.hash, bs.candidate.preHash, bs.candidate.height
-	bs.candidate = blockSyncCandidate{}
+	//bs.candidate = blockSyncCandidate{}
 	bs.lock.Unlock()
 
 	if candidateQN < localTotalQN || candidateHash == localHash {

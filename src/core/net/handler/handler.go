@@ -233,20 +233,16 @@ func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	reqHeight := utility.ByteToUInt64(m.HeightByte)
 	localHeight := core.BlockChainImpl.Height()
 
-	if localHeight > reqHeight+3 {
-		var count = 0
-		for i := reqHeight; i+3 <= localHeight; i++ {
-			block := core.BlockChainImpl.QueryBlock(i)
-			core.SendBlock(m.Peer, block)
-			count++
-			if count >= 10 {
-				break
-			}
-		}
-	} else {
-		block := core.BlockChainImpl.QueryBlock(reqHeight)
+	var count = 0
+	for i := reqHeight; i <= localHeight; i++ {
+		block := core.BlockChainImpl.QueryBlock(i)
 		core.SendBlock(m.Peer, block)
+		count++
+		if count >= 10 {
+			break
+		}
 	}
+
 }
 
 func (ch ChainHandler) newBlockHandler(msg notify.Message) {
