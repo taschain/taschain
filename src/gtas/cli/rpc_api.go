@@ -21,7 +21,7 @@ import (
 **  Date: 2018/9/30 下午4:34
 **  Description: 
 */
-var BonusLogger = taslog.GetLogger(taslog.BonusStatConfig)
+var BonusLogger taslog.Logger
 
 func successResult(data interface{}) (*Result, error) {
 	return &Result{
@@ -58,11 +58,11 @@ func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
 		return &Result{Message: err.Error(), Data: nil}, nil
 	}
 	tx := &types.Transaction{
-		Nonce:  uint64(nonce),
-		Data:   data,
-		Source: &address,
-		Value:  stake,
-		Type:   types.TransactionTypeMinerApply,
+		Nonce:    uint64(nonce),
+		Data:     data,
+		Source:   &address,
+		Value:    stake,
+		Type:     types.TransactionTypeMinerApply,
 		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
@@ -89,10 +89,10 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
-		Nonce:  uint64(nonce),
-		Data:   []byte{byte(mtype)},
-		Source: &address,
-		Type:   types.TransactionTypeMinerAbort,
+		Nonce:    uint64(nonce),
+		Data:     []byte{byte(mtype)},
+		Source:   &address,
+		Type:     types.TransactionTypeMinerAbort,
 		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
@@ -108,10 +108,10 @@ func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
-		Nonce:  uint64(nonce),
-		Data:   []byte{byte(mtype)},
-		Source: &address,
-		Type:   types.TransactionTypeMinerRefund,
+		Nonce:    uint64(nonce),
+		Data:     []byte{byte(mtype)},
+		Source:   &address,
+		Type:     types.TransactionTypeMinerRefund,
 		GasPrice: common.MaxUint64,
 	}
 	tx.Hash = tx.GenHash()
@@ -297,7 +297,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	block := convertBlockHeader(bh)
 
 	preBH := chain.QueryBlockHeaderByHash(bh.PreHash)
-	block.Qn = bh.TotalQN-preBH.TotalQN
+	block.Qn = bh.TotalQN - preBH.TotalQN
 
 	castor := block.Castor.GetHexString()
 
@@ -424,7 +424,7 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 	return successResult(dash)
 }
 
-func bonusStatByHeight(height uint64)  BonusInfo{
+func bonusStatByHeight(height uint64) BonusInfo {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
 	casterId := bh.Castor
 	groupId := bh.GroupId
@@ -435,42 +435,42 @@ func bonusStatByHeight(height uint64)  BonusInfo{
 	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
 
 	mems := make([]string, 0)
-	for _,memId := range memIds{
+	for _, memId := range memIds {
 		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
 	}
 
 	data := BonusInfo{
-		BlockHeight:height,
-		BlockHash:bh.Hash,
-		BonusTxHash:bonusTx.Hash,
-		GroupId:groupsig.DeserializeId(groupId).ShortS(),
-		CasterId:groupsig.DeserializeId(casterId).ShortS(),
-		MemberIds:mems,
-		BonusValue:value,
+		BlockHeight: height,
+		BlockHash:   bh.Hash,
+		BonusTxHash: bonusTx.Hash,
+		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
+		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
+		MemberIds:   mems,
+		BonusValue:  value,
 	}
 
 	return data
 }
 
-func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
+func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 	var bonusValueMap, bonusNumMap, castBlockNumMap map[string]uint64
 
-	if _, ok := BonusValueStatMap[height]; !ok{
+	if _, ok := BonusValueStatMap[height]; !ok {
 		var i uint64
-		for i = 1; i < height; i++{
-			if _, ok := BonusValueStatMap[i]; !ok{
+		for i = 1; i < height; i++ {
+			if _, ok := BonusValueStatMap[i]; !ok {
 				break
 			}
 		}
 
-		for j := i; j <= height; j++{
+		for j := i; j <= height; j++ {
 			bh := core.BlockChainImpl.QueryBlockByHeight(j)
 
 			casterId := groupsig.DeserializeId(bh.Castor)
 
-			bonusValuePreMap := BonusValueStatMap[j - 1]
-			bonusNumPreMap := BonusNumStatMap[j - 1]
-			castBlockPreMap := CastBlockStatMap[j - 1]
+			bonusValuePreMap := BonusValueStatMap[j-1]
+			bonusNumPreMap := BonusNumStatMap[j-1]
+			castBlockPreMap := CastBlockStatMap[j-1]
 
 			// 获取验证分红的交易信息
 			// 此方法取到的分红交易有时候为空
@@ -486,28 +486,28 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 			// 从交易信息中解析出targetId列表
 			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
 
-			BonusLogger.Infof("height: %v | castBlockMap: %v", j - 1, castBlockPreMap)
+			BonusLogger.Infof("height: %v | castBlockMap: %v", j-1, castBlockPreMap)
 
 			bonusValueCurrentMap := make(map[string]uint64)
 			bonusNumCurrentMap := make(map[string]uint64)
 			castBlockCurrentMap := make(map[string]uint64)
 
-			for k,v := range bonusValuePreMap {
+			for k, v := range bonusValuePreMap {
 				bonusValueCurrentMap[k] = v
 			}
 
-			for k,v := range bonusNumPreMap {
+			for k, v := range bonusNumPreMap {
 				bonusNumCurrentMap[k] = v
 			}
 
-			for k,v := range castBlockPreMap {
+			for k, v := range castBlockPreMap {
 				castBlockCurrentMap[k] = v
 			}
 
-			for _, mv := range memIds{
+			for _, mv := range memIds {
 				memId := groupsig.DeserializeId(mv).GetHexString()
 
-				if v, ok := bonusValueCurrentMap[memId]; ok{
+				if v, ok := bonusValueCurrentMap[memId]; ok {
 					bonusValueCurrentMap[memId] = value + v
 					if v, ok := bonusNumCurrentMap[memId]; ok {
 						bonusNumCurrentMap[memId] = v + 1
@@ -520,7 +520,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 				}
 			}
 
-			if v,ok := castBlockCurrentMap[casterId.GetHexString()];ok{
+			if v, ok := castBlockCurrentMap[casterId.GetHexString()]; ok {
 				castBlockCurrentMap[casterId.GetHexString()] = v + 1
 			} else {
 				castBlockCurrentMap[casterId.GetHexString()] = 1
@@ -532,33 +532,33 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 		}
 	}
 
-	bonusValueMap =  BonusValueStatMap[height]
+	bonusValueMap = BonusValueStatMap[height]
 	bonusNumMap = BonusNumStatMap[height]
 	castBlockNumMap = CastBlockStatMap[height]
 
-	bonusStatResults := make([]BonusStatInfo,0,10)
+	bonusStatResults := make([]BonusStatInfo, 0, 10)
 	lightMinerIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
 	for lightMinerIter.Next() {
 		miner, _ := lightMinerIter.Current()
 		minerId := groupsig.DeserializeId(miner.Id)
 		bonusStatItem := BonusStatInfo{
-			MemberId:minerId.ShortS(),
-			BonusNum:bonusNumMap[minerId.GetHexString()],
-			TotalBonusValue:bonusValueMap[minerId.GetHexString()],
+			MemberId:        minerId.ShortS(),
+			BonusNum:        bonusNumMap[minerId.GetHexString()],
+			TotalBonusValue: bonusValueMap[minerId.GetHexString()],
 		}
 
 		bonusStatResults = append(bonusStatResults, bonusStatItem)
 	}
 
-	castBlockResults := make([]CastBlockStatInfo,0,10)
+	castBlockResults := make([]CastBlockStatInfo, 0, 10)
 	heavyIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
 	for heavyIter.Next() {
 		miner, _ := heavyIter.Current()
 		minerId := groupsig.DeserializeId(miner.Id)
 		castBlockItem := CastBlockStatInfo{
-			CasterId: minerId.ShortS(),
-			Stake:miner.Stake,
-			CastBlockNum:castBlockNumMap[minerId.GetHexString()],
+			CasterId:     minerId.ShortS(),
+			Stake:        miner.Stake,
+			CastBlockNum: castBlockNumMap[minerId.GetHexString()],
 		}
 		castBlockResults = append(castBlockResults, castBlockItem)
 	}
@@ -584,17 +584,17 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error){
 	//}
 
 	signedBlockInfo := SignedBlockInfo{
-		Height:height,
-		OnchainBlock:bonusInfo.BlockHash.ShortS(),
-		SignedBlocks:signedBlocks,
-		MutiSignedBlockNum:mutiSignedBlockNum,
+		Height:             height,
+		OnchainBlock:       bonusInfo.BlockHash.ShortS(),
+		SignedBlocks:       signedBlocks,
+		MutiSignedBlockNum: mutiSignedBlockNum,
 	}
 
 	result := CastBlockAndBonusResult{
-		BonusInfoAtHeight:bonusInfo,
-		BonusStatInfos:bonusStatResults,
-		CastBlockStatInfos:castBlockResults,
-		SignedBlockInfo:signedBlockInfo,
+		BonusInfoAtHeight:  bonusInfo,
+		BonusStatInfos:     bonusStatResults,
+		CastBlockStatInfos: castBlockResults,
+		SignedBlockInfo:    signedBlockInfo,
 	}
 
 	return successResult(result)

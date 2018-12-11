@@ -99,8 +99,6 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetTraceHeader(hash []byte) *types.BlockHeader
-
 	GetCheckValue(height uint64) (common.Hash, error)
 
 	GetChainPiece(reqHeight uint64) []*types.BlockHeader

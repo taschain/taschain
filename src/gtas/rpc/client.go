@@ -31,14 +31,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"taslog"
+	"common"
 )
 
 var (
 	ErrClientQuit                = errors.New("client is closed")
 	ErrNoResult                  = errors.New("no result in JSON-RPC response")
 	ErrSubscriptionQueueOverflow = errors.New("subscription queue overflow")
-	logger = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 const (
@@ -373,7 +372,7 @@ func (c *Client) write(ctx context.Context, msg interface{}) error {
 func (c *Client) reconnect(ctx context.Context) error {
 	newconn, err := c.connectFunc(ctx)
 	if err != nil {
-		logger.Debug(fmt.Sprintf("reconnect failed: %v", err))
+		common.DefaultLogger.Debugf(fmt.Sprintf("reconnect failed: %v", err))
 		return err
 	}
 	select {
@@ -416,7 +415,7 @@ func (c *Client) dispatch(conn net.Conn) {
 		case <-c.close:
 			return
 
-		// Read path.
+			// Read path.
 		case batch := <-c.readResp:
 			for _, msg := range batch {
 				switch {
@@ -430,13 +429,13 @@ func (c *Client) dispatch(conn net.Conn) {
 			}
 
 		case err := <-c.readErr:
-			logger.Debug(fmt.Sprintf("<-readErr: %v", err))
+			common.DefaultLogger.Debug(fmt.Sprintf("<-readErr: %v", err))
 			c.closeRequestOps(err)
 			conn.Close()
 			reading = false
 
 		case newconn := <-c.reconnected:
-			logger.Debug(fmt.Sprintf("<-reconnected: (reading=%t) %v", reading, conn.RemoteAddr()))
+			common.DefaultLogger.Debug(fmt.Sprintf("<-reconnected: (reading=%t) %v", reading, conn.RemoteAddr()))
 			if reading {
 				// Wait for the previous read loop to exit. This is a rare case.
 				conn.Close()
@@ -446,7 +445,7 @@ func (c *Client) dispatch(conn net.Conn) {
 			reading = true
 			conn = newconn
 
-		// Send path.
+			// Send path.
 		case op := <-requestOpLock:
 			// Stop listening for further send ops until the current one is done.
 			requestOpLock = nil
@@ -489,7 +488,7 @@ func (c *Client) closeRequestOps(err error) {
 
 func (c *Client) handleNotification(msg *jsonrpcMessage) {
 	if !strings.HasSuffix(msg.Method, notificationMethodSuffix) {
-		logger.Debug(fmt.Sprint("dropping non-subscription message: ", msg))
+		common.DefaultLogger.Debug(fmt.Sprint("dropping non-subscription message: ", msg))
 		return
 	}
 	var subResult struct {
@@ -497,7 +496,7 @@ func (c *Client) handleNotification(msg *jsonrpcMessage) {
 		Result json.RawMessage `json:"result"`
 	}
 	if err := json.Unmarshal(msg.Params, &subResult); err != nil {
-		logger.Debug(fmt.Sprint("dropping invalid subscription message: ", msg))
+		common.DefaultLogger.Debug(fmt.Sprint("dropping invalid subscription message: ", msg))
 		return
 	}
 	if c.subs[subResult.ID] != nil {
@@ -508,7 +507,7 @@ func (c *Client) handleNotification(msg *jsonrpcMessage) {
 func (c *Client) handleResponse(msg *jsonrpcMessage) {
 	op := c.respWait[string(msg.ID)]
 	if op == nil {
-		logger.Debug(fmt.Sprintf("unsolicited response %v", msg))
+		common.DefaultLogger.Debug(fmt.Sprintf("unsolicited response %v", msg))
 		return
 	}
 	delete(c.respWait, string(msg.ID))
@@ -657,7 +656,7 @@ func (sub *ClientSubscription) forward() (err error, unsubscribeServer bool) {
 				return ErrSubscriptionQueueOverflow, true
 			}
 			buffer.PushBack(val)
-		case 2: // sub.channel<-
+		case 2:                             // sub.channel<-
 			cases[2].Send = reflect.Value{} // Don't hold onto the value.
 			buffer.Remove(buffer.Front())
 		}

@@ -185,7 +185,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool, inner bool
 	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
-		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
+		Logger.Infof("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
 		return false, err
 	}
 
@@ -202,7 +202,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool, inner bool
 	} else {
 		pool.received.Push(tx)
 	}
-	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus{
+	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus {
 		BroadcastTransactions([]*types.Transaction{tx}, true)
 	}
 	// 日志记录分红交易信息
@@ -472,7 +472,7 @@ func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evicted
 func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
-	Logger.Debugf("PoolStatus received:%d inner:%d cast:%d",len(pool.received.txs),len(pool.innerReceived.txs),len(txs))
+	Logger.Debugf("PoolStatus received:%d inner:%d cast:%d", len(pool.received.txs), len(pool.innerReceived.txs), len(txs))
 	return txs
 }
 

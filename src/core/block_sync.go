@@ -60,7 +60,7 @@ type BlockInfo struct {
 }
 
 func InitBlockSyncer(isLightMiner bool) {
-	blockSyncLogger = taslog.GetLoggerByName("block_sync" + common.GlobalConf.GetString("instance", "index", ""))
+	blockSyncLogger = taslog.GetLoggerByIndex(taslog.BlockSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	BlockSyncer = &blockSyncer{hasNeighbor: false, init: false, lightMiner: isLightMiner}
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(blockSyncInterval)

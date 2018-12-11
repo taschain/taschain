@@ -113,7 +113,7 @@ func (db *NodeDatabase) Dereference(child common.Hash, parent common.Hash) {
 	db.gcsize += storage - db.nodesSize
 	db.gctime += time.Since(start)
 
-	log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
+	common.DefaultLogger.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 }
 
@@ -171,13 +171,13 @@ func (db *NodeDatabase) Commit(node common.Hash, report bool) error {
 
 	nodes, storage := len(db.nodes), db.nodesSize
 	if err := db.commit(node, batch); err != nil {
-		log.Error("Failed to commit trie from trie database", "err", err)
+		common.DefaultLogger.Error("Failed to commit trie from trie database", "err", err)
 		db.lock.RUnlock()
 		return err
 	}
 
 	if err := batch.Write(); err != nil {
-		log.Error("Failed to write trie to disk", "err", err)
+		common.DefaultLogger.Error("Failed to write trie to disk", "err", err)
 		db.lock.RUnlock()
 		return err
 	}
@@ -188,9 +188,9 @@ func (db *NodeDatabase) Commit(node common.Hash, report bool) error {
 
 	db.uncache(node)
 
-	logger := log.Info
+	logger := common.DefaultLogger.Info
 	if !report {
-		logger = log.Debug
+		logger = common.DefaultLogger.Debug
 	}
 	logger("Persisted trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)

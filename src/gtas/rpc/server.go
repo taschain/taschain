@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 
 	"gopkg.in/fatih/set.v0"
+	"common"
 )
 
 const MetadataApi = "rpc"
@@ -113,7 +114,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Error(string(buf))
+			common.DefaultLogger.Error(string(buf))
 		}
 		s.codecsMu.Lock()
 		s.codecs.Remove(codec)
@@ -139,7 +140,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 		if err != nil {
 
 			if err.Error() != "EOF" {
-				logger.Debug(fmt.Sprintf("read error %v\n", err))
+				common.DefaultLogger.Debug(fmt.Sprintf("read error %v\n", err))
 				codec.Write(codec.CreateErrorResponse(nil, err))
 			}
 
@@ -195,7 +196,7 @@ func (s *Server) ServeSingleRequest(codec ServerCodec, options CodecOption) {
 
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
-		logger.Debug("RPC Server shutdown initiatied")
+		common.DefaultLogger.Debug("RPC Server shutdown initiatied")
 		s.codecsMu.Lock()
 		defer s.codecsMu.Unlock()
 		s.codecs.Each(func(c interface{}) bool {
@@ -297,7 +298,7 @@ func (s *Server) exec(ctx context.Context, codec ServerCodec, req *serverRequest
 	}
 
 	if err := codec.Write(response); err != nil {
-		logger.Error(fmt.Sprintf("%v\n", err))
+		common.DefaultLogger.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 
@@ -322,7 +323,7 @@ func (s *Server) execBatch(ctx context.Context, codec ServerCodec, requests []*s
 	}
 
 	if err := codec.Write(responses); err != nil {
-		logger.Error(fmt.Sprintf("%v\n", err))
+		common.DefaultLogger.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 

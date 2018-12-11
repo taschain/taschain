@@ -51,7 +51,7 @@ type groupSyncer struct {
 }
 
 func InitGroupSyncer() {
-	groupSyncLogger = taslog.GetLoggerByName("group_sync" + common.GlobalConf.GetString("instance", "index", ""))
+	groupSyncLogger = taslog.GetLoggerByIndex(taslog.GroupSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	GroupSyncer = groupSyncer{maxHeight: 0, init: false,}
 	notify.BUS.Subscribe(notify.GroupHeight, GroupSyncer.groupHeightHandler)
 	notify.BUS.Subscribe(notify.GroupReq, GroupSyncer.groupReqHandler)
@@ -72,13 +72,13 @@ func (gs *groupSyncer) sync() {
 	gs.lock.Unlock()
 
 	if maxHeight <= localHeight {
-		groupSyncLogger.Debugf("[GroupSyncer]Neighbor max group height %d is less than self group height %d\n don't sync!\n", maxHeight, localHeight)
+		groupSyncLogger.Debugf("Neighbor max group height %d is less than self group height %d\n don't sync!\n", maxHeight, localHeight)
 		if !gs.init {
 			groupSyncLogger.Info("Group init sync finished!")
 			gs.init = true
 		}
 	} else {
-		groupSyncLogger.Debugf("[GroupSyncer]Neighbor max group height %d is greater than self group height %d.\nSync from %s!\n", maxHeight, localHeight, bestNode)
+		groupSyncLogger.Debugf("Neighbor max group height %d is greater than self group height %d.\nSync from %s!\n", maxHeight, localHeight, bestNode)
 		if bestNode != "" {
 			requestGroupByGroupId(bestNode, GroupChainImpl.LastGroup().Id)
 		}
@@ -88,12 +88,12 @@ func (gs *groupSyncer) sync() {
 func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 	groupHeightMsg, ok := msg.GetData().(*notify.GroupHeightMessage)
 	if !ok {
-		Logger.Debugf("groupHeightHandler GetData assert not ok!")
+		groupSyncLogger.Errorf("groupHeightHandler GetData assert not ok!")
 		return
 	}
 
 	height := utility.ByteToUInt64(groupHeightMsg.HeightByte)
-	groupSyncLogger.Debugf("[GroupSyncer]Rcv group height from:%s,height:%d", groupHeightMsg.Peer, height)
+	groupSyncLogger.Debugf("Rcv group height from:%s,height:%d", groupHeightMsg.Peer, height)
 
 	gs.lock.Lock()
 	if height > gs.maxHeight {
@@ -106,17 +106,17 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	groupReqMsg, ok := msg.GetData().(*notify.GroupReqMessage)
 	if !ok {
-		Logger.Debugf("groupReqHandler GetData assert not ok!")
+		groupSyncLogger.Errorf("groupReqHandler GetData assert not ok!")
 		return
 	}
 
 	sourceId := groupReqMsg.Peer
 	groupId := groupReqMsg.GroupIdByte
-	groupSyncLogger.Debugf("[GroupSyncer]Rcv group req from:%s,id:%v\n", sourceId, groupId)
+	groupSyncLogger.Debugf("Rcv group req from:%s,id:%v\n", sourceId, groupId)
 	groups := GroupChainImpl.GetSyncGroupsById(groupId)
 	l := len(groups)
 	if l == 0 {
-		groupSyncLogger.Errorf("[GroupSyncer]Get nil group by id:%v", groupId)
+		groupSyncLogger.Errorf("Get nil group by id:%v", groupId)
 		return
 	} else {
 		var isTop bool
@@ -131,22 +131,22 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 func (gs *groupSyncer) groupHandler(msg notify.Message) {
 	groupInfoMsg, ok := msg.GetData().(*notify.GroupInfoMessage)
 	if !ok {
-		Logger.Debugf("groupHandler GetData assert not ok!")
+		groupSyncLogger.Errorf("groupHandler GetData assert not ok!")
 		return
 	}
 
 	groupInfo, e := unMarshalGroupInfo(groupInfoMsg.GroupInfoByte)
 	if e != nil {
-		groupSyncLogger.Errorf("[handler]Discard GROUP_MSG because of unmarshal error:%s", e.Error())
+		groupSyncLogger.Errorf("Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 		return
 	}
 
 	sourceId := groupInfoMsg.Peer
 	groups := groupInfo.Groups
-	groupSyncLogger.Debugf("[GroupSyncer]Rcv groups ,from:%s,groups len %d", sourceId, len(groups))
+	groupSyncLogger.Debugf("Rcv groups ,from:%s,groups len %d", sourceId, len(groups))
 	for _, group := range groupInfo.Groups {
-		groupSyncLogger.Debugf("[GroupSyncer] AddGroup Id:%s,pre id:%s", common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Header.Parent).GetHexString())
-		groupSyncLogger.Debugf("[GroupSyncer] Local height:%d,local top group id:%s", GroupChainImpl.Count(), common.BytesToAddress(GroupChainImpl.LastGroup().Id).GetHexString(), )
+		groupSyncLogger.Debugf("AddGroup Id:%s,pre id:%s", common.BytesToAddress(group.Id).GetHexString(), common.BytesToAddress(group.Header.Parent).GetHexString())
+		groupSyncLogger.Debugf("Local height:%d,local top group id:%s", GroupChainImpl.Count(), common.BytesToAddress(GroupChainImpl.LastGroup().Id).GetHexString(), )
 		e := GroupChainImpl.AddGroup(group)
 		if e != nil {
 			groupSyncLogger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
@@ -169,18 +169,15 @@ func (gs *groupSyncer) loop() {
 	t := time.NewTicker(GROUP_SYNC_INTERVAL)
 	var tick time.Time
 	for tick = range t.C {
-		groupSyncLogger.Debug("start loop")
 		_ = tick
 		go sendGroupHeightToNeighbor(GroupChainImpl.Count())
-		groupSyncLogger.Debug("after sendGroupHeightToNeighbor")
 		go gs.sync()
-		groupSyncLogger.Debug("end loop")
 	}
 }
 
 //返回自身组链高度
 func sendGroupHeightToNeighbor(localCount uint64) {
-	groupSyncLogger.Debugf("[GroupSyncer]Send local group height %d to neighbor!", localCount)
+	groupSyncLogger.Debugf("Send local group height %d to neighbor!", localCount)
 	body := utility.UInt64ToByte(localCount)
 	message := network.Message{Code: network.GroupChainCountMsg, Body: body}
 	network.GetNetInstance().TransmitToNeighbor(message)
@@ -188,17 +185,17 @@ func sendGroupHeightToNeighbor(localCount uint64) {
 
 //向某一节点请求Group
 func requestGroupByGroupId(id string, groupId []byte) {
-	groupSyncLogger.Debugf("[GroupSyncer]Req group for %s,id:%v!", id, groupId)
+	groupSyncLogger.Debugf("Req group for %s,id:%v!", id, groupId)
 	message := network.Message{Code: network.ReqGroupMsg, Body: groupId}
 	network.GetNetInstance().Send(id, message)
 }
 
 //本地查询之后将结果返回
 func sendGroups(targetId string, groups []*types.Group, isTop bool) {
-	groupSyncLogger.Debugf("[GroupSyncer]Send group to %s,groups:%d-%d,isTop:%t", targetId, groups[0].GroupHeight, groups[len(groups)-1].GroupHeight, isTop)
+	groupSyncLogger.Debugf("Send group to %s,groups:%d-%d,isTop:%t", targetId, groups[0].GroupHeight, groups[len(groups)-1].GroupHeight, isTop)
 	body, e := marshalGroupInfo(groups, isTop)
 	if e != nil {
-		groupSyncLogger.Errorf("[GroupSyncer]sendGroup marshal group error:%s", e.Error())
+		groupSyncLogger.Errorf("sendGroup marshal group error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.GroupMsg, Body: body}
@@ -219,7 +216,7 @@ func unMarshalGroupInfo(b []byte) (*GroupInfo, error) {
 	message := new(tas_middleware_pb.GroupInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		groupSyncLogger.Errorf("[handler]unMarshalGroupInfo error:%s", e.Error())
+		groupSyncLogger.Errorf("unMarshalGroupInfo error:%s", e.Error())
 		return nil, e
 	}
 	groups := make([]*types.Group, len(message.Groups))

@@ -29,6 +29,7 @@ import (
 	"golang.org/x/net/websocket"
 	"gopkg.in/fatih/set.v0"
 	//"github.com/ethereum/src/gopkg.in/karalabe/cookiejar.v2/collections/set"
+	"common"
 )
 
 func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
@@ -65,14 +66,14 @@ func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("Allowed origin(s) for WS RPC interface %v\n", origins.List()))
+	common.DefaultLogger.Debug(fmt.Sprintf("Allowed origin(s) for WS RPC interface %v\n", origins.List()))
 
 	f := func(cfg *websocket.Config, req *http.Request) error {
 		origin := strings.ToLower(req.Header.Get("Origin"))
 		if allowAllOrigins || origins.Has(origin) {
 			return nil
 		}
-		logger.Warn(fmt.Sprintf("origin '%s' not allowed on WS-RPC interface\n", origin))
+		common.DefaultLogger.Warn(fmt.Sprintf("origin '%s' not allowed on WS-RPC interface\n", origin))
 		return fmt.Errorf("origin %s not allowed", origin)
 	}
 

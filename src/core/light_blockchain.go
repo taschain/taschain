@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/hashicorp/golang-lru"
 	"middleware"
 	"middleware/types"
@@ -10,7 +9,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"middleware/notify"
-	"log"
 	"math/big"
 	"storage/vm"
 	"storage/tasdb"
@@ -71,8 +69,7 @@ func DefaultLightChainConfig() *LightChainConfig {
 }
 
 func initLightChain(helper types.ConsensusHelper) error {
-	Logger = taslog.GetLoggerByName("core" + common.GlobalConf.GetString("instance", "index", ""))
-	Logger.Debugf("in initLightChain")
+	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &LightChain{
 		config: getLightChainConfig(),
@@ -111,22 +108,22 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 	chain.blocks, err = tasdb.NewLRUMemDatabase(LIGHT_BLOCKBODY_CACHE_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
 	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
 	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
 	chain.checkdb, err = tasdb.NewDatabase(chain.config.check)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
 
@@ -140,7 +137,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
 		chain.buildCache(LIGHT_BLOCKHEIGHT_CACHE_SIZE, chain.topBlocks)
-		Logger.Infof("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
+		Logger.Debugf("initLightChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 		state, err := account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 		if nil == err {
 			chain.latestStateDB = state
@@ -300,39 +297,32 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 
 func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	topBlock := chain.latestBlock
-	Logger.Debugf("[addBlockOnChain]height:%d,totalQn:%d,hash:%v,castor:%v,len header tx:%d,len tx:%d", b.Header.Height, b.Header.TotalQN, b.Header.Hash.String(), common.BytesToAddress(b.Header.Castor).GetHexString(), len(b.Header.Transactions), len(b.Transactions))
-	Logger.Debugf("Local top block: height:%d,totalQn:%d,hash:%v,castor:%v", topBlock.Height, topBlock.TotalQN, topBlock.Hash.String(), common.BytesToAddress(topBlock.Castor).GetHexString())
+	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
+	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
-		Logger.Errorf("[BlockChain]fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		return -1
 	}
 
 	if !chain.validateGroupSig(b.Header) {
-		Logger.Debugf("Fail to validate group sig!")
+		Logger.Errorf("Fail to validate group sig!")
 		return -1
 	}
-
-	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
-	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), b.Header.Height, topBlock.TotalQN)
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
 	}
-
 	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
 		return 1
 	}
-
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
 	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
-		//删除自身链的结点
 		chain.removeFromCommonAncestor(commonAncestor)
 		return chain.addBlockOnChain(b)
 	}
-
 	if b.Header.TotalQN == topBlock.TotalQN {
 		if chain.compareValue(commonAncestor, b.Header) {
 			return 1
@@ -379,7 +369,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 	}
 	preRoot := common.BytesToHash(preBlock.StateTree.Bytes())
 	if len(block.Transactions) > 0 {
-		Logger.Infof("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
+		Logger.Debugf("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
 	}
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
@@ -389,13 +379,13 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
 
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
-		Logger.Debugf("[LightChain]fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
+		Logger.Infof("fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
 	}
 
 	receiptsTree := calcReceiptsTree(receipts).Bytes()
 	if common.ToHex(receiptsTree) != common.ToHex(block.Header.ReceiptTree.Bytes()) {
-		Logger.Debugf("[BlockChain]fail to verify receipt, hash1:%s hash2:%s", receiptsTree, block.Header.ReceiptTree.Bytes())
+		Logger.Debugf("Fail to verify receipt, hash1:%s hash2:%s", receiptsTree, block.Header.ReceiptTree.Bytes())
 		return false, state, receipts
 	}
 
@@ -404,7 +394,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 }
 
 func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
-	Logger.Debugf("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
+	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(types.Block)
@@ -423,7 +413,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 func (chain *LightChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
-		fmt.Printf("[block]fail to put current, error:%s \n", err)
+		Logger.Errorf("Fail to put current, error:%s \n", err)
 		return -1
 	}
 	chain.latestStateDB = state
@@ -477,23 +467,23 @@ func (chain *LightChain) saveBlock(b *types.Block) (int8, []byte) {
 	// 根据hash存block
 	blockJson, err := types.MarshalBlock(b)
 	if err != nil {
-		log.Printf("[lightblock]fail to json Marshal, error:%s \n", err)
+		Logger.Errorf("Fail to json Marshal, error:%s \n", err.Error())
 		return -1, nil
 	}
 	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
 	if err != nil {
-		log.Printf("[lightblock]fail to put key:hash value:block, error:%s \n", err)
+		Logger.Errorf("Fail to put key:hash value:block, error:%s \n", err.Error())
 		return -1, nil
 	}
 	// 根据height存blockheader
 	headerJson, err := types.MarshalBlockHeader(b.Header)
 	if err != nil {
-		log.Printf("[lightblock]fail to json Marshal header, error:%s \n", err)
+		Logger.Errorf("Fail to json Marshal header, error:%s \n", err.Error())
 		return -1, nil
 	}
 	err = chain.blockHeight.Put(generateHeightKey(b.Header.Height), headerJson)
 	if err != nil {
-		log.Printf("[lightblock]fail to put key:height value:headerjson, error:%s \n", err)
+		Logger.Errorf("Fail to put key:height value:headerjson, error:%s \n", err.Error())
 		return -1, nil
 	}
 
@@ -517,7 +507,7 @@ func (chain *LightChain) Clear() error {
 	chain.statedb.Close()
 	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
 	if err != nil {
-		Logger.Error("[LightChain initLightChain Error!Msg=%v]", err)
+		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
 

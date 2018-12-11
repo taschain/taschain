@@ -42,7 +42,7 @@ type server struct {
 func (n *server) Send(id string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	if id == n.Self.Id.GetHexString() {
@@ -57,7 +57,7 @@ func (n *server) Send(id string, msg Message) error {
 func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
@@ -69,31 +69,31 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 func (n *server) RandomSpreadInGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, msg.Code,true, 1)
-	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	n.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
+	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
 func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
 	n.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
-	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
 func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d", groupId, len(groupMembers))
@@ -104,7 +104,7 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
@@ -117,7 +117,7 @@ func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Messag
 func (n *server) TransmitToNeighbor(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	//n.netCore.SendAll(bytes, true,nil,-1)
@@ -143,7 +143,7 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 func (n *server) Broadcast(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	n.netCore.SendAll(bytes, msg.Code, true, nil, -1)
@@ -199,7 +199,7 @@ func (n *server) handleMessage(b []byte, from string) {
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
-		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
+		Logger.Errorf("Proto unmarshal error:%s", error.Error())
 		return
 	}
 	//Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())

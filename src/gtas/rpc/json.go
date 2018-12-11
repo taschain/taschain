@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"common"
 )
 
 const (
@@ -168,7 +169,7 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 			// first param must be subscription name
 			var subscribeMethod [1]string
 			if err := json.Unmarshal(in.Payload, &subscribeMethod); err != nil {
-				logger.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
+				common.DefaultLogger.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
 				return nil, false, &invalidRequestError{"Unable to parse subscription request"}
 			}
 
@@ -220,7 +221,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 				// first param must be subscription name
 				var subscribeMethod [1]string
 				if err := json.Unmarshal(r.Payload, &subscribeMethod); err != nil {
-					logger.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
+					common.DefaultLogger.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
 					return nil, false, &invalidRequestError{"Unable to parse subscription request"}
 				}
 

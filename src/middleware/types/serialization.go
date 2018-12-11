@@ -31,7 +31,11 @@ import (
 )
 
 // middleware模块统一logger
-var logger = taslog.GetLoggerByName("middleware")
+var logger taslog.Logger
+
+func InitMiddleware() {
+	logger = taslog.GetLoggerByIndex(taslog.MiddlewareLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+}
 
 // 从[]byte反序列化为*Transaction
 func UnMarshalTransaction(b []byte) (Transaction, error) {
@@ -250,18 +254,18 @@ func PbToGroupHeader(g *tas_middleware_pb.GroupHeader) *GroupHeader {
 	var beginTime time.Time
 	beginTime.UnmarshalBinary(g.BeginTime)
 	header := GroupHeader{
-		Hash: common.BytesToHash(g.Hash),
-		Parent: g.Parent,
-		PreGroup: g.PreGroup,
-		Authority: *g.Authority,
-		Name: *g.Name,
-		BeginTime: beginTime,
-		MemberRoot: common.BytesToHash(g.MemberRoot),
-		CreateHeight: *g.CreateHeight,
-		ReadyHeight: *g.ReadyHeight,
-		WorkHeight: *g.WorkHeight,
+		Hash:          common.BytesToHash(g.Hash),
+		Parent:        g.Parent,
+		PreGroup:      g.PreGroup,
+		Authority:     *g.Authority,
+		Name:          *g.Name,
+		BeginTime:     beginTime,
+		MemberRoot:    common.BytesToHash(g.MemberRoot),
+		CreateHeight:  *g.CreateHeight,
+		ReadyHeight:   *g.ReadyHeight,
+		WorkHeight:    *g.WorkHeight,
 		DismissHeight: *g.DismissHeight,
-		Extends: *g.Extends,
+		Extends:       *g.Extends,
 	}
 	return &header
 }
@@ -273,11 +277,11 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 	//	members = append(members, *member)
 	//}
 	group := Group{
-		Header: PbToGroupHeader(g.Header),
-		Id:            g.Id,
-		Members:       g.Members,
-		PubKey:        g.PubKey,
-		Signature:     g.Signature,
+		Header:    PbToGroupHeader(g.Header),
+		Id:        g.Id,
+		Members:   g.Members,
+		PubKey:    g.PubKey,
+		Signature: g.Signature,
 	}
 	return &group
 }
@@ -384,21 +388,21 @@ func BlockToPb(b *Block) *tas_middleware_pb.Block {
 	return &block
 }
 
-func GroupToPbHeader(g *GroupHeader) *tas_middleware_pb.GroupHeader{
-	beginTime,_ := g.BeginTime.MarshalBinary()
+func GroupToPbHeader(g *GroupHeader) *tas_middleware_pb.GroupHeader {
+	beginTime, _ := g.BeginTime.MarshalBinary()
 	header := tas_middleware_pb.GroupHeader{
-		Hash: g.Hash.Bytes(),
-		Parent: g.Parent,
-		PreGroup: g.PreGroup,
-		Authority: &g.Authority,
-		Name: &g.Name,
-		BeginTime: beginTime,
-		MemberRoot: g.MemberRoot.Bytes(),
-		CreateHeight: &g.CreateHeight,
-		ReadyHeight: &g.ReadyHeight,
-		WorkHeight: &g.WorkHeight,
+		Hash:          g.Hash.Bytes(),
+		Parent:        g.Parent,
+		PreGroup:      g.PreGroup,
+		Authority:     &g.Authority,
+		Name:          &g.Name,
+		BeginTime:     beginTime,
+		MemberRoot:    g.MemberRoot.Bytes(),
+		CreateHeight:  &g.CreateHeight,
+		ReadyHeight:   &g.ReadyHeight,
+		WorkHeight:    &g.WorkHeight,
 		DismissHeight: &g.DismissHeight,
-		Extends: &g.Extends,
+		Extends:       &g.Extends,
 	}
 	return &header
 }
@@ -410,11 +414,11 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 	//	members = append(members, member)
 	//}
 	group := tas_middleware_pb.Group{
-		Header: GroupToPbHeader(g.Header),
-		Id:            g.Id,
-		Members:       g.Members,
-		PubKey:        g.PubKey,
-		Signature:     g.Signature,
+		Header:    GroupToPbHeader(g.Header),
+		Id:        g.Id,
+		Members:   g.Members,
+		PubKey:    g.PubKey,
+		Signature: g.Signature,
 	}
 	return &group
 }

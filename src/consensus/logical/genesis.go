@@ -23,7 +23,7 @@ const GENESIS_GROUP_INFO = `{"GroupID":"0xa85a46d7fde553e2dbfe19750faee0144d3616
 type genesisGroup struct {
 	Group StaticGroupInfo
 	VrfPK []base.VRFPublicKey
-	Pks 	[]groupsig.Pubkey
+	Pks   []groupsig.Pubkey
 }
 
 var genesisGroupInfo *genesisGroup
@@ -31,12 +31,11 @@ var genesisGroupInfo *genesisGroup
 func GetGenesisGroupInfo() *genesisGroup {
 	if genesisGroupInfo == nil {
 		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
-		stdLogger.Debug("generate genesis info %v", f)
+		common.DefaultLogger.Debugf("generate genesis info %v", f)
 		genesisGroupInfo = genGenesisStaticGroupInfo(f)
 	}
 	return genesisGroupInfo
 }
-
 
 func GenerateGenesis() *types.GenesisInfo {
 	genesis := GetGenesisGroupInfo()
@@ -52,9 +51,9 @@ func GenerateGenesis() *types.GenesisInfo {
 		pks[i] = vpk.Serialize()
 	}
 	return &types.GenesisInfo{
-		Group: *coreGroup,
+		Group:  *coreGroup,
 		VrfPKs: vrfPKs,
-		Pks:pks,
+		Pks:    pks,
 	}
 }
 
@@ -82,15 +81,15 @@ func (p *Processor) BeginGenesisGroupMember() {
 
 func generateGenesisGroupHeader(memIds []groupsig.ID) *types.GroupHeader {
 	gh := &types.GroupHeader{
-		Name: "TAS genesis group",
-		Authority: 777,
-		BeginTime: time.Now(),
-		CreateHeight: 0,
-		ReadyHeight: 1,
-		WorkHeight: 0,
+		Name:          "TAS genesis group",
+		Authority:     777,
+		BeginTime:     time.Now(),
+		CreateHeight:  0,
+		ReadyHeight:   1,
+		WorkHeight:    0,
 		DismissHeight: common.MaxUint64,
-		MemberRoot: model.GenMemberRootByIds(memIds),
-		Extends: "",
+		MemberRoot:    model.GenMemberRootByIds(memIds),
+		Extends:       "",
 	}
 
 	gh.Hash = gh.GenHash()
@@ -131,5 +130,3 @@ func readGenesisJoinedGroup(file string, sgi *StaticGroupInfo) *JoinedGroup {
 	group.GroupID = sgi.GroupID
 	return group
 }
-
-

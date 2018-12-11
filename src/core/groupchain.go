@@ -107,8 +107,8 @@ func ClearGroup(config *GroupChainConfig) {
 
 func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.ConsensusHelper) error {
 	chain := &GroupChain{
-		config: getGroupChainConfig(),
-		consensusHelper:consensusHelper,
+		config:          getGroupChainConfig(),
+		consensusHelper: consensusHelper,
 		//preCache: new(sync.Map),
 	}
 
@@ -343,7 +343,7 @@ func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 
 func (chain *GroupChain) AddGroup(group *types.Group) error {
 	//CheckGroup会调用groupchain的接口，需要在加锁前调用
-	ok,err := chain.consensusHelper.CheckGroup(group)
+	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
 		return err
 	}
@@ -358,26 +358,26 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 		Logger.Debugf("GroupChain AddGroup %+v", group)
 	}
 	//if !isDebug {
-		if nil != group.Header.Parent {
-			exist, _ := chain.groups.Has(group.Header.Parent)
-			//parent := chain.getGroupById(group.Parent)
-			//if nil == parent {
-			if !exist {
-				return fmt.Errorf("parent is not existed")
-			}
+	if nil != group.Header.Parent {
+		exist, _ := chain.groups.Has(group.Header.Parent)
+		//parent := chain.getGroupById(group.Parent)
+		//if nil == parent {
+		if !exist {
+			return fmt.Errorf("parent is not existed")
 		}
-		if nil != group.Header.PreGroup {
-			//exist,_ := chain.groups.Has(group.PreGroup)
-			//if !exist{
-			//	chain.preCache.Store(string(group.PreGroup), group)
-			//	return fmt.Errorf("pre group is not existed")
-			//}
-			if !bytes.Equal(chain.lastGroup.Id, group.Header.PreGroup) {
-				return fmt.Errorf("pre not equal lastgroup")
-			}
+	}
+	if nil != group.Header.PreGroup {
+		//exist,_ := chain.groups.Has(group.PreGroup)
+		//if !exist{
+		//	chain.preCache.Store(string(group.PreGroup), group)
+		//	return fmt.Errorf("pre group is not existed")
+		//}
+		if !bytes.Equal(chain.lastGroup.Id, group.Header.PreGroup) {
+			return fmt.Errorf("pre not equal lastgroup")
 		}
+	}
 
-		return chain.save(group)
+	return chain.save(group)
 	//}
 
 	// todo: 通过父亲节点公钥校验本组的合法性
@@ -484,7 +484,7 @@ func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uin
 	for j := middle - 1; j >= 0; j-- {
 		group := chain.GetGroupByHeight(j)
 		if group == nil {
-			Logger.Debugf("WhetherMemberInActiveGroup Group nil height:%d", j)
+			Logger.Infof("WhetherMemberInActiveGroup Group nil height:%d", j)
 			break
 		}
 		if group.Header.DismissHeight < applyHeight || group.Header.DismissHeight < currentHeight {

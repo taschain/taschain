@@ -25,7 +25,6 @@ import (
 	"core"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"math"
 	"middleware/types"
 	"network"
@@ -41,13 +40,12 @@ var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
 
 var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
 
-
 // GtasAPI is a single-method API handler to be returned by test services.
 type GtasAPI struct {
 }
 
 // T 交易接口
-func (api *GtasAPI) Tx(from string, to string, amount uint64, code string,nonce uint64, cmd int32) (*Result, error) {
+func (api *GtasAPI) Tx(from string, to string, amount uint64, code string, nonce uint64, cmd int32) (*Result, error) {
 	hash, contractAddr, err := walletManager.transaction(from, to, amount, code, nonce, cmd)
 	if err != nil {
 		return nil, err
@@ -120,10 +118,10 @@ func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 // ConnectedNodes 查询已链接的node的信息
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
-	nodes :=network.GetNetInstance().ConnInfo()
-	conns := make([]ConnInfo,0)
-	for _,n := range nodes{
-		conns = append(conns,ConnInfo{Id:n.Id,Ip:n.Ip,TcpPort:n.Port})
+	nodes := network.GetNetInstance().ConnInfo()
+	conns := make([]ConnInfo, 0)
+	for _, n := range nodes {
+		conns = append(conns, ConnInfo{Id: n.Id, Ip: n.Ip, TcpPort: n.Port})
 	}
 	return &Result{"", conns}, nil
 }
@@ -186,26 +184,24 @@ func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
 	return &Result{"success", blockDetail}, nil
 }
 
-
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	b := chain.QueryBlock(height)
 	if b == nil {
-		return  failResult("QueryBlock error")
+		return failResult("QueryBlock error")
 	}
 	bh := b.Header
 	block := convertBlockHeader(bh)
 
 	trans := make([]Transaction, 0)
 
-
 	for _, tx := range b.Transactions {
 		trans = append(trans, *convertTransaction(tx))
 	}
 
 	bd := &BlockDetail{
-		Block:        *block,
-		Trans:        trans,
+		Block: *block,
+		Trans: trans,
 	}
 	return successResult(bd)
 }
@@ -248,8 +244,8 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr :=  groupsig.DeserializeId(mem).GetHexString()
-		mems = append(mems,memberStr[0:6] + "-" + memberStr[len(memberStr)-6:])
+		memberStr := groupsig.DeserializeId(mem).GetHexString()
+		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
 	return gmap
@@ -271,12 +267,10 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 	return &Result{"success", ret}, nil
 }
 
-
 func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
 	height := core.BlockChainImpl.Height()
 	return api.GetWorkGroup(height)
 }
-
 
 func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	groups := mediator.Proc.GetCastQualifiedGroups(height)
@@ -345,11 +339,11 @@ func StartRPC(host string, port uint) error {
 	for plus := 0; plus < 40; plus ++ {
 		err = startHTTP(fmt.Sprintf("%s:%d", host, port+uint(plus)), apis, []string{}, []string{}, []string{})
 		if err == nil {
-			log.Printf("RPC serving on http://%s:%d\n", host, port+uint(plus))
+			common.DefaultLogger.Infof("RPC serving on http://%s:%d\n", host, port+uint(plus))
 			return nil
 		}
 		if strings.Contains(err.Error(), "address already in use") {
-			log.Printf("address: %s:%d already in use\n", host, port+uint(plus))
+			common.DefaultLogger.Infof("address: %s:%d already in use\n", host, port+uint(plus))
 			continue
 		}
 		return err

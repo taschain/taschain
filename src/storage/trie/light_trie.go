@@ -48,7 +48,7 @@ func NewLightTrie(root common.Hash, db *NodeDatabase) (*LightTrie, error) {
 func (t *LightTrie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 		panic("Light tri get key:" + common.BytesToAddress(key).GetHexString() + err.Error())
 	}
 	return res
@@ -202,7 +202,7 @@ func (t *LightTrie) resolveHash(n hashNode, prefix []byte) (node, error) {
 
 func (t *LightTrie) Delete(key []byte) {
 	if err := t.TryDelete(key); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
@@ -254,7 +254,7 @@ func (t *LightTrie) tryGet(origNode node, key []byte, pos int) (value []byte, ne
 
 func (t *LightTrie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
@@ -345,6 +345,6 @@ func (t *LightTrie) NodeIterator(start []byte) NodeIterator {
 	return newLightNodeIterator(t, start)
 }
 
-func (t *LightTrie)GetAllNodes(nodes map[string]*[]byte){
+func (t *LightTrie) GetAllNodes(nodes map[string]*[]byte) {
 	panic("Not support!")
 }
