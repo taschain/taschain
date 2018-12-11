@@ -87,7 +87,7 @@ func gtasFrontedCHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 31636, mode: os.FileMode(420), modTime: time.Unix(1543887458, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 31636, mode: os.FileMode(420), modTime: time.Unix(1542077831, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -107,7 +107,7 @@ func gtasFrontedJsTasBackJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/js/tas-back.js", size: 29311, mode: os.FileMode(420), modTime: time.Unix(1543887458, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/js/tas-back.js", size: 29311, mode: os.FileMode(420), modTime: time.Unix(1542077831, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -127,7 +127,7 @@ func gtasFrontedJsTasExtJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/js/tas-ext.js", size: 5708, mode: os.FileMode(420), modTime: time.Unix(1543887458, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/js/tas-ext.js", size: 5708, mode: os.FileMode(420), modTime: time.Unix(1540287016, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -147,7 +147,7 @@ func gtasFrontedJsTasJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/js/tas.js", size: 25873, mode: os.FileMode(420), modTime: time.Unix(1543976677, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/js/tas.js", size: 25873, mode: os.FileMode(420), modTime: time.Unix(1544521785, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -167,7 +167,7 @@ func gtasFrontedSummaryHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/summary.html", size: 9354, mode: os.FileMode(420), modTime: time.Unix(1535533415, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/summary.html", size: 9354, mode: os.FileMode(420), modTime: time.Unix(1537182187, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

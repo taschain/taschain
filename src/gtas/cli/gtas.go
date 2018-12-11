@@ -274,7 +274,7 @@ func (gtas *Gtas) Run() {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case tCmd.FullCommand():
-		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_t", *fromT, *toT, *valueT, *codeT)
+		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
 		if err != nil {
 			common.DefaultLogger.Error(err.Error())
 		}
