@@ -73,6 +73,7 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 	notify.BUS.Subscribe(notify.ChainPieceReq, handler.chainPieceReqHandler)
 	notify.BUS.Subscribe(notify.ChainPiece, handler.chainPieceHandler)
+	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
 
 	go handler.loop()
 	return &handler
@@ -87,14 +88,11 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 			return nil
 		}
 		OnTransactionRequest(m, sourceId)
-	case network.TransactionGotMsg, network.TransactionMsg:
+	case network.TransactionGotMsg:
 		m, e := types.UnMarshalTransactions(msg.Body)
 		if e != nil {
 			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 			return nil
-		}
-		if msg.Code == network.TransactionMsg {
-			network.Logger.Debugf("receive TransactionMsg from %s,tx_len:%d,time at:%v", sourceId, len(m), time.Now())
 		}
 		err := onMessageTransaction(m)
 		return err
@@ -105,6 +103,22 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte) {
 	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
 	network.GetNetInstance().Send(targetId, message)
+}
+
+func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
+	mtm, ok := msg.GetData().(*notify.MinerTransactionMessage)
+	if !ok {
+		core.Logger.Debugf("minerTransactionHandler GetData assert not ok!")
+		return
+	}
+	txs, e := types.UnMarshalTransactions(mtm.MinerTransactionsByte)
+	if e != nil {
+		core.Logger.Errorf("Discard MINER_TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+		return
+	}
+	for _, tx := range txs {
+		core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
+	}
 }
 
 func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {

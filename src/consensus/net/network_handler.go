@@ -110,7 +110,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 
 		c.processor.OnMessageVerify(m)
 
-	case network.TransactionMsg, network.TransactionGotMsg:
+	case network.TransactionGotMsg:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
@@ -172,7 +172,7 @@ func pbToGroupInfo(gi *tas_middleware_pb.ConsensusGroupInitInfo) *model.Consensu
 		mems[idx] = groupsig.DeserializeId(mem)
 	}
 	return &model.ConsensusGroupInitInfo{
-		GI: *gis,
+		GI:   *gis,
 		Mems: mems,
 	}
 }
@@ -186,7 +186,7 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*model.ConsensusGroupRawMessag
 	}
 
 	m := model.ConsensusGroupRawMessage{
-		GInfo: *pbToGroupInfo(message.GInfo),
+		GInfo:             *pbToGroupInfo(message.GInfo),
 		BaseSignedMessage: *baseMessage(message.Sign),
 	}
 	return &m, nil
@@ -206,9 +206,9 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*model.ConsensusSharePieceMe
 
 	share := pbToSharePiece(m.SharePiece)
 	message := model.ConsensusSharePieceMessage{
-		GHash: gHash,
-		Dest: dest,
-		Share: *share,
+		GHash:             gHash,
+		Dest:              dest,
+		Share:             *share,
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}
 	return &message, nil
@@ -229,9 +229,9 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*model.ConsensusSignPubKeyMe
 
 	base := baseMessage(m.SignData)
 	message := model.ConsensusSignPubKeyMessage{
-		GHash: gisHash,
-		SignPK: pk,
-		GSign: *sign,
+		GHash:             gisHash,
+		SignPK:            pk,
+		GSign:             *sign,
 		BaseSignedMessage: *base,
 	}
 	return &message, nil
@@ -246,9 +246,9 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 	}
 
 	message := model.ConsensusGroupInitedMessage{
-		GHash: common.BytesToHash(m.GHash),
-		GroupID: groupsig.DeserializeId(m.GroupID),
-		GroupPK: groupsig.DeserializePubkeyBytes(m.GroupPK),
+		GHash:             common.BytesToHash(m.GHash),
+		GroupID:           groupsig.DeserializeId(m.GroupID),
+		GroupPK:           groupsig.DeserializePubkeyBytes(m.GroupPK),
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}
 	return &message, nil
@@ -333,7 +333,7 @@ func unMarshalConsensusBlockMessage(b []byte) (*model.ConsensusBlockMessage, err
 func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummary) *model.ConsensusGroupInitSummary {
 	gh := types.PbToGroupHeader(m.Header)
 	return &model.ConsensusGroupInitSummary{
-		GHeader: gh,
+		GHeader:   gh,
 		Signature: *groupsig.DeserializeSign(m.Signature),
 	}
 }
@@ -376,6 +376,7 @@ func pbToSharePiece(s *tas_middleware_pb.SharePiece) *model.SharePiece {
 	sp := model.SharePiece{Share: share, Pub: pub}
 	return &sp
 }
+
 //
 //func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *model.StaticGroupSummary {
 //	var groupId groupsig.ID
@@ -421,7 +422,7 @@ func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGr
 	gi := pbToGroupInfo(message.GInfo)
 
 	m := model.ConsensusCreateGroupRawMessage{
-		GInfo: *gi,
+		GInfo:             *gi,
 		BaseSignedMessage: *baseMessage(message.Sign),
 	}
 	return &m, nil
@@ -436,7 +437,7 @@ func unMarshalConsensusCreateGroupSignMessage(b []byte) (*model.ConsensusCreateG
 	}
 
 	m := model.ConsensusCreateGroupSignMessage{
-		GHash: common.BytesToHash(message.GHash),
+		GHash:             common.BytesToHash(message.GHash),
 		BaseSignedMessage: *baseMessage(message.Sign),
 	}
 	return &m, nil

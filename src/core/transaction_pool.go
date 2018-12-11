@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	MaxRcvTxPoolSize = 10000
-	MaxMinerTxPoolSize = 1000
-	MaxMissTxPookSize = 10000
+	MaxRcvTxPoolSize     = 10000
+	MaxMinerTxPoolSize   = 1000
+	MaxMissTxPookSize    = 10000
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
 	TxCountPerBlock      = 3000
@@ -199,7 +199,7 @@ func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
 	}
 
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
-		if tx.Type == types.TransactionTypeMinerApply{
+		if tx.Type == types.TransactionTypeMinerApply {
 			Logger.Debugf("Add TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
 		}
 		pool.minerTxPool.Add(tx.Hash, tx)
@@ -207,12 +207,11 @@ func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
 		pool.received.Push(tx)
 	}
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus {
-		if tx.Type == types.TransactionTypeMinerApply{
+		if tx.Type == types.TransactionTypeMinerApply {
 			Logger.Debugf("BroadcastTransactions TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
 		}
-		BroadcastTransactions([]*types.Transaction{tx}, true)
+		BroadcastMinerTransactions([]*types.Transaction{tx})
 	}
-	// 日志记录分红交易信息
 
 	// batch broadcasta
 	//if isBroadcast {
@@ -223,7 +222,6 @@ func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
 	//
 	//	pool.CheckAndSend(false)
 	//}
-
 	return true, nil
 }
 
@@ -496,8 +494,8 @@ func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	for _, minerTxHash := range minerTxHashes {
 		if v, ok := pool.minerTxPool.Get(minerTxHash); ok {
 			result = append(result, v.(*types.Transaction))
-			if v.(*types.Transaction).Type == types.TransactionTypeMinerApply{
-				Logger.Debugf("GetTransactionsForCasting,hash:%s,",  v.(*types.Transaction).Hash.String())
+			if v.(*types.Transaction).Type == types.TransactionTypeMinerApply {
+				Logger.Debugf("GetTransactionsForCasting,hash:%s,", v.(*types.Transaction).Hash.String())
 			}
 		}
 		if len(result) >= TxCountPerBlock {

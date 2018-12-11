@@ -182,3 +182,16 @@ func (m *GroupInfoMessage) GetRaw() []byte {
 func (m *GroupInfoMessage) GetData() interface{} {
 	return m
 }
+
+type MinerTransactionMessage struct {
+	MinerTransactionsByte []byte
+
+	Peer string
+}
+
+func (m *MinerTransactionMessage) GetRaw() []byte {
+	return m.MinerTransactionsByte
+}
+func (m *MinerTransactionMessage) GetData() interface{} {
+	return m
+}

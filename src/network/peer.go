@@ -36,9 +36,9 @@ const (
 type SendPriorityType uint32
 
 const (
-	SendPriorityHigh SendPriorityType = 0
-	SendPriorityMedium  SendPriorityType = 1
-	SendPriorityLow   SendPriorityType = 2
+	SendPriorityHigh   SendPriorityType = 0
+	SendPriorityMedium SendPriorityType = 1
+	SendPriorityLow    SendPriorityType = 2
 )
 const MaxSendPriority = 3
 const MaxPendingSend = 5
@@ -78,23 +78,22 @@ func newSendList() *SendList {
 
 	sl.priorityTable = map[uint32]SendPriorityType{
 		BlockInfoNotifyMsg: SendPriorityHigh,
-		ReqBlock: SendPriorityHigh,
-		BlockMsg:SendPriorityHigh,
+		ReqBlock:           SendPriorityHigh,
+		BlockMsg:           SendPriorityHigh,
 		GroupChainCountMsg: SendPriorityHigh,
-		ReqGroupMsg: SendPriorityHigh,
-		GroupMsg: SendPriorityHigh,
-		ChainPieceReq: SendPriorityHigh,
-		ChainPiece: SendPriorityHigh,
+		ReqGroupMsg:        SendPriorityHigh,
+		GroupMsg:           SendPriorityHigh,
+		ChainPieceReq:      SendPriorityHigh,
+		ChainPiece:         SendPriorityHigh,
 
-		CastVerifyMsg: SendPriorityMedium,
-		VerifiedCastMsg: SendPriorityMedium,
-		ReqTransactionMsg: SendPriorityMedium,
-		TransactionGotMsg: SendPriorityMedium,
-		TransactionMsg: SendPriorityMedium,
-		NewBlockMsg: SendPriorityMedium,
-		CastRewardSignReq: SendPriorityMedium,
-		CastRewardSignGot: SendPriorityMedium,
-
+		CastVerifyMsg:       SendPriorityMedium,
+		VerifiedCastMsg:     SendPriorityMedium,
+		ReqTransactionMsg:   SendPriorityMedium,
+		TransactionGotMsg:   SendPriorityMedium,
+		MinerTransactionMsg: SendPriorityMedium,
+		NewBlockMsg:         SendPriorityMedium,
+		CastRewardSignReq:   SendPriorityMedium,
+		CastRewardSignGot:   SendPriorityMedium,
 	}
 
 	return sl
@@ -117,7 +116,6 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	}
 	sendListItem.list.PushBack(packet)
 
-
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 	sendList.autoSend(peer)
 }
@@ -132,13 +130,13 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		return
 	}
 
-	remain :=0
-	for i := 0; i < MaxSendPriority && sendList.isSendAvailable() ; i++ {
+	remain := 0
+	for i := 0; i < MaxSendPriority && sendList.isSendAvailable(); i++ {
 		item := sendList.list[i]
 
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
-			if e != nil &&  e.Value ==nil{
+			if e != nil && e.Value == nil {
 				item.list.Remove(e)
 				break
 			}
@@ -152,7 +150,6 @@ func (sendList *SendList) autoSend(peer *Peer) {
 
 			item.curQuota += 1
 			sendList.curQuota += 1
-
 
 			if item.curQuota >= item.quota {
 				break
@@ -172,7 +169,6 @@ func (sendList *SendList) autoSend(peer *Peer) {
 
 }
 
-
 func (sendList *SendList) resetQuota() {
 
 	sendList.curQuota = 0
@@ -184,20 +180,18 @@ func (sendList *SendList) resetQuota() {
 
 }
 
-
 func (sendList *SendList) getDataSize() int {
 	size := 0
-	for i := 0; i < MaxSendPriority ; i++ {
+	for i := 0; i < MaxSendPriority; i++ {
 		item := sendList.list[i]
 
-		for e := item.list.Front();e != nil; e = e.Next() {
+		for e := item.list.Front(); e != nil; e = e.Next() {
 			buf := e.Value.(*bytes.Buffer)
 			size += buf.Len()
 		}
 	}
 	return size
 }
-
 
 //Peer 节点连接对象
 type Peer struct {
@@ -319,7 +313,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId, p)
 	}
 
-
 	p.write(packet, code)
 
 	if p.seesionId != 0 {
@@ -373,7 +366,6 @@ func (pm *PeerManager) OnSendWaited(id uint64, session uint32) {
 		p.onSendWaited()
 	}
 }
-
 
 //OnDisconnected 处理连接断开的回调
 func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
@@ -481,7 +473,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 
 	return
 }
-
 
 func (pm *PeerManager) peerByID(id NodeID) *Peer {
 	netID := netCoreNodeID(id)

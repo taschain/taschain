@@ -30,4 +30,6 @@ const (
 	GroupReq = "group_req"
 
 	Group = "group"
+
+	MinerTransaction = "miner_transaction"
 )

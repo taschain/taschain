@@ -228,12 +228,15 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		Logger.Debugf("Rcv GroupMsg from %s", from)
 		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.Group, &msg)
-	case TransactionMsg, TransactionGotMsg:
+	case TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
 		if error != nil {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case MinerTransactionMsg:
+		msg := notify.MinerTransactionMessage{MinerTransactionsByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.MinerTransaction, &msg)
 	case BlockInfoNotifyMsg:
 		Logger.Debugf("Rcv BlockInfoNotifyMsg from %s", from)
 		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}

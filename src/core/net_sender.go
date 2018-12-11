@@ -80,8 +80,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 	go network.GetNetInstance().Send(sourceId, message)
 }
 
-//收到交易 全网扩散
-func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
+func BroadcastMinerTransactions(txs []*types.Transaction) {
 	defer func() {
 		if r := recover(); r != nil {
 			Logger.Errorf("Runtime error caught: %v", r)
@@ -93,15 +92,34 @@ func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
 			Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
-		Logger.Debugf("BroadcastTransactions len:%d", len(txs))
-		message := network.Message{Code: network.TransactionMsg, Body: body}
-		if heavyOnly {
-			heavyMiners := MinerManagerImpl.GetHeavyMiners()
-			go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
-		} else {
-			go network.GetNetInstance().Broadcast(message)
-		}
+		Logger.Debugf("Broadcast Miner Transactions len:%d", len(txs))
+		message := network.Message{Code: network.MinerTransactionMsg, Body: body}
+		heavyMiners := MinerManagerImpl.GetHeavyMiners()
+		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
 	}
+}
+
+func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		Logger.Errorf("Runtime error caught: %v", r)
+	//	}
+	//}()
+	//if len(txs) > 0 {
+	//	body, e := types.MarshalTransactions(txs)
+	//	if e != nil {
+	//		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
+	//		return
+	//	}
+	//	Logger.Debugf("BroadcastTransactions len:%d", len(txs))
+	//	message := network.Message{Code: network.TransactionMsg, Body: body}
+	//	if heavyOnly {
+	//		heavyMiners := MinerManagerImpl.GetHeavyMiners()
+	//		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+	//	} else {
+	//		go network.GetNetInstance().Broadcast(message)
+	//	}
+	//}
 }
 
 //向某一节点请求Block信息
