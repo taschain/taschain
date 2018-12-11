@@ -65,18 +65,7 @@ func (c *simpleContainer) Get(key common.Hash) *types.Transaction {
 func (c *simpleContainer) AsSlice() []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-
-	var result []*types.Transaction
-	len := c.txs.Len()
-	if len > 3000 {
-		result = make([]*types.Transaction, 3000)
-		copy(result, c.txs[len-3000:])
-	} else {
-		result = make([]*types.Transaction, len)
-		copy(result, c.txs)
-	}
-
-	return result
+	return c.txs
 }
 
 func (c *simpleContainer) Push(tx *types.Transaction) {
@@ -108,7 +97,6 @@ func (c *simpleContainer) add(tx *types.Transaction) {
 		return
 	}
 
-	//Logger.Debugf("tx pool size:%d great than max size,ignore tx!", c.txs.Len())
 	for i,oldtx := range c.txs{
 		if tx.GasPrice >= oldtx.GasPrice{
 			delete(c.txsMap, oldtx.Hash)

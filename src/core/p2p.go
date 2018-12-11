@@ -85,7 +85,7 @@ func (connector *BlockChainConnector) TransactionArrived(ts []*types.Transaction
 		return fmt.Errorf("nil transactions")
 	}
 
-	return connector.chain.GetTransactionPool().AddTransactions(ts, false)
+	return connector.chain.GetTransactionPool().AddMissTransactions(ts)
 }
 
 //addNewBlockToChainFn 实现

@@ -109,7 +109,7 @@ type BlockChain interface {
 type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
-	AddTransactions(txs []*types.Transaction, reserved bool) error
+	AddMissTransactions(txs []*types.Transaction) error
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 
