@@ -17,19 +17,19 @@ package core
 
 import (
 	"common"
-	"time"
-	"os"
-	"storage/account"
-	"github.com/hashicorp/golang-lru"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
 	"bytes"
 	"middleware"
 	"middleware/types"
 	"taslog"
 	"math/big"
-	"storage/vm"
 	"middleware/notify"
+	"os"
+	"storage/account"
 	"storage/tasdb"
+	"storage/vm"
+	"time"
 )
 
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
@@ -55,6 +55,8 @@ const (
 var BlockChainImpl BlockChain
 
 var Logger taslog.Logger
+
+var consensusLogger taslog.Logger
 
 // 配置
 type BlockChainConfig struct {
@@ -127,6 +129,8 @@ func getBlockChainConfig() *BlockChainConfig {
 func initBlockChain(helper types.ConsensusHelper) error {
 
 	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+
+	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &FullBlockChain{
 		config: getBlockChainConfig(),
@@ -403,6 +407,9 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		Logger.Errorf("Fail to validate group sig!")
 		return -1
 	}
+
+	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
+	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)

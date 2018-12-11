@@ -1,15 +1,15 @@
 package core
 
 import (
-	"storage/tasdb"
-	"github.com/hashicorp/golang-lru"
-	"middleware/types"
-	"storage/account"
-	"middleware"
 	"common"
 	"encoding/binary"
+	"github.com/hashicorp/golang-lru"
 	"math"
 	"math/big"
+	"middleware"
+	"middleware/types"
+	"storage/account"
+	"storage/tasdb"
 	"utility"
 	"consensus/groupsig"
 	"bytes"
@@ -425,6 +425,9 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
 	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
+
+	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(),commonAncestor.Height,chain.latestBlock.Height)
+
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
