@@ -18,7 +18,7 @@ type MessageProcessor interface {
 
 	GetMinerID() groupsig.ID
 
-	ExistInDummyGroup(gid groupsig.ID) bool
+	ExistInGroup(gHash common.Hash) bool
 
 	OnMessageGroupInit(msg *model.ConsensusGroupRawMessage)
 
@@ -67,11 +67,11 @@ type NetworkServer interface {
 
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 
-	SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage)
+	SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage, parentGid groupsig.ID)
 
-	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
+	BuildGroupNet(groupIdentifier string, mems []groupsig.ID)
 
-	ReleaseGroupNet(gid groupsig.ID)
+	ReleaseGroupNet(groupIdentifier string)
 
 	SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
 

@@ -18,7 +18,6 @@ package network
 import (
 	"common"
 	"errors"
-	"fmt"
 	"log"
 	"math/rand"
 	nnet "net"
@@ -196,7 +195,7 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 }
 
 func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
+	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	var privateKey common.PrivateKey
 
 	privateKeyStr := getPrivateKeyFromConfigFile(config)
@@ -216,7 +215,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 	}
 
 	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: nnet.ParseIP(ip), Port: port}
-	fmt.Print(n.String())
+	common.DefaultLogger.Info(n.String())
 	return &n, nil
 }
 

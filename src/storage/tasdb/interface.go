@@ -40,4 +40,5 @@ type Database interface {
 	Close()
 	NewBatch() Batch
 	NewIterator() iterator.Iterator
+	NewIteratorWithPrefix(prefix []byte) iterator.Iterator
 }

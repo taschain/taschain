@@ -78,6 +78,21 @@ func TestCreateLDB(t *testing.T) {
 
 }
 
+func TestLDBScan(t *testing.T) {
+	//ldb, _ := NewLDBDatabase("/Users/Kaede/TasProject/test1",1,1)
+	ldb, _ := NewDatabase("testldb")
+	key1 := []byte{0,1,1}
+	key2 := []byte{0,1,2}
+	key3 := []byte{0,2,1}
+	ldb.Put(key1,key1)
+	ldb.Put(key2,key2)
+	ldb.Put(key3,key3)
+	iter := ldb.NewIteratorWithPrefix([]byte{0,1})
+	for iter.Next(){
+		fmt.Println(iter.Value())
+	}
+}
+
 func TestLRUMemDatabase(t *testing.T) {
 	mem, _ := NewLRUMemDatabase(10)
 	for i := (byte)(0); i < 11; i++ {

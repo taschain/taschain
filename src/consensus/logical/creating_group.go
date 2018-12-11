@@ -5,6 +5,7 @@ import (
 	"consensus/model"
 	"strconv"
 	"sync"
+	"common"
 )
 
 /*
@@ -39,9 +40,7 @@ func PIECE_RESULT(ret int8) string {
 }
 
 type CreatingGroup struct {
-	gis            *model.ConsensusGroupInitSummary
-	createGroup    *StaticGroupInfo
-	pkis            []model.PubKeyInfo
+	gInfo 			*model.ConsensusGroupInitInfo
 	gSignGenerator *model.GroupSignGenerator
 }
 
@@ -51,22 +50,17 @@ type CreatingGroups struct {
 	//lock sync.RWMutex
 }
 
-func newCreateGroup(gis *model.ConsensusGroupInitSummary, pkis []model.PubKeyInfo, creator *StaticGroupInfo) *CreatingGroup {
+func newCreateGroup(gInfo *model.ConsensusGroupInitInfo, threshold int) *CreatingGroup {
 	cg := &CreatingGroup{
-		gis:            gis,
-		pkis:            pkis,
-		createGroup:    creator,
-		gSignGenerator: model.NewGroupSignGenerator(model.Param.GetGroupK(creator.GetMemberCount())),
+		gInfo: gInfo,
+		//createGroup:    creator,
+		gSignGenerator: model.NewGroupSignGenerator(threshold),
 	}
 	return cg
 }
 
 func (cg *CreatingGroup) getIDs() []groupsig.ID {
-    ids := make([]groupsig.ID, len(cg.pkis))
-	for idx, pki := range cg.pkis {
-		ids[idx] = pki.ID
-	}
-	return ids
+   return cg.gInfo.Mems
 }
 
 func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) int8 {
@@ -87,27 +81,27 @@ func (cg *CreatingGroup) acceptPiece(from groupsig.ID, sign groupsig.Signature) 
 }
 
 func (cgs *CreatingGroups) addCreatingGroup(group *CreatingGroup) {
-	cgs.groups.Store(group.gis.DummyID.GetHexString(), group)
+	cgs.groups.Store(group.gInfo.GroupHash().Hex(), group)
 }
 
-func (cgs *CreatingGroups) acceptPiece(dummyId groupsig.ID, from groupsig.ID, sign groupsig.Signature) int8 {
-	if cg := cgs.getCreatingGroup(dummyId); cg == nil {
+func (cgs *CreatingGroups) acceptPiece(ghash common.Hash, from groupsig.ID, sign groupsig.Signature) int8 {
+	if cg := cgs.getCreatingGroup(ghash); cg == nil {
 		return PIECE_GROUP_NOTFOUND
 	} else {
 		return cg.acceptPiece(from, sign)
 	}
 }
 
-func (cgs *CreatingGroups) getCreatingGroup(dummyId groupsig.ID) *CreatingGroup {
-	if cg, ok := cgs.groups.Load(dummyId.GetHexString()); !ok {
+func (cgs *CreatingGroups) getCreatingGroup(hash common.Hash) *CreatingGroup {
+	if cg, ok := cgs.groups.Load(hash.Hex()); !ok {
 		return nil
 	} else {
 		return cg.(*CreatingGroup)
 	}
 }
 
-func (cgs *CreatingGroups) removeGroup(dummyId groupsig.ID) {
-	cgs.groups.Delete(dummyId.GetHexString())
+func (cgs *CreatingGroups) removeGroup(hash common.Hash) {
+	cgs.groups.Delete(hash.Hex())
 }
 
 func (cgs *CreatingGroups) forEach(f func(cg *CreatingGroup) bool) {

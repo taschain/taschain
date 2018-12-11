@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"net"
 
+	"common"
 )
+
 // CreateIPCListener creates an listener, on Unix platforms this is a unix socket, on
 // Windows this is a named pipe
 func CreateIPCListener(endpoint string) (net.Listener, error) {
@@ -34,7 +36,7 @@ func (srv *Server) ServeListener(l net.Listener) error {
 		if err != nil {
 			return err
 		}
-		logger.Debug(fmt.Sprint("accepted conn", conn.RemoteAddr()))
+		common.DefaultLogger.Debugf(fmt.Sprint("accepted conn", conn.RemoteAddr()))
 		go srv.ServeCodec(NewJSONCodec(conn), OptionMethodInvocation|OptionSubscriptions)
 	}
 }

@@ -28,7 +28,11 @@ func newBizLog(biz string) *bizLog {
 }
 
 func (bl *bizLog) log(format string, p ...interface{})  {
-    log.Printf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+    stdLogger.Infof("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+}
+
+func (bl *bizLog) debug(format string, p ...interface{})  {
+	stdLogger.Debugf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
 }
 
 //接口rt日志
@@ -71,12 +75,8 @@ func newMsgTraceLog(mtype string, key string, sender string) *msgTraceLog {
 	}
 }
 
-func newBlockTraceLog(mtype string, blockHash common.Hash, sid groupsig.ID) *msgTraceLog {
-	return newMsgTraceLog(mtype, blockHash.ShortS(), sid.ShortS())
-}
-
-func newGroupTraceLog(mtype string, gid groupsig.ID, sid groupsig.ID) *msgTraceLog {
-	return newMsgTraceLog(mtype, gid.ShortS(), sid.ShortS())
+func newHashTraceLog(mtype string, hash common.Hash, sid groupsig.ID) *msgTraceLog {
+	return newMsgTraceLog(mtype, hash.ShortS(), sid.ShortS())
 }
 
 

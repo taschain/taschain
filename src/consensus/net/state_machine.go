@@ -26,7 +26,6 @@ import (
 	"fmt"
 )
 
-
 type stateHandleFunc func(msg interface{})
 
 type stateNode struct {
@@ -43,21 +42,21 @@ type stateNode struct {
 type StateMsg struct {
 	Code uint32
 	Data interface{}
-	Id 	string
+	Id   string
 }
 
 type StateMachine struct {
-	Id 	string
+	Id      string
 	Current *stateNode
 	//Current atomic.Value
 	Head *stateNode
 	Time time.Time
-	lock       sync.Mutex
+	lock sync.Mutex
 }
 
 type StateMachines struct {
-	name 	string
-	machines sync.Map
+	name      string
+	machines  sync.Map
 	generator StateMachineGenerator
 	//machines map[string]*StateMachine
 }
@@ -68,15 +67,15 @@ var GroupOutsideMachines StateMachines
 var logger taslog.Logger
 
 func InitStateMachines() {
-	logger = taslog.GetLoggerByName("state_machine" + common.GlobalConf.GetString("instance", "index", ""))
+	logger = taslog.GetLoggerByIndex(taslog.StateMachineLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
 	GroupInsideMachines = StateMachines{
-		name: "GroupInsideMachines",
+		name:      "GroupInsideMachines",
 		generator: &groupInsideMachineGenerator{},
 	}
 
 	GroupOutsideMachines = StateMachines{
-		name: "GroupOutsideMachines",
+		name:      "GroupOutsideMachines",
 		generator: &groupOutsideMachineGenerator{},
 	}
 
@@ -86,9 +85,9 @@ func InitStateMachines() {
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 	return &StateMsg{
-		Code:code,
-		Data:data,
-		Id:id,
+		Code: code,
+		Data: data,
+		Id:   id,
 	}
 }
 
@@ -103,7 +102,7 @@ func newStateNode(st uint32, r int, h stateHandleFunc) *stateNode {
 
 func newStateMachine(id string) *StateMachine {
 	return &StateMachine{
-		Id: id,
+		Id:   id,
 		Time: time.Now(),
 	}
 }
@@ -137,7 +136,7 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 	//n.lock.Lock()
 	//defer n.lock.Unlock()
 	n.queue = append(n.queue, stateMsg)
-	return int32(len(n.queue))-1, true
+	return int32(len(n.queue)) - 1, true
 }
 
 func (n *stateNode) finished() bool {
@@ -156,7 +155,7 @@ func (m *StateMachine) currentNode() *stateNode {
 	return m.Current
 }
 
-func (m *StateMachine) setCurrent(node *stateNode)  {
+func (m *StateMachine) setCurrent(node *stateNode) {
 	m.Current = node
 }
 
@@ -174,7 +173,6 @@ func (m *StateMachine) appendNode(node *stateNode) {
 	}
 }
 
-
 func (m *StateMachine) findNode(code uint32) *stateNode {
 	p := m.Head
 	for p != nil && p.code != code {
@@ -182,7 +180,6 @@ func (m *StateMachine) findNode(code uint32) *stateNode {
 	}
 	return p
 }
-
 
 func (m *StateMachine) finish() bool {
 	current := m.currentNode()
@@ -272,8 +269,8 @@ type StateMachineGenerator interface {
 	Generate(id string) *StateMachine
 }
 
-type groupInsideMachineGenerator struct {}
-type groupOutsideMachineGenerator struct {}
+type groupInsideMachineGenerator struct{}
+type groupOutsideMachineGenerator struct{}
 
 func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
@@ -303,7 +300,7 @@ func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	return machine
 }
 
-func (stm *StateMachines) startCleanRoutine()  {
+func (stm *StateMachines) startCleanRoutine() {
 	ticker.GetTickerInstance().RegisterRoutine(stm.name, stm.cleanRoutine, 2)
 	ticker.GetTickerInstance().StartTickerRoutine(stm.name, false)
 }
@@ -323,7 +320,6 @@ func (stm *StateMachines) cleanRoutine() bool {
 	})
 	return true
 }
-
 
 func (stm *StateMachines) GetMachine(id string) *StateMachine {
 	if v, ok := stm.machines.Load(id); ok {

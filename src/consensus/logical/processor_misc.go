@@ -4,7 +4,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/model"
-	"log"
 	"strings"
 	"middleware/types"
 	"consensus/base"
@@ -55,11 +54,11 @@ func (p *Processor) prepareMiner() {
 
 	}
 
-	log.Printf("prepareMiner get groups from groupchain, belongGroup len=%v\n", belongs.groupSize())
+	stdLogger.Infof("prepareMiner get groups from groupchain, belongGroup len=%v\n", belongs.groupSize())
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
-		log.Printf("get group from core, id=%v", coreGroup.Id)
+		stdLogger.Infof("get group from core, id=%+v", coreGroup.Header)
 		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
 			continue
 		}
@@ -74,11 +73,11 @@ func (p *Processor) prepareMiner() {
 			sgi = NewSGIFromCoreGroup(genesis)
 		}
 		groups = append(groups, sgi)
-		log.Printf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.BeginHeight, topHeight)
+		stdLogger.Infof("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := belongs.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				log.Printf("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
+				stdLogger.Infof("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
 				p.joinGroup(jg, true)
 			}
@@ -90,7 +89,7 @@ func (p *Processor) prepareMiner() {
 	for i := len(groups)-1; i >=0; i-- {
 		p.acceptGroup(groups[i])
 	}
-	log.Printf("prepare finished")
+	stdLogger.Infof("prepare finished")
 }
 
 func (p *Processor) Ready() bool {
@@ -110,6 +109,7 @@ func (p *Processor) Finalize() {
 		p.belongGroups.commit()
 	}
 }
+
 
 
 func (p *Processor) getVrfWorker() *vrfWorker {
@@ -159,7 +159,7 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	castor := groupsig.DeserializeId(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {
-		log.Printf("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
+		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
 		return 0
 	}
 	totalStake := p.minerReader.getTotalStake(bh.Height)
@@ -196,4 +196,19 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	h := base.Data2CommonHash(buf)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
+}
+
+func (p *Processor) CheckGroupHeader(gh *types.GroupHeader, pSign groupsig.Signature) (bool, error) {
+	if ok, err := p.groupManager.isGroupHeaderLegal(gh); ok {
+		//验证父亲组签名
+		pid := groupsig.DeserializeId(gh.Parent)
+		ppk := p.getGroupPubKey(pid)
+		if groupsig.VerifySig(ppk, gh.Hash.Bytes(), pSign) {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("signature verify fail, pk=", ppk.GetHexString())
+		}
+	} else {
+		return false, err
+	}
 }

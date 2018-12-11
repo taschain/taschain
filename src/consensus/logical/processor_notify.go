@@ -4,7 +4,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/model"
-	"log"
 	"middleware/notify"
 	"middleware/types"
 )
@@ -17,7 +16,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	p.removeFutureVerifyMsgs(hash)
 	mtype := "FUTURE_VERIFY"
 	for _, msg := range futures {
-		tlog := newBlockTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
+		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
 		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype))
 		if err != nil {
@@ -49,7 +48,7 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 //	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
 //	for _, msg := range futureMsgs {
 //		tbh := msg.Block.Header
-//		tlog := newBlockTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
+//		tlog := newHashTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
 //		tlog.log( "%v", "trigger cached future block")
 //		p.receiveBlock(&msg.Block, preBH)
 //	}
@@ -96,11 +95,11 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(types.Group)
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", group.Id, group.Header.WorkHeight)
 	if group.Id == nil || len(group.Id) == 0 {
 		return
 	}
 	sgi := NewSGIFromCoreGroup(&group)
-	log.Printf("groupAddEventHandler receive message, groupId=%v\n", sgi.GroupID.ShortS())
 	p.acceptGroup(sgi)
 }
 

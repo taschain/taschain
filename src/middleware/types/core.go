@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"time"
 	"math/big"
+	"bytes"
 )
 
 const (
@@ -48,6 +49,8 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
+	PubKey *common.PublicKey
+	Sign   *common.Sign
 }
 
 func (tx *Transaction) GenHash() common.Hash {
@@ -240,20 +243,48 @@ type Member struct {
 	Id     []byte
 	PubKey []byte
 }
-type Group struct {
-	Id            []byte
-	Members       []Member
-	PubKey        []byte
-	Parent        []byte //父亲组 的组ID
-	PreGroup      []byte //前一块的ID
-	Dummy         []byte
-	Signature     []byte
-	BeginHeight   uint64 //组开始参与铸块的高度
+
+type GroupHeader struct {
+	Hash common.Hash //组头hash
+	Parent []byte //父亲组 的组ID
+	PreGroup []byte //前一块的ID
+	Authority uint64 //权限相关数据（父亲组赋予）
+	Name string //父亲组取的名字
+	BeginTime time.Time
+	MemberRoot common.Hash //成员列表hash
+	CreateHeight uint64 //建组高度
+	ReadyHeight uint64 //准备就绪最迟高度
+	WorkHeight uint64 //组开始参与铸块的高度
 	DismissHeight uint64 //组解散的高度
-	Authority     uint64 //权限相关数据（父亲组赋予）
-	Name          string //父亲组取的名字
-	Extends       string //带外数据
-	GroupHeight   uint64
+	Extends string //带外数据
+}
+
+func (gh *GroupHeader) GenHash() common.Hash {
+	buf := bytes.Buffer{}
+	buf.Write(gh.Parent)
+	buf.Write(gh.PreGroup)
+	buf.Write(common.Uint64ToByte(gh.Authority))
+	buf.WriteString(gh.Name)
+
+	bt, _ := gh.BeginTime.MarshalBinary()
+	buf.Write(bt)
+	buf.Write(gh.MemberRoot.Bytes())
+	buf.Write(common.Uint64ToByte(gh.CreateHeight))
+	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
+	buf.Write(common.Uint64ToByte(gh.WorkHeight))
+	buf.Write(common.Uint64ToByte(gh.DismissHeight))
+	buf.WriteString(gh.Extends)
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
+}
+
+type Group struct {
+	Header *GroupHeader
+	//不参与签名
+	Id []byte
+	PubKey []byte
+	Signature []byte
+	Members [][]byte //成员id列表
+	GroupHeight uint64
 }
 
 type StateNode struct {

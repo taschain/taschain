@@ -132,6 +132,10 @@ func (db *PrefixedDatabase) NewIterator() iterator.Iterator {
 	return db.db.NewIteratorWithPrefix([]byte(db.prefix))
 }
 
+func (db *PrefixedDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
+	return db.db.NewIteratorWithPrefix(generateKey(prefix,db.prefix))
+}
+
 func (db *PrefixedDatabase) NewBatch() Batch {
 
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
@@ -405,6 +409,10 @@ func (db *MemDatabase) NewIterator() iterator.Iterator {
 	panic("Not support")
 }
 
+func (db *MemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator{
+	panic("Not support")
+}
+
 func (db *MemDatabase) Delete(key []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -506,6 +514,10 @@ func (db *LRUMemDatabase) NewBatch() Batch {
 }
 
 func (db *LRUMemDatabase) NewIterator() iterator.Iterator {
+	panic("Not support")
+}
+
+func (db *LRUMemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator{
 	panic("Not support")
 }
 

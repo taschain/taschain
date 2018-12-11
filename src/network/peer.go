@@ -110,11 +110,9 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	if !isExist {
 		priority = MaxSendPriority - 1
 	}
-	Logger.Debugf("SendList.send  net id:%v session:%v code:%v size %v priority:%v", peer.Id.GetHexString(), peer.seesionId,code, len(packet.Bytes()),priority)
-
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-		Logger.Debugf("SendList.send  net id:%v session:%v send list is full  drop this message!", peer.Id.GetHexString(), peer.seesionId)
+		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 		return
 	}
 	sendListItem.list.PushBack(packet)
@@ -130,8 +128,6 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) autoSend(peer *Peer) {
 
-//	Logger.Debugf("SendList.autoSend start,pendingSend:%v",sendList.pendingSend)
-
 	if peer.seesionId == 0 || !sendList.isSendAvailable() {
 		return
 	}
@@ -139,7 +135,6 @@ func (sendList *SendList) autoSend(peer *Peer) {
 	remain :=0
 	for i := 0; i < MaxSendPriority && sendList.isSendAvailable() ; i++ {
 		item := sendList.list[i]
-		//Logger.Debugf("SendList.autoSend item priority:%v list len:%v  item.curQuota :%v item.quota:%v ", i,item.list.Len(),item.curQuota ,item.quota)
 
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
@@ -158,28 +153,22 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			item.curQuota += 1
 			sendList.curQuota += 1
 
-//			Logger.Debugf("SendList.autoSend SendData pendingSend:%v curQuota：%v,sendList.curQuota：%v", sendList.pendingSend,item.curQuota,sendList.curQuota)
-
 
 			if item.curQuota >= item.quota {
-				//Logger.Debugf("SendList.autoSend  item.curQuota >= item.quota break")
 				break
 			}
 		}
 		remain += item.list.Len()
 		if sendList.curQuota >= sendList.totalQuota {
-			//Logger.Debugf("SendList.autoSend sendList.curQuota >= sendList.totalQuota reset quota ")
 			sendList.resetQuota()
 		}
 
 	}
 	if remain > 0 && sendList.isSendAvailable() {
-		//Logger.Debugf("SendList.autoSend remain > 0 && sendList.pendingSend < MaxPendingSend  reset quota and auto send")
 
 		sendList.resetQuota()
 		sendList.autoSend(peer)
 	}
-//	Logger.Debugf("SendList.autoSend end sendList.curQuota：%v ",sendList.curQuota)
 
 }
 
@@ -236,17 +225,14 @@ func (p *Peer) addData(data []byte) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	b := netCore.bufferPool.GetBuffer(len(data))
-	//b := &bytes.Buffer{}
 	b.Write(data)
 	p.recvList.PushBack(b)
-	Logger.Debugf("session : %v addData size %v", p.seesionId,len(data))
 }
 
 func (p *Peer) addDataToHead(data *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.recvList.PushFront(data)
-	Logger.Debugf("session : %v addDataToHead size %v", p.seesionId,data.Len())
 }
 
 func (p *Peer) popData() *bytes.Buffer {
@@ -265,7 +251,6 @@ func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.sendList.pendingSend = 0
-	Logger.Debugf("onSendWaited p.sendList.pendingSend: %v", p.sendList.pendingSend)
 	p.sendList.autoSend(p)
 }
 
@@ -291,7 +276,6 @@ func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	b := netCore.bufferPool.GetBuffer(packet.Len())
-	//b := &bytes.Buffer{}
 	b.Write(packet.Bytes())
 	p.sendList.send(p, b, int(code))
 }
@@ -335,7 +319,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		pm.addPeer(netId, p)
 	}
 
-	Logger.Debugf("write Id:%v net id:%v session:%v size %v", toid.GetHexString(), netId, p.seesionId, len(packet.Bytes()))
 
 	p.write(packet, code)
 
@@ -353,10 +336,10 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 
 		if pm.natTraversalEnable {
 			P2PConnect(netId, NatServerIp, NatServerPort)
-			Logger.Debugf("P2PConnect[nat]: %v ", toid.GetHexString())
+			Logger.Infof("connect node ,[nat]: %v ", toid.GetHexString())
 		} else {
 			P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))
-			Logger.Debugf("P2PConnect[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
+			Logger.Infof("connect node ,[direct]: id: %v ip: %v port:%v ", toid.GetHexString(), toaddr.IP.String(), uint16(toaddr.Port))
 		}
 	}
 
@@ -378,9 +361,9 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	p.connecting = false
 
 	netCore.ping(p.Id, nil)
-
+	p.sendList.pendingSend = 0
 	p.sendList.autoSend(p)
-	Logger.Debugf("newConnection node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
+	Logger.Infof("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)
 }
 
 //OnSendWaited  发送队列空闲
@@ -397,14 +380,14 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	p := pm.peerByNetID(id)
 	if p != nil {
 
-		Logger.Debugf("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
+		Logger.Infof("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
 
 		p.connecting = false
 		if p.seesionId == session {
 			p.seesionId = 0
 		}
 	} else {
-		Logger.Debugf("OnDisconnected net id：%v session:%v port:%v code:%v", id, session, p2pCode)
+		Logger.Infof("OnDisconnected net id：%v session:%v port:%v code:%v", id, session, p2pCode)
 	}
 }
 
@@ -417,7 +400,7 @@ func (pm *PeerManager) disconnect(id NodeID) {
 	p, _ := pm.peers[netID]
 	if p != nil {
 
-		Logger.Debugf("disconnect ip:%v port:%v ", p.Ip, p.Port)
+		Logger.Infof("disconnect ip:%v port:%v ", p.Ip, p.Port)
 
 		p.connecting = false
 		delete(pm.peers, netID)
@@ -433,13 +416,9 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	//pm.checkPeerSource()
-	Logger.Debugf("SendAll total peer size:%v", len(pm.peers))
+	Logger.Infof("send all total peer size:%v", len(pm.peers))
 
 	for _, p := range pm.peers {
-		//if p.seesionId > 0 && p.source == PeerSourceKad {
-		//	p.write(packet)
-		//}
 		if p.seesionId > 0 {
 			p.write(packet, code)
 		}
@@ -465,7 +444,7 @@ func (pm *PeerManager) checkPeerSource() {
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Debugf("BroadcastRandom total peer size:%v", len(pm.peers))
+	Logger.Infof("broadcast random total peer size:%v", len(pm.peers))
 
 	pm.checkPeerSource()
 	var availablePeers []*Peer
@@ -483,7 +462,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 
 	if len(availablePeers) < maxCount {
 		for _, p := range availablePeers {
-			Logger.Debugf("BroadcastRandom send node id:%v", p.Id.GetHexString())
 			p.write(packet, code)
 		}
 	} else {
@@ -497,7 +475,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 			}
 			nodesHasSend[peerIndex] = true
 			p := availablePeers[peerIndex]
-			Logger.Debugf("BroadcastRandom send node id:%v", p.Id.GetHexString())
 			p.write(packet, code)
 		}
 	}
@@ -505,23 +482,6 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	return
 }
 
-func (pm *PeerManager) print() {
-	pm.mutex.RLock()
-	defer pm.mutex.RUnlock()
-	totalRecvBufferSize := 0
-	totalSendBufferSize := 0
-	for _, p := range pm.peers {
-		totalRecvBufferSize += p.getDataSize()
-
-		totalSendBufferSize += p.sendList.getDataSize()
-
-		Logger.Debugf("PeerManager Print: peer id: %v, SendBufferSize:%v, RecvBufferSize:%v", p.Id.GetHexString(), p.sendList.getDataSize() ,p.getDataSize())
-
-	}
-	Logger.Debugf("PeerManager Print: peer size:%v ,SendBufferSize:%v, totolRecvBufferSize:%v", len(pm.peers), totalSendBufferSize, totalRecvBufferSize)
-
-	return
-}
 
 func (pm *PeerManager) peerByID(id NodeID) *Peer {
 	netID := netCoreNodeID(id)

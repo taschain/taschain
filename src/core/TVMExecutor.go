@@ -62,7 +62,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transacti
 			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 				address := common.BytesToAddress(addr)
 				tr.GetBranch(address[:], nodes)
-				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(),tr.Get(address[:]))
+				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
 			}
 		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
 			//todo 合约交易
@@ -75,7 +75,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transacti
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
-				Logger.Debugf("source:%v,value:%v", source.GetHexString(),tr.Get(source[:]))
+				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
 			}
 			if target != nil {
 				tr.GetBranch(target[:], nodes)
@@ -106,7 +106,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.Ac
 		return
 	}
 	root := account.Root
-	t, err := accountdb.Database().OpenTrieWithMap(root,nodes)
+	t, err := accountdb.Database().OpenTrieWithMap(root, nodes)
 	if err != nil {
 		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
 		return
@@ -118,7 +118,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.Ac
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
 	missingAccountTransactions := []*types.Transaction{}
 	missingAccounts := []common.Address{}
-	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
+	Logger.Debugf("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
 
 		//Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
@@ -280,7 +280,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 					}
 				} else {
 
-					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)

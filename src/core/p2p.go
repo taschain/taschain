@@ -53,7 +53,7 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 	}
 
 	if nil == GroupChainImpl {
-		err := initGroupChain(helper.GenerateGenesisInfo())
+		err := initGroupChain(helper.GenerateGenesisInfo(), helper)
 		if nil != err {
 			return err
 		}
@@ -85,7 +85,7 @@ func (connector *BlockChainConnector) TransactionArrived(ts []*types.Transaction
 		return fmt.Errorf("nil transactions")
 	}
 
-	return connector.chain.GetTransactionPool().AddTransactions(ts)
+	return connector.chain.GetTransactionPool().AddTransactions(ts, false)
 }
 
 //addNewBlockToChainFn 实现

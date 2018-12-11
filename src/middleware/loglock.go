@@ -27,16 +27,16 @@ type Loglock struct {
 	lock   sync.RWMutex
 	addr   string
 	logger taslog.Logger
-	begin	time.Time
+	begin  time.Time
 }
 
-const costLimit  = 10 * time.Microsecond
-const durationLimit  = time.Millisecond
+const costLimit = 10 * time.Microsecond
+const durationLimit = time.Millisecond
 
 func NewLoglock(title string) Loglock {
 	loglock := Loglock{
 		lock:   sync.RWMutex{},
-		logger: taslog.GetLoggerByName(title + common.GlobalConf.GetString("instance", "index", "")),
+		logger: taslog.GetLoggerByIndex(taslog.LockLogConfig, common.GlobalConf.GetString("instance", "index", "")),
 	}
 	loglock.addr = fmt.Sprintf("%p", &loglock)
 	return loglock
@@ -50,8 +50,8 @@ func (lock *Loglock) Lock(msg string) {
 	lock.lock.Lock()
 	lock.begin = time.Now()
 	cost := time.Since(begin)
-	
-	if 0 != len(msg) && cost > costLimit{
+
+	if 0 != len(msg) && cost > costLimit {
 		lock.logger.Debugf("locked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 
@@ -64,7 +64,7 @@ func (lock *Loglock) RLock(msg string) {
 	begin := time.Now()
 	lock.lock.RLock()
 	cost := time.Since(begin)
-	if 0 != len(msg) && cost > costLimit{
+	if 0 != len(msg) && cost > costLimit {
 		lock.logger.Debugf("Rlocked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 }
@@ -90,7 +90,7 @@ func (lock *Loglock) RUnlock(msg string) {
 	begin := time.Now()
 	lock.lock.RUnlock()
 	cost := time.Since(begin)
-	if 0 != len(msg) && cost > costLimit{
+	if 0 != len(msg) && cost > costLimit {
 		lock.logger.Debugf("UnRLocked: %s, with msg: %s wait: %v", lock.addr, msg, cost)
 	}
 

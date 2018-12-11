@@ -17,37 +17,35 @@ package network
 
 import (
 	"sync"
-
 )
 
-
 type FlowMeterItem struct {
-	code    	int64
-	count 		int64
-	size 		int64
+	code  int64
+	count int64
+	size  int64
 }
+
 func newFlowMeterItem(code int64) *FlowMeterItem {
 
-	item := &FlowMeterItem{code:code }
+	item := &FlowMeterItem{code: code}
 
 	return item
 }
 
-
 type FlowMeter struct {
-	name 			string
-	sendItems		map[int64]*FlowMeterItem
-	sendSize 		int64
-	recvItems        map[int64]*FlowMeterItem
-	recvSize 		int64
-	mutex       sync.RWMutex
+	name      string
+	sendItems map[int64]*FlowMeterItem
+	sendSize  int64
+	recvItems map[int64]*FlowMeterItem
+	recvSize  int64
+	mutex     sync.RWMutex
 }
 
 func newFlowMeter(name string) *FlowMeter {
 
-	return&FlowMeter{name:name,
-			sendItems: make(map[int64]*FlowMeterItem),
-			recvItems:make(map[int64]*FlowMeterItem)}
+	return &FlowMeter{name: name,
+		sendItems: make(map[int64]*FlowMeterItem),
+		recvItems: make(map[int64]*FlowMeterItem)}
 
 }
 
@@ -93,16 +91,16 @@ func (fm *FlowMeter) print() {
 	defer fm.mutex.Unlock()
 
 	if fm.sendSize > 0 {
-		Logger.Debugf("[p2p][FlowMeter][%v_send]  total send size:%v", fm.name,fm.sendSize)
+		Logger.Debugf("[FlowMeter][%v_send]  total send size:%v", fm.name, fm.sendSize)
 		for _, item := range fm.sendItems {
-			Logger.Debugf("[p2p][FlowMeter][%v_send] code:%v  count:%v  size:%v percentage：%v%%",fm.name, item.code,item.count,item.size,float64(item.size) / float64(fm.sendSize) *100.0)
+			Logger.Debugf("[FlowMeter][%v_send] code:%v  count:%v  size:%v percentage：%v%%", fm.name, item.code, item.count, item.size, float64(item.size)/float64(fm.sendSize)*100.0)
 		}
 	}
 
 	if fm.recvSize > 0 {
-		Logger.Debugf("[p2p][FlowMeter][%v_recv]  total recv size:%v", fm.name, fm.recvSize)
+		Logger.Debugf("[FlowMeter][%v_recv]  total recv size:%v", fm.name, fm.recvSize)
 		for _, item := range fm.recvItems {
-			Logger.Debugf("[p2p][FlowMeter][%v_recv] code:%v  count:%v  size:%v percentage：%v%%", fm.name,item.code,item.count,item.size,float64(item.size) / float64(fm.recvSize) *100.0)
+			Logger.Debugf("[FlowMeter][%v_recv] code:%v  count:%v  size:%v percentage：%v%%", fm.name, item.code, item.count, item.size, float64(item.size)/float64(fm.recvSize)*100.0)
 		}
 	}
 	return

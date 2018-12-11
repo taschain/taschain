@@ -99,8 +99,6 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetTraceHeader(hash []byte) *types.BlockHeader
-
 	GetCheckValue(height uint64) (common.Hash, error)
 
 	GetChainPiece(reqHeight uint64) []*types.BlockHeader
@@ -111,7 +109,7 @@ type BlockChain interface {
 type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
-	AddTransactions(txs []*types.Transaction) error
+	AddTransactions(txs []*types.Transaction, reserved bool) error
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 

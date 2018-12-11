@@ -82,15 +82,15 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
 	// 创始块账户创建
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000000))
+	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000000))
 	//小熊本地测试轻节点账户
 	stateDB.SetBalance(common.HexStringToAddress("0xb26d797d6c29b60cd6a7f7eebf03c19a683f36ecb78643bd18318fbd1b739b09"), big.NewInt(1000000))
 	stateDB.SetBalance(common.HexStringToAddress("0x60113e78f3fec8482a23df56b1a49c11e6017e3c193fb42a4837585aa2cef9ac"), big.NewInt(1000000))
@@ -187,7 +187,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
 	miners := make([]*types.Miner, 0)
 	for i, member := range genesisInfo.Group.Members {
-		miner := &types.Miner{Id: member.Id, PublicKey: member.PubKey, VrfPublicKey: genesisInfo.VrfPKs[i], Stake: 10}
+		miner := &types.Miner{Id: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: 10}
 		miners = append(miners, miner)
 	}
 	MinerManagerImpl.AddGenesesMiner(miners, stateDB)

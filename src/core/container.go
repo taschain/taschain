@@ -87,22 +87,23 @@ func (c *container) PushTxs(txs []*types.Transaction) {
 }
 
 func (c *container) add(tx *types.Transaction) {
+	if !c.inited {
+		heap.Init(&c.txs)
+		c.inited = true
+	}
+
 	if c.txs.Len() < c.limit {
-		c.txs = append(c.txs, tx)
+		//c.txs = append(c.txs, tx)
+		heap.Push(&c.txs, tx)
 		c.txsMap[tx.Hash] = tx
 		return
 	}
 
-	if !c.inited {
-		heap.Init(&c.txs)
-		c.inited = true
-
-	}
 	//Logger.Debugf("tx pool size:%d great than max size,ignore tx!", c.txs.Len())
-	evicted := heap.Pop(&c.txs).(*types.Transaction)
-	delete(c.txsMap, evicted.Hash)
 	heap.Push(&c.txs, tx)
 	c.txsMap[tx.Hash] = tx
+	evicted := heap.Pop(&c.txs).(*types.Transaction)
+	delete(c.txsMap, evicted.Hash)
 }
 
 func (c *container) Remove(keys []common.Hash) {

@@ -1,9 +1,10 @@
 package core
 
 import (
-	"testing"
-	"middleware/types"
+	"fmt"
 	"log"
+	"middleware/types"
+	"testing"
 )
 
 func TestCalTree(t *testing.T) {
@@ -24,4 +25,28 @@ func getRandomTxs()[]*types.Transaction{
 		result = append(result,&tx)
 	}
 	return result
+}
+
+func TestHeap(t *testing.T)  {
+	con1 := newContainer(2)
+	tx1 := &types.Transaction{
+		GasPrice:      1,
+		Value:        1,
+	}
+	tx2 := &types.Transaction{
+		GasPrice:      1,
+		Value:        2,
+	}
+	tx3 := &types.Transaction{
+		GasPrice:      1,
+		Value:        3,
+	}
+	con1.add(tx1)
+	con1.add(tx2)
+	con1.add(tx3)
+	slice := con1.AsSlice()
+	for _,tx := range slice{
+		fmt.Println(tx)
+	}
+
 }

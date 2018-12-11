@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"common"
-	"taslog"
 	"github.com/rcrowley/go-metrics"
 	"golang.org/x/crypto/sha3"
 )
@@ -31,8 +30,6 @@ var (
 
 	// emptyState is the known hash of an empty state trie entry.
 	emptyState = sha3.Sum256(nil)
-
-	log = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 var (
@@ -134,7 +131,7 @@ func (t *Trie) TryUpdate(key, value []byte) error {
 func (t *Trie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 	return res
 }
@@ -184,7 +181,7 @@ func (t *Trie) GetBranch(key []byte, nodes map[string]*[]byte) {
 	}
 	if err != nil {
 		fmt.Printf("Unhandled trie error: %s", err.Error())
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 		panic("Unhandled trie error: %v" + err.Error())
 	}
 }
@@ -339,7 +336,7 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 
 func (t *Trie) Delete(key []byte) {
 	if err := t.TryDelete(key); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 

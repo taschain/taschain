@@ -64,6 +64,7 @@ var (
 type TransactionPoolConfig struct {
 	maxReceivedPoolSize int
 	tx                  string
+	txspecial           string
 }
 
 type TxPool struct {
@@ -73,9 +74,9 @@ type TxPool struct {
 	lock middleware.Loglock
 
 	// 待上块的交易
-	received *container
+	received *simpleContainer
 	//存储自身的分红交易和和矿工申请交易
-	innerReceived *container
+	innerReceived *simpleContainer
 	reserved      *lru.Cache
 	sendingList   []*types.Transaction
 
@@ -98,8 +99,9 @@ type ReceiptWrapper struct {
 
 func DefaultPoolConfig() *TransactionPoolConfig {
 	return &TransactionPoolConfig{
-		maxReceivedPoolSize: 100000,
+		maxReceivedPoolSize: 10000,
 		tx:                  "tx",
+		txspecial:           "txsp",
 	}
 }
 
@@ -125,8 +127,9 @@ func NewTransactionPool() TransactionPool {
 		batchLock:     sync.Mutex{},
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
-	pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.innerReceived = newContainer(pool.config.maxReceivedPoolSize)
+	//pool.received = newContainer(pool.config.maxReceivedPoolSize)
+	pool.received = newSimpleContainer(pool.config.maxReceivedPoolSize)
+	pool.innerReceived = newSimpleContainer(pool.config.maxReceivedPoolSize / 2)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
@@ -150,12 +153,12 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 
-	b, err := pool.addInner(tx, true)
+	b, err := pool.addInner(tx, true, false)
 	return b, err
 }
 
 // 不加锁
-func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
+func (pool *TxPool) AddTransactions(txs []*types.Transaction, reserved bool) error {
 	pool.lock.Lock("AddTransactions")
 	defer pool.lock.Unlock("AddTransactions")
 
@@ -164,7 +167,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
 	}
 
 	for _, tx := range txs {
-		_, err := pool.addInner(tx, false)
+		_, err := pool.addInner(tx, false, reserved)
 		if nil != err {
 			return err
 		}
@@ -175,14 +178,14 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction) error {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, error) {
+func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool, inner bool) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
 	pool.totalReceived++
 	// 简单规则校验
 	if err := pool.validate(tx); err != nil {
-		Logger.Debugf("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
+		Logger.Infof("Discarding invalid transaction,hash:%v,error:%v", tx.Hash, err)
 		return false, err
 	}
 
@@ -193,17 +196,18 @@ func (pool *TxPool) addInner(tx *types.Transaction, isBroadcast bool) (bool, err
 		return false, ErrExist
 	}
 
-	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
+	//if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
+	if inner {
 		pool.innerReceived.Push(tx)
 	} else {
 		pool.received.Push(tx)
 	}
-	if tx.Type == types.TransactionTypeMinerApply {
-		BroadcastTransactions([]*types.Transaction{tx},false)
+	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus {
+		BroadcastTransactions([]*types.Transaction{tx}, true)
 	}
 	// 日志记录分红交易信息
 
-	// batch broadcast
+	// batch broadcasta
 	//if isBroadcast {
 	//	//交易不广播
 	//	pool.sendingTxLock.Lock()
@@ -289,7 +293,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx, false)
+		pool.addInner(tx, false, false)
 	}
 }
 
@@ -343,6 +347,7 @@ func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Ha
 	reservedRaw, _ := pool.reserved.Get(reservedHash)
 	var reserved []*types.Transaction
 	if nil != reservedRaw {
+		Logger.Debugf("[GetTransactions]hit reserved!")
 		reserved = reservedRaw.([]*types.Transaction)
 	}
 
@@ -389,7 +394,8 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	pool.received = newContainer(100000)
+	//pool.received = newContainer(100000)
+	pool.received = newSimpleContainer(100000)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
@@ -454,6 +460,7 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 // 从池子里移除一批交易
 func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
 	pool.innerReceived.Remove(transactions)
+	pool.innerReceived.Remove(evictedTxs)
 	pool.received.Remove(transactions)
 	pool.received.Remove(evictedTxs)
 	pool.reserved.Remove(hash)
@@ -465,6 +472,7 @@ func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evicted
 func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	txs := pool.received.AsSlice()
 	sort.Sort(types.Transactions(txs))
+	Logger.Debugf("PoolStatus received:%d inner:%d cast:%d", len(pool.received.txs), len(pool.innerReceived.txs), len(txs))
 	return txs
 }
 
@@ -473,6 +481,7 @@ func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transacti
 	if 0 == len(txs) {
 		return
 	}
+	Logger.Debugf("ReserveTransactions,hash:%v,len txs:%d", hash.String(), len(txs))
 	pool.reserved.Add(hash, txs)
 }
 
