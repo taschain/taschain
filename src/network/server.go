@@ -193,16 +193,13 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	//测试 P2P发送情况 打开该注释
-	//fmt.Printf("Receive message from %s,msg size:%d\n", from, len(b))
-	//return
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
 		return
 	}
-	//Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
 	n.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b

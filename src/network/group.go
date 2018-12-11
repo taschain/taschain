@@ -54,7 +54,7 @@ func newGroup(id string, members []NodeID) *Group {
 
 	g := &Group{id: id, members: members, needConnectNodes:make([]NodeID,0), resolvingNodes: make(map[NodeID]time.Time)}
 
-	Logger.Debugf("new group id：%v", id)
+	Logger.Infof("new group id：%v", id)
 	g.genConnectNodes()
 	return g
 }
@@ -62,7 +62,7 @@ func newGroup(id string, members []NodeID) *Group {
 
 func (g* Group) rebuildGroup( members []NodeID) {
 
-	Logger.Debugf("rebuild group id：%v", g.id)
+	Logger.Infof("rebuild group id：%v", g.id)
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 
@@ -217,7 +217,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
 
-	Logger.Debugf("build group, id:%v, count:%v", ID, len(members))
+	Logger.Infof("build group, id:%v, count:%v", ID, len(members))
 
 	g,isExist := gm.groups[ID]
 	if !isExist {
@@ -257,10 +257,10 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer ,code uint32) 
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
-	Logger.Debugf("send group, id:%v", id)
+	Logger.Infof("send group, id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
-		Logger.Debugf("group not found.")
+		Logger.Infof("group not found.")
 		return
 	}
 	buf := netCore.bufferPool.GetBuffer(packet.Len())

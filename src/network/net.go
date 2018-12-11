@@ -165,15 +165,15 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.bufferPool = newBufferPool()
 	realaddr := cfg.ListenAddr
 
-	Logger.Debugf("kad id: %v ", nc.id.GetHexString())
-	Logger.Debugf("P2PConfig: %v ", nc.nid)
+	Logger.Infof("kad id: %v ", nc.id.GetHexString())
+	Logger.Infof("P2PConfig: %v ", nc.nid)
 	P2PConfig(nc.nid)
 
 	if nc.natTraversalEnable {
-		Logger.Debugf("P2PProxy: %v %v", NatServerIp, uint16(NatServerPort))
+		Logger.Infof("P2PProxy: %v %v", NatServerIp, uint16(NatServerPort))
 		P2PProxy(NatServerIp, uint16(NatServerPort))
 	} else {
-		Logger.Debugf("P2PListen: %v %v", realaddr.IP.String(), uint16(realaddr.Port))
+		Logger.Infof("P2PListen: %v %v", realaddr.IP.String(), uint16(realaddr.Port))
 		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
 	}
 
@@ -651,10 +651,10 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	msgLen := binary.BigEndian.Uint32(headerBytes[PacketTypeSize:PacketHeadSize])
 	packetSize := int(msgLen + PacketHeadSize)
 
-//	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(),header)
+	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(),header)
 
 	if packetSize > 16*1024*1024 || packetSize <= 0 {
-		Logger.Debugf("[ decodePacket ] session : %v bad packet reset data!",p.seesionId)
+		Logger.Infof("[ decodePacket ] session : %v bad packet reset data!",p.seesionId)
 		p.resetData()
 		return MessageType_MessageNone, 0, nil, nil, errBadPacket
 	}
@@ -769,7 +769,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	srcNodeId := NodeID{}
 	srcNodeId.SetBytes(req.SrcNodeId)
-//	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
+	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
@@ -823,7 +823,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 			dataBuffer = nc.bufferPool.GetBuffer(len(packet))
 			dataBuffer.Write(packet)
 		}
-//		Logger.Debugf("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v RelayCount:%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString(), req.RelayCount)
+		Logger.Debugf("forwarded message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v RelayCount:%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString(), req.RelayCount)
 
 		if req.DataType == DataType_DataGroup {
 			nc.groupManager.sendGroup(req.GroupId, dataBuffer, uint32(req.MessageCode))
