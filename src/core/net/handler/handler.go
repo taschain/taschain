@@ -357,7 +357,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 //验证节点接收交易 或者接收来自客户端广播的交易
 func onMessageTransaction(txs []*types.Transaction) error {
 	//验证节点接收交易 加入交易池
-	e := core.BlockChainImpl.GetTransactionPool().AddTransactions(txs, true)
+	e := core.BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)
 	if e != nil {
 		return e
 	}

@@ -30,6 +30,9 @@ import (
 )
 
 const (
+	MaxRcvTxPoolSize = 10000
+	MaxMinerTxPoolSize = 1000
+	MaxMissTxPookSize = 10000
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
 	TxCountPerBlock      = 3000
@@ -131,9 +134,9 @@ func NewTransactionPool() TransactionPool {
 		sendingTimer:  time.NewTimer(SendingTimerInterval),
 	}
 	//pool.received = newContainer(pool.config.maxReceivedPoolSize)
-	pool.received = newSimpleContainer(pool.config.maxReceivedPoolSize)
-	pool.minerTxPool, _ = lru.New(1000)
-	pool.missTxPool, _ = lru.New(30000)
+	pool.received = newSimpleContainer(MaxRcvTxPoolSize)
+	pool.minerTxPool, _ = lru.New(MaxMinerTxPoolSize)
+	pool.missTxPool, _ = lru.New(MaxMissTxPookSize)
 	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(pool.config.tx)
@@ -196,11 +199,17 @@ func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
 	}
 
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
+		if tx.Type == types.TransactionTypeMinerApply{
+			Logger.Debugf("Add TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
+		}
 		pool.minerTxPool.Add(tx.Hash, tx)
 	} else {
 		pool.received.Push(tx)
 	}
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus {
+		if tx.Type == types.TransactionTypeMinerApply{
+			Logger.Debugf("BroadcastTransactions TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
+		}
 		BroadcastTransactions([]*types.Transaction{tx}, true)
 	}
 	// 日志记录分红交易信息
@@ -395,8 +404,10 @@ func (pool *TxPool) Clear() {
 	executed, _ := tasdb.NewDatabase(pool.config.tx)
 	pool.executed = executed
 	pool.batch.Reset()
-	//pool.received = newContainer(100000)
-	pool.received = newSimpleContainer(100000)
+
+	pool.received = newSimpleContainer(MaxRcvTxPoolSize)
+	pool.minerTxPool, _ = lru.New(MaxMinerTxPoolSize)
+	pool.missTxPool, _ = lru.New(MaxMissTxPookSize)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
@@ -460,10 +471,18 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) {
 
 // 从池子里移除一批交易
 func (pool *TxPool) Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash) {
-	pool.minerTxPool.Remove(transactions)
-	pool.missTxPool.Remove(evictedTxs)
+	for _, txHash := range transactions {
+		pool.minerTxPool.Remove(txHash)
+		pool.missTxPool.Remove(txHash)
+	}
 	pool.received.Remove(transactions)
+
+	for _, evictedTxHash := range evictedTxs {
+		pool.minerTxPool.Remove(evictedTxHash)
+		pool.missTxPool.Remove(evictedTxHash)
+	}
 	pool.received.Remove(evictedTxs)
+
 	pool.reserved.Remove(hash)
 	pool.removeFromSendinglist(transactions)
 	pool.removeFromSendinglist(evictedTxs)
@@ -477,6 +496,9 @@ func (pool *TxPool) GetTransactionsForCasting() []*types.Transaction {
 	for _, minerTxHash := range minerTxHashes {
 		if v, ok := pool.minerTxPool.Get(minerTxHash); ok {
 			result = append(result, v.(*types.Transaction))
+			if v.(*types.Transaction).Type == types.TransactionTypeMinerApply{
+				Logger.Debugf("GetTransactionsForCasting,hash:%s,",  v.(*types.Transaction).Hash.String())
+			}
 		}
 		if len(result) >= TxCountPerBlock {
 			return result
