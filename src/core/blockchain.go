@@ -411,11 +411,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
-	// 写入consensus日志文件中，core.log文件过大，有很多分叉统计不需要的信息
-	//consensusLogger.Infof("%v,%v,%v", "ForkAdjustComingBlock", groupsig.DeserializeId(topBlock.Castor).ShortS(), fmt.Sprintf("hash=%v, preH=%v, height=%v, totalQn=%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN))
-	//
-	//consensusLogger.Infof("%v,%v,%v", "ForkAdjustLocalBlock", groupsig.DeserializeId(topBlock.Castor).ShortS(), fmt.Sprintf("hash=%v, preH=%v, height=%v, totalQn=%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN))
-
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
