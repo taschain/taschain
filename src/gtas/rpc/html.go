@@ -663,7 +663,7 @@ const HTMLTEM = `<!DOCTYPE html>
             //     return false
             // }
             let params = {
-                "method": "GTAS_t",
+                "method": "GTAS_tx",
                 "params": [from, to, parseFloat(amount), code],
                 "jsonrpc": "2.0",
                 "id": "1"

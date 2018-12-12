@@ -23,11 +23,11 @@ import (
 	"consensus/ticker"
 	"core"
 	"fmt"
-	"log"
 	"middleware/notify"
 	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
+	"common"
 )
 
 var PROC_TEST_MODE bool
@@ -37,6 +37,7 @@ type Processor struct {
 	joiningGroups *JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
 	blockContexts *CastBlockContexts //组ID->组铸块上下文
+
 	globalGroups  *GlobalGroups      //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
 	groupManager *GroupManager
@@ -99,10 +100,12 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.NetServer = net.NewNetworkServer()
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
+	pkPoolInit(p.minerReader)
+
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
-	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
+	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
@@ -191,28 +194,28 @@ func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
-func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
-	var pub_piece groupsig.Pubkey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		pub_piece = node.GetSeedPubKey()
-	}
-	return pub_piece
-}
-
-//取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
-//用于测试目的，正式版对外不提供。
-func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
-	var secPiece groupsig.Seckey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		secPiece = node.getSeedSecKey()
-	}
-	return secPiece
-}
+////取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
+//func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
+//	var pub_piece groupsig.Pubkey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		pub_piece = node.GetSeedPubKey()
+//	}
+//	return pub_piece
+//}
+//
+////取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
+////用于测试目的，正式版对外不提供。
+//func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
+//	var secPiece groupsig.Seckey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		secPiece = node.getSeedSecKey()
+//	}
+//	return secPiece
+//}
 
 //取得特定的组
 func (p Processor) GetGroup(gid groupsig.ID) *StaticGroupInfo {
@@ -255,8 +258,8 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *model.Si
 	//}
 }
 
-func (p *Processor) ExistInDummyGroup(dummyId groupsig.ID) bool {
-	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
+func (p *Processor) ExistInGroup(gHash common.Hash) bool {
+	initingGroup := p.globalGroups.GetInitingGroup(gHash)
 	if initingGroup == nil {
 		return false
 	}

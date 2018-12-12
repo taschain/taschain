@@ -42,7 +42,7 @@ func convertBlockHeader(bh *types.BlockHeader) *Block {
 		Prove: bh.ProveValue,
 		Txs: bh.Transactions,
 		TotalQN: bh.TotalQN,
-		Qn: mediator.Proc.CalcBlockHeaderQN(bh),
+		//Qn: mediator.Proc.CalcBlockHeaderQN(bh),
 	}
 	return block
 }

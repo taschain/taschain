@@ -25,7 +25,6 @@ import (
 	"storage/serialize"
 	"golang.org/x/crypto/sha3"
 	"common"
-	"taslog"
 )
 
 type revision struct {
@@ -37,8 +36,6 @@ var (
 	emptyData = sha3.Sum256(nil)
 
 	emptyCode = sha3.Sum256(nil)
-
-	logger = taslog.GetLogger(taslog.DefaultConfig)
 )
 
 type AccountDB struct {
@@ -46,7 +43,7 @@ type AccountDB struct {
 	trie Trie
 
 	//accountObjects      map[common.Address]*accountObject
-	accountObjects		*sync.Map
+	accountObjects      *sync.Map
 	accountObjectsDirty map[common.Address]struct{}
 
 	dbErr error
@@ -64,14 +61,14 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-func NewAccountDBWithMap(root common.Hash, db AccountDatabase,nodes map[string]*[]byte) (*AccountDB, error) {
-	tr, err := db.OpenTrieWithMap(root,nodes)
+func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
+	tr, err := db.OpenTrieWithMap(root, nodes)
 	if err != nil {
 		return nil, err
 	}
 	return &AccountDB{
-		db:                  db,
-		trie:                tr,
+		db:   db,
+		trie: tr,
 		//accountObjects:      make(map[common.Address]*accountObject),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}, nil
@@ -82,14 +79,14 @@ func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountdb:= &AccountDB{
-		db:                  db,
-		trie:                tr,
+	accountdb := &AccountDB{
+		db:   db,
+		trie: tr,
 		//accountObjects:      make(map[common.Address]*accountObject),
-		accountObjects:		new(sync.Map),
+		accountObjects:      new(sync.Map),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}
-	return accountdb,nil
+	return accountdb, nil
 }
 
 func (self *AccountDB) GetTrie() Trie {
@@ -213,7 +210,6 @@ func (self *AccountDB) HasSuicided(addr common.Address) bool {
 	return false
 }
 
-
 func (self *AccountDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
@@ -249,7 +245,7 @@ func (self *AccountDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (self *AccountDB) SetData(addr common.Address, key string , value []byte) {
+func (self *AccountDB) SetData(addr common.Address, key string, value []byte) {
 	stateObject := self.GetOrNewAccountObject(addr)
 	if stateObject != nil {
 		stateObject.SetData(self.db, key, value)
@@ -295,7 +291,7 @@ func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObjec
 	}
 	var data Account
 	if err := serialize.DecodeBytes(enc, &data); err != nil {
-		logger.Error("Failed to decode state object", "addr", addr, "err", err)
+		common.DefaultLogger.Error("Failed to decode state object", "addr", addr, "err", err)
 		return nil
 	}
 
@@ -304,10 +300,9 @@ func (self *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObjec
 	return obj
 }
 
-
 func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accountObject) {
 
-	if obj,ok := self.accountObjects.Load(addr); ok {
+	if obj, ok := self.accountObjects.Load(addr); ok {
 		obj2 := obj.(*accountObject)
 		if obj2.deleted {
 			return nil
@@ -316,7 +311,7 @@ func (self *AccountDB) getAccountObject(addr common.Address) (stateObject *accou
 	}
 
 	obj := self.getAccountObjectFromTrie(addr)
-	if obj != nil{
+	if obj != nil {
 		self.setAccountObject(obj)
 	}
 	return obj
@@ -358,10 +353,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator  {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator {
 	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,[]byte(prefix))
+		return stateObject.DataIterator(self.db, []byte(prefix))
 	} else {
 		return nil
 	}
@@ -372,8 +367,8 @@ func (self *AccountDB) Copy() *AccountDB {
 	defer self.lock.Unlock()
 
 	state := &AccountDB{
-		db:                self.db,
-		trie:              self.trie,
+		db:   self.db,
+		trie: self.trie,
 		//accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
 		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
 		refund:              self.refund,
@@ -386,7 +381,6 @@ func (self *AccountDB) Copy() *AccountDB {
 	}
 	return state
 }
-
 
 func (self *AccountDB) Snapshot() int {
 	id := self.nextRevisionId
@@ -419,7 +413,7 @@ func (self *AccountDB) GetRefund() uint64 {
 
 func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range s.accountObjectsDirty {
-		object,_ := s.accountObjects.Load(addr)
+		object, _ := s.accountObjects.Load(addr)
 		accountObject := object.(*accountObject)
 		if accountObject.suicided || (deleteEmptyObjects && accountObject.empty()) {
 			s.deleteAccountObject(accountObject)
@@ -447,7 +441,7 @@ func (s *AccountDB) DeleteSuicides() {
 	s.clearJournalAndRefund()
 
 	for addr := range s.accountObjectsDirty {
-		object,_ := s.accountObjects.Load(addr)
+		object, _ := s.accountObjects.Load(addr)
 		accountObject := object.(*accountObject)
 
 		if accountObject.suicided {
@@ -467,7 +461,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 	defer s.clearJournalAndRefund()
 	var e *error
 	s.accountObjects.Range(func(key, value interface{}) bool {
-	//for addr, accountObject := range s.accountObjects {
+		//for addr, accountObject := range s.accountObjects {
 		addr := key.(common.Address)
 		_, isDirty := s.accountObjectsDirty[addr]
 		accountObject := value.(*accountObject)
@@ -493,8 +487,8 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		delete(s.accountObjectsDirty, addr)
 		return true
 	})
-	if e != nil{
-		return common.Hash{},*e
+	if e != nil {
+		return common.Hash{}, *e
 	}
 
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
@@ -512,6 +506,6 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		return nil
 	})
 	//s.db.PushTrie(root, s.trie)
-	logger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
+	common.DefaultLogger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }

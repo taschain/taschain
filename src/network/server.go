@@ -42,14 +42,14 @@ type server struct {
 func (n *server) Send(id string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	if id == n.Self.Id.GetHexString() {
 		n.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(NewNodeID(id), nil, bytes)
+	go n.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
 	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -57,11 +57,11 @@ func (n *server) Send(id string, msg Message) error {
 func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId, bytes, NewNodeID(id))
+	n.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
 	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -69,47 +69,47 @@ func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 func (n *server) RandomSpreadInGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true, 1)
-	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	n.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
+	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
 func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, true, -1)
-	//Logger.Debugf("[Sender]Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+	n.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
+	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
 func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d", groupId, len(groupMembers))
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, nil, groupMembers, 1)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, groupMembers, 1)
 	return nil
 }
 
 func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
 	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, digest, groupMembers, -1)
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, digest, groupMembers, -1)
 
 	return nil
 }
@@ -117,11 +117,11 @@ func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Messag
 func (n *server) TransmitToNeighbor(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendAll(bytes, false, nil, -1)
+	n.netCore.SendAll(bytes, msg.Code, false, nil, -1)
 
 	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
@@ -131,11 +131,11 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 	//n.netCore.SendAll(bytes, true,nil,-1)
-	n.netCore.BroadcastRandom(bytes, relayCount)
+	n.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
 	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -143,10 +143,10 @@ func (n *server) Relay(msg Message, relayCount int32) error {
 func (n *server) Broadcast(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("[Network]Marshal message error:%s", err.Error())
+		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, true, nil, -1)
+	n.netCore.SendAll(bytes, msg.Code, true, nil, -1)
 	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
@@ -193,18 +193,15 @@ func (n *server) sendSelf(b []byte) {
 }
 
 func (n *server) handleMessage(b []byte, from string) {
-	//测试 P2P发送情况 打开该注释
-	//fmt.Printf("Receive message from %s,msg size:%d\n", from, len(b))
-	//return
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
-		Logger.Errorf("[Network]Proto unmarshal error:%s", error.Error())
+		Logger.Errorf("Proto unmarshal error:%s", error.Error())
 		return
 	}
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
 	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
-	n.netCore.flowMeterBiz.recv(int64(message.Code), int64(len(b)))
+	n.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b
 	go n.handleMessageInner(message, from)
 }
@@ -231,12 +228,15 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		Logger.Debugf("Rcv GroupMsg from %s", from)
 		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.Group, &msg)
-	case TransactionMsg, TransactionGotMsg:
+	case TransactionGotMsg:
 		error := n.chainHandler.Handle(from, *message)
 		if error != nil {
 			return
 		}
 		n.consensusHandler.Handle(from, *message)
+	case MinerTransactionMsg:
+		msg := notify.MinerTransactionMessage{MinerTransactionsByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.MinerTransaction, &msg)
 	case BlockInfoNotifyMsg:
 		Logger.Debugf("Rcv BlockInfoNotifyMsg from %s", from)
 		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}

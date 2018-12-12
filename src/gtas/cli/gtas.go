@@ -37,7 +37,6 @@ import (
 	"time"
 	"middleware/types"
 	"runtime"
-	"log"
 	"strconv"
 	"consensus/model"
 	"runtime/debug"
@@ -77,7 +76,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	if from == "" {
 		// 本地钱包同时无钱包地址
 		if len(walletManager) == 0 {
-			fmt.Println("Please new account or assign a account")
+			common.DefaultLogger.Infof("Please new account or assign a account")
 			return
 		} else {
 			from = walletManager[0].Address
@@ -85,30 +84,30 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	}
 	config, err := configVote.ToVoteConfig()
 	if err != nil {
-		fmt.Println("translate vote config error: ", err)
+		common.DefaultLogger.Errorf("translate vote config error:%v", err)
 		return
 	}
 	if err != nil {
-		fmt.Println("serialize config error: ", err)
+		common.DefaultLogger.Errorf("serialize config error:%v", err)
 		return
 	}
 	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_vote", from, modelNum, config)
 	if err != nil {
-		fmt.Println("rpc get message error: ", err)
+		common.DefaultLogger.Errorf("rpc get message error:%v", err)
 		return
 	}
-	fmt.Println(msg)
+	common.DefaultLogger.Infof(msg)
 }
 
 func (gtas *Gtas) waitingUtilSyncFinished() {
-	log.Println("waiting for block and group sync finished....")
+	common.DefaultLogger.Infof("waiting for block and group sync finished....")
 	for {
 		if core.BlockSyncer.IsInit() && core.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
-	log.Println("block and group sync finished!!")
+	common.DefaultLogger.Infof("block and group sync finished!!")
 }
 
 // miner 起旷工节点
@@ -116,13 +115,13 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp, light)
 	if err != nil {
-		fmt.Println(err)
+		common.DefaultLogger.Error(err.Error())
 		return
 	}
 	if rpc {
 		err = StartRPC(rpcAddr, rpcPort)
 		if err != nil {
-			fmt.Println(err)
+			common.DefaultLogger.Infof(err.Error())
 			return
 		}
 	}
@@ -132,14 +131,14 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 	ok := mediator.StartMiner()
 
 	core.InitGroupSyncer()
-	core.Logger.Debugf("Waiting for group init done!")
+	common.DefaultLogger.Infof("Waiting for group init done!")
 	for {
 		if core.GroupSyncer.IsInit() {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
-	core.Logger.Debugf("Group first init done!\nStart to init block!")
+	common.DefaultLogger.Infof("Group first init done!\nStart to init block!")
 	core.InitBlockSyncer(light)
 	if len(apply) > 0 {
 		go func() {
@@ -155,10 +154,10 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 			switch apply {
 			case "heavy":
 				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
-				core.Logger.Debugf("initial apply heavy result:%v", result)
+				common.DefaultLogger.Infof("initial apply heavy result:%v", result)
 			case "light":
 				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
-				core.Logger.Debugf("initial apply light result:%v", result)
+				common.DefaultLogger.Infof("initial apply light result:%v", result)
 			}
 		}()
 	}
@@ -169,24 +168,23 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 }
 
 func (gtas *Gtas) runtimeInit() {
-	debug.SetGCPercent(70)
+	debug.SetGCPercent(100)
 	debug.SetMaxStack(2 * 1000000000)
-	fmt.Println("setting gc 70%, max memory 2g")
+	common.DefaultLogger.Infof("setting gc 100%, max memory 2g")
 
 }
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	<-ctrlC
-	fmt.Println("exiting...")
+	common.DefaultLogger.Infof("exiting...")
 	core.BlockChainImpl.Close()
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-
-		fmt.Println("exit success")
+		common.DefaultLogger.Infof("exit success")
 		quit <- true
 	} else {
-		fmt.Println("exit before inited")
+		common.DefaultLogger.Infof("exit before inited")
 		os.Exit(0)
 	}
 }
@@ -205,6 +203,7 @@ func (gtas *Gtas) Run() {
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
+	*statisticsEnable = false
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
@@ -236,17 +235,14 @@ func (gtas *Gtas) Run() {
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
-	//light node
-	light := mineCmd.Flag("light", "light node").Bool()
 	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
+	//light 废弃
+	light := mineCmd.Flag("light", "light node").Bool()
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
-
-	prefix := mineCmd.Flag("prefix", "redis key prefix temp").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
-	buildId := mineCmd.Flag("build_id", "build id").Default("-1").Int()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -266,39 +262,34 @@ func (gtas *Gtas) Run() {
 	databaseValue := "d" + strconv.Itoa(*instanceIndex)
 	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
 	common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
-	if *prefix == "" {
-		common.GlobalConf.SetString("test", "prefix", redis_prefix)
-	} else {
-		common.GlobalConf.SetString("test", "prefix", *prefix)
-	}
-
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+	BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
+	types.InitMiddleware()
 	if *nat != "" {
 		network.NatServerIp = *nat
-		log.Printf("NAT server ip:%s", *nat)
+		common.DefaultLogger.Infof("NAT server ip:%s", *nat)
 	}
 
-	common.BootId = *buildId
-	log.Printf("Boot id:%d", common.BootId)
 	switch command {
 	case voteCmd.FullCommand():
 		gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case tCmd.FullCommand():
-		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_t", *fromT, *toT, *valueT, *codeT)
+		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
 		if err != nil {
-			fmt.Println(err)
+			common.DefaultLogger.Error(err.Error())
 		}
-		fmt.Println(msg)
+		common.DefaultLogger.Info(msg)
 	case balanceCmd.FullCommand():
 		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
 		if err != nil {
-			fmt.Println(err)
+			common.DefaultLogger.Error(err.Error())
 		} else {
-			fmt.Println(msg)
+			common.DefaultLogger.Info(msg)
 		}
 	case newCmd.FullCommand():
 		privKey, address := walletManager.newWallet()
-		fmt.Println("Please Remember Your PrivateKey!")
-		fmt.Printf("PrivateKey: %s\n WalletAddress: %s", privKey, address)
+		common.DefaultLogger.Info("Please Remember Your PrivateKey!")
+		common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		lightMiner = *light
 		//轻重节点一样
@@ -306,9 +297,9 @@ func (gtas *Gtas) Run() {
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
-			fmt.Println(err)
+			common.DefaultLogger.Error(err.Error())
 		} else {
-			fmt.Println("clear blockchain successfully")
+			common.DefaultLogger.Infof("clear blockchain successfully")
 		}
 	}
 	<-quitChan
@@ -380,16 +371,16 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 	keys := (*configManager).GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
-		fmt.Println(err)
+		common.DefaultLogger.Infof(err.Error())
 		return nil
 	}
 	var pubKeyInfos []model.PubKeyInfo
 	for _, v := range infos {
 		var pub = groupsig.Pubkey{}
-		fmt.Println(v.PubKey)
+		common.DefaultLogger.Info(v.PubKey)
 		err := pub.SetHexString(v.PubKey)
 		if err != nil {
-			fmt.Println(err)
+			common.DefaultLogger.Info(err)
 			return nil
 		}
 		pubKeyInfos = append(pubKeyInfos, model.NewPubKeyInfo(*groupsig.NewIDFromString(v.ID), pub))
@@ -399,9 +390,9 @@ func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 
 func ShowPubKeyInfo(info model.SelfMinerDO, id string) {
 	pubKey := info.GetDefaultPubKey().GetHexString()
-	fmt.Printf("Miner PubKey: %s;\n", pubKey)
+	common.DefaultLogger.Infof("Miner PubKey: %s;\n", pubKey)
 	js, _ := json.Marshal(PubKeyInfo{pubKey, id})
-	fmt.Printf("pubkey_info json: %s\n", js)
+	common.DefaultLogger.Infof("pubkey_info json: %s\n", js)
 }
 
 func NewGtas() *Gtas {

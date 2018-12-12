@@ -42,7 +42,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-//获取交易中包含账户所在的分支
+//获取交易中包含账户所在的分支，LightChain使用
 func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
 	//todo  合约如何实现
 	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
@@ -62,7 +62,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transacti
 			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 				address := common.BytesToAddress(addr)
 				tr.GetBranch(address[:], nodes)
-				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(),tr.Get(address[:]))
+				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
 			}
 		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
 			//todo 合约交易
@@ -75,7 +75,7 @@ func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transacti
 
 			if source != nil {
 				tr.GetBranch(source[:], nodes)
-				Logger.Debugf("source:%v,value:%v", source.GetHexString(),tr.Get(source[:]))
+				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
 			}
 			if target != nil {
 				tr.GetBranch(target[:], nodes)
@@ -106,7 +106,7 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.Ac
 		return
 	}
 	root := account.Root
-	t, err := accountdb.Database().OpenTrieWithMap(root,nodes)
+	t, err := accountdb.Database().OpenTrieWithMap(root, nodes)
 	if err != nil {
 		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
 		return
@@ -114,10 +114,11 @@ func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.Ac
 	t.GetAllNodes(nodes)
 }
 
+//哪些交易涉及的account在AccountDB中缺失，LightChain使用
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {
 	missingAccountTransactions := []*types.Transaction{}
 	missingAccounts := []common.Address{}
-	Logger.Infof("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
+	Logger.Debugf("FilterMissingAccountTransaction block height:%d-%d,len(block.Transactions):%d", block.Header.Height, block.Header.ProveValue, len(block.Transactions))
 	for _, transaction := range block.Transactions {
 
 		//Logger.Debugf("FilterMissingAccountTransaction source:%v.target:%v", transaction.Source, transaction.Target)
@@ -160,7 +161,6 @@ func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.
 	return missingAccountTransactions, missingAccounts
 }
 
-
 func getBonusAddress(t types.Transaction) []common.Address {
 	var result = make([]common.Address, 0)
 
@@ -176,13 +176,12 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	}
 	return result
 }
+
 func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error) {
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
-	//tr := accountdb.GetTrie()
-	//Logger.Debugf("TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 
 	for _, transaction := range block.Transactions {
 		var fail = false
@@ -281,7 +280,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 					}
 				} else {
 
-					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:],height,mexist.ApplyHeight,mexist.AbortHeight) {
+					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
 						accountdb.AddBalance(*transaction.Source, amount)
@@ -310,8 +309,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
-	//Logger.Debugf("After TVMExecutor  Execute tree root:%v",tr.Fstring())
-	//Logger.Debugf("After TVMExecutor  Execute tree hash:%v", tr.Hash().String())
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
@@ -338,6 +335,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	Transfer(accountdb, *transaction.Source, contractAddr, amount)
 	return contractAddr, nil
 }
+
 func IsAccountExist(db vm.AccountDB, addr common.Address) bool {
 	data, _ := db.GetTrie().TryGet(addr[:])
 	if data == nil {
@@ -345,6 +343,7 @@ func IsAccountExist(db vm.AccountDB, addr common.Address) bool {
 	}
 	return true
 }
+
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }

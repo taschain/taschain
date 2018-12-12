@@ -31,15 +31,19 @@ import (
 )
 
 // middleware模块统一logger
-var logger = taslog.GetLoggerByName("middleware")
+var logger taslog.Logger
+
+func InitMiddleware() {
+	logger = taslog.GetLoggerByIndex(taslog.MiddlewareLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+}
 
 // 从[]byte反序列化为*Transaction
-func UnMarshalTransaction(b []byte) (*Transaction, error) {
+func UnMarshalTransaction(b []byte) (Transaction, error) {
 	t := new(tas_middleware_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
 		logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
-		return &Transaction{}, error
+		return Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
 	return transaction, nil
@@ -143,7 +147,6 @@ func MarshalMember(m *Member) ([]byte, error) {
 	return proto.Marshal(member)
 }
 
-
 // 序列化*Group
 func MarshalGroup(g *Group) ([]byte, error) {
 	group := GroupToPb(g)
@@ -155,22 +158,22 @@ func MarshalGroup(g *Group) ([]byte, error) {
 //	return proto.Marshal(group)
 //}
 
-func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
-	var source,target *common.Address
-	if t.Source != nil{
+func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
+	var source, target *common.Address
+	if t.Source != nil {
 		s := common.BytesToAddress(t.Source)
 		source = &s
 	}
-	if t.Target != nil{
+	if t.Target != nil {
 		t := common.BytesToAddress(t.Target)
 		target = &t
 	}
 
 	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: source,
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type:*t.Type}
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type}
 	//logger.Debugf("pbToTransaction %+v",transaction)
-	return &transaction
+	return transaction
 }
 
 func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
@@ -180,7 +183,7 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 	}
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
-		result = append(result, transaction)
+		result = append(result, &transaction)
 	}
 	return result
 }
@@ -221,17 +224,23 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 		return nil
 	}
 
-	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 	pv := &big.Int{}
+	var proveValue *big.Int
+	if h.ProveValue != nil {
+		proveValue = pv.SetBytes(h.ProveValue)
+	} else {
+		proveValue = nil
+	}
+	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		ProveValue: pv.SetBytes(h.ProveValue), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: proveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random, ProveRoot: common.BytesToHash(h.ProveRoot), EvictedTxs: hashes2}
 	return &header
 }
 
 func GroupRequestInfoToPB(CurrentTopGroupId []byte, ExistGroupIds [][]byte) *tas_middleware_pb.GroupRequestInfo {
-	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId:CurrentTopGroupId,	ExistGroupIds:&tas_middleware_pb.GroupIdSlice{GroupIds:ExistGroupIds}}
+	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId: CurrentTopGroupId, ExistGroupIds: &tas_middleware_pb.GroupIdSlice{GroupIds: ExistGroupIds}}
 }
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {
@@ -241,32 +250,45 @@ func PbToBlock(b *tas_middleware_pb.Block) *Block {
 	return &block
 }
 
-func PbToGroup(g *tas_middleware_pb.Group) *Group {
-	members := make([]Member, 0)
-	for _, m := range g.Members {
-		member := pbToMember(m)
-		members = append(members, *member)
-	}
-	group := Group{
-		Id:            g.Id,
-		Members:       members,
-		PubKey:        g.PubKey,
+func PbToGroupHeader(g *tas_middleware_pb.GroupHeader) *GroupHeader {
+	var beginTime time.Time
+	beginTime.UnmarshalBinary(g.BeginTime)
+	header := GroupHeader{
+		Hash:          common.BytesToHash(g.Hash),
 		Parent:        g.Parent,
-		Dummy:         g.Dummy,
 		PreGroup:      g.PreGroup,
-		Signature:     g.Signature,
-		BeginHeight:   *g.BeginHeight,
-		DismissHeight: *g.DismissHeight,
 		Authority:     *g.Authority,
-		Name:          string(g.Name),
-		Extends:       string(g.Extends),
+		Name:          *g.Name,
+		BeginTime:     beginTime,
+		MemberRoot:    common.BytesToHash(g.MemberRoot),
+		CreateHeight:  *g.CreateHeight,
+		ReadyHeight:   *g.ReadyHeight,
+		WorkHeight:    *g.WorkHeight,
+		DismissHeight: *g.DismissHeight,
+		Extends:       *g.Extends,
+	}
+	return &header
+}
+
+func PbToGroup(g *tas_middleware_pb.Group) *Group {
+	//members := make([]Member, 0)
+	//for _, m := range g.Members {
+	//	member := pbToMember(m)
+	//	members = append(members, *member)
+	//}
+	group := Group{
+		Header:    PbToGroupHeader(g.Header),
+		Id:        g.Id,
+		Members:   g.Members,
+		PubKey:    g.PubKey,
+		Signature: g.Signature,
 	}
 	return &group
 }
 
 func PbToGroups(g *tas_middleware_pb.GroupSlice) []*Group {
 	result := make([]*Group, 0)
-	for _,group := range g.Groups{
+	for _, group := range g.Groups {
 		result = append(result, PbToGroup(group))
 	}
 	return result
@@ -294,7 +316,7 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType,Type:&t.Type}
+		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType, Type: &t.Type}
 	return &transaction
 }
 
@@ -341,10 +363,17 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 		return nil
 	}
 
+	var proveValueByte []byte
+	if h.ProveValue != nil {
+		proveValueByte = h.ProveValue.Bytes()
+	} else {
+		proveValueByte = nil
+	}
+
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		ProveValue: h.ProveValue.Bytes(), CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: proveValueByte, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, ProveRoot:h.ProveRoot.Bytes(),EvictedTxs: &evictedTxs}
+		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, ProveRoot: h.ProveRoot.Bytes(), EvictedTxs: &evictedTxs}
 	return &header
 }
 
@@ -359,25 +388,37 @@ func BlockToPb(b *Block) *tas_middleware_pb.Block {
 	return &block
 }
 
-func GroupToPb(g *Group) *tas_middleware_pb.Group {
-	members := make([]*tas_middleware_pb.Member, 0)
-	for _, m := range g.Members {
-		member := memberToPb(&m)
-		members = append(members, member)
-	}
-	group := tas_middleware_pb.Group{
-		Id:            g.Id,
-		Members:       members,
-		PubKey:        g.PubKey,
+func GroupToPbHeader(g *GroupHeader) *tas_middleware_pb.GroupHeader {
+	beginTime, _ := g.BeginTime.MarshalBinary()
+	header := tas_middleware_pb.GroupHeader{
+		Hash:          g.Hash.Bytes(),
 		Parent:        g.Parent,
-		PreGroup:	   g.PreGroup,
-		Dummy:         g.Dummy,
-		Signature:     g.Signature,
-		BeginHeight:   &g.BeginHeight,
-		DismissHeight: &g.DismissHeight,
+		PreGroup:      g.PreGroup,
 		Authority:     &g.Authority,
-		Name:          []byte(g.Name),
-		Extends:       []byte(g.Extends),
+		Name:          &g.Name,
+		BeginTime:     beginTime,
+		MemberRoot:    g.MemberRoot.Bytes(),
+		CreateHeight:  &g.CreateHeight,
+		ReadyHeight:   &g.ReadyHeight,
+		WorkHeight:    &g.WorkHeight,
+		DismissHeight: &g.DismissHeight,
+		Extends:       &g.Extends,
+	}
+	return &header
+}
+
+func GroupToPb(g *Group) *tas_middleware_pb.Group {
+	//members := make([]*tas_middleware_pb.Member, 0)
+	//for _, m := range g.Members {
+	//	member := memberToPb(&m)
+	//	members = append(members, member)
+	//}
+	group := tas_middleware_pb.Group{
+		Header:    GroupToPbHeader(g.Header),
+		Id:        g.Id,
+		Members:   g.Members,
+		PubKey:    g.PubKey,
+		Signature: g.Signature,
 	}
 	return &group
 }

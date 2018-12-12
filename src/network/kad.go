@@ -344,7 +344,6 @@ loop:
 
 func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
-	kad.print()
 	kad.loadSeedNodes(true)
 
 	kad.lookup(kad.self.Id, false)

@@ -53,9 +53,9 @@ func (c *container) AsSlice() []*types.Transaction {
 
 	var result []*types.Transaction
 	len := c.txs.Len()
-	if len > 1000 {
-		result = make([]*types.Transaction, 1000)
-		copy(result, c.txs[len-1000:])
+	if len > 3000 {
+		result = make([]*types.Transaction, 3000)
+		copy(result, c.txs[len-3000:])
 	} else {
 		result = make([]*types.Transaction, len)
 		copy(result, c.txs)
@@ -87,22 +87,23 @@ func (c *container) PushTxs(txs []*types.Transaction) {
 }
 
 func (c *container) add(tx *types.Transaction) {
+	if !c.inited {
+		heap.Init(&c.txs)
+		c.inited = true
+	}
+
 	if c.txs.Len() < c.limit {
-		c.txs = append(c.txs, tx)
+		//c.txs = append(c.txs, tx)
+		heap.Push(&c.txs, tx)
 		c.txsMap[tx.Hash] = tx
 		return
 	}
 
-	if !c.inited {
-		heap.Init(&c.txs)
-		c.inited = true
-
-	}
-	Logger.Infof("TxPool is full! limit:%d", c.limit)
-	evicted := heap.Pop(&c.txs).(*types.Transaction)
-	delete(c.txsMap, evicted.Hash)
+	//Logger.Debugf("tx pool size:%d great than max size,ignore tx!", c.txs.Len())
 	heap.Push(&c.txs, tx)
 	c.txsMap[tx.Hash] = tx
+	evicted := heap.Pop(&c.txs).(*types.Transaction)
+	delete(c.txsMap, evicted.Hash)
 }
 
 func (c *container) Remove(keys []common.Hash) {

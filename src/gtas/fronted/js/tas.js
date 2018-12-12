@@ -44,7 +44,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             field: 'begin_height',
             type: 'asc'
         }
-        ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},
+        ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'g_hash', title: '组hash', width:140},
             {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
             {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
             {field:'members', title: '成员列表'}]] //设置表头
@@ -320,7 +320,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         //     return false
         // }
         let params = {
-            "method": "GTAS_t",
+            "method": "GTAS_tx",
             "params": [from, to, parseFloat(amount), code, parseInt(nonce), parseInt(t)],
             "jsonrpc": "2.0",
             "id": "1"
@@ -748,7 +748,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
         if (data.index == 5) {
             reloadBlocksTable()
-            blocktable_inter = setInterval(GGTreloadBlocksTable, 1000);
+            blocktable_inter = setInterval(reloadBlocksTable, 1000);
         } else {
             clearInterval(blocktable_inter)
         }

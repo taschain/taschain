@@ -22,7 +22,6 @@ import (
 	"core"
 	"fmt"
 	"gopkg.in/fatih/set.v0"
-	"log"
 	"math/big"
 	"middleware/types"
 	"sync/atomic"
@@ -78,13 +77,13 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 }
 
 func (sc *SlotContext) init(bh *types.BlockHeader) bool {
-	log.Printf("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
+	stdLogger.Infof("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
 	lostTxsStrings := make([]string, len(lostTxs))
 	for idx, tx := range lostTxs {
 		lostTxsStrings[idx] = tx.ShortS()
 	}
-	log.Printf("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
+	stdLogger.Infof("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
 	sc.addLostTrans(lostTxs)
 	if ccr == -1 {
 		sc.setSlotStatus(SS_FAILED)

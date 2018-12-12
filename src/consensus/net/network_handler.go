@@ -32,15 +32,6 @@ func (c *ConsensusHandler) ready() bool {
 	return c.processor != nil && c.processor.Ready()
 }
 
-func memberExistIn(mems *[]model.PubKeyInfo, id groupsig.ID) bool {
-	for _, member := range *mems {
-		if member.ID.IsEqual(id) {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 	code := msg.Code
 	body := msg.Body
@@ -56,7 +47,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 
-		belongGroup := memberExistIn(&m.MEMS, c.processor.GetMinerID())
+		belongGroup := m.GInfo.MemberExists(c.processor.GetMinerID())
 
 		var machines *StateMachines
 		if belongGroup {
@@ -64,14 +55,14 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		} else {
 			machines = &GroupOutsideMachines
 		}
-		machines.GetMachine(m.GI.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+		machines.GetMachine(m.GInfo.GI.GetHash().Hex()).Transform(NewStateMsg(code, m, sourceId))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+		GroupInsideMachines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
 
 	case network.SignPubkeyMsg:
 		t := time.Now()
@@ -81,7 +72,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		t1 := time.Since(t)
-		GroupInsideMachines.GetMachine(m.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+		GroupInsideMachines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
 		t2 := time.Since(t)
 		logger.Infof("SignPubKeyMsg receive %v, unMarshal cost %v, transform cost %v", t.Format("2006-01-02/15:04:05.000"), t1.String(), t2.String())
 	case network.GroupInitDoneMsg:
@@ -90,16 +81,16 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return e
 		}
-		logger.Infof("Rcv GroupInitDoneMsg from:%s,dummyId:%s", sourceId, m.GI.GIS.DummyID.GetHexString())
+		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s", sourceId, m.GHash.Hex())
 
-		belongGroup := c.processor.ExistInDummyGroup(m.GI.GIS.DummyID)
+		belongGroup := c.processor.ExistInGroup(m.GHash)
 		var machines *StateMachines
 		if belongGroup {
 			machines = &GroupInsideMachines
 		} else {
 			machines = &GroupOutsideMachines
 		}
-		machines.GetMachine(m.GI.GIS.DummyID.GetHexString()).Transform(NewStateMsg(code, m, sourceId))
+		machines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
 
 	case network.CurrentGroupCastMsg:
 
@@ -119,7 +110,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 
 		c.processor.OnMessageVerify(m)
 
-	case network.TransactionMsg, network.TransactionGotMsg:
+	case network.TransactionGotMsg:
 		transactions, e := types.UnMarshalTransactions(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
@@ -169,6 +160,23 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+func baseMessage(sign *tas_middleware_pb.SignData) *model.BaseSignedMessage {
+	return &model.BaseSignedMessage{SI: *pbToSignData(sign)}
+}
+
+func pbToGroupInfo(gi *tas_middleware_pb.ConsensusGroupInitInfo) *model.ConsensusGroupInitInfo {
+	gis := pbToConsensusGroupInitSummary(gi.GI)
+	mems := make([]groupsig.ID, len(gi.Mems))
+	for idx, mem := range gi.Mems {
+		mems[idx] = groupsig.DeserializeId(mem)
+	}
+	return &model.ConsensusGroupInitInfo{
+		GI:   *gis,
+		Mems: mems,
+	}
+}
+
 func unMarshalConsensusGroupRawMessage(b []byte) (*model.ConsensusGroupRawMessage, error) {
 	message := new(tas_middleware_pb.ConsensusGroupRawMessage)
 	e := proto.Unmarshal(b, message)
@@ -177,18 +185,10 @@ func unMarshalConsensusGroupRawMessage(b []byte) (*model.ConsensusGroupRawMessag
 		return nil, e
 	}
 
-	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
-
-	sign := pbToSignData(message.Sign)
-
-	var ids []model.PubKeyInfo
-	for i := 0; i < len(message.Ids); i++ {
-		pkInfo := pbToPubKeyInfo(message.Ids[i])
-		ids = append(ids, *pkInfo)
+	m := model.ConsensusGroupRawMessage{
+		GInfo:             *pbToGroupInfo(message.GInfo),
+		BaseSignedMessage: *baseMessage(message.Sign),
 	}
-
-	base := model.BaseSignedMessage{SI: *sign}
-	m := model.ConsensusGroupRawMessage{GI: *gi, MEMS: ids, BaseSignedMessage: base}
 	return &m, nil
 }
 
@@ -200,25 +200,17 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*model.ConsensusSharePieceMe
 		return nil, e
 	}
 
-	gisHash := common.BytesToHash(m.GISHash)
-	var dummyId, dest groupsig.ID
-	e1 := dummyId.Deserialize(m.DummyID)
-	if e1 != nil {
-		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
-		return nil, e1
-	}
+	gHash := common.BytesToHash(m.GHash)
 
-	e2 := dest.Deserialize(m.Dest)
-	if e2 != nil {
-		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e2.Error())
-		return nil, e2
-	}
+	dest := groupsig.DeserializeId(m.Dest)
 
 	share := pbToSharePiece(m.SharePiece)
-	sign := pbToSignData(m.Sign)
-
-	base := model.BaseSignedMessage{SI: *sign}
-	message := model.ConsensusSharePieceMessage{GISHash: gisHash, DummyID: dummyId, Dest: dest, Share: *share, BaseSignedMessage: base}
+	message := model.ConsensusSharePieceMessage{
+		GHash:             gHash,
+		Dest:              dest,
+		Share:             *share,
+		BaseSignedMessage: *baseMessage(m.Sign),
+	}
 	return &message, nil
 }
 
@@ -229,32 +221,19 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*model.ConsensusSignPubKeyMe
 		logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e.Error())
 		return nil, e
 	}
-	gisHash := common.BytesToHash(m.GISHash)
-	var dummyId groupsig.ID
-	e1 := dummyId.Deserialize(m.DummyID)
-	if e1 != nil {
-		logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e1.Error())
-		return nil, e1
+	gisHash := common.BytesToHash(m.GHash)
+
+	pk := groupsig.DeserializePubkeyBytes(m.SignPK)
+
+	sign := groupsig.DeserializeSign(m.GSign)
+
+	base := baseMessage(m.SignData)
+	message := model.ConsensusSignPubKeyMessage{
+		GHash:             gisHash,
+		SignPK:            pk,
+		GSign:             *sign,
+		BaseSignedMessage: *base,
 	}
-
-	var pubkey groupsig.Pubkey
-	e2 := pubkey.Deserialize(m.SignPK)
-	if e2 != nil {
-		logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e2.Error())
-		return nil, e2
-	}
-
-	signData := pbToSignData(m.SignData)
-
-	var sign groupsig.Signature
-	e3 := sign.Deserialize(m.GISSign)
-	if e3 != nil {
-		logger.Errorf("[handler]unMarshalConsensusSignPubKeyMessage error:%s", e3.Error())
-		return nil, e3
-	}
-
-	base := model.BaseSignedMessage{SI: *signData}
-	message := model.ConsensusSignPubKeyMessage{GISHash: gisHash, DummyID: dummyId, SignPK: pubkey, BaseSignedMessage: base, GISSign: sign}
 	return &message, nil
 }
 
@@ -266,11 +245,12 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 		return nil, e
 	}
 
-	gi := pbToStaticGroup(m.StaticGroupSummary)
-	si := pbToSignData(m.Sign)
-
-	base := model.BaseSignedMessage{SI: *si}
-	message := model.ConsensusGroupInitedMessage{GI: *gi, BaseSignedMessage: base}
+	message := model.ConsensusGroupInitedMessage{
+		GHash:             common.BytesToHash(m.GHash),
+		GroupID:           groupsig.DeserializeId(m.GroupID),
+		GroupPK:           groupsig.DeserializePubkeyBytes(m.GroupPK),
+		BaseSignedMessage: *baseMessage(m.Sign),
+	}
 	return &message, nil
 }
 
@@ -351,55 +331,11 @@ func unMarshalConsensusBlockMessage(b []byte) (*model.ConsensusBlockMessage, err
 }
 
 func pbToConsensusGroupInitSummary(m *tas_middleware_pb.ConsensusGroupInitSummary) *model.ConsensusGroupInitSummary {
-	var beginTime time.Time
-	beginTime.UnmarshalBinary(m.BeginTime)
-
-	name := [64]byte{}
-	for i := 0; i < len(name); i++ {
-		name[i] = m.Name[i]
+	gh := types.PbToGroupHeader(m.Header)
+	return &model.ConsensusGroupInitSummary{
+		GHeader:   gh,
+		Signature: *groupsig.DeserializeSign(m.Signature),
 	}
-
-	var parentId groupsig.ID
-	e1 := parentId.Deserialize(m.ParentID)
-
-	if e1 != nil {
-		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
-		return nil
-	}
-
-	var dummyID groupsig.ID
-	e2 := dummyID.Deserialize(m.DummyID)
-
-	if e1 != nil {
-		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e2.Error())
-		return nil
-	}
-
-	var sign groupsig.Signature
-	if err := sign.Deserialize(m.Signature); err != nil {
-		logger.Errorf("[handler]groupsig.Signature Deserialize error:%s", err.Error())
-		return nil
-	}
-
-	mhash := common.Hash{}
-	mhash.SetBytes(m.MemberHash)
-	message := model.ConsensusGroupInitSummary{
-		ParentID:        parentId,
-		PrevGroupID:     groupsig.DeserializeId(m.PrevGroupID),
-		Authority:       *m.Authority,
-		Name:            name,
-		DummyID:         dummyID,
-		BeginTime:       beginTime,
-		Members:         *m.Members,
-		MemberHash:      mhash,
-		Signature:       sign,
-		GetReadyHeight:  *m.GetReadyHeight,
-		BeginCastHeight: *m.BeginCastHeight,
-		DismissHeight:   *m.DismissHeight,
-		TopHeight:       *m.TopHeight,
-		Extends:         string(m.Extends),
-	}
-	return &message
 }
 
 func pbToSignData(s *tas_middleware_pb.SignData) *model.SignData {
@@ -441,38 +377,39 @@ func pbToSharePiece(s *tas_middleware_pb.SharePiece) *model.SharePiece {
 	return &sp
 }
 
-func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *model.StaticGroupSummary {
-	var groupId groupsig.ID
-	groupId.Deserialize(s.GroupID)
-
-	var groupPk groupsig.Pubkey
-	groupPk.Deserialize(s.GroupPK)
-
-	gis := pbToConsensusGroupInitSummary(s.Gis)
-
-	groupInfo := model.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, GIS: *gis}
-	return &groupInfo
-}
-
-func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *model.PubKeyInfo {
-	var id groupsig.ID
-	var pk groupsig.Pubkey
-
-	e1 := id.Deserialize(p.ID)
-	if e1 != nil {
-		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
-		return nil
-	}
-
-	e2 := pk.Deserialize(p.PublicKey)
-	if e2 != nil {
-		logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
-		return nil
-	}
-
-	pkInfo := model.NewPubKeyInfo(id, pk)
-	return &pkInfo
-}
+//
+//func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *model.StaticGroupSummary {
+//	var groupId groupsig.ID
+//	groupId.Deserialize(s.GroupID)
+//
+//	var groupPk groupsig.Pubkey
+//	groupPk.Deserialize(s.GroupPK)
+//
+//	gis := pbToConsensusGroupInitSummary(s.Gis)
+//
+//	groupInfo := model.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, GIS: *gis}
+//	return &groupInfo
+//}
+//
+//func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *model.PubKeyInfo {
+//	var id groupsig.ID
+//	var pk groupsig.Pubkey
+//
+//	e1 := id.Deserialize(p.ID)
+//	if e1 != nil {
+//		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
+//		return nil
+//	}
+//
+//	e2 := pk.Deserialize(p.PublicKey)
+//	if e2 != nil {
+//		logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
+//		return nil
+//	}
+//
+//	pkInfo := model.NewPubKeyInfo(id, pk)
+//	return &pkInfo
+//}
 
 func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGroupRawMessage, error) {
 	message := new(tas_middleware_pb.ConsensusCreateGroupRawMessage)
@@ -482,18 +419,12 @@ func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGr
 		return nil, e
 	}
 
-	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
+	gi := pbToGroupInfo(message.GInfo)
 
-	sign := pbToSignData(message.Sign)
-
-	ids := make([]groupsig.ID, 0)
-
-	for _, idByte := range message.Ids {
-		id := groupsig.DeserializeId(idByte)
-		ids = append(ids, id)
+	m := model.ConsensusCreateGroupRawMessage{
+		GInfo:             *gi,
+		BaseSignedMessage: *baseMessage(message.Sign),
 	}
-	base := model.BaseSignedMessage{SI: *sign}
-	m := model.ConsensusCreateGroupRawMessage{GI: *gi, IDs: ids, BaseSignedMessage: base}
 	return &m, nil
 }
 
@@ -505,11 +436,10 @@ func unMarshalConsensusCreateGroupSignMessage(b []byte) (*model.ConsensusCreateG
 		return nil, e
 	}
 
-	gi := pbToConsensusGroupInitSummary(message.ConsensusGroupInitSummary)
-
-	sign := pbToSignData(message.Sign)
-	base := model.BaseSignedMessage{SI: *sign}
-	m := model.ConsensusCreateGroupSignMessage{GI: *gi, BaseSignedMessage: base}
+	m := model.ConsensusCreateGroupSignMessage{
+		GHash:             common.BytesToHash(message.GHash),
+		BaseSignedMessage: *baseMessage(message.Sign),
+	}
 	return &m, nil
 }
 

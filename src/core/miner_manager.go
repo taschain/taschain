@@ -16,6 +16,11 @@ import (
 
 var emptyValue [0]byte
 
+/*
+**  Creator: Kaede
+**  Date: 2018/9/19 下午3:45
+**  Description: 在AccountDB上使用特殊地址存储旷工信息，分为重矿工和轻矿工
+*/
 type MinerManager struct {
 	blockchain   BlockChain
 	cache        *lru.Cache
@@ -41,6 +46,9 @@ func initMinerManager(blockchain BlockChain) error {
 	return nil
 }
 
+/*
+	重矿工需要构建到FULL_NODE_VIRTUAL_GROUP_ID组，供网络发现使用
+ */
 func (mm *MinerManager) loop() {
 	for {
 		<-mm.heavytrigger.C
@@ -166,17 +174,8 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64, account
 	}
 }
 
+//获取质押总和
 func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
-	//header := mm.blockchain.QueryBlockByHeight(height)
-	//if header == nil{
-	//	return 0
-	//}
-	//accountdb,_ := core.NewAccountDB(mm.blockchain.latestBlock.StateTree, mm.blockchain.stateCache)
-	//if err != nil{
-	//	panic(err)
-	//}
-	//mm.lock.Lock()
-	//defer mm.lock.Unlock()
 	iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
 	var total uint64 = 0
 	for iter.Next() {

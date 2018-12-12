@@ -24,7 +24,6 @@ import (
 var (
 	BlockChainConnectorImpl *BlockChainConnector
 	GroupChainConnectorImpl *GroupChainConnector
-	isDebug                 bool
 )
 
 type BlockChainConnector struct {
@@ -37,11 +36,6 @@ type GroupChainConnector struct {
 
 func InitCore(light bool, helper types.ConsensusHelper) error {
 	light = false
-	// 默认是debug模式
-	isDebug = common.GlobalConf.GetBool(CONFIG_SEC, "debug", true)
-	if isDebug {
-		//Clear()
-	}
 
 	if nil == BlockChainImpl {
 		var err error
@@ -59,7 +53,7 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 	}
 
 	if nil == GroupChainImpl {
-		err := initGroupChain(helper.GenerateGenesisInfo())
+		err := initGroupChain(helper.GenerateGenesisInfo(), helper)
 		if nil != err {
 			return err
 		}
@@ -91,7 +85,7 @@ func (connector *BlockChainConnector) TransactionArrived(ts []*types.Transaction
 		return fmt.Errorf("nil transactions")
 	}
 
-	return connector.chain.GetTransactionPool().AddTransactions(ts)
+	return connector.chain.GetTransactionPool().AddMissTransactions(ts)
 }
 
 //addNewBlockToChainFn 实现

@@ -42,12 +42,12 @@ var net *server
 var Logger taslog.Logger
 
 func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, nodeIDHex string) (err error) {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
+	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
 	self, err := InitSelfNode(config, isSuper, NewNodeID(nodeIDHex))
 	if err != nil {
-		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
+		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
 	//id = self.Id

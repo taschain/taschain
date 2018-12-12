@@ -312,7 +312,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         //     return false
         // }
         let params = {
-            "method": "GTAS_t",
+            "method": "GTAS_tx",
             "params": [from, to, parseFloat(amount), code, parseInt(nonce), parseInt(t)],
             "jsonrpc": "2.0",
             "id": "1"

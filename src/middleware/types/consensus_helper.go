@@ -16,8 +16,8 @@
 package types
 
 import (
-	"math/big"
 	"common"
+	"math/big"
 )
 
 /*
@@ -28,9 +28,13 @@ import (
 
 type GenesisInfo struct {
 	Group Group
-	VrfPKs map[int][]byte
+	VrfPKs [][]byte
+	Pks 	[][]byte
 }
 
+/*
+	共识接口合集
+ */
 type ConsensusHelper interface {
 
 	//generate genesis group and member pk info
@@ -61,4 +65,7 @@ type ConsensusHelper interface {
 
 	//verify the blockheader: mainly verify the group signature
 	VerifyBlockHeader(bh *BlockHeader) (bool, error)
+
+	//check group
+	CheckGroup(g *Group) (bool, error)
 }

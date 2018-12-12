@@ -99,9 +99,9 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetTraceHeader(hash []byte) *types.BlockHeader
-
 	GetCheckValue(height uint64) (common.Hash, error)
+
+	GetChainPiece(reqHeight uint64) []*types.BlockHeader
 
 	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
 }
@@ -109,7 +109,7 @@ type BlockChain interface {
 type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
-	AddTransactions(txs []*types.Transaction) error
+	AddMissTransactions(txs []*types.Transaction) error
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 
@@ -138,7 +138,6 @@ type GroupInfoI interface {
 
 // VM执行器
 type VMExecutor interface {
-
 	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 

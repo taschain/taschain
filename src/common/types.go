@@ -23,6 +23,7 @@ import (
 	"math/rand"
 	"reflect"
 	"utility"
+	"taslog"
 )
 
 const PREFIX = "0x"
@@ -42,12 +43,14 @@ const (
 	GroupIdLength = 32
 )
 
+var DefaultLogger taslog.Logger
+
 var (
-	hashT    = reflect.TypeOf(Hash{})
-	addressT = reflect.TypeOf(Address{})
+	hashT               = reflect.TypeOf(Hash{})
+	addressT            = reflect.TypeOf(Address{})
 	BonusStorageAddress = BigToAddress(big.NewInt(0))
- 	LightDBAddress = BigToAddress(big.NewInt(1))
- 	HeavyDBAddress = BigToAddress(big.NewInt(2))
+	LightDBAddress      = BigToAddress(big.NewInt(1))
+	HeavyDBAddress      = BigToAddress(big.NewInt(2))
 )
 
 //160位地址
@@ -245,7 +248,7 @@ func (h *Hash) Set(other Hash) {
 
 // Generate implements testing/quick.Generator.
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
-	m := rand.Intn(len(h))            //m为0-len(h)之间的伪随机数
+	m := rand.Intn(len(h)) //m为0-len(h)之间的伪随机数
 	for i := len(h) - 1; i > m; i-- { //从高位到m之间进行遍历
 		h[i] = byte(rand.Uint32()) //rand.Uint32为32位非负伪随机数
 	}
@@ -271,6 +274,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 type Hash256 Hash
 type StorageSize float64
+
 var (
 	Big1   = big.NewInt(1)
 	Big2   = big.NewInt(2)

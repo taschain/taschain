@@ -17,7 +17,6 @@ package logical
 
 import (
 	"consensus/model"
-	"log"
 	"middleware/types"
 	"sync"
 	"time"
@@ -46,7 +45,7 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 	bc := &BlockContext{
 		Proc:               p,
 		MinerID:            model.NewGroupMinerID(sgi.GroupID, p.GetMinerID()),
-		GroupMembers:       len(sgi.Members),
+		GroupMembers:       sgi.GetMemberCount(),
 		vctxs:              make(map[uint64]*VerifyContext),
 		Version:            model.CONSENSUS_VERSION,
 		verifyCnt:          0,
@@ -141,7 +140,7 @@ func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *type
 		deltaHeightByTime = bh.Height - preBH.Height
 	}
 
-	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime)
+	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
 
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
@@ -157,7 +156,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64) {
 		if !bRemove {
 			newCtxs[ctx.castHeight] = ctx
 		} else {
-			log.Printf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
+			stdLogger.Debug("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
 		}
 	}
 

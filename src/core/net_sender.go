@@ -60,10 +60,10 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 
 	body, e := marshalTransactionRequestMessage(&m)
 	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	network.Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes), time.Now())
+	Logger.Debugf("send REQ_TRANSACTION_MSG to %s,%d-%d,tx_len:%d,time at:%v", castorId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
 }
@@ -72,7 +72,7 @@ func RequestTransaction(m TransactionRequestMessage, castorId string) {
 func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uint64, blockPv *big.Int) {
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
 	//network.Logger.Debugf("send TRANSACTION_GOT_MSG to %s,%d-%d,tx_len,time at:%v",sourceId,blockHeight,blockQn,len(txs),time.Now())
@@ -80,42 +80,46 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 	go network.GetNetInstance().Send(sourceId, message)
 }
 
-//收到交易 全网扩散
-func BroadcastTransactions(txs []*types.Transaction) {
+func BroadcastMinerTransactions(txs []*types.Transaction) {
 	defer func() {
 		if r := recover(); r != nil {
-			Logger.Errorf("[peer]Runtime error caught: %v", r)
+			Logger.Errorf("Runtime error caught: %v", r)
 		}
 	}()
 	if len(txs) > 0 {
 		body, e := types.MarshalTransactions(txs)
 		if e != nil {
-			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
+			Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
-		Logger.Debugf("BroadcastTransactions len:%d", len(txs))
-		message := network.Message{Code: network.TransactionMsg, Body: body}
+		Logger.Debugf("Broadcast Miner Transactions len:%d", len(txs))
+		message := network.Message{Code: network.MinerTransactionMsg, Body: body}
 		heavyMiners := MinerManagerImpl.GetHeavyMiners()
 		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
 	}
 }
 
-func BroadcastMinerApplyTransactions(txs []*types.Transaction) {
-	defer func() {
-		if r := recover(); r != nil {
-			Logger.Errorf("[peer]Runtime error caught: %v", r)
-		}
-	}()
-	if len(txs) > 0 {
-		body, e := types.MarshalTransactions(txs)
-		if e != nil {
-			Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s", e.Error())
-			return
-		}
-		Logger.Debugf("BroadcastMinerApplyTransactions len:%d", len(txs))
-		message := network.Message{Code: network.TransactionMsg, Body: body}
-		go network.GetNetInstance().Broadcast(message)
-	}
+func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		Logger.Errorf("Runtime error caught: %v", r)
+	//	}
+	//}()
+	//if len(txs) > 0 {
+	//	body, e := types.MarshalTransactions(txs)
+	//	if e != nil {
+	//		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
+	//		return
+	//	}
+	//	Logger.Debugf("BroadcastTransactions len:%d", len(txs))
+	//	message := network.Message{Code: network.TransactionMsg, Body: body}
+	//	if heavyOnly {
+	//		heavyMiners := MinerManagerImpl.GetHeavyMiners()
+	//		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+	//	} else {
+	//		go network.GetNetInstance().Broadcast(message)
+	//	}
+	//}
 }
 
 //向某一节点请求Block信息
@@ -134,7 +138,7 @@ func SendBlock(targetId string, block *types.Block) {
 	Logger.Debugf("Send local block:%d  to:%s", block.Header.Height, targetId)
 	body, e := types.MarshalBlock(block)
 	if e != nil {
-		Logger.Errorf("[peer]SendBlock marshal MarshalBlock error:%s", e.Error())
+		Logger.Errorf("SendBlock marshal MarshalBlock error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.BlockMsg, Body: body}
@@ -154,7 +158,7 @@ func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*typ
 	}
 	body, e := marshalBlockBody(blockHash, transactions)
 	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalTransactions because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
 
@@ -167,7 +171,7 @@ func ReqStateInfo(targetNode string, blockHeight uint64, qn *big.Int, txs types.
 	m := StateInfoReq{Height: blockHeight, Transactions: txs, Addresses: addresses, BlockHash: blockHash}
 	body, e := marshalStateInfoReq(m)
 	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalStateInfoReq because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard MarshalStateInfoReq because of marshal error:%s!", e.Error())
 		return
 	}
 	message := network.Message{Code: network.ReqStateInfoMsg, Body: body}
@@ -178,7 +182,7 @@ func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.Sta
 	m := StateInfo{Height: blockHeight, TrieNodes: stateInfo, BlockHash: blockHash, PreBlockSateRoot: preBlockStateroot}
 	body, e := marshalStateInfo(m)
 	if e != nil {
-		Logger.Errorf("[peer]Discard MarshalTrieNodes because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard MarshalTrieNodes because of marshal error:%s!", e.Error())
 		return
 	}
 	message := network.Message{Code: network.StateInfoMsg, Body: body}
@@ -200,7 +204,7 @@ func SendChainPiece(targetNode string, chainPieceInfo ChainPieceInfo) {
 	Logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, targetNode)
 	body, e := marshalChainPieceInfo(chainPieceInfo)
 	if e != nil {
-		Logger.Errorf("[peer]Discard marshalChainPiece because of marshal error:%s!", e.Error())
+		Logger.Errorf("Discard marshalChainPiece because of marshal error:%s!", e.Error())
 		return
 	}
 	message := network.Message{Code: network.ChainPiece, Body: body}

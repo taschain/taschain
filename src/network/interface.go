@@ -37,7 +37,7 @@ const (
 
 	TransactionGotMsg uint32 = 0x09
 
-	TransactionMsg uint32 = 0x0a
+	MinerTransactionMsg uint32 = 0x0a
 
 	NewBlockMsg uint32 = 0x0b
 
@@ -81,8 +81,6 @@ const (
 	RequestTraceMsg  uint32 = 0x20
 	ResponseTraceMsg uint32 = 0x21
 
-
-
 	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 )
 
@@ -120,7 +118,7 @@ type Network interface {
 	SpreadAmongGroup(groupId string, msg Message) error
 
 	//send message to random memebers which in special group
-	SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message)error
+	SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error
 
 	//Broadcast the message to the group which self do not belong to
 	SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error

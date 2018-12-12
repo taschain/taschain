@@ -1,16 +1,15 @@
 package core
 
 import (
-	"storage/tasdb"
-	"github.com/hashicorp/golang-lru"
-	"middleware/types"
-	"storage/account"
-	"middleware"
 	"common"
 	"encoding/binary"
+	"github.com/hashicorp/golang-lru"
 	"math"
 	"math/big"
-	"middleware/statistics"
+	"middleware"
+	"middleware/types"
+	"storage/account"
+	"storage/tasdb"
 	"utility"
 	"consensus/groupsig"
 	"bytes"
@@ -18,6 +17,7 @@ import (
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
+const ChainPieceLength = 9
 
 type prototypeChain struct {
 	isLightMiner bool
@@ -78,14 +78,13 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	block.Transactions = make([]*types.Transaction, len(bh.Transactions))
-	for i, hash := range bh.Transactions {
-		t, _ := chain.transactionPool.GetTransaction(hash)
-		if t == nil {
-			return nil
-		}
-		block.Transactions[i] = t
+	txs, missTxs, _ := chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+
+	if len(missTxs) != 0 {
+		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
+		return nil
 	}
+	block.Transactions = txs
 	return block
 }
 
@@ -297,29 +296,25 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 	return result
 }
 
-func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
-	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
-	if traceHeader == nil {
-		statistics.VrfLogger.Debugf("TraceHeader is nil")
-		return nil
-	}
-	if traceHeader.Random == nil || len(traceHeader.Random) == 0 {
-		statistics.VrfLogger.Debugf("PreBlock Random is nil")
-	} else {
-		statistics.VrfLogger.Debugf("PreBlock Random : %v", common.Bytes2Hex(traceHeader.Random))
-	}
-	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
-}
+//func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
+//	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
+//	if traceHeader == nil {
+//		statistics.VrfLogger.Debugf("TraceHeader is nil")
+//		return nil
+//	}
+//	if traceHeader.Random == nil || len(traceHeader.Random) == 0 {
+//		statistics.VrfLogger.Debugf("PreBlock Random is nil")
+//	} else {
+//		statistics.VrfLogger.Debugf("PreBlock Random : %v", common.Bytes2Hex(traceHeader.Random))
+//	}
+//	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
+//}
 
 func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) {
 	chain.lock.Lock("ProcessChainPiece")
 	defer chain.lock.Unlock("ProcessChainPiece")
 
-	if topHeader.TotalQN <= chain.latestBlock.TotalQN {
-		return
-	}
-
-	if chainPiece[0].Height < chain.latestBlock.Height {
+	if topHeader.TotalQN < chain.latestBlock.TotalQN {
 		return
 	}
 
@@ -328,28 +323,71 @@ func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.Bl
 	}
 	Logger.Debugf("ProcessChainPiece id:%s,chainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v",
 		id, chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
-	commonAncestor, hasCommonAncestor, _ := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
+	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
 	if hasCommonAncestor {
-		Logger.Debugf("[BlockChain]Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
-		chain.removeFromCommonAncestor(commonAncestor)
-		RequestBlock(id, commonAncestor.Height+1)
+		Logger.Debugf("Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
+		if topHeader.TotalQN > chain.latestBlock.TotalQN {
+			chain.removeFromCommonAncestor(commonAncestor)
+			RequestBlock(id, commonAncestor.Height+1)
+			return
+		}
 
-		//if topHeader.TotalQN == chain.latestBlock.TotalQN {
-		//	if chain.compareValue(commonAncestor, topHeader) {
-		//		chain.SetAdujsting(false)
-		//		return
-		//	}
-		//	chain.removeFromCommonAncestor(commonAncestor)
-		//	RequestBlock(id, commonAncestor.Height+1)
-		//}
+		if topHeader.TotalQN == chain.latestBlock.TotalQN {
+			var remoteNext *types.BlockHeader
+			for i := index - 1; i >= 0; i-- {
+				if chainPiece[i].ProveValue != nil {
+					remoteNext = chainPiece[i]
+					break
+				}
+			}
+			if remoteNext == nil {
+				return
+			}
+			if chain.compareValue(commonAncestor, remoteNext) {
+				Logger.Debugf("Local value is great than coming value!")
+				return
+			}
+			Logger.Debugf("Coming value is great than local value!")
+			chain.removeFromCommonAncestor(commonAncestor)
+			RequestBlock(id, commonAncestor.Height+1)
+		}
 	} else {
-		Logger.Debugf("[BlockChain]Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
-		RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
+		if index == 0 {
+			Logger.Debugf("Local chain is same with coming chain piece.")
+			if chainPiece[0].Height == chain.latestBlock.Height {
+				RequestBlock(id, chainPiece[0].Height+1)
+				return
+			}
+			Logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
+			return
+		} else {
+			Logger.Debugf("Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
+			RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
+		}
 	}
 }
 
 func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) bool {
-	//todo
+	if len(chainPiece) == 0 {
+		return false
+	}
+	if topHeader.Hash != topHeader.GenHash() {
+		Logger.Errorf("invalid topHeader!Hash:%s", topHeader.Hash.String())
+		return false
+	}
+
+	for i := 0; i < len(chainPiece)-1; i++ {
+		bh := chainPiece[i]
+		if bh.Hash != bh.GenHash() {
+			Logger.Errorf("invalid chainPiece element,hash:%s", bh.Hash.String())
+			return false
+		}
+		if bh.PreHash != chainPiece[i+1].Hash {
+			Logger.Errorf("invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -358,7 +396,6 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 	if header.Hash != chain.latestBlock.Hash {
 		return false
 	}
-
 	Logger.Debugf("remove hash:%s height:%d ", header.Hash.Hex(), header.Height)
 	hash := header.Hash
 	block := BlockChainImpl.QueryBlockByHash(hash)
@@ -389,6 +426,9 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
 	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
+
+	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(),commonAncestor.Height,chain.latestBlock.Height)
+
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
@@ -401,8 +441,12 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
+	if commonAncestor.Height == chain.latestBlock.Height {
+		return false
+	}
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
+	Logger.Debugf("coming hash:%s,coming value is:%v", remoteHeader.Hash.String(), remoteValue)
 	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
 		Logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
@@ -412,6 +456,8 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 			continue
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)
+		Logger.Debugf("local hash:%s,local value is:%v", header.Hash.String(), localValue)
+		break
 	}
 	if localValue == nil {
 		time.Sleep(time.Second)
@@ -423,10 +469,10 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 }
 
 func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader, l int, r int) (*types.BlockHeader, bool, int) {
-
-	if l > r || r < 0 || l >= len(chainPiece) {
+	if l > r {
 		return nil, false, -1
 	}
+
 	m := (l + r) / 2
 	result := chain.isCommonAncestor(chainPiece, m)
 	if result == 0 {
@@ -440,6 +486,9 @@ func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader,
 	if result == -1 {
 		return chain.findCommonAncestor(chainPiece, m+1, r)
 	}
+	if result == 100 {
+		return nil, false, 0
+	}
 	return nil, false, -1
 }
 
@@ -447,6 +496,7 @@ func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader,
 //返回值
 // 0  当前HASH相等，后面一块HASH不相等 是共同祖先
 //1   当前HASH相等，后面一块HASH相等
+//100  当前HASH相等，但是到达数组边界，找不到后面一块 无法判断同祖先
 //-1  当前HASH不相等
 //-100 参数不合法
 func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, index int) int {
@@ -457,12 +507,12 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 
 	bh := chain.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, nil, he.Hash)
+		Logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, nil, he.Hash)
 		return -1
 	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	Logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
-		return 0
+		return 100
 	}
 	if index == 0 {
 		return -1
@@ -471,13 +521,13 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 	afterHe := chainPiece[index-1]
 	afterbh := chain.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
-		Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
+		Logger.Debugf("isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
 		if afterHe != nil && bh.Hash == he.Hash {
 			return 0
 		}
 		return -1
 	}
-	Logger.Debugf("[BlockChain]isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	Logger.Debugf("isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}
@@ -490,12 +540,53 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
-		Logger.Errorf("[block]fail to put current, error:%s \n", err)
+		Logger.Errorf("fail to put current, error:%s \n", err)
 		return -1
 	}
 	chain.latestStateDB = state
 	chain.latestBlock = header
-
 	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
 	return 0
+}
+
+func (chain *prototypeChain) GetChainPiece(reqHeight uint64) []*types.BlockHeader {
+	chain.lock.Lock("GetChainPiece")
+	defer chain.lock.Unlock("GetChainPiece")
+	localHeight := chain.latestBlock.Height
+	Logger.Debugf("Req height:%d,local height:%d", reqHeight, localHeight)
+
+	var height uint64
+	if reqHeight > localHeight {
+		height = localHeight
+	} else {
+		height = reqHeight
+	}
+
+	var lastChainPieceBlock *types.BlockHeader
+	for i := height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		lastChainPieceBlock = bh
+		break
+	}
+	if lastChainPieceBlock == nil {
+		panic("lastChainPieceBlock should not be nil!")
+	}
+
+	chainPiece := make([]*types.BlockHeader, 0)
+	chainPiece = append(chainPiece, lastChainPieceBlock)
+
+	hash := lastChainPieceBlock.PreHash
+	for i := 0; i < ChainPieceLength; i++ {
+		header := BlockChainImpl.QueryBlockHeaderByHash(hash)
+		if header == nil {
+			//创世块 pre hash 不存在
+			break
+		}
+		chainPiece = append(chainPiece, header)
+		hash = header.PreHash
+	}
+	return chainPiece
 }
