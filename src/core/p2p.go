@@ -19,6 +19,8 @@ import (
 	"common"
 	"fmt"
 	"middleware/types"
+	"middleware/notify"
+	"yunkuai"
 )
 
 var (
@@ -61,6 +63,9 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 	GroupChainConnectorImpl = &GroupChainConnector{
 		chain: GroupChainImpl,
 	}
+
+	// yunkuai交易处理器
+	notify.BUS.Subscribe(notify.BlockAddSucc, yunkuai.GetYunKuaiProcessor().AfterBlockOnBlock)
 	return nil
 }
 
