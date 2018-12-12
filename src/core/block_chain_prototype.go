@@ -58,6 +58,7 @@ type prototypeChain struct {
 	checkdb tasdb.Database
 }
 
+
 func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error {
 	key := utility.UInt64ToByte(height)
 	return chain.checkdb.Put(key, hash)

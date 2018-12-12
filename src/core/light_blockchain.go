@@ -160,6 +160,14 @@ func initLightChain(helper types.ConsensusHelper) error {
 	return nil
 }
 
+func (chain *LightChain) RemoveTop(){
+	chain.lock.Lock("RemoveTop")
+	defer chain.lock.Unlock("RemoveTop")
+	hash := chain.latestBlock.PreHash
+	chain.remove(chain.latestBlock)
+	chain.latestBlock = chain.QueryBlockByHash(hash).Header
+}
+
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *LightChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	//panic("Not support!")

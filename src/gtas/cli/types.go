@@ -27,6 +27,7 @@ import (
 type Result struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
+
 }
 
 // ErrorResult rpc请求错误返回的可变参数部分

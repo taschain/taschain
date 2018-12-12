@@ -27,6 +27,7 @@ import (
 	"bytes"
 	"storage/trie"
 	"storage/serialize"
+	"yunkuai"
 )
 
 //var castorReward = big.NewInt(50)
@@ -184,6 +185,10 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 
 	for _, transaction := range block.Transactions {
+		// 云块的交易，无须执行
+		if transaction.ExtraDataType == yunkuai.Yunkuai_DataType{
+			continue
+		}
 		var fail = false
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
