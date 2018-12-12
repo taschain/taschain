@@ -71,8 +71,6 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
-	notify.BUS.Subscribe(notify.ChainPieceReq, handler.chainPieceReqHandler)
-	notify.BUS.Subscribe(notify.ChainPiece, handler.chainPieceHandler)
 	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
 
 	go handler.loop()
@@ -270,32 +268,9 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	core.BlockChainImpl.AddBlockOnChain(&m)
 }
 
-func (ch ChainHandler) chainPieceReqHandler(msg notify.Message) {
-	chainPieceReqMessage, ok := msg.GetData().(*notify.ChainPieceReqMessage)
-	if !ok {
-		return
-	}
-	reqHeight := utility.ByteToUInt64(chainPieceReqMessage.HeightByte)
-	id := chainPieceReqMessage.Peer
 
-	chainPiece := core.BlockChainImpl.GetChainPiece(reqHeight)
-	core.SendChainPiece(id, core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: core.BlockChainImpl.QueryTopBlock()})
-}
 
-func (ch ChainHandler) chainPieceHandler(msg notify.Message) {
-	chainPieceMessage, ok := msg.GetData().(*notify.ChainPieceMessage)
-	if !ok {
-		return
-	}
 
-	chainPieceInfo, err := unMarshalChainPieceInfo(chainPieceMessage.ChainPieceInfoByte)
-	if err != nil {
-		core.Logger.Errorf("[handler]unMarshalChainPiece error:%s", err.Error())
-		return
-	}
-	core.BlockChainImpl.ProcessChainPiece(chainPieceMessage.Peer, chainPieceInfo.ChainPiece, chainPieceInfo.TopHeader)
-
-}
 
 func (ch ChainHandler) loop() {
 	for {
@@ -447,23 +422,7 @@ func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
 	return stateInfo, nil
 }
 
-func unMarshalChainPieceInfo(b []byte) (*core.ChainPieceInfo, error) {
-	message := new(tas_middleware_pb.ChainPieceInfo)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalChainPieceInfo error:%s", e.Error())
-		return nil, e
-	}
 
-	chainPiece := make([]*types.BlockHeader, 0)
-	for _, header := range message.BlockHeaders {
-		h := types.PbToBlockHeader(header)
-		chainPiece = append(chainPiece, h)
-	}
-	topHeader := types.PbToBlockHeader(message.TopHeader)
-	chainPieceInfo := core.ChainPieceInfo{ChainPiece: chainPiece, TopHeader: topHeader}
-	return &chainPieceInfo, nil
-}
 
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)

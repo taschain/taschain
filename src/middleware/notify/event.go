@@ -21,9 +21,9 @@ const (
 
 	BlockInfoNotify = "block_info_notify"
 
-	ChainPieceReq = "chain_piece_req"
+	ChainPieceInfoReq = "chain_piece_info_req"
 
-	ChainPiece = "chain_piece"
+	ChainPieceInfo = "chain_piece_info"
 
 	GroupHeight = "group_height"
 

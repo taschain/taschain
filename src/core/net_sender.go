@@ -189,27 +189,9 @@ func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.Sta
 	network.GetNetInstance().Send(targetNode, message)
 }
 
-func RequestChainPiece(targetNode string, height uint64) {
-	Logger.Debugf("Req chain piece to:%s,local height:%d", targetNode, height)
-	body := utility.UInt64ToByte(height)
-	message := network.Message{Code: network.ChainPieceReq, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
-}
 
-func SendChainPiece(targetNode string, chainPieceInfo ChainPieceInfo) {
-	chainPiece := chainPieceInfo.ChainPiece
-	if len(chainPiece) == 0 {
-		return
-	}
-	Logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, targetNode)
-	body, e := marshalChainPieceInfo(chainPieceInfo)
-	if e != nil {
-		Logger.Errorf("Discard marshalChainPiece because of marshal error:%s!", e.Error())
-		return
-	}
-	message := network.Message{Code: network.ChainPiece, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
-}
+
+
 
 //--------------------------------------------------Transaction---------------------------------------------------------------
 func marshalTransactionRequestMessage(m *TransactionRequestMessage) ([]byte, error) {

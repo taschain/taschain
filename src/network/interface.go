@@ -61,9 +61,13 @@ const (
 
 	GroupMsg uint32 = 0x16
 	//-----------块链调整---------------------------------
-	ChainPieceReq uint32 = 0x17
+	ChainPieceInfoReq uint32 = 0x17
 
-	ChainPiece uint32 = 0x18
+	ChainPieceInfo uint32 = 0x18
+
+	ReqChainPieceBlock uint32 = 0x22
+
+	ChainPieceBlock uint32 = 0x23
 	//---------------------组创建确认-----------------------
 	CreateGroupaRaw uint32 = 0x19
 
