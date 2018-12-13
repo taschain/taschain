@@ -1,7 +1,6 @@
 package logical
 
 import (
-	"log"
 	"fmt"
 	"time"
 	"consensus/groupsig"
@@ -28,11 +27,11 @@ func newBizLog(biz string) *bizLog {
 }
 
 func (bl *bizLog) log(format string, p ...interface{})  {
-    stdLogger.Infof("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+    stdLogger.Infof("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 func (bl *bizLog) debug(format string, p ...interface{})  {
-	stdLogger.Debugf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+	stdLogger.Debugf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 //接口rt日志
@@ -51,13 +50,12 @@ func newRtLog(key string) *rtLog {
 const TIMESTAMP_LAYOUT = "2006-01-02/15:04:05.000"
 
 func (r *rtLog) log(format string, p ...interface{})  {
-	if time.Since(r.start).Nanoseconds() > 5000000 {
-		log.Printf(fmt.Sprintf("%v:%v cost %v. %v", time.Now().Format(TIMESTAMP_LAYOUT), r.key, time.Since(r.start).String(), fmt.Sprintf(format, p...)))
-	}
+	cost := time.Since(r.start)
+	stdLogger.Debugf(fmt.Sprintf("%v:begin at %v, cost %v. %v", r.key, r.start.Format(TIMESTAMP_LAYOUT), cost.String(),  fmt.Sprintf(format, p...)))
 }
 
 func (r *rtLog) end()  {
-	log.Printf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TIMESTAMP_LAYOUT), r.key))
+	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TIMESTAMP_LAYOUT), r.key))
 }
 
 //消息追踪日志，记录到文件

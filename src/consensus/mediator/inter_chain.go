@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"consensus/groupsig"
-	"bytes"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -128,14 +127,14 @@ func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err erro
 		return false, fmt.Errorf("sign is empty")
 	}
 	//检验头和签名
-    if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
-    	gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
-    	gid := groupsig.NewIDFromPubkey(gpk).Serialize()
-		if !bytes.Equal(gid, g.Id) {
-			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
-		}
-	} else {
-		return false, err
-	}
+	//if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
+    	//gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
+    	//gid := groupsig.NewIDFromPubkey(gpk).Serialize()
+	//	if !bytes.Equal(gid, g.Id) {
+	//		return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
+	//	}
+	//} else {
+	//	return false, err
+	//}
 	return true, nil
 }

@@ -25,6 +25,7 @@ import (
 	"math/big"
 	"middleware/types"
 	"sync/atomic"
+	"sync"
 )
 
 /*
@@ -58,6 +59,8 @@ type SlotContext struct {
 
 	castor groupsig.ID
 
+	initLock 	sync.Mutex
+
 	//奖励相关
 	rewardTrans    *types.Transaction
 	rewardGSignGen *model.GroupSignGenerator //奖励交易签名产生器
@@ -76,22 +79,30 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	}
 }
 
-func (sc *SlotContext) init(bh *types.BlockHeader) bool {
-	stdLogger.Infof("start verifyblock, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-	lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
-	lostTxsStrings := make([]string, len(lostTxs))
-	for idx, tx := range lostTxs {
-		lostTxsStrings[idx] = tx.ShortS()
+//加锁，只要初始化一次（verifyblock）
+func (sc *SlotContext) initIfNeeded() bool {
+	sc.initLock.Lock()
+	defer sc.initLock.Unlock()
+
+	bh := &sc.BH
+	if sc.slotStatus == SS_INITING {
+		rtlog := newRtLog("slotInit")
+		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
+		rtlog.log("height=%v, hash=%v, lost trans size %v , ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
+
+		lostTxsStrings := make([]string, len(lostTxs))
+		for idx, tx := range lostTxs {
+			lostTxsStrings[idx] = tx.ShortS()
+		}
+		sc.addLostTrans(lostTxs)
+		if ccr == -1 {
+			sc.setSlotStatus(SS_FAILED)
+			return false
+		} else {
+			sc.setSlotStatus(SS_WAITING)
+		}
 	}
-	stdLogger.Infof("initSlotContext verifyBlock height=%v, hash=%v, lost trans size %v %v, ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), lostTxsStrings, ccr)
-	sc.addLostTrans(lostTxs)
-	if ccr == -1 {
-		sc.setSlotStatus(SS_FAILED)
-		return false
-	} else {
-		sc.setSlotStatus(SS_WAITING)
-		return true
-	}
+	return true
 }
 
 func (sc *SlotContext) HasTransLost() bool {
@@ -186,7 +197,6 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 	if bh.Hash != sc.BH.Hash {
 		return CBMR_BH_HASH_DIFF
 	}
-
 	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 
 	if !add { //已经收到过该成员的验签

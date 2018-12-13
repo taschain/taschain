@@ -243,7 +243,7 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) *SlotC
 	} else {
 		blog.log("prepareSlot createSlot")
 		sc = createSlotContext(bh, vc.blockCtx.threshold())
-		sc.init(bh)
+		//sc.init(bh)
 		vc.slots[bh.Hash] = sc
 		return sc
 	}
@@ -255,6 +255,8 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 
 	slot := vc.prepareSlot(bh, blog)
 	blog.log("prepareSlot finished, hash=%v", bh.Hash.ShortS())
+
+	slot.initIfNeeded()
 
 	//警惕并发
 	if slot.IsFailed() {
