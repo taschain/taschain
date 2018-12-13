@@ -723,7 +723,7 @@ package logical
 //	time.Sleep(2)
 //	d := time.Since(now)
 //	var secs uint64 = uint64(d.Seconds())
-//		qn := int64(secs / uint64(MAX_USER_CAST_TIME))
+//		qn := int64(secs / uint64(MAX_WAIT_BLOCK_TIME))
 //		fmt.Println(secs, uint64(MAX_GROUP_BLOCK_TIME), qn)
 //}
 //
@@ -1471,7 +1471,7 @@ package logical
 ////	time.Sleep(2)
 ////	d := time.Since(now)
 ////	var secs uint64 = uint64(d.Seconds())
-////		qn := int64(secs / uint64(MAX_USER_CAST_TIME))
+////		qn := int64(secs / uint64(MAX_WAIT_BLOCK_TIME))
 ////		fmt.Println(secs, uint64(MAX_GROUP_BLOCK_TIME), qn)
 ////}
 ////

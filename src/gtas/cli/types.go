@@ -148,6 +148,11 @@ type BlockDetail struct {
 	PreTotalQN	uint64 `json:"pre_total_qn"`
 }
 
+type BlockReceipt struct {
+	Receipts []*types.Receipt `json:"receipts"`
+	EvictedReceipts []*types.Receipt `json:"evictedReceipts"`
+}
+
 type Group struct {
 	Height uint64 `json:"height"`
 	Id groupsig.ID `json:"id"`
