@@ -132,6 +132,8 @@ type TransactionPool interface {
 	GetReceived() []*types.Transaction
 
 	Clear()
+
+	GetExecuted(hash common.Hash) *ReceiptWrapper
 }
 
 //组管理接口
