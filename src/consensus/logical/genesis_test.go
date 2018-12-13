@@ -14,7 +14,7 @@ import (
 	"consensus/base"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/yunkuai`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
@@ -38,7 +38,7 @@ func initProcessor(conf string) *Processor {
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := 3
+	maxProcNum := 9
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
@@ -85,7 +85,6 @@ func TestGenesisGroup(t *testing.T) {
 	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
 
 	InitConsensus()
-	model.InitParam()
 
 	procs, _ := processors()
 
