@@ -43,12 +43,14 @@ const (
 const MaxSendPriority = 3
 const MaxPendingSend = 5
 const MaxSendListSize = 256
+const WaitTimeout = 5*time.Second
 
 type SendListItem struct {
 	priority int
 	list     *list.List
 	quota    int
 	curQuota int
+
 }
 
 func newSendListItem(priority int, quota int) *SendListItem {
@@ -64,12 +66,13 @@ type SendList struct {
 	pendingSend   int
 	totalQuota    int
 	curQuota      int
+	lastOnWait  time.Time
 }
 
 func newSendList() *SendList {
 	PriorityQuota := [MaxSendPriority]int{5, 3, 2}
 
-	sl := &SendList{}
+	sl := &SendList{lastOnWait:time.Now()}
 
 	for i := 0; i < MaxSendPriority; i++ {
 		sl.list[i] = newSendListItem(i, PriorityQuota[i])
@@ -105,6 +108,12 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		return
 	}
 
+	diff := time.Since(sendList.lastOnWait)
+
+	if diff > WaitTimeout {
+		sendList.onSendWaited(peer)
+	}
+
 	priority, isExist := sendList.priorityTable[uint32(code)]
 	if !isExist {
 		priority = MaxSendPriority - 1
@@ -122,6 +131,12 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 
 func (sendList *SendList) isSendAvailable() bool {
 	return sendList.pendingSend < MaxPendingSend
+}
+
+func (sendList *SendList) onSendWaited(peer *Peer) {
+	sendList.pendingSend = 0
+	sendList.lastOnWait = time.Now()
+	sendList.autoSend(peer)
 }
 
 func (sendList *SendList) autoSend(peer *Peer) {
@@ -244,8 +259,7 @@ func (p *Peer) popData() *bytes.Buffer {
 func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.sendList.pendingSend = 0
-	p.sendList.autoSend(p)
+	p.sendList.onSendWaited(p)
 }
 
 func (p *Peer) resetData() {

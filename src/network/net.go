@@ -37,7 +37,7 @@ const (
 	PacketTypeSize           = 4
 	PacketLenSize            = 4
 	PacketHeadSize           = PacketTypeSize + PacketLenSize
-	MaxUnhandledMessageCount = 256
+	MaxUnhandledMessageCount = 10000
 	P2PMessageCodeBase       = 10000
 )
 
