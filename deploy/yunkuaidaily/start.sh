@@ -4,7 +4,7 @@ instance_count=$2
 instance_end=$instance_index+$instance_count
 nat_server=$3
 build_number=$4
-apply=$5
+apply='heavy'
 light=$6
 
 for((;instance_index<instance_end;instance_index++))
