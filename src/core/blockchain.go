@@ -130,7 +130,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
-	consensusLogger = taslog.GetLoggerByName("consensus" + common.GlobalConf.GetString("instance", "index", ""))
+	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
 	chain := &FullBlockChain{
 		config: getBlockChainConfig(),

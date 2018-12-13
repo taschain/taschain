@@ -163,7 +163,10 @@ func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 		bh := &sc.BH
 		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
 		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
-		p.successNewBlock(vctx, sc) //上链和组外广播
+
+		//异步进行，使得请求快速返回，防止消息积压
+		go p.successNewBlock(vctx, sc) //上链和组外广播
+
 		p.blockContexts.removeReservedVctx(vctx.castHeight)
 		return true
 	}
@@ -179,6 +182,10 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 	blog := newBizLog("successNewBlock")
 
+	if slot.IsFailed() {
+		blog.log("slot is failed")
+		return
+	}
 	if vctx.broadCasted() {
 		blog.log("block broadCasted!")
 		return
@@ -199,6 +206,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	r := p.doAddOnChain(block)
 
 	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
+		slot.setSlotStatus(SS_FAILED)
 		return
 	}
 
