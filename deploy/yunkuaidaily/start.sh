@@ -1,8 +1,11 @@
 #!/bin/bash
-instance_index=1
-instance_count=$1
+instance_index=$1
+instance_count=$2
 instance_end=$instance_index+$instance_count
-
+nat_server=$3
+build_number=$4
+apply=$5
+light=$6
 
 for((;instance_index<instance_end;instance_index++))
 
@@ -26,9 +29,8 @@ do
 	fi
 
 	if [ $instance_index -eq 1 ];then
-		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test  --seed 120.77.41.14 > $stdout_log 2>&1 & echo $! > $pid_file
+		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index  --nat $nat_server  --pprof $pprof_port --apply $apply  > $stdout_log 2>&1 & echo $! > $pid_file
 	else
-		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test  --seed 120.77.41.14 > $stdout_log 2>&1 & echo $! > $pid_file
+		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index  --nat $nat_server  --pprof $pprof_port --apply $apply  > $stdout_log 2>&1 & echo $! > $pid_file
 	fi
-	sleep 1
 done
