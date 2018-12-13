@@ -1,7 +1,6 @@
 package logical
 
 import (
-	"log"
 	"fmt"
 	"time"
 	"consensus/groupsig"
@@ -28,11 +27,11 @@ func newBizLog(biz string) *bizLog {
 }
 
 func (bl *bizLog) log(format string, p ...interface{})  {
-    stdLogger.Infof("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+    stdLogger.Infof("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 func (bl *bizLog) debug(format string, p ...interface{})  {
-	stdLogger.Debugf("%v,%v:%v\n", time.Now().Format(TIMESTAMP_LAYOUT),bl.biz, fmt.Sprintf(format, p...))
+	stdLogger.Debugf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 //接口rt日志
