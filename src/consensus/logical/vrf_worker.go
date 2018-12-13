@@ -54,8 +54,26 @@ func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight ui
 	}
 }
 
+func (vrf *vrfWorker) m() []byte {
+	h := vrf.castHeight - vrf.baseBH.Height
+	return vrfM(vrf.baseBH.Random, h)
+}
+
+func vrfM(random []byte, h uint64) []byte {
+	if h <= 0 {
+		panic(fmt.Sprintf("vrf height error! deltaHeight=%v", h))
+	}
+	data := random
+	for h > 1 {
+		h--
+		hash := base.Data2CommonHash(data)
+		data = hash.Bytes()
+	}
+	return data
+}
+
 func (vrf *vrfWorker) prove(totalStake uint64) (base.VRFProve, uint64, error) {
-	pi, err := base.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.baseBH.Random)
+	pi, err := base.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.m())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -100,7 +118,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
 	pi := base.VRFProve(bh.ProveValue.Bytes())
-	ok, err := base.VRF_verify(miner.VrfPK, pi, preBH.Random)
+	ok, err := base.VRF_verify(miner.VrfPK, pi, vrfM(preBH.Random, bh.Height-preBH.Height))
 	if !ok {
 		return ok, err
 	}
