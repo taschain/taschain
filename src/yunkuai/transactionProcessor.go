@@ -54,7 +54,7 @@ func (y *YunKuaiProcessor) AfterBlockOnBlock(message notify.Message) {
 	}
 
 	for _, tx := range txs {
-		if tx.ExtraDataType == Yunkuai_DataType {
+		if tx.Type == types.TransactionYunkuai {
 			// 保存索引
 			y.index.Put(tx.Data, tx.Hash.Bytes())
 		}

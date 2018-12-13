@@ -83,11 +83,12 @@ func (api *GtasAPI) L(data string, extradata []byte) *Result {
 		Source: &addr_s,
 		Target: &addr_t,
 
+		Type: types.TransactionYunkuai,
+
 		GasLimit: 0,
 		GasPrice: 0,
 
-		ExtraData:     extradata,
-		ExtraDataType: yunkuai.Yunkuai_DataType,
+		ExtraData: extradata,
 	}
 	hash := tx.GenHash()
 	tx.Hash = hash

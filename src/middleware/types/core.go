@@ -31,8 +31,8 @@ const (
 	TransactionTypeMinerApply     = 4
 	TransactionTypeMinerAbort     = 5
 	TransactionTypeMinerRefund    = 6
-
-	TransactionTypeToBeRemoved = -1
+	TransactionYunkuai            = 7
+	TransactionTypeToBeRemoved    = -1
 )
 
 type Transaction struct {
@@ -49,8 +49,8 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
-	PubKey *common.PublicKey
-	Sign   *common.Sign
+	PubKey        *common.PublicKey
+	Sign          *common.Sign
 }
 
 func (tx *Transaction) GenHash() common.Hash {
@@ -245,18 +245,18 @@ type Member struct {
 }
 
 type GroupHeader struct {
-	Hash common.Hash //组头hash
-	Parent []byte //父亲组 的组ID
-	PreGroup []byte //前一块的ID
-	Authority uint64 //权限相关数据（父亲组赋予）
-	Name string //父亲组取的名字
-	BeginTime time.Time
-	MemberRoot common.Hash //成员列表hash
-	CreateHeight uint64 //建组高度
-	ReadyHeight uint64 //准备就绪最迟高度
-	WorkHeight uint64 //组开始参与铸块的高度
-	DismissHeight uint64 //组解散的高度
-	Extends string //带外数据
+	Hash          common.Hash //组头hash
+	Parent        []byte      //父亲组 的组ID
+	PreGroup      []byte      //前一块的ID
+	Authority     uint64      //权限相关数据（父亲组赋予）
+	Name          string      //父亲组取的名字
+	BeginTime     time.Time
+	MemberRoot    common.Hash //成员列表hash
+	CreateHeight  uint64      //建组高度
+	ReadyHeight   uint64      //准备就绪最迟高度
+	WorkHeight    uint64      //组开始参与铸块的高度
+	DismissHeight uint64      //组解散的高度
+	Extends       string      //带外数据
 }
 
 func (gh *GroupHeader) GenHash() common.Hash {
@@ -280,10 +280,10 @@ func (gh *GroupHeader) GenHash() common.Hash {
 type Group struct {
 	Header *GroupHeader
 	//不参与签名
-	Id []byte
-	PubKey []byte
-	Signature []byte
-	Members [][]byte //成员id列表
+	Id          []byte
+	PubKey      []byte
+	Signature   []byte
+	Members     [][]byte //成员id列表
 	GroupHeight uint64
 }
 
