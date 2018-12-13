@@ -47,7 +47,7 @@ type GtasAPI struct {
 }
 
 func (api *GtasAPI) R() *Result {
-	height:= core.BlockChainImpl.Height()
+	height := core.BlockChainImpl.Height()
 	core.BlockChainImpl.RemoveTop()
 	return &Result{
 		Message: fmt.Sprintf("Removed block height: %d", height),
@@ -100,10 +100,10 @@ func (api *GtasAPI) L(data string, extradata []byte) *Result {
 			//Success: false,
 		}
 	}
-	txpool.AddTransaction(tx)
+	flag, err := txpool.AddTransaction(tx)
 
 	return &Result{
-		Message: fmt.Sprintf("Transaction hash: %s", hash.String()),
+		Message: fmt.Sprintf("Transaction hash: %s, success: %t, error: %s", hash.String(), flag, err),
 		Data:    hash.String(),
 		//Success: false,
 	}
