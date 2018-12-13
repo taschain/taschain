@@ -12,20 +12,18 @@ import (
 */
 
 const (
-	MAX_GROUP_BLOCK_TIME int = 10                                //组铸块最大允许时间=10s
-	MAX_USER_CAST_TIME int = 2                                   //个人出块最大允许时间=2s
-	MAX_CAST_SLOT	= 3						//最大验证槽个数
-	CONSENSUS_VERSION = 1                 //共识版本号
-	MAX_UNKNOWN_BLOCKS = 5                //内存保存最大不能上链的未来块（中间块没有收到）
-	INVALID_QN = -1                       //无效的队列序号
-	GROUP_INIT_MAX_SECONDS = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
+	MAX_GROUP_BLOCK_TIME   int = 10           //组铸块最大允许时间=10s
+	MAX_WAIT_BLOCK_TIME    int = 2            //广播出块前等待最大时间=2s
+	CONSENSUS_VERSION          = 1            //共识版本号
+	MAX_UNKNOWN_BLOCKS         = 5            //内存保存最大不能上链的未来块（中间块没有收到）
+	GROUP_INIT_MAX_SECONDS     = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
 
 	SSSS_THRESHOLD int = 51                 //1-100
 	GROUP_MAX_MEMBERS int = 3             //一个组最大的成员数量
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
-	EPOCH uint64 = 4
+	EPOCH int = 4
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 5	//组准备就绪后, 等待可以铸块的间隔为4个epoch
 	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
@@ -36,8 +34,8 @@ type ConsensusParam struct {
 	GroupMember int
 	MaxQN 	int
 	SSSSThreshold int
-	MaxUserCastTime int
 	MaxGroupCastTime int
+	MaxWaitBlockTime int
 	MaxFutureBlock int
 	GroupInitMaxSeconds int
 	Epoch	uint64
@@ -47,7 +45,7 @@ type ConsensusParam struct {
 	GroupGetReadyGap uint64
 	GroupCastQualifyGap uint64
 	GroupCastDuration	uint64
-	EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
+	//EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
 	PotentialProposal	int 	//潜在提案者
 
 	ProposalBonus 		uint64	//提案奖励
@@ -58,23 +56,22 @@ type ConsensusParam struct {
 
 var Param ConsensusParam
 
-func InitParam() {
-	cc := common.GlobalConf.GetSectionManager("consensus")
+func InitParam(cc common.SectionConfManager) {
 	Param = ConsensusParam{
-		GroupMember: cc.GetInt("GROUP_MAX_MEMBERS", GROUP_MAX_MEMBERS),
-		SSSSThreshold: cc.GetInt("SSSS_THRESHOLD", SSSS_THRESHOLD),
-		MaxUserCastTime: cc.GetInt("MAX_USER_CAST_TIME", MAX_USER_CAST_TIME),
-		MaxGroupCastTime: MAX_GROUP_BLOCK_TIME,
+		GroupMember: cc.GetInt("group_member", GROUP_MAX_MEMBERS),
+		SSSSThreshold: SSSS_THRESHOLD,
+		MaxWaitBlockTime: cc.GetInt("max_wait_block_time", MAX_WAIT_BLOCK_TIME),
+		MaxGroupCastTime: cc.GetInt("max_group_cast_time", MAX_GROUP_BLOCK_TIME),
 		MaxQN: 5,
 		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
-		Epoch: EPOCH,
-		MinerMaxJoinGroup: MINER_MAX_JOINED_GROUP,
-		CandidatesMinRatio: CANDIDATES_MIN_RATIO,
-		GroupGetReadyGap: GROUP_GET_READY_GAP,
-		GroupCastQualifyGap: GROUP_CAST_QUALIFY_GAP,
-		GroupCastDuration: GROUP_CAST_DURATION,
-		EffectGapAfterApply: EPOCH,
+		Epoch: uint64(cc.GetInt("epoch", EPOCH)),
+		MinerMaxJoinGroup: cc.GetInt("miner_max_join_group", MINER_MAX_JOINED_GROUP),
+		CandidatesMinRatio: cc.GetInt("candidates_min_ratio", CANDIDATES_MIN_RATIO),
+		GroupGetReadyGap: uint64(cc.GetInt("group_ready_gap", GROUP_GET_READY_GAP)),
+		GroupCastQualifyGap: uint64(cc.GetInt("group_cast_qualify_gap", GROUP_CAST_QUALIFY_GAP)),
+		GroupCastDuration: uint64(cc.GetInt("group_cast_duration", GROUP_CAST_DURATION)),
+		//EffectGapAfterApply: EPOCH,
 		PotentialProposal: 5,
 		ProposalBonus: 	50,
 		PackBonus: 10,

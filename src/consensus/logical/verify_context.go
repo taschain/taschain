@@ -328,7 +328,7 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 		//blog.log("not success st=%v", vc.consensusStatus)
 		return nil
 	}
-	if time.Since(vc.createTime).Seconds() < 1 {
+	if time.Since(vc.createTime).Seconds() < float64(model.Param.MaxWaitBlockTime) {
 		//blog.log("not the time, creatTime %v, now %v, since %v", vc.createTime, time.Now(), time.Since(vc.createTime).String())
 		return nil
 	}

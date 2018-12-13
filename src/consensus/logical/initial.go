@@ -3,6 +3,7 @@ package logical
 import (
 	"taslog"
 	"common"
+	"consensus/model"
 )
 
 /*
@@ -50,5 +51,6 @@ func InitConsensus() {
 	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	stdLogger = taslog.GetLoggerByIndex(taslog.StdConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	consensusConfManager = cc
+	model.InitParam(cc)
 	return
 }
