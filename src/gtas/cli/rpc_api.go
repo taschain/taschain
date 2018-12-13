@@ -396,6 +396,31 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	return successResult(bd)
 }
 
+func (api *GtasAPI) BlockReceipts(h string) (*Result, error){
+	chain := core.BlockChainImpl
+	bh := chain.QueryBlockHeaderByHash(common.HexToHash(h))
+	if bh == nil {
+		return failResult("block not found")
+	}
+
+	evictedReceipts := make([]*types.Receipt,0)
+	for _, tx := range bh.EvictedTxs{
+		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		if wrapper != nil{
+			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
+		}
+	}
+	receipts := make([]*types.Receipt,len(bh.Transactions))
+	for i, tx := range bh.Transactions{
+		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		if wrapper != nil{
+			receipts[i] = wrapper.Receipt
+		}
+	}
+	br := &BlockReceipt{EvictedReceipts:evictedReceipts, Receipts:receipts}
+	return successResult(br)
+}
+
 func (api *GtasAPI) TransDetail(h string) (*Result, error) {
 	tx, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(h))
 	if err != nil {
