@@ -33,4 +33,5 @@ do
 	else
 		nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index  --nat $nat_server  --pprof $pprof_port --apply $apply  > $stdout_log 2>&1 & echo $! > $pid_file
 	fi
+	sleep 1
 done
