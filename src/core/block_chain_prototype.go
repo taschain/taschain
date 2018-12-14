@@ -103,8 +103,7 @@ func (chain *prototypeChain) TotalQN() uint64 {
 
 //查询最高块
 func (chain *prototypeChain) QueryTopBlock() *types.BlockHeader {
-	chain.lock.RLock("QueryTopBlock")
-	defer chain.lock.RUnlock("QueryTopBlock")
+	//这里不应该加锁或者加一个粒度小的锁
 	result := *chain.latestBlock
 	return &result
 }
@@ -309,10 +308,6 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 //	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 //}
 
-
-
-
-
 // 删除块 只删除最高块
 func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 	if header.Hash != chain.latestBlock.Hash {
@@ -349,7 +344,7 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
 	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 
-	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(),commonAncestor.Height,chain.latestBlock.Height)
+	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(), commonAncestor.Height, chain.latestBlock.Height)
 
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
@@ -361,8 +356,6 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 		Logger.Debugf("Remove local chain headers %d", header.Height)
 	}
 }
-
-
 
 func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
 	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
@@ -418,27 +411,23 @@ func (chain *prototypeChain) GetChainPiece(reqHeight uint64) []*types.BlockHeade
 	return chainPiece
 }
 
-func (fh *forkHandler) processChainPieceInfo(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) {
-	if id != fh.candidite {
-		return
-	}
+//status 0 忽略该消息  不需要同步
+//status 1 需要同步ChainPieceBlock
+//status 2 需要继续同步ChainPieceInfo
+func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64) {
+	chain.lock.Lock("ProcessChainPieceInfo")
+	defer chain.lock.Unlock("ProcessChainPieceInfo")
 
 	localTopHeader := BlockChainImpl.QueryTopBlock()
 	if topHeader.TotalQN < localTopHeader.TotalQN {
-		return
+		return 0, -1
 	}
-
-	if !fh.verifyChainPiece(chainPiece, topHeader) {
-		return
-	}
-	fh.logger.Debugf("ProcessChainPiece id:%s,chainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v",
-		id, chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
-	commonAncestor, hasCommonAncestor, index := fh.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
+	Logger.Debugf("ProcessChainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
+	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
 	if hasCommonAncestor {
-		fh.logger.Debugf("Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, localTopHeader.Height)
+		Logger.Debugf("Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, localTopHeader.Height)
 		if topHeader.TotalQN > localTopHeader.TotalQN {
-			RequestBlock(id, commonAncestor.Height+1)
-			return
+			return 1, commonAncestor.Height + 1
 		}
 
 		if topHeader.TotalQN == chain.latestBlock.TotalQN {
@@ -450,72 +439,47 @@ func (fh *forkHandler) processChainPieceInfo(id string, chainPiece []*types.Bloc
 				}
 			}
 			if remoteNext == nil {
-				return
+				return 0, -1
 			}
 			if chain.compareValue(commonAncestor, remoteNext) {
-				fh.logger.Debugf("Local value is great than coming value!")
-				return
+				Logger.Debugf("Local value is great than coming value!")
+				return 0, -1
 			}
-			fh.logger.Debugf("Coming value is great than local value!")
-			chain.removeFromCommonAncestor(commonAncestor)
-			RequestBlock(id, commonAncestor.Height+1)
+			Logger.Debugf("Coming value is great than local value!")
+			return 1, commonAncestor.Height + 1
 		}
 	} else {
 		if index == 0 {
-			fh.logger.Debugf("Local chain is same with coming chain piece.")
+			Logger.Debugf("Local chain is same with coming chain piece.")
 			if chainPiece[0].Height == chain.latestBlock.Height {
-				RequestBlock(id, chainPiece[0].Height+1)
-				return
+				return 1, chainPiece[0].Height + 1
 			}
-			fh.logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
-			return
+			Logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
+			return 0, -1
 		} else {
-			fh.logger.Debugf("Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
-			RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
+			Logger.Debugf("Do not find common ancestor in chain piece info:%d-%d!Continue to request chain piece info,base height:%d", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, chainPiece[len(chainPiece)-1].Height-1, )
+			return -1, chainPiece[len(chainPiece)-1].Height
 		}
 	}
 }
 
-func (fh *forkHandler) verifyChainPiece(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) bool {
-	if len(chainPiece) == 0 {
-		return false
-	}
-	if topHeader.Hash != topHeader.GenHash() {
-		fh.logger.Infof("invalid topHeader!Hash:%s", topHeader.Hash.String())
-		return false
-	}
-
-	for i := 0; i < len(chainPiece)-1; i++ {
-		bh := chainPiece[i]
-		if bh.Hash != bh.GenHash() {
-			fh.logger.Infof("invalid chainPiece element,hash:%s", bh.Hash.String())
-			return false
-		}
-		if bh.PreHash != chainPiece[i+1].Hash {
-			fh.logger.Infof("invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
-			return false
-		}
-	}
-	return true
-}
-
-func (fh *forkHandler) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
+func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
 	if commonAncestor.Height == chain.latestBlock.Height {
 		return false
 	}
 	var localValue *big.Int
 	remoteValue := chain.consensusHelper.VRFProve2Value(remoteHeader.ProveValue)
-	fh.logger.Debugf("coming hash:%s,coming value is:%v", remoteHeader.Hash.String(), remoteValue)
-	fh.logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
+	Logger.Debugf("coming hash:%s,coming value is:%v", remoteHeader.Hash.String(), remoteValue)
+	Logger.Debugf("compareValue hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 	for height := commonAncestor.Height + 1; height <= chain.latestBlock.Height; height++ {
-		fh.logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
+		Logger.Debugf("compareValue queryBlockHeaderByHeight height:%d ", height)
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
-			fh.logger.Debugf("compareValue queryBlockHeaderByHeight nil !height:%d ", height)
+			Logger.Debugf("compareValue queryBlockHeaderByHeight nil !height:%d ", height)
 			continue
 		}
 		localValue = chain.consensusHelper.VRFProve2Value(header.ProveValue)
-		fh.logger.Debugf("local hash:%s,local value is:%v", header.Hash.String(), localValue)
+		Logger.Debugf("local hash:%s,local value is:%v", header.Hash.String(), localValue)
 		break
 	}
 	if localValue == nil {
@@ -527,23 +491,23 @@ func (fh *forkHandler) compareValue(commonAncestor *types.BlockHeader, remoteHea
 	return false
 }
 
-func (fh *forkHandler) findCommonAncestor(chainPiece []*types.BlockHeader, l int, r int) (*types.BlockHeader, bool, int) {
+func (chain *prototypeChain) findCommonAncestor(chainPiece []*types.BlockHeader, l int, r int) (*types.BlockHeader, bool, int) {
 	if l > r {
 		return nil, false, -1
 	}
 
 	m := (l + r) / 2
-	result := fh.isCommonAncestor(chainPiece, m)
+	result := chain.isCommonAncestor(chainPiece, m)
 	if result == 0 {
 		return chainPiece[m], true, m
 	}
 
 	if result == 1 {
-		return fh.findCommonAncestor(chainPiece, l, m-1)
+		return chain.findCommonAncestor(chainPiece, l, m-1)
 	}
 
 	if result == -1 {
-		return fh.findCommonAncestor(chainPiece, m+1, r)
+		return chain.findCommonAncestor(chainPiece, m+1, r)
 	}
 	if result == 100 {
 		return nil, false, 0
@@ -558,7 +522,7 @@ func (fh *forkHandler) findCommonAncestor(chainPiece []*types.BlockHeader, l int
 //100  当前HASH相等，但是到达数组边界，找不到后面一块 无法判断同祖先
 //-1  当前HASH不相等
 //-100 参数不合法
-func (fh *forkHandler) isCommonAncestor(chainPiece []*types.BlockHeader, index int) int {
+func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, index int) int {
 	if index < 0 || index >= len(chainPiece) {
 		return -100
 	}
@@ -566,10 +530,10 @@ func (fh *forkHandler) isCommonAncestor(chainPiece []*types.BlockHeader, index i
 
 	bh := chain.queryBlockHeaderByHeight(he.Height, true)
 	if bh == nil {
-		fh.logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, nil, he.Hash)
+		Logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, nil, he.Hash)
 		return -1
 	}
-	fh.logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
+	Logger.Debugf("isCommonAncestor:Height:%d,local hash:%x,coming hash:%x\n", he.Height, bh.Hash, he.Hash)
 	if index == 0 && bh.Hash == he.Hash {
 		return 100
 	}
@@ -580,13 +544,13 @@ func (fh *forkHandler) isCommonAncestor(chainPiece []*types.BlockHeader, index i
 	afterHe := chainPiece[index-1]
 	afterbh := chain.queryBlockHeaderByHeight(afterHe.Height, true)
 	if afterbh == nil {
-		fh.logger.Debugf("isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
+		Logger.Debugf("isCommonAncestor:after block height:%d,local hash:%s,coming hash:%x\n", afterHe.Height, "null", afterHe.Hash)
 		if afterHe != nil && bh.Hash == he.Hash {
 			return 0
 		}
 		return -1
 	}
-	fh.logger.Debugf("isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
+	Logger.Debugf("isCommonAncestor:after block height:%d,local hash:%x,coming hash:%x\n", afterHe.Height, afterbh.Hash, afterHe.Hash)
 	if afterHe.Hash != afterbh.Hash && bh.Hash == he.Hash {
 		return 0
 	}

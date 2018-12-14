@@ -118,29 +118,29 @@ func (m *BlockInfoNotifyMessage) GetData() interface{} {
 	return m
 }
 
-type ChainPieceReqMessage struct {
+type ChainPieceInfoReqMessage struct {
 	HeightByte []byte
 
 	Peer string
 }
 
-func (m *ChainPieceReqMessage) GetRaw() []byte {
+func (m *ChainPieceInfoReqMessage) GetRaw() []byte {
 	return nil
 }
-func (m *ChainPieceReqMessage) GetData() interface{} {
+func (m *ChainPieceInfoReqMessage) GetData() interface{} {
 	return m
 }
 
-type ChainPieceMessage struct {
+type ChainPieceInfoMessage struct {
 	ChainPieceInfoByte []byte
 
 	Peer string
 }
 
-func (m *ChainPieceMessage) GetRaw() []byte {
+func (m *ChainPieceInfoMessage) GetRaw() []byte {
 	return nil
 }
-func (m *ChainPieceMessage) GetData() interface{} {
+func (m *ChainPieceInfoMessage) GetData() interface{} {
 	return m
 }
 

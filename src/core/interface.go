@@ -103,7 +103,7 @@ type BlockChain interface {
 
 	GetChainPiece(reqHeight uint64) []*types.BlockHeader
 
-	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
+	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
 }
 
 type TransactionPool interface {

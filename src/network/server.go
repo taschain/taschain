@@ -267,14 +267,14 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		}
 		msg := notify.BlockMessage{Block: *block}
 		notify.BUS.Publish(notify.NewBlock, &msg)
-	case ChainPieceReq:
-		Logger.Debugf("Rcv ChainPieceReq from %s", from)
-		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceReq, &msg)
-	case ChainPiece:
-		Logger.Debugf("Rcv ChainPiece from %s", from)
-		msg := notify.ChainPieceMessage{ChainPieceInfoByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPiece, &msg)
+	case ChainPieceInfoReq:
+		Logger.Debugf("Rcv ChainPieceInfoReq from %s", from)
+		msg := notify.ChainPieceInfoReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceInfoReq, &msg)
+	case ChainPieceInfo:
+		Logger.Debugf("Rcv ChainPieceInfo from %s", from)
+		msg := notify.ChainPieceInfoMessage{ChainPieceInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceInfo, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {
