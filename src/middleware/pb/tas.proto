@@ -386,9 +386,19 @@ message CastRewardTransSignMessage {
     required bytes BlockHash = 3;
 }
 
-message BlockInfo{
+message TopBlockInfo{
     required	bytes   Hash = 1;
     required	uint64   TotalQn = 2;
     required	uint64   Height = 3;
     required	bytes   PreHash = 4;
+}
+
+message BlockMsgResponse{
+    required bool IsLast = 1;
+    optional Block Block = 2;
+}
+
+message ChainPieceBlockMsg{
+    required bool IsTop = 1;
+    required Block Block = 2;
 }

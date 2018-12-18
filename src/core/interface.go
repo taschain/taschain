@@ -103,7 +103,12 @@ type BlockChain interface {
 
 	GetChainPiece(reqHeight uint64) []*types.BlockHeader
 
+	//status 0 忽略该消息  不需要同步
+	//status 1 需要同步ChainPieceBlock
+	//status 2 需要继续同步ChainPieceInfo
 	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
+
+	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
 }
 
 type TransactionPool interface {

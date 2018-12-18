@@ -218,6 +218,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		}
 	}
 
+	chain.forkProcessor = initforkProcessor()
 	BlockChainImpl = chain
 	return nil
 }
@@ -373,7 +374,7 @@ func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 //返回值: 0,上链成功
 //       -1，验证失败
 //        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
-//        2，未上链(异步进行分叉调整)
+//        2,分叉调整)
 func (chain *FullBlockChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
@@ -408,9 +409,6 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		return -1
 	}
 
-	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
-	Logger.Debugf("Local tophash=%v, topPreH=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
-
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
@@ -431,7 +429,7 @@ func (chain *FullBlockChain) addBlockOnChain(b *types.Block) int8 {
 		chain.removeFromCommonAncestor(commonAncestor)
 		return chain.addBlockOnChain(b)
 	}
-	panic("Should not be here!")
+	return 2
 }
 
 func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -500,7 +498,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
-	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(*types.Block)
 		Logger.Debugf("Get block from future blocks,hash:%s,height:%d", block.Header.Hash.String(), block.Header.Height)
@@ -510,10 +508,8 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	if BlockSyncer != nil {
-		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
-		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
-		Logger.Infof("After oN chain succ and future blocks don't have next block.Try sync!")
-		go BlockSyncer.sync(nil)
+		topBlockInfo := TopBlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.sendTopBlockInfoToNeighbor(topBlockInfo)
 	}
 }
 

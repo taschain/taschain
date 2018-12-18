@@ -1,113 +1,59 @@
 package notify
 
-import "middleware/types"
+import (
+	"middleware/types"
+)
 
-type BlockMessage struct {
-	Block types.Block
+type NewBlockMessage struct {
+	BlockByte []byte
+	Peer      string
 }
 
-func (m *BlockMessage) GetRaw() []byte {
-	return []byte{}
+func (m *NewBlockMessage) GetRaw() []byte {
+	return m.BlockByte
 }
-func (m *BlockMessage) GetData() interface{} {
-	return m.Block
-}
-
-type GroupMessage struct {
-	Group types.Group
-}
-
-func (m *GroupMessage) GetRaw() []byte {
-	return []byte{}
-}
-func (m *GroupMessage) GetData() interface{} {
-	return m.Group
-}
-
-type BlockHeaderNotifyMessage struct {
-	HeaderByte []byte
-
-	Peer string
-}
-
-func (m *BlockHeaderNotifyMessage) GetRaw() []byte {
-	return nil
-}
-
-func (m *BlockHeaderNotifyMessage) GetData() interface{} {
-	return m
-}
-
-type BlockBodyReqMessage struct {
-	BlockHashByte []byte
-
-	Peer string
-}
-
-func (m *BlockBodyReqMessage) GetRaw() []byte {
-	return nil
-}
-
-func (m *BlockBodyReqMessage) GetData() interface{} {
-	return m
-}
-
-type BlockBodyNotifyMessage struct {
-	BodyByte []byte
-
-	Peer string
-}
-
-func (m *BlockBodyNotifyMessage) GetRaw() []byte {
-	return nil
-}
-func (m *BlockBodyNotifyMessage) GetData() interface{} {
-	return m
-}
-
-type StateInfoReqMessage struct {
-	StateInfoReqByte []byte
-
-	Peer string
-}
-
-func (m *StateInfoReqMessage) GetRaw() []byte {
-	return nil
-}
-func (m *StateInfoReqMessage) GetData() interface{} {
-	return m
-}
-
-type StateInfoMessage struct {
-	StateInfoByte []byte
-
-	Peer string
-}
-
-func (m *StateInfoMessage) GetRaw() []byte {
-	return nil
-}
-func (m *StateInfoMessage) GetData() interface{} {
+func (m *NewBlockMessage) GetData() interface{} {
 	return m
 }
 
 type BlockReqMessage struct {
 	HeightByte []byte
-
-	Peer string
+	Peer       string
 }
 
 func (m *BlockReqMessage) GetRaw() []byte {
-	return nil
+	return m.HeightByte
 }
 func (m *BlockReqMessage) GetData() interface{} {
 	return m
 }
 
+type BlockResponseMessage struct {
+	BlockResponseByte []byte
+	Peer              string
+}
+
+func (m *BlockResponseMessage) GetRaw() []byte {
+	return m.BlockResponseByte
+}
+func (m *BlockResponseMessage) GetData() interface{} {
+	return m
+}
+
+type BlockOnChainSuccMessage struct {
+	Block types.Block
+}
+
+func (m *BlockOnChainSuccMessage) GetRaw() []byte {
+	return []byte{}
+}
+func (m *BlockOnChainSuccMessage) GetData() interface{} {
+	return m.Block
+}
+
 type BlockInfoNotifyMessage struct {
 	BlockInfo []byte
-
-	Peer string
+	Peer      string
 }
 
 func (m *BlockInfoNotifyMessage) GetRaw() []byte {
@@ -117,11 +63,10 @@ func (m *BlockInfoNotifyMessage) GetRaw() []byte {
 func (m *BlockInfoNotifyMessage) GetData() interface{} {
 	return m
 }
-
+//------------------------------------------------fork------------------------------------------------------------------
 type ChainPieceInfoReqMessage struct {
 	HeightByte []byte
-
-	Peer string
+	Peer       string
 }
 
 func (m *ChainPieceInfoReqMessage) GetRaw() []byte {
@@ -133,21 +78,96 @@ func (m *ChainPieceInfoReqMessage) GetData() interface{} {
 
 type ChainPieceInfoMessage struct {
 	ChainPieceInfoByte []byte
-
-	Peer string
+	Peer               string
 }
 
 func (m *ChainPieceInfoMessage) GetRaw() []byte {
-	return nil
+	return m.ChainPieceInfoByte
 }
 func (m *ChainPieceInfoMessage) GetData() interface{} {
 	return m
 }
 
+type ChainPieceBlockReqMessage struct {
+	ReqHeightByte []byte
+	Peer          string
+}
+
+func (m *ChainPieceBlockReqMessage) GetRaw() []byte {
+	return m.ReqHeightByte
+}
+func (m *ChainPieceBlockReqMessage) GetData() interface{} {
+	return m
+}
+
+type ChainPieceBlockMessage struct {
+	ChainPieceBlockMsgByte []byte
+	Peer          string
+}
+
+func (m *ChainPieceBlockMessage) GetRaw() []byte {
+	return m.ChainPieceBlockMsgByte
+}
+func (m *ChainPieceBlockMessage) GetData() interface{} {
+	return m
+}
+
+//type BlockHeaderNotifyMessage struct {
+//	HeaderByte []byte
+//
+//	Peer string
+//}
+//
+//func (m *BlockHeaderNotifyMessage) GetRaw() []byte {
+//	return nil
+//}
+//
+//func (m *BlockHeaderNotifyMessage) GetData() interface{} {
+//	return m
+//}
+//
+//type BlockBodyReqMessage struct {
+//	BlockHashByte []byte
+//
+//	Peer string
+//}
+//
+//func (m *BlockBodyReqMessage) GetRaw() []byte {
+//	return nil
+//}
+//
+//func (m *BlockBodyReqMessage) GetData() interface{} {
+//	return m
+//}
+//
+//type BlockBodyNotifyMessage struct {
+//	BodyByte []byte
+//
+//	Peer string
+//}
+//
+//func (m *BlockBodyNotifyMessage) GetRaw() []byte {
+//	return nil
+//}
+//func (m *BlockBodyNotifyMessage) GetData() interface{} {
+//	return m
+//}
+
+//--------------------------------------------------------------------------------------------------------------------
+type GroupMessage struct {
+	Group types.Group
+}
+
+func (m *GroupMessage) GetRaw() []byte {
+	return []byte{}
+}
+func (m *GroupMessage) GetData() interface{} {
+	return m.Group
+}
+
 type GroupHeightMessage struct {
 	HeightByte []byte
-
-	Peer string
+	Peer       string
 }
 
 func (m *GroupHeightMessage) GetRaw() []byte {
@@ -159,8 +179,7 @@ func (m *GroupHeightMessage) GetData() interface{} {
 
 type GroupReqMessage struct {
 	GroupIdByte []byte
-
-	Peer string
+	Peer        string
 }
 
 func (m *GroupReqMessage) GetRaw() []byte {
@@ -172,8 +191,7 @@ func (m *GroupReqMessage) GetData() interface{} {
 
 type GroupInfoMessage struct {
 	GroupInfoByte []byte
-
-	Peer string
+	Peer          string
 }
 
 func (m *GroupInfoMessage) GetRaw() []byte {
@@ -183,10 +201,10 @@ func (m *GroupInfoMessage) GetData() interface{} {
 	return m
 }
 
+//---------------------------------------------------------------------------------------------------------------------
 type MinerTransactionMessage struct {
 	MinerTransactionsByte []byte
-
-	Peer string
+	Peer                  string
 }
 
 func (m *MinerTransactionMessage) GetRaw() []byte {
@@ -195,3 +213,29 @@ func (m *MinerTransactionMessage) GetRaw() []byte {
 func (m *MinerTransactionMessage) GetData() interface{} {
 	return m
 }
+
+//type StateInfoReqMessage struct {
+//	StateInfoReqByte []byte
+//
+//	Peer string
+//}
+//
+//func (m *StateInfoReqMessage) GetRaw() []byte {
+//	return nil
+//}
+//func (m *StateInfoReqMessage) GetData() interface{} {
+//	return m
+//}
+//
+//type StateInfoMessage struct {
+//	StateInfoByte []byte
+//
+//	Peer string
+//}
+//
+//func (m *StateInfoMessage) GetRaw() []byte {
+//	return nil
+//}
+//func (m *StateInfoMessage) GetData() interface{} {
+//	return m
+//}

@@ -19,11 +19,17 @@ const (
 
 	BlockReq = "block_req"
 
+	BlockResponse = "block_response"
+
 	BlockInfoNotify = "block_info_notify"
 
 	ChainPieceInfoReq = "chain_piece_info_req"
 
 	ChainPieceInfo = "chain_piece_info"
+
+	ChainPieceBlockReq = "chain_piece_block_req"
+
+	ChainPieceBlock = "chain_piece_block"
 
 	GroupHeight = "group_height"
 

@@ -26,11 +26,12 @@ import (
 	"middleware/notify"
 	"github.com/hashicorp/golang-lru"
 	"math/big"
-	"time"
-	"middleware/statistics"
 )
 
-const ChainPieceLength = 10
+const (
+	ChainPieceLength  = 10
+	blockResponseSzie = 10
+)
 
 type ChainHandler struct {
 	headerPending map[common.Hash]blockHeaderNotify
@@ -64,16 +65,16 @@ func NewChainHandler() network.MsgHandler {
 	bodyCh := make(chan blockBodyNotify, 100)
 	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
 
-	notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
-	notify.BUS.Subscribe(notify.BlockBody, handler.blockBodyHandler)
-	notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
-	notify.BUS.Subscribe(notify.StateInfoReq, handler.stateInfoReqHandler)
-	notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
+	//notify.BUS.Subscribe(notify.NewBlockHeader, handler.newBlockHeaderHandler)
+	//notify.BUS.Subscribe(notify.BlockBody, handler.blockBodyHandler)
+	//notify.BUS.Subscribe(notify.BlockBodyReq, handler.blockBodyReqHandler)
+	//notify.BUS.Subscribe(notify.StateInfoReq, handler.stateInfoReqHandler)
+	//notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
-	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
+	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 
-	go handler.loop()
+	//go handler.loop()
 	return &handler
 }
 
@@ -98,13 +99,8 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	return nil
 }
 
-func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte) {
-	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
-	network.GetNetInstance().Send(targetId, message)
-}
-
 func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
-	mtm, ok := msg.GetData().(*notify.MinerTransactionMessage)
+	mtm, ok := msg.(*notify.MinerTransactionMessage)
 	if !ok {
 		core.Logger.Debugf("minerTransactionHandler GetData assert not ok!")
 		return
@@ -119,126 +115,12 @@ func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
 	}
 }
 
-func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
-	//core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler RCV MSG")
-	m, ok := msg.GetData().(*notify.BlockHeaderNotifyMessage)
-	if !ok {
-		core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler GetData assert not ok!")
-		return
-	}
-
-	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
-	if e != nil {
-		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
-		return
-	}
-	b := core.BlockChainImpl.QueryBlockByHash(header.Hash)
-	if b != nil {
-		return
-	}
-
-	notify := blockHeaderNotify{header: *header, peer: m.Peer}
-	ch.headerCh <- notify
-}
-
-func (ch ChainHandler) blockBodyReqHandler(msg notify.Message) {
-	//core.Logger.Debugf("[ChainHandler]blockBodyReqHandler RCV MSG")
-	m, ok := msg.GetData().(*notify.BlockBodyReqMessage)
-	if !ok {
-		core.Logger.Debugf("[ChainHandler]blockBodyReqHandler GetData assert not ok!")
-		return
-	}
-
-	hash := common.BytesToHash(m.BlockHashByte)
-
-	body := core.BlockChainImpl.QueryBlockBody(hash)
-
-	core.SendBlockBody(m.Peer, hash, body)
-}
-
-func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
-	//core.Logger.Debugf("[ChainHandler]blockBodyHandler RCV MSG")
-	m, ok := msg.GetData().(*notify.BlockBodyNotifyMessage)
-	if !ok {
-		return
-	}
-
-	blockHash, txs, e := unMarshalBlockBody(m.BodyByte)
-	if e != nil {
-		core.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
-		return
-	}
-
-	notify := blockBodyNotify{blockHash: blockHash, body: txs, peer: m.Peer}
-	ch.bodyCh <- notify
-}
-
-//只有重节点
-func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
-	if core.BlockChainImpl.IsLightMiner() {
-		return
-	}
-
-	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
-	if !ok {
-		return
-	}
-	message, e := unMarshalStateInfoReq(m.StateInfoReqByte)
-	if e != nil {
-		core.Logger.Errorf("[handler]Discard unMarshalStateInfoReq because of unmarshal error:%s", e.Error())
-		return
-	}
-
-	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
-	if header == nil {
-		//正在出这一块，链上没有
-		core.Logger.Debugf("stateInfoReqHandler,local chain has no block! Get from block cache !height:%d,blockhash:%x", message.Height, message.BlockHash)
-		b := core.BlockChainImpl.(*core.FullBlockChain).GetCastingBlock(message.BlockHash)
-		if b == nil {
-			core.Logger.Errorf("stateInfoReqHandler,local has no block height:%d", message.Height)
-			panic("Header is nil! ")
-		}
-		header = b.Header
-		core.Logger.Debugf("stateInfoReqHandler, Get block from block cache !height:%d,blockhash:%x", header.Height, header.Hash)
-	}
-	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)
-	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
-	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader.Header, message.Transactions, message.Addresses)
-	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.Header.StateTree)
-}
-
-//只有轻节点
-func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
-	m, ok := msg.GetData().(*notify.StateInfoMessage)
-	if !ok {
-		return
-	}
-	message, e := unMarshalStateInfo(m.StateInfoByte)
-	if e != nil {
-		core.Logger.Errorf("[handler]Discard unMarshalStateInfo because of unmarshal error:%s", e.Error())
-		return
-	}
-	core.BlockChainImpl.InsertStateNode(message.TrieNodes)
-
-	core.BlockChainImpl.(*core.LightChain).SetPreBlockStateRoot(message.BlockHash, message.PreBlockSateRoot)
-	//todo 此处插入后默认不再缺少账户 但是缺少验证 有安全风险
-	b := core.BlockChainImpl.(*core.LightChain).MarkFullAccountBlock(message.BlockHash)
-	if b == nil {
-		return
-	}
-	core.Logger.Debugf("After InsertStateNode,get cached node to add on chain! height:%d", b.Header.Height)
-	result := core.BlockChainImpl.AddBlockOnChain(b)
-	if result == 0 {
-		core.RequestBlock(m.Peer, core.BlockChainImpl.Height()+1)
-	}
-}
-
 func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	if core.BlockChainImpl.IsLightMiner() {
 		return
 	}
 
-	m, ok := msg.GetData().(*notify.BlockReqMessage)
+	m, ok := msg.(*notify.BlockReqMessage)
 	if !ok {
 		return
 	}
@@ -248,82 +130,41 @@ func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	var count = 0
 	for i := reqHeight; i <= localHeight; i++ {
 		block := core.BlockChainImpl.QueryBlock(i)
-		core.SendBlock(m.Peer, block)
+		if block == nil {
+			continue
+		}
 		count++
-		if count >= 10 {
+		if count == blockResponseSzie || i == localHeight {
+			core.SendBlock(m.Peer, block, true)
+		} else {
+			core.SendBlock(m.Peer, block, false)
+		}
+		if count >= blockResponseSzie {
 			break
 		}
 	}
-
+	if count == 0 {
+		core.SendBlock(m.Peer, nil, true)
+	}
 }
 
 func (ch ChainHandler) newBlockHandler(msg notify.Message) {
-	m, ok := msg.GetData().(types.Block)
+	m, ok := msg.(*notify.NewBlockMessage)
 	if !ok {
 		return
 	}
-	core.Logger.Debugf("Rcv new block hash:%v,height:%d,totalQn:%d,tx len:%d", m.Header.Hash.Hex(), m.Header.Height, m.Header.TotalQN, len(m.Transactions))
-	statistics.AddBlockLog(common.BootId, statistics.RcvNewBlock, m.Header.Height, 0, len(m.Transactions), -1,
-		time.Now().UnixNano(), "", "", common.InstanceIndex, m.Header.CurTime.UnixNano())
-	core.BlockChainImpl.AddBlockOnChain(&m)
-}
-
-
-
-
-
-func (ch ChainHandler) loop() {
-	for {
-		select {
-		case headerNotify := <-ch.headerCh:
-			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d", headerNotify.header.Hash.Hex(), headerNotify.peer, len(headerNotify.header.Transactions), headerNotify.header.Height, headerNotify.header.TotalQN)
-			hash := headerNotify.header.Hash
-			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
-				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
-				break
-			}
-
-			local := core.BlockChainImpl.QueryBlockByHash(hash)
-			if local != nil {
-				ch.complete.Add(hash, headerNotify.header)
-				break
-			}
-
-			if len(headerNotify.header.Transactions) == 0 {
-				block := types.Block{Header: &headerNotify.header, Transactions: nil}
-				msg := notify.BlockMessage{Block: block}
-				ch.complete.Add(block.Header.Hash, block)
-				delete(ch.headerPending, block.Header.Hash)
-				notify.BUS.Publish(notify.NewBlock, &msg)
-				break
-			}
-			ch.headerPending[hash] = headerNotify
-			core.ReqBlockBody(headerNotify.peer, hash)
-		case bodyNotify := <-ch.bodyCh:
-			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
-			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
-			if !ok {
-				break
-			}
-
-			if headerNotify.peer != bodyNotify.peer {
-				break
-			}
-			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
-			msg := notify.BlockMessage{Block: block}
-			ch.complete.Add(block.Header.Hash, block)
-			delete(ch.headerPending, block.Header.Hash)
-			notify.BUS.Publish(notify.NewBlock, &msg)
-		}
+	block, e := types.UnMarshalBlock(m.BlockByte)
+	if e != nil {
+		core.Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
+		return
 	}
+
+	core.Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", m.Peer, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
+	core.BlockChainImpl.AddBlockOnChain(block)
 }
 
-//-----------------------------------------------铸币-------------------------------------------------------------------
-
-//接收索要交易请求 查询自身是否有该交易 有的话返回, 没有的话自己广播该请求
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
 	core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes))
-	//本地查询transaction
 	if nil == core.BlockChainImpl {
 		return nil
 	}
@@ -339,9 +180,7 @@ func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) er
 	return nil
 }
 
-//验证节点接收交易 或者接收来自客户端广播的交易
 func onMessageTransaction(txs []*types.Transaction) error {
-	//验证节点接收交易 加入交易池
 	e := core.BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)
 	if e != nil {
 		return e
@@ -349,7 +188,6 @@ func onMessageTransaction(txs []*types.Transaction) error {
 	return nil
 }
 
-//--------------------------------------------------deserialization---------------------------------------------------------------
 func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessage, error) {
 	m := new(tas_middleware_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
@@ -370,59 +208,222 @@ func unMarshalTransactionRequestMessage(b []byte) (*core.TransactionRequestMessa
 	return &message, nil
 }
 
-func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {
-	message := new(tas_middleware_pb.BlockBody)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalBlockBody error:%s", e.Error())
-		return hash, nil, e
-	}
-	hash = common.BytesToHash(message.BlockHash)
-	transactions = types.PbToTransactions(message.Transactions)
-	return hash, transactions, nil
-}
+//func (ch ChainHandler) onRequestTraceMsg(targetId string, data []byte) {
+//	message := network.Message{Code: network.ResponseTraceMsg, Body: data}
+//	network.GetNetInstance().Send(targetId, message)
+//}
 
-func unMarshalStateInfoReq(b []byte) (core.StateInfoReq, error) {
-	message := new(tas_middleware_pb.StateInfoReq)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalStateInfoReq error:%s", e.Error())
-		return core.StateInfoReq{}, e
-	}
+//func (ch ChainHandler) newBlockHeaderHandler(msg notify.Message) {
+//	//core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler RCV MSG")
+//	m, ok := msg.GetData().(*notify.BlockHeaderNotifyMessage)
+//	if !ok {
+//		core.Logger.Debugf("[ChainHandler]newBlockHeaderHandler GetData assert not ok!")
+//		return
+//	}
+//
+//	header, e := types.UnMarshalBlockHeader(m.HeaderByte)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]Discard NewBlockHeader because of unmarshal error:%s", e.Error())
+//		return
+//	}
+//	b := core.BlockChainImpl.QueryBlockByHash(header.Hash)
+//	if b != nil {
+//		return
+//	}
+//
+//	notify := blockHeaderNotify{header: *header, peer: m.Peer}
+//	ch.headerCh <- notify
+//}
+//
+//func (ch ChainHandler) blockBodyReqHandler(msg notify.Message) {
+//	//core.Logger.Debugf("[ChainHandler]blockBodyReqHandler RCV MSG")
+//	m, ok := msg.GetData().(*notify.BlockBodyReqMessage)
+//	if !ok {
+//		core.Logger.Debugf("[ChainHandler]blockBodyReqHandler GetData assert not ok!")
+//		return
+//	}
+//
+//	hash := common.BytesToHash(m.BlockHashByte)
+//
+//	body := core.BlockChainImpl.QueryBlockBody(hash)
+//
+//	core.SendBlockBody(m.Peer, hash, body)
+//}
+//
+//func (ch ChainHandler) blockBodyHandler(msg notify.Message) {
+//	//core.Logger.Debugf("[ChainHandler]blockBodyHandler RCV MSG")
+//	m, ok := msg.GetData().(*notify.BlockBodyNotifyMessage)
+//	if !ok {
+//		return
+//	}
+//
+//	blockHash, txs, e := unMarshalBlockBody(m.BodyByte)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]Discard BlockBodyMessage because of unmarshal error:%s", e.Error())
+//		return
+//	}
+//
+//	notify := blockBodyNotify{blockHash: blockHash, body: txs, peer: m.Peer}
+//	ch.bodyCh <- notify
+//}
+//
+////只有重节点
+//func (ch ChainHandler) stateInfoReqHandler(msg notify.Message) {
+//	if core.BlockChainImpl.IsLightMiner() {
+//		return
+//	}
+//
+//	m, ok := msg.GetData().(*notify.StateInfoReqMessage)
+//	if !ok {
+//		return
+//	}
+//	message, e := unMarshalStateInfoReq(m.StateInfoReqByte)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]Discard unMarshalStateInfoReq because of unmarshal error:%s", e.Error())
+//		return
+//	}
+//
+//	header := core.BlockChainImpl.QueryBlockByHeight(message.Height)
+//	if header == nil {
+//		//正在出这一块，链上没有
+//		core.Logger.Debugf("stateInfoReqHandler,local chain has no block! Get from block cache !height:%d,blockhash:%x", message.Height, message.BlockHash)
+//		b := core.BlockChainImpl.(*core.FullBlockChain).GetCastingBlock(message.BlockHash)
+//		if b == nil {
+//			core.Logger.Errorf("stateInfoReqHandler,local has no block height:%d", message.Height)
+//			panic("Header is nil! ")
+//		}
+//		header = b.Header
+//		core.Logger.Debugf("stateInfoReqHandler, Get block from block cache !height:%d,blockhash:%x", header.Height, header.Hash)
+//	}
+//	core.Logger.Errorf("stateInfoReqHandler,block height:%d", message.Height)
+//	preHeader := core.BlockChainImpl.QueryBlockByHash(header.PreHash)
+//	stateNodes := core.BlockChainImpl.GetTrieNodesByExecuteTransactions(preHeader.Header, message.Transactions, message.Addresses)
+//	core.SendStateInfo(m.Peer, message.Height, stateNodes, header.Hash, preHeader.Header.StateTree)
+//}
+//
+////只有轻节点
+//func (ch ChainHandler) stateInfoHandler(msg notify.Message) {
+//	m, ok := msg.GetData().(*notify.StateInfoMessage)
+//	if !ok {
+//		return
+//	}
+//	message, e := unMarshalStateInfo(m.StateInfoByte)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]Discard unMarshalStateInfo because of unmarshal error:%s", e.Error())
+//		return
+//	}
+//	core.BlockChainImpl.InsertStateNode(message.TrieNodes)
+//
+//	core.BlockChainImpl.(*core.LightChain).SetPreBlockStateRoot(message.BlockHash, message.PreBlockSateRoot)
+//	//todo 此处插入后默认不再缺少账户 但是缺少验证 有安全风险
+//	b := core.BlockChainImpl.(*core.LightChain).MarkFullAccountBlock(message.BlockHash)
+//	if b == nil {
+//		return
+//	}
+//	core.Logger.Debugf("After InsertStateNode,get cached node to add on chain! height:%d", b.Header.Height)
+//	result := core.BlockChainImpl.AddBlockOnChain(b)
+//	if result == 0 {
+//		core.RequestBlock(m.Peer, core.BlockChainImpl.Height()+1)
+//	}
+//}
 
-	var transactions []*types.Transaction
-	if message.Transactions != nil {
-		transactions = types.PbToTransactions(message.Transactions.Transactions)
-	}
+//func (ch ChainHandler) loop() {
+//	for {
+//		select {
+//		case headerNotify := <-ch.headerCh:
+//			//core.Logger.Debugf("[ChainHandler]headerCh receive,hash:%v,peer:%s,tx len:%d,block:%d-%d", headerNotify.header.Hash.Hex(), headerNotify.peer, len(headerNotify.header.Transactions), headerNotify.header.Height, headerNotify.header.TotalQN)
+//			hash := headerNotify.header.Hash
+//			if _, ok := ch.headerPending[hash]; ok || ch.complete.Contains(hash) {
+//				//core.Logger.Debugf("[ChainHandler]header hit pending or complete")
+//				break
+//			}
+//
+//			local := core.BlockChainImpl.QueryBlockByHash(hash)
+//			if local != nil {
+//				ch.complete.Add(hash, headerNotify.header)
+//				break
+//			}
+//
+//			if len(headerNotify.header.Transactions) == 0 {
+//				block := types.Block{Header: &headerNotify.header, Transactions: nil}
+//				msg := notify.BlockMessage{Block: block}
+//				ch.complete.Add(block.Header.Hash, block)
+//				delete(ch.headerPending, block.Header.Hash)
+//				notify.BUS.Publish(notify.NewBlock, &msg)
+//				break
+//			}
+//			ch.headerPending[hash] = headerNotify
+//			core.ReqBlockBody(headerNotify.peer, hash)
+//		case bodyNotify := <-ch.bodyCh:
+//			core.Logger.Debugf("[ChainHandler]bodyCh receive,hash:%v,peer:%s,body len:%d", bodyNotify.blockHash.Hex(), bodyNotify.peer, len(bodyNotify.body))
+//			headerNotify, ok := ch.headerPending[bodyNotify.blockHash]
+//			if !ok {
+//				break
+//			}
+//
+//			if headerNotify.peer != bodyNotify.peer {
+//				break
+//			}
+//			block := types.Block{Header: &headerNotify.header, Transactions: bodyNotify.body}
+//			msg := notify.BlockMessage{Block: block}
+//			ch.complete.Add(block.Header.Hash, block)
+//			delete(ch.headerPending, block.Header.Hash)
+//			notify.BUS.Publish(notify.NewBlock, &msg)
+//		}
+//	}
+//}
 
-	var addresses []common.Address
-	for _, addr := range message.Addresses {
-		addresses = append(addresses, common.BytesToAddress(addr))
-	}
-	stateInfoReq := core.StateInfoReq{Height: *message.Height, Transactions: transactions, Addresses: addresses, BlockHash: common.BytesToHash(message.BlockHash)}
-	return stateInfoReq, nil
-}
-
-func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
-	message := new(tas_middleware_pb.StateInfo)
-	e := proto.Unmarshal(b, message)
-	if e != nil {
-		core.Logger.Errorf("[handler]unMarshalStateInfo error:%s", e.Error())
-		return core.StateInfo{}, e
-	}
-
-	trieNodes := make([]types.StateNode, 0)
-	for _, node := range message.TrieNodes {
-		n := types.StateNode{Key: node.Key, Value: node.Data}
-		trieNodes = append(trieNodes, n)
-	}
-
-	stateInfo := core.StateInfo{Height: *message.Height, TrieNodes: &trieNodes,
-		BlockHash: common.BytesToHash(message.BlockHash), PreBlockSateRoot: common.BytesToHash(message.ProBlockStateRoot)}
-	return stateInfo, nil
-}
-
-
+//func unMarshalBlockBody(b []byte) (hash common.Hash, transactions []*types.Transaction, err error) {
+//	message := new(tas_middleware_pb.BlockBody)
+//	e := proto.Unmarshal(b, message)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]unMarshalBlockBody error:%s", e.Error())
+//		return hash, nil, e
+//	}
+//	hash = common.BytesToHash(message.BlockHash)
+//	transactions = types.PbToTransactions(message.Transactions)
+//	return hash, transactions, nil
+//}
+//
+//func unMarshalStateInfoReq(b []byte) (core.StateInfoReq, error) {
+//	message := new(tas_middleware_pb.StateInfoReq)
+//	e := proto.Unmarshal(b, message)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]unMarshalStateInfoReq error:%s", e.Error())
+//		return core.StateInfoReq{}, e
+//	}
+//
+//	var transactions []*types.Transaction
+//	if message.Transactions != nil {
+//		transactions = types.PbToTransactions(message.Transactions.Transactions)
+//	}
+//
+//	var addresses []common.Address
+//	for _, addr := range message.Addresses {
+//		addresses = append(addresses, common.BytesToAddress(addr))
+//	}
+//	stateInfoReq := core.StateInfoReq{Height: *message.Height, Transactions: transactions, Addresses: addresses, BlockHash: common.BytesToHash(message.BlockHash)}
+//	return stateInfoReq, nil
+//}
+//
+//func unMarshalStateInfo(b []byte) (core.StateInfo, error) {
+//	message := new(tas_middleware_pb.StateInfo)
+//	e := proto.Unmarshal(b, message)
+//	if e != nil {
+//		core.Logger.Errorf("[handler]unMarshalStateInfo error:%s", e.Error())
+//		return core.StateInfo{}, e
+//	}
+//
+//	trieNodes := make([]types.StateNode, 0)
+//	for _, node := range message.TrieNodes {
+//		n := types.StateNode{Key: node.Key, Value: node.Data}
+//		trieNodes = append(trieNodes, n)
+//	}
+//
+//	stateInfo := core.StateInfo{Height: *message.Height, TrieNodes: &trieNodes,
+//		BlockHash: common.BytesToHash(message.BlockHash), PreBlockSateRoot: common.BytesToHash(message.ProBlockStateRoot)}
+//	return stateInfo, nil
+//}
 
 //func unMarshalBlocks(b []byte) ([]*core.Block, error) {
 //	blockSlice := new(tas_pb.BlockSlice)

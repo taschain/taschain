@@ -52,7 +52,7 @@ const (
 
 	ReqBlock uint32 = 0x11
 
-	BlockMsg uint32 = 0x12
+	BlockResponseMsg uint32 = 0x12
 
 	//-----------组同步---------------------------------
 	GroupChainCountMsg uint32 = 0x14

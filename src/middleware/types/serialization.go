@@ -244,6 +244,9 @@ func GroupRequestInfoToPB(CurrentTopGroupId []byte, ExistGroupIds [][]byte) *tas
 }
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {
+	if b == nil {
+		return nil
+	}
 	h := PbToBlockHeader(b.Header)
 	txs := PbToTransactions(b.Transactions)
 	block := Block{Header: h, Transactions: txs}
@@ -379,7 +382,6 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 
 func BlockToPb(b *Block) *tas_middleware_pb.Block {
 	if b == nil {
-		logger.Errorf("Block is nil!")
 		return nil
 	}
 	header := BlockHeaderToPb(b.Header)

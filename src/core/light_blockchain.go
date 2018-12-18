@@ -288,6 +288,10 @@ func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
 	if b == nil {
 		return -1
 	}
+	if !chain.hasPreBlock(*b.Header) {
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		return 2
+	}
 
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
@@ -330,7 +334,8 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		chain.removeFromCommonAncestor(commonAncestor)
 		return chain.addBlockOnChain(b)
 	}
-	panic("Should not be here!")
+
+	return 2
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -395,7 +400,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 
 func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
-	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
@@ -404,9 +409,8 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	if BlockSyncer != nil {
-		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
-		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
-		go BlockSyncer.sync(nil)
+		topBlockInfo := TopBlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.sendTopBlockInfoToNeighbor(topBlockInfo)
 	}
 }
 

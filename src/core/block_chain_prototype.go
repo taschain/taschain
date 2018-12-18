@@ -55,6 +55,8 @@ type prototypeChain struct {
 	bonusManager *BonusManager
 
 	checkdb tasdb.Database
+
+	forkProcessor *forkProcessor
 }
 
 func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error {
@@ -418,9 +420,9 @@ func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHead
 	chain.lock.Lock("ProcessChainPieceInfo")
 	defer chain.lock.Unlock("ProcessChainPieceInfo")
 
-	localTopHeader := BlockChainImpl.QueryTopBlock()
+	localTopHeader := chain.latestBlock
 	if topHeader.TotalQN < localTopHeader.TotalQN {
-		return 0, -1
+		return 0, math.MaxUint64
 	}
 	Logger.Debugf("ProcessChainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
 	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
@@ -439,28 +441,30 @@ func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHead
 				}
 			}
 			if remoteNext == nil {
-				return 0, -1
+				return 0, math.MaxUint64
 			}
 			if chain.compareValue(commonAncestor, remoteNext) {
 				Logger.Debugf("Local value is great than coming value!")
-				return 0, -1
+				return 0, math.MaxUint64
 			}
 			Logger.Debugf("Coming value is great than local value!")
 			return 1, commonAncestor.Height + 1
 		}
-	} else {
-		if index == 0 {
-			Logger.Debugf("Local chain is same with coming chain piece.")
-			if chainPiece[0].Height == chain.latestBlock.Height {
-				return 1, chainPiece[0].Height + 1
-			}
-			Logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
-			return 0, -1
-		} else {
-			Logger.Debugf("Do not find common ancestor in chain piece info:%d-%d!Continue to request chain piece info,base height:%d", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, chainPiece[len(chainPiece)-1].Height-1, )
-			return -1, chainPiece[len(chainPiece)-1].Height
-		}
+		return 0, math.MaxUint64
 	}
+	//Has no common ancestor
+	if index == 0 {
+		Logger.Debugf("Local chain is same with coming chain piece.")
+		if chainPiece[0].Height == chain.latestBlock.Height {
+			return 1, chainPiece[0].Height + 1
+		}
+		Logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
+		return 0, math.MaxUint64
+	} else {
+		Logger.Debugf("Do not find common ancestor in chain piece info:%d-%d!Continue to request chain piece info,base height:%d", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, chainPiece[len(chainPiece)-1].Height-1, )
+		return 2, chainPiece[len(chainPiece)-1].Height
+	}
+
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
@@ -558,4 +562,34 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 		return 1
 	}
 	return -1
+}
+
+func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader) {
+	if topHeader == nil || len(blockChainPiece) == 0 {
+		return
+	}
+	chain.lock.Lock("MergeFork")
+	defer chain.lock.Unlock("MergeFork")
+
+	localTopHeader := chain.latestBlock
+	if !(topHeader.TotalQN > localTopHeader.TotalQN || topHeader.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
+		return
+	}
+	commonAncestorHash := (*blockChainPiece[0]).Header.PreHash
+	commonAncestor := BlockChainImpl.QueryBlockByHash(commonAncestorHash)
+	if commonAncestor == nil {
+		return
+	}
+	chain.removeFromCommonAncestor(commonAncestor.Header)
+	for _, b := range blockChainPiece {
+		var result int8
+		if chain.IsLightMiner() {
+			result = BlockChainImpl.(*LightChain).addBlockOnChain(b)
+		} else {
+			result = BlockChainImpl.(*FullBlockChain).addBlockOnChain(b)
+		}
+		if result != 0 {
+			return
+		}
+	}
 }

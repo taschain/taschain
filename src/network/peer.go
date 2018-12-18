@@ -78,20 +78,22 @@ func newSendList() *SendList {
 
 	sl.priorityTable = map[uint32]SendPriorityType{
 		BlockInfoNotifyMsg: SendPriorityHigh,
+		NewBlockMsg:        SendPriorityHigh,
 		ReqBlock:           SendPriorityHigh,
-		BlockMsg:           SendPriorityHigh,
+		BlockResponseMsg:   SendPriorityHigh,
 		GroupChainCountMsg: SendPriorityHigh,
 		ReqGroupMsg:        SendPriorityHigh,
 		GroupMsg:           SendPriorityHigh,
-		ChainPieceReq:      SendPriorityHigh,
-		ChainPiece:         SendPriorityHigh,
+		ChainPieceInfoReq:  SendPriorityHigh,
+		ChainPieceInfo:     SendPriorityHigh,
+		ReqChainPieceBlock: SendPriorityHigh,
+		ChainPieceBlock:    SendPriorityHigh,
 
 		CastVerifyMsg:       SendPriorityMedium,
 		VerifiedCastMsg:     SendPriorityMedium,
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
 		MinerTransactionMsg: SendPriorityMedium,
-		NewBlockMsg:         SendPriorityMedium,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}
