@@ -93,7 +93,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	rlog := newRtLog("doAddOnChain")
 	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-	result = p.MainChain.AddBlockOnChain(block)
+	result = p.MainChain.AddBlockOnChain("", block)
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
@@ -173,8 +173,8 @@ func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
 }
 
 func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
-    for  {
-    	bh := p.MainChain.QueryBlockByHeight(h)
+	for {
+		bh := p.MainChain.QueryBlockByHeight(h)
 		if bh != nil {
 			b := p.MainChain.QueryBlockByHash(bh.Hash)
 			if b != nil {
@@ -197,7 +197,7 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
 }
 
 func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
-	for  {
+	for {
 		hash, err := p.MainChain.GetCheckValue(h)
 		if err == nil {
 			return h, hash

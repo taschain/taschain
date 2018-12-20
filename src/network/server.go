@@ -26,7 +26,6 @@ import (
 	"middleware/statistics"
 	"strconv"
 	"time"
-	"middleware/types"
 )
 
 type server struct {
@@ -238,43 +237,46 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.MinerTransactionMessage{MinerTransactionsByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.MinerTransaction, &msg)
 	case BlockInfoNotifyMsg:
-		Logger.Debugf("Rcv BlockInfoNotifyMsg from %s", from)
 		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockInfoNotify, &msg)
-	case NewBlockHeaderMsg:
-		msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.NewBlockHeader, &msg)
-	case BlockBodyReqMsg:
-		msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockBodyReq, &msg)
-	case BlockBodyMsg:
-		msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockBody, &msg)
-	case ReqStateInfoMsg:
-		msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.StateInfoReq, &msg)
-	case StateInfoMsg:
-		msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.StateInfo, &msg)
+		//case NewBlockHeaderMsg:
+		//	msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
+		//	notify.BUS.Publish(notify.NewBlockHeader, &msg)
+		//case BlockBodyReqMsg:
+		//	msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
+		//	notify.BUS.Publish(notify.BlockBodyReq, &msg)
+		//case BlockBodyMsg:
+		//	msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
+		//	notify.BUS.Publish(notify.BlockBody, &msg)
+		//case ReqStateInfoMsg:
+		//	msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
+		//	notify.BUS.Publish(notify.StateInfoReq, &msg)
+		//case StateInfoMsg:
+		//	msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
+		//	notify.BUS.Publish(notify.StateInfo, &msg)
 	case ReqBlock:
 		msg := notify.BlockReqMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockReq, &msg)
-	case BlockMsg, NewBlockMsg:
-		block, e := types.UnMarshalBlock(message.Body)
-		if e != nil {
-			Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
-			return
-		}
-		msg := notify.BlockMessage{Block: *block}
+	case BlockResponseMsg:
+		msg := notify.BlockResponseMessage{BlockResponseByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.BlockResponse, &msg)
+	case NewBlockMsg:
+		msg := notify.NewBlockMessage{BlockByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlock, &msg)
-	case ChainPieceReq:
-		Logger.Debugf("Rcv ChainPieceReq from %s", from)
-		msg := notify.ChainPieceReqMessage{HeightByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceReq, &msg)
-	case ChainPiece:
-		Logger.Debugf("Rcv ChainPiece from %s", from)
-		msg := notify.ChainPieceMessage{ChainPieceInfoByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPiece, &msg)
+	case ChainPieceInfoReq:
+		Logger.Debugf("Rcv ChainPieceInfoReq from %s", from)
+		msg := notify.ChainPieceInfoReqMessage{HeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceInfoReq, &msg)
+	case ChainPieceInfo:
+		Logger.Debugf("Rcv ChainPieceInfo from %s", from)
+		msg := notify.ChainPieceInfoMessage{ChainPieceInfoByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceInfo, &msg)
+	case ReqChainPieceBlock:
+		msg := notify.ChainPieceBlockReqMessage{ReqHeightByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceBlockReq, &msg)
+	case ChainPieceBlock:
+		msg := notify.ChainPieceBlockMessage{ChainPieceBlockMsgByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.ChainPieceBlock, &msg)
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {

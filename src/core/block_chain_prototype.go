@@ -17,7 +17,10 @@ import (
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
-const ChainPieceLength = 9
+const (
+	ChainPieceLength      = 9
+	ChainPieceBlockLength = 6
+)
 
 type prototypeChain struct {
 	isLightMiner bool
@@ -55,6 +58,8 @@ type prototypeChain struct {
 	bonusManager *BonusManager
 
 	checkdb tasdb.Database
+
+	forkProcessor *forkProcessor
 }
 
 func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error {
@@ -103,8 +108,7 @@ func (chain *prototypeChain) TotalQN() uint64 {
 
 //查询最高块
 func (chain *prototypeChain) QueryTopBlock() *types.BlockHeader {
-	chain.lock.RLock("QueryTopBlock")
-	defer chain.lock.RUnlock("QueryTopBlock")
+	//这里不应该加锁或者加一个粒度小的锁
 	result := *chain.latestBlock
 	return &result
 }
@@ -309,87 +313,6 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 //	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
 //}
 
-func (chain *prototypeChain) ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) {
-	chain.lock.Lock("ProcessChainPiece")
-	defer chain.lock.Unlock("ProcessChainPiece")
-
-	if topHeader.TotalQN < chain.latestBlock.TotalQN {
-		return
-	}
-
-	if !chain.verifyChainPiece(chainPiece, topHeader) {
-		return
-	}
-	Logger.Debugf("ProcessChainPiece id:%s,chainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v",
-		id, chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
-	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
-	if hasCommonAncestor {
-		Logger.Debugf("Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, chain.Height())
-		if topHeader.TotalQN > chain.latestBlock.TotalQN {
-			chain.removeFromCommonAncestor(commonAncestor)
-			RequestBlock(id, commonAncestor.Height+1)
-			return
-		}
-
-		if topHeader.TotalQN == chain.latestBlock.TotalQN {
-			var remoteNext *types.BlockHeader
-			for i := index - 1; i >= 0; i-- {
-				if chainPiece[i].ProveValue != nil {
-					remoteNext = chainPiece[i]
-					break
-				}
-			}
-			if remoteNext == nil {
-				return
-			}
-			if chain.compareValue(commonAncestor, remoteNext) {
-				Logger.Debugf("Local value is great than coming value!")
-				return
-			}
-			Logger.Debugf("Coming value is great than local value!")
-			chain.removeFromCommonAncestor(commonAncestor)
-			RequestBlock(id, commonAncestor.Height+1)
-		}
-	} else {
-		if index == 0 {
-			Logger.Debugf("Local chain is same with coming chain piece.")
-			if chainPiece[0].Height == chain.latestBlock.Height {
-				RequestBlock(id, chainPiece[0].Height+1)
-				return
-			}
-			Logger.Debugf("Local height is more than chainPiece[0].Height. Ignore it!")
-			return
-		} else {
-			Logger.Debugf("Do not find common ancestor!Request hashes form node:%s,base height:%d", id, chainPiece[len(chainPiece)-1].Height-1, )
-			RequestChainPiece(id, chainPiece[len(chainPiece)-1].Height)
-		}
-	}
-}
-
-func (ch prototypeChain) verifyChainPiece(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) bool {
-	if len(chainPiece) == 0 {
-		return false
-	}
-	if topHeader.Hash != topHeader.GenHash() {
-		Logger.Errorf("invalid topHeader!Hash:%s", topHeader.Hash.String())
-		return false
-	}
-
-	for i := 0; i < len(chainPiece)-1; i++ {
-		bh := chainPiece[i]
-		if bh.Hash != bh.GenHash() {
-			Logger.Errorf("invalid chainPiece element,hash:%s", bh.Hash.String())
-			return false
-		}
-		if bh.PreHash != chainPiece[i+1].Hash {
-			Logger.Errorf("invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
-			return false
-		}
-	}
-
-	return true
-}
-
 // 删除块 只删除最高块
 func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 	if header.Hash != chain.latestBlock.Hash {
@@ -426,7 +349,7 @@ func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
 	Logger.Debugf("removeFromCommonAncestor hash:%s height:%d latestheight:%d", commonAncestor.Hash.Hex(), commonAncestor.Height, chain.latestBlock.Height)
 
-	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(),commonAncestor.Height,chain.latestBlock.Height)
+	consensusLogger.Infof("%v#%s#%d,%d", "ForkAdjustRemoveCommonAncestor", commonAncestor.Hash.ShortS(), commonAncestor.Height, chain.latestBlock.Height)
 
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
@@ -437,6 +360,172 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 		chain.remove(header)
 		Logger.Debugf("Remove local chain headers %d", header.Height)
 	}
+}
+
+func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		Logger.Errorf("fail to put current, error:%s \n", err)
+		return -1
+	}
+	chain.latestStateDB = state
+	chain.latestBlock = header
+	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
+	return 0
+}
+
+func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader {
+	chain.lock.Lock("GetChainPieceInfo")
+	defer chain.lock.Unlock("GetChainPieceInfo")
+	localHeight := chain.latestBlock.Height
+	Logger.Debugf("Req GetChainPieceInfo height:%d,local height:%d", reqHeight, localHeight)
+
+	var height uint64
+	if reqHeight > localHeight {
+		height = localHeight
+	} else {
+		height = reqHeight
+	}
+
+	var lastChainPieceBlock *types.BlockHeader
+	for i := height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		lastChainPieceBlock = bh
+		break
+	}
+	if lastChainPieceBlock == nil {
+		panic("lastChainPieceBlock should not be nil!")
+	}
+
+	chainPiece := make([]*types.BlockHeader, 0)
+	chainPiece = append(chainPiece, lastChainPieceBlock)
+
+	hash := lastChainPieceBlock.PreHash
+	for i := 0; i < ChainPieceLength; i++ {
+		header := BlockChainImpl.QueryBlockHeaderByHash(hash)
+		if header == nil {
+			//创世块 pre hash 不存在
+			break
+		}
+		chainPiece = append(chainPiece, header)
+		hash = header.PreHash
+	}
+	return chainPiece
+}
+
+func (chain *prototypeChain) GetChainPieceBlocks(reqHeight uint64) []*types.Block {
+	chain.lock.Lock("GetChainPieceBlocks")
+	defer chain.lock.Unlock("GetChainPieceBlocks")
+	localHeight := chain.latestBlock.Height
+	Logger.Debugf("Req ChainPieceBlock height:%d,local height:%d", reqHeight, localHeight)
+
+	var height uint64
+	if reqHeight > localHeight {
+		height = localHeight
+	} else {
+		height = reqHeight
+	}
+
+	var lastChainPieceBlock *types.BlockHeader
+	for i := height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		lastChainPieceBlock = bh
+		break
+	}
+	if lastChainPieceBlock == nil {
+		panic("lastChainPieceBlock should not be nil!")
+	}
+
+	chainPieceBlocks := make([]*types.Block, 0)
+
+	hash := lastChainPieceBlock.Hash
+	for i := 0; i < ChainPieceBlockLength; i++ {
+		block := BlockChainImpl.QueryBlockByHash(hash)
+		if block == nil {
+			//创世块 pre hash 不存在
+			break
+		}
+		chainPieceBlocks = append(chainPieceBlocks, block)
+		hash = block.Header.PreHash
+	}
+	return chainPieceBlocks
+}
+
+//status 0 忽略该消息  不需要同步
+//status 1 需要同步ChainPieceBlock
+//status 2 需要继续同步ChainPieceInfo
+func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64) {
+	chain.lock.Lock("ProcessChainPieceInfo")
+	defer chain.lock.Unlock("ProcessChainPieceInfo")
+
+	localTopHeader := chain.latestBlock
+	if topHeader.TotalQN < localTopHeader.TotalQN {
+		return 0, math.MaxUint64
+	}
+	Logger.Debugf("ProcessChainPiece %d-%d,topHeader height:%d,totalQn:%d,hash:%v", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, topHeader.Height, topHeader.TotalQN, topHeader.Hash.Hex())
+	commonAncestor, hasCommonAncestor, index := chain.findCommonAncestor(chainPiece, 0, len(chainPiece)-1)
+	if hasCommonAncestor {
+		Logger.Debugf("Got common ancestor! Height:%d,localHeight:%d", commonAncestor.Height, localTopHeader.Height)
+		if topHeader.TotalQN > localTopHeader.TotalQN {
+			return 1, commonAncestor.Height + 1
+		}
+
+		if topHeader.TotalQN == chain.latestBlock.TotalQN {
+			var remoteNext *types.BlockHeader
+			for i := index - 1; i >= 0; i-- {
+				if chainPiece[i].ProveValue != nil {
+					remoteNext = chainPiece[i]
+					break
+				}
+			}
+			if remoteNext == nil {
+				return 0, math.MaxUint64
+			}
+			if chain.compareValue(commonAncestor, remoteNext) {
+				Logger.Debugf("Local value is great than coming value!")
+				return 0, math.MaxUint64
+			}
+			Logger.Debugf("Coming value is great than local value!")
+			return 1, commonAncestor.Height + 1
+		}
+		return 0, math.MaxUint64
+	}
+	//Has no common ancestor
+	if index == 0 {
+		Logger.Debugf("Local chain is same with coming chain piece.")
+		return 1, chainPiece[0].Height + 1
+	} else {
+		var preHeight uint64
+		preBlock := BlockChainImpl.QueryBlockByHash(chain.latestBlock.PreHash)
+		if preBlock != nil {
+			preHeight = preBlock.Header.Height
+		} else {
+			preHeight = 0
+		}
+		lastPieceHeight := chainPiece[len(chainPiece)-1].Height
+
+		var minHeight uint64
+		if preHeight < lastPieceHeight {
+			minHeight = preHeight
+		} else {
+			minHeight = lastPieceHeight
+		}
+		var baseHeight uint64
+		if minHeight != 0 {
+			baseHeight = minHeight - 1
+		} else {
+			baseHeight = 0
+		}
+		Logger.Debugf("Do not find common ancestor in chain piece info:%d-%d!Continue to request chain piece info,base height:%d", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, baseHeight, )
+		return 2, baseHeight
+	}
+
 }
 
 func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, remoteHeader *types.BlockHeader) bool {
@@ -536,56 +625,33 @@ func (chain *prototypeChain) isCommonAncestor(chainPiece []*types.BlockHeader, i
 	return -1
 }
 
-func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
-	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		Logger.Errorf("fail to put current, error:%s \n", err)
-		return -1
+func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader) {
+	if topHeader == nil || len(blockChainPiece) == 0 {
+		return
 	}
-	chain.latestStateDB = state
-	chain.latestBlock = header
-	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
-	return 0
-}
+	chain.lock.Lock("MergeFork")
+	defer chain.lock.Unlock("MergeFork")
 
-func (chain *prototypeChain) GetChainPiece(reqHeight uint64) []*types.BlockHeader {
-	chain.lock.Lock("GetChainPiece")
-	defer chain.lock.Unlock("GetChainPiece")
-	localHeight := chain.latestBlock.Height
-	Logger.Debugf("Req height:%d,local height:%d", reqHeight, localHeight)
-
-	var height uint64
-	if reqHeight > localHeight {
-		height = localHeight
-	} else {
-		height = reqHeight
+	localTopHeader := chain.latestBlock
+	if !(topHeader.TotalQN > localTopHeader.TotalQN || topHeader.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
+		return
 	}
-
-	var lastChainPieceBlock *types.BlockHeader
-	for i := height; i <= chain.Height(); i++ {
-		bh := chain.queryBlockHeaderByHeight(i, true)
-		if nil == bh {
-			continue
+	commonAncestorHash := (*blockChainPiece[len(blockChainPiece)-1]).Header.PreHash
+	commonAncestor := BlockChainImpl.QueryBlockByHash(commonAncestorHash)
+	if commonAncestor == nil {
+		return
+	}
+	chain.removeFromCommonAncestor(commonAncestor.Header)
+	for i := len(blockChainPiece) - 1; i >= 0; i-- {
+		block := blockChainPiece[i]
+		var result int8
+		if chain.IsLightMiner() {
+			result = BlockChainImpl.(*LightChain).addBlockOnChain("", block)
+		} else {
+			result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block)
 		}
-		lastChainPieceBlock = bh
-		break
-	}
-	if lastChainPieceBlock == nil {
-		panic("lastChainPieceBlock should not be nil!")
-	}
-
-	chainPiece := make([]*types.BlockHeader, 0)
-	chainPiece = append(chainPiece, lastChainPieceBlock)
-
-	hash := lastChainPieceBlock.PreHash
-	for i := 0; i < ChainPieceLength; i++ {
-		header := BlockChainImpl.QueryBlockHeaderByHash(hash)
-		if header == nil {
-			//创世块 pre hash 不存在
-			break
+		if result != 0 {
+			return
 		}
-		chainPiece = append(chainPiece, header)
-		hash = header.PreHash
 	}
-	return chainPiece
 }
