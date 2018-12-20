@@ -455,6 +455,9 @@ func bonusStatByHeight(height uint64) BonusInfo {
 	groupId := bh.GroupId
 
 	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
+	if bonusTx == nil {
+		return BonusInfo{}
+	}
 
 	// 从交易信息中解析出targetId列表
 	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
@@ -481,8 +484,8 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 	var bonusValueMap, bonusNumMap, castBlockNumMap map[string]uint64
 
 	if _, ok := BonusValueStatMap[height]; !ok {
-		var i uint64
-		for i = 1; i < height; i++ {
+		var i uint64 = 1
+		for ; i <= height; i++ {
 			if _, ok := BonusValueStatMap[i]; !ok {
 				break
 			}
@@ -491,8 +494,6 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		for j := i; j <= height; j++ {
 			bh := core.BlockChainImpl.QueryBlockByHeight(j)
 
-			casterId := groupsig.DeserializeId(bh.Castor)
-
 			bonusValuePreMap := BonusValueStatMap[j-1]
 			bonusNumPreMap := BonusNumStatMap[j-1]
 			castBlockPreMap := CastBlockStatMap[j-1]
@@ -500,8 +501,8 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 			// 获取验证分红的交易信息
 			// 此方法取到的分红交易有时候为空
 			var bonusTx *types.Transaction
-			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil {
-				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
+			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil || bh.Castor == nil {
+				BonusLogger.Infof("[Bonus or Castor is NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
 				BonusValueStatMap[j] = bonusValuePreMap
 				BonusNumStatMap[j] = bonusNumPreMap
 				CastBlockStatMap[j] = castBlockPreMap
@@ -510,8 +511,6 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 
 			// 从交易信息中解析出targetId列表
 			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
-
-			BonusLogger.Infof("height: %v | castBlockMap: %v", j-1, castBlockPreMap)
 
 			bonusValueCurrentMap := make(map[string]uint64)
 			bonusNumCurrentMap := make(map[string]uint64)
@@ -545,6 +544,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 				}
 			}
 
+			casterId := groupsig.DeserializeId(bh.Castor)
 			if v, ok := castBlockCurrentMap[casterId.GetHexString()]; ok {
 				castBlockCurrentMap[casterId.GetHexString()] = v + 1
 			} else {
@@ -590,36 +590,10 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 
 	bonusInfo := bonusStatByHeight(height)
 
-	signedBlocks := make([]string, 0, 10)
-	//if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
-	//	for e := signedBlockList.Front(); e != nil; e = e.Next(){
-	//		signedBlocks = append(signedBlocks, e.Value.(string))
-	//	}
-	//}
-
-	var mutiSignedBlockNum uint64 = 0
-	//var i uint64 = 1
-	//for ; i <= height; i++{
-	//	if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
-	//		if signedBlockList.Len() > 1 {
-	//			mutiSignedBlockNum++
-	//			BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
-	//		}
-	//	}
-	//}
-
-	signedBlockInfo := SignedBlockInfo{
-		Height:             height,
-		OnchainBlock:       bonusInfo.BlockHash.ShortS(),
-		SignedBlocks:       signedBlocks,
-		MutiSignedBlockNum: mutiSignedBlockNum,
-	}
-
 	result := CastBlockAndBonusResult{
 		BonusInfoAtHeight:  bonusInfo,
 		BonusStatInfos:     bonusStatResults,
 		CastBlockStatInfos: castBlockResults,
-		SignedBlockInfo:    signedBlockInfo,
 	}
 
 	return successResult(result)

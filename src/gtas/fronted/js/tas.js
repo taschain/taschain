@@ -100,17 +100,6 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         limit: 15
     });
 
-    let signed_block_info_table = table.render({
-        elem: '#signed_block_info',
-        cols: [[
-            {field: 'height', title: '块高'},
-            {field: 'onchain_block', title: '上链的块'},
-            {field: 'signed_blocks', title: '签出的块'}
-        ]],
-        page: true,
-        limit: 15
-    });
-
     $("#dashboard_update_div").click(function () {
         console.log('dashboard_update_switch click')
         if ($("#dashboard_update_switch").is(':checked')){
@@ -702,13 +691,6 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         cast_block_stat_table.reload({
             data:castBlockStat
         });
-
-        var signedBlockInfo = [];
-        signedBlockInfo.push(data.signed_block_info);
-        signed_block_info_table.reload({
-            data:signedBlockInfo
-        });
-        $("#muti_signed_block_num").text(data.signed_block_info.muti_signed_block_num)
     }
 
     // dashboard同步数据
