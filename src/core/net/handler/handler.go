@@ -161,7 +161,8 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	}
 
 	core.Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-	core.BlockChainImpl.AddBlockOnChain(source, block)
+	//此处source传空，此处上链引发如果触发分叉不处理
+	core.BlockChainImpl.AddBlockOnChain("", block)
 }
 
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
