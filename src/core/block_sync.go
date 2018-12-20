@@ -77,6 +77,7 @@ func (bs *blockSyncer) IsInit() bool {
 func (bs *blockSyncer) trySync() {
 	bs.lock.Lock("trySync")
 	defer bs.lock.Unlock("trySync")
+
 	bs.syncTimer.Reset(blockSyncInterval)
 	if bs.syncing {
 		bs.logger.Debugf("Syncing to %s,do not sync anymore!", bs.candidate)
@@ -174,8 +175,12 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		return
 	}
 	source := m.Peer
+	if bs == nil {
+		panic("blockSyncer is nil!")
+	}
+	bs.logger.Debugf("blockResponseMsgHandler rcv from %s!", source)
 	if source != bs.candidate {
-		bs.logger.Debugf("Unexpected block response from %s, expect from %s!", source, m.Peer)
+		bs.logger.Debugf("Unexpected block response from %s, expect from %s!", source, bs.candidate)
 		return
 	}
 	blockResponse, e := bs.unMarshalBlockMsgResponse(m.BlockResponseByte)
@@ -187,20 +192,27 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	block := blockResponse.Block
 	isLastBlock := blockResponse.IsLastBlock
 
+	var sync = false
 	if block == nil {
 		bs.logger.Debugf("Rcv block response nil from:%s", source)
 	} else {
-		bs.logger.Debugf("Rcv block response from:%s,hash:%v,height:%d,totalQn:%d,tx len:%d", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-		BlockChainImpl.AddBlockOnChain(block)
+		bs.logger.Debugf("Rcv block response from:%s,hash:%v,height:%d,totalQn:%d,tx len:%d,isLastBlock:%t", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions), isLastBlock)
+		result := BlockChainImpl.AddBlockOnChain(source, block)
+		if result == 0 {
+			sync = true
+		}
 	}
 	if isLastBlock {
+		bs.logger.Debugf("Rcv last block! Set syncing false.Set candidate nil!")
 		bs.lock.Lock("blockResponseMsgHandler")
 		bs.candidate = ""
 		bs.syncing = false
 		bs.reqTimeoutTimer.Stop()
 		bs.lock.Unlock("blockResponseMsgHandler")
 
-		go bs.trySync()
+		if sync {
+			go bs.trySync()
+		}
 	}
 }
 
@@ -234,7 +246,7 @@ func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
 	if localHeight > candidateHeight {
 		return candidateId, candidateHeight
 	}
-	return candidateId, localHeight
+	return candidateId, localHeight + 1
 }
 
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
@@ -269,7 +281,7 @@ func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
 func (bs *blockSyncer) candidatePoolDump() {
 	bs.logger.Debugf("Candidate Pool Dump:")
 	for id, topBlockInfo := range bs.candidatePool {
-		bs.logger.Debugf("Candidate id:%s,totalQn:%d,height:%s,topHash:%s", id, topBlockInfo.TotalQn, topBlockInfo.Height, topBlockInfo.Hash.String())
+		bs.logger.Debugf("Candidate id:%s,totalQn:%d,height:%d,topHash:%s", id, topBlockInfo.TotalQn, topBlockInfo.Height, topBlockInfo.Hash.String())
 	}
 }
 

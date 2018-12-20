@@ -399,6 +399,6 @@ message BlockMsgResponse{
 }
 
 message ChainPieceBlockMsg{
-    required bool IsTop = 1;
-    required Block Block = 2;
+    required BlockHeader TopHeader = 1;
+    repeated Block Blocks  = 2;
 }

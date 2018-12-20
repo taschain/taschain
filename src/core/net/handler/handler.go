@@ -30,7 +30,7 @@ import (
 
 const (
 	ChainPieceLength  = 10
-	blockResponseSzie = 10
+	blockResponseSzie = 1
 )
 
 type ChainHandler struct {
@@ -153,14 +153,15 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	if !ok {
 		return
 	}
+	source := m.Peer
 	block, e := types.UnMarshalBlock(m.BlockByte)
 	if e != nil {
 		core.Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
 		return
 	}
 
-	core.Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", m.Peer, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-	core.BlockChainImpl.AddBlockOnChain(block)
+	core.Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
+	core.BlockChainImpl.AddBlockOnChain(source, block)
 }
 
 func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {

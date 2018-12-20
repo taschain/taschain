@@ -40,7 +40,7 @@ type BlockChain interface {
 
 	//铸块成功，上链
 	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-	AddBlockOnChain(b *types.Block) int8
+	AddBlockOnChain(source string, b *types.Block) int8
 
 	Height() uint64
 
@@ -101,7 +101,9 @@ type BlockChain interface {
 
 	GetCheckValue(height uint64) (common.Hash, error)
 
-	GetChainPiece(reqHeight uint64) []*types.BlockHeader
+	GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader
+
+	GetChainPieceBlocks(reqHeight uint64) []*types.Block
 
 	//status 0 忽略该消息  不需要同步
 	//status 1 需要同步ChainPieceBlock

@@ -19,21 +19,20 @@ const (
 )
 
 type forkProcessor struct {
-	candidite  string
-	reqTimer   *time.Timer
-	chainPiece []*types.Block
+	candidite string
+	reqTimer  *time.Timer
 
 	lock   sync.Mutex
 	logger taslog.Logger
 }
 
 type ChainPieceBlockMsg struct {
-	Block      *types.Block
-	IsTopBlock bool
+	Blocks    []*types.Block
+	TopHeader *types.BlockHeader
 }
 
 func initforkProcessor() *forkProcessor {
-	fh := forkProcessor{lock: sync.Mutex{}, reqTimer: time.NewTimer(forkTimeOut), chainPiece: make([]*types.Block, 0, blockChainPieceSzie)}
+	fh := forkProcessor{lock: sync.Mutex{}, reqTimer: time.NewTimer(forkTimeOut),}
 	fh.logger = taslog.GetLoggerByIndex(taslog.ForkLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	notify.BUS.Subscribe(notify.ChainPieceInfoReq, fh.chainPieceInfoReqHandler)
 	notify.BUS.Subscribe(notify.ChainPieceInfo, fh.chainPieceInfoHandler)
@@ -47,7 +46,7 @@ func (fh *forkProcessor) requestChainPieceInfo(targetNode string, height uint64)
 		return
 	}
 	if fh.candidite != "" {
-		fh.logger.Debug("Processing fork to %s! Do not req chain piece info anymore", fh.candidite)
+		fh.logger.Debugf("Processing fork to %s! Do not req chain piece info anymore", fh.candidite)
 		return
 	}
 	if PeerManager.isEvil(targetNode) {
@@ -74,7 +73,7 @@ func (fh *forkProcessor) chainPieceInfoReqHandler(msg notify.Message) {
 	id := chainPieceReqMessage.Peer
 
 	fh.logger.Debugf("Rcv chain piece info req from:%s,req height:%d", id, reqHeight)
-	chainPiece := BlockChainImpl.GetChainPiece(reqHeight)
+	chainPiece := BlockChainImpl.GetChainPieceInfo(reqHeight)
 	fh.sendChainPieceInfo(id, ChainPieceInfo{ChainPiece: chainPiece, TopHeader: BlockChainImpl.QueryTopBlock()})
 }
 
@@ -125,6 +124,7 @@ func (fh *forkProcessor) chainPieceInfoHandler(msg notify.Message) {
 	}
 
 	if status == 2 {
+		fh.reset()
 		fh.requestChainPieceInfo(source, reqHeight)
 		return
 	}
@@ -144,39 +144,16 @@ func (fh *forkProcessor) chainPieceBlockReqHanlder(msg notify.Message) {
 	}
 	source := m.Peer
 	reqHeight := utility.ByteToUInt64(m.ReqHeightByte)
-	localHeight := BlockChainImpl.Height()
 	fh.logger.Debugf("Rcv chain piece block req from:%s,req height:%d", source, reqHeight)
-	var sendTopBlock = false
 
-	var count = 0
-	for i := reqHeight; i <= localHeight; i++ {
-		block := BlockChainImpl.QueryBlock(i)
-		if block == nil {
-			continue
-		}
-		count++
-		if i == localHeight {
-			fh.sendChainPieceBlock(source, block, true)
-			sendTopBlock = true
-		} else {
-			fh.sendChainPieceBlock(source, block, false)
-		}
-		if count >= blockChainPieceSzie {
-			break
-		}
-	}
-	if !sendTopBlock {
-		localTopHash := BlockChainImpl.QueryTopBlock().Hash
-		fh.sendChainPieceBlock(source, BlockChainImpl.QueryBlockByHash(localTopHash), true)
-	}
+	blocks := BlockChainImpl.GetChainPieceBlocks(reqHeight)
+	topHeader := BlockChainImpl.QueryTopBlock()
+	fh.sendChainPieceBlock(source, blocks, topHeader)
 }
 
-func (fh *forkProcessor) sendChainPieceBlock(targetId string, block *types.Block, isTop bool) {
-	if block == nil {
-		return
-	}
-	fh.logger.Debugf("Send local chain piece block:%d to:%s,isTop:%t", block.Header.Height, targetId, isTop)
-	body, e := fh.marshalChainPieceBlockMsg(ChainPieceBlockMsg{Block: block, IsTopBlock: isTop})
+func (fh *forkProcessor) sendChainPieceBlock(targetId string, blocks []*types.Block, topHeader *types.BlockHeader) {
+	fh.logger.Debugf("Send chain piece blocks %d-%d to:%s", blocks[len(blocks)-1].Header.Height, blocks[0].Header.Height, targetId)
+	body, e := fh.marshalChainPieceBlockMsg(ChainPieceBlockMsg{Blocks: blocks, TopHeader: topHeader})
 	if e != nil {
 		fh.logger.Errorf("SendBlock marshal MarshalBlock error:%s", e.Error())
 		return
@@ -203,24 +180,21 @@ func (fh *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		return
 	}
 
-	block := chainPieceBlockMsg.Block
-	isTopBlock := chainPieceBlockMsg.IsTopBlock
+	blocks := chainPieceBlockMsg.Blocks
+	topHeader := chainPieceBlockMsg.TopHeader
 
-	if block == nil {
+	if topHeader == nil {
 		return
 	}
-	fh.logger.Debugf("Rcv chain piece block hash:%v,height:%d,totalQn:%d,tx len:%d", block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-	if !isTopBlock {
-		fh.chainPiece = append(fh.chainPiece, block)
-	} else {
-		if !fh.verifyChainPieceBlocks(fh.chainPiece, block.Header) {
-			fh.logger.Debugf("Bad chain piece blocks from %s", source)
-			PeerManager.markEvil(source)
-			return
-		}
-		BlockChainImpl.MergeFork(fh.chainPiece, block.Header)
-		fh.reset()
+	fh.logger.Debugf("Rcv chain piece block chain piece blocks %d-%d from %s", blocks[len(blocks)-1].Header.Height, blocks[0].Header.Height, source)
+
+	if !fh.verifyChainPieceBlocks(blocks, topHeader) {
+		fh.logger.Debugf("Bad chain piece blocks from %s", source)
+		PeerManager.markEvil(source)
+		return
 	}
+	BlockChainImpl.MergeFork(blocks, topHeader)
+	fh.reset()
 
 }
 
@@ -230,7 +204,6 @@ func (fh *forkProcessor) reset() {
 	fh.logger.Debugf("Fork processor reset!")
 	fh.candidite = ""
 	fh.reqTimer.Stop()
-	fh.chainPiece = fh.chainPiece[:0]
 }
 
 func (fh *forkProcessor) verifyChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) bool {
@@ -298,7 +271,12 @@ func (fh *forkProcessor) unMarshalChainPieceInfo(b []byte) (*ChainPieceInfo, err
 }
 
 func (fh *forkProcessor) marshalChainPieceBlockMsg(cpb ChainPieceBlockMsg) ([]byte, error) {
-	message := tas_middleware_pb.ChainPieceBlockMsg{IsTop: &cpb.IsTopBlock, Block: types.BlockToPb(cpb.Block)}
+	topHeader := types.BlockHeaderToPb(cpb.TopHeader)
+	blocks := make([]*tas_middleware_pb.Block, 0)
+	for _, b := range cpb.Blocks {
+		blocks = append(blocks, types.BlockToPb(b))
+	}
+	message := tas_middleware_pb.ChainPieceBlockMsg{TopHeader: topHeader, Blocks: blocks}
 	return proto.Marshal(&message)
 }
 
@@ -309,7 +287,12 @@ func (fh *forkProcessor) unmarshalChainPieceBlockMsg(b []byte) (*ChainPieceBlock
 		fh.logger.Errorf("unmarshalChainPieceBlockMsg error:%s", e.Error())
 		return nil, e
 	}
-	cpb := ChainPieceBlockMsg{IsTopBlock: *message.IsTop, Block: types.PbToBlock(message.Block)}
+	topHeader := types.PbToBlockHeader(message.TopHeader)
+	blocks := make([]*types.Block, 0)
+	for _, b := range message.Blocks {
+		blocks = append(blocks, types.PbToBlock(b))
+	}
+	cpb := ChainPieceBlockMsg{TopHeader: topHeader, Blocks: blocks}
 	return &cpb, nil
 }
 

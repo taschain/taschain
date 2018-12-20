@@ -138,7 +138,7 @@ func SendBlock(targetId string, block *types.Block, isLastBlock bool) {
 		return
 	}
 	message := network.Message{Code: network.BlockResponseMsg, Body: body}
-	go network.GetNetInstance().Send(targetId, message)
+	network.GetNetInstance().Send(targetId, message)
 }
 
 //func ReqBlockBody(targetNode string, blockHash common.Hash) {

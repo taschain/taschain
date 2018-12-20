@@ -189,6 +189,9 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 }
 
 func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
+	if h == nil {
+		return nil
+	}
 	hashBytes := h.Transactions
 	hashes := make([]common.Hash, 0)
 
