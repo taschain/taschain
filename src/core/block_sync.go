@@ -243,7 +243,7 @@ func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
 			candidateHeight = topBlockInfo.Height
 		}
 	}
-	if localHeight > candidateHeight {
+	if localHeight >= candidateHeight {
 		return candidateId, candidateHeight
 	}
 	return candidateId, localHeight + 1
