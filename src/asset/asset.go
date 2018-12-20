@@ -87,7 +87,7 @@ func gtasFrontedCHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 31367, mode: os.FileMode(420), modTime: time.Unix(1545278889, 0)}
+	info := bindataFileInfo{name: "gtas/fronted/c.html", size: 31367, mode: os.FileMode(420), modTime: time.Unix(1545291965, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
