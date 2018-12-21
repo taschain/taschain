@@ -189,13 +189,13 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
-		if transaction.Type != types.TransactionTypeBonus {
-			nonce := accountdb.GetNonce(*transaction.Source)
-			if transaction.Nonce != nonce + 1{
-				evictedTxs = append(evictedTxs, transaction.Hash)
-				continue
-			}
-		}
+		//if transaction.Type != types.TransactionTypeBonus {
+		//	nonce := accountdb.GetNonce(*transaction.Source)
+		//	if transaction.Nonce != nonce + 1{
+		//		evictedTxs = append(evictedTxs, transaction.Hash)
+		//		continue
+		//	}
+		//}
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
 			amount := big.NewInt(int64(transaction.Value))
