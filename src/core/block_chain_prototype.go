@@ -499,7 +499,7 @@ func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHead
 	//Has no common ancestor
 	if index == 0 {
 		Logger.Debugf("Local chain is same with coming chain piece.")
-		return 1, chainPiece[0].Height + 1
+		return 0, math.MaxUint64
 	} else {
 		var preHeight uint64
 		preBlock := BlockChainImpl.QueryBlockByHash(chain.latestBlock.PreHash)
@@ -633,16 +633,37 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	defer chain.lock.Unlock("MergeFork")
 
 	localTopHeader := chain.latestBlock
-	if !(topHeader.TotalQN > localTopHeader.TotalQN || topHeader.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
+	if !(blockChainPiece[0].Header.TotalQN > localTopHeader.TotalQN || blockChainPiece[0].Header.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
 		return
 	}
-	commonAncestorHash := (*blockChainPiece[len(blockChainPiece)-1]).Header.PreHash
-	commonAncestor := BlockChainImpl.QueryBlockByHash(commonAncestorHash)
-	if commonAncestor == nil {
+	originCommonAncestorHash := (*blockChainPiece[len(blockChainPiece)-1]).Header.PreHash
+	originCommonAncestor := BlockChainImpl.QueryBlockByHash(originCommonAncestorHash)
+	if originCommonAncestor == nil {
 		return
 	}
-	chain.removeFromCommonAncestor(commonAncestor.Header)
+
+	var index = -1
 	for i := len(blockChainPiece) - 1; i >= 0; i-- {
+		block := blockChainPiece[i]
+		if BlockChainImpl.QueryBlockByHash(block.Header.Hash) == nil {
+			index = i + 1
+			break
+		}
+	}
+
+	if index == -1 {
+		return
+	}
+
+	var realCommonAncestor *types.BlockHeader
+	if index == len(blockChainPiece) {
+		realCommonAncestor = originCommonAncestor.Header
+	} else {
+		realCommonAncestor = blockChainPiece[index].Header
+	}
+	chain.removeFromCommonAncestor(realCommonAncestor)
+
+	for i := index - 1; i >= 0; i-- {
 		block := blockChainPiece[i]
 		var result int8
 		if chain.IsLightMiner() {

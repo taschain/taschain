@@ -240,6 +240,9 @@ func (fh *forkProcessor) verifyChainPieceBlocks(chainPiece []*types.Block, topHe
 
 	for i := 0; i < len(chainPiece)-1; i++ {
 		block := chainPiece[i]
+		if block == nil {
+			return false
+		}
 		if block.Header.Hash != block.Header.GenHash() {
 			fh.logger.Infof("invalid chainPiece element,hash:%s", block.Header.Hash.String())
 			return false

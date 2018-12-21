@@ -32,7 +32,7 @@ import (
 const (
 	MaxRcvTxPoolSize     = 10000
 	MaxMinerTxPoolSize   = 1000
-	MaxMissTxPookSize    = 10000
+	MaxMissTxPookSize    = 60000
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
 	TxCountPerBlock      = 3000
