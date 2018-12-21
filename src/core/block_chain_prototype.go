@@ -429,30 +429,33 @@ func (chain *prototypeChain) GetChainPieceBlocks(reqHeight uint64) []*types.Bloc
 		height = reqHeight
 	}
 
-	var lastChainPieceBlock *types.BlockHeader
+	var firstChainPieceBlock *types.BlockHeader
 	for i := height; i <= chain.Height(); i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
 		if nil == bh {
 			continue
 		}
-		lastChainPieceBlock = bh
+		firstChainPieceBlock = bh
 		break
 	}
-	if lastChainPieceBlock == nil {
+	if firstChainPieceBlock == nil {
 		panic("lastChainPieceBlock should not be nil!")
 	}
 
 	chainPieceBlocks := make([]*types.Block, 0)
-
-	hash := lastChainPieceBlock.Hash
-	for i := 0; i < ChainPieceBlockLength; i++ {
-		block := BlockChainImpl.QueryBlockByHash(hash)
-		if block == nil {
-			//创世块 pre hash 不存在
+	for i := firstChainPieceBlock.Height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		b := BlockChainImpl.QueryBlockByHash(bh.Hash)
+		if nil == b {
+			continue
+		}
+		chainPieceBlocks = append(chainPieceBlocks, b)
+		if len(chainPieceBlocks) > ChainPieceBlockLength {
 			break
 		}
-		chainPieceBlocks = append(chainPieceBlocks, block)
-		hash = block.Header.PreHash
 	}
 	return chainPieceBlocks
 }
