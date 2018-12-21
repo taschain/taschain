@@ -654,7 +654,7 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 		}
 	}
 
-	if index == len(blockChainPiece) {
+	if index == -100 {
 		return
 	}
 
