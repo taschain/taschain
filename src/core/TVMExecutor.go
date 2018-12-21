@@ -191,7 +191,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 
 		if transaction.Type != types.TransactionTypeBonus {
 			nonce := accountdb.GetNonce(*transaction.Source)
-			if transaction.Nonce <= nonce{
+			if transaction.Nonce != nonce + 1{
 				evictedTxs = append(evictedTxs, transaction.Hash)
 				continue
 			}
@@ -290,7 +290,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
-
 					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
