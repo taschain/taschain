@@ -63,6 +63,12 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	if topHeight <= model.Param.CreateGroupInterval {
 		return
 	}
+
+	// 指定高度已经在组链上出现过
+	if _, ok := gchecker.processor.CreateHeightGroups[topHeight]; ok {
+		return
+	}
+
 	h := topHeight-model.Param.CreateGroupInterval
 	theBH = gchecker.processor.MainChain.QueryBlockByHeight(h)
 	if theBH == nil {

@@ -149,11 +149,20 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 
 func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 	group := ConvertStaticGroup2CoreGroup(sgi)
+
+	gm.processor.CreateHeightGroupsMutex.Lock()
+	defer gm.processor.CreateHeightGroupsMutex.Unlock()
+
 	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, common.BytesToAddress(group.Id).GetHexString())
-	err := gm.groupChain.AddGroup(group)
-	if err != nil {
-		stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
-		return
+
+	if _, ok := gm.processor.CreateHeightGroups[group.Header.CreateHeight]; !ok {
+		err := gm.groupChain.AddGroup(group)
+		if err != nil {
+			stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
+			return
+		} else {
+			gm.processor.CreateHeightGroups[group.Header.CreateHeight] = group.Header.Hash.ShortS()
+		}
 	}
 
 	stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
