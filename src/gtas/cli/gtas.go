@@ -24,7 +24,6 @@ import (
 	"network"
 	"os"
 
-	"core/net/handler"
 	chandler "consensus/net"
 	"consensus/mediator"
 
@@ -40,6 +39,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"runtime/debug"
+	"core/net/handler"
 )
 
 const (
@@ -114,7 +114,6 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 			return
 		}
 	}
-
 
 	ok := mediator.StartMiner()
 

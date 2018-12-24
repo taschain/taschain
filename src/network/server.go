@@ -36,6 +36,7 @@ type server struct {
 	consensusHandler MsgHandler
 
 	chainHandler MsgHandler
+
 }
 
 func (n *server) Send(id string, msg Message) error {
@@ -216,7 +217,8 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		VerifiedCastMsg, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq:
 		n.consensusHandler.Handle(from, *message)
 	case ReqTransactionMsg:
-		n.chainHandler.Handle(from, *message)
+		msg := notify.TransactionReqMessage{TransactionReqByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.TransactionReq, &msg)
 	case GroupChainCountMsg:
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
@@ -228,11 +230,8 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.Group, &msg)
 	case TransactionGotMsg:
-		error := n.chainHandler.Handle(from, *message)
-		if error != nil {
-			return
-		}
-		n.consensusHandler.Handle(from, *message)
+		msg := notify.TransactionGotMessage{TransactionGotByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.TransactionGot, &msg)
 	case MinerTransactionMsg:
 		msg := notify.MinerTransactionMessage{MinerTransactionsByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.MinerTransaction, &msg)

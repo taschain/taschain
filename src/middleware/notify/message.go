@@ -63,6 +63,7 @@ func (m *BlockInfoNotifyMessage) GetRaw() []byte {
 func (m *BlockInfoNotifyMessage) GetData() interface{} {
 	return m
 }
+
 //------------------------------------------------fork------------------------------------------------------------------
 type ChainPieceInfoReqMessage struct {
 	HeightByte []byte
@@ -102,7 +103,7 @@ func (m *ChainPieceBlockReqMessage) GetData() interface{} {
 
 type ChainPieceBlockMessage struct {
 	ChainPieceBlockMsgByte []byte
-	Peer          string
+	Peer                   string
 }
 
 func (m *ChainPieceBlockMessage) GetRaw() []byte {
@@ -212,6 +213,42 @@ func (m *MinerTransactionMessage) GetRaw() []byte {
 }
 func (m *MinerTransactionMessage) GetData() interface{} {
 	return m
+}
+
+type TransactionReqMessage struct {
+	TransactionReqByte []byte
+	Peer               string
+}
+
+func (m *TransactionReqMessage) GetRaw() []byte {
+	return m.TransactionReqByte
+}
+func (m *TransactionReqMessage) GetData() interface{} {
+	return m
+}
+
+type TransactionGotMessage struct {
+	TransactionGotByte []byte
+	Peer               string
+}
+
+func (m *TransactionGotMessage) GetRaw() []byte {
+	return m.TransactionGotByte
+}
+func (m *TransactionGotMessage) GetData() interface{} {
+	return m
+}
+
+type TransactionGotAddSuccMessage struct {
+	Transactions []*types.Transaction
+	Peer         string
+}
+
+func (m *TransactionGotAddSuccMessage) GetRaw() []byte {
+	return nil
+}
+func (m *TransactionGotAddSuccMessage) GetData() interface{} {
+	return m.Transactions
 }
 
 //type StateInfoReqMessage struct {

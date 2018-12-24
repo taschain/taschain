@@ -110,17 +110,6 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 
 		c.processor.OnMessageVerify(m)
 
-	case network.TransactionGotMsg:
-		transactions, e := types.UnMarshalTransactions(body)
-		if e != nil {
-			logger.Errorf("[handler]Discard TRANSACTION_GOT_MSG because of unmarshal error%s", e.Error())
-			return e
-		}
-		var txHashes []common.Hash
-		for _, tx := range transactions {
-			txHashes = append(txHashes, tx.Hash)
-		}
-		c.processor.OnMessageNewTransactions(txHashes)
 	case network.CreateGroupaRaw:
 		m, e := unMarshalConsensusCreateGroupRawMessage(body)
 		if e != nil {
