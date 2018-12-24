@@ -19,6 +19,7 @@ import (
 	"consensus/groupsig"
 	"sync"
 
+	"common"
 	"consensus/model"
 	"consensus/net"
 	"consensus/ticker"
@@ -28,7 +29,6 @@ import (
 	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
-	"common"
 )
 
 var PROC_TEST_MODE bool
@@ -177,10 +177,13 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
+		err = common.ErrorSelectGroupNil
+		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
 	if !selectGroupId.IsEqual(gid) {
-		err = fmt.Errorf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		err = common.ErrorSelectGroupInequal
+		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
 		return
 	}
 
