@@ -238,7 +238,7 @@ func (fh *forkProcessor) verifyChainPieceBlocks(chainPiece []*types.Block, topHe
 		return false
 	}
 
-	for i := 0; i < len(chainPiece)-1; i++ {
+	for i := len(chainPiece) - 1; i > 0; i-- {
 		block := chainPiece[i]
 		if block == nil {
 			return false
@@ -247,7 +247,7 @@ func (fh *forkProcessor) verifyChainPieceBlocks(chainPiece []*types.Block, topHe
 			fh.logger.Infof("invalid chainPiece element,hash:%s", block.Header.Hash.String())
 			return false
 		}
-		if block.Header.PreHash != chainPiece[i+1].Header.Hash {
+		if block.Header.PreHash != chainPiece[i-1].Header.Hash {
 			fh.logger.Infof("invalid preHash,expect prehash:%s,real hash:%s", block.Header.PreHash.String(), chainPiece[i+1].Header.Hash.String())
 			return false
 		}

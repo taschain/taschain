@@ -429,30 +429,33 @@ func (chain *prototypeChain) GetChainPieceBlocks(reqHeight uint64) []*types.Bloc
 		height = reqHeight
 	}
 
-	var lastChainPieceBlock *types.BlockHeader
+	var firstChainPieceBlock *types.BlockHeader
 	for i := height; i <= chain.Height(); i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
 		if nil == bh {
 			continue
 		}
-		lastChainPieceBlock = bh
+		firstChainPieceBlock = bh
 		break
 	}
-	if lastChainPieceBlock == nil {
+	if firstChainPieceBlock == nil {
 		panic("lastChainPieceBlock should not be nil!")
 	}
 
 	chainPieceBlocks := make([]*types.Block, 0)
-
-	hash := lastChainPieceBlock.Hash
-	for i := 0; i < ChainPieceBlockLength; i++ {
-		block := BlockChainImpl.QueryBlockByHash(hash)
-		if block == nil {
-			//创世块 pre hash 不存在
+	for i := firstChainPieceBlock.Height; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		b := BlockChainImpl.QueryBlockByHash(bh.Hash)
+		if nil == b {
+			continue
+		}
+		chainPieceBlocks = append(chainPieceBlocks, b)
+		if len(chainPieceBlocks) > ChainPieceBlockLength {
 			break
 		}
-		chainPieceBlocks = append(chainPieceBlocks, block)
-		hash = block.Header.PreHash
 	}
 	return chainPieceBlocks
 }
@@ -633,37 +636,37 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	defer chain.lock.Unlock("MergeFork")
 
 	localTopHeader := chain.latestBlock
-	if !(blockChainPiece[0].Header.TotalQN > localTopHeader.TotalQN || blockChainPiece[0].Header.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
+	if !(blockChainPiece[len(blockChainPiece)-1].Header.TotalQN > localTopHeader.TotalQN || blockChainPiece[len(blockChainPiece)-1].Header.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
 		return
 	}
-	originCommonAncestorHash := (*blockChainPiece[len(blockChainPiece)-1]).Header.PreHash
+	originCommonAncestorHash := (*blockChainPiece[0]).Header.PreHash
 	originCommonAncestor := BlockChainImpl.QueryBlockByHash(originCommonAncestorHash)
 	if originCommonAncestor == nil {
 		return
 	}
 
-	var index = -1
-	for i := len(blockChainPiece) - 1; i >= 0; i-- {
+	var index = -100
+	for i := 0; i < len(blockChainPiece); i++ {
 		block := blockChainPiece[i]
 		if BlockChainImpl.QueryBlockByHash(block.Header.Hash) == nil {
-			index = i + 1
+			index = i - 1
 			break
 		}
 	}
 
-	if index == -1 {
+	if index == -100 {
 		return
 	}
 
 	var realCommonAncestor *types.BlockHeader
-	if index == len(blockChainPiece) {
+	if index == -1 {
 		realCommonAncestor = originCommonAncestor.Header
 	} else {
 		realCommonAncestor = blockChainPiece[index].Header
 	}
 	chain.removeFromCommonAncestor(realCommonAncestor)
 
-	for i := index - 1; i >= 0; i-- {
+	for i := index + 1; i < len(blockChainPiece); i++ {
 		block := blockChainPiece[i]
 		var result int8
 		if chain.IsLightMiner() {
