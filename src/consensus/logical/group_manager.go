@@ -16,13 +16,12 @@ import (
 **  Description: 组生命周期, 包括建组, 解散组
 */
 
-
 type GroupManager struct {
 	groupChain     *core.GroupChain
 	mainChain      core.BlockChain
 	processor      *Processor
 	creatingGroups *CreatingGroups
-	checker 		*GroupCreateChecker
+	checker        *GroupCreateChecker
 }
 
 func NewGroupManager(processor *Processor) *GroupManager {
@@ -31,19 +30,17 @@ func NewGroupManager(processor *Processor) *GroupManager {
 		mainChain:      processor.MainChain,
 		groupChain:     processor.GroupChain,
 		creatingGroups: &CreatingGroups{},
-		checker: 		newGroupCreateChecker(processor),
+		checker:        newGroupCreateChecker(processor),
 	}
 }
 
-func (gm *GroupManager) addCreatingGroup(group *CreatingGroup)  {
-    gm.creatingGroups.addCreatingGroup(group)
+func (gm *GroupManager) addCreatingGroup(group *CreatingGroup) {
+	gm.creatingGroups.addCreatingGroup(group)
 }
 
-func (gm *GroupManager) removeCreatingGroup(hash common.Hash)  {
-    gm.creatingGroups.removeGroup(hash)
+func (gm *GroupManager) removeCreatingGroup(hash common.Hash) {
+	gm.creatingGroups.removeGroup(hash)
 }
-
-
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
 	top := gm.mainChain.QueryTopBlock()
@@ -58,7 +55,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	parentGroupId := groupsig.DeserializeId(gh.Parent)
 
 	gInfo := model.ConsensusGroupInitInfo{
-		GI: model.ConsensusGroupInitSummary{GHeader: gh},
+		GI:   model.ConsensusGroupInitSummary{GHeader: gh},
 		Mems: memIds,
 	}
 	msg := &model.ConsensusCreateGroupRawMessage{
@@ -75,7 +72,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	for _, mem := range memIds {
 		memIdStrs = append(memIdStrs, mem.ShortS())
 	}
-	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log( "parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
+	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
@@ -97,7 +94,8 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	//建组时高度是否存在
 	bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
 	if bh == nil {
-		return false, fmt.Errorf("createBlock is nil, height=%v", gh.CreateHeight)
+		core.Logger.Debugf("createBlock is nil, height=%v", gh.CreateHeight)
+		return false, common.ErrCreateBlockNil
 	}
 
 	//生成组头是否与收到的一致
@@ -142,7 +140,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 	accept := gm.creatingGroups.acceptPiece(gis.GetHash(), msg.SI.SignMember, msg.SI.DataSign)
 	blog.log("accept result %v", accept)
-	newHashTraceLog("OMCGS", gis.GetHash(), msg.SI.SignMember).log( "OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
+	newHashTraceLog("OMCGS", gis.GetHash(), msg.SI.SignMember).log("OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
 		gis.Signature = creating.gSignGenerator.GetGroupSign()
 		return true
@@ -150,13 +148,22 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	return false
 }
 
-func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo)  {
+func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 	group := ConvertStaticGroup2CoreGroup(sgi)
-	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight,common.BytesToAddress(group.Id).GetHexString())
-	err := gm.groupChain.AddGroup(group)
-	if err != nil {
-		stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
-		return
+
+	gm.processor.CreateHeightGroupsMutex.Lock()
+	defer gm.processor.CreateHeightGroupsMutex.Unlock()
+
+	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, common.BytesToAddress(group.Id).GetHexString())
+
+	if _, ok := gm.processor.CreateHeightGroups[group.Header.CreateHeight]; !ok {
+		err := gm.groupChain.AddGroup(group)
+		if err != nil {
+			stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
+			return
+		} else {
+			gm.processor.CreateHeightGroups[group.Header.CreateHeight] = group.Header.Hash.ShortS()
+		}
 	}
 
 	stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())

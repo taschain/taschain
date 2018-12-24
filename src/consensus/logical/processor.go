@@ -17,7 +17,9 @@ package logical
 
 import (
 	"consensus/groupsig"
+	"sync"
 
+	"common"
 	"consensus/model"
 	"consensus/net"
 	"consensus/ticker"
@@ -27,7 +29,6 @@ import (
 	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
-	"common"
 )
 
 var PROC_TEST_MODE bool
@@ -65,6 +66,9 @@ type Processor struct {
 	vrf         atomic.Value //vrfWorker
 
 	NetServer net.NetworkServer
+
+	CreateHeightGroups map[uint64]string // 标识该建组高度是否已经创建过组了
+	CreateHeightGroupsMutex sync.Mutex  // CreateHeightGroups的互斥锁，防止重复写入
 }
 
 func (p Processor) getPrefix() string {
@@ -105,11 +109,14 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
+	p.CreateHeightGroups = make(map[uint64]string, 100)
+
 	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
+	notify.BUS.Subscribe(notify.TransactionGotAddSucc, p.onMissTxAddSucc)
 	//notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 	return true
 }
@@ -171,10 +178,13 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
+		err = common.ErrSelectGroupNil
+		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
 	if !selectGroupId.IsEqual(gid) {
-		err = fmt.Errorf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		err = common.ErrSelectGroupInequal
+		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
 		return
 	}
 

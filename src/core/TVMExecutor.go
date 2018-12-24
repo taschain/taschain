@@ -31,6 +31,7 @@ import (
 
 //var castorReward = big.NewInt(50)
 //var bonusReward = big.NewInt(20)
+const TransferGasCost  = 1
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -184,10 +185,17 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 
 	for _, transaction := range block.Transactions {
-		var fail = false
+		var fail= false
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
+		//if transaction.Type != types.TransactionTypeBonus {
+		//	nonce := accountdb.GetNonce(*transaction.Source)
+		//	if transaction.Nonce != nonce + 1{
+		//		evictedTxs = append(evictedTxs, transaction.Hash)
+		//		continue
+		//	}
+		//}
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
 			amount := big.NewInt(int64(transaction.Value))
@@ -195,9 +203,12 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				Transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 				//Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s", transaction.Source.GetHexString(),
 				//	transaction.Target.GetHexString(), transaction.Value, height, mark)
+				gas := big.NewInt(int64(transaction.GasPrice * TransferGasCost))
+				accountdb.SubBalance(*transaction.Source, gas)
 			} else {
 				fail = true
 			}
+
 		case types.TransactionTypeContractCreate:
 			controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 			contractAddress, _ = createContract(accountdb, transaction)
@@ -279,7 +290,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s", transaction.Source.GetHexString())
 					}
 				} else {
-
 					if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
 						MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
 						amount := big.NewInt(int64(mexist.Stake))
@@ -294,6 +304,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				fail = true
 				Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Not Exist Or Not Abort) %s", transaction.Source.GetHexString())
 			}
+
 		}
 		if !fail {
 			transactions = append(transactions, transaction)
@@ -301,6 +312,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			receipt.TxHash = transaction.Hash
 			receipt.ContractAddress = contractAddress
 			receipts = append(receipts, receipt)
+			if transaction.Source != nil {
+				accountdb.SetNonce(*transaction.Source, transaction.Nonce)
+			}
 		} else {
 			evictedTxs = append(evictedTxs, transaction.Hash)
 		}

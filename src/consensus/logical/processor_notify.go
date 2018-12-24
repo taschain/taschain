@@ -112,3 +112,20 @@ func (p *Processor) onNewBlockReceive(message notify.Message) {
 	}
 	p.OnMessageBlock(msg)
 }
+
+func (p *Processor) onMissTxAddSucc(message notify.Message) {
+	if !p.Ready() {
+		return
+	}
+	tgam, ok := message.(*notify.TransactionGotAddSuccMessage)
+	if !ok {
+		stdLogger.Infof("minerTransactionHandler Message assert not ok!")
+		return
+	}
+	transactions := tgam.Transactions
+	var txHashes []common.Hash
+	for _, tx := range transactions {
+		txHashes = append(txHashes, tx.Hash)
+	}
+	p.OnMessageNewTransactions(txHashes)
+}

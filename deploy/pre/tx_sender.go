@@ -81,7 +81,7 @@ func getRichAccount(addr string, port int, accounts []string) (string, error) {
 			return "", errors.New("accounts error")
 		}
 		num := rand.Intn(len(accountsCopy))
-		return accounts[num],nil
+		return accounts[num], nil
 		//res, err := rpcPost(addr, port, "GTAS_balance", accounts[num])
 		//if err != nil {
 		//  return "", err
@@ -101,8 +101,8 @@ func getRichAccount(addr string, port int, accounts []string) (string, error) {
 	}
 }
 
-func transaction(addr string, port int, from, to string,nounce uint64) {
-	res, err := rpcPost(addr, port, "GTAS_tx", from, to, 1, "",nounce,0)
+func transaction(addr string, port int, from, to string, nounce uint64) {
+	res, err := rpcPost(addr, port, "GTAS_tx", from, to, 1, "", nounce, 0)
 	if err != nil {
 		fmt.Println("err:", err)
 		return
@@ -133,6 +133,11 @@ func main() {
 	urlList := parse(urls)
 	length := len(urlList)
 
+		accountsnNounceMap := make(map[string]uint64)
+	for _, account := range accounts {
+		accountsnNounceMap[account] = 0
+	}
+
 	for i := 0; i < *total; i++ {
 		url := urlList[i%length]
 		account, err := getRichAccount(url.host, url.port, accounts)
@@ -141,15 +146,17 @@ func main() {
 			continue
 		}
 		// 交易发给所有节点
-		rand.Seed(time.Now().UnixNano())
-		nounce :=rand.Uint64()
+		//rand.Seed(time.Now().UnixNano())
+		//nounce := rand.Uint64()
+		nounce := accountsnNounceMap[account]
 		toAccount := getRandomToAccount()
 		for j := 0; j < len(urlList); j++ {
 			urlInner := urlList[j]
-			go transaction(urlInner.host, urlInner.port, account, toAccount,nounce)
+			go transaction(urlInner.host, urlInner.port, account, toAccount, nounce)
 
 		}
-		fmt.Printf("Tx from %s to %s\n", account,toAccount)
+		accountsnNounceMap[account] = nounce + 100
+		fmt.Printf("Tx from %s to %s\n", account, toAccount)
 		time.Sleep(*interval)
 	}
 }
@@ -171,10 +178,10 @@ func parse(urls []string) []url {
 	return result
 }
 
-func getRandomToAccount()string{
-	slist := []string{"0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"}
+func getRandomToAccount() string {
+	slist := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"}
 	var result string
-	for i:=0;i<64;i++{
+	for i := 0; i < 64; i++ {
 		result += slist[rand.Intn(len(slist))]
 	}
 	return result

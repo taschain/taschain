@@ -24,7 +24,6 @@ import (
 	"network"
 	"os"
 
-	"core/net/handler"
 	chandler "consensus/net"
 	"consensus/mediator"
 
@@ -40,6 +39,7 @@ import (
 	"strconv"
 	"consensus/model"
 	"runtime/debug"
+	"core/net/handler"
 )
 
 const (
@@ -99,17 +99,6 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 	common.DefaultLogger.Infof(msg)
 }
 
-func (gtas *Gtas) waitingUtilSyncFinished() {
-	common.DefaultLogger.Infof("waiting for block and group sync finished....")
-	for {
-		if core.BlockSyncer.IsInit() && core.GroupSyncer.IsInit() {
-			break
-		}
-		time.Sleep(time.Millisecond * 500)
-	}
-	common.DefaultLogger.Infof("block and group sync finished!!")
-}
-
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
@@ -126,8 +115,6 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 		}
 	}
 
-	//gtas.waitingUtilSyncFinished()
-	//redis.NodeOnline(mediator.Proc.GetPubkeyInfo().ID.Serialize(), mediator.Proc.GetPubkeyInfo().PK.Serialize())
 	ok := mediator.StartMiner()
 
 	core.InitGroupSyncer()
@@ -139,7 +126,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 		time.Sleep(time.Millisecond * 500)
 	}
 	common.DefaultLogger.Infof("Group first init done!\nStart to init block!")
-	core.InitBlockSyncer(light)
+	core.InitBlockSyncer()
 	if len(apply) > 0 {
 		go func() {
 			timer := time.NewTimer(time.Second * 10)
