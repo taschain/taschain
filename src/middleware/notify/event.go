@@ -38,4 +38,10 @@ const (
 	Group = "group"
 
 	MinerTransaction = "miner_transaction"
+
+	TransactionReq = "transaction_req"
+
+	TransactionGot = "transaction_got"
+
+	TransactionGotAddSucc = "transaction_got_add_succ"
 )

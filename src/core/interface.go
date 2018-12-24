@@ -114,8 +114,10 @@ type BlockChain interface {
 }
 
 type TransactionPool interface {
+	//add new transaction to the transaction pool
 	AddTransaction(tx *types.Transaction) (bool, error)
 
+	//add  local miss transactions while verifying blocks to the transaction pool
 	AddMissTransactions(txs []*types.Transaction) error
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)

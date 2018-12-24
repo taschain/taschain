@@ -58,7 +58,6 @@ type blockBodyNotify struct {
 }
 
 func NewChainHandler() network.MsgHandler {
-
 	headerPending := make(map[common.Hash]blockHeaderNotify)
 	complete, _ := lru.New(256)
 	headerCh := make(chan blockHeaderNotify, 100)
@@ -71,38 +70,24 @@ func NewChainHandler() network.MsgHandler {
 	//notify.BUS.Subscribe(notify.StateInfoReq, handler.stateInfoReqHandler)
 	//notify.BUS.Subscribe(notify.StateInfo, handler.stateInfoHandler)
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
-	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
+
+	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
+	notify.BUS.Subscribe(notify.TransactionReq, handler.transactionReqHandler)
+	notify.BUS.Subscribe(notify.TransactionGot, handler.transactionGotHandler)
 
 	//go handler.loop()
 	return &handler
 }
 
 func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
-	switch msg.Code {
-	case network.ReqTransactionMsg:
-		m, e := unMarshalTransactionRequestMessage(msg.Body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
-			return nil
-		}
-		OnTransactionRequest(m, sourceId)
-	case network.TransactionGotMsg:
-		m, e := types.UnMarshalTransactions(msg.Body)
-		if e != nil {
-			core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
-			return nil
-		}
-		err := onMessageTransaction(m)
-		return err
-	}
 	return nil
 }
 
 func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
 	mtm, ok := msg.(*notify.MinerTransactionMessage)
 	if !ok {
-		core.Logger.Debugf("minerTransactionHandler GetData assert not ok!")
+		core.Logger.Debugf("minerTransactionHandler Message assert not ok!")
 		return
 	}
 	txs, e := types.UnMarshalTransactions(mtm.MinerTransactionsByte)
@@ -115,18 +100,72 @@ func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
 	}
 }
 
+func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
+	trm, ok := msg.(*notify.TransactionReqMessage)
+	if !ok {
+		core.Logger.Debugf("transactionReqHandler Message assert not ok!")
+		return
+	}
+	m, e := unMarshalTransactionRequestMessage(trm.TransactionReqByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
+		return
+	}
+
+	source := trm.Peer
+	core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", source, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes))
+	if nil == core.BlockChainImpl {
+		return
+	}
+	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
+	if e == core.ErrNil {
+		m.TransactionHashes = need
+	}
+
+	if nil != transactions && 0 != len(transactions) {
+		core.SendTransactions(transactions, source, m.BlockHeight, m.BlockPv)
+	}
+	return
+}
+
+func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
+	tgm, ok := msg.(*notify.TransactionGotMessage)
+	if !ok {
+		core.Logger.Debugf("transactionGotHandler Message assert not ok!")
+		return
+	}
+
+	txs, e := types.UnMarshalTransactions(tgm.TransactionGotByte)
+	if e != nil {
+		core.Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+		return
+	}
+	e = core.BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)
+	if e != nil {
+		return
+	}
+
+	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: tgm.Peer}
+	notify.BUS.Publish(notify.TransactionGotAddSucc, &m)
+	return
+}
+
 func (ch ChainHandler) blockReqHandler(msg notify.Message) {
+	core.Logger.Debugf("blockReqHandler!")
 	if core.BlockChainImpl.IsLightMiner() {
+		core.Logger.Debugf("Is Light Miner!")
 		return
 	}
 
 	m, ok := msg.(*notify.BlockReqMessage)
 	if !ok {
+		core.Logger.Debugf("blockReqHandler Message assert not ok!")
 		return
 	}
 	reqHeight := utility.ByteToUInt64(m.HeightByte)
 	localHeight := core.BlockChainImpl.Height()
 
+	core.Logger.Debugf("blockReqHandler:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
 	var count = 0
 	for i := reqHeight; i <= localHeight; i++ {
 		block := core.BlockChainImpl.QueryBlock(i)
@@ -165,22 +204,7 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	core.BlockChainImpl.AddBlockOnChain("", block)
 }
 
-func OnTransactionRequest(m *core.TransactionRequestMessage, sourceId string) error {
-	core.Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", sourceId, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes))
-	if nil == core.BlockChainImpl {
-		return nil
-	}
-	transactions, need, e := core.BlockChainImpl.GetTransactionPool().GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
-	if e == core.ErrNil {
-		m.TransactionHashes = need
-	}
-
-	if nil != transactions && 0 != len(transactions) {
-		core.SendTransactions(transactions, sourceId, m.BlockHeight, m.BlockPv)
-	}
-
-	return nil
-}
+//----------------------------------------------------------------------------------------------------------------------
 
 func onMessageTransaction(txs []*types.Transaction) error {
 	e := core.BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)

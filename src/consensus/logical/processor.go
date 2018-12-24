@@ -116,6 +116,7 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
+	notify.BUS.Subscribe(notify.TransactionGotAddSucc, p.onMissTxAddSucc)
 	//notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 	return true
 }
