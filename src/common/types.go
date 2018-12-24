@@ -16,6 +16,7 @@
 package common
 
 import (
+	"common/secp256k1"
 	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
@@ -29,7 +30,8 @@ import (
 const PREFIX = "0x"
 
 func getDefaultCurve() elliptic.Curve {
-	return elliptic.P256()
+	//return elliptic.P256()
+	return secp256k1.S256()
 }
 
 const (
