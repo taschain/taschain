@@ -287,6 +287,7 @@ var (
 
 	ErrSelectGroupNil = errors.New("selectGroupId is nil")
 	ErrSelectGroupInequal = errors.New("selectGroupId not equal")
+	ErrCreateBlockNil = errors.New("createBlock is nil")
 )
 
 const (

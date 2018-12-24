@@ -92,20 +92,21 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	}
 
 	//建组时高度是否存在
-	//bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
-	//if bh == nil {
-	//	return false, fmt.Errorf("createBlock is nil, height=%v", gh.CreateHeight)
-	//}
+	bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
+	if bh == nil {
+		core.Logger.Debugf("createBlock is nil, height=%v", gh.CreateHeight)
+		return false, common.ErrCreateBlockNil
+	}
 
 	//生成组头是否与收到的一致
-	//expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
-	//if expectGH == nil {
-	//	return false, fmt.Errorf("expect GroupHeader is nil")
-	//}
-	//if expectGH.Hash != gh.Hash {
-	//	//log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
-	//	return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
-	//}
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
+	if expectGH == nil {
+		return false, fmt.Errorf("expect GroupHeader is nil")
+	}
+	if expectGH.Hash != gh.Hash {
+		//log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
+		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
+	}
 
 	return true, nil
 }
