@@ -177,12 +177,12 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
-		err = common.ErrorSelectGroupNil
+		err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
 	if !selectGroupId.IsEqual(gid) {
-		err = common.ErrorSelectGroupInequal
+		err = common.ErrSelectGroupInequal
 		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
 		return
 	}
