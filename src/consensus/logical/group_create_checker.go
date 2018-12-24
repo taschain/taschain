@@ -57,12 +57,19 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 */
 func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader) {
 	blog := newBizLog("checkCreateGroup")
+	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.processor.CreateHeightGroups, topHeight)
 	defer func() {
 		blog.log("topHeight=%v, create %v", topHeight, create)
 	}()
 	if topHeight <= model.Param.CreateGroupInterval {
 		return
 	}
+
+	// 指定高度已经在组链上出现过
+	if _, ok := gchecker.processor.CreateHeightGroups[topHeight]; ok {
+		return
+	}
+
 	h := topHeight-model.Param.CreateGroupInterval
 	theBH = gchecker.processor.MainChain.QueryBlockByHeight(h)
 	if theBH == nil {
