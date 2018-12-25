@@ -93,17 +93,18 @@ func (p *Processor) releaseRoutine() bool {
 	if topHeight <= model.Param.CreateGroupInterval {
 		return true
 	}
-	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
-	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
-	if len(ids) == 0 {
-		return true
-	}
 
 	// 从内存中删除组创建高度对应的组信息，防止占用内存过大
 	for k := range p.CreateHeightGroups {
 		if k < topHeight - model.Param.CreateGroupInterval {
 			delete(p.CreateHeightGroups, k)
 		}
+	}
+
+	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
+	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
+	if len(ids) == 0 {
+		return true
 	}
 
 	blog := newBizLog("releaseRoutine")
