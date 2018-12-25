@@ -43,7 +43,7 @@ const (
 const MaxSendPriority = 3
 const MaxPendingSend = 5
 const MaxSendListSize = 256
-const WaitTimeout = 5*time.Second
+const WaitTimeout = 3*time.Second
 
 type SendListItem struct {
 	priority int
@@ -114,6 +114,8 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 
 	if diff > WaitTimeout {
 		sendList.onSendWaited(peer)
+		Logger.Infof("send list  WaitTimeout ！reset , net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
+
 	}
 
 	priority, isExist := sendList.priorityTable[uint32(code)]
@@ -139,6 +141,8 @@ func (sendList *SendList) onSendWaited(peer *Peer) {
 	sendList.pendingSend = 0
 	sendList.lastOnWait = time.Now()
 	sendList.autoSend(peer)
+	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
+
 }
 
 func (sendList *SendList) autoSend(peer *Peer) {
