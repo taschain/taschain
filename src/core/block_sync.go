@@ -23,10 +23,10 @@ import (
 	"middleware/notify"
 	"middleware/pb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/ethereum/go-ethereum/common/math"
 	"utility"
 	"middleware/types"
 	"middleware"
+	"math"
 )
 
 const (
@@ -48,6 +48,7 @@ type blockSyncer struct {
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
+	dependBlock          *types.Block
 	logger               taslog.Logger
 }
 

@@ -409,8 +409,13 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		return -1
 	}
-	if !chain.validateGroupSig(b.Header) {
-		Logger.Errorf("Fail to validate group sig!")
+	groupValidateResult, err := chain.validateGroupSig(b.Header)
+	if !groupValidateResult {
+		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
+			BlockSyncer.dependBlock = b
+		} else {
+			Logger.Errorf("Fail to validate group sig!")
+		}
 		return -1
 	}
 

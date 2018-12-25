@@ -104,7 +104,7 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 		return false, fmt.Errorf("expect GroupHeader is nil")
 	}
 	if expectGH.Hash != gh.Hash {
-		//log.Printf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
+		core.Logger.Debugf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
 		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
 	}
 

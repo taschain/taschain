@@ -282,9 +282,9 @@ func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 	return true
 }
 
-func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
+func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader)(bool,error) {
 	if chain.Height() == 0 {
-		return true
+		return true,nil
 	}
 	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
 	if pre == nil {
@@ -294,9 +294,9 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) bool {
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
 	if err != nil {
 		Logger.Errorf("validateGroupSig error:%s", err.Error())
-		return false
+		return false,err
 	}
-	return result
+	return result,err
 }
 
 //func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
