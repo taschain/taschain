@@ -3,7 +3,11 @@ package notify
 const (
 	BlockAddSucc = "block_add_succ"
 
+	BlockAddSuccConsensusUpdate = "block_add_succ_consensus_update"
+
 	GroupAddSucc = "group_add_succ"
+
+	GroupAddSuccConsensusUpdate = "group_add_succ_consensus_update"
 
 	NewBlock = "new_block"
 
@@ -23,6 +27,7 @@ const (
 
 	BlockInfoNotify = "block_info_notify"
 
+
 	ChainPieceInfoReq = "chain_piece_info_req"
 
 	ChainPieceInfo = "chain_piece_info"
@@ -31,11 +36,14 @@ const (
 
 	ChainPieceBlock = "chain_piece_block"
 
+
 	GroupHeight = "group_height"
 
 	GroupReq = "group_req"
 
 	Group = "group"
+
+
 
 	MinerTransaction = "miner_transaction"
 

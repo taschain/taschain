@@ -378,7 +378,7 @@ func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 //返回值: 0,上链成功
 //       -1，验证失败
 //        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
-//        2,分叉调整)
+//        2,分叉调整
 func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) int8 {
 	if b == nil {
 		return -1
@@ -413,6 +413,8 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 	if !groupValidateResult {
 		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
 			BlockSyncer.dependBlock = b
+			chain.forkProcessor.reset()
+			Logger.Infof("Add block on chain depend on group.Hold block sync!")
 		} else {
 			Logger.Errorf("Fail to validate group sig!")
 		}

@@ -39,7 +39,10 @@ type BlockChain interface {
 	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8)
 
 	//铸块成功，上链
-	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
+	//返回值: 0,上链成功
+	//       -1，验证失败
+	//        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
+	//        2,分叉调整)
 	AddBlockOnChain(source string, b *types.Block) int8
 
 	Height() uint64

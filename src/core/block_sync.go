@@ -68,6 +68,7 @@ func InitBlockSyncer() {
 
 	notify.BUS.Subscribe(notify.BlockInfoNotify, BlockSyncer.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, BlockSyncer.blockResponseMsgHandler)
+	notify.BUS.Subscribe(notify.GroupAddSuccConsensusUpdate, BlockSyncer.groupAddSuccHandler)
 	go BlockSyncer.loop()
 }
 
@@ -82,6 +83,11 @@ func (bs *blockSyncer) trySync() {
 	bs.syncTimer.Reset(blockSyncInterval)
 	if bs.syncing {
 		bs.logger.Debugf("Syncing to %s,do not sync anymore!", bs.candidate)
+		return
+	}
+
+	if bs.dependBlock != nil {
+		bs.logger.Debugf("Has depend block.Sync has been hold")
 		return
 	}
 
@@ -291,6 +297,19 @@ func (bs *blockSyncer) isUsefulCandidate(localTotalQn uint64, localTopHash commo
 		return false
 	}
 	return true
+}
+
+//组上链完成后尝试将依赖组的块上链，在共识完成组信息更新之后调用
+func (bs *blockSyncer) groupAddSuccHandler(msg notify.Message) {
+	if bs.dependBlock == nil {
+		return
+	}
+	bs.logger.Debugf("Group add succ and depend block is not nil. Try add depend block:%d on chain!", bs.dependBlock.Header.Height)
+	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock)
+	if result == 0 {
+		bs.dependBlock = nil
+		bs.logger.Debugf("Depend block add on chain succ.Recover block sync!")
+	}
 }
 
 func marshalBlockInfo(bi TopBlockInfo) ([]byte, error) {

@@ -345,6 +345,10 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	//CheckGroup会调用groupchain的接口，需要在加锁前调用
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
+		if err == common.ErrCreateBlockNil {
+			GroupSyncer.dependGroup = group
+			Logger.Infof("Add group on chain depend on block.Hold group sync!")
+		}
 		return err
 	}
 
@@ -434,6 +438,9 @@ func (chain *GroupChain) save(group *types.Group) error {
 		chain.lastGroup = group
 		//chain.activeGroups = append(chain.activeGroups, group)
 		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
+		if GroupSyncer != nil {
+			GroupSyncer.sendGroupHeightToNeighbor(chain.count)
+		}
 	}
 	return err
 }

@@ -310,8 +310,15 @@ func (chain *LightChain) addBlockOnChain(source string, b *types.Block) int8 {
 		return -1
 	}
 
-	if !chain.validateGroupSig(b.Header) {
-		Logger.Errorf("Fail to validate group sig!")
+	groupValidateResult, err := chain.validateGroupSig(b.Header)
+	if !groupValidateResult {
+		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
+			BlockSyncer.dependBlock = b
+			chain.forkProcessor.reset()
+			Logger.Infof("Add block on chain depend on group.Hold block sync!")
+		} else {
+			Logger.Errorf("Fail to validate group sig!")
+		}
 		return -1
 	}
 
