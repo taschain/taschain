@@ -368,6 +368,7 @@ var list = make([]*baseCmd, 0)
 func init() {
 	list = append(list, cmdHelp)
 	list = append(list, &cmdNewAccount.baseCmd)
+	list = append(list, cmdAccountList)
 	list = append(list, &cmdUnlock.baseCmd)
 	list = append(list, &cmdBalance.baseCmd)
 	list = append(list, cmdAccountInfo)

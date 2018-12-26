@@ -282,8 +282,8 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	buf.Write(common.Uint64ToByte(gh.Authority))
 	buf.WriteString(gh.Name)
 
-	bt, _ := gh.BeginTime.MarshalBinary()
-	buf.Write(bt)
+	//bt, _ := gh.BeginTime.MarshalBinary()
+	//buf.Write(bt)
 	buf.Write(gh.MemberRoot.Bytes())
 	buf.Write(common.Uint64ToByte(gh.CreateHeight))
 	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
