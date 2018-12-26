@@ -254,7 +254,7 @@ func (gtas *Gtas) Run() {
 	}
 
 	//初始化账号操作接口
-	if err := InitAccountManager(*keystore); err != nil {
+	if err := InitAccountManager(*keystore, command == mineCmd.FullCommand()); err != nil {
 		fmt.Println(err)
 		return
 	}

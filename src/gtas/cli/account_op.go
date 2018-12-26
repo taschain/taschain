@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"utility"
 	"os"
+	"crypto/rand"
 )
 
 /*
@@ -19,6 +20,15 @@ import (
 */
 
 const accountUnLockTime = time.Second*120
+
+var encryptPrivateKey *common.PrivateKey
+var encryptPublicKey *common.PublicKey
+
+func init() {
+	encryptPrivateKey = common.HexStringToSecKey("0x04b851c3551779125a588b2274cfa6d71604fe6ae1f0df82175bcd6e6c2b23d92a69d507023628b59c15355f3cbc0d8f74633618facd28632a0fb3e9cc8851536c4b3f1ea7c7fd3666ce8334301236c2437d9bed14e5a0793b51a9a6e7a4c46e70")
+	pk := encryptPrivateKey.GetPubKey()
+	encryptPublicKey = &pk
+}
 
 const (
 	statusLocked int8 = 0
@@ -79,9 +89,9 @@ func newAccountOp(ks string) (*AccountManager, error) {
 	}, nil
 }
 
-func InitAccountManager(keystore string) (error) {
+func InitAccountManager(keystore string, readyOnly bool) (error) {
 	//内部批量部署时，指定自动创建账号（只需创建一次）
-	if !dirExists(keystore) {
+	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
 		defer aop.store.Close()
 		if err != nil {
@@ -94,11 +104,17 @@ func InitAccountManager(keystore string) (error) {
 		}
 	}
 
-	//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
-	tmp := fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
-	os.RemoveAll(tmp)
-	if err := utility.Copy(keystore, tmp); err != nil {
-		return err
+	tmp := keystore
+	if readyOnly {
+		if !dirExists(keystore) {
+			os.Mkdir(keystore, os.ModePerm)
+		}
+		//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
+		tmp = fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
+		os.RemoveAll(tmp)
+		if err := utility.Copy(keystore, tmp); err != nil {
+			return err
+		}
 	}
 
 	if aop, err := newAccountOp(tmp); err != nil {
@@ -115,8 +131,14 @@ func (am *AccountManager) loadAccount(addr string) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	bs, err := encryptPrivateKey.Decrypt(rand.Reader, v)
+	if err != nil {
+		return nil, err
+	}
+
 	var acc = new(Account)
-	err = json.Unmarshal(v, acc)
+	err = json.Unmarshal(bs, acc)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +150,14 @@ func (am *AccountManager) storeAccount(account *Account) error {
 	if err != nil {
 		return err
 	}
-	err = am.store.Put([]byte(account.Address), bs)
+
+	ct, err := common.Encrypt(rand.Reader, encryptPublicKey, bs)
+	if err != nil {
+		return err
+	}
+
+
+	err = am.store.Put([]byte(account.Address), ct)
 	return err
 }
 
