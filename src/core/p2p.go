@@ -57,6 +57,8 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 	GroupChainConnectorImpl = &GroupChainConnector{
 		chain: GroupChainImpl,
 	}
+
+	PeerManager = initPeerManager()
 	return nil
 }
 
