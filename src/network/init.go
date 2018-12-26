@@ -30,7 +30,7 @@ const (
 
 	seedPortKey = "seed_port"
 
-	seedDefaultId = "0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307"
+	seedDefaultId = "0x1440addb449e6d2e11e0d880ebd8fcdb9937d135231ad2f8c1e27bd84c9e9656"
 
 	seedDefaultIp = "47.105.51.161"
 

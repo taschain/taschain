@@ -7,6 +7,7 @@ import (
 	"testing"
 	"core"
 	"log"
+	"consensus/model"
 )
 
 /*
@@ -31,4 +32,13 @@ func TestCore(t *testing.T) {
 
 	b = core.BlockChainImpl.QueryBlockByHeight(0)
 	log.Println(b.Hash.ShortS(), b.GenHash().ShortS())
+}
+
+func TestNewSelfMinerDO(t *testing.T) {
+	i := 0
+	for  i < 5 {
+		d := model.NewSelfMinerDO("123")
+		t.Log(d.PK.GetHexString(), string(d.VrfPK), d.ID.GetHexString())
+		i++
+	}
 }

@@ -81,16 +81,27 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	block.Header.Signature = common.Sha256([]byte("tas"))
 	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
+	//创世账户
+	for _, mem := range genesisInfo.Group.Members {
+		addr := common.BytesToAddress(mem)
+		stateDB.SetBalance(addr, big.NewInt(10000))
+	}
+
 	// 创始块账户创建
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000000))
-	stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("1"))), big.NewInt(1000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("2"))), big.NewInt(2000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("3"))), big.NewInt(3000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("4"))), big.NewInt(1000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("5"))), big.NewInt(2000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("6"))), big.NewInt(3000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("7"))), big.NewInt(1000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("8"))), big.NewInt(2000000000))
+	//stateDB.SetBalance(common.BytesToAddress(common.Sha256([]byte("9"))), big.NewInt(3000000000))
+
+	//stateDB.SetBalance(common.HexStringToAddress("0x1440addb449e6d2e11e0d880ebd8fcdb9937d135231ad2f8c1e27bd84c9e9656"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x819241be6ab490dc17ac2172408ca0cc024880e3fddaaae80338ecdd7ec9d68c"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x5e5ba5be8d8b6c4d9f9bc8446c4295f6e40f0c6fd4e3d6a1e4db2e4931f674b0"), big.NewInt(1000000))
+
 	//小熊本地测试轻节点账户
 	stateDB.SetBalance(common.HexStringToAddress("0xa59888012b8ee73d7ad673f38b4a7695310acb480454c1a484a4d2cde454dd2b"), big.NewInt(1000000))
 	stateDB.SetBalance(common.HexStringToAddress("0x819241be6ab490dc17ac2172408ca0cc024880e3fddaaae80338ecdd7ec9d68c"), big.NewInt(1000000))

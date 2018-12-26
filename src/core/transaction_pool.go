@@ -27,6 +27,7 @@ import (
 	"sort"
 	"github.com/vmihailenco/msgpack"
 	"time"
+	"fmt"
 )
 
 const (
@@ -156,7 +157,35 @@ func NewTransactionPool() TransactionPool {
 	return pool
 }
 
+func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
+	if tx.Hash != tx.GenHash() {
+		return fmt.Errorf("tx hash error")
+	}
+	if tx.Sign == nil {
+		return fmt.Errorf("tx sign nil")
+	}
+	switch tx.Type {
+	case types.TransactionTypeBonus:	//todo 分红交易，验证组签名
+
+	default:
+		msg := tx.Hash.Bytes()
+		pk, err := tx.Sign.RecoverPubkey(msg)
+		if err != nil {
+			return err
+		}
+		if !pk.Verify(msg, tx.Sign) {
+			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
+		}
+	}
+	return nil
+}
+
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
+	//验签名
+	if err := pool.verifyTransaction(tx); err != nil {
+		return false, err
+	}
+
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 

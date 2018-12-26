@@ -38,14 +38,14 @@ func init()  {
 }
 
 //
-func (ws *wallets) transaction(source, target string, value uint64, code string, nonce uint64, cmd int32) (*common.Hash, *common.Address, error) {
+func (ws *wallets) transaction(source, target string, value uint64, code string, cmd int32, gas, gasprice uint64) (*common.Hash, *common.Address, error) {
 	if !limiter.Allow(){
 		return nil, nil, errors.New("rate limit")
 	}
 	if source == "" {
 		source = (*ws)[0].Address
 	}
-	//core.BlockChainImpl.GetNonce(common.HexToAddress(source))
+	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	//if strings.HasPrefix(code, "0x") {
 	//	code = code[2:]
@@ -80,7 +80,7 @@ func (ws *wallets) store() {
 		log.Println("store wallets error")
 		// TODO 输出log
 	}
-	(*configManager).SetString(Section, "wallets", string(js))
+	common.GlobalConf.SetString(Section, "wallets", string(js))
 }
 
 func (ws *wallets) deleteWallet(key string) {
@@ -138,7 +138,7 @@ func (ws *wallets) getBalance(account string) (int64, error) {
 
 func newWallets() wallets {
 	var ws wallets
-	s := (*configManager).GetString(Section, "wallets", "")
+	s := common.GlobalConf.GetString(Section, "wallets", "")
 	if s == "" {
 		return ws
 	}

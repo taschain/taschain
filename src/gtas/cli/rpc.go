@@ -30,6 +30,7 @@ import (
 	"network"
 	"strconv"
 	"strings"
+	"encoding/json"
 )
 
 // 分红价值统计
@@ -44,23 +45,23 @@ var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
 type GtasAPI struct {
 }
 
-// T 交易接口
-func (api *GtasAPI) Tx(from string, to string, amount uint64, code string, nonce uint64, cmd int32) (*Result, error) {
-	hash, contractAddr, err := walletManager.transaction(from, to, amount, code, nonce, cmd)
-	if err != nil {
-		return nil, err
+// T 用户交易接口
+func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
+	var txRaw = new(txRawData)
+	if err := json.Unmarshal([]byte(txRawjson), txRaw); err != nil {
+		return failResult(err.Error())
 	}
-	if code == "" {
-		return &Result{
-			Message: fmt.Sprintf("Transaction hash: %s", hash.String()),
-			Data:    hash.String(),
-		}, nil
-	} else {
-		return &Result{
-			Message: fmt.Sprintf("Contract Hash: %s", contractAddr.GetHexString()),
-			Data:    contractAddr.GetHexString(),
-		}, nil
+
+	trans := txRawToTransaction(txRaw)
+
+	trans.Hash = trans.GenHash()
+
+	if err := sendTransaction(trans); err != nil {
+		return failResult(err.Error())
 	}
+
+	return successResult(trans.Hash.String())
+
 }
 
 // Balance 查询余额接口
@@ -81,38 +82,37 @@ func (api *GtasAPI) NewWallet() (*Result, error) {
 	data := make(map[string]string)
 	data["private_key"] = privKey
 	data["address"] = addr
-	return &Result{fmt.Sprintf("Please Remember Your PrivateKey!\n "+
-		"PrivateKey: %s\n WalletAddress: %s", privKey, addr), data}, nil
+	return successResult(data)
 }
 
 // GetWallets 获取当前节点的wallets
 func (api *GtasAPI) GetWallets() (*Result, error) {
-	return &Result{"", walletManager}, nil
+	return successResult(walletManager)
 }
 
 // DeleteWallet 删除本地节点指定序号的地址
 func (api *GtasAPI) DeleteWallet(key string) (*Result, error) {
 	walletManager.deleteWallet(key)
-	return &Result{"", walletManager}, nil
+	return successResult(walletManager)
 }
 
 // BlockHeight 块高查询
 func (api *GtasAPI) BlockHeight() (*Result, error) {
 	height := core.BlockChainImpl.QueryTopBlock().Height
-	return &Result{fmt.Sprintf("The height of top block is %d", height), height}, nil
+	return successResult(height)
 }
 
 // GroupHeight 组块高查询
 func (api *GtasAPI) GroupHeight() (*Result, error) {
 	height := core.GroupChainImpl.Count()
-	return &Result{fmt.Sprintf("The height of group is %d", height), height}, nil
+	return successResult(height)
 }
 
 // Vote
 func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
 	//config := v.ToGlobal()
 	//walletManager.newVote(from, config)
-	return &Result{"success", ""}, nil
+	return successResult(nil)
 }
 
 // ConnectedNodes 查询已链接的node的信息
@@ -123,7 +123,7 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	for _, n := range nodes {
 		conns = append(conns, ConnInfo{Id: n.Id, Ip: n.Ip, TcpPort: n.Port})
 	}
-	return &Result{"", conns}, nil
+	return successResult(conns)
 }
 
 // TransPool 查询缓冲区的交易信息。
@@ -139,7 +139,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 		})
 	}
 
-	return &Result{"success", transList}, nil
+	return successResult(transList)
 }
 
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
@@ -152,36 +152,59 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail["source"] = transaction.Source.Hash().Hex()
 	detail["target"] = transaction.Target.Hash().Hex()
 	detail["value"] = transaction.Value
-	return &Result{"success", detail}, nil
+	return successResult(detail)
+}
+//
+//func convertBlock(bh *types.BlockHeader) interface{} {
+//	blockDetail := make(map[string]interface{})
+//	blockDetail["hash"] = bh.Hash.Hex()
+//	blockDetail["height"] = bh.Height
+//	blockDetail["pre_hash"] = bh.PreHash.Hex()
+//	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
+//	blockDetail["queue_number"] = bh.ProveValue
+//	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
+//	var castorId groupsig.ID
+//	castorId.Deserialize(bh.Castor)
+//	blockDetail["castor"] = castorId.String()
+//	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
+//	var gid groupsig.ID
+//	gid.Deserialize(bh.GroupId)
+//	blockDetail["group_id"] = gid.GetHexString()
+//	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
+//	trans := make([]string, len(bh.Transactions))
+//	for i := range bh.Transactions {
+//		trans[i] = bh.Transactions[i].String()
+//	}
+//	blockDetail["transactions"] = trans
+//	blockDetail["txs"] = len(bh.Transactions)
+//	blockDetail["total_qn"] = bh.TotalQN
+//	blockDetail["qn"] = mediator.Proc.CalcBlockHeaderQN(bh)
+//	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
+//	return blockDetail
+//}
+
+func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
+	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
+	block := convertBlockHeader(bh)
+	if preBH != nil {
+		block.Qn = bh.TotalQN - preBH.TotalQN
+	} else {
+		block.Qn = bh.TotalQN
+	}
+	return successResult(block)
 }
 
-func (api *GtasAPI) GetBlock(height uint64) (*Result, error) {
-	bh := core.BlockChainImpl.QueryBlockByHeight(height)
-	blockDetail := make(map[string]interface{})
-	blockDetail["hash"] = bh.Hash.Hex()
-	blockDetail["height"] = bh.Height
-	blockDetail["pre_hash"] = bh.PreHash.Hex()
-	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.ProveValue
-	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
-	var castorId groupsig.ID
-	castorId.Deserialize(bh.Castor)
-	blockDetail["castor"] = castorId.String()
-	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
-	var gid groupsig.ID
-	gid.Deserialize(bh.GroupId)
-	blockDetail["group_id"] = gid.GetHexString()
-	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
-	trans := make([]string, len(bh.Transactions))
-	for i := range bh.Transactions {
-		trans[i] = bh.Transactions[i].String()
+func (api *GtasAPI) GetBlockByHash(hash string) (*Result, error) {
+	bh := core.BlockChainImpl.QueryBlockHeaderByHash(common.HexToHash(hash))
+	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
+	block := convertBlockHeader(bh)
+	if preBH != nil {
+		block.Qn = bh.TotalQN - preBH.TotalQN
+	} else {
+		block.Qn = bh.TotalQN
 	}
-	blockDetail["transactions"] = trans
-	blockDetail["txs"] = len(bh.Transactions)
-	blockDetail["total_qn"] = bh.TotalQN
-	blockDetail["qn"] = mediator.Proc.CalcBlockHeaderQN(bh)
-	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
-	return &Result{"success", blockDetail}, nil
+	return successResult(block)
 }
 
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
@@ -224,12 +247,12 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().(*core.TxPool).GetTotalReceivedTxCount()
 	blockDetail["miner_id"] = mediator.Proc.GetPubkeyInfo().ID.ShortS()
-	return &Result{"success", blockDetail}, nil
+	return successResult(blockDetail)
 }
 
 func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 	groups := mediator.Proc.GetCastQualifiedGroups(height)
-	return &Result{"success", len(groups)}, nil
+	return successResult(groups)
 }
 
 func convertGroup(g *types.Group) map[string]interface{} {
@@ -254,7 +277,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
 	if err != nil {
-		return &Result{"fail", err.Error()}, nil
+		return failResult(err.Error())
 	}
 	ret := make([]map[string]interface{}, 0)
 	h := height
@@ -264,7 +287,7 @@ func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
 		h++
 		ret = append(ret, gmap)
 	}
-	return &Result{"success", ret}, nil
+	return successResult(ret)
 }
 
 func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
@@ -291,7 +314,7 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 		gmap["dismiss_height"] = gh.DismissHeight
 		ret = append(ret, gmap)
 	}
-	return &Result{"success", ret}, nil
+	return successResult(ret)
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.

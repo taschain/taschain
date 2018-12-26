@@ -63,7 +63,7 @@ func GenerateKey(s string) PrivateKey {
 }
 
 //由私钥萃取公钥函数
-func (pk PrivateKey) GetPubKey() PublicKey {
+func (pk *PrivateKey) GetPubKey() PublicKey {
 	var pubk PublicKey
 	pubk.PubKey = pk.PrivKey.PublicKey
 	return pubk

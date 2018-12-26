@@ -337,7 +337,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     // 同步块信息
     function syncBlock(height) {
         let params = {
-            "method": "GTAS_getBlock",
+            "method": "GTAS_getBlockByHeight",
             "params": [height],
             "jsonrpc": "2.0",
             "id": "1"

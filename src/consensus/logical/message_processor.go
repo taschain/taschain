@@ -745,7 +745,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 }
 
 func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) {
-	blog := newBizLog("OMCRS")
+	blog := newBizLog("OMCGS")
 
 	blog.log("Proc(%v) begin, gHash=%v, sender=%v", p.getPrefix(), msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {

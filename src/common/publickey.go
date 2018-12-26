@@ -77,7 +77,7 @@ func BytesToPublicKey(data []byte) (pk *PublicKey) {
 }
 
 //导出函数
-func (pk *PublicKey) GetHexString() string {
+func (pk PublicKey) GetHexString() string {
 	buf := pk.ToBytes()
 	str := PREFIX + hex.EncodeToString(buf)
 	return str

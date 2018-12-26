@@ -26,7 +26,6 @@ import (
 	"utility"
 	"middleware/types"
 	"middleware"
-	"math"
 )
 
 const (
@@ -159,7 +158,7 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	//bs.logger.Debugf("Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
+	bs.logger.Debugf("Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
 	source := bnm.Peer
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash
@@ -269,7 +268,7 @@ func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
 		return
 	}
 	totalQnMinId := ""
-	var minTotalQn uint64 = math.MaxUint64
+	var minTotalQn uint64 = common.MaxUint64
 	for id, tbi := range bs.candidatePool {
 		if tbi.TotalQn <= minTotalQn {
 			totalQnMinId = id

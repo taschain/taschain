@@ -40,6 +40,7 @@ import (
 	"consensus/model"
 	"runtime/debug"
 	"core/net/handler"
+	"github.com/vmihailenco/msgpack"
 )
 
 const (
@@ -63,12 +64,12 @@ const (
 	redis_prefix = "aliyun_"
 )
 
-var configManager = &common.GlobalConf
 var walletManager wallets
 var lightMiner bool
 
 type Gtas struct {
 	inited bool
+	account Account
 }
 
 // vote 投票操作
@@ -140,11 +141,13 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPo
 			}
 			switch apply {
 			case "heavy":
-				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
-				common.DefaultLogger.Infof("initial apply heavy result:%v", result)
+				gtas.autoApplyMiner(types.MinerTypeHeavy)
+				//result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
+				//common.DefaultLogger.Infof("initial apply heavy result:%v", result)
 			case "light":
-				result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
-				common.DefaultLogger.Infof("initial apply light result:%v", result)
+				gtas.autoApplyMiner(types.MinerTypeLight)
+				//result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
+				//common.DefaultLogger.Infof("initial apply light result:%v", result)
 			}
 		}()
 	}
@@ -163,15 +166,18 @@ func (gtas *Gtas) runtimeInit() {
 
 func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	<-ctrlC
-	common.DefaultLogger.Infof("exiting...")
+	if core.BlockChainImpl == nil {
+		return
+	}
+	fmt.Println("exiting...")
 	core.BlockChainImpl.Close()
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-		common.DefaultLogger.Infof("exit success")
+		fmt.Println("exit success")
 		quit <- true
 	} else {
-		common.DefaultLogger.Infof("exit before inited")
+		fmt.Println("exit before inited")
 		os.Exit(0)
 	}
 }
@@ -190,29 +196,37 @@ func (gtas *Gtas) Run() {
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
 	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
+	keystore := app.Flag("keystore", "the keystore path, default is current path").Default("keystore").Short('k').String()
 	*statisticsEnable = false
 	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
 	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
 	// 投票解析
-	voteCmd := app.Command("vote", "new vote")
-	modelNumVote := voteCmd.Flag("modelnum", "model number").Default("").String()
-	fromVote := voteCmd.Flag("from", "the wallet address who polled").Default("").String()
-	configVote := VoteConfigParams(voteCmd.Arg("config", voteConfigHelp()))
+	//voteCmd := app.Command("vote", "new vote")
+	//modelNumVote := voteCmd.Flag("modelnum", "model number").Default("").String()
+	//fromVote := voteCmd.Flag("from", "the wallet address who polled").Default("").String()
+	//configVote := VoteConfigParams(voteCmd.Arg("config", voteConfigHelp()))
+
+	//控制台
+	consoleCmd := app.Command("console", "start gtas console")
+	showRequest := consoleCmd.Flag("show", "show the request json").Short('v').Bool()
+	remoteHost := consoleCmd.Flag("host", "the node host address to connect").Short('i').String()
+	remotePort := consoleCmd.Flag("port", "the node host port to connect").Short('p').Int()
+
 
 	// 交易解析
-	tCmd := app.Command("t", "create a transaction")
-	fromT := tCmd.Flag("from", "from acc").Short('f').String()
-	toT := tCmd.Flag("to", "to acc").Short('t').String()
-	valueT := tCmd.Flag("value", "value").Short('v').Uint64()
-	codeT := tCmd.Flag("code", "code").Short('c').String()
+	//tCmd := app.Command("t", "create a transaction")
+	//fromT := tCmd.Flag("from", "from acc").Short('f').String()
+	//toT := tCmd.Flag("to", "to acc").Short('t').String()
+	//valueT := tCmd.Flag("value", "value").Short('v').Uint64()
+	//codeT := tCmd.Flag("code", "code").Short('c').String()
 
 	// 查询余额解析
-	balanceCmd := app.Command("balance", "get the balance of account")
-	accountBalance := balanceCmd.Flag("account", "account address").String()
+	//balanceCmd := app.Command("balance", "get the balance of account")
+	//accountBalance := balanceCmd.Flag("account", "account address").String()
 
 	// 新建账户解析
-	newCmd := app.Command("newaccount", "new account")
+	//newCmd := app.Command("newaccount", "new account")
 
 	// mine
 	mineCmd := app.Command("miner", "miner start")
@@ -223,6 +237,7 @@ func (gtas *Gtas) Run() {
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
+	//address := mineCmd.Flag("addr", "start miner with address ").String()
 	//light 废弃
 	light := mineCmd.Flag("light", "light node").Bool()
 
@@ -237,47 +252,59 @@ func (gtas *Gtas) Run() {
 	if err != nil {
 		kingpin.Fatalf("%s, try --help", err)
 	}
-	common.InstanceIndex = *instanceIndex
-	go func() {
-		http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
-		runtime.SetBlockProfileRate(1)
-		runtime.SetMutexProfileFraction(1)
-	}()
-	gtas.simpleInit(*configFile)
 
-	common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
-	databaseValue := "d" + strconv.Itoa(*instanceIndex)
-	common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
-	common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
-	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
-	BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
-	types.InitMiddleware()
-	if *nat != "" {
-		network.NatServerIp = *nat
-		common.DefaultLogger.Infof("NAT server ip:%s", *nat)
+	//初始化账号操作接口
+	if err := InitAccountManager(*keystore); err != nil {
+		fmt.Println(err)
+		return
 	}
 
 	switch command {
-	case voteCmd.FullCommand():
-		gtas.vote(*fromVote, *modelNumVote, *configVote)
-	case tCmd.FullCommand():
-		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
+	//case voteCmd.FullCommand():
+	//	gtas.vote(*fromVote, *modelNumVote, *configVote)
+	case consoleCmd.FullCommand():
+		err := ConsoleInit(*remoteHost, *remotePort, *showRequest)
 		if err != nil {
-			common.DefaultLogger.Error(err.Error())
+			fmt.Errorf(err.Error())
 		}
-		common.DefaultLogger.Info(msg)
-	case balanceCmd.FullCommand():
-		msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
-		if err != nil {
-			common.DefaultLogger.Error(err.Error())
-		} else {
-			common.DefaultLogger.Info(msg)
-		}
-	case newCmd.FullCommand():
-		privKey, address := walletManager.newWallet()
-		common.DefaultLogger.Info("Please Remember Your PrivateKey!")
-		common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
+
+	//case tCmd.FullCommand():
+	//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
+	//	if err != nil {
+	//		common.DefaultLogger.Error(err.Error())
+	//	}
+	//	common.DefaultLogger.Info(msg)
+	//case balanceCmd.FullCommand():
+	//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
+	//	if err != nil {
+	//		common.DefaultLogger.Error(err.Error())
+	//	} else {
+	//		common.DefaultLogger.Info(msg)
+	//	}
+	//case newCmd.FullCommand():
+	//	privKey, address := walletManager.newWallet()
+	//	common.DefaultLogger.Info("Please Remember Your PrivateKey!")
+	//	common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
+		common.InstanceIndex = *instanceIndex
+		go func() {
+			http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
+			runtime.SetBlockProfileRate(1)
+			runtime.SetMutexProfileFraction(1)
+		}()
+		gtas.simpleInit(*configFile)
+
+		common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
+		databaseValue := "d" + strconv.Itoa(*instanceIndex)
+		common.GlobalConf.SetString(chainSection, databaseKey, databaseValue)
+		common.GlobalConf.SetBool(statisticsSection, "enable", *statisticsEnable)
+		common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+		BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
+		types.InitMiddleware()
+		if *nat != "" {
+			network.NatServerIp = *nat
+			common.DefaultLogger.Infof("NAT server ip:%s", *nat)
+		}
 		lightMiner = *light
 		//轻重节点一样
 		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
@@ -306,6 +333,29 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
+func (gtas *Gtas) checkAddress(address string) (error) {
+	acm := AccountOp.(*AccountManager)
+	if address != "" {
+		if aci, err := acm.getAccountInfo(address); err != nil {
+			return fmt.Errorf("cannot get miner, err:%v", err.Error())
+		} else {
+			if aci.Miner == nil {
+				return fmt.Errorf("the address is not a miner account: %v", address)
+			}
+			gtas.account = aci.Account
+			return nil
+		}
+	} else {
+		aci := acm.getFirstMinerAccount()
+		if aci != nil {
+			gtas.account = *aci
+			return nil
+		} else {
+			return fmt.Errorf("please create a miner account first")
+		}
+	}
+}
+
 func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) error {
 	var err error
 
@@ -314,19 +364,29 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) er
 	// 初始化中间件
 	middleware.InitMiddleware()
 	// block初始化
-	secret := (*configManager).GetString(Section, "secret", "")
-	if secret == "" {
-		secret = getRandomString(5)
-		(*configManager).SetString(Section, "secret", secret)
+	//secret := (*configManager).GetString(Section, "secret", "")
+	//if secret == "" {
+	//	secret = getRandomString(5)
+	//	(*configManager).SetString(Section, "secret", secret)
+	//}
+	addressConfig := common.GlobalConf.GetString(Section, "miner", "")
+	err = gtas.checkAddress(addressConfig)
+	if err != nil {
+		return err
 	}
-	minerInfo := model.NewSelfMinerDO(secret)
+
+	common.GlobalConf.SetString(Section, "miner", gtas.account.Address)
+	fmt.Println("address:", gtas.account.Address)
+	fmt.Println("sk:", gtas.account.Sk)
+
+	minerInfo := model.NewSelfMinerDO(common.HexToAddress(gtas.account.Address))
 
 	err = core.InitCore(light, mediator.NewConsensusHelper(minerInfo.ID))
 	if err != nil {
 		return err
 	}
 	id := minerInfo.ID.GetHexString()
-	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
+	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
 	if err != nil {
 		return err
 	}
@@ -355,7 +415,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) er
 
 func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
 	var infos []PubKeyInfo
-	keys := (*configManager).GetString(Section, key, "")
+	keys := common.GlobalConf.GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
 		common.DefaultLogger.Infof(err.Error())
@@ -403,4 +463,28 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 		GasLimit: 3,
 		Hash:     common.BytesToHash(common.Sha256([]byte(hash))),
 	}
+}
+
+func (gtas *Gtas) autoApplyMiner(mtype int)  {
+	miner := mediator.Proc.GetMinerInfo()
+	if miner.ID.GetHexString() != gtas.account.Address {
+		panic(fmt.Errorf("id error %v %v", miner.ID.GetHexString(), gtas.account.Address))
+	}
+
+	tm := &types.Miner{
+		Id:           miner.ID.Serialize(),
+		PublicKey:    miner.PK.Serialize(),
+		VrfPublicKey: miner.VrfPK,
+		Stake:        500,
+		Type:         byte(mtype),
+	}
+	data, err := msgpack.Marshal(tm)
+	if err != nil {
+		fmt.Println("err marhsal types.Miner", err)
+		return
+	}
+
+	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, 1, types.TransactionTypeMinerApply, string(data))
+	fmt.Println("apply result", ret, err)
+
 }

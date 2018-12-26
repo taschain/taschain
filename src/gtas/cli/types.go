@@ -26,7 +26,12 @@ import (
 // Result rpc请求成功返回的可变参数部分
 type Result struct {
 	Message string      `json:"message"`
+	Status  int `json:"status"`
 	Data    interface{} `json:"data"`
+}
+
+func (r *Result) IsSuccess() bool {
+    return r.Status == 0
 }
 
 // ErrorResult rpc请求错误返回的可变参数部分
@@ -134,7 +139,13 @@ type Block struct {
 	Prove  *big.Int `json:"prove"`
 	TotalQN uint64 `json:"total_qn"`
 	Qn 		uint64 `json:"qn"`
-	Txs 	[]common.Hash `json:"txs"`
+	Txs 	[]common.Hash `json:"transactions"`
+	TxNum	uint64 `json:"txs"`
+	StateRoot common.Hash `json:"state_root"`
+	TxRoot	common.Hash `json:"tx_root"`
+	RecieptRoot common.Hash `json:"reciept_root"`
+	ProveRoot 	common.Hash `json:"prove_root"`
+	Random		string `json:"random"`
 }
 
 type BlockDetail struct {
