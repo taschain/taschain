@@ -24,23 +24,23 @@ import (
 	"network"
 	"os"
 
-	chandler "consensus/net"
 	"consensus/mediator"
+	chandler "consensus/net"
 
-	"encoding/json"
 	"consensus/groupsig"
-	"taslog"
-	_ "net/http/pprof"
-	"net/http"
-	"middleware"
-	"time"
-	"middleware/types"
-	"runtime"
-	"strconv"
 	"consensus/model"
-	"runtime/debug"
 	"core/net/handler"
+	"encoding/json"
 	"github.com/vmihailenco/msgpack"
+	"middleware"
+	"middleware/types"
+	"net/http"
+	_ "net/http/pprof"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+	"taslog"
+	"time"
 )
 
 const (
@@ -68,7 +68,7 @@ var walletManager wallets
 var lightMiner bool
 
 type Gtas struct {
-	inited bool
+	inited  bool
 	account Account
 }
 
@@ -101,9 +101,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedId string, rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp, light)
+	err := gtas.fullInit(super, testMode, seedIp, seedId, light)
 	if err != nil {
 		common.DefaultLogger.Error(err.Error())
 		return
@@ -213,7 +213,6 @@ func (gtas *Gtas) Run() {
 	remoteHost := consoleCmd.Flag("host", "the node host address to connect").Short('i').String()
 	remotePort := consoleCmd.Flag("port", "the node host port to connect").Short('p').Int()
 
-
 	// 交易解析
 	//tCmd := app.Command("t", "create a transaction")
 	//fromT := tCmd.Flag("from", "from acc").Short('f').String()
@@ -244,6 +243,7 @@ func (gtas *Gtas) Run() {
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
+	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
@@ -307,7 +307,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *seedId, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -333,7 +333,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) checkAddress(address string) (error) {
+func (gtas *Gtas) checkAddress(address string) error {
 	acm := AccountOp.(*AccountManager)
 	if address != "" {
 		if aci, err := acm.getAccountInfo(address); err != nil {
@@ -356,7 +356,7 @@ func (gtas *Gtas) checkAddress(address string) (error) {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string, light bool) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -386,7 +386,9 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) er
 		return err
 	}
 	id := minerInfo.ID.GetHexString()
-	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
+
+	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, seedId, id)
+
 	if err != nil {
 		return err
 	}
@@ -413,7 +415,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) er
 	return nil
 }
 
-func LoadPubKeyInfo(key string) ([]model.PubKeyInfo) {
+func LoadPubKeyInfo(key string) []model.PubKeyInfo {
 	var infos []PubKeyInfo
 	keys := common.GlobalConf.GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
@@ -465,7 +467,7 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 	}
 }
 
-func (gtas *Gtas) autoApplyMiner(mtype int)  {
+func (gtas *Gtas) autoApplyMiner(mtype int) {
 	miner := mediator.Proc.GetMinerInfo()
 	if miner.ID.GetHexString() != gtas.account.Address {
 		panic(fmt.Errorf("id error %v %v", miner.ID.GetHexString(), gtas.account.Address))

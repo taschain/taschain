@@ -64,6 +64,16 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 
 }
 
+// ExplorerAccount
+func (api *GtasAPI) ExplorerAccount(account string) (*Result, error) {
+	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
+	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(account))
+
+
+	return successResult(ExplorerAccount{Balance:balance,Nonce:nonce})
+
+}
+
 // Balance 查询余额接口
 func (api *GtasAPI) Balance(account string) (*Result, error) {
 	balance, err := walletManager.getBalance(account)
@@ -222,12 +232,66 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 		trans = append(trans, *convertTransaction(tx))
 	}
 
-	bd := &BlockDetail{
-		Block: *block,
-		Trans: trans,
+	evictedReceipts := make([]*types.Receipt,0)
+	for _, tx := range bh.EvictedTxs{
+		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		if wrapper != nil{
+			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
+		}
+	}
+	receipts := make([]*types.Receipt,len(bh.Transactions))
+	for i, tx := range bh.Transactions{
+		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		if wrapper != nil{
+			receipts[i] = wrapper.Receipt
+		}
+	}
+
+	bd := &ExplorerBlockDetail{
+		BlockDetail:BlockDetail{Block: *block, Trans: trans},
+		EvictedReceipts:evictedReceipts,
+		Receipts:receipts,
 	}
 	return successResult(bd)
 }
+
+func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
+	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
+	if err != nil {
+		return failResult("no more group")
+	}
+	ret := make([]map[string]interface{}, 0)
+	h := height
+	for _, g := range groups {
+		gmap := explorerConvertGroup(g)
+		gmap["height"] = h
+		h++
+		ret = append(ret, gmap)
+	}
+	return successResult(ret)
+}
+
+func  explorerConvertGroup(g *types.Group) map[string]interface{} {
+	gmap := make(map[string]interface{})
+	if g.Id != nil && len(g.Id) != 0 {
+		gmap["id"] = groupsig.DeserializeId(g.Id).GetHexString()
+		gmap["hash"] = g.Header.Hash
+	}
+	gmap["parent_id"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
+	gmap["pre_id"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
+	gmap["begin_time"] = g.Header.BeginTime
+	gmap["create_height"] = g.Header.CreateHeight
+	gmap["work_height"] = g.Header.WorkHeight
+	gmap["dismiss_height"] = g.Header.DismissHeight
+	mems := make([]string, 0)
+	for _, mem := range g.Members {
+		memberStr := groupsig.DeserializeId(mem).GetHexString()
+		mems = append(mems, memberStr)
+	}
+	gmap["members"] = mems
+	return gmap
+}
+
 
 func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	bh := core.BlockChainImpl.QueryTopBlock()

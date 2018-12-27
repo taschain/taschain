@@ -4,7 +4,6 @@ import (
 	"testing"
 	"network"
 	"common"
-	"fmt"
 	"time"
 	"net/http"
 	_ "net/http/pprof"
@@ -16,7 +15,6 @@ import (
 func TestNet1(test *testing.T) {
 	common.InitConf("tas1.ini")
 	network.Init(common.GlobalConf, true, nil, nil, true, "10.0.0.66","")
-	fmt.Printf("id:%s\n", id)
 	pprof()
 	go sendMsg()
 	go sendMsg()
@@ -27,7 +25,6 @@ func TestNet1(test *testing.T) {
 func TestNet2(test *testing.T) {
 	common.InitConf("tas2.ini")
 	network.Init(common.GlobalConf, false, nil, nil, true, "10.0.0.66","")
-	fmt.Printf("id:%s\n", id)
 	go sendMsg()
 	go sendMsg()
 	go sendMsg()
