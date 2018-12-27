@@ -41,7 +41,7 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, nodeIDHex string) (err error) {
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, seedId string, nodeIDHex string) (err error) {
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
@@ -50,11 +50,17 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
-	//id = self.Id
 	if seedIp == "" {
 		seedIp = seedDefaultIp
 	}
-	seedId, _, seedPort := getSeedInfo(config)
+	if seedId == "" {
+		seedId = seedDefaultId
+	}
+	_, _, seedPort := getSeedInfo(config)
+
+	if len(seedId) > 0  {
+
+	}
 	seeds := make([]*Node, 0, 16)
 
 	bnNode := NewNode(NewNodeID(seedId), nnet.ParseIP(seedIp), seedPort)

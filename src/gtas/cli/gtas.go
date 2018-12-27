@@ -100,9 +100,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, rpcPort uint, light bool, apply string) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedId string,  rpcPort uint, light bool, apply string) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp, light)
+	err := gtas.fullInit(super, testMode, seedIp, seedId,light)
 	if err != nil {
 		common.DefaultLogger.Error(err.Error())
 		return
@@ -229,6 +229,7 @@ func (gtas *Gtas) Run() {
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
+	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
@@ -280,7 +281,7 @@ func (gtas *Gtas) Run() {
 	case mineCmd.FullCommand():
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *portRpc, *light, *apply)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *seedId, *portRpc, *light, *apply)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -306,7 +307,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string,seedId string, light bool) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -326,7 +327,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, light bool) er
 		return err
 	}
 	id := minerInfo.ID.GetHexString()
-	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, id)
+	err = network.Init(*configManager, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, seedId, id)
 	if err != nil {
 		return err
 	}

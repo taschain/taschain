@@ -137,6 +137,9 @@ type Block struct {
 	Txs 	[]common.Hash `json:"txs"`
 }
 
+
+
+
 type BlockDetail struct {
 	Block
 	GenBonusTx *BonusTransaction `json:"gen_bonus_tx"`
@@ -148,7 +151,15 @@ type BlockDetail struct {
 	PreTotalQN	uint64 `json:"pre_total_qn"`
 }
 
+
+
 type BlockReceipt struct {
+	Receipts []*types.Receipt `json:"receipts"`
+	EvictedReceipts []*types.Receipt `json:"evictedReceipts"`
+}
+
+type ExplorerBlockDetail struct {
+	BlockDetail
 	Receipts []*types.Receipt `json:"receipts"`
 	EvictedReceipts []*types.Receipt `json:"evictedReceipts"`
 }
@@ -234,4 +245,11 @@ type CastBlockAndBonusResult struct {
 	BonusInfoAtHeight BonusInfo `json:"bonus_info_at_height"`
 	BonusStatInfos []BonusStatInfo `json:"bonuses"`
 	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
+}
+
+type Account struct {
+	Balance  *big.Int `json:"balance"`
+	Nonce    uint64 `json:"nonce"`
+	CodeHash string `json:"code_hash"`
+
 }
