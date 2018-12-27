@@ -484,7 +484,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int)  {
 		return
 	}
 
-	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, 1, types.TransactionTypeMinerApply, string(data))
+	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, 1, types.TransactionTypeMinerApply, common.ToHex(data))
 	fmt.Println("apply result", ret, err)
 
 }
