@@ -435,7 +435,7 @@ func unlockLoop(cmd *unlockCmd, acm accountOp) {
 
 		ret := acm.UnLock(cmd.addr, string(bs))
 		if ret.IsSuccess() {
-			fmt.Printf("unlock will last %v sesc:%v\n", accountUnLockTime.Seconds(), cmd.addr)
+			fmt.Printf("unlock will last %v secs:%v\n", accountUnLockTime.Seconds(), cmd.addr)
 			break
 		} else {
 			fmt.Fprintln(os.Stderr, ret.Message)
