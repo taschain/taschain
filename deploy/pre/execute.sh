@@ -35,6 +35,7 @@ cp deploy/$config_dir/stop.sh $compile_dir/
 cp deploy/$config_dir/start.sh $compile_dir/
 
 cp deploy/$config_dir/sync_list $compile_dir
+cp deploy/$config_dir/genesis_sgi.config $compile_dir
 
 cp -r deploy/$config_dir/host $compile_dir/host
 cp -r deploy/$config_dir/genesis_info $compile_dir/genesis_info
