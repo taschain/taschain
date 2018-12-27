@@ -45,6 +45,23 @@ type VRFRandomValue ed25519.VRFRandomValue  //RandomValueSize = 32 in bytes
 // VRFProve is the output prove of VRF_Ed25519.
 type VRFProve ed25519.VRFProve  //ProveSize = 81 in bytes
 
+
+func (vp VRFPublicKey) GetHexString() string {
+    return common.ToHex(vp)
+}
+
+func Hex2VRFPublicKey(hex string) VRFPublicKey {
+    return VRFPublicKey(common.FromHex(hex))
+}
+
+func (vp VRFPrivateKey) GetHexString() string {
+	return common.ToHex(vp)
+}
+
+func Hex2VRFPrivateKey(hex string) VRFPrivateKey {
+	return VRFPrivateKey(common.FromHex(hex))
+}
+
 func (vp VRFProve) ShortS() string {
     bi := new(big.Int).SetBytes(vp)
     hex := bi.Text(16)

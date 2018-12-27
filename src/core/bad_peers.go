@@ -10,7 +10,7 @@ const (
 	evilMaxCount          = 3
 )
 
-var PeerManager = initPeerManager()
+var PeerManager *peerManager
 
 type peerManager struct {
 	badPeerMeter map[string]uint64

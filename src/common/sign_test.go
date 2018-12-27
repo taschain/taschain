@@ -86,6 +86,10 @@ func TestEncryptDecrypt(t *testing.T) {
 	sk1 := GenerateKey("")
 	pk1 := sk1.GetPubKey()
 
+	t.Log(sk1.GetHexString())
+	t.Log(pk1.GetHexString())
+
+
 	sk2 := GenerateKey("")
 
 	message := []byte("Hello, world.")

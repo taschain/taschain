@@ -49,17 +49,33 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
-	PubKey *common.PublicKey
+	//PubKey *common.PublicKey
 	Sign   *common.Sign
 }
 
+//source,sign在hash计算范围内
 func (tx *Transaction) GenHash() common.Hash {
 	if nil == tx {
 		return common.Hash{}
 	}
+	buffer := bytes.Buffer{}
+	if tx.Data != nil {
+		buffer.Write(tx.Data)
+	}
+	buffer.Write(common.Uint64ToByte(tx.Value))
+	buffer.Write(common.Uint64ToByte(tx.Nonce))
+	if tx.Target != nil {
+		buffer.Write(tx.Target.Bytes())
+	}
+	buffer.Write(common.UInt32ToByte(tx.Type))
+	buffer.Write(common.Uint64ToByte(tx.GasLimit))
+	buffer.Write(common.Uint64ToByte(tx.GasPrice))
+	if tx.ExtraData != nil {
+		buffer.Write(tx.ExtraData)
+	}
+	buffer.Write(common.UInt32ToByte(tx.ExtraDataType))
 
-	blockByte, _ := json.Marshal(tx)
-	return common.BytesToHash(common.Sha256(blockByte))
+	return common.BytesToHash(common.Sha256(buffer.Bytes()))
 }
 
 type Transactions []*Transaction
@@ -266,8 +282,8 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	buf.Write(common.Uint64ToByte(gh.Authority))
 	buf.WriteString(gh.Name)
 
-	bt, _ := gh.BeginTime.MarshalBinary()
-	buf.Write(bt)
+	//bt, _ := gh.BeginTime.MarshalBinary()
+	//buf.Write(bt)
 	buf.Write(gh.MemberRoot.Bytes())
 	buf.Write(common.Uint64ToByte(gh.CreateHeight))
 	buf.Write(common.Uint64ToByte(gh.ReadyHeight))

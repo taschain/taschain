@@ -251,8 +251,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				fail = true
 				continue
 			}
+			data := common.FromHex(string(transaction.Data))
 			var miner types.Miner
-			msgpack.Unmarshal(transaction.Data, &miner)
+			msgpack.Unmarshal(data, &miner)
 			mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
 			if mexist == nil {
 				amount := big.NewInt(int64(transaction.Value))

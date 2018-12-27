@@ -240,6 +240,8 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 
 	gid := groupsig.DeserializeId(msg.Reward.GroupId)
 
+	network.Logger.Debugf("send SendCastRewardSignReq to %v", gid.GetHexString())
+
 	ns.net.SpreadAmongGroup(gid.GetHexString(), m)
 }
 

@@ -91,15 +91,15 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 		return false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
 
-	//建组时高度是否存在
-	bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
-	if bh == nil {
-		core.Logger.Debugf("createBlock is nil, height=%v", gh.CreateHeight)
-		return false, common.ErrCreateBlockNil
-	}
+	//建组时高度是否存在 由于分叉处理，建组时的高度可能不存在
+	//bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
+	//if bh == nil {
+	//	core.Logger.Debugf("createBlock is nil, height=%v", gh.CreateHeight)
+	//	return false, common.ErrCreateBlockNil
+	//}
 
 	//生成组头是否与收到的一致
-	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, bh.CurTime, gm.groupChain.LastGroup())
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, gm.groupChain.LastGroup())
 	if expectGH == nil {
 		return false, fmt.Errorf("expect GroupHeader is nil")
 	}

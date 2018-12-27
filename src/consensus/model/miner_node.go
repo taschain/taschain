@@ -65,12 +65,12 @@ func (mi *SelfMinerDO) Read(p []byte) (n int, err error) {
 	return len(bs), nil
 }
 
-func NewSelfMinerDO(secert string) SelfMinerDO {
+func NewSelfMinerDO(address common.Address) SelfMinerDO {
 	var mi SelfMinerDO
-	mi.SecretSeed = base.RandFromString(secert)
+	mi.SecretSeed = base.RandFromString(address.GetHexString())
 	mi.SK = *groupsig.NewSeckeyFromRand(mi.SecretSeed)
 	mi.PK = *groupsig.NewPubkeyFromSeckey(mi.SK)
-	mi.ID = *groupsig.NewIDFromPubkey(mi.PK)
+	mi.ID = groupsig.DeserializeId(address.Bytes())
 
 	var err error
 	mi.VrfPK, mi.VrfSK, err = base.VRF_GenerateKey(&mi)

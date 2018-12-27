@@ -27,29 +27,36 @@ func successResult(data interface{}) (*Result, error) {
 	return &Result{
 		Message: "success",
 		Data:    data,
+		Status: 0,
 	}, nil
 }
 func failResult(err string) (*Result, error) {
 	return &Result{
 		Message: err,
 		Data:    nil,
+		Status: -1,
 	}, nil
 }
 
-func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
-	info := core.MinerManagerImpl.GetMinerById(mediator.Proc.GetMinerID().Serialize(), byte(mtype), nil)
+
+//deprecated
+func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
+	info := core.MinerManagerImpl.GetMinerById(id, byte(mtype), nil)
 	if info != nil {
 		return failResult("已经申请过该类型矿工")
 	}
 
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+	//address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
+	pbkBytes := common.FromHex(bpk)
 
 	miner := &types.Miner{
-		Id:           minerInfo.ID.Serialize(),
-		PublicKey:    minerInfo.PK.Serialize(),
-		VrfPublicKey: minerInfo.VrfPK,
+		Id:           id,
+		PublicKey:    groupsig.DeserializePubkeyBytes(pbkBytes).Serialize(),
+		VrfPublicKey: common.FromHex(vrfpk),
 		Stake:        stake,
 		Type:         byte(mtype),
 	}
@@ -84,9 +91,11 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
 }
 
-func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+//deprecated
+func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
 		Nonce:    uint64(nonce),
@@ -103,9 +112,11 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	return successResult(nil)
 }
 
-func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+//deprecated
+func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
 		Nonce:    uint64(nonce),
@@ -165,6 +176,20 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	ret["proposer"] = pmap
 	ret["group"] = gmap
 	return successResult(ret)
+}
+
+func (api *GtasAPI) MinerInfo(addr string) (*Result, error) {
+	morts := make([]MortGage, 0)
+	id := common.HexToAddress(addr).Bytes()
+	heavyInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeHeavy, nil)
+	if heavyInfo != nil {
+		morts = append(morts, *NewMortGageFromMiner(heavyInfo))
+	}
+	lightInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeLight, nil)
+	if lightInfo != nil {
+		morts = append(morts, *NewMortGageFromMiner(lightInfo))
+	}
+	return successResult(morts)
 }
 
 func (api *GtasAPI) NodeInfo() (*Result, error) {
@@ -597,4 +622,35 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 	}
 
 	return successResult(result)
+}
+
+func (api *GtasAPI) Nonce(addr string) (*Result, error) {
+	address := common.HexToAddress(addr)
+	nonce := core.BlockChainImpl.GetNonce(address)
+	return successResult(nonce)
+}
+
+func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
+	txRaw := &txRawData{
+		Target: target,
+		Value: value,
+		Gas: gas,
+		Gasprice: gasprice,
+		Nonce: nonce,
+		TxType: txType,
+		Data: data,
+	}
+	sk := common.HexStringToSecKey(privateKey)
+	if sk == nil {
+		return failResult(fmt.Sprintf("parse private key fail:%v", privateKey))
+	}
+	trans := txRawToTransaction(txRaw)
+	trans.Hash = trans.GenHash()
+	sign := sk.Sign(trans.Hash.Bytes())
+	trans.Sign = &sign
+
+	if err := sendTransaction(trans); err != nil {
+		return failResult(err.Error())
+	}
+	return successResult(trans.Hash.String())
 }
