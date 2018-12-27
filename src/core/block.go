@@ -103,12 +103,9 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x5e5ba5be8d8b6c4d9f9bc8446c4295f6e40f0c6fd4e3d6a1e4db2e4931f674b0"), big.NewInt(1000000))
 
 	//小熊本地测试轻节点账户
-	stateDB.SetBalance(common.HexStringToAddress("0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307"), big.NewInt(1000000))
-	stateDB.SetBalance(common.HexStringToAddress("0x9911b24c4551d0e7dfea9ed72a5ba8fddfe48529c6656ce7840ebf0ff3e71fa7	"), big.NewInt(1000000))
-	stateDB.SetBalance(common.HexStringToAddress("0xbbc0fbd4f77c046fc4dae0ee1770dd2dc5c80bc8c037c31c7739ee6ef607152e"), big.NewInt(1000000))
-	stateDB.SetBalance(common.HexStringToAddress("0x78a2c13353b6341bd9bf8254ce3042e2e8fb4747822972898e622cc1dbd416de"), big.NewInt(1000000))
-	stateDB.SetBalance(common.HexStringToAddress("0x6b61a8a468b728223802e8b0e452d1b5aa0b0d06719f45595a9d848d70eb424e"), big.NewInt(1000000))
-	stateDB.SetBalance(common.HexStringToAddress("0xf90ff2aa01edb090d59ba82873567a9673abb45e37b9323617aac1a7378a1b08ini"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x7c608b0e25bba75a6bde6e87b2b007354cfc42f9bda481f59082f68fe4a9446d"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0xdc57f6994098a8ac04e1c73064ee93e5edc8dbe0e47e8865ed01df7304d2bf73"), big.NewInt(1000000))
+	stateDB.SetBalance(common.HexStringToAddress("0x352dfb7802f3fccf3cb571dd8000ba5cd2386fa70db9c415d34588905f233017"), big.NewInt(1000000))
 	//阿里云账户
 	stateDB.SetBalance(common.HexStringToAddress("0x3ba8efc57a6b69a02635c35ca14ee54e789ccc4ca3d6b5812a2dd8abbc01bf4b"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x5d65a222b32675de37b4eae9a9e687069f02071c66134d61676a612513a2dd8a"), big.NewInt(10000))
@@ -157,7 +154,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x5104da602c1fc5e799c9473ddb16f10778f40cf576e130b8fa2d0f8163985621"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x977988b6f632f61a68c75b1a17437ba62ed3ed3e1709c2280fd790bad01b3230"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0xff610e6b0e503dc468e672a3e489899757734f3ecf04c5c692dc4fe36a2ab392"), big.NewInt(10000))
-	stateDB.SetBalance(common.HexStringToAddress("0x23d41094029fd568d09b106ffccd1e8b52583836ba017aa55b0c13989eac46a4"), big.NewInt(10000))
+	stateDB.SetBalance(common.HexStringToAddress("0x8d01a1c1e224c856fdc93c63aecfb626b9528d20c17973b8423eba6a075c21c5"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0x33a88a28216eee1295b87bf4eb44d487c8106d1ef11441ba8d0d56dd97014344"), big.NewInt(10000))
 	stateDB.SetBalance(common.HexStringToAddress("0xffd693c69796bf1ac26530b0c62e5055e676da8357a9536aa8db2830f7a24959"), big.NewInt(10000))
 

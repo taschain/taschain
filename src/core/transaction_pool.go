@@ -165,7 +165,7 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("tx sign nil")
 	}
 	switch tx.Type {
-	case types.TransactionTypeBonus:	//todo 分红交易，验证组签名
+	case types.TransactionTypeBonus: //todo 分红交易，验证组签名
 
 	default:
 		msg := tx.Hash.Bytes()
@@ -183,6 +183,7 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	//验签名
 	if err := pool.verifyTransaction(tx); err != nil {
+		Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
 		return false, err
 	}
 
