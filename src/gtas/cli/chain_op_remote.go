@@ -120,6 +120,9 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		sign := privateKey.Sign(txHash.Bytes())
 		tx.Sign = sign.GetHexString()
 
+		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, txHash.String())
+		fmt.Printf("%+v\n", tranx)
+
 		jsonByte, err := json.Marshal(tx)
 		if err != nil {
 			return opError(err)
@@ -189,7 +192,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		Gas:      gas,
 		Gasprice: gasprice,
 		TxType:   types.TransactionTypeMinerApply,
-		Data:     string(data),
+		Data:     common.ToHex(data),
 	}
 
 	return ca.SendRaw(tx)

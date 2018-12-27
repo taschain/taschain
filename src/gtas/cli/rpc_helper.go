@@ -109,6 +109,9 @@ func sendTransaction(trans *types.Transaction) error {
 	source := pk.GetAddress()
 	trans.Source = &source
 
+	fmt.Println(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
+	fmt.Printf("%+v\n", trans)
+
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
 		return err
 	}
