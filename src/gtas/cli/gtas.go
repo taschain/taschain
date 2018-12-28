@@ -268,23 +268,23 @@ func (gtas *Gtas) Run() {
 			fmt.Errorf(err.Error())
 		}
 
-	//case tCmd.FullCommand():
-	//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
-	//	if err != nil {
-	//		common.DefaultLogger.Error(err.Error())
-	//	}
-	//	common.DefaultLogger.Info(msg)
-	//case balanceCmd.FullCommand():
-	//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
-	//	if err != nil {
-	//		common.DefaultLogger.Error(err.Error())
-	//	} else {
-	//		common.DefaultLogger.Info(msg)
-	//	}
-	//case newCmd.FullCommand():
-	//	privKey, address := walletManager.newWallet()
-	//	common.DefaultLogger.Info("Please Remember Your PrivateKey!")
-	//	common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
+		//case tCmd.FullCommand():
+		//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
+		//	if err != nil {
+		//		common.DefaultLogger.Error(err.Error())
+		//	}
+		//	common.DefaultLogger.Info(msg)
+		//case balanceCmd.FullCommand():
+		//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
+		//	if err != nil {
+		//		common.DefaultLogger.Error(err.Error())
+		//	} else {
+		//		common.DefaultLogger.Info(msg)
+		//	}
+		//case newCmd.FullCommand():
+		//	privKey, address := walletManager.newWallet()
+		//	common.DefaultLogger.Info("Please Remember Your PrivateKey!")
+		//	common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		common.InstanceIndex = *instanceIndex
 		go func() {
@@ -486,7 +486,8 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 		return
 	}
 
-	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, 1, types.TransactionTypeMinerApply, common.ToHex(data))
+	nonce := core.BlockChainImpl.GetNonce(miner.ID.ToAddress()) + 1
+	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
 	fmt.Println("apply result", ret, err)
 
 }

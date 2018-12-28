@@ -35,6 +35,8 @@ message Transaction{
     optional int32 ExtraDataType  = 10 ;
 
     required int32 Type = 11;
+
+    optional bytes Sign = 12;
 }
 
 message TransactionRequestMessage{

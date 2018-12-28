@@ -21,14 +21,13 @@ type RemoteChainOpImpl struct {
 	host string
 	port int
 	base string
-	aop accountOp
+	aop  accountOp
 	show bool
 }
 
-
 func InitRemoteChainOp(ip string, port int, show bool, op accountOp) *RemoteChainOpImpl {
 	ca := &RemoteChainOpImpl{
-		aop: op,
+		aop:  op,
 		show: show,
 	}
 	ca.Connect(ip, port)
@@ -45,16 +44,16 @@ func (ca *RemoteChainOpImpl) Connect(ip string, port int) error {
 	return nil
 }
 
-func (ca *RemoteChainOpImpl) request(method string, params... interface{}) *Result {
+func (ca *RemoteChainOpImpl) request(method string, params ... interface{}) *Result {
 	if ca.base == "" {
 		return opError(ErrUnConnected)
 	}
 	req := httplib.Post(ca.base)
 
 	param := RPCReqObj{
-		Method: "GTAS_" + method,
-		Params: params[:],
-		ID: 1,
+		Method:  "GTAS_" + method,
+		Params:  params[:],
+		ID:      1,
 		Jsonrpc: "2.0",
 	}
 
@@ -82,7 +81,7 @@ func (ca *RemoteChainOpImpl) request(method string, params... interface{}) *Resu
 }
 
 func (ca *RemoteChainOpImpl) nonce(addr string) (uint64, error) {
-    ret := ca.request("nonce", addr)
+	ret := ca.request("nonce", addr)
 	if !ret.IsSuccess() {
 		return 0, fmt.Errorf(ret.Message)
 	}
@@ -109,12 +108,11 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return opError(fmt.Errorf("address error"))
 	}
 
-
 	if nonce, err := ca.nonce(aci.Address); err != nil {
 		return opError(err)
 	} else {
 		tranx := txRawToTransaction(tx)
-		tx.Nonce = nonce
+		tx.Nonce = nonce + 1
 
 		txHash := tranx.GenHash()
 		sign := privateKey.Sign(txHash.Bytes())
