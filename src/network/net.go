@@ -566,7 +566,8 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, code uint32,
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
-	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v ", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount)
+
+	Logger.Debugf("[ encodeDataPacket ] DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v,code:%v", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount,code)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
@@ -769,7 +770,7 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	srcNodeId := NodeID{}
 	srcNodeId.SetBytes(req.SrcNodeId)
-	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg)
+	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v code:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg,req.MessageCode)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {

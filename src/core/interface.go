@@ -25,6 +25,8 @@ import (
 
 //主链接口
 type BlockChain interface {
+	RemoveTop()
+
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）

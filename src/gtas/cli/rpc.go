@@ -31,6 +31,8 @@ import (
 	"strconv"
 	"strings"
 	"encoding/json"
+	"bytes"
+	"yunkuai"
 )
 
 // 分红价值统计
@@ -43,6 +45,101 @@ var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
 
 // GtasAPI is a single-method API handler to be returned by test services.
 type GtasAPI struct {
+}
+
+func (api *GtasAPI) R() *Result {
+	height := core.BlockChainImpl.Height()
+	core.BlockChainImpl.RemoveTop()
+	return &Result{
+		Message: fmt.Sprintf("Removed block height: %d", height),
+		//Success: false,
+	}
+}
+
+// 云块交易接口
+// 加入版本号的控制
+func (api *GtasAPI) L(data string, extradata []byte) *Result {
+
+	// 先判断提交内容是否重复
+	result := api.S(data)
+	if nil != result && nil != result.Data {
+		txDetail := result.Data.(map[string]interface{})
+		existed := txDetail["ExtraData"].([]byte)
+		if 0 == bytes.Compare(existed, extradata) {
+			return &Result{
+				Message: fmt.Sprintf("data existed: %s", data),
+				//Success: false,
+			}
+		}
+	}
+
+	addr_s := common.BytesToAddress([]byte(yunkuai.Yunkuai_s))
+	addr_t := common.BytesToAddress([]byte(yunkuai.Yunkuai_t))
+	data = yunkuai.GetYunKuaiProcessor().GenerateNewKey(data)
+
+	tx := &types.Transaction{
+		Data:   []byte(data),
+		Value:  0,
+		Nonce:  0,
+		Source: &addr_s,
+		Target: &addr_t,
+
+		Type: types.TransactionYunkuai,
+
+		GasLimit: 0,
+		GasPrice: 0,
+
+		ExtraData: extradata,
+	}
+	hash := tx.GenHash()
+	tx.Hash = hash
+
+	txpool := core.BlockChainImpl.GetTransactionPool()
+	if nil == txpool {
+		return &Result{
+			Message: fmt.Sprintf("fail to add data, no chain"),
+			Data:    hash.String(),
+			//Success: false,
+		}
+	}
+	flag, err := txpool.AddTransaction(tx)
+
+	return &Result{
+		Message: fmt.Sprintf("Transaction hash: %s, success: %t, error: %s", hash.String(), flag, err),
+		Data:    hash.String(),
+		//Success: false,
+	}
+}
+
+// 云块交易查询接口
+func (api *GtasAPI) S(index string) *Result {
+	version := yunkuai.GetYunKuaiProcessor().GenerateLastestKey(index)
+	if !yunkuai.GetYunKuaiProcessor().Contains(version) {
+		return &Result{
+			Message: fmt.Sprintf("not existed: %s", index),
+			//Success: false,
+		}
+	}
+
+	hash := yunkuai.GetYunKuaiProcessor().Get(version)
+	txpool := core.BlockChainImpl.GetTransactionPool()
+	tx, _ := txpool.GetTransaction(common.BytesToHash(hash))
+	if nil == tx {
+		return &Result{
+			Message: fmt.Sprintf("not existed: %s", version),
+			//Success: false,
+		}
+	}
+
+	txDetail := make(map[string]interface{})
+	txDetail["Data"] = tx.Data
+	txDetail["ExtraData"] = tx.ExtraData
+	txDetail["ExtraDataType"] = tx.ExtraDataType
+	return &Result{
+		Message: fmt.Sprintf("existed: %s", version),
+		Data:    txDetail,
+		//Success: true,
+	}
 }
 
 // T 用户交易接口

@@ -31,8 +31,8 @@ const (
 	TransactionTypeMinerApply     = 4
 	TransactionTypeMinerAbort     = 5
 	TransactionTypeMinerRefund    = 6
-
-	TransactionTypeToBeRemoved = -1
+	TransactionYunkuai            = 7
+	TransactionTypeToBeRemoved    = -1
 )
 
 var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103", "0xcad6d60fa8f6330f293f4f57893db78cf660e80d6a41718c7ad75e76795000d4",

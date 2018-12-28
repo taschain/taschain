@@ -51,6 +51,7 @@ type prototypeChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
+	// 是否在调整分叉 true：正在调整
 	isAdujsting bool
 
 	consensusHelper types.ConsensusHelper
@@ -61,6 +62,7 @@ type prototypeChain struct {
 
 	forkProcessor *forkProcessor
 }
+
 
 func (chain *prototypeChain) PutCheckValue(height uint64, hash []byte) error {
 	key := utility.UInt64ToByte(height)

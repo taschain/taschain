@@ -76,7 +76,7 @@ func (bg *BelongGroups) commit() bool {
 }
 
 func (bg *BelongGroups) load() bool {
-	stdLogger.Debugf("load belongGroups from", bg.storeFile)
+	stdLogger.Debugf("load belongGroups from %v", bg.storeFile)
 	data, err := ioutil.ReadFile(bg.storeFile)
 	if err != nil {
 		stdLogger.Debugf("load file %v fail, err %v", bg.storeFile, err.Error())
