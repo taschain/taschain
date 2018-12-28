@@ -18,69 +18,73 @@ package network
 const (
 	//-----------组初始化---------------------------------
 
-	GroupInitMsg uint32 = 0x01
+	GroupInitMsg uint32 = 1
 
-	KeyPieceMsg uint32 = 0x02
+	KeyPieceMsg uint32 = 2
 
-	SignPubkeyMsg uint32 = 0x03
+	SignPubkeyMsg uint32 = 3
 
-	GroupInitDoneMsg uint32 = 0x04
+	GroupInitDoneMsg uint32 = 4
 
 	//-----------组铸币---------------------------------
-	CurrentGroupCastMsg uint32 = 0x05
+	CurrentGroupCastMsg uint32 = 5
 
-	CastVerifyMsg uint32 = 0x06
+	CastVerifyMsg uint32 = 6
 
-	VerifiedCastMsg uint32 = 0x07
+	VerifiedCastMsg uint32 = 7
 
-	ReqTransactionMsg uint32 = 0x08
+	NewBlockMsg uint32 = 8
+	//--------------交易-----------------------------
+	ReqTransactionMsg uint32 = 9
 
-	TransactionGotMsg uint32 = 0x09
+	TransactionGotMsg uint32 = 10
 
-	MinerTransactionMsg uint32 = 0x0a
-
-	NewBlockMsg uint32 = 0x0b
-
-	NewBlockHeaderMsg uint32 = 0x0c
-
-	BlockBodyReqMsg uint32 = 0x0d
-
-	BlockBodyMsg uint32 = 0x0e
+	TransactionBroadcastMsg uint32 = 11
 
 	//-----------块同步---------------------------------
-	BlockInfoNotifyMsg uint32 = 0x10
+	BlockInfoNotifyMsg uint32 = 13
 
-	ReqBlock uint32 = 0x11
+	ReqBlock uint32 = 14
 
-	BlockMsg uint32 = 0x12
+	BlockResponseMsg uint32 = 15
 
 	//-----------组同步---------------------------------
-	GroupChainCountMsg uint32 = 0x14
+	GroupChainCountMsg uint32 = 16
 
-	ReqGroupMsg uint32 = 0x15
+	ReqGroupMsg uint32 = 17
 
-	GroupMsg uint32 = 0x16
+	GroupMsg uint32 = 18
 	//-----------块链调整---------------------------------
-	ChainPieceReq uint32 = 0x17
+	ChainPieceInfoReq uint32 = 19
 
-	ChainPiece uint32 = 0x18
+	ChainPieceInfo uint32 = 20
+
+	ReqChainPieceBlock uint32 = 21
+
+	ChainPieceBlock uint32 = 22
 	//---------------------组创建确认-----------------------
-	CreateGroupaRaw uint32 = 0x19
+	CreateGroupaRaw uint32 = 23
 
-	CreateGroupSign uint32 = 0x1a
+	CreateGroupSign uint32 = 24
 	//---------------------轻节点状态同步-----------------------
-	ReqStateInfoMsg uint32 = 0x1b
+	ReqStateInfoMsg uint32 = 25
 
-	StateInfoMsg uint32 = 0x1c
+	StateInfoMsg uint32 = 26
 
 	//==================铸块分红=========
-	CastRewardSignReq uint32 = 0x1d
-	CastRewardSignGot uint32 = 0x1e
+	CastRewardSignReq uint32 = 27
+	CastRewardSignGot uint32 = 28
 
 	//==================Trace=========
-	RequestTraceMsg  uint32 = 0x20
-	ResponseTraceMsg uint32 = 0x21
+	RequestTraceMsg  uint32 = 29
+	ResponseTraceMsg uint32 = 30
 
+	//------------------------------
+	NewBlockHeaderMsg uint32 = 31
+
+	BlockBodyReqMsg uint32 = 32
+
+	BlockBodyMsg uint32 = 33
 	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 )
 

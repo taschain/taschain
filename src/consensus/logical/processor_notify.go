@@ -91,6 +91,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	p.groupManager.CreateNextGroupRoutine()
 
 	p.cleanVerifyContext(bh.Height)
+	notify.BUS.Publish(notify.BlockAddSuccConsensusUpdate, nil)
 }
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
@@ -101,6 +102,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	}
 	sgi := NewSGIFromCoreGroup(&group)
 	p.acceptGroup(sgi)
+	notify.BUS.Publish(notify.GroupAddSuccConsensusUpdate, nil)
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message) {
@@ -111,4 +113,21 @@ func (p *Processor) onNewBlockReceive(message notify.Message) {
 		Block: message.GetData().(types.Block),
 	}
 	p.OnMessageBlock(msg)
+}
+
+func (p *Processor) onMissTxAddSucc(message notify.Message) {
+	if !p.Ready() {
+		return
+	}
+	tgam, ok := message.(*notify.TransactionGotAddSuccMessage)
+	if !ok {
+		stdLogger.Infof("minerTransactionHandler Message assert not ok!")
+		return
+	}
+	transactions := tgam.Transactions
+	var txHashes []common.Hash
+	for _, tx := range transactions {
+		txHashes = append(txHashes, tx.Hash)
+	}
+	p.OnMessageNewTransactions(txHashes)
 }

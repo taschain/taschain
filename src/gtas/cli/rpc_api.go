@@ -27,29 +27,36 @@ func successResult(data interface{}) (*Result, error) {
 	return &Result{
 		Message: "success",
 		Data:    data,
+		Status: 0,
 	}, nil
 }
 func failResult(err string) (*Result, error) {
 	return &Result{
 		Message: err,
 		Data:    nil,
+		Status: -1,
 	}, nil
 }
 
-func (api *GtasAPI) MinerApply(stake uint64, mtype int32) (*Result, error) {
-	info := core.MinerManagerImpl.GetMinerById(mediator.Proc.GetMinerID().Serialize(), byte(mtype), nil)
+
+//deprecated
+func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
+	info := core.MinerManagerImpl.GetMinerById(id, byte(mtype), nil)
 	if info != nil {
 		return failResult("已经申请过该类型矿工")
 	}
 
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+	//address := common.BytesToAddress(minerInfo.ID.Serialize())
 	nonce := time.Now().UnixNano()
+	pbkBytes := common.FromHex(bpk)
 
 	miner := &types.Miner{
-		Id:           minerInfo.ID.Serialize(),
-		PublicKey:    minerInfo.PK.Serialize(),
-		VrfPublicKey: minerInfo.VrfPK,
+		Id:           id,
+		PublicKey:    groupsig.DeserializePubkeyBytes(pbkBytes).Serialize(),
+		VrfPublicKey: common.FromHex(vrfpk),
 		Stake:        stake,
 		Type:         byte(mtype),
 	}
@@ -84,9 +91,11 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
 }
 
-func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+//deprecated
+func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
 		Nonce:    uint64(nonce),
@@ -103,9 +112,11 @@ func (api *GtasAPI) MinerAbort(mtype int32) (*Result, error) {
 	return successResult(nil)
 }
 
-func (api *GtasAPI) MinerRefund(mtype int32) (*Result, error) {
-	minerInfo := mediator.Proc.GetMinerInfo()
-	address := common.BytesToAddress(minerInfo.ID.Serialize())
+//deprecated
+func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
+	id := IdFromSign(sign)
+	address := common.BytesToAddress(id)
+
 	nonce := time.Now().UnixNano()
 	tx := &types.Transaction{
 		Nonce:    uint64(nonce),
@@ -165,6 +176,20 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	ret["proposer"] = pmap
 	ret["group"] = gmap
 	return successResult(ret)
+}
+
+func (api *GtasAPI) MinerInfo(addr string) (*Result, error) {
+	morts := make([]MortGage, 0)
+	id := common.HexToAddress(addr).Bytes()
+	heavyInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeHeavy, nil)
+	if heavyInfo != nil {
+		morts = append(morts, *NewMortGageFromMiner(heavyInfo))
+	}
+	lightInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeLight, nil)
+	if lightInfo != nil {
+		morts = append(morts, *NewMortGageFromMiner(lightInfo))
+	}
+	return successResult(morts)
 }
 
 func (api *GtasAPI) NodeInfo() (*Result, error) {
@@ -455,6 +480,9 @@ func bonusStatByHeight(height uint64) BonusInfo {
 	groupId := bh.GroupId
 
 	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
+	if bonusTx == nil {
+		return BonusInfo{}
+	}
 
 	// 从交易信息中解析出targetId列表
 	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
@@ -481,8 +509,8 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 	var bonusValueMap, bonusNumMap, castBlockNumMap map[string]uint64
 
 	if _, ok := BonusValueStatMap[height]; !ok {
-		var i uint64
-		for i = 1; i < height; i++ {
+		var i uint64 = 1
+		for ; i <= height; i++ {
 			if _, ok := BonusValueStatMap[i]; !ok {
 				break
 			}
@@ -491,8 +519,6 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		for j := i; j <= height; j++ {
 			bh := core.BlockChainImpl.QueryBlockByHeight(j)
 
-			casterId := groupsig.DeserializeId(bh.Castor)
-
 			bonusValuePreMap := BonusValueStatMap[j-1]
 			bonusNumPreMap := BonusNumStatMap[j-1]
 			castBlockPreMap := CastBlockStatMap[j-1]
@@ -500,8 +526,8 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 			// 获取验证分红的交易信息
 			// 此方法取到的分红交易有时候为空
 			var bonusTx *types.Transaction
-			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil {
-				BonusLogger.Infof("[BONUS IS NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
+			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil || bh.Castor == nil {
+				BonusLogger.Infof("[Bonus or Castor is NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
 				BonusValueStatMap[j] = bonusValuePreMap
 				BonusNumStatMap[j] = bonusNumPreMap
 				CastBlockStatMap[j] = castBlockPreMap
@@ -510,8 +536,6 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 
 			// 从交易信息中解析出targetId列表
 			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
-
-			BonusLogger.Infof("height: %v | castBlockMap: %v", j-1, castBlockPreMap)
 
 			bonusValueCurrentMap := make(map[string]uint64)
 			bonusNumCurrentMap := make(map[string]uint64)
@@ -545,6 +569,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 				}
 			}
 
+			casterId := groupsig.DeserializeId(bh.Castor)
 			if v, ok := castBlockCurrentMap[casterId.GetHexString()]; ok {
 				castBlockCurrentMap[casterId.GetHexString()] = v + 1
 			} else {
@@ -590,37 +615,42 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 
 	bonusInfo := bonusStatByHeight(height)
 
-	signedBlocks := make([]string, 0, 10)
-	//if signedBlockList, ok:= logical.SignedBlockStatMap[height]; ok{
-	//	for e := signedBlockList.Front(); e != nil; e = e.Next(){
-	//		signedBlocks = append(signedBlocks, e.Value.(string))
-	//	}
-	//}
-
-	var mutiSignedBlockNum uint64 = 0
-	//var i uint64 = 1
-	//for ; i <= height; i++{
-	//	if signedBlockList, ok:= logical.SignedBlockStatMap[i]; ok {
-	//		if signedBlockList.Len() > 1 {
-	//			mutiSignedBlockNum++
-	//			BonusLogger.Infof("%v|%v|%v", i, mutiSignedBlockNum, signedBlockList)
-	//		}
-	//	}
-	//}
-
-	signedBlockInfo := SignedBlockInfo{
-		Height:             height,
-		OnchainBlock:       bonusInfo.BlockHash.ShortS(),
-		SignedBlocks:       signedBlocks,
-		MutiSignedBlockNum: mutiSignedBlockNum,
-	}
-
 	result := CastBlockAndBonusResult{
 		BonusInfoAtHeight:  bonusInfo,
 		BonusStatInfos:     bonusStatResults,
 		CastBlockStatInfos: castBlockResults,
-		SignedBlockInfo:    signedBlockInfo,
 	}
 
 	return successResult(result)
+}
+
+func (api *GtasAPI) Nonce(addr string) (*Result, error) {
+	address := common.HexToAddress(addr)
+	nonce := core.BlockChainImpl.GetNonce(address)
+	return successResult(nonce)
+}
+
+func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
+	txRaw := &txRawData{
+		Target: target,
+		Value: value,
+		Gas: gas,
+		Gasprice: gasprice,
+		Nonce: nonce,
+		TxType: txType,
+		Data: data,
+	}
+	sk := common.HexStringToSecKey(privateKey)
+	if sk == nil {
+		return failResult(fmt.Sprintf("parse private key fail:%v", privateKey))
+	}
+	trans := txRawToTransaction(txRaw)
+	trans.Hash = trans.GenHash()
+	sign := sk.Sign(trans.Hash.Bytes())
+	trans.Sign = &sign
+
+	if err := sendTransaction(trans); err != nil {
+		return failResult(err.Error())
+	}
+	return successResult(trans.Hash.String())
 }

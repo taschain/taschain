@@ -32,7 +32,8 @@ func TestBelongGroups(t *testing.T) {
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	proc := new(Processor)
-	proc.Init(model.NewSelfMinerDO(cm.GetString("gtas", "secret", "")))
+	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
+	proc.Init(model.NewSelfMinerDO(addr))
 	log.Printf("%v", proc.mi.VrfPK)
 	return proc
 }

@@ -5,6 +5,9 @@ import (
 	"consensus/groupsig"
 	"consensus/mediator"
 	"log"
+	"common"
+	"core"
+	"fmt"
 )
 
 /*
@@ -43,6 +46,12 @@ func convertBlockHeader(bh *types.BlockHeader) *Block {
 		Txs: bh.Transactions,
 		TotalQN: bh.TotalQN,
 		//Qn: mediator.Proc.CalcBlockHeaderQN(bh),
+		StateRoot: bh.StateTree,
+		TxRoot: bh.TxTree,
+		RecieptRoot: bh.ReceiptTree,
+		ProveRoot: bh.ProveRoot,
+		Random: common.ToHex(bh.Random),
+		TxNum: uint64(len(bh.Transactions)),
 	}
 	return block
 }
@@ -84,3 +93,28 @@ func genMinerBalance(id groupsig.ID, bh *types.BlockHeader) *MinerBonusBalance {
 	mb.PreBalance = preDB.GetBalance(id.ToAddress())
 	return mb
 }
+
+func IdFromSign(sign string) []byte {
+	return []byte{}
+}
+
+func sendTransaction(trans *types.Transaction) error {
+	if trans.Sign == nil {
+		return fmt.Errorf("transaction sign is empty")
+	}
+	pk, err := trans.Sign.RecoverPubkey(trans.Hash.Bytes())
+	if err != nil {
+		return err
+	}
+	source := pk.GetAddress()
+	trans.Source = &source
+
+	fmt.Println(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
+	fmt.Printf("%+v\n", trans)
+
+	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
+		return err
+	}
+	return nil
+}
+

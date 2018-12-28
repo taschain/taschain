@@ -26,8 +26,13 @@ import (
 // Result rpc请求成功返回的可变参数部分
 type Result struct {
 	Message string      `json:"message"`
+	Status  int `json:"status"`
 	Data    interface{} `json:"data"`
 
+}
+
+func (r *Result) IsSuccess() bool {
+    return r.Status == 0
 }
 
 // ErrorResult rpc请求错误返回的可变参数部分
@@ -135,8 +140,17 @@ type Block struct {
 	Prove  *big.Int `json:"prove"`
 	TotalQN uint64 `json:"total_qn"`
 	Qn 		uint64 `json:"qn"`
-	Txs 	[]common.Hash `json:"txs"`
+	Txs 	[]common.Hash `json:"transactions"`
+	TxNum	uint64 `json:"txs"`
+	StateRoot common.Hash `json:"state_root"`
+	TxRoot	common.Hash `json:"tx_root"`
+	RecieptRoot common.Hash `json:"reciept_root"`
+	ProveRoot 	common.Hash `json:"prove_root"`
+	Random		string `json:"random"`
 }
+
+
+
 
 type BlockDetail struct {
 	Block
@@ -149,7 +163,15 @@ type BlockDetail struct {
 	PreTotalQN	uint64 `json:"pre_total_qn"`
 }
 
+
+
 type BlockReceipt struct {
+	Receipts []*types.Receipt `json:"receipts"`
+	EvictedReceipts []*types.Receipt `json:"evictedReceipts"`
+}
+
+type ExplorerBlockDetail struct {
+	BlockDetail
 	Receipts []*types.Receipt `json:"receipts"`
 	EvictedReceipts []*types.Receipt `json:"evictedReceipts"`
 }
@@ -231,16 +253,15 @@ type CastBlockStatInfo struct {
 	CastBlockNum uint64 `json:"cast_block_num"`
 }
 
-type SignedBlockInfo struct {
-	Height uint64 `json:"height"`
-	OnchainBlock string `json:"onchain_block"`
-	SignedBlocks []string `json:"signed_blocks"`
-	MutiSignedBlockNum uint64 `json:"muti_signed_block_num"`
-}
-
 type CastBlockAndBonusResult struct {
 	BonusInfoAtHeight BonusInfo `json:"bonus_info_at_height"`
 	BonusStatInfos []BonusStatInfo `json:"bonuses"`
 	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
-	SignedBlockInfo SignedBlockInfo `json:"signed_block_info"`
+}
+
+type ExplorerAccount struct {
+	Balance  *big.Int `json:"balance"`
+	Nonce    uint64 `json:"nonce"`
+	CodeHash string `json:"code_hash"`
+
 }

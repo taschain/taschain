@@ -81,20 +81,22 @@ func newSendList() *SendList {
 
 	sl.priorityTable = map[uint32]SendPriorityType{
 		BlockInfoNotifyMsg: SendPriorityHigh,
+		NewBlockMsg:        SendPriorityHigh,
 		ReqBlock:           SendPriorityHigh,
-		BlockMsg:           SendPriorityHigh,
+		BlockResponseMsg:   SendPriorityHigh,
 		GroupChainCountMsg: SendPriorityHigh,
 		ReqGroupMsg:        SendPriorityHigh,
 		GroupMsg:           SendPriorityHigh,
-		ChainPieceReq:      SendPriorityHigh,
-		ChainPiece:         SendPriorityHigh,
+		ChainPieceInfoReq:  SendPriorityHigh,
+		ChainPieceInfo:     SendPriorityHigh,
+		ReqChainPieceBlock: SendPriorityHigh,
+		ChainPieceBlock:    SendPriorityHigh,
 
 		CastVerifyMsg:       SendPriorityMedium,
 		VerifiedCastMsg:     SendPriorityMedium,
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
-		MinerTransactionMsg: SendPriorityMedium,
-		NewBlockMsg:         SendPriorityMedium,
+		TransactionBroadcastMsg: SendPriorityMedium,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}
@@ -114,6 +116,8 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		Logger.Infof("send list  WaitTimeout ！reset , net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 
 		sendList.onSendWaited(peer)
+		Logger.Infof("send list  WaitTimeout ！reset , net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
+
 	}
 
 	priority, isExist := sendList.priorityTable[uint32(code)]
@@ -139,6 +143,8 @@ func (sendList *SendList) onSendWaited(peer *Peer) {
 	sendList.pendingSend = 0
 	sendList.lastOnWait = time.Now()
 	sendList.autoSend(peer)
+	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
+
 }
 
 func (sendList *SendList) autoSend(peer *Peer) {

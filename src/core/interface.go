@@ -41,8 +41,11 @@ type BlockChain interface {
 	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8)
 
 	//铸块成功，上链
-	//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-	AddBlockOnChain(b *types.Block) int8
+	//返回值: 0,上链成功
+	//       -1，验证失败
+	//        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
+	//        2,分叉调整)
+	AddBlockOnChain(source string, b *types.Block) int8
 
 	Height() uint64
 
@@ -103,14 +106,26 @@ type BlockChain interface {
 
 	GetCheckValue(height uint64) (common.Hash, error)
 
-	GetChainPiece(reqHeight uint64) []*types.BlockHeader
+	GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader
 
-	ProcessChainPiece(id string, chainPiece []*types.BlockHeader, topHeader *types.BlockHeader)
+	GetChainPieceBlocks(reqHeight uint64) []*types.Block
+
+	//status 0 忽略该消息  不需要同步
+	//status 1 需要同步ChainPieceBlock
+	//status 2 需要继续同步ChainPieceInfo
+	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
+
+	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
 }
 
 type TransactionPool interface {
+	//add new transaction to the transaction pool
 	AddTransaction(tx *types.Transaction) (bool, error)
 
+	//rcv transactions broadcast from other nodes
+	AddBroadcastTransactions(txs []*types.Transaction)
+
+	//add  local miss transactions while verifying blocks to the transaction pool
 	AddMissTransactions(txs []*types.Transaction) error
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)

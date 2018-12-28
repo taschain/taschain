@@ -16,6 +16,7 @@
 package common
 
 import (
+	"common/secp256k1"
 	"math/big"
 	"encoding/hex"
 )
@@ -23,19 +24,21 @@ import (
 type Sign struct {
 	r big.Int
 	s big.Int
+	recid byte
 }
 
 //数据签名结构 for message casting
 type SignData struct {
 	DataHash   Hash        //哈希值
-	DataSign   Sign				 //签名
-	Id		   string            //用户ID
+	DataSign   Sign		   //签名
+	Id		   string      //用户ID
 }
 
 //签名构造函数
-func (s *Sign) Set(_r, _s *big.Int) {
+func (s *Sign) Set(_r, _s *big.Int, recid int) {
 	s.r = *_r
 	s.s = *_s
+	s.recid = byte(recid)
 }
 
 //检查签名是否有效
@@ -56,9 +59,10 @@ func (s Sign) GetS() big.Int {
 func (s Sign) Bytes() []byte {
 	rb := s.r.Bytes()
 	sb := s.s.Bytes()
-	r := make([]byte, len(rb)+len(sb))
+	r := make([]byte, len(rb)+len(sb)+1)
 	copy(r, rb)
 	copy(r[len(rb):], sb)
+	r[len(rb)+len(sb)] = s.recid
 	return r
 }
 
@@ -67,9 +71,11 @@ func BytesToSign(b []byte) *Sign {
 	br := b[:32]
 	r = *r.SetBytes(br)
 
-	sr := b[32:]
+	sr := b[32:64]
 	s = *s.SetBytes(sr)
-	return &Sign{r, s}
+
+	recid := b[64]
+	return &Sign{r, s, recid}
 }
 
 func (s Sign) GetHexString() string {
@@ -86,5 +92,14 @@ func HexStringToSign(s string) (si *Sign) {
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
 	si = BytesToSign(buf)
 	return si
+}
+
+func (s Sign) RecoverPubkey(msg []byte) (pk *PublicKey, err error) {
+	pubkey, err :=  secp256k1.RecoverPubkey(msg, s.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	pk = BytesToPublicKey(pubkey)
+	return
 }
 

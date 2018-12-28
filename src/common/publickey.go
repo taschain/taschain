@@ -16,12 +16,13 @@
 package common
 
 import (
+	"common/ecies"
+	"common/secp256k1"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/sha1"
 	"encoding/hex"
+	"golang.org/x/crypto/sha3"
 	"io"
-	"common/ecies"
 )
 
 //用户公钥
@@ -31,7 +32,13 @@ type PublicKey struct {
 
 //公钥验证函数
 func (pk PublicKey) Verify(hash []byte, s *Sign) bool {
-	return ecdsa.Verify(&pk.PubKey, hash, &s.r, &s.s)
+	//return ecdsa.Verify(&pk.PubKey, hash, &s.r, &s.s)
+	rb := s.r.Bytes()
+	sb := s.s.Bytes()
+	sig := make([]byte, len(rb)+len(sb))
+	copy(sig, rb)
+	copy(sig[len(rb):], sb)
+	return secp256k1.VerifySignature(pk.ToBytes(), hash, sig)
 }
 
 //由公钥萃取地址函数
@@ -39,12 +46,12 @@ func (pk PublicKey) GetAddress() Address {
 	x := pk.PubKey.X.Bytes()
 	y := pk.PubKey.Y.Bytes()
 	x = append(x, y...)
-	fix_buf := sha1.Sum(x)
-	var addr_buf []byte = fix_buf[0:]
+
+	addr_buf := sha3.Sum256(x)
 	if len(addr_buf) != AddressLength {
 		panic("地址长度错误")
 	}
-	Addr := BytesToAddress(addr_buf)
+	Addr := BytesToAddress(addr_buf[:])
 	return Addr
 }
 
@@ -70,7 +77,7 @@ func BytesToPublicKey(data []byte) (pk *PublicKey) {
 }
 
 //导出函数
-func (pk *PublicKey) GetHexString() string {
+func (pk PublicKey) GetHexString() string {
 	buf := pk.ToBytes()
 	str := PREFIX + hex.EncodeToString(buf)
 	return str

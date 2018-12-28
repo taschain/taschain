@@ -62,7 +62,7 @@ func (mm *MinerManager) loop() {
 			}
 			mm.heavyMiners = array
 			network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
-			Logger.Infof("MinerManager HeavyMinerUpdate Size:%d",len(array))
+			Logger.Infof("MinerManager HeavyMinerUpdate Size:%d", len(array))
 			mm.heavyupdate = false
 		}
 		mm.heavytrigger.Reset(heavyTriggerDuration)
@@ -84,8 +84,7 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	Logger.Debugf("MinerManager AddMiner %d", miner.Type)
 	db := mm.getMinerDatabase(miner.Type)
 
-	latestStateDB := mm.blockchain.LatestStateDB()
-	if latestStateDB.GetData(db, string(id)) != nil {
+	if accountdb.GetData(db, string(id)) != nil {
 		return -1
 	} else {
 		data, _ := msgpack.Marshal(miner)

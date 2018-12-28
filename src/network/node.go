@@ -61,13 +61,10 @@ func (nid NodeID) Bytes() []byte {
 
 // Node Kad 节点
 type Node struct {
-	PrivateKey common.PrivateKey
-
-	PublicKey common.PublicKey
-	Id        NodeID
-	Ip        nnet.IP
-	Port      int
-	NatType   int
+	Id      NodeID
+	Ip      nnet.IP
+	Port    int
+	NatType int
 
 	// kad
 
@@ -196,16 +193,6 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 
 func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	var privateKey common.PrivateKey
-
-	privateKeyStr := getPrivateKeyFromConfigFile(config)
-	if privateKeyStr == "" {
-		privateKey = common.GenerateKey("")
-		savePrivateKey(privateKey.GetHexString(), config)
-	} else {
-		privateKey = *common.HexStringToSecKey(privateKeyStr)
-	}
-	publicKey := privateKey.GetPubKey()
 	ip := getLocalIp()
 	basePort := BASE_PORT
 	port := SUPER_BASE_PORT
@@ -214,7 +201,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 		port = getAvailablePort(ip, BASE_PORT)
 	}
 
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: id, Ip: nnet.ParseIP(ip), Port: port}
+	n := Node{Id: id, Ip: nnet.ParseIP(ip), Port: port}
 	common.DefaultLogger.Info(n.String())
 	return &n, nil
 }
@@ -261,8 +248,7 @@ func getAvailablePort(ip string, port int) int {
 }
 
 func (s *Node) String() string {
-	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port) + "\n"
+	str := "Self node net info:\n" + "ID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port) + "\n"
 	return str
 }
 

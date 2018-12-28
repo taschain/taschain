@@ -30,7 +30,7 @@ const (
 
 	seedPortKey = "seed_port"
 
-	seedDefaultId = "0x9b5cb3c9ca48b4be90ca0dab8f1a4ab71e0510463036c46a0762b7f4d8055307"
+	seedDefaultId = "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"
 
 	seedDefaultIp = "47.105.51.161"
 
@@ -41,7 +41,7 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, nodeIDHex string) (err error) {
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, seedId string, nodeIDHex string) (err error) {
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
@@ -50,11 +50,17 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
-	//id = self.Id
 	if seedIp == "" {
 		seedIp = seedDefaultIp
 	}
-	seedId, _, seedPort := getSeedInfo(config)
+	if seedId == "" {
+		seedId = seedDefaultId
+	}
+	_, _, seedPort := getSeedInfo(config)
+
+	if len(seedId) > 0  {
+
+	}
 	seeds := make([]*Node, 0, 16)
 
 	bnNode := NewNode(NewNodeID(seedId), nnet.ParseIP(seedIp), seedPort)

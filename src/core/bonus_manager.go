@@ -76,10 +76,10 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
-	transaction.Hash = transaction.GenHash()
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
 	transaction.GasPrice = common.MaxUint64
+	transaction.Hash = transaction.GenHash()
 	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupId: groupId, TotalValue: totalValue}, transaction
 }
 

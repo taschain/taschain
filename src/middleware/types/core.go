@@ -35,6 +35,12 @@ const (
 	TransactionTypeToBeRemoved    = -1
 )
 
+var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103", "0xcad6d60fa8f6330f293f4f57893db78cf660e80d6a41718c7ad75e76795000d4",
+	"0xca789a28069db6f1639b60a8bf1084333358672f65c6d6c2e6d58b69187fe402", "0x94bdb92d329dac69d7f107995a7b666d1092c63eadeae2dd495ab2e554bb155d",
+	"0xb50eea221a1eb061dea7ca20f7b7508c2d9639e3558e69f758380e32624337b5", "0xce59fd5e1c6c99d9990b08ccf685260a2b3a03889de56e91b25878a4bf2f89e9",
+	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
+	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
+
 type Transaction struct {
 	Data   []byte
 	Value  uint64
@@ -49,17 +55,33 @@ type Transaction struct {
 
 	ExtraData     []byte
 	ExtraDataType int32
-	PubKey        *common.PublicKey
-	Sign          *common.Sign
+	//PubKey *common.PublicKey
+	Sign *common.Sign
 }
 
+//source,sign在hash计算范围内
 func (tx *Transaction) GenHash() common.Hash {
 	if nil == tx {
 		return common.Hash{}
 	}
+	buffer := bytes.Buffer{}
+	if tx.Data != nil {
+		buffer.Write(tx.Data)
+	}
+	buffer.Write(common.Uint64ToByte(tx.Value))
+	buffer.Write(common.Uint64ToByte(tx.Nonce))
+	if tx.Target != nil {
+		buffer.Write(tx.Target.Bytes())
+	}
+	buffer.Write(common.UInt32ToByte(tx.Type))
+	buffer.Write(common.Uint64ToByte(tx.GasLimit))
+	buffer.Write(common.Uint64ToByte(tx.GasPrice))
+	if tx.ExtraData != nil {
+		buffer.Write(tx.ExtraData)
+	}
+	buffer.Write(common.UInt32ToByte(tx.ExtraDataType))
 
-	blockByte, _ := json.Marshal(tx)
-	return common.BytesToHash(common.Sha256(blockByte))
+	return common.BytesToHash(common.Sha256(buffer.Bytes()))
 }
 
 type Transactions []*Transaction
@@ -266,8 +288,8 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	buf.Write(common.Uint64ToByte(gh.Authority))
 	buf.WriteString(gh.Name)
 
-	bt, _ := gh.BeginTime.MarshalBinary()
-	buf.Write(bt)
+	//bt, _ := gh.BeginTime.MarshalBinary()
+	//buf.Write(bt)
 	buf.Write(gh.MemberRoot.Bytes())
 	buf.Write(common.Uint64ToByte(gh.CreateHeight))
 	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
@@ -290,4 +312,18 @@ type Group struct {
 type StateNode struct {
 	Key   []byte
 	Value []byte
+}
+
+func IsTestTransaction(tx *Transaction) bool {
+	if tx == nil || tx.Source == nil {
+		return false
+	}
+
+	source := tx.Source.GetHexString()
+	for _, testAccount := range testTxAccount {
+		if source == testAccount {
+			return true
+		}
+	}
+	return false
 }

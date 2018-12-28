@@ -23,7 +23,6 @@ import (
 	"network"
 	"math/big"
 	"time"
-	"utility"
 )
 
 type TransactionRequestMessage struct {
@@ -50,6 +49,11 @@ type StateInfo struct {
 type ChainPieceInfo struct {
 	ChainPiece []*types.BlockHeader
 	TopHeader  *types.BlockHeader
+}
+
+type BlockMsgResponse struct {
+	Block       *types.Block
+	IsLastBlock bool
 }
 
 //验证节点 交易集缺失，向CASTOR索要特定交易
@@ -80,7 +84,7 @@ func SendTransactions(txs []*types.Transaction, sourceId string, blockHeight uin
 	go network.GetNetInstance().Send(sourceId, message)
 }
 
-func BroadcastMinerTransactions(txs []*types.Transaction) {
+func BroadcastTransactions(txs []*types.Transaction) {
 	defer func() {
 		if r := recover(); r != nil {
 			Logger.Errorf("Runtime error caught: %v", r)
@@ -92,79 +96,48 @@ func BroadcastMinerTransactions(txs []*types.Transaction) {
 			Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
 			return
 		}
-		Logger.Debugf("Broadcast Miner Transactions len:%d", len(txs))
-		message := network.Message{Code: network.MinerTransactionMsg, Body: body}
+		Logger.Debugf("BroadcastTransactions len:%d", len(txs))
+		message := network.Message{Code: network.TransactionBroadcastMsg, Body: body}
 		heavyMiners := MinerManagerImpl.GetHeavyMiners()
 		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
 	}
 }
 
-func BroadcastTransactions(txs []*types.Transaction, heavyOnly bool) {
-	//defer func() {
-	//	if r := recover(); r != nil {
-	//		Logger.Errorf("Runtime error caught: %v", r)
-	//	}
-	//}()
-	//if len(txs) > 0 {
-	//	body, e := types.MarshalTransactions(txs)
-	//	if e != nil {
-	//		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s", e.Error())
-	//		return
-	//	}
-	//	Logger.Debugf("BroadcastTransactions len:%d", len(txs))
-	//	message := network.Message{Code: network.TransactionMsg, Body: body}
-	//	if heavyOnly {
-	//		heavyMiners := MinerManagerImpl.GetHeavyMiners()
-	//		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
-	//	} else {
-	//		go network.GetNetInstance().Broadcast(message)
-	//	}
-	//}
-}
-
-//向某一节点请求Block信息
-func RequestBlock(id string, height uint64) {
-	Logger.Debugf("Req block to:%s,height:%d", id, height)
-	body := utility.UInt64ToByte(height)
-	message := network.Message{Code: network.ReqBlock, Body: body}
-	go network.GetNetInstance().Send(id, message)
-}
-
-//本地查询之后将结果返回
-func SendBlock(targetId string, block *types.Block) {
+func SendBlock(targetId string, block *types.Block, isLastBlock bool) {
 	if block == nil {
-		return
+		Logger.Debugf("Send nil block to:%s", targetId)
+	} else {
+		Logger.Debugf("Send local block:%d to:%s,isLastBlock:%t", block.Header.Height, targetId, isLastBlock)
 	}
-	Logger.Debugf("Send local block:%d  to:%s", block.Header.Height, targetId)
-	body, e := types.MarshalBlock(block)
+	body, e := marshalBlockMsgResponse(BlockMsgResponse{Block: block, IsLastBlock: isLastBlock})
 	if e != nil {
 		Logger.Errorf("SendBlock marshal MarshalBlock error:%s", e.Error())
 		return
 	}
-	message := network.Message{Code: network.BlockMsg, Body: body}
-	go network.GetNetInstance().Send(targetId, message)
+	message := network.Message{Code: network.BlockResponseMsg, Body: body}
+	network.GetNetInstance().Send(targetId, message)
 }
 
-func ReqBlockBody(targetNode string, blockHash common.Hash) {
-	body := blockHash.Bytes()
-
-	message := network.Message{Code: network.BlockBodyReqMsg, Body: body}
-	go network.GetNetInstance().Send(targetNode, message)
-}
-
-func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*types.Transaction) {
-	if len(transactions) == 0 {
-		return
-	}
-	body, e := marshalBlockBody(blockHash, transactions)
-	if e != nil {
-		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
-		return
-	}
-
-	message := network.Message{Code: network.BlockBodyMsg, Body: body}
-	go network.GetNetInstance().Send(targetNode, message)
-}
+//func ReqBlockBody(targetNode string, blockHash common.Hash) {
+//	body := blockHash.Bytes()
+//
+//	message := network.Message{Code: network.BlockBodyReqMsg, Body: body}
+//	go network.GetNetInstance().Send(targetNode, message)
+//}
+//
+//func SendBlockBody(targetNode string, blockHash common.Hash, transactions []*types.Transaction) {
+//	if len(transactions) == 0 {
+//		return
+//	}
+//	body, e := marshalBlockBody(blockHash, transactions)
+//	if e != nil {
+//		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
+//		return
+//	}
+//
+//	message := network.Message{Code: network.BlockBodyMsg, Body: body}
+//	go network.GetNetInstance().Send(targetNode, message)
+//}
 
 func ReqStateInfo(targetNode string, blockHeight uint64, qn *big.Int, txs types.Transactions, addresses []common.Address, blockHash common.Hash) {
 	Logger.Debugf("Req state info to:%s,blockHeight:%d,qn:%d,len txs:%d,len addresses:%d", targetNode, blockHeight, qn, len(txs), len(addresses))
@@ -186,28 +159,6 @@ func SendStateInfo(targetNode string, blockHeight uint64, stateInfo *[]types.Sta
 		return
 	}
 	message := network.Message{Code: network.StateInfoMsg, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
-}
-
-func RequestChainPiece(targetNode string, height uint64) {
-	Logger.Debugf("Req chain piece to:%s,local height:%d", targetNode, height)
-	body := utility.UInt64ToByte(height)
-	message := network.Message{Code: network.ChainPieceReq, Body: body}
-	network.GetNetInstance().Send(targetNode, message)
-}
-
-func SendChainPiece(targetNode string, chainPieceInfo ChainPieceInfo) {
-	chainPiece := chainPieceInfo.ChainPiece
-	if len(chainPiece) == 0 {
-		return
-	}
-	Logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, targetNode)
-	body, e := marshalChainPieceInfo(chainPieceInfo)
-	if e != nil {
-		Logger.Errorf("Discard marshalChainPiece because of marshal error:%s!", e.Error())
-		return
-	}
-	message := network.Message{Code: network.ChainPiece, Body: body}
 	network.GetNetInstance().Send(targetNode, message)
 }
 
@@ -269,5 +220,10 @@ func marshalChainPieceInfo(chainPieceInfo ChainPieceInfo) ([]byte, error) {
 	}
 	topHeader := types.BlockHeaderToPb(chainPieceInfo.TopHeader)
 	message := tas_middleware_pb.ChainPieceInfo{TopHeader: topHeader, BlockHeaders: headers}
+	return proto.Marshal(&message)
+}
+
+func marshalBlockMsgResponse(bmr BlockMsgResponse) ([]byte, error) {
+	message := tas_middleware_pb.BlockMsgResponse{IsLast: &bmr.IsLastBlock, Block: types.BlockToPb(bmr.Block)}
 	return proto.Marshal(&message)
 }

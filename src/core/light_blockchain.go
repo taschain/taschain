@@ -292,18 +292,23 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 //        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
 //        2，未上链(异步进行分叉调整)
 //        3,未上链(缺少账户状态信息)只有轻节点有
-func (chain *LightChain) AddBlockOnChain(b *types.Block) int8 {
+func (chain *LightChain) AddBlockOnChain(source string, b *types.Block) int8 {
 	if b == nil {
 		return -1
+	}
+	if !chain.hasPreBlock(*b.Header) {
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		return 2
 	}
 
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
-	return chain.addBlockOnChain(b)
+	return chain.addBlockOnChain(source, b)
 }
 
-func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
+func (chain *LightChain) addBlockOnChain(source string, b *types.Block) int8 {
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
@@ -313,8 +318,15 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 		return -1
 	}
 
-	if !chain.validateGroupSig(b.Header) {
-		Logger.Errorf("Fail to validate group sig!")
+	groupValidateResult, err := chain.validateGroupSig(b.Header)
+	if !groupValidateResult {
+		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
+			BlockSyncer.dependBlock = b
+			chain.forkProcessor.reset()
+			Logger.Infof("Add block on chain depend on group.Hold block sync!")
+		} else {
+			Logger.Errorf("Fail to validate group sig!")
+		}
 		return -1
 	}
 
@@ -329,16 +341,18 @@ func (chain *LightChain) addBlockOnChain(b *types.Block) int8 {
 	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(b)
+		return chain.addBlockOnChain(source, b)
 	}
 	if b.Header.TotalQN == topBlock.TotalQN {
 		if chain.compareValue(commonAncestor, b.Header) {
 			return 1
 		}
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(b)
+		return chain.addBlockOnChain(source, b)
 	}
-	panic("Should not be here!")
+
+	go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+	return 2
 }
 
 func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
@@ -403,18 +417,17 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 
 func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
-	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockMessage{Block: *remoteBlock,})
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: *remoteBlock,})
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
-		chain.addBlockOnChain(&block)
+		chain.addBlockOnChain("", &block)
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	if BlockSyncer != nil {
-		topBlockInfo := BlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
-		go BlockSyncer.SendTopBlockInfoToNeighbor(topBlockInfo)
-		go BlockSyncer.sync(nil)
+		topBlockInfo := TopBlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+		go BlockSyncer.sendTopBlockInfoToNeighbor(topBlockInfo)
 	}
 }
 

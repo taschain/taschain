@@ -16,20 +16,23 @@
 package common
 
 import (
+	"common/secp256k1"
 	"crypto/elliptic"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
-	"utility"
 	"taslog"
+	"utility"
 )
 
 const PREFIX = "0x"
 
 func getDefaultCurve() elliptic.Curve {
-	return elliptic.P256()
+	//return elliptic.P256()
+	return secp256k1.S256()
 }
 
 const (
@@ -283,6 +286,10 @@ var (
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(0xff)
 	Big257 = big.NewInt(257)
+
+	ErrSelectGroupNil = errors.New("selectGroupId is nil")
+	ErrSelectGroupInequal = errors.New("selectGroupId not equal")
+	ErrCreateBlockNil = errors.New("createBlock is nil")
 )
 
 const (
