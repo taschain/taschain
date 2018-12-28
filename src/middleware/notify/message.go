@@ -203,15 +203,15 @@ func (m *GroupInfoMessage) GetData() interface{} {
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-type MinerTransactionMessage struct {
-	MinerTransactionsByte []byte
+type TransactionBroadcastMessage struct {
+	TransactionsByte []byte
 	Peer                  string
 }
 
-func (m *MinerTransactionMessage) GetRaw() []byte {
-	return m.MinerTransactionsByte
+func (m *TransactionBroadcastMessage) GetRaw() []byte {
+	return m.TransactionsByte
 }
-func (m *MinerTransactionMessage) GetData() interface{} {
+func (m *TransactionBroadcastMessage) GetData() interface{} {
 	return m
 }
 

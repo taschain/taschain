@@ -232,9 +232,9 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case TransactionGotMsg:
 		msg := notify.TransactionGotMessage{TransactionGotByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.TransactionGot, &msg)
-	case MinerTransactionMsg:
-		msg := notify.MinerTransactionMessage{MinerTransactionsByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.MinerTransaction, &msg)
+	case TransactionBroadcastMsg:
+		msg := notify.TransactionBroadcastMessage{TransactionsByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.TransactionBroadcast, &msg)
 	case BlockInfoNotifyMsg:
 		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockInfoNotify, &msg)

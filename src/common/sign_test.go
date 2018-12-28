@@ -80,7 +80,6 @@ func TestSign(test *testing.T) {
 	fmt.Printf("end TestSign.\n")
 }
 
-
 func TestEncryptDecrypt(t *testing.T) {
 	fmt.Printf("\nbegin TestEncryptDecrypt...\n")
 	sk1 := GenerateKey("")
@@ -88,7 +87,6 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	t.Log(sk1.GetHexString())
 	t.Log(pk1.GetHexString())
-
 
 	sk2 := GenerateKey("")
 
@@ -131,16 +129,16 @@ func TestSignBytes(test *testing.T) {
 	sign := pri_k.Sign(sha3_hash[:]) //私钥签名
 
 	//测试签名十六进制转换
-	h := sign.GetHexString() 	//签名十六进制表示
-	si := HexStringToSign(h)   	//从十六进制恢复出签名
-	fmt.Println(si.Bytes())		//签名打印
-        fmt.Println(sign.Bytes())
+	h := sign.GetHexString() //签名十六进制表示
+	si := HexStringToSign(h) //从十六进制恢复出签名
+	fmt.Println(si.Bytes())  //签名打印
+	fmt.Println(sign.Bytes())
 
 	//sign_bytes := sign.Bytes()
 	//sign_r := BytesToSign(sign_bytes)
 }
 
-func TestRecoverPubkey(test *testing.T){
+func TestRecoverPubkey(test *testing.T) {
 	fmt.Printf("\nbegin TestRecoverPubkey...\n")
 	plain_txt := "Sign Recover Pubkey tesing."
 	buf := []byte(plain_txt)
@@ -159,10 +157,10 @@ func TestRecoverPubkey(test *testing.T){
 	fmt.Printf("end TestRecoverPubkey.\n")
 }
 
-func TestHash(test *testing.T){
-	h1 := Hash{1,2,3,4}
-	h2 := Hash{1,2,3,4}
-	fmt.Printf("%v\n",h1 == h2)
+func TestHash(test *testing.T) {
+	h1 := Hash{1, 2, 3, 4}
+	h2 := Hash{1, 2, 3, 4}
+	fmt.Printf("%v\n", h1 == h2)
 }
 
 func BenchmarkSign(b *testing.B) {
@@ -187,3 +185,10 @@ func BenchmarkVerify(b *testing.B) {
 	}
 }
 
+func TestAccount(test *testing.T) {
+	privateKey := GenerateKey("")
+	pubkey := privateKey.GetPubKey()
+	address := pubkey.GetAddress()
+	fmt.Printf("sk:%s\n", privateKey.GetHexString())
+	fmt.Printf("address:%s\n", address.GetHexString())
+}

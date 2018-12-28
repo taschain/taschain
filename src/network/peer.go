@@ -96,7 +96,7 @@ func newSendList() *SendList {
 		VerifiedCastMsg:     SendPriorityMedium,
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
-		MinerTransactionMsg: SendPriorityMedium,
+		TransactionBroadcastMsg: SendPriorityMedium,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}

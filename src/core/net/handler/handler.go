@@ -72,7 +72,7 @@ func NewChainHandler() network.MsgHandler {
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 
-	notify.BUS.Subscribe(notify.MinerTransaction, handler.minerTransactionHandler)
+	notify.BUS.Subscribe(notify.TransactionBroadcast, handler.TransactionBroadcastHandler)
 	notify.BUS.Subscribe(notify.TransactionReq, handler.transactionReqHandler)
 	notify.BUS.Subscribe(notify.TransactionGot, handler.transactionGotHandler)
 
@@ -84,20 +84,19 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	return nil
 }
 
-func (ch ChainHandler) minerTransactionHandler(msg notify.Message) {
-	mtm, ok := msg.(*notify.MinerTransactionMessage)
+func (ch ChainHandler) TransactionBroadcastHandler(msg notify.Message) {
+	mtm, ok := msg.(*notify.TransactionBroadcastMessage)
 	if !ok {
-		core.Logger.Debugf("minerTransactionHandler Message assert not ok!")
+		core.Logger.Debugf("TransactionBroadcastHandler Message assert not ok!")
 		return
 	}
-	txs, e := types.UnMarshalTransactions(mtm.MinerTransactionsByte)
+	txs, e := types.UnMarshalTransactions(mtm.TransactionsByte)
 	if e != nil {
 		core.Logger.Errorf("Discard MINER_TRANSACTION_MSG because of unmarshal error:%s", e.Error())
 		return
 	}
-	for _, tx := range txs {
-		core.BlockChainImpl.GetTransactionPool().AddTransaction(tx)
-	}
+	core.BlockChainImpl.GetTransactionPool().AddBroadcastTransactions(txs)
+
 }
 
 func (ch ChainHandler) transactionReqHandler(msg notify.Message) {

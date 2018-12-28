@@ -64,13 +64,23 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 
 }
 
+//脚本交易
+func (api *GtasAPI) ScriptTransferTx(privateKey string, from string, to string, amount uint64, nonce uint64, txType int, gasPrice uint64) (*Result, error) {
+	var result *Result
+	var err error
+	var i uint64 = 0
+	for ; i < 100; i++ {
+		result, err = api.TxUnSafe(privateKey, to, amount, gasPrice, gasPrice, nonce+i, txType, "")
+	}
+	return result, err
+}
+
 // ExplorerAccount
 func (api *GtasAPI) ExplorerAccount(account string) (*Result, error) {
 	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
 	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(account))
 
-
-	return successResult(ExplorerAccount{Balance:balance,Nonce:nonce})
+	return successResult(ExplorerAccount{Balance: balance, Nonce: nonce})
 
 }
 
@@ -164,6 +174,7 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail["value"] = transaction.Value
 	return successResult(detail)
 }
+
 //
 //func convertBlock(bh *types.BlockHeader) interface{} {
 //	blockDetail := make(map[string]interface{})
@@ -232,25 +243,25 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 		trans = append(trans, *convertTransaction(tx))
 	}
 
-	evictedReceipts := make([]*types.Receipt,0)
-	for _, tx := range bh.EvictedTxs{
+	evictedReceipts := make([]*types.Receipt, 0)
+	for _, tx := range bh.EvictedTxs {
 		wrapper := chain.GetTransactionPool().GetExecuted(tx)
-		if wrapper != nil{
+		if wrapper != nil {
 			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
 		}
 	}
-	receipts := make([]*types.Receipt,len(bh.Transactions))
-	for i, tx := range bh.Transactions{
+	receipts := make([]*types.Receipt, len(bh.Transactions))
+	for i, tx := range bh.Transactions {
 		wrapper := chain.GetTransactionPool().GetExecuted(tx)
-		if wrapper != nil{
+		if wrapper != nil {
 			receipts[i] = wrapper.Receipt
 		}
 	}
 
 	bd := &ExplorerBlockDetail{
-		BlockDetail:BlockDetail{Block: *block, Trans: trans},
-		EvictedReceipts:evictedReceipts,
-		Receipts:receipts,
+		BlockDetail:     BlockDetail{Block: *block, Trans: trans},
+		EvictedReceipts: evictedReceipts,
+		Receipts:        receipts,
 	}
 	return successResult(bd)
 }
@@ -271,7 +282,7 @@ func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-func  explorerConvertGroup(g *types.Group) map[string]interface{} {
+func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {
 		gmap["id"] = groupsig.DeserializeId(g.Id).GetHexString()
@@ -291,7 +302,6 @@ func  explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap["members"] = mems
 	return gmap
 }
-
 
 func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	bh := core.BlockChainImpl.QueryTopBlock()

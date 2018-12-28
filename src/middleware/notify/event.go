@@ -45,7 +45,7 @@ const (
 
 
 
-	MinerTransaction = "miner_transaction"
+	TransactionBroadcast = "transaction_broadcast"
 
 	TransactionReq = "transaction_req"
 

@@ -31,7 +31,7 @@ import (
 
 //var castorReward = big.NewInt(50)
 //var bonusReward = big.NewInt(20)
-const TransferGasCost  = 1
+const TransferGasCost = 1
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -185,17 +185,18 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 
 	for _, transaction := range block.Transactions {
-		var fail= false
+		var fail = false
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
-		//if transaction.Type != types.TransactionTypeBonus {
-		//	nonce := accountdb.GetNonce(*transaction.Source)
-		//	if transaction.Nonce != nonce + 1{
-		//		evictedTxs = append(evictedTxs, transaction.Hash)
-		//		continue
-		//	}
-		//}
+		if transaction.Type != types.TransactionTypeBonus && !types.IsTestTransaction(transaction) {
+			nonce := accountdb.GetNonce(*transaction.Source)
+			if transaction.Nonce != nonce+1 {
+				Logger.Infof("Tx nonce error! Source:%s,expect nonce:%d,real nonce:%d ", transaction.Source.GetHexString(), nonce+1, transaction.Nonce)
+				evictedTxs = append(evictedTxs, transaction.Hash)
+				continue
+			}
+		}
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
 			amount := big.NewInt(int64(transaction.Value))

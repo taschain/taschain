@@ -147,13 +147,13 @@ func NewTransactionPool() TransactionPool {
 	}
 	pool.executed = executed
 	pool.batch = pool.executed.NewBatch()
-	//go func() {
-	//	for {
-	//		<-pool.sendingTimer.C
-	//		pool.CheckAndSend(true)
-	//		pool.sendingTimer.Reset(SendingTimerInterval)
-	//	}
-	//}()
+	go func() {
+		for {
+			<-pool.sendingTimer.C
+			pool.CheckAndBroadcastTx(true)
+			pool.sendingTimer.Reset(SendingTimerInterval)
+		}
+	}()
 	return pool
 }
 
@@ -190,8 +190,24 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 
-	b, err := pool.addInner(tx)
+	b, err := pool.addInner(tx, true)
 	return b, err
+}
+
+func (pool *TxPool) AddBroadcastTransactions(txs []*types.Transaction) {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+	pool.lock.Lock("AddTransactions")
+	defer pool.lock.Unlock("AddTransactions")
+	for _, tx := range txs {
+		//验签名
+		if err := pool.verifyTransaction(tx); err != nil {
+			Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
+			continue
+		}
+		pool.addInner(tx, false)
+	}
 }
 
 func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) error {
@@ -210,7 +226,7 @@ func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) error {
 
 // 将一个合法的交易加入待处理队列。如果这个交易已存在，则丢掉
 // 加锁
-func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
+func (pool *TxPool) addInner(tx *types.Transaction, broadcast bool) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -236,34 +252,24 @@ func (pool *TxPool) addInner(tx *types.Transaction) (bool, error) {
 	} else {
 		pool.received.Push(tx)
 	}
-	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort || tx.Type == types.TransactionTypeMinerRefund || tx.Type == types.TransactionTypeBonus {
-		if tx.Type == types.TransactionTypeMinerApply {
-			Logger.Debugf("BroadcastTransactions TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
-		}
-		BroadcastMinerTransactions([]*types.Transaction{tx})
-	}
 
-	// batch broadcasta
-	//if isBroadcast {
-	//	//交易不广播
-	//	pool.sendingTxLock.Lock()
-	//	pool.sendingList = append(pool.sendingList, tx)
-	//	pool.sendingTxLock.Unlock()
-	//
-	//	pool.CheckAndSend(false)
-	//}
+	if broadcast && !types.IsTestTransaction(tx) {
+		pool.sendingTxLock.Lock()
+		pool.sendingList = append(pool.sendingList, tx)
+		pool.sendingTxLock.Unlock()
+		pool.CheckAndBroadcastTx(false)
+	}
 	return true, nil
 }
 
-func (pool *TxPool) CheckAndSend(immediately bool) {
+func (pool *TxPool) CheckAndBroadcastTx(immediately bool) {
 	length := len(pool.sendingList)
 	if immediately && length > 0 || SendingListLength <= length {
 		pool.sendingTxLock.Lock()
 		txs := pool.sendingList
 		pool.sendingList = make([]*types.Transaction, 0)
 		pool.sendingTxLock.Unlock()
-		//Logger.Debugf("Broadcast txs,len:%d", len(txs))
-		go BroadcastTransactions(txs, true)
+		go BroadcastTransactions(txs)
 	}
 }
 
@@ -328,7 +334,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx)
+		pool.addInner(tx, false)
 	}
 }
 
