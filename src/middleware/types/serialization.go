@@ -170,7 +170,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 		target = &t
 	}
 
-	if t.Sign != nil {
+	if t.Sign != nil && len(t.Sign) != 0 {
 		sign = common.BytesToSign(t.Sign)
 	}
 
