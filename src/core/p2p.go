@@ -15,8 +15,13 @@
 
 package core
 
-import "middleware/types"
-
+import (
+	"middleware/types"
+	"middleware/notify"
+	"yunkuai"
+	"fmt"
+	"common"
+)
 
 var (
 	BlockChainConnectorImpl *BlockChainConnector
@@ -61,6 +66,7 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 
 	// yunkuai交易处理器
 	notify.BUS.Subscribe(notify.BlockAddSucc, yunkuai.GetYunKuaiProcessor().AfterBlockOnBlock)
+	PeerManager = initPeerManager()
 	return nil
 }
 
@@ -99,10 +105,6 @@ func (connector *BlockChainConnector) AddNewBlock(b *types.Block, sig []byte) {
 //addTransactionToPoolFn 实现
 func (connector *BlockChainConnector) AddTransactionToPool(ts []*types.Transaction) {
 	connector.TransactionArrived(ts)
-}
-
-	PeerManager = initPeerManager()
-	return nil
 }
 
 ////queryTracsactionFn 实现
