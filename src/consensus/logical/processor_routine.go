@@ -113,7 +113,7 @@ func (p *Processor) releaseRoutine() bool {
 	p.blockContexts.removeBlockContexts(ids)
 	p.belongGroups.leaveGroups(ids)
 	for _, gid := range ids {
-		blog.debug("DissolveGroupNet staticGroup gid ", gid.ShortS())
+		blog.debug("DissolveGroupNet staticGroup gid:%s", gid.ShortS())
 		p.NetServer.ReleaseGroupNet(gid.GetHexString())
 	}
 
@@ -122,7 +122,7 @@ func (p *Processor) releaseRoutine() bool {
 		gis := &gc.gInfo.GI
 		gHash := gis.GetHash()
 		if gis.ReadyTimeout(topHeight) {
-			blog.debug("DissolveGroupNet dummyGroup from joiningGroups gHash ", gHash.ShortS())
+			blog.debug("DissolveGroupNet dummyGroup from joiningGroups gHash:%s", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.joiningGroups.RemoveGroup(gHash)
 		}
@@ -132,7 +132,7 @@ func (p *Processor) releaseRoutine() bool {
 		gis := &cg.gInfo.GI
 		gHash := gis.GetHash()
 		if gis.ReadyTimeout(topHeight) {
-			blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash ", gHash.ShortS())
+			blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash:%s", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.groupManager.creatingGroups.removeGroup(gHash)
 		}

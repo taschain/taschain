@@ -206,7 +206,7 @@ func (p *Processor) CheckGroupHeader(gh *types.GroupHeader, pSign groupsig.Signa
 		if groupsig.VerifySig(ppk, gh.Hash.Bytes(), pSign) {
 			return true, nil
 		} else {
-			return false, fmt.Errorf("signature verify fail, pk=", ppk.GetHexString())
+			return false, fmt.Errorf("signature verify fail, pk=%s", ppk.GetHexString())
 		}
 	} else {
 		return false, err
