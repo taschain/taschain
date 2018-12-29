@@ -14,7 +14,7 @@ import (
 	"consensus/base"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/yunkuai`
+const CONF_PATH_PREFIX = `/Users/zhangchao/Desktop/yunkuaidaily`
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
