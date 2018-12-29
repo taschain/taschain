@@ -161,6 +161,11 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	if tx.Hash != tx.GenHash() {
 		return fmt.Errorf("tx hash error")
 	}
+
+	//云块交易不验证签名
+	if tx.Type == types.TransactionYunkuai {
+		return nil
+	}
 	if tx.Sign == nil {
 		return fmt.Errorf("tx sign nil")
 	}
