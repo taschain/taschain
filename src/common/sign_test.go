@@ -130,12 +130,16 @@ func TestSignBytes(test *testing.T) {
 
 	//测试签名十六进制转换
 	h := sign.GetHexString() //签名十六进制表示
-	si := HexStringToSign(h) //从十六进制恢复出签名
-	fmt.Println(si.Bytes())  //签名打印
-	fmt.Println(sign.Bytes())
+	fmt.Println(h)
 
-	//sign_bytes := sign.Bytes()
-	//sign_r := BytesToSign(sign_bytes)
+	//si := HexStringToSign(h) //从十六进制恢复出签名
+	//fmt.Println(si.Bytes())  //签名打印
+	//fmt.Println(sign.Bytes())
+
+	sign_bytes := sign.Bytes()
+	sign_r := BytesToSign(sign_bytes)
+	fmt.Println(sign_r.GetHexString())
+
 }
 
 func TestRecoverPubkey(test *testing.T) {

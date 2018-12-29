@@ -28,6 +28,7 @@ import (
 	"common"
 	"time"
 	"math/big"
+	"fmt"
 )
 
 // middleware模块统一logger
@@ -171,6 +172,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 	}
 
 	if t.Sign != nil && len(t.Sign) != 0 {
+		fmt.Printf("sign len:%d", len(t.Sign))
 		sign = common.BytesToSign(t.Sign)
 	}
 
