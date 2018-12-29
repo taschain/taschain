@@ -189,7 +189,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		var contractAddress common.Address
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
-		if transaction.Type != types.TransactionTypeBonus && !types.IsTestTransaction(transaction) {
+		if transaction.Type != types.TransactionTypeBonus && !types.IsTestTransaction(transaction) &&transaction.Type != types.TransactionYunkuai{
 			nonce := accountdb.GetNonce(*transaction.Source)
 			if transaction.Nonce != nonce+1 {
 				Logger.Infof("Tx nonce error! Source:%s,expect nonce:%d,real nonce:%d ", transaction.Source.GetHexString(), nonce+1, transaction.Nonce)
