@@ -330,6 +330,9 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 
 	if t.Sign != nil {
 		sign = t.Sign.Bytes()
+		if len(sign) != 65{
+			logger.Errorf("Bad sign len:%d", len(sign) )
+		}
 	}
 
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,

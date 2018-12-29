@@ -55,8 +55,8 @@ var richAccounts []*account
 //脚本测试交易 不广播  判定nonce
 func main() {
 	interval := flag.Duration("i", time.Second*3, "转账时间间隔")
-	total := flag.Int("t", 100, "转账总笔数")
-	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102", "随机发送地址列表")
+	total := flag.Int("t", 100000000, "转账总笔数")
+	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102,127.0.0.1:8103,127.0.0.1:8104,127.0.0.1:8105,127.0.0.1:8106", "随机发送地址列表")
 	flag.Parse()
 
 	loadRichAccounts()
