@@ -36,6 +36,11 @@ func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
 	sig, err := secp256k1.Sign(hash, pk.PrivKey.D.Bytes())
 	if err == nil {
+		//achates testing <<
+		if len(sig) != 65 {
+			fmt.Printf("secp256k1 sign wrong! hash = %v\n", hash)
+		}
+		//>>achates testing
 		sign = *BytesToSign(sig)
 	} else {
 		panic(fmt.Sprintf("Sign Failed, reason : %v.\n", err.Error()))

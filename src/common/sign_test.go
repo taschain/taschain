@@ -139,6 +139,9 @@ func TestSignBytes(test *testing.T) {
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
 	fmt.Println(sign_r.GetHexString())
+	if h != sign_r.GetHexString() {
+		fmt.Println("sign dismatch!", h, sign_r.GetHexString())
+	}
 
 }
 

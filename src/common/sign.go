@@ -17,6 +17,7 @@ package common
 
 import (
 	"common/secp256k1"
+	"fmt"
 	"math/big"
 	"encoding/hex"
 )
@@ -56,18 +57,20 @@ func (s Sign) GetS() big.Int {
 	return s.s
 }
 
+//Sign必须65 bytes
 func (s Sign) Bytes() []byte {
 	rb := s.r.Bytes()
 	sb := s.s.Bytes()
-	r := make([]byte, len(rb)+len(sb)+1)
-	copy(r, rb)
-	copy(r[len(rb):], sb)
-	r[len(rb)+len(sb)] = s.recid
+	r := make([]byte, SignLength)
+	copy(r[32-len(rb):32], rb)
+	copy(r[64-len(sb):64], sb)
+	r[64] = s.recid
 	return r
 }
 
+//Sign必须65 bytes
 func BytesToSign(b []byte) *Sign {
-	if len(b)>=65 {
+	if len(b) == 65 {
 		var r, s big.Int
 		br := b[:32]
 		r = *r.SetBytes(br)
@@ -78,7 +81,7 @@ func BytesToSign(b []byte) *Sign {
 		recid := b[64]
 		return &Sign{r, s, recid}
 	} else {
-		return &Sign{}
+		panic("BytesToSign must input 65 bytes!")
 	}
 }
 
@@ -94,6 +97,11 @@ func HexStringToSign(s string) (si *Sign) {
 		return
 	}
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
+	//achates testing <<
+	if len(buf) != 65 {
+		fmt.Println("sign length wrong in HexStringToSign! len = ", len(buf))
+	}
+	//>>achates testing
 	si = BytesToSign(buf)
 	return si
 }
