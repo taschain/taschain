@@ -17,22 +17,21 @@ package common
 
 import (
 	"common/secp256k1"
-	"fmt"
-	"math/big"
 	"encoding/hex"
+	"math/big"
 )
 
 type Sign struct {
-	r big.Int
-	s big.Int
+	r     big.Int
+	s     big.Int
 	recid byte
 }
 
 //数据签名结构 for message casting
 type SignData struct {
-	DataHash   Hash        //哈希值
-	DataSign   Sign		   //签名
-	Id		   string      //用户ID
+	DataHash Hash   //哈希值
+	DataSign Sign   //签名
+	Id       string //用户ID
 }
 
 //签名构造函数
@@ -44,7 +43,7 @@ func (s *Sign) Set(_r, _s *big.Int, recid int) {
 
 //检查签名是否有效
 func (s Sign) Valid() bool {
-	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid >= 0 && s.recid <= 4
+	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid < 4
 }
 
 //获取R值
@@ -97,21 +96,15 @@ func HexStringToSign(s string) (si *Sign) {
 		return
 	}
 	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	//achates testing <<
-	if len(buf) != 65 {
-		fmt.Println("sign length wrong in HexStringToSign! len = ", len(buf))
-	}
-	//>>achates testing
 	si = BytesToSign(buf)
 	return si
 }
 
 func (s Sign) RecoverPubkey(msg []byte) (pk *PublicKey, err error) {
-	pubkey, err :=  secp256k1.RecoverPubkey(msg, s.Bytes())
+	pubkey, err := secp256k1.RecoverPubkey(msg, s.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	pk = BytesToPublicKey(pubkey)
 	return
 }
-

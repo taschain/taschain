@@ -33,12 +33,7 @@ type PublicKey struct {
 //公钥验证函数
 func (pk PublicKey) Verify(hash []byte, s *Sign) bool {
 	//return ecdsa.Verify(&pk.PubKey, hash, &s.r, &s.s)
-	rb := s.r.Bytes()
-	sb := s.s.Bytes()
-	sig := make([]byte, len(rb)+len(sb))
-	copy(sig, rb)
-	copy(sig[len(rb):], sb)
-	return secp256k1.VerifySignature(pk.ToBytes(), hash, sig)
+	return secp256k1.VerifySignature(pk.ToBytes(), hash, s.Bytes()[:64])
 }
 
 //由公钥萃取地址函数

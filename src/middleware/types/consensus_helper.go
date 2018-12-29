@@ -23,18 +23,18 @@ import (
 /*
 **  Creator: pxf
 **  Date: 2018/9/26 下午6:39
-**  Description: 
-*/
+**  Description:
+ */
 
 type GenesisInfo struct {
-	Group Group
+	Group  Group
 	VrfPKs [][]byte
-	Pks 	[][]byte
+	Pks    [][]byte
 }
 
 /*
 	共识接口合集
- */
+*/
 type ConsensusHelper interface {
 
 	//generate genesis group and member pk info
@@ -68,4 +68,7 @@ type ConsensusHelper interface {
 
 	//check group
 	CheckGroup(g *Group) (bool, error)
+
+	//verify bonus transaction
+	VerifyBonusTransaction(tx *Transaction) (bool, error)
 }

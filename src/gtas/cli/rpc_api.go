@@ -19,25 +19,24 @@ import (
 /*
 **  Creator: pxf
 **  Date: 2018/9/30 下午4:34
-**  Description: 
-*/
+**  Description:
+ */
 var BonusLogger taslog.Logger
 
 func successResult(data interface{}) (*Result, error) {
 	return &Result{
 		Message: "success",
 		Data:    data,
-		Status: 0,
+		Status:  0,
 	}, nil
 }
 func failResult(err string) (*Result, error) {
 	return &Result{
 		Message: err,
 		Data:    nil,
-		Status: -1,
+		Status:  -1,
 	}, nil
 }
-
 
 //deprecated
 func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
@@ -421,28 +420,28 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	return successResult(bd)
 }
 
-func (api *GtasAPI) BlockReceipts(h string) (*Result, error){
+func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 	chain := core.BlockChainImpl
 	bh := chain.QueryBlockHeaderByHash(common.HexToHash(h))
 	if bh == nil {
 		return failResult("block not found")
 	}
 
-	evictedReceipts := make([]*types.Receipt,0)
-	for _, tx := range bh.EvictedTxs{
+	evictedReceipts := make([]*types.Receipt, 0)
+	for _, tx := range bh.EvictedTxs {
 		wrapper := chain.GetTransactionPool().GetExecuted(tx)
-		if wrapper != nil{
+		if wrapper != nil {
 			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
 		}
 	}
-	receipts := make([]*types.Receipt,len(bh.Transactions))
-	for i, tx := range bh.Transactions{
+	receipts := make([]*types.Receipt, len(bh.Transactions))
+	for i, tx := range bh.Transactions {
 		wrapper := chain.GetTransactionPool().GetExecuted(tx)
-		if wrapper != nil{
+		if wrapper != nil {
 			receipts[i] = wrapper.Receipt
 		}
 	}
-	br := &BlockReceipt{EvictedReceipts:evictedReceipts, Receipts:receipts}
+	br := &BlockReceipt{EvictedReceipts: evictedReceipts, Receipts: receipts}
 	return successResult(br)
 }
 
@@ -498,8 +497,8 @@ func bonusStatByHeight(height uint64) BonusInfo {
 		BonusTxHash: bonusTx.Hash,
 		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
 		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
-		GroupIdW:     groupsig.DeserializeId(groupId).GetHexString(),
-		CasterIdW:    groupsig.DeserializeId(casterId).GetHexString(),
+		GroupIdW:    groupsig.DeserializeId(groupId).GetHexString(),
+		CasterIdW:   groupsig.DeserializeId(casterId).GetHexString(),
 		MemberIds:   mems,
 		BonusValue:  value,
 	}
@@ -595,7 +594,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		minerId := groupsig.DeserializeId(miner.Id)
 		bonusStatItem := BonusStatInfo{
 			MemberId:        minerId.ShortS(),
-			MemberIdW:        minerId.GetHexString(),
+			MemberIdW:       minerId.GetHexString(),
 			BonusNum:        bonusNumMap[minerId.GetHexString()],
 			TotalBonusValue: bonusValueMap[minerId.GetHexString()],
 		}
@@ -610,7 +609,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		minerId := groupsig.DeserializeId(miner.Id)
 		castBlockItem := CastBlockStatInfo{
 			CasterId:     minerId.ShortS(),
-			CasterIdW:     minerId.GetHexString(),
+			CasterIdW:    minerId.GetHexString(),
 			Stake:        miner.Stake,
 			CastBlockNum: castBlockNumMap[minerId.GetHexString()],
 		}
@@ -636,13 +635,13 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 
 func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
 	txRaw := &txRawData{
-		Target: target,
-		Value: value,
-		Gas: gas,
+		Target:   target,
+		Value:    value,
+		Gas:      gas,
 		Gasprice: gasprice,
-		Nonce: nonce,
-		TxType: txType,
-		Data: data,
+		Nonce:    nonce,
+		TxType:   txType,
+		Data:     data,
 	}
 	sk := common.HexStringToSecKey(privateKey)
 	if sk == nil {
@@ -652,18 +651,7 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 	trans.Hash = trans.GenHash()
 	sign := sk.Sign(trans.Hash.Bytes())
 	trans.Sign = &sign
-	//achates add for testing<<
-	if trans.Sign != nil && sign.Valid() != true {
-		fmt.Println("Bad sign hash=",trans.Hash, "sign=",trans.Sign.GetHexString())
-	}
-	if txType == types.TransactionTypeMinerApply {
-		if trans.Sign == nil {
-			fmt.Println("DDDD sign is nil")
-		} else {
-			fmt.Println("DDDD sign=",trans.Sign.GetHexString())
-		}
-	}
-	//>>achates add for testing
+
 	if err := sendTransaction(trans); err != nil {
 		return failResult(err.Error())
 	}

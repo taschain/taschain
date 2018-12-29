@@ -16,18 +16,18 @@
 package core
 
 import (
-	"errors"
-	"sync"
 	"common"
-	"os"
-	"storage/tasdb"
-	"middleware/types"
-	"middleware"
-	"github.com/hashicorp/golang-lru"
-	"sort"
-	"github.com/vmihailenco/msgpack"
-	"time"
+	"errors"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"middleware"
+	"middleware/types"
+	"os"
+	"sort"
+	"storage/tasdb"
+	"sync"
+	"time"
 )
 
 const (
@@ -166,7 +166,9 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	}
 	switch tx.Type {
 	case types.TransactionTypeBonus: //todo 分红交易，验证组签名
-
+		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
+			return err
+		}
 	default:
 		msg := tx.Hash.Bytes()
 		pk, err := tx.Sign.RecoverPubkey(msg)
