@@ -24,13 +24,13 @@ import (
 	"consensus/mediator"
 	"core"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"middleware/types"
 	"network"
 	"strconv"
 	"strings"
-	"encoding/json"
 )
 
 // 分红价值统计
@@ -75,13 +75,32 @@ func (api *GtasAPI) ScriptTransferTx(privateKey string, from string, to string, 
 	return result, err
 }
 
-// ExplorerAccount
-func (api *GtasAPI) ExplorerAccount(account string) (*Result, error) {
-	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
-	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(account))
+//ExplorerAccount 区块链浏览器，账号信息查询
+func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 
-	return successResult(ExplorerAccount{Balance: balance, Nonce: nonce})
+	accoundDb := core.BlockChainImpl.LatestStateDB()
+	if accoundDb == nil {
+		return nil, nil
+	}
+	account := ExplorerAccount{}
+	account.Balance = accoundDb.GetBalance(common.HexToAddress(hash))
+	account.Nonce = accoundDb.GetNonce(common.HexToAddress(hash))
+	account.CodeHash = accoundDb.GetCodeHash(common.HexToAddress(hash)).String()
+	account.Code = string(accoundDb.GetCode(common.HexToAddress(hash))[:])
+	account.Type = 0
+	if len(account.CodeHash) > 0 {
+		account.Type = 1
+		account.StateData = make(map[string]interface{})
 
+		iter := accoundDb.DataIterator(common.HexToAddress(hash), "")
+		for iter.Next() {
+			k := string(iter.Key[:])
+			v := string(iter.Value[:])
+			account.StateData[k] = v
+
+		}
+	}
+	return successResult(account)
 }
 
 // Balance 查询余额接口
@@ -433,7 +452,7 @@ func StartRPC(host string, port uint) error {
 	apis := []rpc.API{
 		{Namespace: "GTAS", Version: "1", Service: GtasAPIImpl, Public: true},
 	}
-	for plus := 0; plus < 40; plus ++ {
+	for plus := 0; plus < 40; plus++ {
 		err = startHTTP(fmt.Sprintf("%s:%d", host, port+uint(plus)), apis, []string{}, []string{}, []string{})
 		if err == nil {
 			common.DefaultLogger.Infof("RPC serving on http://%s:%d\n", host, port+uint(plus))

@@ -181,10 +181,10 @@
             <div class="layui-tab-item">
                 <form class="layui-form" action="">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">from</label>
+                        <label class="layui-form-label">private key</label>
                         <div class="layui-input-block">
-                            <input type="text" name="from" id="tx_send_from"  autocomplete="off" class="layui-input"
-                                   placeholder="请输入发送方地址(len=40)">
+                            <input type="text" name="private_key" id="tx_send_private_key"  autocomplete="off" class="layui-input"
+                                   placeholder="请输入发送方私钥">
                         </div>
                     </div>
                     <div class="layui-form-item">
@@ -195,31 +195,45 @@
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">amount</label>
+                        <label class="layui-form-label">value</label>
                         <div class="layui-input-block">
-                            <input type="text" name="amount"  autocomplete="off" class="layui-input"
+                            <input type="text" name="value"  autocomplete="off" class="layui-input"
                                    placeholder="请输入金额(正整数)">
-                        </div>
-                    </div>
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">type</label>
-                        <div class="layui-input-block">
-                            <input type="text" name="type"  autocomplete="off" class="layui-input"
-                                   placeholder="请输入交易类型(正整数,普通转账0)" value="0">
                         </div>
                     </div>
                     <div class="layui-form-item">
                         <label class="layui-form-label">nonce</label>
                         <div class="layui-input-block">
                             <input type="text" name="nonce"  autocomplete="off" class="layui-input"
-                                   placeholder="1000" value="0">
+                                   placeholder="nonce" value="0">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">code</label>
+                        <label class="layui-form-label">type</label>
                         <div class="layui-input-block">
-                            <input type="text" name="code"  autocomplete="off" class="layui-input"
-                                   placeholder="code">
+                            <input type="text" name="type"  autocomplete="off" class="layui-input"
+                                   placeholder="请输入交易类型(正整数,普通转账0,创建合约1，调用合约2,分红交易3)">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">gas</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="gas"  autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">gas_price</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="gas_price"  autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">data</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="data"  autocomplete="off" class="layui-input"
+                                   placeholder="">
                         </div>
                     </div>
                     <div class="layui-form-item">

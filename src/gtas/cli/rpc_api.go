@@ -498,6 +498,8 @@ func bonusStatByHeight(height uint64) BonusInfo {
 		BonusTxHash: bonusTx.Hash,
 		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
 		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
+		GroupIdW:     groupsig.DeserializeId(groupId).GetHexString(),
+		CasterIdW:    groupsig.DeserializeId(casterId).GetHexString(),
 		MemberIds:   mems,
 		BonusValue:  value,
 	}
@@ -593,6 +595,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		minerId := groupsig.DeserializeId(miner.Id)
 		bonusStatItem := BonusStatInfo{
 			MemberId:        minerId.ShortS(),
+			MemberIdW:        minerId.GetHexString(),
 			BonusNum:        bonusNumMap[minerId.GetHexString()],
 			TotalBonusValue: bonusValueMap[minerId.GetHexString()],
 		}
@@ -607,6 +610,7 @@ func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
 		minerId := groupsig.DeserializeId(miner.Id)
 		castBlockItem := CastBlockStatInfo{
 			CasterId:     minerId.ShortS(),
+			CasterIdW:     minerId.GetHexString(),
 			Stake:        miner.Stake,
 			CastBlockNum: castBlockNumMap[minerId.GetHexString()],
 		}
