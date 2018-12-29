@@ -117,7 +117,11 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		txHash := tranx.GenHash()
 		sign := privateKey.Sign(txHash.Bytes())
 		tx.Sign = sign.GetHexString()
-
+		//achates add for testing<<
+		if len(tx.Sign) != 132 {
+			fmt.Println("Bad sign hash=",txHash, "sign=",tx.Sign)
+		}
+		//>>achates add for testing
 		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, txHash.String())
 		fmt.Printf("%+v\n", tranx)
 

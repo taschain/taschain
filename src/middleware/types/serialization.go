@@ -21,14 +21,14 @@ package types
 */
 
 import (
-	"middleware/pb"
-	"github.com/gogo/protobuf/proto"
-
-	"taslog"
-	"common"
-	"time"
-	"math/big"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
+	"middleware/pb"
+
+	"common"
+	"math/big"
+	"taslog"
+	"time"
 )
 
 // middleware模块统一logger
@@ -172,7 +172,9 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 	}
 
 	if t.Sign != nil && len(t.Sign) != 0 {
-		fmt.Printf("sign len:%d", len(t.Sign))
+		if len(t.Sign) != 65 {
+			fmt.Printf("Bad sign hash:%v, sign:%v\n",common.BytesToHash(t.Hash), t.Sign)
+		}
 		sign = common.BytesToSign(t.Sign)
 	}
 
@@ -331,7 +333,11 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	if t.Sign != nil {
 		sign = t.Sign.Bytes()
 	}
-
+	//achates add for testing<<
+	if len(sign) != 65 {
+		fmt.Println("Bad sign in transactionToPb sign=",sign)
+	}
+	//>>achates add for testing
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
 		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType, Type: &t.Type, Sign: sign}

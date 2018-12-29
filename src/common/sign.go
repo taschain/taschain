@@ -43,7 +43,7 @@ func (s *Sign) Set(_r, _s *big.Int, recid int) {
 
 //检查签名是否有效
 func (s Sign) Valid() bool {
-	return s.r.BitLen() != 0 && s.s.BitLen() != 0
+	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid >= 0 && s.recid <= 4
 }
 
 //获取R值
@@ -67,15 +67,19 @@ func (s Sign) Bytes() []byte {
 }
 
 func BytesToSign(b []byte) *Sign {
-	var r, s big.Int
-	br := b[:32]
-	r = *r.SetBytes(br)
+	if len(b)>=65 {
+		var r, s big.Int
+		br := b[:32]
+		r = *r.SetBytes(br)
 
-	sr := b[32:64]
-	s = *s.SetBytes(sr)
+		sr := b[32:64]
+		s = *s.SetBytes(sr)
 
-	recid := b[64]
-	return &Sign{r, s, recid}
+		recid := b[64]
+		return &Sign{r, s, recid}
+	} else {
+		return &Sign{}
+	}
 }
 
 func (s Sign) GetHexString() string {

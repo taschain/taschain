@@ -648,7 +648,18 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 	trans.Hash = trans.GenHash()
 	sign := sk.Sign(trans.Hash.Bytes())
 	trans.Sign = &sign
-
+	//achates add for testing<<
+	if trans.Sign != nil && sign.Valid() != true {
+		fmt.Println("Bad sign hash=",trans.Hash, "sign=",trans.Sign.GetHexString())
+	}
+	if txType == types.TransactionTypeMinerApply {
+		if trans.Sign == nil {
+			fmt.Println("DDDD sign is nil")
+		} else {
+			fmt.Println("DDDD sign=",trans.Sign.GetHexString())
+		}
+	}
+	//>>achates add for testing
 	if err := sendTransaction(trans); err != nil {
 		return failResult(err.Error())
 	}
