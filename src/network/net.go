@@ -56,7 +56,7 @@ var (
 
 const NatServerPort = 70
 
-var NatServerIp = "47.104.83.120"
+var NatServerIp = "47.105.51.161"
 
 // Timeouts
 const (

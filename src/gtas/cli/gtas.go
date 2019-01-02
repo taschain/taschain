@@ -118,6 +118,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 
 	ok := mediator.StartMiner()
 
+	fmt.Println("Syncing block and group info from tas net.Waiting...")
 	core.InitGroupSyncer()
 	//common.DefaultLogger.Infof("Waiting for group init done!")
 	//for {
@@ -138,6 +139,13 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 				} else {
 					timer.Reset(time.Second * 5)
 				}
+			}
+			balance := core.BlockChainImpl.GetBalance(common.StringToAddress(gtas.account.Address))
+			if balance.Int64() > 0 {
+				fmt.Println("Sync finished!")
+				fmt.Println("Mining...")
+			} else {
+				fmt.Println("Please check your balance to ensure that you have enough tas coin to pledge to be a miner!")
 			}
 			switch apply {
 			case "heavy":
@@ -174,10 +182,8 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 	taslog.Close()
 	mediator.StopMiner()
 	if gtas.inited {
-		fmt.Println("exit success")
 		quit <- true
 	} else {
-		fmt.Println("exit before inited")
 		os.Exit(0)
 	}
 }
@@ -236,6 +242,11 @@ func (gtas *Gtas) Run() {
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
+	if *apply == "heavy" {
+		fmt.Println("Welcom to be a tas propose miner!")
+	} else if *apply == "heavy" {
+		fmt.Println("Welcom to be a tas verify miner!")
+	}
 	//address := mineCmd.Flag("addr", "start miner with address ").String()
 	//light 废弃
 	light := mineCmd.Flag("light", "light node").Bool()
@@ -376,8 +387,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string,
 	}
 
 	common.GlobalConf.SetString(Section, "miner", gtas.account.Address)
-	fmt.Println("address:", gtas.account.Address)
-	fmt.Println("sk:", gtas.account.Sk)
+	fmt.Println("Your Miner Address:", gtas.account.Address)
+	//fmt.Println("sk:", gtas.account.Sk)
 
 	minerInfo := model.NewSelfMinerDO(common.HexToAddress(gtas.account.Address))
 
@@ -482,12 +493,12 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 	}
 	data, err := msgpack.Marshal(tm)
 	if err != nil {
-		fmt.Println("err marhsal types.Miner", err)
+		common.DefaultLogger.Errorf("err marhsal types.Miner", err)
 		return
 	}
 
 	nonce := core.BlockChainImpl.GetNonce(miner.ID.ToAddress()) + 1
 	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
-	fmt.Println("apply result", ret, err)
+	common.DefaultLogger.Debugf("apply result", ret, err)
 
 }

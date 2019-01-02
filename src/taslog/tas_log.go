@@ -46,6 +46,9 @@ func GetLogger(config string) Logger {
 }
 
 func GetLoggerByIndex(config string, index string) Logger {
+	if index == "0"{
+		index = ""
+	}
 	key := getKey(config)
 	lock.Lock()
 	r := logManager[key]

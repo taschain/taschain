@@ -14,7 +14,7 @@ import (
 
 func TestNet1(test *testing.T) {
 	common.InitConf("tas1.ini")
-	network.Init(common.GlobalConf, true, nil, nil, true, "10.0.0.66","")
+	network.Init(common.GlobalConf, true, nil, nil, true, "10.0.0.66","","")
 	pprof()
 	go sendMsg()
 	go sendMsg()
@@ -24,7 +24,7 @@ func TestNet1(test *testing.T) {
 
 func TestNet2(test *testing.T) {
 	common.InitConf("tas2.ini")
-	network.Init(common.GlobalConf, false, nil, nil, true, "10.0.0.66","")
+	network.Init(common.GlobalConf, false, nil, nil, true, "10.0.0.66","","")
 	go sendMsg()
 	go sendMsg()
 	go sendMsg()
