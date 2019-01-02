@@ -90,7 +90,16 @@ func (id ID) GetHexString() string {
 
 //把ID转换到字节切片（小端模式）
 func (id ID) Serialize() []byte {
-	return id.value.Serialize()
+	idBytes := id.value.Serialize()
+	if len(idBytes) == IDLENGTH {
+		return idBytes
+	}
+	if len(idBytes) > IDLENGTH {
+		panic("ID Serialize error: ID bytes is more than IDLENGTH")
+	}
+	buff := make([]byte, IDLENGTH)
+	copy(buff[IDLENGTH-len(idBytes):IDLENGTH],idBytes)
+	return buff
 }
 
 func (id ID) MarshalJSON() ([]byte, error) {

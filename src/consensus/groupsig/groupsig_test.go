@@ -303,7 +303,13 @@ func testID(t *testing.T) {
 	fmt.Printf("\nbegin test ID...\n")
 	b := new(big.Int)
 	b.SetString("001234567890abcdef", 16)
+	c := new(big.Int)
+	c.SetString("1234567890abcdef", 16)
+	idc:= NewIDFromBigInt(c)
 	id1 := NewIDFromBigInt(b) //从big.Int生成ID
+	if id1.IsEqual(*idc) {
+		fmt.Println("id1 is equal to idc")
+	}
 	if id1 == nil {
 		t.Error("NewIDFromBigInt")
 	} else {
@@ -322,6 +328,7 @@ func testID(t *testing.T) {
 	{
 		var id2 ID
 		err := id2.Deserialize(id1.Serialize()) //测试ID的序列化和反序列化
+		fmt.Printf("id2:%v",id2.GetHexString())
 		if err != nil || !id1.IsEqual(id2) {
 			t.Errorf("not same\n%s\n%s", id1.GetHexString(), id2.GetHexString())
 		}
