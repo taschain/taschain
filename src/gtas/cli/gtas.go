@@ -140,13 +140,19 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 					timer.Reset(time.Second * 5)
 				}
 			}
+			fmt.Println("Sync data finished!")
 			balance := core.BlockChainImpl.GetBalance(common.StringToAddress(gtas.account.Address))
-			if balance.Int64() > 0 {
-				fmt.Println("Sync finished!")
-				fmt.Println("Mining...")
-			} else {
+			if balance.Int64() <= 0 {
 				fmt.Println("Please check your balance to ensure that you have enough tas coin to pledge to be a miner!")
+				for {
+					time.Sleep(time.Second * 5)
+					balance := core.BlockChainImpl.GetBalance(common.StringToAddress(gtas.account.Address))
+					if balance.Int64() > 0 {
+						break
+					}
+				}
 			}
+			fmt.Println("Start Mining...")
 			switch apply {
 			case "heavy":
 				gtas.autoApplyMiner(types.MinerTypeHeavy)
