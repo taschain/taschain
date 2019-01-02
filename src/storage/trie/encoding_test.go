@@ -1,17 +1,18 @@
-//   Copyright (C) 2018 TASChain
+// Copyright 2014 The go-ethereum Authors
+// This file is part of the go-ethereum library.
 //
-//   This program is free software: you can redistribute it and/or modify
-//   it under the terms of the GNU General Public License as published by
-//   the Free Software Foundation, either version 3 of the License, or
-//   (at your option) any later version.
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//   This program is distributed in the hope that it will be useful,
-//   but WITHOUT ANY WARRANTY; without even the implied warranty of
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//   GNU General Public License for more details.
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
 //
-//   You should have received a copy of the GNU General Public License
-//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package trie
 
@@ -41,20 +42,6 @@ func TestHexCompact(t *testing.T) {
 		if h := compactToHex(test.compact); !bytes.Equal(h, test.hex) {
 			t.Errorf("compactToHex(%x) -> %x, want %x", test.compact, h, test.hex)
 		}
-	}
-}
-
-func BenchmarkKeybytesToHex(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		keybytesToHex(testBytes)
-	}
-}
-
-func BenchmarkHexToKeybytes(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		hexToKeybytes(testBytes)
 	}
 }
 
@@ -99,5 +86,19 @@ func BenchmarkCompactToHex(b *testing.B) {
 	testBytes := []byte{0, 15, 1, 12, 11, 8, 16 /*term*/}
 	for i := 0; i < b.N; i++ {
 		compactToHex(testBytes)
+	}
+}
+
+func BenchmarkKeybytesToHex(b *testing.B) {
+	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
+	for i := 0; i < b.N; i++ {
+		keybytesToHex(testBytes)
+	}
+}
+
+func BenchmarkHexToKeybytes(b *testing.B) {
+	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
+	for i := 0; i < b.N; i++ {
+		hexToKeybytes(testBytes)
 	}
 }

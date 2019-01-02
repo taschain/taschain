@@ -61,18 +61,18 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
-	tr, err := db.OpenTrieWithMap(root, nodes)
-	if err != nil {
-		return nil, err
-	}
-	return &AccountDB{
-		db:   db,
-		trie: tr,
-		//accountObjects:      make(map[common.Address]*accountObject),
-		accountObjectsDirty: make(map[common.Address]struct{}),
-	}, nil
-}
+//func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
+//	tr, err := db.OpenTrieWithMap(root, nodes)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return &AccountDB{
+//		db:   db,
+//		trie: tr,
+//		//accountObjects:      make(map[common.Address]*accountObject),
+//		accountObjectsDirty: make(map[common.Address]struct{}),
+//	}, nil
+//}
 
 func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
@@ -472,7 +472,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		case isDirty:
 
 			if accountObject.code != nil && accountObject.dirtyCode {
-				s.db.TrieDB().Insert(common.BytesToHash(accountObject.CodeHash()), accountObject.code)
+				s.db.TrieDB().InsertBlob(common.BytesToHash(accountObject.CodeHash()), accountObject.code)
 				accountObject.dirtyCode = false
 			}
 
@@ -506,6 +506,5 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		return nil
 	})
 	//s.db.PushTrie(root, s.trie)
-	common.DefaultLogger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }

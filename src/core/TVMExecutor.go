@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"tvm"
 	"bytes"
-	"storage/trie"
-	"storage/serialize"
 )
 
 //var castorReward = big.NewInt(50)
@@ -44,76 +42,76 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 }
 
 //获取交易中包含账户所在的分支，LightChain使用
-func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
-	//todo  合约如何实现
-	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
-	tr, _ := accountdb.GetTrie().(*trie.Trie)
-
-	for _, transaction := range transactions {
-		switch transaction.Type {
-		case types.TransactionTypeBonus:
-			//分红交易
-			reader := bytes.NewReader(transaction.ExtraData)
-			groupId := make([]byte, common.GroupIdLength)
-			addr := make([]byte, common.AddressLength)
-			if n, _ := reader.Read(groupId); n != common.GroupIdLength {
-				panic("TVMExecutor Read GroupId Fail")
-			}
-			Logger.Debugf("Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
-			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
-				address := common.BytesToAddress(addr)
-				tr.GetBranch(address[:], nodes)
-				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
-			}
-		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
-			//todo 合约交易
-		default:
-			//转账交易
-			source := transaction.Source
-			target := transaction.Target
-
-			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
-
-			if source != nil {
-				tr.GetBranch(source[:], nodes)
-				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
-			}
-			if target != nil {
-				tr.GetBranch(target[:], nodes)
-				Logger.Debugf("target:%v,value:%v", target.GetHexString(), tr.Get(target[:]))
-			}
-		}
-	}
-
-	for _, account := range addresses {
-		tr.GetBranch(account[:], nodes)
-		//Logger.Debugf("GetBranches Account addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
-		if account == common.BonusStorageAddress || account == common.LightDBAddress || account == common.HeavyDBAddress {
-			getNodeTrie(account[:], nodes, accountdb)
-		}
-	}
-}
-
-func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.AccountDB) {
-	data, err := accountdb.GetTrie().TryGet(address[:])
-	if err != nil {
-		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
-		return
-	}
-
-	var account account.Account
-	if err := serialize.DecodeBytes(data, &account); err != nil {
-		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
-		return
-	}
-	root := account.Root
-	t, err := accountdb.Database().OpenTrieWithMap(root, nodes)
-	if err != nil {
-		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
-		return
-	}
-	t.GetAllNodes(nodes)
-}
+//func (executor *TVMExecutor) GetBranches(accountdb *account.AccountDB, transactions []*types.Transaction, addresses []common.Address, nodes map[string]*[]byte) {
+//	//todo  合约如何实现
+//	Logger.Debugf("GetBranches, tx len:%d, accounts len:%d", len(transactions), len(addresses))
+//	tr, _ := accountdb.GetTrie().(*trie.Trie)
+//
+//	for _, transaction := range transactions {
+//		switch transaction.Type {
+//		case types.TransactionTypeBonus:
+//			//分红交易
+//			reader := bytes.NewReader(transaction.ExtraData)
+//			groupId := make([]byte, common.GroupIdLength)
+//			addr := make([]byte, common.AddressLength)
+//			if n, _ := reader.Read(groupId); n != common.GroupIdLength {
+//				panic("TVMExecutor Read GroupId Fail")
+//			}
+//			Logger.Debugf("Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
+//			for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
+//				address := common.BytesToAddress(addr)
+//				tr.GetBranch(address[:], nodes)
+//				Logger.Debugf("Bonus addr:%v,value:%v", address.GetHexString(), tr.Get(address[:]))
+//			}
+//		case types.TransactionTypeContractCreate, types.TransactionTypeContractCall:
+//			//todo 合约交易
+//		default:
+//			//转账交易
+//			source := transaction.Source
+//			target := transaction.Target
+//
+//			Logger.Debugf("Transfer transaction source:%v.target:%v", source, target)
+//
+//			if source != nil {
+//				tr.GetBranch(source[:], nodes)
+//				Logger.Debugf("source:%v,value:%v", source.GetHexString(), tr.Get(source[:]))
+//			}
+//			if target != nil {
+//				tr.GetBranch(target[:], nodes)
+//				Logger.Debugf("target:%v,value:%v", target.GetHexString(), tr.Get(target[:]))
+//			}
+//		}
+//	}
+//
+//	for _, account := range addresses {
+//		tr.GetBranch(account[:], nodes)
+//		//Logger.Debugf("GetBranches Account addr:%v,value:%v", account.GetHexString(), tr.Get(account[:]))
+//		if account == common.BonusStorageAddress || account == common.LightDBAddress || account == common.HeavyDBAddress {
+//			getNodeTrie(account[:], nodes, accountdb)
+//		}
+//	}
+//}
+//
+//func getNodeTrie(address []byte, nodes map[string]*[]byte, accountdb *account.AccountDB) {
+//	data, err := accountdb.GetTrie().TryGet(address[:])
+//	if err != nil {
+//		Logger.Errorf("Get nil from trie! addr:%v,err:%s", address, err.Error())
+//		return
+//	}
+//
+//	var account account.Account
+//	if err := serialize.DecodeBytes(data, &account); err != nil {
+//		Logger.Errorf("Failed to decode state object! addr:%v,err:%s", address, err.Error())
+//		return
+//	}
+//	root := account.Root
+//	t, err := accountdb.Database().OpenTrieWithMap(root, nodes)
+//	if err != nil {
+//		Logger.Errorf("OpenStorageTrie error! addr:%v,err:%s", address, err.Error())
+//		return
+//	}
+//	t.GetAllNodes(nodes)
+//}
 
 //哪些交易涉及的account在AccountDB中缺失，LightChain使用
 func (executor *TVMExecutor) FilterMissingAccountTransaction(accountdb *account.AccountDB, block *types.Block) ([]*types.Transaction, []common.Address) {

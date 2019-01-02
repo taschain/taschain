@@ -658,22 +658,22 @@ func (chain *FullBlockChain) Clear() error {
 	return err
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
-	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
-	var nodesOnBranch = make(map[string]*[]byte)
-	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
-	if err != nil {
-		Logger.Errorf("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
-		return nil
-	}
-	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
-
-	data := []types.StateNode{}
-	for key, value := range nodesOnBranch {
-		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
-	}
-	return &data
-}
+//func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
+//	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
+//	var nodesOnBranch = make(map[string]*[]byte)
+//	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
+//	if err != nil {
+//		Logger.Errorf("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
+//		return nil
+//	}
+//	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
+//
+//	data := []types.StateNode{}
+//	for key, value := range nodesOnBranch {
+//		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
+//	}
+//	return &data
+//}
 
 func (chain *FullBlockChain) InsertStateNode(nodes *[]types.StateNode) {
 	panic("Not support!")

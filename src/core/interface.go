@@ -90,7 +90,7 @@ type BlockChain interface {
 
 	Close()
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
+	//GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 

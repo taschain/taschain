@@ -353,9 +353,9 @@ func (self *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
 
-func (self *accountObject) fstring() string {
-	if self.trie == nil {
-		self.trie = self.getTrie(self.db.db)
-	}
-	return self.trie.Fstring()
-}
+//func (self *accountObject) fstring() string {
+//	if self.trie == nil {
+//		self.trie = self.getTrie(self.db.db)
+//	}
+//	return self.trie.Fstring()
+//}

@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2014 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,22 +14,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package trie
+/*
+Package rlp implements the RLP serialization format.
 
-import (
-	"fmt"
+The purpose of RLP (Recursive Linear Prefix) is to encode arbitrarily
+nested arrays of binary data, and RLP is the main encoding method used
+to serialize objects in Ethereum. The only purpose of RLP is to encode
+structure; encoding specific atomic data types (eg. strings, ints,
+floats) is left up to higher-order protocols; in Ethereum integers
+must be represented in big endian binary form with no leading zeroes
+(thus making the integer value zero equivalent to the empty byte
+array).
 
-	"common"
-)
-
-// MissingNodeError is returned by the trie functions (TryGet, TryUpdate, TryDelete)
-// in the case where a trie node is not present in the local database. It contains
-// information necessary for retrieving the missing node.
-type MissingNodeError struct {
-	NodeHash common.Hash // hash of the missing node
-	Path     []byte      // hex-encoded path to the missing node
-}
-
-func (err *MissingNodeError) Error() string {
-	return fmt.Sprintf("missing trie node %x (path %x)", err.NodeHash, err.Path)
-}
+RLP values are distinguished by a type tag. The type tag precedes the
+value in the input stream and defines the size and kind of the bytes
+that follow.
+*/
+package rlp
