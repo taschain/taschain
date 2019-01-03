@@ -16,7 +16,6 @@
 package common
 
 import (
-	"crypto/sha1"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -63,43 +62,31 @@ func TestSign(test *testing.T) {
 	fmt.Printf("\nbegin TestSign...\n")
 	plain_txt := "My name is thiefox."
 	buf := []byte(plain_txt)
-	sha1_hash := sha1.Sum(buf)
 	sha3_hash := sha3.Sum256(buf)
-	fmt.Printf("hash test, sha1_len=%v, sha3_len=%v.\n", len(sha1_hash), len(sha3_hash))
 	pri_k := GenerateKey("")
 	pub_k := pri_k.GetPubKey()
 
 	pub_buf := pub_k.ToBytes() //测试公钥到字节切片的转换
 	pub_k = *BytesToPublicKey(pub_buf)
 
-	var sha_buf []byte
-	copy(sha_buf, sha1_hash[:])
-	sha1_si := pri_k.Sign(sha_buf) //私钥签名
-	{
-		buf_r := sha1_si.r.Bytes()
-		buf_s := sha1_si.s.Bytes()
-		fmt.Printf("sha1 sign, r len = %v, s len = %v.\n", len(buf_r), len(buf_s))
-	}
-	success := pub_k.Verify(sha_buf, &sha1_si) //公钥验证
-	fmt.Printf("sha1 sign verify result=%v.\n", success)
-
-	copy(sha_buf, sha3_hash[:])
-	sha3_si := pri_k.Sign(sha_buf)
+	sha3_si := pri_k.Sign(sha3_hash[:])
 	{
 		buf_r := sha3_si.r.Bytes()
 		buf_s := sha3_si.s.Bytes()
 		fmt.Printf("sha3 sign, r len = %v, s len = %v.\n", len(buf_r), len(buf_s))
 	}
-	success = pub_k.Verify(sha_buf, &sha3_si)
+	success := pub_k.Verify(sha3_hash[:], &sha3_si)
 	fmt.Printf("sha3 sign verify result=%v.\n", success)
 	fmt.Printf("end TestSign.\n")
 }
-
 
 func TestEncryptDecrypt(t *testing.T) {
 	fmt.Printf("\nbegin TestEncryptDecrypt...\n")
 	sk1 := GenerateKey("")
 	pk1 := sk1.GetPubKey()
+
+	t.Log(sk1.GetHexString())
+	t.Log(pk1.GetHexString())
 
 	sk2 := GenerateKey("")
 
@@ -138,20 +125,77 @@ func TestSignBytes(test *testing.T) {
 
 	pri_k := GenerateKey("")
 
-	sha1_hash := sha1.Sum(buf)
-	var sha_buf []byte
-	copy(sha_buf, sha1_hash[:])
-	sign := pri_k.Sign(sha_buf) //私钥签名
+	sha3_hash := sha3.Sum256(buf)
+	sign := pri_k.Sign(sha3_hash[:]) //私钥签名
+
+	//测试签名十六进制转换
+	h := sign.GetHexString() //签名十六进制表示
+	fmt.Println(h)
+
+	//si := HexStringToSign(h) //从十六进制恢复出签名
+	//fmt.Println(si.Bytes())  //签名打印
+	//fmt.Println(sign.Bytes())
 
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
-
-	sign_r.Bytes()
+	fmt.Println(sign_r.GetHexString())
+	if h != sign_r.GetHexString() {
+		fmt.Println("sign dismatch!", h, sign_r.GetHexString())
+	}
 
 }
 
-func TestHash(test *testing.T){
-	h1 := Hash{1,2,3,4}
-	h2 := Hash{1,2,3,4}
-	fmt.Printf("%v",h1 == h2)
+func TestRecoverPubkey(test *testing.T) {
+	fmt.Printf("\nbegin TestRecoverPubkey...\n")
+	plain_txt := "Sign Recover Pubkey tesing."
+	buf := []byte(plain_txt)
+	sha3_hash := sha3.Sum256(buf)
+
+	sk := GenerateKey("")
+	sign := sk.Sign(sha3_hash[:])
+
+	pk, err := sign.RecoverPubkey(sha3_hash[:])
+	if err == nil {
+		if !bytes.Equal(pk.ToBytes(), sk.GetPubKey().ToBytes()) {
+			fmt.Printf("original pk = %v\n", sk.GetPubKey().ToBytes())
+			fmt.Printf("recover pk = %v\n", pk)
+		}
+	}
+	fmt.Printf("end TestRecoverPubkey.\n")
+}
+
+func TestHash(test *testing.T) {
+	h1 := Hash{1, 2, 3, 4}
+	h2 := Hash{1, 2, 3, 4}
+	fmt.Printf("%v\n", h1 == h2)
+}
+
+func BenchmarkSign(b *testing.B) {
+	msg := []byte("This is TASchain achates' testing message")
+	sk := GenerateKey("")
+	sha3_hash := sha3.Sum256(msg)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sk.Sign(sha3_hash[:]) //私钥签名
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	msg := []byte("This is TASchain achates' testing message")
+	sk := GenerateKey("")
+	pk := sk.GetPubKey()
+	sha3_hash := sha3.Sum256(msg)
+	sign := sk.Sign(sha3_hash[:])
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pk.Verify(sha3_hash[:], &sign)
+	}
+}
+
+func TestAccount(test *testing.T) {
+	privateKey := GenerateKey("")
+	pubkey := privateKey.GetPubKey()
+	address := pubkey.GetAddress()
+	fmt.Printf("sk:%s\n", privateKey.GetHexString())
+	fmt.Printf("address:%s\n", address.GetHexString())
 }

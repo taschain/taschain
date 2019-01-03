@@ -23,7 +23,6 @@ import (
 	"sync"
 	"core"
 	"middleware/types"
-	"log"
 	"consensus/model"
 )
 
@@ -39,87 +38,80 @@ const (
 
 //静态组结构（组创建成功后加入到GlobalGroups）
 type StaticGroupInfo struct {
-	GroupID       groupsig.ID               //组ID(可以由组公钥生成)
-	GroupPK       groupsig.Pubkey           //组公钥
-	Members       []model.PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
-	MemIndex      map[string]int            //用ID查找成员信息(成员ID->members中的索引)
-	GIS           model.ConsensusGroupInitSummary //组的初始化凭证
-	BeginHeight   uint64                    //组开始参与铸块的高度
-	DismissHeight uint64                    //组解散的高度
+	GroupID       groupsig.ID                     //组ID(可以由组公钥生成)
+	GroupPK       groupsig.Pubkey                 //组公钥
+	MemIndex      map[string]int                  //用ID查找成员信息(成员ID->members中的索引)
+	//GIS           model.ConsensusGroupInitSummary //组的初始化凭证
+	GInfo 			*model.ConsensusGroupInitInfo
+	//WorkHeight    uint64                          //组开始参与铸块的高度
+	//DismissHeight uint64                          //组解散的高度
 	ParentId      groupsig.ID
-	PrevGroupID		groupsig.ID				//前一块组id
-	Signature     groupsig.Signature
-	Authority     uint64      //权限相关数据（父亲组赋予）
-	Name          string    //父亲组取的名字
-	Extends       string      //带外数据
+	PrevGroupID   groupsig.ID				//前一块组id
+	//Signature     groupsig.Signature
+	//Authority     uint64      //权限相关数据（父亲组赋予）
+	//Name          string    //父亲组取的名字
+	//Extends       string      //带外数据
 }
 
-func NewDummySGIFromGroupRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
-	sgi := &StaticGroupInfo{
-		GIS:           grm.GI,
-		ParentId: 		grm.GI.ParentID,
-		Members:       grm.MEMS,
-		MemIndex:      make(map[string]int),
-	}
-	for index, mem := range sgi.Members {
-		sgi.MemIndex[mem.ID.GetHexString()] = index
-	}
-	return sgi
-}
 
-func NewSGIFromStaticGroupSummary(summary *model.StaticGroupSummary, group *InitingGroup) *StaticGroupInfo {
+func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *InitingGroup) *StaticGroupInfo {
+	gInfo := group.gInfo
 	sgi := &StaticGroupInfo{
-		GroupID:       summary.GroupID,
-		GroupPK:       summary.GroupPK,
-		GIS:           summary.GIS,
-		Members:       group.mems,
-		MemIndex:      make(map[string]int),
-		BeginHeight:   summary.GIS.BeginCastHeight,
-		DismissHeight: summary.GIS.DismissHeight,
-		ParentId:      summary.GIS.ParentID,
-		PrevGroupID:   summary.GIS.PrevGroupID,
-		Signature:     summary.GIS.Signature,
-		Authority:     summary.GIS.Authority,
-		Name:          string(summary.GIS.Name[:]),
-		Extends:       summary.GIS.Extends,
+		GroupID:       gid,
+		GroupPK:       gpk,
+		GInfo:     		gInfo,
+		ParentId:      gInfo.GI.ParentID(),
+		PrevGroupID:   gInfo.GI.PreGroupID(),
 	}
-	for index, mem := range group.mems {
-		sgi.MemIndex[mem.ID.GetHexString()] = index
-	}
+	sgi.buildMemberIndex()
 	return sgi
 }
 
 func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
+	gh := coreGroup.Header
+	gis := model.ConsensusGroupInitSummary{
+		Signature: *groupsig.DeserializeSign(coreGroup.Signature),
+		GHeader: gh,
+	}
+	mems := make([]groupsig.ID, len(coreGroup.Members))
+	for i, mem := range coreGroup.Members {
+		mems[i] = groupsig.DeserializeId(mem)
+	}
+	gInfo := &model.ConsensusGroupInitInfo{
+		GI: gis,
+		Mems: mems,
+	}
 	sgi := &StaticGroupInfo{
-		GroupID:     *groupsig.DeserializeId(coreGroup.Id),
-		GroupPK:     *groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
-		BeginHeight: coreGroup.BeginHeight,
-		Members:     make([]model.PubKeyInfo, 0),
-		MemIndex:    make(map[string]int),
-		DismissHeight: coreGroup.DismissHeight,
-		ParentId:      *groupsig.DeserializeId(coreGroup.Parent),
-		PrevGroupID:   *groupsig.DeserializeId(coreGroup.PreGroup),
-		Signature:     *groupsig.DeserializeSign(coreGroup.Signature),
-		Authority:     coreGroup.Authority,
-		Name:          coreGroup.Name,
-		Extends:       coreGroup.Extends,
+		GroupID:       groupsig.DeserializeId(coreGroup.Id),
+		GroupPK:       groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
+		ParentId:      groupsig.DeserializeId(gh.Parent),
+		PrevGroupID:   groupsig.DeserializeId(gh.PreGroup),
+		GInfo:			gInfo,
 	}
-	for _, cMem := range coreGroup.Members {
-		id := groupsig.DeserializeId(cMem.Id)
-		pk := groupsig.DeserializePubkeyBytes(cMem.PubKey)
-		pkInfo := model.NewPubKeyInfo(*id, *pk)
-		sgi.addMember(&pkInfo)
-	}
+
+	sgi.buildMemberIndex()
 	return sgi
 }
 
+func (sgi *StaticGroupInfo) buildMemberIndex()  {
+	if sgi.MemIndex == nil {
+		sgi.MemIndex = make(map[string]int)
+	}
+	for index, mem := range sgi.GInfo.Mems {
+		sgi.MemIndex[mem.GetHexString()] = index
+	}
+}
+
+func (sgi *StaticGroupInfo) GetMembers() []groupsig.ID {
+    return sgi.GInfo.Mems
+}
 //取得某个矿工在组内的排位
 func (sgi StaticGroupInfo) GetMinerPos(id groupsig.ID) int {
 	pos := -1
 	if v, ok := sgi.MemIndex[id.GetHexString()]; ok {
 		pos = v
 		//双重验证
-		if !sgi.Members[pos].ID.IsEqual(id) {
+		if !sgi.GInfo.Mems[pos].IsEqual(id) {
 			panic("double check fail!id=" + id.GetHexString())
 		}
 	}
@@ -131,23 +123,9 @@ func (sgi StaticGroupInfo) GetPubKey() groupsig.Pubkey {
 	return sgi.GroupPK
 }
 
-//由父亲组的初始化消息生成SGI结构（组内和组外的节点都需要这个函数）
-func NewSGIFromRawMessage(grm *model.ConsensusGroupRawMessage) *StaticGroupInfo {
-	sgi := &StaticGroupInfo{
-		GIS:      grm.GI,
-		Members:  make([]model.PubKeyInfo, 0),
-		MemIndex: make(map[string]int),
-	}
-	for _, v := range grm.MEMS {
-		sgi.Members = append(sgi.Members, v)
-		sgi.MemIndex[v.GetID().GetHexString()] = len(sgi.Members) - 1
-	}
-	return sgi
-}
 
-
-func (sgi *StaticGroupInfo) GetLen() int {
-	return len(sgi.Members)
+func (sgi *StaticGroupInfo) GetMemberCount() int {
+	return sgi.GInfo.MemberSize()
 }
 
 //组完成初始化，必须在一个组尚未初始化的时候调用有效。
@@ -164,18 +142,8 @@ func (sgi *StaticGroupInfo) GroupConsensusInited(pk groupsig.Pubkey, id groupsig
 	return true
 }
 
-func (sgi *StaticGroupInfo) addMember(m *model.PubKeyInfo) {
-	if m.GetID().IsValid() {
-		_, ok := sgi.MemIndex[m.GetID().GetHexString()]
-		if !ok {
-			sgi.Members = append(sgi.Members, *m)
-			sgi.MemIndex[m.GetID().GetHexString()] = len(sgi.Members) - 1
-		}
-	}
-}
-
-func (sgi *StaticGroupInfo) CanGroupSign() bool {
-	return sgi.GroupPK.IsValid()
+func (sgi *StaticGroupInfo) getGroupHeader() *types.GroupHeader {
+    return sgi.GInfo.GI.GHeader
 }
 
 func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
@@ -183,55 +151,27 @@ func (sgi StaticGroupInfo) MemExist(uid groupsig.ID) bool {
 	return ok
 }
 
-//ok:是否组内成员
-//m:组内成员矿工公钥
-func (sgi StaticGroupInfo) GetMember(uid groupsig.ID) (m model.PubKeyInfo, ok bool) {
-	var i int
-	i, ok = sgi.MemIndex[uid.GetHexString()]
-	fmt.Printf("data size=%v, cache size=%v.\n", len(sgi.Members), len(sgi.MemIndex))
-	fmt.Printf("find node(%v) = %v, local all mems=%v, gpk=%v.\n", uid.GetHexString(), ok, len(sgi.Members), sgi.GroupPK.GetHexString())
-	if ok {
-		m = sgi.Members[i]
-	} else {
-		i := 0
-		for k, _ := range sgi.MemIndex {
-			fmt.Printf("---mem(%v)=%v.\n", i, k)
-			i++
-		}
-	}
-	return
-}
-
-//取得某个成员在组内的排位
-func (sgi StaticGroupInfo) GetPosition(uid groupsig.ID) int32 {
-	i, ok := sgi.MemIndex[uid.GetHexString()]
-	if ok {
-		return int32(i)
-	} else {
-		return int32(-1)
-	}
-}
-
 //取得指定位置的铸块人
-func (sgi StaticGroupInfo) GetCastor(i int) groupsig.ID {
+func (sgi *StaticGroupInfo) GetMemberID(i int) groupsig.ID {
 	var m groupsig.ID
-	if i >= 0 && i < len(sgi.Members) {
-		m = sgi.Members[i].GetID()
+	if i >= 0 && i < len(sgi.MemIndex) {
+		m = sgi.GInfo.Mems[i]
 	}
 	return m
 }
 
 func (sgi *StaticGroupInfo) CastQualified(height uint64) bool {
-	return sgi.BeginHeight <= height && height < sgi.DismissHeight
+	gh := sgi.getGroupHeader()
+	return gh.WorkHeight <= height && height < gh.DismissHeight
 }
 
 //是否已解散
 func (sgi *StaticGroupInfo) Dismissed(height uint64) bool {
-	return height >= sgi.DismissHeight
+	return height >= sgi.getGroupHeader().DismissHeight
 }
 
 func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
-    return sgi.GIS.ReadyTimeout(height)
+    return sgi.getGroupHeader().ReadyHeight <= height
 }
 
 
@@ -239,7 +179,7 @@ func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
 //父亲组节点已经向外界宣布，但未完成初始化的组也保存在这个结构内。
 //未完成初始化的组用独立的数据存放，不混入groups。因groups的排位影响下一个铸块组的选择。
 type GlobalGroups struct {
-	chain 		*core.GroupChain
+	chain 	  	*core.GroupChain
 	groups    []*StaticGroupInfo
 	gIndex    map[string]int     //string(ID)->索引
 	generator *NewGroupGenerator //新组处理器(组外处理器)
@@ -248,7 +188,7 @@ type GlobalGroups struct {
 
 func NewGlobalGroups(chain *core.GroupChain) *GlobalGroups {
 	return &GlobalGroups{
-		groups:    make([]*StaticGroupInfo, 0),
+		groups:    make([]*StaticGroupInfo, 1),
 		gIndex:    make(map[string]int),
 		generator: CreateNewGroupGenerator(),
 		chain: 		chain,
@@ -265,58 +205,92 @@ func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
     return gg.generator.addInitingGroup(g)
 }
 
-func (gg *GlobalGroups) removeInitingGroup(dummyId groupsig.ID) {
-	gg.generator.removeInitingGroup(dummyId)
+func (gg *GlobalGroups) removeInitingGroup(gHash common.Hash) {
+	gg.generator.removeInitingGroup(gHash)
 }
 
 func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
 	return gg.groups[len(gg.groups)-1]
 }
 
-func (gg *GlobalGroups) canAdd(g *StaticGroupInfo) bool {
-	if len(gg.groups) <= 1 {
-		return true
+func (gg *GlobalGroups) findPos(g *StaticGroupInfo) (idx int, right bool){
+	cnt := len(gg.groups)
+	if cnt == 1 {
+		return 1, true
 	}
 	last := gg.lastGroup()
-	return last.GroupID.IsEqual(g.PrevGroupID)
+	if g.PrevGroupID.IsEqual(last.GroupID) {	//刚好能与最后一个连接上，大部分时候是这个情况
+		return cnt, true
+	}
+	if g.getGroupHeader().WorkHeight > last.getGroupHeader().WorkHeight { //属于更后面的组， 先append到最后
+		return cnt, false
+	}
+	for i := 1; i < cnt; i++	{
+		if gg.groups[i].getGroupHeader().WorkHeight > g.getGroupHeader().WorkHeight {
+			return i, g.GroupID.IsEqual(gg.groups[i].PrevGroupID) && (i ==1 || g.PrevGroupID.IsEqual(gg.groups[i-1].GroupID))
+		}
+	}
+	return -1, false
+}
+
+
+func (gg *GlobalGroups) append(g *StaticGroupInfo) bool {
+	gg.groups = append(gg.groups, g)
+	gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
+	return true
 }
 
 //增加一个合法铸块组
+//在组同步的时候，该方法有可能并发调用，导致组的顺序也是乱序的
 func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	gg.lock.Lock()
 	defer gg.lock.Unlock()
 
-	log.Printf("begin GlobalGroups::AddStaticGroup, id=%v, mems 1=%v, mems 2=%v...\n", GetIDPrefix(g.GroupID), len(g.Members), len(g.MemIndex))
-	if idx, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
-		if gg.canAdd(g) {
-			if len(gg.groups) > 0 {
-				last := gg.lastGroup()
-				if last.BeginHeight >= g.BeginHeight {
-					panic(fmt.Sprintf("group beginHeight reversed! lastGid=%v, lastBeginHeight=%v, addGid=%v, addBeiginHeight=%v", last.GroupID, last.BeginHeight, g.GroupID, g.BeginHeight))
+	result := ""
+	blog := newBizLog("AddStaticGroup")
+	defer func() {
+		blog.log("id=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.getGroupHeader().WorkHeight, result)
+	}()
+
+	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
+		if g.getGroupHeader().WorkHeight == 0 { //创世组
+			gg.groups[0] = g
+			gg.gIndex[g.GroupID.GetHexString()] = 0
+			result = "success"
+			return true
+		}
+		if idx, right := gg.findPos(g); idx >= 0 {
+			cnt := len(gg.groups)
+			if idx == cnt {
+				gg.append(g)
+				result = "append"
+			} else {
+				gg.groups = append(gg.groups, g)
+				for i:= cnt; i > idx; i-- {
+					gg.groups[i] = gg.groups[i-1]
+					gg.gIndex[gg.groups[i].GroupID.GetHexString()] = i
 				}
+				gg.groups[idx] = g
+				gg.gIndex[g.GroupID.GetHexString()] = idx
+				result = "insert"
 			}
-			gg.groups = append(gg.groups, g)
-			gg.gIndex[g.GroupID.GetHexString()] = len(gg.groups) - 1
-			fmt.Printf("*****Group(%v) BeginHeight(%v)*****\n", GetIDPrefix(g.GroupID),g.BeginHeight)
+			if right {
+				result += "and linked"
+			} else {
+				result += "but not linked"
+			}
 			return true
 		} else {
-			log.Printf("AddStaticGroup fail, preGroup nil! gid=%v, preGid=%v, lastGid=%v\n", GetIDPrefix(g.GroupID), GetIDPrefix(g.PrevGroupID), GetIDPrefix(gg.lastGroup().GroupID))
-			return false
+			result = "can't find insert pos"
 		}
 	} else {
-		if gg.groups[idx].BeginHeight < g.BeginHeight {
-			gg.groups[idx].BeginHeight = g.BeginHeight
-			log.Printf("Group(%v) BeginHeight change from (%v) to (%v)\n", GetIDPrefix(g.GroupID),gg.groups[idx].BeginHeight,g.BeginHeight)
-		} else {
-			log.Printf("already exist this group, ignored.\n")
-		}
-
+		result = "already exist this group, ignored"
 	}
 	return false
 }
 
-func (gg *GlobalGroups) GroupInitedMessage(sgs *model.StaticGroupSummary, sender groupsig.ID, height uint64) int32 {
-	return gg.generator.ReceiveData(sgs, sender, height)
+func (gg *GlobalGroups) GroupInitedMessage(msg *model.ConsensusGroupInitedMessage, height uint64) int32 {
+	return gg.generator.ReceiveData(msg, height)
 }
 
 //检查某个用户是否某个组成员
@@ -344,6 +318,9 @@ func (gg *GlobalGroups) getGroupFromCache(id groupsig.ID) (g *StaticGroupInfo, e
 	index, ok := gg.gIndex[id.GetHexString()]
 	if ok {
 		g, err = gg.getGroupByIndex(index)
+		if !g.GroupID.IsEqual(id) {
+			panic("ggIndex error")
+		}
 	}
 	return
 }
@@ -360,9 +337,9 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 		}
 	}
 	if g == nil {
-		log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", GetIDPrefix(id))
+		stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
-			log.Printf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", GetIDPrefix(g.GroupID))
+			stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
 		}
 		g = &StaticGroupInfo{}
 	}
@@ -378,13 +355,13 @@ func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.
 
 	gids := make([]string, 0)
 	for _, g := range qualifiedGS {
-		gids = append(gids, GetIDPrefix(g.GroupID))
+		gids = append(gids, g.GroupID.ShortS())
 	}
 
 	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
 		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
 		ga = qualifiedGS[index.Int64()].GroupID
-		log.Printf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
+		stdLogger.Debugf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
 		return ga, fmt.Errorf("selectNextGroup failed, arg error")
@@ -397,6 +374,9 @@ func (gg *GlobalGroups) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo
 
 	gs := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if g.CastQualified(height) {
 			gs = append(gs, g)
 		}
@@ -410,6 +390,9 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 
 	gs := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if !g.Dismissed(height) {
 			gs = append(gs, g)
 		}
@@ -417,8 +400,8 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 	return gs
 }
 
-func (gg *GlobalGroups) GetInitingGroup(dummyId groupsig.ID) *InitingGroup {
-    return gg.generator.getInitingGroup(dummyId)
+func (gg *GlobalGroups) GetInitingGroup(gHash common.Hash) *InitingGroup {
+    return gg.generator.getInitingGroup(gHash)
 }
 
 func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
@@ -427,6 +410,9 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
 
     ids := make([]groupsig.ID, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if g.Dismissed(height) {
 			ids = append(ids, g.GroupID)
 		} else {
@@ -446,6 +432,9 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	}
 	newGS := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
+		if g == nil {
+			continue
+		}
 		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
 			newGS = append(newGS, g)
 		}

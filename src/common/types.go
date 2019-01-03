@@ -16,38 +16,52 @@
 package common
 
 import (
+	"common/secp256k1"
 	"crypto/elliptic"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
+	"taslog"
 	"utility"
 )
 
 const PREFIX = "0x"
 
 func getDefaultCurve() elliptic.Curve {
-	return elliptic.P256()
+	//return elliptic.P256()
+	return secp256k1.S256()
 }
 
 const (
 	//默认曲线相关参数开始：
 	PubKeyLength = 65 //公钥字节长度，1 bytes curve, 64 bytes x,y。
 	SecKeyLength = 97 //私钥字节长度，65 bytes pub, 32 bytes D。
-	SignLength   = 64 //签名字节长度，32 bytes r & 32 bytes s.
+	SignLength   = 65 //签名字节长度，32 bytes r & 32 bytes s & 1 byte recid.
 	//默认曲线相关参数结束。
-	AddressLength = 20 //地址字节长度(TAS/ETH, golang.SHA1，160位)
+	AddressLength = 32 //地址字节长度(TAS, golang.SHA3，256位)
 	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
+	GroupIdLength = 32
 )
 
+var DefaultLogger taslog.Logger
+
 var (
-	hashT    = reflect.TypeOf(Hash{})
-	addressT = reflect.TypeOf(Address{})
+	hashT               = reflect.TypeOf(Hash{})
+	addressT            = reflect.TypeOf(Address{})
+	BonusStorageAddress = BigToAddress(big.NewInt(0))
+	LightDBAddress      = BigToAddress(big.NewInt(1))
+	HeavyDBAddress      = BigToAddress(big.NewInt(2))
 )
 
 //160位地址
 type Address [AddressLength]byte
+
+func (a Address) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + a.GetHexString() + "\""), nil
+}
 
 //构造函数族
 func BytesToAddress(b []byte) Address {
@@ -194,6 +208,11 @@ func (h Hash) String() string {
 	return h.Hex()
 }
 
+func (h Hash) ShortS() string {
+	str := h.Hex()
+	return ShortHex12(str)
+}
+
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
 // without going through the stringer interface used for logging.
 func (h Hash) Format(s fmt.State, c rune) {
@@ -236,7 +255,7 @@ func (h *Hash) Set(other Hash) {
 
 // Generate implements testing/quick.Generator.
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
-	m := rand.Intn(len(h))            //m为0-len(h)之间的伪随机数
+	m := rand.Intn(len(h)) //m为0-len(h)之间的伪随机数
 	for i := len(h) - 1; i > m; i-- { //从高位到m之间进行遍历
 		h[i] = byte(rand.Uint32()) //rand.Uint32为32位非负伪随机数
 	}
@@ -262,6 +281,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 type Hash256 Hash
 type StorageSize float64
+
 var (
 	Big1   = big.NewInt(1)
 	Big2   = big.NewInt(2)
@@ -270,6 +290,10 @@ var (
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(0xff)
 	Big257 = big.NewInt(257)
+
+	ErrSelectGroupNil = errors.New("selectGroupId is nil")
+	ErrSelectGroupInequal = errors.New("selectGroupId not equal")
+	ErrCreateBlockNil = errors.New("createBlock is nil")
 )
 
 const (

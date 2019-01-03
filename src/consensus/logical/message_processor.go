@@ -16,26 +16,23 @@
 package logical
 
 import (
+	"bytes"
 	"common"
 	"consensus/groupsig"
-
-	"fmt"
-	"time"
-	"log"
-	"middleware/types"
 	"consensus/model"
+	"fmt"
 	"middleware/statistics"
+	"middleware/types"
+	"time"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
 	var gid groupsig.ID
 	if err := gid.Deserialize(bh.GroupId); err != nil {
-		log.Printf("fail to deserialize groupId: gid=%v, err=%v\n", bh.GroupId, err)
 		return nil
 	}
 	var castor groupsig.ID
 	if err := castor.Deserialize(bh.Castor); err != nil {
-		log.Printf("fail to deserialize castor: castor=%v, err=%v\n", bh.Castor, err)
 		return nil
 	}
 	cgs := &model.CastGroupSummary{
@@ -49,153 +46,200 @@ func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupS
 	return cgs
 }
 
-func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext)  {
+func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog) {
+	blog := newBizLog("thresholdPieceVerify")
 	bh := &slot.BH
+	if vctx.castSuccess() {
+		blog.debug("already cast success, height=%v", bh.Height)
+		return
+	}
 	gpk := p.getGroupPubKey(gid)
 
+	if len(bh.Signature) == 0 {
+		blog.log("bh sign is empty! hash=%v", bh.Hash.ShortS())
+	}
+
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
-		log.Printf("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.\n", mtype,
-			GetPubKeyPrefix(gpk), GetHashPrefix(slot.BH.Hash), GetHashPrefix(bh.Hash), slot.GetSlotStatus())
+		blog.log("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.", mtype,
+			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
 	}
 
 	if slot.IsVerified() {
-		p.SuccessNewBlock(bh, vctx, slot, gid) //上链和组外广播
-		//log.Printf("%v remove verifycontext from bccontext! remain size=%v\n", mtype, len(bc.verifyContexts))
+		p.reserveBlock(vctx, slot)
 	}
 
 }
 
-func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext)  {
+func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, proveHash []common.Hash, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
 	bh := &slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
 		skey := p.getSignKey(gid)
 		var cvm model.ConsensusVerifyMessage
 		cvm.BH = *bh
+		cvm.ProveHash = proveHash
 		//cvm.GroupID = gId
 		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm)
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
-		log.Printf("call network service SendVerifiedCast...\n")
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "SendVerifiedCast")
+		newBizLog("normalPieceVerify").debug("call network service SendVerifiedCast hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		traceLog.log("SendVerifiedCast height=%v, castor=%v", bh.Height, slot.castor.ShortS())
+		//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 		p.NetServer.SendVerifiedCast(&cvm)
 	}
 }
 
-func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase, cgs *model.CastGroupSummary) {
+func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase, traceLog *msgTraceLog, blog *bizLog) (err error) {
 	bh := &msg.BH
 	si := &msg.SI
 
-	sender := GetIDPrefix(si.SignMember)
-	result := ""
-	defer func() {
-		logHalfway(mtype, bh.Height, bh.QueueNumber, sender, "preHash %v, doVerify begin: %v", GetHashPrefix(bh.PreHash), result)
-	}()
+	sender := si.SignMember.ShortS()
 
-	if cgs == nil {
-		cgs = p.genCastGroupSummary(bh)
-		if cgs == nil {
-			return
-		}
-	}
-
-	gid := cgs.GroupID
+	gid := groupsig.DeserializeId(bh.GroupId)
+	castor := groupsig.DeserializeId(bh.Castor)
 
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
 	if preBH == nil {
 		p.addFutureVerifyMsg(msg)
-		result = "父块未到达"
-		return
+		return fmt.Errorf("父块未到达")
 	}
 
-	if !p.verifyCastSign(cgs, msg, preBH) {
-		log.Printf("%v verify failed!\n", mtype)
+	//非提案节点消息，即组内验证消息，需要验证随机数签名
+	if !castor.IsEqual(si.GetID()) {
+		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
+		if !msg.VerifyRandomSign(pk, preBH.Random) {
+			err = fmt.Errorf("random sign verify fail")
+			return
+		}
+	}
+	if ok, _, err2 := p.isCastLegal(bh, preBH); !ok {
+		err = err2
 		return
 	}
-
-	if !p.isCastGroupLegal(bh, preBH) {
-		result = "非法的铸块组"
-		log.Printf("not the casting group!bh=%v, preBH=%v", p.blockPreview(bh), p.blockPreview(preBH))
+	//校验提案者是否有全量账本
+	sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
+	realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
+	if !existHash.IsValid() {
+		err = fmt.Errorf("MainChain GetCheckValue error, height=%v, err=%v", sampleHeight, err)
+		return
+	}
+	vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
+	if vHash != existHash {
+		err = fmt.Errorf("check prove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
 		return
 	}
 
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
-		result = "未获取到blockcontext"
-		log.Printf("[ERROR]blockcontext is nil!, gid=" + GetIDPrefix(gid))
+		err = fmt.Errorf("未获取到blockcontext, gid=" + gid.ShortS())
 		return
 	}
 	if bc.IsHeightCasted(bh.Height) {
-		result = "该高度已铸过"
-		log.Printf("%v, height=%v\n", result, bh.Height)
+		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
 		return
 	}
 
 	vctx := bc.GetOrNewVerifyContext(bh, preBH)
 	if vctx == nil {
-		result = "获取vctx为空，可能preBH已经被删除"
-		log.Printf("%v, preBH=%v\n", result, p.blockPreview(preBH))
+		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return
 	}
 
-	log.Printf("%v start UserVerified, height=%v, qn=%v", mtype, bh.Height, bh.QueueNumber)
-	verifyResult := vctx.UserVerified(bh, si, cgs)
-	log.Printf("proc(%v) %v UserVerified height-qn=%v-%v, result=%v.\n", p.getPrefix(), mtype, bh.Height, bh.QueueNumber, CBMR_RESULT_DESC(verifyResult))
-	slot := vctx.GetSlotByQN(int64(bh.QueueNumber))
+	if vctx.castSuccess() {
+		err = fmt.Errorf("已出块")
+		return
+	}
+	if vctx.castExpire() {
+		vctx.markTimeout()
+		err = fmt.Errorf("已超时" + vctx.expireTime.String())
+		return
+	}
+
+	blog.debug("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
+	verifyResult := vctx.UserVerified(bh, si)
+	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
+	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
-		result = "找不到合适的验证槽, 放弃验证"
+		err = fmt.Errorf("找不到合适的验证槽, 放弃验证")
 		return
 	}
 
-	result = fmt.Sprintf("%v, %v, %v", CBMR_RESULT_DESC(verifyResult), slot.gSignGenerator.Brief(), slot.TransBrief())
+	err = fmt.Errorf("%v, %v, %v", CBMR_RESULT_DESC(verifyResult), slot.gSignGenerator.Brief(), slot.TransBrief())
 
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		if !slot.HasTransLost() {
-			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot)
+			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
 		}
 
 	case CBMR_PIECE_NORMAL:
-		p.normalPieceVerify(mtype, sender, gid, vctx, slot)
+		p.normalPieceVerify(mtype, sender, gid, msg.ProveHash, vctx, slot, traceLog)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 	}
+	return
 }
 
 func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMessageBase) {
 	bh := &msg.BH
 	si := &msg.SI
+	blog := newBizLog(mtype)
+	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
+	castor := groupsig.DeserializeId(bh.Castor)
+	groupId := groupsig.DeserializeId(bh.GroupId)
 
-	logStart(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember), "")
+	traceLog.logStart("height=%v, castor=%v", bh.Height, castor.ShortS())
+	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS())
 
+	result := ""
 	defer func() {
-		logEnd(mtype, bh.Height, bh.QueueNumber, GetIDPrefix(si.SignMember))
+		traceLog.logEnd("height=%v, hash=%v, preHash=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), result)
+		blog.debug("height=%v, hash=%v, preHash=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), result)
 	}()
 
-	cgs := p.genCastGroupSummary(bh)
-	if cgs == nil {
-		log.Printf("[ERROR]%v gen castGroupSummary fail!\n", mtype)
-		return
-	}
-	if !p.IsMinerGroup(cgs.GroupID) { //检测当前节点是否在该铸块组
-		log.Printf("beingCastGroup failed, node not in this group.\n")
-		return
-	}
-	log.Printf("proc(%v) begin %v, group=%v, sender=%v, height=%v, qn=%v, castor=%v...\n", p.getPrefix(), mtype, GetIDPrefix(cgs.GroupID), GetIDPrefix(si.GetID()), bh.Height, bh.QueueNumber, GetIDPrefix(cgs.Castor))
-
-	//如果是自己发的, 不处理
-	if p.GetMinerID().IsEqual(si.SignMember) {
+	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
+		result = fmt.Sprintf("don't belong to group, gid=%v, hash=%v, id=%v", groupId.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
 
+	//castor要忽略自己的消息
+	if castor.IsEqual(p.GetMinerID()) && si.GetID().IsEqual(p.GetMinerID()) {
+		result = "ignore self message"
+		return
+	}
+
+	if msg.GenHash() != si.DataHash {
+		blog.debug("msg proveHash=%v", msg.ProveHash)
+		result = fmt.Sprintf("msg genHash %v diff from si.DataHash %v", msg.GenHash().ShortS(), si.DataHash.ShortS())
+		return
+	}
+
+	isProposal := castor.IsEqual(si.GetID())
+
+	if isProposal { //提案者
+		castorDO := p.minerReader.getProposeMiner(castor)
+		if castorDO == nil {
+			result = fmt.Sprintf("castorDO nil id=%v", castor.ShortS())
+			return
+		}
+		if !msg.VerifySign(castorDO.PK) {
+			result = "verify sign fail"
+			return
+		}
+	} else {
+		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
+		if !msg.VerifySign(pk) {
+			result = "verify sign fail"
+			return
+		}
+	}
 	if p.blockOnChain(bh) {
-		//log.Printf("%v receive block already onchain! , height = %v\n", mtype, bh.Height)
-		return
+		result = "block onchain already"
 	}
 
-	outputBlockHeaderAndSign(mtype, bh, si)
-
-	p.doVerify(mtype, msg, cgs)
+	if err := p.doVerify(mtype, msg, traceLog, blog); err != nil {
+		result = err.Error()
+	}
 
 	return
 }
@@ -203,33 +247,33 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
-	statistics.AddBlockLog(common.BootId,statistics.RcvCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,ccm.BH.CurTime.UnixNano())
+	statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
+		time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
 	p.verifyCastMessage("OMC", &ccm.ConsensusBlockMessageBase)
 }
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
-	statistics.AddBlockLog(common.BootId,statistics.RcvVerified,cvm.BH.Height,cvm.BH.QueueNumber,-1,-1,
-		time.Now().UnixNano(),"","",common.InstanceIndex,cvm.BH.CurTime.UnixNano())
+	statistics.AddBlockLog(common.BootId, statistics.RcvVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
+		time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
 	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
 }
 
-func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
-	if p.isCastGroupLegal(block.Header, preBH) { //铸块组合法
-		result := p.doAddOnChain(block)
-		if result == 0 || result == 1 {
-			return true
-		}
-	} else {
-		//丢弃该块
-		log.Printf("OMB received invalid new block, height = %v.\n", block.Header.Height)
-	}
-	return false
-}
+//func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {
+//	if ok, err := p.isCastLegal(block.Header, preBH); ok { //铸块组合法
+//		result := p.doAddOnChain(block)
+//		if result == 0 || result == 1 {
+//			return true
+//		}
+//	} else {
+//		//丢弃该块
+//		newBizLog("receiveBlock").log("received invalid new block, height=%v, err=%v", block.Header.Height, err.Error())
+//	}
+//	return false
+//}
 
 func (p *Processor) cleanVerifyContext(currentHeight uint64) {
-	p.blockContexts.forEach(func(bc *BlockContext) bool {
+	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
 		bc.CleanVerifyContext(currentHeight)
 		return true
 	})
@@ -237,84 +281,89 @@ func (p *Processor) cleanVerifyContext(currentHeight uint64) {
 
 //收到铸块上链消息(组外矿工节点处理)
 func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	bh := cbm.Block.Header
-	logStart("OMB", bh.Height, bh.QueueNumber, "", "castor=%v", GetIDPrefix(*groupsig.DeserializeId(bh.Castor)))
-	result := ""
-	defer func() {
-		logHalfway("OMB", bh.Height, bh.QueueNumber, "", "OMB result %v", result)
-		logEnd("OMB", bh.Height, bh.QueueNumber, "")
-	}()
+	//statistics.AddBlockLog(common.BootId,statistics.RcvNewBlock,cbm.Block.Header.Height,cbm.Block.Header.ProveValue.Uint64(),len(cbm.Block.Transactions),-1,
+	//	time.Now().UnixNano(),"","",common.InstanceIndex,cbm.Block.Header.CurTime.UnixNano())
+	//bh := cbm.Block.Header
+	//blog := newBizLog("OMB")
+	//tlog := newHashTraceLog("OMB", bh.Hash, groupsig.DeserializeId(bh.Castor))
+	//tlog.logStart("height=%v, preHash=%v", bh.Height, bh.PreHash.ShortS())
+	//result := ""
+	//defer func() {
+	//	tlog.logEnd("height=%v, preHash=%v, result=%v", bh.Height, bh.PreHash.ShortS(), result)
+	//}()
+	//
+	//if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
+	//	//blog.log("OMB receive block already on chain! bh=%v", p.blockPreview(cbm.Block.Header))
+	//	result = "已经在链上"
+	//	return
+	//}
+	//var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
+	//
+	//blog.log("proc(%v) begin OMB, group=%v, height=%v, hash=%v...", p.getPrefix(),
+	//	gid.ShortS(), cbm.Block.Header.Height, bh.Hash.ShortS())
+	//
+	//block := &cbm.Block
+	//
+	//preHeader := p.MainChain.GetTraceHeader(block.Header.PreHash.Bytes())
+	//if preHeader == nil {
+	//	p.addFutureBlockMsg(cbm)
+	//	result = "父块未到达"
+	//	return
+	//}
+	////panic("isBHCastLegal: cannot find pre block header!,ignore block")
+	//verify := p.verifyGroupSign(cbm, preHeader)
+	//if !verify {
+	//	result = "组签名未通过"
+	//	blog.log("OMB verifyGroupSign result=%v.", verify)
+	//	return
+	//}
+	//
+	//ret := p.receiveBlock(block, preHeader)
+	//if ret {
+	//	result = "上链成功"
+	//} else {
+	//	result = "上链失败"
+	//}
 
-	if p.getBlockHeaderByHash(cbm.Block.Header.Hash) != nil {
-		//log.Printf("OMB receive block already on chain! bh=%v\n", p.blockPreview(cbm.Block.Header))
-		result = "已经在链上"
-		return
-	}
-	var gid = groupsig.DeserializeId(cbm.Block.Header.GroupId)
-	if gid == nil {
-		panic("OMB Deserialize group_id failed")
-	}
-	log.Printf("proc(%v) begin OMB, group=%v(bh gid=%v), height=%v, qn=%v...\n", p.getPrefix(),
-		GetIDPrefix(*gid), GetIDPrefix(*gid), cbm.Block.Header.Height, cbm.Block.Header.QueueNumber)
-
-	block := &cbm.Block
-
-	preHeader := p.MainChain.QueryBlockByHash(block.Header.PreHash)
-	if preHeader == nil {
-		p.addFutureBlockMsg(cbm)
-		result = "父块未到达"
-		return
-	}
-	//panic("isBHCastLegal: cannot find pre block header!,ignore block")
-	verify := p.verifyGroupSign(cbm, preHeader)
-	if !verify {
-		result = "组签名未通过"
-		log.Printf("OMB verifyGroupSign result=%v.\n", verify)
-		return
-	}
-
-	ret := p.receiveBlock(block, preHeader)
-	if ret {
-		result = "上链成功"
-	} else {
-		result = "上链失败"
-	}
-
-	//log.Printf("proc(%v) end OMB, group=%v, sender=%v...\n", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
+	//blog.log("proc(%v) end OMB, group=%v, sender=%v...", p.getPrefix(), GetIDPrefix(cbm.GroupID), GetIDPrefix(cbm.SI.GetID()))
 	return
 }
 
 //新的交易到达通知（用于处理大臣验证消息时缺失的交易）
 func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
-	begin := time.Now()
 	mtype := "OMNT"
-	logStart(mtype, 0, 0, "", "count=%v,txHash[0]=%v", len(ths), GetHashPrefix(ths[0]))
-	defer func() {
-		log.Printf("%v begin at %v, cost %v\n", mtype, begin.String(), time.Since(begin).String())
-		logEnd(mtype, 0, 0, "")
-	}()
+	blog := newBizLog(mtype)
 
-	log.Printf("proc(%v) begin %v, trans count=%v...\n", p.getPrefix(),mtype, len(ths))
+	txstrings := make([]string, len(ths))
+	for idx, tx := range ths {
+		txstrings[idx] = tx.ShortS()
+	}
 
-	p.blockContexts.forEach(func(bc *BlockContext) bool {
+	blog.debug("proc(%v) begin %v, trans count=%v %v...", p.getPrefix(),mtype, len(ths), txstrings)
+
+	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
 		for _, vctx := range bc.SafeGetVerifyContexts() {
 			for _, slot := range vctx.GetSlots() {
 				acceptRet := vctx.AcceptTrans(slot, ths)
+				tlog := newHashTraceLog(mtype, slot.BH.Hash, groupsig.ID{})
 				switch acceptRet {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
 
 				case TRANS_ACCEPT_NOT_FULL:
-					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), slot.lostTransSize())
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					tlog.log("preHash=%v, height=%v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), slot.lostTransSize())
 
 				case TRANS_ACCEPT_FULL_PIECE:
-					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v, 当前分片数%v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet), slot.MessageSize())
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					tlog.log("preHash=%v, height=%v %v, 当前分片数%v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet), slot.MessageSize())
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
-					log.Printf("OMNT accept trans bh=%v, ret %v\n", p.blockPreview(&slot.BH), acceptRet)
-					logHalfway(mtype, slot.BH.Height, slot.BH.QueueNumber, p.getPrefix(), "preHash %v, %v", GetHashPrefix(slot.BH.PreHash), TRANS_ACCEPT_RESULT_DESC(acceptRet))
-					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.Gid, vctx, slot)
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					tlog.log("preHash=%v, height=%v, %v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet))
+					if len(slot.BH.Signature) == 0 {
+						blog.log("slot bh sign is empty hash=%v", slot.BH.Hash.ShortS())
+					}
+					p.thresholdPieceVerify(mtype, p.getPrefix(), bc.MinerID.Gid, vctx, slot, tlog)
 				}
 
 			}
@@ -330,34 +379,28 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 //组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
 
 func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
-	log.Printf("proc(%v) begin OMGI, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()), GetIDPrefix(grm.GI.DummyID))
-	rt := newRtLog("OMGI")
-	defer func() {
-		rt.log("sender=%v", GetIDPrefix(grm.SI.GetID()))
-	}()
+	blog := newBizLog("OMGI")
+	gHash := grm.GInfo.GroupHash()
+	gis := &grm.GInfo.GI
+	gh := gis.GHeader
 
-	if !grm.GI.CheckMemberHash(grm.MEMS) {
-		panic("grm member hash diff!")
-	}
-	if grm.SI.DataHash != grm.GI.GenHash() {
+	blog.log("proc(%v) begin, sender=%v, gHash=%v...", p.getPrefix(), grm.SI.GetID().ShortS(), gHash.ShortS())
+	tlog := newHashTraceLog("OMGI", gHash, grm.SI.GetID())
+
+	if grm.SI.DataHash != grm.GenHash() || gh.Hash != gh.GenHash() {
 		panic("grm gis hash diff")
 	}
-	parentGroup := p.getGroup(grm.GI.ParentID)
-	if !parentGroup.CastQualified(grm.GI.TopHeight) {
-		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), grm.GI.TopHeight)
-		return
-	}
+
 	topHeight := p.MainChain.QueryTopBlock().Height
-	if grm.GI.ReadyTimeout(topHeight) {
-		log.Printf("OMGI ready timeout, readyHeight=%v, now=%v", grm.GI.GetReadyHeight, topHeight)
-		return
-	}
-	gpk := parentGroup.GroupPK
-	if !groupsig.VerifySig(gpk, grm.SI.DataHash.Bytes(), grm.GI.Signature) {
-		log.Printf("OMGI verify parent groupsig fail!\n")
+	if gis.ReadyTimeout(topHeight) {
+		blog.debug("OMGI ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
 		return
 	}
 
+	if ok, err := p.CheckGroupHeader(gh, gis.Signature); !ok {
+		blog.debug("group header illegal, err=%v", err)
+		return
+	}
 
 	if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
 		//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -366,7 +409,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 		//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
 	}
 
-	logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "%v", "")
+	tlog.logStart("%v", "")
 
 	//非组内成员不走后续流程
 	if !grm.MemberExist(p.GetMinerID()) {
@@ -380,24 +423,19 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 	}
 
 	//提前建立组网络
-	members := make([]groupsig.ID,0)
-	for _,m := range grm.MEMS{
-		members = append(members,m.ID)
-	}
-	p.NetServer.BuildGroupNet(grm.GI.DummyID, members)
+	p.NetServer.BuildGroupNet(gHash.Hex(), grm.GInfo.Mems)
 
 	gs := groupContext.GetGroupStatus()
-	log.Printf("OMGI joining group(%v) status=%v.\n", GetIDPrefix(grm.GI.DummyID), gs)
+	blog.debug("joining group(%v) status=%v.", gHash.ShortS(), gs)
 	if gs == GIS_RAW {
-		//log.Printf("begin GenSharePieces in OMGI...\n")
+		//blog.log("begin GenSharePieces in OMGI...")
 		shares := groupContext.GenSharePieces() //生成秘密分享
-		//log.Printf("proc(%v) end GenSharePieces in OMGI, piece size=%v.\n", p.getPrefix(), len(shares))
+		//blog.log("proc(%v) end GenSharePieces in OMGI, piece size=%v.", p.getPrefix(), len(shares))
 
 		spm := &model.ConsensusSharePieceMessage{
-			GISHash: grm.GI.GenHash(),
-			DummyID: grm.GI.DummyID,
+			GHash: gHash,
 		}
-		ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
+		ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 		spm.SI.SignMember = p.GetMinerID()
 
 		for id, piece := range shares {
@@ -405,99 +443,93 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
 				spm.GenSign(ski, spm)
-				//log.Printf("OMGI spm.GenSign result=%v.\n", sb)
-				log.Printf("OMGI piece to ID(%v), dummyId=%v, share=%v, pub=%v.\n", GetIDPrefix(spm.Dest), GetIDPrefix(spm.DummyID), GetSecKeyPrefix(spm.Share.Share), GetPubKeyPrefix(spm.Share.Pub))
-				logKeyword("OMGI", GetIDPrefix(grm.GI.DummyID), GetIDPrefix(grm.SI.SignMember), "sharepiece to %v", GetIDPrefix(spm.Dest))
-				if !PROC_TEST_MODE {
-					log.Printf("call network service SendKeySharePiece...\n")
-					p.NetServer.SendKeySharePiece(spm)
-				} else {
-					log.Printf("test mode, call OMSP direct...\n")
-					destProc, ok := p.GroupProcs[spm.Dest.GetHexString()]
-					if ok {
-						destProc.OnMessageSharePiece(spm)
-					} else {
-						panic("ERROR, dest proc not found!\n")
-					}
-				}
+				//blog.log("OMGI spm.GenSign result=%v.", sb)
+				blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
+				tlog.log("sharepiece to %v", spm.Dest.ShortS())
+				blog.debug("call network service SendKeySharePiece...")
+				p.NetServer.SendKeySharePiece(spm)
 
 			} else {
-				panic("GenSharePieces data not IsValid.\n")
+				panic("GenSharePieces data not IsValid.")
 			}
 		}
-		//log.Printf("end GenSharePieces.\n")
-	} else {
-		log.Printf("group(%v) status=%v, ignore init message.\n", GetIDPrefix(grm.GI.DummyID), gs)
+		//blog.log("end GenSharePieces.")
 	}
 
-	//log.Printf("proc(%v) end OMGI, sender=%v.\n", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
+	//blog.log("proc(%v) end OMGI, sender=%v.", p.getPrefix(), GetIDPrefix(grm.SI.GetID()))
 	return
 }
 
 //收到组内成员发给我的秘密分享片段消息
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
-	log.Printf("proc(%v)begin Processor::OMSP, sender=%v, dummyId=%v...\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()), GetIDPrefix(spm.DummyID))
-	rt := newRtLog("OMSP")
-	defer func() {
-		rt.log("sender=%v", GetIDPrefix(spm.SI.GetID()))
-	}()
+	blog := newBizLog("OMSP")
+	gHash := spm.GHash
+
+	blog.log("proc(%v)begin Processor::OMSP, sender=%v, gHash=%v...", p.getPrefix(), spm.SI.GetID().ShortS(), gHash.ShortS())
+	tlog := newHashTraceLog("OMSP", gHash, spm.SI.GetID())
+
 	if !spm.Dest.IsEqual(p.GetMinerID()) {
 		return
 	}
 
-	gc := p.joiningGroups.GetGroup(spm.DummyID)
+	gc := p.joiningGroups.GetGroup(gHash)
 	if gc == nil {
-		log.Printf("OMSP failed, receive SHAREPIECE msg but gc=nil.\n")
+		blog.debug("failed, receive SHAREPIECE msg but gc=nil.")
 		return
 	}
-	if gc.gis.GenHash() != spm.GISHash {
-		log.Printf("OMSP failed, gisHash diff.\n")
+	if gc.gInfo.GroupHash() != spm.GHash {
+		blog.debug("failed, gisHash diff.")
 		return
 	}
+
+	pk := GetMinerPK(spm.SI.GetID())
+	if pk == nil {
+		blog.debug("miner pk is nil, id=%v", spm.SI.GetID().ShortS())
+		return
+	}
+	if !spm.VerifySign(*pk) {
+		blog.debug("miner sign verify fail")
+		return
+	}
+
+	gh := gc.gInfo.GI.GHeader
+
 	topHeight := p.MainChain.QueryTopBlock().Height
-	if gc.gis.ReadyTimeout(topHeight) {
-		log.Printf("OMSP ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
+	if gc.gInfo.GI.ReadyTimeout(topHeight) {
+		blog.debug("ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
 		return
 	}
 
 	result := gc.PieceMessage(spm)
-	log.Printf("proc(%v) OMSP after gc.PieceMessage, gc result=%v.\n", p.getPrefix(), result)
+	blog.log("proc(%v) after gc.PieceMessage, gc result=%v.", p.getPrefix(), result)
 
-	logKeyword("OMSP", GetIDPrefix(spm.DummyID), GetIDPrefix(spm.SI.SignMember), "收到piece数 %v", gc.node.groupInitPool.GetSize())
+	tlog.log("收到piece数 %v", gc.node.groupInitPool.GetSize())
 
 	if result == 1 { //已聚合出签名私钥
 		jg := gc.GetGroupInfo()
 		//这时还没有所有组成员的签名公钥
 		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
-			log.Printf("OMSP SUCCESS gen sign sec key and group pub key, msk=%v, gpk=%v.\n", GetSecKeyPrefix(jg.SignKey), GetPubKeyPrefix(jg.GroupPK))
 			{
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 				msg := &model.ConsensusSignPubKeyMessage{
-					GISHash: spm.GISHash,
-					DummyID: spm.DummyID,
+					GHash: spm.GHash,
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
 				}
 
 				//对GISHash做自己的签名
-				msg.GenGISSign(jg.SignKey)
-				if !msg.VerifyGISSign(msg.SignPK) {
-					panic("verify GISSign with group member sign pub key failed.")
+				msg.GenGSign(jg.SignKey)
+				if !msg.VerifyGSign(msg.SignPK) {
+					panic("verify GSign with group member sign pub key failed.")
 				}
 
 				msg.GenSign(ski, msg)
 				//todo : 组内广播签名公钥
-				log.Printf("OMSP send sign pub key to group members, spk=%v...\n", GetPubKeyPrefix(msg.SignPK))
-				logKeyword("OMSP", GetIDPrefix(spm.DummyID), GetIDPrefix(spm.SI.SignMember), "SendSignPubKey %v", p.getPrefix())
+				blog.debug("send sign pub key to group members, spk=%v...", msg.SignPK.ShortS())
+				tlog.log("SendSignPubKey %v", p.getPrefix())
 
-				if !PROC_TEST_MODE {
-					log.Printf("OMSP call network service SendSignPubKey...\n")
-					p.NetServer.SendSignPubKey(msg)
-				} else {
-					log.Printf("test mode, call OnMessageSignPK direct...\n")
-					for _, proc := range p.GroupProcs {
-						proc.OnMessageSignPK(msg)
-					}
-				}
+				blog.debug("call network service SendSignPubKey...")
+				p.NetServer.SendSignPubKey(msg)
+
 			}
 
 		} else {
@@ -505,90 +537,94 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		}
 	}
 
-	//log.Printf("prov(%v) end OMSP, sender=%v.\n", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
+	//blog.log("prov(%v) end OMSP, sender=%v.", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
 
 //收到组内成员发给我的组成员签名公钥消息
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
-	log.Printf("proc(%v) begin OMSPK, sender=%v, dummy_gid=%v...\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
-	rt := newRtLog("OMSPK")
-	defer func() {
-		rt.log("sender=%v", GetIDPrefix(spkm.SI.GetID()))
-	}()
-	gc := p.joiningGroups.GetGroup(spkm.DummyID)
+	blog := newBizLog("OMSPK")
+	tlog := newHashTraceLog("OMSPK", spkm.GHash, spkm.SI.GetID())
+
+	blog.log("proc(%v) begin , sender=%v, gHash=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS())
+
+	gc := p.joiningGroups.GetGroup(spkm.GHash)
 	if gc == nil {
-		log.Printf("OMSPK failed, local node not found joining group with dummy id=%v.\n", GetIDPrefix(spkm.DummyID))
+		blog.debug("failed, local node not found joining group with dummy id=%v.", spkm.GHash.ShortS())
 		return
 	}
-	if gc.gis.GenHash() != spkm.GISHash {
-		log.Printf("OMSPK failed, gisHash diff.\n")
+	if spkm.GenHash() != spkm.SI.DataHash {
+		blog.log("spkm hash diff")
 		return
 	}
-	if !spkm.VerifyGISSign(spkm.SignPK) {
-		panic("OMSP verify GISSign with sign pub key failed.")
+	if gc.gInfo.GI.GHeader.GenHash() != spkm.GHash {
+		blog.log("failed, gisHash diff.")
+		return
+	}
+	pk := GetMinerPK(spkm.SI.GetID())
+	if pk == nil {
+		blog.log("miner pk is nil, id=%v", spkm.SI.GetID().ShortS())
+		return
+	}
+	if !spkm.VerifySign(*pk) {
+		blog.log("miner sign verify fail")
+		return
+	}
+	if !spkm.VerifyGSign(spkm.SignPK) {
+		panic("OMSP verify GSign with sign pub key failed.")
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
-	if gc.gis.ReadyTimeout(topHeight) {
-		log.Printf("OMSPK ready timeout, readyHeight=%v, now=%v", gc.gis.GetReadyHeight, topHeight)
+	if gc.gInfo.GI.ReadyTimeout(topHeight) {
+		blog.log("ready timeout, readyHeight=%v, now=%v", gc.gInfo.GI.GHeader.ReadyHeight, topHeight)
 		return
 	}
 
-	//log.Printf("before SignPKMessage already exist mem sign pks=%v.\n", len(gc.node.memberPubKeys))
+	//blog.log("before SignPKMessage already exist mem sign pks=%v.", len(gc.node.memberPubKeys))
 	result := gc.SignPKMessage(spkm)
-	log.Printf("after SignPKMessage exist mem sign pks=%v, result=%v.\n", len(gc.node.memberPubKeys), result)
+	blog.log("after SignPKMessage exist mem sign pks=%v, result=%v.", len(gc.node.memberPubKeys), result)
 
-	logKeyword("OMSPK", GetIDPrefix(spkm.DummyID), GetIDPrefix(spkm.SI.SignMember), "收到签名公钥数 %v", len(gc.node.memberPubKeys))
+	tlog.log("收到签名公钥数 %v", len(gc.node.memberPubKeys))
 
 	if result == 1 { //收到所有组成员的签名公钥
 		jg := gc.GetGroupInfo()
 
-		jg.setGroupSecretHeight(p.MainChain.QueryTopBlock().Height)
-
 		if jg.GroupID.IsValid() && jg.SignKey.IsValid() {
 			p.joinGroup(jg, true)
-			log.Printf("SUCCESS INIT GROUP: gid=%v, gpk=%v.\n", GetIDPrefix(jg.GroupID), GetPubKeyPrefix(jg.GroupPK))
 			{
-				var msg model.ConsensusGroupInitedMessage
-				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
-				msg.GI.GIS = gc.gis
-				msg.GI.GroupID = jg.GroupID
-				msg.GI.GroupPK = jg.GroupPK
-
-				msg.GenSign(ski, &msg)
-
-				logKeyword("OMSPK", GetIDPrefix(spkm.DummyID), GetIDPrefix(spkm.SI.SignMember), "BroadcastGroupInfo %v", GetIDPrefix(jg.GroupID))
-
-				if !PROC_TEST_MODE {
-
-					log.Printf("call network service BroadcastGroupInfo...\n")
-					p.NetServer.BroadcastGroupInfo(&msg)
-				} else {
-					log.Printf("test mode, call OnMessageGroupInited direct...\n")
-					for _, proc := range p.GroupProcs {
-						proc.OnMessageGroupInited(&msg)
-					}
+				msg := &model.ConsensusGroupInitedMessage{
+					GHash: spkm.GHash,
+					GroupPK: jg.GroupPK,
+					GroupID: jg.GroupID,
 				}
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
+
+				msg.GenSign(ski, msg)
+
+				tlog.log("BroadcastGroupInfo %v", jg.GroupID.ShortS())
+
+				blog.debug("call network service BroadcastGroupInfo...")
+				p.NetServer.BroadcastGroupInfo(msg)
 			}
 		} else {
 			panic("Processor::OnMessageSharePiece failed, aggr key error.")
 		}
-		p.joiningGroups.RemoveGroup(spkm.DummyID)
+		p.joiningGroups.RemoveGroup(spkm.GHash)
 	}
 
-	//log.Printf("proc(%v) end OMSPK, sender=%v, dummy gid=%v.\n", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
+	//blog.log("proc(%v) end OMSPK, sender=%v, dummy gid=%v.", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
 
 func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	add := p.globalGroups.AddStaticGroup(staticGroup)
-	log.Printf("Add to Global static groups, result=%v, groups=%v.\n", add, p.globalGroups.GetGroupSize())
+	blog := newBizLog("acceptGroup")
+	blog.debug("Add to Global static groups, result=%v, groups=%v.", add, p.globalGroups.GetGroupSize())
 	if staticGroup.MemExist(p.GetMinerID()) {
 		jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
 		if jg != nil {
 			p.prepareForCast(staticGroup)
 		} else {
-			log.Printf("[ERROR]cannot find joined group info, gid=%v\n", GetIDPrefix(staticGroup.GroupID))
+			blog.log("[ERROR]cannot find joined group info, gid=%v", staticGroup.GroupID.ShortS())
 		}
 	}
 }
@@ -597,155 +633,346 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 //最终版本修改为父亲节点进行验证（51%）和上链
 //全网节点处理函数->to do : 调整为父亲组节点处理函数
 func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage) {
-	log.Printf("proc(%v) begin OMGIED, sender=%v, dummy_gid=%v, gid=%v, gpk=%v...\n", p.getPrefix(),
-		GetIDPrefix(gim.SI.GetID()), GetIDPrefix(gim.GI.GIS.DummyID), GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK))
-	rt := newRtLog("OMGIED")
-	defer func() {
-		rt.log("sender=%v", GetIDPrefix(gim.SI.GetID()))
-	}()
-	dummyId := gim.GI.GIS.DummyID
+	blog := newBizLog("OMGIED")
+	gHash := gim.GHash
 
+	blog.log("proc(%v) begin, sender=%v, gHash=%v, gid=%v, gpk=%v...", p.getPrefix(),
+		gim.SI.GetID().ShortS(), gHash.ShortS(), gim.GroupID.ShortS(), gim.GroupPK.ShortS())
+	tlog := newHashTraceLog("OMGIED", gHash, gim.SI.GetID())
 
-	if gim.SI.DataHash != gim.GI.GenHash() {
+	if gim.SI.DataHash != gim.GenHash() {
 		panic("grm gis hash diff")
 	}
-	parentGroup := p.getGroup(gim.GI.GIS.ParentID)
-	if !parentGroup.CastQualified(gim.GI.GIS.TopHeight) {
-		log.Printf("OMGI parent group has no qualify to cast group. gid=%v, height=%v\n", GetIDPrefix(parentGroup.GroupID), gim.GI.GIS.TopHeight)
-		return
-	}
-	gpk := parentGroup.GroupPK
-	if !groupsig.VerifySig(gpk, gim.GI.GIS.GenHash().Bytes(), gim.GI.GIS.Signature) {
-		log.Printf("OMGIED verify parent groupsig fail! dummyId=%v\n", GetIDPrefix(dummyId))
+	initingGroup := p.globalGroups.GetInitingGroup(gHash)
+	if initingGroup == nil {
+		blog.log("initingGroup not found!gHash=%v", gHash.ShortS())
 		return
 	}
 	topHeight := p.MainChain.QueryTopBlock().Height
-	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
-	if initingGroup == nil {
-		log.Printf("initingGroup not found!dummyId=%v\n", GetIDPrefix(dummyId))
+	if initingGroup.ReadyTimeout(topHeight) {
+		blog.log("ready timeout, readyHeight=%v, now=%v", initingGroup.gInfo.GI.GHeader.ReadyHeight, topHeight)
 		return
 	}
-	if initingGroup.gis.ReadyTimeout(topHeight) {
-		log.Printf("OMGIED ready timeout, readyHeight=%v, now=%v", initingGroup.gis.GetReadyHeight, topHeight)
+
+	gis := &initingGroup.gInfo.GI
+
+	parentGroup := p.GetGroup(gis.ParentID())
+
+	gpk := parentGroup.GroupPK
+	if !groupsig.VerifySig(gpk, gis.GetHash().Bytes(), gis.Signature) {
+		blog.log("verify parent groupsig fail! gHash=%v", gHash.ShortS())
 		return
 	}
 	if !initingGroup.MemberExist(gim.SI.SignMember) {
 		return
 	}
-
-	if initingGroup.gis.GenHash() != gim.GI.GIS.GenHash() {
-		log.Printf("gisHash diff from initingGroup, dummyId=%v\n", GetIDPrefix(dummyId))
-		return
-	}
-	if !gim.GI.GIS.CheckMemberHash(initingGroup.mems) {
-		panic("gim member hash diff!")
-	}
+	//上链前检查
+	//if ok, err := p.groupManager.isGroupHeaderLegal(gis.GHeader); !ok {
+	//	blog.log("group header illegal, gHash=%v, err=%v", gHash.ShortS(), err)
+	//	return
+	//}
 
 	var result int32
 	if !initingGroup.MemberExist(p.GetMinerID()) {
-		result = p.globalGroups.GroupInitedMessage(&gim.GI, gim.SI.SignMember, topHeight)
+		result = p.globalGroups.GroupInitedMessage(gim, topHeight)
 
-		log.Printf("proc(%v) OMGIED globalGroups.GroupInitedMessage result=%v.\n", p.getPrefix(), result)
-		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "收到消息数量 %v", initingGroup.receiveSize())
+		blog.debug("proc(%v) globalGroups.GroupInitedMessage result=%v.", p.getPrefix(), result)
+		tlog.log("收到消息数量 %v", initingGroup.receiveSize())
 	} else {
 		result = INIT_SUCCESS
+		tlog.log("组内成员，收到组初始化完成消息")
 	}
 
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
-		staticGroup := NewSGIFromStaticGroupSummary(&gim.GI, initingGroup)
-		log.Printf("OMGIED SUCCESS accept a new group, gid=%v, gpk=%v, beginHeight=%v, dismissHeight=%v.\n", GetIDPrefix(gim.GI.GroupID), GetPubKeyPrefix(gim.GI.GroupPK), staticGroup.BeginHeight, staticGroup.DismissHeight)
+		staticGroup := NewSGIFromStaticGroupSummary(gim.GroupID, gim.GroupPK, initingGroup)
+		gh := staticGroup.getGroupHeader()
+		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), gim.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
 
 		//p.acceptGroup(staticGroup)
-		p.groupManager.AddGroupOnChain(staticGroup, false)
-		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "组上链 id=%v", GetIDPrefix(staticGroup.GroupID))
+		p.groupManager.AddGroupOnChain(staticGroup)
 
-		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
+		p.globalGroups.removeInitingGroup(gHash)
 
 	case INIT_FAIL: //该组初始化异常，且无法恢复
-		logKeyword("OMGIED", GetIDPrefix(initingGroup.gis.DummyID), GetIDPrefix(gim.SI.SignMember), "初始化失败")
-		p.globalGroups.removeInitingGroup(initingGroup.gis.DummyID)
+		tlog.log("初始化失败")
+		p.globalGroups.removeInitingGroup(gHash)
 
 	case INITING:
 		//继续等待下一包数据
 	}
-	//log.Printf("proc(%v) end OMGIED, sender=%v...\n", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
+	//blog.log("proc(%v) end OMGIED, sender=%v...", p.getPrefix(), GetIDPrefix(gim.SI.GetID()))
 	return
 }
 
-
-func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)  {
-	log.Printf("Proc(%v) OMCGR begin, dummyId=%v sender=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
+	blog := newBizLog("OMCRG")
+	gh := msg.GInfo.GI.GHeader
+	blog.log("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
 
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
-	gpk := p.GetMemberSignPubKey(model.NewGroupMinerID(msg.GI.ParentID, msg.SI.SignMember))
+	parentGid := msg.GInfo.GI.ParentID()
+
+	gpk := p.GetMemberSignPubKey(model.NewGroupMinerID(parentGid, msg.SI.SignMember))
 	if !gpk.IsValid() {
 		return
 	}
 	if !msg.SI.VerifySign(gpk) {
 		return
 	}
+	if gh.Hash != gh.GenHash() || gh.Hash != msg.SI.DataHash {
+		blog.log("hash diff expect %v, receive %v", gh.GenHash().ShortS(), gh.Hash.ShortS())
+		return
+	}
+
+	tlog := newHashTraceLog("OMCGR", gh.Hash, msg.SI.GetID())
 	if p.groupManager.OnMessageCreateGroupRaw(msg) {
 		signMsg := &model.ConsensusCreateGroupSignMessage{
-			GI: msg.GI,
 			Launcher: msg.SI.SignMember,
+			GHash: gh.Hash,
 		}
-		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(msg.GI.ParentID)), signMsg)
-		logKeyword("OMCGR", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "SendCreateGroupSignMessage id=%v", p.getPrefix())
-		log.Printf("OMCGR SendCreateGroupSignMessage... ")
-		p.NetServer.SendCreateGroupSignMessage(signMsg)
+		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(parentGid)), signMsg)
+
+		tlog.log("SendCreateGroupSignMessage id=%v", p.getPrefix())
+		blog.debug("OMCGR SendCreateGroupSignMessage... ")
+		p.NetServer.SendCreateGroupSignMessage(signMsg, parentGid)
 	} else {
-		logKeyword("OMCGR", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "groupManager.OnMessageCreateGroupRaw fail")
+		tlog.log("groupManager.OnMessageCreateGroupRaw fail")
 
 	}
 }
 
-func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)  {
-	log.Printf("Proc(%v) OMCGS begin, dummyId=%v, sender=%v\n", p.getPrefix(), GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember))
+func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) {
+	blog := newBizLog("OMCGS")
+
+	blog.log("Proc(%v) begin, gHash=%v, sender=%v", p.getPrefix(), msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
-	mpk := p.GetMemberSignPubKey(model.NewGroupMinerID(msg.GI.ParentID, msg.SI.SignMember))
+
+	if msg.GenHash() != msg.SI.DataHash {
+		blog.log("hash diff")
+		return
+	}
+	creating := p.groupManager.creatingGroups.getCreatingGroup(msg.GHash)
+	if creating == nil {
+		blog.log("get creating group nil!gHash=%v", msg.GHash.ShortS())
+		return
+	}
+
+	parentGid := creating.gInfo.GI.ParentID()
+
+	mpk := p.GetMemberSignPubKey(model.NewGroupMinerID(parentGid, msg.SI.SignMember))
 	if !mpk.IsValid() {
 		return
 	}
-	if !msg.SI.VerifySign(mpk) {
+	if !msg.VerifySign(mpk) {
 		return
 	}
-	if p.groupManager.OnMessageCreateGroupSign(msg) {
-		creatingGroup := p.groupManager.creatingGroups.getCreatingGroup(msg.GI.DummyID)
-		if creatingGroup == nil {
-			log.Printf("Proc(%v) OMCGS creatingGroup not found!dummyId=%v", p.getPrefix(), GetIDPrefix(msg.GI.DummyID))
+	if p.groupManager.OnMessageCreateGroupSign(msg, creating) {
+		gpk := p.getGroupPubKey(parentGid)
+		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), creating.gInfo.GI.Signature) {
+			blog.log("Proc(%v) verify group sign fail", p.getPrefix())
 			return
-		}
-		gpk := p.getGroupPubKey(msg.GI.ParentID)
-		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), msg.GI.Signature) {
-			log.Printf("Proc(%v) OMCGS verify group sign fail\n", p.getPrefix())
-			return
-		}
-		mems := make([]model.PubKeyInfo, len(creatingGroup.ids))
-		pubkeys := p.groupManager.getPubkeysByIds(creatingGroup.ids)
-		if len(pubkeys) != len(creatingGroup.ids) {
-			panic("get all pubkey failed")
-		}
-
-
-		for i, id := range creatingGroup.ids {
-			mems[i] = model.NewPubKeyInfo(id, pubkeys[i])
 		}
 		initMsg := &model.ConsensusGroupRawMessage{
-			GI: msg.GI,
-			MEMS: mems,
+			GInfo:   *creating.gInfo,
 		}
 
-		log.Printf("Proc(%v) OMCGS send group init Message\n", p.getPrefix())
+		blog.debug("Proc(%v) send group init Message", p.getPrefix())
 		initMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey()), initMsg)
 
-		logKeyword("OMCGS", GetIDPrefix(msg.GI.DummyID), GetIDPrefix(msg.SI.SignMember), "SendGroupInitMessage")
+		tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
+		tlog.log("SendGroupInitMessage")
 		p.NetServer.SendGroupInitMessage(initMsg)
 
-		p.groupManager.removeCreatingGroup(msg.GI.DummyID)
+		p.groupManager.removeCreatingGroup(msg.GHash)
+	}
+}
+
+func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader) (send bool, err error) {
+	gid := groupsig.DeserializeId(bh.GroupId)
+	group := p.GetGroup(gid)
+	reward := &msg.Reward
+	if group == nil {
+		panic("group is nil")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))) {
+		err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
+		return
+	}
+
+	if !bytes.Equal(bh.GroupId, reward.GroupId) {
+		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
+		return
+	}
+	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
+	if genBonus.TxHash != reward.TxHash {
+		err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
+		return
+	}
+
+	bc := p.GetBlockContext(gid)
+	if bc == nil {
+		err = fmt.Errorf("blockcontext is nil, gid=%v", gid.ShortS())
+		return
+	}
+	vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
+		err = fmt.Errorf("vctx is nil")
+		return
+	}
+
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		err = fmt.Errorf("slot is nil")
+		return
+	}
+	if slot.IsRewardSent() { //已发送过分红交易，不再为此签名
+		err = fmt.Errorf("alreayd sent reward trans")
+		return
+	}
+
+	if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
+		err = fmt.Errorf("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
+		return
+	}
+
+	gSignGener := model.NewGroupSignGenerator(bc.threshold())
+
+	witnesses := slot.gSignGenerator.GetWitnesses()
+	for idx, idIndex := range msg.Reward.TargetIds {
+		id := group.GetMemberID(int(idIndex))
+		sign := msg.SignedPieces[idx]
+		if sig, ok := witnesses[id.GetHexString()]; !ok { //本地无该id签名的，需要校验签名
+			pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
+			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
+				err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())
+				return
+			}
+		} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
+			if !sign.IsEqual(sig) {
+				err = fmt.Errorf("member sign different id=%v", id.ShortS())
+				return
+			}
+		}
+		gSignGener.AddWitness(id, sign)
+	}
+	if !gSignGener.Recovered() {
+		err = fmt.Errorf("recover group sign fail")
+		return
+	}
+	bhSign := groupsig.DeserializeSign(bh.Signature)
+	if !gSignGener.GetGroupSign().IsEqual(*bhSign) {
+		err = fmt.Errorf("recovered sign differ from bh sign, recover %v, bh %v", gSignGener.GetGroupSign().ShortS(), bhSign.ShortS())
+		return
+	}
+
+	send = true
+	//自己签名
+	signMsg := &model.CastRewardTransSignMessage{
+		ReqHash:   reward.TxHash,
+		BlockHash: reward.BlockHash,
+		GroupID:   gid,
+		Launcher:  msg.SI.GetID(),
+	}
+	signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), signMsg)
+	p.NetServer.SendCastRewardSign(signMsg)
+	return
+}
+
+func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
+	mtype := "OMCRSR"
+	blog := newBizLog(mtype)
+	reward := &msg.Reward
+	tlog := newHashTraceLog("OMCRSR", reward.BlockHash, msg.SI.GetID())
+	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
+	tlog.logStart("txHash=%v", reward.TxHash.ShortS())
+
+	var (
+		send bool
+		err  error
+	)
+
+	defer func() {
+		tlog.logEnd("%v %v", send, err)
+		blog.log("blockHash=%v, result=%v %v", reward.BlockHash.ShortS(), send, err)
+	}()
+
+	//此时块不一定在链上
+	bh := p.getBlockHeaderByHash(reward.BlockHash)
+	if bh == nil {
+		err = fmt.Errorf("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
+		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
+		return
+	}
+
+	send, err = p.signCastRewardReq(msg, bh)
+	return
+}
+
+// 收到分红奖励消息
+func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {
+	mtype := "OMCRS"
+	blog := newBizLog(mtype)
+
+	blog.log("begin, sender=%v, reqHash=%v", msg.SI.GetID().ShortS(), msg.ReqHash.ShortS())
+	tlog := newHashTraceLog(mtype, msg.BlockHash, msg.SI.GetID())
+
+	tlog.logStart("txHash=%v", msg.ReqHash.ShortS())
+
+	var (
+		send bool
+		err  error
+	)
+
+	defer func() {
+		tlog.logEnd("bonus send:%v, ret:%v", send, err)
+		blog.log("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
+	}()
+
+	bh := p.getBlockHeaderByHash(msg.BlockHash)
+	if bh == nil {
+		err = fmt.Errorf("block not exist, hash=%v", msg.BlockHash.ShortS())
+		return
+	}
+
+	gid := groupsig.DeserializeId(bh.GroupId)
+	group := p.GetGroup(gid)
+	if group == nil {
+		panic("group is nil")
+	}
+	if !msg.VerifySign(p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))) {
+		err = fmt.Errorf("verify sign fail")
+		return
+	}
+
+	bc := p.GetBlockContext(gid)
+	if bc == nil {
+		err = fmt.Errorf("blockcontext is nil, gid=%v", gid.ShortS())
+		return
+	}
+	vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
+		err = fmt.Errorf("vctx is nil")
+		return
+	}
+
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		err = fmt.Errorf("slot is nil")
+		return
+	}
+
+	accept, recover := slot.AcceptRewardPiece(&msg.SI)
+	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
+	if accept && recover && slot.StatusTransform(SS_REWARD_REQ, SS_REWARD_SEND) {
+		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
+		send = true
+		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
+	} else {
+		err = fmt.Errorf("accept %v, recover %v, %v", accept, recover, slot.rewardGSignGen.Brief())
 	}
 }

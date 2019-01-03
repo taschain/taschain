@@ -216,7 +216,7 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 	if len(it.stack) == 0 {
 		// Initialize the iterator if we've just started.
 		root := it.trie.Hash()
-		state := &nodeIteratorState{node: it.trie.root, index: -1}
+		state := &nodeIteratorState{node: it.trie.RootNode, index: -1}
 		if root != emptyRoot {
 			state.hash = root
 		}
@@ -249,6 +249,18 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 }
 
 func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
+	if hash, ok := st.node.(hashNode); ok {
+		resolved, err := tr.resolveHash(hash, path)
+		if err != nil {
+			return err
+		}
+		st.node = resolved
+		st.hash = common.BytesToHash(hash)
+	}
+	return nil
+}
+
+func (st *nodeIteratorState) resolveLight(tr *LightTrie, path []byte) error {
 	if hash, ok := st.node.(hashNode); ok {
 		resolved, err := tr.resolveHash(hash, path)
 		if err != nil {

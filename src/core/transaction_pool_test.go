@@ -27,14 +27,14 @@ func TestCreatePool(t *testing.T) {
 
 	pool := NewTransactionPool()
 
-	fmt.Printf("received: %d transactions\n", pool.received.Len())
+	fmt.Printf("received: %d transactions\n")
 
 	transaction := &types.Transaction{
 		GasPrice: 1234,
 	}
 
-	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", pool.received.Len())
+	pool.AddTransaction(transaction)
+	fmt.Printf("received: %d transactions\n")
 
 	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
@@ -43,8 +43,8 @@ func TestCreatePool(t *testing.T) {
 		Hash:     h,
 	}
 
-	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", pool.received.Len())
+	pool.AddTransaction(transaction)
+	fmt.Printf("received: %d transactions\n")
 
 	tGet, error := pool.GetTransaction(h)
 	if nil == error {
@@ -63,7 +63,7 @@ func TestCreatePool(t *testing.T) {
 
 func TestContainer(t *testing.T) {
 	pool := NewTransactionPool()
-	pool.received.limit = 1
+	//pool.received.limit = 1
 	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 	e := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b42")
 
@@ -72,16 +72,16 @@ func TestContainer(t *testing.T) {
 		Hash:     e,
 	}
 
-	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", pool.received.Len())
+	pool.AddTransaction(transaction)
+	fmt.Printf("received: %d transactions\n")
 
 	transaction = &types.Transaction{
 		GasPrice: 12345,
 		Hash:     h,
 	}
 
-	pool.Add(transaction)
-	fmt.Printf("received: %d transactions\n", pool.received.Len())
+	pool.AddTransaction(transaction)
+	fmt.Printf("received: %d transactions\n")
 
 	tGet, error := pool.GetTransaction(h)
 	if nil == error {
@@ -105,7 +105,7 @@ func TestMaxTxsPerBlock(t *testing.T) {
 		}
 
 		transaction.Hash = transaction.GenHash()
-		pool.Add(transaction)
+		pool.AddTransaction(transaction)
 
 		//fmt.Printf("%d\n", pool.received.Len())
 	}

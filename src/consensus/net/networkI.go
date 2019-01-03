@@ -4,6 +4,7 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
+	"middleware/types"
 )
 
 /*
@@ -13,12 +14,11 @@ import (
 */
 
 type MessageProcessor interface {
-
 	Ready() bool
 
 	GetMinerID() groupsig.ID
 
-	ExistInDummyGroup(gid groupsig.ID) bool
+	ExistInGroup(gHash common.Hash) bool
 
 	OnMessageGroupInit(msg *model.ConsensusGroupRawMessage)
 
@@ -39,15 +39,18 @@ type MessageProcessor interface {
 	OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)
 
 	OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage)
+
+	OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage)
 }
 
-type NextGroup struct {
-	Gid groupsig.ID
+type GroupBrief struct {
+	Gid    groupsig.ID
 	MemIds []groupsig.ID
 }
 
 type NetworkServer interface {
-
 	SendGroupInitMessage(grm *model.ConsensusGroupRawMessage)
 
 	SendKeySharePiece(spm *model.ConsensusSharePieceMessage)
@@ -56,17 +59,21 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage)
+	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
 
-	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, nextGroup *NextGroup)
+	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief)
 
 	SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage)
 
-	SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage)
+	SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage, parentGid groupsig.ID)
 
-	BuildGroupNet(gid groupsig.ID, mems []groupsig.ID)
+	BuildGroupNet(groupIdentifier string, mems []groupsig.ID)
 
-	ReleaseGroupNet(gid groupsig.ID)
+	ReleaseGroupNet(groupIdentifier string)
+
+	SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
+
+	SendCastRewardSign(msg *model.CastRewardTransSignMessage)
 }

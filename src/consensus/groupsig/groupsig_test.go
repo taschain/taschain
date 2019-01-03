@@ -32,6 +32,12 @@ type Expect struct {
 	ok     []byte
 }
 
+func testIDconvert(t *testing.T) {
+	id := ID{}
+	id.SetHexString("0x0000123abcdef")
+	fmt.Printf("id result =%v",id.GetHexString())
+}
+
 //测试用衍生随机数生成私钥，从私钥萃取公钥，以及公钥的序列化
 func testPubkey(t *testing.T) {
 	fmt.Printf("\nbegin test pub key...\n")
@@ -296,8 +302,14 @@ func testID(t *testing.T) {
 	t.Log("testString")
 	fmt.Printf("\nbegin test ID...\n")
 	b := new(big.Int)
-	b.SetString("1234567890abcdef", 16)
+	b.SetString("001234567890abcdef", 16)
+	c := new(big.Int)
+	c.SetString("1234567890abcdef", 16)
+	idc:= NewIDFromBigInt(c)
 	id1 := NewIDFromBigInt(b) //从big.Int生成ID
+	if id1.IsEqual(*idc) {
+		fmt.Println("id1 is equal to idc")
+	}
 	if id1 == nil {
 		t.Error("NewIDFromBigInt")
 	} else {
@@ -316,6 +328,7 @@ func testID(t *testing.T) {
 	{
 		var id2 ID
 		err := id2.Deserialize(id1.Serialize()) //测试ID的序列化和反序列化
+		fmt.Printf("id2:%v",id2.GetHexString())
 		if err != nil || !id1.IsEqual(id2) {
 			t.Errorf("not same\n%s\n%s", id1.GetHexString(), id2.GetHexString())
 		}

@@ -252,17 +252,16 @@ char* wrap_get_data_iter_next(char* iter)
 */
 import "C"
 import (
-	"bytes"
 	"common"
 	"encoding/json"
 	"fmt"
-	"storage/core/vm"
-	"strconv"
 	"strings"
 	"unsafe"
-	"storage/core/types"
 	//"middleware/types"
 	types2 "middleware/types"
+	"bytes"
+	"strconv"
+	"storage/vm"
 )
 
 type CallTask struct {

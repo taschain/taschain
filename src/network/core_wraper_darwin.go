@@ -25,6 +25,7 @@ extern void OnP2PListened(_GoString_ ip, uint16_t port, uint64_t latency);
 extern void OnP2PAccepted(uint64_t id, uint32_t session, uint32_t type);
 extern void OnP2PConnected(uint64_t id, uint32_t session, uint32_t type);
 extern void OnP2PDisconnected(uint64_t id, uint32_t session, uint32_t code);
+extern void OnP2PSendWaited(uint32_t session, uint64_t peer_id);
 
 typedef void(*p2p_recved)(uint64_t id, uint32_t session, char* data, uint32_t size);
 typedef void(*p2p_checked)(uint32_t type, const char* private_ip, const char* public_ip);
@@ -32,6 +33,7 @@ typedef void(*p2p_listened)(const char* ip, uint16_t port, uint64_t latency);
 typedef void(*p2p_accepted)(uint64_t id, uint32_t session, uint32_t type);
 typedef void(*p2p_connected)(uint64_t id, uint32_t session, uint32_t type);
 typedef void(*p2p_disconnected)(uint64_t id, uint32_t session, uint32_t code);
+typedef void(*p2p_send_waited)(uint32_t session, uint64_t peer_id);
 
 struct p2p_callback
 {
@@ -77,6 +79,11 @@ void on_p2p_disconnected(uint64_t id, uint32_t session, uint32_t code)
 	OnP2PDisconnected(id, session, code);
 }
 
+void on_p2p_send_waited(uint32_t session, uint64_t peer_id)
+{
+	OnP2PSendWaited(session, peer_id);
+}
+
 void p2p_config(uint64_t id)
 {
     void* api = p2p_api(__FUNCTION__);
@@ -90,6 +97,15 @@ void p2p_config(uint64_t id)
         callback.connected = on_p2p_connected;
         callback.disconnected = on_p2p_disconnected;
         ((void(*)(uint64_t id, struct p2p_callback callback))api)(id, callback);
+    }
+}
+
+void p2p_send_callback()
+{
+    void* api = p2p_api(__FUNCTION__);
+    if (api)
+    {
+        ((void(*)(p2p_send_waited callback))api)(on_p2p_send_waited);
     }
 }
 
@@ -193,6 +209,7 @@ import "unsafe"
 
 func P2PConfig(id uint64) {
 	C.p2p_config(C.ulonglong(id))
+	C.p2p_send_callback()
 }
 
 func P2PProxy(ip string, port uint16) {

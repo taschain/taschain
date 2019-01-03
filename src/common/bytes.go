@@ -118,3 +118,9 @@ func Uint64ToByte(i uint64) []byte {
 	binary.Write(buf, binary.BigEndian, i)
 	return buf.Bytes()
 }
+
+func UInt32ToByte(i int32) []byte {
+	buf := bytes.NewBuffer([]byte{})
+	binary.Write(buf, binary.BigEndian, i)
+	return buf.Bytes()
+}

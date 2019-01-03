@@ -20,7 +20,7 @@ message Transaction{
 
     required uint64 Nonce = 3;
 
-    required bytes Source  = 4 ;
+    optional bytes Source  = 4 ;
 
     optional bytes Target  = 5 ;
 
@@ -33,6 +33,10 @@ message Transaction{
     optional bytes ExtraData  = 9 ;
 
     optional int32 ExtraDataType  = 10 ;
+
+    required int32 Type = 11;
+
+    optional bytes Sign = 12;
 }
 
 message TransactionRequestMessage{
@@ -43,12 +47,24 @@ message TransactionRequestMessage{
 
     required uint64 BlockHeight = 3;
 
-    required uint64 BlockQn = 4;
+    required bytes BlockPv = 4;
 }
+
+message TrieNodes{
+
+    repeated TrieNode TrieNodes = 1;
+}
+
 
 message TransactionSlice{
 
     repeated Transaction transactions = 1;
+}
+
+message ChainPieceInfo{
+    repeated BlockHeader BlockHeaders = 1;
+
+    required BlockHeader TopHeader = 2;
 }
 
 
@@ -62,7 +78,7 @@ message BlockHeader{
 
      optional bytes PreTime  = 4 ;
 
-     optional uint64 QueueNumber = 5;
+     optional bytes ProveValue = 5;
 
      optional uint64 TotalQN = 6;
 
@@ -86,9 +102,11 @@ message BlockHeader{
 
      optional bytes ExtraData  = 16 ;
 
-     optional Hashes EvictedTxs  = 17;
+     optional bytes Random = 17;
 
-     optional bytes Random = 18;
+     optional bytes ProveRoot = 18;
+
+     optional Hashes EvictedTxs = 19;
 }
 
 message BlockBody{
@@ -118,27 +136,44 @@ message Member{
     required bytes PubKey  = 2 ;
 }
 
+message GroupHeader{
+    optional bytes Hash = 1;
+
+    optional bytes Parent = 2;
+
+    required bytes PreGroup = 3;
+
+    optional uint64 Authority = 4;
+
+    optional string Name = 5;
+
+    optional bytes BeginTime = 6;
+
+    optional bytes MemberRoot = 7;
+
+    optional uint64 CreateHeight = 8;
+
+    optional uint64 ReadyHeight = 9;
+
+    optional uint64 WorkHeight = 10;
+
+    optional uint64 DismissHeight = 11;
+
+    optional string Extends = 12;
+}
+
 message Group{
+    required GroupHeader Header = 1;
 
-    optional  bytes Id   = 1;
+    optional bytes Id   = 2;
 
-	repeated  Member Members  = 2;
+	optional bytes PubKey = 3;
 
-	optional  bytes PubKey = 3;
+    optional bytes Signature = 4;
 
-	optional  bytes Parent = 4;
+    repeated bytes Members  = 5;
 
-	optional  bytes Dummy = 5;
-
-	optional  bytes Signature  = 6;
-
-	optional  uint64 BeginHeight  = 7;
-
-    optional  uint64  DismissHeight = 8;
-    optional  uint64    Authority = 9;
-    optional  bytes     Name = 10;
-    optional  bytes     Extends = 11;
-    required  bytes     PreGroup = 12;
+    optional uint64 GroupHeight = 6;
 }
 
 
@@ -161,13 +196,6 @@ message GroupRequestInfo{
     optional GroupIdSlice ExistGroupIds =2;
 }
 
-message BlockRequestInfo{
-
-	required uint64 SourceHeight  =1;
-
-	required bytes SourceCurrentHash =2;
-
-}
 
 
 message Hashes{
@@ -175,32 +203,42 @@ message Hashes{
     repeated bytes hashes = 1;
 }
 
-message BlockHash{
 
-	required  uint64 Height = 1;
+message TotalQnInfo{
 
-	required  bytes  Hash = 2;
+    required uint64 TotalQn = 1;
+
+    required uint64 Height = 2;
 }
 
-message BlockChainPiece{
+message StateInfoReq{
 
-    repeated BlockHash BlockHashes = 1;
+    required uint64 Height = 1;
+
+    optional TransactionSlice Transactions = 2;
+
+    repeated  bytes Addresses = 3;
+
+    required bytes BlockHash = 4;
 }
 
-message BlockInfo{
+message  StateInfo  {
+    required uint64 Height = 1;
 
-	optional Block Block = 1;
+    repeated TrieNode TrieNodes = 2;
 
-	optional BlockChainPiece ChainPiece = 2;
+    required bytes BlockHash = 3;
 
-	optional bool IsTopBlock = 3;
+    required bytes ProBlockStateRoot = 4;
+
 }
 
-message BlockHashesReq{
+message TrieNode{
 
-	required  uint64 Height = 1;
+    required bytes Key  = 1;
 
-	required uint64 Length = 2;
+    required bytes Data  = 2;
+
 }
 
 
@@ -216,25 +254,8 @@ message SignData{
 
 
 message ConsensusGroupInitSummary{
-
-    required  bytes ParentID  = 1;
-    required  bytes PrevGroupID  = 2;
-
-	required  uint64  Authority = 3;
-
-	required  bytes   Name = 4;
-
-	required  bytes   DummyID = 5;
-
-	required uint64    Members =6;
-	required bytes    BeginTime =7;
-	required bytes    MemberHash =8;
-	required bytes    Signature =9;
-    required uint64     GetReadyHeight=10;
-	required uint64     BeginCastHeight=11;
-	required uint64     DismissHeight=12;
-	required uint64     TopHeight=13;
-	required bytes    Extends =14;
+    required GroupHeader Header = 1;
+	required bytes    Signature = 2;
 }
 
 message PubKeyInfo{
@@ -243,12 +264,13 @@ message PubKeyInfo{
 
       required bytes PublicKey = 2;
 }
-
+message ConsensusGroupInitInfo{
+    required ConsensusGroupInitSummary GI = 1;
+	repeated  bytes Mems  = 2;
+}
 
 message ConsensusGroupRawMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
-
-    repeated  PubKeyInfo Ids  = 2;
+    required ConsensusGroupInitInfo GInfo = 1;
 
     required SignData sign = 3;
 
@@ -261,28 +283,24 @@ message SharePiece {
 }
 
 message ConsensusSharePieceMessage{
-    required bytes GISHash = 1;
+    required bytes GHash = 1;
 
-    required bytes DummyID = 2;
+    required bytes Dest = 2;
 
-    required bytes Dest = 3;
+    required SharePiece  SharePiece = 3;
 
-    required SharePiece  SharePiece = 4;
-
-    required SignData  Sign = 5;
+    required SignData  Sign = 4;
 
 }
 
 message ConsensusSignPubKeyMessage{
-    required bytes GISHash = 1;
+    required bytes GHash = 1;
 
-    required bytes DummyID = 2;
+    required bytes	SignPK  = 2;
 
-    required bytes	SignPK  = 3;
+    required SignData 	SignData = 3;
 
-    required SignData 	SignData = 4;
-
-    required bytes  GISSign = 5;
+    required bytes  GSign = 4;
 
 }
 
@@ -294,15 +312,17 @@ message StaticGroupSummary{
 
     required bytes GroupPK  = 2;
 
-    required ConsensusGroupInitSummary Gis  = 3;
+    required bytes GHash  = 3;
 
 }
 
 message ConsensusGroupInitedMessage{
 
-    required StaticGroupSummary StaticGroupSummary = 1;
+    required bytes GHash = 1;
+    required bytes GroupID = 2;
+    required bytes GroupPK = 3;
 
-    required SignData Sign = 2;
+    required SignData Sign = 4;
 }
 
 message ConsensusCurrentMessage{
@@ -325,6 +345,8 @@ message ConsensusBlockMessageBase{
     optional bytes	GroupID = 2;
 
     required SignData	Sign = 3;
+
+    repeated bytes  ProveHash = 4;
 }
 
 message ConsensusBlockMessage{
@@ -333,17 +355,52 @@ message ConsensusBlockMessage{
 
 
 message ConsensusCreateGroupRawMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
+    required ConsensusGroupInitInfo GInfo = 1;
 
-    repeated  bytes Ids  = 2;
-
-    required SignData sign = 3;
+    required SignData sign = 2;
 
 }
 
 message ConsensusCreateGroupSignMessage{
-    required ConsensusGroupInitSummary ConsensusGroupInitSummary = 1;
-
+    required bytes      GHash =1;
     required SignData sign = 2;
 
+}
+
+message Bonus{
+    required	bytes   TxHash = 1;
+    repeated	int32   TargetIds = 2;
+    required	bytes   BlockHash	= 3;
+    required	bytes   GroupId	= 4;
+    optional	bytes   Sign = 5;
+    required	uint64  TotalValue = 6;
+}
+
+message CastRewardTransSignReqMessage {
+	required SignData Sign = 1;
+	required Bonus Reward = 2;
+	repeated bytes SignedPieces = 3;
+}
+
+message CastRewardTransSignMessage {
+	required SignData Sign = 1;
+    required bytes ReqHash = 2;
+    required bytes BlockHash = 3;
+}
+
+message TopBlockInfo{
+    required	bytes   Hash = 1;
+    required	uint64   TotalQn = 2;
+    required	uint64   Height = 3;
+    required	bytes   PreHash = 4;
+}
+
+message BlockMsgResponse{
+    required bool IsLast = 1;
+    optional Block Block = 2;
+}
+
+message ChainPieceBlockMsg{
+    required BlockHeader TopHeader = 1;
+    repeated Block Blocks  = 2;
 }

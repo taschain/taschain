@@ -1,78 +1,99 @@
 package logical
 
 import (
-	"log"
-	"time"
-	"middleware/types"
-	"consensus/groupsig"
 	"common"
-	"sync"
-	"consensus/model"
 	"consensus/base"
+	"consensus/groupsig"
+	"consensus/model"
 	"consensus/net"
+	"log"
+	"middleware/types"
 	"middleware/statistics"
+	"strings"
+	"sync"
+	"time"
+	"bytes"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/6/27 上午10:39
-**  Description: 
-*/
+**  Description:
+ */
 
 type CastBlockContexts struct {
-	contexts sync.Map	//string -> *BlockContext
+	blockCtxs sync.Map //string -> *BlockContext
+	reservedVctx	sync.Map	//uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
 }
 
 func NewCastBlockContexts() *CastBlockContexts {
 	return &CastBlockContexts{
-		contexts: sync.Map{},
+		blockCtxs: sync.Map{},
 	}
 }
 
 func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-    _, load := bctx.contexts.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
-    return !load
+	_, load := bctx.blockCtxs.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
+	return !load
 }
 
 func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
-	if v, ok := bctx.contexts.Load(gid.GetHexString()); ok {
+	if v, ok := bctx.blockCtxs.Load(gid.GetHexString()); ok {
 		return v.(*BlockContext)
 	}
 	return nil
 }
 
-func (bctx *CastBlockContexts) contextSize() int32 {
+func (bctx *CastBlockContexts) blockContextSize() int32 {
 	size := int32(0)
-	bctx.contexts.Range(func(key, value interface{}) bool {
-		size ++
+	bctx.blockCtxs.Range(func(key, value interface{}) bool {
+		size++
 		return true
 	})
 	return size
 }
 
-func (bctx *CastBlockContexts) removeContexts(gids []groupsig.ID)  {
+func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 	for _, id := range gids {
-		log.Println("removeContexts ", GetIDPrefix(id))
+		log.Println("removeBlockContexts ", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
-			bc.removeTicker()
-			bctx.contexts.Delete(id.GetHexString())
+			//bc.removeTicker()
+			bctx.blockCtxs.Delete(id.GetHexString())
+			for _, vctx := range bc.SafeGetVerifyContexts() {
+				bctx.removeReservedVctx(vctx.castHeight)
+			}
 		}
 	}
 }
 
-func (bctx *CastBlockContexts) forEach(f func(bc *BlockContext) bool) {
-    bctx.contexts.Range(func(key, value interface{}) bool {
-    	v := value.(*BlockContext)
+func (bctx *CastBlockContexts) forEachBlockContext(f func(bc *BlockContext) bool) {
+	bctx.blockCtxs.Range(func(key, value interface{}) bool {
+		v := value.(*BlockContext)
 		return f(v)
 	})
 }
 
+func (bctx *CastBlockContexts) removeReservedVctx(height uint64)  {
+    bctx.reservedVctx.Delete(height)
+}
+
+func (bctx *CastBlockContexts) addReservedVctx(vctx *VerifyContext) bool {
+	_, load := bctx.reservedVctx.LoadOrStore(vctx.castHeight, vctx)
+	return !load
+}
+
+func (bctx *CastBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) bool)  {
+	bctx.reservedVctx.Range(func(key, value interface{}) bool {
+		v := value.(*VerifyContext)
+		return f(v)
+	})
+}
 
 //增加一个铸块上下文（一个组有一个铸块上下文）
 func (p *Processor) AddBlockContext(bc *BlockContext) bool {
 	var add = p.blockContexts.addBlockContext(bc)
-	log.Printf("AddBlockContext, gid=%v, result=%v\n.", GetIDPrefix(bc.MinerID.Gid), add)
+	newBizLog("AddBlockContext").log("gid=%v, result=%v\n.", bc.MinerID.Gid.ShortS(), add)
 	return add
 }
 
@@ -82,138 +103,20 @@ func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
 	return p.blockContexts.getBlockContext(gid)
 }
 
-func (p *Processor) getReleaseRoutineName() string {
-	return "release_routine_" + p.getPrefix()
-}
-
-//预留接口
-//后续如有全局定时器，从这个函数启动
-func (p *Processor) Start() bool {
-	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 4)
-	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
-	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
-	p.prepareMiner()
-	p.ready = true
-	return true
-}
-
-//预留接口
-func (p *Processor) Stop() {
-	return
-}
 
 //立即触发一次检查自己是否下个铸块组
-func (p *Processor) triggerCastCheck()  {
+func (p *Processor) triggerCastCheck() {
 	//p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-//检查是否当前组铸块
-func (p *Processor) checkSelfCastRoutine() bool {
-	if !p.Ready() {
-		return false
-	}
 
-	blog := newBizLog("checkSelfCastRoutine")
-
-	if p.belongGroups.groupSize() == 0 || p.blockContexts.contextSize() == 0 {
-		blog.log("current node don't belong to anygroup!!")
-		return false
-	}
-
-	if p.MainChain.IsAdujsting() {
-		blog.log("isAdjusting, return...")
-		p.triggerCastCheck()
-		return false
-	}
-
-	top := p.MainChain.QueryTopBlock()
-
-	var (
-		expireTime time.Time
-		castHeight uint64
-		deltaHeight uint64
-	)
-	d := time.Since(top.CurTime)
-	if d < 0 {
-		return false
-	}
-
-	deltaHeight = uint64(d.Seconds()) / uint64(model.Param.MaxGroupCastTime) + 1
-	expireTime = GetCastExpireTime(top.CurTime, deltaHeight)
-
-	if top.Height > 0 {
-		castHeight = top.Height + deltaHeight
-	} else {
-		castHeight = uint64(1)
-	}
-
-	blog.log("checkSelfCastRoutine: topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, GetHashPrefix(top.Hash), top.CurTime, castHeight, expireTime)
-
-	casting := false
-	p.blockContexts.forEach(func(_bc *BlockContext) bool {
-		if _bc.alreadyInCasting(castHeight, top.Hash) {
-			blog.log("checkSelfCastRoutine: already in cast height, castInfo=%v", _bc.castingInfo())
-			casting = true
-			return false
-		}
-		return true
-	})
-	if casting {
-		return true
-	}
-
-	selectGroup := p.calcCastGroup(top, castHeight)
-	if selectGroup == nil {
-		return false
-	}
-
-	blog.log("NEXT CAST GROUP is %v, castHeight=%v, expire=%v", GetIDPrefix(*selectGroup), castHeight, expireTime)
-
-	//自己属于下一个铸块组
-	if p.IsMinerGroup(*selectGroup) {
-		bc := p.GetBlockContext(*selectGroup)
-		if bc == nil {
-			blog.log("[ERROR]checkSelfCastRoutine: get nil blockcontext!, gid=%v", GetIDPrefix(*selectGroup))
-			return false
-		}
-
-		blog.log("BECOME NEXT CAST GROUP! castHeight=%v, uid=%v, gid=%v, vctxcnt=%v, castCnt=%v, rHeights=%v", castHeight, GetIDPrefix(p.GetMinerID()), GetIDPrefix(*selectGroup), len(bc.verifyContexts), bc.castedCount, bc.recentCastedHeight)
-		//for _, vt := range bc.verifyContexts {
-		//	s := ""
-		//	slot := ""
-		//	for _, sl := range vt.slots {
-		//		slot += fmt.Sprintf("(qn %v, piece %v, status %v)", sl.QueueNumber, sl.gSignGenerator.WitnessSize(), sl.slotStatus)
-		//	}
-		//	s += fmt.Sprintf("h:%v, hash:%v, st:%v, slot:%v", vt.castHeight, GetHashPrefix(vt.prevBH.Hash), vt.consensusStatus, slot)
-		//	log.Printf(s)
-		//}
-		if !bc.StartCast(castHeight, expireTime, top) {
-			blog.log("startCast fail, castHeight=%v, expire=%v,topBH=%v", castHeight, expireTime, bc.Proc.blockPreview(top))
-		}
-
-		return true
-	} else { //自己不是下一个铸块组, 但是当前在铸块
-		p.blockContexts.forEach(func(_bc *BlockContext) bool {
-			blog.log("reset casting blockcontext: castingInfo=%v", _bc.castingInfo())
-			_bc.Reset()
-			return true
-		})
-	}
-
-	return false
-}
-
-func (p *Processor) getCastCheckRoutineName() string {
-	return "self_cast_check_" + p.getPrefix()
-}
-
-func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
 	data := preBH.Random
 
 	deltaHeight := height - preBH.Height
-	for ; deltaHeight > 0; deltaHeight -- {
+	for ; deltaHeight > 0; deltaHeight-- {
 		hash = base.Data2CommonHash(data)
 		data = hash.Bytes()
 	}
@@ -226,136 +129,266 @@ func (p *Processor) calcCastGroup(preBH *types.BlockHeader, height uint64) *grou
 	return &selectGroup
 }
 
+func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
+	nextId := p.calcVerifyGroup(bh, height)
+	if nextId == nil {
+		return nil
+	}
+	group := p.GetGroup(*nextId)
+	g := &net.GroupBrief{
+		Gid:    *nextId,
+		MemIds: group.GetMembers(),
+	}
+	return g
+}
+
+func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
+	bh := &slot.BH
+	blog := newBizLog("reserveBLock")
+	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
+	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
+		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
+		p.blockContexts.addReservedVctx(vctx)
+		if !p.tryBroadcastBlock(vctx) {
+			blog.log("reserved, height=%v", vctx.castHeight)
+		}
+
+	}
+
+	return
+}
+
+func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
+	if sc := vctx.checkBroadcast(); sc != nil {
+		bh := &sc.BH
+		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
+		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
+
+		//异步进行，使得请求快速返回，防止消息积压
+		go p.successNewBlock(vctx, sc) //上链和组外广播
+
+		p.blockContexts.removeReservedVctx(vctx.castHeight)
+		return true
+	}
+	return false
+}
 
 //在某个区块高度的QN值成功出块，保存上链，向组外广播
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processor) SuccessNewBlock(bh *types.BlockHeader, vctx *VerifyContext, slot *SlotContext, gid groupsig.ID) {
+func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
-	if bh == nil {
-		panic("SuccessNewBlock arg failed.")
+	bh := &slot.BH
+
+	blog := newBizLog("successNewBlock")
+
+	if slot.IsFailed() {
+		blog.log("slot is failed")
+		return
+	}
+	if vctx.broadCasted() {
+		blog.log("block broadCasted!")
+		return
 	}
 
 	if p.blockOnChain(bh) { //已经上链
-		log.Printf("SuccessNewBlock core.GenerateBlock is nil! block alreayd onchain!")
+		blog.log("block alreayd onchain!")
 		return
 	}
 
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
-		log.Printf("SuccessNewBlock core.GenerateBlock is nil! won't broadcast block!")
+		blog.log("core.GenerateBlock is nil! won't broadcast block!")
 		return
 	}
 
 	r := p.doAddOnChain(block)
 
 	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
+		slot.setSlotStatus(SS_FAILED)
 		return
 	}
 
-	cbm := &model.ConsensusBlockMessage{
-		Block: *block,
-	}
+	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
-	nextId := p.calcCastGroup(bh, bh.Height+1)
-	group := p.getGroup(*nextId)
-	mems := make([]groupsig.ID, len(group.Members))
-	for idx, mem := range group.Members {
-		mems[idx] = mem.ID
-	}
-	next := &net.NextGroup{
-		Gid: *nextId,
-		MemIds: mems,
-	}
-	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
-		logHalfway("SuccessNewBlock", bh.Height, bh.QueueNumber, p.getPrefix(), "SuccessNewBlock, hash %v, 耗时%v秒", GetHashPrefix(bh.Hash), time.Since(bh.CurTime).Seconds())
-		p.NetServer.BroadcastNewBlock(cbm, next)
-		log.Printf("After BroadcastNewBlock:%v",time.Now().Format(TIMESTAMP_LAYOUT))
-	}
-
-	return
-}
-
-
-//检查是否轮到自己出块
-func (p *Processor) kingCheckAndCast(bc *BlockContext, vctx *VerifyContext, kingIndex int32, qn int64) {
-	//p.castLock.Lock()
-	//defer p.castLock.Unlock()
-	gid := bc.MinerID.Gid
-	height := vctx.castHeight
-
-	//log.Printf("prov(%v) begin kingCheckAndCast, gid=%v, kingIndex=%v, qn=%v, height=%v.\n", p.getPrefix(), GetIDPrefix(gid), kingIndex, qn, height)
-	if kingIndex < 0 || qn < 0 {
-		return
-	}
-
-	sgi := p.getGroup(gid)
-
-	log.Printf("time=%v, Current kingIndex=%v, KING=%v, qn=%v.\n", time.Now().Format(time.Stamp), kingIndex, GetIDPrefix(sgi.GetCastor(int(kingIndex))), qn)
-	if sgi.GetCastor(int(kingIndex)).GetHexString() == p.GetMinerID().GetHexString() { //轮到自己铸块
-		log.Printf("curent node IS KING!\n")
-		if !vctx.isQNCasted(qn) { //在该高度该QN，自己还没铸过快
-			head := p.castBlock(bc, vctx, qn) //铸块
-			if head != nil {
-				vctx.addCastedQN(qn)
-			}
-		} else {
-			log.Printf("In height=%v, qn=%v current node already casted.\n", height, qn)
+	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
+	if  vctx.markBroadcast() {
+		cbm := &model.ConsensusBlockMessage{
+			Block: *block,
 		}
+
+		gb := p.spreadGroupBrief(bh, bh.Height+1)
+		if gb == nil {
+			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+			return
+		}
+		p.NetServer.BroadcastNewBlock(cbm, gb)
+		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+
+		//如果是联盟链，则不打分红交易
+		if !consensusConfManager.GetBool("league", false) {
+			p.reqRewardTransSign(vctx, bh)
+		}
+		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
 	}
 	return
 }
 
-//当前节点成为KING，出块
-func (p Processor) castBlock(bc *BlockContext, vctx *VerifyContext, qn int64) *types.BlockHeader {
-
-	height := vctx.castHeight
-
-	log.Printf("begin Processor::castBlock, height=%v, qn=%v...\n", height, qn)
-	//var hash common.Hash
-	//hash = bh.Hash //TO DO:替换成出块头的哈希
-	//to do : change nonce
-	nonce := time.Now().Unix()
-	gid := bc.MinerID.Gid
-
-	logStart("CASTBLOCK", height, uint64(qn), p.getPrefix(), "开始铸块")
-
-	//调用鸠兹的铸块处理
-	block := p.MainChain.CastingBlock(uint64(height), uint64(nonce), uint64(qn), p.GetMinerID().Serialize(), gid.Serialize())
-	if block == nil {
-		log.Printf("MainChain::CastingBlock failed, height=%v, qn=%v, gid=%v, mid=%v.\n", height, qn, GetIDPrefix(gid), GetIDPrefix(p.GetMinerID()))
-		//panic("MainChain::CastingBlock failed, jiuci return nil.\n")
-		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块失败, block为空")
-		return nil
-	} else {
-		//statistics.AddLog(block.Header.Hash.String(), statistics.KingCasting, time.Now().UnixNano(),string(block.Header.Castor),p.GetMinerID().String())
+//对该id进行区块抽样
+func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
+		//随机抽取10块前的块，确保不抽取到分叉上的块
+		//
+		if heightLimit > 10 {
+		heightLimit -= 10
+	}
+		return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
 	}
 
-	bh := block.Header
+func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
+	hashs := make([]common.Hash, len(ids))
 
-	log.Printf("AAAAAA castBlock bh %v, top bh %v\n", p.blockPreview(bh), p.blockPreview(p.MainChain.QueryTopBlock()))
-	if bh.Height > 0 && bh.Height == height && bh.PreHash == vctx.prevBH.Hash {
-		skey := p.getSignKey(gid)
+	//blog := newBizLog("GenProveHashs")
+	for idx, id := range ids {
+		h := p.sampleBlockHeight(heightLimit, rand, id)
+		b := p.getNearestBlockByHeight(h)
+		hashs[idx] = p.GenVerifyHash(b, id)
+		//blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+	}
+	proves = hashs
+
+	buf := bytes.Buffer{}
+	for _, hash := range hashs {
+		buf.Write(hash.Bytes())
+	}
+	root = base.Data2CommonHash(buf.Bytes())
+	return
+}
+
+func (p *Processor) blockProposal() {
+	blog := newBizLog("blockProposal")
+	top := p.MainChain.QueryTopBlock()
+	worker := p.getVrfWorker()
+	if worker.getBaseBH().Hash != top.Hash {
+		blog.log("vrf baseBH differ from top!")
+		return
+	}
+	if worker.isProposed() || worker.isSuccess() {
+		blog.log("vrf worker proposed/success, status %v", worker.getStatus())
+		return
+	}
+	height := worker.castHeight
+
+	totalStake := p.minerReader.getTotalStake(height)
+	blog.log("totalStake height=%v, stake=%v", height, totalStake)
+	pi, qn, err := worker.prove(totalStake)
+	if err != nil {
+		blog.log("vrf prove not ok! %v", err)
+		return
+	}
+
+	if worker.timeout() {
+		blog.log("vrf worker timeout")
+		return
+	}
+
+	gb := p.spreadGroupBrief(top, height)
+	if gb == nil {
+		blog.log("spreadGroupBrief nil, bh=%v, height=%v", top.Hash.ShortS(), height)
+		return
+	}
+	gid := gb.Gid
+
+	//随机抽取n个块，生成proveHash
+	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+
+	block := p.MainChain.CastBlock(uint64(height), pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	if block == nil {
+		blog.log("MainChain::CastingBlock failed, height=%v", height)
+		return
+	}
+	bh := block.Header
+	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
+	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
+	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
+
+	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
+		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
 		//发送该出块消息
 		var ccm model.ConsensusCastMessage
 		ccm.BH = *bh
+		ccm.ProveHash = proveHash
 		//ccm.GroupID = gid
-		ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm)
-		ccm.GenRandomSign(skey, vctx.prevBH.Random)
-		logHalfway("CASTBLOCK", height, uint64(qn), p.getPrefix(), "铸块成功, SendVerifiedCast, hash %v, 时间间隔 %v", GetHashPrefix(bh.Hash), bh.CurTime.Sub(bh.PreTime).Seconds())
+		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
+			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
+			return
+		}
+		blog.log("hash=%v, proveRoot=%v, pi=%v, piHash=%v", bh.Hash.ShortS(), root.ShortS(), pi.ShortS(), common.Bytes2Hex(base.VRF_proof2hash(pi)))
+		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
+		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
+		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
 
-		p.NetServer.SendCastVerify(&ccm)
+		worker.markProposed()
 
-		var groupId groupsig.ID
-		groupId.Deserialize(ccm.BH.GroupId)
-		statistics.AddBlockLog(common.BootId,statistics.SendCast,ccm.BH.Height,ccm.BH.QueueNumber,-1,-1,
-			time.Now().UnixNano(),GetIDPrefix(p.GetMinerID()),GetIDPrefix(groupId),common.InstanceIndex,ccm.BH.CurTime.UnixNano())
+		statistics.AddBlockLog(common.BootId, statistics.SendCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
+			time.Now().UnixNano(), p.GetMinerID().ShortS(), gid.ShortS(), common.InstanceIndex, ccm.BH.CurTime.UnixNano())
 	} else {
-		log.Printf("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v\n", height, bh.Height, vctx.prevBH.Hash, bh.PreHash)
-		//panic("bh Error or sign Error.")
-		return nil
+		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}
 
-	return bh
+}
+
+//请求组内对奖励交易签名
+func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeader) {
+	blog := newBizLog("reqRewardTransSign")
+	blog.log("start, bh=%v", p.blockPreview(bh))
+	slot := vctx.GetSlotByHash(bh.Hash)
+	if slot == nil {
+		blog.log("slot is nil")
+		return
+	}
+	if !slot.gSignGenerator.Recovered() {
+		blog.log("slot not recovered")
+		return
+	}
+	if !slot.IsSuccess() && !slot.IsVerified() {
+		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
+		return
+	}
+
+	groupID := groupsig.DeserializeId(bh.GroupId)
+	group := p.GetGroup(groupID)
+
+	witnesses := slot.gSignGenerator.GetWitnesses()
+	size := len(witnesses)
+	targetIdIndexs := make([]int32, size)
+	signs := make([]groupsig.Signature, size)
+	idHexs := make([]string, size)
+
+	i := 0
+	for idStr, piece := range witnesses {
+		signs[i] = piece
+		var id groupsig.ID
+		id.SetHexString(idStr)
+		idHexs[i] = id.ShortS()
+		targetIdIndexs[i] = int32(group.GetMinerPos(id))
+		i++
+	}
+
+	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
+	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
+
+	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
+	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
+
+	if slot.SetRewardTrans(tx) {
+		msg := &model.CastRewardTransSignReqMessage{
+			Reward:       *bonus,
+			SignedPieces: signs,
+		}
+		msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID)), msg)
+		p.NetServer.SendCastRewardSignReq(msg)
+		blog.log("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
+	}
+
 }

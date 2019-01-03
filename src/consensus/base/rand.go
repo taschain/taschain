@@ -88,6 +88,24 @@ func (r Rand) Modulo(n int) int {
 	return int(b.Int64())
 }
 
+func (r Rand) ModuloUint64(n uint64) uint64 {
+	b := big.NewInt(0)
+	b.SetBytes(r.Bytes())          //随机数转换成big.Int
+	b.Mod(b, big.NewInt(0).SetUint64(n)) //对n求模
+	return b.Uint64()
+}
+
+//从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
+//func (r Rand) RandomPermUint64(n uint64, k int) []uint64 {
+//	l := make([]uint64, k)
+//
+//	for i := 0; i < k; i++ {
+//		j := r.Deri(i).ModuloUint64(n)
+//		l[i] = j
+//	}
+//	return l
+//}
+
 //从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
 func (r Rand) RandomPerm(n int, k int) []int {
 	l := make([]int, n)

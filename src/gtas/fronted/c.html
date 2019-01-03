@@ -7,9 +7,17 @@
     <style type="text/css">
         .wallet_tr {word-wrap:break-word; word-break:break-all;}
     </style>
+    <script src="https://mvp.taschain.cn/static/layui/layui.js" type="application/javascript"></script>
+    <script src="gtas/fronted/js/tas.js" type="application/javascript"></script>
+    <script src="gtas/fronted/js/tas-ext.js" type="application/javascript"></script>
 </head>
 <body>
 <div style="margin: 20px 5%" >
+    <!--<div>
+        <label class="layui-label" id="host"></label>
+        <span class="layui-badge-dot" style="position: relative; top: -2px; left: -2px" id="online_flag"></span>
+        <button class="layui-btn layui-btn-xs" id="change_host">更换host</button>
+    </div>-->
     <div class="layui-tab" lay-filter="demo" style="margin: 20px 0">
         <ul class="layui-tab-title">
             <li class="layui-this">Dashboard</li>
@@ -17,17 +25,16 @@
             <li>转账演示</li>
             <li>查询余额</li>
             <li>投票</li>
-            <li>查询块信息</li>
-            <li>查询组信息</li>
+            <li>块链</li>
+            <li>组链</li>
             <li>查询工作组</li>
-            <li>查询交易信息</li>
-            <li>查询合约代码</li>
-            <li>部署合约</li>
+            <li>共识验证</li>
+            <li lay-id="block_detail_tab">块详情</li>
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
                 <div class="layui-row layui-col-space10 layui-bg-green">
-                    <div class="layui-col-md4">
+                    <div class="layui-col-md2">
                     </div>
                     <div class="layui-col-md2" style="font-size: 20px">
                         <span>当前块高：</span><span id="block_height">0</span>
@@ -38,7 +45,73 @@
                     <div class="layui-col-md2" style="font-size: 20px">
                         <span>工作组数量：</span><span id="work_group_num">0</span>
                     </div>
-                    <div class="layui-col-md4">
+                    <div class="layui-col-md2" >
+                        <form class="layui-form" action="">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">刷新</label>
+                                <div id="dashboard_update_div" class="layui-input-block">
+                                    <input type="checkbox" id="dashboard_update_switch" name="switch" checked="true" lay-skin="switch">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <hr/>
+                <label style="text-align: left">节点信息</label>
+                <span style="margin-left: 100px">
+                    <button lay-submit style="width: 100px; height: 30px;" lay-filter="t_form" id="apply_a">申请成为矿工</button>
+                </span>
+
+                <div id="node_info">
+                    <table class="layui-table" id="node_info">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>余额</th>
+                            <th>节点类型</th>
+                            <th>工作组数</th>
+                            <th>有效组数</th>
+                            <th>缓冲区交易数</th>
+                            <th>节点状态</th>
+                        </tr>
+                        </thead>
+                        <tr>
+                            <td id="tb_node_id">2344424232333333333333333333333333333</td>
+                            <td id="tb_node_balance">23233</td>
+                            <td id="tb_node_type">--</td>
+                            <td id="tb_node_wg">--</td>
+                            <td id="tb_node_ag">--</td>
+                            <td id="tb_node_txnum">--</td>
+                            <td id="tb_node_status">--</td>
+                        </tr>
+                    </table>
+                    <table class="layui-table" id="stake_info">
+                        <thead>
+                        <tr>
+                            <th>质押权益</th>
+                            <th>类型</th>
+                            <th>申请高度</th>
+                            <th>取消高度</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tb_stake_body"></tbody>
+                    </table>
+                </div>
+                <div id="apply_miner_div" style="padding-bottom: 40px; display: none">
+                    <div style="position: absolute">
+                        <label class="layui-form-label">质押权益</label>
+                        <input type="text" id="text_stake" class="layui-input" style="width: 150px;" value="10">
+                    </div>
+                    <div style="float: left; margin-left: 240px" >
+                        <label class="layui-form-label">类型</label>
+                        <input type="radio" style="margin-top: 12px" name="app_type_rd" value="1" checked>重节点
+                        <input type="radio"  style="margin-top: 12px" name="app_type_rd" value="0">轻节点
+                    </div>
+                    <div style="float: left; margin-left: 40px">
+                        <button class="layui-btn" lay-submit lay-filter="t_form" id="submit_apply">申请</button>
+                        <span style="margin-left: 40px" id="submit_result"></span>
                     </div>
                 </div>
                 <hr/>
@@ -89,14 +162,12 @@
                 <button class="layui-btn" id="create_btn">创建账户</button>
                 <table class="layui-table" style="table-layout: fixed">
                     <colgroup>
-                        <col width="10%">
                         <col width="65%">
                         <col width="20%">
                         <col>
                     </colgroup>
                     <thead>
                     <tr>
-                        <th>用户名</th>
                         <th>私钥</th>
                         <th>钱包地址</th>
                         <th>操作</th>
@@ -110,31 +181,59 @@
             <div class="layui-tab-item">
                 <form class="layui-form" action="">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">发送方</label>
+                        <label class="layui-form-label">private key</label>
                         <div class="layui-input-block">
-                            <input type="text" name="from"   autocomplete="off" class="layui-input"
-                                   placeholder="默认地址0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b">
+                            <input type="text" name="private_key" id="tx_send_private_key"  autocomplete="off" class="layui-input"
+                                   placeholder="请输入发送方私钥">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">收款人</label>
+                        <label class="layui-form-label">to</label>
                         <div class="layui-input-block">
                             <input type="text" name="to"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入收款人地址(len=40)">
+                                   placeholder="请输入接收方地址(len=40)">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">金额</label>
+                        <label class="layui-form-label">value</label>
                         <div class="layui-input-block">
-                            <input type="text" name="amount"  autocomplete="off" class="layui-input"
+                            <input type="text" name="value"  autocomplete="off" class="layui-input"
                                    placeholder="请输入金额(正整数)">
                         </div>
                     </div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label">code</label>
+                        <label class="layui-form-label">nonce</label>
                         <div class="layui-input-block">
-                            <input type="text" name="code"  autocomplete="off" class="layui-input"
-                                   placeholder="code">
+                            <input type="text" name="nonce"  autocomplete="off" class="layui-input"
+                                   placeholder="nonce" value="0">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">type</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="type"  autocomplete="off" class="layui-input"
+                                   placeholder="请输入交易类型(正整数,普通转账0,创建合约1，调用合约2,分红交易3)">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">gas</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="gas"  autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">gas_price</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="gas_price"  autocomplete="off" class="layui-input"
+                                   placeholder="" value="1">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">data</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="data"  autocomplete="off" class="layui-input"
+                                   placeholder="">
                         </div>
                     </div>
                     <div class="layui-form-item">
@@ -359,7 +458,6 @@
             </div>
             <div class="layui-tab-item">
                 <table id="block_detail" lay-filter="block_detail"></table>
-                <div id="demo6"></div>
             </div>
             <div class="layui-tab-item">
                 <table id="group_detail" lay-filter="block_detail"></table>
@@ -380,855 +478,156 @@
                 <table id="work_group_detail" lay-filter="block_detail"></table>
             </div>
 
+            <!-- 共识验证部分 -->
             <div class="layui-tab-item">
                 <table class="layui-table">
                     <tr>
                         <td width="40%">
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="根据地址查询交易" id="query_username">
+                            <input type="text" name="consensus_stat"   autocomplete="off" class="layui-input"
+                                   placeholder="请输入区块高度" id="block_height_input">
                         </td>
                         <td>
-                            <button class="layui-btn query_btn" id="query_trans_btn">查询</button>
+                            <button class="layui-btn query_btn" id="block_height_btn">统计</button>
                         </td>
                     </tr>
                 </table>
-                <table id="trans_detail_table" lay-filter="trans_list"></table>
+
+                <label style="text-align: left">节点分红信息</label>
+                <table id="bonus_transaction_detail" lay-filter="bonus_detail"></table>
+
+
+                <label style="text-align: left">截止该块高节点分红汇总信息</label>
+                <table id="bonus_transaction_total_detail" lay-filter="bonus_total_detail"></table>
+
+                <label style="text-align: left">截止该块高节点节点出块汇总信息</label>
+                <table id="cast_block_total_detail" lay-filter="cast_block_total_detail"></table>
             </div>
+
+            <!-- 块详情 -->
             <div class="layui-tab-item">
-                <table class="layui-table">
-                    <tr>
-                        <td width="40%">
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="请输入合约地址" id="query_contract">
-                        </td>
-                        <td>
-                            <button class="layui-btn query_btn" id="query_contract_btn">查询</button>
-                        </td>
-                    </tr>
-                </table>
-                <pre class="layui-code" id="contract_code"></pre>
-            </div>
-            <div class="layui-tab-item">
-                <table class="layui-table">
-                    <tr>
-                        <td width="10%">
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="合约名" id="contract_name">
-                        </td>
-                        <td width="20%">
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="部署人" id="sender_addr">
-                        </td>
-                        <td width="10%">
-                            <button class="layui-btn query_btn" id="contract_deploy_btn">部署</button>
-                        </td>
-                        <td>
-                            <input type="text" name="account"   autocomplete="off" class="layui-input"
-                                   placeholder="合约地址" id="contract_addr">
-                        </td>
-                    </tr>
-                </table>
-                <textarea name="desc" placeholder="code" class="layui-textarea" id="contract_deploy_code" style="height: 500px"></textarea>
+                <div class="layui-row layui-col-space20">
+                    <div class="layui-col-md2"></div>
+                    <div class="layui-col-md4">
+                        <input type="text" name="account"   autocomplete="off" class="layui-input" placeholder="块hash" id="query_block_hash">
+                    </div>
+                    <div class="layui-col-md1">
+                        <button class="layui-btn query_btn" id="query_block_btn">查询</button>
+                    </div>
+                    <div class="layui-col-md2"></div>
+                </div>
+                <div class="layui-row">
+                    <fieldset class="layui-elem-field">
+                        <legend>最近查询</legend>
+                        <div class="layui-field-box">
+                            <div class="layui-row layui-col-space10" id="recent_query_block">
+
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="layui-row" id="block_detail_result">
+                    <div class="layui-row layui-col-space20">
+                        <div class="layui-col-md6">
+                        <fieldset class="layui-elem-field">
+                            <legend>块头详情</legend>
+                            <div class="layui-field-box">
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">高度：</div>
+                                    <div class="layui-col-md1" id="block_detail_height">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">hash：</div>
+                                    <div class="layui-col-md4" id="block_hash">--</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">前块hash：</div>
+                                    <div class="layui-col-md4" id="block_pre_hash">--</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">时间戳：</div>
+                                    <div class="layui-col-md4" id="block_ts">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">前块时间戳：</div>
+                                    <div class="layui-col-md4" id="block_pre_ts">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">提案者：</div>
+                                    <div class="layui-col-md4" id="block_castor">--</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">验证组：</div>
+                                    <div class="layui-col-md4" id="block_group">--</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">交易数：</div>
+                                    <div class="layui-col-md4" id="block_tx_cnt">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">QN：</div>
+                                    <div class="layui-col-md4" id="block_qn">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">totalQN：</div>
+                                    <div class="layui-col-md4" id="block_total_qn">0</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">前一块totalQN：</div>
+                                    <div class="layui-col-md4" id="block_pre_total_qn">0</div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        </div>
+                        <div class="layui-col-md6">
+                        <fieldset class="layui-elem-field">
+                            <legend>本块产生的分红交易</legend>
+                            <div class="layui-field-box">
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">交易hash：</div>
+                                    <div class="layui-col-md4" id="gen_bonus_hash">--</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">每ID奖励：</div>
+                                    <div class="layui-col-md4" id="gen_bouns_value">-</div>
+                                </div>
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md2">目标ID列表：</div>
+                                    <div class="layui-col-md4" id="gen_bonus_targets">--</div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        </div>
+                    </div>
+                    <div class="layui-row layui-col-space20">
+                        <fieldset class="layui-elem-field">
+                            <legend>奖励情况</legend>
+                            <div class="layui-field-box">
+                                <table id="bonus_balance_table" lay-filter="bonus_balance_table"></table>
+                            </div>
+                        </fieldset>
+                        <fieldset class="layui-elem-field">
+                            <legend>分红交易</legend>
+                            <div class="layui-field-box">
+                                <table id="bonus_table" lay-filter="bonus_table"></table>
+                            </div>
+                        </fieldset>
+                        <fieldset class="layui-elem-field">
+                            <legend>普通交易</legend>
+                            <div class="layui-field-box">
+                                <table id="txs_table" lay-filter="txs_table"></table>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-<script src="https://mvp.taschain.cn/static/layui/layui.js"></script>
-<script>
 
-    layui.use(['form', 'jquery', 'element', 'layer', 'table','laypage', 'code'], function(){
-        layui.code({
-            title: 'Python Code'
-        });
-        var laypage  = layui.laypage;
-        var element = layui.element;
-        var form = layui.form;
-        var layer = layui.layer;
-        var $ = layui.$;
-        var HOST = "http://127.0.0.1:8101";
-        var ref;
-        var host_ele = $("#host");
-        var online=false;
-        var current_block_height = 0;
-        host_ele.text(HOST);
-        var blocks = [];
-        var groups = [];
-        var workGroups = [];
-        var trans_data = [];
-        var groupIds = new Set();
-        var table = layui.table;
-        var block_detail_currIndex;//统计块的下表
-        // 查询交易信息
-        var user_trans_table = table.render({
-            elem: '#trans_detail_table' //指定原始表格元素选择器（推荐id选择器）
-            ,cols: [[{field:'hash', title: '交易哈希'},{field:'height',title: '块高', sort:true}, {field:'block_hash', title: '块哈希'}, {field:'source', title: '付款人'}, {field:'target', title: '收款人'}, {field:'value', title: '金额'}]] //设置表头
-            ,data: trans_data
-            ,page: true
-            ,limit:15
-        });
-        //查询块信息
-        var block_table = table.render({
-            elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
-
-            ,cols: [[{field:'height',title: '块高', sort:true}, {field:'hash', title: 'hash'},{field:'pre_hash', title: 'pre_hash'},
-                {field:'pre_time', title: 'pre_time', width: 189},{field:'queue_number', title: 'queue_number'},
-                {field:'cur_time', title: 'cur_time', width: 189},{field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'signature', title: 'signature'}]] //设置表头
-            ,data: blocks
-            ,page: false
-            ,loading:true
-            ,limit:15
-        });
-        //查询组信息
-        var group_table = table.render({
-            elem: '#group_detail' //指定原始表格元素选择器（推荐id选择器）
-            ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'dummy', title: 'dummy', width:80},{field:'parent', title: '父亲组', width:140},
-                {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
-                {field:'members', title: '成员列表'}]] //设置表头
-            ,data: groups
-            ,page: true
-            ,limit:15
-        });
-        //查询工作
-        var work_group_table = table.render({
-            elem: '#work_group_detail' //指定原始表格元素选择器（推荐id选择器）
-            ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},
-                {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
-                {field:'group_members', title: '成员列表'}]] //设置表头
-            ,data: groups
-            ,page: true
-            ,limit:15
-        });
-
-        $("#sender_addr").val("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
-        $("#contract_deploy_btn").click(function (){
-            let abi = {};
-            abi.code = $("#contract_deploy_code").val();
-            abi.contract_name = $("#contract_name").val();
-            let nonce = new Date().getTime();
-            let sender = $("#sender_addr").val()
-            let params = {
-                "method": "GTAS_t",
-                "params": [sender, "", 0, JSON.stringify(abi), nonce],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $("#contract_addr").val(rdata.result.data)
-                    }
-                },
-            });
-        });
-
-        // 查询交易
-        $("#query_contract_btn").click(function () {
-            var h = $("#query_contract").val()
-            if (h == null || h == undefined || h == '') {
-                alert("请输入查询地址")
-                return
-            }
-            let params = {
-                "method": "GTAS_contractCode",
-                "params": [h],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $("#contract_code").text(JSON.parse(rdata.result.data).code)
-                    }
-                    if (rdata.error !== undefined){
-
-                    }
-                },
-            });
-        });
-
-
-        // 查询交易
-        $("#query_trans_btn").click(function () {
-            var h = $("#query_username").val()
-            if (h == null || h == undefined || h == '') {
-                alert("请输入查询用户名")
-                return
-            }
-            let params = {
-                "method": "GTAS_getTransByAccount",
-                "params": [h],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        trans_data = rdata.result.data;
-                        user_trans_table.reload({
-                            data: trans_data
-                        })
-                    }
-                    if (rdata.error !== undefined){
-
-                    }
-                },
-            });
-        });
-
-        $("#change_host").click(function () {
-            layer.prompt({
-                formType: 0,
-                value: HOST,
-                title: '请输入新的host',
-            }, function(value, index, elem){
-                HOST = value;
-                host_ele.text(HOST);
-                layer.close(index);
-                current_block_height = 0;
-                blocks = [];
-                block_table.reload({
-                    data: blocks,
-
-                });
-            });
-        });
-
-        // 查询余额
-        $(".query_btn").click(function () {
-            let id = $(this).attr("id");
-            let count = id.split("_")[2];
-            $("#balance_message").text("");
-            $("#balance_error").text("");
-            let params = {
-                "method": "GTAS_balance",
-                "params": [$("#query_input_"+count).val()],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $("#balance_message").text(rdata.result.message);
-                        $("#query_balance_"+count).text(rdata.result.data)
-                    }
-                    if (rdata.error !== undefined){
-                        $("#balance_error").text(rdata.error.message);
-                    }
-                },
-            });
-        });
-
-        // 钱包初始化
-        function init_wallets() {
-            let params = {
-                "method": "GTAS_getWallets",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $.each(rdata.result.data, function (i,val) {
-                            let tr = "<tr class='wallet_tr'><td>" + val.private_key + "</td><td>" + val.address
-                                    + '</td><td ><button class="layui-btn wallet_del">删除</button></td></tr>';
-                            $("#create_chart").append(tr);
-
-                            $(".wallet_del").click(function () {
-                                let parent = $(this).parents("tr");
-                                del_wallet(parent.children("td:eq(1)").text());
-                                parent.remove();
-                            });
-                        })
-                    }
-                },
-            });
-        }
-
-        function del_wallet(key) {
-            let params = {
-                "method": "GTAS_deleteWallet",
-                "params": [key],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-
-                },
-            });
-        }
-
-        init_wallets();
-
-
-        // 创建钱包
-        $("#create_btn").click(function () {
-
-            layer.prompt({
-                formType: 2,
-                value: '',
-                title: '请输入用户名',
-                area: ['200px', '20px'] //自定义文本域宽高
-            }, function(value, index, elem){
-                let params = {
-                    "method": "GTAS_newWallet",
-                    "params": [value],
-                    "jsonrpc": "2.0",
-                    "id": "1"
-                };
-                $.ajax({
-                    type: 'POST',
-                    url: HOST,
-                    beforeSend: function (xhr) {
-                        xhr.setRequestHeader("Content-Type", "application/json");
-                    },
-                    data: JSON.stringify(params),
-                    success: function (rdata) {
-                        let tr = "<tr class='wallet_tr'><td>"+rdata.result.data.nick+"</td><td>" + rdata.result.data.private_key + "</td><td>" + rdata.result.data.address
-                                + '</td><td ><button class="layui-btn wallet_del">删除</button></td></tr>';
-                        $("#create_chart").append(tr);
-
-                        $(".wallet_del").click(function () {
-                            let parent = $(this).parents("tr");
-                            del_wallet(parent.children("td:eq(1)").text());
-                            parent.remove();
-                        });
-                    },
-                });
-                layer.close(index);
-            });
-        });
-
-        // 投票表单提交
-        form.on('submit(vote_form)', function (data) {
-            $("#vote_message").text("");
-            $("#vote_error").text("");
-            let from = data.field.from;
-            let vote_param = {};
-            vote_param.template_name = data.field.template_name;
-            vote_param.p_index = parseInt(data.field.p_index);
-            vote_param.p_value = data.field.p_value;
-            vote_param.custom = (data.field.custom === "true");
-            vote_param.desc = data.field.desc;
-            vote_param.deposit_min = parseInt(data.field.deposit_min);
-            vote_param.total_deposit_min = parseInt(data.field.total_deposit_min);
-            vote_param.voter_cnt_min = parseInt(data.field.voter_cnt_min);
-            vote_param.approval_deposit_min = parseInt(data.field.approval_deposit_min);
-            vote_param.approval_voter_cnt_min = parseInt(data.field.approval_voter_cnt_min);
-            vote_param.deadline_block = parseInt(data.field.deadline_block);
-            vote_param.stat_block = parseInt(data.field.stat_block);
-            vote_param.effect_block = parseInt(data.field.effect_block);
-            vote_param.deposit_gap = parseInt(data.field.deposit_gap);
-            let params = {
-                "method": "GTAS_vote",
-                "params": [from, vote_param],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $("#vote_message").text(rdata.result.message)
-                    }
-                    if (rdata.error !== undefined){
-                        $("#vote_error").text(rdata.error.message)
-                    }
-                },
-            });
-            return false;
-        });
-
-
-        // 交易表单提交
-        form.on('submit(t_form)', function(data){
-            $("#t_message").text("");
-            $("#t_error").text("");
-            let from = data.field.from;
-            let to = data.field.to;
-            let amount = data.field.amount;
-            let code = data.field.code;
-            let timestamp=new Date().getTime();
-            // if (from.length !== 42) {
-            //     layer.msg("from 参数字段长度错误");
-            //     return false
-            // }
-            // if (to.length !== 42) {
-            //     layer.msg("to 参数字段长度错误");
-            //     return false
-            // }
-            let params = {
-                "method": "GTAS_t",
-                "params": [from, to, parseFloat(amount), code, timestamp],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        $("#t_message").text(rdata.result.message)
-                    }
-                    if (rdata.error !== undefined){
-                        $("#t_error").text(rdata.error.message)
-                    }
-                },
-            });
-            return false;
-        });
-
-        // 同步已链接节点
-        function syncNodes() {
-            let params = {
-                "method": "GTAS_connectedNodes",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        let nodes_table = $("#nodes_table");
-                        nodes_table.empty();
-                        rdata.result.data.sort(function (a, b) {
-                            return parseInt(a.ip.split(".")[3]) - parseInt(b.ip.split(".")[3])
-                        });
-                        $.each(rdata.result.data, function (i,val) {
-                            nodes_table.append(
-                                    " <tr><td>id</td><td>ip</td><td>port</td></tr>".replace("ip", val.ip).replace("id", val.id).replace("port", val.tcp_port)
-                            )
-                        })
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-                error: function () {
-                    let nodes_table = $("#nodes_table");
-                    nodes_table.empty();
-                }
-            });
-        }
-
-        // 同步缓冲区交易
-        function syncTrans() {
-            let params = {
-                "method": "GTAS_transPool",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        let trans_table = $("#trans_table");
-                        trans_table.empty();
-                        rdata.result.data.sort(function (a, b) {
-                            return parseInt(b.value) - parseInt(a.value)
-                        });
-                        $.each(rdata.result.data, function (i,val) {
-                            trans_table.append(
-                                    " <tr><td>source</td><td>target</td><td>value</td></tr>"
-                                            .replace("value", val.value)
-                                            .replace("source",  val.source.slice(0, 7) + "..." + val.source.slice(-6))
-                                            .replace("target",  val.target.slice(0, 7) + "..." + val.target.slice(-6))
-                            )
-                        })
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-                error: function () {
-                    let trans_table = $("#trans_table");
-                    trans_table.empty();
-                }
-            });
-        }
-
-        // 同步块高
-        function syncBlockHeight(NUmberUNR) {
-            let params = {
-                "method": "GTAS_blockHeight",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        let block_height = $("#block_height");
-                        block_height.text(rdata.result.data)
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                    if(!online) {
-                        online = true;
-                        $("#online_flag").addClass("layui-bg-green")
-                    }
-                    // if (current_block_height > rdata.result.data) {
-                    //     current_block_height = 0;
-                    //     blocks = [];
-                    //     block_table.reload({
-                    //         data: blocks
-                    //     });
-                    // }
-                    syncWorkGroupNum(rdata.result.data)
-                    //同步行高分页
-                    current_block_height = rdata.result.data
-                    if(NUmberUNR==true){
-                        blockCountPages(rdata.result.data)
-                    }else{
-                        laypage.render({
-                            elem: 'demo6'
-                            ,count: current_block_height
-                            ,limit:15,
-                            layout: [ 'prev', 'page', 'next', 'refresh', 'skip','count', ]
-                            ,curr:block_detail_currIndex
-                            ,jump:function(obj,e){
-                                block_detail_currIndex =obj.curr;
-                                if(!e){
-                                    // console.log(block_detail_currIndexs,obj.curr)
-                                    blocks=[] //清空当前数据
-                                    blockPagesClick(obj.curr,obj.count);
-                                }
-                            }
-                        });
-                        // $('#demo6 .layui-laypage-count').text("共 "+current_block_height +" 条");
-                    }
-
-
-
-                    // let count = 0;
-                    // for(let i=current_block_height+1; i<=rdata.result.data; i++) {
-                    //     syncBlock(i);
-                    //     count ++;
-                    //     if (count >= 50) {
-                    //         current_block_height = i;
-                    //         return
-                    //     }
-                    // }
-                    //没搞懂？？？？前边都return了 这步还能执行吗？
-
-                },
-                error: function () {
-                    if(online) {
-                        online = false;
-                        $("#online_flag").removeClass("layui-bg-green")
-                    }
-                }
-            });
-        }
-
-        // 同步组高
-        function syncGroupHeight() {
-            let params = {
-                "method": "GTAS_groupHeight",
-                "params": [],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        let block_height = $("#group_height");
-                        block_height.text(rdata.result.data)
-                        if (groups.length > 0 && rdata.result.data < groups[groups.length - 1]["height"]) {
-                            groups = []
-                            groupIds.clear()
-                            syncGroup(0)
-                        }
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-            });
-        }
-
-        // 同步工作组数量
-        function syncWorkGroupNum(height) {
-            let params = {
-                "method": "GTAS_workGroupNum",
-                "params": [height],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-                        let block_height = $("#work_group_num");
-                        block_height.text(rdata.result.data)
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-            });
-        }
-
-        // 同步块信息
-        function syncBlock(height,indexNumber) {
-            let params = {
-                "method": "GTAS_getBlock",
-                "params": [height],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined){
-
-                        blocks.push(rdata.result.data);
-                        if(blocks.length==15||indexNumber==1){
-                            block_table.reload({
-                                        data: blocks.sort((a,b)=>{
-                                            return (a.height-b.height)
-                                        }),
-                                    }
-                            )
-                        }
-
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-            });
-        }
-
-        // 同步组信息
-        function syncGroup(height) {
-            let params = {
-                "method": "GTAS_getGroupsAfter",
-                "params": [height],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                // dataType:"json",
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
-                        retArr = rdata.result.data
-                        for(i = 0; i < retArr.length; i++) {
-                            if (!groupIds.has(retArr[i]["group_id"])) {
-                                groups.push(retArr[i])
-                                groupIds.add(retArr[i]["group_id"])
-                            }
-                        }
-                        group_table.reload({
-                                    data: groups
-                                }
-                        )
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-                error: function (err) {
-                    console.log(err)
-                }
-            });
-        }
-
-        $("#query_wg_btn").click(function () {
-            var h = $("#query_wg_input").val()
-            if (h == null || h == undefined || h == '') {
-                alert("请输入查询高度")
-                return
-            }
-            queryWorkGroup(parseInt(h))
-        })
-        //查询工作组
-        function queryWorkGroup(height) {
-            let params = {
-                "method": "GTAS_getWorkGroup",
-                "params": [height],
-                "jsonrpc": "2.0",
-                "id": "1"
-            };
-            $.ajax({
-                type: 'POST',
-                url: HOST,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader("Content-Type", "application/json");
-                },
-                data: JSON.stringify(params),
-                success: function (rdata) {
-                    if (rdata.result !== undefined && rdata.result != null && rdata.result.message == 'success'){
-                        retArr = rdata.result.data
-                        work_group_table.reload({
-                                    data: retArr
-                                }
-                        )
-                    }
-                    if (rdata.error !== undefined){
-                        // $("#t_error").text(rdata.error.message)
-                    }
-                },
-                error: function (err) {
-                    console.log(err)
-                }
-            });
-        }
-
-
-        // dashboard同步数据
-        syncNodes();  // 同步已链接节点
-        syncTrans();    // 同步缓冲区交易
-        syncBlockHeight(true);  // 同步块高
-        syncGroupHeight();  //同步组高
-        syncGroup(0)  //同步组信息
-        setInterval(function () {
-            if (groups.length > 0) {
-                syncGroup(groups[groups.length-1]["height"]+1)
-            } else {
-                syncGroup(0)
-            }
-            syncBlockHeight(false);
-        }, 1000);
-        ref = setInterval(function(){
-            syncNodes();
-            syncTrans();
-            syncGroupHeight();
-        },1000);
-
-        element.on('tab(demo)', function(data){
-            if(data.index === 0) {
-                ref = setInterval(function(){
-                    syncNodes();
-                    syncTrans();
-                    syncGroupHeight();
-                },1000);
-            } else {
-                clearInterval(ref)
-            }
-        });
-        //查询块分页
-        function blockCountPages(count){
-            laypage.render({
-                elem: 'demo6'
-                ,count: count
-                ,limit:15,
-                layout: [ 'prev', 'page', 'next', 'refresh', 'skip','count', ]
-                ,jump: function(obj,first){
-                    block_detail_currIndex=obj.curr
-                    blocks=[] //清空当前数据
-                    blockPagesClick(obj.curr,obj.count);
-                }
-            });
-        }
-        //查询块分页点击分页跳转
-
-        function blockPagesClick(index,current_block_height) {
-            for(let i=1; i<=15; i++) {
-                jjj = (index-1) * 15 + i;
-                if (jjj > current_block_height){
-                    return
-                }
-                if(index==Math.ceil(current_block_height/15)){
-                    syncBlock(jjj,1);
-                }else{
-                    syncBlock(jjj,null);
-                }
-
-            }
-
-        }
-
-    });
-</script>
+<!--
+<script type="text/html" id="block_detail_view">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">查看</a>
+</script>-->
 
 </body>
 </html>

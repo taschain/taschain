@@ -1,15 +1,29 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package network
 
 import (
 	"common"
+	"errors"
+	"log"
+	"math/rand"
 	nnet "net"
 	"strconv"
-	"log"
 	"taslog"
-	"math/rand"
 	"time"
-	"fmt"
-	"errors"
 )
 
 const (
@@ -19,19 +33,36 @@ const (
 
 	BASE_SECTION = "network"
 
-	PRIVATE_KEY = "private_key"
+	PRIVATE_KEY  = "private_key"
+	NodeIdLength = 66
 )
 
-type NodeID =  common.Address
+type NodeID [NodeIdLength]byte
+
+func (nid NodeID) GetHexString() string {
+	return string(nid[:])
+}
+func NewNodeID(hex string) NodeID {
+	var nid NodeID
+	nid.SetBytes([]byte(hex))
+	return nid
+}
+
+func (nid *NodeID) SetBytes(b []byte) {
+	if len(nid) < len(b) {
+		b = b[:len(nid)]
+	}
+	copy(nid[:], b)
+}
+
+func (nid NodeID) Bytes() []byte {
+	return nid[:]
+}
 
 // Node Kad 节点
 type Node struct {
-
-	PrivateKey common.PrivateKey
-
-	PublicKey common.PublicKey
 	Id      NodeID
-	Ip     	nnet.IP
+	Ip      nnet.IP
 	Port    int
 	NatType int
 
@@ -39,11 +70,10 @@ type Node struct {
 
 	sha     []byte
 	addedAt time.Time
-	fails  int
-	pingAt time.Time
-	pinged bool
+	fails   int
+	pingAt  time.Time
+	pinged  bool
 }
-
 
 // NewNode 新建节点
 func NewNode(id NodeID, ip nnet.IP, port int) *Node {
@@ -80,7 +110,6 @@ func (n *Node) validateComplete() error {
 	return nil
 }
 
-
 func distanceCompare(target, a, b []byte) int {
 	for i := range target {
 		da := a[i] ^ target[i]
@@ -94,7 +123,7 @@ func distanceCompare(target, a, b []byte) int {
 	return 0
 }
 
-var  leadingZeroCount = [256]int{
+var leadingZeroCount = [256]int{
 	8, 7, 6, 6, 5, 5, 5, 5,
 	4, 4, 4, 4, 4, 4, 4, 4,
 	3, 3, 3, 3, 3, 3, 3, 3,
@@ -162,33 +191,20 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 	return b
 }
 
-func InitSelfNode(config common.ConfManager, isSuper bool) (*Node, error) {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
-	var privateKey common.PrivateKey
-
-	privateKeyStr := getPrivateKeyFromConfigFile(config)
-	if privateKeyStr == "" {
-		privateKey = common.GenerateKey("")
-		savePrivateKey(privateKey.GetHexString(), config)
-	} else {
-		privateKey = *common.HexStringToSecKey(privateKeyStr)
-	}
-	publicKey := privateKey.GetPubKey()
-	id := publicKey.GetAddress()
+func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
+	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	ip := getLocalIp()
 	basePort := BASE_PORT
-	port := SUPER_BASE_PORT;
+	port := SUPER_BASE_PORT
 	if !isSuper {
 		basePort += 16
 		port = getAvailablePort(ip, BASE_PORT)
 	}
 
-
-	n := Node{PrivateKey: privateKey, PublicKey: publicKey, Id: NodeID(id), Ip: nnet.ParseIP(ip), Port: port}
-	fmt.Print(n.String())
+	n := Node{Id: id, Ip: nnet.ParseIP(ip), Port: port}
+	common.DefaultLogger.Info(n.String())
 	return &n, nil
 }
-
 
 //内网IP
 func getLocalIp() string {
@@ -232,8 +248,7 @@ func getAvailablePort(ip string, port int) int {
 }
 
 func (s *Node) String() string {
-	str := "Self node net info:\nPrivate key is:" + s.PrivateKey.GetHexString() +
-		"\nPublic key is:" + s.PublicKey.GetHexString() + "\nID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port)+"\n"
+	str := "Self node net info:\n" + "ID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port) + "\n"
 	return str
 }
 

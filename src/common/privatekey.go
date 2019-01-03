@@ -16,6 +16,7 @@
 package common
 
 import (
+	"common/secp256k1"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
@@ -33,9 +34,14 @@ type PrivateKey struct {
 //私钥签名函数
 func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
-	r, s, err := ecdsa.Sign(rand.Reader, &pk.PrivKey, hash)
+	sig, err := secp256k1.Sign(hash, pk.PrivKey.D.Bytes())
 	if err == nil {
-		sign.Set(r, s)
+		//achates testing <<
+		if len(sig) != 65 {
+			fmt.Printf("secp256k1 sign wrong! hash = %v\n", hash)
+		}
+		//>>achates testing
+		sign = *BytesToSign(sig)
 	} else {
 		panic(fmt.Sprintf("Sign Failed, reason : %v.\n", err.Error()))
 	}
@@ -62,7 +68,7 @@ func GenerateKey(s string) PrivateKey {
 }
 
 //由私钥萃取公钥函数
-func (pk PrivateKey) GetPubKey() PublicKey {
+func (pk *PrivateKey) GetPubKey() PublicKey {
 	var pubk PublicKey
 	pubk.PubKey = pk.PrivKey.PublicKey
 	return pubk

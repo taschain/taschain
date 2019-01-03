@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"golang.org/x/crypto/sha3"
 )
 
 // ID -- id for secret sharing, represented by big.Int
@@ -89,7 +90,16 @@ func (id ID) GetHexString() string {
 
 //把ID转换到字节切片（小端模式）
 func (id ID) Serialize() []byte {
-	return id.value.Serialize()
+	idBytes := id.value.Serialize()
+	if len(idBytes) == IDLENGTH {
+		return idBytes
+	}
+	if len(idBytes) > IDLENGTH {
+		panic("ID Serialize error: ID bytes is more than IDLENGTH")
+	}
+	buff := make([]byte, IDLENGTH)
+	copy(buff[IDLENGTH-len(idBytes):IDLENGTH],idBytes)
+	return buff
 }
 
 func (id ID) MarshalJSON() ([]byte, error) {
@@ -104,6 +114,11 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	}
 	str = str[1:len(str)-1]
 	return id.SetHexString(str)
+}
+
+func (id ID) ShortS() string  {
+	str := id.GetHexString()
+	return common.ShortHex12(str)
 }
 
 //由big.Int创建ID
@@ -135,8 +150,9 @@ func NewIDFromAddress(addr common.Address) *ID {
 
 //由公钥构建ID，公钥->（缩小到160位）地址->（放大到256/384位）ID
 func NewIDFromPubkey(pk Pubkey) *ID {
-	addr := pk.GetAddress()
-	return NewIDFromAddress(addr)
+	h := sha3.Sum256(pk.Serialize())  //取得公钥的SHA3 256位哈希
+	bi := new(big.Int).SetBytes(h[:])
+	return NewIDFromBigInt(bi)
 }
 
 //从字符串生成ID 传入的STRING必须保证离散性
@@ -144,16 +160,21 @@ func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
 }
-func DeserializeId(bs []byte) *ID {
+func DeserializeId(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
-		return nil
+		return ID{}
 	}
-	return &id
+	return id
 }
 
 func (id ID) String() string {
-	bigInt := id.GetBigInt()
-	b := bigInt.Bytes()
-	return string(b)
+	//bigInt := id.GetBigInt()
+	//b := bigInt.Bytes()
+	//return string(b)
+	return id.GetHexString()
+}
+
+func (id ID) ToAddress() common.Address {
+    return common.BytesToAddress(id.Serialize())
 }

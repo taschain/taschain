@@ -16,11 +16,11 @@
 package network
 
 import (
-	"taslog"
 	"common"
+	"taslog"
 
-	nnet "net"
 	"middleware/statistics"
+	nnet "net"
 )
 
 const (
@@ -30,9 +30,9 @@ const (
 
 	seedPortKey = "seed_port"
 
-	seedDefaultId = "0xa1cbfb3f2d4690016269a655df22f62a1b90a39b"
+	seedDefaultId = "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"
 
-	seedDefaultIp = "47.105.70.31"
+	seedDefaultIp = "47.105.51.161"
 
 	seedDefaultPort = 1122
 )
@@ -41,22 +41,29 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string) (id string, err error) {
-	Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("instance", "index", ""))
+func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, seedIp string, seedId string, nodeIDHex string) (err error) {
+	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
-	self, err := InitSelfNode(config, isSuper)
+
+	self, err := InitSelfNode(config, isSuper, NewNodeID(nodeIDHex))
 	if err != nil {
-		Logger.Errorf("[Network]InitSelfNode error:", err.Error())
-		return "", err
+		Logger.Errorf("InitSelfNode error:", err.Error())
+		return err
 	}
-	id = self.Id.GetHexString()
 	if seedIp == "" {
 		seedIp = seedDefaultIp
 	}
-	seedId, _, seedPort := getSeedInfo(config)
+	if seedId == "" {
+		seedId = seedDefaultId
+	}
+	_, _, seedPort := getSeedInfo(config)
+
+	if len(seedId) > 0  {
+
+	}
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := NewNode(common.HexStringToAddress(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(NewNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
 
 	if bnNode.Id != self.Id && !isSuper {
 		seeds = append(seeds, bnNode)
@@ -75,8 +82,8 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler,}
-	return self.Id.GetHexString(),nil
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	return nil
 }
 
 func GetNetInstance() Network {

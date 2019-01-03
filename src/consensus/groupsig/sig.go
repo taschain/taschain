@@ -33,6 +33,14 @@ type Signature struct {
 	value bn_curve.G1
 }
 
+//func (sig Signature) UnmarshalJSON(b []byte) error {
+//	return sig.SetHexString(string(b))
+//}
+//
+//func (sig Signature) MarshalJSON() ([]byte, error) {
+//	return []byte(sig.GetHexString()), nil
+//}
+
 func (sig *Signature) IsNil () bool {
 	return sig.value.IsNil()
 }
@@ -78,7 +86,7 @@ func (sig Signature) GetRand() base.Rand {
 	return base.RandFromBytes(sig.Serialize())
 }
 
-func DeserializeSign(b [] byte)  * Signature {
+func DeserializeSign(b []byte)  * Signature {
 	sig := &Signature{}
 	sig.Deserialize(b)
 	return sig
@@ -87,7 +95,7 @@ func DeserializeSign(b [] byte)  * Signature {
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
-		return nil
+		return fmt.Errorf("signature Deserialized failed.")
 	}
 	sig.value.Unmarshal(b)
 	return nil
@@ -115,6 +123,10 @@ func (sig Signature) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(sig.value.Marshal())
 }
 
+func (sig Signature) ShortS() string {
+	str := sig.GetHexString()
+	return common.ShortHex12(str)
+}
 //由十六进制字符串初始化签名 ToDoCheck
 func (sig *Signature) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
@@ -139,6 +151,9 @@ func Sign(sec Seckey, msg []byte) (sig Signature) {
 
 //验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
+        if sig.value.IsNil() {
+            return false
+        }
 	bQ := bn_curve.GetG2Base()
 	p1 := bn_curve.Pair(&sig.value, bQ)
 	//fmt.Println("p1:", p1.String())

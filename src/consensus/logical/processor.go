@@ -17,15 +17,18 @@ package logical
 
 import (
 	"consensus/groupsig"
+	"sync"
 
-	"core"
-	"log"
-	"consensus/ticker"
-	"middleware/types"
+	"common"
 	"consensus/model"
 	"consensus/net"
+	"consensus/ticker"
+	"core"
+	"fmt"
 	"middleware/notify"
+	"middleware/types"
 	"storage/tasdb"
+	"sync/atomic"
 )
 
 var PROC_TEST_MODE bool
@@ -35,37 +38,45 @@ type Processor struct {
 	joiningGroups *JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
 	blockContexts *CastBlockContexts //组ID->组铸块上下文
+
 	globalGroups  *GlobalGroups      //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
 	groupManager *GroupManager
 
 	//////和组无关的矿工信息
-	mi *model.MinerInfo
+	mi *model.SelfMinerDO
 	//////加入(成功)的组信息(矿工节点数据)
 	belongGroups *BelongGroups //当前ID参与了哪些(已上链，可铸块的)组, 组id_str->组内私密数据（组外不可见或加速缓存）
 	//////测试数据，代替屮逸的网络消息
 	GroupProcs map[string]*Processor
 	Ticker     *ticker.GlobalTicker //全局定时器, 组初始化完成后启动
 
-	futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
+	//futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
+	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 
-	storage 	tasdb.Database
-	ready 		bool //是否已初始化完成
+	storage tasdb.Database
+	ready   bool //是否已初始化完成
 
 	//////链接口
-	MainChain  core.BlockChainI
+	MainChain  core.BlockChain
 	GroupChain *core.GroupChain
 
+	minerReader *MinerPoolReader
+	vrf         atomic.Value //vrfWorker
+
 	NetServer net.NetworkServer
+
+	CreateHeightGroups map[uint64]string // 标识该建组高度是否已经创建过组了
+	CreateHeightGroupsMutex sync.Mutex  // CreateHeightGroups的互斥锁，防止重复写入
 }
 
 func (p Processor) getPrefix() string {
-	return GetIDPrefix(p.GetMinerID())
+	return p.GetMinerID().ShortS()
 }
 
 //私密函数，用于测试，正式版本不提供
-func (p Processor) getMinerInfo() *model.MinerInfo {
+func (p Processor) getMinerInfo() *model.SelfMinerDO {
 	return p.mi
 }
 
@@ -78,10 +89,11 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 }
 
 //初始化矿工数据（和组无关）
-func (p *Processor) Init(mi model.MinerInfo) bool {
+func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.ready = false
-	p.futureBlockMsgs = NewFutureMessageHolder()
+	//p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
+	p.futureRewardReqs = NewFutureMessageHolder()
 	p.MainChain = core.BlockChainImpl
 	p.GroupChain = core.GroupChainImpl
 	p.mi = &mi
@@ -89,132 +101,134 @@ func (p *Processor) Init(mi model.MinerInfo) bool {
 	p.joiningGroups = NewJoiningGroups()
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
 	p.blockContexts = NewCastBlockContexts()
-	p.groupManager = NewGroupManager(p)
 	p.NetServer = net.NewNetworkServer()
-	//db, err := datasource.NewDatabase(STORE_PREFIX)
-	//if err != nil {
-	//	log.Printf("NewDatabase error %v\n", err)
-	//	return false
-	//}
-	//p.storage = db
-	//p.sci.Init()
 
+	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
+	pkPoolInit(p.minerReader)
+
+	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
-	log.Printf("proc(%v) inited 2.\n", p.getPrefix())
+
+	p.CreateHeightGroups = make(map[uint64]string, 100)
+
+	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
-	notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
+	notify.BUS.Subscribe(notify.TransactionGotAddSucc, p.onMissTxAddSucc)
+	//notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 	return true
 }
 
 //取得矿工ID（和组无关）
 func (p Processor) GetMinerID() groupsig.ID {
-	return p.mi.MinerID
+	return p.mi.GetMinerID()
 }
 
-//验证块的组签名是否正确
-func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
-	b := &msg.Block
-	bh := b.Header
-	var gid groupsig.ID
-	if gid.Deserialize(bh.GroupId) != nil {
-		panic("verifyGroupSign: group id Deserialize failed.")
-	}
-
-	groupInfo := p.getGroup(gid)
-	if !groupInfo.GroupID.IsValid() {
-		log.Printf("verifyGroupSign: get group is nil!, gid=" + GetIDPrefix(gid))
-		return false
-	}
-
-	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
-		log.Printf("verifyGroupSign: verifyGroupSig fail")
-		return false
-	}
-	return true
+func (p Processor) GetMinerInfo() *model.MinerDO {
+	return &p.mi.MinerDO
 }
+
+////验证块的组签名是否正确
+//func (p *Processor) verifyGroupSign(msg *model.ConsensusBlockMessage, preBH *types.BlockHeader) bool {
+//	b := &msg.Block
+//	bh := b.Header
+//	var gid groupsig.ID
+//	if gid.Deserialize(bh.GroupId) != nil {
+//		panic("verifyGroupSign: group id Deserialize failed.")
+//	}
+//
+//	blog := newBizLog("verifyGroupSign")
+//	groupInfo := p.GetGroup(gid)
+//	if !groupInfo.GroupID.IsValid() {
+//		blog.log("get group is nil!, gid=" + gid.ShortS())
+//		return false
+//	}
+//
+//	//blog.log("gpk %v, bh hash %v, sign %v, rand %v", groupInfo.GroupPK.ShortS(), bh.Hash.ShortS(), bh.Signature, bh.Random)
+//	if !msg.VerifySig(groupInfo.GroupPK, preBH.Random) {
+//		blog.log("verifyGroupSig fail")
+//		return false
+//	}
+//	return true
+//}
 
 //检查铸块组是否合法
-func (p *Processor) isCastGroupLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (bool) {
-	//to do : 检查是否基于链上最高块的出块
-	//defer func() {
-	//	log.Printf("isCastGroupLeagal result=%v.\n", result)
-	//}()
-	var gid groupsig.ID
-	if gid.Deserialize(bh.GroupId) != nil {
-		panic("isCastGroupLegal, group id Deserialize failed.")
+func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
+	blog := newBizLog("isCastLegal")
+	castor := groupsig.DeserializeId(bh.Castor)
+	minerDO := p.minerReader.getProposeMiner(castor)
+	if minerDO == nil {
+		err = fmt.Errorf("minerDO is nil, id=%v", castor.ShortS())
+		return
+	}
+	if !minerDO.CanCastAt(bh.Height) {
+		err = fmt.Errorf("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
+		return
+	}
+	totalStake := p.minerReader.getTotalStake(bh.Height)
+	blog.log("totalStake %v", totalStake)
+	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
+		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
+		return
 	}
 
-	selectGroupId := p.calcCastGroup(preHeader, bh.Height)
+	var gid = groupsig.DeserializeId(bh.GroupId)
+
+	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
-		return false
+		err = common.ErrSelectGroupNil
+		stdLogger.Debugf("selectGroupId is nil")
+		return
 	}
 	if !selectGroupId.IsEqual(gid) {
-		log.Printf("isCastGroupLegal failed, expect group=%v, receive cast group=%v.\n", GetIDPrefix(*selectGroupId), GetIDPrefix(gid))
-		log.Printf("qualified group num is %v\n", len(p.GetCastQualifiedGroups(bh.Height)))
-		return false
+		err = common.ErrSelectGroupInequal
+		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		return
 	}
 
-	groupInfo := p.getGroup(*selectGroupId) //取得合法的铸块组
-	if !groupInfo.GroupID.IsValid() {
-		log.Printf("selectedGroup is not valid, expect gid=%v, real gid=%v\n", GetIDPrefix(*selectGroupId), GetIDPrefix(groupInfo.GroupID))
-		return false
+	group = p.GetGroup(*selectGroupId) //取得合法的铸块组
+	if !group.GroupID.IsValid() {
+		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), group.GroupID.ShortS())
+		return
 	}
 
-	return true
-}
-
-//检测是否激活成为当前铸块组，成功激活返回有效的bc，激活失败返回nil
-func (p *Processor) verifyCastSign(cgs *model.CastGroupSummary, msg *model.ConsensusBlockMessageBase, preBH *types.BlockHeader) bool {
-
-	gmi := model.NewGroupMinerID(cgs.GroupID, msg.SI.GetID())
-	signPk := p.GetMemberSignPubKey(gmi) //取得消息发送方的组内签名公钥
-	bizlog := newBizLog("verifyCastSign")
-	if !signPk.IsValid() {
-		bizlog.log("signPK is not valid")
-		return false
-	}
-	if msg.VerifySign(signPk) { //消息合法
-		return msg.VerifyRandomSign(signPk, preBH.Random)
-	} else {
-		bizlog.log("msg verifysign fail")
-		return false
-	}
+	ok = true
+	return
 }
 
 func (p *Processor) getMinerPos(gid groupsig.ID, uid groupsig.ID) int32 {
-	sgi := p.getGroup(gid)
+	sgi := p.GetGroup(gid)
 	return int32(sgi.GetMinerPos(uid))
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
-func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
-	var pub_piece groupsig.Pubkey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		pub_piece = node.GetSeedPubKey()
-	}
-	return pub_piece
-}
-
-//取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
-//用于测试目的，正式版对外不提供。
-func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
-	var secPiece groupsig.Seckey
-	gc := p.joiningGroups.GetGroup(gid)
-	node := gc.GetNode()
-	if node != nil {
-		secPiece = node.getSeedSecKey()
-	}
-	return secPiece
-}
+////取得自己参与的某个铸块组的公钥片段（聚合一个组所有成员的公钥片段，可以生成组公钥）
+//func (p Processor) GetMinerPubKeyPieceForGroup(gid groupsig.ID) groupsig.Pubkey {
+//	var pub_piece groupsig.Pubkey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		pub_piece = node.GetSeedPubKey()
+//	}
+//	return pub_piece
+//}
+//
+////取得自己参与的某个铸块组的私钥片段（聚合一个组所有成员的私钥片段，可以生成组私钥）
+////用于测试目的，正式版对外不提供。
+//func (p Processor) getMinerSecKeyPieceForGroup(gid groupsig.ID) groupsig.Seckey {
+//	var secPiece groupsig.Seckey
+//	gc := p.joiningGroups.GetGroup(gid)
+//	node := gc.GetNode()
+//	if node != nil {
+//		secPiece = node.getSeedSecKey()
+//	}
+//	return secPiece
+//}
 
 //取得特定的组
-func (p Processor) getGroup(gid groupsig.ID) *StaticGroupInfo {
+func (p Processor) GetGroup(gid groupsig.ID) *StaticGroupInfo {
 	if g, err := p.globalGroups.GetGroupByID(gid); err != nil {
 		panic("GetSelfGroup failed.")
 	} else {
@@ -254,8 +268,8 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *model.Si
 	//}
 }
 
-func (p *Processor) ExistInDummyGroup(dummyId groupsig.ID) bool {
-	initingGroup := p.globalGroups.GetInitingGroup(dummyId)
+func (p *Processor) ExistInGroup(gHash common.Hash) bool {
+	initingGroup := p.globalGroups.GetInitingGroup(gHash)
 	if initingGroup == nil {
 		return false
 	}

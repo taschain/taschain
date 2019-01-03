@@ -19,6 +19,7 @@ package ecies
 // symmetric encryption and HMAC parameters.
 
 import (
+	"common/secp256k1"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -31,7 +32,8 @@ import (
 
 // The default curve for this package is the NIST P256 curve, which
 // provides security equivalent to AES-128.
-var DefaultCurve = elliptic.P256()
+//var DefaultCurve = elliptic.P256()
+var DefaultCurve = secp256k1.S256()
 
 var (
 	ErrUnsupportedECDHAlgorithm   = fmt.Errorf("ecies: unsupported ECDH algorithm")
@@ -87,6 +89,7 @@ var (
 )
 
 var paramsFromCurve = map[elliptic.Curve]*ECIESParams{
+	secp256k1.S256(): ECIES_AES128_SHA256,
 	elliptic.P256(): ECIES_AES128_SHA256,
 	elliptic.P384(): ECIES_AES256_SHA384,
 	elliptic.P521(): ECIES_AES256_SHA512,
