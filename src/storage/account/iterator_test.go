@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package core
+package account
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func TestNodeIterator(t *testing.T)  {
 	state.Commit(true)
 	stateObject := state.getAccountObject(common.StringToAddress("1"))
 
-	for it2 := stateObject.DataIterator(db,""); it2.Next();{
+	for it2 := stateObject.DataIterator(db,nil); it2.Next();{
 		fmt.Printf("%s %s\n",string(it2.Key), it2.Value)
 	}
 
@@ -128,7 +128,7 @@ func TestIterator2(t *testing.T) {
 	state.Commit(true)
 	stateObject := state.getAccountObject(common.StringToAddress("1"))
 
-	for it2 := stateObject.DataIterator(db,""); it2.Next();{
+	for it2 := stateObject.DataIterator(db,nil); it2.Next();{
 		fmt.Printf("%s %s\n",string(it2.Key), it2.Value)
 	}
 }

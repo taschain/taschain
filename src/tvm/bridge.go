@@ -25,7 +25,7 @@ import (
 	"math/big"
 	"unsafe"
 
-	"storage/core/types"
+	"middleware/types"
 )
 
 //export callOnMeGo

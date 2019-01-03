@@ -258,7 +258,7 @@ import (
 	"strings"
 	"unsafe"
 	//"middleware/types"
-	types2 "middleware/types"
+	types "middleware/types"
 	"bytes"
 	"strconv"
 	"storage/vm"
@@ -280,7 +280,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	conAddr := common.HexStringToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
 	if contract.Code == "" {
-		return fmt.Sprintf(types2.NO_CODE_ERR,conAddr)
+		return fmt.Sprintf(types.NO_CODE_ERR,conAddr)
 	}
 	oneVm := &Tvm{contract, controller.Vm.ContractAddress,nil}
 
@@ -312,7 +312,7 @@ func CallContract(_contractAddr string, funcName string, params string) string {
 	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
 	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
 	if abiJsonError!= nil{
-		return types2.ABI_JSON_ERROR
+		return types.ABI_JSON_ERROR
 	}
 	errorCode,errorMsg = controller.Vm.checkABI(abi)
 	if errorCode != 0 {
@@ -434,7 +434,7 @@ func (tvm *Tvm) checkABI(abi ABI) (int,string) {
 	script := PycodeCheckAbi(abi)
 	errorCode,errorMsg := tvm.Execute(script)
 	if errorCode != 0{
-		errorCode = types2.Sys_Check_Abi_Error
+		errorCode = types.Sys_Check_Abi_Error
 		errorMsg =  fmt.Sprintf(`
 			checkABI failed. abi:%s,msg=%s
 		`,abi.FuncName,errorMsg)

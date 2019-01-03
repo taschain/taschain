@@ -1,14 +1,14 @@
-package core
+package contract_test
 
 import (
 	"common"
 	"network"
 	"taslog"
 	"fmt"
-	"consensus/mediator"
-	"consensus/model"
 	"middleware/types"
-	"math/big"
+	"core"
+	"common/ed25519"
+	b "consensus/base"
 )
 
 //
@@ -34,12 +34,11 @@ import (
 //
 var randValue uint64 = 0
 
-func GeneteRandom()uint64{
+func GeneteRandom() uint64 {
+	result := randValue
 	randValue++
-	return randValue
+	return result
 }
-
-
 
 //func ChainInit() {
 //	Clear()
@@ -49,7 +48,7 @@ func GeneteRandom()uint64{
 //	BlockChainImpl.transactionPool.Clear()
 //}
 //
-func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
+func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32, txType int32) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
 	sourcebyte := common.HexStringToAddress(source)
@@ -61,9 +60,9 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		targetAddr = &targetbyte
 	}
 	return &types.Transaction{
-		Hash: common.BytesToHash([]byte{byte(nonce)}),
+		Hash:          common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
-		GasLimit:		gaslimit,
+		GasLimit:      gaslimit,
 		GasPrice:      price,
 		Source:        sourceAddr,
 		Target:        targetAddr,
@@ -71,8 +70,10 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		Value:         value,
 		ExtraData:     extraData,
 		ExtraDataType: extraDataType,
+		Type:          txType,
 	}
 }
+
 //
 //func DeployContract(code string, source string, gaslimit uint64, value uint64) common.Address{
 //	txpool := BlockChainImpl.GetTransactionPool()
@@ -315,55 +316,56 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 //
 func OnChainFunc(code string, source string) {
 	//common.InitConf("d:/test1.ini")
-	common.InitConf("../../deploy/tvm/test1.ini")
+	//common.InitConf("../../deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-	//Clear()
-	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
-	initBlockChain(mediator.NewConsensusHelper(minerInfo.ID))
-	BlockChainImpl.GetTransactionPool().Clear()
-	txpool := BlockChainImpl.GetTransactionPool()
+	//minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
+	//core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
+	//core.BlockChainImpl.GetTransactionPool().Clear()
+	txpool := core.BlockChainImpl.GetTransactionPool()
 	index := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000,  source, "", index, 0, []byte(code), nil, 0))
-	fmt.Println("nonce:", BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
-	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
+	txpool.AddTransaction(genContractTx(1, 20000000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
+	fmt.Println("nonce:", core.BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(core.BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 	castor := new([]byte)
 	groupid := new([]byte)
 	// 铸块1
-	pv := &big.Int{}
-	block := BlockChainImpl.CastBlock(BlockChainImpl.Height() + 1, pv, common.Hash{}, 3,*castor, *groupid)
+	pk, sk, _ := ed25519.GenerateKey(nil)
+	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
+	block := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, *castor, *groupid)
 	if nil == block {
 		fmt.Println("fail to cast new block")
 	}
 	// 上链
-	if 0 != BlockChainImpl.AddBlockOnChain("",block) {
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block) {
 		fmt.Println("fail to add block")
 	}
 	fmt.Println(contractAddr.GetHexString())
 }
 
 func CallContract(address, abi string) {
-	CallContract2(address, abi, "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	CallContract2(address, abi, "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
 }
 
 func CallContract2(address, abi string, source string) {
-	common.InitConf("d:/test1.ini")
+	common.InitConf("../../deploy/tvm/test1.ini")
 	//common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
-	initBlockChain(mediator.NewConsensusHelper(minerInfo.ID))
-	BlockChainImpl.GetTransactionPool().Clear()
+	//minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
+	//core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
+	//core.BlockChainImpl.GetTransactionPool().Clear()
 	castor := new([]byte)
 	groupid := new([]byte)
 	contractAddr := common.HexStringToAddress(address)
-	code := BlockChainImpl.(*FullBlockChain).latestStateDB.GetCode(contractAddr)
+	code := core.BlockChainImpl.LatestStateDB().GetCode(contractAddr)
 	fmt.Println(string(code))
-	txpool := BlockChainImpl.GetTransactionPool()
+	txpool := core.BlockChainImpl.GetTransactionPool()
 	r := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0))
-	pv := new(big.Int).SetUint64(uint64(1000))
-	block2 := BlockChainImpl.CastBlock(BlockChainImpl.Height() + 1, pv, common.Hash{},3, *castor, *groupid)
+	txpool.AddTransaction(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
+	pk, sk, _ := ed25519.GenerateKey(nil)
+	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
+	block2 := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, *castor, *groupid)
 	block2.Header.TotalQN = 200
-	if 0 != BlockChainImpl.AddBlockOnChain("",block2) {
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block2) {
 		fmt.Println("fail to add empty block")
 	}
 }

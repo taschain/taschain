@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"middleware/types"
-	"storage/core/vm"
-	t "storage/core/types"
+	"storage/vm"
 )
 
 type Controller struct {
@@ -68,7 +67,7 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*t.Log,*types.TransactionError) {
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*types.Log,*types.TransactionError) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 	defer func() {

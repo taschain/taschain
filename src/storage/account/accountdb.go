@@ -16,7 +16,6 @@
 package account
 
 import (
-	"C"
 	"fmt"
 	"math/big"
 	"sort"
@@ -359,10 +358,10 @@ func (self *AccountDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (self *AccountDB) DataIterator(addr common.Address, prefix string) *DataIterator {
+func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.Iterator {
 	stateObject := self.getAccountObjectFromTrie(addr)
 	if stateObject != nil {
-		return stateObject.DataIterator(self.db,prefix)
+		return stateObject.DataIterator(self.db, []byte(prefix))
 	} else {
 		return nil
 	}

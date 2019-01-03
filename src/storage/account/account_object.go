@@ -303,8 +303,7 @@ func (self *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie
 	if self.trie == nil {
 		self.getTrie(db)
 	}
-	iter := trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
-	return &DataIterator{Iterator:iter, object:self, prefix:prefix}
+	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
 }
 
 func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
