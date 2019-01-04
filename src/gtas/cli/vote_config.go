@@ -17,7 +17,7 @@ package cli
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin/json"
+	"encoding/json"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"reflect"
 	"strconv"
