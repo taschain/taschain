@@ -54,9 +54,9 @@ type account struct {
 var richAccounts []*account
 //脚本测试交易 不广播  判定nonce
 func main() {
-	interval := flag.Duration("i", time.Millisecond*100, "转账时间间隔")
+	interval := flag.Duration("i", time.Second*1, "转账时间间隔")
 	total := flag.Int("t", 100000000, "转账总笔数")
-	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102,127.0.0.1:8103", "随机发送地址列表")
+	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102,127.0.0.1:8103,127.0.0.1:8104,127.0.0.1:8105,127.0.0.1:8106", "随机发送地址列表")
 	flag.Parse()
 
 	loadRichAccounts()
@@ -140,9 +140,9 @@ func mockSendTransaction(host string, port int, privateKey string, from, to stri
 		return
 	}
 
-	if res.Result == nil{
+	if res.Result == nil {
 		fmt.Println(host, ":", port, "result:", res)
-	}else {
+	} else {
 		fmt.Println(host, ":", port, "result:", res.Result.Message, " hash:", res.Result.Data)
 	}
 }
@@ -166,7 +166,7 @@ func rpcPost(addr string, port int, method string, params ...interface{}) (*RPCR
 		return nil, err
 	}
 	var resJSON RPCResObj
-	if responseBytes != nil && len(responseBytes) !=0{
+	if responseBytes != nil && len(responseBytes) != 0 {
 		if err := json.Unmarshal(responseBytes, &resJSON); err != nil {
 			fmt.Println("responseBytes:", responseBytes)
 			fmt.Println("json.Unmarshal err:", err.Error())

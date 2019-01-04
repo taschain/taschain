@@ -282,9 +282,9 @@ func (chain *prototypeChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 	return true
 }
 
-func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader)(bool,error) {
+func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) (bool, error) {
 	if chain.Height() == 0 {
-		return true,nil
+		return true, nil
 	}
 	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
 	if pre == nil {
@@ -294,9 +294,9 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader)(bool,error)
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
 	if err != nil {
 		Logger.Errorf("validateGroupSig error:%s", err.Error())
-		return false,err
+		return false, err
 	}
-	return result,err
+	return result, err
 }
 
 //func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
@@ -636,9 +636,16 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	defer chain.lock.Unlock("MergeFork")
 
 	localTopHeader := chain.latestBlock
-	if !(blockChainPiece[len(blockChainPiece)-1].Header.TotalQN > localTopHeader.TotalQN || blockChainPiece[len(blockChainPiece)-1].Header.ProveValue.Cmp(localTopHeader.ProveValue) >= 0) {
+	if blockChainPiece[len(blockChainPiece)-1].Header.TotalQN < localTopHeader.TotalQN {
 		return
 	}
+
+	if (blockChainPiece[len(blockChainPiece)-1].Header.TotalQN == localTopHeader.TotalQN) {
+		if !chain.compareNextBlockPv(blockChainPiece[0].Header) {
+			return
+		}
+	}
+
 	originCommonAncestorHash := (*blockChainPiece[0]).Header.PreHash
 	originCommonAncestor := BlockChainImpl.QueryBlockByHash(originCommonAncestorHash)
 	if originCommonAncestor == nil {
@@ -678,4 +685,36 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 			return
 		}
 	}
+}
+
+func (chain *prototypeChain) compareNextBlockPv(remoteNextHeader *types.BlockHeader) bool {
+	if remoteNextHeader == nil {
+		return false
+	}
+	remoteNextBlockPv := remoteNextHeader.ProveValue
+	if remoteNextBlockPv == nil {
+		return false
+	}
+	commonAncestor := BlockChainImpl.QueryBlockByHash(remoteNextHeader.PreHash)
+	if commonAncestor == nil {
+		Logger.Debugf("MergeFork common ancestor should not be nil!")
+		return false
+	}
+
+	var localNextBlock *types.BlockHeader
+	for i := commonAncestor.Header.Height + 1; i <= chain.Height(); i++ {
+		bh := chain.queryBlockHeaderByHeight(i, true)
+		if nil == bh {
+			continue
+		}
+		localNextBlock = bh
+		break
+	}
+	if localNextBlock == nil {
+		return true
+	}
+	if remoteNextBlockPv.Cmp(localNextBlock.ProveValue) > 0 {
+		return true
+	}
+	return false
 }

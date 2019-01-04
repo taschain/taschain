@@ -232,9 +232,12 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				}
 				//Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
+					if n != common.AddressLength{
+						Logger.Debugf("TVMExecutor Bonus Addr Size:%d Invalid",n)
+						break
+					}
 					address := common.BytesToAddress(addr)
 					accountdb.AddBalance(address, value)
-
 				}
 
 				executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)

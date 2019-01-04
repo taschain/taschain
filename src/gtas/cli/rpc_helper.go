@@ -4,7 +4,6 @@ import (
 	"middleware/types"
 	"consensus/groupsig"
 	"consensus/mediator"
-	"log"
 	"common"
 	"core"
 	"fmt"
@@ -81,13 +80,13 @@ func genMinerBalance(id groupsig.ID, bh *types.BlockHeader) *MinerBonusBalance {
 	}
 	db, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.Hash)
 	if err != nil {
-		log.Printf("GetAccountDBByHash err %v, hash %v", err, bh.Hash)
+		common.DefaultLogger.Errorf("GetAccountDBByHash err %v, hash %v", err, bh.Hash)
 		return mb
 	}
 	mb.CurrBalance = db.GetBalance(id.ToAddress())
 	preDB, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.PreHash)
 	if err != nil {
-		log.Printf("GetAccountDBByHash err %v hash %v", err, bh.PreHash)
+		common.DefaultLogger.Errorf("GetAccountDBByHash err %v hash %v", err, bh.PreHash)
 		return mb
 	}
 	mb.PreBalance = preDB.GetBalance(id.ToAddress())
@@ -108,11 +107,10 @@ func sendTransaction(trans *types.Transaction) error {
 	}
 	source := pk.GetAddress()
 	trans.Source = &source
-
-	fmt.Println(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
-	fmt.Printf("%+v\n", trans)
+	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
+		common.DefaultLogger.Errorf("AddTransaction not ok or error:%s",err.Error())
 		return err
 	}
 	return nil
