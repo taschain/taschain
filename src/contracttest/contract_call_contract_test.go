@@ -34,14 +34,14 @@ func TestContractCallContract(t *testing.T) {
 	contract := tvm.Contract{code, "ContractGame", nil}
 	jsonString, _ := json.Marshal(contract)
 	//fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
+	OnChainFunc(string(jsonString), "0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 
 	//int类型
-	contractAddr := "0xde6409d605fc816f2e02028625ee3993cf4ee61198391c539bbb0abec4c2f18a"
+	contractAddr := "0x09e162923e17722e0a08c25969f85c8e4d273e6f8807739e1954eea8eae6e0a9"
 	abi := `{"FuncName": "contract_int", "Args": []}`
-	CallContract(contractAddr, abi)
+	CallContract(contractAddr, abi,"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	//断言
-	result := string(getContractDatas("0xde6409d605fc816f2e02028625ee3993cf4ee61198391c539bbb0abec4c2f18a", "a"))
+	result := string(getContractDatas(contractAddr, "a"))
 	i, _ := strconv.Atoi(result)
 	fmt.Printf("i:%d",i)
 	if i != 1121 {//底层非map，默认加了1的前缀
@@ -94,7 +94,7 @@ func TestContractMaxLength(t *testing.T) {
 	contract = tvm.Contract{code, "ContractGame", nil}
 	jsonString, _ = json.Marshal(contract)
 	//fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	OnChainFunc(string(jsonString), "0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 
 	//部署合约contract_becalled_deep
 	//time.Sleep(5 * time.Second)
@@ -103,14 +103,14 @@ func TestContractMaxLength(t *testing.T) {
 	contract = tvm.Contract{code, "ContractBeCalledDeep", nil}
 	jsonString, _ = json.Marshal(contract)
 	//fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+	OnChainFunc(string(jsonString), "0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 
 	//int类型
 	//time.Sleep(5 * time.Second)
 	print("3")
 	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
 	abi := `{"FuncName": "contract_deep", "Args": []}`
-	CallContract(contractAddr, abi)
+	CallContract(contractAddr, abi,"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 
 }
 

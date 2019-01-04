@@ -342,13 +342,8 @@ func OnChainFunc(code string, source string) {
 	fmt.Println(contractAddr.GetHexString())
 }
 
-func CallContract(address, abi string) {
-	CallContract2(address, abi, "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
-}
 
-func CallContract2(address, abi string, source string) {
-	common.InitConf("../../deploy/tvm/test1.ini")
-	//common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
+func CallContract(address, abi string, source string) {
 	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 	//minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
 	//core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
