@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"golang.org/x/crypto/sha3"
 	"bytes"
+	"golang.org/x/crypto/sha3"
 )
 
 func TestPrivateKey(test *testing.T) {
@@ -189,6 +189,17 @@ func BenchmarkVerify(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pk.Verify(sha3_hash[:], &sign)
+	}
+}
+
+func BenchmarkRecover(b *testing.B) {
+	msg := []byte("This is TASchain achates' testing message")
+	sk := GenerateKey("")
+	sha3_hash := sha3.Sum256(msg)
+	sign := sk.Sign(sha3_hash[:])
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = sign.RecoverPubkey(sha3_hash[:])
 	}
 }
 
