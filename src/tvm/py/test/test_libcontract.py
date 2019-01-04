@@ -6,7 +6,7 @@ import lib_helloworld
 
 class Libcontract(object):
 
-    def deploy(self):
+    def __init__(self):
         pass
 
     def test(self):

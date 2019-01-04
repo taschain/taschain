@@ -9,9 +9,6 @@ class TasDeploy(object):
         self.main_file = ""
         self.depends_file = ""
         self.lib_contract = False
-
-    def deploy(self):
-
         main_code_hex = ""
         with open(self.main_file, "r", encoding="UTF-8") as f:
             main_code_hex = f.read().encode("UTF-8").hex()

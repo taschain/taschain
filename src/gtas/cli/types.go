@@ -62,6 +62,8 @@ type Transactions struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Value  string `json:"value"`
+	Height uint64 `json:"height"`
+	BlockHash string `json:"block_hash"`
 }
 
 type PubKeyInfo struct {

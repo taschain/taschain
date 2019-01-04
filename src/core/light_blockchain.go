@@ -390,7 +390,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return false, state, nil
 	}
-	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
+	statehash, _, _, receipts, err,_ := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
 
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Infof("fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
