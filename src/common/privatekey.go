@@ -16,6 +16,7 @@
 package common
 
 import (
+	"common/ecies"
 	"common/secp256k1"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -24,7 +25,6 @@ import (
 	"io"
 	"math/big"
 	"strings"
-	"common/ecies"
 )
 
 type PrivateKey struct {
@@ -93,11 +93,14 @@ func HexStringToSecKey(s string) (sk *PrivateKey) {
 
 func (pk *PrivateKey) ToBytes() []byte {
 	//fmt.Printf("begin seckey ToBytes...\n")
-	pubk := pk.GetPubKey() //取得公钥
-	buf := pubk.ToBytes()  //公钥序列化
-	//fmt.Printf("pub key tobytes, len=%v, data=%v.\n", len(buf), buf)
+	buf := make([]byte, SecKeyLength)
+	copy(buf[:PubKeyLength], pk.GetPubKey().ToBytes())
 	d := pk.PrivKey.D.Bytes() //D序列化
-	buf = append(buf, d...)   //叠加公钥和D的序列化
+	if len(d) > 32 {
+		panic("privateKey data length error: D length is more than 32!")
+	}
+	copy(buf[SecKeyLength-len(d):SecKeyLength], d)
+
 	//fmt.Printf("sec key tobytes, len=%v, data=%v.\n", len(buf), buf)
 	//fmt.Printf("end seckey ToBytes.\n")
 	return buf
@@ -120,7 +123,7 @@ func BytesToSecKey(data []byte) (sk *PrivateKey) {
 }
 
 //私钥解密消息
-func (pk *PrivateKey) Decrypt(rand io.Reader, ct[]byte) (m []byte, err error) {
+func (pk *PrivateKey) Decrypt(rand io.Reader, ct []byte) (m []byte, err error) {
 	prv := ecies.ImportECDSA(&pk.PrivKey)
-	return prv.Decrypt(rand, ct, nil, nil )
+	return prv.Decrypt(rand, ct, nil, nil)
 }
