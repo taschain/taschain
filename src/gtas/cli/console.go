@@ -1,14 +1,16 @@
 package cli
 
 import (
-	"os"
-	"fmt"
-	"strings"
-	"regexp"
-	"flag"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/peterh/liner"
+	"io/ioutil"
+	"os"
+	"regexp"
+	"strings"
+	"tvm"
 )
 
 /*
@@ -225,6 +227,8 @@ type sendTxCmd struct {
 	to string
 	value uint64
 	data string
+	contractName string
+	contractPath string
 	txType int
 	gas uint64
 	gasPrice uint64
@@ -237,6 +241,8 @@ func genSendTxCmd() *sendTxCmd {
 	c.fs.StringVar(&c.to, "to", "", "the transaction receiver address")
 	c.fs.Uint64Var(&c.value, "value", 0, "transfer value")
 	c.fs.StringVar(&c.data, "data", "", "transaction data")
+	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
+	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
 	c.fs.IntVar(&c.txType, "type", 0, "transaction type: 0=general tx, 1=contract create, 2=contract call, 3=bonus, 4=miner apply,5=miner abort, 6=miner refund")
 	c.fs.Uint64Var(&c.gas, "gas", 0, "gas limit")
 	c.fs.Uint64Var(&c.gasPrice, "gasprice", 0, "gas price")
@@ -264,6 +270,52 @@ func (c *sendTxCmd) parse(args []string) bool {
 		c.fs.PrintDefaults()
 		return false
 	}
+
+	if c.txType == 1 { //发布合约预处理
+		if strings.TrimSpace(c.contractName) == "" { //合约名字非空
+			fmt.Println("please input the contractName")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+			fmt.Println("please input the contractPath")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		if err != nil {
+			fmt.Println("read the "+c.contractPath+"file failed ", err)
+			c.fs.PrintDefaults()
+			return false
+		}
+		contract := tvm.Contract{string(f), c.contractName, nil}
+
+		jsonBytes, errMarsh := json.Marshal(contract)
+		if errMarsh != nil {
+			fmt.Println("Marshal contract failed: ", errMarsh)
+			c.fs.PrintDefaults()
+			return false
+		}
+		c.data = string(jsonBytes)
+
+	} else if c.txType == 2 { //调用合约预处理
+		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+			fmt.Println("please input the contractPath")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		if err != nil {
+			fmt.Println("read the "+c.contractPath+"file failed ", err)
+			c.fs.PrintDefaults()
+			return false
+		}
+		c.data = string(f)
+	}
+
 	return true
 }
 
