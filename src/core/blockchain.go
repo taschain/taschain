@@ -146,19 +146,19 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(200)
+	chain.futureBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.verifiedBlocks, err = lru.New(20)
+	chain.verifiedBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.topBlocks, _ = lru.New(1000)
+	chain.topBlocks, _ = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.castedBlock, err = lru.New(20)
+	chain.castedBlock, err = lru.New(10)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
-		chain.buildCache(1000, chain.topBlocks)
+		chain.buildCache(10, chain.topBlocks)
 		Logger.Debugf("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 		state, err := account.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
@@ -384,12 +384,6 @@ func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) int8
 		return -1
 	}
 
-	if !chain.hasPreBlock(*b.Header) {
-		chain.futureBlocks.Add(b.Header.PreHash, b)
-		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-		return 2
-	}
-
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
 		return -1
@@ -404,6 +398,13 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
+
+	if !chain.hasPreBlock(*b.Header) {
+		Logger.Debugf("coming block has no pre on local chain.Forking...")
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		return 2
+	}
 
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
@@ -623,7 +624,7 @@ func (chain *FullBlockChain) Clear() error {
 
 	chain.init = false
 	chain.latestBlock = nil
-	chain.topBlocks, _ = lru.New(1000)
+	chain.topBlocks, _ = lru.New(10)
 
 	var err error
 

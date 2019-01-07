@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	LightFullAccountBlockCacheSize = 20
-	LIGHT_BLOCK_CACHE_SIZE         = 20
-	LIGHT_BLOCKHEIGHT_CACHE_SIZE   = 100
-	LIGHT_BLOCKBODY_CACHE_SIZE     = 100
+	LightFullAccountBlockCacheSize = 10
+	LIGHT_BLOCK_CACHE_SIZE         = 10
+	LIGHT_BLOCKHEIGHT_CACHE_SIZE   = 10
+	LIGHT_BLOCKBODY_CACHE_SIZE     = 10
 	LIGHT_LRU_SIZE                 = 5000000
 )
 
@@ -90,7 +90,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(20)
+	chain.futureBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
-	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
