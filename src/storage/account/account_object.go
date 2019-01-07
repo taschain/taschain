@@ -180,6 +180,10 @@ func (self *accountObject) SetData(db AccountDatabase, key string, value []byte)
 	self.setData(key, value)
 }
 
+func (self *accountObject) RemoveData(db AccountDatabase, key string) {
+	self.SetData(db, key, nil)
+}
+
 func (self *accountObject) setData(key string, value []byte) {
 	self.cachedLock.Lock()
 	self.cachedStorage[key] = value
@@ -293,6 +297,7 @@ func (self *accountObject) Code(db AccountDatabase) []byte {
 	self.code = code
 	return code
 }
+
 
 func (self *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.Iterator {
 	if self.trie == nil {

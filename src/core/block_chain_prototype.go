@@ -109,8 +109,8 @@ func (chain *prototypeChain) TotalQN() uint64 {
 //查询最高块
 func (chain *prototypeChain) QueryTopBlock() *types.BlockHeader {
 	//这里不应该加锁或者加一个粒度小的锁
-	result := *chain.latestBlock
-	return &result
+	result := chain.latestBlock
+	return result
 }
 
 // 根据指定高度查询块

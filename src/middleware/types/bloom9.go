@@ -17,14 +17,16 @@ package types
 
 import (
 	"fmt"
-	"math/big"
-
 	"golang.org/x/crypto/sha3"
+	"math/big"
+	"reflect"
 )
 
 type bytesBacked interface {
 	Bytes() []byte
 }
+
+var bloomT = reflect.TypeOf(Bloom{})
 
 const (
 	BloomByteLength = 256

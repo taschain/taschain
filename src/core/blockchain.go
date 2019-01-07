@@ -272,7 +272,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, evictedTxs, transactions, receipts, err := chain.executor.Execute(state, block, height, "casting")
+	statehash, evictedTxs, transactions, receipts, err,_ := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -495,7 +495,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 		return false, state, nil
 	}
 
-	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, _, _, receipts, err,_ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Errorf("Fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
@@ -624,7 +624,7 @@ func (chain *FullBlockChain) Clear() error {
 
 	chain.init = false
 	chain.latestBlock = nil
-	chain.topBlocks, _ = lru.New(10)
+	chain.topBlocks, _ = lru.New(1000)
 
 	var err error
 

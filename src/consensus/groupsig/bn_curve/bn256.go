@@ -14,12 +14,12 @@
 package bn_curve
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
+	"github.com/minio/sha256-simd"
 	"io"
 	"math/big"
-	"bytes"
-	"github.com/minio/sha256-simd"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -74,18 +74,15 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 	y.ModSqrt(y, P)
 
 	//y转化为gfP类型
-	byte_str := y.Bytes()
-	//fmt.Println("buf:", len(byte_str))
-
-	buf1 := make([]byte, 32)
-	len := len(byte_str)
-	j := 0
-	for i:= 32-len; i<32; i++ {
-		buf1[i] = byte_str[j]
-		j++
-	}
 	py := &gfP{}
-	py.Unmarshal(buf1)
+	yBytes := y.Bytes()
+	if len(yBytes) == 32 {
+		py.Unmarshal(yBytes)
+	} else {
+		buf1 := make([]byte, 32)
+		copy(buf1[32-len(yBytes):32], yBytes)
+		py.Unmarshal(buf1)
+	}
 	montEncode(py, py)
 
 	if py.IsOdd() != isOdd {
@@ -123,28 +120,26 @@ func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
 
 func (e *G1) HashToPoint(m []byte) error {
 	x, y := hashToCurvePoint(m)
+	Px, Py := &gfP{}, &gfP{}
 
 	x_str := x.Bytes()
-	y_str := y.Bytes()
-	buf_x := make([]byte, 32)
-	buf_y := make([]byte, 32)
-
-	j := 0
-	for i := 32-len(x_str); i<32; i++ {
-		buf_x[i] = x_str[j]
-		j ++
+	if len(x_str) == 32 {
+		Px.Unmarshal(x_str)
+	} else {
+		buf_x := make([]byte, 32)
+		copy(buf_x[32-len(x_str):32], x_str)
+		Px.Unmarshal(buf_x)
 	}
-
-	j = 0
-	for i:=32-len(y_str); i<32; i++ {
-		buf_y[i] = y_str[j]
-		j++
-	}
-
-	Px, Py := &gfP{}, &gfP{}
-	Px.Unmarshal(buf_x)
-	Py.Unmarshal(buf_y)
 	montEncode(Px, Px)
+
+	y_str := y.Bytes()
+	if len(y_str) == 32 {
+		Py.Unmarshal(y_str)
+	} else {
+		buf_y := make([]byte, 32)
+		copy(buf_y[32-len(y_str):32], y_str)
+		Py.Unmarshal(buf_y)
+	}
 	montEncode(Py, Py)
 
 	if e.p == nil {
@@ -170,7 +165,7 @@ func (g *G1) IsValid() bool {
 	return g.p.IsOnCurve()
 }
 
-func (g *G1) IsNil () bool {
+func (g *G1) IsNil() bool {
 	return g.p == nil
 }
 
@@ -249,7 +244,7 @@ func (e *G1) Marshal() []byte {
 func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
-	if len(m) < numBytes + 1 {
+	if len(m) < numBytes+1 {
 		return nil, errors.New("bn_curve: not enough data")
 	}
 	// Unmarshal the points and check their caps

@@ -17,13 +17,15 @@ package tvm
 
 /*
 #include <stdlib.h>
- */
+*/
 import "C"
 import (
-	"fmt"
-	"unsafe"
 	"common"
+	"fmt"
 	"math/big"
+	"unsafe"
+
+	"middleware/types"
 )
 
 //export callOnMeGo
@@ -153,7 +155,6 @@ func GetData(hashC *C.char) *C.char {
 	//hash := common.StringToHash(C.GoString(hashC))
 	address := *controller.Vm.ContractAddress
 	state := controller.AccountDB.GetData(address, C.GoString(hashC))
-
 	return C.CString(string(state))
 }
 
@@ -209,6 +210,9 @@ func AddPreimage(hashC *C.char, preimageC *C.char) {
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
 	block := controller.Reader.QueryBlockByHeight(uint64(height))
+	if block == nil {
+		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
+	}
 	return C.CString(block.Hash.String())
 }
 
@@ -238,22 +242,67 @@ func TxOrigin() *C.char {
 }
 
 //export TxGasLimit
-func TxGasLimit() C.ulonglong{
+func TxGasLimit() C.ulonglong {
 	return C.ulonglong(controller.Transaction.GasLimit)
 }
 
 //export ContractCall
-func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) {
-	Call(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) *C.char{
+	contractResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+	return C.CString(contractResult);
 }
 
-//TODO 合约call合约
-func callContract() {
-	// extern json
+//export EventCall
+func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char{
+	//fmt.Println("111111111111111111111111111111")
+	//fmt.Println(C.GoString(eventName))
+	//fmt.Println(C.GoString(index))
+	//fmt.Println(C.GoString(data))
 
-	// tvm.state.GetCode()
+	var log types.Log
+	log.Topics = append(log.Topics, common.BytesToHash(common.Sha256([]byte(C.GoString(eventName)))))
+	log.Topics = append(log.Topics, common.BytesToHash(common.Sha256([]byte(C.GoString(index)))))
+	for i:=0; i < len(C.GoString(data)); i++ {
+		log.Data = append(log.Data,C.GoString(data)[i])
+	}
+	log.TxHash = controller.Transaction.Hash
+	log.Address = *controller.Vm.ContractAddress //*(controller.Transaction.Target)
+	log.BlockNumber = controller.BlockHeader.Height
+	//block is running ,no blockhash this time
+	// log.BlockHash = controller.BlockHeader.Hash
 
-	// tvm.exec code
+	controller.Vm.Logs = append(controller.Vm.Logs,&log)
 
-	// tvm.call abi
+	return nil //C.CString(contractResult);
+}
+
+//export SetBytecode
+func SetBytecode(code *C.char, len C.int) {
+	fmt.Println(C.GoString(code))
+	RunByteCode(code, len)
+	fmt.Println(C.GoString(code))
+}
+
+//export DataIterator
+func DataIterator(prefix *C.char) C.ulonglong{
+	address := *controller.Vm.ContractAddress
+	iter := controller.AccountDB.DataIterator(address,C.GoString(prefix))
+	return C.ulonglong(uintptr(unsafe.Pointer(iter)))
+}
+
+//export RemoveData
+func RemoveData(key *C.char){
+	address := *controller.Vm.ContractAddress
+	controller.AccountDB.RemoveData(address,C.GoString(key))
+}
+
+//export DataNext
+func DataNext(cvalue *C.char)*C.char{
+	//C.ulonglong
+	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
+	if !ok{
+		//TODO
+	}
+	data:=controller.AccountDB.DataNext(uintptr(value.Uint64()))
+	return C.CString(data)
 }

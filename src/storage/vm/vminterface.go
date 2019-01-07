@@ -16,12 +16,11 @@
 package vm
 
 import (
-	"math/big"
-
 	"common"
+	"math/big"
 	"middleware/types"
-	"storage/trie"
 	"storage/account"
+	"storage/trie"
 )
 
 type AccountDB interface {
@@ -45,7 +44,9 @@ type AccountDB interface {
 
 	GetData(common.Address, string) []byte
 	SetData(common.Address, string, []byte)
+	RemoveData(common.Address, string)
 	DataIterator(common.Address, string) *trie.Iterator
+	DataNext(iterator uintptr)string
 
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool

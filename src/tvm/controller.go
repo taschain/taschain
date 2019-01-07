@@ -1,21 +1,23 @@
 package tvm
 
 import (
-	"storage/vm"
-	"middleware/types"
-	"fmt"
 	"common"
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"middleware/types"
+	"storage/vm"
 )
 
 type Controller struct {
 	BlockHeader *types.BlockHeader
-	Transaction *types.Transaction
+	Transaction types.Transaction
 	AccountDB   vm.AccountDB
 	Reader      vm.ChainReader
 	Vm          *Tvm
-	Tasks       []*CallTask
 	LibPath     string
+	VmStack     []*Tvm
+	GasLeft     uint64
 }
 
 func NewController(accountDB vm.AccountDB,
@@ -26,28 +28,34 @@ func NewController(accountDB vm.AccountDB,
 		controller = &Controller{}
 	}
 	controller.BlockHeader = header
-	controller.Transaction = transaction
+	controller.Transaction = *transaction
 	controller.AccountDB = accountDB
 	controller.Reader = chainReader
-	controller.Tasks = make([]*CallTask, 0)
 	controller.Vm = nil
 	controller.LibPath = libPath
+	controller.VmStack = make([]*Tvm, 0)
+	controller.GasLeft = transaction.GasLimit
 	return controller
 }
 
-func (con *Controller) Deploy(sender *common.Address, contract *Contract) bool {
-	var succeed bool
+func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.Transaction.GasLimit))
+	defer func() {
+		con.Vm.DelTvm()
+	}()
+	con.Vm.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	snapshot := con.AccountDB.Snapshot()
-	succeed = con.Vm.Deploy(msg) && con.Vm.StoreData()
-	if !succeed {
-		con.AccountDB.RevertToSnapshot(snapshot)
+	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
+
+	if errorCodeDeploy != 0 {
+		return errorCodeDeploy,errorDeployMsg
 	}
-	con.Vm.DelTvm()
-	con.ExecuteTask()
-	return succeed
+	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
+	if errorCodeStore != 0 {
+		return errorCodeStore,errorStoreMsg
+	}
+	con.GasLeft = uint64(con.Vm.Gas())
+	return 0,""
 }
 
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
@@ -59,60 +67,49 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abi string) bool {
-	var succeed bool
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*types.Log,*types.TransactionError) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(1000000)
-
+	con.Vm.SetGas(int(con.GasLeft))
+	defer func() {
+		con.Vm.DelTvm()
+		con.GasLeft = uint64(con.Vm.Gas())
+	}()
 	//先转账
 	if con.Transaction.Value > 0 {
 		amount := big.NewInt(int64(con.Transaction.Value))
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
 		} else {
-			return false
+			return false,nil,types.TxErrorBalanceNotEnough
 		}
 	}
-
 	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
-	succeed = con.Vm.LoadContractCode()
-	if succeed {
-		con.Vm.SetGas(int(con.Transaction.GasLimit))
-		succeed = con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
+	errorCode,errorMsg,libLen := con.Vm.CreateContractInstance(msg)
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
-
-	con.Vm.DelTvm()
-	con.ExecuteTask()
-	return succeed
+	abi := ABI{}
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return false,nil,types.TxErrorAbiJson
+	}
+	fmt.Println(abi)
+	errorCode,errorMsg = con.Vm.checkABI(abi)//checkABI
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	con.Vm.SetLibLine(libLen)
+	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false,false))//execute
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	errorCode,errorMsg = con.Vm.StoreData()//store
+	if errorCode != 0{
+		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	}
+	return true,con.Vm.Logs,nil
 }
 
-//func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
-//	return db.GetBalance(addr).Cmp(amount) >= 0
-//}
-
-func (con *Controller) ExecuteTask() {
-	var succeed bool
-	for _, task := range con.Tasks {
-		contract := LoadContract(*task.ContractAddr)
-		gasLeft := con.Vm.Gas()
-		con.Vm = NewTvm(task.Sender, contract, con.LibPath)
-		con.Vm.SetGas(1000000)
-		snapshot := con.AccountDB.Snapshot()
-		msg := Msg{Data: []byte{}, Value: 0, Sender: task.Sender.GetHexString()}
-		abi := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, task.FuncName, task.Params)
-		succeed = con.Vm.LoadContractCode()
-		if succeed {
-			con.Vm.SetGas(gasLeft)
-			succeed = con.Vm.LoadContractCode() && con.Vm.ExecuteABIJson(msg, abi) && con.Vm.StoreData()
-		}
-		if !succeed {
-			if con.Vm.Gas() == 0 {
-				con.Vm.DelTvm()
-				return
-			}
-			con.AccountDB.RevertToSnapshot(snapshot)
-			con.Vm.DelTvm()
-			continue
-		}
-	}
+func(con *Controller) GetGasLeft() uint64{
+	return con.GasLeft
 }
