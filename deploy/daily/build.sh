@@ -2,7 +2,7 @@
 
 main_dir=../../src/gtas/main.go
 
-rm ./gtas
+rm -f ./gtas
 go build  -o ./gtas $main_dir
 
 
