@@ -272,7 +272,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, evictedTxs, transactions, receipts, err,_ := chain.executor.Execute(state, block, height, "casting")
+	statehash, evictedTxs, transactions, receipts, err, _ := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -384,6 +384,13 @@ func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) int8
 		return -1
 	}
 
+	if !chain.hasPreBlock(*b.Header) {
+		Logger.Debugf("coming block %s,%d has no pre on local chain.Forking...", b.Header.Hash.String(), b.Header.Height)
+		chain.futureBlocks.Add(b.Header.PreHash, b)
+		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		return 2
+	}
+
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
 		return -1
@@ -399,15 +406,12 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
-	if !chain.hasPreBlock(*b.Header) {
-		Logger.Debugf("coming block has no pre on local chain.Forking...")
-		chain.futureBlocks.Add(b.Header.PreHash, b)
-		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-		return 2
-	}
-
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		if verifyResult == 2 {
+			Logger.Debugf("coming block  has no pre on local chain.Forking...", )
+			go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		}
 		return -1
 	}
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
@@ -495,7 +499,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 		return false, state, nil
 	}
 
-	statehash, _, _, receipts, err,_ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, _, _, receipts, err, _ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Errorf("Fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
