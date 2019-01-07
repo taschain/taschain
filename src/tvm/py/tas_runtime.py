@@ -102,7 +102,7 @@ def setup2():
     # test_storage_contract = Address(test_storage_contract_addr)
     token_contract = Address("0x3")
     libcontract_contract = Address("0x5")
-    glovar.msg = Msg(data="", sender=Address(caller), value=100)
+    msg = Msg(data="", sender=Address(caller), value=100)
 
     # 调用token合约，购买
     token_contract.call("buy")

@@ -21,26 +21,23 @@ class GameRound(object):
 class Baccarat(object):
     def __init__(self):
         self.games = {}  # 记录每局游戏：key为 address + 局数   Value为 GameRound的json
-        self.owner = ""  # 众筹所有者
-
-    def deploy(self):
-        self.owner = glovar.msg.sender
+        self.owner = msg.sender
         print("deploy")
 
     def bet(self, one_bet_option, one_round_id):
-        print(glovar.msg.sender)
-        send_key = glovar.msg.sender + str(one_round_id)
+        print(msg.sender)
+        send_key = msg.sender + str(one_round_id)
         one_game = self.games.get(send_key)
         if one_game is not None:
             return
         one_game_round = GameRound()
         one_game_round.roundId = one_round_id
-        one_game_round.stake = glovar.msg.value
+        one_game_round.stake = msg.value
         one_game_round.betOption = one_bet_option
 
         self.games[send_key] = one_game_round.__dict__
         print(self.games)
-        Event.emit("bet", 0, glovar.this, one_game_round.stake)
+        Event.emit("bet", 0, this, one_game_round.stake)
 
     def settle(self, player_address, one_round_id, banker_point, player_point):
         send_key = player_address + str(one_round_id)
@@ -58,7 +55,7 @@ class Baccarat(object):
 
         account.transfer(player_address, one_game["winLoss"])
         one_game["isSettled"]= True
-        Event.emit("settle", 0, glovar.this, one_game["winLoss"])
+        Event.emit("settle", 0, this, one_game["winLoss"])
 
     @staticmethod
     def _determine_loss(game_round):

@@ -1,21 +1,21 @@
 package cli
 
 import (
+	"common"
+	"consensus/base"
+	"consensus/groupsig"
+	"encoding/json"
 	"fmt"
 	"github.com/astaxie/beego/httplib"
-	"common"
-	"encoding/json"
-	"consensus/groupsig"
 	"github.com/vmihailenco/msgpack"
 	"middleware/types"
-	"consensus/base"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/12/20 下午2:32
 **  Description:
-*/
+ */
 
 type RemoteChainOpImpl struct {
 	host string
@@ -44,7 +44,7 @@ func (ca *RemoteChainOpImpl) Connect(ip string, port int) error {
 	return nil
 }
 
-func (ca *RemoteChainOpImpl) request(method string, params ... interface{}) *Result {
+func (ca *RemoteChainOpImpl) request(method string, params ...interface{}) *Result {
 	if ca.base == "" {
 		return opError(ErrUnConnected)
 	}
@@ -112,6 +112,7 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return opError(err)
 	} else {
 		tranx := txRawToTransaction(tx)
+		tranx.Nonce = nonce + 1
 		tx.Nonce = nonce + 1
 
 		txHash := tranx.GenHash()
@@ -119,7 +120,7 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		tx.Sign = sign.GetHexString()
 		//achates add for testing<<
 		if len(tx.Sign) != 132 {
-			fmt.Println("Bad sign hash=",txHash, "sign=",tx.Sign)
+			fmt.Println("Bad sign hash=", txHash, "sign=", tx.Sign)
 		}
 		//>>achates add for testing
 		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, txHash.String())

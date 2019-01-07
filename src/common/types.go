@@ -90,7 +90,7 @@ func (a *Address) Set(other Address) {
 	copy(a[:], other[:])
 }
 
-/*
+
 // MarshalText returns the hex representation of a.
 //把地址编码成十六进制字符串
 func (a Address) MarshalText() ([]byte, error) {
@@ -120,7 +120,7 @@ func IsHexAddress(s string) bool {
 	}
 	return false
 }
-*/
+
 //类型转换输出函数
 func (a Address) Str() string          { return string(a[:]) }
 func (a Address) Bytes() []byte        { return a[:] }
@@ -134,6 +134,10 @@ func (a Address) IsValid() bool {
 func (a Address) GetHexString() string {
 	str := PREFIX + hex.EncodeToString(a[:])
 	return str
+}
+
+func (a Address) String() string {
+	return a.GetHexString()
 }
 
 func HexStringToAddress(s string) (a Address) {

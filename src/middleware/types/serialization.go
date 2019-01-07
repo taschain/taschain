@@ -173,7 +173,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 
 	if t.Sign != nil && len(t.Sign) != 0 {
 		if len(t.Sign) != 65 {
-			fmt.Printf("Bad sign hash:%v, sign:%v\n",common.BytesToHash(t.Hash), t.Sign)
+			fmt.Printf("Bad sign hash:%v, sign:%v\n", common.BytesToHash(t.Hash), t.Sign)
 		}
 		sign = common.BytesToSign(t.Sign)
 	}
@@ -202,7 +202,7 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 		return nil
 	}
 	hashBytes := h.Transactions
-	hashes := make([]common.Hash, 0)
+	hashes := make([]common.Hash, 0, len(hashBytes.Hashes))
 
 	if hashBytes != nil {
 		for _, hashByte := range hashBytes.Hashes {
@@ -332,13 +332,13 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 
 	if t.Sign != nil {
 		sign = t.Sign.Bytes()
-		if len(sign) != 65{
-			logger.Errorf("Bad sign len:%d", len(sign) )
+		if len(sign) != 65 {
+			logger.Errorf("Bad sign len:%d", len(sign))
 		}
 	}
 	//achates add for testing<<
 	if len(sign) != 65 {
-		fmt.Println("Bad sign in transactionToPb sign=",sign)
+		fmt.Println("Bad sign in transactionToPb sign=", sign)
 	}
 	//>>achates add for testing
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,

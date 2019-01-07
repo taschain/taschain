@@ -1,6 +1,5 @@
 
 # from clib.tas_runtime.contract import Contract
-from clib.tas_runtime import glovar
 import account
 import ujson
 
