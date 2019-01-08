@@ -21,7 +21,7 @@ type GroupSignGenerator struct {
 
 func NewGroupSignGenerator(threshold int) *GroupSignGenerator {
 	return &GroupSignGenerator{
-		witnesses: make(map[string]groupsig.Signature),
+		witnesses: make(map[string]groupsig.Signature, 0),
 		threshold: threshold,
 	}
 }

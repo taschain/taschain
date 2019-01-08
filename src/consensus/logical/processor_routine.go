@@ -94,6 +94,9 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	}
 
+	//删除verifyContext
+	p.cleanVerifyContext(topHeight)
+
 	// 从内存中删除组创建高度对应的组信息，防止占用内存过大
 	for k := range p.CreateHeightGroups {
 		if k < topHeight - model.Param.CreateGroupInterval {
