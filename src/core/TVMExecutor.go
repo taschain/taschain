@@ -311,7 +311,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			msgpack.Unmarshal(data, &miner)
 			mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
 			if mexist == nil {
-				amount := big.NewInt(int64(transaction.Value))
+				amount := big.NewInt(int64(miner.Stake))
 				if CanTransfer(accountdb, *transaction.Source, amount) {
 					miner.ApplyHeight = height
 					if MinerManagerImpl.AddMiner(transaction.Source[:], &miner, accountdb) > 0 {
