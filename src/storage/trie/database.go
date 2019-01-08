@@ -18,7 +18,6 @@ package trie
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/metrics"
 	"io"
 	"storage/tasdb"
 	"sync"
@@ -28,19 +27,7 @@ import (
 	"storage/rlp"
 )
 
-var (
-	memcacheFlushTimeTimer  = metrics.NewRegisteredResettingTimer("trie/memcache/flush/time", nil)
-	memcacheFlushNodesMeter = metrics.NewRegisteredMeter("trie/memcache/flush/nodes", nil)
-	memcacheFlushSizeMeter  = metrics.NewRegisteredMeter("trie/memcache/flush/size", nil)
 
-	memcacheGCTimeTimer  = metrics.NewRegisteredResettingTimer("trie/memcache/gc/time", nil)
-	memcacheGCNodesMeter = metrics.NewRegisteredMeter("trie/memcache/gc/nodes", nil)
-	memcacheGCSizeMeter  = metrics.NewRegisteredMeter("trie/memcache/gc/size", nil)
-
-	memcacheCommitTimeTimer  = metrics.NewRegisteredResettingTimer("trie/memcache/commit/time", nil)
-	memcacheCommitNodesMeter = metrics.NewRegisteredMeter("trie/memcache/commit/nodes", nil)
-	memcacheCommitSizeMeter  = metrics.NewRegisteredMeter("trie/memcache/commit/size", nil)
-)
 
 // secureKeyPrefix is the database key prefix used to store trie node preimages.
 var secureKeyPrefix = []byte("secure-key-")
@@ -440,9 +427,9 @@ func (db *NodeDatabase) Dereference(root common.Hash) {
 	db.gcsize += storage - db.nodesSize
 	db.gctime += time.Since(start)
 
-	memcacheGCTimeTimer.Update(time.Since(start))
-	memcacheGCSizeMeter.Mark(int64(storage - db.nodesSize))
-	memcacheGCNodesMeter.Mark(int64(nodes - len(db.nodes)))
+	//memcacheGCTimeTimer.Update(time.Since(start))
+	//memcacheGCSizeMeter.Mark(int64(storage - db.nodesSize))
+	//memcacheGCNodesMeter.Mark(int64(nodes - len(db.nodes)))
 
 	common.DefaultLogger.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
@@ -580,9 +567,9 @@ func (db *NodeDatabase) Cap(limit common.StorageSize) error {
 	db.flushsize += storage - db.nodesSize
 	db.flushtime += time.Since(start)
 
-	memcacheFlushTimeTimer.Update(time.Since(start))
-	memcacheFlushSizeMeter.Mark(int64(storage - db.nodesSize))
-	memcacheFlushNodesMeter.Mark(int64(nodes - len(db.nodes)))
+	//memcacheFlushTimeTimer.Update(time.Since(start))
+	//memcacheFlushSizeMeter.Mark(int64(storage - db.nodesSize))
+	//memcacheFlushNodesMeter.Mark(int64(nodes - len(db.nodes)))
 
 	common.DefaultLogger.Debug("Persisted nodes from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
 		"flushnodes", db.flushnodes, "flushsize", db.flushsize, "flushtime", db.flushtime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
@@ -642,9 +629,9 @@ func (db *NodeDatabase) Commit(node common.Hash, report bool) error {
 
 	db.uncache(node)
 
-	memcacheCommitTimeTimer.Update(time.Since(start))
-	memcacheCommitSizeMeter.Mark(int64(storage - db.nodesSize))
-	memcacheCommitNodesMeter.Mark(int64(nodes - len(db.nodes)))
+	//memcacheCommitTimeTimer.Update(time.Since(start))
+	//memcacheCommitSizeMeter.Mark(int64(storage - db.nodesSize))
+	//memcacheCommitNodesMeter.Mark(int64(nodes - len(db.nodes)))
 
 	logger := common.DefaultLogger.Info
 	if !report {
