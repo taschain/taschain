@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	SUCCESS = 0
 	TxErrorCode_BalanceNotEnough = 1
 	TxErrorCode_ContractAddressConflict = 2
 	TxErrorCode_DeployGasNotEnough = 3
