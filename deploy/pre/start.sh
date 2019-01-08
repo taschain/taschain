@@ -4,6 +4,7 @@ node_num_per_host=$2
 nat_server=$3
 apply=$4
 instance_end=$instance_index+node_num_per_host
+rpc_port=8101
 
 for((;instance_index<instance_end;instance_index++))
 do
@@ -15,7 +16,9 @@ do
 		mkdir pid
 	fi
 
-	rpc_port=$[8100+$instance_index]
+    if [ $instance_index -gt 30 ];then
+        $rpc_port=$[8100+$instance_index]
+    fi
     pprof_port=$[9000+$instance_index]
     config_file='tas'$instance_index'.ini'
     stdout_log='logs/nohup_out_'$instance_index'.log'
