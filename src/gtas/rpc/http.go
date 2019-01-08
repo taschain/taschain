@@ -150,7 +150,7 @@ func (t *httpReadWriteNopCloser) Close() error {
 func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 	// Wrap the CORS-handler within a host-handler
 	handler := newCorsHandler(srv, cors)
-	handler = newVHostHandler(vhosts, handler)
+	//handler = newVHostHandler(vhosts, handler)
 	return &http.Server{Handler: handler}
 }
 
