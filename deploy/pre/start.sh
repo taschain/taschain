@@ -17,7 +17,7 @@ do
 	fi
 
     if [ $instance_index -gt 30 ];then
-        $rpc_port=$[8100+$instance_index]
+        rpc_port=$[8100+$instance_index]
     fi
     pprof_port=$[9000+$instance_index]
     config_file='tas'$instance_index'.ini'
