@@ -118,8 +118,8 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		sign := privateKey.Sign(tranx.Hash.Bytes())
 		tranx.Sign = &sign
 		tx.Sign = tranx.Sign.GetHexString()
-		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-		fmt.Printf("%+v\n", tranx)
+		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
+		//fmt.Printf("%+v\n", tranx)
 
 		jsonByte, err := json.Marshal(tx)
 		if err != nil {
