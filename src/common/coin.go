@@ -22,10 +22,10 @@ const (
 
 var (
 	ErrEmptyStr = fmt.Errorf("empty string")
-	ErrIllegalStr = fmt.Errorf("illegal string")
+	ErrIllegalStr = fmt.Errorf("illegal gasprice string")
 )
 
-var re, _ = regexp.Compile("^([0-9]+)(ra|kra|mra|tas)?$")
+var re, _ = regexp.Compile("^([0-9]+)(ra|kra|mra|tas)$")
 
 
 func ParseCoin(s string) (uint64, error) {
@@ -39,7 +39,7 @@ func ParseCoin(s string) (uint64, error) {
 		return 0, ErrIllegalStr
 	}
 	ret := arr[0]
-	if ret == nil || len(ret) < 2 {
+	if ret == nil || len(ret) != 3 {
 		return 0, ErrIllegalStr
 	}
 	num, err := strconv.Atoi(ret[1])

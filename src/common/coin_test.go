@@ -11,7 +11,7 @@ import "testing"
 func TestParseCoin(t *testing.T) {
 	t.Log(ParseCoin("232a"))
 	t.Log(ParseCoin("232ra"))
-	t.Log(ParseCoin("232kra"))
+	t.Log(ParseCoin("232krara"))
 	t.Log(ParseCoin("232mra"))
-	t.Log(ParseCoin("2tas"))
+	t.Log(ParseCoin("2tas1"))
 }
