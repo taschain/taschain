@@ -244,7 +244,7 @@ func genSendTxCmd() *sendTxCmd {
 	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
 	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
 	c.fs.IntVar(&c.txType, "type", 0, "transaction type: 0=general tx, 1=contract create, 2=contract call, 3=bonus, 4=miner apply,5=miner abort, 6=miner refund")
-	c.fs.Uint64Var(&c.gas, "gas", 0, "gas limit")
+	c.fs.Uint64Var(&c.gas, "gaslimit", 0, "gas limit")
 	c.fs.Uint64Var(&c.gasPrice, "gasprice", 0, "gas price")
 	return c
 }
@@ -333,7 +333,7 @@ func genMinerApplyCmd() *minerApplyCmd {
 	}
 	c.fs.Uint64Var(&c.stake, "stake", 10, "freeze stake, default 10")
 	c.fs.IntVar(&c.mtype, "type", 0, "apply miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
+	c.fs.Uint64Var(&c.gas, "gaslimit", 10000, "gaslimit for the transaction, default 10000")
 	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
@@ -358,7 +358,7 @@ func genMinerAbortCmd() *minerAbortCmd {
 		baseCmd: *genbaseCmd("minerabort", "abort a miner identifier"),
 	}
 	c.fs.IntVar(&c.mtype, "type", 0, "abort miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
+	c.fs.Uint64Var(&c.gas, "gaslimit", 10000, "gaslimit for the transaction, default 10000")
 	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
@@ -383,7 +383,7 @@ func genMinerRefundCmd() *minerRefundCmd {
 		baseCmd: *genbaseCmd("minerrefund", "apply to refund the miner freeze stake"),
 	}
 	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
+	c.fs.Uint64Var(&c.gas, "gaslimit", 10000, "gaslimit for the transaction, default 10000")
 	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
