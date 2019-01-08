@@ -56,6 +56,10 @@ func (ai *AccountInfo ) unlocked() bool {
     return time.Now().Before(ai.UnLockExpire) && ai.Status == statusUnLocked
 }
 
+func (ai *AccountInfo) resetExpireTime()  {
+	ai.UnLockExpire = time.Now().Add(accountUnLockTime)
+}
+
 type Account struct {
 	Address string
 	Pk 		string
@@ -175,6 +179,14 @@ func (am *AccountManager) getFirstMinerAccount() *Account {
 	return nil
 }
 
+func (am *AccountManager) resetExpireTime(addr string)  {
+    acc, err := am.getAccountInfo(addr)
+	if err != nil {
+		return
+	}
+	acc.resetExpireTime()
+}
+
 func (am *AccountManager) getAccountInfo(addr string) (*AccountInfo, error) {
 	var aci *AccountInfo
 	if v, ok := am.accounts.Load(addr); ok {
@@ -267,7 +279,7 @@ func (am *AccountManager) UnLock(addr string, password string) *Result {
 	}
 
 	aci.Status = statusUnLocked
-	aci.UnLockExpire = time.Now().Add(accountUnLockTime)
+	aci.resetExpireTime()
 	am.unlockAccount = aci
 
 	return opSuccess(nil)
@@ -285,7 +297,7 @@ func (am *AccountManager) AccountInfo() *Result {
 	if !aci.unlocked() {
 		return opError(ErrUnlocked)
 	}
-
+	aci.resetExpireTime()
 	return opSuccess(&aci.Account)
 }
 
