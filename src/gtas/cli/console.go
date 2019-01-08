@@ -163,7 +163,7 @@ func (c *connectCmd) parse(args []string) bool {
 		return false
 	}
 	if strings.TrimSpace(c.host) == "" {
-		fmt.Println("please input the host")
+		fmt.Println("please input the host，available testnet hosts are node1.taschain.cn,node2.taschain.cn,node3.taschain.cn,node4.taschain.cn,node5.taschain.cn")
 		c.fs.PrintDefaults()
 		return false
 	}
