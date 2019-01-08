@@ -300,8 +300,13 @@ func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
 		return true
 	}
 
-	//铸过块, 且已经超时的， 可以删除
-	if vc.castSuccess() && vc.castExpire() {
+	//已经超时的， 可以删除
+	if vc.castExpire() {
+		return true
+	}
+
+	//广播过的，可删除
+	if vc.broadCasted() {
 		return true
 	}
 

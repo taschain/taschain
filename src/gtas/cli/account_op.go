@@ -164,9 +164,12 @@ func (am *AccountManager) storeAccount(account *Account) error {
 func (am *AccountManager) getFirstMinerAccount() *Account {
     iter := am.store.NewIterator()
     for iter.Next() {
-    	ac, _ := am.getAccountInfo(string(iter.Key()))
-		if ac.Miner != nil {
-			return &ac.Account
+    	if ac, err := am.getAccountInfo(string(iter.Key())); err != nil {
+    		panic(fmt.Sprintf("getAccountInfo err,addr=%v,err=%v", string(iter.Key()), err.Error()))
+		} else {
+			if ac.Miner != nil {
+				return &ac.Account
+			}
 		}
 	}
 	return nil

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"tvm"
+	"common"
 )
 
 /*
@@ -162,7 +163,7 @@ func (c *connectCmd) parse(args []string) bool {
 		return false
 	}
 	if strings.TrimSpace(c.host) == "" {
-		fmt.Println("please input the host")
+		fmt.Println("please input the host，available testnet hosts are node1.taschain.cn,node2.taschain.cn,node3.taschain.cn,node4.taschain.cn,node5.taschain.cn")
 		c.fs.PrintDefaults()
 		return false
 	}
@@ -222,30 +223,57 @@ func (c *blockCmd) parse(args []string) bool {
 	return true
 }
 
-type sendTxCmd struct {
+type gasBaseCmd struct {
 	baseCmd
+	gaslimit uint64
+	gasPriceStr string
+	gasPrice  uint64
+}
+
+func genGasBaseCmd(n string, h string) *gasBaseCmd {
+	c := &gasBaseCmd{
+		baseCmd: *genbaseCmd(n, h),
+	}
+	return c
+}
+
+func (c *gasBaseCmd) parseGasPrice() bool {
+	gp, err := common.ParseCoin(c.gasPriceStr)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("%v:%v, correct example: 100RA,100kRA,1mRA,1TAS", err, c.gasPriceStr))
+		return false
+	}
+	c.gasPrice = gp
+	return true
+}
+
+func (c *gasBaseCmd) initBase()  {
+	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 100, "gas limit, default 100")
+	c.fs.StringVar(&c.gasPriceStr, "gasprice", "100RA", "gas price, default 100RA")
+}
+
+
+type sendTxCmd struct {
+	gasBaseCmd
 	to string
 	value uint64
 	data string
 	contractName string
 	contractPath string
 	txType int
-	gas uint64
-	gasPrice uint64
 }
 
 func genSendTxCmd() *sendTxCmd {
 	c := &sendTxCmd{
-		baseCmd: *genbaseCmd("sendtx", "send a transaction to the tas system"),
+		gasBaseCmd: *genGasBaseCmd("sendtx", "send a transaction to the tas system"),
 	}
+	c.initBase()
 	c.fs.StringVar(&c.to, "to", "", "the transaction receiver address")
 	c.fs.Uint64Var(&c.value, "value", 0, "transfer value")
 	c.fs.StringVar(&c.data, "data", "", "transaction data")
 	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
 	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
 	c.fs.IntVar(&c.txType, "type", 0, "transaction type: 0=general tx, 1=contract create, 2=contract call, 3=bonus, 4=miner apply,5=miner abort, 6=miner refund")
-	c.fs.Uint64Var(&c.gas, "gas", 0, "gas limit")
-	c.fs.Uint64Var(&c.gasPrice, "gasprice", 0, "gas price")
 	return c
 }
 
@@ -255,7 +283,7 @@ func (c *sendTxCmd) toTxRaw() *txRawData {
 		Value:    c.value,
 		TxType:   c.txType,
 		Data:     c.data,
-		Gas:      c.gas,
+		Gas:      c.gaslimit,
 		Gasprice: c.gasPrice,
 	}
 }
@@ -268,6 +296,9 @@ func (c *sendTxCmd) parse(args []string) bool {
 	if strings.TrimSpace(c.to) == "" {
 		fmt.Println("please input the target address")
 		c.fs.PrintDefaults()
+		return false
+	}
+	if !c.parseGasPrice() {
 		return false
 	}
 
@@ -320,21 +351,18 @@ func (c *sendTxCmd) parse(args []string) bool {
 }
 
 type minerApplyCmd struct {
-	baseCmd
+	gasBaseCmd
 	stake uint64
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerApplyCmd() *minerApplyCmd {
 	c := &minerApplyCmd{
-		baseCmd: *genbaseCmd("minerapply", "apply to be a miner"),
+		gasBaseCmd: *genGasBaseCmd("minerapply", "apply to be a miner"),
 	}
-	c.fs.Uint64Var(&c.stake, "stake", 10, "freeze stake, default 10")
+	c.initBase()
+	c.fs.Uint64Var(&c.stake, "stake", 100, "freeze stake of tas, default 100TAS")
 	c.fs.IntVar(&c.mtype, "type", 0, "apply miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -343,23 +371,20 @@ func (c *minerApplyCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	return true
+	return c.parseGasPrice()
 }
 
 type minerAbortCmd struct {
-	baseCmd
+	gasBaseCmd
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerAbortCmd() *minerAbortCmd {
 	c := &minerAbortCmd{
-		baseCmd: *genbaseCmd("minerabort", "abort a miner identifier"),
+		gasBaseCmd: *genGasBaseCmd("minerabort", "abort a miner identifier"),
 	}
+	c.initBase()
 	c.fs.IntVar(&c.mtype, "type", 0, "abort miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -368,23 +393,20 @@ func (c *minerAbortCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	return true
+	return c.parseGasPrice()
 }
 
 type minerRefundCmd struct {
-	baseCmd
+	gasBaseCmd
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerRefundCmd() *minerRefundCmd {
 	c := &minerRefundCmd{
-		baseCmd: *genbaseCmd("minerrefund", "apply to refund the miner freeze stake"),
+		gasBaseCmd: *genGasBaseCmd("minerrefund", "apply to refund the miner freeze stake"),
 	}
+	c.initBase()
 	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -393,7 +415,7 @@ func (c *minerRefundCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	return true
+	return c.parseGasPrice()
 }
 
 var cmdNewAccount = genNewAccountCmd()
@@ -639,21 +661,21 @@ func loop(acm accountOp, chainOp chainOp) {
 			cmd := genMinerApplyCmd()
 			if cmd.parse(inputArr[1:]) {
 				handleCmd(func() *Result {
-					return chainOp.ApplyMiner(cmd.mtype, cmd.stake, cmd.gas, cmd.gasprice)
+					return chainOp.ApplyMiner(cmd.mtype, cmd.stake, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerAbort.name:
 			cmd := genMinerAbortCmd()
 			if cmd.parse(inputArr[1:]) {
 				handleCmd(func() *Result {
-					return chainOp.AbortMiner(cmd.mtype, cmd.gas, cmd.gasprice)
+					return chainOp.AbortMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerRefund.name:
 			cmd := genMinerRefundCmd()
 			if cmd.parse(inputArr[1:]) {
 				handleCmd(func() *Result {
-					return chainOp.RefundMiner(cmd.mtype, cmd.gas, cmd.gasprice)
+					return chainOp.RefundMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		default:
