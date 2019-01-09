@@ -23,7 +23,7 @@ const (
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
-	EPOCH int = 4
+	EPOCH int = 5
 	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
 	GROUP_CAST_QUALIFY_GAP = EPOCH * 5	//组准备就绪后, 等待可以铸块的间隔为4个epoch
 	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
@@ -82,7 +82,7 @@ func InitParam(cc common.SectionConfManager) {
 
 //取得门限值
 func  (p *ConsensusParam) GetThreshold() int {
-	return int(math.Ceil(float64(p.GroupMember*p.SSSSThreshold) / 100))
+	return p.GetGroupK(p.GroupMember)
 }
 
 func  (p *ConsensusParam) GetGroupK(max int) int {

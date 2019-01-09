@@ -415,8 +415,6 @@ func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
 		}
 		if g.Dismissed(height) {
 			ids = append(ids, g.GroupID)
-		} else {
-			break
 		}
 	}
 	return ids
