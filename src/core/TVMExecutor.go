@@ -29,7 +29,7 @@ import (
 
 //var castorReward = big.NewInt(50)
 //var bonusReward = big.NewInt(20)
-const TransferGasCost = 1
+const TransferGasCost = 1000
 const CodeBytePrice = 0.3814697265625
 
 type TVMExecutor struct {
