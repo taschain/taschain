@@ -40,7 +40,7 @@ type MinerIterator struct {
 var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
-	cache, _ := lru.New(500)
+	cache, _ := lru.New(100)
 	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0)}
 	go MinerManagerImpl.loop()
 	return nil

@@ -118,14 +118,15 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		sign := privateKey.Sign(tranx.Hash.Bytes())
 		tranx.Sign = &sign
 		tx.Sign = tranx.Sign.GetHexString()
-		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-		fmt.Printf("%+v\n", tranx)
+		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
+		//fmt.Printf("%+v\n", tranx)
 
 		jsonByte, err := json.Marshal(tx)
 		if err != nil {
 			return opError(err)
 		}
 
+		ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 		//此处要签名
 		return ca.request("tx", string(jsonByte))
 
@@ -178,7 +179,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		Id:           source.Bytes(),
 		PublicKey:    bpk.Serialize(),
 		VrfPublicKey: base.Hex2VRFPublicKey(aci.Miner.VrfPk),
-		Stake:        stake,
+		Stake:        stake*common.TAS,
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(miner)
@@ -192,7 +193,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		TxType:   types.TransactionTypeMinerApply,
 		Data:     common.ToHex(data),
 	}
-
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }
 
@@ -211,6 +212,7 @@ func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result
 		TxType:   types.TransactionTypeMinerAbort,
 		Data:     string([]byte{byte(mtype)}),
 	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }
 
@@ -229,5 +231,6 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Resul
 		TxType:   types.TransactionTypeMinerRefund,
 		Data:     string([]byte{byte(mtype)}),
 	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }

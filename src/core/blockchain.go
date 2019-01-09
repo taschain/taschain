@@ -146,19 +146,19 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(200)
+	chain.futureBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.verifiedBlocks, err = lru.New(20)
+	chain.verifiedBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.topBlocks, _ = lru.New(1000)
+	chain.topBlocks, _ = lru.New(10)
 	if err != nil {
 		return err
 	}
-	chain.castedBlock, err = lru.New(20)
+	chain.castedBlock, err = lru.New(10)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
-		chain.buildCache(1000, chain.topBlocks)
+		chain.buildCache(10, chain.topBlocks)
 		Logger.Debugf("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 		state, err := account.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
 		if nil == err {
@@ -272,7 +272,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	// Process block using the parent state as reference point.
-	statehash, evictedTxs, transactions, receipts, err,_ := chain.executor.Execute(state, block, height, "casting")
+	statehash, evictedTxs, transactions, receipts, err, _ := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
 	// 失败的交易也要从池子里，去除掉
@@ -385,15 +385,16 @@ func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) int8
 	}
 
 	if !chain.hasPreBlock(*b.Header) {
+		Logger.Debugf("coming block %s,%d has no pre on local chain.Forking...", b.Header.Hash.String(), b.Header.Height)
 		chain.futureBlocks.Add(b.Header.PreHash, b)
 		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
 		return 2
 	}
 
-	//if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-	//	Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
-	//	return -1
-	//}
+	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
+		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
+		return -1
+	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))
@@ -407,6 +408,10 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
+		if verifyResult == 2 {
+			Logger.Debugf("coming block  has no pre on local chain.Forking...", )
+			go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		}
 		return -1
 	}
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
@@ -494,7 +499,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 		return false, state, nil
 	}
 
-	statehash, _, _, receipts, err,_ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, _, _, receipts, err, _ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Errorf("Fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
 		return false, state, receipts
@@ -658,22 +663,22 @@ func (chain *FullBlockChain) Clear() error {
 	return err
 }
 
-func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
-	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
-	var nodesOnBranch = make(map[string]*[]byte)
-	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
-	if err != nil {
-		Logger.Errorf("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
-		return nil
-	}
-	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
-
-	data := []types.StateNode{}
-	for key, value := range nodesOnBranch {
-		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
-	}
-	return &data
-}
+//func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
+//	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
+//	var nodesOnBranch = make(map[string]*[]byte)
+//	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
+//	if err != nil {
+//		Logger.Errorf("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
+//		return nil
+//	}
+//	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
+//
+//	data := []types.StateNode{}
+//	for key, value := range nodesOnBranch {
+//		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
+//	}
+//	return &data
+//}
 
 func (chain *FullBlockChain) InsertStateNode(nodes *[]types.StateNode) {
 	panic("Not support!")

@@ -32,7 +32,7 @@ const (
 type AccountDatabase interface {
 	OpenTrie(root common.Hash) (Trie, error)
 
-	OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error)
+	//OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error)
 
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
@@ -54,8 +54,8 @@ type Trie interface {
 	Commit(onleaf trie.LeafCallback) (common.Hash, error)
 	Hash() common.Hash
 	NodeIterator(startKey []byte) trie.NodeIterator
-	Fstring() string
-	GetAllNodes(nodes map[string]*[]byte)
+	//Fstring() string
+	//GetAllNodes(nodes map[string]*[]byte)
 }
 
 func NewDatabase(db tasdb.Database) AccountDatabase {
@@ -116,16 +116,16 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	return len(code), err
 }
 
-func (db *storageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	tr, err := trie.NewTrieWithMap(root, db.db, nodes)
-	if err != nil {
-		return nil, err
-	}
-	return tr, nil
-}
+//func (db *storageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
+//	db.mu.Lock()
+//	defer db.mu.Unlock()
+//
+//	tr, err := trie.NewTrieWithMap(root, db.db, nodes)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return tr, nil
+//}
 
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()

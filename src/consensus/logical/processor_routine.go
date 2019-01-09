@@ -94,6 +94,9 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	}
 
+	//删除verifyContext
+	p.cleanVerifyContext(topHeight)
+
 	// 从内存中删除组创建高度对应的组信息，防止占用内存过大
 	for k := range p.CreateHeightGroups {
 		if k < topHeight - model.Param.CreateGroupInterval {
@@ -103,19 +106,19 @@ func (p *Processor) releaseRoutine() bool {
 
 	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
 	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
-	if len(ids) == 0 {
-		return true
+	blog := newBizLog("releaseRoutine")
+
+	if len(ids) > 0 {
+		blog.log("clean group %v\n", len(ids))
+		p.globalGroups.RemoveGroups(ids)
+		p.blockContexts.removeBlockContexts(ids)
+		p.belongGroups.leaveGroups(ids)
+		for _, gid := range ids {
+			blog.debug("DissolveGroupNet staticGroup gid ", gid.ShortS())
+			p.NetServer.ReleaseGroupNet(gid.GetHexString())
+		}
 	}
 
-	blog := newBizLog("releaseRoutine")
-	blog.log("clean group %v\n", len(ids))
-	p.globalGroups.RemoveGroups(ids)
-	p.blockContexts.removeBlockContexts(ids)
-	p.belongGroups.leaveGroups(ids)
-	for _, gid := range ids {
-		blog.debug("DissolveGroupNet staticGroup gid ", gid.ShortS())
-		p.NetServer.ReleaseGroupNet(gid.GetHexString())
-	}
 
 	//释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {

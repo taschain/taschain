@@ -21,9 +21,13 @@ type GroupSignGenerator struct {
 
 func NewGroupSignGenerator(threshold int) *GroupSignGenerator {
 	return &GroupSignGenerator{
-		witnesses: make(map[string]groupsig.Signature),
+		witnesses: make(map[string]groupsig.Signature, 0),
 		threshold: threshold,
 	}
+}
+
+func (gs *GroupSignGenerator) Threshold() int {
+    return gs.threshold
 }
 
 func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {

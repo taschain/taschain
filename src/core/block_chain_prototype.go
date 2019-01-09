@@ -502,7 +502,7 @@ func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHead
 	//Has no common ancestor
 	if index == 0 {
 		Logger.Debugf("Local chain is same with coming chain piece.")
-		return 0, math.MaxUint64
+		return 1, chainPiece[0].Height + 1
 	} else {
 		var preHeight uint64
 		preBlock := BlockChainImpl.QueryBlockByHash(chain.latestBlock.PreHash)

@@ -109,7 +109,7 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 		return true, nil
 	} else {
-		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveValue, root))
+		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 
 }

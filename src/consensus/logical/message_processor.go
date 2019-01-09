@@ -48,7 +48,7 @@ func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupS
 
 func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog) {
 	blog := newBizLog("thresholdPieceVerify")
-	bh := &slot.BH
+	bh := slot.BH
 	if vctx.castSuccess() {
 		blog.debug("already cast success, height=%v", bh.Height)
 		return
@@ -72,7 +72,7 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 }
 
 func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, proveHash []common.Hash, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
-	bh := &slot.BH
+	bh := slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
 		skey := p.getSignKey(gid)
@@ -350,15 +350,15 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 				case TRANS_INVALID_SLOT, TRANS_DENY:
 
 				case TRANS_ACCEPT_NOT_FULL:
-					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(slot.BH), acceptRet)
 					tlog.log("preHash=%v, height=%v, %v,收到 %v, 总交易数 %v, 仍缺失数 %v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet), len(ths), len(slot.BH.Transactions), slot.lostTransSize())
 
 				case TRANS_ACCEPT_FULL_PIECE:
-					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(slot.BH), acceptRet)
 					tlog.log("preHash=%v, height=%v %v, 当前分片数%v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet), slot.MessageSize())
 
 				case TRANS_ACCEPT_FULL_THRESHOLD:
-					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(&slot.BH), acceptRet)
+					blog.debug("accept trans bh=%v, ret %v", p.blockPreview(slot.BH), acceptRet)
 					tlog.log("preHash=%v, height=%v, %v", slot.BH.PreHash.ShortS(), slot.BH.Height, TRANS_ACCEPT_RESULT_DESC(acceptRet))
 					if len(slot.BH.Signature) == 0 {
 						blog.log("slot bh sign is empty hash=%v", slot.BH.Hash.ShortS())
