@@ -14,6 +14,7 @@ import (
 	"consensus/groupsig"
 	"bytes"
 	"time"
+	"middleware/notify"
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
@@ -339,6 +340,10 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 		return true
 	}
 	chain.transactionPool.UnMarkExecuted(txs)
+
+	//删除块事件
+	notify.BUS.Publish(notify.BlockRemove, &notify.BlockOnChainSuccMessage{Block: *block,})
+
 	return true
 }
 

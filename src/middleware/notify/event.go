@@ -1,6 +1,8 @@
 package notify
 
 const (
+	BlockRemove = "block_remove"
+
 	BlockAddSucc = "block_add_succ"
 
 	BlockAddSuccConsensusUpdate = "block_add_succ_consensus_update"
