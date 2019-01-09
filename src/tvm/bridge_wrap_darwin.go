@@ -491,6 +491,21 @@ func (tvm *Tvm) ExecuteWithResult(script string) string {
 	return tvm.executeCommon(script, true)
 }
 
+func (tvm *Tvm) AbiJson() string {
+	var c_result *C.char
+	var param = C.CString(tvm.Code)
+	var contract_name = C.CString(tvm.ContractName)
+
+	c_result = C.tvm_execute_abi(param,contract_name)
+
+	C.free(unsafe.Pointer(param))
+	C.free(unsafe.Pointer(contract_name))
+	abc := C.GoString(c_result)
+	//fmt.Println(abc)
+	C.free(unsafe.Pointer(c_result))
+	return abc
+}
+
 func (tvm *Tvm) executeCommon(script string, withResult bool) string {
 	var c_result *C.char
 	var param = C.CString(script)

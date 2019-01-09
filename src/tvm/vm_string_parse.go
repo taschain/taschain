@@ -14,6 +14,10 @@ const split = "|"
 // 字符串  type|code|data|abi
 // type的定义：RETURN_TYPE_INT = "1" RETURN_TYPE_STRING = "2" RETURN_TYPE_NONE = "3" RETURN_TYPE_EXCEPTION = "4" RETURN_TYPE_BOOL = "5"
 
+func VmStringParse(original string) *[4]string {
+	return vmStringParse(original)
+}
+
 func vmStringParse(original string) *[4]string {
 	result := new([4]string)
 	// 获取type
@@ -59,7 +63,7 @@ func ExecutedVmSucceed(original string) (int,string) {
 			return errorCode,parsed[2]
 		}
 	} else {
-		fmt.Printf("====>abi = %s \n",parsed[3])
+		//fmt.Printf("====>abi = %s \n",parsed[3])
 		return types.SUCCESS,parsed[3]
 	}
 }

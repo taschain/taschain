@@ -19,6 +19,7 @@ void tvm_set_lib_path(const char* path);
 	*/
 
 char* tvm_execute(char *str, char*contract_name);
+char* tvm_execute_abi(char *str, char*contract_name);
 /*
 有返回结果的调用
 param: str合约执行代码
