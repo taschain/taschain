@@ -293,6 +293,13 @@ func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 
 	}
 }
 
+func (vc *VerifyContext) Clear()  {
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
+
+    vc.slots = nil
+}
+
 //判断该context是否可以删除
 func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
 	//不在铸块的, 可以删除

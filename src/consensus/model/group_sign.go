@@ -26,6 +26,10 @@ func NewGroupSignGenerator(threshold int) *GroupSignGenerator {
 	}
 }
 
+func (gs *GroupSignGenerator) Threshold() int {
+    return gs.threshold
+}
+
 func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
 	if gs.Recovered() {
 		return false, true

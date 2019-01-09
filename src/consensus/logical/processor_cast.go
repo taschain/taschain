@@ -1,18 +1,18 @@
 package logical
 
 import (
+	"bytes"
 	"common"
 	"consensus/base"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
 	"log"
-	"middleware/types"
 	"middleware/statistics"
+	"middleware/types"
 	"strings"
 	"sync"
 	"time"
-	"bytes"
 )
 
 /*
@@ -22,8 +22,8 @@ import (
  */
 
 type CastBlockContexts struct {
-	blockCtxs sync.Map //string -> *BlockContext
-	reservedVctx	sync.Map	//uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
+	blockCtxs    sync.Map //string -> *BlockContext
+	reservedVctx sync.Map //uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
 }
 
 func NewCastBlockContexts() *CastBlockContexts {
@@ -59,10 +59,10 @@ func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()
-			bctx.blockCtxs.Delete(id.GetHexString())
 			for _, vctx := range bc.SafeGetVerifyContexts() {
 				bctx.removeReservedVctx(vctx.castHeight)
 			}
+			bctx.blockCtxs.Delete(id.GetHexString())
 		}
 	}
 }
@@ -74,8 +74,8 @@ func (bctx *CastBlockContexts) forEachBlockContext(f func(bc *BlockContext) bool
 	})
 }
 
-func (bctx *CastBlockContexts) removeReservedVctx(height uint64)  {
-    bctx.reservedVctx.Delete(height)
+func (bctx *CastBlockContexts) removeReservedVctx(height uint64) {
+	bctx.reservedVctx.Delete(height)
 }
 
 func (bctx *CastBlockContexts) addReservedVctx(vctx *VerifyContext) bool {
@@ -83,7 +83,7 @@ func (bctx *CastBlockContexts) addReservedVctx(vctx *VerifyContext) bool {
 	return !load
 }
 
-func (bctx *CastBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) bool)  {
+func (bctx *CastBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) bool) {
 	bctx.reservedVctx.Range(func(key, value interface{}) bool {
 		v := value.(*VerifyContext)
 		return f(v)
@@ -103,13 +103,11 @@ func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
 	return p.blockContexts.getBlockContext(gid)
 }
 
-
 //立即触发一次检查自己是否下个铸块组
 func (p *Processor) triggerCastCheck() {
 	//p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
-
 
 func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
@@ -143,7 +141,7 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 }
 
 func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
-	bh := &slot.BH
+	bh := slot.BH
 	blog := newBizLog("reserveBLock")
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
 	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
@@ -160,7 +158,7 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 
 func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 	if sc := vctx.checkBroadcast(); sc != nil {
-		bh := &sc.BH
+		bh := sc.BH
 		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
 		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
 
@@ -178,7 +176,7 @@ func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
-	bh := &slot.BH
+	bh := slot.BH
 
 	blog := newBizLog("successNewBlock")
 
@@ -213,7 +211,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
 	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
-	if  vctx.markBroadcast() {
+	if vctx.markBroadcast() {
 		cbm := &model.ConsensusBlockMessage{
 			Block: *block,
 		}
@@ -237,13 +235,13 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 //对该id进行区块抽样
 func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
-		//随机抽取10块前的块，确保不抽取到分叉上的块
-		//
-		if heightLimit > 10 {
-		heightLimit -= 10
+	//随机抽取10块前的块，确保不抽取到分叉上的块
+	//
+	if heightLimit > 2*model.Param.Epoch {
+		heightLimit -= 2*model.Param.Epoch
 	}
-		return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
-	}
+	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
+}
 
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	hashs := make([]common.Hash, len(ids))
@@ -262,6 +260,7 @@ func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsi
 		buf.Write(hash.Bytes())
 	}
 	root = base.Data2CommonHash(buf.Bytes())
+	buf.Reset()
 	return
 }
 

@@ -49,7 +49,7 @@ const (
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
 	//验证相关
-	BH types.BlockHeader //出块头详细数据
+	BH *types.BlockHeader //出块头详细数据
 	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
 	vrfValue       *big.Int
 	gSignGenerator *model.GroupSignGenerator //块签名产生器
@@ -68,13 +68,13 @@ type SlotContext struct {
 
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
-		BH:             *bh,
+		BH:             bh,
 		vrfValue:       bh.ProveValue,
 		castor:         groupsig.DeserializeId(bh.Castor),
 		slotStatus:     SS_INITING,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
-		rewardGSignGen: model.NewGroupSignGenerator(threshold),
+		//rewardGSignGen: model.NewGroupSignGenerator(threshold),
 		lostTxHash:     set.New(set.ThreadSafe),
 	}
 }
@@ -84,7 +84,7 @@ func (sc *SlotContext) initIfNeeded() bool {
 	sc.initLock.Lock()
 	defer sc.initLock.Unlock()
 
-	bh := &sc.BH
+	bh := sc.BH
 	if sc.slotStatus == SS_INITING {
 		rtlog := newRtLog("slotInit")
 		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
@@ -247,6 +247,12 @@ func (sc *SlotContext) SetRewardTrans(tx *types.Transaction) bool {
 func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bool) {
 	if sc.rewardTrans != nil && sc.rewardTrans.Hash != sd.DataHash {
 		return
+	}
+	if sc.rewardTrans == nil {
+		return
+	}
+	if sc.rewardGSignGen == nil {
+		sc.rewardGSignGen = model.NewGroupSignGenerator(sc.gSignGenerator.Threshold())
 	}
 	accept, recover = sc.rewardGSignGen.AddWitness(sd.GetID(), sd.DataSign)
 	if accept && recover {

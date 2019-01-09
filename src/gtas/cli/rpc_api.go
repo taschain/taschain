@@ -768,16 +768,13 @@ func bonusStatByHeight(height uint64) BonusInfo {
 	return data
 }
 
-
-
-
-
-
-
-
-
 func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	address := common.HexToAddress(addr)
 	nonce := core.BlockChainImpl.GetNonce(address)
 	return successResult(nonce)
+}
+
+func (api *GtasAPI) ContextSummary() (*Result, error) {
+    s := mediator.Proc.BlockContextSummary()
+    return successResult(s)
 }
