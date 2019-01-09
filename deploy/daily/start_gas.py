@@ -5,12 +5,12 @@ import time
 
 def start1(id):
     if (id == 1):    
-        cmd='gtas.exe miner --config {config_file} --rpc --rpcport {rpc_port} --super --instance {id} --pprof {pprof_port}  --test --prefix lb211 --seed 127.0.0.1 > {stdout_log} 2>&1'.format( 
+        cmd='gtas.exe miner --config {config_file} --rpc --rpcport {rpc_port} --super --instance {id} --pprof {pprof_port}  --test --seed 127.0.0.1 --apply heavy --keystore keystore{id} > {stdout_log} 2>&1'.format( 
                 config_file=config_file, rpc_port=rpc_port, id=id, pprof_port=pprof_port, stdout_log=stdout_log) 
         print(cmd) 
         os.system(cmd)
     else:
-        cmd='gtas.exe miner --config {config_file} --rpc --rpcport {rpc_port} --instance {id} --pprof {pprof_port} --test --prefix lb211 --seed 127.0.0.1 > {stdout_log} 2>&1'.format( 
+        cmd='gtas.exe miner --config {config_file} --rpc --rpcport {rpc_port} --instance {id} --pprof {pprof_port} --test --seed 127.0.0.1 --apply heavy --keystore keystore{id} > {stdout_log} 2>&1'.format( 
                 config_file=config_file, rpc_port=rpc_port, id=id, pprof_port=pprof_port, stdout_log=stdout_log) 
         os.system(cmd) 
 
