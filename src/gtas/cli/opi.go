@@ -87,6 +87,8 @@ type accountOp interface {
 	AccountInfo() *Result
 
 	DeleteAccount() *Result
+
+	Close()
 }
 
 type chainOp interface {

@@ -8,7 +8,6 @@ import (
 	"common"
 	"consensus/model"
 	"fmt"
-	"utility"
 	"os"
 	"crypto/rand"
 )
@@ -44,7 +43,7 @@ type AccountManager struct {
 	mu sync.Mutex
 }
 
-var AccountOp accountOp
+//var AccountOp accountOp
 
 type AccountInfo struct {
 	Account
@@ -93,7 +92,7 @@ func newAccountOp(ks string) (*AccountManager, error) {
 	}, nil
 }
 
-func InitAccountManager(keystore string, readyOnly bool) (error) {
+func InitAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 	//内部批量部署时，指定自动创建账号（只需创建一次）
 	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
@@ -108,26 +107,25 @@ func InitAccountManager(keystore string, readyOnly bool) (error) {
 		}
 	}
 
-	tmp := keystore
-	if readyOnly {
-		if !dirExists(keystore) {
-			os.Mkdir(keystore, os.ModePerm)
-		}
-		//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
-		tmp = fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
-		os.RemoveAll(tmp)
-		if err := utility.Copy(keystore, tmp); err != nil {
-			return err
-		}
-	}
+	//tmp := keystore
+	//if readyOnly {
+	//	if !dirExists(keystore) {
+	//		os.Mkdir(keystore, os.ModePerm)
+	//	}
+	//	//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
+	//	tmp = fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
+	//	os.RemoveAll(tmp)
+	//	if err := utility.Copy(keystore, tmp); err != nil {
+	//		return nil, err
+	//	}
+	//}
 
-	if aop, err := newAccountOp(tmp); err != nil {
-		return err
+	if aop, err := newAccountOp(keystore); err != nil {
+		return nil, err
 	} else {
-		AccountOp = aop
+		return aop,nil
 	}
 
-	return nil
 }
 
 func (am *AccountManager) loadAccount(addr string) (*Account, error) {
@@ -316,4 +314,8 @@ func (am *AccountManager) DeleteAccount() *Result {
 	am.accounts.Delete(addr)
 	am.store.Delete([]byte(addr))
 	return opSuccess(nil)
+}
+
+func (am *AccountManager) Close()  {
+    am.store.Close()
 }

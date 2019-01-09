@@ -470,14 +470,17 @@ func Usage() {
 }
 
 
-func ConsoleInit(host string, port int, show bool) error {
-
-	chainop := InitRemoteChainOp(host, port, show, AccountOp)
+func ConsoleInit(keystore, host string, port int, show bool) error {
+	aop, err := InitAccountManager(keystore, false)
+	if err != nil {
+		return err
+	}
+	chainop := InitRemoteChainOp(host, port, show, aop)
 	if chainop.base != "" {
 
 	}
 
-	loop(AccountOp, chainop)
+	loop(aop, chainop)
 
 	return nil
 }
