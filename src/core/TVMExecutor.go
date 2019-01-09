@@ -25,12 +25,14 @@ import (
 	"fmt"
 	"tvm"
 	"bytes"
+	"time"
 )
 
 //var castorReward = big.NewInt(50)
 //var bonusReward = big.NewInt(20)
 const TransferGasCost = 1000
 const CodeBytePrice = 0.3814697265625
+const MaxCastBlockTime = time.Second * 3
 
 type TVMExecutor struct {
 	bc BlockChain
@@ -177,7 +179,8 @@ func getBonusAddress(t types.Transaction) []common.Address {
 	return result
 }
 
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error,[]*types.TransactionError) {
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error, []*types.TransactionError) {
+	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
@@ -185,6 +188,10 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
 
 	for i, transaction := range block.Transactions {
+		executeTime := time.Now()
+		if executeTime.Sub(beginTime) > MaxCastBlockTime {
+			break
+		}
 		var fail = false
 		var contractAddress common.Address
 		var logs []*types.Log
@@ -220,28 +227,28 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err := createContract(accountdb, transaction)
-				fmt.Printf("contract addr:%s",contractAddress.String())
+				fmt.Printf("contract addr:%s", contractAddress.String())
 				if err != nil {
 					fail = true
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
 					deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
-					if controller.Transaction.GasLimit < deploySpend {//gas not enough
+					if controller.Transaction.GasLimit < deploySpend { //gas not enough
 						fail = true
 						err = types.TxErrorDeployGasNotEnough
 						controller.AccountDB.RevertToSnapshot(snapshot)
 					} else {
 						controller.Transaction.GasLimit -= deploySpend
 						contract := tvm.LoadContract(contractAddress)
-						errorCode,errorMsg := controller.Deploy(transaction.Source, contract)
-						if errorCode  != 0{
+						errorCode, errorMsg := controller.Deploy(transaction.Source, contract)
+						if errorCode != 0 {
 							fail = true
-							err = types.NewTransactionError(errorCode,errorMsg)
+							err = types.NewTransactionError(errorCode, errorMsg)
 							controller.AccountDB.RevertToSnapshot(snapshot)
 						}
 					}
 				}
-				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice)))
+				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -254,14 +261,14 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit*transaction.GasPrice)))
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				contract := tvm.LoadContract(*transaction.Target)
-				if contract.Code == ""{
-					err =  types.NewTransactionError(types.TxErrorCode_NO_CODE,fmt.Sprintf(types.NO_CODE_ERR_MSG,*transaction.Target))
+				if contract.Code == "" {
+					err = types.NewTransactionError(types.TxErrorCode_NO_CODE, fmt.Sprintf(types.NO_CODE_ERR_MSG, *transaction.Target))
 					fail = true
-				}else{
+				} else {
 					snapshot := controller.AccountDB.Snapshot()
 					var success bool
-					success,logs,err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
-					if !success{
+					success, logs, err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+					if !success {
 						controller.AccountDB.RevertToSnapshot(snapshot)
 						fail = true
 					}
@@ -283,8 +290,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				}
 				//Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS())
 				for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
-					if n != common.AddressLength{
-						Logger.Debugf("TVMExecutor Bonus Addr Size:%d Invalid",n)
+					if n != common.AddressLength {
+						Logger.Debugf("TVMExecutor Bonus Addr Size:%d Invalid", n)
 						break
 					}
 					address := common.BytesToAddress(addr)
@@ -384,7 +391,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	state := accountdb.IntermediateRoot(true)
 	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 
-	return state, evictedTxs, transactions, receipts, nil,errs
+	return state, evictedTxs, transactions, receipts, nil, errs
 }
 
 func createContract(accountdb *account.AccountDB, transaction *types.Transaction) (common.Address, *types.TransactionError) {
@@ -398,7 +405,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.Source[:], common.Uint64ToByte(nance))))
 
 	if accountdb.GetCodeHash(contractAddr) != (common.Hash{}) {
-		return common.Address{}, types.NewTransactionError(types.TxErrorCode_ContractAddressConflict,"contract address conflict")
+		return common.Address{}, types.NewTransactionError(types.TxErrorCode_ContractAddressConflict, "contract address conflict")
 	}
 	accountdb.CreateAccount(contractAddr)
 	accountdb.SetCode(contractAddr, transaction.Data)

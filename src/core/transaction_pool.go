@@ -169,6 +169,10 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("illegal tx gasPrice")
 	}
 
+	if tx.Type != types.TransactionTypeBonus &&  tx.GasLimit >500000{
+		return fmt.Errorf("gasLimit too  big")
+	}
+
 	switch tx.Type {
 	case types.TransactionTypeBonus: //todo 分红交易，验证组签名
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
