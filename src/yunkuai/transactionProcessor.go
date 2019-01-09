@@ -61,6 +61,20 @@ func (y *YunKuaiProcessor) AfterBlockOnBlock(message notify.Message) {
 	}
 }
 
+func (y *YunKuaiProcessor) AfterBlockRemove(message notify.Message) {
+	if nil == message {
+		return
+	}
+
+	b := message.GetData().(types.Block)
+	txs := b.Transactions
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+
+	//todo: 回滚版本号
+}
+
 func (y *YunKuaiProcessor) Contains(index string) bool {
 	flag, _ := y.index.Has([]byte(index))
 

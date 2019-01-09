@@ -64,6 +64,8 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 
 	// yunkuai交易处理器
 	notify.BUS.Subscribe(notify.BlockAddSucc, yunkuai.GetYunKuaiProcessor().AfterBlockOnBlock)
+	notify.BUS.Subscribe(notify.BlockRemove, yunkuai.GetYunKuaiProcessor().AfterBlockRemove)
+
 	PeerManager = initPeerManager()
 	return nil
 }
