@@ -461,7 +461,6 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		return failResult(err.Error())
 	}
 	ni.Balance = balance
-
 	if !p.Ready() {
 		ni.Status = "节点未准备就绪"
 	} else {
@@ -778,4 +777,9 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 func (api *GtasAPI) ContextSummary() (*Result, error) {
     s := mediator.Proc.BlockContextSummary()
     return successResult(s)
+}
+
+func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
+    w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
+	return successResult(w)
 }

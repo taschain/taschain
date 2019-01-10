@@ -195,7 +195,7 @@ type MinerBonusBalance struct {
 
 type Transaction struct {
 	Data   []byte          `json:"data"`
-	Value  uint64          `json:"value"`
+	Value  float64          `json:"value"`
 	Nonce  uint64          `json:"nonce"`
 	Source *common.Address `json:"source"`
 	Target *common.Address `json:"target"`
