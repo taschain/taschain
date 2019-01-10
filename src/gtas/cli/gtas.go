@@ -105,6 +105,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp, seedId, light, keystore)
 	if err != nil {
+		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
 		return
 	}
