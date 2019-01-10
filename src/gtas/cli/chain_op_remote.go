@@ -179,7 +179,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		Id:           source.Bytes(),
 		PublicKey:    bpk.Serialize(),
 		VrfPublicKey: base.Hex2VRFPublicKey(aci.Miner.VrfPk),
-		Stake:        stake*common.TAS,
+		Stake:        common.TAS2RA(stake),
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(miner)
@@ -233,4 +233,12 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Resul
 	}
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
+}
+
+func (ca *RemoteChainOpImpl) ViewContract(addr string) *Result {
+    return ca.request("explorerAccount", addr)
+}
+
+func (ca *RemoteChainOpImpl) TxReceipt(hash string) *Result {
+	return ca.request("txReceipt", hash)
 }

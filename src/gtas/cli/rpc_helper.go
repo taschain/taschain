@@ -27,7 +27,7 @@ func convertTransaction(tx *types.Transaction) *Transaction {
 		ExtraData: tx.ExtraData,
 		ExtraDataType: tx.ExtraDataType,
 		Nonce: tx.Nonce,
-		Value: tx.Value,
+		Value: common.RA2TAS(tx.Value),
 	}
 	return trans
 }

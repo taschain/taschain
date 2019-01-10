@@ -21,7 +21,7 @@ func (api *GtasAPI) ScriptTransferTx(privateKey string, from string, to string, 
 func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
 	txRaw := &txRawData{
 		Target:   target,
-		Value:    value,
+		Value:    common.TAS2RA(value),
 		Gas:      gas,
 		Gasprice: gasprice,
 		Nonce:    nonce,

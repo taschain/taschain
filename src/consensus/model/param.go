@@ -73,9 +73,9 @@ func InitParam(cc common.SectionConfManager) {
 		GroupCastDuration: uint64(cc.GetInt("group_cast_duration", GROUP_CAST_DURATION)),
 		//EffectGapAfterApply: EPOCH,
 		PotentialProposal: 5,
-		ProposalBonus: 	12*common.TAS,
-		PackBonus: 3*common.TAS,
-		VerifyBonus: 15*common.TAS,
+		ProposalBonus: 	common.TAS2RA(12),
+		PackBonus: common.TAS2RA(3),
+		VerifyBonus: common.TAS2RA(15),
 	}
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }

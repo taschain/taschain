@@ -105,6 +105,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp, seedId, light, keystore)
 	if err != nil {
+		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
 		return
 	}
@@ -496,7 +497,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 		Id:           miner.ID.Serialize(),
 		PublicKey:    miner.PK.Serialize(),
 		VrfPublicKey: miner.VrfPK,
-		Stake:        500,
+		Stake:        common.TAS2RA(500),
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(tm)

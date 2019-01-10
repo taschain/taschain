@@ -60,3 +60,15 @@ func ParseCoin(s string) (uint64, error) {
 	//fmt.Println(re.FindAllString(s, -1))
 	return uint64(num) * unit, nil
 }
+
+func TAS2RA(v uint64) uint64 {
+	return v*TAS
+}
+
+func Value2RA(v float64) uint64 {
+	return uint64(v*float64(TAS))
+}
+
+func RA2TAS(v uint64) float64 {
+	return float64(v)/float64(TAS)
+}

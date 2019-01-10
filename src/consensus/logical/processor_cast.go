@@ -224,6 +224,8 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		p.NetServer.BroadcastNewBlock(cbm, gb)
 		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 
+		vctx.broadcastSlot = slot
+
 		//如果是联盟链，则不打分红交易
 		if !consensusConfManager.GetBool("league", false) {
 			p.reqRewardTransSign(vctx, bh)

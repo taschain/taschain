@@ -103,6 +103,9 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		p.addFutureVerifyMsg(msg)
 		return fmt.Errorf("父块未到达")
 	}
+	if VerifyBHExpire(bh, preBH) {
+		return fmt.Errorf("cast verify expire")
+	}
 
 	//非提案节点消息，即组内验证消息，需要验证随机数签名
 	if !castor.IsEqual(si.GetID()) {
@@ -905,6 +908,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
 		err = fmt.Errorf("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
+		msg.ReceiveTime = time.Now()
 		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
 		return
 	}
