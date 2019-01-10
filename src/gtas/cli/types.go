@@ -106,7 +106,7 @@ func NewMortGageFromMiner(miner *types.Miner) *MortGage {
 		t = "轻节点"
 	}
 	mg := &MortGage{
-		Stake:       miner.Stake,
+		Stake:       uint64(common.RA2TAS(miner.Stake)),
 		ApplyHeight: miner.ApplyHeight,
 		AbortHeight: miner.AbortHeight,
 		Type:        t,
@@ -116,7 +116,7 @@ func NewMortGageFromMiner(miner *types.Miner) *MortGage {
 
 type NodeInfo struct {
 	ID        string     `json:"id"`
-	Balance   uint64     `json:"balance"`
+	Balance   float64     `json:"balance"`
 	Status    string     `json:"status"`
 	WGroupNum int        `json:"w_group_num"`
 	AGroupNum int        `json:"a_group_num"`

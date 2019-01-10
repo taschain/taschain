@@ -280,7 +280,7 @@ func genSendTxCmd() *sendTxCmd {
 func (c *sendTxCmd) toTxRaw() *txRawData {
 	return &txRawData{
 		Target:   c.to,
-		Value:    uint64(c.value*common.TAS),
+		Value:    common.Value2RA(c.value),
 		TxType:   c.txType,
 		Data:     c.data,
 		Gas:      c.gaslimit,

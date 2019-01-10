@@ -73,12 +73,13 @@ func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
 	return
 }
 
-func (ws *wallets) getBalance(account string) (int64, error) {
+func (ws *wallets) getBalance(account string) (float64, error) {
 	if account == "" && len(walletManager) > 0 {
 		account = walletManager[0].Address
 	}
 	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
-	return balance.Int64(), nil
+
+	return common.RA2TAS(balance.Uint64()), nil
 }
 
 //func (ws *wallets) newVote(source string, config *global.VoteConfig) error {

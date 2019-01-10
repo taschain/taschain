@@ -497,7 +497,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 		Id:           miner.ID.Serialize(),
 		PublicKey:    miner.PK.Serialize(),
 		VrfPublicKey: miner.VrfPK,
-		Stake:        500,
+		Stake:        common.TAS2RA(500),
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(tm)
