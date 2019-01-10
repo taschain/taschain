@@ -18,7 +18,7 @@ import (
 //}
 
 func TestR(t *testing.T) {
-	res, err := rpcPost("120.77.41.14", 8102, "GTAS_r")
+	res, err := rpcPost("120.77.41.14", 8101, "GTAS_r")
 	//res, err := rpcPost("112.74.61.71", 8106, "GTAS_r")
 	if nil == err {
 		fmt.Println(res.Result)
