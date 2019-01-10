@@ -22,7 +22,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	account.CodeHash = accoundDb.GetCodeHash(common.HexToAddress(hash)).String()
 	account.Code = string(accoundDb.GetCode(common.HexToAddress(hash))[:])
 	account.Type = 0
-	if len(account.CodeHash) > 0 {
+	if len(account.Code) > 0 {
 		account.Type = 1
 		account.StateData = make(map[string]interface{})
 
