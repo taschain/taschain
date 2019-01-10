@@ -101,9 +101,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedId string, rpcPort uint, light bool, apply string) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp, seedId, light)
+	err := gtas.fullInit(super, testMode, seedIp, seedId, light, keystore)
 	if err != nil {
 		common.DefaultLogger.Error(err.Error())
 		return
@@ -271,17 +271,12 @@ func (gtas *Gtas) Run() {
 		kingpin.Fatalf("%s, try --help", err)
 	}
 
-	//初始化账号操作接口
-	if err := InitAccountManager(*keystore, command == mineCmd.FullCommand()); err != nil {
-		fmt.Println(err)
-		return
-	}
 
 	switch command {
 	//case voteCmd.FullCommand():
 	//	gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case consoleCmd.FullCommand():
-		err := ConsoleInit(*remoteHost, *remotePort, *showRequest)
+		err := ConsoleInit(*keystore, *remoteHost, *remotePort, *showRequest)
 		if err != nil {
 			fmt.Errorf(err.Error())
 		}
@@ -325,7 +320,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *seedId, *portRpc, *light, *apply)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *seedId, *portRpc, *light, *apply, *keystore)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -351,8 +346,14 @@ func (gtas *Gtas) simpleInit(configPath string) {
 	walletManager = newWallets()
 }
 
-func (gtas *Gtas) checkAddress(address string) error {
-	acm := AccountOp.(*AccountManager)
+func (gtas *Gtas) checkAddress(keystore, address string) error {
+	aop, err := InitAccountManager(keystore, true)
+	if err != nil {
+		return err
+	}
+	defer aop.Close()
+
+	acm := aop.(*AccountManager)
 	if address != "" {
 		if aci, err := acm.getAccountInfo(address); err != nil {
 			return fmt.Errorf("cannot get miner, err:%v", err.Error())
@@ -374,7 +375,7 @@ func (gtas *Gtas) checkAddress(address string) error {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string, light bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string, light bool, keystore string) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -388,7 +389,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string,
 	//	(*configManager).SetString(Section, "secret", secret)
 	//}
 	addressConfig := common.GlobalConf.GetString(Section, "miner", "")
-	err = gtas.checkAddress(addressConfig)
+	err = gtas.checkAddress(keystore, addressConfig)
 	if err != nil {
 		return err
 	}

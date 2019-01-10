@@ -256,7 +256,7 @@ func (c *gasBaseCmd) initBase()  {
 type sendTxCmd struct {
 	gasBaseCmd
 	to string
-	value uint64
+	value float64
 	data string
 	contractName string
 	contractPath string
@@ -269,7 +269,7 @@ func genSendTxCmd() *sendTxCmd {
 	}
 	c.initBase()
 	c.fs.StringVar(&c.to, "to", "", "the transaction receiver address")
-	c.fs.Uint64Var(&c.value, "value", 0, "transfer value")
+	c.fs.Float64Var(&c.value, "value", 0.0, "transfer value in tas unit")
 	c.fs.StringVar(&c.data, "data", "", "transaction data")
 	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
 	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
@@ -280,7 +280,7 @@ func genSendTxCmd() *sendTxCmd {
 func (c *sendTxCmd) toTxRaw() *txRawData {
 	return &txRawData{
 		Target:   c.to,
-		Value:    c.value,
+		Value:    uint64(c.value*common.TAS),
 		TxType:   c.txType,
 		Data:     c.data,
 		Gas:      c.gaslimit,
@@ -470,14 +470,17 @@ func Usage() {
 }
 
 
-func ConsoleInit(host string, port int, show bool) error {
-
-	chainop := InitRemoteChainOp(host, port, show, AccountOp)
+func ConsoleInit(keystore, host string, port int, show bool) error {
+	aop, err := InitAccountManager(keystore, false)
+	if err != nil {
+		return err
+	}
+	chainop := InitRemoteChainOp(host, port, show, aop)
 	if chainop.base != "" {
 
 	}
 
-	loop(AccountOp, chainop)
+	loop(aop, chainop)
 
 	return nil
 }
