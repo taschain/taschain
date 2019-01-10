@@ -178,6 +178,7 @@ func (c *connectCmd) parse(args []string) bool {
 type txCmd struct {
 	baseCmd
 	hash string
+	executed bool
 }
 
 func genTxCmd() *txCmd {
@@ -185,6 +186,7 @@ func genTxCmd() *txCmd {
 		baseCmd: *genbaseCmd("tx", "get transaction detail"),
 	}
 	c.fs.StringVar(&c.hash, "hash", "", "the hex transaction hash")
+	c.fs.BoolVar(&c.executed, "executed", false, "get executed transaction detail")
 	return c
 }
 
@@ -418,6 +420,32 @@ func (c *minerRefundCmd) parse(args []string) bool {
 	return c.parseGasPrice()
 }
 
+type viewContractCmd struct {
+	baseCmd
+	addr string
+}
+
+func genViewContractCmd() *viewContractCmd {
+	c := &viewContractCmd{
+		baseCmd: *genbaseCmd("viewcontract", "view contract data"),
+	}
+	c.fs.StringVar(&c.addr, "addr", "", "address of the contract")
+	return c
+}
+
+func (c *viewContractCmd) parse(args []string) bool {
+	if err := c.fs.Parse(args); err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	if c.addr == "" {
+		fmt.Println("please input the contract address")
+		return false
+	}
+	return true
+}
+
+
 var cmdNewAccount = genNewAccountCmd()
 var cmdExit = genbaseCmd("exit", "quit  gtas")
 var cmdHelp = genbaseCmd("help", "show help info")
@@ -436,6 +464,7 @@ var cmdSendTx = genSendTxCmd()
 var cmdMinerApply = genMinerApplyCmd()
 var cmdMinerAbort = genMinerAbortCmd()
 var cmdMinerRefund = genMinerRefundCmd()
+var cmdViewContract = genViewContractCmd()
 
 var list = make([]*baseCmd, 0)
 
@@ -457,6 +486,7 @@ func init() {
 	list = append(list, &cmdMinerApply.baseCmd)
 	list = append(list, &cmdMinerAbort.baseCmd)
 	list = append(list, &cmdMinerRefund.baseCmd)
+	list = append(list, &cmdViewContract.baseCmd)
 	list = append(list, cmdExit)
 }
 
@@ -571,13 +601,14 @@ func loop(acm accountOp, chainOp chainOp) {
 			continue
 		}
 		cmdStr := inputArr[0]
+		args := inputArr[1:]
 
 		switch cmdStr {
 		case "":
 			break
 		case cmdNewAccount.name:
 			cmd := genNewAccountCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return acm.NewAccount(cmd.password, cmd.miner)
 				})
@@ -595,7 +626,7 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdUnlock.name:
 			cmd := genUnlockCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				unlockLoop(cmd, acm)
 			}
 		case cmdAccountInfo.name:
@@ -608,20 +639,20 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdConnect.name:
 			cmd := genConnectCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				chainOp.Connect(cmd.host, cmd.port)
 			}
 
 		case cmdBalance.name:
 			cmd := genBalanceCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.Balance(cmd.addr)
 				})
 			}
 		case cmdMinerInfo.name:
 			cmd := genMinerInfoCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.MinerInfo(cmd.addr)
 				})
@@ -636,14 +667,17 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdTx.name:
 			cmd := genTxCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
+					if cmd.executed {
+						return chainOp.TxReceipt(cmd.hash)
+					}
 					return chainOp.TxInfo(cmd.hash)
 				})
 			}
 		case cmdBlock.name:
 			cmd := genBlockCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					if cmd.hash != "" {
 						return chainOp.BlockByHash(cmd.hash)
@@ -654,7 +688,7 @@ func loop(acm accountOp, chainOp chainOp) {
 			}
 		case cmdSendTx.name:
 			cmd := genSendTxCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.SendRaw(cmd.toTxRaw())
 				})
@@ -662,23 +696,30 @@ func loop(acm accountOp, chainOp chainOp) {
 
 		case cmdMinerApply.name:
 			cmd := genMinerApplyCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.ApplyMiner(cmd.mtype, cmd.stake, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerAbort.name:
 			cmd := genMinerAbortCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.AbortMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerRefund.name:
 			cmd := genMinerRefundCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.RefundMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
+				})
+			}
+		case cmdViewContract.name:
+			cmd := genViewContractCmd()
+			if cmd.parse(args) {
+				handleCmd(func() *Result {
+					return chainOp.ViewContract(cmd.addr)
 				})
 			}
 		default:

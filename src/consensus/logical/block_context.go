@@ -150,7 +150,7 @@ func (bc *BlockContext) CleanVerifyContext(height uint64) {
 		} else {
 			ctx.Clear()
 			bc.Proc.blockContexts.removeReservedVctx(ctx.castHeight)
-			stdLogger.Debug("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
+			stdLogger.Debugf("CleanVerifyContext: ctx.castHeight=%v, ctx.prevHash=%v\n", ctx.castHeight, ctx.prevBH.Hash.ShortS())
 		}
 	}
 

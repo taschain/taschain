@@ -73,7 +73,7 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 		return nil, err
 	}
 	return &Result{
-		Message: fmt.Sprintf("The balance of account: %s is %vTAS", account, balance),
+		Message: fmt.Sprintf("The balance of account: %s is %v TAS", account, balance),
 		Data:    fmt.Sprintf("%v", balance),
 	}, nil
 }

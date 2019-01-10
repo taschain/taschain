@@ -307,6 +307,7 @@ func (vc *VerifyContext) Clear()  {
 	defer vc.lock.Unlock()
 
     vc.slots = nil
+    vc.broadcastSlot = nil
 }
 
 //判断该context是否可以删除，主要考虑是否发送了分红交易

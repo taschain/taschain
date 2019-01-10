@@ -291,7 +291,7 @@ func (p *Processor) BlockContextSummary() string {
 			Status: vctx.consensusStatus,
 			NumSlots: len(vctx.slots),
 			Expire: vctx.expireTime,
-			ShouldRemove: !vctx.isCasting() || vctx.castExpire() || vctx.broadCasted(),
+			ShouldRemove: vctx.castRewardSignExpire() || (vctx.broadcastSlot != nil && vctx.broadcastSlot.IsRewardSent()),
 		}
 		reservVctxs = append(reservVctxs, v)
 		return true

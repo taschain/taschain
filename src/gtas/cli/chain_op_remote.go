@@ -234,3 +234,11 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Resul
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }
+
+func (ca *RemoteChainOpImpl) ViewContract(addr string) *Result {
+    return ca.request("explorerAccount", addr)
+}
+
+func (ca *RemoteChainOpImpl) TxReceipt(hash string) *Result {
+	return ca.request("txReceipt", hash)
+}
