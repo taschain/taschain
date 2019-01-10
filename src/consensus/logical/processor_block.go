@@ -61,11 +61,18 @@ func (holder *FutureMessageHolder) getMessages(hash common.Hash) []interface{} {
 func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
+
+func (holder *FutureMessageHolder) forEach(f func(key common.Hash, arr []interface{}) bool)  {
+    holder.messages.Range(func(key, value interface{}) bool {
+		arr := value.([]interface{})
+		return f(key.(common.Hash), arr)
+	})
+}
+
 func (holder *FutureMessageHolder) size() int {
     cnt := 0
-    holder.messages.Range(func(key, value interface{}) bool {
-    	arr := value.([]interface{})
-		cnt += len(arr)
+    holder.forEach(func(key common.Hash, value []interface{}) bool {
+		cnt += len(value)
 		return true
 	})
     return cnt

@@ -908,6 +908,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
 		err = fmt.Errorf("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
+		msg.ReceiveTime = time.Now()
 		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
 		return
 	}

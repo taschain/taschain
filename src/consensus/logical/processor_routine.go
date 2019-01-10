@@ -3,6 +3,7 @@ package logical
 import (
 	"time"
 	"consensus/model"
+	"common"
 )
 
 /*
@@ -138,6 +139,31 @@ func (p *Processor) releaseRoutine() bool {
 			blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.groupManager.creatingGroups.removeGroup(gHash)
+		}
+		return true
+	})
+
+	//释放futureVerifyMsg
+	p.futureVerifyMsgs.forEach(func(key common.Hash, arr []interface{}) bool {
+		for _, msg := range arr {
+			b := msg.(*model.ConsensusBlockMessageBase)
+			if b.BH.Height+200 < topHeight {
+				blog.debug("remove future verify msg, hash=%v", key.String())
+				p.removeFutureVerifyMsgs(key)
+				break
+			}
+		}
+		return true
+	})
+	//释放futureRewardMsg
+	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
+		for _, msg := range arr {
+			b := msg.(*model.CastRewardTransSignReqMessage)
+			if time.Now().After(b.ReceiveTime.Add(400*time.Second)) {//400s不能处理的，都删除
+				p.futureRewardReqs.remove(key)
+				blog.debug("remove future reward msg, hash=%v", key.String())
+				break
+			}
 		}
 		return true
 	})
