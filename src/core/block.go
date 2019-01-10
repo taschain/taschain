@@ -83,6 +83,9 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
+	//管理员账户
+	stateDB.SetBalance(common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(500000)))
+	stateDB.SetBalance(common.HexStringToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(500000)))
 
 	//创世账户
 	for _, mem := range genesisInfo.Group.Members {
