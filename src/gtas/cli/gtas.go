@@ -207,7 +207,7 @@ func (gtas *Gtas) Run() {
 	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
-	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
+	pprofPort := app.Flag("pprof", "enable pprof").Default("23333").Uint()
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
 	keystore := app.Flag("keystore", "the keystore path, default is current path").Default("keystore").Short('k').String()
 	*statisticsEnable = false
