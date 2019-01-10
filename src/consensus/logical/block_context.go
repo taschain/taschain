@@ -130,15 +130,7 @@ func (bc *BlockContext) SafeGetVerifyContexts() []*VerifyContext {
 }
 
 func (bc *BlockContext) GetOrNewVerifyContext(bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
-	var (
-		deltaHeightByTime uint64
-	)
-	if bh.Height == 1 {
-		d := time.Since(preBH.CurTime)
-		deltaHeightByTime = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
-	} else {
-		deltaHeightByTime = bh.Height - preBH.Height
-	}
+	deltaHeightByTime := DeltaHeightByTime(bh, preBH)
 
 	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
 

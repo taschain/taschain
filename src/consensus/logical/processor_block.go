@@ -61,6 +61,15 @@ func (holder *FutureMessageHolder) getMessages(hash common.Hash) []interface{} {
 func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
+func (holder *FutureMessageHolder) size() int {
+    cnt := 0
+    holder.messages.Range(func(key, value interface{}) bool {
+    	arr := value.([]interface{})
+		cnt += len(arr)
+		return true
+	})
+    return cnt
+}
 
 //func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
 //	b := msg.Block

@@ -103,6 +103,9 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		p.addFutureVerifyMsg(msg)
 		return fmt.Errorf("父块未到达")
 	}
+	if VerifyBHExpire(bh, preBH) {
+		return fmt.Errorf("cast verify expire")
+	}
 
 	//非提案节点消息，即组内验证消息，需要验证随机数签名
 	if !castor.IsEqual(si.GetID()) {

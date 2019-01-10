@@ -244,6 +244,8 @@ func (p *Processor) BlockContextSummary() string {
 		Bctxs []*bctxSummary `json:"bctxs"`
 		NumReserVctx int `json:"num_reser_vctx"`
 		ReservVctxs []*vctxSummary `json:"reserv_vctxs"`
+		NumFutureVerifyMsg int `json:"num_future_verify_msg"`
+		NumFutureRewardMsg int `json:"num_future_reward_msg"`
 	}
 	bctxs := make([]*bctxSummary, 0)
 	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
@@ -268,7 +270,7 @@ func (p *Processor) BlockContextSummary() string {
 				Status: vctx.consensusStatus,
 				NumSlots: len(vctx.slots),
 				Expire: vctx.expireTime,
-				ShouldRemove: !vctx.isCasting() || vctx.castExpire() || vctx.broadCasted(),
+				ShouldRemove: vctx.castRewardSignExpire() || (vctx.broadcastSlot != nil && vctx.broadcastSlot.IsRewardSent()),
 				Slots:ss,
 			}
 			vs = append(vs, v)
@@ -299,6 +301,8 @@ func (p *Processor) BlockContextSummary() string {
 		ReservVctxs: reservVctxs,
 		NumBctxs:len(bctxs),
 		NumReserVctx: len(reservVctxs),
+		NumFutureVerifyMsg: p.futureVerifyMsgs.size(),
+		NumFutureRewardMsg: p.futureRewardReqs.size(),
 	}
 	b, _ := json.MarshalIndent(cs, "", "\t")
 	fmt.Printf("%v\n", string(b))

@@ -122,6 +122,7 @@ type VerifyContext struct {
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
 	slots           map[common.Hash]*SlotContext
+	broadcastSlot 	*SlotContext
 	//castedQNs []int64 //自己铸过的qn
 	blockCtx *BlockContext
 	lock     sync.RWMutex
@@ -154,7 +155,9 @@ func (vc *VerifyContext) broadCasted() bool {
 }
 
 func (vc *VerifyContext) markTimeout() {
-	atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
+	if !vc.castSuccess() && !vc.broadCasted() {
+		atomic.StoreInt32(&vc.consensusStatus, CBCS_TIMEOUT)
+	}
 }
 
 func (vc *VerifyContext) markCastSuccess() {
@@ -165,8 +168,14 @@ func (vc *VerifyContext) markBroadcast() bool {
 	return atomic.CompareAndSwapInt32(&vc.consensusStatus, CBCS_BLOCKED, CBCS_BROADCAST)
 }
 
+//铸块是否过期
 func (vc *VerifyContext) castExpire() bool {
 	return time.Now().After(vc.expireTime)
+}
+
+//分红交易签名是否过期
+func (vc *VerifyContext) castRewardSignExpire() bool {
+	return time.Now().After(vc.expireTime.Add(time.Duration(2*model.Param.MaxGroupCastTime)*time.Second))
 }
 
 func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {
@@ -300,20 +309,15 @@ func (vc *VerifyContext) Clear()  {
     vc.slots = nil
 }
 
-//判断该context是否可以删除
+//判断该context是否可以删除，主要考虑是否发送了分红交易
 func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
-	//不在铸块的, 可以删除
-	if !vc.isCasting() {
+	//交易签名超时, 可以删除
+	if vc.castRewardSignExpire() {
 		return true
 	}
 
-	//已经超时的， 可以删除
-	if vc.castExpire() {
-		return true
-	}
-
-	//广播过的，可删除
-	if vc.broadCasted() {
+	//自己广播的且已经发送过分红交易，可以删除
+	if vc.broadcastSlot != nil && vc.broadcastSlot.IsRewardSent() {
 		return true
 	}
 
