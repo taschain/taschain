@@ -132,7 +132,7 @@ func (a Address) IsValid() bool {
 }
 
 func (a Address) GetHexString() string {
-	str := PREFIX + hex.EncodeToString(a[:])
+	str := ToHex(a[:])
 	return str
 }
 

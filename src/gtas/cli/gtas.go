@@ -105,6 +105,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, seedIp, seedId, light, keystore)
 	if err != nil {
+		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
 		return
 	}
@@ -207,7 +208,7 @@ func (gtas *Gtas) Run() {
 	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
-	pprofPort := app.Flag("pprof", "enable pprof").Default("8080").Uint()
+	pprofPort := app.Flag("pprof", "enable pprof").Default("23333").Uint()
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
 	keystore := app.Flag("keystore", "the keystore path, default is current path").Default("keystore").Short('k').String()
 	*statisticsEnable = false
@@ -496,7 +497,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 		Id:           miner.ID.Serialize(),
 		PublicKey:    miner.PK.Serialize(),
 		VrfPublicKey: miner.VrfPK,
-		Stake:        500,
+		Stake:        common.TAS2RA(500),
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(tm)

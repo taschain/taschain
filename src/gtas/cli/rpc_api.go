@@ -61,10 +61,13 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 		return failResult(err.Error())
 	}
 
+	var contractAddr string
+	if trans.Type == types.TransactionTypeContractCreate {
+		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(trans.Source[:], common.Uint64ToByte(trans.Nonce)))).String()
+		return successResult(trans.Hash.String() + ",Contract Address:" + contractAddr)
+	}
 	return successResult(trans.Hash.String())
-
 }
-
 
 // Balance 查询余额接口
 func (api *GtasAPI) Balance(account string) (*Result, error) {
@@ -73,8 +76,8 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 		return nil, err
 	}
 	return &Result{
-		Message: fmt.Sprintf("The balance of account: %s is %d", account, float64(1.0*balance/common.TAS)),
-		Data:    fmt.Sprintf("%d", balance),
+		Message: fmt.Sprintf("The balance of account: %s is %v TAS", account, balance),
+		Data:    fmt.Sprintf("%v", balance),
 	}, nil
 }
 
@@ -209,7 +212,6 @@ func (api *GtasAPI) GetBlockByHash(hash string) (*Result, error) {
 	}
 	return successResult(block)
 }
-
 
 func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	bh := core.BlockChainImpl.QueryTopBlock()
@@ -455,12 +457,12 @@ func (api *GtasAPI) MinerInfo(addr string) (*Result, error) {
 func (api *GtasAPI) NodeInfo() (*Result, error) {
 	ni := &NodeInfo{}
 	p := mediator.Proc
-	ac := p.MainChain.(core.AccountRepository)
 	ni.ID = p.GetMinerID().GetHexString()
-	bi := ac.GetBalance(p.GetMinerID().ToAddress())
-	if bi != nil {
-		ni.Balance = bi.Uint64()
+	balance, err := walletManager.getBalance(p.GetMinerID().GetHexString())
+	if err != nil {
+		return failResult(err.Error())
 	}
+	ni.Balance = balance
 	if !p.Ready() {
 		ni.Status = "节点未准备就绪"
 	} else {
@@ -571,7 +573,6 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 	}
 	return successResult(pageObject)
 }
-
 
 func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 	chain := core.BlockChainImpl
@@ -775,6 +776,11 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 }
 
 func (api *GtasAPI) ContextSummary() (*Result, error) {
-    s := mediator.Proc.BlockContextSummary()
-    return successResult(s)
+	s := mediator.Proc.BlockContextSummary()
+	return successResult(s)
+}
+
+func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
+    w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
+	return successResult(w)
 }

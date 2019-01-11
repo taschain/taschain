@@ -96,7 +96,6 @@ func InitAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 	//内部批量部署时，指定自动创建账号（只需创建一次）
 	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
-		defer aop.store.Close()
 		if err != nil {
 			panic(err)
 		}
@@ -105,6 +104,7 @@ func InitAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 			fmt.Println(ret.Message)
 			panic(ret.Message)
 		}
+		return aop, nil
 	}
 
 	//tmp := keystore

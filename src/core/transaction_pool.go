@@ -37,6 +37,7 @@ const (
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
 	TxCountPerBlock      = 3000
+	GasLimitMax          = 500000
 )
 
 var (
@@ -165,12 +166,12 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("tx sign nil")
 	}
 
-	if tx.Type != types.TransactionTypeBonus &&  tx.GasPrice == 0{
+	if tx.Type != types.TransactionTypeBonus && tx.GasPrice == 0 {
 		return fmt.Errorf("illegal tx gasPrice")
 	}
 
-	if tx.Type != types.TransactionTypeBonus &&  tx.GasLimit >500000{
-		return fmt.Errorf("gasLimit too  big")
+	if tx.Type != types.TransactionTypeBonus && tx.GasLimit > GasLimitMax {
+		return fmt.Errorf("gasLimit too  big! max gas limit is 500000 lei")
 	}
 
 	switch tx.Type {

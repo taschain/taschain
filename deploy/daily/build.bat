@@ -10,4 +10,5 @@ for /d %%s in ( d* ) do (
 del /F /Q gtas.exe
 
 set GOPATH=%cd%\..\..\thirdparty;%cd%\..\..
+go clean
 go build -o ./gtas.exe ../../src/gtas/main.go
