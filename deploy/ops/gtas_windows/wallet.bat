@@ -1,0 +1,1 @@
+gtas.exe console
