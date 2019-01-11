@@ -6,6 +6,7 @@ import (
 	"consensus/groupsig"
 	"fmt"
 	"middleware/types"
+	"sort"
 )
 
 /*
@@ -17,24 +18,50 @@ import (
 type SysWorkSummary struct {
 	BeginHeight uint64 `json:"begin_height"`
 	ToHeight uint64 `json:"to_height"`
-	GroupSummary map[string]*GroupVerifySummary `json:"group_summary"`
+	GroupSummary []*GroupVerifySummary `json:"group_summary"`
+	summaryMap map[string]*GroupVerifySummary
 	AverCastTime float64 `json:"aver_cast_time"`
 	MaxCastTime float64 `json:"max_cast_time"`
 	HeightOfMaxCastTime uint64 `json:"height_of_max_cast_time"`
 }
 
+func (s *SysWorkSummary) Len() int {
+	return len(s.GroupSummary)
+}
+
+func (s *SysWorkSummary) Less(i, j int) bool {
+	return s.GroupSummary[i].DissmissHeight < s.GroupSummary[j].DissmissHeight
+}
+
+func (s *SysWorkSummary) Swap(i, j int) {
+	s.GroupSummary[i], s.GroupSummary[j] = s.GroupSummary[j], s.GroupSummary[i]
+}
+
+func (s *SysWorkSummary) sort()  {
+	if len(s.summaryMap) == 0 {
+		return
+	}
+	tmp := make([]*GroupVerifySummary, 0)
+	for _, s := range s.summaryMap {
+		tmp = append(tmp, s)
+	}
+	s.GroupSummary = tmp
+	sort.Sort(s)
+}
+
 func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelected bool) *GroupVerifySummary {
 	gidStr := gid.GetHexString()
-	if v, ok := s.GroupSummary[gidStr]; ok {
+	if v, ok := s.summaryMap[gidStr]; ok {
 		return v
 	}
 	gvs := &GroupVerifySummary{
+		Gid: gidStr,
 		LastJumpHeight: make([]uint64, 0),
 	}
 	g := core.GroupChainImpl.GetGroupById(gid.Serialize())
 	gvs.fillGroupInfo(g, top)
 	gvs.NextSelected = nextSelected
-	s.GroupSummary[gidStr] = gvs
+	s.summaryMap[gidStr] = gvs
 
 
 	return gvs
@@ -42,6 +69,7 @@ func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelect
 
 
 type GroupVerifySummary struct {
+	Gid  string `json:"gid"`
 	DissmissHeight uint64 `json:"dissmiss_height"`
 	Dissmissed bool `json:"dissmissed"`
 	NumVerify int `json:"num_verify"`
@@ -49,6 +77,7 @@ type GroupVerifySummary struct {
 	LastJumpHeight []uint64 `json:"last_jump_height"`
 	NextSelected bool `json:"next_selected"`
 }
+
 
 func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
 	if len(s.LastJumpHeight) < 50 {
@@ -94,7 +123,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	summary := &SysWorkSummary{
 		BeginHeight: from,
 		ToHeight: to,
-		GroupSummary: make(map[string]*GroupVerifySummary, 0),
+		summaryMap: make(map[string]*GroupVerifySummary, 0),
 	}
 	nextGroupId := *mediator.Proc.CalcVerifyGroup(top, topHeight+1)
 	preBH := chain.QueryBlockByHeight(from-1)
@@ -135,5 +164,6 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	summary.AverCastTime = t / float64(b)
 	summary.MaxCastTime = max
 	summary.HeightOfMaxCastTime = maxHeight
+	summary.sort()
 	return successResult(summary)
 }
