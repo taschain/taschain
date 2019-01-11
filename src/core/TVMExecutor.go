@@ -189,7 +189,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 
 	for i, transaction := range block.Transactions {
 		executeTime := time.Now()
-		if executeTime.Sub(beginTime) > MaxCastBlockTime {
+		if mark == "casting" && executeTime.Sub(beginTime) > MaxCastBlockTime {
+			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
 			break
 		}
 		var fail = false
