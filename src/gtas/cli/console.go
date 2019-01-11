@@ -587,7 +587,7 @@ func Usage() {
 }
 
 
-func ConsoleInit(keystore, host string, port int, show bool) error {
+func ConsoleInit(keystore, host string, port int, show bool, rpcport int) error {
 	aop, err := InitAccountManager(keystore, false)
 	if err != nil {
 		return err
@@ -595,6 +595,13 @@ func ConsoleInit(keystore, host string, port int, show bool) error {
 	chainop := InitRemoteChainOp(host, port, show, aop)
 	if chainop.base != "" {
 
+	}
+
+	if rpcport > 0 {
+		ws := NewWalletServer(rpcport, aop)
+		if err := ws.Start(); err != nil {
+			return err
+		}
 	}
 
 	loop(aop, chainop)
