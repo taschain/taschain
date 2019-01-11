@@ -661,4 +661,11 @@ func TestAddress(t *testing.T) {
 	id2 := ID{}
 	id2.SetHexString("0x0bf03e69b31aa1caa45e79dd8d7f8031bfe81722d435149ffa2d0b66b9e9b6b7")
 	t.Log(id2.GetHexString())
+
+	json, _ := id2.MarshalJSON()
+	t.Log(string(json))
+
+	id3 := &ID{}
+	id3.UnmarshalJSON(json)
+	t.Log(id3.GetHexString())
 }
