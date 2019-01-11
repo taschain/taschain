@@ -11,6 +11,7 @@ import (
 	"log"
 	"fmt"
 	"consensus/model"
+	"runtime/debug"
 )
 
 type ConsensusHandler struct {
@@ -35,6 +36,15 @@ func (c *ConsensusHandler) ready() bool {
 func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 	code := msg.Code
 	body := msg.Body
+
+	defer func() {
+		if r := recover(); r != nil {
+			common.DefaultLogger.Errorf("error：%v\n", r)
+			s := debug.Stack()
+			common.DefaultLogger.Errorf(string(s))
+		}
+	}()
+
 	if !c.ready() {
 		log.Printf("message ingored because processor not ready. code=%v\n", code)
 		return fmt.Errorf("processor not ready yet")

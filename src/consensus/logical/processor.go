@@ -176,7 +176,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	var gid = groupsig.DeserializeId(bh.GroupId)
 
-	selectGroupId := p.calcVerifyGroup(preHeader, bh.Height)
+	selectGroupId := p.CalcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
 		err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
