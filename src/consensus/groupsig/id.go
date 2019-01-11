@@ -85,7 +85,9 @@ func (id ID) IsValid() bool {
 
 //把ID转换到十六进制字符串
 func (id ID) GetHexString() string {
-	return id.value.GetHexString()
+	bs := id.Serialize()
+	return common.ToHex(bs)
+	//return id.value.GetHexString()
 }
 
 //把ID转换到字节切片（小端模式）

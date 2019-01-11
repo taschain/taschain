@@ -44,3 +44,4 @@ func TestAddress_MarshalJSON(t *testing.T) {
 	bs, _ := json.Marshal(&addr)
 	log.Printf(string(bs))
 }
+
