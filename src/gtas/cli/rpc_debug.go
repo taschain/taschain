@@ -54,10 +54,16 @@ func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
 	if len(s.LastJumpHeight) < 50 {
 		s.LastJumpHeight = append(s.LastJumpHeight, h)
 	} else {
+		find := false
 		for i := 1; i < len(s.LastJumpHeight); i++ {
 			if s.LastJumpHeight[i-1] > s.LastJumpHeight[i] {
 				s.LastJumpHeight[i] = h
+				find = true
+				break
 			}
+		}
+		if !find {
+			s.LastJumpHeight[0] = h
 		}
 	}
 	s.NumJump+=1

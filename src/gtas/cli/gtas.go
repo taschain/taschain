@@ -226,6 +226,7 @@ func (gtas *Gtas) Run() {
 	showRequest := consoleCmd.Flag("show", "show the request json").Short('v').Bool()
 	remoteHost := consoleCmd.Flag("host", "the node host address to connect").Short('i').String()
 	remotePort := consoleCmd.Flag("port", "the node host port to connect").Short('p').Int()
+	rpcPort := consoleCmd.Flag("rpcport", "gtas console will listen at the port for wallet service").Short('r').Default("0").Int()
 
 	// 交易解析
 	//tCmd := app.Command("t", "create a transaction")
@@ -277,7 +278,7 @@ func (gtas *Gtas) Run() {
 	//case voteCmd.FullCommand():
 	//	gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case consoleCmd.FullCommand():
-		err := ConsoleInit(*keystore, *remoteHost, *remotePort, *showRequest)
+		err := ConsoleInit(*keystore, *remoteHost, *remotePort, *showRequest, *rpcPort)
 		if err != nil {
 			fmt.Errorf(err.Error())
 		}
