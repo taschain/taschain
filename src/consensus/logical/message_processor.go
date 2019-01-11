@@ -106,12 +106,23 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	if VerifyBHExpire(bh, preBH) {
 		return fmt.Errorf("cast verify expire")
 	}
-
+	if !p.IsMinerGroup(gid) {
+		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
+	}
+	bc := p.GetBlockContext(gid)
+	if bc == nil {
+		err = fmt.Errorf("未获取到blockcontext, gid=" + gid.ShortS())
+		return
+	}
+	if bc.IsHeightCasted(bh.Height) {
+		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		return
+	}
 	//非提案节点消息，即组内验证消息，需要验证随机数签名
 	if !castor.IsEqual(si.GetID()) {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
 		if !msg.VerifyRandomSign(pk, preBH.Random) {
-			err = fmt.Errorf("random sign verify fail")
+			err = fmt.Errorf("random sign verify fail, gid %v, pk %v", gid.ShortS(), pk.ShortS())
 			return
 		}
 	}
@@ -129,16 +140,6 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
 	if vHash != existHash {
 		err = fmt.Errorf("check prove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
-		return
-	}
-
-	bc := p.GetBlockContext(gid)
-	if bc == nil {
-		err = fmt.Errorf("未获取到blockcontext, gid=" + gid.ShortS())
-		return
-	}
-	if bc.IsHeightCasted(bh.Height) {
-		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
 		return
 	}
 

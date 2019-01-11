@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"consensus/base"
 	"strconv"
+	"common"
 )
 
 type Expect struct {
@@ -649,4 +650,22 @@ func TestSignature_MarshalJSON(t *testing.T) {
 
 	t.Log("len of bs:", len(bs))
 	t.Log(string(bs))
+}
+
+func TestAddress(t *testing.T) {
+	addr := common.HexToAddress("0x0bf03e69b31aa1caa45e79dd8d7f8031bfe81722d435149ffa2d0b66b9e9b6b7")
+	id := DeserializeId(addr.Bytes())
+	t.Log(id.GetHexString(), len(id.GetHexString()), addr.GetHexString() == id.GetHexString())
+	t.Log(id.Serialize(), addr.Bytes(), bytes.Equal(id.Serialize(), addr.Bytes()))
+
+	id2 := ID{}
+	id2.SetHexString("0x0bf03e69b31aa1caa45e79dd8d7f8031bfe81722d435149ffa2d0b66b9e9b6b7")
+	t.Log(id2.GetHexString())
+
+	json, _ := id2.MarshalJSON()
+	t.Log(string(json))
+
+	id3 := &ID{}
+	id3.UnmarshalJSON(json)
+	t.Log(id3.GetHexString())
 }
