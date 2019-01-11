@@ -53,12 +53,16 @@ func (ws *WalletServer) Start() error {
 //}
 
 
-func (ws *WalletServer) SignData(source, target, unlockPassword string, value float64, gas, gasprice uint64, txType int, nonce uint64, data string) (*Result) {
+func (ws *WalletServer) SignData(source, target, unlockPassword string, value float64, gas uint64, gaspriceStr string, txType int, nonce uint64, data string) (*Result) {
+	gp, err := common.ParseCoin(gaspriceStr)
+	if err != nil {
+		return opError(fmt.Errorf("%v:%v, correct example: 100RA,100kRA,1mRA,1TAS", err, gaspriceStr))
+	}
 	txRaw := &txRawData{
 		Target: target,
 		Value: common.Value2RA(value),
 		Gas: gas,
-		Gasprice: gasprice,
+		Gasprice: gp,
 		TxType: txType,
 		Nonce: nonce,
 		Data: data,
