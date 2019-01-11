@@ -159,7 +159,7 @@ func (msg *ConsensusBlockMessageBase) GenRandomSign(skey groupsig.Seckey, preRan
 
 func (msg *ConsensusBlockMessageBase) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
 	sig := groupsig.DeserializeSign(msg.BH.Random)
-	if sig == nil {
+	if sig == nil || sig.IsNil() {
 		return false
 	}
     return groupsig.VerifySig(pkey, preRandom, *sig)
