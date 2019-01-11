@@ -4,9 +4,9 @@ import (
 	"storage/tasdb"
 	"sync"
 
+	"bytes"
 	"middleware/notify"
 	"middleware/types"
-	"bytes"
 )
 
 const Yunkuai_DataType = 75585
@@ -55,6 +55,11 @@ func (y *YunKuaiProcessor) AfterBlockOnBlock(message notify.Message) {
 
 	for _, tx := range txs {
 		if tx.Type == types.TransactionYunkuai {
+			key, newVersion := y.ParsKeyVersion(tx.Data)
+			if newVersion > y.getVersion(key) {
+				//如果version小于当前version，则不更新
+				y.SaveKeyVersion(key, newVersion)
+			}
 			// 保存索引
 			y.index.Put(tx.Data, tx.Hash.Bytes())
 		}
@@ -71,8 +76,18 @@ func (y *YunKuaiProcessor) AfterBlockRemove(message notify.Message) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
+	for _, tx := range txs {
+		if tx.Type == types.TransactionYunkuai {
+			//回退version
+			key, version := y.ParsKeyVersion(tx.Data)
+			if version == y.getVersion(key){
+				y.ReduceVersion(key);
+			}
 
-	//todo: 回滚版本号
+			// 不删除索引，因为有可能已经被覆盖
+			//y.index.Delete(tx.Data)
+		}
+	}
 }
 
 func (y *YunKuaiProcessor) Contains(index string) bool {
@@ -118,4 +133,30 @@ func (y *YunKuaiProcessor) GenerateNewKey(index string) string {
 	buf.WriteByte(version)
 	return buf.String()
 
+}
+
+func (y *YunKuaiProcessor) SaveKeyVersion(index string, version byte) {
+	data := make([]byte, 1)
+	data[0] = version
+	y.version.Put([]byte(index), data)
+}
+
+func (y *YunKuaiProcessor) ParsKeyVersion(data []byte) (key string, version byte) {
+	key = string(data[:len(data)-1])
+	version = data[len(data)-1]
+	return
+}
+
+
+/**
+回退一个version
+ */
+func (y *YunKuaiProcessor) ReduceVersion(index string) {
+	version := y.getVersion(index) - 1
+	if version < 0 {
+		version = 0
+	}
+	data := make([]byte, 1)
+	data[0] = version
+	y.version.Put([]byte(index), data)
 }
