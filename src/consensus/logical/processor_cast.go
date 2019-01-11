@@ -395,9 +395,13 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 			Reward:       *bonus,
 			SignedPieces: signs,
 		}
-		msg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID)), msg)
-		p.NetServer.SendCastRewardSignReq(msg)
-		blog.log("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
+		ski := model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID))
+		if msg.GenSign(ski, msg) {
+			p.NetServer.SendCastRewardSignReq(msg)
+			blog.log("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
+		} else {
+			blog.debug("genSign fail, id=%v, sk=%v, belong=%v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(groupID))
+		}
 	}
 
 }
