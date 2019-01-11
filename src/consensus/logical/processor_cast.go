@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"runtime/debug"
 )
 
 /*
@@ -109,7 +110,7 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash common.Hash
 	data := preBH.Random
 
@@ -128,7 +129,7 @@ func (p *Processor) calcVerifyGroup(preBH *types.BlockHeader, height uint64) *gr
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextId := p.calcVerifyGroup(bh, height)
+	nextId := p.CalcVerifyGroup(bh, height)
 	if nextId == nil {
 		return nil
 	}
@@ -175,6 +176,13 @@ func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 //同一个高度，可能会因QN不同而多次调用该函数
 //但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
 func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.DefaultLogger.Errorf("error：%v\n", r)
+			s := debug.Stack()
+			common.DefaultLogger.Errorf(string(s))
+		}
+	}()
 
 	bh := slot.BH
 
@@ -310,8 +318,8 @@ func (p *Processor) blockProposal() {
 	}
 	bh := block.Header
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
-	blog.log("begin proposal, hash=%v, height=%v, qn=%v, pi=%v...", bh.Hash.ShortS(), height, qn, pi.ShortS())
-	tlog.logStart("height=%v,qn=%v, preHash=%v", bh.Height, qn, bh.PreHash.ShortS())
+	blog.log("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
+	tlog.logStart("height=%v,qn=%v, preHash=%v, verifyGroup=%v", bh.Height, qn, bh.PreHash.ShortS(), gid.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥

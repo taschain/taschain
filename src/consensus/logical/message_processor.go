@@ -80,12 +80,16 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 		cvm.BH = *bh
 		cvm.ProveHash = proveHash
 		//cvm.GroupID = gId
-		cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm)
-		cvm.GenRandomSign(skey, vctx.prevBH.Random)
-		newBizLog("normalPieceVerify").debug("call network service SendVerifiedCast hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
-		traceLog.log("SendVerifiedCast height=%v, castor=%v", bh.Height, slot.castor.ShortS())
-		//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
-		p.NetServer.SendVerifiedCast(&cvm)
+		blog := newBizLog("normalPieceVerify")
+		if cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm) {
+			cvm.GenRandomSign(skey, vctx.prevBH.Random)
+			blog.debug("call network service SendVerifiedCast hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+			traceLog.log("SendVerifiedCast height=%v, castor=%v", bh.Height, slot.castor.ShortS())
+			//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
+			p.NetServer.SendVerifiedCast(&cvm)
+		} else {
+			blog.log("genSign fail, id=%v, sk=%v %v", p.GetMinerID().ShortS(), skey.ShortS(), p.IsMinerGroup(gid))
+		}
 	}
 }
 
@@ -446,12 +450,15 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 			if id != "0x0" && piece.IsValid() {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
-				spm.GenSign(ski, spm)
-				//blog.log("OMGI spm.GenSign result=%v.", sb)
-				blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
-				tlog.log("sharepiece to %v", spm.Dest.ShortS())
-				blog.debug("call network service SendKeySharePiece...")
-				p.NetServer.SendKeySharePiece(spm)
+				if spm.GenSign(ski, spm) {
+					//blog.log("OMGI spm.GenSign result=%v.", sb)
+					blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
+					tlog.log("sharepiece to %v", spm.Dest.ShortS())
+					blog.debug("call network service SendKeySharePiece...")
+					p.NetServer.SendKeySharePiece(spm)
+				} else {
+					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+				}
 
 			} else {
 				panic("GenSharePieces data not IsValid.")
@@ -526,13 +533,16 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 					panic("verify GSign with group member sign pub key failed.")
 				}
 
-				msg.GenSign(ski, msg)
-				//todo : 组内广播签名公钥
-				blog.debug("send sign pub key to group members, spk=%v...", msg.SignPK.ShortS())
-				tlog.log("SendSignPubKey %v", p.getPrefix())
+				if msg.GenSign(ski, msg) {
+					//todo : 组内广播签名公钥
+					blog.debug("send sign pub key to group members, spk=%v...", msg.SignPK.ShortS())
+					tlog.log("SendSignPubKey %v", p.getPrefix())
 
-				blog.debug("call network service SendSignPubKey...")
-				p.NetServer.SendSignPubKey(msg)
+					blog.debug("call network service SendSignPubKey...")
+					p.NetServer.SendSignPubKey(msg)
+				} else {
+					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+				}
 
 			}
 
@@ -602,12 +612,15 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 				}
 				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
 
-				msg.GenSign(ski, msg)
+				if msg.GenSign(ski, msg) {
+					tlog.log("BroadcastGroupInfo %v", jg.GroupID.ShortS())
 
-				tlog.log("BroadcastGroupInfo %v", jg.GroupID.ShortS())
+					blog.debug("call network service BroadcastGroupInfo...")
+					p.NetServer.BroadcastGroupInfo(msg)
+				} else {
+					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+				}
 
-				blog.debug("call network service BroadcastGroupInfo...")
-				p.NetServer.BroadcastGroupInfo(msg)
 			}
 		} else {
 			panic("Processor::OnMessageSharePiece failed, aggr key error.")
@@ -737,11 +750,15 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			Launcher: msg.SI.SignMember,
 			GHash: gh.Hash,
 		}
-		signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(parentGid)), signMsg)
+		ski := model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(parentGid))
+		if signMsg.GenSign(ski, signMsg) {
+			tlog.log("SendCreateGroupSignMessage id=%v", p.getPrefix())
+			blog.debug("OMCGR SendCreateGroupSignMessage... ")
+			p.NetServer.SendCreateGroupSignMessage(signMsg, parentGid)
+		} else {
+			blog.debug("SendCreateGroupSignMessage sign fail, ski=%v, %v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(parentGid))
+		}
 
-		tlog.log("SendCreateGroupSignMessage id=%v", p.getPrefix())
-		blog.debug("OMCGR SendCreateGroupSignMessage... ")
-		p.NetServer.SendCreateGroupSignMessage(signMsg, parentGid)
 	} else {
 		tlog.log("groupManager.OnMessageCreateGroupRaw fail")
 
@@ -786,13 +803,17 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		}
 
 		blog.debug("Proc(%v) send group init Message", p.getPrefix())
-		initMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey()), initMsg)
+		ski := model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
+		if initMsg.GenSign(ski, initMsg) {
+			tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
+			tlog.log("SendGroupInitMessage")
+			p.NetServer.SendGroupInitMessage(initMsg)
 
-		tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
-		tlog.log("SendGroupInitMessage")
-		p.NetServer.SendGroupInitMessage(initMsg)
+			p.groupManager.removeCreatingGroup(msg.GHash)
+		} else {
+			blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+		}
 
-		p.groupManager.removeCreatingGroup(msg.GHash)
 	}
 }
 
@@ -882,8 +903,12 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		GroupID:   gid,
 		Launcher:  msg.SI.GetID(),
 	}
-	signMsg.GenSign(model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid)), signMsg)
-	p.NetServer.SendCastRewardSign(signMsg)
+	ski := model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid))
+	if signMsg.GenSign(ski, signMsg) {
+		p.NetServer.SendCastRewardSign(signMsg)
+	} else {
+		err = fmt.Errorf("signCastRewardReq genSign fail, id=%v, sk=%v, %v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(gid))
+	}
 	return
 }
 

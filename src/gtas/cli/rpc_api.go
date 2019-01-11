@@ -774,10 +774,6 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	return successResult(nonce)
 }
 
-func (api *GtasAPI) ContextSummary() (*Result, error) {
-    s := mediator.Proc.BlockContextSummary()
-    return successResult(s)
-}
 
 func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
     w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
