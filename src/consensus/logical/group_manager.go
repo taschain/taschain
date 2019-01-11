@@ -61,7 +61,11 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	msg := &model.ConsensusCreateGroupRawMessage{
 		GInfo: gInfo,
 	}
-	msg.GenSign(model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(parentGroupId)), msg)
+	ski := model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(parentGroupId))
+	if !msg.GenSign(ski, msg) {
+		blog.debug("genSign fail, id=%v, sk=%v, belong=%v", ski.ID.ShortS(), ski.SK.ShortS(), gm.processor.IsMinerGroup(parentGroupId))
+		return
+	}
 
 	creatingGroup := newCreateGroup(&gInfo, threshold)
 	gm.addCreatingGroup(creatingGroup)
