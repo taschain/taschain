@@ -1,0 +1,2 @@
+#!/bin/bash
+./gtas console
