@@ -249,7 +249,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	result := ""
 	blog := newBizLog("AddStaticGroup")
 	defer func() {
-		blog.log("id=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.getGroupHeader().WorkHeight, result)
+		blog.log("id=%v, hash=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.getGroupHeader().Hash.ShortS(), g.getGroupHeader().WorkHeight, result)
 	}()
 
 	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {

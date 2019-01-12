@@ -17,7 +17,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"sync"
 
 	"common"
 	"consensus/model"
@@ -67,8 +66,6 @@ type Processor struct {
 
 	NetServer net.NetworkServer
 
-	CreateHeightGroups map[uint64]string // 标识该建组高度是否已经创建过组了
-	CreateHeightGroupsMutex sync.Mutex  // CreateHeightGroups的互斥锁，防止重复写入
 }
 
 func (p Processor) getPrefix() string {
@@ -108,8 +105,6 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
-
-	p.CreateHeightGroups = make(map[uint64]string, 100)
 
 	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())

@@ -20,7 +20,13 @@ import (
 	"middleware/types"
 	"sync"
 	"time"
+	"common"
 )
+
+type castedBlock struct {
+	height uint64
+	preHash common.Hash
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //组铸块共识上下文结构（一个高度有一个上下文，一个组的不同铸块高度不重用）
@@ -35,8 +41,8 @@ type BlockContext struct {
 	vctxs map[uint64]*VerifyContext //height -> *VerifyContext
 	//currentVCtx    atomic.Value 	//当前铸块的verifycontext
 
-	recentVerifyHeight []uint64
-	verifyCnt          uint64
+	recentCasted [40]*castedBlock
+	curr          int
 
 	lock sync.RWMutex
 }
@@ -48,8 +54,7 @@ func NewBlockContext(p *Processor, sgi *StaticGroupInfo) *BlockContext {
 		GroupMembers:       sgi.GetMemberCount(),
 		vctxs:              make(map[uint64]*VerifyContext),
 		Version:            model.CONSENSUS_VERSION,
-		verifyCnt:          0,
-		recentVerifyHeight: make([]uint64, 20),
+		curr:          		0,
 	}
 
 	return bc
@@ -158,26 +163,32 @@ func (bc *BlockContext) CleanVerifyContext(height uint64) {
 	defer bc.lock.Unlock()
 	bc.vctxs = newCtxs
 }
-
-func (bc *BlockContext) IsHeightCasted(height uint64) bool {
+//
+func (bc *BlockContext) IsHeightCasted(height uint64, pre common.Hash) (cb *castedBlock, casted bool) {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
-	for _, h := range bc.recentVerifyHeight {
-		if h == height {
-			return true
+	for i, h := range bc.recentCasted {
+		if h != nil && h.height == height {
+			cb = bc.recentCasted[i]
+			casted = h.preHash == pre
+			return
 		}
 	}
-	return false
+	return
 }
 
-func (bc *BlockContext) AddCastedHeight(height uint64) {
-	if bc.IsHeightCasted(height) {
+func (bc *BlockContext) AddCastedHeight(height uint64, pre common.Hash) {
+	if cb, same := bc.IsHeightCasted(height, pre); same {
 		return
-	}
-	bc.lock.Lock()
-	defer bc.lock.Unlock()
+	} else {
+		bc.lock.Lock()
+		defer bc.lock.Unlock()
 
-	bc.verifyCnt++
-	idx := bc.verifyCnt % uint64(len(bc.recentVerifyHeight))
-	bc.recentVerifyHeight[idx] = height
+		if cb != nil {
+			cb.preHash = pre
+		} else {
+			bc.recentCasted[bc.curr] = &castedBlock{height: height, preHash: pre}
+			bc.curr = (bc.curr+1)%len(bc.recentCasted)
+		}
+	}
 }

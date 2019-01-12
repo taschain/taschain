@@ -107,8 +107,8 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		p.addFutureVerifyMsg(msg)
 		return fmt.Errorf("父块未到达")
 	}
-	if VerifyBHExpire(bh, preBH) {
-		return fmt.Errorf("cast verify expire")
+	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
+		return fmt.Errorf("cast verify expire, preTime %v, expire %v", preBH.CurTime, expireTime)
 	}
 	if !p.IsMinerGroup(gid) {
 		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
@@ -118,10 +118,12 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		err = fmt.Errorf("未获取到blockcontext, gid=" + gid.ShortS())
 		return
 	}
-	if bc.IsHeightCasted(bh.Height) {
+
+	if _, same := bc.IsHeightCasted(bh.Height, bh.PreHash); same {
 		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
 		return
 	}
+
 	//非提案节点消息，即组内验证消息，需要验证随机数签名
 	if !castor.IsEqual(si.GetID()) {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
@@ -153,7 +155,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
-	if vctx.castSuccess() {
+	if vctx.castSuccess() || vctx.broadCasted() {
 		err = fmt.Errorf("已出块")
 		return
 	}
@@ -231,13 +233,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 			return
 		}
 		if !msg.VerifySign(castorDO.PK) {
-			result = "verify sign fail"
+			result = fmt.Sprintf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
 			return
 		}
 	} else {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
 		if !msg.VerifySign(pk) {
-			result = "verify sign fail"
+			result = fmt.Sprintf("verify sign fail, id %v, pk %v, jg %+v", si.GetID().ShortS(), pk.GetHexString(), p.belongGroups.getJoinedGroup(groupId))
 			return
 		}
 	}
@@ -867,11 +869,11 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 	gSignGener := model.NewGroupSignGenerator(bc.threshold())
 
-	witnesses := slot.gSignGenerator.GetWitnesses()
+	//witnesses := slot.gSignGenerator.GetWitnesses()
 	for idx, idIndex := range msg.Reward.TargetIds {
 		id := group.GetMemberID(int(idIndex))
 		sign := msg.SignedPieces[idx]
-		if sig, ok := witnesses[id.GetHexString()]; !ok { //本地无该id签名的，需要校验签名
+		if sig, ok := slot.gSignGenerator.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
 			pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
 			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
 				err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())

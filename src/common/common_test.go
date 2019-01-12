@@ -62,3 +62,19 @@ func TestDebug(t *testing.T) {
 	var bs []byte
 	a(bs)
 }
+
+func getmap() map[string]int {
+	m := make(map[string]int)
+	m["111"] = 1
+	m2 := m
+	log.Printf("%p %p\n", m, m2)
+	return m2
+}
+
+func TestMap(t *testing.T) {
+
+	m := getmap()
+
+	t.Logf("%p\n", m)
+
+}
