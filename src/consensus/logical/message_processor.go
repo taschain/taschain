@@ -107,8 +107,8 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		p.addFutureVerifyMsg(msg)
 		return fmt.Errorf("父块未到达")
 	}
-	if VerifyBHExpire(bh, preBH) {
-		return fmt.Errorf("cast verify expire")
+	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
+		return fmt.Errorf("cast verify expire, preTime %v, expire %v", preBH.CurTime, expireTime)
 	}
 	if !p.IsMinerGroup(gid) {
 		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
@@ -233,13 +233,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 			return
 		}
 		if !msg.VerifySign(castorDO.PK) {
-			result = "verify sign fail"
+			result = fmt.Sprintf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
 			return
 		}
 	} else {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
 		if !msg.VerifySign(pk) {
-			result = "verify sign fail"
+			result = fmt.Sprintf("verify sign fail, id %v, pk %v, jg %+v", si.GetID().ShortS(), pk.GetHexString(), p.belongGroups.getJoinedGroup(groupId))
 			return
 		}
 	}

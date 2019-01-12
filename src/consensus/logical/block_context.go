@@ -168,7 +168,7 @@ func (bc *BlockContext) IsHeightCasted(height uint64, pre common.Hash) (cb *cast
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	for i, h := range bc.recentCasted {
-		if h.height == height {
+		if h != nil && h.height == height {
 			cb = bc.recentCasted[i]
 			casted = h.preHash == pre
 			return

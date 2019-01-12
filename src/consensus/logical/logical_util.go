@@ -48,7 +48,7 @@ func DeltaHeightByTime(bh *types.BlockHeader, preBH *types.BlockHeader) uint64 {
 	return deltaHeightByTime
 }
 
-func VerifyBHExpire(bh *types.BlockHeader, preBH *types.BlockHeader) bool {
+func VerifyBHExpire(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time, bool) {
 	expire := GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
-	return time.Now().After(expire)
+	return expire, time.Now().After(expire)
 }
