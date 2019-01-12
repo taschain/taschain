@@ -163,7 +163,6 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 
 	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, sgi.GroupID.ShortS())
 
-	gm.checker.addHeightCreated(group.Header.CreateHeight)
 
 	if gm.groupChain.GetGroupById(group.Id) != nil {
 		stdLogger.Debugf("group already onchain, accept, id=%v\n", sgi.GroupID.ShortS())
@@ -174,6 +173,7 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 			stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err.Error())
 			return
 		}
+		gm.checker.addHeightCreated(group.Header.CreateHeight)
 	}
 
 	stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
