@@ -30,6 +30,15 @@ func (gs *GroupSignGenerator) Threshold() int {
     return gs.threshold
 }
 
+func (gs *GroupSignGenerator) GetWitness(id groupsig.ID) (groupsig.Signature, bool) {
+	gs.lock.RLock()
+	defer gs.lock.RUnlock()
+	if s, ok := gs.witnesses[id.GetHexString()]; ok {
+		return s, true
+	}
+	return groupsig.Signature{}, false
+}
+
 func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
 	if gs.Recovered() {
 		return false, true
@@ -93,10 +102,15 @@ func (gs *GroupSignGenerator) Recovered() bool {
     return gs.gSign.IsValid()
 }
 
-func (gs *GroupSignGenerator) GetWitnesses() map[string]groupsig.Signature {
+func (gs *GroupSignGenerator) ForEachWitness(f func(id string, sig groupsig.Signature) bool) {
     gs.lock.RLock()
     defer gs.lock.RUnlock()
-    return gs.witnesses
+
+	for ids, sig := range gs.witnesses {
+		if !f(ids, sig) {
+			break
+		}
+	}
 }
 
 func (gs *GroupSignGenerator) Brief() string {

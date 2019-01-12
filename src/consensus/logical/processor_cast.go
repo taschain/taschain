@@ -368,21 +368,21 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	groupID := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(groupID)
 
-	witnesses := slot.gSignGenerator.GetWitnesses()
-	size := len(witnesses)
+	size := slot.gSignGenerator.WitnessSize()
 	targetIdIndexs := make([]int32, size)
 	signs := make([]groupsig.Signature, size)
 	idHexs := make([]string, size)
 
 	i := 0
-	for idStr, piece := range witnesses {
-		signs[i] = piece
+	slot.gSignGenerator.ForEachWitness(func(idStr string, sig groupsig.Signature) bool {
+		signs[i] = sig
 		var id groupsig.ID
 		id.SetHexString(idStr)
 		idHexs[i] = id.ShortS()
 		targetIdIndexs[i] = int32(group.GetMinerPos(id))
 		i++
-	}
+		return true
+	})
 
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)

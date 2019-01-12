@@ -8,6 +8,7 @@ import (
 	"middleware/types"
 	"time"
 	"fmt"
+	"sync"
 )
 
 /*
@@ -17,18 +18,40 @@ import (
 */
 
 type GroupCreateChecker struct {
-	processor *Processor
-	access 	 *MinerPoolReader
+	processor      *Processor
+	access         *MinerPoolReader
+	createdHeights [50]uint64 // 标识该建组高度是否已经创建过组了
+	curr 			int
+	lock           sync.RWMutex    // CreateHeightGroups的互斥锁，防止重复写入
 }
 
 func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
 	return &GroupCreateChecker{
-		processor: proc,
-		access: proc.minerReader,
+		processor:      proc,
+		access:         proc.minerReader,
+		curr: 0,
 	}
 }
 func checkCreate(topBH *types.BlockHeader) bool {
     return topBH.Height % model.Param.CreateGroupInterval == 0
+}
+
+func (gchecker *GroupCreateChecker) heightCreated(h uint64) bool {
+    gchecker.lock.RLock()
+    defer gchecker.lock.RUnlock()
+	for _, height := range gchecker.createdHeights {
+		if h == height {
+			return true
+		}
+	}
+	return false
+}
+
+func (gchecker *GroupCreateChecker) addHeightCreated(h uint64)  {
+	gchecker.lock.RLock()
+	defer gchecker.lock.RUnlock()
+	gchecker.createdHeights[gchecker.curr] = h
+	gchecker.curr = (gchecker.curr+1)%len(gchecker.createdHeights)
 }
 
 func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) groupsig.ID {
@@ -57,7 +80,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 */
 func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader) {
 	blog := newBizLog("checkCreateGroup")
-	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.processor.CreateHeightGroups, topHeight)
+	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.createdHeights, topHeight)
 	defer func() {
 		blog.log("topHeight=%v, create %v", topHeight, create)
 	}()
@@ -66,7 +89,7 @@ func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create b
 	}
 
 	// 指定高度已经在组链上出现过
-	if _, ok := gchecker.processor.CreateHeightGroups[topHeight]; ok {
+	if gchecker.heightCreated(topHeight) {
 		return
 	}
 

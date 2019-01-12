@@ -867,11 +867,11 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 	gSignGener := model.NewGroupSignGenerator(bc.threshold())
 
-	witnesses := slot.gSignGenerator.GetWitnesses()
+	//witnesses := slot.gSignGenerator.GetWitnesses()
 	for idx, idIndex := range msg.Reward.TargetIds {
 		id := group.GetMemberID(int(idIndex))
 		sign := msg.SignedPieces[idx]
-		if sig, ok := witnesses[id.GetHexString()]; !ok { //本地无该id签名的，需要校验签名
+		if sig, ok := slot.gSignGenerator.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
 			pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
 			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
 				err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())

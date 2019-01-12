@@ -8,6 +8,7 @@ import (
 	"strings"
 	"common"
 	"middleware/types"
+	"bytes"
 )
 
 /*
@@ -85,6 +86,7 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	if gh.Hash != gh.GenHash() {
 		return false, fmt.Errorf("gh hash error, hash=%v, genHash=%v", gh.Hash.ShortS(), gh.GenHash().ShortS())
 	}
+
 	//前一组，父亲组是否存在
 	preGroup := gm.groupChain.GetGroupById(gh.PreGroup)
 	if preGroup == nil {
@@ -93,6 +95,10 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	parentGroup := gm.groupChain.GetGroupById(gh.Parent)
 	if parentGroup == nil {
 		return false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
+	}
+	lastGroup := gm.groupChain.LastGroup()
+	if !bytes.Equal(preGroup.Id, lastGroup.Id) {
+		return false, fmt.Errorf("preGroup not equal to lastGroup")
 	}
 
 	//建组时高度是否存在 由于分叉处理，建组时的高度可能不存在
@@ -103,7 +109,7 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	//}
 
 	//生成组头是否与收到的一致
-	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, gm.groupChain.LastGroup())
+	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, lastGroup)
 	if expectGH == nil {
 		return false, fmt.Errorf("expect GroupHeader is nil")
 	}
@@ -155,18 +161,18 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 	group := ConvertStaticGroup2CoreGroup(sgi)
 
-	gm.processor.CreateHeightGroupsMutex.Lock()
-	defer gm.processor.CreateHeightGroupsMutex.Unlock()
+	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, sgi.GroupID.ShortS())
 
-	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, common.BytesToAddress(group.Id).GetHexString())
+	gm.checker.addHeightCreated(group.Header.CreateHeight)
 
-	if _, ok := gm.processor.CreateHeightGroups[group.Header.CreateHeight]; !ok {
+	if gm.groupChain.GetGroupById(group.Id) != nil {
+		stdLogger.Debugf("group already onchain, accept, id=%v\n", sgi.GroupID.ShortS())
+		gm.processor.acceptGroup(sgi)
+	} else {
 		err := gm.groupChain.AddGroup(group)
 		if err != nil {
-			stdLogger.Infof("ERROR:add group fail! hash=%v, err=%v\n", group.Header.Hash.ShortS(), err.Error())
+			stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err.Error())
 			return
-		} else {
-			gm.processor.CreateHeightGroups[group.Header.CreateHeight] = group.Header.Hash.ShortS()
 		}
 	}
 
