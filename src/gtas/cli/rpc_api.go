@@ -150,7 +150,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
 	if err != nil {
-		return nil, err
+		return failResult(err.Error())
 	}
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
