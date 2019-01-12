@@ -17,7 +17,6 @@ package logical
 
 import (
 	"consensus/groupsig"
-	"sync"
 
 	"common"
 	"consensus/model"
@@ -106,8 +105,6 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
-
-	p.CreateHeightGroups = make(map[uint64]string, 100)
 
 	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())

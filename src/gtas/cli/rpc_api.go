@@ -191,6 +191,9 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 
 func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+	if bh == nil {
+		return failResult("height not exists")
+	}
 	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
 	block := convertBlockHeader(bh)
 	if preBH != nil {
@@ -203,6 +206,9 @@ func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
 
 func (api *GtasAPI) GetBlockByHash(hash string) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockHeaderByHash(common.HexToHash(hash))
+	if bh == nil {
+		return failResult("height not exists")
+	}
 	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
 	block := convertBlockHeader(bh)
 	if preBH != nil {

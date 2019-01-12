@@ -118,10 +118,12 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		err = fmt.Errorf("未获取到blockcontext, gid=" + gid.ShortS())
 		return
 	}
-	if bc.IsHeightCasted(bh.Height) {
+
+	if _, same := bc.IsHeightCasted(bh.Height, bh.PreHash); same {
 		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
 		return
 	}
+
 	//非提案节点消息，即组内验证消息，需要验证随机数签名
 	if !castor.IsEqual(si.GetID()) {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
@@ -153,7 +155,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return
 	}
 
-	if vctx.castSuccess() {
+	if vctx.castSuccess() || vctx.broadCasted() {
 		err = fmt.Errorf("已出块")
 		return
 	}

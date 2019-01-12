@@ -69,7 +69,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if p.IsMinerGroup(gid) {
 		bc := p.GetBlockContext(gid)
 		if bc != nil {
-			bc.AddCastedHeight(bh.Height)
+			bc.AddCastedHeight(bh.Height, bh.PreHash)
 			vctx := bc.GetVerifyContextByHeight(bh.Height)
 			if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
 				vctx.markBroadcast()
