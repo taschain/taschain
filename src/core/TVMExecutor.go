@@ -197,6 +197,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		var contractAddress common.Address
 		var logs []*types.Log
 		var err *types.TransactionError
+		var cumulativeGasUsed uint64
 		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 
 		if transaction.Type != types.TransactionTypeBonus && !types.IsTestTransaction(transaction) {
@@ -216,6 +217,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				//	transaction.Target.GetHexString(), transaction.Value, height, mark)
 				gas := big.NewInt(int64(transaction.GasPrice * TransferGasCost))
 				accountdb.SubBalance(*transaction.Source, gas)
+				cumulativeGasUsed = gas.Uint64()
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -227,7 +229,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				accountdb.SubBalance(*transaction.Source, amount)
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				snapshot := controller.AccountDB.Snapshot()
-				contractAddress, err := createContract(accountdb, transaction)
+				contractAddress, err = createContract(accountdb, transaction)
 				Logger.Debugf("contract addr:%s", contractAddress.String())
 				if err != nil {
 					Logger.Debugf("ContractCreate error:%s ", err.Message)
@@ -252,7 +254,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				}
 				gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
 				accountdb.AddBalance(*transaction.Source, gasLeft)
-				//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
+				gasUsed := new(big.Int).Sub(amount, gasLeft)
+				cumulativeGasUsed = gasUsed.Uint64()
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -279,7 +282,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 					}
 					gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
 					accountdb.AddBalance(*transaction.Source, gasLeft)
-					//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
+					gasUsed := new(big.Int).Sub(amount, gasLeft)
+					cumulativeGasUsed = gasUsed.Uint64()
 				}
 			} else {
 				fail = true
@@ -378,7 +382,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		}
 		if !fail {
 			transactions = append(transactions, transaction)
-			receipt := types.NewReceipt(nil, fail, 0)
+			receipt := types.NewReceipt(nil, fail, cumulativeGasUsed)
 			receipt.Logs = logs
 			receipt.TxHash = transaction.Hash
 			receipt.ContractAddress = contractAddress

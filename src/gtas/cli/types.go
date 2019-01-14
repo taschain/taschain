@@ -145,7 +145,7 @@ type Block struct {
 	TxNum       uint64        `json:"txs"`
 	StateRoot   common.Hash   `json:"state_root"`
 	TxRoot      common.Hash   `json:"tx_root"`
-	RecieptRoot common.Hash   `json:"reciept_root"`
+	ReceiptRoot common.Hash   `json:"receipt_root"`
 	ProveRoot   common.Hash   `json:"prove_root"`
 	Random      string        `json:"random"`
 }
@@ -207,6 +207,7 @@ type Transaction struct {
 
 	ExtraData     []byte `json:"extra_data"`
 	ExtraDataType int32  `json:"extra_data_type"`
+	GasUsed uint64 `json:"gas_used"`
 }
 
 type BonusTransaction struct {
