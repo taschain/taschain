@@ -228,7 +228,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err := createContract(accountdb, transaction)
-				fmt.Printf("contract addr:%s", contractAddress.String())
 				if err != nil {
 					fail = true
 					controller.AccountDB.RevertToSnapshot(snapshot)
