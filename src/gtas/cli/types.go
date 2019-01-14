@@ -226,38 +226,38 @@ type Dashboard struct {
 	NodeInfo    *NodeInfo  `json:"node_info"`
 	Conns       []ConnInfo `json:"conns"`
 }
-
-type BonusInfo struct {
-	BlockHeight uint64      `json:"block_height"`
-	BlockHash   common.Hash `json:"block_hash"`
-	BonusTxHash common.Hash `json:"bonus_tx_hash"`
-	GroupId     string      `json:"group_id"`
-	CasterId    string      `json:"caster_id"`
-	GroupIdW     string      `json:"group_id_w"`
-	CasterIdW    string      `json:"caster_id_W"`
-	MemberIds   []string    `json:"members"`
-	BonusValue  uint64      `json:"bonus_value"`
-}
-
-type BonusStatInfo struct {
-	MemberId        string `json:"member_id"`
-	MemberIdW        string `json:"member_id_w"`
-	BonusNum        uint64 `json:"bonus_num"`
-	TotalBonusValue uint64 `json:"total_bonus_value"`
-}
-
-type CastBlockStatInfo struct {
-	CasterId     string `json:"caster_id"`
-	CasterIdW     string `json:"caster_id_w"`
-	Stake        uint64 `json:"stake"`
-	CastBlockNum uint64 `json:"cast_block_num"`
-}
-
-type CastBlockAndBonusResult struct {
-	BonusInfoAtHeight  BonusInfo           `json:"bonus_info_at_height"`
-	BonusStatInfos     []BonusStatInfo     `json:"bonuses"`
-	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
-}
+//
+//type BonusInfo struct {
+//	BlockHeight uint64      `json:"block_height"`
+//	BlockHash   common.Hash `json:"block_hash"`
+//	BonusTxHash common.Hash `json:"bonus_tx_hash"`
+//	GroupId     string      `json:"group_id"`
+//	CasterId    string      `json:"caster_id"`
+//	GroupIdW     string      `json:"group_id_w"`
+//	CasterIdW    string      `json:"caster_id_W"`
+//	MemberIds   []string    `json:"members"`
+//	BonusValue  uint64      `json:"bonus_value"`
+//}
+//
+//type BonusStatInfo struct {
+//	MemberId        string `json:"member_id"`
+//	MemberIdW        string `json:"member_id_w"`
+//	BonusNum        uint64 `json:"bonus_num"`
+//	TotalBonusValue uint64 `json:"total_bonus_value"`
+//}
+//
+//type CastBlockStatInfo struct {
+//	CasterId     string `json:"caster_id"`
+//	CasterIdW     string `json:"caster_id_w"`
+//	Stake        uint64 `json:"stake"`
+//	CastBlockNum uint64 `json:"cast_block_num"`
+//}
+//
+//type CastBlockAndBonusResult struct {
+//	BonusInfoAtHeight  BonusInfo           `json:"bonus_info_at_height"`
+//	BonusStatInfos     []BonusStatInfo     `json:"bonuses"`
+//	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
+//}
 
 type ExplorerAccount struct {
 	Balance   *big.Int `json:"balance"`
@@ -266,4 +266,10 @@ type ExplorerAccount struct {
 	CodeHash  string   `json:"code_hash"`
 	Code      string   `json:"code"`
 	StateData map[string]interface{}   `json:"state_data"`
+}
+
+type ExploreBlockBonus struct {
+	ProposalId string `json:"proposal_id"`
+	ProposalBonus uint64 `json:"proposal_bonus"`
+	VerifierBonus BonusTransaction `json:"verifier_bonus"`
 }

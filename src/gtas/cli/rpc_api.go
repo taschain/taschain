@@ -742,38 +742,38 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 	return successResult(dash)
 }
 
-func bonusStatByHeight(height uint64) BonusInfo {
-	bh := core.BlockChainImpl.QueryBlockByHeight(height)
-	casterId := bh.Castor
-	groupId := bh.GroupId
-
-	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-	if bonusTx == nil {
-		return BonusInfo{}
-	}
-
-	// 从交易信息中解析出targetId列表
-	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
-
-	mems := make([]string, 0)
-	for _, memId := range memIds {
-		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
-	}
-
-	data := BonusInfo{
-		BlockHeight: height,
-		BlockHash:   bh.Hash,
-		BonusTxHash: bonusTx.Hash,
-		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
-		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
-		GroupIdW:    groupsig.DeserializeId(groupId).GetHexString(),
-		CasterIdW:   groupsig.DeserializeId(casterId).GetHexString(),
-		MemberIds:   mems,
-		BonusValue:  value,
-	}
-
-	return data
-}
+//func bonusStatByHeight(height uint64) BonusInfo {
+//	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+//	casterId := bh.Castor
+//	groupId := bh.GroupId
+//
+//	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
+//	if bonusTx == nil {
+//		return BonusInfo{}
+//	}
+//
+//	// 从交易信息中解析出targetId列表
+//	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
+//
+//	mems := make([]string, 0)
+//	for _, memId := range memIds {
+//		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
+//	}
+//
+//	data := BonusInfo{
+//		BlockHeight: height,
+//		BlockHash:   bh.Hash,
+//		BonusTxHash: bonusTx.Hash,
+//		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
+//		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
+//		GroupIdW:    groupsig.DeserializeId(groupId).GetHexString(),
+//		CasterIdW:   groupsig.DeserializeId(casterId).GetHexString(),
+//		MemberIds:   mems,
+//		BonusValue:  value,
+//	}
+//
+//	return data
+//}
 
 func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	address := common.HexToAddress(addr)
