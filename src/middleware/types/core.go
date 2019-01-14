@@ -93,7 +93,6 @@ type Transaction struct {
 
 	GasLimit uint64
 	GasPrice uint64
-	GasUsed uint64
 	Hash     common.Hash
 
 	ExtraData     []byte
