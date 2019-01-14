@@ -9,6 +9,7 @@ import (
 	"github.com/astaxie/beego/httplib"
 	"github.com/vmihailenco/msgpack"
 	"middleware/types"
+	"consensus/model"
 )
 
 /*
@@ -175,11 +176,19 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	var bpk groupsig.Pubkey
 	bpk.SetHexString(aci.Miner.BPk)
 
+	st := uint64(0)
+	if mtype == types.MinerTypeLight {
+		fmt.Println("stake of applying verify node is hardened as 100 Tas")
+		st = model.Param.VerifierStake
+	} else {
+		st = stake
+	}
+
 	miner := &types.Miner{
 		Id:           source.Bytes(),
 		PublicKey:    bpk.Serialize(),
 		VrfPublicKey: base.Hex2VRFPublicKey(aci.Miner.VrfPk),
-		Stake:        common.TAS2RA(stake),
+		Stake:        st,
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(miner)

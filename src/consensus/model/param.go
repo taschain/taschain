@@ -51,6 +51,8 @@ type ConsensusParam struct {
 	ProposalBonus 		uint64	//提案奖励
 	PackBonus 			uint64	//打包一个分红交易奖励
 	VerifyBonus 		uint64	//验证者总奖励
+
+	VerifierStake		uint64 //
 }
 
 
@@ -76,6 +78,7 @@ func InitParam(cc common.SectionConfManager) {
 		ProposalBonus: 	common.TAS2RA(12),
 		PackBonus: common.TAS2RA(3),
 		VerifyBonus: common.TAS2RA(15),
+		VerifierStake: common.TAS2RA(100),
 	}
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
