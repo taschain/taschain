@@ -182,13 +182,9 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 		sign = common.BytesToSign(t.Sign)
 	}
 
-	var gasUsed uint64
-	if t.GasUsed != nil {
-		gasUsed = *t.GasUsed
-	}
 	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: source,
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type, Sign: sign, GasUsed: gasUsed}
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type, Sign: sign}
 	return transaction
 }
 
@@ -350,7 +346,7 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	//>>achates add for testing
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType, Type: &t.Type, Sign: sign, GasUsed: &t.GasUsed}
+		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType, Type: &t.Type, Sign: sign}
 	return &transaction
 }
 

@@ -28,7 +28,6 @@ func convertTransaction(tx *types.Transaction) *Transaction {
 		ExtraDataType: tx.ExtraDataType,
 		Nonce:         tx.Nonce,
 		Value:         common.RA2TAS(tx.Value),
-		GasUsed:       tx.GasUsed,
 	}
 	return trans
 }
