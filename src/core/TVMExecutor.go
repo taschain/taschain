@@ -228,8 +228,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err := createContract(accountdb, transaction)
-				fmt.Printf("contract addr:%s", contractAddress.String())
+				Logger.Debugf("contract addr:%s", contractAddress.String())
 				if err != nil {
+					Logger.Debugf("ContractCreate error:%s ", err.Message)
 					fail = true
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
@@ -253,6 +254,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
+				Logger.Debugf("ContractCreate transaction source %s balance not enough! ", transaction.Source.String())
 			}
 
 			Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s", transaction.Hash.Hex())

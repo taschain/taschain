@@ -138,6 +138,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 				if core.BlockSyncer.IsInit() {
 					break
 				} else {
+					var candicateHeight uint64
+					if core.BlockSyncer != nil {
+						_, _, candicateHeight = core.BlockSyncer.GetCandidateForSync()
+					}
+					localBlockHeight := core.BlockChainImpl.Height()
+					fmt.Printf("Sync candidate block height:%d,local block height:%d", candicateHeight, localBlockHeight)
 					timer.Reset(time.Second * 5)
 				}
 			}
@@ -272,7 +278,6 @@ func (gtas *Gtas) Run() {
 	if err != nil {
 		kingpin.Fatalf("%s, try --help", err)
 	}
-
 
 	switch command {
 	//case voteCmd.FullCommand():
