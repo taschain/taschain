@@ -16,16 +16,16 @@
 package core
 
 import (
+	"bytes"
 	"common"
+	"fmt"
 	"github.com/vmihailenco/msgpack"
+	"math/big"
 	"middleware/types"
 	"storage/account"
-	"math/big"
 	"storage/vm"
-	"fmt"
-	"tvm"
-	"bytes"
 	"time"
+	"tvm"
 )
 
 //var castorReward = big.NewInt(50)
@@ -248,7 +248,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						}
 					}
 				}
-				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
+				gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
+				accountdb.AddBalance(*transaction.Source, gasLeft)
+				//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -272,7 +274,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						controller.AccountDB.RevertToSnapshot(snapshot)
 						fail = true
 					}
-					accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
+					gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
+					accountdb.AddBalance(*transaction.Source, gasLeft)
+					//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
 				}
 			} else {
 				fail = true
