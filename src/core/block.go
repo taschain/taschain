@@ -283,7 +283,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 	block.Header.Hash = block.Header.GenHash()
 
-	Logger.Debugf("GenesisBlock %+v", block)
+	Logger.Debugf("GenesisBlock %+v", block.Header)
 	//block.Transactions = make([]*types.Transaction, 0)
 	return block
 }
