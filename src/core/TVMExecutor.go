@@ -16,16 +16,16 @@
 package core
 
 import (
+	"bytes"
 	"common"
+	"fmt"
 	"github.com/vmihailenco/msgpack"
+	"math/big"
 	"middleware/types"
 	"storage/account"
-	"math/big"
 	"storage/vm"
-	"fmt"
-	"tvm"
-	"bytes"
 	"time"
+	"tvm"
 )
 
 //var castorReward = big.NewInt(50)
@@ -228,8 +228,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err := createContract(accountdb, transaction)
-				fmt.Printf("contract addr:%s", contractAddress.String())
+				Logger.Debugf("contract addr:%s", contractAddress.String())
 				if err != nil {
+					Logger.Debugf("ContractCreate error:%s ", err.Message)
 					fail = true
 					controller.AccountDB.RevertToSnapshot(snapshot)
 				} else {
@@ -249,10 +250,13 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						}
 					}
 				}
-				accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
+				gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
+				accountdb.AddBalance(*transaction.Source, gasLeft)
+				//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
+				Logger.Debugf("ContractCreate transaction source %s balance not enough! ", transaction.Source.String())
 			}
 
 			Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s", transaction.Hash.Hex())
@@ -273,7 +277,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 						controller.AccountDB.RevertToSnapshot(snapshot)
 						fail = true
 					}
-					accountdb.AddBalance(*transaction.Source, big.NewInt(int64(controller.GetGasLeft()*transaction.GasPrice)))
+					gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
+					accountdb.AddBalance(*transaction.Source, gasLeft)
+					//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
 				}
 			} else {
 				fail = true

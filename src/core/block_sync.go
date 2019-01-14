@@ -90,7 +90,7 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	id, height := bs.getCandidateForSync()
+	id, height,_ := bs.GetCandidateForSync()
 	if id == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		if !bs.init {
@@ -222,7 +222,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
+func (bs *blockSyncer) GetCandidateForSync() (string, uint64,uint64) {
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
 	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
@@ -250,9 +250,9 @@ func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
 		}
 	}
 	if localHeight >= candidateHeight {
-		return candidateId, candidateHeight
+		return candidateId, candidateHeight,candidateHeight
 	}
-	return candidateId, localHeight + 1
+	return candidateId, localHeight + 1,candidateHeight
 }
 
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
