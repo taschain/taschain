@@ -160,6 +160,10 @@ func MarshalGroup(g *Group) ([]byte, error) {
 //}
 
 func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
+	if t == nil {
+		return Transaction{}
+	}
+
 	var source, target *common.Address
 	var sign *common.Sign
 	if t.Source != nil {
@@ -178,10 +182,13 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
 		sign = common.BytesToSign(t.Sign)
 	}
 
+	var gasUsed uint64
+	if t.GasUsed != nil {
+		gasUsed = *t.GasUsed
+	}
 	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: source,
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type, Sign: sign, GasUsed: *t.GasUsed}
-	//logger.Debugf("pbToTransaction %+v",transaction)
+		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type, Sign: sign, GasUsed: gasUsed}
 	return transaction
 }
 
