@@ -78,7 +78,7 @@ func InitParam(cc common.SectionConfManager) {
 		ProposalBonus: 	common.TAS2RA(12),
 		PackBonus: common.TAS2RA(3),
 		VerifyBonus: common.TAS2RA(15),
-		VerifierStake: common.TAS2RA(100),
+		VerifierStake: common.VerifyStake,
 	}
 	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
