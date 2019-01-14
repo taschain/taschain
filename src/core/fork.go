@@ -42,6 +42,9 @@ func initforkProcessor() *forkProcessor {
 }
 
 func (fh *forkProcessor) requestChainPieceInfo(targetNode string, height uint64) {
+	if BlockSyncer == nil {
+		return
+	}
 	if targetNode == "" {
 		return
 	}
