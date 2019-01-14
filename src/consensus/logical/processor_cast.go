@@ -7,7 +7,6 @@ import (
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
-	"log"
 	"middleware/statistics"
 	"middleware/types"
 	"strings"
