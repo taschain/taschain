@@ -25,12 +25,12 @@ import (
 )
 
 // 分红价值统计
-var BonusValueStatMap = make(map[uint64]map[string]uint64, 50)
-
-// 分红次数统计
-var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
-
-var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
+//var BonusValueStatMap = make(map[uint64]map[string]uint64, 50)
+//
+//// 分红次数统计
+//var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
+//
+//var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
 
 
 
