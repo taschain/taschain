@@ -145,7 +145,11 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", sign_bytes)
 	}
 	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
-	gpk := groupsig.DeserializePubkeyBytes(Proc.GroupChain.GetGroupById(groupID).PubKey)
+	group :=Proc.GroupChain.GetGroupById(groupID)
+	if group == nil {
+		return false, fmt.Errorf("VerifyBonusTransaction fail, Can't get groupinfo(gid=%x)", groupID)
+	}
+	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
 	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig
 	gsign := groupsig.DeserializeSign(sign_bytes[0:33]) //size of groupsig == 33
 	if !groupsig.VerifySig(gpk, tx.Hash.Bytes(), *gsign) {

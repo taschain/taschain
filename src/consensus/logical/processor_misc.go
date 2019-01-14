@@ -277,7 +277,7 @@ func (p *Processor) BlockContextSummary() string {
 		}
 		b := &bctxSummary{
 			Gid: bc.MinerID.Gid.GetHexString(),
-			NumRvh: len(bc.recentVerifyHeight),
+			NumRvh: len(bc.recentCasted),
 			NumVctx: len(vs),
 			Vctxs: vs,
 		}

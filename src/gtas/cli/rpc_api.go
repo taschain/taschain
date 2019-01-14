@@ -150,7 +150,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
 	if err != nil {
-		return nil, err
+		return failResult(err.Error())
 	}
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
@@ -191,6 +191,9 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 
 func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
+	if bh == nil {
+		return failResult("height not exists")
+	}
 	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
 	block := convertBlockHeader(bh)
 	if preBH != nil {
@@ -203,6 +206,9 @@ func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
 
 func (api *GtasAPI) GetBlockByHash(hash string) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockHeaderByHash(common.HexToHash(hash))
+	if bh == nil {
+		return failResult("height not exists")
+	}
 	preBH := core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
 	block := convertBlockHeader(bh)
 	if preBH != nil {
@@ -775,10 +781,6 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	return successResult(nonce)
 }
 
-func (api *GtasAPI) ContextSummary() (*Result, error) {
-	s := mediator.Proc.BlockContextSummary()
-	return successResult(s)
-}
 
 func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
     w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))

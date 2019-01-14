@@ -19,6 +19,8 @@ import (
 	"testing"
 	"encoding/json"
 	"log"
+	"fmt"
+	"runtime/debug"
 )
 
 /*
@@ -45,3 +47,34 @@ func TestAddress_MarshalJSON(t *testing.T) {
 	log.Printf(string(bs))
 }
 
+func a(bs []byte)  {
+	fmt.Println(bs[0])
+}
+
+func TestDebug(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("捕获到的错误：%s\n", r)
+			bs := debug.Stack()
+			fmt.Println(string(bs))
+		}
+	}()
+	var bs []byte
+	a(bs)
+}
+
+func getmap() map[string]int {
+	m := make(map[string]int)
+	m["111"] = 1
+	m2 := m
+	log.Printf("%p %p\n", m, m2)
+	return m2
+}
+
+func TestMap(t *testing.T) {
+
+	m := getmap()
+
+	t.Logf("%p\n", m)
+
+}

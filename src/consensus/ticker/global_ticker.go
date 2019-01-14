@@ -19,6 +19,8 @@ import (
 	"time"
 	"sync/atomic"
 	"sync"
+	"runtime/debug"
+	"common"
 )
 
 type RoutineFunc func() bool
@@ -83,10 +85,13 @@ func (gt *GlobalTicker) getRoutine(name string) *TickerRoutine {
 */
 func (gt *GlobalTicker) trigger(routine *TickerRoutine, chanVal int32) bool {
 	defer func() {
-		//if err := recover(); err != nil {
-		//	log.Printf("routine handler error! id=%v, err=%v\n", routine.id, err)
-		//}
+		if r := recover(); r != nil {
+			common.DefaultLogger.Errorf("error：%v\n", r)
+			s := debug.Stack()
+			common.DefaultLogger.Errorf(string(s))
+		}
 	}()
+
 	t := gt.ticker
 	lastTicker := atomic.LoadUint64(&routine.lastTicker)
 

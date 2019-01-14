@@ -150,7 +150,6 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 }
 
 func (ch ChainHandler) blockReqHandler(msg notify.Message) {
-	core.Logger.Debugf("blockReqHandler!")
 	if core.BlockChainImpl.IsLightMiner() {
 		core.Logger.Debugf("Is Light Miner!")
 		return
