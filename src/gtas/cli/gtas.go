@@ -143,7 +143,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 						_, _, candicateHeight = core.BlockSyncer.GetCandidateForSync()
 					}
 					localBlockHeight := core.BlockChainImpl.Height()
-					fmt.Printf("Sync candidate block height:%d,local block height:%d", candicateHeight, localBlockHeight)
+					fmt.Printf("Sync candidate block height:%d,local block height:%d\n", candicateHeight, localBlockHeight)
 					timer.Reset(time.Second * 5)
 				}
 			}
