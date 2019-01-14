@@ -550,9 +550,6 @@ func (chain *prototypeChain) compareValue(commonAncestor *types.BlockHeader, rem
 		Logger.Debugf("local hash:%s,local value is:%v", header.Hash.String(), localValue)
 		break
 	}
-	if localValue == nil {
-		time.Sleep(time.Second)
-	}
 	if localValue.Cmp(remoteValue) >= 0 {
 		return true
 	}

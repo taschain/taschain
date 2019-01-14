@@ -9,7 +9,6 @@ import (
 	"github.com/astaxie/beego/httplib"
 	"github.com/vmihailenco/msgpack"
 	"middleware/types"
-	"consensus/model"
 )
 
 /*
@@ -179,7 +178,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	st := uint64(0)
 	if mtype == types.MinerTypeLight {
 		fmt.Println("stake of applying verify node is hardened as 100 Tas")
-		st = model.Param.VerifierStake
+		st = common.VerifyStake
 	} else {
 		st = stake
 	}
