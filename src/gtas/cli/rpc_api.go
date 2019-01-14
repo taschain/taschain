@@ -61,11 +61,6 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 		return failResult(err.Error())
 	}
 
-	var contractAddr string
-	if trans.Type == types.TransactionTypeContractCreate {
-		contractAddr = common.BytesToAddress(common.Sha256(common.BytesCombine(trans.Source[:], common.Uint64ToByte(trans.Nonce)))).String()
-		return successResult(trans.Hash.String() + ",Contract Address:" + contractAddr)
-	}
 	return successResult(trans.Hash.String())
 }
 
