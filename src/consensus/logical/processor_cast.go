@@ -56,7 +56,7 @@ func (bctx *CastBlockContexts) blockContextSize() int32 {
 
 func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 	for _, id := range gids {
-		log.Println("removeBlockContexts ", id.ShortS())
+		stdLogger.Infof("removeBlockContexts ", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()
@@ -122,7 +122,7 @@ func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *gr
 
 	selectGroup, err := p.globalGroups.SelectNextGroup(hash, height)
 	if err != nil {
-		log.Println("calcCastGroup err:", err)
+		stdLogger.Errorf("calcCastGroup err:", err)
 		return nil
 	}
 	return &selectGroup

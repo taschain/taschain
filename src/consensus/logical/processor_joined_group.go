@@ -3,7 +3,6 @@ package logical
 import (
 	"sync"
 	"consensus/groupsig"
-	"log"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -68,7 +67,7 @@ func (bg *BelongGroups) commit() bool {
 	}
 	err = ioutil.WriteFile(bg.storeFile, buf, os.ModePerm)
 	if err != nil {
-		log.Println("store belongGroups fail", err)
+		stdLogger.Errorf("store belongGroups fail", err)
 		return false
 	}
 	atomic.CompareAndSwapInt32(&bg.dirty, 1, 0)
