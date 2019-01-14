@@ -37,6 +37,9 @@ message Transaction{
     required int32 Type = 11;
 
     optional bytes Sign = 12;
+
+    optional uint64 GasUsed  = 13;
+
 }
 
 message TransactionRequestMessage{

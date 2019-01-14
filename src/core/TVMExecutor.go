@@ -216,6 +216,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				//	transaction.Target.GetHexString(), transaction.Value, height, mark)
 				gas := big.NewInt(int64(transaction.GasPrice * TransferGasCost))
 				accountdb.SubBalance(*transaction.Source, gas)
+				transaction.GasUsed = gas.Uint64()
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -252,7 +253,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 				}
 				gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
 				accountdb.AddBalance(*transaction.Source, gasLeft)
-				//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
+				gasUsed := new(big.Int).Sub(amount, gasLeft)
+				transaction.GasUsed = gasUsed.Uint64()
 			} else {
 				fail = true
 				err = types.TxErrorBalanceNotEnough
@@ -279,7 +281,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 					}
 					gasLeft := big.NewInt(int64(controller.GetGasLeft() * transaction.GasPrice))
 					accountdb.AddBalance(*transaction.Source, gasLeft)
-					//gasConsumer:= new(big.Int).Sub(amount, gasLeft)
+					gasUsed := new(big.Int).Sub(amount, gasLeft)
+					transaction.GasUsed = gasUsed.Uint64()
 				}
 			} else {
 				fail = true
