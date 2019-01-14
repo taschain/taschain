@@ -18,13 +18,13 @@ package core
 import (
 	"bytes"
 	"common"
-	"math/big"
-	"time"
-	"storage/account"
-	"storage/trie"
-	"middleware/types"
-	"storage/serialize"
 	"github.com/vmihailenco/msgpack"
+	"math/big"
+	"middleware/types"
+	"storage/account"
+	"storage/serialize"
+	"storage/trie"
+	"time"
 )
 
 var emptyHash = common.Hash{}
@@ -188,7 +188,6 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x965d8617a3a0549338ddbb1afc2f13174415eb615ea68b8b0da3d66c0bf85eb5"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0xff1d7a8a179e3d87dbaa99fdb21965e6115cd31e7dc3725f6ca8b312a90f9f7f"), tenThousandTasBi)
 
-
 	stateDB.SetBalance(common.HexStringToAddress("0x996121978a5385bcd5efa5fbdd2d2f411f2a0b9da7b8a2b608c7f033680b4ca3"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x6f65affe2a58503bbb404711be2e0887f224fba0009506dec44b8f4ac2c859ba"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0xed4cf4e255714a0f2ac58914c357efc347b70b7479ac64d5ac4ea93239de144a"), tenThousandTasBi)
@@ -210,7 +209,6 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x217ffb3394e429aad0aa1d08f45c7a57739554cee1e931392f8c8265f2e6cee2"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x2ad3f4c07025ea51aab81cdef1610410a85ef1d066156bbed8b0044749ee5eab"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x63adfa6753d3d4b369f88f61a9b75251a71b571030c15f91dd897d9583f3e872"), tenThousandTasBi)
-
 
 	stateDB.SetBalance(common.HexStringToAddress("0x42280931f59c88a63f69620a5128094fbf8fc61bed936adf5d2206802c8277ae"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x6bf8f008839fcc69a7ce2f0bd2c5a79eeab1fdb391cd6363ce7b4fc07f5820d3"), tenThousandTasBi)
@@ -284,6 +282,8 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 	block.Header.Hash = block.Header.GenHash()
+
+	Logger.Debugf("GenesisBlock %+v", block)
 	//block.Transactions = make([]*types.Transaction, 0)
 	return block
 }
