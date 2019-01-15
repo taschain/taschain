@@ -672,13 +672,13 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 
 	for i := index + 1; i < len(blockChainPiece); i++ {
 		block := blockChainPiece[i]
-		var result int8
+		var result types.AddBlockResult
 		if chain.IsLightMiner() {
-			result = BlockChainImpl.(*LightChain).addBlockOnChain("", block)
+			result = BlockChainImpl.(*LightChain).addBlockOnChain("", block, types.MergeFork)
 		} else {
-			result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block)
+			result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block, types.MergeFork)
 		}
-		if result != 0 {
+		if result != types.AddBlockSucc {
 			return
 		}
 	}
