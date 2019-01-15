@@ -153,7 +153,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 				fmt.Println("Please check your balance to ensure that you have enough tas coin to pledge to be a miner!")
 				for {
 					time.Sleep(time.Second * 5)
-					balance := core.BlockChainImpl.GetBalance(common.StringToAddress(gtas.account.Address))
+					balance := core.BlockChainImpl.GetBalance(common.HexToAddress(gtas.account.Address))
 					if balance.Int64() >= common.VerifyStake {
 						break
 					}
