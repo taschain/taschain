@@ -62,20 +62,20 @@ func (holder *FutureMessageHolder) remove(hash common.Hash) {
 	holder.messages.Delete(hash)
 }
 
-func (holder *FutureMessageHolder) forEach(f func(key common.Hash, arr []interface{}) bool)  {
-    holder.messages.Range(func(key, value interface{}) bool {
+func (holder *FutureMessageHolder) forEach(f func(key common.Hash, arr []interface{}) bool) {
+	holder.messages.Range(func(key, value interface{}) bool {
 		arr := value.([]interface{})
 		return f(key.(common.Hash), arr)
 	})
 }
 
 func (holder *FutureMessageHolder) size() int {
-    cnt := 0
-    holder.forEach(func(key common.Hash, value []interface{}) bool {
+	cnt := 0
+	holder.forEach(func(key common.Hash, value []interface{}) bool {
 		cnt += len(value)
 		return true
 	})
-    return cnt
+	return cnt
 }
 
 //func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
@@ -109,7 +109,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	rlog := newRtLog("doAddOnChain")
 	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-	result = p.MainChain.AddBlockOnChain("", block)
+	result = int8(p.MainChain.AddBlockOnChain("", block, types.LocalGenerateNewBlock))
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))

@@ -90,7 +90,7 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	id, height,_ := bs.GetCandidateForSync()
+	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		if !bs.init {
@@ -203,8 +203,8 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		bs.logger.Debugf("Rcv block response nil from:%s", source)
 	} else {
 		bs.logger.Debugf("Rcv block response from:%s,hash:%v,height:%d,totalQn:%d,tx len:%d,isLastBlock:%t", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions), isLastBlock)
-		result := BlockChainImpl.AddBlockOnChain(source, block)
-		if result == 0 {
+		result := BlockChainImpl.AddBlockOnChain(source, block, types.Sync)
+		if result == types.AddBlockSucc {
 			sync = true
 		}
 	}
@@ -222,7 +222,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) GetCandidateForSync() (string, uint64,uint64) {
+func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
 	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
@@ -250,9 +250,9 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64,uint64) {
 		}
 	}
 	if localHeight >= candidateHeight {
-		return candidateId, candidateHeight,candidateHeight
+		return candidateId, candidateHeight, candidateHeight
 	}
-	return candidateId, localHeight + 1,candidateHeight
+	return candidateId, localHeight + 1, candidateHeight
 }
 
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
@@ -304,8 +304,8 @@ func (bs *blockSyncer) groupAddSuccHandler(msg notify.Message) {
 		return
 	}
 	bs.logger.Debugf("Group add succ and depend block is not nil. Try add depend block:%d on chain!", bs.dependBlock.Header.Height)
-	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock)
-	if result == 0 {
+	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock, types.DependGroupBlock)
+	if result == types.AddBlockSucc {
 		bs.dependBlock = nil
 		bs.logger.Debugf("Depend block add on chain succ.Recover block sync!")
 	}
