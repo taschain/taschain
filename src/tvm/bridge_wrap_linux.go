@@ -571,7 +571,7 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool,isContractCall bool) string 
 		buf.Truncate(buf.Len() - 2)
 	}
 	buf.WriteString(")")
-	fmt.Println(buf.String())
+	//fmt.Println(buf.String())
 	bufStr := buf.String()
 	if !isContractCall{
 		bufStr = fmt.Sprintf(`
