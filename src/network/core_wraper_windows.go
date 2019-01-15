@@ -210,6 +210,7 @@ import (
 
 func P2PConfig(id uint64) {
 	C.p2p_config(C.ulonglong(id))
+	C.p2p_send_callback()
 }
 
 func P2PProxy(ip string, port uint16) {
