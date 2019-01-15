@@ -377,31 +377,32 @@ func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 //铸块成功，上链
 //返回值: 0,上链成功
 //       -1，验证失败
-//        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
-//        2,分叉调整
-func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) int8 {
+//        1, 丢弃该块(链上已存在该块）
+//        2,丢弃该块（链上存在QN值更大的相同高度块)
+//        3,分叉调整
+func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
 	if b == nil {
-		return -1
+		return types.AddBlockFailed
 	}
 
 	if !chain.hasPreBlock(*b.Header) {
 		Logger.Debugf("coming block %s,%d has no pre on local chain.Forking...", b.Header.Hash.String(), b.Header.Height)
 		chain.futureBlocks.Add(b.Header.PreHash, b)
 		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-		return 2
+		return types.Forking
 	}
 
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
-		return -1
+		return types.AddBlockFailed
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))
-	return chain.addBlockOnChain(source, b)
+	return chain.addBlockOnChain(source, b, situation)
 }
 
-func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8 {
+func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
@@ -412,7 +413,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 			Logger.Debugf("coming block  has no pre on local chain.Forking...", )
 			go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
 		}
-		return -1
+		return types.AddBlockFailed
 	}
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
 	if !groupValidateResult {
@@ -423,34 +424,44 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) int8
 		} else {
 			Logger.Errorf("Fail to validate group sig!")
 		}
-		return -1
+		return types.AddBlockFailed
 	}
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
 	}
-	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
-		return 1
+	if b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+		return types.BlockExisted
+	}
+
+	if b.Header.TotalQN < topBlock.TotalQN {
+		if situation == types.Sync {
+			go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		}
+		return types.BlockTotalQnLessThanLocal
 	}
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
 	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(source, b)
+		return chain.addBlockOnChain(source, b, situation)
 	}
 	if b.Header.TotalQN == topBlock.TotalQN {
 		if chain.compareValue(commonAncestor, b.Header) {
-			return 1
+			if situation == types.Sync {
+				go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+			}
+			return types.BlockTotalQnLessThanLocal
 		}
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(source, b)
+		return chain.addBlockOnChain(source, b, situation)
 	}
 	go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-	return 2
+	return types.Forking
 }
 
-func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlockResult, []byte) {
 	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
 	var state *account.AccountDB
 	var receipts types.Receipts
@@ -462,26 +473,26 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (int8, []byte
 		var executeTxResult bool
 		executeTxResult, state, receipts = chain.executeTransaction(remoteBlock)
 		if !executeTxResult {
-			return -1, nil
+			return types.AddBlockFailed, nil
 		}
 	}
 	result, headerByte := chain.saveBlock(remoteBlock)
 	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
-		return -1, headerByte
+		return types.AddBlockFailed, headerByte
 	}
 	root, _ := state.Commit(true)
 	triedb := chain.stateCache.TrieDB()
 	triedb.Commit(root, false)
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
-		return -1, headerByte
+		return types.AddBlockFailed, headerByte
 	}
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
-	return 0, headerByte
+	return types.AddBlockSucc, headerByte
 }
 
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
@@ -521,7 +532,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 		block := value.(*types.Block)
 		Logger.Debugf("Get block from future blocks,hash:%s,height:%d", block.Header.Hash.String(), block.Header.Height)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
-		chain.addBlockOnChain("", block)
+		chain.addBlockOnChain("", block, types.FutureBlockCache)
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
