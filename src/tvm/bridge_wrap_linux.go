@@ -400,7 +400,11 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 		sender,
 		nil,
 	}
-	C.tvm_set_lib_path(C.CString(libPath))
+	if !HasLoadPyLibPath{
+		C.tvm_set_lib_path(C.CString(libPath))
+		HasLoadPyLibPath = true
+	}
+	C.tvm_set_gas(1000000)
 	C.tvm_start()
 	bridge_init()
 	return tvm
@@ -571,7 +575,7 @@ func (tvm *Tvm) ExecuteABI(res ABI, withResult bool,isContractCall bool) string 
 		buf.Truncate(buf.Len() - 2)
 	}
 	buf.WriteString(")")
-	fmt.Println(buf.String())
+	//fmt.Println(buf.String())
 	bufStr := buf.String()
 	if !isContractCall{
 		bufStr = fmt.Sprintf(`
