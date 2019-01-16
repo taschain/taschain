@@ -400,7 +400,10 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 		sender,
 		nil,
 	}
-	C.tvm_set_lib_path(C.CString(libPath))
+	if !HasLoadPyLibPath{
+		C.tvm_set_lib_path(C.CString(libPath))
+		HasLoadPyLibPath = true
+	}
 	C.tvm_start()
 	bridge_init()
 	return tvm
