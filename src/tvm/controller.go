@@ -3,7 +3,6 @@ package tvm
 import (
 	"common"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"middleware/types"
 	"storage/vm"
@@ -93,7 +92,6 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	if abiJsonError!= nil{
 		return false,nil,types.TxErrorAbiJson
 	}
-	fmt.Println(abi)
 	errorCode,errorMsg = con.Vm.checkABI(abi)//checkABI
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
