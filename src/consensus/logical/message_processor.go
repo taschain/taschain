@@ -108,7 +108,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		return fmt.Errorf("父块未到达")
 	}
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
-		return fmt.Errorf("cast verify expire, preTime %v, expire %v", preBH.CurTime, expireTime)
+		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
 	}
 	if !p.IsMinerGroup(gid) {
 		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
@@ -239,7 +239,15 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	} else {
 		pk := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
 		if !msg.VerifySign(pk) {
-			result = fmt.Sprintf("verify sign fail, id %v, pk %v, jg %+v", si.GetID().ShortS(), pk.GetHexString(), p.belongGroups.getJoinedGroup(groupId))
+			result = fmt.Sprintf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
+			jg := p.belongGroups.getJoinedGroup(groupId)
+			if jg == nil {
+				blog.log("verify sign fail, jg is nil, gid=%v", groupId.ShortS())
+			} else {
+				for idHex, pkt := range jg.Members {
+					blog.log("id:%v, pk:%v", idHex, pkt.GetHexString())
+				}
+			}
 			return
 		}
 	}
