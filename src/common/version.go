@@ -6,4 +6,4 @@ package common
 **  Description: 
 */
 
-const GtasVersion = "0.5.5"
+const GtasVersion = "0.5.6"
