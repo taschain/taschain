@@ -88,6 +88,11 @@ func (bg *BelongGroups) load() bool {
 		return false
 	}
 	for _, jg := range gs {
+		for idStr, pk := range jg.Members {
+			var id groupsig.ID
+			id.SetHexString(idStr)
+			jg.Members[id.GetHexString()] = pk
+		}
 		bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	}
 	stdLogger.Debugf("load belongGroups size", bg.groupSize())

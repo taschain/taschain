@@ -3,6 +3,7 @@ package logical
 import (
 	"testing"
 	"encoding/json"
+	"consensus/groupsig"
 )
 
 /*
@@ -20,6 +21,11 @@ func TestLoadJoinGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, jg := range gs {
+		for idStr, pk := range jg.Members {
+			var id groupsig.ID
+			id.SetHexString(idStr)
+			jg.Members[id.GetHexString()] = pk
+		}
 		if jg.GroupID.GetHexString() == "0x4e2748e5bbdd8dc53d0cf3f5690ea5341ddbb7bc3b31c7dd576bed30f4a057de" {
 			for id, pk := range jg.Members {
 				t.Log(id, pk.GetHexString())

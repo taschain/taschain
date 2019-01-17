@@ -54,6 +54,20 @@ func (s *SysWorkSummary) sort()  {
 	sort.Sort(s)
 }
 
+type groupArray []*types.Group
+
+func (g groupArray) Len() int {
+	return len(g)
+}
+
+func (g groupArray) Less(i, j int) bool {
+	return g[i].Header.WorkHeight < g[j].Header.WorkHeight
+}
+
+func (g groupArray) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
+}
+
 func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelected bool) *GroupVerifySummary {
 	gidStr := gid.GetHexString()
 	if v, ok := s.summaryMap[gidStr]; ok {
@@ -125,16 +139,19 @@ func getAllGroup() map[string]*types.Group {
 		id := groupsig.DeserializeId(coreGroup.Id)
 		gs[id.GetHexString()] = coreGroup
 	}
+
 	return gs
 }
 
-func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader, deltaHeight uint64) groupsig.ID {
-	qualifiedGs := make([]*types.Group, 0)
+func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader, deltaHeight uint64) (groupsig.ID, []*types.Group) {
+	qualifiedGs := make(groupArray, 0)
 	for _, g := range gs {
 		if g.Header.WorkHeight <= preBH.Height && g.Header.DismissHeight > preBH.Height {
 			qualifiedGs = append(qualifiedGs, g)
 		}
 	}
+	sort.Sort(qualifiedGs)
+
 	var hash common.Hash
 	data := preBH.Random
 	for ; deltaHeight > 0; deltaHeight-- {
@@ -144,7 +161,7 @@ func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader,
 	value := hash.Big()
 	index := value.Mod(value, big.NewInt(int64(len(qualifiedGs))))
 	gid := qualifiedGs[index.Int64()].Id
-	return groupsig.DeserializeId(gid)
+	return groupsig.DeserializeId(gid), qualifiedGs
 }
 
 func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
@@ -166,7 +183,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 		summaryMap: make(map[string]*GroupVerifySummary, 0),
 		allGroup: allGroup,
 	}
-	nextGroupId := selectNextVerifyGroup(allGroup, top, 1)
+	nextGroupId,_ := selectNextVerifyGroup(allGroup, top, 1)
 	preBH := chain.QueryBlockByHeight(from-1)
 
 	t := float64(0)
@@ -177,7 +194,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	for h := uint64(from); h <= to; h++ {
 		bh := chain.QueryBlockByHeight(h)
 		if bh == nil {
-			expectGid := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
+			expectGid,_ := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupId))
 			gvs.addJumpHeight(h)
 			jump++
@@ -196,8 +213,17 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 					maxHeight = bh.Height
 				}
 			}
+			expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			preBH = bh
 			gid := groupsig.DeserializeId(bh.GroupId)
+			if !expectGid.IsEqual(gid) {
+				fmt.Printf("bh %+v\n", bh)
+				fmt.Printf("pre %+v\n", preBH)
+				for _, g := range gs {
+					fmt.Printf("g workheight=%v, id=%v, pre=%v\n", g.Header.WorkHeight, groupsig.DeserializeId(g.Id).ShortS(), groupsig.DeserializeId(g.Header.PreGroup))
+				}
+				return failResult(fmt.Sprintf("expect gid not equal, height=%v, expect %v, real %v", bh.Height, expectGid.GetHexString(), gid.GetHexString()))
+			}
 			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupId))
 			gvs.NumVerify += 1
 		}
