@@ -16,11 +16,15 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	if accoundDb == nil {
 		return nil, nil
 	}
+	address := common.HexToAddress(hash)
+	if !accoundDb.Exist(address) {
+		return failResult("Account not Exist!")
+	}
 	account := ExplorerAccount{}
-	account.Balance = accoundDb.GetBalance(common.HexToAddress(hash))
-	account.Nonce = accoundDb.GetNonce(common.HexToAddress(hash))
-	account.CodeHash = accoundDb.GetCodeHash(common.HexToAddress(hash)).String()
-	account.Code = string(accoundDb.GetCode(common.HexToAddress(hash))[:])
+	account.Balance = accoundDb.GetBalance(address)
+	account.Nonce = accoundDb.GetNonce(address)
+	account.CodeHash = accoundDb.GetCodeHash(address).String()
+	account.Code = string(accoundDb.GetCode(address)[:])
 	account.Type = 0
 	if len(account.Code) > 0 {
 		account.Type = 1

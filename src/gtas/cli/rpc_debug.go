@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"middleware/types"
 	"sort"
+	"consensus/base"
+	"common"
+	"math/big"
 )
 
 /*
@@ -19,10 +22,12 @@ type SysWorkSummary struct {
 	BeginHeight uint64 `json:"begin_height"`
 	ToHeight uint64 `json:"to_height"`
 	GroupSummary []*GroupVerifySummary `json:"group_summary"`
-	summaryMap map[string]*GroupVerifySummary
 	AverCastTime float64 `json:"aver_cast_time"`
 	MaxCastTime float64 `json:"max_cast_time"`
 	HeightOfMaxCastTime uint64 `json:"height_of_max_cast_time"`
+	JumpRate float64 `json:"jump_rate"`
+	summaryMap map[string]*GroupVerifySummary
+	allGroup map[string]*types.Group
 }
 
 func (s *SysWorkSummary) Len() int {
@@ -58,7 +63,7 @@ func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelect
 		Gid: gidStr,
 		LastJumpHeight: make([]uint64, 0),
 	}
-	g := core.GroupChainImpl.GetGroupById(gid.Serialize())
+	g := s.allGroup[gidStr]
 	gvs.fillGroupInfo(g, top)
 	gvs.NextSelected = nextSelected
 	s.summaryMap[gidStr] = gvs
@@ -76,6 +81,7 @@ type GroupVerifySummary struct {
 	NumJump 	int `json:"num_jump"`
 	LastJumpHeight []uint64 `json:"last_jump_height"`
 	NextSelected bool `json:"next_selected"`
+	JumpRate float64 `json:"jump_rate"`
 }
 
 
@@ -96,9 +102,13 @@ func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
 		}
 	}
 	s.NumJump+=1
+	s.JumpRate = float64(s.NumJump)/float64(s.NumVerify+s.NumJump)
 }
 
 func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64)  {
+	if g == nil {
+		return
+	}
     s.DissmissHeight = g.Header.DismissHeight
     s.Dissmissed = s.DissmissHeight <= top
 }
@@ -108,6 +118,34 @@ func (api *GtasAPI) DebugContextSummary() (*Result, error) {
 	return successResult(s)
 }
 
+func getAllGroup() map[string]*types.Group {
+	iterator := mediator.Proc.GroupChain.NewIterator()
+	gs := make(map[string]*types.Group)
+	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
+		id := groupsig.DeserializeId(coreGroup.Id)
+		gs[id.GetHexString()] = coreGroup
+	}
+	return gs
+}
+
+func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader, deltaHeight uint64) groupsig.ID {
+	qualifiedGs := make([]*types.Group, 0)
+	for _, g := range gs {
+		if g.Header.WorkHeight <= preBH.Height && g.Header.DismissHeight > preBH.Height {
+			qualifiedGs = append(qualifiedGs, g)
+		}
+	}
+	var hash common.Hash
+	data := preBH.Random
+	for ; deltaHeight > 0; deltaHeight-- {
+		hash = base.Data2CommonHash(data)
+		data = hash.Bytes()
+	}
+	value := hash.Big()
+	index := value.Mod(value, big.NewInt(int64(len(qualifiedGs))))
+	gid := qualifiedGs[index.Int64()].Id
+	return groupsig.DeserializeId(gid)
+}
 
 func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	if from == 0 {
@@ -120,25 +158,29 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 		to = topHeight
 	}
 
+	allGroup := getAllGroup()
+
 	summary := &SysWorkSummary{
 		BeginHeight: from,
 		ToHeight: to,
 		summaryMap: make(map[string]*GroupVerifySummary, 0),
+		allGroup: allGroup,
 	}
-	nextGroupId := *mediator.Proc.CalcVerifyGroup(top, topHeight+1)
+	nextGroupId := selectNextVerifyGroup(allGroup, top, 1)
 	preBH := chain.QueryBlockByHeight(from-1)
 
 	t := float64(0)
 	b := 0
 	max := float64(0)
 	maxHeight := uint64(0)
+	jump := 0
 	for h := uint64(from); h <= to; h++ {
 		bh := chain.QueryBlockByHeight(h)
 		if bh == nil {
-			nextGid := mediator.Proc.CalcVerifyGroup(preBH, h)
-
-			gvs := summary.getGroupSummary(*nextGid, topHeight, nextGid.IsEqual(nextGroupId))
+			expectGid := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
+			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupId))
 			gvs.addJumpHeight(h)
+			jump++
 		} else {
 			if bh.PreHash != preBH.Hash {
 				e := fmt.Sprintf("not chain! pre %+v, curr %+v\n", preBH, bh)
@@ -165,5 +207,6 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	summary.MaxCastTime = max
 	summary.HeightOfMaxCastTime = maxHeight
 	summary.sort()
+	summary.JumpRate = float64(jump) / float64(to-from+1)
 	return successResult(summary)
 }

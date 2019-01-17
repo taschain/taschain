@@ -48,9 +48,12 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	topHeight := top.Height
 	blog := newBizLog("CreateNextGroupRoutine")
 
-	gh, memIds, threshold := gm.checker.generateGroupHeader(topHeight, top.CurTime, gm.groupChain.LastGroup())
+	gh, memIds, threshold, err := gm.checker.generateGroupHeader(topHeight, top.CurTime, gm.groupChain.LastGroup())
 	if gh == nil {
 		return
+	}
+	if err != nil {
+		blog.log(err.Error())
 	}
 
 	parentGroupId := groupsig.DeserializeId(gh.Parent)
@@ -109,9 +112,9 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	//}
 
 	//生成组头是否与收到的一致
-	expectGH, _, _ := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, lastGroup)
-	if expectGH == nil {
-		return false, fmt.Errorf("expect GroupHeader is nil")
+	expectGH, _, _, err := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, lastGroup)
+	if expectGH == nil || err != nil {
+		return false, err
 	}
 	if expectGH.Hash != gh.Hash {
 		core.Logger.Debugf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)

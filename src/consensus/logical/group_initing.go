@@ -127,9 +127,9 @@ func (ngg *NewGroupGenerator) addInitingGroup(initingGroup *InitingGroup) bool {
 	//log.Println("------dummyId:", dummyId.GetHexString())
 	_, load := ngg.groups.LoadOrStore(gHash.Hex(), initingGroup)
 	if load {
-		stdLogger.Debug("InitingGroup gHash=%v already exist.\n", gHash.ShortS())
+		stdLogger.Debugf("InitingGroup gHash=%v already exist.\n", gHash.ShortS())
 	} else {
-		stdLogger.Debug("add initing group %p ok, gHash=%v.\n", initingGroup, gHash.ShortS())
+		stdLogger.Debugf("add initing group %p ok, gHash=%v.\n", initingGroup, gHash.ShortS())
 	}
 	return !load
 }
