@@ -180,7 +180,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		fmt.Println("stake of applying verify node is hardened as 100 Tas")
 		st = common.VerifyStake
 	} else {
-		st = stake
+		st = common.TAS2RA(stake)
 	}
 
 	miner := &types.Miner{
