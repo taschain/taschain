@@ -417,7 +417,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situ
 	}
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
 	if !groupValidateResult {
-		if err == common.ErrCreateBlockNil && BlockSyncer != nil && BlockSyncer.dependBlock == nil {
+		if (err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal) && BlockSyncer != nil && BlockSyncer.dependBlock == nil {
 			BlockSyncer.dependBlock = b
 			chain.forkProcessor.reset()
 			Logger.Infof("Add block on chain depend on group.Hold block sync!")
