@@ -266,12 +266,12 @@ func (gs *groupSyncer) blockAddSuccHandler(msg notify.Message) {
 	if gs.dependGroup == nil {
 		return
 	}
-	gs.logger.Debugf("Block add succ and depend group is not nil. Try add depend group:%s on chain!", common.BytesToAddress(gs.dependGroup.Id).GetHexString())
 
 	localBlockHeight := BlockChainImpl.Height()
 	createHeight := gs.dependGroup.Header.CreateHeight
-	gs.logger.Debugf("Local block height:%d,depend group create height:%d", localBlockHeight, createHeight)
 	if localBlockHeight >= createHeight {
+		gs.logger.Debugf("Block add succ and depend group is not nil. Try add depend group:%s on chain!", common.BytesToAddress(gs.dependGroup.Id).GetHexString())
+		gs.logger.Debugf("Local block height:%d,depend group create height:%d", localBlockHeight, createHeight)
 		err := GroupChainImpl.AddGroup(gs.dependGroup)
 		if err == nil {
 			gs.dependGroup = nil
