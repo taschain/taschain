@@ -118,7 +118,7 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 
 	source := groupHeightMsg.Peer
 	height := utility.ByteToUInt64(groupHeightMsg.HeightByte)
-	gs.logger.Debugf("Rcv group height from:%s,height:%d", source, height)
+	//gs.logger.Debugf("Rcv group height from:%s,height:%d", source, height)
 
 	localGroupHeight := GroupChainImpl.Count()
 	if !gs.isUsefulCandidate(localGroupHeight, height) {
