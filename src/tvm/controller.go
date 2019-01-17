@@ -7,7 +7,7 @@ import (
 	"middleware/types"
 	"storage/vm"
 )
-
+var HasLoadPyLibPath = false
 type Controller struct {
 	BlockHeader *types.BlockHeader
 	Transaction types.Transaction
