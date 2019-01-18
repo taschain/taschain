@@ -9,7 +9,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     var host_ele = $("#host");
     var online=false;
     var current_block_height = -1;
-    var next_sync_block = 0;
+    var last_sync_block = -1;
     host_ele.text(HOST);
     var blocks = [];
     var groups = [];
@@ -27,7 +27,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         elem: '#block_detail' //指定原始表格元素选择器（推荐id选择器）
         ,initSort: {
             field: 'height',
-            type: 'asc'
+            type: 'desc'
         }
         ,cols: [[{field:'height',title: '块高', sort:true},
             {field:'hash', title: 'hash', templet: '<div><a href="javascript:void(0);" class="layui-table-link" name="block_table_hash_row">{{d.hash}}</a></div>'},
@@ -35,8 +35,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             {field:'castor', title: 'castor'},{field:'group_id', title: 'group_id'}, {field:'txs', title: 'tx_count'}, {field:'qn', title: 'qn'}
             , {field:'total_qn', title: 'totalQN'}]] //设置表头
         ,data: blocks
-        ,page: true
-        ,limit:15
+        ,page: false
+        ,limit:200
     });
 
     var group_table = table.render({
@@ -340,7 +340,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     });
 
     // 同步块信息
-    function syncBlock(begin_height, end_height) {
+    function syncBlock(height) {
         let params = {
             "method": "GTAS_getBlockByHeight",
             "params": [height],
@@ -353,8 +353,12 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             beforeSend: function (xhr) {
                 xhr.setRequestHeader("Content-Type", "application/json");
             },
+            async:false,
             data: JSON.stringify(params),
             success: function (rdata) {
+                if (rdata.result != undefined && rdata.result != null) {
+                    last_sync_block = height
+                }
                 if (rdata.result !== undefined && rdata.result.message == "success"){
                     blocks.push(rdata.result.data);
                     if (blocks.length > 100) {
@@ -363,16 +367,10 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     if (current_block_height < rdata.result.data.height) {
                         current_block_height = rdata.result.data.height
                     }
-                    next_sync_block = current_block_height+1
                     block_table.reload({
                             data: blocks
                         }
                     )
-                } else if (rdata.result.message.indexOf("not exists") != -1) {
-                    next_sync_block++
-                }
-                if (rdata.result !== undefined){
-                    // $("#t_error").text(rdata.error.message)
                 }
             },
         });
@@ -529,8 +527,10 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         });
     })
 
-    function reloadBlocksTable(b, e) {
-        syncBlock(current_block_height+1)
+    function reloadBlocksTable() {
+        if (last_sync_block+1 <= current_block_height) {
+            syncBlock(last_sync_block+1)
+        }
     }
     function reloadGroupsTable() {
         if (groups.length == lastReloadGroupSize)
@@ -754,7 +754,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         }
         if (data.index == 6) {
            reloadGroupsTable()
-            grouptable_inter = setInterval(reloadGroupsTable, 2000);
+            grouptable_inter = setInterval(reloadGroupsTable, 10000);
         } else {
             clearInterval(grouptable_inter)
         }
