@@ -33,6 +33,7 @@ const (
 	sendTopBlockInfoInterval   = 3 * time.Second
 	blockSyncCandidatePoolSize = 3
 	blockSyncReqTimeout        = 3 * time.Second
+	blockSyncDependHoldTimeOut = 3 * time.Minute
 )
 
 var BlockSyncer *blockSyncer
@@ -47,7 +48,9 @@ type blockSyncer struct {
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
+
 	dependBlock          *types.Block
+	dependHoldTimer      *time.Timer
 	logger               taslog.Logger
 }
 
@@ -64,6 +67,7 @@ func InitBlockSyncer() {
 	BlockSyncer.reqTimeoutTimer = time.NewTimer(blockSyncReqTimeout)
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(sendTopBlockInfoInterval)
+	BlockSyncer.dependHoldTimer = time.NewTimer(blockSyncDependHoldTimeOut)
 
 	notify.BUS.Subscribe(notify.BlockInfoNotify, BlockSyncer.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, BlockSyncer.blockResponseMsgHandler)
@@ -125,6 +129,9 @@ func (bs *blockSyncer) loop() {
 			bs.syncing = false
 			bs.candidate = ""
 			bs.lock.Unlock("req time out")
+		case <-bs.dependHoldTimer.C:
+			bs.logger.Debugf("Block sync depend hold  time out!")
+			bs.dependBlock = nil
 		}
 	}
 }
@@ -305,8 +312,9 @@ func (bs *blockSyncer) groupAddSuccHandler(msg notify.Message) {
 	}
 	bs.logger.Debugf("Group add succ and depend block is not nil. Try add depend block:%d on chain!", bs.dependBlock.Header.Height)
 	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock, types.DependGroupBlock)
-	if result == types.AddBlockSucc {
+	if result == types.AddBlockSucc || result == types.BlockExisted || result == types.BlockTotalQnLessThanLocal {
 		bs.dependBlock = nil
+		bs.dependHoldTimer.Stop()
 		bs.logger.Debugf("Depend block add on chain succ.Recover block sync!")
 	}
 }

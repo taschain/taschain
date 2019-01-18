@@ -207,7 +207,6 @@ type Transaction struct {
 
 	ExtraData     []byte `json:"extra_data"`
 	ExtraDataType int32  `json:"extra_data_type"`
-	GasUsed uint64 `json:"gas_used"`
 }
 
 type BonusTransaction struct {
