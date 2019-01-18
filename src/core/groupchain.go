@@ -353,6 +353,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	if !ok {
 		if err == common.ErrCreateBlockNil && GroupSyncer != nil {
 			GroupSyncer.dependGroup = group
+			GroupSyncer.dependHoldTimer.Reset(groupSyncDependHoldTimeOut)
 			Logger.Infof("Add group on chain depend on block.Hold group sync!")
 		}
 		return err
