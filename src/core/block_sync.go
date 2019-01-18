@@ -89,10 +89,10 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	if bs.dependBlock != nil {
-		bs.logger.Debugf("Has depend block.Sync has been hold")
-		return
-	}
+	//if bs.dependBlock != nil {
+	//	bs.logger.Debugf("Has depend block.Sync has been hold")
+	//	return
+	//}
 
 	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {

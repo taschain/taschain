@@ -92,10 +92,10 @@ func (gs *groupSyncer) trySync() {
 		return
 	}
 
-	if gs.dependGroup != nil {
-		gs.logger.Debugf("Has depend group.Group sync has been hold")
-		return
-	}
+	//if gs.dependGroup != nil {
+	//	gs.logger.Debugf("Has depend group.Group sync has been hold")
+	//	return
+	//}
 
 	id, candidateHeight := gs.getCandidateForSync()
 	if id == "" {
