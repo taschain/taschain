@@ -314,7 +314,6 @@ func (chain *LightChain) addBlockOnChain(source string, b *types.Block, situatio
 	if !groupValidateResult {
 		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
 			BlockSyncer.dependBlock = b
-			chain.forkProcessor.reset()
 			Logger.Infof("Add block on chain depend on group.Hold block sync!")
 		} else {
 			Logger.Errorf("Fail to validate group sig!")

@@ -312,13 +312,11 @@ func (fh *forkProcessor) loop() {
 	for {
 		select {
 		case <-fh.reqTimer.C:
-			fh.lock.Lock()
 			if fh.candidite != "" {
-				fh.logger.Debugf("Fork req time out to %s", fh.candidite)
+				fh.logger.Debugf("  %s", fh.candidite)
 				PeerManager.markEvil(fh.candidite)
 				fh.reset()
 			}
-			fh.lock.Unlock()
 		}
 	}
 }
