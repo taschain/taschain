@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"math/big"
+	"time"
 )
 
 /*
@@ -81,4 +82,10 @@ func TestVRF_prove(t *testing.T) {
 			fmt.Printf("%d total: %d\n", i, bi)
 		}
 	}
+}
+
+func TestTimeAdd(t *testing.T) {
+	now := time.Now()
+	b := now.Add(-time.Second*time.Duration(10))
+	t.Log(b)
 }

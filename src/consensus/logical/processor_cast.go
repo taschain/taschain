@@ -55,7 +55,7 @@ func (bctx *CastBlockContexts) blockContextSize() int32 {
 
 func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 	for _, id := range gids {
-		stdLogger.Infof("removeBlockContexts ", id.ShortS())
+		stdLogger.Infof("removeBlockContexts %v", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()

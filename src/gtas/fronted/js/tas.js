@@ -9,6 +9,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     var host_ele = $("#host");
     var online=false;
     var current_block_height = -1;
+    var next_sync_block = 0;
     host_ele.text(HOST);
     var blocks = [];
     var groups = [];
@@ -339,7 +340,7 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     });
 
     // 同步块信息
-    function syncBlock(height) {
+    function syncBlock(begin_height, end_height) {
         let params = {
             "method": "GTAS_getBlockByHeight",
             "params": [height],
@@ -354,17 +355,23 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
             },
             data: JSON.stringify(params),
             success: function (rdata) {
-                if (rdata.result !== undefined){
+                if (rdata.result !== undefined && rdata.result.message == "success"){
                     blocks.push(rdata.result.data);
-                    if (current_block_height < rdata.result.data) {
-                        current_block_height = rdata.result.data
+                    if (blocks.length > 100) {
+                        blocks.shift()
                     }
-                    // block_table.reload({
-                    //         data: blocks
-                    //     }
-                    // )
+                    if (current_block_height < rdata.result.data.height) {
+                        current_block_height = rdata.result.data.height
+                    }
+                    next_sync_block = current_block_height+1
+                    block_table.reload({
+                            data: blocks
+                        }
+                    )
+                } else if (rdata.result.message.indexOf("not exists") != -1) {
+                    next_sync_block++
                 }
-                if (rdata.error !== undefined){
+                if (rdata.result !== undefined){
                     // $("#t_error").text(rdata.error.message)
                 }
             },
@@ -392,6 +399,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     for(i = 0; i < retArr.length; i++) {
                         if (!groupIds.has(retArr[i]["group_id"])) {
                             groups.push(retArr[i])
+                            if (groups.length > 100) {
+                                groups.shift()
+                            }
                             groupIds.add(retArr[i]["group_id"])
                         }
                     }
@@ -519,13 +529,8 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         });
     })
 
-    function reloadBlocksTable() {
-        if (blocks.length == lastReloadBlockSize)
-            return
-        block_table.reload({
-            data: blocks
-        })
-        lastReloadBlockSize = blocks.length
+    function reloadBlocksTable(b, e) {
+        syncBlock(current_block_height+1)
     }
     function reloadGroupsTable() {
         if (groups.length == lastReloadGroupSize)
@@ -564,9 +569,9 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
                     })
                 }
 
-                for(let i=current_block_height+1; i<=d.block_height; i++) {
-                    syncBlock(i);
-                }
+                // for(let i=current_block_height+1; i<=d.block_height; i++) {
+                //     syncBlock(i);
+                // }
                 current_block_height = d.block_height
 
                 //组高
@@ -707,13 +712,13 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
     dashboard = setInterval(function(){
         dashboardLoad();
-    },1000);
+    },2000);
 
     function updateDashboardUpdate(){
         if (dashboard_update_switch){
             dashboard = setInterval(function(){
                 dashboardLoad();
-            },1000);
+            },2000);
         } else{
             clearInterval(dashboard)
         }
@@ -733,14 +738,23 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         // }
 
         if (data.index == 5) {
+            begin = 0
+            if (blocks.length == 0) {
+                if (current_block_height > 20) {
+                    begin = current_block_height-20
+                }
+                for (;begin <= current_block_height; begin++) {
+                    syncBlock(begin)
+                }
+            }
             reloadBlocksTable()
-            blocktable_inter = setInterval(reloadBlocksTable, 1000);
+            blocktable_inter = setInterval(reloadBlocksTable, 2000);
         } else {
             clearInterval(blocktable_inter)
         }
         if (data.index == 6) {
            reloadGroupsTable()
-            grouptable_inter = setInterval(reloadGroupsTable, 1000);
+            grouptable_inter = setInterval(reloadGroupsTable, 2000);
         } else {
             clearInterval(grouptable_inter)
         }

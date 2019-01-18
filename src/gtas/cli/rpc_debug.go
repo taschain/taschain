@@ -116,6 +116,9 @@ func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
 		}
 	}
 	s.NumJump+=1
+}
+
+func (s *GroupVerifySummary) calJumpRate()  {
 	s.JumpRate = float64(s.NumJump)/float64(s.NumVerify+s.NumJump)
 }
 
@@ -145,8 +148,9 @@ func getAllGroup() map[string]*types.Group {
 
 func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader, deltaHeight uint64) (groupsig.ID, []*types.Group) {
 	qualifiedGs := make(groupArray, 0)
+	h := preBH.Height+deltaHeight
 	for _, g := range gs {
-		if g.Header.WorkHeight <= preBH.Height && g.Header.DismissHeight > preBH.Height {
+		if g.Header.WorkHeight <= h && g.Header.DismissHeight > h {
 			qualifiedGs = append(qualifiedGs, g)
 		}
 	}
@@ -213,17 +217,17 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 					maxHeight = bh.Height
 				}
 			}
-			expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
-			preBH = bh
+			//expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gid := groupsig.DeserializeId(bh.GroupId)
-			if !expectGid.IsEqual(gid) {
-				fmt.Printf("bh %+v\n", bh)
-				fmt.Printf("pre %+v\n", preBH)
-				for _, g := range gs {
-					fmt.Printf("g workheight=%v, id=%v, pre=%v\n", g.Header.WorkHeight, groupsig.DeserializeId(g.Id).ShortS(), groupsig.DeserializeId(g.Header.PreGroup))
-				}
-				return failResult(fmt.Sprintf("expect gid not equal, height=%v, expect %v, real %v", bh.Height, expectGid.GetHexString(), gid.GetHexString()))
-			}
+			//if !expectGid.IsEqual(gid) {
+			//	fmt.Printf("bh %+v\n", bh)
+			//	fmt.Printf("pre %+v\n", preBH)
+			//	for _, g := range gs {
+			//		fmt.Printf("g workheight=%v, id=%v, pre=%v\n", g.Header.WorkHeight, groupsig.DeserializeId(g.Id).ShortS(), groupsig.DeserializeId(g.Header.PreGroup))
+			//	}
+			//	return failResult(fmt.Sprintf("expect gid not equal, height=%v, expect %v, real %v", bh.Height, expectGid.GetHexString(), gid.GetHexString()))
+			//}
+			preBH = bh
 			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupId))
 			gvs.NumVerify += 1
 		}
@@ -234,5 +238,8 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	summary.HeightOfMaxCastTime = maxHeight
 	summary.sort()
 	summary.JumpRate = float64(jump) / float64(to-from+1)
+	for _, v := range summary.GroupSummary {
+		v.calJumpRate()
+	}
 	return successResult(summary)
 }

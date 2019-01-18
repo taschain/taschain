@@ -109,6 +109,13 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
 		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
+	} else {
+
+		beginTime := expireTime.Add(-time.Second*time.Duration(model.Param.MaxGroupCastTime))
+		if !time.Now().After(beginTime) {
+			return fmt.Errorf("cast begin time illegal, expectBegin at %v", beginTime)
+		}
+
 	}
 	if !p.IsMinerGroup(gid) {
 		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
