@@ -35,11 +35,12 @@ func InitCore(light bool, helper types.ConsensusHelper) error {
 
 	if nil == BlockChainImpl {
 		var err error
-		if light {
-			err = initLightChain(helper)
-		} else {
-			err = initBlockChain(helper)
-		}
+		//if light {
+		//	err = initLightChain(helper)
+		//} else {
+		//	err = initBlockChain(helper)
+		//}
+		err = initBlockChain(helper)
 		if nil != err {
 			return err
 		}

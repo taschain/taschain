@@ -254,7 +254,7 @@ func (gs *groupSyncer) addCandidatePool(id string, groupHeight uint64) {
 func (gs *groupSyncer) candidatePoolDump() {
 	gs.logger.Debugf("Candidate Pool Dump:")
 	for id, groupHeight := range gs.candidatePool {
-		gs.logger.Debugf("Candidate id:%s,totalQn:%d,height:%d", id, groupHeight)
+		gs.logger.Debugf("Candidate id:%s,group height:%d", id, groupHeight)
 	}
 }
 
