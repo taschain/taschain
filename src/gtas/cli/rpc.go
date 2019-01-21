@@ -20,17 +20,10 @@ import (
 	"net"
 
 	"common"
-	"consensus/groupsig"
-	"consensus/mediator"
 	"core"
-	"encoding/hex"
 	"fmt"
-	"math"
 	"middleware/types"
-	"network"
-	"strconv"
 	"strings"
-	"encoding/json"
 	"bytes"
 	"yunkuai"
 )
@@ -43,9 +36,6 @@ var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
 
 var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
 
-// GtasAPI is a single-method API handler to be returned by test services.
-type GtasAPI struct {
-}
 
 func (api *GtasAPI) R() *Result {
 	height := core.BlockChainImpl.Height()
@@ -140,136 +130,6 @@ func (api *GtasAPI) S(index string) *Result {
 		Data:    txDetail,
 		//Success: true,
 	}
-}
-
-// T 用户交易接口
-func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
-	var txRaw = new(txRawData)
-	if err := json.Unmarshal([]byte(txRawjson), txRaw); err != nil {
-		return failResult(err.Error())
-	}
-
-	trans := txRawToTransaction(txRaw)
-
-	trans.Hash = trans.GenHash()
-
-	if err := sendTransaction(trans); err != nil {
-		return failResult(err.Error())
-	}
-
-	return successResult(trans.Hash.String())
-
-}
-
-//脚本交易
-func (api *GtasAPI) ScriptTransferTx(privateKey string, from string, to string, amount uint64, nonce uint64, txType int, gasPrice uint64) (*Result, error) {
-	var result *Result
-	var err error
-	var i uint64 = 0
-	for ; i < 100; i++ {
-		result, err = api.TxUnSafe(privateKey, to, amount, gasPrice, gasPrice, nonce+i, txType, "")
-	}
-	return result, err
-}
-
-// ExplorerAccount
-func (api *GtasAPI) ExplorerAccount(account string) (*Result, error) {
-	balance := core.BlockChainImpl.GetBalance(common.HexToAddress(account))
-	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(account))
-
-	return successResult(ExplorerAccount{Balance: balance, Nonce: nonce})
-
-}
-
-// Balance 查询余额接口
-func (api *GtasAPI) Balance(account string) (*Result, error) {
-	balance, err := walletManager.getBalance(account)
-	if err != nil {
-		return nil, err
-	}
-	return &Result{
-		Message: fmt.Sprintf("The balance of account: %s is %d", account, balance),
-		Data:    fmt.Sprintf("%d", balance),
-	}, nil
-}
-
-// NewWallet 新建账户接口
-func (api *GtasAPI) NewWallet() (*Result, error) {
-	privKey, addr := walletManager.newWallet()
-	data := make(map[string]string)
-	data["private_key"] = privKey
-	data["address"] = addr
-	return successResult(data)
-}
-
-// GetWallets 获取当前节点的wallets
-func (api *GtasAPI) GetWallets() (*Result, error) {
-	return successResult(walletManager)
-}
-
-// DeleteWallet 删除本地节点指定序号的地址
-func (api *GtasAPI) DeleteWallet(key string) (*Result, error) {
-	walletManager.deleteWallet(key)
-	return successResult(walletManager)
-}
-
-// BlockHeight 块高查询
-func (api *GtasAPI) BlockHeight() (*Result, error) {
-	height := core.BlockChainImpl.QueryTopBlock().Height
-	return successResult(height)
-}
-
-// GroupHeight 组块高查询
-func (api *GtasAPI) GroupHeight() (*Result, error) {
-	height := core.GroupChainImpl.Count()
-	return successResult(height)
-}
-
-// Vote
-func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
-	//config := v.ToGlobal()
-	//walletManager.newVote(from, config)
-	return successResult(nil)
-}
-
-// ConnectedNodes 查询已链接的node的信息
-func (api *GtasAPI) ConnectedNodes() (*Result, error) {
-
-	nodes := network.GetNetInstance().ConnInfo()
-	conns := make([]ConnInfo, 0)
-	for _, n := range nodes {
-		conns = append(conns, ConnInfo{Id: n.Id, Ip: n.Ip, TcpPort: n.Port})
-	}
-	return successResult(conns)
-}
-
-// TransPool 查询缓冲区的交易信息。
-func (api *GtasAPI) TransPool() (*Result, error) {
-	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
-	transList := make([]Transactions, 0, len(transactions))
-	for _, v := range transactions {
-		transList = append(transList, Transactions{
-			Hash:   v.Hash.String(),
-			Source: v.Source.GetHexString(),
-			Target: v.Target.GetHexString(),
-			Value:  strconv.FormatInt(int64(v.Value), 10),
-		})
-	}
-
-	return successResult(transList)
-}
-
-func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
-	transaction, err := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
-	if err != nil {
-		return nil, err
-	}
-	detail := make(map[string]interface{})
-	detail["hash"] = hash
-	detail["source"] = transaction.Source.Hash().Hex()
-	detail["target"] = transaction.Target.Hash().Hex()
-	detail["value"] = transaction.Value
-	return successResult(detail)
 }
 
 //

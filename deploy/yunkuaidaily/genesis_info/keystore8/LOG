@@ -1,6 +1,0 @@
-=============== Dec 29, 2018 (CST) ===============
-11:03:00.968863 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-11:03:00.974859 db@open opening
-11:03:00.976343 version@stat F·[] S·0B[] Sc·[]
-11:03:00.976873 db@janitor F·2 G·0
-11:03:00.976934 db@open done T·2.024635ms
