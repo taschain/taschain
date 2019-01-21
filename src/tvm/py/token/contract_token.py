@@ -46,16 +46,15 @@ class MyAdvancedToken(TokenERC20):
 
         self.frozenAccount = {}
 
-    def apply(self):
-        pass
-
-    def deploy(self):
         self.sell_price = 100
         self.buy_price = 100
         self.name = "TAS"
         self.symbol = "%"
         self.totalSupply = 1000000
         self.balanceOf[this] = self.totalSupply
+
+    def apply(self):
+        pass
 
     # @property
     # def sell_price(self):

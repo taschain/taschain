@@ -342,7 +342,8 @@ func (t *LightTrie) insert(n node, prefix, key []byte, value node) (bool, node, 
 }
 
 func (t *LightTrie) NodeIterator(start []byte) NodeIterator {
-	return newLightNodeIterator(t, start)
+	//return newLightNodeIterator(t, start)
+	return nil
 }
 
 func (t *LightTrie) GetAllNodes(nodes map[string]*[]byte) {

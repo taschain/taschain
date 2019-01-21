@@ -43,9 +43,10 @@ type BlockChain interface {
 	//铸块成功，上链
 	//返回值: 0,上链成功
 	//       -1，验证失败
-	//        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
-	//        2,分叉调整)
-	AddBlockOnChain(source string, b *types.Block) int8
+	//        1, 丢弃该块(链上已存在该块）
+	//        2,丢弃该块（链上存在QN值更大的相同高度块)
+	//        3,分叉调整
+	AddBlockOnChain(source string, b *types.Block,situation types.AddBlockOnChainSituation) types.AddBlockResult
 
 	Height() uint64
 
@@ -92,7 +93,7 @@ type BlockChain interface {
 
 	Close()
 
-	GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
+	//GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 

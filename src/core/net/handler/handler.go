@@ -150,7 +150,6 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 }
 
 func (ch ChainHandler) blockReqHandler(msg notify.Message) {
-	core.Logger.Debugf("blockReqHandler!")
 	if core.BlockChainImpl.IsLightMiner() {
 		core.Logger.Debugf("Is Light Miner!")
 		return
@@ -199,8 +198,7 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	}
 
 	core.Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-	//此处source传空，此处上链引发如果触发分叉不处理
-	core.BlockChainImpl.AddBlockOnChain("", block)
+	core.BlockChainImpl.AddBlockOnChain(source, block, types.NewBlock)
 }
 
 //----------------------------------------------------------------------------------------------------------------------

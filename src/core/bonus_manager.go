@@ -68,6 +68,9 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupId)
 	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
+	if len(targetIds) == 0{
+		panic("GenerateBonus targetIds size 0")
+	}
 	for i := 0; i < len(targetIds); i++ {
 		index := targetIds[i]
 		buffer.Write(group.Members[index])
@@ -76,6 +79,9 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
+	if len(buffer.Bytes()) % common.AddressLength != 0{
+		panic("GenerateBonus ExtraData Size Invalid")
+	}
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
 	transaction.GasPrice = common.MaxUint64
@@ -93,7 +99,9 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 	ids := make([][]byte, 0)
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 		if n != common.AddressLength {
-			panic("ParseBonusTransaction Read Address Fail")
+			Logger.Debugf("ParseBonusTransaction Addr Size:%d Invalid",n)
+			//panic("ParseBonusTransaction Read Address Fail")
+			break
 		}
 		ids = append(ids, addr)
 		addr = make([]byte, common.AddressLength)

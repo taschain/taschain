@@ -24,8 +24,8 @@ import (
 	"gopkg.in/fatih/set.v0"
 	"math/big"
 	"middleware/types"
-	"sync/atomic"
 	"sync"
+	"sync/atomic"
 )
 
 /*
@@ -36,20 +36,20 @@ import (
 
 const (
 	SS_INITING     int32 = iota
-	SS_WAITING      //等待签名片段达到阈值
-	SS_SIGNED       //自己是否签名过
-	SS_RECOVERD     //恢复出组签名
-	SS_VERIFIED     //组签名用组公钥验证通过
-	SS_SUCCESS      //已上链广播
-	SS_FAILED       //铸块过程中失败，不可逆
-	SS_REWARD_REQ   //分红交易签名请求已发
-	SS_REWARD_SEND  //分红交易已广播
+	SS_WAITING           //等待签名片段达到阈值
+	SS_SIGNED            //自己是否签名过
+	SS_RECOVERD          //恢复出组签名
+	SS_VERIFIED          //组签名用组公钥验证通过
+	SS_SUCCESS           //已上链广播
+	SS_FAILED            //铸块过程中失败，不可逆
+	SS_REWARD_REQ        //分红交易签名请求已发
+	SS_REWARD_SEND       //分红交易已广播
 )
 
 //铸块槽结构，和某个KING的共识数据一一对应
 type SlotContext struct {
 	//验证相关
-	BH types.BlockHeader //出块头详细数据
+	BH *types.BlockHeader //出块头详细数据
 	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
 	vrfValue       *big.Int
 	gSignGenerator *model.GroupSignGenerator //块签名产生器
@@ -59,7 +59,7 @@ type SlotContext struct {
 
 	castor groupsig.ID
 
-	initLock 	sync.Mutex
+	initLock sync.Mutex
 
 	//奖励相关
 	rewardTrans    *types.Transaction
@@ -68,13 +68,13 @@ type SlotContext struct {
 
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
-		BH:             *bh,
+		BH:             bh,
 		vrfValue:       bh.ProveValue,
 		castor:         groupsig.DeserializeId(bh.Castor),
 		slotStatus:     SS_INITING,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
-		rewardGSignGen: model.NewGroupSignGenerator(threshold),
+		//rewardGSignGen: model.NewGroupSignGenerator(threshold),
 		lostTxHash:     set.New(set.ThreadSafe),
 	}
 }
@@ -84,7 +84,7 @@ func (sc *SlotContext) initIfNeeded() bool {
 	sc.initLock.Lock()
 	defer sc.initLock.Unlock()
 
-	bh := &sc.BH
+	bh := sc.BH
 	if sc.slotStatus == SS_INITING {
 		rtlog := newRtLog("slotInit")
 		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
@@ -248,10 +248,28 @@ func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bo
 	if sc.rewardTrans != nil && sc.rewardTrans.Hash != sd.DataHash {
 		return
 	}
+	if sc.rewardTrans == nil {
+		return
+	}
+	if sc.rewardGSignGen == nil {
+		sc.rewardGSignGen = model.NewGroupSignGenerator(sc.gSignGenerator.Threshold())
+	}
 	accept, recover = sc.rewardGSignGen.AddWitness(sd.GetID(), sd.DataSign)
 	if accept && recover {
-		//交易设置签名
-		//sc.rewardTrans.
+		//groupID, _, _, _ := core.BlockChainImpl.GetBonusManager().ParseBonusTransaction(sc.rewardTrans)
+		//gpk := groupsig.DeserializePubkeyBytes(core.GroupChainImpl.GetGroupById(groupID).PubKey)
+		//if !groupsig.VerifySig(gpk,sd.DataHash.Bytes(),sc.rewardGSignGen.GetGroupSign()) {
+		//	fmt.Printf("Bonus transaction fail to groupsig\n")
+		//}
+		//铸块分红交易使用组签名
+		if sc.rewardTrans.Sign == nil {
+			sign_bytes := sc.rewardGSignGen.GetGroupSign().Serialize()
+			tmp_bytes := make([]byte, common.SignLength)
+			//group signature length = 33, common signature length = 65.  VerifyBonusTransaction() will recover common sig to groupsig
+			copy(tmp_bytes[0:len(sign_bytes)], sign_bytes)
+			sc.rewardTrans.Sign = common.BytesToSign(tmp_bytes)
+			//fmt.Printf("Bonus sign 1: hash=%v , gsign=%v\n", sd.DataHash.Hex(), sc.rewardGSignGen.GetGroupSign().GetHexString())
+		}
 	}
 	return
 }

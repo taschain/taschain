@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	LightFullAccountBlockCacheSize = 20
-	LIGHT_BLOCK_CACHE_SIZE         = 20
-	LIGHT_BLOCKHEIGHT_CACHE_SIZE   = 100
-	LIGHT_BLOCKBODY_CACHE_SIZE     = 100
+	LightFullAccountBlockCacheSize = 10
+	LIGHT_BLOCK_CACHE_SIZE         = 10
+	LIGHT_BLOCKHEIGHT_CACHE_SIZE   = 10
+	LIGHT_BLOCKBODY_CACHE_SIZE     = 10
 	LIGHT_LRU_SIZE                 = 5000000
 )
 
@@ -90,7 +90,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 	}
 
 	var err error
-	chain.futureBlocks, err = lru.New(20)
+	chain.futureBlocks, err = lru.New(10)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func initLightChain(helper types.ConsensusHelper) error {
 		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
 	}
-	chain.statedb, err = tasdb.NewLRUMemDatabase(LIGHT_LRU_SIZE)
+	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
 		Logger.Error("LightChain initLightChain Error!Msg=%v", err)
 		return err
@@ -289,99 +289,108 @@ func (chain *LightChain) getMissingAccountTransactions(preStateRoot common.Hash,
 //铸块成功，上链
 //返回值: 0,上链成功
 //       -1，验证失败
-//        1, 丢弃该块(链上已存在该块或链上存在QN值更大的相同高度块)
-//        2，未上链(异步进行分叉调整)
-//        3,未上链(缺少账户状态信息)只有轻节点有
-func (chain *LightChain) AddBlockOnChain(source string, b *types.Block) int8 {
+//        1, 丢弃该块(链上已存在该块）
+//        2,丢弃该块（链上存在QN值更大的相同高度块)
+//        3,分叉调整
+func (chain *LightChain) AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
 	if b == nil {
-		return -1
+		return types.AddBlockFailed
 	}
 	if !chain.hasPreBlock(*b.Header) {
 		chain.futureBlocks.Add(b.Header.PreHash, b)
 		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-		return 2
+		return types.Forking
 	}
 
 	chain.lock.Lock("LightChain:AddBlockOnChain")
 	defer chain.lock.Unlock("LightChain:AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.QueueNumber, time.Since(b.Header.CurTime))
-	return chain.addBlockOnChain(source, b)
+	return chain.addBlockOnChain(source, b, situation)
 }
 
-func (chain *LightChain) addBlockOnChain(source string, b *types.Block) int8 {
+func (chain *LightChain) addBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
 	if _, verifyResult := chain.verifyBlock(*b.Header, b.Transactions); verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
-		return -1
+		return types.AddBlockFailed
 	}
 
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
 	if !groupValidateResult {
 		if err == common.ErrCreateBlockNil && BlockSyncer.dependBlock == nil {
 			BlockSyncer.dependBlock = b
-			chain.forkProcessor.reset()
 			Logger.Infof("Add block on chain depend on group.Hold block sync!")
 		} else {
 			Logger.Errorf("Fail to validate group sig!")
 		}
-		return -1
+		return types.AddBlockFailed
 	}
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
 		return result
 	}
-	if b.Header.Hash == topBlock.Hash || b.Header.TotalQN < topBlock.TotalQN || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
-		return 1
+	if b.Header.Hash == topBlock.Hash || chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+		return types.BlockExisted
+	}
+
+	if b.Header.TotalQN < topBlock.TotalQN {
+		if situation == types.Sync {
+			go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+		}
+		return types.BlockTotalQnLessThanLocal
 	}
 	commonAncestor := chain.queryBlockHeaderByHash(b.Header.PreHash)
 	Logger.Debugf("commonAncestor hash:%s height:%d", commonAncestor.Hash.Hex(), commonAncestor.Height)
 	if b.Header.TotalQN > topBlock.TotalQN {
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(source, b)
+		return chain.addBlockOnChain(source, b, situation)
 	}
 	if b.Header.TotalQN == topBlock.TotalQN {
 		if chain.compareValue(commonAncestor, b.Header) {
-			return 1
+			if situation == types.Sync {
+				go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
+			}
+			return types.BlockTotalQnLessThanLocal
 		}
 		chain.removeFromCommonAncestor(commonAncestor)
-		return chain.addBlockOnChain(source, b)
+		return chain.addBlockOnChain(source, b, situation)
 	}
 
 	go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-	return 2
+	return types.Forking
 }
 
-func (chain *LightChain) insertBlock(remoteBlock *types.Block) (int8, []byte) {
+func (chain *LightChain) insertBlock(remoteBlock *types.Block) (types.AddBlockResult, []byte) {
 	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
 	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d", remoteBlock.Header.TxTree, len(remoteBlock.Transactions))
 	if !chain.validateTxRoot(remoteBlock.Header.TxTree, remoteBlock.Transactions) {
-		return -1, nil
+		return types.AddBlockFailed, nil
 	}
 	executeTxResult, state, receipts := chain.executeTransaction(remoteBlock)
 	if !executeTxResult {
-		return -1, nil
+		return types.AddBlockFailed, nil
 	}
 
 	result, headerByte := chain.saveBlock(remoteBlock)
 	if result != 0 {
-		return -1, headerByte
+		return types.AddBlockFailed, headerByte
 	}
 	root, _ := state.Commit(true)
 	triedb := chain.stateCache.TrieDB()
 	triedb.Commit(root, false)
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
-		return -1, headerByte
+		return types.AddBlockFailed, headerByte
 	}
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
-	return 0, headerByte
+	return types.AddBlockSucc, headerByte
 }
 
 func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
@@ -398,7 +407,7 @@ func (chain *LightChain) executeTransaction(block *types.Block) (bool, *account.
 		panic("Fail to new statedb, error:%s" + err.Error())
 		return false, state, nil
 	}
-	statehash, _, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
+	statehash, _, _, receipts, err, _ := chain.executor.Execute(state, block, block.Header.Height, "lightverify")
 
 	if common.ToHex(statehash.Bytes()) != common.ToHex(block.Header.StateTree.Bytes()) {
 		Logger.Infof("fail to verify statetree, hash1:%x hash2:%x", statehash.Bytes(), block.Header.StateTree.Bytes())
@@ -421,7 +430,7 @@ func (chain *LightChain) successOnChainCallBack(remoteBlock *types.Block, header
 	if value, _ := chain.futureBlocks.Get(remoteBlock.Header.Hash); value != nil {
 		block := value.(types.Block)
 		//todo 这里为了避免死锁只能调用这个方法，但是没办法调用CheckProveRoot全量账本验证了
-		chain.addBlockOnChain("", &block)
+		chain.addBlockOnChain("", &block, types.FutureBlockCache)
 		return
 	}
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)

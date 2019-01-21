@@ -294,12 +294,14 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
     form.on('submit(t_form)', function(data){
         $("#t_message").text("");
         $("#t_error").text("");
-        let from = data.field.from;
+        let private_key = data.field.private_key;
         let to = data.field.to;
-        let amount = data.field.amount;
-        let code = data.field.code;
+        let value = data.field.value;
+        let txdata = data.field.data;
         let t = data.field.type;
         let nonce = data.field.nonce;
+        let gas = data.field.gas;
+        let gas_price = data.field.gas_price;
         // if (from.length !== 42) {
         //     layer.msg("from 参数字段长度错误");
         //     return false
@@ -308,9 +310,11 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
         //     layer.msg("to 参数字段长度错误");
         //     return false
         // }
+        //func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
+
         let params = {
-            "method": "GTAS_tx",
-            "params": [from, to, parseFloat(amount), code, parseInt(nonce), parseInt(t)],
+            "method": "GTAS_txUnSafe",
+            "params": [private_key, to, parseFloat(value), parseInt(gas),parseInt(gas_price), parseInt(nonce), parseInt(t),txdata],
             "jsonrpc": "2.0",
             "id": "1"
         };

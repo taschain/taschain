@@ -33,6 +33,7 @@ const (
 	sendTopBlockInfoInterval   = 3 * time.Second
 	blockSyncCandidatePoolSize = 3
 	blockSyncReqTimeout        = 3 * time.Second
+	blockSyncDependHoldTimeOut = 3 * time.Minute
 )
 
 var BlockSyncer *blockSyncer
@@ -47,7 +48,9 @@ type blockSyncer struct {
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
+
 	dependBlock          *types.Block
+	dependHoldTimer      *time.Timer
 	logger               taslog.Logger
 }
 
@@ -64,6 +67,7 @@ func InitBlockSyncer() {
 	BlockSyncer.reqTimeoutTimer = time.NewTimer(blockSyncReqTimeout)
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(sendTopBlockInfoInterval)
+	BlockSyncer.dependHoldTimer = time.NewTimer(blockSyncDependHoldTimeOut)
 
 	notify.BUS.Subscribe(notify.BlockInfoNotify, BlockSyncer.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, BlockSyncer.blockResponseMsgHandler)
@@ -85,12 +89,12 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	if bs.dependBlock != nil {
-		bs.logger.Debugf("Has depend block.Sync has been hold")
-		return
-	}
+	//if bs.dependBlock != nil {
+	//	bs.logger.Debugf("Has depend block.Sync has been hold")
+	//	return
+	//}
 
-	id, height := bs.getCandidateForSync()
+	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		if !bs.init {
@@ -125,6 +129,9 @@ func (bs *blockSyncer) loop() {
 			bs.syncing = false
 			bs.candidate = ""
 			bs.lock.Unlock("req time out")
+		case <-bs.dependHoldTimer.C:
+			bs.logger.Debugf("Block sync depend hold  time out!")
+			bs.dependBlock = nil
 		}
 	}
 }
@@ -158,7 +165,7 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	bs.logger.Debugf("Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
+	//bs.logger.Debugf("Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
 	source := bnm.Peer
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash
@@ -203,8 +210,8 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		bs.logger.Debugf("Rcv block response nil from:%s", source)
 	} else {
 		bs.logger.Debugf("Rcv block response from:%s,hash:%v,height:%d,totalQn:%d,tx len:%d,isLastBlock:%t", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions), isLastBlock)
-		result := BlockChainImpl.AddBlockOnChain(source, block)
-		if result == 0 {
+		result := BlockChainImpl.AddBlockOnChain(source, block, types.Sync)
+		if result == types.AddBlockSucc {
 			sync = true
 		}
 	}
@@ -222,7 +229,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
+func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
 	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
@@ -250,9 +257,9 @@ func (bs *blockSyncer) getCandidateForSync() (string, uint64) {
 		}
 	}
 	if localHeight >= candidateHeight {
-		return candidateId, candidateHeight
+		return candidateId, candidateHeight, candidateHeight
 	}
-	return candidateId, localHeight + 1
+	return candidateId, localHeight + 1, candidateHeight
 }
 
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
@@ -304,9 +311,10 @@ func (bs *blockSyncer) groupAddSuccHandler(msg notify.Message) {
 		return
 	}
 	bs.logger.Debugf("Group add succ and depend block is not nil. Try add depend block:%d on chain!", bs.dependBlock.Header.Height)
-	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock)
-	if result == 0 {
+	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock, types.DependGroupBlock)
+	if result == types.AddBlockSucc || result == types.BlockExisted || result == types.BlockTotalQnLessThanLocal {
 		bs.dependBlock = nil
+		bs.dependHoldTimer.Stop()
 		bs.logger.Debugf("Depend block add on chain succ.Recover block sync!")
 	}
 }

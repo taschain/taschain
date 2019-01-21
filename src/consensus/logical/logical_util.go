@@ -34,3 +34,21 @@ func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo) *types.Group {
 		Members: members,
 	}
 }
+
+func DeltaHeightByTime(bh *types.BlockHeader, preBH *types.BlockHeader) uint64 {
+	var (
+		deltaHeightByTime uint64
+	)
+	if bh.Height == 1 {
+		d := time.Since(preBH.CurTime)
+		deltaHeightByTime = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
+	} else {
+		deltaHeightByTime = bh.Height - preBH.Height
+	}
+	return deltaHeightByTime
+}
+
+func VerifyBHExpire(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time, bool) {
+	expire := GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
+	return expire, time.Now().After(expire)
+}

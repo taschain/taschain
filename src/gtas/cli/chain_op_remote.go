@@ -1,21 +1,21 @@
 package cli
 
 import (
+	"common"
+	"consensus/base"
+	"consensus/groupsig"
+	"encoding/json"
 	"fmt"
 	"github.com/astaxie/beego/httplib"
-	"common"
-	"encoding/json"
-	"consensus/groupsig"
 	"github.com/vmihailenco/msgpack"
 	"middleware/types"
-	"consensus/base"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2018/12/20 下午2:32
 **  Description:
-*/
+ */
 
 type RemoteChainOpImpl struct {
 	host string
@@ -44,7 +44,7 @@ func (ca *RemoteChainOpImpl) Connect(ip string, port int) error {
 	return nil
 }
 
-func (ca *RemoteChainOpImpl) request(method string, params ... interface{}) *Result {
+func (ca *RemoteChainOpImpl) request(method string, params ...interface{}) *Result {
 	if ca.base == "" {
 		return opError(ErrUnConnected)
 	}
@@ -112,20 +112,21 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return opError(err)
 	} else {
 		tranx := txRawToTransaction(tx)
+		tranx.Nonce = nonce + 1
 		tx.Nonce = nonce + 1
-
-		txHash := tranx.GenHash()
-		sign := privateKey.Sign(txHash.Bytes())
-		tx.Sign = sign.GetHexString()
-
-		fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, txHash.String())
-		fmt.Printf("%+v\n", tranx)
+		tranx.Hash = tranx.GenHash()
+		sign := privateKey.Sign(tranx.Hash.Bytes())
+		tranx.Sign = &sign
+		tx.Sign = tranx.Sign.GetHexString()
+		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
+		//fmt.Printf("%+v\n", tranx)
 
 		jsonByte, err := json.Marshal(tx)
 		if err != nil {
 			return opError(err)
 		}
 
+		ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 		//此处要签名
 		return ca.request("tx", string(jsonByte))
 
@@ -174,11 +175,19 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	var bpk groupsig.Pubkey
 	bpk.SetHexString(aci.Miner.BPk)
 
+	st := uint64(0)
+	if mtype == types.MinerTypeLight {
+		fmt.Println("stake of applying verify node is hardened as 100 Tas")
+		st = common.VerifyStake
+	} else {
+		st = common.TAS2RA(stake)
+	}
+
 	miner := &types.Miner{
 		Id:           source.Bytes(),
 		PublicKey:    bpk.Serialize(),
 		VrfPublicKey: base.Hex2VRFPublicKey(aci.Miner.VrfPk),
-		Stake:        stake,
+		Stake:        st,
 		Type:         byte(mtype),
 	}
 	data, err := msgpack.Marshal(miner)
@@ -192,7 +201,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 		TxType:   types.TransactionTypeMinerApply,
 		Data:     common.ToHex(data),
 	}
-
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }
 
@@ -211,6 +220,7 @@ func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result
 		TxType:   types.TransactionTypeMinerAbort,
 		Data:     string([]byte{byte(mtype)}),
 	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
 }
 
@@ -229,5 +239,14 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Resul
 		TxType:   types.TransactionTypeMinerRefund,
 		Data:     string([]byte{byte(mtype)}),
 	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
+}
+
+func (ca *RemoteChainOpImpl) ViewContract(addr string) *Result {
+    return ca.request("explorerAccount", addr)
+}
+
+func (ca *RemoteChainOpImpl) TxReceipt(hash string) *Result {
+	return ca.request("txReceipt", hash)
 }

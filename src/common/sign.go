@@ -17,21 +17,21 @@ package common
 
 import (
 	"common/secp256k1"
-	"math/big"
 	"encoding/hex"
+	"math/big"
 )
 
 type Sign struct {
-	r big.Int
-	s big.Int
+	r     big.Int
+	s     big.Int
 	recid byte
 }
 
 //数据签名结构 for message casting
 type SignData struct {
-	DataHash   Hash        //哈希值
-	DataSign   Sign		   //签名
-	Id		   string      //用户ID
+	DataHash Hash   //哈希值
+	DataSign Sign   //签名
+	Id       string //用户ID
 }
 
 //签名构造函数
@@ -43,7 +43,7 @@ func (s *Sign) Set(_r, _s *big.Int, recid int) {
 
 //检查签名是否有效
 func (s Sign) Valid() bool {
-	return s.r.BitLen() != 0 && s.s.BitLen() != 0
+	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid < 4
 }
 
 //获取R值
@@ -56,26 +56,32 @@ func (s Sign) GetS() big.Int {
 	return s.s
 }
 
+//Sign必须65 bytes
 func (s Sign) Bytes() []byte {
 	rb := s.r.Bytes()
 	sb := s.s.Bytes()
-	r := make([]byte, len(rb)+len(sb)+1)
-	copy(r, rb)
-	copy(r[len(rb):], sb)
-	r[len(rb)+len(sb)] = s.recid
+	r := make([]byte, SignLength)
+	copy(r[32-len(rb):32], rb)
+	copy(r[64-len(sb):64], sb)
+	r[64] = s.recid
 	return r
 }
 
+//Sign必须65 bytes
 func BytesToSign(b []byte) *Sign {
-	var r, s big.Int
-	br := b[:32]
-	r = *r.SetBytes(br)
+	if len(b) == 65 {
+		var r, s big.Int
+		br := b[:32]
+		r = *r.SetBytes(br)
 
-	sr := b[32:64]
-	s = *s.SetBytes(sr)
+		sr := b[32:64]
+		s = *s.SetBytes(sr)
 
-	recid := b[64]
-	return &Sign{r, s, recid}
+		recid := b[64]
+		return &Sign{r, s, recid}
+	} else {
+		panic("BytesToSign must input 65 bytes!")
+	}
 }
 
 func (s Sign) GetHexString() string {
@@ -95,11 +101,10 @@ func HexStringToSign(s string) (si *Sign) {
 }
 
 func (s Sign) RecoverPubkey(msg []byte) (pk *PublicKey, err error) {
-	pubkey, err :=  secp256k1.RecoverPubkey(msg, s.Bytes())
+	pubkey, err := secp256k1.RecoverPubkey(msg, s.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	pk = BytesToPublicKey(pubkey)
 	return
 }
-

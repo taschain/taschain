@@ -1,14 +1,17 @@
 package cli
 
 import (
-	"os"
-	"fmt"
-	"strings"
-	"regexp"
-	"flag"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/peterh/liner"
+	"io/ioutil"
+	"os"
+	"regexp"
+	"strings"
+	"tvm"
+	"common"
 )
 
 /*
@@ -160,7 +163,7 @@ func (c *connectCmd) parse(args []string) bool {
 		return false
 	}
 	if strings.TrimSpace(c.host) == "" {
-		fmt.Println("please input the host")
+		fmt.Println("please input the host，available testnet hosts are node1.taschain.cn,node2.taschain.cn,node3.taschain.cn,node4.taschain.cn,node5.taschain.cn")
 		c.fs.PrintDefaults()
 		return false
 	}
@@ -175,6 +178,7 @@ func (c *connectCmd) parse(args []string) bool {
 type txCmd struct {
 	baseCmd
 	hash string
+	executed bool
 }
 
 func genTxCmd() *txCmd {
@@ -182,6 +186,7 @@ func genTxCmd() *txCmd {
 		baseCmd: *genbaseCmd("tx", "get transaction detail"),
 	}
 	c.fs.StringVar(&c.hash, "hash", "", "the hex transaction hash")
+	c.fs.BoolVar(&c.executed, "executed", false, "get executed transaction detail")
 	return c
 }
 
@@ -220,36 +225,67 @@ func (c *blockCmd) parse(args []string) bool {
 	return true
 }
 
-type sendTxCmd struct {
+type gasBaseCmd struct {
 	baseCmd
+	gaslimit uint64
+	gasPriceStr string
+	gasPrice  uint64
+}
+
+func genGasBaseCmd(n string, h string) *gasBaseCmd {
+	c := &gasBaseCmd{
+		baseCmd: *genbaseCmd(n, h),
+	}
+	return c
+}
+
+func (c *gasBaseCmd) parseGasPrice() bool {
+	gp, err := common.ParseCoin(c.gasPriceStr)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("%v:%v, correct example: 100RA,100kRA,1mRA,1TAS", err, c.gasPriceStr))
+		return false
+	}
+	c.gasPrice = gp
+	return true
+}
+
+func (c *gasBaseCmd) initBase()  {
+	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 100, "gas limit, default 100")
+	c.fs.StringVar(&c.gasPriceStr, "gasprice", "100RA", "gas price, default 100RA")
+}
+
+
+type sendTxCmd struct {
+	gasBaseCmd
 	to string
-	value uint64
+	value float64
 	data string
+	contractName string
+	contractPath string
 	txType int
-	gas uint64
-	gasPrice uint64
 }
 
 func genSendTxCmd() *sendTxCmd {
 	c := &sendTxCmd{
-		baseCmd: *genbaseCmd("sendtx", "send a transaction to the tas system"),
+		gasBaseCmd: *genGasBaseCmd("sendtx", "send a transaction to the tas system"),
 	}
+	c.initBase()
 	c.fs.StringVar(&c.to, "to", "", "the transaction receiver address")
-	c.fs.Uint64Var(&c.value, "value", 0, "transfer value")
+	c.fs.Float64Var(&c.value, "value", 0.0, "transfer value in tas unit")
 	c.fs.StringVar(&c.data, "data", "", "transaction data")
+	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
+	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
 	c.fs.IntVar(&c.txType, "type", 0, "transaction type: 0=general tx, 1=contract create, 2=contract call, 3=bonus, 4=miner apply,5=miner abort, 6=miner refund")
-	c.fs.Uint64Var(&c.gas, "gas", 0, "gas limit")
-	c.fs.Uint64Var(&c.gasPrice, "gasprice", 0, "gas price")
 	return c
 }
 
 func (c *sendTxCmd) toTxRaw() *txRawData {
 	return &txRawData{
 		Target:   c.to,
-		Value:    c.value,
+		Value:    common.Value2RA(c.value),
 		TxType:   c.txType,
 		Data:     c.data,
-		Gas:      c.gas,
+		Gas:      c.gaslimit,
 		Gasprice: c.gasPrice,
 	}
 }
@@ -264,25 +300,156 @@ func (c *sendTxCmd) parse(args []string) bool {
 		c.fs.PrintDefaults()
 		return false
 	}
+	if !c.parseGasPrice() {
+		return false
+	}
+
+	if c.txType == 1 { //发布合约预处理
+		if strings.TrimSpace(c.contractName) == "" { //合约名字非空
+			fmt.Println("please input the contractName")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+			fmt.Println("please input the contractPath")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		if err != nil {
+			fmt.Println("read the "+c.contractPath+"file failed ", err)
+			c.fs.PrintDefaults()
+			return false
+		}
+		contract := tvm.Contract{string(f), c.contractName, nil}
+
+		jsonBytes, errMarsh := json.Marshal(contract)
+		if errMarsh != nil {
+			fmt.Println("Marshal contract failed: ", errMarsh)
+			c.fs.PrintDefaults()
+			return false
+		}
+		c.data = string(jsonBytes)
+
+	} else if c.txType == 2 { //调用合约预处理
+		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+			fmt.Println("please input the contractPath")
+			c.fs.PrintDefaults()
+			return false
+		}
+
+		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		if err != nil {
+			fmt.Println("read the "+c.contractPath+"file failed ", err)
+			c.fs.PrintDefaults()
+			return false
+		}
+		c.data = string(f)
+	}
+
 	return true
 }
 
-type minerApplyCmd struct {
+type exportAbiCmd struct {
 	baseCmd
+	contractName string
+	contractPath string
+	contract tvm.Contract
+}
+
+func genExportAbiCmd() *exportAbiCmd {
+	c := &exportAbiCmd{
+		baseCmd: *genbaseCmd("exportabi", "export contract ABI"),
+	}
+
+	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
+	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
+
+	return c
+}
+
+func (c *exportAbiCmd) parse(args []string) bool {
+	if err := c.fs.Parse(args); err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	if strings.TrimSpace(c.contractName) == "" { //合约名字非空
+		fmt.Println("please input the contractName")
+		c.fs.PrintDefaults()
+		return false
+	}
+
+	if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+		fmt.Println("please input the contractPath")
+		c.fs.PrintDefaults()
+		return false
+	}
+
+	f, err := ioutil.ReadFile(c.contractPath) //读取文件
+	if err != nil {
+		fmt.Println("read the "+c.contractPath+"file failed ", err)
+		c.fs.PrintDefaults()
+		return false
+	}
+	c.contract = tvm.Contract{string(f), c.contractName, nil}
+
+	return true
+}
+
+func (c *exportAbiCmd) export () {
+
+	vm := tvm.NewTvm(nil, &c.contract, "")
+	str := `
+class Register(object):
+    def __init__(self):
+        self.funcinfo = {}
+        self.abiinfo = []
+
+    def public(self , *dargs):
+        def wrapper(func):
+            paranametuple = func.__para__
+            paraname = list(paranametuple)
+            paraname.remove("self")
+            paratype = []
+            for i in range(len(paraname)):
+                paratype.append(dargs[i])
+            self.funcinfo[func.__name__] = [paraname,paratype]
+            tmp = {}
+            tmp["FuncName"] = func.__name__
+            tmp["Args"] = paratype
+            self.abiinfo.append(tmp)
+            abiexport(str(self.abiinfo))
+            
+            def _wrapper(*args , **kargs):
+                return func(*args, **kargs)
+            return _wrapper
+        return wrapper
+
+import builtins
+builtins.register = Register()
+`
+	vm.Execute(str)
+
+	result := tvm.VmStringParse(vm.AbiJson())
+	fmt.Println(result[3])
+}
+
+type minerApplyCmd struct {
+	gasBaseCmd
 	stake uint64
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerApplyCmd() *minerApplyCmd {
 	c := &minerApplyCmd{
-		baseCmd: *genbaseCmd("minerapply", "apply to be a miner"),
+		gasBaseCmd: *genGasBaseCmd("minerapply", "apply to be a miner"),
 	}
-	c.fs.Uint64Var(&c.stake, "stake", 10, "freeze stake, default 10")
+	c.initBase()
+	c.fs.Uint64Var(&c.stake, "stake", 100, "freeze stake of tas, default 100TAS")
 	c.fs.IntVar(&c.mtype, "type", 0, "apply miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -291,23 +458,20 @@ func (c *minerApplyCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	return true
+	return c.parseGasPrice()
 }
 
 type minerAbortCmd struct {
-	baseCmd
+	gasBaseCmd
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerAbortCmd() *minerAbortCmd {
 	c := &minerAbortCmd{
-		baseCmd: *genbaseCmd("minerabort", "abort a miner identifier"),
+		gasBaseCmd: *genGasBaseCmd("minerabort", "abort a miner identifier"),
 	}
+	c.initBase()
 	c.fs.IntVar(&c.mtype, "type", 0, "abort miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -316,23 +480,20 @@ func (c *minerAbortCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	return true
+	return c.parseGasPrice()
 }
 
 type minerRefundCmd struct {
-	baseCmd
+	gasBaseCmd
 	mtype int
-	gas  uint64
-	gasprice uint64
 }
 
 func genMinerRefundCmd() *minerRefundCmd {
 	c := &minerRefundCmd{
-		baseCmd: *genbaseCmd("minerrefund", "apply to refund the miner freeze stake"),
+		gasBaseCmd: *genGasBaseCmd("minerrefund", "apply to refund the miner freeze stake"),
 	}
+	c.initBase()
 	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.Uint64Var(&c.gas, "gas", 10000, "gaslimit for the transaction, default 10000")
-	c.fs.Uint64Var(&c.gasprice, "gasprice", 100, "gasprice for the transaction, default 100")
 	return c
 }
 
@@ -341,8 +502,34 @@ func (c *minerRefundCmd) parse(args []string) bool {
 		fmt.Println(err.Error())
 		return false
 	}
+	return c.parseGasPrice()
+}
+
+type viewContractCmd struct {
+	baseCmd
+	addr string
+}
+
+func genViewContractCmd() *viewContractCmd {
+	c := &viewContractCmd{
+		baseCmd: *genbaseCmd("viewcontract", "view contract data"),
+	}
+	c.fs.StringVar(&c.addr, "addr", "", "address of the contract")
+	return c
+}
+
+func (c *viewContractCmd) parse(args []string) bool {
+	if err := c.fs.Parse(args); err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	if c.addr == "" {
+		fmt.Println("please input the contract address")
+		return false
+	}
 	return true
 }
+
 
 var cmdNewAccount = genNewAccountCmd()
 var cmdExit = genbaseCmd("exit", "quit  gtas")
@@ -359,9 +546,11 @@ var cmdGroupHeight = genbaseCmd("groupheight", "the current group height")
 var cmdTx = genTxCmd()
 var cmdBlock = genBlockCmd()
 var cmdSendTx = genSendTxCmd()
+var cmdExportAbi = genExportAbiCmd()
 var cmdMinerApply = genMinerApplyCmd()
 var cmdMinerAbort = genMinerAbortCmd()
 var cmdMinerRefund = genMinerRefundCmd()
+var cmdViewContract = genViewContractCmd()
 
 var list = make([]*baseCmd, 0)
 
@@ -380,9 +569,11 @@ func init() {
 	list = append(list, &cmdTx.baseCmd)
 	list = append(list, &cmdBlock.baseCmd)
 	list = append(list, &cmdSendTx.baseCmd)
+	list = append(list, &cmdExportAbi.baseCmd)
 	list = append(list, &cmdMinerApply.baseCmd)
 	list = append(list, &cmdMinerAbort.baseCmd)
 	list = append(list, &cmdMinerRefund.baseCmd)
+	list = append(list, &cmdViewContract.baseCmd)
 	list = append(list, cmdExit)
 }
 
@@ -396,14 +587,24 @@ func Usage() {
 }
 
 
-func ConsoleInit(host string, port int, show bool) error {
-
-	chainop := InitRemoteChainOp(host, port, show, AccountOp)
+func ConsoleInit(keystore, host string, port int, show bool, rpcport int) error {
+	aop, err := InitAccountManager(keystore, false)
+	if err != nil {
+		return err
+	}
+	chainop := InitRemoteChainOp(host, port, show, aop)
 	if chainop.base != "" {
 
 	}
 
-	loop(AccountOp, chainop)
+	if rpcport > 0 {
+		ws := NewWalletServer(rpcport, aop)
+		if err := ws.Start(); err != nil {
+			return err
+		}
+	}
+
+	loop(aop, chainop)
 
 	return nil
 }
@@ -494,13 +695,14 @@ func loop(acm accountOp, chainOp chainOp) {
 			continue
 		}
 		cmdStr := inputArr[0]
+		args := inputArr[1:]
 
 		switch cmdStr {
 		case "":
 			break
 		case cmdNewAccount.name:
 			cmd := genNewAccountCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return acm.NewAccount(cmd.password, cmd.miner)
 				})
@@ -518,7 +720,7 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdUnlock.name:
 			cmd := genUnlockCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				unlockLoop(cmd, acm)
 			}
 		case cmdAccountInfo.name:
@@ -531,20 +733,20 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdConnect.name:
 			cmd := genConnectCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				chainOp.Connect(cmd.host, cmd.port)
 			}
 
 		case cmdBalance.name:
 			cmd := genBalanceCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.Balance(cmd.addr)
 				})
 			}
 		case cmdMinerInfo.name:
 			cmd := genMinerInfoCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.MinerInfo(cmd.addr)
 				})
@@ -559,14 +761,17 @@ func loop(acm accountOp, chainOp chainOp) {
 			})
 		case cmdTx.name:
 			cmd := genTxCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
+					if cmd.executed {
+						return chainOp.TxReceipt(cmd.hash)
+					}
 					return chainOp.TxInfo(cmd.hash)
 				})
 			}
 		case cmdBlock.name:
 			cmd := genBlockCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					if cmd.hash != "" {
 						return chainOp.BlockByHash(cmd.hash)
@@ -577,31 +782,43 @@ func loop(acm accountOp, chainOp chainOp) {
 			}
 		case cmdSendTx.name:
 			cmd := genSendTxCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
 					return chainOp.SendRaw(cmd.toTxRaw())
 				})
 			}
+		case cmdExportAbi.name:
+			cmd := genExportAbiCmd()
+			if cmd.parse(inputArr[1:]) {
+				cmd.export()
+			}
 
 		case cmdMinerApply.name:
 			cmd := genMinerApplyCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
-					return chainOp.ApplyMiner(cmd.mtype, cmd.stake, cmd.gas, cmd.gasprice)
+					return chainOp.ApplyMiner(cmd.mtype, cmd.stake, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerAbort.name:
 			cmd := genMinerAbortCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
-					return chainOp.AbortMiner(cmd.mtype, cmd.gas, cmd.gasprice)
+					return chainOp.AbortMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdMinerRefund.name:
 			cmd := genMinerRefundCmd()
-			if cmd.parse(inputArr[1:]) {
+			if cmd.parse(args) {
 				handleCmd(func() *Result {
-					return chainOp.RefundMiner(cmd.mtype, cmd.gas, cmd.gasprice)
+					return chainOp.RefundMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
+				})
+			}
+		case cmdViewContract.name:
+			cmd := genViewContractCmd()
+			if cmd.parse(args) {
+				handleCmd(func() *Result {
+					return chainOp.ViewContract(cmd.addr)
 				})
 			}
 		default:

@@ -16,18 +16,18 @@
 package core
 
 import (
-	"errors"
-	"sync"
 	"common"
-	"os"
-	"storage/tasdb"
-	"middleware/types"
-	"middleware"
-	"github.com/hashicorp/golang-lru"
-	"sort"
-	"github.com/vmihailenco/msgpack"
-	"time"
+	"errors"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
+	"github.com/vmihailenco/msgpack"
+	"middleware"
+	"middleware/types"
+	"os"
+	"sort"
+	"storage/tasdb"
+	"sync"
+	"time"
 )
 
 const (
@@ -37,6 +37,7 @@ const (
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
 	TxCountPerBlock      = 3000
+	GasLimitMax          = 500000
 )
 
 var (
@@ -169,9 +170,20 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	if tx.Sign == nil {
 		return fmt.Errorf("tx sign nil")
 	}
+
+	if tx.Type != types.TransactionTypeBonus && tx.GasPrice == 0 {
+		return fmt.Errorf("illegal tx gasPrice")
+	}
+
+	if tx.Type != types.TransactionTypeBonus && tx.GasLimit > GasLimitMax {
+		return fmt.Errorf("gasLimit too  big! max gas limit is 500000 lei")
+	}
+
 	switch tx.Type {
 	case types.TransactionTypeBonus: //todo 分红交易，验证组签名
-
+		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
+			return err
+		}
 	default:
 		msg := tx.Hash.Bytes()
 		pk, err := tx.Sign.RecoverPubkey(msg)

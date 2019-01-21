@@ -87,6 +87,8 @@ type accountOp interface {
 	AccountInfo() *Result
 
 	DeleteAccount() *Result
+
+	Close()
 }
 
 type chainOp interface {
@@ -116,4 +118,8 @@ type chainOp interface {
 	BlockByHash(hash string) *Result
 
 	BlockByHeight(h uint64) *Result
+
+	ViewContract(addr string) *Result
+
+	TxReceipt(hash string) *Result
 }

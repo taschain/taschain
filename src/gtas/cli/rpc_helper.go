@@ -4,7 +4,6 @@ import (
 	"middleware/types"
 	"consensus/groupsig"
 	"consensus/mediator"
-	"log"
 	"common"
 	"core"
 	"fmt"
@@ -18,40 +17,40 @@ import (
 
 func convertTransaction(tx *types.Transaction) *Transaction {
 	trans := &Transaction{
-		Hash: tx.Hash,
-		Source: tx.Source,
-		Target: tx.Target,
-		Type: tx.Type,
-		GasLimit: tx.GasLimit,
-		GasPrice: tx.GasPrice,
-		Data: tx.Data,
-		ExtraData: tx.ExtraData,
+		Hash:          tx.Hash,
+		Source:        tx.Source,
+		Target:        tx.Target,
+		Type:          tx.Type,
+		GasLimit:      tx.GasLimit,
+		GasPrice:      tx.GasPrice,
+		Data:          tx.Data,
+		ExtraData:     tx.ExtraData,
 		ExtraDataType: tx.ExtraDataType,
-		Nonce: tx.Nonce,
-		Value: tx.Value,
+		Nonce:         tx.Nonce,
+		Value:         common.RA2TAS(tx.Value),
 	}
 	return trans
 }
 
 func convertBlockHeader(bh *types.BlockHeader) *Block {
 	block := &Block{
-		Height: bh.Height,
-		Hash: bh.Hash,
+		Height:  bh.Height,
+		Hash:    bh.Hash,
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime,
 		PreTime: bh.PreTime,
-		Castor: groupsig.DeserializeId(bh.Castor),
+		Castor:  groupsig.DeserializeId(bh.Castor),
 		GroupID: groupsig.DeserializeId(bh.GroupId),
-		Prove: bh.ProveValue,
-		Txs: bh.Transactions,
+		Prove:   bh.ProveValue,
+		Txs:     bh.Transactions,
 		TotalQN: bh.TotalQN,
 		//Qn: mediator.Proc.CalcBlockHeaderQN(bh),
-		StateRoot: bh.StateTree,
-		TxRoot: bh.TxTree,
-		RecieptRoot: bh.ReceiptTree,
-		ProveRoot: bh.ProveRoot,
-		Random: common.ToHex(bh.Random),
-		TxNum: uint64(len(bh.Transactions)),
+		StateRoot:   bh.StateTree,
+		TxRoot:      bh.TxTree,
+		ReceiptRoot: bh.ReceiptTree,
+		ProveRoot:   bh.ProveRoot,
+		Random:      common.ToHex(bh.Random),
+		TxNum:       uint64(len(bh.Transactions)),
 	}
 	return block
 }
@@ -67,27 +66,27 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 		targets[i] = groupsig.DeserializeId(id)
 	}
 	return &BonusTransaction{
-		Hash: tx.Hash,
+		Hash:      tx.Hash,
 		BlockHash: bhash,
-		GroupID: groupsig.DeserializeId(gid),
+		GroupID:   groupsig.DeserializeId(gid),
 		TargetIDs: targets,
-		Value: value,
+		Value:     value,
 	}
 }
 
 func genMinerBalance(id groupsig.ID, bh *types.BlockHeader) *MinerBonusBalance {
-	mb :=  &MinerBonusBalance{
+	mb := &MinerBonusBalance{
 		ID: id,
 	}
 	db, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.Hash)
 	if err != nil {
-		log.Printf("GetAccountDBByHash err %v, hash %v", err, bh.Hash)
+		common.DefaultLogger.Errorf("GetAccountDBByHash err %v, hash %v", err, bh.Hash)
 		return mb
 	}
 	mb.CurrBalance = db.GetBalance(id.ToAddress())
 	preDB, err := mediator.Proc.MainChain.GetAccountDBByHash(bh.PreHash)
 	if err != nil {
-		log.Printf("GetAccountDBByHash err %v hash %v", err, bh.PreHash)
+		common.DefaultLogger.Errorf("GetAccountDBByHash err %v hash %v", err, bh.PreHash)
 		return mb
 	}
 	mb.PreBalance = preDB.GetBalance(id.ToAddress())
@@ -108,13 +107,11 @@ func sendTransaction(trans *types.Transaction) error {
 	}
 	source := pk.GetAddress()
 	trans.Source = &source
-
-	fmt.Println(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
-	fmt.Printf("%+v\n", trans)
+	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
+		common.DefaultLogger.Errorf("AddTransaction not ok or error:%s", err.Error())
 		return err
 	}
 	return nil
 }
-

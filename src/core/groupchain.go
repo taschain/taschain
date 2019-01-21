@@ -342,11 +342,18 @@ func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 //}
 
 func (chain *GroupChain) AddGroup(group *types.Group) error {
+	if nil != group.Id {
+		if exist, _ := chain.groups.Has(group.Id); exist {
+			notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
+			return errors.New("group already exist")
+		}
+	}
 	//CheckGroup会调用groupchain的接口，需要在加锁前调用
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
-		if err == common.ErrCreateBlockNil {
+		if err == common.ErrCreateBlockNil && GroupSyncer != nil && GroupSyncer.dependGroup == nil {
 			GroupSyncer.dependGroup = group
+			GroupSyncer.dependHoldTimer.Reset(groupSyncDependHoldTimeOut)
 			Logger.Infof("Add group on chain depend on block.Hold group sync!")
 		}
 		return err
@@ -411,12 +418,6 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 }
 
 func (chain *GroupChain) save(group *types.Group) error {
-	if nil != group.Id {
-		if exist, _ := chain.groups.Has(group.Id); exist {
-			notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
-			return errors.New("group already exist")
-		}
-	}
 
 	group.GroupHeight = chain.count
 	if Logger != nil {

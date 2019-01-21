@@ -25,6 +25,7 @@ import (
 	"storage/serialize"
 	"golang.org/x/crypto/sha3"
 	"common"
+	"unsafe"
 )
 
 type revision struct {
@@ -61,18 +62,18 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
-	tr, err := db.OpenTrieWithMap(root, nodes)
-	if err != nil {
-		return nil, err
-	}
-	return &AccountDB{
-		db:   db,
-		trie: tr,
-		//accountObjects:      make(map[common.Address]*accountObject),
-		accountObjectsDirty: make(map[common.Address]struct{}),
-	}, nil
-}
+//func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
+//	tr, err := db.OpenTrieWithMap(root, nodes)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return &AccountDB{
+//		db:   db,
+//		trie: tr,
+//		//accountObjects:      make(map[common.Address]*accountObject),
+//		accountObjectsDirty: make(map[common.Address]struct{}),
+//	}, nil
+//}
 
 func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
@@ -187,6 +188,10 @@ func (self *AccountDB) GetData(a common.Address, b string) []byte {
 		return stateObject.GetData(self.db, b)
 	}
 	return nil
+}
+
+func (self *AccountDB) RemoveData(a common.Address, b string) {
+	self.SetData(a, b, nil)
 }
 
 func (self *AccountDB) Database() AccountDatabase {
@@ -362,6 +367,37 @@ func (self *AccountDB) DataIterator(addr common.Address, prefix string) *trie.It
 	}
 }
 
+func (self *AccountDB) DataNext(iterator uintptr) string  {
+	iter := (*trie.Iterator)(unsafe.Pointer(iterator))
+	if iter == nil{
+		return `{"key":"","value":"","hasValue":0}`
+	}
+	hasValue := 1
+	var key string = ""
+	var value string = ""
+	if len(iter.Key) != 0 {
+		key = string(iter.Key)
+		value = string(iter.Value)
+	}
+	if !iter.Next(){//no data
+		hasValue = 0
+	}
+	if key == "" {
+		return fmt.Sprintf(`{"key":"","value":"","hasValue":%d}`, hasValue)
+	}
+	if len(value) > 0{
+		valueType := value[0:1]
+		if valueType == "0"{//this is map node
+			hasValue = 2
+		}else{
+			value= value[1:]
+		}
+	}else{
+		return `{"key":"","value":"","hasValue":0}`
+	}
+	return fmt.Sprintf(`{"key":"%s","value":%s,"hasValue":%d}`,key,value,hasValue)
+}
+
 func (self *AccountDB) Copy() *AccountDB {
 	self.lock.Lock()
 	defer self.lock.Unlock()
@@ -472,7 +508,7 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		case isDirty:
 
 			if accountObject.code != nil && accountObject.dirtyCode {
-				s.db.TrieDB().Insert(common.BytesToHash(accountObject.CodeHash()), accountObject.code)
+				s.db.TrieDB().InsertBlob(common.BytesToHash(accountObject.CodeHash()), accountObject.code)
 				accountObject.dirtyCode = false
 			}
 
@@ -506,6 +542,5 @@ func (s *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error
 		return nil
 	})
 	//s.db.PushTrie(root, s.trie)
-	common.DefaultLogger.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }

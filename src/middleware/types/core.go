@@ -23,6 +23,66 @@ import (
 	"bytes"
 )
 
+type AddBlockOnChainSituation string
+
+const (
+	Sync                  AddBlockOnChainSituation = "sync"
+	NewBlock              AddBlockOnChainSituation = "newBlock"
+	FutureBlockCache      AddBlockOnChainSituation = "futureBlockCache"
+	DependGroupBlock      AddBlockOnChainSituation = "dependGroupBlock"
+	LocalGenerateNewBlock AddBlockOnChainSituation = "localGenerateNewBlock"
+	MergeFork             AddBlockOnChainSituation = "mergeFork"
+)
+
+type AddBlockResult int8
+
+const (
+	AddBlockFailed            AddBlockResult = -1
+	AddBlockSucc              AddBlockResult = 0
+	BlockExisted              AddBlockResult = 1
+	BlockTotalQnLessThanLocal AddBlockResult = 2
+	Forking                   AddBlockResult = 3
+)
+const (
+	SUCCESS                             = 0
+	TxErrorCode_BalanceNotEnough        = 1
+	TxErrorCode_ContractAddressConflict = 2
+	TxErrorCode_DeployGasNotEnough      = 3
+	TxErrorCode_NO_CODE                 = 4
+
+	Syntax_Error = 1001
+	GasNotEnough = 1002
+
+	Sys_Error                        = 2001
+	Sys_Check_Abi_Error              = 2002
+	Sys_Abi_JSON_Error               = 2003
+	Sys_CONTRACT_CALL_MAX_DEEP_Error = 2004
+)
+
+var (
+	NO_CODE_ERR_MSG = "get code from address %s,but no code!"
+)
+var (
+	ABI_JSON_ERROR = "4|2003|abi json format error"
+	NO_CODE_ERR    = "4|4|" + NO_CODE_ERR_MSG
+	CALL_MAX_DEEP  = "4|2004|call max deep cannot more than 8"
+)
+
+var (
+	TxErrorBalanceNotEnough   = NewTransactionError(TxErrorCode_BalanceNotEnough, "balance not enough")
+	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough, "gas not enough")
+	TxErrorAbiJson            = NewTransactionError(Sys_Abi_JSON_Error, "abi json format error")
+)
+
+type TransactionError struct {
+	Code    int
+	Message string
+}
+
+func NewTransactionError(code int, msg string) *TransactionError {
+	return &TransactionError{Code: code, Message: msg}
+}
+
 const (
 	TransactionTypeTransfer       = 0
 	TransactionTypeContractCreate = 1

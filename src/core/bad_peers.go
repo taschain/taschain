@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	badPeersCleanInterval = time.Minute * 15
+	badPeersCleanInterval = time.Minute * 3
 	evilMaxCount          = 3
 )
 

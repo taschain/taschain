@@ -1,0 +1,1 @@
+./gtas miner --apply light

@@ -16,15 +16,16 @@
 package mediator
 
 import (
-	"math/big"
-	"middleware/types"
-	"consensus/model"
-	"consensus/base"
-	"consensus/logical"
+	"bytes"
 	"common"
+	"consensus/base"
+	"consensus/groupsig"
+	"consensus/logical"
+	"consensus/model"
 	"errors"
 	"fmt"
-	"consensus/groupsig"
+	"math/big"
+	"middleware/types"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,11 +64,11 @@ type QueryBlockByHeight func() *core.BlockHeader
 //共识模块提供给外部的数据
 
 type ConsensusHelperImpl struct {
-	ID 	groupsig.ID
+	ID groupsig.ID
 }
 
 func NewConsensusHelper(id groupsig.ID) types.ConsensusHelper {
-	return &ConsensusHelperImpl{ID:id}
+	return &ConsensusHelperImpl{ID: id}
 }
 
 func (helper *ConsensusHelperImpl) ProposalBonus() *big.Int {
@@ -90,7 +91,6 @@ func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
 }
 
-
 func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
 	return Proc.GenVerifyHash(b, helper.ID)
 }
@@ -109,17 +109,17 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 		return true, nil
 	} else {
-		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveValue, root))
+		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 
 }
 
-func (helper *ConsensusHelperImpl ) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
-    return Proc.VerifyBlock(bh, preBH)
+func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
+	return Proc.VerifyBlock(bh, preBH)
 }
 
-func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error)  {
-    return Proc.VerifyBlockHeader(bh)
+func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error) {
+	return Proc.VerifyBlockHeader(bh)
 }
 
 func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err error) {
@@ -127,14 +127,33 @@ func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err erro
 		return false, fmt.Errorf("sign is empty")
 	}
 	//检验头和签名
-	//if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
-    	//gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
-    	//gid := groupsig.NewIDFromPubkey(gpk).Serialize()
-	//	if !bytes.Equal(gid, g.Id) {
-	//		return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
-	//	}
-	//} else {
-	//	return false, err
-	//}
+	if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
+		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
+		gid := groupsig.NewIDFromPubkey(gpk).Serialize()
+		if !bytes.Equal(gid, g.Id) {
+			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
+		}
+	} else {
+		return false, err
+	}
+	return true, nil
+}
+
+func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
+	sign_bytes := tx.Sign.Bytes()
+	if len(sign_bytes) < common.SignLength {
+		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", sign_bytes)
+	}
+	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	group :=Proc.GroupChain.GetGroupById(groupID)
+	if group == nil {
+		return false, fmt.Errorf("VerifyBonusTransaction fail, Can't get groupinfo(gid=%x)", groupID)
+	}
+	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
+	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig
+	gsign := groupsig.DeserializeSign(sign_bytes[0:33]) //size of groupsig == 33
+	if !groupsig.VerifySig(gpk, tx.Hash.Bytes(), *gsign) {
+		return false, fmt.Errorf("verify bonus sign fail, gsign=%v", gsign.GetHexString())
+	}
 	return true, nil
 }

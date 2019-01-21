@@ -1,17 +1,18 @@
-//   Copyright (C) 2018 TASChain
+// Copyright 2014 The go-ethereum Authors
+// This file is part of the go-ethereum library.
 //
-//   This program is free software: you can redistribute it and/or modify
-//   it under the terms of the GNU General Public License as published by
-//   the Free Software Foundation, either version 3 of the License, or
-//   (at your option) any later version.
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//   This program is distributed in the hope that it will be useful,
-//   but WITHOUT ANY WARRANTY; without even the implied warranty of
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//   GNU General Public License for more details.
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
 //
-//   You should have received a copy of the GNU General Public License
-//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package trie
 
@@ -20,7 +21,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"io/ioutil"
+	"math/big"
 	"math/rand"
 	"os"
 	"reflect"
@@ -29,9 +32,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"storage/tasdb"
-
-	"strconv"
+	"storage/rlp"
 )
 
 func init() {
@@ -41,8 +44,8 @@ func init() {
 
 // Used for testing
 func newEmpty() *Trie {
-	diskdb, _ := tasdb.NewMemDatabase()
-	trie, _ := NewTrie(common.Hash{}, NewDatabase(diskdb))
+	db,_ := tasdb.NewMemDatabase()
+	trie, _ := NewTrie(common.Hash{}, NewDatabase(db))
 	return trie
 }
 
@@ -65,143 +68,9 @@ func TestNull(t *testing.T) {
 	}
 }
 
-func TestExpandAll2(t *testing.T) {
-	diskdb, _ := tasdb.NewMemDatabase()
-	triedb := NewDatabase(diskdb)
-	trie, _ := NewTrie(common.Hash{}, triedb) //98
-	mp := make(map[string]*[]byte)
-	for i := 0; i < 100; i++ {
-		//updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
-	}
-	trie.Hash2(mp, true)
-	root, _ := trie.Commit(nil)
-	triedb.Commit(root, false)
-
-	trie2, _ := NewTrie(root, triedb) //99
-	for i := 200; i < 300; i++ {
-		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
-	}
-	trie2.Hash2(mp, true)
-	root2, _ := trie2.Commit(nil)
-	triedb.Commit(root2, false)
-
-	//--------------------------------执行缺失交易-------------------------
-	trie3, _ := NewTrie(root2, triedb) //100
-	for i := 300; i < 320; i++ {
-		updateString(trie3, strconv.Itoa(i), strconv.Itoa(1000+i))
-	}
-	trie3.Hash2(mp, true)
-	root3, _ := trie3.Commit(nil)
-	triedb.Commit(root3, false)
-	fmt.Printf("false after1 100 tx:%v \n", root3)
-
-	trie5, _ := NewTrie(root3, triedb) //100
-	for i := 200; i < 300; i++ {
-		updateString(trie5, strconv.Itoa(i), strconv.Itoa(1000+i))
-	}
-	root5, _ := trie5.Commit(nil)
-	triedb.Commit(root5, false)
-	fmt.Printf("false after2 100 tx:%v \n", root5)
-	//--------------------------------执行缺失交易-------------------------
-
-	trie4, _ := NewTrie(root2, triedb) //100
-	for i := 200; i < 320; i++ {
-		updateString(trie4, strconv.Itoa(i), strconv.Itoa(1000+i))
-	}
-	root4, _ := trie4.Commit(nil)
-	triedb.Commit(root4, false)
-
-	fmt.Printf("true after 100 tx:%v \n", root4)
-
-	//--------------------------------execute-------------------------
-
-	//-----------------------------------------------------------------------------------------------------------------------------
-	diskdb2, _ := tasdb.NewMemDatabase()
-	triedb2 := NewDatabase(diskdb2)
-	for key, value := range mp {
-		diskdb2.Put(([]byte)(key), *value)
-	}
-	trie33, _ := NewTrie(root3, triedb2) //100
-	for i := 200; i < 300; i++ {
-		updateString(trie33, strconv.Itoa(i), strconv.Itoa(1000+i))
-	}
-	root33, _ := trie33.Commit(nil)
-	fmt.Printf("轻节点 after 100 tx:%v \n", root33)
-}
-
-func TestExpandAll(t *testing.T) {
-	fmt.Println("mock full chain:")
-	diskdb, _ := tasdb.NewMemDatabase()
-	triedb := NewDatabase(diskdb)
-	mp := make(map[string]*[]byte)
-	trie, _ := NewTrie(common.Hash{}, triedb) //init
-
-	fmt.Println("--------------------------98 exe 1-----------------------------------")
-	for i := 0; i < 1; i++ {
-		updateString(trie, strconv.Itoa(i), strconv.Itoa(i))
-	}
-	root, _ := trie.Commit(nil)
-	triedb.Commit(root, false)
-
-	fmt.Printf("after -----------------------------------root= %x\n", root)
-
-	fmt.Println("-------------------------- 99 exe tx2-----------------------------------")
-	trie2, _ := NewTrie(root, triedb) //99
-	for i := 2; i < 3; i++ {
-		updateString(trie2, strconv.Itoa(i), strconv.Itoa(i))
-	}
-	root2, _ := trie2.Commit(nil)
-	triedb.Commit(root2, false)
-	fmt.Printf("after-----------------------------------root= %x\n", root2)
-
-	fmt.Println("--------------------------99 get 2-----------------------------------")
-	copyTrie2, _ := NewTrieWithMap(root2, triedb, mp) //99
-	si := strconv.Itoa(2)
-	copyTrie2.GetBranch([]byte(si), mp)
-	fmt.Printf("after-----------------------------------root= %x\n", root2)
-
-	//------------------copy begin----------------------
-	fmt.Println("--------------------------99 get 3-----------------------------------")
-	copyTrie, _ := NewTrieWithMap(root2, triedb, mp) //99
-	//put trie data
-	for i := 3; i < 4; i++ {
-		si := strconv.Itoa(i)
-		copyTrie.GetBranch([]byte(si), mp)
-	}
-	//------------------copy end----------------------
-	fmt.Println("after-----------------------------------")
-
-	fmt.Println("--------------------------100 exe 23-----------------------------------")
-	trie3, _ := NewTrie(root2, triedb) //100
-	for i := 2; i < 4; i++ {
-		updateString(trie3, strconv.Itoa(i), strconv.Itoa(i+1000))
-	}
-	root3, _ := trie3.Commit(nil)
-	triedb.Commit(root3, false)
-	fmt.Printf("after -----------------------------------root= %x\n", root3)
-	//-----------------------------------------------------------------------------------------------------------------------------
-	fmt.Println("mock light chain:")
-	diskdb2, _ := tasdb.NewMemDatabase()
-	triedb2 := NewDatabase(diskdb2)
-	for key, value := range mp {
-		diskdb2.Put(([]byte)(key), *value)
-	}
-	trie22, _ := NewTrie(root2, triedb2) //99
-	fmt.Println("--------------------------light 100 exe 23-----------------------------------")
-	for i := 2; i < 4; i++ {
-		updateString(trie22, strconv.Itoa(i), strconv.Itoa(i+1000))
-	}
-	root33, _ := trie22.Commit(nil)
-	fmt.Printf("after -----------------------------------root= %x\n", root33)
-
-	if root3 != root33 {
-		t.Errorf("wrong error:old hash = %x,new hash= %x", root3, root33)
-	}
-}
-
 func TestMissingRoot(t *testing.T) {
-	diskdb, _ := tasdb.NewMemDatabase()
-	trie, err := NewTrie(common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(diskdb))
+	db,_ := tasdb.NewMemDatabase()
+	trie, err := NewTrie(common.HexToHash("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"), NewDatabase(db))
 	if trie != nil {
 		t.Error("NewTrie returned non-nil trie for invalid root")
 	}
@@ -214,7 +83,7 @@ func TestMissingNodeDisk(t *testing.T)    { testMissingNode(t, false) }
 func TestMissingNodeMemonly(t *testing.T) { testMissingNode(t, true) }
 
 func testMissingNode(t *testing.T, memonly bool) {
-	diskdb, _ := tasdb.NewMemDatabase()
+	diskdb,_ := tasdb.NewMemDatabase()
 	triedb := NewDatabase(diskdb)
 
 	trie, _ := NewTrie(common.Hash{}, triedb)
@@ -286,58 +155,29 @@ func testMissingNode(t *testing.T, memonly bool) {
 }
 
 func TestInsert(t *testing.T) {
-	diskdb, _ := tasdb.NewMemDatabase()
-	//diskdb, _ := tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
-	triedb := NewDatabase(diskdb)
-	trie, err := NewTrie(common.Hash{}, triedb)
-	//trie,err:= NewTrie(common.HexToHash("0xe8ec13f3fc46b18ff08bb2beb207319377f03603bc9146374ca294d82c29c195"), triedb)
-	//trie := newEmpty()
-	if err != nil {
-		panic(err)
-	}
+	trie := newEmpty()
+
 	updateString(trie, "doe", "reindeer")
-	updateString(trie, "xog", "puppy")
-	updateString(trie, "xogglesworth", "cat")
-	updateString(trie, "togee", "cat11")
-	updateString(trie, "pogef", "cat12")
-	updateString(trie, "qogefff", "cat123")
-	//trie.Update([]byte("dogeffa"), bytes.Repeat([]byte{'a'}, 33))
-	//fmt.Println(string(trie.Get([]byte("doe"))))
-	//exp := common.HexToHash("8aad789dff2f538bca5d8ea56e8abe10f4c7ba3a5dea95fea4cd6e7c3a1168d3")
+	updateString(trie, "dog", "puppy")
+	updateString(trie, "dogglesworth", "cat")
+
+	exp := common.HexToHash("8aad789dff2f538bca5d8ea56e8abe10f4c7ba3a5dea95fea4cd6e7c3a1168d3")
 	root := trie.Hash()
-	//if root != exp {
-	//	t.Errorf("exp %x got %x", exp, root)
-	//}
+	if root != exp {
+		t.Errorf("exp %x got %x", exp, root)
+	}
 
-	//trie = newEmpty()
-	//updateString(trie, "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	trie = newEmpty()
+	updateString(trie, "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
-	//exp = common.HexToHash("d23786fb4a010da3ce639d66d5e904a11dbc02746d1ce25029e53290cabf28ab")
-	root, _ = trie.Commit(nil)
-	triedb.Commit(root, false)
-	fmt.Println(root.Hex())
-	//diskdb.Close()
-	//diskdb, _ = tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
-
-	//if err != nil {
-	//	t.Fatalf("commit error: %v", err)
-	//}
-	//if root != exp {
-	//	t.Errorf("exp %x got %x", exp, root)
-	//}
-
-	trie2, _ := NewTrie(root, NewDatabase(diskdb))
-	root, _ = trie2.Commit(nil)
-	fmt.Println(root.Hex())
-	fmt.Println(string(getString(trie2, "qogefff")))
-	//diskdb.Close()
-	//diskdb, _ = tasdb.NewLDBDatabase("/Volumes/Work/work/test2", 0, 0)
-	//
-	//trie3, _ := NewTrie(root, NewDatabase(diskdb))
-	//updateString(trie3, "adsfdasf", "cat123")
-	//root,_ = trie3.Commit(nil)
-	//fmt.Println(root.Hex())
-	//fmt.Println(string(trie2.Get([]byte("dogeffa"))))
+	exp = common.HexToHash("d23786fb4a010da3ce639d66d5e904a11dbc02746d1ce25029e53290cabf28ab")
+	root, err := trie.Commit(nil)
+	if err != nil {
+		t.Fatalf("commit error: %v", err)
+	}
+	if root != exp {
+		t.Errorf("exp %x got %x", exp, root)
+	}
 }
 
 func TestGet(t *testing.T) {
@@ -385,7 +225,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp := common.HexToHash("91f85b454903f1475fe2fc3067ae2d7ae5f1effc067907c17deba8029d307b8d")
+	exp := common.HexToHash("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
 	if hash != exp {
 		t.Errorf("expected %x got %x", exp, hash)
 	}
@@ -409,7 +249,7 @@ func TestEmptyValues(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp := common.HexToHash("91f85b454903f1475fe2fc3067ae2d7ae5f1effc067907c17deba8029d307b8d")
+	exp := common.HexToHash("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
 	if hash != exp {
 		t.Errorf("expected %x got %x", exp, hash)
 	}
@@ -532,7 +372,7 @@ type randTestStep struct {
 }
 
 const (
-	opUpdate              = iota
+	opUpdate = iota
 	opDelete
 	opGet
 	opCommit
@@ -540,7 +380,7 @@ const (
 	opReset
 	opItercheckhash
 	opCheckCacheInvariant
-	opMax                  // boundary value, not an actual op
+	opMax // boundary value, not an actual op
 )
 
 func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
@@ -574,8 +414,8 @@ func (randTest) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func runRandTest(rt randTest) bool {
-	diskdb, _ := tasdb.NewMemDatabase()
-	triedb := NewDatabase(diskdb)
+	db,_ := tasdb.NewMemDatabase()
+	triedb := NewDatabase(db)
 
 	tr, _ := NewTrie(common.Hash{}, triedb)
 	values := make(map[string]string) // tracks content of the trie
@@ -610,17 +450,17 @@ func runRandTest(rt randTest) bool {
 				return false
 			}
 			tr = newtr
-			//case opItercheckhash:
-			//	checktr, _ := NewTrie(common.Hash{}, triedb)
-			//	it := NewIterator(tr.NodeIterator(nil))
-			//	for it.Next() {
-			//		checktr.Update(it.Key, it.Value)
-			//	}
-			//	if tr.Hash() != checktr.Hash() {
-			//		rt[i].err = fmt.Errorf("hash mismatch in opItercheckhash")
-			//	}
+		case opItercheckhash:
+			checktr, _ := NewTrie(common.Hash{}, triedb)
+			it := NewIterator(tr.NodeIterator(nil))
+			for it.Next() {
+				checktr.Update(it.Key, it.Value)
+			}
+			if tr.Hash() != checktr.Hash() {
+				rt[i].err = fmt.Errorf("hash mismatch in opItercheckhash")
+			}
 		case opCheckCacheInvariant:
-			rt[i].err = checkCacheInvariant(tr.RootNode, nil, tr.cachegen, false, 0)
+			rt[i].err = checkCacheInvariant(tr.root, nil, tr.cachegen, false, 0)
 		}
 		// Abort the test on error.
 		if rt[i].err != nil {
@@ -724,34 +564,34 @@ func benchUpdate(b *testing.B, e binary.ByteOrder) *Trie {
 // the first one will be NOOP. As such, we'll use b.N as the number of account to
 // insert into the trie before measuring the hashing.
 func BenchmarkHash(b *testing.B) {
-	//// Make the random benchmark deterministic
-	//random := rand.New(rand.NewSource(0))
-	//
-	//// Create a realistic account trie to hash
-	//addresses := make([][20]byte, b.N)
-	//for i := 0; i < len(addresses); i++ {
-	//	for j := 0; j < len(addresses[i]); j++ {
-	//		addresses[i][j] = byte(random.Intn(256))
-	//	}
-	//}
-	//accounts := make([][]byte, len(addresses))
-	//for i := 0; i < len(accounts); i++ {
-	//	var (
-	//		nonce   = uint64(random.Int63())
-	//		balance = new(big.Int).Rand(random, new(big.Int).Exp(common.Big2, common.Big256, nil))
-	//		root    = emptyRoot
-	//		code    = sha3.Sum256(nil)
-	//	)
-	//	accounts[i], _ = serialize.EncodeToBytes([]interface{}{nonce, balance, root, code})
-	//}
-	//// Insert the accounts into the trie and hash it
-	//trie := newEmpty()
-	//for i := 0; i < len(addresses); i++ {
-	//	trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
-	//}
-	//b.ResetTimer()
-	//b.ReportAllocs()
-	//trie.Hash()
+	// Make the random benchmark deterministic
+	random := rand.New(rand.NewSource(0))
+
+	// Create a realistic account trie to hash
+	addresses := make([][20]byte, b.N)
+	for i := 0; i < len(addresses); i++ {
+		for j := 0; j < len(addresses[i]); j++ {
+			addresses[i][j] = byte(random.Intn(256))
+		}
+	}
+	accounts := make([][]byte, len(addresses))
+	for i := 0; i < len(accounts); i++ {
+		var (
+			nonce   = uint64(random.Int63())
+			balance = new(big.Int).Rand(random, new(big.Int).Exp(common.Big2, common.Big256, nil))
+			root    = emptyRoot
+			code    = crypto.Keccak256(nil)
+		)
+		accounts[i], _ = rlp.EncodeToBytes([]interface{}{nonce, balance, root, code})
+	}
+	// Insert the accounts into the trie and hash it
+	trie := newEmpty()
+	for i := 0; i < len(addresses); i++ {
+		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	trie.Hash()
 }
 
 func tempDB() (string, *NodeDatabase) {

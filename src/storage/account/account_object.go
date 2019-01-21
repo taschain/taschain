@@ -180,6 +180,10 @@ func (self *accountObject) SetData(db AccountDatabase, key string, value []byte)
 	self.setData(key, value)
 }
 
+func (self *accountObject) RemoveData(db AccountDatabase, key string) {
+	self.SetData(db, key, nil)
+}
+
 func (self *accountObject) setData(key string, value []byte) {
 	self.cachedLock.Lock()
 	self.cachedStorage[key] = value
@@ -294,6 +298,7 @@ func (self *accountObject) Code(db AccountDatabase) []byte {
 	return code
 }
 
+
 func (self *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.Iterator {
 	if self.trie == nil {
 		self.getTrie(db)
@@ -353,9 +358,9 @@ func (self *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
 
-func (self *accountObject) fstring() string {
-	if self.trie == nil {
-		self.trie = self.getTrie(self.db.db)
-	}
-	return self.trie.Fstring()
-}
+//func (self *accountObject) fstring() string {
+//	if self.trie == nil {
+//		self.trie = self.getTrie(self.db.db)
+//	}
+//	return self.trie.Fstring()
+//}

@@ -17,153 +17,18 @@ package core
 //
 //import (
 //	"common"
-//	"math/rand"
-//	"testing"
-//	"time"
-//
 //	"fmt"
-//	"github.com/gin-gonic/gin/json"
+//	"middleware"
 //	"middleware/types"
 //	"network"
-//	"os"
-//	"middleware"
 //	"taslog"
-//	"tvm"
-//	"math/big"
+//	"testing"
 //)
 //
-//func init() {
-//	middleware.InitMiddleware()
-//}
-//
-//
-//func OnChainFunc(code string, source string) {
-//	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
-//	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-//	//Clear()
-//	initBlockChain()
-//	BlockChainImpl.transactionPool.Clear()
-//	txpool := BlockChainImpl.GetTransactionPool()
-//	index := BlockChainImpl.latestStateDB.GetNonce(common.HexStringToAddress(source))
-//	txpool.Add(genContractTx(123456, source, "", index, 0, []byte(code), nil, 0))
-//	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(index))))
-//	castor := new([]byte)
-//	groupid := new([]byte)
-//	// 铸块1
-//	block := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 12, big.NewInt(0), *castor, *groupid)
-//	if nil == block {
-//		fmt.Println("fail to cast new block")
-//	}
-//	// 上链
-//	if 0 != BlockChainImpl.AddBlockOnChain(block) {
-//		fmt.Println("fail to add block")
-//	}
-//	fmt.Println(contractAddr.GetHexString())
-//}
-//
-//func CallContract(address, abi string) {
-//	CallContract2(address, abi, "0x1234")
-//}
-//
-//func CallContract2(address, abi string, source string) {
-//	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
-//	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
-//	initBlockChain()
-//	BlockChainImpl.transactionPool.Clear()
-//	castor := new([]byte)
-//	groupid := new([]byte)
-//	contractAddr := common.HexStringToAddress(address)
-//	code := BlockChainImpl.latestStateDB.GetCode(contractAddr)
-//	fmt.Println(string(code))
-//	txpool := BlockChainImpl.GetTransactionPool()
-//	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-//	txpool.Add(genContractTx(123456, source, contractAddr.GetHexString(), r.Uint64(), 0, []byte(abi), nil, 0))
-//	block2 := BlockChainImpl.CastingBlock(BlockChainImpl.Height() + 1, 123, big.NewInt(0), *castor, *groupid)
-//	block2.Header.ProveValue = big.NewInt(2)
-//	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
-//		fmt.Println("fail to add empty block")
-//	}
-//}
-//
-//func TestVmTest(t *testing.T)  {
-//	Clear()
-//	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/token/contract_token_tas.py")
-//
-//	contract := tvm.Contract{code, "MyAdvancedToken", nil}
-//	jsonString, _ := json.Marshal(contract)
-//	fmt.Println(string(jsonString))
-//	contractAddress := common.HexToAddress("0x00000001")
-//	OnChainFunc(string(jsonString), contractAddress.GetHexString())
-//}
-//
-//func VmTest1(code string)  {
-//	contractAddr := "0x27fe3e1d80e80c70f64055ed67cf428b36b5f994"
-//	abi := code
-//	contractAddress := common.HexToAddress("0x00000001")
-//	CallContract2(contractAddr, abi, contractAddress.GetHexString())
-//}
-//
-//func TestVmTest2(t *testing.T)  {
-//	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/recharge/recharge.py")
-//
-//	contract := tvm.Contract{code, "Recharge", nil}
-//	jsonString, _ := json.Marshal(contract)
-//	fmt.Println(string(jsonString))
-//	contractAddress := common.HexToAddress("0x00000001")
-//	OnChainFunc(string(jsonString), contractAddress.GetHexString())
-//}
-//
-//func VmTest2(code string)  {
-//	contractAddr := "0x1ed70a8b95d348573aaa5414d6cd9b1cccc22831"
-//	abi := code
-//	contractAddress := common.HexToAddress("0x00000001")
-//	CallContract2(contractAddr, abi, contractAddress.GetHexString())
-//}
-//
-//func TestVmTest3(t *testing.T)  {
-//
-//	//VmTest1(`{"FuncName": "transfer", "Args": ["0x0000000300000000000000000000000000000000", 1000]}`)
-//	//VmTest1(`{"FuncName": "set_prices", "Args": [100, 100]}`)
-//	//VmTest1(`{"FuncName": "burn", "Args": [2500]}`)
-//	//VmTest1(`{"FuncName": "mint_token", "Args": ["0x0000000100000000000000000000000000000000", 5000]}`)
-//
-//	VmTest1(`{"FuncName": "approveAndCall", "Args": ["0x1ed70a8b95d348573aaa5414d6cd9b1cccc22831", 50, "13968999999"]}`)
-//}
-//
-//func TestContractOnChain(t *testing.T)  {
-//
-//	code := `
-//import account
-//class A():
-//	def __init__(self):
-//		self.a = 10
-//
-//	def deploy(self):
-//		print("deploy")
-//
-//	def test(self):
-//		account.transfer("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", 50)
-//`
-//	contract := tvm.Contract{code, "A", nil}
-//	jsonString, _ := json.Marshal(contract)
-//	fmt.Println(string(jsonString))
-//	//OnChainFunc(string(jsonString), "0x1234")
-//}
-//
-//func TestCallConstract(t *testing.T)  {
-//	contractAddr := "0x191a3707ac29c7a041217782e61d4d91c691aee8"
-//	abi := `{"FuncName": "test", "Args": []}`
-//	CallContract(contractAddr, abi)
-//}
-//
-//func TestCallConstract2(t *testing.T)  {
-//	contractAddr := "0x9610b83c5c03aa0824f2d5da225553ca43ad65a6"
-//	abi := `{"FuncName": "test2", "Args": []}`
-//	CallContract(contractAddr, abi)
-//}
 //
 //func TestBlockChain_AddBlock(t *testing.T) {
-//	common.InitConf(os.Getenv("HOME") + "/TasProject/work/1g3n/test1.ini")
+//	common.InitConf("d:/test1.ini")
+//	//common.InitConf(os.Getenv("HOME") + "/tas/code/tas/taschain/taschain/deploy/tvm/test1.ini")
 //	network.Logger = taslog.GetLoggerByName("p2p" + common.GlobalConf.GetString("client", "index", ""))
 //	Clear()
 //	initBlockChain()
@@ -192,7 +57,7 @@ package core
 //`
 //	// 交易1
 //	txpool.Add(genTestTx("jdai1", 12345, "100", "2", 0, 1))
-//	txpool.Add(genContractTx(123456, "1", "", 1, 0, []byte(code), nil, 0))
+//	txpool.Add(genContractTx(1, 20000000, "1", "", 1, 0, []byte(code), nil, 0))
 //	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
 //	//交易2
 //	txpool.Add(genTestTx("jdai2", 123456, "2", "3", 0, 1))
@@ -204,7 +69,7 @@ package core
 //	groupid := new([]byte)
 //
 //	// 铸块1
-//	block := BlockChainImpl.CastingBlock(1, 12, big.NewInt(0), *castor, *groupid)
+//	block := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
 //	if nil == block {
 //		t.Fatalf("fail to cast new block")
 //	}
@@ -231,11 +96,11 @@ package core
 //
 //	//交易3
 //	txpool.Add(genTestTx("jdai3", 1, "1", "2", 2, 10))
-//	txpool.Add(genContractTx(123456, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
+//	txpool.Add(genContractTx(1, 20000000, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
 //	fmt.Println(contractAddr.GetHexString())
 //	// 铸块2
-//	block2 := BlockChainImpl.CastingBlock(2, 123, big.NewInt(0), *castor, *groupid)
-//	block2.Header.ProveValue = big.NewInt(2)
+//	block2 := BlockChainImpl.CastingBlock(2, 123, 0, *castor, *groupid)
+//	block2.Header.QueueNumber = 2
 //	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 //		t.Fatalf("fail to add empty block")
 //	}
@@ -251,7 +116,7 @@ package core
 //	}
 //	blockHeader = BlockChainImpl.QueryBlockByHash(block2.Header.Hash)
 //	if nil == blockHeader {
-//		t.Fatalf("fail to QueryBlockHeaderByHash, hash: %x ", block2.Header.Hash)
+//		t.Fatalf("fail to QueryBlockByHash, hash: %x ", block2.Header.Hash)
 //	}
 //
 //	blockHeader = BlockChainImpl.QueryBlockByHeight(2)
@@ -260,7 +125,7 @@ package core
 //	}
 //
 //	// 铸块3 空块
-//	block3 := BlockChainImpl.CastingBlock(3, 125, big.NewInt(0), *castor, *groupid)
+//	block3 := BlockChainImpl.CastingBlock(3, 125, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 //		t.Fatalf("fail to add empty block")
 //	}
@@ -270,7 +135,7 @@ package core
 //		t.Fatalf("add block3 failed")
 //	}
 //
-//	block4 := BlockChainImpl.CastingBlock(4, 126, big.NewInt(0), *castor, *groupid)
+//	block4 := BlockChainImpl.CastingBlock(4, 126, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block4) {
 //		t.Fatalf("fail to add empty block")
 //	}
@@ -280,7 +145,7 @@ package core
 //		t.Fatalf("add block3 failed")
 //	}
 //
-//	block5 := BlockChainImpl.CastingBlock(5, 127, big.NewInt(0), *castor, *groupid)
+//	block5 := BlockChainImpl.CastingBlock(5, 127, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block5) {
 //		t.Fatalf("fail to add empty block")
 //	}
@@ -325,7 +190,7 @@ package core
 //
 //	castor := []byte{1, 2}
 //	group := []byte{3, 4}
-//	block1 := BlockChainImpl.CastingBlock(1, 1, big.NewInt(1), castor, group)
+//	block1 := BlockChainImpl.CastingBlock(1, 1, 1, castor, group)
 //	if nil == block1 {
 //		t.Fatalf("fail to cast block1")
 //	}
@@ -340,17 +205,17 @@ package core
 //
 //	castor := new([]byte)
 //	groupid := new([]byte)
-//	block1 := BlockChainImpl.CastingBlock(1, 125, big.NewInt(0), *castor, *groupid)
+//	block1 := BlockChainImpl.CastingBlock(1, 125, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block1) {
 //		t.Fatalf("fail to add empty block")
 //	}
 //
-//	block2 := BlockChainImpl.CastingBlock(2, 1256, big.NewInt(0), *castor, *groupid)
+//	block2 := BlockChainImpl.CastingBlock(2, 1256, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block2) {
 //		t.Fatalf("fail to add empty block")
 //	}
 //
-//	block3 := BlockChainImpl.CastingBlock(3, 1257, big.NewInt(0), *castor, *groupid)
+//	block3 := BlockChainImpl.CastingBlock(3, 1257, 0, *castor, *groupid)
 //	if 0 != BlockChainImpl.AddBlockOnChain(block3) {
 //		t.Fatalf("fail to add empty block")
 //	}
@@ -359,9 +224,9 @@ package core
 //		t.Fatalf("fail to add 3 blocks")
 //	}
 //
-//	header1 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(1), true)
-//	header2 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(2), false)
-//	header3 := BlockChainImpl.QueryBlockHeaderByHeight(uint64(3), true)
+//	header1 := BlockChainImpl.queryBlockHeaderByHeight(uint64(1), true)
+//	header2 := BlockChainImpl.queryBlockHeaderByHeight(uint64(2), false)
+//	header3 := BlockChainImpl.queryBlockHeaderByHeight(uint64(3), true)
 //
 //	b1 := BlockChainImpl.queryBlockByHash(header1.Hash)
 //	b2 := BlockChainImpl.queryBlockByHash(header2.Hash)
@@ -383,7 +248,7 @@ package core
 //
 //	var i uint64
 //	for i = 1; i < 2000; i++ {
-//		block := BlockChainImpl.CastingBlock(i, i, big.NewInt(0), *castor, *groupid)
+//		block := BlockChainImpl.CastingBlock(i, i, 0, *castor, *groupid)
 //		if 0 != BlockChainImpl.AddBlockOnChain(block) {
 //			t.Fatalf("fail to add empty block")
 //		}
@@ -441,7 +306,7 @@ package core
 //	castor := new([]byte)
 //	groupid := new([]byte)
 //
-//	block0 := BlockChainImpl.CastingBlock(1, 12, big.NewInt(0), *castor, *groupid)
+//	block0 := BlockChainImpl.CastingBlock(1, 12, 0, *castor, *groupid)
 //	// 上链
 //	if 0 != BlockChainImpl.AddBlockOnChain(block0) {
 //		t.Fatalf("fail to add block0")
@@ -457,7 +322,7 @@ package core
 //	txpool.Add(genTestTx("jdai3", 123457, "1", "2", 0, 3))
 //
 //	// 铸块1
-//	block := BlockChainImpl.CastingBlock(2, 12, big.NewInt(0), *castor, *groupid)
+//	block := BlockChainImpl.CastingBlock(2, 12, 0, *castor, *groupid)
 //	if nil == block {
 //		t.Fatalf("fail to cast new block")
 //	}
@@ -468,7 +333,7 @@ package core
 //	}
 //
 //	// 铸块2
-//	block2 := BlockChainImpl.CastingBlock(3, 12, big.NewInt(0), *castor, *groupid)
+//	block2 := BlockChainImpl.CastingBlock(3, 12, 0, *castor, *groupid)
 //	if nil == block {
 //		t.Fatalf("fail to cast new block")
 //	}
@@ -480,7 +345,7 @@ package core
 //	fmt.Printf("state: %d\n", BlockChainImpl.latestBlock.StateTree)
 //
 //	// 铸块3
-//	block3 := BlockChainImpl.CastingBlock(4, 12, big.NewInt(0), *castor, *groupid)
+//	block3 := BlockChainImpl.CastingBlock(4, 12, 0, *castor, *groupid)
 //	if nil == block {
 //		t.Fatalf("fail to cast new block")
 //	}
@@ -507,32 +372,20 @@ package core
 //	}
 //}
 //
-//func genContractTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32) *types.Transaction {
-//	var sourceAddr, targetAddr *common.Address
-//
-//	sourcebyte := common.HexStringToAddress(source)
-//	sourceAddr = &sourcebyte
-//	if target == "" {
-//		targetAddr = nil
-//	} else {
-//		targetbyte := common.HexStringToAddress(target)
-//		targetAddr = &targetbyte
-//	}
-//	return &types.Transaction{
-//		Hash: common.BytesToHash([]byte{byte(nonce)}),
-//		Data:          data,
-//		GasLimit:		2000000000,
-//		GasPrice:      price,
-//		Source:        sourceAddr,
-//		Target:        targetAddr,
-//		Nonce:         nonce,
-//		Value:         value,
-//		ExtraData:     extraData,
-//		ExtraDataType: extraDataType,
-//	}
-//}
 //
 //func genHash(hash string) []byte {
 //	bytes3 := []byte(hash)
 //	return common.Sha256(bytes3)
 //}
+//
+////func TestMinerOnChain(t *testing.T)  {
+////	Clear()
+////	code := tvm.Read0("/Users/guangyujing/workspace/tas/src/tvm/py/miner/miner.py")
+////
+////	contract := tvm.Contract{code, "miner", nil}
+////	jsonString, _ := json.Marshal(contract)
+////	fmt.Println(string(jsonString))
+////	contractAddress := common.HexToAddress("0xff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")
+////	OnChainFunc(string(jsonString), contractAddress.GetHexString())
+////}
+////

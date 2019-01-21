@@ -8,6 +8,8 @@ import (
 	"middleware/types"
 	"time"
 	"fmt"
+	"sync"
+	"common"
 )
 
 /*
@@ -17,18 +19,40 @@ import (
 */
 
 type GroupCreateChecker struct {
-	processor *Processor
-	access 	 *MinerPoolReader
+	processor      *Processor
+	access         *MinerPoolReader
+	createdHeights [50]uint64 // 标识该建组高度是否已经创建过组了
+	curr 			int
+	lock           sync.RWMutex    // CreateHeightGroups的互斥锁，防止重复写入
 }
 
 func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
 	return &GroupCreateChecker{
-		processor: proc,
-		access: proc.minerReader,
+		processor:      proc,
+		access:         proc.minerReader,
+		curr: 0,
 	}
 }
 func checkCreate(topBH *types.BlockHeader) bool {
     return topBH.Height % model.Param.CreateGroupInterval == 0
+}
+
+func (gchecker *GroupCreateChecker) heightCreated(h uint64) bool {
+    gchecker.lock.RLock()
+    defer gchecker.lock.RUnlock()
+	for _, height := range gchecker.createdHeights {
+		if h == height {
+			return true
+		}
+	}
+	return false
+}
+
+func (gchecker *GroupCreateChecker) addHeightCreated(h uint64)  {
+	gchecker.lock.RLock()
+	defer gchecker.lock.RUnlock()
+	gchecker.createdHeights[gchecker.curr] = h
+	gchecker.curr = (gchecker.curr+1)%len(gchecker.createdHeights)
 }
 
 func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) groupsig.ID {
@@ -55,34 +79,38 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 * @Param:
 * @return:  create 当前是否应该建组, sgi 当前应该启动建组的组，即父亲组， castor 发起建组的组内成员， theBH 基于哪个块建组
 */
-func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader) {
+func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castor groupsig.ID, theBH *types.BlockHeader, err error) {
 	blog := newBizLog("checkCreateGroup")
-	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.processor.CreateHeightGroups, topHeight)
+	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.createdHeights, topHeight)
 	defer func() {
-		blog.log("topHeight=%v, create %v", topHeight, create)
+		blog.log("topHeight=%v, create %v, err %v", topHeight, create, err)
 	}()
 	if topHeight <= model.Param.CreateGroupInterval {
+		err = fmt.Errorf("topHeight samller than CreateGroupInterval")
 		return
 	}
 
 	// 指定高度已经在组链上出现过
-	if _, ok := gchecker.processor.CreateHeightGroups[topHeight]; ok {
+	if gchecker.heightCreated(topHeight) {
+		err = fmt.Errorf("topHeight already created")
 		return
 	}
 
 	h := topHeight-model.Param.CreateGroupInterval
 	theBH = gchecker.processor.MainChain.QueryBlockByHeight(h)
 	if theBH == nil {
-		blog.log("theBH is nil, height=%v", h)
+		err = common.ErrCreateBlockNil
 		return
 	}
 	if !checkCreate(theBH) {
+		err = fmt.Errorf("cann't create group")
 		return
 	}
 
 	castGID := groupsig.DeserializeId(theBH.GroupId)
 	sgi = gchecker.processor.GetGroup(castGID)
 	if !sgi.CastQualified(topHeight) {
+		err = fmt.Errorf("group dont qualified creating group gid=%v", sgi.GroupID.ShortS())
 		return
 	}
 	castor = gchecker.selectKing(theBH, sgi)
@@ -143,10 +171,11 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	return true, result
 }
 
-func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, createTime time.Time, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int) {
-	create, group, _, theBH := checker.checkCreateGroup(createHeight)
+func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, createTime time.Time, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int, err error) {
+	create, group, _, theBH, e := checker.checkCreateGroup(createHeight)
 	//指定高度不能建组
 	if !create {
+		err = e
 		return
 	}
 	if !group.GroupID.IsValid() {
@@ -155,6 +184,7 @@ func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, crea
 	//是否有足够候选人
 	enough, memIds := checker.selectCandidates(theBH, createHeight)
 	if !enough {
+		err = fmt.Errorf("not enough candidates")
 		return
 	}
 
@@ -175,5 +205,5 @@ func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, crea
 	gh.DismissHeight = gh.WorkHeight + model.Param.GroupCastDuration
 
 	gh.Hash = gh.GenHash()
-	return gh, memIds, model.Param.GetGroupK(group.GetMemberCount())
+	return gh, memIds, model.Param.GetGroupK(group.GetMemberCount()), nil
 }

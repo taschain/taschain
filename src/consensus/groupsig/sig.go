@@ -134,6 +134,10 @@ func (sig *Signature) SetHexString(s string) error {
 	}
 	buf := s[len(PREFIX):]
 
+        if sig.value.IsNil() {
+            sig.value = bn_curve.G1{}
+	}
+
 	sig.value.Unmarshal(common.Hex2Bytes(buf))
 	return nil
 }
@@ -147,9 +151,12 @@ func Sign(sec Seckey, msg []byte) (sig Signature) {
 
 //验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
-        if sig.value.IsNil() {
-            return false
-        }
+	if !pub.IsValid() {
+		return false
+	}
+	if sig.value.IsNil() {
+		return false
+	}
 	bQ := bn_curve.GetG2Base()
 	p1 := bn_curve.Pair(&sig.value, bQ)
 	//fmt.Println("p1:", p1.String())
