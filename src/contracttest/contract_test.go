@@ -35,7 +35,7 @@ import (
 //	middleware.InitMiddleware()
 //}
 //
-var randValue uint64 = 0
+var randValue uint64 = 1
 
 func GeneteRandom() uint64 {
 	result := randValue
@@ -62,7 +62,8 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		targetbyte := common.HexStringToAddress(target)
 		targetAddr = &targetbyte
 	}
-	return &types.Transaction{
+
+	var result= &types.Transaction{
 		Hash:          common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
 		GasLimit:      gaslimit,
@@ -75,6 +76,13 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		ExtraDataType: extraDataType,
 		Type:          txType,
 	}
+	result.Hash = result.GenHash()
+
+
+	privateKey := common.HexStringToSecKey(SK)
+	sign := privateKey.Sign(result.Hash.Bytes())
+	result.Sign = &sign
+	return result
 }
 
 //
@@ -395,7 +403,7 @@ func OnChainFunc(code string, source string) {
 	//core.BlockChainImpl.GetTransactionPool().Clear()
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	index := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
+	txpool.AddTransaction(genContractTx(1, 20000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
 	fmt.Println("nonce:", core.BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(core.BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 
@@ -417,7 +425,7 @@ func CallContract(address, abi string, source string) {
 	fmt.Println(string(code))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	r := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
+	txpool.AddTransaction(genContractTx(1, 20000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
 
 	if !doAddBlockOnChain() {
 		return
