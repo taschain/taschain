@@ -25,7 +25,7 @@ import (
 )
 
 type VoteConfig struct {
-	TemplateName        string `json:"template_name"`          //合约模板名称
+	TemplateName         string `json:"template_name"`          //合约模板名称
 	PIndex              uint32 `json:"p_index"`                //投票参数索引
 	PValue              string `json:"p_value"`                //投票值
 	Custom              bool   `json:"custom"`                 //'是否自定义投票合约', true时, pIndex pValue无效

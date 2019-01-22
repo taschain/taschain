@@ -171,7 +171,7 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	}
 
 	if tx.Type != types.TransactionTypeBonus && tx.GasLimit > GasLimitMax {
-		return fmt.Errorf("gasLimit too  big! max gas limit is 500000 lei")
+		return fmt.Errorf("gasLimit too  big! max gas limit is 500000 Ra")
 	}
 
 	switch tx.Type {

@@ -135,7 +135,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedI
 			timer := time.NewTimer(time.Second * 10)
 			for {
 				<-timer.C
-				if core.BlockSyncer.IsInit() {
+				if core.BlockSyncer.IsInit() && len(network.GetNetInstance().ConnInfo()) > 0 {
 					break
 				} else {
 					var candicateHeight uint64
