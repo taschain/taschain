@@ -1,9 +1,8 @@
 package logical
 
 import (
-	"sync"
 	"consensus/groupsig"
-	"consensus/base"
+	"github.com/hashicorp/golang-lru"
 )
 
 /*
@@ -13,12 +12,21 @@ import (
 */
 
 type pubkeyPool struct {
-	pkMap sync.Map			//idHex -> pubKey
-	vrfPKMap sync.Map		//idHex -> vrfPK
+	pkCache *lru.Cache
+	//vrfPKCache *lru.Cache		//idHex -> vrfPK
 	minerAccess *MinerPoolReader
 }
 
-var pkPool = pubkeyPool{}
+var pkPool pubkeyPool
+
+func init() {
+	pkc, _ := lru.New(100)
+	//vrfc, _ := lru.New(100)
+	pkPool = pubkeyPool{
+		pkCache: pkc,
+		//vrfPKCache: vrfc,
+	}
+}
 
 func pkPoolInit(access *MinerPoolReader) {
 	pkPool.minerAccess = access
@@ -33,7 +41,7 @@ func GetMinerPK(id groupsig.ID) *groupsig.Pubkey {
 		return nil
 	}
 
-	if v, ok := pkPool.pkMap.Load(id.GetHexString()); ok {
+	if v, ok := pkPool.pkCache.Get(id.GetHexString()); ok {
 		return v.(*groupsig.Pubkey)
 	}
 	miner := pkPool.minerAccess.getLightMiner(id)
@@ -41,23 +49,9 @@ func GetMinerPK(id groupsig.ID) *groupsig.Pubkey {
 		miner = pkPool.minerAccess.getProposeMiner(id)
 	}
 	if miner != nil {
-		pkPool.pkMap.Store(id.GetHexString(), &miner.PK)
+		pkPool.pkCache.Add(id.GetHexString(), &miner.PK)
 		return &miner.PK
 	}
 	return nil
 }
-func GetMinerVrfPK(id groupsig.ID) *base.VRFPublicKey {
-	if !ready() {
-		return nil
-	}
 
-	if v, ok := pkPool.vrfPKMap.Load(id.GetHexString()); ok {
-		return v.(*base.VRFPublicKey)
-	}
-	miner := pkPool.minerAccess.getProposeMiner(id)
-	if miner != nil {
-		pkPool.vrfPKMap.Store(id.GetHexString(), &miner.VrfPK)
-		return &miner.VrfPK
-	}
-	return nil
-}

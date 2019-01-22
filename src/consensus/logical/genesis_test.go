@@ -12,40 +12,64 @@ import (
 	"consensus/model"
 	"middleware"
 	"consensus/base"
+	"math"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily9`
+const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/deploy/daily`
+const ProcNum = 3
 
 func TestBelongGroups(t *testing.T) {
 	//groupsig.Init(1)
+	middleware.InitMiddleware()
 	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
 	InitConsensus()
-	belongs := NewBelongGroups("/Users/pxf/workspace/tas_develop/tas/conf/aliyun/joined_group.config.1")
-	belongs.load()
-	gs := belongs.getAllGroups()
-	for _, g := range gs {
-		log.Println(g.GroupID.ShortS())
+
+	cm := common.NewConfINIManager(CONF_PATH_PREFIX + "/tas1.ini")
+	proc := new(Processor)
+	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
+
+	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
+	cm.SetString(ConsensusConfSection, "groupstore", gstore)
+	jgFile := CONF_PATH_PREFIX + "/joined_group.config." + cm.GetString("instance", "index", "")
+	cm.SetString(ConsensusConfSection, "joined_group_store", jgFile)
+
+	proc.Init(model.NewSelfMinerDO(addr), cm)
+	proc.belongGroups.initStore()
+	gidstr := "0x15fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735"
+	var gid groupsig.ID
+	gid.SetHexString(gidstr)
+	jg := proc.belongGroups.getJoinedGroup(gid)
+
+	t.Logf("%+v", jg.GroupID.GetHexString())
+	t.Logf("%+v", jg.GroupPK.GetHexString())
+	t.Logf("%+v", jg.SignKey.GetHexString())
+	for id, mem := range jg.Members {
+		t.Logf("%v: %v", id, mem.GetHexString())
+
 	}
-	t.Log(belongs)
 }
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	proc := new(Processor)
 	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
-	proc.Init(model.NewSelfMinerDO(addr))
+
+	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
+	cm.SetString("consensus", "groupstore", gstore)
+
+	proc.Init(model.NewSelfMinerDO(addr), cm)
 	log.Printf("%v", proc.mi.VrfPK)
 	return proc
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := 9
+	maxProcNum := ProcNum
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
 	for i := 1; i <= maxProcNum; i++ {
 		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", CONF_PATH_PREFIX, i))
-		proc.belongGroups.storeFile = fmt.Sprintf("%v/joined_group.config.%v", CONF_PATH_PREFIX, i)
+		//proc.belongGroups.storeFile = fmt.Sprintf("%v/joined_group.config.%v", CONF_PATH_PREFIX, i)
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
 	}
@@ -85,6 +109,8 @@ func TestGenesisGroup(t *testing.T) {
 
 	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
 
+	threshold := int(math.Ceil(float64(ProcNum*51) / 100))
+
 	InitConsensus()
 
 	procs, _ := processors()
@@ -106,12 +132,11 @@ func TestGenesisGroup(t *testing.T) {
 	model.Param.GroupMember = len(mems)
 
 	for _, p := range procs {
-		if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
-			//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-			//dummy 组写入组链 add by 小熊
-			//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
-		}
-
+		//if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
+		//	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
+		//	//dummy 组写入组链 add by 小熊
+		//	//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
+		//}
 		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, p.mi)
 		shares := gc.GenSharePieces()
 		for id, share := range shares {
@@ -134,6 +159,7 @@ func TestGenesisGroup(t *testing.T) {
 	}
 
 	spks := make(map[string]*model.ConsensusSignPubKeyMessage)
+	initedMsgs := make(map[string]*model.ConsensusGroupInitedMessage)
 
 	for id, spms := range procSpms {
 		p := procs[id]
@@ -142,43 +168,60 @@ func TestGenesisGroup(t *testing.T) {
 			ret := gc.PieceMessage(spm)
 			if ret == 1 {
 				jg := gc.GetGroupInfo()
+				p.joinGroup(jg)
 				msg := &model.ConsensusSignPubKeyMessage{
 					GHash: spm.GHash,
+					GroupID: jg.GroupID,
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
 				}
-				msg.GenGSign(jg.SignKey)
+				//msg.GenGSign(jg.SignKey)
 				msg.SI.SignMember = p.GetMinerID()
 				spks[id] = msg
+
+				var initedMsg = &model.ConsensusGroupInitedMessage{
+					GHash: spm.GHash,
+					GroupID: jg.GroupID,
+					GroupPK: jg.GroupPK,
+					CreateHeight: 0,
+				}
+				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
+				initedMsg.GenSign(ski, initedMsg)
+
+				initedMsgs[id] = initedMsg
 			}
 		}
 	}
 
-	initedMsgs := make(map[string]*model.ConsensusGroupInitedMessage)
 
-	for id, p := range procs {
+	for _, p := range procs {
 		for _, spkm := range spks {
-			gc := p.joiningGroups.GetGroup(spkm.GHash)
-			if gc.SignPKMessage(spkm) == 1 {
-				jg := gc.GetGroupInfo()
-				log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
-				p.joinGroup(jg, true)
-				var msg = &model.ConsensusGroupInitedMessage{
-					GHash: spkm.GHash,
-					GroupID: jg.GroupID,
-					GroupPK: jg.GroupPK,
-				}
-				ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
-				msg.GenSign(ski, msg)
-
-				initedMsgs[id] = msg
-			}
+			jg := p.belongGroups.getJoinedGroup(spkm.GroupID)
+			p.belongGroups.addMemSignPk(spkm.SI.GetID(), spkm.GroupID, spkm.SignPK)
+			log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
+			//if gc.SignPKMessage(spkm) == 1 {
+			//	jg := gc.GetGroupInfo()
+			//	p.joinGroup(jg, true)
+			//	var msg = &model.ConsensusGroupInitedMessage{
+			//		GHash: spkm.GHash,
+			//		GroupID: jg.GroupID,
+			//		GroupPK: jg.GroupPK,
+			//	}
+			//	ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
+			//	msg.GenSign(ski, msg)
+			//
+			//	initedMsgs[id] = msg
+			//}
 		}
 	}
 
 	for _, p := range procs {
 		for _, msg := range initedMsgs {
-			initingGroup := p.globalGroups.GetInitingGroup(msg.GHash)
-			if p.globalGroups.GroupInitedMessage(msg, 0) == INIT_SUCCESS {
+			initingGroup := p.globalGroups.GetInitedGroup(msg.GHash)
+			if initingGroup == nil {
+				initingGroup = createInitedGroup(threshold, mems, groupsig.Signature{}, gh)
+				p.globalGroups.generator.addInitedGroup(initingGroup)
+			}
+			if initingGroup.receive(msg.SI.GetID(), msg.GroupPK) == INIT_SUCCESS {
 				staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initingGroup)
 				add := p.globalGroups.AddStaticGroup(staticGroup)
 				if add {

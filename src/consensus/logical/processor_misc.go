@@ -4,7 +4,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/model"
-	"strings"
 	"middleware/types"
 	"consensus/base"
 	"github.com/vmihailenco/msgpack"
@@ -19,13 +18,7 @@ import (
 **  Description:
  */
 
-func (p *Processor) genBelongGroupStoreFile() string {
-	storeFile := consensusConfManager.GetString("joined_group_store", "")
-	if strings.TrimSpace(storeFile) == "" {
-		storeFile = "joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
-	}
-	return storeFile
-}
+
 
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
@@ -49,14 +42,7 @@ func (p *Processor) prepareMiner() {
 
 	topHeight := p.MainChain.QueryTopBlock().Height
 
-	storeFile := p.genBelongGroupStoreFile()
-
-	belongs := NewBelongGroups(storeFile)
-	if !belongs.load() {
-
-	}
-
-	stdLogger.Infof("prepareMiner get groups from groupchain, belongGroup len=%v\n", belongs.groupSize())
+	stdLogger.Infof("prepareMiner get groups from groupchain")
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
@@ -77,11 +63,11 @@ func (p *Processor) prepareMiner() {
 		groups = append(groups, sgi)
 		stdLogger.Infof("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
-			jg := belongs.getJoinedGroup(sgi.GroupID)
+			jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
 				stdLogger.Infof("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
-				p.joinGroup(jg, true)
+				p.joinGroup(jg)
 			}
 		}
 		if needBreak {
@@ -108,7 +94,7 @@ func (p *Processor) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
 
 func (p *Processor) Finalize() {
 	if p.belongGroups != nil {
-		p.belongGroups.commit()
+		p.belongGroups.close()
 	}
 }
 

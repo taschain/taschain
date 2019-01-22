@@ -75,34 +75,47 @@ func (msg *ConsensusSharePieceMessage) GenHash() common.Hash {
 }
 //向组内成员发送签名公钥消息（所有成员相同）
 type ConsensusSignPubKeyMessage struct {
-	GHash  common.Hash        //组初始化共识的哈希
+	GHash 	common.Hash
+	GroupID  groupsig.ID      //组id
 	SignPK groupsig.Pubkey    //组成员签名公钥
-	GSign  groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
+	//GSign  groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
 	//SI      SignData           //矿工个人签名
 	BaseSignedMessage
 }
 
-func (msg *ConsensusSignPubKeyMessage) GenGSign(sk groupsig.Seckey) {
-	msg.GSign = groupsig.Sign(sk, msg.GHash.Bytes())
-}
-
-
-func (msg *ConsensusSignPubKeyMessage) VerifyGSign(pk groupsig.Pubkey) bool {
-	return groupsig.VerifySig(pk, msg.GHash.Bytes(), msg.GSign)
-}
+//func (msg *ConsensusSignPubKeyMessage) GenGSign(sk groupsig.Seckey) {
+//	msg.GSign = groupsig.Sign(sk, msg.GHash.Bytes())
+//}
+//
+//
+//func (msg *ConsensusSignPubKeyMessage) VerifyGSign(pk groupsig.Pubkey) bool {
+//	return groupsig.VerifySig(pk, msg.GHash.Bytes(), msg.GSign)
+//}
 
 func (msg *ConsensusSignPubKeyMessage) GenHash() common.Hash {
 	buf := msg.GHash.Bytes()
+	buf = append(buf, msg.GroupID.Serialize()...)
 	buf = append(buf, msg.SignPK.Serialize()...)
 	return base.Data2CommonHash(buf)
 }
 
+//请求签名公钥
+type ConsensusSignPubkeyReqMessage struct {
+	BaseSignedMessage
+	GroupID groupsig.ID
+}
+
+func (m *ConsensusSignPubkeyReqMessage) GenHash() common.Hash {
+	return base.Data2CommonHash(m.GroupID.Serialize())
+}
 
 //向组外广播该组已经初始化完成(组外节点要收到门限个消息相同，才进行上链)
 type ConsensusGroupInitedMessage struct {
 	GHash 	common.Hash
 	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
 	GroupPK  groupsig.Pubkey           //组公钥
+	CreateHeight uint64 				//组开始创建时的高度
+	ParentSign groupsig.Signature
 	BaseSignedMessage
 }
 
@@ -111,6 +124,8 @@ func (msg *ConsensusGroupInitedMessage) GenHash() common.Hash {
 	buf.Write(msg.GHash.Bytes())
 	buf.Write(msg.GroupID.Serialize())
 	buf.Write(msg.GroupPK.Serialize())
+	buf.Write(common.Uint64ToByte(msg.CreateHeight))
+	buf.Write(msg.ParentSign.Serialize())
 	return base.Data2CommonHash(buf.Bytes())
 }
 

@@ -78,6 +78,10 @@ func (pk PublicKey) GetHexString() string {
 	return str
 }
 
+func (pk *PublicKey) Encrypt(rand io.Reader, msg []byte) ([]byte, error) {
+    return Encrypt(rand, pk, msg)
+}
+
 //导入函数
 func HexStringToPubKey(s string) (pk *PublicKey) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {

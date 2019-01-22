@@ -17,6 +17,8 @@ type NetworkServerImpl struct {
 	net network.Network
 }
 
+
+
 func NewNetworkServer() NetworkServer {
 	return &NetworkServerImpl{
 		net: network.GetNetInstance(),
@@ -58,10 +60,10 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 
 	m := network.Message{Code: network.GroupInitMsg, Body: body}
 	//给自己发
-	ns.send2Self(grm.SI.GetID(), m)
-
-	e = ns.net.Broadcast(m)
-
+	//ns.send2Self(grm.SI.GetID(), m)
+	memIds := id2String(grm.GInfo.Mems)
+	//e = ns.net.Broadcast(m)
+	e = ns.net.SpreadToGroup(grm.GInfo.GroupHash().Hex(), memIds, m, grm.GInfo.GroupHash().Bytes())
 	logger.Debugf("SendGroupInitMessage hash:%s,  gHash %v", m.Hash(), grm.GInfo.GroupHash().Hex())
 }
 
@@ -75,7 +77,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 	m := network.Message{Code: network.KeyPieceMsg, Body: body}
 	if spm.SI.SignMember.IsEqual(spm.Dest) {
-		ns.send2Self(spm.SI.GetID(), m)
+		go ns.send2Self(spm.SI.GetID(), m)
 		return
 	}
 
@@ -204,6 +206,35 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
 }
 
+
+func (ns *NetworkServerImpl) AnswerSignPkMessage(msg *model.ConsensusSignPubKeyMessage, receiver groupsig.ID) {
+	body, e := marshalConsensusSignPubKeyMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusSignPubKeyMessage because of marshal error:%s", e.Error())
+		return
+	}
+
+	m := network.Message{Code: network.AnswerSignPkMsg, Body: body}
+
+	begin := time.Now()
+	go ns.net.Send(receiver.GetHexString(), m)
+	logger.Debugf("AnswerSignPkMessage %v, hash:%s, dummyId:%v, cost time:%v", receiver.GetHexString(), m.Hash(), msg.GHash.Hex(), time.Since(begin))
+}
+
+func (ns *NetworkServerImpl) AskSignPkMessage(msg *model.ConsensusSignPubkeyReqMessage, receiver groupsig.ID) {
+	body, e := marshalConsensusSignPubKeyReqMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send ConsensusSignPubkeyReqMessage because of marshal error:%s", e.Error())
+		return
+	}
+
+	m := network.Message{Code: network.AskSignPkMsg, Body: body}
+
+	begin := time.Now()
+	go ns.net.Send(receiver.GetHexString(), m)
+	logger.Debugf("AskSignPkMessage %v, hash:%s, cost time:%v", receiver.GetHexString(), m.Hash(), time.Since(begin))
+}
+
 //====================================建组前共识=======================
 
 //开始建组
@@ -302,7 +333,7 @@ func marshalConsensusSignPubKeyMessage(m *model.ConsensusSignPubKeyMessage) ([]b
 		GHash: m.GHash.Bytes(),
 		SignPK: m.SignPK.Serialize(),
 		SignData: signData,
-		GSign: m.GSign.Serialize(),
+		GroupID: m.GroupID.Serialize(),
 		}
 	return proto.Marshal(&message)
 }
@@ -314,6 +345,16 @@ func marshalConsensusGroupInitedMessage(m *model.ConsensusGroupInitedMessage) ([
 		GroupPK: m.GroupPK.Serialize(),
 		Sign: si,
 		}
+	return proto.Marshal(&message)
+}
+
+func marshalConsensusSignPubKeyReqMessage(m *model.ConsensusSignPubkeyReqMessage) ([]byte, error) {
+	signData := signDataToPb(&m.SI)
+
+	message := tas_middleware_pb.ConsensusSignPubkeyReqMessage{
+		GroupID: m.GroupID.Serialize(),
+		SignData: signData,
+	}
 	return proto.Marshal(&message)
 }
 

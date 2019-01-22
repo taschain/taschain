@@ -135,6 +135,15 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		return true
 	})
+	p.globalGroups.generator.forEach(func(ig *InitedGroup) bool {
+		hash := ig.gInfo.GroupHash()
+		if ig.gInfo.GI.ReadyTimeout(topHeight) {
+			blog.debug("remove InitedGroup, gHash %v", hash.ShortS())
+			p.NetServer.ReleaseGroupNet(hash.Hex())
+			p.globalGroups.removeInitedGroup(hash)
+		}
+		return true
+	})
 
 	//释放futureVerifyMsg
 	p.futureVerifyMsgs.forEach(func(key common.Hash, arr []interface{}) bool {
@@ -160,5 +169,9 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		return true
 	})
+
+	//清理超时的签名公钥请求
+	cleanSignPkReqRecord()
+
 	return true
 }

@@ -65,17 +65,12 @@ func (p *Processor) BeginGenesisGroupMember() {
 		return
 	}
 	sgi := &genesis.Group
-	storeFile := p.genBelongGroupStoreFile()
-	belongs := NewBelongGroups(storeFile)
-	if !belongs.load() {
-		panic("genesisMember load join_group fail")
-	}
 
-	jg := belongs.getJoinedGroup(sgi.GroupID)
+	jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 	if jg == nil {
 		panic("genesisMember find join_group fail")
 	}
-	p.joinGroup(jg, false)
+	p.joinGroup(jg)
 
 }
 

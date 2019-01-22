@@ -62,7 +62,7 @@ type StateMachines struct {
 }
 
 var GroupInsideMachines StateMachines
-var GroupOutsideMachines StateMachines
+//var GroupOutsideMachines StateMachines
 
 var logger taslog.Logger
 
@@ -74,13 +74,13 @@ func InitStateMachines() {
 		generator: &groupInsideMachineGenerator{},
 	}
 
-	GroupOutsideMachines = StateMachines{
-		name:      "GroupOutsideMachines",
-		generator: &groupOutsideMachineGenerator{},
-	}
+	//GroupOutsideMachines = StateMachines{
+	//	name:      "GroupOutsideMachines",
+	//	generator: &groupOutsideMachineGenerator{},
+	//}
 
 	GroupInsideMachines.startCleanRoutine()
-	GroupOutsideMachines.startCleanRoutine()
+	//GroupOutsideMachines.startCleanRoutine()
 }
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
@@ -291,7 +291,7 @@ func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	machine.appendNode(newStateNode(network.KeyPieceMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
 	}))
-	machine.appendNode(newStateNode(network.SignPubkeyMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.SignPubkeyMsg, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
 	}))
 	machine.appendNode(newStateNode(network.GroupInitDoneMsg, 1, func(msg interface{}) {

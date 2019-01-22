@@ -57,15 +57,15 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 
-		belongGroup := m.GInfo.MemberExists(c.processor.GetMinerID())
+		//belongGroup := m.GInfo.MemberExists(c.processor.GetMinerID())
 
-		var machines *StateMachines
-		if belongGroup {
-			machines = &GroupInsideMachines
-		} else {
-			machines = &GroupOutsideMachines
-		}
-		machines.GetMachine(m.GInfo.GI.GetHash().Hex()).Transform(NewStateMsg(code, m, sourceId))
+		//var machines *StateMachines
+		//if belongGroup {
+		//	machines = &GroupInsideMachines
+		//} else {
+		//	machines = &GroupOutsideMachines
+		//}
+		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex()).Transform(NewStateMsg(code, m, sourceId))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
@@ -93,14 +93,14 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s", sourceId, m.GHash.Hex())
 
-		belongGroup := c.processor.ExistInGroup(m.GHash)
-		var machines *StateMachines
-		if belongGroup {
-			machines = &GroupInsideMachines
-		} else {
-			machines = &GroupOutsideMachines
-		}
-		machines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
+		//belongGroup := c.processor.ExistInGroup(m.GHash)
+		//var machines *StateMachines
+		//if belongGroup {
+		//	machines = &GroupInsideMachines
+		//} else {
+		//	machines = &GroupOutsideMachines
+		//}
+		GroupInsideMachines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
 
 	case network.CurrentGroupCastMsg:
 
@@ -154,7 +154,22 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		}
 
 		c.processor.OnMessageCastRewardSign(m)
+	case network.AskSignPkMsg:
+		m, e := unMarshalConsensusSignPKReqMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unMarshalConsensusSignPKReqMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageSignPKReq(m)
+	case network.AnswerSignPkMsg:
+		m, e := unMarshalConsensusSignPubKeyMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageSignPK(m)
 	}
+
 	return nil
 }
 
@@ -224,13 +239,11 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*model.ConsensusSignPubKeyMe
 
 	pk := groupsig.DeserializePubkeyBytes(m.SignPK)
 
-	sign := groupsig.DeserializeSign(m.GSign)
-
 	base := baseMessage(m.SignData)
 	message := model.ConsensusSignPubKeyMessage{
 		GHash:             gisHash,
 		SignPK:            pk,
-		GSign:             *sign,
+		GroupID:          groupsig.DeserializeId(m.GroupID),
 		BaseSignedMessage: *base,
 	}
 	return &message, nil
@@ -251,6 +264,20 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}
 	return &message, nil
+}
+
+func unMarshalConsensusSignPKReqMessage(b []byte) (*model.ConsensusSignPubkeyReqMessage, error) {
+	m := new(tas_middleware_pb.ConsensusSignPubkeyReqMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("[handler]unMarshalConsensusSignPKReqMessage error: %v", e.Error())
+		return nil, e
+	}
+	message := &model.ConsensusSignPubkeyReqMessage{
+		GroupID: groupsig.DeserializeId(m.GroupID),
+		BaseSignedMessage: *baseMessage(m.SignData),
+	}
+	return message, nil
 }
 
 //--------------------------------------------组铸币--------------------------------------------------------------------

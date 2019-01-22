@@ -438,7 +438,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string,
 
 	// 打印相关
 	ShowPubKeyInfo(minerInfo, id)
-	ok := mediator.ConsensusInit(minerInfo)
+	ok := mediator.ConsensusInit(minerInfo, common.GlobalConf)
 	if !ok {
 		return errors.New("consensus module error")
 	}

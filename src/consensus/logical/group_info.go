@@ -54,7 +54,7 @@ type StaticGroupInfo struct {
 }
 
 
-func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *InitingGroup) *StaticGroupInfo {
+func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *InitedGroup) *StaticGroupInfo {
 	gInfo := group.gInfo
 	sgi := &StaticGroupInfo{
 		GroupID:       gid,
@@ -201,12 +201,12 @@ func (gg *GlobalGroups) GetGroupSize() int {
 	return len(gg.groups)
 }
 
-func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
-    return gg.generator.addInitingGroup(g)
-}
+//func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
+//    return gg.generator.ad(g)
+//}
 
-func (gg *GlobalGroups) removeInitingGroup(gHash common.Hash) {
-	gg.generator.removeInitingGroup(gHash)
+func (gg *GlobalGroups) removeInitedGroup(gHash common.Hash) {
+	gg.generator.removeInitedGroup(gHash)
 }
 
 func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
@@ -289,9 +289,9 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	return false
 }
 
-func (gg *GlobalGroups) GroupInitedMessage(msg *model.ConsensusGroupInitedMessage, height uint64) int32 {
-	return gg.generator.ReceiveData(msg, height)
-}
+//func (gg *GlobalGroups) GroupInitedMessage(msg *model.ConsensusGroupInitedMessage, threshold int) int32 {
+//	return gg.generator.ReceiveData(msg, threshold)
+//}
 
 //检查某个用户是否某个组成员
 func (gg *GlobalGroups) IsGroupMember(gid groupsig.ID, uid groupsig.ID) bool {
@@ -438,8 +438,8 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 	return gs
 }
 
-func (gg *GlobalGroups) GetInitingGroup(gHash common.Hash) *InitingGroup {
-    return gg.generator.getInitingGroup(gHash)
+func (gg *GlobalGroups) GetInitedGroup(gHash common.Hash) *InitedGroup {
+    return gg.generator.getInitedGroup(gHash)
 }
 
 func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {

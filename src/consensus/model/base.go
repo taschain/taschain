@@ -29,6 +29,7 @@ func (id GroupMinerID) IsValid() bool {
 
 //数据签名结构
 type SignData struct {
+	Version    int32
 	DataHash   common.Hash        //哈希值
 	DataSign   groupsig.Signature //签名
 	SignMember groupsig.ID        //用户ID或组ID，看消息类型
