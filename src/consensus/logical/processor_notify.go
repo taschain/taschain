@@ -77,7 +77,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 	}
 
-	vrf := p.getVrfWorker()
+	vrf := p.GetVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
 		vrf.markSuccess()
 	}

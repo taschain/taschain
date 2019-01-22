@@ -121,7 +121,7 @@ func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *gr
 
 	selectGroup, err := p.globalGroups.SelectNextGroup(hash, height)
 	if err != nil {
-		stdLogger.Errorf("calcCastGroup err:", err)
+		stdLogger.Errorf("calcCastGroup err:%v", err)
 		return nil
 	}
 	return &selectGroup
@@ -276,7 +276,7 @@ func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsi
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
-	worker := p.getVrfWorker()
+	worker := p.GetVrfWorker()
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.log("vrf baseBH differ from top!")
 		return
@@ -289,7 +289,7 @@ func (p *Processor) blockProposal() {
 
 	totalStake := p.minerReader.getTotalStake(height)
 	blog.log("totalStake height=%v, stake=%v", height, totalStake)
-	pi, qn, err := worker.prove(totalStake)
+	pi, qn, err := worker.Prove(totalStake)
 	if err != nil {
 		blog.log("vrf prove not ok! %v", err)
 		return

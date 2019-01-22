@@ -114,7 +114,7 @@ func (p *Processor) Finalize() {
 
 
 
-func (p *Processor) getVrfWorker() *vrfWorker {
+func (p *Processor) GetVrfWorker() *vrfWorker {
 	if v := p.vrf.Load(); v != nil {
 		return v.(*vrfWorker)
 	}

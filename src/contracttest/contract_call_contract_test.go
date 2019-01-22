@@ -22,6 +22,7 @@ func TestContractCallContract(t *testing.T) {
 	core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
 	mediator.ConsensusInit(minerInfo)
 
+	mediator.Proc.Start()
 
 
 	//code := tvm.Read0("../tvm/py/test/contract_becalled.py")

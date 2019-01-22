@@ -67,14 +67,14 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	worker := p.getVrfWorker()
+	worker := p.GetVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
 		//blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
 		return false
 	} else {
 		blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-		worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime)
+		worker = NewVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime)
 		p.setVrfWorker(worker)
 		p.blockProposal()
 	}
