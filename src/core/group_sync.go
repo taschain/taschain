@@ -36,6 +36,7 @@ const (
 	sendGroupInfoInterval      = 3 * time.Second
 	groupSyncCandidatePoolSize = 3
 	groupSyncReqTimeout        = 3 * time.Second
+	groupSyncDependHoldTimeOut = 3 * time.Minute
 )
 
 var GroupSyncer *groupSyncer
@@ -55,8 +56,10 @@ type groupSyncer struct {
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	groupInfoNotifyTimer *time.Timer
-	dependGroup          *types.Group
-	logger               taslog.Logger
+
+	dependGroup     *types.Group
+	dependHoldTimer *time.Timer
+	logger          taslog.Logger
 }
 
 func InitGroupSyncer() {
@@ -65,6 +68,7 @@ func InitGroupSyncer() {
 	GroupSyncer.reqTimeoutTimer = time.NewTimer(groupSyncReqTimeout)
 	GroupSyncer.syncTimer = time.NewTimer(groupSyncInterval)
 	GroupSyncer.groupInfoNotifyTimer = time.NewTimer(sendGroupInfoInterval)
+	GroupSyncer.dependHoldTimer = time.NewTimer(groupSyncDependHoldTimeOut)
 
 	notify.BUS.Subscribe(notify.GroupHeight, GroupSyncer.groupHeightHandler)
 	notify.BUS.Subscribe(notify.GroupReq, GroupSyncer.groupReqHandler)
@@ -88,10 +92,10 @@ func (gs *groupSyncer) trySync() {
 		return
 	}
 
-	if gs.dependGroup != nil {
-		gs.logger.Debugf("Has depend group.Group sync has been hold")
-		return
-	}
+	//if gs.dependGroup != nil {
+	//	gs.logger.Debugf("Has depend group.Group sync has been hold")
+	//	return
+	//}
 
 	id, candidateHeight := gs.getCandidateForSync()
 	if id == "" {
@@ -266,15 +270,16 @@ func (gs *groupSyncer) blockAddSuccHandler(msg notify.Message) {
 	if gs.dependGroup == nil {
 		return
 	}
-	gs.logger.Debugf("Block add succ and depend group is not nil. Try add depend group:%s on chain!", common.BytesToAddress(gs.dependGroup.Id).GetHexString())
 
 	localBlockHeight := BlockChainImpl.Height()
 	createHeight := gs.dependGroup.Header.CreateHeight
-	gs.logger.Debugf("Local block height:%d,depend group create height:%d", localBlockHeight, createHeight)
 	if localBlockHeight >= createHeight {
+		gs.logger.Debugf("Block add succ and depend group is not nil. Try add depend group:%s on chain!", common.BytesToAddress(gs.dependGroup.Id).GetHexString())
+		gs.logger.Debugf("Local block height:%d,depend group create height:%d", localBlockHeight, createHeight)
 		err := GroupChainImpl.AddGroup(gs.dependGroup)
 		if err == nil {
 			gs.dependGroup = nil
+			gs.dependHoldTimer.Stop()
 			gs.logger.Debugf("Depend group add on chain succ.Recover group sync!")
 		}
 	}
@@ -295,6 +300,9 @@ func (gs *groupSyncer) loop() {
 			gs.syncing = false
 			gs.candidate = ""
 			gs.lock.Unlock("req time out")
+		case <-gs.dependHoldTimer.C:
+			gs.logger.Debugf("Group sync depend hold  time out!")
+			gs.dependGroup = nil
 		}
 	}
 }

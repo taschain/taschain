@@ -392,6 +392,10 @@ func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block, situ
 		return types.Forking
 	}
 
+	if chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
+		return types.BlockExisted
+	}
+
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
 		return types.AddBlockFailed
@@ -419,7 +423,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situ
 	if !groupValidateResult {
 		if (err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal) && BlockSyncer != nil && BlockSyncer.dependBlock == nil {
 			BlockSyncer.dependBlock = b
-			chain.forkProcessor.reset()
+			BlockSyncer.dependHoldTimer.Reset(blockSyncDependHoldTimeOut)
 			Logger.Infof("Add block on chain depend on group.Hold block sync!")
 		} else {
 			Logger.Errorf("Fail to validate group sig!")

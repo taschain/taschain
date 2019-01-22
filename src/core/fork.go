@@ -53,10 +53,10 @@ func (fh *forkProcessor) requestChainPieceInfo(targetNode string, height uint64)
 		return
 	}
 
-	if BlockSyncer.dependBlock != nil {
-		fh.logger.Debugf("Has depend block.Process fork has been hold")
-		return
-	}
+	//if BlockSyncer.dependBlock != nil {
+	//	fh.logger.Debugf("Has depend block.Process fork has been hold")
+	//	return
+	//}
 
 	if PeerManager.isEvil(targetNode) {
 		fh.logger.Debugf("Req id:%s is marked evil.Do not req!", targetNode)
@@ -312,13 +312,11 @@ func (fh *forkProcessor) loop() {
 	for {
 		select {
 		case <-fh.reqTimer.C:
-			fh.lock.Lock()
 			if fh.candidite != "" {
-				fh.logger.Debugf("Fork req time out to %s", fh.candidite)
+				fh.logger.Debugf("  %s", fh.candidite)
 				PeerManager.markEvil(fh.candidite)
 				fh.reset()
 			}
-			fh.lock.Unlock()
 		}
 	}
 }

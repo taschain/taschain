@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.5.5
+version=0.5.7
 
 cd ../../daily
 sh build.sh
