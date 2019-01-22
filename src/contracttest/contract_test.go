@@ -326,17 +326,22 @@ func OnChainFunc(code string, source string) {
 	txpool.AddTransaction(genContractTx(1, 20000000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
 	fmt.Println("nonce:", core.BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(core.BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
-	castor := new([]byte)
-	groupid := new([]byte)
+
+	group := core.GroupChainImpl.GetGroupByHeight(0)
+	if group == nil {
+		panic("group 0 is nil")
+	}
+	castor := group.Members[0]
+	groupid := group.Id
 	// 铸块1
 	pk, sk, _ := ed25519.GenerateKey(nil)
 	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
-	block := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, *castor, *groupid)
+	block := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, castor, groupid)
 	if nil == block {
 		fmt.Println("fail to cast new block")
 	}
 	// 上链
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block) {
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block,types.NewBlock) {
 		fmt.Println("fail to add block")
 	}
 	fmt.Println(contractAddr.GetHexString())
@@ -360,7 +365,7 @@ func CallContract(address, abi string, source string) {
 	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
 	block2 := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, *castor, *groupid)
 	block2.Header.TotalQN = 200
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block2) {
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block2,types.NewBlock) {
 		fmt.Println("fail to add empty block")
 	}
 }
