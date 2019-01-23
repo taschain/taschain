@@ -24,6 +24,7 @@ import (
 	"middleware/statistics"
 	"middleware/types"
 	"time"
+	"runtime/debug"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -784,6 +785,13 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
 	blog := newBizLog("OMCRG")
+	defer func() {
+		if err := recover(); err != nil {
+			blog.log("exception %s", string(debug.Stack()))
+			debug.PrintStack()
+			panic(err)
+		}
+	}()
 	gh := msg.GInfo.GI.GHeader
 	blog.log("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
 
@@ -800,7 +808,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	if !gpk.IsValid() {
 		return
 	}
-	blog.log("OnMessageCreateGroupRaw gpk %v, sign %v, msg %v, id %v", gpk.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Bytes(), msg.SI.GetID().GetHexString())
+	blog.log("OnMessageCreateGroupRaw gpk %v, sign %v, msg %v, id %v", gpk.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Hex(), msg.SI.GetID().GetHexString())
 	if !msg.VerifySign(gpk) {
 		return
 	}
