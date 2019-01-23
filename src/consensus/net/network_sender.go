@@ -61,10 +61,15 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	m := network.Message{Code: network.GroupInitMsg, Body: body}
 	//给自己发
 	//ns.send2Self(grm.SI.GetID(), m)
-	memIds := id2String(grm.GInfo.Mems)
+	//memIds := id2String(grm.GInfo.Mems)
 	//e = ns.net.Broadcast(m)
-	e = ns.net.SpreadToGroup(grm.GInfo.GroupHash().Hex(), memIds, m, grm.GInfo.GroupHash().Bytes())
-	logger.Debugf("SendGroupInitMessage hash:%s,  gHash %v", m.Hash(), grm.GInfo.GroupHash().Hex())
+	//e = ns.net.SpreadToGroup(grm.GInfo.GroupHash().Hex(), memIds, m, grm.GInfo.GroupHash().Bytes())
+	//目标组还未建成，需要点对点发送
+	for _, mem := range grm.GInfo.Mems {
+		logger.Debugf("%v SendGroupInitMessage gHash %v to %v", grm.SI.GetID().String(), grm.GInfo.GroupHash().Hex(), mem.String())
+		ns.net.Send(mem.String(), m)
+	}
+	//logger.Debugf("SendGroupInitMessage hash:%s,  gHash %v", m.Hash(), grm.GInfo.GroupHash().Hex())
 }
 
 //组内广播密钥   for each定向发送 组内广播
