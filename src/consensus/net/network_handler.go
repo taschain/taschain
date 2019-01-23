@@ -257,10 +257,20 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 		return nil, e
 	}
 
+	ch := uint64(0)
+	if m.CreateHeight != nil {
+		ch = *m.CreateHeight
+	}
+	var sign groupsig.Signature
+	if len(m.ParentSign) > 0 {
+		sign.Deserialize(m.ParentSign)
+	}
 	message := model.ConsensusGroupInitedMessage{
 		GHash:             common.BytesToHash(m.GHash),
 		GroupID:           groupsig.DeserializeId(m.GroupID),
 		GroupPK:           groupsig.DeserializePubkeyBytes(m.GroupPK),
+		CreateHeight: 		ch,
+		ParentSign: 		sign,
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}
 	return &message, nil
@@ -379,7 +389,12 @@ func pbToSignData(s *tas_middleware_pb.SignData) *model.SignData {
 		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
 		return nil
 	}
-	sign := model.SignData{DataHash: common.BytesToHash(s.DataHash), DataSign: sig, SignMember: id}
+
+	v := int32(0)
+	if s.Version != nil {
+		v = *s.Version
+	}
+	sign := model.SignData{DataHash: common.BytesToHash(s.DataHash), DataSign: sig, SignMember: id, Version: v,}
 	return &sign
 }
 

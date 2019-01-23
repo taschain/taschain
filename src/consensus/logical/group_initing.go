@@ -260,14 +260,12 @@ func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int 
 //生成发送给组内成员的秘密分享: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 	shares := make(model.SharePieceMap, 0)
-	if atomic.CompareAndSwapInt32(&gc.is, GisInit, GisSendSignPk) {
-		secs := gc.node.GenSharePiece(gc.getMembers())
-		var piece model.SharePiece
-		piece.Pub = gc.node.GetSeedPubKey()
-		for k, v := range secs {
-			piece.Share = v
-			shares[k] = piece
-		}
+	secs := gc.node.GenSharePiece(gc.getMembers())
+	var piece model.SharePiece
+	piece.Pub = gc.node.GetSeedPubKey()
+	for k, v := range secs {
+		piece.Share = v
+		shares[k] = piece
 	}
 	return shares
 }

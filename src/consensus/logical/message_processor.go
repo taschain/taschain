@@ -109,11 +109,10 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 	}
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
 		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
-	} else {
-
+	} else if bh.Height > 1 {
 		beginTime := expireTime.Add(-time.Second*time.Duration(model.Param.MaxGroupCastTime))
 		if !time.Now().After(beginTime) {
-			return fmt.Errorf("cast begin time illegal, expectBegin at %v", beginTime)
+			return fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 		}
 
 	}
@@ -458,7 +457,7 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 
 	gs := groupContext.GetGroupStatus()
 	blog.debug("joining group(%v) status=%v.", gHash.ShortS(), gs)
-	if gs == GisInit {
+	if groupContext.StatusTransfrom(GisInit, GisSendSharePiece) {
 		//blog.log("begin GenSharePieces in OMGI...")
 		shares := groupContext.GenSharePieces() //生成秘密分享
 		//blog.log("proc(%v) end GenSharePieces in OMGI, piece size=%v.", p.getPrefix(), len(shares))
@@ -469,25 +468,22 @@ func (p *Processor) OnMessageGroupInit(grm *model.ConsensusGroupRawMessage) {
 		ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 		spm.SI.SignMember = p.GetMinerID()
 
-		//防止多次发送sharepiece
-		if groupContext.StatusTransfrom(GisInit, GisSendSharePiece) {
-			for id, piece := range shares {
-				if id != "0x0" && piece.IsValid() {
-					spm.Dest.SetHexString(id)
-					spm.Share = piece
-					if spm.GenSign(ski, spm) {
-						//blog.log("OMGI spm.GenSign result=%v.", sb)
-						blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
-						tlog.log("sharepiece to %v", spm.Dest.ShortS())
-						blog.debug("call network service SendKeySharePiece...")
-						p.NetServer.SendKeySharePiece(spm)
-					} else {
-						blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
-					}
-
+		for id, piece := range shares {
+			if id != "0x0" && piece.IsValid() {
+				spm.Dest.SetHexString(id)
+				spm.Share = piece
+				if spm.GenSign(ski, spm) {
+					//blog.log("OMGI spm.GenSign result=%v.", sb)
+					blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
+					tlog.log("sharepiece to %v", spm.Dest.ShortS())
+					blog.debug("call network service SendKeySharePiece...")
+					p.NetServer.SendKeySharePiece(spm)
 				} else {
-					panic("GenSharePieces data not IsValid.")
+					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
 				}
+
+			} else {
+				panic("GenSharePieces data not IsValid.")
 			}
 		}
 		//blog.log("end GenSharePieces.")
@@ -923,7 +919,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	}
 	vctx := bc.GetVerifyContextByHeight(bh.Height)
 	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
-		err = fmt.Errorf("vctx is nil")
+		err = fmt.Errorf("vctx is nil,%v height=%v", vctx == nil, bh.Height)
 		return
 	}
 

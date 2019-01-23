@@ -44,6 +44,7 @@ func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
 		DataHash: h,
 		DataSign: groupsig.Sign(sk, h.Bytes()),
 		SignMember: id,
+		Version: common.ConsensusVersion,
 	}
 }
 

@@ -343,6 +343,8 @@ func marshalConsensusGroupInitedMessage(m *model.ConsensusGroupInitedMessage) ([
 		GHash: m.GHash.Bytes(),
 		GroupID: m.GroupID.Serialize(),
 		GroupPK: m.GroupPK.Serialize(),
+		CreateHeight: &m.CreateHeight,
+		ParentSign: m.ParentSign.Serialize(),
 		Sign: si,
 		}
 	return proto.Marshal(&message)
@@ -401,7 +403,7 @@ func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_midd
 }
 
 func signDataToPb(s *model.SignData) *tas_middleware_pb.SignData {
-	sign := tas_middleware_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize()}
+	sign := tas_middleware_pb.SignData{DataHash: s.DataHash.Bytes(), DataSign: s.DataSign.Serialize(), SignMember: s.SignMember.Serialize(), Version: &s.Version}
 	return &sign
 }
 
