@@ -387,6 +387,8 @@ func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockH
 		height = reqHeight
 	}
 
+	chainPiece := make([]*types.BlockHeader, 0)
+
 	var lastChainPieceBlock *types.BlockHeader
 	for i := height; i <= chain.Height(); i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
@@ -397,10 +399,10 @@ func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockH
 		break
 	}
 	if lastChainPieceBlock == nil {
-		panic("lastChainPieceBlock should not be nil!")
+		Logger.Errorf("lastChainPieceBlock should not be nil!")
+		return chainPiece
 	}
 
-	chainPiece := make([]*types.BlockHeader, 0)
 	chainPiece = append(chainPiece, lastChainPieceBlock)
 
 	hash := lastChainPieceBlock.PreHash
