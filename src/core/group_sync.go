@@ -175,8 +175,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 		e := GroupChainImpl.AddGroup(group)
 		if e != nil {
 			gs.logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
-			//TODO  上链失败 异常处理
-			continue
+			break
 		}
 	}
 
