@@ -3,11 +3,7 @@ package notify
 const (
 	BlockAddSucc = "block_add_succ"
 
-	BlockAddSuccConsensusUpdate = "block_add_succ_consensus_update"
-
 	GroupAddSucc = "group_add_succ"
-
-	GroupAddSuccConsensusUpdate = "group_add_succ_consensus_update"
 
 	NewBlock = "new_block"
 

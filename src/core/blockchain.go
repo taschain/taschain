@@ -421,10 +421,8 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situ
 	}
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
 	if !groupValidateResult {
-		if (err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal) && BlockSyncer != nil && BlockSyncer.dependBlock == nil {
-			BlockSyncer.dependBlock = b
-			BlockSyncer.dependHoldTimer.Reset(blockSyncDependHoldTimeOut)
-			Logger.Infof("Add block on chain depend on group.Hold block sync!")
+		if err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal {
+			Logger.Infof("Add block on chain failed: depend on group!")
 		} else {
 			Logger.Errorf("Fail to validate group sig!")
 		}
