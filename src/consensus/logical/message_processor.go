@@ -800,6 +800,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	if !gpk.IsValid() {
 		return
 	}
+	blog.log("OnMessageCreateGroupRaw gpk %v, sign %v, msg %v, id %v", gpk.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Bytes(), msg.SI.GetID().GetHexString())
 	if !msg.VerifySign(gpk) {
 		return
 	}
