@@ -85,11 +85,6 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	//if bs.dependBlock != nil {
-	//	bs.logger.Debugf("Has depend block.Sync has been hold")
-	//	return
-	//}
-
 	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {
 		bs.logger.Debugf("Get no candidate for sync!")

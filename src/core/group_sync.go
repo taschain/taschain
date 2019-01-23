@@ -57,7 +57,7 @@ type groupSyncer struct {
 	syncTimer            *time.Timer
 	groupInfoNotifyTimer *time.Timer
 
-	logger          taslog.Logger
+	logger taslog.Logger
 }
 
 func InitGroupSyncer() {
@@ -87,11 +87,6 @@ func (gs *groupSyncer) trySync() {
 		gs.logger.Debugf("Syncing to %s,do not sync anymore!", gs.candidate)
 		return
 	}
-
-	//if gs.dependGroup != nil {
-	//	gs.logger.Debugf("Has depend group.Group sync has been hold")
-	//	return
-	//}
 
 	id, candidateHeight := gs.getCandidateForSync()
 	if id == "" {
@@ -259,8 +254,6 @@ func (gs *groupSyncer) isUsefulCandidate(localGroupHeight uint64, candidateGroup
 	}
 	return true
 }
-
-
 
 func (gs *groupSyncer) loop() {
 	for {
