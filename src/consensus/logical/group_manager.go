@@ -85,8 +85,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	creatingGroup := newCreateGroup(&gInfo, threshold)
 	gm.addCreatingGroup(creatingGroup)
 
-	blog.log("proc(%v) start Create Group consensus, send network msg to members, hash=%v...\n", gm.processor.getPrefix(), gh.Hash.ShortS())
-	blog.log("call network service SendCreateGroupRawMessage...\n")
+	blog.log("proc(%v) start Create Group consensus, send network msg to members, hash=%v...", gm.processor.getPrefix(), gh.Hash.ShortS())
 	memIdStrs := make([]string, 0)
 	for _, mem := range memIds {
 		memIdStrs = append(memIdStrs, mem.ShortS())

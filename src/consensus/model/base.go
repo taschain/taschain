@@ -75,7 +75,7 @@ func (sd *SignData) GenSign(sk groupsig.Seckey) bool {
 
 //用pk验证签名，验证通过返回true，否则false。
 func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
-	return pk.IsValid() && groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
+	return groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
 }
 
 //是否已有签名数据

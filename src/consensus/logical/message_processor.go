@@ -800,7 +800,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	if !gpk.IsValid() {
 		return
 	}
-	if !msg.SI.VerifySign(gpk) {
+	if !msg.VerifySign(gpk) {
 		return
 	}
 	if gh.Hash != gh.GenHash() || gh.Hash != msg.SI.DataHash {

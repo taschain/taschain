@@ -8,6 +8,7 @@ import (
 	"time"
 	"middleware/types"
 	"bytes"
+	"fmt"
 )
 
 type ISignedMessage interface {
@@ -32,11 +33,15 @@ func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
 	return true
 }
 
-func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) bool {
+func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) (ok bool) {
 	if !sign.SI.GetID().IsValid() {
 		return false
 	}
-	return sign.SI.VerifySign(pk)
+	ok = sign.SI.VerifySign(pk)
+	if !ok {
+		fmt.Printf("verifySign fail, pk=%v, id=%v, sign=%v, data=%v", pk.GetHexString(), sign.SI.SignMember.GetHexString(), sign.SI.DataSign.GetHexString(), sign.SI.DataHash.Hex())
+	}
+	return
 }
 
 
