@@ -351,10 +351,8 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	//CheckGroup会调用groupchain的接口，需要在加锁前调用
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
-		if err == common.ErrCreateBlockNil && GroupSyncer != nil && GroupSyncer.dependGroup == nil {
-			GroupSyncer.dependGroup = group
-			GroupSyncer.dependHoldTimer.Reset(groupSyncDependHoldTimeOut)
-			Logger.Infof("Add group on chain depend on block.Hold group sync!")
+		if err == common.ErrCreateBlockNil {
+			Logger.Infof("Add group failed:  depend on block!")
 		}
 		return err
 	}
