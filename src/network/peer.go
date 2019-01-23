@@ -428,7 +428,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Infof("send all total peer size:%v", len(pm.peers))
+	Logger.Infof("send all total peer size:%v code:%v", len(pm.peers),code)
 
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
@@ -456,7 +456,7 @@ func (pm *PeerManager) checkPeerSource() {
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Infof("broadcast random total peer size:%v", len(pm.peers))
+	Logger.Infof("broadcast random total peer size:%v code:%v", len(pm.peers),code)
 
 	pm.checkPeerSource()
 	var availablePeers []*Peer
