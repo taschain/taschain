@@ -92,6 +92,8 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
 
+	blog.log("ski %v %v, sign %v, msg %v", ski.ID.GetHexString(), ski.SK.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Hex())
+
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
