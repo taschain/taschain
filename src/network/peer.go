@@ -113,9 +113,8 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	diff := time.Since(sendList.lastOnWait)
 
 	if diff > WaitTimeout {
-		sendList.onSendWaited(peer)
-		Logger.Infof("send list  WaitTimeout ！reset , net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
-
+		sendList.pendingSend = 0
+		Logger.Infof("send list  WaitTimeout ！ net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 	}
 
 	priority, isExist := sendList.priorityTable[uint32(code)]
@@ -139,11 +138,11 @@ func (sendList *SendList) isSendAvailable() bool {
 }
 
 func (sendList *SendList) onSendWaited(peer *Peer) {
-	sendList.pendingSend = 0
 	sendList.lastOnWait = time.Now()
-	sendList.autoSend(peer)
 	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
-
+	sendList.lastOnWait = time.Now()
+	sendList.pendingSend = 0
+	sendList.autoSend(peer)
 }
 
 func (sendList *SendList) autoSend(peer *Peer) {
