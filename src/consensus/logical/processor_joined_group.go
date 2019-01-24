@@ -68,6 +68,7 @@ func gInfoSuffix(gid groupsig.ID) []byte {
 func (jg *JoinedGroup) addMemSignPK(mem groupsig.ID, signPK groupsig.Pubkey)  {
     jg.lock.Lock()
     defer jg.lock.Unlock()
+    //stdLogger.Debugf("addMemSignPK %v %v", mem.GetHexString(), signPK.GetHexString())
     jg.Members[mem.GetHexString()] = signPK
 }
 
@@ -308,6 +309,10 @@ func (bg *BelongGroups) addMemSignPk(uid groupsig.ID, gid groupsig.ID, signPK gr
 		bg.initStore()
 	}
     jg := bg.getJoinedGroup(gid)
+    //stdLogger.Debugf("getJoinedGroup gid=%v", gid.ShortS())
+	//for mem, pk := range jg.getMemberMap() {
+	//	stdLogger.Debugf("getJoinedGroup: %v, %v", mem, pk.GetHexString())
+	//}
 	if jg == nil {
 		return nil, false
 	}
@@ -410,7 +415,7 @@ func (p *Processor) askSignPK(gmi *model.GroupMinerID)  {
     msg := &model.ConsensusSignPubkeyReqMessage{
     	GroupID: gmi.Gid,
 	}
-	ski := model.NewSecKeyInfo(gmi.Uid, p.mi.GetDefaultSecKey())
+	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	if msg.GenSign(ski, msg) {
 		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.Uid.ShortS(), gmi.Gid.ShortS())
 		p.NetServer.AskSignPkMessage(msg, gmi.Uid)

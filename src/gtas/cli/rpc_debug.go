@@ -243,3 +243,8 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	}
 	return successResult(summary)
 }
+
+func (api *GtasAPI) DebugJoinGroupInfo(gid string) (*Result, error) {
+	jg := mediator.Proc.GetJoinGroupInfo(gid)
+	return successResult(jg)
+}

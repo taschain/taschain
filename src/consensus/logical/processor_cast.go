@@ -207,38 +207,39 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		blog.log("core.GenerateBlock is nil! won't broadcast block!")
 		return
 	}
+	gb := p.spreadGroupBrief(bh, bh.Height+1)
+	if gb == nil {
+		blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		return
+	}
 
 	r := p.doAddOnChain(block)
 
-	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
-		slot.setSlotStatus(SS_FAILED)
+	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
+		if r != int8(types.Forking) {
+			slot.setSlotStatus(SS_FAILED)
+		}
 		return
 	}
 
 	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
 	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
-	if vctx.markBroadcast() {
-		cbm := &model.ConsensusBlockMessage{
-			Block: *block,
-		}
-
-		gb := p.spreadGroupBrief(bh, bh.Height+1)
-		if gb == nil {
-			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
-			return
-		}
-		p.NetServer.BroadcastNewBlock(cbm, gb)
-		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
-
-		vctx.broadcastSlot = slot
-
-		//如果是联盟链，则不打分红交易
-		if !consensusConfManager.GetBool("league", false) {
-			p.reqRewardTransSign(vctx, bh)
-		}
-		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
+	cbm := &model.ConsensusBlockMessage{
+		Block: *block,
 	}
+
+	p.NetServer.BroadcastNewBlock(cbm, gb)
+	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+
+	vctx.broadcastSlot = slot
+	vctx.markBroadcast()
+
+	//如果是联盟链，则不打分红交易
+	if !consensusConfManager.GetBool("league", false) {
+		p.reqRewardTransSign(vctx, bh)
+	}
+	blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
 	return
 }
 

@@ -92,8 +92,6 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	}
 	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
 
-	blog.log("ski %v %v, sign %v, msg %v", ski.ID.GetHexString(), ski.SK.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Hex())
-
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
@@ -136,20 +134,20 @@ func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) 
 	return true, nil
 }
 
-func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) bool {
+func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) (bool, error) {
 	blog := newBizLog("OMCGR")
 	blog.log("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
 
 	if gm.creatingGroups.hasSentHash(msg.GInfo.GroupHash()) {
 		blog.log("has sent initMsg, gHash=%v", msg.GInfo.GroupHash().ShortS())
-		return false
+		return false, fmt.Errorf("has sent init")
 	}
 
 	if ok, err := gm.isGroupHeaderLegal(msg.GInfo.GI.GHeader); !ok {
 		blog.log(err.Error())
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 
 }
 
@@ -172,6 +170,7 @@ func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	blog.log("accept result %v", accept)
 	newHashTraceLog("OMCGS", gis.GetHash(), msg.SI.SignMember).log("OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
 	if accept == PIECE_THRESHOLD {
+		blog.log("收齐分片，聚合出组签名")
 		gis.Signature = creating.gSignGenerator.GetGroupSign()
 		return true
 	}
@@ -183,10 +182,15 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 
 	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, sgi.GroupID.ShortS())
 
+	var err error
+	defer func() {
+		newHashTraceLog("AddGroupOnChain", sgi.GInfo.GroupHash(), groupsig.ID{}).log("gid=%v, workHeight=%v, result %v", sgi.GroupID.ShortS(), group.Header.WorkHeight, err.Error())
+	}()
 
 	if gm.groupChain.GetGroupById(group.Id) != nil {
 		stdLogger.Debugf("group already onchain, accept, id=%v\n", sgi.GroupID.ShortS())
 		gm.processor.acceptGroup(sgi)
+		err = fmt.Errorf("group already onchain")
 	} else {
 		top := gm.processor.MainChain.Height()
 		if !sgi.GetReadyTimeout(top) {
@@ -195,9 +199,11 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 				stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err.Error())
 				return
 			}
+			err = fmt.Errorf("success")
 			gm.checker.addHeightCreated(group.Header.CreateHeight)
 			stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 		} else {
+			err = fmt.Errorf("ready timeout, currentHeight %v", top)
 			stdLogger.Infof("AddGroupOnChain group ready timeout, gid %v, timeout height %v, top %v\n", sgi.GroupID.ShortS(), sgi.GInfo.GI.GHeader.ReadyHeight, top)
 		}
 	}
