@@ -68,6 +68,7 @@ func gInfoSuffix(gid groupsig.ID) []byte {
 func (jg *JoinedGroup) addMemSignPK(mem groupsig.ID, signPK groupsig.Pubkey)  {
     jg.lock.Lock()
     defer jg.lock.Unlock()
+    //stdLogger.Debugf("addMemSignPK %v %v", mem.GetHexString(), signPK.GetHexString())
     jg.Members[mem.GetHexString()] = signPK
 }
 
@@ -308,6 +309,10 @@ func (bg *BelongGroups) addMemSignPk(uid groupsig.ID, gid groupsig.ID, signPK gr
 		bg.initStore()
 	}
     jg := bg.getJoinedGroup(gid)
+    //stdLogger.Debugf("getJoinedGroup gid=%v", gid.ShortS())
+	//for mem, pk := range jg.getMemberMap() {
+	//	stdLogger.Debugf("getJoinedGroup: %v, %v", mem, pk.GetHexString())
+	//}
 	if jg == nil {
 		return nil, false
 	}

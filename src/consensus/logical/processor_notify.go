@@ -72,6 +72,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 			bc.AddCastedHeight(bh.Height, bh.PreHash)
 			vctx := bc.GetVerifyContextByHeight(bh.Height)
 			if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
+				//如果本地没有广播准备，说明是其他节点广播过来的块，则标记为已广播
 				vctx.markBroadcast()
 			}
 		}

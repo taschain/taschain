@@ -113,7 +113,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
-	rlog.log("height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), result)
+	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
 	tlog.log("result=%v,castor=%v", result, castor.ShortS())

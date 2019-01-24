@@ -190,6 +190,7 @@ func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, crea
 	}
 
 	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
+	extends := fmt.Sprintf("baseBlock:%v,baseTime:%v,baseHeight:%v", theBH.Hash.Hex(), theBH.CurTime, theBH.Height)
 
 	gh = &types.GroupHeader{
 		Parent: group.GroupID.Serialize(),
@@ -200,7 +201,7 @@ func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, crea
 		CreateHeight: createHeight,
 		ReadyHeight: createHeight + model.Param.GroupGetReadyGap,
 		MemberRoot: model.GenMemberRootByIds(memIds),
-		Extends: "",
+		Extends: extends,
 	}
 	gh.WorkHeight = gh.ReadyHeight + model.Param.GroupCastQualifyGap
 	gh.DismissHeight = gh.WorkHeight + model.Param.GroupCastDuration

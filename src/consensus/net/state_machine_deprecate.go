@@ -76,7 +76,7 @@ package net
 //	go func() {
 //		for {
 //			id := <- TimeSeq.finishCh
-//			logger.Info("state machine finished, id=", id)
+//			logger.Info("state machine leastFinished, id=", id)
 //			TimeSeq.lock.Lock()
 //
 //			delete(TimeSeq.groupMachines, id)
@@ -303,16 +303,16 @@ package net
 //	return p
 //}
 //
-//func (m *StateMachine1) addNode(node *StateNode, repeat int) {
+//func (m *StateMachine1) addNode(node *StateNode, leastRepeat int) {
 //	if node == nil {
 //		panic("cannot add nil node to the state machine!")
 //	}
 //	tail := m.findTail()
-//	for repeat > 0 {
+//	for leastRepeat > 0 {
 //		tmp := *node
 //		tail.Next = &tmp
 //		tail = &tmp
-//		repeat--
+//		leastRepeat--
 //	}
 //}
 //

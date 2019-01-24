@@ -537,7 +537,7 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	result := gc.PieceMessage(spm)
 	blog.log("proc(%v) after gc.PieceMessage, gc result=%v.", p.getPrefix(), result)
 
-	tlog.log("收到piece数 %v", gc.node.groupInitPool.GetSize())
+	tlog.log("收到piece数 %v, 收齐分片%v", gc.node.groupInitPool.GetSize(), result == 1)
 
 	if result == 1 { //已聚合出签名私钥,组公钥，组id
 		jg := gc.GetGroupInfo()
@@ -600,7 +600,7 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	blog := newBizLog("OMSPK")
 	tlog := newHashTraceLog("OMSPK", spkm.GHash, spkm.SI.GetID())
 
-	blog.log("proc(%v) begin , sender=%v, gHash=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS())
+	blog.log("proc(%v) begin , sender=%v, gHash=%v, gid=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS(), spkm.GroupID.ShortS())
 
 	//jg := p.belongGroups.getJoinedGroup(spkm.GroupID)
 	//if jg == nil {
@@ -624,6 +624,9 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	if jg != nil {
 		blog.log("after SignPKMessage exist mem sign pks=%v, ret=%v", jg.memSignPKSize(), ret)
 		tlog.log("收到签名公钥数 %v", jg.memSignPKSize())
+		for mem, pk := range jg.getMemberMap() {
+			blog.log("signPKS: %v, %v", mem, pk.GetHexString())
+		}
 	}
 
 	//blog.log("proc(%v) end OMSPK, sender=%v, dummy gid=%v.", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
@@ -750,7 +753,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		blog.log("verify parent groupsig fail! gHash=%v", gHash.ShortS())
 		return
 	}
-	if initedGroup.gInfo.GI.Signature.IsEqual(gim.ParentSign) {
+	if !initedGroup.gInfo.GI.Signature.IsEqual(gim.ParentSign) {
 		blog.log("signature differ, old %v, new %v", initedGroup.gInfo.GI.Signature.GetHexString(), gim.ParentSign.GetHexString())
 		return
 	}
@@ -784,7 +787,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 }
 
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
-	blog := newBizLog("OMCRG")
+	blog := newBizLog("OMCGR")
 	defer func() {
 		if err := recover(); err != nil {
 			blog.log("exception %s", string(debug.Stack()))
@@ -808,7 +811,6 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	if !gpk.IsValid() {
 		return
 	}
-	blog.log("OnMessageCreateGroupRaw gpk %v, sign %v, msg %v, id %v", gpk.GetHexString(), msg.SI.DataSign.GetHexString(), msg.SI.DataHash.Hex(), msg.SI.GetID().GetHexString())
 	if !msg.VerifySign(gpk) {
 		return
 	}
@@ -818,7 +820,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	}
 
 	tlog := newHashTraceLog("OMCGR", gh.Hash, msg.SI.GetID())
-	if p.groupManager.OnMessageCreateGroupRaw(msg) {
+	if ok, err := p.groupManager.OnMessageCreateGroupRaw(msg); ok {
 		signMsg := &model.ConsensusCreateGroupSignMessage{
 			Launcher: msg.SI.SignMember,
 			GHash: gh.Hash,
@@ -833,8 +835,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 		}
 
 	} else {
-		tlog.log("groupManager.OnMessageCreateGroupRaw fail")
-
+		tlog.log("groupManager.OnMessageCreateGroupRaw fail, err:%v", err.Error())
 	}
 }
 
@@ -883,7 +884,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		ski := model.NewSecKeyInfo(p.GetMinerID(), p.getMinerInfo().GetDefaultSecKey())
 		if initMsg.GenSign(ski, initMsg) {
 			tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
-			tlog.log("SendGroupInitMessage")
+			tlog.log("收齐分片，SendGroupInitMessage")
 			p.NetServer.SendGroupInitMessage(initMsg)
 			p.groupManager.creatingGroups.addSentHash(msg.GHash)
 			p.groupManager.removeCreatingGroup(msg.GHash)
