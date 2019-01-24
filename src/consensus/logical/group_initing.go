@@ -68,6 +68,14 @@ func (ig *InitedGroup) receiveSize() int {
 	return len(ig.receivedGPKs)
 }
 
+func (ig *InitedGroup) hasRecived(id groupsig.ID) bool {
+	ig.lock.RLock()
+	defer ig.lock.RUnlock()
+
+	_, ok :=  ig.receivedGPKs[id.GetHexString()]
+	return ok
+}
+
 //找出收到最多的相同值
 func (ig *InitedGroup) convergence() bool {
 	stdLogger.Debug("begin Convergence, K=%v\n", ig.threshold)

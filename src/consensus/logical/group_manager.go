@@ -182,10 +182,15 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 
 	stdLogger.Infof("AddGroupOnChain height:%d,id:%s\n", group.GroupHeight, sgi.GroupID.ShortS())
 
+	var err error
+	defer func() {
+		newHashTraceLog("AddGroupOnChain", sgi.GInfo.GroupHash(), groupsig.ID{}).log("gid=%v, workHeight=%v, result %v", sgi.GroupID.ShortS(), group.Header.WorkHeight, err.Error())
+	}()
 
 	if gm.groupChain.GetGroupById(group.Id) != nil {
 		stdLogger.Debugf("group already onchain, accept, id=%v\n", sgi.GroupID.ShortS())
 		gm.processor.acceptGroup(sgi)
+		err = fmt.Errorf("group already onchain")
 	} else {
 		top := gm.processor.MainChain.Height()
 		if !sgi.GetReadyTimeout(top) {
@@ -194,9 +199,11 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 				stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err.Error())
 				return
 			}
+			err = fmt.Errorf("success")
 			gm.checker.addHeightCreated(group.Header.CreateHeight)
 			stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
 		} else {
+			err = fmt.Errorf("ready timeout, currentHeight %v", top)
 			stdLogger.Infof("AddGroupOnChain group ready timeout, gid %v, timeout height %v, top %v\n", sgi.GroupID.ShortS(), sgi.GInfo.GI.GHeader.ReadyHeight, top)
 		}
 	}

@@ -256,6 +256,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
+	gmap["extends"] = g.Header.Extends
 	return gmap
 }
 

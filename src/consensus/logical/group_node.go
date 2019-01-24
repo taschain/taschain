@@ -82,6 +82,7 @@ func (gmd GroupInitPool) GenGroupPubKey() *groupsig.Pubkey {
 	return gpk
 }
 
+
 //组相关的秘密
 type MinerGroupSecret struct {
 	secretSeed base.Rand //某个矿工针对某个组的私密种子（矿工个人私密种子固定和组信息固定的情况下，该值固定）
@@ -246,4 +247,11 @@ func (n GroupNode) GetSeedPubKey() groupsig.Pubkey {
 //取得组公钥（在秘密交换后有效）
 func (n GroupNode) GetGroupPubKey() groupsig.Pubkey {
 	return n.groupPubKey
+}
+
+func (n *GroupNode) hasPiece(id groupsig.ID) bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	_, ok := n.groupInitPool.pool[id.GetHexString()]
+	return ok
 }

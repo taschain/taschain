@@ -95,7 +95,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(types.Group)
-	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", group.Id, group.Header.WorkHeight)
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeId(group.Id).GetHexString(), group.Header.WorkHeight)
 	if group.Id == nil || len(group.Id) == 0 {
 		return
 	}

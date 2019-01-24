@@ -535,9 +535,18 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	}
 
 	result := gc.PieceMessage(spm)
-	blog.log("proc(%v) after gc.PieceMessage, gc result=%v.", p.getPrefix(), result)
+	waitPieceIds := make([]string, 0)
+	for _, mem := range gc.gInfo.Mems {
+		if !gc.node.hasPiece(mem) {
+			waitPieceIds = append(waitPieceIds, mem.ShortS())
+			if len(waitPieceIds) >= 10 {
+				break
+			}
+		}
+	}
+	blog.log("proc(%v) after gc.PieceMessage, gc result=%v. lackof %v", p.getPrefix(), result, waitPieceIds)
 
-	tlog.log("收到piece数 %v, 收齐分片%v", gc.node.groupInitPool.GetSize(), result == 1)
+	tlog.log("收到piece数 %v, 收齐分片%v, 缺少%v等", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
 
 	if result == 1 { //已聚合出签名私钥,组公钥，组id
 		jg := gc.GetGroupInfo()
@@ -761,14 +770,25 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 
 	result := initedGroup.receive(gim.SI.GetID(), gim.GroupPK)
 
-	blog.debug("proc(%v) receive Data result=%v, 消息数量 %v.", p.getPrefix(), result, initedGroup.receiveSize())
-	tlog.log("收到消息数量 %v", initedGroup.receiveSize())
+	waitIds := make([]string, 0)
+	for _, mem := range initedGroup.gInfo.Mems {
+		if !initedGroup.hasRecived(mem) {
+			waitIds = append(waitIds, mem.ShortS())
+			if len(waitIds) >= 10 {
+				break
+			}
+		}
+	}
+
+	blog.debug("proc(%v) receive Data result=%v, 消息数量 %v, 缺少%v等.", p.getPrefix(), result, initedGroup.receiveSize(), waitIds)
+	tlog.log("收到消息数量 %v, 缺少%v等", initedGroup.receiveSize(), waitIds)
 
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
 		staticGroup := NewSGIFromStaticGroupSummary(gim.GroupID, gim.GroupPK, initedGroup)
 		gh := staticGroup.getGroupHeader()
 		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), gim.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
+
 
 		//p.acceptGroup(staticGroup)
 		p.groupManager.AddGroupOnChain(staticGroup)

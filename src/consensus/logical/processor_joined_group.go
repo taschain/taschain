@@ -415,7 +415,7 @@ func (p *Processor) askSignPK(gmi *model.GroupMinerID)  {
     msg := &model.ConsensusSignPubkeyReqMessage{
     	GroupID: gmi.Gid,
 	}
-	ski := model.NewSecKeyInfo(gmi.Uid, p.mi.GetDefaultSecKey())
+	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	if msg.GenSign(ski, msg) {
 		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.Uid.ShortS(), gmi.Gid.ShortS())
 		p.NetServer.AskSignPkMessage(msg, gmi.Uid)

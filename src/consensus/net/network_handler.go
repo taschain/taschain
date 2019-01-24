@@ -73,25 +73,22 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		GroupInsideMachines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
-
+		logger.Infof("SharepieceMsg receive from:%v, gHash:%v",sourceId, m.GHash.Hex())
 	case network.SignPubkeyMsg:
-		t := time.Now()
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		t1 := time.Since(t)
 		GroupInsideMachines.GetMachine(m.GHash.Hex()).Transform(NewStateMsg(code, m, sourceId))
-		t2 := time.Since(t)
-		logger.Infof("SignPubKeyMsg receive %v, unMarshal cost %v, transform cost %v", t.Format("2006-01-02/15:04:05.000"), t1.String(), t2.String())
+		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v",sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return e
 		}
-		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s", sourceId, m.GHash.Hex())
+		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
 
 		//belongGroup := c.processor.ExistInGroup(m.GHash)
 		//var machines *StateMachines

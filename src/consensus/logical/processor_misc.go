@@ -295,3 +295,10 @@ func (p *Processor) BlockContextSummary() string {
 	fmt.Println("============================================================")
 	return string(b)
 }
+
+func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
+	var id groupsig.ID
+	id.SetHexString(gid)
+    jg := p.belongGroups.getJoinedGroup(id)
+    return jg
+}
