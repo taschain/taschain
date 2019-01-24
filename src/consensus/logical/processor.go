@@ -171,15 +171,22 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	var gid = groupsig.DeserializeId(bh.GroupId)
 
-	selectGroupId := p.CalcVerifyGroup(preHeader, bh.Height)
+	selectGroupId, hash := p.CalcVerifyGroup(preHeader, bh.Height)
 	if selectGroupId == nil {
-		err = common.ErrSelectGroupNil
+		//err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
-	if !selectGroupId.IsEqual(gid) {
-		err = common.ErrSelectGroupInequal
-		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+	if !selectGroupId.IsEqual(gid) { //有可能组已经解散，需要再从链上取
+		selectGroupId, err2 := p.globalGroups.SelectNextGroupFromChain(hash, bh.Height)
+		if err2 != nil {
+			err = err2
+			return
+		}
+		if !selectGroupId.IsEqual(gid) {
+			err = common.ErrSelectGroupInequal
+			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		}
 		return
 	}
 

@@ -346,25 +346,63 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 	return
 }
 
+func (gg *GlobalGroups) selectIndex(num int, hash common.Hash) int64 {
+	value := hash.Big()
+	index := value.Mod(value, big.NewInt(int64(num)))
+	return index.Int64()
+}
+
 //根据上一块哈希值，确定下一块由哪个组铸块
-func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
+func (gg *GlobalGroups) SelectNextGroupFromCache(h common.Hash, height uint64) (groupsig.ID, error) {
 	qualifiedGS := gg.GetCastQualifiedGroups(height)
 
 	var ga groupsig.ID
-	value := h.Big()
 
 	gids := make([]string, 0)
 	for _, g := range qualifiedGS {
 		gids = append(gids, g.GroupID.ShortS())
 	}
 
-	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
-		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
-		ga = qualifiedGS[index.Int64()].GroupID
-		stdLogger.Debugf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
+	if h.Big().BitLen() > 0 && len(qualifiedGS) > 0 {
+		index := gg.selectIndex(len(qualifiedGS), h)
+		ga = qualifiedGS[index].GroupID
+		stdLogger.Debugf("height %v SelectNextGroupFromCache qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
-		return ga, fmt.Errorf("selectNextGroup failed, arg error")
+		return ga, fmt.Errorf("selectNextGroupFromCache failed, hash %v, qualified group %v", h.ShortS(), gids)
+	}
+}
+
+func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
+    iter := gg.chain.NewIterator()
+    ids := make([]groupsig.ID, 0)
+	for g := iter.Current(); g != nil; g = iter.MovePre() {
+		if g.Header.WorkHeight <= height && g.Header.DismissHeight > height {
+			ids = append(ids, groupsig.DeserializeId(g.Id))
+		}
+		if g.Header.DismissHeight <= height {
+			g = gg.chain.GetGroupByHeight(0)
+			ids = append(ids, groupsig.DeserializeId(g.Id))
+			break
+		}
+	}
+	var ga groupsig.ID
+	quaulifiedGS := make([]groupsig.ID, len(ids))
+	n := len(ids)
+	for i := 0; i < n; i++ {
+		quaulifiedGS[n-i-1] = ids[i]
+	}
+	idshort := make([]string, len(quaulifiedGS))
+	for i, id := range quaulifiedGS {
+		idshort[i] = id.ShortS()
+	}
+	if h.Big().BitLen() > 0 && len(quaulifiedGS) > 0 {
+		index := gg.selectIndex(len(quaulifiedGS), h)
+		ga = quaulifiedGS[index]
+		stdLogger.Debugf("height %v SelectNextGroupFromChain qualified groups %v, index %v\n", height, idshort, index)
+		return ga, nil
+	} else {
+		return ga, fmt.Errorf("SelectNextGroupFromChain failed, arg error")
 	}
 }
 

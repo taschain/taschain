@@ -109,7 +109,7 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) (*groupsig.ID, common.Hash) {
 	var hash common.Hash
 	data := preBH.Random
 
@@ -119,16 +119,16 @@ func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *gr
 		data = hash.Bytes()
 	}
 
-	selectGroup, err := p.globalGroups.SelectNextGroup(hash, height)
+	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
 	if err != nil {
-		stdLogger.Errorf("calcCastGroup err:%v", err)
-		return nil
+		stdLogger.Errorf("calcCastGroup err:", err)
+		return nil, hash
 	}
-	return &selectGroup
+	return &selectGroup, hash
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextId := p.CalcVerifyGroup(bh, height)
+	nextId, _ := p.CalcVerifyGroup(bh, height)
 	if nextId == nil {
 		return nil
 	}
