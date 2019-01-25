@@ -6,6 +6,6 @@ package common
 **  Description: 
 */
 
-const GtasVersion = "0.5.7"
+const GtasVersion = "0.6.0"
 
 const ConsensusVersion = 1
