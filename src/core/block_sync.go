@@ -49,7 +49,7 @@ type blockSyncer struct {
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
 
-	logger               taslog.Logger
+	logger taslog.Logger
 }
 
 type TopBlockInfo struct {
@@ -84,11 +84,6 @@ func (bs *blockSyncer) trySync() {
 		bs.logger.Debugf("Syncing to %s,do not sync anymore!", bs.candidate)
 		return
 	}
-
-	//if bs.dependBlock != nil {
-	//	bs.logger.Debugf("Has depend block.Sync has been hold")
-	//	return
-	//}
 
 	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {
@@ -232,6 +227,10 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 	for id, topBlockInfo := range bs.candidatePool {
 		if !bs.isUsefulCandidate(localTotalQN, localTopHash, topBlockInfo.TotalQn, topBlockInfo.Hash) {
 			uselessCandidate = append(uselessCandidate, id)
+			continue
+		}
+		if PeerManager.isEvil(id) {
+			uselessCandidate = append(uselessCandidate, id)
 		}
 	}
 	if len(uselessCandidate) != 0 {
@@ -297,8 +296,6 @@ func (bs *blockSyncer) isUsefulCandidate(localTotalQn uint64, localTopHash commo
 	}
 	return true
 }
-
-
 
 func marshalBlockInfo(bi TopBlockInfo) ([]byte, error) {
 	blockInfo := tas_middleware_pb.TopBlockInfo{Hash: bi.Hash.Bytes(), TotalQn: &bi.TotalQn, Height: &bi.Height, PreHash: bi.PreHash.Bytes()}

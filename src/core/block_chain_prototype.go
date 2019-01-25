@@ -354,7 +354,7 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
-			Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
+			//Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
 			continue
 		}
 		chain.remove(header)

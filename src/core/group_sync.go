@@ -57,7 +57,7 @@ type groupSyncer struct {
 	syncTimer            *time.Timer
 	groupInfoNotifyTimer *time.Timer
 
-	logger          taslog.Logger
+	logger taslog.Logger
 }
 
 func InitGroupSyncer() {
@@ -87,11 +87,6 @@ func (gs *groupSyncer) trySync() {
 		gs.logger.Debugf("Syncing to %s,do not sync anymore!", gs.candidate)
 		return
 	}
-
-	//if gs.dependGroup != nil {
-	//	gs.logger.Debugf("Has depend group.Group sync has been hold")
-	//	return
-	//}
 
 	id, candidateHeight := gs.getCandidateForSync()
 	if id == "" {
@@ -175,8 +170,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 		e := GroupChainImpl.AddGroup(group)
 		if e != nil {
 			gs.logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
-			//TODO  上链失败 异常处理
-			continue
+			break
 		}
 	}
 
@@ -198,6 +192,10 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	uselessCandidate := make([]string, 0, blockSyncCandidatePoolSize)
 	for id, height := range gs.candidatePool {
 		if !gs.isUsefulCandidate(localGroupHeight, height) {
+			uselessCandidate = append(uselessCandidate, id)
+			continue
+		}
+		if PeerManager.isEvil(id) {
 			uselessCandidate = append(uselessCandidate, id)
 		}
 	}
@@ -260,8 +258,6 @@ func (gs *groupSyncer) isUsefulCandidate(localGroupHeight uint64, candidateGroup
 	}
 	return true
 }
-
-
 
 func (gs *groupSyncer) loop() {
 	for {
