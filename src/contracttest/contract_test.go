@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"middleware/types"
 	"core"
-	"common/ed25519"
-	b "consensus/base"
+	"consensus/mediator"
+	"consensus/logical"
+	"time"
+	"consensus/groupsig"
+	"consensus/model"
 )
 
 //
@@ -32,7 +35,7 @@ import (
 //	middleware.InitMiddleware()
 //}
 //
-var randValue uint64 = 0
+var randValue uint64 = 1
 
 func GeneteRandom() uint64 {
 	result := randValue
@@ -59,7 +62,8 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		targetbyte := common.HexStringToAddress(target)
 		targetAddr = &targetbyte
 	}
-	return &types.Transaction{
+
+	var result= &types.Transaction{
 		Hash:          common.BytesToHash([]byte{byte(nonce)}),
 		Data:          data,
 		GasLimit:      gaslimit,
@@ -72,6 +76,13 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 		ExtraDataType: extraDataType,
 		Type:          txType,
 	}
+	result.Hash = result.GenHash()
+
+
+	privateKey := common.HexStringToSecKey(SK)
+	sign := privateKey.Sign(result.Hash.Bytes())
+	result.Sign = &sign
+	return result
 }
 
 //
@@ -314,6 +325,75 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 //	}
 //}
 //
+
+func doAddBlockOnChain() (ok bool) {
+	group := core.GroupChainImpl.GetGroupByHeight(0)
+	if group == nil {
+		panic("group 0 is nil")
+	}
+	castor := mediator.Proc.GetMinerID().Serialize()
+	groupid := group.Id
+
+	processor := mediator.Proc
+	pre := core.BlockChainImpl.QueryTopBlock()
+	castHeight := pre.Height+1
+
+	worker := logical.NewVRFWorker(processor.GetSelfMinerDO(), pre, castHeight, time.Now().Add(10*time.Second))
+	totalStake := core.MinerManagerImpl.GetTotalStakeByHeight(castHeight)
+	pi, qn, err := worker.Prove(totalStake)
+	if err != nil {
+		fmt.Printf("vrf worker prove fail, err=%v\n", err.Error())
+		return
+	}
+
+	memIds := make([]groupsig.ID, 0)
+	for _, mem := range group.Members {
+		memIds = append(memIds, groupsig.DeserializeId(mem))
+	}
+	_, root := processor.GenProveHashs(castHeight, pre.Random, memIds)
+
+	block := core.BlockChainImpl.CastBlock(castHeight, pi.Big(), root, qn, castor, groupid)
+	if nil == block {
+		fmt.Println("fail to cast new block")
+	}
+
+	//产生组签名
+	msg := block.Header.Hash.Bytes()
+	random := pre.Random
+	gSignGen := model.NewGroupSignGenerator(2)
+	rSignGen := model.NewGroupSignGenerator(2)
+
+	var sk1 groupsig.Seckey
+	sk1.SetHexString("0x30ddd46cf92a7a9d4b5c8e3024354b95c439ce696801873e0ed35de41d78c0c")
+	var id1 groupsig.ID
+	id1.SetHexString("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
+	sign1 := groupsig.Sign(sk1, msg)
+	rsign1 := groupsig.Sign(sk1, random)
+	gSignGen.AddWitness(id1, sign1)
+	rSignGen.AddWitness(id1, rsign1)
+
+	var sk2 groupsig.Seckey
+	sk2.SetHexString("0x6763bc463de48dbbfe4af4e234f605961de4b699edf099cd535326f2ff600ab")
+	var id2 groupsig.ID
+	id2.SetHexString("0xd3d410ec7c917f084e0f4b604c7008f01a923676d0352940f68a97264d49fb76")
+	sign2 := groupsig.Sign(sk2, msg)
+	rsign2 := groupsig.Sign(sk2, random)
+	gSignGen.AddWitness(id2, sign2)
+	rSignGen.AddWitness(id2, rsign2)
+
+	block.Header.Signature = gSignGen.GetGroupSign().Serialize()
+	block.Header.Random = rSignGen.GetGroupSign().Serialize()
+
+
+	// 上链
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block,types.NewBlock) {
+		fmt.Println("fail to add block")
+		return false
+	} else {
+		fmt.Println("add block onchain success, height", block.Header.Height)
+		return true
+	}
+}
 func OnChainFunc(code string, source string) {
 	//common.InitConf("d:/test1.ini")
 	//common.InitConf("../../deploy/tvm/test1.ini")
@@ -323,27 +403,14 @@ func OnChainFunc(code string, source string) {
 	//core.BlockChainImpl.GetTransactionPool().Clear()
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	index := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
+	txpool.AddTransaction(genContractTx(1, 20000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
 	fmt.Println("nonce:", core.BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(core.BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 
-	group := core.GroupChainImpl.GetGroupByHeight(0)
-	if group == nil {
-		panic("group 0 is nil")
+	if !doAddBlockOnChain() {
+		return
 	}
-	castor := group.Members[0]
-	groupid := group.Id
-	// 铸块1
-	pk, sk, _ := ed25519.GenerateKey(nil)
-	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
-	block := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, castor, groupid)
-	if nil == block {
-		fmt.Println("fail to cast new block")
-	}
-	// 上链
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block,types.NewBlock) {
-		fmt.Println("fail to add block")
-	}
+
 	fmt.Println(contractAddr.GetHexString())
 }
 
@@ -353,20 +420,15 @@ func CallContract(address, abi string, source string) {
 	//minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
 	//core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
 	//core.BlockChainImpl.GetTransactionPool().Clear()
-	castor := new([]byte)
-	groupid := new([]byte)
 	contractAddr := common.HexStringToAddress(address)
 	code := core.BlockChainImpl.LatestStateDB().GetCode(contractAddr)
 	fmt.Println(string(code))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	r := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
-	pk, sk, _ := ed25519.GenerateKey(nil)
-	pv, _ := ed25519.ECVRF_prove(pk, sk, common.Hash{}.Bytes())
-	block2 := core.BlockChainImpl.CastBlock(core.BlockChainImpl.Height()+1, b.VRFProve(pv).Big(), common.Hash{}, 3, *castor, *groupid)
-	block2.Header.TotalQN = 200
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block2,types.NewBlock) {
-		fmt.Println("fail to add empty block")
+	txpool.AddTransaction(genContractTx(1, 20000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
+
+	if !doAddBlockOnChain() {
+		return
 	}
 }
 

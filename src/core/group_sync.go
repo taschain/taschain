@@ -57,9 +57,7 @@ type groupSyncer struct {
 	syncTimer            *time.Timer
 	groupInfoNotifyTimer *time.Timer
 
-	dependGroup     *types.Group
-	dependHoldTimer *time.Timer
-	logger          taslog.Logger
+	logger taslog.Logger
 }
 
 func InitGroupSyncer() {
@@ -68,12 +66,10 @@ func InitGroupSyncer() {
 	GroupSyncer.reqTimeoutTimer = time.NewTimer(groupSyncReqTimeout)
 	GroupSyncer.syncTimer = time.NewTimer(groupSyncInterval)
 	GroupSyncer.groupInfoNotifyTimer = time.NewTimer(sendGroupInfoInterval)
-	GroupSyncer.dependHoldTimer = time.NewTimer(groupSyncDependHoldTimeOut)
 
 	notify.BUS.Subscribe(notify.GroupHeight, GroupSyncer.groupHeightHandler)
 	notify.BUS.Subscribe(notify.GroupReq, GroupSyncer.groupReqHandler)
 	notify.BUS.Subscribe(notify.Group, GroupSyncer.groupHandler)
-	notify.BUS.Subscribe(notify.BlockAddSuccConsensusUpdate, GroupSyncer.blockAddSuccHandler)
 
 	go GroupSyncer.loop()
 }
@@ -91,11 +87,6 @@ func (gs *groupSyncer) trySync() {
 		gs.logger.Debugf("Syncing to %s,do not sync anymore!", gs.candidate)
 		return
 	}
-
-	//if gs.dependGroup != nil {
-	//	gs.logger.Debugf("Has depend group.Group sync has been hold")
-	//	return
-	//}
 
 	id, candidateHeight := gs.getCandidateForSync()
 	if id == "" {
@@ -179,8 +170,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 		e := GroupChainImpl.AddGroup(group)
 		if e != nil {
 			gs.logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
-			//TODO  上链失败 异常处理
-			continue
+			break
 		}
 	}
 
@@ -202,6 +192,10 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	uselessCandidate := make([]string, 0, blockSyncCandidatePoolSize)
 	for id, height := range gs.candidatePool {
 		if !gs.isUsefulCandidate(localGroupHeight, height) {
+			uselessCandidate = append(uselessCandidate, id)
+			continue
+		}
+		if PeerManager.isEvil(id) {
 			uselessCandidate = append(uselessCandidate, id)
 		}
 	}
@@ -254,7 +248,7 @@ func (gs *groupSyncer) addCandidatePool(id string, groupHeight uint64) {
 func (gs *groupSyncer) candidatePoolDump() {
 	gs.logger.Debugf("Candidate Pool Dump:")
 	for id, groupHeight := range gs.candidatePool {
-		gs.logger.Debugf("Candidate id:%s,totalQn:%d,height:%d", id, groupHeight)
+		gs.logger.Debugf("Candidate id:%s,group height:%d", id, groupHeight)
 	}
 }
 
@@ -263,26 +257,6 @@ func (gs *groupSyncer) isUsefulCandidate(localGroupHeight uint64, candidateGroup
 		return false
 	}
 	return true
-}
-
-//块上链完成后尝试将依赖块的组上链，在共识完成组信息更新之后调用
-func (gs *groupSyncer) blockAddSuccHandler(msg notify.Message) {
-	if gs.dependGroup == nil {
-		return
-	}
-
-	localBlockHeight := BlockChainImpl.Height()
-	createHeight := gs.dependGroup.Header.CreateHeight
-	if localBlockHeight >= createHeight {
-		gs.logger.Debugf("Block add succ and depend group is not nil. Try add depend group:%s on chain!", common.BytesToAddress(gs.dependGroup.Id).GetHexString())
-		gs.logger.Debugf("Local block height:%d,depend group create height:%d", localBlockHeight, createHeight)
-		err := GroupChainImpl.AddGroup(gs.dependGroup)
-		if err == nil {
-			gs.dependGroup = nil
-			gs.dependHoldTimer.Stop()
-			gs.logger.Debugf("Depend group add on chain succ.Recover group sync!")
-		}
-	}
 }
 
 func (gs *groupSyncer) loop() {
@@ -300,9 +274,6 @@ func (gs *groupSyncer) loop() {
 			gs.syncing = false
 			gs.candidate = ""
 			gs.lock.Unlock("req time out")
-		case <-gs.dependHoldTimer.C:
-			gs.logger.Debugf("Group sync depend hold  time out!")
-			gs.dependGroup = nil
 		}
 	}
 }

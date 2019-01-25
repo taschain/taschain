@@ -354,7 +354,7 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 	for height := chain.latestBlock.Height; height > commonAncestor.Height; height-- {
 		header := chain.queryBlockHeaderByHeight(height, true)
 		if header == nil {
-			Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
+			//Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
 			continue
 		}
 		chain.remove(header)
@@ -387,6 +387,8 @@ func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockH
 		height = reqHeight
 	}
 
+	chainPiece := make([]*types.BlockHeader, 0)
+
 	var lastChainPieceBlock *types.BlockHeader
 	for i := height; i <= chain.Height(); i++ {
 		bh := chain.queryBlockHeaderByHeight(i, true)
@@ -397,10 +399,10 @@ func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockH
 		break
 	}
 	if lastChainPieceBlock == nil {
-		panic("lastChainPieceBlock should not be nil!")
+		Logger.Errorf("lastChainPieceBlock should not be nil!")
+		return chainPiece
 	}
 
-	chainPiece := make([]*types.BlockHeader, 0)
 	chainPiece = append(chainPiece, lastChainPieceBlock)
 
 	hash := lastChainPieceBlock.PreHash
@@ -673,11 +675,12 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	for i := index + 1; i < len(blockChainPiece); i++ {
 		block := blockChainPiece[i]
 		var result types.AddBlockResult
-		if chain.IsLightMiner() {
-			result = BlockChainImpl.(*LightChain).addBlockOnChain("", block, types.MergeFork)
-		} else {
-			result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block, types.MergeFork)
-		}
+		//if chain.IsLightMiner() {
+		//	result = BlockChainImpl.(*LightChain).addBlockOnChain("", block, types.MergeFork)
+		//} else {
+		//	result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block, types.MergeFork)
+		//}
+		result = BlockChainImpl.(*FullBlockChain).addBlockOnChain("", block, types.MergeFork)
 		if result != types.AddBlockSucc {
 			return
 		}

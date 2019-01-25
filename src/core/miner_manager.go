@@ -23,7 +23,6 @@ var emptyValue [0]byte
 */
 type MinerManager struct {
 	blockchain   BlockChain
-	cache        *lru.Cache
 	lock         sync.Mutex
 	heavyupdate  bool
 	heavytrigger *time.Timer
@@ -40,8 +39,7 @@ type MinerIterator struct {
 var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
-	cache, _ := lru.New(100)
-	MinerManagerImpl = &MinerManager{cache: cache, blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0)}
+	MinerManagerImpl = &MinerManager{ blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0)}
 	go MinerManagerImpl.loop()
 	return nil
 }
@@ -120,11 +118,6 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 }
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner {
-	if accountdb == nil && ttype == types.MinerTypeHeavy {
-		if result, ok := mm.cache.Get(string(id)); ok {
-			return result.(*types.Miner)
-		}
-	}
 	if accountdb == nil {
 		accountdb = mm.blockchain.LatestStateDB()
 	}
@@ -133,9 +126,6 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 	if data != nil && len(data) > 0 {
 		var miner types.Miner
 		msgpack.Unmarshal(data, &miner)
-		if ttype == types.MinerTypeHeavy {
-			mm.cache.Add(string(id), &miner)
-		}
 		return &miner
 	}
 	return nil
@@ -143,10 +133,6 @@ func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.Account
 
 func (mm *MinerManager) RemoveMiner(id []byte, ttype byte, accountdb vm.AccountDB) {
 	Logger.Debugf("MinerManager RemoveMiner %d", ttype)
-	if ttype == types.MinerTypeHeavy {
-		mm.cache.Remove(string(id))
-		mm.heavyupdate = true
-	}
 	db := mm.getMinerDatabase(ttype)
 	accountdb.SetData(db, string(id), emptyValue[:])
 }
@@ -163,9 +149,6 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64, account
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
 		Logger.Debugf("MinerManager AbortMiner Update Success %+v", miner)
-		if ttype == types.MinerTypeHeavy {
-			mm.cache.Remove(string(id))
-		}
 		return true
 	} else {
 		Logger.Debugf("MinerManager AbortMiner Update Fail %+v", miner)
@@ -203,19 +186,9 @@ func (mm *MinerManager) MinerIterator(ttype byte, accountdb vm.AccountDB) *Miner
 		accountdb = mm.blockchain.LatestStateDB()
 	}
 	iterator := &MinerIterator{iter: accountdb.DataIterator(db, "")}
-	if ttype == types.MinerTypeHeavy {
-		iterator.cache = mm.cache
-	}
 	return iterator
 }
 
-func (mm *MinerManager) RemoveCache(transactions []*types.Transaction) {
-	for _, tx := range transactions {
-		if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.MinerStatusAbort {
-			mm.cache.Remove(string(tx.Source[:]))
-		}
-	}
-}
 
 func (mi *MinerIterator) Current() (*types.Miner, error) {
 	if mi.cache != nil {

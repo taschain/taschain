@@ -44,7 +44,7 @@ type vrfWorker struct {
 	status int32
 }
 
-func newVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time) *vrfWorker {
+func NewVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time) *vrfWorker {
 	return &vrfWorker{
 		miner:      miner,
 		baseBH:     bh,
@@ -72,7 +72,7 @@ func vrfM(random []byte, h uint64) []byte {
 	return data
 }
 
-func (vrf *vrfWorker) prove(totalStake uint64) (base.VRFProve, uint64, error) {
+func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
 	pi, err := base.VRF_prove(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.m())
 	if err != nil {
 		return nil, 0, err

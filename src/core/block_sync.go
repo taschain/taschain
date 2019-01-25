@@ -49,9 +49,7 @@ type blockSyncer struct {
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
 
-	dependBlock          *types.Block
-	dependHoldTimer      *time.Timer
-	logger               taslog.Logger
+	logger taslog.Logger
 }
 
 type TopBlockInfo struct {
@@ -67,11 +65,9 @@ func InitBlockSyncer() {
 	BlockSyncer.reqTimeoutTimer = time.NewTimer(blockSyncReqTimeout)
 	BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
 	BlockSyncer.blockInfoNotifyTimer = time.NewTimer(sendTopBlockInfoInterval)
-	BlockSyncer.dependHoldTimer = time.NewTimer(blockSyncDependHoldTimeOut)
 
 	notify.BUS.Subscribe(notify.BlockInfoNotify, BlockSyncer.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, BlockSyncer.blockResponseMsgHandler)
-	notify.BUS.Subscribe(notify.GroupAddSuccConsensusUpdate, BlockSyncer.groupAddSuccHandler)
 	go BlockSyncer.loop()
 }
 
@@ -88,11 +84,6 @@ func (bs *blockSyncer) trySync() {
 		bs.logger.Debugf("Syncing to %s,do not sync anymore!", bs.candidate)
 		return
 	}
-
-	//if bs.dependBlock != nil {
-	//	bs.logger.Debugf("Has depend block.Sync has been hold")
-	//	return
-	//}
 
 	id, height, _ := bs.GetCandidateForSync()
 	if id == "" {
@@ -129,9 +120,6 @@ func (bs *blockSyncer) loop() {
 			bs.syncing = false
 			bs.candidate = ""
 			bs.lock.Unlock("req time out")
-		case <-bs.dependHoldTimer.C:
-			bs.logger.Debugf("Block sync depend hold  time out!")
-			bs.dependBlock = nil
 		}
 	}
 }
@@ -239,6 +227,10 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 	for id, topBlockInfo := range bs.candidatePool {
 		if !bs.isUsefulCandidate(localTotalQN, localTopHash, topBlockInfo.TotalQn, topBlockInfo.Hash) {
 			uselessCandidate = append(uselessCandidate, id)
+			continue
+		}
+		if PeerManager.isEvil(id) {
+			uselessCandidate = append(uselessCandidate, id)
 		}
 	}
 	if len(uselessCandidate) != 0 {
@@ -303,20 +295,6 @@ func (bs *blockSyncer) isUsefulCandidate(localTotalQn uint64, localTopHash commo
 		return false
 	}
 	return true
-}
-
-//组上链完成后尝试将依赖组的块上链，在共识完成组信息更新之后调用
-func (bs *blockSyncer) groupAddSuccHandler(msg notify.Message) {
-	if bs.dependBlock == nil {
-		return
-	}
-	bs.logger.Debugf("Group add succ and depend block is not nil. Try add depend block:%d on chain!", bs.dependBlock.Header.Height)
-	result := BlockChainImpl.AddBlockOnChain("", bs.dependBlock, types.DependGroupBlock)
-	if result == types.AddBlockSucc || result == types.BlockExisted || result == types.BlockTotalQnLessThanLocal {
-		bs.dependBlock = nil
-		bs.dependHoldTimer.Stop()
-		bs.logger.Debugf("Depend block add on chain succ.Recover block sync!")
-	}
 }
 
 func marshalBlockInfo(bi TopBlockInfo) ([]byte, error) {

@@ -2,27 +2,32 @@ package contract_test
 
 import (
 	"common"
+	"consensus/mediator"
+	"consensus/model"
+	"core"
 	"encoding/json"
+	"fmt"
+	"middleware"
 	"strconv"
+	"taslog"
 	"testing"
 	"tvm"
-	"core"
-	"consensus/model"
-	"consensus/mediator"
-	"taslog"
-	"middleware"
-	"fmt"
 )
+
+//0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd 公钥对应的私钥
+const SK string = "0x04e2dad12f3e49fc3a13044648998ee53654c6ab1e72029bec55e65c06b6136dee9fcf20cf2c12aecce1a2c971fa7251cba6ebc8320f839d687e2ac874ddad7dd0801ce92612e9112dbbe10ce182ba59cb2222758f5f2ce710bf3855ae857e79ba"
 
 func TestContractCallContract(t *testing.T) {
 	middleware.InitMiddleware()
 	common.InitConf("../../deploy/tvm/tas1.ini")
 	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
+
 	core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
 	mediator.ConsensusInit(minerInfo, common.GlobalConf)
 
 
+	mediator.Proc.Start()
 
 	//code := tvm.Read0("../tvm/py/test/contract_becalled.py")
 	//contract := tvm.Contract{code, "ContractBeCalled", nil}
@@ -34,17 +39,17 @@ func TestContractCallContract(t *testing.T) {
 	contract := tvm.Contract{code, "ContractGame", nil}
 	jsonString, _ := json.Marshal(contract)
 	//fmt.Println(string(jsonString))
-	OnChainFunc(string(jsonString), "0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	OnChainFunc(string(jsonString), "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 
 	//int类型
-	contractAddr := "0x09e162923e17722e0a08c25969f85c8e4d273e6f8807739e1954eea8eae6e0a9"
+	contractAddr := "0x303e2d65fc7cec255932f6cbbfac69851d47a56d06e3f33dc63c9620e07b1872"
 	abi := `{"FuncName": "contract_int", "Args": []}`
-	CallContract(contractAddr, abi,"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 	//断言
 	result := string(getContractDatas(contractAddr, "a"))
 	i, _ := strconv.Atoi(result)
-	fmt.Printf("i:%d",i)
-	if i != 1121 {//底层非map，默认加了1的前缀
+	fmt.Printf("i:%d", i)
+	if i != 1121 { //底层非map，默认加了1的前缀
 		t.Fatal("call int failed.")
 	}
 	//
@@ -110,7 +115,7 @@ func TestContractMaxLength(t *testing.T) {
 	print("3")
 	contractAddr := "0xe4d60f63188f69980e762cb38aad8727ceb86bbe"
 	abi := `{"FuncName": "contract_deep", "Args": []}`
-	CallContract(contractAddr, abi,"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	CallContract(contractAddr, abi, "0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 
 }
 

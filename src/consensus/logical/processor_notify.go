@@ -78,7 +78,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 	}
 
-	vrf := p.getVrfWorker()
+	vrf := p.GetVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
 		vrf.markSuccess()
 	}
@@ -90,7 +90,6 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	p.groupManager.CreateNextGroupRoutine()
 
 	p.cleanVerifyContext(bh.Height)
-	notify.BUS.Publish(notify.BlockAddSuccConsensusUpdate, nil)
 }
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
@@ -101,7 +100,6 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	}
 	sgi := NewSGIFromCoreGroup(&group)
 	p.acceptGroup(sgi)
-	notify.BUS.Publish(notify.GroupAddSuccConsensusUpdate, nil)
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message) {
