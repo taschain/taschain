@@ -11,8 +11,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"strings"
 	"io/ioutil"
-	"github.com/aws/amazon-ssm-agent/agent/fileutil"
-
+	"os"
 )
 
 /*
@@ -238,8 +237,27 @@ func (bg *BelongGroups) loadJoinedGroup(gid groupsig.ID) *JoinedGroup {
 //	return true
 //}
 //
+
+func fileExists(f string) bool {
+	_, err := os.Stat(f)    //os.Stat获取文件信息
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
+}
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
 func (bg *BelongGroups) joinedGroup2DBIfConfigExists(file string) bool {
-	if !fileutil.Exists(file) || fileutil.IsDirectory(file) {
+	if !fileExists(file) || isDir(file) {
 		return false
 	}
 	stdLogger.Debugf("load belongGroups from %v", file)
