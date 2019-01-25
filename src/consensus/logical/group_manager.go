@@ -184,7 +184,11 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 
 	var err error
 	defer func() {
-		newHashTraceLog("AddGroupOnChain", sgi.GInfo.GroupHash(), groupsig.ID{}).log("gid=%v, workHeight=%v, result %v", sgi.GroupID.ShortS(), group.Header.WorkHeight, err.Error())
+		var s string
+		if err != nil {
+			s = err.Error()
+		}
+		newHashTraceLog("AddGroupOnChain", sgi.GInfo.GroupHash(), groupsig.ID{}).log("gid=%v, workHeight=%v, result %v", sgi.GroupID.ShortS(), group.Header.WorkHeight, s)
 	}()
 
 	if gm.groupChain.GetGroupById(group.Id) != nil {
@@ -194,9 +198,10 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 	} else {
 		top := gm.processor.MainChain.Height()
 		if !sgi.GetReadyTimeout(top) {
-			err := gm.groupChain.AddGroup(group)
-			if err != nil {
-				stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err.Error())
+			err1 := gm.groupChain.AddGroup(group)
+			if err1 != nil {
+				stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err1.Error())
+				err = err1
 				return
 			}
 			err = fmt.Errorf("success")
