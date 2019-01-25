@@ -97,7 +97,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
 	con.Vm.SetLibLine(libLen)
-	errorCode,errorMsg = ExecutedVmSucceed(con.Vm.ExecuteABI(abi, false,false))//execute
+	errorCode,errorMsg = con.Vm.ExecutedAbiVmSucceed(abi)//execute
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}

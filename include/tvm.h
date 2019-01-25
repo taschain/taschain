@@ -11,21 +11,35 @@ extern "C" {
 
 
 void tvm_set_lib_path(const char* path);
-/*
-	没有返回结果的调用
-	返回mp_const_none或者异常的结构
-	param: str合约执行代码
-	retsult:type|errorcode|content
-	*/
 
-char* tvm_execute(char *str, char*contract_name);
-char* tvm_execute_abi(char *str, char*contract_name);
-/*
-有返回结果的调用
-param: str合约执行代码
-retsult:type|errorcode|content
-*/
-char* tvm_execute_with_result(char *str, char*contract_name);
+typedef enum {
+    RETURN_TYPE_INT = 1,
+    RETURN_TYPE_STRING,
+    RETURN_TYPE_NONE,
+    RETURN_TYPE_EXCEPTION,
+    RETURN_TYPE_BOOL,
+}tvm_return_type_t;
+
+//parse.h mp_parse_input_kind_t
+typedef enum {
+    PARSE_KIND_SINGLE = 0,
+    PARSE_KIND_FILE,
+    PARSE_KIND_EVAL,
+}tvm_parse_kind_t;
+
+typedef struct _ExecuteResult {
+    int resultType; //tvm_return_type_t
+    int errorCode;
+    char *content;
+    char *abi;
+}ExecuteResult;
+void printResult(ExecuteResult *result);
+void initResult(ExecuteResult *result);
+void deinitResult(ExecuteResult *result);
+
+void tvm_execute(const char *script, const char *alias, tvm_parse_kind_t parseKind, ExecuteResult *result);
+
+
 typedef int (*callback_fcn)(int);
 typedef void (*testAry_fcn)(void*);
 
@@ -42,7 +56,9 @@ void setTransferFunc(TransferFunc);
 
 /***********************/
 
-void tvm_start(void);
+void tvm_start();
+void tvm_gc();
+void tvm_delete();
 
 void tvm_create_context();
 void tvm_remove_context();
@@ -70,6 +86,7 @@ typedef int (*Function13)();
 typedef char* (*Function14) (unsigned long long);
 typedef char* (*Function15) ();
 typedef void (*Function16)(const char*, int len);
+typedef void (*Function17) (const char*, const char*, const char*, ExecuteResult *result);
 
 
  TransferFunc transferFunc;
@@ -89,24 +106,24 @@ typedef void (*Function16)(const char*, int len);
  Function9 get_refund;
  Function10 get_data;
  Function5 set_data;
- Function4 suicide;
+ Function4 func_suicide;
  Function4 has_suicide;
- Function4 exists;
- Function4 empty;
- Function12 revert_to_snapshot;
- Function13 snapshot;
+ Function4 func_exists;
+ Function4 func_empty;
+ Function12 func_revert_to_snapshot;
+ Function13 func_snapshot;
  Function5 add_preimage;
 // block
- Function14 blockhash;
- Function15 coinbase;
- Function9 difficulty;
- Function9 number;
- Function9 gaslimit;
- Function9 timestamp;
+ Function14 func_blockhash;
+ Function15 func_coinbase;
+ Function9 func_difficulty;
+ Function9 func_number;
+ Function9 func_gaslimit;
+ Function9 func_timestamp;
 // tx
- Function15 origin;
+ Function15 func_origin;
 //
- Function11 contract_call;
+ Function17 contract_call;
  Function16 set_bytecode;
 //event
  Function11 event_call;
