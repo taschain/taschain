@@ -4,6 +4,7 @@ import (
 	"time"
 	"consensus/model"
 	"common"
+	"consensus/groupsig"
 )
 
 /*
@@ -116,6 +117,9 @@ func (p *Processor) releaseRoutine() bool {
 
 	//释放超时未建成组的组网络和相应的dummy组
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
+		if gc.gInfo == nil || gc.is == GisGroupInitDone {
+			return true
+		}
 		gis := &gc.gInfo.GI
 		gHash := gis.GetHash()
 		if gis.ReadyTimeout(topHeight) {
@@ -173,5 +177,24 @@ func (p *Processor) releaseRoutine() bool {
 	//清理超时的签名公钥请求
 	cleanSignPkReqRecord()
 
+	return true
+}
+
+func (p *Processor) getUpdateGlobalGroupsRoutineName() string {
+    return "update_global_groups_routine_" + p.getPrefix()
+}
+
+func (p *Processor) updateGlobalGroups() bool {
+    top := p.MainChain.Height()
+    chainGroups := p.globalGroups.getCastQualifiedGroupFromChains(top)
+	for _, g := range chainGroups {
+		gid := groupsig.DeserializeId(g.Id)
+		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
+			continue
+		}
+		sgi := NewSGIFromCoreGroup(g)
+		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
+		p.acceptGroup(sgi)
+	}
 	return true
 }

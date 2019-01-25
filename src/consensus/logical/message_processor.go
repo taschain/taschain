@@ -597,7 +597,6 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 		} else {
 			panic("Processor::OMSP failed, aggr key error.")
 		}
-		p.joiningGroups.RemoveGroup(spm.GHash)
 	}
 
 	//blog.log("prov(%v) end OMSP, sender=%v.", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
@@ -780,8 +779,7 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		}
 	}
 
-	blog.debug("proc(%v) receive Data result=%v, 消息数量 %v, 缺少%v等.", p.getPrefix(), result, initedGroup.receiveSize(), waitIds)
-	tlog.log("收到消息数量 %v, 缺少%v等", initedGroup.receiveSize(), waitIds)
+	tlog.log("ret:%v,收到消息数量 %v, 需要消息数 %v, 缺少%v等", result, initedGroup.receiveSize(), initedGroup.threshold, waitIds)
 
 	switch result {
 	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
@@ -789,11 +787,10 @@ func (p *Processor) OnMessageGroupInited(gim *model.ConsensusGroupInitedMessage)
 		gh := staticGroup.getGroupHeader()
 		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), gim.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
 
-
 		//p.acceptGroup(staticGroup)
 		p.groupManager.AddGroupOnChain(staticGroup)
-
 		p.globalGroups.removeInitedGroup(gHash)
+		p.joiningGroups.Clean(gHash)
 
 	case INIT_FAIL: //该组初始化异常，且无法恢复
 		tlog.log("初始化失败")

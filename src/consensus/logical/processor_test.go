@@ -4,6 +4,11 @@ import (
 	"testing"
 	"encoding/json"
 	"consensus/groupsig"
+	"middleware"
+	"common"
+	"consensus/model"
+	"core"
+	"consensus/mediator"
 )
 
 /*
@@ -32,4 +37,32 @@ func TestLoadJoinGroup(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCalcVerifyGroup(t *testing.T) {
+	common.InitConf("tas1.ini")
+	middleware.InitMiddleware()
+
+	addr := common.HexToAddress(common.GlobalConf.GetString("gtas", "miner", ""))
+	mdo := model.NewSelfMinerDO(addr)
+	core.InitCore(false, mediator.NewConsensusHelper(mdo.ID))
+	p := new(Processor)
+
+	p.Init(mdo, common.GlobalConf)
+
+	top := p.MainChain.Height()
+	pre := p.MainChain.QueryBlockByHeight(0)
+	for h := uint64(1); h <= top; h++ {
+		bh := p.MainChain.QueryBlockByHeight(h)
+		if bh == nil {
+			continue
+		}
+		gid := groupsig.DeserializeId(bh.GroupId)
+		expectGid := p.CalcVerifyGroupFromChain(pre, h)
+		pre = bh
+		if !gid.IsEqual(*expectGid) {
+			t.Fatalf("gid not equal, height %v, real gid %v, expect gid %v", h, gid.GetHexString(), expectGid.GetHexString())
+		}
+	}
+	t.Log("ok")
 }

@@ -182,28 +182,36 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	var gid = groupsig.DeserializeId(bh.GroupId)
 
-	selectGroupId, hash := p.CalcVerifyGroup(preHeader, bh.Height)
-	if selectGroupId == nil {
-		//err = common.ErrSelectGroupNil
+	selectGroupIdFromCache := p.CalcVerifyGroupFromCache(preHeader, bh.Height)
+
+	if selectGroupIdFromCache == nil {
+		err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
-	if !selectGroupId.IsEqual(gid) { //有可能组已经解散，需要再从链上取
-		selectGroupId, err2 := p.globalGroups.SelectNextGroupFromChain(hash, bh.Height)
-		if err2 != nil {
-			err = err2
+	var verifyGid = *selectGroupIdFromCache
+
+	if !selectGroupIdFromCache.IsEqual(gid) { //有可能组已经解散，需要再从链上取
+		selectGroupIdFromChain := p.CalcVerifyGroupFromChain(preHeader, bh.Height)
+		if selectGroupIdFromChain == nil {
+			err = common.ErrSelectGroupNil
 			return
 		}
-		if !selectGroupId.IsEqual(gid) {
-			err = common.ErrSelectGroupInequal
-			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
+		//若内存与链不一致，则启动更新
+		if !selectGroupIdFromChain.IsEqual(*selectGroupIdFromCache) {
+			go p.updateGlobalGroups()
 		}
-		return
+		if !selectGroupIdFromChain.IsEqual(gid) {
+			err = common.ErrSelectGroupInequal
+			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIdFromChain.ShortS(), gid.ShortS())
+			return
+		}
+		verifyGid = *selectGroupIdFromChain
 	}
 
-	group = p.GetGroup(*selectGroupId) //取得合法的铸块组
+	group = p.GetGroup(verifyGid) //取得合法的铸块组
 	if !group.GroupID.IsValid() {
-		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), group.GroupID.ShortS())
+		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", verifyGid.ShortS(), group.GroupID.ShortS())
 		return
 	}
 

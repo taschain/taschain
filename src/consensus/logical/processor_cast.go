@@ -109,26 +109,30 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) (*groupsig.ID, common.Hash) {
-	var hash common.Hash
-	data := preBH.Random
-
-	deltaHeight := height - preBH.Height
-	for ; deltaHeight > 0; deltaHeight-- {
-		hash = base.Data2CommonHash(data)
-		data = hash.Bytes()
-	}
+func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+	var hash = CalcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
 	if err != nil {
-		stdLogger.Errorf("calcCastGroup err:", err)
-		return nil, hash
+		stdLogger.Errorf("SelectNextGroupFromCache height=%v, err: %v", height, err)
+		return nil
 	}
-	return &selectGroup, hash
+	return &selectGroup
+}
+
+func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+	var hash = CalcRandomHash(preBH, height)
+
+	selectGroup, err := p.globalGroups.SelectNextGroupFromChain(hash, height)
+	if err != nil {
+		stdLogger.Errorf("SelectNextGroupFromChain height=%v, err:%v", height, err)
+		return nil
+	}
+	return &selectGroup
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextId, _ := p.CalcVerifyGroup(bh, height)
+	nextId := p.CalcVerifyGroupFromCache(bh, height)
 	if nextId == nil {
 		return nil
 	}

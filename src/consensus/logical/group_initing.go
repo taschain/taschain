@@ -7,6 +7,7 @@ import (
 	"consensus/model"
 	"common"
 	"middleware/types"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -181,6 +182,7 @@ const (
 	GisSendSharePiece              //已发送sharepiece
 	GisSendSignPk                  //已发送自己的签名公钥
 	GisSendInited                  //组公钥和ID已生成，可以进行铸块
+	GisGroupInitDone               //组已初始化完成已上链
 )
 
 //组共识上下文
@@ -188,12 +190,12 @@ const (
 //判断一个消息是否来自组内，由GroupContext验证
 type GroupContext struct {
 	is   int32         //组初始化状态
-	node GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
+	node *GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
 	gInfo  *model.ConsensusGroupInitInfo //组初始化信息（由父亲组指定）
 }
 
 func (gc *GroupContext) GetNode() *GroupNode {
-	return &gc.node
+	return gc.node
 }
 
 func (gc *GroupContext) GetGroupStatus() int32 {
@@ -227,6 +229,7 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *m
 	gc := new(GroupContext)
 	gc.is = GisInit
 	gc.gInfo = &grm.GInfo
+	gc.node = &GroupNode{}
 	gc.node.memberNum = grm.GInfo.MemberSize()
 	gc.node.InitForMiner(mi)
 	gc.node.InitForGroup(grm.GInfo.GroupHash())
@@ -285,13 +288,18 @@ func (gc *GroupContext) GetGroupInfo() *JoinedGroup {
 
 //未初始化完成的加入组
 type JoiningGroups struct {
-	groups sync.Map
+	//groups sync.Map
+	groups *lru.Cache
 	//groups map[string]*GroupContext //group dummy id->*GroupContext
 }
 
 func NewJoiningGroups() *JoiningGroups {
+	cache, err := lru.New(50)
+	if err != nil {
+		panic(err)
+	}
 	return &JoiningGroups{
-		groups: sync.Map{},
+		groups: cache,
 	}
 }
 
@@ -305,7 +313,7 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 		stdLogger.Debug("create new initing group info by RAW...\n")
 		v = CreateGroupContextWithRawMessage(grm, mi)
 		if v != nil {
-			jgs.groups.Store(gHash.Hex(), v)
+			jgs.groups.Add(gHash.Hex(), v)
 		}
 		return v
 	}
@@ -313,7 +321,7 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 
 //gid : group dummy id
 func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
-	if v, ok := jgs.groups.Load(gHash.Hex()); ok {
+	if v, ok := jgs.groups.Get(gHash.Hex()); ok {
 		return v.(*GroupContext)
 	}
 
@@ -322,11 +330,28 @@ func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
 	return nil
 }
 
-func (jgs *JoiningGroups) RemoveGroup(gHash common.Hash)  {
-    jgs.groups.Delete(gHash.Hex())
+func (jgs *JoiningGroups) Clean(gHash common.Hash)  {
+    gc := jgs.GetGroup(gHash)
+	if gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
+		gc.gInfo = nil
+		gc.node = nil
+	}
 }
+
+func (jgs *JoiningGroups) RemoveGroup(gHash common.Hash)  {
+	jgs.groups.Remove(gHash.Hex())
+}
+
+
 func (jgs *JoiningGroups) forEach(f func(gc *GroupContext) bool) {
-    jgs.groups.Range(func(key, value interface{}) bool {
-		return f(value.(*GroupContext))
-	})
+	for _, key := range jgs.groups.Keys() {
+		v, ok := jgs.groups.Get(key)
+		if !ok {
+			continue
+		}
+		gc := v.(*GroupContext)
+		if !f(gc) {
+			break
+		}
+	}
 }

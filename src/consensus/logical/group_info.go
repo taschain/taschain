@@ -373,32 +373,38 @@ func (gg *GlobalGroups) SelectNextGroupFromCache(h common.Hash, height uint64) (
 	}
 }
 
-func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
-    iter := gg.chain.NewIterator()
-    ids := make([]groupsig.ID, 0)
+func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.Group {
+	iter := gg.chain.NewIterator()
+	groups := make([]*types.Group, 0)
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
 		if g.Header.WorkHeight <= height && g.Header.DismissHeight > height {
-			ids = append(ids, groupsig.DeserializeId(g.Id))
+			groups = append(groups, g)
 		}
 		if g.Header.DismissHeight <= height {
 			g = gg.chain.GetGroupByHeight(0)
-			ids = append(ids, groupsig.DeserializeId(g.Id))
+			groups = append(groups, g)
 			break
 		}
 	}
-	var ga groupsig.ID
-	quaulifiedGS := make([]groupsig.ID, len(ids))
-	n := len(ids)
+	n := len(groups)
+	reverseGroups := make([]*types.Group, n)
 	for i := 0; i < n; i++ {
-		quaulifiedGS[n-i-1] = ids[i]
+		reverseGroups[n-i-1] = groups[i]
 	}
+	return groups
+}
+
+func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
+	quaulifiedGS := gg.getCastQualifiedGroupFromChains(height)
 	idshort := make([]string, len(quaulifiedGS))
-	for i, id := range quaulifiedGS {
-		idshort[i] = id.ShortS()
+	for idx, g := range quaulifiedGS {
+		idshort[idx] = groupsig.DeserializeId(g.Id).ShortS()
 	}
+
+	var ga groupsig.ID
 	if h.Big().BitLen() > 0 && len(quaulifiedGS) > 0 {
 		index := gg.selectIndex(len(quaulifiedGS), h)
-		ga = quaulifiedGS[index]
+		ga = groupsig.DeserializeId(quaulifiedGS[index].Id)
 		stdLogger.Debugf("height %v SelectNextGroupFromChain qualified groups %v, index %v\n", height, idshort, index)
 		return ga, nil
 	} else {
