@@ -193,6 +193,10 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	for id, height := range gs.candidatePool {
 		if !gs.isUsefulCandidate(localGroupHeight, height) {
 			uselessCandidate = append(uselessCandidate, id)
+			continue
+		}
+		if PeerManager.isEvil(id) {
+			uselessCandidate = append(uselessCandidate, id)
 		}
 	}
 	if len(uselessCandidate) != 0 {

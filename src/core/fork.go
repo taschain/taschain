@@ -308,7 +308,7 @@ func (fh *forkProcessor) loop() {
 		select {
 		case <-fh.reqTimer.C:
 			if fh.candidite != "" {
-				fh.logger.Debugf("  %s", fh.candidite)
+				fh.logger.Debugf("Fork req time out to  %s", fh.candidite)
 				PeerManager.markEvil(fh.candidite)
 				fh.reset()
 			}
