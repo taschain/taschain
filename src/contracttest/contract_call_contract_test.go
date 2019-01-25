@@ -22,8 +22,10 @@ func TestContractCallContract(t *testing.T) {
 	common.InitConf("../../deploy/tvm/tas1.ini")
 	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
-	core.InitCore(false, mediator.NewConsensusHelper(minerInfo.ID))
-	mediator.ConsensusInit(minerInfo)
+
+	core.InitCore(false,mediator.NewConsensusHelper(minerInfo.ID))
+	mediator.ConsensusInit(minerInfo, common.GlobalConf)
+
 
 	mediator.Proc.Start()
 

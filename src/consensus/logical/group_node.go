@@ -82,6 +82,7 @@ func (gmd GroupInitPool) GenGroupPubKey() *groupsig.Pubkey {
 	return gpk
 }
 
+
 //组相关的秘密
 type MinerGroupSecret struct {
 	secretSeed base.Rand //某个矿工针对某个组的私密种子（矿工个人私密种子固定和组信息固定的情况下，该值固定）
@@ -119,7 +120,7 @@ type GroupNode struct {
 	groupInitPool     GroupInitPool      //组初始化消息池
 	minerSignedSeckey groupsig.Seckey    //输出：矿工签名私钥（由秘密共享接收池聚合而来）
 	groupPubKey       groupsig.Pubkey    //输出：组公钥（由矿工签名公钥接收池聚合而来）
-	memberPubKeys     groupsig.PubkeyMap //组成员签名公钥
+	//memberPubKeys     groupsig.PubkeyMap //组成员签名公钥
 
 	lock sync.RWMutex
 }
@@ -128,16 +129,8 @@ func (n GroupNode) threshold() int {
     return model.Param.GetGroupK(n.memberNum)
 }
 
-func (n GroupNode) GenInnerGroup() *JoinedGroup {
-	gpk := n.GetGroupPubKey()
-	joinedGroup := &JoinedGroup{
-		GroupPK: gpk,
-		SignKey: n.getSignSecKey(),
-		Members: n.memberPubKeys,
-		GroupID: *groupsig.NewIDFromPubkey(gpk),
-		SeedKey: n.minerGroupSecret.GenSecKey(),
-	}
-	return joinedGroup
+func (n GroupNode) GenInnerGroup(ghash common.Hash) *JoinedGroup {
+	return newJoindGroup(&n, ghash)
 }
 
 //矿工初始化(和组无关)
@@ -154,7 +147,7 @@ func (n *GroupNode) InitForGroup(h common.Hash) {
 	n.groupInitPool = *newGroupInitPool()                                      //初始化秘密接收池
 	n.minerSignedSeckey = groupsig.Seckey{}                                    //初始化
 	n.groupPubKey = groupsig.Pubkey{}
-	n.memberPubKeys = make(groupsig.PubkeyMap, 0)
+	//n.memberPubKeys = make(groupsig.PubkeyMap, 0)
 	return
 }
 
@@ -204,28 +197,28 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
 
 //接收签名公钥
 //返回：0正常接收，-1异常，1收到全量组成员签名公钥（可以启动上链和通知）
-func (n *GroupNode) SetSignPKPiece(spkm *model.ConsensusSignPubKeyMessage) int {
-	//log.Printf("begin GroupNode::SetSignPKPiece...\n")
-	idHex := spkm.SI.SignMember.GetHexString()
-	signPk := spkm.SignPK
-
-	n.lock.Lock()
-	defer n.lock.Unlock()
-
-	if v, ok := n.memberPubKeys[idHex]; ok {
-		if v.IsEqual(signPk) {
-			return 0
-		} else {
-			return -1 //两次收到的数据不一致
-		}
-	} else {
-		n.memberPubKeys[idHex] = signPk
-		if len(n.memberPubKeys) == n.memberNum { //已经收到所有组内成员发送的签名公钥
-			return 1
-		}
-	}
-	return 0
-}
+//func (n *GroupNode) SetSignPKPiece(spkm *model.ConsensusSignPubKeyMessage) int {
+//	//log.Printf("begin GroupNode::SetSignPKPiece...\n")
+//	idHex := spkm.SI.SignMember.GetHexString()
+//	signPk := spkm.SignPK
+//
+//	n.lock.Lock()
+//	defer n.lock.Unlock()
+//
+//	if v, ok := n.memberPubKeys[idHex]; ok {
+//		if v.IsEqual(signPk) {
+//			return 0
+//		} else {
+//			return -1 //两次收到的数据不一致
+//		}
+//	} else {
+//		n.memberPubKeys[idHex] = signPk
+//		if len(n.memberPubKeys) == n.memberNum { //已经收到所有组内成员发送的签名公钥
+//			return 1
+//		}
+//	}
+//	return 0
+//}
 
 //成为有效矿工
 func (n *GroupNode) beingValidMiner() bool {
@@ -254,4 +247,11 @@ func (n GroupNode) GetSeedPubKey() groupsig.Pubkey {
 //取得组公钥（在秘密交换后有效）
 func (n GroupNode) GetGroupPubKey() groupsig.Pubkey {
 	return n.groupPubKey
+}
+
+func (n *GroupNode) hasPiece(id groupsig.ID) bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	_, ok := n.groupInitPool.pool[id.GetHexString()]
+	return ok
 }

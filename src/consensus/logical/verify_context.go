@@ -175,7 +175,7 @@ func (vc *VerifyContext) castExpire() bool {
 
 //分红交易签名是否过期
 func (vc *VerifyContext) castRewardSignExpire() bool {
-	return time.Now().After(vc.expireTime.Add(time.Duration(2*model.Param.MaxGroupCastTime)*time.Second))
+	return time.Now().After(vc.expireTime.Add(time.Duration(30*model.Param.MaxGroupCastTime)*time.Second))
 }
 
 func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {

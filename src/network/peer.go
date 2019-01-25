@@ -113,9 +113,8 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	diff := time.Since(sendList.lastOnWait)
 
 	if diff > WaitTimeout {
-		sendList.onSendWaited(peer)
-		Logger.Infof("send list  WaitTimeout ！reset , net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
-
+		sendList.pendingSend = 0
+		Logger.Infof("send list  WaitTimeout ！ net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 	}
 
 	priority, isExist := sendList.priorityTable[uint32(code)]
@@ -124,9 +123,10 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 	}
 	sendListItem := sendList.list[priority]
 	if sendListItem.list.Len() > MaxSendListSize {
-		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
+		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v code:%v", peer.Id.GetHexString(), peer.seesionId,code)
 		return
 	}
+	Logger.Debugf("send  net id:%v session:%v size:%v code:%v size:%v", peer.Id.GetHexString(), peer.seesionId,code,packet.Len())
 	sendListItem.list.PushBack(packet)
 
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
@@ -138,11 +138,11 @@ func (sendList *SendList) isSendAvailable() bool {
 }
 
 func (sendList *SendList) onSendWaited(peer *Peer) {
-	sendList.pendingSend = 0
 	sendList.lastOnWait = time.Now()
-	sendList.autoSend(peer)
 	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
-
+	sendList.lastOnWait = time.Now()
+	sendList.pendingSend = 0
+	sendList.autoSend(peer)
 }
 
 func (sendList *SendList) autoSend(peer *Peer) {
@@ -161,7 +161,9 @@ func (sendList *SendList) autoSend(peer *Peer) {
 				item.list.Remove(e)
 				break
 			}
+
 			buf := e.Value.(*bytes.Buffer)
+			Logger.Debugf("P2PSend  net id:%v session:%v size:%v ", peer.Id.GetHexString(), peer.seesionId,buf.Len())
 			P2PSend(peer.seesionId, buf.Bytes())
 
 			netCore.bufferPool.FreeBuffer(buf)
@@ -428,7 +430,7 @@ func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp stri
 func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Infof("send all total peer size:%v", len(pm.peers))
+	Logger.Infof("send all total peer size:%v code:%v", len(pm.peers),code)
 
 	for _, p := range pm.peers {
 		if p.seesionId > 0 {
@@ -456,7 +458,7 @@ func (pm *PeerManager) checkPeerSource() {
 func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Infof("broadcast random total peer size:%v", len(pm.peers))
+	Logger.Infof("broadcast random total peer size:%v code:%v", len(pm.peers),code)
 
 	pm.checkPeerSource()
 	var availablePeers []*Peer

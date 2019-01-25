@@ -28,6 +28,7 @@ import (
 	"middleware/types"
 	"storage/tasdb"
 	"sync/atomic"
+	"strings"
 )
 
 var PROC_TEST_MODE bool
@@ -65,7 +66,7 @@ type Processor struct {
 	vrf         atomic.Value //vrfWorker
 
 	NetServer net.NetworkServer
-
+	conf 		common.ConfManager
 }
 
 func (p Processor) getPrefix() string {
@@ -86,8 +87,9 @@ func (p *Processor) setProcs(gps map[string]*Processor) {
 }
 
 //初始化矿工数据（和组无关）
-func (p *Processor) Init(mi model.SelfMinerDO) bool {
+func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.ready = false
+	p.conf = conf
 	//p.futureBlockMsgs = NewFutureMessageHolder()
 	p.futureVerifyMsgs = NewFutureMessageHolder()
 	p.futureRewardReqs = NewFutureMessageHolder()
@@ -96,7 +98,7 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.mi = &mi
 	p.globalGroups = NewGlobalGroups(p.GroupChain)
 	p.joiningGroups = NewJoiningGroups()
-	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile())
+	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile(), p.getEncryptPrivateKey())
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
 
@@ -106,13 +108,22 @@ func (p *Processor) Init(mi model.SelfMinerDO) bool {
 	p.groupManager = NewGroupManager(p)
 	p.Ticker = ticker.GetTickerInstance()
 
-	stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
-	consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
+	if stdLogger != nil {
+		stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
+		consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
+	}
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
 	notify.BUS.Subscribe(notify.TransactionGotAddSucc, p.onMissTxAddSucc)
 	//notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
+
+	jgFile := conf.GetString(ConsensusConfSection, "joined_group_store", "")
+	if strings.TrimSpace(jgFile) == "" {
+		jgFile = "joined_group.config." + common.GlobalConf.GetString("instance", "index", "")
+	}
+	p.belongGroups.joinedGroup2DBIfConfigExists(jgFile)
+
 	return true
 }
 
@@ -171,21 +182,36 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	var gid = groupsig.DeserializeId(bh.GroupId)
 
-	selectGroupId := p.CalcVerifyGroup(preHeader, bh.Height)
-	if selectGroupId == nil {
+	selectGroupIdFromCache := p.CalcVerifyGroupFromCache(preHeader, bh.Height)
+
+	if selectGroupIdFromCache == nil {
 		err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
-	if !selectGroupId.IsEqual(gid) {
-		err = common.ErrSelectGroupInequal
-		stdLogger.Debugf("selectGroupId not equal, expect %v, receive %v, qualified num %v", selectGroupId.ShortS(), gid.ShortS(), len(p.GetCastQualifiedGroups(bh.Height)))
-		return
+	var verifyGid = *selectGroupIdFromCache
+
+	if !selectGroupIdFromCache.IsEqual(gid) { //有可能组已经解散，需要再从链上取
+		selectGroupIdFromChain := p.CalcVerifyGroupFromChain(preHeader, bh.Height)
+		if selectGroupIdFromChain == nil {
+			err = common.ErrSelectGroupNil
+			return
+		}
+		//若内存与链不一致，则启动更新
+		if !selectGroupIdFromChain.IsEqual(*selectGroupIdFromCache) {
+			go p.updateGlobalGroups()
+		}
+		if !selectGroupIdFromChain.IsEqual(gid) {
+			err = common.ErrSelectGroupInequal
+			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIdFromChain.ShortS(), gid.ShortS())
+			return
+		}
+		verifyGid = *selectGroupIdFromChain
 	}
 
-	group = p.GetGroup(*selectGroupId) //取得合法的铸块组
+	group = p.GetGroup(verifyGid) //取得合法的铸块组
 	if !group.GroupID.IsValid() {
-		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", selectGroupId.ShortS(), group.GroupID.ShortS())
+		err = fmt.Errorf("selectedGroup is not valid, expect gid=%v, real gid=%v", verifyGid.ShortS(), group.GroupID.ShortS())
 		return
 	}
 
@@ -264,9 +290,16 @@ func outputBlockHeaderAndSign(prefix string, bh *types.BlockHeader, si *model.Si
 }
 
 func (p *Processor) ExistInGroup(gHash common.Hash) bool {
-	initingGroup := p.globalGroups.GetInitingGroup(gHash)
-	if initingGroup == nil {
-		return false
-	}
-	return initingGroup.MemberExist(p.GetMinerID())
+	//initingGroup := p.globalGroups.GetInitedGroup(gHash)
+	//if initingGroup == nil {
+	//	return false
+	//}
+	//return initingGroup.MemberExist(p.GetMinerID())
+	return false
+}
+
+func (p *Processor) getEncryptPrivateKey() common.PrivateKey {
+	seed := p.mi.SK.GetHexString() + p.mi.ID.GetHexString()
+	encryptPrivateKey := common.GenerateKey(seed)
+	return encryptPrivateKey
 }

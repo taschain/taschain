@@ -19,6 +19,7 @@ import (
 	"consensus/logical"
 	"consensus/model"
 	"consensus/net"
+	"common"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,10 +42,10 @@ var Proc logical.Processor
 //共识初始化
 //mid: 矿工ID
 //返回：true初始化成功，可以启动铸块。内部会和链进行交互，进行初始数据加载和预处理。失败返回false。
-func ConsensusInit(mi model.SelfMinerDO) bool {
+func ConsensusInit(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	logical.InitConsensus()
 	//groupsig.Init(1)
-	ret := Proc.Init(mi)
+	ret := Proc.Init(mi, conf)
 	net.MessageHandler.Init(&Proc)
 	return ret
 }

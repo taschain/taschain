@@ -54,7 +54,7 @@ type StaticGroupInfo struct {
 }
 
 
-func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *InitingGroup) *StaticGroupInfo {
+func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *InitedGroup) *StaticGroupInfo {
 	gInfo := group.gInfo
 	sgi := &StaticGroupInfo{
 		GroupID:       gid,
@@ -201,12 +201,12 @@ func (gg *GlobalGroups) GetGroupSize() int {
 	return len(gg.groups)
 }
 
-func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
-    return gg.generator.addInitingGroup(g)
-}
+//func (gg *GlobalGroups) AddInitingGroup(g *InitingGroup) bool {
+//    return gg.generator.ad(g)
+//}
 
-func (gg *GlobalGroups) removeInitingGroup(gHash common.Hash) {
-	gg.generator.removeInitingGroup(gHash)
+func (gg *GlobalGroups) removeInitedGroup(gHash common.Hash) {
+	gg.generator.removeInitedGroup(gHash)
 }
 
 func (gg *GlobalGroups) lastGroup() *StaticGroupInfo {
@@ -289,9 +289,9 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	return false
 }
 
-func (gg *GlobalGroups) GroupInitedMessage(msg *model.ConsensusGroupInitedMessage, height uint64) int32 {
-	return gg.generator.ReceiveData(msg, height)
-}
+//func (gg *GlobalGroups) GroupInitedMessage(msg *model.ConsensusGroupInitedMessage, threshold int) int32 {
+//	return gg.generator.ReceiveData(msg, threshold)
+//}
 
 //检查某个用户是否某个组成员
 func (gg *GlobalGroups) IsGroupMember(gid groupsig.ID, uid groupsig.ID) bool {
@@ -336,7 +336,7 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 			}
 		}
 	}
-	if g == nil {
+	if g == nil && stdLogger != nil {
 		stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
 			stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())
@@ -346,25 +346,69 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 	return
 }
 
+func (gg *GlobalGroups) selectIndex(num int, hash common.Hash) int64 {
+	value := hash.Big()
+	index := value.Mod(value, big.NewInt(int64(num)))
+	return index.Int64()
+}
+
 //根据上一块哈希值，确定下一块由哪个组铸块
-func (gg *GlobalGroups) SelectNextGroup(h common.Hash, height uint64) (groupsig.ID, error) {
+func (gg *GlobalGroups) SelectNextGroupFromCache(h common.Hash, height uint64) (groupsig.ID, error) {
 	qualifiedGS := gg.GetCastQualifiedGroups(height)
 
 	var ga groupsig.ID
-	value := h.Big()
 
 	gids := make([]string, 0)
 	for _, g := range qualifiedGS {
 		gids = append(gids, g.GroupID.ShortS())
 	}
 
-	if value.BitLen() > 0 && len(qualifiedGS) > 0 {
-		index := value.Mod(value, big.NewInt(int64(len(qualifiedGS))))
-		ga = qualifiedGS[index.Int64()].GroupID
-		stdLogger.Debugf("height %v SelectNextGroup qualified groups %v, index %v\n", height, gids, index)
+	if h.Big().BitLen() > 0 && len(qualifiedGS) > 0 {
+		index := gg.selectIndex(len(qualifiedGS), h)
+		ga = qualifiedGS[index].GroupID
+		stdLogger.Debugf("height %v SelectNextGroupFromCache qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
 	} else {
-		return ga, fmt.Errorf("selectNextGroup failed, arg error")
+		return ga, fmt.Errorf("selectNextGroupFromCache failed, hash %v, qualified group %v", h.ShortS(), gids)
+	}
+}
+
+func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.Group {
+	iter := gg.chain.NewIterator()
+	groups := make([]*types.Group, 0)
+	for g := iter.Current(); g != nil; g = iter.MovePre() {
+		if g.Header.WorkHeight <= height && g.Header.DismissHeight > height {
+			groups = append(groups, g)
+		}
+		if g.Header.DismissHeight <= height {
+			g = gg.chain.GetGroupByHeight(0)
+			groups = append(groups, g)
+			break
+		}
+	}
+	n := len(groups)
+	reverseGroups := make([]*types.Group, n)
+	for i := 0; i < n; i++ {
+		reverseGroups[n-i-1] = groups[i]
+	}
+	return groups
+}
+
+func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
+	quaulifiedGS := gg.getCastQualifiedGroupFromChains(height)
+	idshort := make([]string, len(quaulifiedGS))
+	for idx, g := range quaulifiedGS {
+		idshort[idx] = groupsig.DeserializeId(g.Id).ShortS()
+	}
+
+	var ga groupsig.ID
+	if h.Big().BitLen() > 0 && len(quaulifiedGS) > 0 {
+		index := gg.selectIndex(len(quaulifiedGS), h)
+		ga = groupsig.DeserializeId(quaulifiedGS[index].Id)
+		stdLogger.Debugf("height %v SelectNextGroupFromChain qualified groups %v, index %v\n", height, idshort, index)
+		return ga, nil
+	} else {
+		return ga, fmt.Errorf("SelectNextGroupFromChain failed, arg error")
 	}
 }
 
@@ -400,8 +444,8 @@ func (gg *GlobalGroups) GetAvailableGroups(height uint64) []*StaticGroupInfo {
 	return gs
 }
 
-func (gg *GlobalGroups) GetInitingGroup(gHash common.Hash) *InitingGroup {
-    return gg.generator.getInitingGroup(gHash)
+func (gg *GlobalGroups) GetInitedGroup(gHash common.Hash) *InitedGroup {
+    return gg.generator.getInitedGroup(gHash)
 }
 
 func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {

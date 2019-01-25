@@ -7,3 +7,5 @@ package common
 */
 
 const GtasVersion = "0.5.7"
+
+const ConsensusVersion = 1

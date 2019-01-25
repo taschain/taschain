@@ -24,17 +24,20 @@ import (
 	"time"
 	"consensus/ticker"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
 )
 
 type stateHandleFunc func(msg interface{})
 
 type stateNode struct {
-	code    uint32
-	repeat  int32
-	handler stateHandleFunc
-	next    *stateNode
+	code        uint32
+	leastRepeat int32
+	mostRepeat 	int32
+	handler     stateHandleFunc
+	next        *stateNode
 
 	currentIdx int32
+	execNum 	int32
 	queue      []*StateMsg
 	//lock       sync.RWMutex
 }
@@ -56,31 +59,36 @@ type StateMachine struct {
 
 type StateMachines struct {
 	name      string
-	machines  sync.Map
+	machines  *lru.Cache
 	generator StateMachineGenerator
 	//machines map[string]*StateMachine
 }
 
 var GroupInsideMachines StateMachines
-var GroupOutsideMachines StateMachines
+//var GroupOutsideMachines StateMachines
 
 var logger taslog.Logger
 
 func InitStateMachines() {
 	logger = taslog.GetLoggerByIndex(taslog.StateMachineLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
+	cache, err := lru.New(50)
+	if err != nil {
+		panic("new lru cache fail, err:" + err.Error())
+	}
 	GroupInsideMachines = StateMachines{
 		name:      "GroupInsideMachines",
 		generator: &groupInsideMachineGenerator{},
+		machines:  cache,
 	}
 
-	GroupOutsideMachines = StateMachines{
-		name:      "GroupOutsideMachines",
-		generator: &groupOutsideMachineGenerator{},
-	}
+	//GroupOutsideMachines = StateMachines{
+	//	name:      "GroupOutsideMachines",
+	//	generator: &groupOutsideMachineGenerator{},
+	//}
 
 	GroupInsideMachines.startCleanRoutine()
-	GroupOutsideMachines.startCleanRoutine()
+	//GroupOutsideMachines.startCleanRoutine()
 }
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
@@ -91,12 +99,13 @@ func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 	}
 }
 
-func newStateNode(st uint32, r int, h stateHandleFunc) *stateNode {
+func newStateNode(st uint32, lr, mr int, h stateHandleFunc) *stateNode {
 	return &stateNode{
-		code:    st,
-		repeat:  int32(r),
-		queue:   make([]*StateMsg, 0),
-		handler: h,
+		code:        st,
+		leastRepeat: int32(lr),
+		mostRepeat: 	int32(mr),
+		queue:       make([]*StateMsg, 0),
+		handler:     h,
 	}
 }
 
@@ -114,7 +123,7 @@ func (n *stateNode) queueSize() int32 {
 }
 
 func (n *stateNode) state() string {
-	return fmt.Sprintf("%v[%v/%v]", n.code, n.currentIdx, n.repeat)
+	return fmt.Sprintf("%v[%v/%v]", n.code, n.currentIdx, n.leastRepeat)
 }
 
 func (n *stateNode) dataIndex(id string) int32 {
@@ -139,8 +148,12 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 	return int32(len(n.queue)) - 1, true
 }
 
-func (n *stateNode) finished() bool {
-	return n.currentIdx >= n.repeat
+func (n *stateNode) leastFinished() bool {
+	return n.currentIdx >= n.leastRepeat
+}
+
+func (n *stateNode) mostFinished() bool {
+	return n.execNum >= n.mostRepeat
 }
 
 func (m *StateMachine) findTail() *stateNode {
@@ -183,7 +196,16 @@ func (m *StateMachine) findNode(code uint32) *stateNode {
 
 func (m *StateMachine) finish() bool {
 	current := m.currentNode()
-	return current.next == nil && current.finished()
+	return current.next == nil && current.leastFinished()
+}
+
+func (m *StateMachine) allFinished() bool {
+	for n := m.Head; n != nil; n = n.next {
+		if !n.mostFinished() {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *StateMachine) expire() bool {
@@ -204,6 +226,7 @@ func (m *StateMachine) transform() {
 		node.handler(msg.Data)
 		node.queue[node.currentIdx].Data = true //释放内存
 		node.currentIdx++
+		node.execNum++
 		logger.Debugf("machine %v handling exec state %v, from %v", m.Id, node.state(), msg.Id)
 	default:
 		wg := sync.WaitGroup{}
@@ -216,6 +239,7 @@ func (m *StateMachine) transform() {
 				msg.Data = true //释放内存
 			}()
 			node.currentIdx++
+			node.execNum++
 			logger.Debugf("machine %v handling exec state %v in parallel, from %v", m.Id, node.state(), msg.Id)
 		}
 		wg.Wait()
@@ -223,7 +247,7 @@ func (m *StateMachine) transform() {
 
 	//node.lock.Unlock()
 
-	if node.finished() && node.next != nil {
+	if node.leastFinished() && node.next != nil {
 		m.setCurrent(node.next)
 		m.transform()
 	}
@@ -234,14 +258,12 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.finish() {
-		return false
-	}
-
 	defer func() {
 		if !m.finish() {
 			curr := m.currentNode()
-			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, curr.code, curr.currentIdx, curr.repeat)
+			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, curr.code, curr.currentIdx, curr.leastRepeat)
+		} else {
+			logger.Debugf("machine %v finished", m.Id)
 		}
 	}()
 	node := m.findNode(msg.Code)
@@ -251,6 +273,7 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 	if node.code < m.currentNode().code {
 		logger.Debugf("machine %v handle pre state %v, exec state %v", m.Id, node.code, m.currentNode().state())
 		node.handler(msg.Data)
+		node.execNum++
 	} else if node.code > m.currentNode().code {
 		logger.Debugf("machine %v cache future state %v from %v, current state %v", m.Id, node.code, msg.Id, m.currentNode().state())
 		node.addData(msg)
@@ -272,29 +295,30 @@ type StateMachineGenerator interface {
 type groupInsideMachineGenerator struct{}
 type groupOutsideMachineGenerator struct{}
 
-func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
-	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
-		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
-	}))
-	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
-		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
-	}))
-	return machine
-}
+//func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
+//	machine := newStateMachine(id)
+//	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
+//		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
+//	}))
+//	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
+//		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
+//	}))
+//	return machine
+//}
 
 func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	machine := newStateMachine(id)
-	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
+	memNum := model.Param.GetGroupMemberNum()
+	machine.appendNode(newStateNode(network.GroupInitMsg, 1, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
-	machine.appendNode(newStateNode(network.KeyPieceMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.KeyPieceMsg, memNum, memNum, func(msg interface{}) {
 		MessageHandler.processor.OnMessageSharePiece(msg.(*model.ConsensusSharePieceMessage))
 	}))
-	machine.appendNode(newStateNode(network.SignPubkeyMsg, model.Param.GetGroupMemberNum(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.SignPubkeyMsg, 1, memNum, func(msg interface{}) {
 		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
 	}))
-	machine.appendNode(newStateNode(network.GroupInitDoneMsg, 1, func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), model.Param.GetThreshold(), func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine
@@ -306,27 +330,39 @@ func (stm *StateMachines) startCleanRoutine() {
 }
 
 func (stm *StateMachines) cleanRoutine() bool {
-	stm.machines.Range(func(key, value interface{}) bool {
+	for _, k := range stm.machines.Keys() {
+		id := k.(string)
+		value, ok := stm.machines.Get(id)
+		if !ok {
+			continue
+		}
 		m := value.(*StateMachine)
-		if m.finish() {
-			logger.Infof("%v state machine finished, id=%v", stm.name, m.Id)
-			stm.machines.Delete(m.Id)
+		if m.allFinished() {
+			logger.Infof("%v state machine allFinished, id=%v", stm.name, m.Id)
+			stm.machines.Remove(m.Id)
 		}
 		if m.expire() {
 			logger.Infof("%v state machine expire, id=%v", stm.name, m.Id)
-			stm.machines.Delete(m.Id)
+			stm.machines.Remove(m.Id)
 		}
-		return true
-	})
+	}
 	return true
 }
 
 func (stm *StateMachines) GetMachine(id string) *StateMachine {
-	if v, ok := stm.machines.Load(id); ok {
+	if v, ok := stm.machines.Get(id); ok {
 		return v.(*StateMachine)
 	} else {
 		m := stm.generator.Generate(id)
-		v, _ = stm.machines.LoadOrStore(id, m)
-		return v.(*StateMachine)
+		contains, _ := stm.machines.ContainsOrAdd(id, m)
+		if !contains {
+			return m
+		} else {
+			if v, ok := stm.machines.Get(id); ok {
+				return v.(*StateMachine)
+			} else {
+				panic("get machine fail, id " + id)
+			}
+		}
 	}
 }

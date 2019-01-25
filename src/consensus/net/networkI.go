@@ -26,6 +26,8 @@ type MessageProcessor interface {
 
 	OnMessageSignPK(msg *model.ConsensusSignPubKeyMessage)
 
+	OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage)
+
 	OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 	OnMessageCast(msg *model.ConsensusCastMessage)
@@ -76,4 +78,8 @@ type NetworkServer interface {
 	SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
 
 	SendCastRewardSign(msg *model.CastRewardTransSignMessage)
+
+	AnswerSignPkMessage(msg *model.ConsensusSignPubKeyMessage, receiver groupsig.ID)
+
+	AskSignPkMessage(msg *model.ConsensusSignPubkeyReqMessage, receiver groupsig.ID)
 }

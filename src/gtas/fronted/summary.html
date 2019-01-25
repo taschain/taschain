@@ -10,6 +10,10 @@
             height: 20px;
         }
 
+        .bg_red {
+            background-color: #ff4853;
+        }
+
         table.gridtable {
             font-family: verdana,arial,sans-serif;
             font-size:11px;
@@ -222,6 +226,48 @@
             }
         }
 
+        function highlight() {
+            m = new Map()
+            $("#t_body").find("tr").each(function(){
+                var tdArr = $(this).children();
+                var height = tdArr.eq(1).text();
+                if (height == "" || height.indexOf("失败") != -1) {
+                    return
+                }
+                h = parseInt(height)
+                v=1
+                if(m.has(h)) {
+                    v = m.get(h)
+                    v+=1
+                }
+                m.set(h, v)
+            });
+
+            maxValueHeight = 0
+            maxValue = 0
+            m.forEach(function (value, key, map) {
+                if(value > maxValue) {
+                    maxValueHeight = key
+                    maxValue = value
+                }
+            });
+
+            $("#t_body").find("tr").each(function(){
+                var tdArr = $(this).children();
+                var height = tdArr.eq(1).text();
+                if (height == "" || height.indexOf("失败") != -1) {
+                    return
+                }
+                h = parseInt(height)
+                delta = h - maxValueHeight
+                if(delta >= 5 || delta <= -5) {
+                    $(this).addClass("bg_red")
+                } else {
+                    $(this).removeClass("bg_red")
+                }
+            });
+
+        }
         $(function () {
 
             $("#add").click(function () {
@@ -229,8 +275,8 @@
             })
 
             tryAddHost()
-            setInterval(refreshAll, 1000)
-
+            setInterval(refreshAll, 1500)
+            setInterval(highlight, 5000)
         })
     </script>
 </head>

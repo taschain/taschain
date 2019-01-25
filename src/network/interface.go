@@ -86,6 +86,10 @@ const (
 
 	BlockBodyMsg uint32 = 33
 	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
+
+	//===================请求组内成员签名公钥======
+	AskSignPkMsg uint32 = 34
+	AnswerSignPkMsg uint32 = 35
 )
 
 type Message struct {

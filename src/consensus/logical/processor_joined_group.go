@@ -4,10 +4,15 @@ import (
 	"sync"
 	"consensus/groupsig"
 	"encoding/json"
-	"io/ioutil"
-	"os"
-	"sync/atomic"
 	"consensus/model"
+	"common"
+	"storage/tasdb"
+	"crypto/rand"
+	"github.com/hashicorp/golang-lru"
+	"strings"
+	"io/ioutil"
+	"github.com/aws/amazon-ssm-agent/agent/fileutil"
+
 )
 
 /*
@@ -15,156 +20,377 @@ import (
 **  Date: 2018/6/27 上午9:53
 **  Description: 
 */
+
+const (
+	suffixSignKey = "_signKey"
+	suffixGInfo = "_gInfo"
+)
+
 //当前节点参与的铸块组（已初始化完成）
 type JoinedGroup struct {
 	GroupID groupsig.ID        //组ID
-	SeedKey groupsig.Seckey    //（组相关性的）私密私钥
+	//SeedKey groupsig.Seckey    //（组相关性的）私密私钥
 	SignKey groupsig.Seckey    //矿工签名私钥
+	GroupPK groupsig.Pubkey    //组公钥（backup,可以从全局组上拿取）
+	Members groupsig.PubkeyMap //组成员签名公钥
+	gHash  common.Hash
+	lock 	sync.RWMutex
+}
+
+type joinedGroupStore struct {
+	GroupID groupsig.ID        //组ID
 	GroupPK groupsig.Pubkey    //组公钥（backup,可以从全局组上拿取）
 	Members groupsig.PubkeyMap //组成员签名公钥
 }
 
-func (jg *JoinedGroup) Init() {
-	jg.Members = make(groupsig.PubkeyMap, 0)
+func newJoindGroup(n *GroupNode, gHash common.Hash) *JoinedGroup {
+	gpk := n.GetGroupPubKey()
+	joinedGroup := &JoinedGroup{
+		GroupPK: gpk,
+		SignKey: n.getSignSecKey(),
+		//Members: n.memberPubKeys,
+		Members: make(groupsig.PubkeyMap, 0),
+		GroupID: *groupsig.NewIDFromPubkey(gpk),
+		//SeedKey: n.minerGroupSecret.GenSecKey(),
+		gHash: gHash,
+	}
+	return joinedGroup
+}
+
+func signKeySuffix(gid groupsig.ID) []byte {
+    return []byte(gid.GetHexString() + suffixSignKey)
+}
+
+func gInfoSuffix(gid groupsig.ID) []byte {
+	return []byte(gid.GetHexString() + suffixGInfo)
+}
+
+func (jg *JoinedGroup) addMemSignPK(mem groupsig.ID, signPK groupsig.Pubkey)  {
+    jg.lock.Lock()
+    defer jg.lock.Unlock()
+    //stdLogger.Debugf("addMemSignPK %v %v", mem.GetHexString(), signPK.GetHexString())
+    jg.Members[mem.GetHexString()] = signPK
+}
+
+func (jg *JoinedGroup) memSignPKSize() int {
+	jg.lock.RLock()
+	defer jg.lock.RUnlock()
+	return len(jg.Members)
 }
 
 //取得组内某个成员的签名公钥
-func (jg JoinedGroup) GetMemSignPK(mid groupsig.ID) groupsig.Pubkey {
-	return jg.Members[mid.GetHexString()]
+func (jg *JoinedGroup) getMemSignPK(mid groupsig.ID) (pk groupsig.Pubkey, ok bool) {
+	jg.lock.RLock()
+	defer jg.lock.RUnlock()
+	pk, ok = jg.Members[mid.GetHexString()]
+	return
 }
+
+func (jg *JoinedGroup) getMemberMap() groupsig.PubkeyMap {
+	jg.lock.RLock()
+	defer jg.lock.RUnlock()
+    m := make(groupsig.PubkeyMap, 0)
+	for key, pk := range jg.Members {
+		m[key] = pk
+	}
+	return m
+}
+
 
 type BelongGroups struct {
-	groups    sync.Map //idHex -> *JoinedGroup
-	storeFile string
+	//groups    sync.Map //idHex -> *JoinedGroup
+	cache 		*lru.Cache
+	//storeFile string
+	priKey 		common.PrivateKey
 	dirty     int32
+	store 		*tasdb.LDBDatabase
+	storeDir 	string
+	initMu 		sync.Mutex
 }
 
-func NewBelongGroups(file string) *BelongGroups {
+func NewBelongGroups(file string, priKey common.PrivateKey) *BelongGroups {
 	return &BelongGroups{
-		groups:    sync.Map{},
-		storeFile: file,
-		dirty:     0,
+		//cache: 		cache,
+		//store: 		db,
+		dirty: 		0,
+		priKey: 	priKey,
+		storeDir: 	file,
 	}
 }
 
-func (bg *BelongGroups) commit() bool {
-	if atomic.LoadInt32(&bg.dirty) != 1 {
-		return false
+func (bg *BelongGroups) initStore()  {
+	bg.initMu.Lock()
+	defer bg.initMu.Unlock()
+
+	if bg.ready() {
+		return
 	}
-	if bg.groupSize() == 0 {
-		return false
-	}
-	stdLogger.Debugf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
-	gs := make([]*JoinedGroup, 0)
-	bg.groups.Range(func(key, value interface{}) bool {
-		jg := value.(*JoinedGroup)
-		gs = append(gs, jg)
-		return true
-	})
-	buf, err := json.Marshal(gs)
+	db, err := tasdb.NewLDBDatabase(bg.storeDir, 1,1)
 	if err != nil {
-		panic("BelongGroups::store Marshal failed ." + err.Error())
+		stdLogger.Errorf("newLDBDatabase fail, file=%v, err=%v\n", bg.storeDir, err.Error())
+		return
 	}
-	err = ioutil.WriteFile(bg.storeFile, buf, os.ModePerm)
+	cache, err := lru.New(30)
 	if err != nil {
-		stdLogger.Errorf("store belongGroups fail", err)
-		return false
+		stdLogger.Errorf("fail to New lru cache")
+		return
 	}
-	atomic.CompareAndSwapInt32(&bg.dirty, 1, 0)
-	return true
+	bg.store = db
+	bg.cache = cache
 }
 
-func (bg *BelongGroups) load() bool {
-	stdLogger.Debugf("load belongGroups from", bg.storeFile)
-	data, err := ioutil.ReadFile(bg.storeFile)
+func (bg *BelongGroups) ready() bool {
+    return bg.cache != nil && bg.store != nil
+}
+
+func (bg *BelongGroups) storeSignKey(jg *JoinedGroup)  {
+	if !bg.ready() {
+		return
+	}
+	pubKey := bg.priKey.GetPubKey()
+	ct, err := pubKey.Encrypt(rand.Reader, jg.SignKey.Serialize())
 	if err != nil {
-		stdLogger.Debugf("load file %v fail, err %v", bg.storeFile, err.Error())
+		stdLogger.Errorf("encrypt signkey fail, err=%v", err.Error())
+		return
+	}
+	bg.store.Put(signKeySuffix(jg.GroupID), ct)
+}
+
+func (bg *BelongGroups) storeGroupInfo(jg *JoinedGroup)  {
+	if !bg.ready() {
+		return
+	}
+    st := joinedGroupStore{
+    	GroupID: jg.GroupID,
+    	GroupPK: jg.GroupPK,
+    	Members: jg.getMemberMap(),
+	}
+	bs, err := json.Marshal(st)
+	if err != nil {
+		stdLogger.Errorf("marshal joinedGroup fail, err=%v", err)
+	} else {
+		bg.store.Put(gInfoSuffix(jg.GroupID), bs)
+	}
+}
+
+func (bg *BelongGroups) storeJoinedGroup(jg *JoinedGroup)  {
+    bg.storeSignKey(jg)
+    bg.storeGroupInfo(jg)
+}
+
+func (bg *BelongGroups) loadJoinedGroup(gid groupsig.ID) *JoinedGroup {
+	if !bg.ready() {
+		return nil
+	}
+	jg := new(JoinedGroup)
+	jg.Members = make(groupsig.PubkeyMap,0)
+	//加载签名私钥
+	bs, err := bg.store.Get(signKeySuffix(gid))
+	if err != nil {
+		stdLogger.Errorf("get signKey fail, gid=%v, err=%v", gid.ShortS(), err.Error())
+		return nil
+	}
+	m ,err := bg.priKey.Decrypt(rand.Reader, bs)
+	if err != nil {
+		stdLogger.Errorf("decrypt signKey fail, err=%v", err.Error())
+		return nil
+	}
+	jg.SignKey.Deserialize(m)
+
+	//加载组信息
+	infoBytes, err := bg.store.Get(gInfoSuffix(gid))
+	if err != nil {
+		stdLogger.Errorf("get gInfo fail, gid=%v, err=%v", gid.ShortS(), err.Error())
+		return jg
+	}
+	if err := json.Unmarshal(infoBytes, jg); err != nil {
+		stdLogger.Errorf("unmarsal gInfo fail, gid=%v, err=%v", gid.ShortS(), err.Error())
+		return jg
+	}
+	return jg
+}
+
+//
+//func (bg *BelongGroups) commit() bool {
+//	if atomic.LoadInt32(&bg.dirty) != 1 {
+//		return false
+//	}
+//	if bg.groupSize() == 0 {
+//		return false
+//	}
+//	stdLogger.Debugf("belongGroups commit to file, %v, size %v\n", bg.storeFile, bg.groupSize())
+//	gs := make([]*JoinedGroup, 0)
+//	bg.groups.Range(func(key, value interface{}) bool {
+//		jg := value.(*JoinedGroup)
+//		gs = append(gs, jg)
+//		return true
+//	})
+//	buf, err := json.Marshal(gs)
+//	if err != nil {
+//		panic("BelongGroups::store Marshal failed ." + err.Error())
+//	}
+//	err = ioutil.WriteFile(bg.storeFile, buf, os.ModePerm)
+//	if err != nil {
+//		stdLogger.Errorf("store belongGroups fail", err)
+//		return false
+//	}
+//	atomic.CompareAndSwapInt32(&bg.dirty, 1, 0)
+//	return true
+//}
+//
+func (bg *BelongGroups) joinedGroup2DBIfConfigExists(file string) bool {
+	if !fileutil.Exists(file) || fileutil.IsDirectory(file) {
+		return false
+	}
+	stdLogger.Debugf("load belongGroups from %v", file)
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		stdLogger.Debugf("load file %v fail, err %v", file, err.Error())
 		return false
 	}
 	var gs []*JoinedGroup
 	err = json.Unmarshal(data, &gs)
 	if err != nil {
-		stdLogger.Debugf("unmarshal belongGroup store file %v fail, err %v", bg.storeFile, err.Error())
+		stdLogger.Debugf("unmarshal belongGroup store file %v fail, err %v", file, err.Error())
 		return false
 	}
+	n := 0
+	bg.initStore()
 	for _, jg := range gs {
-		for idStr, pk := range jg.Members {
-			var id groupsig.ID
-			id.SetHexString(idStr)
-			jg.Members[id.GetHexString()] = pk
+		//for idStr, pk := range jg.Members {
+		//	var id groupsig.ID
+		//	id.SetHexString(idStr)
+		//	jg.Members[id.GetHexString()] = pk
+		//}
+		if bg.getJoinedGroup(jg.GroupID) == nil {
+			n++
+			bg.addJoinedGroup(jg)
 		}
-		bg.groups.Store(jg.GroupID.GetHexString(), jg)
 	}
-	stdLogger.Debugf("load belongGroups size", bg.groupSize())
+	stdLogger.Debugf("joinedGroup2DBIfConfigExists belongGroups size %v", n)
 	return true
 }
 
 func (bg *BelongGroups) getJoinedGroup(id groupsig.ID) *JoinedGroup {
-	if ret, ok := bg.groups.Load(id.GetHexString()); ok {
-		return ret.(*JoinedGroup)
+	if !bg.ready() {
+		return nil
 	}
-	return nil
+	v, ok := bg.cache.Get(id.GetHexString())
+	if ok {
+		return v.(*JoinedGroup)
+	}
+	jg := bg.loadJoinedGroup(id)
+	if jg != nil {
+		bg.cache.Add(jg.GroupID.GetHexString(), jg)
+	}
+	return jg
 }
 
-func (bg *BelongGroups) groupSize() int32 {
-	size := int32(0)
-	bg.groups.Range(func(key, value interface{}) bool {
-		size ++
-		return true
-	})
-	return size
-}
+//func (bg *BelongGroups) groupSize() int32 {
+//	size := int32(0)
+//	bg.groups.Range(func(key, value interface{}) bool {
+//		size ++
+//		return true
+//	})
+//	return size
+//}
+//
+//func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
+//	m := make(map[string]JoinedGroup)
+//	bg.groups.Range(func(key, value interface{}) bool {
+//		m[key.(string)] = *(value.(*JoinedGroup))
+//		return true
+//	})
+//	return m
+//}
 
-func (bg *BelongGroups) getAllGroups() map[string]JoinedGroup {
-	m := make(map[string]JoinedGroup)
-	bg.groups.Range(func(key, value interface{}) bool {
-		m[key.(string)] = *(value.(*JoinedGroup))
-		return true
-	})
-	return m
+func (bg *BelongGroups) addMemSignPk(uid groupsig.ID, gid groupsig.ID, signPK groupsig.Pubkey) (*JoinedGroup, bool) {
+	if !bg.ready() {
+		bg.initStore()
+	}
+    jg := bg.getJoinedGroup(gid)
+    //stdLogger.Debugf("getJoinedGroup gid=%v", gid.ShortS())
+	//for mem, pk := range jg.getMemberMap() {
+	//	stdLogger.Debugf("getJoinedGroup: %v, %v", mem, pk.GetHexString())
+	//}
+	if jg == nil {
+		return nil, false
+	}
+
+	if _, ok := jg.getMemSignPK(uid); !ok {
+		jg.addMemSignPK(uid, signPK)
+		bg.storeGroupInfo(jg)
+		return jg, true
+	} else {
+		return jg, false
+	}
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
+	if !bg.ready() {
+		bg.initStore()
+	}
 	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
-	bg.groups.Store(jg.GroupID.GetHexString(), jg)
-	atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
+	//bg.groups.Store(jg.GroupID.GetHexString(), jg)
+	bg.cache.Add(jg.GroupID.GetHexString(), jg)
+	bg.storeJoinedGroup(jg)
 }
 
 func (bg *BelongGroups) leaveGroups(gids []groupsig.ID) {
-	for _, gid := range gids {
-		bg.groups.Delete(gid.GetHexString())
-		atomic.CompareAndSwapInt32(&bg.dirty, 0, 1)
+	if !bg.ready() {
+		return
 	}
-	bg.commit()
+	for _, gid := range gids {
+		//bg.groups.Delete(gid.GetHexString())
+		bg.cache.Remove(gid.GetHexString())
+		//bg.store.Delete(signKeySuffix(gid))
+		bg.store.Delete(gInfoSuffix(gid))
+	}
+}
+
+func (bg *BelongGroups) close()  {
+	if !bg.ready() {
+		return
+	}
+    bg.cache = nil
+    bg.store.Close()
+}
+
+func (p *Processor) genBelongGroupStoreFile() string {
+	storeFile := p.conf.GetString(ConsensusConfSection, "groupstore", "")
+	if strings.TrimSpace(storeFile) == "" {
+		storeFile = "groupstore" + p.conf.GetString("instance", "index", "")
+	}
+	return storeFile
 }
 
 //取得组内成员的签名公钥
-func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey) {
+func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
 	if jg := p.belongGroups.getJoinedGroup(gmi.Gid); jg != nil {
-		pk = jg.GetMemSignPK(gmi.Uid)
+		pk, ok = jg.getMemSignPK(gmi.Uid)
+		if !ok && !p.GetMinerID().IsEqual(gmi.Uid) {
+			p.askSignPK(gmi)
+		}
 	}
 	return
 }
 
 //取得组内自身的私密私钥（正式版本不提供）
 // deprecated
-func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
-	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
-		sk = jg.SeedKey
-	}
-	return
-}
+//func (p Processor) getGroupSeedSecKey(gid groupsig.ID) (sk groupsig.Seckey) {
+//	if jg := p.belongGroups.getJoinedGroup(gid); jg != nil {
+//		sk = jg.SeedKey
+//	}
+//	return
+//}
 
 //加入一个组（一个矿工ID可以加入多个组）
 //gid : 组ID(非dummy id)
 //sk：用户的组成员签名私钥
-func (p *Processor) joinGroup(g *JoinedGroup, save bool) {
+func (p *Processor) joinGroup(g *JoinedGroup) {
 	stdLogger.Debugf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
-		if save {
-			p.belongGroups.commit()
-		}
 	}
 	return
 }
@@ -182,7 +408,16 @@ func (p *Processor) IsMinerGroup(gid groupsig.ID) bool {
 	return p.belongGroups.getJoinedGroup(gid) != nil
 }
 
-//取得矿工参与的所有铸块组私密私钥，正式版不提供
-func (p Processor) getMinerGroups() map[string]JoinedGroup {
-	return p.belongGroups.getAllGroups()
+func (p *Processor) askSignPK(gmi *model.GroupMinerID)  {
+	if !addSignPkReq(gmi.Uid) {
+		return
+	}
+    msg := &model.ConsensusSignPubkeyReqMessage{
+    	GroupID: gmi.Gid,
+	}
+	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
+	if msg.GenSign(ski, msg) {
+		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.Uid.ShortS(), gmi.Gid.ShortS())
+		p.NetServer.AskSignPkMessage(msg, gmi.Uid)
+	}
 }

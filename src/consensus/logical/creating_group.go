@@ -46,8 +46,9 @@ type CreatingGroup struct {
 
 type CreatingGroups struct {
 	groups sync.Map //string -> *CreatingGroup
-	//groups map[string]*CreatingGroup
-	//lock sync.RWMutex
+	sentInitGroupHashs [10]common.Hash //已经发送init消息的组hash
+	currIndex  int
+	lock sync.RWMutex
 }
 
 func newCreateGroup(gInfo *model.ConsensusGroupInitInfo, threshold int) *CreatingGroup {
@@ -108,4 +109,22 @@ func (cgs *CreatingGroups) forEach(f func(cg *CreatingGroup) bool) {
 	cgs.groups.Range(func(key, value interface{}) bool {
 		return f(value.(*CreatingGroup))
 	})
+}
+
+func (cgs *CreatingGroups) addSentHash(hash common.Hash)  {
+    cgs.lock.Lock()
+    defer cgs.lock.Unlock()
+    cgs.sentInitGroupHashs[cgs.currIndex] = hash
+    cgs.currIndex = (cgs.currIndex+1)%len(cgs.sentInitGroupHashs)
+}
+
+func (cgs *CreatingGroups) hasSentHash(hash common.Hash) bool {
+	cgs.lock.RLock()
+	defer cgs.lock.RUnlock()
+	for _, h := range cgs.sentInitGroupHashs {
+		if h == hash {
+			return true
+		}
+	}
+	return false
 }

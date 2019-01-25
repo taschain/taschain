@@ -55,7 +55,7 @@ func (bctx *CastBlockContexts) blockContextSize() int32 {
 
 func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
 	for _, id := range gids {
-		stdLogger.Infof("removeBlockContexts ", id.ShortS())
+		stdLogger.Infof("removeBlockContexts %v", id.ShortS())
 		bc := bctx.getBlockContext(id)
 		if bc != nil {
 			//bc.removeTicker()
@@ -109,26 +109,30 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) CalcVerifyGroup(preBH *types.BlockHeader, height uint64) *groupsig.ID {
-	var hash common.Hash
-	data := preBH.Random
+func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+	var hash = CalcRandomHash(preBH, height)
 
-	deltaHeight := height - preBH.Height
-	for ; deltaHeight > 0; deltaHeight-- {
-		hash = base.Data2CommonHash(data)
-		data = hash.Bytes()
-	}
-
-	selectGroup, err := p.globalGroups.SelectNextGroup(hash, height)
+	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
 	if err != nil {
-		stdLogger.Errorf("calcCastGroup err:%v", err)
+		stdLogger.Errorf("SelectNextGroupFromCache height=%v, err: %v", height, err)
+		return nil
+	}
+	return &selectGroup
+}
+
+func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+	var hash = CalcRandomHash(preBH, height)
+
+	selectGroup, err := p.globalGroups.SelectNextGroupFromChain(hash, height)
+	if err != nil {
+		stdLogger.Errorf("SelectNextGroupFromChain height=%v, err:%v", height, err)
 		return nil
 	}
 	return &selectGroup
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextId := p.CalcVerifyGroup(bh, height)
+	nextId := p.CalcVerifyGroupFromCache(bh, height)
 	if nextId == nil {
 		return nil
 	}
@@ -207,38 +211,39 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		blog.log("core.GenerateBlock is nil! won't broadcast block!")
 		return
 	}
+	gb := p.spreadGroupBrief(bh, bh.Height+1)
+	if gb == nil {
+		blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		return
+	}
 
 	r := p.doAddOnChain(block)
 
-	if r != 0 && r != 1 { //分叉调整或 上链失败都不走下面的逻辑
-		slot.setSlotStatus(SS_FAILED)
+	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
+		if r != int8(types.Forking) {
+			slot.setSlotStatus(SS_FAILED)
+		}
 		return
 	}
 
 	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
 	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
-	if vctx.markBroadcast() {
-		cbm := &model.ConsensusBlockMessage{
-			Block: *block,
-		}
-
-		gb := p.spreadGroupBrief(bh, bh.Height+1)
-		if gb == nil {
-			blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
-			return
-		}
-		p.NetServer.BroadcastNewBlock(cbm, gb)
-		tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
-
-		vctx.broadcastSlot = slot
-
-		//如果是联盟链，则不打分红交易
-		if !consensusConfManager.GetBool("league", false) {
-			p.reqRewardTransSign(vctx, bh)
-		}
-		blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
+	cbm := &model.ConsensusBlockMessage{
+		Block: *block,
 	}
+
+	p.NetServer.BroadcastNewBlock(cbm, gb)
+	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+
+	vctx.broadcastSlot = slot
+	vctx.markBroadcast()
+
+	//如果是联盟链，则不打分红交易
+	if !consensusConfManager.GetBool("league", false) {
+		p.reqRewardTransSign(vctx, bh)
+	}
+	blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
 	return
 }
 

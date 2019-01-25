@@ -249,6 +249,8 @@ message SignData{
 	required  bytes DataSign = 2;
 
 	required  bytes SignMember= 3;
+
+    optional  int32 Version = 4 [default=0];
 }
 
 
@@ -295,15 +297,20 @@ message ConsensusSharePieceMessage{
 
 message ConsensusSignPubKeyMessage{
     required bytes GHash = 1;
+    required bytes GroupID = 2;
 
-    required bytes	SignPK  = 2;
+    required bytes	SignPK  = 3;
 
-    required SignData 	SignData = 3;
-
-    required bytes  GSign = 4;
+    required SignData 	SignData = 4;
 
 }
 
+message ConsensusSignPubkeyReqMessage{
+    required bytes GroupID = 1;
+
+    required SignData 	SignData = 2;
+
+}
 
 
 message StaticGroupSummary{
@@ -321,8 +328,9 @@ message ConsensusGroupInitedMessage{
     required bytes GHash = 1;
     required bytes GroupID = 2;
     required bytes GroupPK = 3;
-
-    required SignData Sign = 4;
+    required uint64 CreateHeight = 4;
+    required bytes ParentSign = 5;
+    required SignData Sign = 6;
 }
 
 message ConsensusCurrentMessage{

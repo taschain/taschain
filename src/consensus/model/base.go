@@ -29,6 +29,7 @@ func (id GroupMinerID) IsValid() bool {
 
 //数据签名结构
 type SignData struct {
+	Version    int32
 	DataHash   common.Hash        //哈希值
 	DataSign   groupsig.Signature //签名
 	SignMember groupsig.ID        //用户ID或组ID，看消息类型
@@ -43,6 +44,7 @@ func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
 		DataHash: h,
 		DataSign: groupsig.Sign(sk, h.Bytes()),
 		SignMember: id,
+		Version: common.ConsensusVersion,
 	}
 }
 
@@ -73,7 +75,7 @@ func (sd *SignData) GenSign(sk groupsig.Seckey) bool {
 
 //用pk验证签名，验证通过返回true，否则false。
 func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
-	return pk.IsValid() && groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
+	return groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
 }
 
 //是否已有签名数据

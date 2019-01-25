@@ -31,7 +31,7 @@ var genesisGroupInfo *genesisGroup
 func GetGenesisGroupInfo() *genesisGroup {
 	if genesisGroupInfo == nil {
 		f := common.GlobalConf.GetSectionManager("consensus").GetString("genesis_sgi_conf", "genesis_sgi.config")
-		common.DefaultLogger.Debugf("generate genesis info %v", f)
+ 		common.DefaultLogger.Debugf("generate genesis info %v", f)
 		genesisGroupInfo = genGenesisStaticGroupInfo(f)
 	}
 	return genesisGroupInfo
@@ -65,17 +65,12 @@ func (p *Processor) BeginGenesisGroupMember() {
 		return
 	}
 	sgi := &genesis.Group
-	storeFile := p.genBelongGroupStoreFile()
-	belongs := NewBelongGroups(storeFile)
-	if !belongs.load() {
-		panic("genesisMember load join_group fail")
-	}
 
-	jg := belongs.getJoinedGroup(sgi.GroupID)
+	jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 	if jg == nil {
 		panic("genesisMember find join_group fail")
 	}
-	p.joinGroup(jg, false)
+	p.joinGroup(jg)
 
 }
 

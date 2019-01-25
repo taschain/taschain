@@ -5,6 +5,8 @@ import (
 	"time"
 	"middleware/types"
 	"consensus/model"
+	"common"
+	"consensus/base"
 )
 
 /*
@@ -12,6 +14,8 @@ import (
 **  Date: 2018/6/8 上午9:52
 **  Description: 
 */
+
+
 
 func GetCastExpireTime(base time.Time, deltaHeight uint64, castHeight uint64) time.Time {
 	t := uint64(0)
@@ -51,4 +55,15 @@ func DeltaHeightByTime(bh *types.BlockHeader, preBH *types.BlockHeader) uint64 {
 func VerifyBHExpire(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time, bool) {
 	expire := GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
 	return expire, time.Now().After(expire)
+}
+func CalcRandomHash(preBH *types.BlockHeader, height uint64) common.Hash {
+	data := preBH.Random
+	var hash common.Hash
+
+	deltaHeight := height - preBH.Height
+	for ; deltaHeight > 0; deltaHeight-- {
+		hash = base.Data2CommonHash(data)
+		data = hash.Bytes()
+	}
+	return hash
 }

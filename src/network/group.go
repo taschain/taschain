@@ -174,6 +174,7 @@ func (g *Group) resolve(id NodeID) {
 }
 
 func (g *Group) send(packet *bytes.Buffer,code uint32) {
+	Logger.Debugf("Group Send id：%v ", g.id)
 
 	for i := 0; i < len(g.needConnectNodes); i++ {
 		id := g.needConnectNodes[i]
@@ -254,19 +255,19 @@ func (gm *GroupManager) doRefresh() {
 
 //SendGroup 向所有已经连接的组内节点发送自定义数据包
 func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer ,code uint32) {
+	Logger.Infof("send group, id:%v code:%v", id, code)
 	gm.mutex.RLock()
-	defer gm.mutex.RUnlock()
-
-	Logger.Infof("send group, id:%v", id)
 	g := gm.groups[id]
 	if g == nil {
 		Logger.Infof("group not found.")
+		gm.mutex.RUnlock()
 		return
 	}
 	buf := netCore.bufferPool.GetBuffer(packet.Len())
 	buf.Write(packet.Bytes())
+	gm.mutex.RUnlock()
 
-	go g.send(buf, code)
+	g.send(buf, code)
 
 	return
 }

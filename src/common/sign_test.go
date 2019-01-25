@@ -210,3 +210,15 @@ func TestAccount(test *testing.T) {
 	fmt.Printf("sk:%s\n", privateKey.GetHexString())
 	fmt.Printf("address:%s\n", address.GetHexString())
 }
+
+func TestGenerateKey(t *testing.T) {
+	s := "1111345111111111111111111111111111111111"
+	sk := GenerateKey(s)
+	t.Logf(sk.GetHexString())
+
+	sk2 := GenerateKey(s)
+	t.Logf(sk2.GetHexString())
+
+	sk3 := GenerateKey(s)
+	t.Logf(sk3.GetHexString())
+}
