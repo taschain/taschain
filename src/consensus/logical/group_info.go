@@ -336,7 +336,7 @@ func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err er
 			}
 		}
 	}
-	if g == nil {
+	if g == nil && stdLogger != nil {
 		stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID nil, gid=%v\n", id.ShortS())
 		for _, g := range gg.groups {
 			stdLogger.Debugf("^^^^^^^^^^^^^^^^^^GetGroupByID cached groupid %v\n", g.GroupID.ShortS())

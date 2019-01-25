@@ -214,6 +214,24 @@ func (api *GtasAPI) GetBlockByHash(hash string) (*Result, error) {
 	return successResult(block)
 }
 
+func (api *GtasAPI) GetBlocks(from uint64, to uint64) (*Result, error) {
+	blocks := make([]*Block, 0)
+	var preBH *types.BlockHeader
+	for h := from; h <= to; h++ {
+		bh := core.BlockChainImpl.QueryBlockByHeight(h)
+		if bh != nil {
+			block := convertBlockHeader(bh)
+			if preBH == nil {
+				preBH = core.BlockChainImpl.QueryBlockHeaderByHash(bh.PreHash)
+			}
+			block.Qn = bh.TotalQN - preBH.TotalQN
+			preBH = bh
+			blocks = append(blocks, block)
+		}
+	}
+	return successResult(blocks)
+}
+
 func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	bh := core.BlockChainImpl.QueryTopBlock()
 	blockDetail := make(map[string]interface{})
