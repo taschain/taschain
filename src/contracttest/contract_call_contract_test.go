@@ -42,7 +42,7 @@ func TestContractCallContract(t *testing.T) {
 	OnChainFunc(string(jsonString), "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 
 	//int类型
-	contractAddr := "0x303e2d65fc7cec255932f6cbbfac69851d47a56d06e3f33dc63c9620e07b1872"
+	contractAddr := "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
 	abi := `{"FuncName": "contract_int", "Args": []}`
 	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 	//断言
