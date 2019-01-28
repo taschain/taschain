@@ -313,6 +313,8 @@ type PeerManager struct {
 	peers              map[uint64]*Peer //key为网络ID
 	mutex              sync.RWMutex
 	natTraversalEnable bool
+	natPort uint16
+	natIp  string
 }
 
 func newPeerManager() *PeerManager {
@@ -350,7 +352,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		}
 
 		if pm.natTraversalEnable {
-			P2PConnect(netId, NatServerIp, NatServerPort)
+			P2PConnect(netId, pm.natIp, pm.natPort)
 			Logger.Infof("connect node ,[nat]: %v ", toid.GetHexString())
 		} else {
 			P2PConnect(netId, toaddr.IP.String(), uint16(toaddr.Port))

@@ -54,9 +54,9 @@ var (
 	errClosed           = errors.New("socket closed")
 )
 
-const NatServerPort = 70
 
-var NatServerIp = "47.105.51.161"
+const DefaultNatPort = 70
+const DefaultNatIp = "47.105.51.161"
 
 // Timeouts
 const (
@@ -85,7 +85,6 @@ type NetCore struct {
 	messageManager     *MessageManager
 	flowMeter          *FlowMeter
 	bufferPool         *BufferPool
-	natTraversalEnable bool
 }
 
 type pending struct {
@@ -132,6 +131,8 @@ type NetCoreConfig struct {
 	Id                 NodeID
 	Seeds              []*Node
 	NatTraversalEnable bool
+	NatPort uint16
+	NatIp  string
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -155,10 +156,17 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.gotreply = make(chan reply)
 	nc.addpending = make(chan *pending)
 	nc.unhandled = make(chan *Peer, 64)
-	nc.natTraversalEnable = cfg.NatTraversalEnable
 	nc.nid = netCoreNodeID(cfg.Id)
 	nc.peerManager = newPeerManager()
 	nc.peerManager.natTraversalEnable = cfg.NatTraversalEnable
+	nc.peerManager.natIp = cfg.NatIp
+	nc.peerManager.natPort = cfg.NatPort
+	if len(nc.peerManager.natIp)  == 0 {
+		nc.peerManager.natIp = DefaultNatIp
+	}
+	if nc.peerManager.natPort  == 0 {
+		nc.peerManager.natPort = DefaultNatPort
+	}
 	nc.groupManager = newGroupManager()
 	nc.messageManager = newMessageManager(nc.id)
 	nc.flowMeter = newFlowMeter("p2p")
@@ -169,9 +177,9 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	Logger.Infof("P2PConfig: %v ", nc.nid)
 	P2PConfig(nc.nid)
 
-	if nc.natTraversalEnable {
-		Logger.Infof("P2PProxy: %v %v", NatServerIp, uint16(NatServerPort))
-		P2PProxy(NatServerIp, uint16(NatServerPort))
+	if cfg.NatTraversalEnable {
+		Logger.Infof("P2PProxy: %v %v", nc.peerManager.natIp , uint16(nc.peerManager.natPort))
+		P2PProxy(nc.peerManager.natIp , uint16(nc.peerManager.natPort))
 	} else {
 		Logger.Infof("P2PListen: %v %v", realaddr.IP.String(), uint16(realaddr.Port))
 		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
@@ -467,7 +475,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberId NodeID) {
 
 	p := nc.peerManager.peerByID(memberId)
-	if (p != nil && p.seesionId > 0) || nc.natTraversalEnable {
+	if (p != nil && p.seesionId > 0) || nc.peerManager.natTraversalEnable {
 		go nc.Send(memberId, nil, data, code)
 	} else {
 		node := net.netCore.kad.find(memberId)

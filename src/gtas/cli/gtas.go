@@ -101,9 +101,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, seedIp, seedId, light, keystore)
+	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore)
 	if err != nil {
 		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
@@ -274,6 +274,7 @@ func (gtas *Gtas) Run() {
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
+	natPort := mineCmd.Flag("natport", "nat server port").Default("70").Uint16()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -328,12 +329,11 @@ func (gtas *Gtas) Run() {
 		BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
 		types.InitMiddleware()
 		if *nat != "" {
-			network.NatServerIp = *nat
 			common.DefaultLogger.Infof("NAT server ip:%s", *nat)
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *seedIp, *seedId, *portRpc, *light, *apply, *keystore)
+		gtas.miner(*rpc, *super, *testMode,addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -388,7 +388,7 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string, light bool, keystore string) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, light bool, keystore string) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -419,7 +419,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, seedIp string, seedId string,
 	}
 	id := minerInfo.ID.GetHexString()
 
-	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode, seedIp, seedId, id)
+	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode,natIp, natPort, seedIp, seedId, id)
 
 	if err != nil {
 		return err
