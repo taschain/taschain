@@ -28,6 +28,7 @@ type txRawData struct {
 	Nonce    uint64 `json:"nonce"`
 	Data     string `json:"data"`
 	Sign     string `json:"sign"`
+	ExtraData string `json:"extra_data"`
 }
 
 func opError(err error) *Result {
@@ -71,6 +72,7 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 		GasLimit: tx.Gas,
 		GasPrice: tx.Gasprice,
 		Sign: sign,
+		ExtraData: []byte(tx.ExtraData),
 	}
 }
 

@@ -219,6 +219,7 @@ func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result
 		Gasprice: gasprice,
 		TxType:   types.TransactionTypeMinerAbort,
 		Data:     string([]byte{byte(mtype)}),
+		ExtraData: aci.Address,
 	}
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
@@ -238,6 +239,7 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Resul
 		Gasprice: gasprice,
 		TxType:   types.TransactionTypeMinerRefund,
 		Data:     string([]byte{byte(mtype)}),
+		ExtraData: aci.Address,
 	}
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
 	return ca.SendRaw(tx)
