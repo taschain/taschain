@@ -150,7 +150,9 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
 	detail["source"] = transaction.Source.Hash().Hex()
-	detail["target"] = transaction.Target.Hash().Hex()
+	if transaction.Target != nil{
+		detail["target"] = transaction.Target.Hash().Hex()
+	}
 	detail["value"] = transaction.Value
 	return successResult(detail)
 }
