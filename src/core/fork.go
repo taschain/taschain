@@ -38,6 +38,8 @@ func initforkProcessor() *forkProcessor {
 	notify.BUS.Subscribe(notify.ChainPieceInfo, fh.chainPieceInfoHandler)
 	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlockReqHanlder)
 	notify.BUS.Subscribe(notify.ChainPieceBlock, fh.chainPieceBlockHandler)
+
+	go fh.loop()
 	return &fh
 }
 
