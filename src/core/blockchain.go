@@ -519,7 +519,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 	}
 	receiptsTree := calcReceiptsTree(receipts).Bytes()
 	if common.ToHex(receiptsTree) != common.ToHex(block.Header.ReceiptTree.Bytes()) {
-		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", receiptsTree, block.Header.ReceiptTree.Bytes())
+		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", common.ToHex(receiptsTree), common.ToHex(block.Header.ReceiptTree.Bytes()))
 		return false, state, receipts
 	}
 

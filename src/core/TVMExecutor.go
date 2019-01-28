@@ -88,7 +88,10 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			success = executor.executeMinerRefundTx(accountdb, transaction, height, castor, mark)
 		}
 
-		if success {
+		if !success {
+			evictedTxs = append(evictedTxs, transaction.Hash)
+		}
+		if success || transaction.Type != types.TransactionTypeBonus {
 			transactions = append(transactions, transaction)
 			receipt := types.NewReceipt(nil, !success, cumulativeGasUsed)
 			receipt.Logs = logs
@@ -99,8 +102,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			if transaction.Source != nil {
 				accountdb.SetNonce(*transaction.Source, transaction.Nonce)
 			}
-		} else {
-			evictedTxs = append(evictedTxs, transaction.Hash)
 		}
 	}
 	//筑块奖励
@@ -336,7 +337,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Success %s,Type:%s", transaction.Source.GetHexString(), mark)
 				success = true
 			} else {
-				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail %s,Type:%s", transaction.Source.GetHexString(), mark)
+				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail(Refund height less than abortHeight+10) Hash%s,Type:%s", transaction.Source.GetHexString(), mark)
 			}
 		} else {
 			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
