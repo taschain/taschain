@@ -10,3 +10,9 @@ class Client():
         print_str = account.contractCall('0x303e2d65fc7cec255932f6cbbfac69851d47a56d06e3f33dc63c9620e07b1872', 'hello', '[]')
         print_str = print_str + " world"
         print(print_str)
+
+    @register.public()
+    def client_print_2(self):
+        number = account.contractCall('0x303e2d65fc7cec255932f6cbbfac69851d47a56d06e3f33dc63c9620e07b1872', 'plus', '[5, 5]')
+        print(number)
+

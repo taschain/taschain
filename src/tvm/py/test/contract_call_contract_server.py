@@ -8,3 +8,7 @@ class Server():
     def hello(self):
         print("hello")
         return "hello"
+
+    @register.public(int, int)
+    def plus(self, a, b):
+        return a + b

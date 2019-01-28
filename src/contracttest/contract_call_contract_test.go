@@ -50,6 +50,10 @@ func TestContractCallOtherContract(t *testing.T) {
 	contractAddr := "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
 	abi := `{"FuncName": "client_print", "Args": []}`
 	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+
+	contractAddr = "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
+	abi = `{"FuncName": "client_print_2", "Args": []}`
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 }
 
 func TestContractCallContract(t *testing.T) {
