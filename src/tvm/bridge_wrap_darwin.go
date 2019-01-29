@@ -605,7 +605,9 @@ func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 	var param = C.CString(code)
 	var contract_name = C.CString(tvm.ContractName)
 
+	//fmt.Println("-----------------code start-------------------")
 	//fmt.Println(code)
+	//fmt.Println("-----------------code end---------------------")
 	C.tvm_execute(param, contract_name, parseKind, (*C.struct__ExecuteResult)(unsafe.Pointer(c_result)))
 	C.free(unsafe.Pointer(param))
 	C.free(unsafe.Pointer(contract_name))
