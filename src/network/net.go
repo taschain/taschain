@@ -56,7 +56,7 @@ var (
 
 
 const DefaultNatPort = 70
-const DefaultNatIp = "47.105.51.161"
+const DefaultNatIp = "120.78.127.246"
 
 // Timeouts
 const (
