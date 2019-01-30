@@ -282,6 +282,8 @@ func (gtas *Gtas) Run() {
 		kingpin.Fatalf("%s, try --help", err)
 	}
 
+	gtas.simpleInit(*configFile)
+
 	switch command {
 	//case voteCmd.FullCommand():
 	//	gtas.vote(*fromVote, *modelNumVote, *configVote)
@@ -318,7 +320,6 @@ func (gtas *Gtas) Run() {
 			runtime.SetBlockProfileRate(1)
 			runtime.SetMutexProfileFraction(1)
 		}()
-		gtas.simpleInit(*configFile)
 
 		common.GlobalConf.SetInt(instanceSection, indexKey, *instanceIndex)
 		databaseValue := "d" + strconv.Itoa(*instanceIndex)

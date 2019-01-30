@@ -227,7 +227,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				accountdb.SubBalance(*transaction.Source, amount)
-				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "py"))
 				snapshot := controller.AccountDB.Snapshot()
 				contractAddress, err = createContract(accountdb, transaction)
 				Logger.Debugf("contract addr:%s", contractAddress.String())
@@ -267,7 +267,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			amount := big.NewInt(int64(transaction.GasLimit * transaction.GasPrice))
 			if CanTransfer(accountdb, *transaction.Source, amount) {
 				accountdb.SubBalance(*transaction.Source, big.NewInt(int64(transaction.GasLimit*transaction.GasPrice)))
-				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+				controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "py"))
 				contract := tvm.LoadContract(*transaction.Target)
 				if contract.Code == "" {
 					err = types.NewTransactionError(types.TxErrorCode_NO_CODE, fmt.Sprintf(types.NO_CODE_ERROR_MSG, *transaction.Target))

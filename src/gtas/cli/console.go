@@ -401,7 +401,7 @@ func (c *exportAbiCmd) parse(args []string) bool {
 }
 
 func (c *exportAbiCmd) export () {
-	vm := tvm.NewTvm(nil, &c.contract, "")
+	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
 	str := `
 class Register(object):
     def __init__(self):
