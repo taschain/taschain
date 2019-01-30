@@ -600,15 +600,15 @@ func (tvm *Tvm) ExecutedScriptKindFile(script string) *ExecuteResult {
 }
 
 func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
-	c_result := &C.struct__ExecuteResult{}
-	C.initResult((*C.struct__ExecuteResult)(unsafe.Pointer(c_result)))
+	c_result := &C.ExecuteResult{}
+	C.initResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
 	var param = C.CString(code)
 	var contract_name = C.CString(tvm.ContractName)
 
 	//fmt.Println("-----------------code start-------------------")
 	//fmt.Println(code)
 	//fmt.Println("-----------------code end---------------------")
-	C.tvm_execute(param, contract_name, parseKind, (*C.struct__ExecuteResult)(unsafe.Pointer(c_result)))
+	C.tvm_execute(param, contract_name, parseKind, (*C.ExecuteResult)(unsafe.Pointer(c_result)))
 	C.free(unsafe.Pointer(param))
 	C.free(unsafe.Pointer(contract_name))
 
@@ -621,8 +621,8 @@ func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 	if c_result.abi != nil {
 		result.Abi = C.GoString(c_result.abi)
 	}
-	//C.printResult((*C.struct__ExecuteResult)(unsafe.Pointer(c_result)))
-	C.deinitResult((*C.struct__ExecuteResult)(unsafe.Pointer(c_result)))
+	//C.printResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
+	C.deinitResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
 	return result
 }
 
