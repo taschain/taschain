@@ -346,7 +346,7 @@ message ConsensusCurrentMessage{
     required SignData Sign = 6;
 }
 
-message ConsensusBlockMessageBase{
+message ConsensusCastMessage{
 
     required BlockHeader Bh = 1;
 
@@ -355,6 +355,11 @@ message ConsensusBlockMessageBase{
     required SignData	Sign = 3;
 
     repeated bytes  ProveHash = 4;
+}
+message ConsensusVerifyMessage{
+    required bytes BlockHash = 1;
+    required bytes RandomSign = 2;
+    required SignData Sign = 3;
 }
 
 message ConsensusBlockMessage{

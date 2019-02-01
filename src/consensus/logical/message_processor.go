@@ -21,7 +21,6 @@ import (
 	"consensus/groupsig"
 	"consensus/model"
 	"fmt"
-	"middleware/statistics"
 	"middleware/types"
 	"time"
 	"runtime/debug"
@@ -72,14 +71,13 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 
 }
 
-func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, proveHash []common.Hash, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
+func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.ID, vctx *VerifyContext, slot *SlotContext, traceLog *msgTraceLog)  {
 	bh := slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
 		skey := p.getSignKey(gid)
 		var cvm model.ConsensusVerifyMessage
-		cvm.BH = *bh
-		cvm.ProveHash = proveHash
+		cvm.BlockHash = bh.Hash
 		//cvm.GroupID = gId
 		blog := newBizLog("normalPieceVerify")
 		if cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm) {
@@ -87,14 +85,14 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 			blog.debug("call network service SendVerifiedCast hash=%v, height=%v", bh.Hash.ShortS(), bh.Height)
 			traceLog.log("SendVerifiedCast height=%v, castor=%v", bh.Height, slot.castor.ShortS())
 			//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
-			p.NetServer.SendVerifiedCast(&cvm)
+			p.NetServer.SendVerifiedCast(&cvm, gid)
 		} else {
 			blog.log("genSign fail, id=%v, sk=%v %v", p.GetMinerID().ShortS(), skey.ShortS(), p.IsMinerGroup(gid))
 		}
 	}
 }
 
-func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase, traceLog *msgTraceLog, blog *bizLog) (err error) {
+func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, traceLog *msgTraceLog, blog *bizLog) (err error) {
 	bh := &msg.BH
 	si := &msg.SI
 
@@ -139,7 +137,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 			return
 		}
 		if !msg.VerifyRandomSign(pk, preBH.Random) {
-			err = fmt.Errorf("random sign verify fail, gid %v, pk %v", gid.ShortS(), pk.ShortS())
+			err = fmt.Errorf("random sign verify fail, gid %v, pk %v, sign=%v", gid.ShortS(), pk.ShortS(), groupsig.DeserializeSign(msg.BH.Random).GetHexString())
 			return
 		}
 	}
@@ -194,14 +192,14 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusBlockMessageBase,
 		}
 
 	case CBMR_PIECE_NORMAL:
-		p.normalPieceVerify(mtype, sender, gid, msg.ProveHash, vctx, slot, traceLog)
+		p.normalPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 	}
 	return
 }
 
-func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMessageBase) {
+func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMessage) {
 	bh := &msg.BH
 	si := &msg.SI
 	blog := newBizLog(mtype)
@@ -266,7 +264,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 			return
 		}
 	}
-	if p.blockOnChain(bh) {
+	if p.blockOnChain(bh.Hash) {
 		result = "block onchain already"
 	}
 
@@ -277,19 +275,51 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusBlockMes
 	return
 }
 
+func (p *Processor) verifyWithCache(cache *verifyMsgCache, vmsg *model.ConsensusVerifyMessage)  {
+	msg := &model.ConsensusCastMessage{
+		BH: cache.castMsg.BH,
+		ProveHash: cache.castMsg.ProveHash,
+		BaseSignedMessage: vmsg.BaseSignedMessage,
+	}
+	msg.BH.Random = vmsg.RandomSign.Serialize()
+	p.verifyCastMessage("OMV", msg)
+}
+
 //收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
 //有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
-	statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
-		time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
-	p.verifyCastMessage("OMC", &ccm.ConsensusBlockMessageBase)
+	//statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
+	//	time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
+	p.addCastMsgToCache(ccm)
+	cache := p.getVerifyMsgCache(ccm.BH.Hash)
+
+	p.verifyCastMessage("OMC", ccm)
+
+	verifys := cache.getVerifyMsgs()
+	if len(verifys) > 0 {
+		stdLogger.Infof("OMC:getVerifyMsgs from cache size %v, hash=%v", len(verifys), ccm.BH.Hash.ShortS())
+		for _, vmsg := range verifys {
+			p.verifyWithCache(cache, vmsg)
+		}
+		cache.removeVerifyMsgs()
+	}
+
 }
 
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
-	statistics.AddBlockLog(common.BootId, statistics.RcvVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
-		time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
-	p.verifyCastMessage("OMV", &cvm.ConsensusBlockMessageBase)
+	//statistics.AddBlockLog(common.BootId, statistics.RcvVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
+	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
+	if p.blockOnChain(cvm.BlockHash) {
+		return
+	}
+	cache := p.getVerifyMsgCache(cvm.BlockHash)
+	if cache != nil && cache.castMsg != nil {
+		p.verifyWithCache(cache, cvm)
+	} else {
+		stdLogger.Infof("OMV:no cast msg, cached, hash=%v", cvm.BlockHash.ShortS())
+		p.addVerifyMsgToCache(cvm)
+	}
 }
 
 //func (p *Processor) receiveBlock(block *types.Block, preBH *types.BlockHeader) bool {

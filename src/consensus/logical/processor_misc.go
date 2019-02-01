@@ -236,6 +236,7 @@ func (p *Processor) BlockContextSummary() string {
 		ReservVctxs []*vctxSummary `json:"reserv_vctxs"`
 		NumFutureVerifyMsg int `json:"num_future_verify_msg"`
 		NumFutureRewardMsg int `json:"num_future_reward_msg"`
+		NumVerifyCache int `json:"num_verify_cache"`
 	}
 	bctxs := make([]*bctxSummary, 0)
 	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
@@ -293,6 +294,7 @@ func (p *Processor) BlockContextSummary() string {
 		NumReserVctx: len(reservVctxs),
 		NumFutureVerifyMsg: p.futureVerifyMsgs.size(),
 		NumFutureRewardMsg: p.futureRewardReqs.size(),
+		NumVerifyCache: p.verifyMsgCaches.Len(),
 	}
 	b, _ := json.MarshalIndent(cs, "", "\t")
 	fmt.Printf("%v\n", string(b))

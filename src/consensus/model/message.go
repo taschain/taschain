@@ -155,14 +155,14 @@ func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 	return base.Data2CommonHash([]byte(buf))
 }
 
-type ConsensusBlockMessageBase struct {
+type ConsensusCastMessage struct {
 	BH types.BlockHeader
 	//GroupID groupsig.ID
 	ProveHash []common.Hash
 	BaseSignedMessage
 }
 
-func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
+func (msg *ConsensusCastMessage) GenHash() common.Hash {
 	//buf := bytes.Buffer{}
 	//buf.Write(msg.BH.GenHash().Bytes())
 	//for _, h := range msg.ProveHash {
@@ -172,12 +172,12 @@ func (msg *ConsensusBlockMessageBase) GenHash() common.Hash {
 	return msg.BH.GenHash()
 }
 
-func (msg *ConsensusBlockMessageBase) GenRandomSign(skey groupsig.Seckey, preRandom []byte)  {
-	sig := groupsig.Sign(skey, preRandom)
-    msg.BH.Random = sig.Serialize()
-}
+//func (msg *ConsensusCastMessage) GenRandomSign(skey groupsig.Seckey, preRandom []byte)  {
+//	sig := groupsig.Sign(skey, preRandom)
+//    msg.BH.Random = sig.Serialize()
+//}
 
-func (msg *ConsensusBlockMessageBase) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
+func (msg *ConsensusCastMessage) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
 	sig := groupsig.DeserializeSign(msg.BH.Random)
 	if sig == nil || sig.IsNil() {
 		return false
@@ -186,14 +186,39 @@ func (msg *ConsensusBlockMessageBase) VerifyRandomSign(pkey groupsig.Pubkey, pre
 }
 
 //出块消息 - 由成为KING的组成员发出
-type ConsensusCastMessage struct {
-	ConsensusBlockMessageBase
-}
+//type ConsensusCastMessage struct {
+//	ConsensusBlockMessageBase
+//}
 
 //验证消息 - 由组内的验证人发出（对KING的出块进行验证）
 type ConsensusVerifyMessage struct {
-	ConsensusBlockMessageBase
+	BlockHash 	common.Hash
+	RandomSign groupsig.Signature
+	BaseSignedMessage
 }
+
+func (msg *ConsensusVerifyMessage) GenHash() common.Hash {
+	//buf := bytes.Buffer{}
+	//buf.Write(msg.BH.GenHash().Bytes())
+	//for _, h := range msg.ProveHash {
+	//	buf.Write(h.Bytes())
+	//}
+	//return base.Data2CommonHash(buf.Bytes())
+	return msg.BlockHash
+}
+
+func (msg *ConsensusVerifyMessage) GenRandomSign(skey groupsig.Seckey, preRandom []byte)  {
+	sig := groupsig.Sign(skey, preRandom)
+	msg.RandomSign = sig
+}
+
+//func (msg *ConsensusVerifyMessage) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
+//	sig := msg.RandomSign
+//	if sig.IsNil() {
+//		return false
+//	}
+//	return groupsig.VerifySig(pkey, preRandom, sig)
+//}
 
 //铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
 type ConsensusBlockMessage struct {

@@ -229,3 +229,8 @@ func (gi *ConsensusGroupInitInfo) GroupHash() common.Hash {
 //	hash := base.Data2CommonHash(buf)
 //	return hash
 //}
+
+type BlockProposalDetail struct {
+	BH *types.BlockHeader
+	Proves []common.Hash
+}

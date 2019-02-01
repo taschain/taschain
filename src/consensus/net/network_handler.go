@@ -309,46 +309,40 @@ func unMarshalConsensusCurrentMessage(b []byte) (*model.ConsensusCurrentMessage,
 	return &message, nil
 }
 
-func pb2ConsensusBlockMessageBase(b []byte) (*model.ConsensusBlockMessageBase, error) {
-	m := new(tas_middleware_pb.ConsensusBlockMessageBase)
+func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error) {
+	m := new(tas_middleware_pb.ConsensusCastMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		logger.Errorf("[handler]pb2ConsensusBlockMessageBase error:%s", e.Error())
+		logger.Errorf("[handler]unMarshalConsensusCastMessage error:%s", e.Error())
 		return nil, e
 	}
 
 	bh := types.PbToBlockHeader(m.Bh)
-
-	si := pbToSignData(m.Sign)
 
 	hashs := make([]common.Hash, len(m.ProveHash))
 	for i, h := range m.ProveHash {
 		hashs[i] = common.BytesToHash(h)
 	}
 
-	base := model.BaseSignedMessage{SI: *si}
-	return &model.ConsensusBlockMessageBase{
+	return &model.ConsensusCastMessage{
 		BH:                *bh,
 		ProveHash:         hashs,
-		BaseSignedMessage: base,
+		BaseSignedMessage: *baseMessage(m.Sign),
 	}, nil
-}
-func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error) {
-	base, err := pb2ConsensusBlockMessageBase(b)
-	if err != nil {
-		return nil, err
-	}
-	message := model.ConsensusCastMessage{ConsensusBlockMessageBase: *base}
-	return &message, nil
 }
 
 func unMarshalConsensusVerifyMessage(b []byte) (*model.ConsensusVerifyMessage, error) {
-	base, err := pb2ConsensusBlockMessageBase(b)
-	if err != nil {
-		return nil, err
+	m := new(tas_middleware_pb.ConsensusVerifyMessage)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		logger.Errorf("unMarshalConsensusVerifyMessage error:%v", e.Error())
+		return nil, e
 	}
-	message := model.ConsensusVerifyMessage{ConsensusBlockMessageBase: *base}
-	return &message, nil
+	return &model.ConsensusVerifyMessage{
+		BlockHash: common.BytesToHash(m.BlockHash),
+		RandomSign: *groupsig.DeserializeSign(m.RandomSign),
+		BaseSignedMessage: *baseMessage(m.Sign),
+	}, nil
 }
 
 func unMarshalConsensusBlockMessage(b []byte) (*model.ConsensusBlockMessage, error) {

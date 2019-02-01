@@ -200,7 +200,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	if p.blockOnChain(bh) { //已经上链
+	if p.blockOnChain(bh.Hash) { //已经上链
 		blog.log("block alreayd onchain!")
 		return
 	}

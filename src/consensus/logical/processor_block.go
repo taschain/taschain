@@ -127,8 +127,8 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 }
 
-func (p *Processor) blockOnChain(bh *types.BlockHeader) bool {
-	exist := p.MainChain.QueryBlockByHash(bh.Hash)
+func (p *Processor) blockOnChain(h common.Hash) bool {
+	exist := p.MainChain.QueryBlockByHash(h)
 	if exist != nil { //已经上链
 		return true
 	}
@@ -140,18 +140,18 @@ func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	return b
 }
 
-func (p *Processor) addFutureVerifyMsg(msg *model.ConsensusBlockMessageBase) {
+func (p *Processor) addFutureVerifyMsg(msg *model.ConsensusCastMessage) {
 	b := msg.BH
 	stdLogger.Debugf("future verifyMsg receive cached! h=%v, hash=%v, preHash=%v\n", b.Height, b.Hash.ShortS(), b.PreHash.ShortS())
 
 	p.futureVerifyMsgs.addMessage(b.PreHash, msg)
 }
 
-func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*model.ConsensusBlockMessageBase {
+func (p *Processor) getFutureVerifyMsgs(hash common.Hash) []*model.ConsensusCastMessage {
 	if vs := p.futureVerifyMsgs.getMessages(hash); vs != nil {
-		ret := make([]*model.ConsensusBlockMessageBase, len(vs))
+		ret := make([]*model.ConsensusCastMessage, len(vs))
 		for idx, m := range vs {
-			ret[idx] = m.(*model.ConsensusBlockMessageBase)
+			ret[idx] = m.(*model.ConsensusCastMessage)
 		}
 		return ret
 	}
