@@ -203,6 +203,9 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 			gvs.addJumpHeight(h)
 			jump++
 		} else {
+			if preBH == nil {
+				preBH = chain.QueryBlockHeaderByHash(bh.PreHash)
+			}
 			if bh.PreHash != preBH.Hash {
 				e := fmt.Sprintf("not chain! pre %+v, curr %+v\n", preBH, bh)
 				fmt.Printf(e)

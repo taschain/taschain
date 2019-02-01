@@ -76,6 +76,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 				vctx.markBroadcast()
 			}
 		}
+		p.removeVerifyMsgCache(bh.Hash)
 	}
 
 	vrf := p.GetVrfWorker()

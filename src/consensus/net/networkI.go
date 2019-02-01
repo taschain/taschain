@@ -63,7 +63,7 @@ type NetworkServer interface {
 
 	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction)
 
-	SendVerifiedCast(cvm *model.ConsensusVerifyMessage)
+	SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID)
 
 	BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief)
 

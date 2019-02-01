@@ -271,3 +271,45 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	}
 	return successResult(ret)
 }
+
+//监控平台调用块同步
+func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
+	chain := core.BlockChainImpl
+	if begin > end {
+		end = begin
+	}
+	var pre *types.Block
+
+	blocks := make([]*BlockDetail, 0)
+	for h := begin; h <= end; h++ {
+		b := chain.QueryBlock(h)
+		if b == nil {
+			continue
+		}
+		bh := b.Header
+		block := convertBlockHeader(bh)
+
+		if pre == nil {
+			pre = chain.QueryBlockByHash(bh.PreHash)
+		}
+		if pre == nil {
+			block.Qn = bh.TotalQN
+		} else {
+			block.Qn = bh.TotalQN-pre.Header.TotalQN
+		}
+
+		trans := make([]Transaction, 0)
+
+		for _, tx := range b.Transactions {
+			trans = append(trans, *convertTransaction(tx))
+		}
+
+		bd := &BlockDetail{
+			Block:     *block,
+			Trans: trans,
+		}
+		pre = b
+		blocks = append(blocks, bd)
+	}
+	return successResult(blocks)
+}

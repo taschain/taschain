@@ -90,6 +90,8 @@ const (
 	//===================请求组内成员签名公钥======
 	AskSignPkMsg uint32 = 34
 	AnswerSignPkMsg uint32 = 35
+
+	VerifiedCastMsg2 uint32 = 77
 )
 
 type Message struct {

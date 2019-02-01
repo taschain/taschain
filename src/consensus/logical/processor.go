@@ -29,6 +29,7 @@ import (
 	"storage/tasdb"
 	"sync/atomic"
 	"strings"
+	"github.com/hashicorp/golang-lru"
 )
 
 var PROC_TEST_MODE bool
@@ -54,6 +55,7 @@ type Processor struct {
 	//futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
+	verifyMsgCaches *lru.Cache			//缓存验证消息
 
 	storage tasdb.Database
 	ready   bool //是否已初始化完成
@@ -112,6 +114,12 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 		stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
 		consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	}
+
+	cache, err := lru.New(300)
+	if err != nil {
+		panic(err)
+	}
+	p.verifyMsgCaches = cache
 
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)

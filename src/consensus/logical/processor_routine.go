@@ -152,7 +152,7 @@ func (p *Processor) releaseRoutine() bool {
 	//释放futureVerifyMsg
 	p.futureVerifyMsgs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
-			b := msg.(*model.ConsensusBlockMessageBase)
+			b := msg.(*model.ConsensusCastMessage)
 			if b.BH.Height+200 < topHeight {
 				blog.debug("remove future verify msg, hash=%v", key.String())
 				p.removeFutureVerifyMsgs(key)
@@ -176,6 +176,15 @@ func (p *Processor) releaseRoutine() bool {
 
 	//清理超时的签名公钥请求
 	cleanSignPkReqRecord()
+
+	for _, h := range p.verifyMsgCaches.Keys() {
+		hash := h.(common.Hash)
+		cache := p.getVerifyMsgCache(hash)
+		if cache != nil && cache.expired() {
+			blog.debug("remove verify cache msg, hash=%v", hash.ShortS())
+			p.removeVerifyMsgCache(hash)
+		}
+	}
 
 	return true
 }

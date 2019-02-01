@@ -8,8 +8,6 @@ import (
 	"network"
 	"consensus/model"
 	"time"
-	"middleware/statistics"
-	"common"
 	"core"
 )
 
@@ -161,29 +159,21 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gro
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
-func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage) {
+func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID) {
 	body, e := marshalConsensusVerifyMessage(cvm)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(cvm.BH.GroupId)
-	if e1 != nil {
-		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e.Error())
-		return
-	}
+	m := network.Message{Code: network.VerifiedCastMsg2, Body: body}
 
 	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
-	ns.send2Self(cvm.SI.GetID(), m)
+	go ns.send2Self(cvm.SI.GetID(), m)
 
-	timeFromCast := time.Since(cvm.BH.CurTime)
-	begin := time.Now()
-	go ns.net.SpreadAmongGroup(groupId.GetHexString(), m)
-	logger.Debugf("[peer]send VARIFIED_CAST_MSG,%d-%d,invoke Multicast cost time:%v,time from cast:%v,hash:%s", cvm.BH.Height, cvm.BH.ProveValue, time.Since(begin), timeFromCast, cvm.BH.Hash.String())
-	statistics.AddBlockLog(common.BootId, statistics.SendVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
-		time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
+	go ns.net.SpreadAmongGroup(receiver.GetHexString(), m)
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,hash:%s", cvm.BlockHash.String())
+	//statistics.AddBlockLog(common.BootId, statistics.SendVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
+	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
 }
 
 //对外广播经过组签名的block 全网广播
@@ -367,7 +357,7 @@ func marshalConsensusSignPubKeyReqMessage(m *model.ConsensusSignPubkeyReqMessage
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 
-func consensusBlockMessageBase2Pb(m *model.ConsensusBlockMessageBase) ([]byte, error) {
+func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
 	bh := types.BlockHeaderToPb(&m.BH)
 	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&m.SI)
@@ -377,16 +367,17 @@ func consensusBlockMessageBase2Pb(m *model.ConsensusBlockMessageBase) ([]byte, e
 		hashs[i] = h.Bytes()
 	}
 
-	message := tas_middleware_pb.ConsensusBlockMessageBase{Bh: bh, Sign: si, ProveHash: hashs}
+	message := tas_middleware_pb.ConsensusCastMessage{Bh: bh, Sign: si, ProveHash: hashs}
 	return proto.Marshal(&message)
 }
 
-func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
-	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
-}
-
 func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
-	return consensusBlockMessageBase2Pb(&m.ConsensusBlockMessageBase)
+	message := &tas_middleware_pb.ConsensusVerifyMessage{
+		BlockHash: m.BlockHash.Bytes(),
+		RandomSign: m.RandomSign.Serialize(),
+		Sign: signDataToPb(&m.SI),
+	}
+	return proto.Marshal(message)
 }
 
 func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error) {
