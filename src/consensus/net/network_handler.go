@@ -108,7 +108,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageCast(m)
-	case network.VerifiedCastMsg:
+	case network.VerifiedCastMsg2:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
