@@ -36,7 +36,7 @@ const (
 	MaxMissTxPookSize    = 60000
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
-	TxCountPerBlock      = 3000
+	TxCountPerBlock      = 500
 	GasLimitMax          = 500000
 )
 
