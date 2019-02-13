@@ -24,6 +24,7 @@ import (
 	"middleware/types"
 	"time"
 	"runtime/debug"
+	"logservice"
 )
 
 func (p *Processor) genCastGroupSummary(bh *types.BlockHeader) *model.CastGroupSummary {
@@ -1140,6 +1141,18 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		send = true
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
+
+		//发送日志
+		le := &logservice.LogEntry{
+			LogType: logservice.LogTypeBonusBroadcast,
+			Height: bh.Height,
+			Hash: bh.Hash.Hex(),
+			PreHash: bh.PreHash.Hex(),
+			Proposer: slot.castor.GetHexString(),
+			Verifier: gid.GetHexString(),
+		}
+		logservice.Instance.AddLog(le)
+
 	} else {
 		err = fmt.Errorf("accept %v, recover %v, %v", accept, recover, slot.rewardGSignGen.Brief())
 	}

@@ -122,6 +122,8 @@ type NodeInfo struct {
 	AGroupNum int        `json:"a_group_num"`
 	NType     string     `json:"n_type"`
 	TxPoolNum int        `json:"tx_pool_num"`
+	BlockHeight uint64 `json:"block_height"`
+	GroupHeight uint64 `json:"group_height"`
 	MortGages []MortGage `json:"mort_gages"`
 }
 
