@@ -102,9 +102,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string, enableLog bool) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore)
+	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore, enableLog)
 	if err != nil {
 		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
@@ -256,6 +256,7 @@ func (gtas *Gtas) Run() {
 	mineCmd := app.Command("miner", "miner start")
 	// rpc解析
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
+	enableLogSrv := mineCmd.Flag("logservice", "enable log service").Default("false").Bool()
 	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
@@ -334,7 +335,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode,addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore)
+		gtas.miner(*rpc, *super, *testMode,addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -389,7 +390,7 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, light bool, keystore string) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, light bool, keystore string, enableLog bool) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -443,7 +444,9 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	if !ok {
 		return errors.New("consensus module error")
 	}
-	logservice.InitLogService(id)
+	if enableLog || common.GlobalConf.GetBool("gtas", "enable_log_service", false){
+		logservice.InitLogService(id)
+	}
 
 	mediator.Proc.BeginGenesisGroupMember()
 	return nil

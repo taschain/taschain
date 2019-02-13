@@ -59,29 +59,27 @@ func (le *LogEntry) toMap() map[string]interface{} {
     return m
 }
 
-var Instance *LogService
+var Instance = &LogService{}
 
 func InitLogService(nodeId string) {
 	Instance = &LogService{
 		nodeId: nodeId,
+		queue:  make([]*LogEntry, 0),
+		lastSend: time.Now(),
+		enable: true,
 	}
-	if common.GlobalConf != nil && common.GlobalConf.GetBool("gtas", "enable_log_service", true){
-		Instance.enable = true
-		rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
-		rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
-		rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain")
-		rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
-		rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
-		Instance.cfg = &gorose.DbConfigSingle{
-			Driver:          "mysql", // 驱动: mysql/sqlite/oracle/mssql/postgres
-			EnableQueryLog:  false,    // 是否开启sql日志
-			SetMaxOpenConns: 0,       // (连接池)最大打开的连接数，默认值为0表示不限制
-			SetMaxIdleConns: 0,       // (连接池)闲置的连接数
-			Prefix:          "",      // 表前缀
-			Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
-		}
-		Instance.queue = make([]*LogEntry, 0)
-		Instance.lastSend = time.Now()
+	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
+	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
+	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain")
+	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
+	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
+	Instance.cfg = &gorose.DbConfigSingle{
+		Driver:          "mysql", // 驱动: mysql/sqlite/oracle/mssql/postgres
+		EnableQueryLog:  false,    // 是否开启sql日志
+		SetMaxOpenConns: 0,       // (连接池)最大打开的连接数，默认值为0表示不限制
+		SetMaxIdleConns: 0,       // (连接池)闲置的连接数
+		Prefix:          "",      // 表前缀
+		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
 	}
 }
 
@@ -117,7 +115,7 @@ func (ls *LogService) saveLogs(logs []*LogEntry) {
 }
 
 func (ls *LogService) AddLog(log *LogEntry) {
-	if !ls.enable || ls.cfg.Dsn == "" {
+	if !ls.enable || ls.cfg == nil || ls.cfg.Dsn == "" {
 		return
 	}
     ls.mu.Lock()
