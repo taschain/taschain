@@ -41,6 +41,7 @@ import (
 	"strconv"
 	"taslog"
 	"time"
+	"logservice"
 )
 
 const (
@@ -442,6 +443,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	if !ok {
 		return errors.New("consensus module error")
 	}
+	logservice.InitLogService(id)
 
 	mediator.Proc.BeginGenesisGroupMember()
 	return nil

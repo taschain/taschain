@@ -9,6 +9,7 @@ import (
 	"common"
 	"middleware/types"
 	"bytes"
+	"logservice"
 )
 
 /*
@@ -91,6 +92,15 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 		memIdStrs = append(memIdStrs, mem.ShortS())
 	}
 	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
+
+	//发送日志
+	le := &logservice.LogEntry{
+		LogType: logservice.LogTypeCreateGroup,
+		Height: gm.groupChain.Count(),
+		Hash: gh.Hash.Hex(),
+		Proposer: gm.processor.GetMinerID().GetHexString(),
+	}
+	logservice.Instance.AddLog(le)
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }

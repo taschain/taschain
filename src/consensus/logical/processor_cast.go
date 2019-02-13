@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 	"runtime/debug"
+	"logservice"
 )
 
 /*
@@ -236,6 +237,17 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	p.NetServer.BroadcastNewBlock(cbm, gb)
 	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 
+	//发送日志
+	le := &logservice.LogEntry{
+		LogType: logservice.LogTypeBlockBroadcast,
+		Height: bh.Height,
+		Hash: bh.Hash.Hex(),
+		PreHash: bh.PreHash.Hex(),
+		Proposer: slot.castor.GetHexString(),
+		Verifier: gb.Gid.GetHexString(),
+	}
+	logservice.Instance.AddLog(le)
+
 	vctx.broadcastSlot = slot
 	vctx.markBroadcast()
 
@@ -340,6 +352,17 @@ func (p *Processor) blockProposal() {
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
 		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
+
+		//发送日志
+		le := &logservice.LogEntry{
+			LogType: logservice.LogTypeProposal,
+			Height: bh.Height,
+			Hash: bh.Hash.Hex(),
+			PreHash: bh.PreHash.Hex(),
+			Proposer: p.GetMinerID().GetHexString(),
+			Verifier: gb.Gid.GetHexString(),
+		}
+		logservice.Instance.AddLog(le)
 
 		worker.markProposed()
 

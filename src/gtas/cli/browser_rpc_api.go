@@ -313,3 +313,18 @@ func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
 	}
 	return successResult(blocks)
 }
+
+func (api *GtasAPI) MonitorNodeInfo() (*Result, error) {
+	bh := core.BlockChainImpl.Height()
+	gh := core.GroupChainImpl.LastGroup().GroupHeight
+
+	ni := &NodeInfo{}
+
+	ret, _ := api.NodeInfo()
+	if ret != nil && ret.IsSuccess() {
+		ni = ret.Data.(*NodeInfo)
+	}
+	ni.BlockHeight = bh
+	ni.GroupHeight = gh
+	return successResult(ni)
+}
