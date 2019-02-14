@@ -291,10 +291,24 @@ func (p *Processor) verifyWithCache(cache *verifyMsgCache, vmsg *model.Consensus
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	//statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
 	//	time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
+	bh := &ccm.BH
+	operator := ccm.SI.GetID().GetHexString()
+	le := &logservice.LogEntry{
+		LogType: logservice.LogTypeProposal,
+		Height: bh.Height,
+		Hash: bh.Hash.Hex(),
+		PreHash: bh.PreHash.Hex(),
+		Proposer: operator,
+		Verifier: groupsig.DeserializeId(bh.GroupId).GetHexString(),
+		Ext: "external",
+	}
+	logservice.Instance.AddLogIfNotInternalNodes(le, operator)
+
 	p.addCastMsgToCache(ccm)
 	cache := p.getVerifyMsgCache(ccm.BH.Hash)
 
 	p.verifyCastMessage("OMC", ccm)
+
 
 	verifys := cache.getVerifyMsgs()
 	if len(verifys) > 0 {
@@ -1142,16 +1156,16 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		send = true
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
 
-		//发送日志
-		le := &logservice.LogEntry{
-			LogType: logservice.LogTypeBonusBroadcast,
-			Height: bh.Height,
-			Hash: bh.Hash.Hex(),
-			PreHash: bh.PreHash.Hex(),
-			Proposer: slot.castor.GetHexString(),
-			Verifier: gid.GetHexString(),
-		}
-		logservice.Instance.AddLog(le)
+		////发送日志
+		//le := &logservice.LogEntry{
+		//	LogType: logservice.LogTypeBonusBroadcast,
+		//	Height: bh.Height,
+		//	Hash: bh.Hash.Hex(),
+		//	PreHash: bh.PreHash.Hex(),
+		//	Proposer: slot.castor.GetHexString(),
+		//	Verifier: gid.GetHexString(),
+		//}
+		//logservice.Instance.AddLog(le)
 
 	} else {
 		err = fmt.Errorf("accept %v, recover %v, %v", accept, recover, slot.rewardGSignGen.Brief())
