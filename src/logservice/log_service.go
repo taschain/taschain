@@ -172,11 +172,9 @@ func (ls *LogService) loadInternalNodesIds() {
 	log.Println("load internal nodes ", ids)
 }
 
-func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry, operator string)  {
-	if _, ok := ls.internalNodeIds[operator]; !ok {
-		log.Operator = operator
-		log.OperTime = time.Now()
-		ls.doAddLog(log)
-		common.DefaultLogger.Infof("addlog of not internal nodes %v", operator)
+func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry)  {
+	if _, ok := ls.internalNodeIds[log.Proposer]; !ok {
+		ls.AddLog(log)
+		common.DefaultLogger.Infof("addlog of not internal nodes %v", log.Proposer)
 	}
 }

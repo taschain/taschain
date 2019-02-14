@@ -292,17 +292,16 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	//statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
 	//	time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
 	bh := &ccm.BH
-	operator := ccm.SI.GetID().GetHexString()
 	le := &logservice.LogEntry{
 		LogType: logservice.LogTypeProposal,
 		Height: bh.Height,
 		Hash: bh.Hash.Hex(),
 		PreHash: bh.PreHash.Hex(),
-		Proposer: operator,
+		Proposer: ccm.SI.GetID().GetHexString(),
 		Verifier: groupsig.DeserializeId(bh.GroupId).GetHexString(),
 		Ext: "external",
 	}
-	logservice.Instance.AddLogIfNotInternalNodes(le, operator)
+	logservice.Instance.AddLogIfNotInternalNodes(le)
 
 	p.addCastMsgToCache(ccm)
 	cache := p.getVerifyMsgCache(ccm.BH.Hash)
