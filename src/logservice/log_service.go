@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 	"sync"
+	"log"
+	"sync/atomic"
 )
 
 /*
@@ -20,7 +22,10 @@ type LogService struct {
 	queue  []*LogEntry
 	lastSend time.Time
 	nodeId string
+	status int32
 	mu 	sync.Mutex
+
+	internalNodeIds map[string]bool
 }
 
 const (
@@ -81,6 +86,8 @@ func InitLogService(nodeId string) {
 		Prefix:          "",      // 表前缀
 		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
 	}
+
+	Instance.loadInternalNodesIds()
 }
 
 
@@ -93,7 +100,11 @@ func (ls *LogService) saveLogs(logs []*LogEntry) {
 			common.DefaultLogger.Infof("save logs success, size %v", len(logs))
 		}
 		ls.lastSend = time.Now()
+		atomic.StoreInt32(&ls.status, 0)
 	}()
+	if !atomic.CompareAndSwapInt32(&ls.status, 0, 1) {
+		return
+	}
 
 	connection, err := gorose.Open(ls.cfg)
 	if err != nil {
@@ -114,17 +125,58 @@ func (ls *LogService) saveLogs(logs []*LogEntry) {
 	_, err = sess.Table(TableName).Data(dm).Insert()
 }
 
-func (ls *LogService) AddLog(log *LogEntry) {
+func (ls *LogService) doAddLog(log *LogEntry)  {
 	if !ls.enable || ls.cfg == nil || ls.cfg.Dsn == "" {
 		return
 	}
-    ls.mu.Lock()
-    defer ls.mu.Unlock()
-    log.Operator = ls.nodeId
-    log.OperTime = time.Now()
-    ls.queue = append(ls.queue, log)
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	ls.queue = append(ls.queue, log)
 	if len(ls.queue) >= 5 || time.Since(ls.lastSend).Seconds() > 15 {
 		go ls.saveLogs(ls.queue)
 		ls.queue = make([]*LogEntry, 0)
+	}
+}
+
+func (ls *LogService) AddLog(log *LogEntry) {
+    log.Operator = ls.nodeId
+    log.OperTime = time.Now()
+    ls.doAddLog(log)
+}
+
+func (ls *LogService) loadInternalNodesIds() {
+	connection, err := gorose.Open(ls.cfg)
+	if err != nil {
+		return
+	}
+	if connection == nil {
+		err = fmt.Errorf("nil connection")
+		return
+	}
+	defer connection.Close()
+
+	sess := connection.NewSession()
+	ret, err := sess.Table("tas_node_ids").Limit(1000).Get()
+	 m := make(map[string]bool)
+
+	 ids := make([]string, 0)
+	if ret != nil {
+		for _, d := range ret {
+			id := d["minerId"].(string)
+			m[id] = true
+			ids = append(ids, id)
+		}
+	}
+	ls.internalNodeIds = m
+
+	log.Println("load internal nodes ", ids)
+}
+
+func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry, operator string)  {
+	if _, ok := ls.internalNodeIds[operator]; !ok {
+		log.Operator = operator
+		log.OperTime = time.Now()
+		ls.doAddLog(log)
+		common.DefaultLogger.Infof("addlog of not internal nodes %v", operator)
 	}
 }
