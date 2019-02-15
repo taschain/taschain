@@ -110,7 +110,8 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
 		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
 	} else if bh.Height > 1 {
-		beginTime := expireTime.Add(-time.Second*time.Duration(model.Param.MaxGroupCastTime))
+		//设置为2倍的最大时间，防止由于时间不同步导致的跳块
+		beginTime := expireTime.Add(-2*time.Second*time.Duration(model.Param.MaxGroupCastTime))
 		if !time.Now().After(beginTime) {
 			return fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 		}

@@ -308,3 +308,17 @@ func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
     jg := p.belongGroups.getJoinedGroup(id)
     return jg
 }
+
+func (p *Processor) GetAllMinersIds() (heavy []string, light []string) {
+    miners := p.minerReader.getAllMinerDOByType(types.MinerTypeHeavy)
+    heavy = make([]string, 0)
+	for _, m := range miners {
+		heavy = append(heavy, m.ID.GetHexString())
+	}
+	miners = p.minerReader.getAllMinerDOByType(types.MinerTypeLight)
+	light = make([]string, 0)
+	for _, m := range miners {
+		light = append(light, m.ID.GetHexString())
+	}
+	return
+}
