@@ -686,13 +686,15 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 	msgBytes := msgBuffer.Bytes()
+
+	data := msgBytes[PacketHeadSize : PacketHeadSize+msgLen]
+
 	if msgBuffer.Len() > packetSize {
 		buf := nc.bufferPool.GetBuffer(len(msgBytes) - packetSize)
 		buf.Write(msgBytes[packetSize:])
 		p.addDataToHead(buf)
 	}
 
-	data := msgBytes[PacketHeadSize : PacketHeadSize+msgLen]
 	var req proto.Message
 	switch msgType {
 	case MessageType_MessagePing:
