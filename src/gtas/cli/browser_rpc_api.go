@@ -6,6 +6,7 @@ import (
 	"consensus/groupsig"
 	"common"
 	"consensus/model"
+	"consensus/mediator"
 )
 
 // 区块链浏览器
@@ -327,4 +328,12 @@ func (api *GtasAPI) MonitorNodeInfo() (*Result, error) {
 	ni.BlockHeight = bh
 	ni.GroupHeight = gh
 	return successResult(ni)
+}
+
+func (api *GtasAPI) MonitorAllMiners() (*Result, error)  {
+    heavy, light := mediator.Proc.GetAllMinersIds()
+    m := make(map[string][]string)
+    m["heavy"] = heavy
+    m["light"] = light
+    return successResult(m)
 }
