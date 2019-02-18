@@ -724,3 +724,8 @@ func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,
 	header := chain.QueryBlockHeaderByHash(hash)
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }
+
+func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, error) {
+	header := chain.QueryBlockByHeight(height)
+	return account.NewAccountDB(header.StateTree, chain.stateCache)
+}

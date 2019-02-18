@@ -54,6 +54,7 @@ var (
 	BonusStorageAddress = BigToAddress(big.NewInt(0))
 	LightDBAddress      = BigToAddress(big.NewInt(1))
 	HeavyDBAddress      = BigToAddress(big.NewInt(2))
+	MinerCountDBAddress = BigToAddress(big.NewInt(3))
 )
 
 //160位地址
@@ -89,7 +90,6 @@ func (a *Address) SetString(s string) {
 func (a *Address) Set(other Address) {
 	copy(a[:], other[:])
 }
-
 
 // MarshalText returns the hex representation of a.
 //把地址编码成十六进制字符串
@@ -291,9 +291,9 @@ var (
 	Big256 = big.NewInt(0xff)
 	Big257 = big.NewInt(257)
 
-	ErrSelectGroupNil = errors.New("selectGroupId is nil")
+	ErrSelectGroupNil     = errors.New("selectGroupId is nil")
 	ErrSelectGroupInequal = errors.New("selectGroupId not equal")
-	ErrCreateBlockNil = errors.New("createBlock is nil")
+	ErrCreateBlockNil     = errors.New("createBlock is nil")
 )
 
 const (
