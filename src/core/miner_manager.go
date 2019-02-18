@@ -42,7 +42,7 @@ type MinerCountOperation struct {
 const (
 	heavyTriggerDuration = time.Second * 10
 	heavyMinerCountKey   = "heavy_miner_count"
-	lightMinerCountKey   = "heavy_miner_count"
+	lightMinerCountKey   = "light_miner_count"
 	minerCountPrefix     = "miner_count"
 )
 
