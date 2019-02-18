@@ -12,7 +12,6 @@ import (
 	"storage/vm"
 	"sync"
 	"time"
-	"storage/tasdb"
 	"utility"
 )
 
@@ -29,10 +28,6 @@ type MinerManager struct {
 	heavyupdate  bool
 	heavytrigger *time.Timer
 	heavyMiners  []string
-
-	heavyMinerCount uint64
-	lightMinerCount uint64
-	minerCountDB    tasdb.Database
 }
 
 type MinerCountOperation struct {
@@ -43,7 +38,6 @@ const (
 	heavyTriggerDuration = time.Second * 10
 	heavyMinerCountKey   = "heavy_miner_count"
 	lightMinerCountKey   = "light_miner_count"
-	minerCountPrefix     = "miner_count"
 )
 
 var (
@@ -59,14 +53,8 @@ type MinerIterator struct {
 var MinerManagerImpl *MinerManager
 
 func initMinerManager(blockchain BlockChain) error {
-	MinerManagerImpl = &MinerManager{blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0), heavyMinerCount: 0, lightMinerCount: 0}
+	MinerManagerImpl = &MinerManager{blockchain: blockchain, heavyupdate: true, heavytrigger: time.NewTimer(heavyTriggerDuration), heavyMiners: make([]string, 0)}
 	MinerManagerImpl.lock = sync.RWMutex{}
-	var err error
-	MinerManagerImpl.minerCountDB, err = tasdb.NewDatabase(minerCountPrefix)
-	if err != nil {
-		Logger.Errorf("init miner manager error:%s", err.Error())
-		return err
-	}
 	go MinerManagerImpl.loop()
 	return nil
 }
@@ -78,7 +66,7 @@ func (mm *MinerManager) loop() {
 	for {
 		<-mm.heavytrigger.C
 		if mm.heavyupdate {
-			iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
+			iter := mm.minerIterator(types.MinerTypeHeavy, nil)
 			array := make([]string, 0)
 			for iter.Next() {
 				miner, _ := iter.Current()
@@ -117,7 +105,7 @@ func (mm *MinerManager) AddMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 		if miner.Type == types.MinerTypeHeavy {
 			mm.heavyupdate = true
 		}
-		mm.updateMinerCount(miner.Type, minerCountIncrease)
+		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 		return 1
 	}
 }
@@ -133,14 +121,14 @@ func (mm *MinerManager) AddGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
 			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.Id).String())
-			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease)
+			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease, accountdb)
 			//Logger.Debugf("AddGenesesMiner Heavy %+v %+v",miner.Id,data)
 		}
 		if accountdb.GetData(dbl, string(miner.Id)) == nil {
 			miner.Type = types.MinerTypeLight
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbl, string(miner.Id), data)
-			mm.updateMinerCount(types.MinerTypeLight, minerCountIncrease)
+			mm.updateMinerCount(types.MinerTypeLight, minerCountIncrease, accountdb)
 			Logger.Debugf("AddGenesesMiner Light %+v %+v", miner.Id, data)
 		}
 	}
@@ -178,7 +166,7 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64, account
 		db := mm.getMinerDatabase(ttype)
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
-		mm.updateMinerCount(ttype, minerCountDecrease)
+		mm.updateMinerCount(ttype, minerCountDecrease, accountdb)
 		Logger.Debugf("MinerManager AbortMiner Update Success %+v", miner)
 		return true
 	} else {
@@ -189,7 +177,13 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64, account
 
 //获取质押总和
 func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
-	iter := mm.MinerIterator(types.MinerTypeHeavy, nil)
+	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
+	if err != nil {
+		Logger.Error("Get account db by height %d error:%s", height, err.Error())
+		return 0
+	}
+
+	iter := mm.minerIterator(types.MinerTypeHeavy, accountDB)
 	var total uint64 = 0
 	for iter.Next() {
 		miner, _ := iter.Current()
@@ -201,7 +195,7 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
 	}
 	if total == 0 {
 		//Logger.Errorf("GetTotalStakeByHeight get 0 %d %s", height, mm.blockchain.(*FullBlockChain).latestBlock.StateTree.Hex())
-		iter = mm.MinerIterator(types.MinerTypeHeavy, nil)
+		iter = mm.minerIterator(types.MinerTypeHeavy, accountDB)
 		for ; iter.Next(); {
 			miner, _ := iter.Current()
 			Logger.Debugf("GetTotalStakeByHeight %+v", miner)
@@ -210,10 +204,18 @@ func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
 	return total
 }
 
-func (mm *MinerManager) MinerIterator(ttype byte, accountdb vm.AccountDB) *MinerIterator {
+func (mm *MinerManager) MinerIterator(ttype byte, height uint64) *MinerIterator {
+	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
+	if err != nil {
+		Logger.Error("Get account db by height %d error:%s", height, err.Error())
+		return nil
+	}
+	return mm.minerIterator(ttype, accountDB)
+}
+
+func (mm *MinerManager) minerIterator(ttype byte, accountdb vm.AccountDB) *MinerIterator {
 	db := mm.getMinerDatabase(ttype)
 	if accountdb == nil {
-		//accountdb,_ = core.NewAccountDB(mm.blockchain.latestBlock.StateTree,mm.blockchain.stateCache)
 		accountdb = mm.blockchain.LatestStateDB()
 	}
 	iterator := &MinerIterator{iter: accountdb.DataIterator(db, "")}
@@ -248,84 +250,50 @@ func (mm *MinerManager) GetHeavyMiners() []string {
 	return mm.heavyMiners
 }
 
-func (mm *MinerManager) updateMinerCount(minerType byte, operation MinerCountOperation) {
-	mm.lock.Lock()
-	defer mm.lock.Unlock()
-
+func (mm *MinerManager) updateMinerCount(minerType byte, operation MinerCountOperation, accountdb vm.AccountDB) {
 	if minerType == types.MinerTypeHeavy {
-		heavyMinerCountByte, err := mm.minerCountDB.Get([]byte(heavyMinerCountKey))
-		if err != nil {
-			Logger.Errorf("Miner count db get heavy miner count error:%s", err.Error())
-			return
-		}
+		heavyMinerCountByte := accountdb.GetData(common.MinerCountDBAddress, heavyMinerCountKey)
 		heavyMinerCount := utility.ByteToUInt64(heavyMinerCountByte)
 		if operation == minerCountIncrease {
 			heavyMinerCount++
 		} else if operation == minerCountDecrease {
 			heavyMinerCount--
 		}
-		err = mm.minerCountDB.Put([]byte(heavyMinerCountKey), utility.UInt64ToByte(heavyMinerCount))
-		if err != nil {
-			Logger.Errorf("Miner count db put heavy miner count error:%s", err.Error())
-			return
-		}
-		mm.heavyMinerCount = heavyMinerCount
+		accountdb.SetData(common.MinerCountDBAddress, heavyMinerCountKey, utility.UInt64ToByte(heavyMinerCount))
 		return
 	}
 
 	if minerType == types.MinerTypeLight {
-		lightMinerCountByte, err := mm.minerCountDB.Get([]byte(lightMinerCountKey))
-		if err != nil {
-			Logger.Errorf("Miner count db get light miner count error:%s", err.Error())
-			return
-		}
+		lightMinerCountByte := accountdb.GetData(common.MinerCountDBAddress, lightMinerCountKey)
 		lightMinerCount := utility.ByteToUInt64(lightMinerCountByte)
 		if operation == minerCountIncrease {
 			lightMinerCount++
 		} else if operation == minerCountDecrease {
-			lightMinerCount++
+			lightMinerCount--
 		}
-		err = mm.minerCountDB.Put([]byte(lightMinerCountKey), utility.UInt64ToByte(lightMinerCount))
-		if err != nil {
-			Logger.Errorf("Miner count db put light miner count error:%s", err.Error())
-			return
-		}
-		mm.lightMinerCount = lightMinerCount
+		accountdb.SetData(common.MinerCountDBAddress, lightMinerCountKey, utility.UInt64ToByte(lightMinerCount))
 		return
 	}
 	Logger.Error("Unknown miner type:%d", minerType)
 }
 
-func (mm *MinerManager) HeavyMinerCount() uint64 {
-	mm.lock.RLock()
-	defer mm.lock.RUnlock()
-
-	if mm.heavyMinerCount != 0 {
-		return mm.heavyMinerCount
-	}
-
-	heavyMinerCountByte, err := mm.minerCountDB.Get([]byte(heavyMinerCountKey))
+func (mm *MinerManager) HeavyMinerCount(height uint64) uint64 {
+	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
 	if err != nil {
-		Logger.Errorf("Miner count db get heavy miner count error:%s", err.Error())
+		Logger.Error("Get account db by height %d error:%s", height, err.Error())
 		return 0
 	}
-	mm.heavyMinerCount = utility.ByteToUInt64(heavyMinerCountByte)
-	return mm.heavyMinerCount
+	heavyMinerCountByte := accountDB.GetData(common.MinerCountDBAddress, heavyMinerCountKey)
+	return utility.ByteToUInt64(heavyMinerCountByte)
+
 }
 
-func (mm *MinerManager) LightMinerCount() uint64 {
-	mm.lock.RLock()
-	defer mm.lock.RUnlock()
-
-	if mm.lightMinerCount != 0 {
-		return mm.lightMinerCount
-	}
-
-	lightMinerCountByte, err := mm.minerCountDB.Get([]byte(lightMinerCountKey))
+func (mm *MinerManager) LightMinerCount(height uint64) uint64 {
+	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
 	if err != nil {
-		Logger.Errorf("Miner count db get light miner count error:%s", err.Error())
+		Logger.Error("Get account db by height %d error:%s", height, err.Error())
 		return 0
 	}
-	mm.lightMinerCount = utility.ByteToUInt64(lightMinerCountByte)
-	return mm.lightMinerCount
+	lightMinerCountByte := accountDB.GetData(common.MinerCountDBAddress, lightMinerCountKey)
+	return utility.ByteToUInt64(lightMinerCountByte)
 }
