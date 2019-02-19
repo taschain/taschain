@@ -453,8 +453,8 @@ func (tvm *Tvm) Pycode2bytecode(str string) {
 }
 
 func (tvm *Tvm) DelTvm() {
-	C.tvm_gas_report()
-	//TODO 释放tvm环境 tvmObj
+	//C.tvm_gas_report()
+	C.tvm_gc()
 }
 
 func (tvm *Tvm) checkABI(abi ABI) (int,string) {
