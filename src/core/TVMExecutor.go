@@ -210,7 +210,7 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 		controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		contract := tvm.LoadContract(*transaction.Target)
 		if contract.Code == "" {
-			err = types.NewTransactionError(types.TxErrorCode_NO_CODE, fmt.Sprintf(types.NO_CODE_ERR_MSG, *transaction.Target))
+			err = types.NewTransactionError(types.TxErrorCode_NO_CODE, fmt.Sprintf(types.NO_CODE_ERROR_MSG, *transaction.Target))
 			success = false
 		} else {
 			snapshot := controller.AccountDB.Snapshot()
