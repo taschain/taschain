@@ -381,29 +381,34 @@ func (chain *FullBlockChain) hasPreBlock(bh types.BlockHeader) bool {
 //        2,丢弃该块（链上存在QN值更大的相同高度块)
 //        3,分叉调整
 func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
+	if validateCode, result := chain.validateBlock(source, b); !result {
+		return validateCode
+	}
+	chain.lock.Lock("AddBlockOnChain")
+	defer chain.lock.Unlock("AddBlockOnChain")
 	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))
 	return chain.addBlockOnChain(source, b, situation)
 }
 
-func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (types.AddBlockResult,bool){
+func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (types.AddBlockResult, bool) {
 	if b == nil {
-		return types.AddBlockFailed,false
+		return types.AddBlockFailed, false
 	}
 
 	if !chain.hasPreBlock(*b.Header) {
 		Logger.Debugf("coming block %s,%d has no pre on local chain.Forking...", b.Header.Hash.String(), b.Header.Height)
 		chain.futureBlocks.Add(b.Header.PreHash, b)
 		go chain.forkProcessor.requestChainPieceInfo(source, chain.latestBlock.Height)
-		return types.Forking,false
+		return types.Forking, false
 	}
 
 	if chain.queryBlockHeaderByHash(b.Header.Hash) != nil {
-		return types.BlockExisted,false
+		return types.BlockExisted, false
 	}
 
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
-		return types.AddBlockFailed,false
+		return types.AddBlockFailed, false
 	}
 
 	groupValidateResult, err := chain.validateGroupSig(b.Header)
@@ -413,17 +418,12 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (types
 		} else {
 			Logger.Errorf("Fail to validate group sig!")
 		}
-		return types.AddBlockFailed,false
+		return types.AddBlockFailed, false
 	}
-	return types.ValidateBlockOk,true
+	return types.ValidateBlockOk, true
 }
 
 func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult {
-	if validateCode,result:=chain.validateBlock(source,b); !result{
-		return validateCode
-	}
-	chain.lock.Lock("AddBlockOnChain")
-	defer chain.lock.Unlock("AddBlockOnChain")
 	topBlock := chain.latestBlock
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
@@ -436,7 +436,6 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situ
 		}
 		return types.AddBlockFailed
 	}
-
 
 	if b.Header.PreHash == topBlock.Hash {
 		result, _ := chain.insertBlock(b)
@@ -735,6 +734,6 @@ func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,
 }
 
 func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, error) {
-	header := chain.QueryBlockByHeight(height)
+	header := chain.queryBlockHeaderByHeight(height, true)
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }
