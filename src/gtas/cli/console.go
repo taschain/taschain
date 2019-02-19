@@ -7,6 +7,7 @@ import (
 	"github.com/howeyc/gopass"
 	"github.com/peterh/liner"
 	"io/ioutil"
+	"middleware/types"
 	"os"
 	"regexp"
 	"strings"
@@ -400,8 +401,10 @@ func (c *exportAbiCmd) parse(args []string) bool {
 }
 
 func (c *exportAbiCmd) export () {
-
-	vm := tvm.NewTvm(nil, &c.contract, "")
+	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
+	defer func() {
+		vm.DelTvm()
+	}()
 	str := `
 class Register(object):
     def __init__(self):
@@ -431,10 +434,15 @@ class Register(object):
 import builtins
 builtins.register = Register()
 `
-	vm.Execute(str)
+	//fmt.Println(str)
+	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
+	if errorCode == types.SUCCESS {
+		result := vm.ExecutedScriptKindFile(c.contract.Code)
+		fmt.Println(result.Abi)
+	} else {
+		fmt.Println(errorMsg)
+	}
 
-	result := tvm.VmStringParse(vm.AbiJson())
-	fmt.Println(result[3])
 }
 
 type minerApplyCmd struct {

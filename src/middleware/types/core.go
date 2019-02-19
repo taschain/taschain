@@ -60,12 +60,14 @@ const (
 )
 
 var (
-	NO_CODE_ERR_MSG = "get code from address %s,but no code!"
-)
-var (
-	ABI_JSON_ERROR = "4|2003|abi json format error"
-	NO_CODE_ERR    = "4|4|" + NO_CODE_ERR_MSG
-	CALL_MAX_DEEP  = "4|2004|call max deep cannot more than 8"
+	NO_CODE_ERROR = 4
+	NO_CODE_ERROR_MSG = "get code from address %s,but no code!"
+	ABI_JSON_ERROR = 2003
+	ABI_JSON_ERROR_MSG = "abi json format error"
+	CALL_MAX_DEEP_ERROR = 2004
+	CALL_MAX_DEEP_ERROR_MSG = "call max deep cannot more than 8"
+	INIT_CONTRACT_ERROR = 2005
+	INIT_CONTRACT_ERROR_MSG = "contract init error"
 )
 
 var (

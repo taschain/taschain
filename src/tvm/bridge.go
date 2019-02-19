@@ -247,9 +247,17 @@ func TxGasLimit() C.ulonglong {
 }
 
 //export ContractCall
-func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char) *C.char{
-	contractResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
-	return C.CString(contractResult);
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, c_result unsafe.Pointer) {
+	go_result := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+	cc_result := (*C.struct__ExecuteResult)(c_result)
+	cc_result.resultType = C.int(go_result.ResultType)
+	cc_result.errorCode = C.int(go_result.ErrorCode)
+	if go_result.Content != "" {
+		cc_result.content = C.CString(go_result.Content)
+	}
+	if go_result.Abi != "" {
+		cc_result.abi = C.CString(go_result.Abi)
+	}
 }
 
 //export EventCall

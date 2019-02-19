@@ -17,6 +17,45 @@ import (
 //0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd 公钥对应的私钥
 const SK string = "0x04e2dad12f3e49fc3a13044648998ee53654c6ab1e72029bec55e65c06b6136dee9fcf20cf2c12aecce1a2c971fa7251cba6ebc8320f839d687e2ac874ddad7dd0801ce92612e9112dbbe10ce182ba59cb2222758f5f2ce710bf3855ae857e79ba"
 
+func TestContractCallOtherContract(t *testing.T) {
+	middleware.InitMiddleware()
+	common.InitConf("../../deploy/tvm/tas1.ini")
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
+	core.InitCore(false, mediator.NewConsensusHelper(minerInfo.ID))
+	mediator.ConsensusInit(minerInfo)
+
+	mediator.Proc.Start()
+
+	//code := tvm.Read0("../tvm/py/test/contract_becalled.py")
+	//contract := tvm.Contract{code, "ContractBeCalled", nil}
+	//jsonString, _ := json.Marshal(contract)
+	////fmt.Println(string(jsonString))
+	//OnChainFunc(string(jsonString), "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
+
+	code := tvm.Read0("../tvm/py/test/contract_call_contract_server.py")
+	contract := tvm.Contract{code, "Server", nil}
+	jsonString, _ := json.Marshal(contract)
+	//fmt.Println(string(jsonString))
+	OnChainFunc(string(jsonString), "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+	//0x303e2d65fc7cec255932f6cbbfac69851d47a56d06e3f33dc63c9620e07b1872
+
+	code = tvm.Read0("../tvm/py/test/contract_call_contract_client.py")
+	contract = tvm.Contract{code, "Client", nil}
+	jsonString, _ = json.Marshal(contract)
+	//fmt.Println(string(jsonString))
+	OnChainFunc(string(jsonString), "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+	//0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5
+
+	contractAddr := "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
+	abi := `{"FuncName": "client_print", "Args": []}`
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+
+	contractAddr = "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
+	abi = `{"FuncName": "client_print_2", "Args": []}`
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+}
+
 func TestContractCallContract(t *testing.T) {
 	middleware.InitMiddleware()
 	common.InitConf("../../deploy/tvm/tas1.ini")

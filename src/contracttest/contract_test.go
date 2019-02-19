@@ -403,7 +403,7 @@ func OnChainFunc(code string, source string) {
 	//core.BlockChainImpl.GetTransactionPool().Clear()
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	index := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
+	txpool.AddTransaction(genContractTx(1, core.GasLimitMax, source, "", index, 0, []byte(code), nil, 0, types.TransactionTypeContractCreate))
 	fmt.Println("nonce:", core.BlockChainImpl.GetNonce(common.HexStringToAddress(source)))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(common.HexStringToAddress(source).Bytes(), common.Uint64ToByte(core.BlockChainImpl.GetNonce(common.HexStringToAddress(source))))))
 
@@ -425,7 +425,7 @@ func CallContract(address, abi string, source string) {
 	fmt.Println(string(code))
 	txpool := core.BlockChainImpl.GetTransactionPool()
 	r := GeneteRandom()
-	txpool.AddTransaction(genContractTx(1, 20000, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
+	txpool.AddTransaction(genContractTx(1, core.GasLimitMax, source, contractAddr.GetHexString(), r, 44, []byte(abi), nil, 0, types.TransactionTypeContractCall))
 
 	if !doAddBlockOnChain() {
 		return
