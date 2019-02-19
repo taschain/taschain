@@ -461,9 +461,8 @@ func (pool *TxPool) GetReceived() []*types.Transaction {
 }
 
 // 根据交易的hash判断交易是否存在：
-// 1）已存在待处理列表
+// 1）已存在待处理列表：矿工交易或者业务交易
 // 2）已存在块上
-// 3）todo：曾经收到过的，不合法的交易
 // 被add调用，外部加锁
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
 	innerReceived := pool.minerTxPool.Contains(hash)
