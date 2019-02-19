@@ -175,7 +175,7 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	}
 
 	switch tx.Type {
-	case types.TransactionTypeBonus: //todo 分红交易，验证组签名
+	case types.TransactionTypeBonus:
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
 			return err
 		}
