@@ -276,7 +276,7 @@ func (gtas *Gtas) Run() {
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
-	natPort := mineCmd.Flag("natport", "nat server port").Default("70").Uint16()
+	natPort := mineCmd.Flag("natport", "nat server port").Default("0").Uint16()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
