@@ -474,33 +474,53 @@ func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uin
 	//		}
 	//	}
 	//}
+	iter := chain.NewIterator()
+	for g := iter.Current(); g != nil; g = iter.MovePre() {
+		//解散，后面的组，除了创世组外也都解散了
+		if g.Header.DismissHeight <= currentHeight {
+			//直接跳到创世组检查
+			genisGroup := chain.getGroupByHeight(0)
+			for _, member := range genisGroup.Members {
+				if bytes.Equal(member, id) {
+					return true
+				}
+			}
+			break
+		} else {//有效组
+			for _, member := range g.Members {
+				if bytes.Equal(member, id) {
+					return true
+				}
+			}
+		}
+	}
 
-	middle := chain.count / 2
-	for i := middle; i < chain.count; i++ {
-		group := chain.GetGroupByHeight(i)
-		if group.Header.ReadyHeight > abortHeight {
-			break
-		}
-		for _, member := range group.Members {
-			if bytes.Equal(member, id) {
-				return true
-			}
-		}
-	}
-	for j := middle - 1; j >= 0; j-- {
-		group := chain.GetGroupByHeight(j)
-		if group == nil {
-			Logger.Infof("WhetherMemberInActiveGroup Group nil height:%d", j)
-			break
-		}
-		if group.Header.DismissHeight < applyHeight || group.Header.DismissHeight < currentHeight {
-			break
-		}
-		for _, member := range group.Members {
-			if bytes.Equal(member, id) {
-				return true
-			}
-		}
-	}
+	//middle := chain.count / 2
+	//for i := middle; i < chain.count; i++ {
+	//	group := chain.GetGroupByHeight(i)
+	//	if group.Header.ReadyHeight > abortHeight {
+	//		break
+	//	}
+	//	for _, member := range group.Members {
+	//		if bytes.Equal(member, id) {
+	//			return true
+	//		}
+	//	}
+	//}
+	//for j := middle - 1; j >= 0; j-- {
+	//	group := chain.GetGroupByHeight(j)
+	//	if group == nil {
+	//		Logger.Infof("WhetherMemberInActiveGroup Group nil height:%d", j)
+	//		break
+	//	}
+	//	if group.Header.DismissHeight < applyHeight || group.Header.DismissHeight < currentHeight {
+	//		break
+	//	}
+	//	for _, member := range group.Members {
+	//		if bytes.Equal(member, id) {
+	//			return true
+	//		}
+	//	}
+	//}
 	return false
 }

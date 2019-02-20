@@ -101,6 +101,8 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	}
 	sgi := NewSGIFromCoreGroup(&group)
 	p.acceptGroup(sgi)
+
+	p.groupManager.onGroupAddSuccess(sgi)
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message) {

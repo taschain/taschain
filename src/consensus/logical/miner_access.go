@@ -6,6 +6,7 @@ import (
 	"middleware/types"
 	"core"
 	"consensus/base"
+	"fmt"
 )
 
 /*
@@ -64,8 +65,8 @@ func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
 	return convert2MinerDO(miner)
 }
 
-func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO {
-	iter := access.minerPool.MinerIterator(ntype,nil)
+func (access *MinerPoolReader) getAllMinerDOByType(ntype byte, h uint64) []*model.MinerDO {
+	iter := access.minerPool.MinerIterator(ntype,h)
 	mds := make([]*model.MinerDO, 0)
 	for iter.Next() {
 		if curr, err := iter.Current(); err != nil {
@@ -80,7 +81,7 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte) []*model.MinerDO 
 }
 
 func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO {
-    miners := access.getAllMinerDOByType(types.MinerTypeLight)
+    miners := access.getAllMinerDOByType(types.MinerTypeLight, h)
     rets := make([]model.MinerDO, 0)
 	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
@@ -93,13 +94,14 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 }
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
-	return access.minerPool.GetTotalStakeByHeight(h)
+	st := access.minerPool.GetTotalStakeByHeight(h)
+	if st == 0 {
+		panic(fmt.Sprintf("total stake is 0 at height %v", h))
+	}
+	return st
 	//return 30
 }
 
-func (access *MinerPoolReader) getValidProposersAt(h uint64) uint64 {
-	return access.minerPool.GetTotalStakeByHeight(h)
-}
 
 //func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
 //    access.minerPool.AddGenesesMiner(miners)

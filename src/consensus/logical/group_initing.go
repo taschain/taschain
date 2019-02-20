@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"consensus/model"
 	"common"
-	"middleware/types"
 	"github.com/hashicorp/golang-lru"
+	"time"
 )
 
 const (
@@ -32,19 +32,13 @@ type InitedGroup struct {
 }
 
 //创建一个初始化中的组
-func createInitedGroup(threshold int, mems []groupsig.ID, psign groupsig.Signature, gh *types.GroupHeader) *InitedGroup {
-	ginfo := &model.ConsensusGroupInitInfo{
-		GI: model.ConsensusGroupInitSummary{
-			Signature: psign,
-			GHeader: gh,
-		},
-		Mems: mems,
-	}
+func createInitedGroup(gInfo *model.ConsensusGroupInitInfo) *InitedGroup {
+	threshold := model.Param.GetGroupK(len(gInfo.Mems))
 	return &InitedGroup{
 		receivedGPKs: make(map[string]groupsig.Pubkey),
 		status: INITING,
 		threshold: threshold,
-		gInfo: ginfo,
+		gInfo: gInfo,
 	}
 }
 
@@ -189,9 +183,11 @@ const (
 //判断一个消息是否合法，在外层验证
 //判断一个消息是否来自组内，由GroupContext验证
 type GroupContext struct {
+	createTime time.Time
 	is   int32         //组初始化状态
 	node *GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
 	gInfo  *model.ConsensusGroupInitInfo //组初始化信息（由父亲组指定）
+	candidates []groupsig.ID
 }
 
 func (gc *GroupContext) GetNode() *GroupNode {
@@ -214,12 +210,21 @@ func (gc *GroupContext) StatusTransfrom(from, to int32) bool {
     return atomic.CompareAndSwapInt32(&gc.is, from, to)
 }
 
-//从组初始化消息创建GroupContext结构
-func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
-	if len(grm.GInfo.Mems) != model.Param.GetGroupMemberNum() {
-		stdLogger.Debug("group member size failed=%v.\n", len(grm.GInfo.Mems))
-		return nil
+func (gc *GroupContext) generateMemberMask() (mask []byte) {
+	mask = make([]byte, (len(gc.candidates)+7)/8)
+
+	for i, id := range gc.candidates {
+		b := mask[i/8]
+		if gc.MemExist(id) {
+			b |= 1 << byte(i%8)
+			mask[i/8] = b
+		}
 	}
+	return
+}
+
+//从组初始化消息创建GroupContext结构
+func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, candidates []groupsig.ID, mi *model.SelfMinerDO) *GroupContext {
 	for k, v := range grm.GInfo.Mems {
 		if !v.IsValid() {
 			stdLogger.Debug("i=%v, ID failed=%v.\n", k, v.GetHexString())
@@ -227,7 +232,9 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, mi *m
 		}
 	}
 	gc := new(GroupContext)
+	gc.createTime = time.Now()
 	gc.is = GisInit
+	gc.candidates = candidates
 	gc.gInfo = &grm.GInfo
 	gc.node = &GroupNode{}
 	gc.node.memberNum = grm.GInfo.MemberSize()
@@ -303,7 +310,7 @@ func NewJoiningGroups() *JoiningGroups {
 	}
 }
 
-func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, mi *model.SelfMinerDO) *GroupContext {
+func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, candidates []groupsig.ID, mi *model.SelfMinerDO) *GroupContext {
 	gHash := grm.GInfo.GroupHash()
 	if v := jgs.GetGroup(gHash); v != nil {
 		gs := v.GetGroupStatus()
@@ -311,7 +318,7 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 		return v
 	} else {
 		stdLogger.Debug("create new initing group info by RAW...\n")
-		v = CreateGroupContextWithRawMessage(grm, mi)
+		v = CreateGroupContextWithRawMessage(grm, candidates, mi)
 		if v != nil {
 			jgs.groups.Add(gHash.Hex(), v)
 		}

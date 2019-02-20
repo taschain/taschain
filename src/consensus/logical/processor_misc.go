@@ -88,10 +88,6 @@ func (p *Processor) Ready() bool {
 	return p.ready
 }
 
-func (p *Processor) GetAvailableGroupsAt(height uint64) []*StaticGroupInfo {
-	return p.globalGroups.GetAvailableGroups(height)
-}
-
 func (p *Processor) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
 	return p.globalGroups.GetCastQualifiedGroups(height)
 }
@@ -154,7 +150,11 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
 		return 0
 	}
-	totalStake := p.minerReader.getTotalStake(bh.Height)
+	pre := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
+	if pre == nil {
+		return 0
+	}
+	totalStake := p.minerReader.getTotalStake(pre.Height)
 	_, qn := vrfSatisfy(pi, miner.Stake, totalStake)
 	return qn
 }
@@ -188,21 +188,6 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	h := base.Data2CommonHash(buf)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
-}
-
-func (p *Processor) CheckGroupHeader(gh *types.GroupHeader, pSign groupsig.Signature) (bool, error) {
-	if ok, err := p.groupManager.isGroupHeaderLegal(gh); ok {
-		//验证父亲组签名
-		pid := groupsig.DeserializeId(gh.Parent)
-		ppk := p.getGroupPubKey(pid)
-		if groupsig.VerifySig(ppk, gh.Hash.Bytes(), pSign) {
-			return true, nil
-		} else {
-			return false, fmt.Errorf("signature verify fail, pk=", ppk.GetHexString())
-		}
-	} else {
-		return false, err
-	}
 }
 
 func (p *Processor) BlockContextSummary() string {
@@ -310,12 +295,13 @@ func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
 }
 
 func (p *Processor) GetAllMinersIds() (heavy []string, light []string) {
-    miners := p.minerReader.getAllMinerDOByType(types.MinerTypeHeavy)
+	h := p.MainChain.Height()
+    miners := p.minerReader.getAllMinerDOByType(types.MinerTypeHeavy, h)
     heavy = make([]string, 0)
 	for _, m := range miners {
 		heavy = append(heavy, m.ID.GetHexString())
 	}
-	miners = p.minerReader.getAllMinerDOByType(types.MinerTypeLight)
+	miners = p.minerReader.getAllMinerDOByType(types.MinerTypeLight, h)
 	light = make([]string, 0)
 	for _, m := range miners {
 		light = append(light, m.ID.GetHexString())

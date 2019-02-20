@@ -179,7 +179,7 @@ func (mm *MinerManager) AbortMiner(id []byte, ttype byte, height uint64, account
 func (mm *MinerManager) GetTotalStakeByHeight(height uint64) uint64 {
 	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
 	if err != nil {
-		Logger.Error("Get account db by height %d error:%s", height, err.Error())
+		Logger.Errorf("Get account db by height %d error:%s", height, err.Error())
 		return 0
 	}
 

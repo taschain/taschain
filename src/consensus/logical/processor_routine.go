@@ -129,16 +129,21 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		return true
 	})
-	p.groupManager.creatingGroups.forEach(func(cg *CreatingGroup) bool {
-		gis := &cg.gInfo.GI
-		gHash := gis.GetHash()
-		if gis.ReadyTimeout(topHeight) {
-			blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
-			p.NetServer.ReleaseGroupNet(gHash.Hex())
-			p.groupManager.creatingGroups.removeGroup(gHash)
-		}
-		return true
-	})
+	gctx := p.groupManager.getContext()
+	if gctx != nil && gctx.readyTimeout(topHeight) {
+		groupLogger.Infof("releaseRoutine:info=%v, elapsed %v. ready timeout.", gctx.logString(), time.Since(gctx.createTime))
+		p.groupManager.removeContext()
+	}
+	//p.groupManager.creatingGroups.forEach(func(cg *CreatingGroupContext) bool {
+	//	gis := &cg.gInfo.GI
+	//	gHash := gis.GetHash()
+	//	if gis.ReadyTimeout(topHeight) {
+	//		blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
+	//		p.NetServer.ReleaseGroupNet(gHash.Hex())
+	//		p.groupManager.creatingGroups.removeGroup(gHash)
+	//	}
+	//	return true
+	//})
 	p.globalGroups.generator.forEach(func(ig *InitedGroup) bool {
 		hash := ig.gInfo.GroupHash()
 		if ig.gInfo.GI.ReadyTimeout(topHeight) {

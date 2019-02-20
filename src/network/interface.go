@@ -92,6 +92,10 @@ const (
 	AnswerSignPkMsg uint32 = 35
 
 	VerifiedCastMsg2 uint32 = 77
+
+	//建组时ping pong
+	GroupPing uint32 = 100
+	GroupPong uint32 = 101
 )
 
 type Message struct {

@@ -90,7 +90,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	pr := br.Quo(br, max256)
 
-	brTStake := new(big.Rat).SetInt64(int64(totalStake))
+	brTStake := new(big.Rat).SetFloat64(float64(totalStake))
 	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
 
 	s1, _ := pr.Float64()

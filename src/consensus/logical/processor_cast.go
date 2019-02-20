@@ -191,6 +191,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
 	blog := newBizLog("successNewBlock")
+	blog.log("------------slot status %v %v", slot.slotStatus, vctx.consensusStatus)
 
 	if slot.IsFailed() {
 		blog.log("slot is failed")
@@ -206,7 +207,10 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
+	blog.log("----------not on chain")
+
 	block := p.MainChain.GenerateBlock(*bh)
+	blog.log("-------------genearate block")
 
 	if block == nil {
 		blog.log("core.GenerateBlock is nil! won't broadcast block!")
@@ -218,7 +222,11 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
+	blog.log("-----------start add on chain")
+
 	r := p.doAddOnChain(block)
+
+	blog.log("-----------end add on chain")
 
 	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
 		if r != int8(types.Forking) {
@@ -304,7 +312,7 @@ func (p *Processor) blockProposal() {
 	}
 	height := worker.castHeight
 
-	totalStake := p.minerReader.getTotalStake(height)
+	totalStake := p.minerReader.getTotalStake(worker.baseBH.Height)
 	blog.log("totalStake height=%v, stake=%v", height, totalStake)
 	pi, qn, err := worker.Prove(totalStake)
 	if err != nil {

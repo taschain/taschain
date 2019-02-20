@@ -8,6 +8,7 @@ import (
 	"sync"
 	"log"
 	"sync/atomic"
+	"consensus/groupsig"
 )
 
 /*
@@ -177,4 +178,20 @@ func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry)  {
 		ls.AddLog(log)
 		common.DefaultLogger.Infof("addlog of not internal nodes %v", log.Proposer)
 	}
+}
+
+func (ls *LogService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int) bool {
+	cnt := 0
+	for _, mem := range mems {
+		if _, ok := ls.internalNodeIds[mem.GetHexString()]; ok {
+			cnt++
+			if cnt > n {
+				break
+			}
+			if mem.GetHexString() == ls.nodeId {
+				return true
+			}
+		}
+	}
+	return false
 }

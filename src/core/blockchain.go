@@ -734,6 +734,17 @@ func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,
 }
 
 func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, error) {
-	header := chain.queryBlockHeaderByHeight(height, true)
+	var header *types.BlockHeader
+	h := height
+	for {
+		header = chain.queryBlockHeaderByHeight(h, true)
+		if header != nil || h == 0 {
+			break
+		}
+		h--
+	}
+	if header == nil {
+		return nil, fmt.Errorf("no data at height %v-%v", h, height)
+	}
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }

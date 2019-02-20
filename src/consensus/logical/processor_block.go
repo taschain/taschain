@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"middleware/types"
 	"sync"
+	"bytes"
 )
 
 /*
@@ -275,6 +276,36 @@ func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error
 	if !b {
 		err = fmt.Errorf("signature verify fail")
 		return
+	}
+	ok = true
+	return
+}
+
+func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
+	if len(g.Signature) == 0 {
+		return false, fmt.Errorf("sign is empty")
+	}
+
+	mems := make([]groupsig.ID, len(g.Members))
+	for idx, mem := range g.Members {
+		mems[idx] = groupsig.DeserializeId(mem)
+	}
+	gInfo := &model.ConsensusGroupInitInfo{
+		GI: model.ConsensusGroupInitSummary{
+			Signature: *groupsig.DeserializeSign(g.Signature),
+			GHeader: 	g.Header,
+		},
+		Mems: mems,
+	}
+	//检验头和签名
+	if _, ok, err := p.groupManager.checkGroupInfo(gInfo); ok {
+		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
+		gid := groupsig.NewIDFromPubkey(gpk).Serialize()
+		if !bytes.Equal(gid, g.Id) {
+			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
+		}
+	} else {
+		return false, err
 	}
 	ok = true
 	return

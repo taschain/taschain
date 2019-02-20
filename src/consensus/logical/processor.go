@@ -181,7 +181,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		err = fmt.Errorf("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
 		return
 	}
-	totalStake := p.minerReader.getTotalStake(bh.Height)
+	totalStake := p.minerReader.getTotalStake(preHeader.Height)
 	blog.log("totalStake %v", totalStake)
 	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
 		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
@@ -310,4 +310,12 @@ func (p *Processor) getEncryptPrivateKey() common.PrivateKey {
 	seed := p.mi.SK.GetHexString() + p.mi.ID.GetHexString()
 	encryptPrivateKey := common.GenerateKey(seed)
 	return encryptPrivateKey
+}
+
+func (p *Processor) getDefaultSeckeyInfo() model.SecKeyInfo {
+    return model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
+}
+
+func (p *Processor) getInGroupSeckeyInfo(gid groupsig.ID) model.SecKeyInfo {
+    return model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(gid))
 }

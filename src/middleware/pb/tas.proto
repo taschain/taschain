@@ -290,8 +290,8 @@ message ConsensusSharePieceMessage{
     required bytes Dest = 2;
 
     required SharePiece  SharePiece = 3;
-
-    required SignData  Sign = 4;
+    required int32 MemCnt = 4;
+    required SignData  Sign = 5;
 
 }
 
@@ -300,8 +300,8 @@ message ConsensusSignPubKeyMessage{
     required bytes GroupID = 2;
 
     required bytes	SignPK  = 3;
-
-    required SignData 	SignData = 4;
+    required int32 MemCnt = 4;
+    required SignData 	SignData = 5;
 
 }
 
@@ -330,7 +330,9 @@ message ConsensusGroupInitedMessage{
     required bytes GroupPK = 3;
     required uint64 CreateHeight = 4;
     required bytes ParentSign = 5;
-    required SignData Sign = 6;
+    required bytes MemMask = 6;
+    required int32 MemCnt = 7;
+    required SignData Sign = 8;
 }
 
 message ConsensusCurrentMessage{
@@ -416,4 +418,16 @@ message BlockMsgResponse{
 message ChainPieceBlockMsg{
     required BlockHeader TopHeader = 1;
     repeated Block Blocks  = 2;
+}
+
+message CreateGroupPingMessage {
+    required bytes FromGroupID = 1;
+    required string PingID = 2;
+    required SignData Sign = 3;
+}
+
+message CreateGroupPongMessage {
+    required string PingID = 1;
+    required bytes Ts = 2;
+    required SignData Sign = 3;
 }

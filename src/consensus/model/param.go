@@ -20,31 +20,38 @@ const (
 
 	SSSS_THRESHOLD int = 51                 //1-100
 	GROUP_MAX_MEMBERS int = 100             //一个组最大的成员数量
+	GROUP_MIN_MEMBERS int = 10             //一个组最大的成员数量
 	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
-	EPOCH int = 5
-	GROUP_GET_READY_GAP = EPOCH * 3	//组准备就绪(建成组)的间隔为1个epoch
-	GROUP_CAST_QUALIFY_GAP = EPOCH * 5	//组准备就绪后, 等待可以铸块的间隔为4个epoch
-	GROUP_CAST_DURATION = EPOCH * 100	//组铸块的周期为100个epoch
+	EPOCH                 int = 5
+	Group_Create_Gap		= EPOCH * 2
+	Group_Wait_Pong_Gap 	= Group_Create_Gap + EPOCH * 2
+	GROUP_Ready_GAP           = Group_Create_Gap + EPOCH * 6   //组准备就绪(建成组)的间隔为1个epoch
+	GROUP_Work_GAP            = Group_Create_Gap + EPOCH * 8   //组准备就绪后, 等待可以铸块的间隔为4个epoch
+	GROUP_Work_DURATION       = EPOCH * 100 //组铸块的周期为100个epoch
+	Group_Create_Interval     = EPOCH * 10
 
 )
 
 type ConsensusParam struct {
-	GroupMember int
-	MaxQN 	int
-	SSSSThreshold int
-	MaxGroupCastTime int
-	MaxWaitBlockTime int
-	MaxFutureBlock int
+	GroupMemberMax      int
+	GroupMemberMin      int
+	MaxQN               int
+	SSSSThreshold       int
+	MaxGroupCastTime    int
+	MaxWaitBlockTime    int
+	MaxFutureBlock      int
 	GroupInitMaxSeconds int
-	Epoch	uint64
+	Epoch               uint64
 	CreateGroupInterval uint64
-	MinerMaxJoinGroup int
-	CandidatesMinRatio int
-	GroupGetReadyGap uint64
-	GroupCastQualifyGap uint64
-	GroupCastDuration	uint64
+	MinerMaxJoinGroup   int
+	CandidatesMinRatio  int
+	GroupReadyGap       uint64
+	GroupWorkGap        uint64
+	GroupworkDuration   uint64
+	GroupCreateGap		uint64
+	GroupWaitPongGap 	uint64
 	//EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
 	PotentialProposal	int 	//潜在提案者
 
@@ -60,44 +67,59 @@ var Param ConsensusParam
 
 func InitParam(cc common.SectionConfManager) {
 	Param = ConsensusParam{
-		GroupMember: cc.GetInt("group_member", GROUP_MAX_MEMBERS),
-		SSSSThreshold: SSSS_THRESHOLD,
-		MaxWaitBlockTime: cc.GetInt("max_wait_block_time", MAX_WAIT_BLOCK_TIME),
-		MaxGroupCastTime: cc.GetInt("max_group_cast_time", MAX_GROUP_BLOCK_TIME),
-		MaxQN: 5,
-		MaxFutureBlock: MAX_UNKNOWN_BLOCKS,
+		GroupMemberMax:      cc.GetInt("group_member_max", GROUP_MAX_MEMBERS),
+		GroupMemberMin:      cc.GetInt("group_member_min", GROUP_MIN_MEMBERS),
+		SSSSThreshold:       SSSS_THRESHOLD,
+		MaxWaitBlockTime:    cc.GetInt("max_wait_block_time", MAX_WAIT_BLOCK_TIME),
+		MaxGroupCastTime:    cc.GetInt("max_group_cast_time", MAX_GROUP_BLOCK_TIME),
+		MaxQN:               5,
+		MaxFutureBlock:      MAX_UNKNOWN_BLOCKS,
 		GroupInitMaxSeconds: GROUP_INIT_MAX_SECONDS,
-		Epoch: uint64(cc.GetInt("epoch", EPOCH)),
-		MinerMaxJoinGroup: cc.GetInt("miner_max_join_group", MINER_MAX_JOINED_GROUP),
-		CandidatesMinRatio: cc.GetInt("candidates_min_ratio", CANDIDATES_MIN_RATIO),
-		GroupGetReadyGap: uint64(cc.GetInt("group_ready_gap", GROUP_GET_READY_GAP)),
-		GroupCastQualifyGap: uint64(cc.GetInt("group_cast_qualify_gap", GROUP_CAST_QUALIFY_GAP)),
-		GroupCastDuration: uint64(cc.GetInt("group_cast_duration", GROUP_CAST_DURATION)),
+		Epoch:               uint64(cc.GetInt("epoch", EPOCH)),
+		MinerMaxJoinGroup:   cc.GetInt("miner_max_join_group", MINER_MAX_JOINED_GROUP),
+		CandidatesMinRatio:  cc.GetInt("candidates_min_ratio", CANDIDATES_MIN_RATIO),
+		GroupReadyGap:       uint64(cc.GetInt("group_ready_gap", GROUP_Ready_GAP)),
+		GroupWorkGap:        uint64(cc.GetInt("group_cast_qualify_gap", GROUP_Work_GAP)),
+		GroupworkDuration:   uint64(cc.GetInt("group_cast_duration", GROUP_Work_DURATION)),
 		//EffectGapAfterApply: EPOCH,
 		PotentialProposal: 5,
 		ProposalBonus: 	common.TAS2RA(12),
 		PackBonus: common.TAS2RA(3),
 		VerifyBonus: common.TAS2RA(15),
 		VerifierStake: common.VerifyStake,
+		CreateGroupInterval: uint64(Group_Create_Interval),
+		GroupCreateGap: uint64(Group_Create_Gap),
+		GroupWaitPongGap: uint64(Group_Wait_Pong_Gap),
 	}
-	Param.CreateGroupInterval = Param.GroupCastQualifyGap + Param.GroupGetReadyGap
 }
 
 //取得门限值
-func  (p *ConsensusParam) GetThreshold() int {
-	return p.GetGroupK(p.GroupMember)
-}
+//func  (p *ConsensusParam) GetThreshold() int {
+//	return p.GetGroupK(p.GroupMemberMax)
+//}
 
 func  (p *ConsensusParam) GetGroupK(max int) int {
 	return int(math.Ceil(float64(max*p.SSSSThreshold) / 100))
 }
 
 //获取组成员个数
-func (p *ConsensusParam) GetGroupMemberNum() int {
-	return p.GroupMember
+//func (p *ConsensusParam) GetGroupMemberNum() int {
+//	return p.GroupMemberMax
+//}
+func (p *ConsensusParam) IsGroupMemberCountLegal(cnt int) bool {
+	return p.GroupMemberMin <= cnt && cnt <= p.GroupMemberMax
+}
+func (p *ConsensusParam) CreateGroupMinCandidates() int {
+    return p.GroupMemberMin * p.CandidatesMinRatio
 }
 
-func (p *ConsensusParam) CreateGroupMinCandidates() int {
-    return p.GroupMember * p.CandidatesMinRatio
+func (p *ConsensusParam) CreateGroupMemberCount(availCandidates int) int {
+    cnt := int(math.Ceil(float64(availCandidates /p.CandidatesMinRatio)))
+	if cnt > p.GroupMemberMax {
+		cnt = p.GroupMemberMax
+	} else if cnt < p.GroupMemberMin {
+		cnt = 0
+	}
+	return cnt
 }
 

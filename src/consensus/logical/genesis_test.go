@@ -129,7 +129,8 @@ func TestGenesisGroup(t *testing.T) {
 
 	procSpms := make(map[string][]*model.ConsensusSharePieceMessage)
 
-	model.Param.GroupMember = len(mems)
+	model.Param.GroupMemberMax = len(mems)
+	model.Param.GroupMemberMin = len(mems)
 
 	for _, p := range procs {
 		//if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
@@ -218,7 +219,14 @@ func TestGenesisGroup(t *testing.T) {
 		for _, msg := range initedMsgs {
 			initingGroup := p.globalGroups.GetInitedGroup(msg.GHash)
 			if initingGroup == nil {
-				initingGroup = createInitedGroup(threshold, mems, groupsig.Signature{}, gh)
+				ginfo := &model.ConsensusGroupInitInfo{
+					GI: model.ConsensusGroupInitSummary{
+						Signature: groupsig.Signature{},
+						GHeader: gh,
+					},
+					Mems: mems,
+				}
+				initingGroup = createInitedGroup(ginfo)
 				p.globalGroups.generator.addInitedGroup(initingGroup)
 			}
 			if initingGroup.receive(msg.SI.GetID(), msg.GroupPK) == INIT_SUCCESS {
