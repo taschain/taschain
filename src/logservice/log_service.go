@@ -185,7 +185,7 @@ func (ls *LogService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int) bo
 	for _, mem := range mems {
 		if _, ok := ls.internalNodeIds[mem.GetHexString()]; ok {
 			cnt++
-			if cnt > n {
+			if cnt >= n {
 				break
 			}
 			if mem.GetHexString() == ls.nodeId {
