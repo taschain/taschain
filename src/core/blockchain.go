@@ -416,7 +416,7 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (types
 		if err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal {
 			Logger.Infof("Add block on chain failed: depend on group!")
 		} else {
-			Logger.Errorf("Fail to validate group sig!")
+			Logger.Errorf("Fail to validate group sig!Err:%s", err.Error())
 		}
 		return types.AddBlockFailed, false
 	}

@@ -14,6 +14,7 @@ import (
 	"consensus/groupsig"
 	"bytes"
 	"time"
+	"errors"
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
@@ -288,8 +289,7 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) (bool, erro
 	}
 	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
 	if pre == nil {
-		time.Sleep(time.Second)
-		panic("Pre should not be nil")
+		return false,errors.New("has no pre")
 	}
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
 	if err != nil {
