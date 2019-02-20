@@ -164,7 +164,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 
 		blog.debug("Proc(%v) send group init Message", p.getPrefix())
 		ski := p.getDefaultSeckeyInfo()
-		if initMsg.GenSign(ski, initMsg) {
+		if initMsg.GenSign(ski, initMsg) && ctx.getStatus() != sendInit {
 			tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
 			tlog.log("收齐分片，SendGroupInitMessage")
 			p.NetServer.SendGroupInitMessage(initMsg)
@@ -207,6 +207,12 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 		}
 	}()
 
+	groupContext := p.joiningGroups.GetGroup(gHash)
+	if groupContext != nil && groupContext.GetGroupStatus() != GisInit {
+		blog.debug("already handle, status=%v", groupContext.GetGroupStatus())
+		return
+	}
+
 	topHeight := p.MainChain.QueryTopBlock().Height
 	if gis.ReadyTimeout(topHeight) {
 		desc = fmt.Sprintf("OMGI ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
@@ -231,7 +237,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 
 	tlog.logStart("%v", "")
 
-	groupContext := p.joiningGroups.ConfirmGroupFromRaw(msg, candidates, p.mi)
+	groupContext = p.joiningGroups.ConfirmGroupFromRaw(msg, candidates, p.mi)
 	if groupContext == nil {
 		panic("Processor::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
