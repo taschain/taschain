@@ -193,6 +193,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	return true
 }
 
+//todo 是否需要等待收到阈值个OMGIED消息后才行？
 func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]groupsig.ID, bool, error) {
 	gh := gInfo.GI.GHeader
 	if gh.Hash != gh.GenHash() {

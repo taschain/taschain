@@ -493,12 +493,12 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	blog := newBizLog("acceptGroup")
 	blog.debug("Add to Global static groups, result=%v, groups=%v.", add, p.globalGroups.GetGroupSize())
 	if staticGroup.MemExist(p.GetMinerID()) {
-		jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
-		if jg != nil {
-			p.prepareForCast(staticGroup)
-		} else {
-			blog.log("[ERROR]cannot find joined group info, gid=%v", staticGroup.GroupID.ShortS())
-		}
+		p.prepareForCast(staticGroup)
+		//jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
+		//if jg != nil {
+		//} else {
+		//	blog.log("[ERROR]cannot find joined group info, gid=%v", staticGroup.GroupID.ShortS())
+		//}
 	}
 }
 
@@ -517,11 +517,12 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		panic("grm gis hash diff")
 	}
 
-	g := p.GroupChain.GetGroupById(msg.GroupID.Serialize())
-	if g != nil {
-		blog.log("group already onchain")
-		return
-	}
+	//此时组通过同步已上链了，但是后面的逻辑还是要执行，否则组数据状态有问题
+	//g := p.GroupChain.GetGroupById(msg.GroupID.Serialize())
+	//if g != nil {
+	//	blog.log("group already onchain")
+	//	return
+	//}
 
 	pk := GetMinerPK(msg.SI.GetID())
 	if !msg.VerifySign(*pk) {
