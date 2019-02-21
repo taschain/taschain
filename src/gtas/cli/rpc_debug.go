@@ -251,3 +251,12 @@ func (api *GtasAPI) DebugJoinGroupInfo(gid string) (*Result, error) {
 	jg := mediator.Proc.GetJoinGroupInfo(gid)
 	return successResult(jg)
 }
+
+func (api *GtasAPI) DebugRemoveBlock(h uint64) (*Result, error) {
+	bh := core.BlockChainImpl.QueryBlockByHeight(h)
+	if bh != nil {
+		ret := mediator.Proc.MainChain.Remove(bh)
+		return successResult(ret)
+	}
+	return successResult("not exist")
+}
