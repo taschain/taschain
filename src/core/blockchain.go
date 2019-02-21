@@ -559,37 +559,11 @@ func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.Blo
 	return chain.queryBlockHeaderByHash(hash)
 }
 
-func (chain *FullBlockChain) QueryBlockBody(blockHash common.Hash) []*types.Transaction {
-	block := chain.QueryBlockByHash(blockHash)
-	if nil == block {
-		return nil
-	}
-	return block.Transactions
-}
-
-func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	block := chain.QueryBlockByHash(hash)
-	if nil == block {
-		return nil
-	}
-	return block.Header
-}
-
 func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	chain.lock.RLock("QueryBlockByHash")
 	defer chain.lock.RUnlock("QueryBlockByHash")
-	result, err := chain.blocks.Get(hash.Bytes())
 
-	if result != nil {
-		var block *types.Block
-		block, err = types.UnMarshalBlock(result)
-		if err != nil || &block == nil {
-			return nil
-		}
-		return block
-	} else {
-		return nil
-	}
+	return chain.queryBlockByHash(hash)
 }
 
 func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
@@ -602,7 +576,7 @@ func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
 		if nil == bh {
 			continue
 		}
-		b = chain.QueryBlockByHash(bh.Hash)
+		b = chain.queryBlockByHash(bh.Hash)
 		if nil == b {
 			continue
 		}

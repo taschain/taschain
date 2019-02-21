@@ -136,12 +136,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 			timer := time.NewTimer(time.Second * 10)
 			for {
 				<-timer.C
-				if core.BlockSyncer.IsInit() && len(network.GetNetInstance().ConnInfo()) > 0 {
+				if core.BlockSyncer.IsInit(){
 					break
 				} else {
 					var candicateHeight uint64
 					if core.BlockSyncer != nil {
-						_, _, candicateHeight = core.BlockSyncer.GetCandidateForSync()
+						_, _, candicateHeight,_ = core.BlockSyncer.GetCandidateForSync()
 					}
 					localBlockHeight := core.BlockChainImpl.Height()
 					fmt.Printf("Sync candidate block height:%d,local block height:%d\n", candicateHeight, localBlockHeight)

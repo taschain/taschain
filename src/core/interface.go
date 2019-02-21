@@ -63,8 +63,6 @@ type BlockChain interface {
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
 
-	QueryBlockBody(blockHash common.Hash) []*types.Transaction
-
 	QueryBlock(height uint64) *types.Block
 
 	//根据哈希取得某个交易
@@ -90,8 +88,6 @@ type BlockChain interface {
 	Clear() error
 
 	Close()
-
-	//GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
 
 	InsertStateNode(nodes *[]types.StateNode)
 
