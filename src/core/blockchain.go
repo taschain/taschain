@@ -554,6 +554,8 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, he
 
 //根据指定哈希查询块
 func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	chain.lock.RLock("QueryBlockHeaderByHash")
+	defer chain.lock.RUnlock("QueryBlockHeaderByHash")
 	return chain.queryBlockHeaderByHash(hash)
 }
 
@@ -574,6 +576,8 @@ func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.Blo
 }
 
 func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
+	chain.lock.RLock("QueryBlockByHash")
+	defer chain.lock.RUnlock("QueryBlockByHash")
 	result, err := chain.blocks.Get(hash.Bytes())
 
 	if result != nil {
