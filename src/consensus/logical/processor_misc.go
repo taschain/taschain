@@ -294,17 +294,13 @@ func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
     return jg
 }
 
-func (p *Processor) GetAllMinersIds() (heavy []string, light []string) {
+func (p *Processor) GetAllMinerDOs() ([]*model.MinerDO) {
 	h := p.MainChain.Height()
+	dos := make([]*model.MinerDO, 0)
     miners := p.minerReader.getAllMinerDOByType(types.MinerTypeHeavy, h)
-    heavy = make([]string, 0)
-	for _, m := range miners {
-		heavy = append(heavy, m.ID.GetHexString())
-	}
+    dos = append(dos, miners...)
+
 	miners = p.minerReader.getAllMinerDOByType(types.MinerTypeLight, h)
-	light = make([]string, 0)
-	for _, m := range miners {
-		light = append(light, m.ID.GetHexString())
-	}
-	return
+	dos = append(dos, miners...)
+	return dos
 }

@@ -114,7 +114,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	r, _ := pr.Quo(pr, step).Float64()
 	qn = uint64(math.Floor(r) + 1)
 
-	blog.log("proveValue %v, stake %v, step %v, qn %v", s1, s2, st, qn)
+	blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
 
 	return
 	//return true
