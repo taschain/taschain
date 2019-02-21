@@ -31,11 +31,11 @@ func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupId 
 func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGroupBaseContext, error) {
 	lastGroup := gm.groupChain.LastGroup()
 	baseBH := gm.mainChain.QueryBlockByHeight(baseHeight)
+	if !checkCreate(baseHeight) {
+		return nil, fmt.Errorf("cannot create group at the height")
+	}
 	if baseBH == nil {
 		return nil, fmt.Errorf("base block is nil, height=%v", baseHeight)
-	}
-	if !checkCreate(baseBH) {
-		return nil, fmt.Errorf("cannot create group at the height")
 	}
 	sgi, err := gm.selectParentGroup(baseBH, lastGroup.Id)
 	if err != nil {
@@ -184,7 +184,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 		Hash: gh.Hash.Hex(),
 		Proposer: gm.processor.GetMinerID().GetHexString(),
 	}
-	if logservice.Instance.IsFirstNInternalNodesInGroup(ctx.kings, 3) {
+	if logservice.Instance.IsFirstNInternalNodesInGroup(ctx.kings, 20) {
 		logservice.Instance.AddLog(le)
 	}
 
@@ -201,12 +201,12 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if !model.Param.IsGroupMemberCountLegal(len(gInfo.Mems)) {
 		return nil, false, fmt.Errorf("group member size error %v(%v-%v)", len(gInfo.Mems), model.Param.GroupMemberMin, model.Param.GroupMemberMax)
 	}
+	if !checkCreate(gh.CreateHeight) {
+		return nil, false, fmt.Errorf("cannot create at the height %v", gh.CreateHeight)
+	}
 	baseBH := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
 	if baseBH == nil {
 		return nil, false, common.ErrCreateBlockNil
-	}
-	if !checkCreate(baseBH) {
-		return nil, false, fmt.Errorf("cannot create at the height %v", baseBH.Height)
 	}
 	//前一组，父亲组是否存在
 	preGroup := gm.groupChain.GetGroupById(gh.PreGroup)

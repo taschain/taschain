@@ -31,8 +31,8 @@ func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
 		curr: 0,
 	}
 }
-func checkCreate(baseBH *types.BlockHeader) bool {
-    return baseBH.Height > 0 && baseBH.Height % model.Param.CreateGroupInterval == 0
+func checkCreate(h uint64) bool {
+    return h > 0 && h % model.Param.CreateGroupInterval == 0
 }
 
 func (gchecker *GroupCreateChecker) heightCreated(h uint64) bool {

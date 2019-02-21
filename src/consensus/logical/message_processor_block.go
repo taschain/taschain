@@ -305,7 +305,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	group := p.GetGroup(groupsig.DeserializeId(bh.GroupId))
 
 	detalHeight := int(bh.Height - p.MainChain.Height())
-	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 3) {
+	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 20) {
 		logservice.Instance.AddLogIfNotInternalNodes(le)
 	}
 

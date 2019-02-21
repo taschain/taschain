@@ -50,9 +50,20 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 	top := gm.mainChain.QueryTopBlock()
 	topHeight := top.Height
 
-	if topHeight > model.Param.GroupCreateGap {
+	gap := model.Param.GroupCreateGap
+	if topHeight > gap {
 		gm.checkReqCreateGroupSign(topHeight)
-		gm.checkCreateGroupRoutine(topHeight-model.Param.GroupCreateGap)
+
+		pre := gm.mainChain.QueryBlockHeaderByHash(top.PreHash)
+		if pre != nil {
+			for h := top.Height; h > pre.Height && h > gap; h-- {
+				baseHeight := h-gap
+				if checkCreate(baseHeight) {
+					gm.checkCreateGroupRoutine(baseHeight)
+					break
+				}
+			}
+		}
 	}
 
 }
