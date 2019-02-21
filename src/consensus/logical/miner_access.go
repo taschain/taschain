@@ -6,7 +6,6 @@ import (
 	"middleware/types"
 	"core"
 	"consensus/base"
-	"fmt"
 )
 
 /*
@@ -95,9 +94,6 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
 	st := access.minerPool.GetTotalStakeByHeight(h)
-	if st == 0 {
-		panic(fmt.Sprintf("total stake is 0 at height %v", h))
-	}
 	return st
 	//return 30
 }

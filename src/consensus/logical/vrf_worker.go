@@ -85,6 +85,10 @@ func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
 }
 
 func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn uint64) {
+	if totalStake == 0 {
+		stdLogger.Errorf("total stake is 0!")
+		return false, 0
+	}
 	value := base.VRF_proof2hash(pi)
 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
