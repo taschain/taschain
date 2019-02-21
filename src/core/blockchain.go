@@ -30,6 +30,7 @@ import (
 	"storage/tasdb"
 	"storage/vm"
 	"time"
+	"utility"
 )
 
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
@@ -50,7 +51,11 @@ const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
-)
+
+	currentHashKey = "currentHash"
+
+
+	)
 
 var BlockChainImpl BlockChain
 
@@ -212,6 +217,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		Logger.Debugf("aaa block is nil")
 	}
 
+	currentHashByte, err := chain.blocks.Get([]byte(currentHashKey))
+	if currentHashByte != nil && common.BytesToHash(currentHashByte) != chain.latestBlock.Hash{
+		chain.blocks.Delete(currentHashByte)
+		chain.blocks.Delete(utility.UInt64ToByte(chain.latestBlock.Height))
+	}
+
 	if nil != chain.latestBlock {
 		chain.buildCache(10, chain.topBlocks)
 		Logger.Debugf("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
@@ -227,6 +238,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		if nil == err {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Debugf("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
+
+			chain.unMarkCurrentBlock(block.Header.Hash, block.Header.Height, block.Header.StateTree)
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
 			verifyHash := chain.consensusHelper.VerifyHash(block)
@@ -502,6 +515,8 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlo
 			return types.AddBlockFailed, nil
 		}
 	}
+
+	chain.markCurrentBlock(remoteBlock.Header.Hash, remoteBlock.Header.Height, remoteBlock.Header.StateTree)
 	result, headerByte := chain.saveBlock(remoteBlock)
 	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
@@ -513,12 +528,27 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlo
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
 		return types.AddBlockFailed, headerByte
 	}
+	chain.unMarkCurrentBlock(remoteBlock.Header.Hash, remoteBlock.Header.Height, remoteBlock.Header.StateTree)
+
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
 	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
 	return types.AddBlockSucc, headerByte
+}
+
+func (chain *FullBlockChain) markCurrentBlock(hash common.Hash, height uint64, stateRoot common.Hash) bool {
+	err := chain.blocks.Put([]byte(currentHashKey), hash.Bytes())
+	if err != nil {
+		Logger.Debugf("Fail to put key:%s value:%s, error:%s", currentHashKey, hash.String(), err.Error())
+		return false
+	}
+	return true
+}
+
+func (chain *FullBlockChain) unMarkCurrentBlock(hash common.Hash, height uint64, stateRoot common.Hash) {
+	chain.blocks.Delete([]byte(currentHashKey))
 }
 
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
@@ -676,27 +706,6 @@ func (chain *FullBlockChain) Clear() error {
 
 	chain.transactionPool.Clear()
 	return err
-}
-
-//func (chain *FullBlockChain) GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode {
-//	Logger.Debugf("GetTrieNodesByExecuteTransactions height:%d,stateTree:%v", header.Height, header.StateTree)
-//	var nodesOnBranch = make(map[string]*[]byte)
-//	state, err := account.NewAccountDBWithMap(header.StateTree, chain.stateCache, nodesOnBranch)
-//	if err != nil {
-//		Logger.Errorf("GetTrieNodesByExecuteTransactions error,height=%d,hash=%v \n", header.Height, header.StateTree)
-//		return nil
-//	}
-//	chain.executor.GetBranches(state, transactions, addresses, nodesOnBranch)
-//
-//	data := []types.StateNode{}
-//	for key, value := range nodesOnBranch {
-//		data = append(data, types.StateNode{Key: ([]byte)(key), Value: *value})
-//	}
-//	return &data
-//}
-
-func (chain *FullBlockChain) InsertStateNode(nodes *[]types.StateNode) {
-	panic("Not support!")
 }
 
 func (chain *FullBlockChain) GetCastingBlock(hash common.Hash) *types.Block {

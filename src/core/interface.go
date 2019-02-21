@@ -89,8 +89,6 @@ type BlockChain interface {
 
 	Close()
 
-	InsertStateNode(nodes *[]types.StateNode)
-
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
