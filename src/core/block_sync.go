@@ -33,6 +33,7 @@ const (
 	sendTopBlockInfoInterval   = 3 * time.Second
 	blockSyncCandidatePoolSize = 3
 	blockSyncReqTimeout        = 3 * time.Second
+	blockInitDonePeerNum       = 3
 )
 
 var BlockSyncer *blockSyncer
@@ -234,7 +235,7 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
 		}
 	}
 	var hasCandidate = false
-	if len(bs.candidatePool) != 0 {
+	if len(bs.candidatePool) >= blockInitDonePeerNum {
 		hasCandidate = true
 	}
 	candidateId := ""
