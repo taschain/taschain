@@ -196,6 +196,22 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
+
+	Logger.Debugf("latestBlock hash=%v, height=%v", chain.latestBlock.Hash.String(), chain.latestBlock.Height)
+	for h := chain.latestBlock.Height-1; h >= 584670; h-- {
+		b := chain.QueryBlockByHeight(h)
+		if b != nil {
+			Logger.Debugf("get block hash=%v, height=%v, pre=%v", b.Hash.String(), b.Height, b.PreHash.String())
+		}
+	}
+
+	b := chain.queryBlockHeaderByHash(common.HexToHash("0xe7d533eca11685a8a058a86a31bd2fd36ab90c2dc2724f5ddfd99269a23e8f4f"))
+	if b != nil {
+		Logger.Debugf("aaa get block hash=%v, height=%v, pre=%v", b.Hash.String(), b.Height, b.PreHash.String())
+	} else {
+		Logger.Debugf("aaa block is nil")
+	}
+
 	if nil != chain.latestBlock {
 		chain.buildCache(10, chain.topBlocks)
 		Logger.Debugf("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
