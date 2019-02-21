@@ -228,7 +228,7 @@ func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, v
 
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {
 	//TODO: 测试需要，暂时放放过
-	if bh.Height <= 581170 {
+	if bh.Height <= 581180 {
 		return true, nil
 	}
 	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
