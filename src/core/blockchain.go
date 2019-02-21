@@ -198,7 +198,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 
 	Logger.Debugf("latestBlock hash=%v, height=%v", chain.latestBlock.Hash.String(), chain.latestBlock.Height)
-	for h := chain.latestBlock.Height-1; h >= 584670; h-- {
+	for h := chain.latestBlock.Height; h >= 584670; h-- {
 		b := chain.QueryBlockByHeight(h)
 		if b != nil {
 			Logger.Debugf("get block hash=%v, height=%v, pre=%v", b.Hash.String(), b.Height, b.PreHash.String())
