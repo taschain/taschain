@@ -218,41 +218,58 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
 	}()
 
+	i:=0
+	blog.log("%v", 1)
+	i++
 	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
 		result = fmt.Sprintf("don't belong to group, gid=%v, hash=%v, id=%v", groupId.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
+	blog.log("%v", 2)
+	i++
 
 	//castor要忽略自己的消息
 	if castor.IsEqual(p.GetMinerID()) && si.GetID().IsEqual(p.GetMinerID()) {
 		result = "ignore self message"
 		return
 	}
+	blog.log("%v", 3)
+	i++
 
 	if msg.GenHash() != si.DataHash {
 		blog.debug("msg proveHash=%v", msg.ProveHash)
 		result = fmt.Sprintf("msg genHash %v diff from si.DataHash %v", msg.GenHash().ShortS(), si.DataHash.ShortS())
 		return
 	}
+	blog.log("%v", 4)
+	i++
 
 	isProposal := castor.IsEqual(si.GetID())
 
 	if isProposal { //提案者
+		blog.log("%v", 5)
+		i++
 		castorDO := p.minerReader.getProposeMiner(castor)
 		if castorDO == nil {
 			result = fmt.Sprintf("castorDO nil id=%v", castor.ShortS())
 			return
 		}
+		blog.log("%v", 6)
+		i++
 		if !msg.VerifySign(castorDO.PK) {
 			result = fmt.Sprintf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
 			return
 		}
+		blog.log("%v", 7)
+		i++
 	} else {
 		pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
 		if !ok {
 			blog.log("GetMemberSignPubKey not ok, ask id %v", si.GetID().ShortS())
 			return
 		}
+		blog.log("%v", 8)
+		i++
 		if !msg.VerifySign(pk) {
 			result = fmt.Sprintf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
 			jg := p.belongGroups.getJoinedGroup(groupId)
@@ -265,15 +282,21 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 			}
 			return
 		}
+		blog.log("%v", 9)
+		i++
 	}
+	blog.log("%v", 10)
+	i++
 	if p.blockOnChain(bh.Hash) {
 		result = "block onchain already"
 	}
-
+	blog.log("%v", 11)
+	i++
 	if err := p.doVerify(mtype, msg, traceLog, blog); err != nil {
 		result = err.Error()
 	}
-
+	blog.log("%v", 12)
+	i++
 	return
 }
 
