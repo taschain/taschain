@@ -107,6 +107,9 @@ message BlockHeader{
      optional bytes ProveRoot = 18;
 
      optional Hashes EvictedTxs = 19;
+
+     optional uint64 Version = 20;
+
 }
 
 message BlockBody{

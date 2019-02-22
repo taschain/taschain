@@ -30,7 +30,6 @@ import (
 	"storage/tasdb"
 	"storage/vm"
 	"time"
-	"utility"
 )
 
 //非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
@@ -51,11 +50,7 @@ const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
-
-	currentHashKey = "currentHash"
-
-
-	)
+)
 
 var BlockChainImpl BlockChain
 
@@ -201,36 +196,11 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	// 恢复链状态 height,latestBlock
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
-	//暂时简单fix 数据不一致
-	//blockByHeight := chain.QueryBlockByHeight(chain.latestBlock.Height)
-	//if blockByHeight.Hash != chain.latestBlock.Hash {
-	//	chain.latestBlock = blockByHeight
-	//}
-
-	Logger.Debugf("latestBlock hash=%v, height=%v", chain.latestBlock.Hash.String(), chain.latestBlock.Height)
-	cnt := 5
-	for h := chain.latestBlock.Height; cnt > 0; h-- {
-		cnt--
-		b := chain.QueryBlockByHeight(h)
-		if b != nil {
-			Logger.Debugf("get block hash=%v, height=%v, pre=%v", b.Hash.String(), b.Height, b.PreHash.String())
-		}
-	}
-
-	b := chain.queryBlockHeaderByHash(common.HexToHash("0xe7d533eca11685a8a058a86a31bd2fd36ab90c2dc2724f5ddfd99269a23e8f4f"))
-	if b != nil {
-		Logger.Debugf("aaa get block hash=%v, height=%v, pre=%v", b.Hash.String(), b.Height, b.PreHash.String())
-	} else {
-		Logger.Debugf("aaa block is nil")
-	}
-
-	currentHashByte, err := chain.blocks.Get([]byte(currentHashKey))
-	if currentHashByte != nil && common.BytesToHash(currentHashByte) != chain.latestBlock.Hash{
-		chain.blocks.Delete(currentHashByte)
-		chain.blocks.Delete(utility.UInt64ToByte(chain.latestBlock.Height))
-	}
-
 	if nil != chain.latestBlock {
+		if !chain.versionValidate() {
+			fmt.Println("Illegal data version! Please delete the directory d0 and restart the program!")
+			os.Exit(0)
+		}
 		chain.buildCache(10, chain.topBlocks)
 		Logger.Debugf("initBlockChain chain.latestBlock.StateTree  Hash:%s", chain.latestBlock.StateTree.Hex())
 		state, err := account.NewAccountDB(common.BytesToHash(chain.latestBlock.StateTree.Bytes()), chain.stateCache)
@@ -246,7 +216,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
 			Logger.Debugf("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
 
-			chain.unMarkCurrentBlock(block.Header.Hash, block.Header.Height, block.Header.StateTree)
 			_, headerJson := chain.saveBlock(block)
 			chain.updateLastBlock(state, block.Header, headerJson)
 			verifyHash := chain.consensusHelper.VerifyHash(block)
@@ -523,7 +492,6 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlo
 		}
 	}
 
-	chain.markCurrentBlock(remoteBlock.Header.Hash, remoteBlock.Header.Height, remoteBlock.Header.StateTree)
 	result, headerByte := chain.saveBlock(remoteBlock)
 	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
 	if result != 0 {
@@ -535,7 +503,6 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlo
 	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
 		return types.AddBlockFailed, headerByte
 	}
-	chain.unMarkCurrentBlock(remoteBlock.Header.Hash, remoteBlock.Header.Height, remoteBlock.Header.StateTree)
 
 	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
 	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
@@ -543,19 +510,6 @@ func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlo
 	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
 	chain.successOnChainCallBack(remoteBlock, headerByte)
 	return types.AddBlockSucc, headerByte
-}
-
-func (chain *FullBlockChain) markCurrentBlock(hash common.Hash, height uint64, stateRoot common.Hash) bool {
-	err := chain.blocks.Put([]byte(currentHashKey), hash.Bytes())
-	if err != nil {
-		Logger.Debugf("Fail to put key:%s value:%s, error:%s", currentHashKey, hash.String(), err.Error())
-		return false
-	}
-	return true
-}
-
-func (chain *FullBlockChain) unMarkCurrentBlock(hash common.Hash, height uint64, stateRoot common.Hash) {
-	chain.blocks.Delete([]byte(currentHashKey))
 }
 
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
@@ -757,4 +711,16 @@ func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, 
 		return nil, fmt.Errorf("no data at height %v-%v", h, height)
 	}
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
+}
+
+func (chain *FullBlockChain) versionValidate() bool {
+	genesisHeader := chain.queryBlockHeaderByHeight(0, true)
+	if genesisHeader == nil {
+		return false
+	}
+	version := genesisHeader.Version
+	if version != ChainDataVersion {
+		return false
+	}
+	return true
 }

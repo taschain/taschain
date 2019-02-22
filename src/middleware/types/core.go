@@ -250,6 +250,7 @@ type BlockHeader struct {
 	Random       []byte
 	ProveRoot    common.Hash
 	EvictedTxs   []common.Hash
+	Version      uint64
 }
 
 type header struct {
