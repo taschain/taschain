@@ -239,7 +239,7 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
 		hasCandidate = true
 	}
 	candidateId := ""
-	var candidateMaxTotalQn uint64 = localTotalQN
+	var candidateMaxTotalQn uint64 = 0
 	var candidateHeight uint64 = 0
 	for id, topBlockInfo := range bs.candidatePool {
 		if topBlockInfo.TotalQn > candidateMaxTotalQn {
@@ -247,6 +247,10 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
 			candidateMaxTotalQn = topBlockInfo.TotalQn
 			candidateHeight = topBlockInfo.Height
 		}
+	}
+
+	if candidateHeight == localHeight && candidateMaxTotalQn == localTotalQN {
+		candidateId = ""
 	}
 	if localHeight >= candidateHeight {
 		return candidateId, candidateHeight, candidateHeight, hasCandidate
