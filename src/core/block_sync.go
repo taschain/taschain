@@ -239,7 +239,7 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
 		hasCandidate = true
 	}
 	candidateId := ""
-	var candidateMaxTotalQn uint64 = 0
+	var candidateMaxTotalQn uint64 = localTotalQN
 	var candidateHeight uint64 = 0
 	for id, topBlockInfo := range bs.candidatePool {
 		if topBlockInfo.TotalQn > candidateMaxTotalQn {
