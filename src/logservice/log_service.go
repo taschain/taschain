@@ -76,7 +76,7 @@ func InitLogService(nodeId string) {
 	}
 	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
 	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
-	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain")
+	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain2")
 	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
 	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
 	Instance.cfg = &gorose.DbConfigSingle{

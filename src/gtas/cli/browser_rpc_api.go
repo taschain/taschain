@@ -336,7 +336,7 @@ func (api *GtasAPI) MonitorAllMiners() (*Result, error)  {
     totalStake := uint64(0)
     maxStake := uint64(0)
 	for _, m := range miners {
-		if m.AbortHeight == 0 {
+		if m.AbortHeight == 0 && m.NType == types.MinerTypeHeavy {
 			totalStake += m.Stake
 			if maxStake < m.Stake {
 				maxStake = m.Stake
