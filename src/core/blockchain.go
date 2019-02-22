@@ -714,7 +714,7 @@ func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, 
 }
 
 func (chain *FullBlockChain) versionValidate() bool {
-	genesisHeader := chain.queryBlockHeaderByHeight(0, true)
+	genesisHeader := chain.queryBlockHeaderByHeight(uint64(0), true)
 	if genesisHeader == nil {
 		return false
 	}
