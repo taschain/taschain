@@ -363,7 +363,7 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 }
 
 func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
-	err := chain.blockHeight.NewBatch().Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
 	if err != nil {
 		Logger.Errorf("fail to put current, error:%s \n", err)
 		return -1
