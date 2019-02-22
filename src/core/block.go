@@ -76,7 +76,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
 		EvictedTxs:   make([]common.Hash, 0), //important!!
-		Version:      ChainDataVersion,
+		Nonce:        ChainDataVersion,
 	}
 
 	//blockByte, _ := json.Marshal(block)

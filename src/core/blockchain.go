@@ -718,7 +718,7 @@ func (chain *FullBlockChain) versionValidate() bool {
 	if genesisHeader == nil {
 		return false
 	}
-	version := genesisHeader.Version
+	version := genesisHeader.Nonce
 	if version != ChainDataVersion {
 		return false
 	}
