@@ -8,6 +8,7 @@ import (
 	"sync"
 	"log"
 	"sync/atomic"
+	"consensus/groupsig"
 )
 
 /*
@@ -75,7 +76,7 @@ func InitLogService(nodeId string) {
 	}
 	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
 	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
-	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain")
+	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain2")
 	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
 	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
 	Instance.cfg = &gorose.DbConfigSingle{
@@ -177,4 +178,20 @@ func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry)  {
 		ls.AddLog(log)
 		common.DefaultLogger.Infof("addlog of not internal nodes %v", log.Proposer)
 	}
+}
+
+func (ls *LogService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int) bool {
+	cnt := 0
+	for _, mem := range mems {
+		if _, ok := ls.internalNodeIds[mem.GetHexString()]; ok {
+			cnt++
+			if cnt >= n {
+				break
+			}
+			if mem.GetHexString() == ls.nodeId {
+				return true
+			}
+		}
+	}
+	return false
 }

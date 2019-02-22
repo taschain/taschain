@@ -7,6 +7,7 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/mediator"
+	"github.com/pmylund/sortutil"
 )
 
 // 区块链浏览器
@@ -331,9 +332,21 @@ func (api *GtasAPI) MonitorNodeInfo() (*Result, error) {
 }
 
 func (api *GtasAPI) MonitorAllMiners() (*Result, error)  {
-    heavy, light := mediator.Proc.GetAllMinersIds()
-    m := make(map[string][]string)
-    m["heavy"] = heavy
-    m["light"] = light
-    return successResult(m)
+    miners := mediator.Proc.GetAllMinerDOs()
+    totalStake := uint64(0)
+    maxStake := uint64(0)
+	for _, m := range miners {
+		if m.AbortHeight == 0 && m.NType == types.MinerTypeHeavy {
+			totalStake += m.Stake
+			if maxStake < m.Stake {
+				maxStake = m.Stake
+			}
+		}
+	}
+	sortutil.AscByField(miners, "Stake")
+	data := make(map[string]interface{})
+	data["miners"] = miners
+	data["maxStake"] = maxStake
+	data["totalStake"] = totalStake
+    return successResult(data)
 }

@@ -85,12 +85,16 @@ func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
 }
 
 func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn uint64) {
+	if totalStake == 0 {
+		stdLogger.Errorf("total stake is 0!")
+		return false, 0
+	}
 	value := base.VRF_proof2hash(pi)
 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	pr := br.Quo(br, max256)
 
-	brTStake := new(big.Rat).SetInt64(int64(totalStake))
+	brTStake := new(big.Rat).SetFloat64(float64(totalStake))
 	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
 
 	s1, _ := pr.Float64()
@@ -110,7 +114,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	r, _ := pr.Quo(pr, step).Float64()
 	qn = uint64(math.Floor(r) + 1)
 
-	blog.log("proveValue %v, stake %v, step %v, qn %v", s1, s2, st, qn)
+	blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
 
 	return
 	//return true

@@ -67,6 +67,7 @@ type ConsensusSharePieceMessage struct {
 	Dest    groupsig.ID //接收者（矿工）的ID
 	Share   SharePiece  //消息明文（由传输层用接收者公钥对消息进行加密和解密）
 	//SI      SignData    //矿工个人签名
+	MemCnt 	int32
 	BaseSignedMessage
 }
 
@@ -85,6 +86,7 @@ type ConsensusSignPubKeyMessage struct {
 	SignPK groupsig.Pubkey    //组成员签名公钥
 	//GSign  groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
 	//SI      SignData           //矿工个人签名
+	MemCnt 	int32
 	BaseSignedMessage
 }
 
@@ -121,6 +123,8 @@ type ConsensusGroupInitedMessage struct {
 	GroupPK  groupsig.Pubkey           //组公钥
 	CreateHeight uint64 				//组开始创建时的高度
 	ParentSign groupsig.Signature
+	MemMask 	[]byte				//组成员mask，值为1的位表名该candidate在组成员列表中,根据该mask表和candidate集合可恢复出组成员列表
+	MemCnt 	int32
 	BaseSignedMessage
 }
 
@@ -131,6 +135,7 @@ func (msg *ConsensusGroupInitedMessage) GenHash() common.Hash {
 	buf.Write(msg.GroupPK.Serialize())
 	buf.Write(common.Uint64ToByte(msg.CreateHeight))
 	buf.Write(msg.ParentSign.Serialize())
+	buf.Write(msg.MemMask)
 	return base.Data2CommonHash(buf.Bytes())
 }
 
@@ -294,3 +299,30 @@ type CastRewardTransSignMessage struct {
 func (msg *CastRewardTransSignMessage) GenHash() common.Hash {
 	return msg.ReqHash
 }
+
+type CreateGroupPingMessage struct {
+	BaseSignedMessage
+	FromGroupID groupsig.ID
+	PingID 	string
+}
+
+func (msg *CreateGroupPingMessage) GenHash() common.Hash {
+	buf := msg.FromGroupID.Serialize()
+	buf = append(buf, []byte(msg.PingID)...)
+	return base.Data2CommonHash(buf)
+}
+
+type CreateGroupPongMessage struct {
+	BaseSignedMessage
+	PingID string
+	Ts 		time.Time
+}
+
+func (msg *CreateGroupPongMessage) GenHash() common.Hash {
+	buf := []byte(msg.PingID)
+	tb, _ := msg.Ts.MarshalBinary()
+	buf = append(buf, tb...)
+	return base.Data2CommonHash(tb)
+}
+
+

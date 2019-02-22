@@ -5,11 +5,6 @@ import (
 	"core"
 	"fmt"
 	"consensus/model"
-	"strings"
-	"common"
-	"middleware/types"
-	"bytes"
-	"logservice"
 )
 
 /*
@@ -22,169 +17,109 @@ type GroupManager struct {
 	groupChain     *core.GroupChain
 	mainChain      core.BlockChain
 	processor      *Processor
-	creatingGroups *CreatingGroups
-	checker        *GroupCreateChecker
+	//creatingGroups *CreatingGroups
+	creatingGroupCtx *CreatingGroupContext
+	checker          *GroupCreateChecker
 }
 
 func NewGroupManager(processor *Processor) *GroupManager {
-	return &GroupManager{
+	gm := &GroupManager{
 		processor:      processor,
 		mainChain:      processor.MainChain,
 		groupChain:     processor.GroupChain,
-		creatingGroups: &CreatingGroups{},
+		//creatingGroups: &CreatingGroups{},
 		checker:        newGroupCreateChecker(processor),
 	}
+	return gm
 }
 
-func (gm *GroupManager) addCreatingGroup(group *CreatingGroup) {
-	gm.creatingGroups.addCreatingGroup(group)
+func (gm *GroupManager) setCreatingGroupContext(baseCtx *createGroupBaseContext, kings []groupsig.ID, isKing bool)  {
+	ctx := newCreateGroupContext(baseCtx, kings, isKing, gm.mainChain.Height())
+	gm.creatingGroupCtx = ctx
 }
 
-func (gm *GroupManager) removeCreatingGroup(hash common.Hash) {
-	gm.creatingGroups.removeGroup(hash)
+func (gm *GroupManager) getContext() *CreatingGroupContext {
+    return gm.creatingGroupCtx
+}
+
+func (gm *GroupManager) removeContext() {
+	gm.creatingGroupCtx = nil
 }
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
 	top := gm.mainChain.QueryTopBlock()
 	topHeight := top.Height
-	blog := newBizLog("CreateNextGroupRoutine")
 
-	gh, memIds, threshold, kings, err := gm.checker.generateGroupHeader(topHeight, top.CurTime, gm.groupChain.LastGroup())
-	if gh == nil {
-		return
-	}
-	if err != nil {
-		blog.log(err.Error())
-	}
-	isKing := false
-	for _, id := range kings {
-		if id.IsEqual(gm.processor.GetMinerID()) {
-			isKing = true
-			break
+	gap := model.Param.GroupCreateGap
+	if topHeight > gap {
+		gm.checkReqCreateGroupSign(topHeight)
+
+		pre := gm.mainChain.QueryBlockHeaderByHash(top.PreHash)
+		if pre != nil {
+			for h := top.Height; h > pre.Height && h > gap; h-- {
+				baseHeight := h-gap
+				if checkCreate(baseHeight) {
+					gm.checkCreateGroupRoutine(baseHeight)
+					break
+				}
+			}
 		}
 	}
-	if !isKing {
-		blog.log("current proc is not a king! topHeight=%v", topHeight)
-		return
-	}
 
-	parentGroupId := groupsig.DeserializeId(gh.Parent)
-
-	gInfo := model.ConsensusGroupInitInfo{
-		GI:   model.ConsensusGroupInitSummary{GHeader: gh},
-		Mems: memIds,
-	}
-	msg := &model.ConsensusCreateGroupRawMessage{
-		GInfo: gInfo,
-	}
-	ski := model.NewSecKeyInfo(gm.processor.GetMinerID(), gm.processor.getSignKey(parentGroupId))
-	if !msg.GenSign(ski, msg) {
-		blog.debug("genSign fail, id=%v, sk=%v, belong=%v", ski.ID.ShortS(), ski.SK.ShortS(), gm.processor.IsMinerGroup(parentGroupId))
-		return
-	}
-
-	creatingGroup := newCreateGroup(&gInfo, threshold)
-	gm.addCreatingGroup(creatingGroup)
-
-	blog.log("proc(%v) start Create Group consensus, send network msg to members, hash=%v...", gm.processor.getPrefix(), gh.Hash.ShortS())
-	memIdStrs := make([]string, 0)
-	for _, mem := range memIds {
-		memIdStrs = append(memIdStrs, mem.ShortS())
-	}
-	newHashTraceLog("CreateGroupRoutine", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", parentGroupId.ShortS(), strings.Join(memIdStrs, ","))
-
-	//发送日志
-	le := &logservice.LogEntry{
-		LogType: logservice.LogTypeCreateGroup,
-		Height: gm.groupChain.Count(),
-		Hash: gh.Hash.Hex(),
-		Proposer: gm.processor.GetMinerID().GetHexString(),
-	}
-	logservice.Instance.AddLog(le)
-
-	gm.processor.NetServer.SendCreateGroupRawMessage(msg)
 }
 
-func (gm *GroupManager) isGroupHeaderLegal(gh *types.GroupHeader) (bool, error) {
-	if gh.Hash != gh.GenHash() {
-		return false, fmt.Errorf("gh hash error, hash=%v, genHash=%v", gh.Hash.ShortS(), gh.GenHash().ShortS())
-	}
-
-	//前一组，父亲组是否存在
-	preGroup := gm.groupChain.GetGroupById(gh.PreGroup)
-	if preGroup == nil {
-		return false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
-	}
-	parentGroup := gm.groupChain.GetGroupById(gh.Parent)
-	if parentGroup == nil {
-		return false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
-	}
-	lastGroup := gm.groupChain.LastGroup()
-	if !bytes.Equal(preGroup.Id, lastGroup.Id) {
-		return false, fmt.Errorf("preGroup not equal to lastGroup")
-	}
-
-	//建组时高度是否存在 由于分叉处理，建组时的高度可能不存在
-	//bh := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
-	//if bh == nil {
-	//	core.Logger.Debugf("createBlock is nil, height=%v", gh.CreateHeight)
-	//	return false, common.ErrCreateBlockNil
-	//}
-
-	//生成组头是否与收到的一致
-	expectGH, _, _, _, err := gm.checker.generateGroupHeader(gh.CreateHeight, gh.BeginTime, lastGroup)
-	if expectGH == nil || err != nil {
-		return false, err
-	}
-	if expectGH.Hash != gh.Hash {
-		core.Logger.Debugf("hhhhhhhhh expect=%+v, rec=%+v\n", expectGH, gh)
-		return false, fmt.Errorf("expectGroup hash differ from receive hash, expect %v, receive %v", expectGH.Hash.ShortS(), gh.Hash.ShortS())
-	}
-
-	return true, nil
-}
 
 func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) (bool, error) {
 	blog := newBizLog("OMCGR")
 	blog.log("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
 
-	if gm.creatingGroups.hasSentHash(msg.GInfo.GroupHash()) {
-		blog.log("has sent initMsg, gHash=%v", msg.GInfo.GroupHash().ShortS())
-		return false, fmt.Errorf("has sent init")
+	ctx := gm.getContext()
+	if ctx.getStatus() == sendInit {
+		return false, fmt.Errorf("has send inited")
+	}
+	if ctx.readyTimeout(gm.mainChain.Height()) {
+		return false, fmt.Errorf("ready timeout")
+	}
+	if !ctx.generateGroupInitInfo() {
+		return false, fmt.Errorf("generate group init info fail")
+	}
+	if ctx.gInfo.GroupHash() != msg.GInfo.GroupHash() {
+		blog.log("expect gh %+v, real gh %+v", ctx.gInfo.GI.GHeader, msg.GInfo.GI.GHeader)
+		return false, fmt.Errorf("grouphash diff")
 	}
 
-	if ok, err := gm.isGroupHeaderLegal(msg.GInfo.GI.GHeader); !ok {
-		blog.log(err.Error())
-		return false, err
-	}
+	//if ok, err := gm.isGroupHeaderLegal(msg.GInfo.GI.GHeader); !ok {
+	//	blog.log(err.Error())
+	//	return false, err
+	//}
 	return true, nil
 
 }
 
-func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage, creating *CreatingGroup) bool {
+func (gm *GroupManager) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) (bool, error) {
 	blog := newBizLog("OMCGS")
 	blog.log("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
-	gis := &creating.gInfo.GI
-
-	if msg.GHash != gis.GetHash() {
-		blog.log("creating group hash diff, gHash=%v", msg.GHash.ShortS())
-		return false
+	ctx := gm.getContext()
+	if ctx == nil {
+		return false, fmt.Errorf("context is nil")
 	}
 
 	height := gm.processor.MainChain.QueryTopBlock().Height
-	if gis.ReadyTimeout(height) {
-		blog.log("gis expired!")
-		return false
+	if ctx.readyTimeout(height) {
+		return false, fmt.Errorf("ready timeout")
 	}
-	accept := gm.creatingGroups.acceptPiece(gis.GetHash(), msg.SI.SignMember, msg.SI.DataSign)
-	blog.log("accept result %v", accept)
-	newHashTraceLog("OMCGS", gis.GetHash(), msg.SI.SignMember).log("OnMessageCreateGroupSign ret %v, %v", PIECE_RESULT(accept), creating.gSignGenerator.Brief())
-	if accept == PIECE_THRESHOLD {
-		blog.log("收齐分片，聚合出组签名")
-		gis.Signature = creating.gSignGenerator.GetGroupSign()
-		return true
+	if ctx.gInfo.GroupHash() != msg.GHash {
+		return false, fmt.Errorf("gHash diff")
 	}
-	return false
+
+	accept, recover := ctx.acceptPiece(msg.SI.GetID(), msg.SI.DataSign)
+	blog.log("accept result %v %v", accept, recover)
+	newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID()).log("OnMessageCreateGroupSign ret %v, %v", recover, ctx.gSignGenerator.Brief())
+	if recover {
+		ctx.gInfo.GI.Signature = ctx.gSignGenerator.GetGroupSign()
+		return true, nil
+	}
+	return false, fmt.Errorf("waiting piece")
 }
 
 func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
@@ -224,4 +159,13 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 	}
 
 
+}
+
+func (gm *GroupManager) onGroupAddSuccess(g *StaticGroupInfo)  {
+	ctx := gm.getContext()
+	if ctx != nil && ctx.gInfo != nil && ctx.gInfo.GroupHash() == g.GInfo.GroupHash() {
+		top := gm.mainChain.Height()
+		groupLogger.Infof("onGroupAddSuccess info=%v, gHash=%v, gid=%v, costHeight=%v", ctx.logString(), g.GInfo.GroupHash().ShortS(), g.GroupID.ShortS(), top-ctx.createTopHeight)
+		gm.removeContext()
+	}
 }

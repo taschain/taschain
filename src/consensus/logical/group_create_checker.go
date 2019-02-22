@@ -5,10 +5,9 @@ import (
 	"consensus/model"
 	"consensus/base"
 	"middleware/types"
-	"time"
-	"fmt"
 	"sync"
-	"common"
+	"math"
+	"bytes"
 )
 
 /*
@@ -32,8 +31,8 @@ func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
 		curr: 0,
 	}
 }
-func checkCreate(topBH *types.BlockHeader) bool {
-    return topBH.Height % model.Param.CreateGroupInterval == 0
+func checkCreate(h uint64) bool {
+    return h > 0 && h % model.Param.CreateGroupInterval == 0
 }
 
 func (gchecker *GroupCreateChecker) heightCreated(h uint64) bool {
@@ -54,76 +53,50 @@ func (gchecker *GroupCreateChecker) addHeightCreated(h uint64)  {
 	gchecker.curr = (gchecker.curr+1)%len(gchecker.createdHeights)
 }
 
-func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) []groupsig.ID {
-	memCnt := group.GetMemberCount()
-	if memCnt <= 5 {
-		return group.GetMembers()
+//只要选择一半人就行了。每个人的权重按顺序递减
+func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) (kings []groupsig.ID, isKing bool) {
+	num := int(math.Ceil(float64(group.GetMemberCount()/2)))
+	if num < 1 {
+		num = 1
 	}
 
 	rand := base.RandFromBytes(theBH.Random)
-	num := 5
 
-	selectIndexs := rand.RandomPerm(memCnt, num)
-	ids := make([]groupsig.ID, len(selectIndexs))
+	isKing = false
+
+	selectIndexs := rand.RandomPerm(group.GetMemberCount(), num)
+	kings = make([]groupsig.ID, len(selectIndexs))
 	for i, idx := range selectIndexs {
-		ids[i] = group.GetMemberID(idx)
+		kings[i] = group.GetMemberID(idx)
+		if gchecker.processor.GetMinerID().IsEqual(kings[i]) {
+			isKing = true
+		}
 	}
 
-	newBizLog("selectKing").log("king index=%v, ids=%v", selectIndexs, ids)
-
-	return ids
-}
-
-
-/**
-* @Description:  检查是否开始建组
-* @Param:
-* @return:  create 当前是否应该建组, sgi 当前应该启动建组的组，即父亲组， castor 发起建组的组内成员， theBH 基于哪个块建组
-*/
-func (gchecker *GroupCreateChecker) checkCreateGroup(topHeight uint64) (create bool, sgi *StaticGroupInfo, castors []groupsig.ID, theBH *types.BlockHeader, err error) {
-	blog := newBizLog("checkCreateGroup")
-	blog.log("CreateHeightGroups = %v, topHeight = %v", gchecker.createdHeights, topHeight)
-	defer func() {
-		blog.log("topHeight=%v, create %v, err %v", topHeight, create, err)
-	}()
-	if topHeight <= model.Param.CreateGroupInterval {
-		err = fmt.Errorf("topHeight samller than CreateGroupInterval")
-		return
-	}
-
-	// 指定高度已经在组链上出现过
-	if gchecker.heightCreated(topHeight) {
-		err = fmt.Errorf("topHeight already created")
-		return
-	}
-
-	h := topHeight-model.Param.CreateGroupInterval
-	theBH = gchecker.processor.MainChain.QueryBlockByHeight(h)
-	if theBH == nil {
-		err = common.ErrCreateBlockNil
-		return
-	}
-	if !checkCreate(theBH) {
-		err = fmt.Errorf("cann't create group")
-		return
-	}
-
-	castGID := groupsig.DeserializeId(theBH.GroupId)
-	sgi = gchecker.processor.GetGroup(castGID)
-	if !sgi.CastQualified(topHeight) {
-		err = fmt.Errorf("group dont qualified creating group gid=%v", sgi.GroupID.ShortS())
-		return
-	}
-	castors = gchecker.selectKing(theBH, sgi)
-	blog.log("topHeight=%v, group=%v, king=%v", topHeight, sgi.GroupID.ShortS(), castors)
-	create = true
+	newBizLog("selectKing").log("king index=%v, ids=%v, isKing %v", selectIndexs, kings, isKing)
 	return
 }
 
+func (gchecker *GroupCreateChecker) availableGroupsAt(h uint64) []*types.Group {
+    iter := gchecker.processor.GroupChain.NewIterator()
+    gs := make([]*types.Group, 0)
+    for g := iter.Current(); g != nil; g = iter.MovePre() {
+		if g.Header.DismissHeight > h {
+			gs = append(gs, g)
+		} else {
+			genesis := gchecker.processor.GroupChain.GetGroupByHeight(0)
+			gs = append(gs, genesis)
+			break
+		}
+	}
+	return gs
+}
 
-func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, height uint64) (enough bool, cands []groupsig.ID) {
+
+func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (enough bool, cands []groupsig.ID) {
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
+	height := theBH.Height
 	allCandidates := gchecker.access.getCanJoinGroupMinersAt(height)
 
 	ids := make([]string, len(allCandidates))
@@ -134,7 +107,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	if len(allCandidates) < min {
 		return
 	}
-	groups := gchecker.processor.GetAvailableGroupsAt(height)
+	groups := gchecker.availableGroupsAt(theBH.Height)
 
 	blog.log("available groupsize %v", len(groups))
 
@@ -142,8 +115,11 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	for _, cand := range allCandidates {
 		joinedNum := 0
 		for _, g := range groups {
-			if g.MemExist(cand.ID) {
-				joinedNum++
+			for _, mem := range g.Members {
+				if bytes.Equal(mem, cand.ID.Serialize()) {
+					joinedNum++
+					break
+				}
 			}
 		}
 		if joinedNum < model.Param.MinerMaxJoinGroup {
@@ -151,13 +127,15 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 		}
 	}
 	num := len(candidates)
-	if len(candidates) < min {
-		blog.log("not enough candidates, expect %v, got %v", min, num)
+
+	selectNum := model.Param.CreateGroupMemberCount(num)
+	if selectNum <= 0 {
+		blog.log("not enough candidates, got %v", len(candidates))
 		return
 	}
 
 	rand := base.RandFromBytes(theBH.Random)
-	seqs := rand.RandomPerm(num, model.Param.GetGroupMemberNum())
+	seqs := rand.RandomPerm(num, selectNum)
 
 	result := make([]groupsig.ID, len(seqs))
 	for i, seq := range seqs {
@@ -170,42 +148,4 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader, h
 	}
 	blog.log("=============selectCandidates %v", str)
 	return true, result
-}
-
-func (checker *GroupCreateChecker) generateGroupHeader(createHeight uint64, createTime time.Time, lastGroup *types.Group) (gh *types.GroupHeader, mems []groupsig.ID, threshold int, kings []groupsig.ID, err error) {
-	create, group, castors, theBH, e := checker.checkCreateGroup(createHeight)
-	//指定高度不能建组
-	if !create {
-		err = e
-		return
-	}
-	if !group.GroupID.IsValid() {
-		panic("create group init summary failed")
-	}
-	//是否有足够候选人
-	enough, memIds := checker.selectCandidates(theBH, createHeight)
-	if !enough {
-		err = fmt.Errorf("not enough candidates")
-		return
-	}
-
-	gn := fmt.Sprintf("%s-%v", group.GroupID.GetHexString(), theBH.Height)
-	extends := fmt.Sprintf("baseBlock:%v,baseTime:%v,baseHeight:%v", theBH.Hash.Hex(), theBH.CurTime, theBH.Height)
-
-	gh = &types.GroupHeader{
-		Parent: group.GroupID.Serialize(),
-		PreGroup: lastGroup.Id,
-		Name: gn,
-		Authority: 777,
-		BeginTime: createTime,
-		CreateHeight: createHeight,
-		ReadyHeight: createHeight + model.Param.GroupGetReadyGap,
-		MemberRoot: model.GenMemberRootByIds(memIds),
-		Extends: extends,
-	}
-	gh.WorkHeight = gh.ReadyHeight + model.Param.GroupCastQualifyGap
-	gh.DismissHeight = gh.WorkHeight + model.Param.GroupCastDuration
-
-	gh.Hash = gh.GenHash()
-	return gh, memIds, model.Param.GetGroupK(group.GetMemberCount()), castors,nil
 }

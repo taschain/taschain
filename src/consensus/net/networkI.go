@@ -45,6 +45,10 @@ type MessageProcessor interface {
 	OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage)
 
 	OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage)
+
+	OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage)
+
+	OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage)
 }
 
 type GroupBrief struct {
@@ -82,4 +86,8 @@ type NetworkServer interface {
 	AnswerSignPkMessage(msg *model.ConsensusSignPubKeyMessage, receiver groupsig.ID)
 
 	AskSignPkMessage(msg *model.ConsensusSignPubkeyReqMessage, receiver groupsig.ID)
+
+	SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID)
+
+	SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief)
 }

@@ -289,7 +289,7 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 }
 
 type StateMachineGenerator interface {
-	Generate(id string) *StateMachine
+	Generate(id string, cnt int) *StateMachine
 }
 
 type groupInsideMachineGenerator struct{}
@@ -306,9 +306,9 @@ type groupOutsideMachineGenerator struct{}
 //	return machine
 //}
 
-func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
+func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine {
 	machine := newStateMachine(id)
-	memNum := model.Param.GetGroupMemberNum()
+	memNum := cnt
 	machine.appendNode(newStateNode(network.GroupInitMsg, 1, 1, func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
 	}))
@@ -318,7 +318,7 @@ func (m *groupInsideMachineGenerator) Generate(id string) *StateMachine {
 	machine.appendNode(newStateNode(network.SignPubkeyMsg, 1, memNum, func(msg interface{}) {
 		MessageHandler.processor.OnMessageSignPK(msg.(*model.ConsensusSignPubKeyMessage))
 	}))
-	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), model.Param.GetThreshold(), func(msg interface{}) {
+	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetGroupK(memNum), model.Param.GetGroupK(memNum), func(msg interface{}) {
 		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
 	}))
 	return machine
@@ -349,11 +349,11 @@ func (stm *StateMachines) cleanRoutine() bool {
 	return true
 }
 
-func (stm *StateMachines) GetMachine(id string) *StateMachine {
+func (stm *StateMachines) GetMachine(id string, cnt int) *StateMachine {
 	if v, ok := stm.machines.Get(id); ok {
 		return v.(*StateMachine)
 	} else {
-		m := stm.generator.Generate(id)
+		m := stm.generator.Generate(id, cnt)
 		contains, _ := stm.machines.ContainsOrAdd(id, m)
 		if !contains {
 			return m

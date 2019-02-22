@@ -16,7 +16,6 @@
 package mediator
 
 import (
-	"bytes"
 	"common"
 	"consensus/base"
 	"consensus/groupsig"
@@ -123,20 +122,7 @@ func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (boo
 }
 
 func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err error) {
-	if len(g.Signature) == 0 {
-		return false, fmt.Errorf("sign is empty")
-	}
-	//检验头和签名
-	if ok, err := Proc.CheckGroupHeader(g.Header, *groupsig.DeserializeSign(g.Signature)); ok {
-		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
-		gid := groupsig.NewIDFromPubkey(gpk).Serialize()
-		if !bytes.Equal(gid, g.Id) {
-			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
-		}
-	} else {
-		return false, err
-	}
-	return true, nil
+	return Proc.VerifyGroup(g)
 }
 
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {

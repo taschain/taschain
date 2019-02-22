@@ -44,7 +44,7 @@ type BlockChain interface {
 	//        1, 丢弃该块(链上已存在该块）
 	//        2,丢弃该块（链上存在QN值更大的相同高度块)
 	//        3,分叉调整
-	AddBlockOnChain(source string, b *types.Block,situation types.AddBlockOnChainSituation) types.AddBlockResult
+	AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult
 
 	Height() uint64
 
@@ -62,8 +62,6 @@ type BlockChain interface {
 
 	//根据指定高度查询块
 	QueryBlockByHeight(height uint64) *types.BlockHeader
-
-	QueryBlockBody(blockHash common.Hash) []*types.Transaction
 
 	QueryBlock(height uint64) *types.Block
 
@@ -91,15 +89,13 @@ type BlockChain interface {
 
 	Close()
 
-	//GetTrieNodesByExecuteTransactions(header *types.BlockHeader, transactions []*types.Transaction, addresses []common.Address) *[]types.StateNode
-
-	InsertStateNode(nodes *[]types.StateNode)
-
 	AddBonusTrasanction(transaction *types.Transaction)
 
 	GetBonusManager() *BonusManager
 
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error)
+
+	GetAccountDBByHeight(height uint64) (vm.AccountDB, error)
 
 	GetConsensusHelper() types.ConsensusHelper
 

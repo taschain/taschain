@@ -136,12 +136,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 			timer := time.NewTimer(time.Second * 10)
 			for {
 				<-timer.C
-				if core.BlockSyncer.IsInit() && len(network.GetNetInstance().ConnInfo()) > 0 {
+				if core.BlockSyncer.IsInit(){
 					break
 				} else {
 					var candicateHeight uint64
 					if core.BlockSyncer != nil {
-						_, _, candicateHeight = core.BlockSyncer.GetCandidateForSync()
+						_, _, candicateHeight,_ = core.BlockSyncer.GetCandidateForSync()
 					}
 					localBlockHeight := core.BlockChainImpl.Height()
 					fmt.Printf("Sync candidate block height:%d,local block height:%d\n", candicateHeight, localBlockHeight)
@@ -276,7 +276,7 @@ func (gtas *Gtas) Run() {
 	seedIp := mineCmd.Flag("seed", "seed ip").String()
 	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
-	natPort := mineCmd.Flag("natport", "nat server port").Default("70").Uint16()
+	natPort := mineCmd.Flag("natport", "nat server port").Default("0").Uint16()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 

@@ -272,6 +272,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	gmap["create_height"] = g.Header.CreateHeight
 	gmap["create_time"] = g.Header.BeginTime
+	gmap["mem_size"] = len(g.Members)
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
 		memberStr := groupsig.DeserializeId(mem).GetHexString()

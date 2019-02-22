@@ -14,6 +14,7 @@ import (
 	"consensus/groupsig"
 	"bytes"
 	"time"
+	"errors"
 )
 
 const BLOCK_CHAIN_ADJUST_TIME_OUT = 5 * time.Second
@@ -286,10 +287,9 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) (bool, erro
 	if chain.Height() == 0 {
 		return true, nil
 	}
-	pre := BlockChainImpl.QueryBlockByHash(bh.PreHash)
+	pre := chain.queryBlockByHash(bh.PreHash)
 	if pre == nil {
-		time.Sleep(time.Second)
-		panic("Pre should not be nil")
+		return false, errors.New("has no pre")
 	}
 	result, err := chain.GetConsensusHelper().VerifyNewBlock(bh, pre.Header)
 	if err != nil {
@@ -320,12 +320,12 @@ func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
 	}
 	Logger.Debugf("remove hash:%s height:%d ", header.Hash.Hex(), header.Height)
 	hash := header.Hash
-	block := BlockChainImpl.QueryBlockByHash(hash)
+	block := chain.queryBlockByHash(hash)
 	chain.topBlocks.Remove(header.Height)
 	chain.blocks.Delete(hash.Bytes())
 	chain.blockHeight.Delete(generateHeightKey(header.Height))
 
-	chain.latestBlock = BlockChainImpl.QueryBlockHeaderByHash(chain.latestBlock.PreHash)
+	chain.latestBlock = chain.queryBlockHeaderByHash(chain.latestBlock.PreHash)
 	chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
 
 	// 删除块的交易，返回transactionpool
@@ -407,7 +407,7 @@ func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockH
 
 	hash := lastChainPieceBlock.PreHash
 	for i := 0; i < ChainPieceLength; i++ {
-		header := BlockChainImpl.QueryBlockHeaderByHash(hash)
+		header := chain.queryBlockHeaderByHash(hash)
 		if header == nil {
 			//创世块 pre hash 不存在
 			break
@@ -450,7 +450,7 @@ func (chain *prototypeChain) GetChainPieceBlocks(reqHeight uint64) []*types.Bloc
 		if nil == bh {
 			continue
 		}
-		b := BlockChainImpl.QueryBlockByHash(bh.Hash)
+		b := chain.queryBlockByHash(bh.Hash)
 		if nil == b {
 			continue
 		}
@@ -507,7 +507,7 @@ func (chain *prototypeChain) ProcessChainPieceInfo(chainPiece []*types.BlockHead
 		return 1, chainPiece[0].Height + 1
 	} else {
 		var preHeight uint64
-		preBlock := BlockChainImpl.QueryBlockByHash(chain.latestBlock.PreHash)
+		preBlock := chain.queryBlockByHash(chain.latestBlock.PreHash)
 		if preBlock != nil {
 			preHeight = preBlock.Header.Height
 		} else {
@@ -646,7 +646,7 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	}
 
 	originCommonAncestorHash := (*blockChainPiece[0]).Header.PreHash
-	originCommonAncestor := BlockChainImpl.QueryBlockByHash(originCommonAncestorHash)
+	originCommonAncestor := chain.queryBlockByHash(originCommonAncestorHash)
 	if originCommonAncestor == nil {
 		return
 	}
@@ -654,7 +654,7 @@ func (chain *prototypeChain) MergeFork(blockChainPiece []*types.Block, topHeader
 	var index = -100
 	for i := 0; i < len(blockChainPiece); i++ {
 		block := blockChainPiece[i]
-		if BlockChainImpl.QueryBlockByHash(block.Header.Hash) == nil {
+		if chain.queryBlockByHash(block.Header.Hash) == nil {
 			index = i - 1
 			break
 		}
@@ -695,7 +695,7 @@ func (chain *prototypeChain) compareNextBlockPv(remoteNextHeader *types.BlockHea
 	if remoteNextBlockPv == nil {
 		return false
 	}
-	commonAncestor := BlockChainImpl.QueryBlockByHash(remoteNextHeader.PreHash)
+	commonAncestor := chain.queryBlockByHash(remoteNextHeader.PreHash)
 	if commonAncestor == nil {
 		Logger.Debugf("MergeFork common ancestor should not be nil!")
 		return false
@@ -717,4 +717,27 @@ func (chain *prototypeChain) compareNextBlockPv(remoteNextHeader *types.BlockHea
 		return true
 	}
 	return false
+}
+
+func (chain *prototypeChain) queryBlockByHash(hash common.Hash) *types.Block {
+	result, err := chain.blocks.Get(hash.Bytes())
+
+	if result != nil {
+		var block *types.Block
+		block, err = types.UnMarshalBlock(result)
+		if err != nil || &block == nil {
+			return nil
+		}
+		return block
+	} else {
+		return nil
+	}
+}
+
+func (chain *prototypeChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	block := chain.queryBlockByHash(hash)
+	if nil == block {
+		return nil
+	}
+	return block.Header
 }

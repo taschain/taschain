@@ -27,6 +27,8 @@ import (
 	"time"
 )
 
+const ChainDataVersion = 1
+
 var emptyHash = common.Hash{}
 
 func calcTxTree(tx []*types.Transaction) common.Hash {
@@ -74,6 +76,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
 		EvictedTxs:   make([]common.Hash, 0), //important!!
+		Nonce:        ChainDataVersion,
 	}
 
 	//blockByte, _ := json.Marshal(block)
@@ -261,7 +264,6 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x5665956ed6d245323715b15b6f4b62c5c141e7422440fd596c00cf3696746dc7"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x93ee2d83911ae7abf0d89bb3a4c73b4169998b1a57d8589aedaa2bb51629395e"), tenThousandTasBi)
 	stateDB.SetBalance(common.HexStringToAddress("0x2c6e9e2d789852af52427ee7e486e775107467740c73afd41456f402f0426013"), tenThousandTasBi)
-
 
 	stateDB.SetBalance(common.HexStringToAddress("0x87c83e834e52fbea9ec7b47534d49fa9ae51c91e22e9b1dae0d3b31e8d8b9be3"), tenThousandTasBi)
 

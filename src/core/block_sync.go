@@ -33,7 +33,7 @@ const (
 	sendTopBlockInfoInterval   = 3 * time.Second
 	blockSyncCandidatePoolSize = 3
 	blockSyncReqTimeout        = 3 * time.Second
-	blockSyncDependHoldTimeOut = 3 * time.Minute
+	blockInitDonePeerNum       = 3
 )
 
 var BlockSyncer *blockSyncer
@@ -85,10 +85,10 @@ func (bs *blockSyncer) trySync() {
 		return
 	}
 
-	id, height, _ := bs.GetCandidateForSync()
+	id, height, _, hasCandidate := bs.GetCandidateForSync()
 	if id == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
-		if !bs.init {
+		if !bs.init && hasCandidate {
 			bs.init = true
 		}
 		return
@@ -217,18 +217,14 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
+func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
 	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
 	bs.candidatePoolDump()
 
 	uselessCandidate := make([]string, 0, blockSyncCandidatePoolSize)
-	for id, topBlockInfo := range bs.candidatePool {
-		if !bs.isUsefulCandidate(localTotalQN, localTopHash, topBlockInfo.TotalQn, topBlockInfo.Hash) {
-			uselessCandidate = append(uselessCandidate, id)
-			continue
-		}
+	for id, _ := range bs.candidatePool {
 		if PeerManager.isEvil(id) {
 			uselessCandidate = append(uselessCandidate, id)
 		}
@@ -237,6 +233,10 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 		for _, id := range uselessCandidate {
 			delete(bs.candidatePool, id)
 		}
+	}
+	var hasCandidate = false
+	if len(bs.candidatePool) >= blockInitDonePeerNum {
+		hasCandidate = true
 	}
 	candidateId := ""
 	var candidateMaxTotalQn uint64 = 0
@@ -249,9 +249,9 @@ func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64) {
 		}
 	}
 	if localHeight >= candidateHeight {
-		return candidateId, candidateHeight, candidateHeight
+		return candidateId, candidateHeight, candidateHeight, hasCandidate
 	}
-	return candidateId, localHeight + 1, candidateHeight
+	return candidateId, localHeight + 1, candidateHeight, hasCandidate
 }
 
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
