@@ -523,11 +523,13 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	}
 
 	//此时组通过同步已上链了，但是后面的逻辑还是要执行，否则组数据状态有问题
-	//g := p.GroupChain.GetGroupById(msg.GroupID.Serialize())
-	//if g != nil {
-	//	blog.log("group already onchain")
-	//	return
-	//}
+	g := p.GroupChain.GetGroupById(msg.GroupID.Serialize())
+	if g != nil {
+		blog.log("group already onchain")
+		p.globalGroups.removeInitedGroup(gHash)
+		p.joiningGroups.Clean(gHash)
+		return
+	}
 
 	pk := GetMinerPK(msg.SI.GetID())
 	if !msg.VerifySign(*pk) {
@@ -543,7 +545,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 			return
 		}
 		if gInfo.GroupHash() != msg.GHash {
-			blog.log("groupHeader hash error, expect %v, receive %v", gInfo.GroupHash(), msg.GHash.Hex())
+			blog.log("groupHeader hash error, expect %v, receive %v", gInfo.GroupHash().Hex(), msg.GHash.Hex())
 			return
 		}
 		gInfo.GI.Signature = msg.ParentSign

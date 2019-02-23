@@ -339,7 +339,7 @@ func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
 
 func (jgs *JoiningGroups) Clean(gHash common.Hash)  {
     gc := jgs.GetGroup(gHash)
-	if gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
+	if gc != nil && gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
 		gc.gInfo = nil
 		gc.node = nil
 	}
