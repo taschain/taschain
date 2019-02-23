@@ -5,6 +5,8 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
+	"logservice"
+	"fmt"
 )
 
 /*
@@ -126,12 +128,57 @@ func (p *Processor) releaseRoutine() bool {
 			blog.debug("DissolveGroupNet dummyGroup from joiningGroups gHash %v", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
 			p.joiningGroups.RemoveGroup(gHash)
+
+			initedGroup := p.globalGroups.GetInitedGroup(gHash)
+			omgied := "nil"
+			if initedGroup != nil {
+				omgied = fmt.Sprintf("OMGIED:%v(%v)", initedGroup.receiveSize(), initedGroup.threshold)
+			}
+
+			waitPieceIds := make([]string, 0)
+			for _, mem := range gc.gInfo.Mems {
+				if !gc.node.hasPiece(mem) {
+					waitPieceIds = append(waitPieceIds, mem.ShortS())
+					if len(waitPieceIds) >= 5 {
+						break
+					}
+				}
+			}
+			//发送日志
+			le := &logservice.LogEntry{
+				LogType: logservice.LogTypeInitGroupRevPieceTimeout,
+				Height: p.GroupChain.Count(),
+				Hash: gHash.Hex(),
+				Proposer: "00",
+				Ext: fmt.Sprintf("MemCnt:%v,Pieces:%v,wait:%v,%v", gc.gInfo.MemberSize(),gc.node.groupInitPool.GetSize(),waitPieceIds,omgied),
+			}
+			if logservice.Instance.IsFirstNInternalNodesInGroup(gc.gInfo.Mems, 50) {
+				logservice.Instance.AddLog(le)
+			}
 		}
 		return true
 	})
 	gctx := p.groupManager.getContext()
 	if gctx != nil && gctx.readyTimeout(topHeight) {
 		groupLogger.Infof("releaseRoutine:info=%v, elapsed %v. ready timeout.", gctx.logString(), time.Since(gctx.createTime))
+
+		if gctx.isKing() {
+			gHash := "0000"
+			if gctx != nil && gctx.gInfo != nil {
+				gHash = gctx.gInfo.GroupHash().Hex()
+			}
+			//发送日志
+			le := &logservice.LogEntry{
+				LogType: logservice.LogTypeCreateGroupSignTimeout,
+				Height: p.GroupChain.Count(),
+				Hash: gHash,
+				Proposer: p.GetMinerID().GetHexString(),
+				Ext: fmt.Sprintf("%v", gctx.gSignGenerator.Brief()),
+			}
+			if logservice.Instance.IsFirstNInternalNodesInGroup(gctx.kings, 50) {
+				logservice.Instance.AddLog(le)
+			}
+		}
 		p.groupManager.removeContext()
 	}
 	//p.groupManager.creatingGroups.forEach(func(cg *CreatingGroupContext) bool {

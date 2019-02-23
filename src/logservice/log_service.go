@@ -34,7 +34,8 @@ const (
 	LogTypeBlockBroadcast = 2
 	LogTypeBonusBroadcast = 3
 	LogTypeCreateGroup = 4
-	LogTypeAddOnChain = 5
+	LogTypeCreateGroupSignTimeout = 5
+	LogTypeInitGroupRevPieceTimeout = 6
 )
 
 const TableName = "logs"
