@@ -131,34 +131,28 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}
 
 	pongsize := ctx.pongSize()
-	deadline := ctx.pongDeadline(topHeight)
-	//未收齐pong，且未到pong deadline
-	if pongsize < len(ctx.candidates) && !deadline {
-		blog.log("pongsize %v, deadline %v", pongsize, deadline)
-		return false
-	}
-
-	//暂未收到足够的pong
-	if pongsize < model.Param.GroupMemberMin {
-		blog.log("got not enough pongs!, got %v", pongsize)
-		desc = "not enough pongs."
-		return false
-	}
 
 	if ctx.getStatus() != waitingPong  {
 		return false
 	}
-	ctx.setStatus(waitingSign)
 
-	if !ctx.generateGroupInitInfo() {
+	if !ctx.generateGroupInitInfo(topHeight) {
+		desc = fmt.Sprintf("cannot generate group info, pongsize %v, pongdeadline %v", pongsize, ctx.pongDeadline(topHeight))
 		return false
 	}
+
+	ctx.setStatus(waitingSign)
 	gInfo := ctx.gInfo
 	gh := gInfo.GI.GHeader
 
 	desc = fmt.Sprintf("generateGroupInitInfo gHash=%v, memsize=%v, wait sign", gh.Hash.ShortS(), gInfo.MemberSize())
 
 	if !ctx.isKing() {
+		return false
+	}
+	if gInfo.MemberSize() < model.Param.GroupMemberMin {
+		blog.log("got not enough pongs!, got %v", pongsize)
+		desc = "not enough pongs."
 		return false
 	}
 

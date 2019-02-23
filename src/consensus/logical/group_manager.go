@@ -80,7 +80,7 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 	if ctx.readyTimeout(gm.mainChain.Height()) {
 		return false, fmt.Errorf("ready timeout")
 	}
-	if !ctx.generateGroupInitInfo() {
+	if !ctx.generateGroupInitInfo(gm.mainChain.Height()) {
 		return false, fmt.Errorf("generate group init info fail")
 	}
 	if ctx.gInfo.GroupHash() != msg.GInfo.GroupHash() {

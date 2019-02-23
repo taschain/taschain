@@ -111,7 +111,7 @@ func (ctx *createGroupBaseContext) createGroupHeader(memIds []groupsig.ID) *type
 	pid := ctx.parentInfo.GroupID
 	theBH := ctx.baseBH
 	gn := fmt.Sprintf("%s-%v", pid.GetHexString(), theBH.Height)
-	extends := fmt.Sprintf("baseBlock:%v", theBH.Hash.Hex(), theBH.CurTime, theBH.Height)
+	extends := fmt.Sprintf("baseBlock:%v|%v|%v", theBH.Hash.Hex(), theBH.CurTime, theBH.Height)
 
 	gh := &types.GroupHeader{
 		Parent: ctx.parentInfo.GroupID.Serialize(),
@@ -149,9 +149,13 @@ func (ctx *CreatingGroupContext) isKing() bool {
 	return ctx.bKing
 }
 
-func (ctx *CreatingGroupContext) addPong(uid groupsig.ID) (add bool, size int) {
+func (ctx *CreatingGroupContext) addPong(h uint64, uid groupsig.ID) (add bool, size int) {
+	if ctx.pongDeadline(h) {
+		return false, ctx.pongSize()
+	}
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
+
 
 	if ctx.hasCandidate(uid) {
 		ctx.pongMap[uid.GetHexString()] = 1
@@ -192,20 +196,22 @@ func (ctx *CreatingGroupContext) generateMemberMask() (mask []byte) {
 	return
 }
 
-func (ctx *CreatingGroupContext) generateGroupInitInfo() bool {
+func (ctx *CreatingGroupContext) generateGroupInitInfo(h uint64) bool {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
-	mask := ctx.generateMemberMask()
-	if ctx.gInfo != nil && bytes.Equal(mask, ctx.memMask) {
+	if ctx.gInfo != nil {
 		return true
-	} else {
+	}
+	if len(ctx.pongMap) == len(ctx.candidates) || ctx.pongDeadline(h) {
+		mask := ctx.generateMemberMask()
 		gInfo := ctx.createGroupInitInfo(mask)
 		ctx.gInfo = gInfo
 		ctx.memMask = mask
+		return true
 	}
 
-	return true
+	return false
 }
 
 func (ctx *CreatingGroupContext) acceptPiece(from groupsig.ID, sign groupsig.Signature) (accept, recover bool) {

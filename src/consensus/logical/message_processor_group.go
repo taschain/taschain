@@ -70,7 +70,7 @@ func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) 
 	}
 
 	if msg.VerifySign(*pk) {
-		add, got := ctx.addPong(msg.SI.GetID())
+		add, got := ctx.addPong(p.MainChain.Height(), msg.SI.GetID())
 		err = fmt.Errorf("size %v", got)
 		if add {
 			p.groupManager.checkReqCreateGroupSign(p.MainChain.Height())
