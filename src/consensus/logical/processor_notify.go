@@ -103,6 +103,9 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	p.acceptGroup(sgi)
 
 	p.groupManager.onGroupAddSuccess(sgi)
+	p.joiningGroups.Clean(sgi.GInfo.GroupHash())
+	p.globalGroups.removeInitedGroup(sgi.GInfo.GroupHash())
+
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message) {
