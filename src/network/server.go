@@ -214,7 +214,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	code := message.Code
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
-		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong:
+		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece:
 		n.consensusHandler.Handle(from, *message)
 	case ReqTransactionMsg:
 		msg := notify.TransactionReqMessage{TransactionReqByte: message.Body, Peer: from}

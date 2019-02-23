@@ -233,3 +233,22 @@ func marshalCreateGroupPongMessage(msg *model.CreateGroupPongMessage) ([]byte, e
 	}
 	return proto.Marshal(message)
 }
+
+func marshalSharePieceReqMessage(msg *model.ReqSharePieceMessage) ([]byte, error) {
+	si := signDataToPb(&msg.SI)
+	message := &tas_middleware_pb.ReqSharePieceMessage{
+		Sign:      si,
+		GHash:   msg.GHash.Bytes(),
+	}
+	return proto.Marshal(message)
+}
+
+func marshalSharePieceResponseMessage(msg *model.ResponseSharePieceMessage) ([]byte, error) {
+	si := signDataToPb(&msg.SI)
+	message := &tas_middleware_pb.ResponseSharePieceMessage{
+		Sign:      si,
+		GHash:   msg.GHash.Bytes(),
+		SharePiece: sharePieceToPb(&msg.Share),
+	}
+	return proto.Marshal(message)
+}

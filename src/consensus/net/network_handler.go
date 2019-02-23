@@ -174,6 +174,22 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageCreateGroupPong(m)
+
+	case network.ReqSharePiece:
+		m, e := unMarshalSharePieceReqMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unMarshalSharePieceReqMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageSharePieceReq(m)
+
+	case network.ResponseSharePiece:
+		m, e := unMarshalSharePieceResponseMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unMarshalSharePieceResponseMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageSharePieceResponse(m)
 	}
 
 	return nil

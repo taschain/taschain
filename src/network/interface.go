@@ -96,6 +96,9 @@ const (
 	//建组时ping pong
 	GroupPing uint32 = 100
 	GroupPong uint32 = 101
+
+	ReqSharePiece uint32 = 102
+	ResponseSharePiece uint32 = 103
 )
 
 type Message struct {

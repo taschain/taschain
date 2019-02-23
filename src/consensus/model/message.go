@@ -327,4 +327,30 @@ func (msg *CreateGroupPongMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(tb)
 }
 
+type ReqSharePieceMessage struct {
+	BaseSignedMessage
+	GHash common.Hash
+}
+
+func (msg *ReqSharePieceMessage) GenHash() common.Hash {
+	return msg.GHash
+}
+
+
+//向所有组内成员发送秘密片段消息（不同成员不同）
+type ResponseSharePieceMessage struct {
+	GHash common.Hash //组初始化共识（ConsensusGroupInitSummary）的哈希
+	Share   SharePiece  //消息明文（由传输层用接收者公钥对消息进行加密和解密）
+	BaseSignedMessage
+}
+
+func (msg *ResponseSharePieceMessage) GenHash() common.Hash {
+	buf := msg.GHash.Bytes()
+	//buf = append(buf, msg.GHash.Bytes()...)
+	buf = append(buf, msg.Share.Pub.Serialize()...)
+	buf = append(buf, msg.Share.Share.Serialize()...)
+	return base.Data2CommonHash(buf)
+}
+
+
 

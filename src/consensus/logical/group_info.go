@@ -448,17 +448,17 @@ func (gg *GlobalGroups) GetInitedGroup(gHash common.Hash) *InitedGroup {
     return gg.generator.getInitedGroup(gHash)
 }
 
-func (gg *GlobalGroups) DismissGroups(height uint64) []groupsig.ID {
+func (gg *GlobalGroups) DismissGroups(height uint64) []*StaticGroupInfo {
     gg.lock.RLock()
     defer gg.lock.RUnlock()
 
-    ids := make([]groupsig.ID, 0)
+    ids := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
 		if g == nil {
 			continue
 		}
 		if g.Dismissed(height) {
-			ids = append(ids, g.GroupID)
+			ids = append(ids, g)
 		}
 	}
 	return ids

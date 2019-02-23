@@ -49,6 +49,9 @@ type MessageProcessor interface {
 	OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage)
 
 	OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage)
+
+	OnMessageSharePieceReq(msg *model.ReqSharePieceMessage)
+	OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage)
 }
 
 type GroupBrief struct {
@@ -90,4 +93,6 @@ type NetworkServer interface {
 	SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID)
 
 	SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief)
+	ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID)
+	ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID)
 }

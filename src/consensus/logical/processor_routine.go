@@ -102,7 +102,12 @@ func (p *Processor) releaseRoutine() bool {
 	p.cleanVerifyContext(topHeight)
 
 	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
-	ids := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
+	groups := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
+	ids := make([]groupsig.ID, 0)
+	for _, g := range groups {
+		ids = append(ids, g.GroupID)
+	}
+
 	blog := newBizLog("releaseRoutine")
 
 	if len(ids) > 0 {
@@ -110,9 +115,11 @@ func (p *Processor) releaseRoutine() bool {
 		p.globalGroups.RemoveGroups(ids)
 		p.blockContexts.removeBlockContexts(ids)
 		p.belongGroups.leaveGroups(ids)
-		for _, gid := range ids {
+		for _, g := range groups {
+			gid := g.GroupID
 			blog.debug("DissolveGroupNet staticGroup gid %v ", gid.ShortS())
 			p.NetServer.ReleaseGroupNet(gid.GetHexString())
+			p.joiningGroups.RemoveGroup(g.GInfo.GroupHash())
 		}
 	}
 
@@ -127,7 +134,6 @@ func (p *Processor) releaseRoutine() bool {
 		if gis.ReadyTimeout(topHeight) {
 			blog.debug("DissolveGroupNet dummyGroup from joiningGroups gHash %v", gHash.ShortS())
 			p.NetServer.ReleaseGroupNet(gHash.Hex())
-			p.joiningGroups.RemoveGroup(gHash)
 
 			initedGroup := p.globalGroups.GetInitedGroup(gHash)
 			omgied := "nil"
@@ -256,6 +262,43 @@ func (p *Processor) updateGlobalGroups() bool {
 		sgi := NewSGIFromCoreGroup(g)
 		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
+	}
+	return true
+}
+
+func (p *Processor) getReqSharepieceRoutineName() string {
+	return "req_sharepiece_routine" + p.getPrefix()
+}
+
+func (p *Processor) reqSharePieceRoutine() bool {
+	top := p.MainChain.Height()
+	gs := p.globalGroups.GetAvailableGroups(top)
+	for _, g := range gs {
+		if g.MemExist(p.GetMinerID()) && !p.IsMinerGroup(g.GroupID) {
+			stdLogger.Infof("joining group failure found,gid=%v", g.GroupID.ShortS())
+			gc := p.joiningGroups.GetGroup(g.GInfo.GroupHash())
+			if gc == nil {
+				stdLogger.Infof("grout context not found, gid=%v, gHash=%v", g.GroupID.ShortS(), g.GInfo.GroupHash().ShortS())
+			} else if gc.gInfo.GI.ReadyTimeout(top) {
+				lackIds := make([]groupsig.ID, 0)
+				for _, mem := range gc.gInfo.Mems {
+					if !gc.node.hasPiece(mem) {
+						lackIds = append(lackIds, mem)
+					}
+				}
+				if len(lackIds) > 0 {
+					msg := &model.ReqSharePieceMessage{
+						GHash: gc.gInfo.GroupHash(),
+					}
+					if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
+						for _, receiver := range lackIds {
+							stdLogger.Infof("req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
+							p.NetServer.ReqSharePiece(msg, receiver)
+						}
+					}
+				}
+			}
+		}
 	}
 	return true
 }

@@ -303,3 +303,25 @@ func (ns *NetworkServerImpl) SendGroupPongMessage(msg *model.CreateGroupPongMess
 
 	ns.net.SpreadToGroup(group.Gid.GetHexString(), mems, m, msg.SI.DataHash.Bytes())
 }
+
+func (ns *NetworkServerImpl) ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID) {
+	body, e := marshalSharePieceReqMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalSharePieceReqMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.ReqSharePiece, Body: body}
+
+	ns.net.Send(receiver.String(), m)
+}
+
+func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID) {
+	body, e := marshalSharePieceResponseMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalSharePieceResponseMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.ResponseSharePiece, Body: body}
+
+	ns.net.Send(receiver.String(), m)
+}

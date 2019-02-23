@@ -188,6 +188,7 @@ type GroupContext struct {
 	node *GroupNode                 //组节点信息（用于初始化生成组公钥和签名私钥）
 	gInfo  *model.ConsensusGroupInitInfo //组初始化信息（由父亲组指定）
 	candidates []groupsig.ID
+	sharePieceMap model.SharePieceMap
 }
 
 func (gc *GroupContext) GetNode() *GroupNode {
@@ -258,13 +259,13 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, candi
 
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
-func (gc *GroupContext) PieceMessage(spm *model.ConsensusSharePieceMessage) int {
+func (gc *GroupContext) PieceMessage(id groupsig.ID, share model.SharePiece) int {
 	/*可能父亲组消息还没到，先收到组成员的piece消息
 	if !gc.MemExist(spm.si.SignMember) { //非组内成员
 		return -1
 	}
 	*/
-	result := gc.node.SetInitPiece(spm.SI.SignMember, spm.Share)
+	result := gc.node.SetInitPiece(id, share)
 	switch result {
 	case 1: //完成聚合（已生成组公钥和组成员签名私钥）
 		//由外层启动组外广播（to do : 升级到通知父亲组节点）
@@ -285,6 +286,7 @@ func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 		piece.Share = v
 		shares[k] = piece
 	}
+	gc.sharePieceMap = shares
 	return shares
 }
 
@@ -340,8 +342,8 @@ func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
 func (jgs *JoiningGroups) Clean(gHash common.Hash)  {
     gc := jgs.GetGroup(gHash)
 	if gc != nil && gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
-		gc.gInfo = nil
-		gc.node = nil
+		//gc.gInfo = nil
+		//gc.node = nil
 	}
 }
 

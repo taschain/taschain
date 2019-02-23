@@ -18,7 +18,6 @@ package cli
 import (
 	"common"
 	"encoding/json"
-	"golang.org/x/time/rate"
 	"log"
 	"core"
 	"sync"
@@ -29,10 +28,10 @@ type wallets []wallet
 
 var mutex sync.Mutex
 
-var limiter *rate.Limiter
+//var limiter *rate.Limiter
 
 func init() {
-	limiter = rate.NewLimiter(200, 200)
+	//limiter = rate.NewLimiter(200, 200)
 }
 
 

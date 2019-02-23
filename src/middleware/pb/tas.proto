@@ -432,3 +432,14 @@ message CreateGroupPongMessage {
     required bytes Ts = 2;
     required SignData Sign = 3;
 }
+
+message ReqSharePieceMessage {
+    required bytes GHash = 1;
+    required SignData Sign = 2;
+}
+
+message ResponseSharePieceMessage {
+    required bytes GHash = 1;
+    required SharePiece  SharePiece = 2;
+    required SignData Sign = 3;
+}

@@ -421,3 +421,40 @@ func unMarshalCreateGroupPongMessage(b []byte) (*model.CreateGroupPongMessage, e
 	}
 	return m, nil
 }
+
+func unMarshalSharePieceReqMessage(b []byte) (*model.ReqSharePieceMessage, error) {
+	message := new(tas_middleware_pb.ReqSharePieceMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]unMarshalSharePieceReqMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	sign := pbToSignData(message.Sign)
+	base := model.BaseSignedMessage{SI: *sign}
+
+	m := &model.ReqSharePieceMessage{
+		BaseSignedMessage: base,
+		GHash:       common.BytesToHash(message.GHash),
+	}
+	return m, nil
+}
+
+func unMarshalSharePieceResponseMessage(b []byte) (*model.ResponseSharePieceMessage, error) {
+	message := new(tas_middleware_pb.ResponseSharePieceMessage)
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		network.Logger.Errorf("[handler]unMarshalResponseSharePieceMessage error:%s", e.Error())
+		return nil, e
+	}
+
+	sign := pbToSignData(message.Sign)
+	base := model.BaseSignedMessage{SI: *sign}
+
+	m := &model.ResponseSharePieceMessage{
+		BaseSignedMessage: base,
+		GHash:       common.BytesToHash(message.GHash),
+		Share: *pbToSharePiece(message.SharePiece),
+	}
+	return m, nil
+}

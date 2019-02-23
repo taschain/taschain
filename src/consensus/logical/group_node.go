@@ -175,6 +175,10 @@ func (n *GroupNode) GenSharePiece(mems []groupsig.ID) groupsig.SeckeyMapID {
 	return shares
 }
 
+func (n *GroupNode) getAllPiece() bool {
+    return n.groupInitPool.GetSize() == n.memberNum
+}
+
 //接收秘密共享
 //返回：0正常接收，-1异常，1完成签名私钥聚合和组公钥聚合
 func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
@@ -185,7 +189,7 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
 	if n.groupInitPool.ReceiveData(id, share) == -1 {
 		return -1
 	}
-	if n.groupInitPool.GetSize() == n.memberNum { //已经收到所有组内成员发送的秘密共享
+	if n.getAllPiece() { //已经收到所有组内成员发送的秘密共享
 		if n.beingValidMiner() {
 			return 1
 		} else {

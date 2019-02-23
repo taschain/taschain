@@ -326,12 +326,13 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	gh := gc.gInfo.GI.GHeader
 
 	topHeight := p.MainChain.QueryTopBlock().Height
+
 	if gc.gInfo.GI.ReadyTimeout(topHeight) {
 		blog.debug("ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
 		return
 	}
 
-	result := gc.PieceMessage(spm)
+	result := gc.PieceMessage(spm.SI.GetID(), spm.Share)
 	waitPieceIds := make([]string, 0)
 	for _, mem := range gc.gInfo.Mems {
 		if !gc.node.hasPiece(mem) {
@@ -606,4 +607,77 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	}
 	//blog.log("proc(%v) end OMGIED, sender=%v...", p.getPrefix(), GetIDPrefix(msg.SI.GetID()))
 	return
+}
+
+func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
+	blog := newBizLog("OMSPR")
+	blog.log("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.GetID().ShortS())
+
+	pk := GetMinerPK(msg.SI.GetID())
+	if pk == nil || !msg.VerifySign(*pk) {
+		blog.log("verify sign fail")
+		return
+	}
+	gc := p.joiningGroups.GetGroup(msg.GHash)
+	if gc == nil {
+		blog.log("gc is nil")
+		return
+	}
+	if gc.sharePieceMap == nil {
+		blog.log("sharePiece map is nil")
+		return
+	}
+	piece := gc.sharePieceMap[msg.SI.GetID().GetHexString()]
+
+	pieceMsg := &model.ResponseSharePieceMessage{
+		GHash: msg.GHash,
+		Share: piece,
+	}
+	if msg.GenSign(p.getDefaultSeckeyInfo(), pieceMsg) {
+		blog.log("response share piece to %v, gHash=%v, share=%v", msg.SI.GetID().ShortS(), msg.GHash.ShortS(), piece.Share.ShortS())
+		p.NetServer.ResponseSharePiece(pieceMsg, msg.SI.GetID())
+	}
+}
+
+
+func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage) {
+	blog := newBizLog("OMSPRP")
+	gHash := msg.GHash
+
+	blog.log("proc(%v)begin Processor::OMSPRP, sender=%v, gHash=%v...", p.getPrefix(), msg.SI.GetID().ShortS(), gHash.ShortS())
+	tlog := newHashTraceLog("OMSPRP", gHash, msg.SI.GetID())
+
+	gc := p.joiningGroups.GetGroup(gHash)
+	if gc == nil {
+		blog.debug("failed, receive SHAREPIECE msg but gc=nil.")
+		return
+	}
+	if gc.gInfo.GroupHash() != msg.GHash {
+		blog.debug("failed, gisHash diff.")
+		return
+	}
+
+	pk := GetMinerPK(msg.SI.GetID())
+	if pk == nil {
+		blog.debug("miner pk is nil, id=%v", msg.SI.GetID().ShortS())
+		return
+	}
+	if !msg.VerifySign(*pk) {
+		blog.debug("miner sign verify fail")
+		return
+	}
+
+	result := gc.PieceMessage(msg.SI.GetID(), msg.Share)
+
+	blog.log("proc(%v) after gc.PieceMessage, gc result=%v", p.getPrefix(), result)
+
+	tlog.log("收到piece数 %v, 收齐分片%v", gc.node.groupInitPool.GetSize(), result == 1)
+
+	if result == 1 { //已聚合出签名私钥,组公钥，组id
+		jg := gc.GetGroupInfo()
+		p.joinGroup(jg)
+	}
+
+	return
+
 }
