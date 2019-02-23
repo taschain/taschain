@@ -8,7 +8,6 @@ import (
 	"middleware/types"
 	"consensus/base"
 	"fmt"
-	"bytes"
 )
 
 /*

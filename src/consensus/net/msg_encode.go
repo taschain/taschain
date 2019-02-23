@@ -218,6 +218,7 @@ func marshalCreateGroupPingMessage(msg *model.CreateGroupPingMessage) ([]byte, e
 		Sign:      si,
 		PingID:   &msg.PingID,
 		FromGroupID: msg.FromGroupID.Serialize(),
+		BaseHeight: &msg.BaseHeight,
 	}
 	return proto.Marshal(message)
 }

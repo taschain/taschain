@@ -304,11 +304,13 @@ type CreateGroupPingMessage struct {
 	BaseSignedMessage
 	FromGroupID groupsig.ID
 	PingID 	string
+	BaseHeight uint64
 }
 
 func (msg *CreateGroupPingMessage) GenHash() common.Hash {
 	buf := msg.FromGroupID.Serialize()
 	buf = append(buf, []byte(msg.PingID)...)
+	buf = append(buf, common.Uint64ToByte(msg.BaseHeight)...)
 	return base.Data2CommonHash(buf)
 }
 

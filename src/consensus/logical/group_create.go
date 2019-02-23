@@ -97,6 +97,7 @@ func (gm *GroupManager) pingNodes()  {
 	msg := &model.CreateGroupPingMessage{
 		FromGroupID: ctx.parentInfo.GroupID,
 		PingID: ctx.pingID,
+		BaseHeight: ctx.baseBH.Height,
 	}
 	blog := newBizLog("pingNodes")
 	if msg.GenSign(gm.processor.getDefaultSeckeyInfo(), msg) {

@@ -395,6 +395,7 @@ func unMarshalCreateGroupPingMessage(b []byte) (*model.CreateGroupPingMessage, e
 		BaseSignedMessage: base,
 		FromGroupID:     groupsig.DeserializeId(message.FromGroupID),
 		PingID:         *message.PingID,
+		BaseHeight: 	*message.BaseHeight,
 	}
 	return m, nil
 }

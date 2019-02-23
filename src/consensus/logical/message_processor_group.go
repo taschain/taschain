@@ -19,9 +19,9 @@ func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) 
 	var err error
 	defer func() {
 		if err != nil {
-			blog.log("from %v, gid %v, pingId %v, won't pong, err=%v", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, err)
+			blog.log("from %v, gid %v, pingId %v, height=%v, won't pong, err=%v", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight, err)
 		} else {
-			blog.log("from %v, gid %v, pingId %v, pong!", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID)
+			blog.log("from %v, gid %v, pingId %v, height=%v, pong!", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight)
 		}
 	}()
 	pk := GetMinerPK(msg.SI.GetID())
@@ -29,6 +29,11 @@ func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) 
 		return
 	}
     if msg.VerifySign(*pk) {
+    	top := p.MainChain.Height()
+		if top <= msg.BaseHeight {
+			err = fmt.Errorf("localheight is %v, not enough", top)
+			return
+		}
     	pongMsg := &model.CreateGroupPongMessage{
     		PingID: msg.PingID,
     		Ts: time.Now(),

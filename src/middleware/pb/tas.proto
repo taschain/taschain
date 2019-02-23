@@ -423,7 +423,8 @@ message ChainPieceBlockMsg{
 message CreateGroupPingMessage {
     required bytes FromGroupID = 1;
     required string PingID = 2;
-    required SignData Sign = 3;
+    required uint64 BaseHeight = 3;
+    required SignData Sign = 4;
 }
 
 message CreateGroupPongMessage {
