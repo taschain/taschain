@@ -77,10 +77,11 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 	if ctx.getStatus() == sendInit {
 		return false, fmt.Errorf("has send inited")
 	}
-	if ctx.readyTimeout(gm.mainChain.Height()) {
+	top := gm.mainChain.Height()
+	if ctx.readyTimeout(top) {
 		return false, fmt.Errorf("ready timeout")
 	}
-	if !ctx.generateGroupInitInfo(gm.mainChain.Height()) {
+	if !ctx.generateGroupInitInfo(top) {
 		return false, fmt.Errorf("generate group init info fail")
 	}
 	if ctx.gInfo.GroupHash() != msg.GInfo.GroupHash() {
