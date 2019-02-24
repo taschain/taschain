@@ -272,33 +272,29 @@ func (p *Processor) getReqSharepieceRoutineName() string {
 
 func (p *Processor) reqSharePieceRoutine() bool {
 	top := p.MainChain.Height()
-	gs := p.globalGroups.GetAvailableGroups(top)
-	for _, g := range gs {
-		if g.MemExist(p.GetMinerID()) && !p.IsMinerGroup(g.GroupID) {
-			stdLogger.Infof("joining group failure found,gid=%v", g.GroupID.ShortS())
-			gc := p.joiningGroups.GetGroup(g.GInfo.GroupHash())
-			if gc == nil {
-				stdLogger.Infof("grout context not found, gid=%v, gHash=%v", g.GroupID.ShortS(), g.GInfo.GroupHash().ShortS())
-			} else if gc.gInfo.GI.ReadyTimeout(top) {
-				lackIds := make([]groupsig.ID, 0)
-				for _, mem := range gc.gInfo.Mems {
-					if !gc.node.hasPiece(mem) {
-						lackIds = append(lackIds, mem)
-					}
-				}
-				if len(lackIds) > 0 {
-					msg := &model.ReqSharePieceMessage{
-						GHash: gc.gInfo.GroupHash(),
-					}
-					if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
-						for _, receiver := range lackIds {
-							stdLogger.Infof("req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
-							p.NetServer.ReqSharePiece(msg, receiver)
-						}
-					}
+
+	p.joiningGroups.forEach(func(gc *GroupContext) bool {
+		if gc.gInfo == nil || gc.is != GisSendSharePiece || !gc.gInfo.GI.ReadyTimeout(top){
+			return true
+		}
+		lackIds := make([]groupsig.ID, 0)
+		for _, mem := range gc.gInfo.Mems {
+			if !gc.node.hasPiece(mem) {
+				lackIds = append(lackIds, mem)
+			}
+		}
+		if len(lackIds) > 0 {
+			msg := &model.ReqSharePieceMessage{
+				GHash: gc.gInfo.GroupHash(),
+			}
+			if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
+				for _, receiver := range lackIds {
+					stdLogger.Infof("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
+					p.NetServer.ReqSharePiece(msg, receiver)
 				}
 			}
 		}
-	}
+		return true
+	})
 	return true
 }

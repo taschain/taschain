@@ -31,7 +31,7 @@ func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getUpdateGlobalGroupsRoutineName(), p.updateGlobalGroups, 60)
 	p.Ticker.StartTickerRoutine(p.getUpdateGlobalGroupsRoutineName(), false)
 
-	p.Ticker.RegisterRoutine(p.getReqSharepieceRoutineName(), p.reqSharePieceRoutine, 10)
+	p.Ticker.RegisterRoutine(p.getReqSharepieceRoutineName(), p.reqSharePieceRoutine, 5)
 	p.Ticker.StartTickerRoutine(p.getReqSharepieceRoutineName(), false)
 
 

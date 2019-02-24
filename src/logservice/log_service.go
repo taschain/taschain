@@ -36,6 +36,7 @@ const (
 	LogTypeCreateGroup = 4
 	LogTypeCreateGroupSignTimeout = 5
 	LogTypeInitGroupRevPieceTimeout = 6
+	LogTypeGroupRecoverFromResponse = 7
 )
 
 const TableName = "logs"

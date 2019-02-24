@@ -41,10 +41,7 @@ func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece model.SharePiece) in
 		gmd.pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0
 	} else { //收到过
-		if !gmd.pool[id.GetHexString()].IsEqual(piece) { //两次数据不一致
-			stdLogger.Debugf("GroupInitPool::ReceiveData failed, data diff.\n")
-			return -1
-		}
+		return -1
 	}
 	return 0
 }
@@ -181,12 +178,12 @@ func (n *GroupNode) getAllPiece() bool {
 
 //接收秘密共享
 //返回：0正常接收，-1异常，1完成签名私钥聚合和组公钥聚合
-func (n *GroupNode) SetInitPiece(id groupsig.ID, share model.SharePiece) int {
+func (n *GroupNode) SetInitPiece(id groupsig.ID, share *model.SharePiece) int {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
 	//log.Printf("begin GroupNode::SetInitPiece...\n")
-	if n.groupInitPool.ReceiveData(id, share) == -1 {
+	if n.groupInitPool.ReceiveData(id, *share) == -1 {
 		return -1
 	}
 	if n.getAllPiece() { //已经收到所有组内成员发送的秘密共享

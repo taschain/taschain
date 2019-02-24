@@ -259,7 +259,7 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, candi
 
 //收到一片秘密分享消息
 //返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
-func (gc *GroupContext) PieceMessage(id groupsig.ID, share model.SharePiece) int {
+func (gc *GroupContext) PieceMessage(id groupsig.ID, share *model.SharePiece) int {
 	/*可能父亲组消息还没到，先收到组成员的piece消息
 	if !gc.MemExist(spm.si.SignMember) { //非组内成员
 		return -1

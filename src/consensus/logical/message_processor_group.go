@@ -6,6 +6,8 @@ import (
 	"consensus/groupsig"
 	"consensus/net"
 	"time"
+	"common"
+	"logservice"
 )
 
 /*
@@ -291,35 +293,29 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	return
 }
 
-//收到组内成员发给我的秘密分享片段消息
-func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
-	blog := newBizLog("OMSP")
-	gHash := spm.GHash
-
-	blog.log("proc(%v)begin Processor::OMSP, sender=%v, gHash=%v...", p.getPrefix(), spm.SI.GetID().ShortS(), gHash.ShortS())
-	tlog := newHashTraceLog("OMSP", gHash, spm.SI.GetID())
-
-	if !spm.Dest.IsEqual(p.GetMinerID()) {
-		return
-	}
+func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, share *model.SharePiece, si *model.SignData, response bool) (recover bool, err error) {
+	blog.log("gHash=%v, sender=%v, response=%v", gHash.ShortS(), si.GetID().ShortS(), response)
+	defer func (){
+	    blog.log("recover %v, err %v", recover, err)
+	}()
 
 	gc := p.joiningGroups.GetGroup(gHash)
 	if gc == nil {
-		blog.debug("failed, receive SHAREPIECE msg but gc=nil.")
+		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.String())
 		return
 	}
-	if gc.gInfo.GroupHash() != spm.GHash {
-		blog.debug("failed, gisHash diff.")
+	if gc.gInfo.GroupHash() != gHash {
+		err = fmt.Errorf("failed, gisHash diff.")
 		return
 	}
 
-	pk := GetMinerPK(spm.SI.GetID())
+	pk := GetMinerPK(si.GetID())
 	if pk == nil {
-		blog.debug("miner pk is nil, id=%v", spm.SI.GetID().ShortS())
+		err = fmt.Errorf("miner pk is nil, id=%v", si.GetID().ShortS())
 		return
 	}
-	if !spm.VerifySign(*pk) {
-		blog.debug("miner sign verify fail")
+	if !si.VerifySign(*pk) {
+		err = fmt.Errorf("miner sign verify fail")
 		return
 	}
 
@@ -327,12 +323,12 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 
 	topHeight := p.MainChain.QueryTopBlock().Height
 
-	if gc.gInfo.GI.ReadyTimeout(topHeight) {
-		blog.debug("ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
+	if !response && gc.gInfo.GI.ReadyTimeout(topHeight) {
+		err = fmt.Errorf("ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
 		return
 	}
 
-	result := gc.PieceMessage(spm.SI.GetID(), spm.Share)
+	result := gc.PieceMessage(si.GetID(), share)
 	waitPieceIds := make([]string, 0)
 	for _, mem := range gc.gInfo.Mems {
 		if !gc.node.hasPiece(mem) {
@@ -342,12 +338,17 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 			}
 		}
 	}
-	blog.log("proc(%v) after gc.PieceMessage, gc result=%v. lackof %v", p.getPrefix(), result, waitPieceIds)
 
+	mtype := "OMSP"
+	if response {
+		mtype = "OMSPResponse"
+	}
+	tlog := newHashTraceLog(mtype, gHash, si.GetID())
 	tlog.log("收到piece数 %v, 收齐分片%v, 缺少%v等", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
 
 	if result == 1 { //已聚合出签名私钥,组公钥，组id
-		groupLogger.Infof("OMSP收齐分片: gHash=%v, elapsed=%v.", spm.GHash.ShortS(), time.Since(gc.createTime).String())
+		recover = true
+		groupLogger.Infof("OMSP收齐分片: gHash=%v, elapsed=%v.", gHash.ShortS(), time.Since(gc.createTime).String())
 		jg := gc.GetGroupInfo()
 		p.joinGroup(jg)
 		//这时还没有所有组成员的签名公钥
@@ -358,26 +359,25 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 				msg := &model.ConsensusSignPubKeyMessage{
 					GroupID: jg.GroupID,
 					SignPK:  *groupsig.NewPubkeyFromSeckey(jg.SignKey),
-					GHash:   spm.GHash,
+					GHash:   gHash,
 					MemCnt:  int32(gc.gInfo.MemberSize()),
 				}
 				if !msg.SignPK.IsValid() {
 					panic("signPK is InValid")
 				}
 				if msg.GenSign(ski, msg) {
-					blog.debug("send sign pub key to group members, spk=%v...", msg.SignPK.ShortS())
 					tlog.log("SendSignPubKey %v", p.getPrefix())
-
-					blog.debug("call network service SendSignPubKey...")
 					p.NetServer.SendSignPubKey(msg)
 				} else {
-					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+					err = fmt.Errorf("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+					return
 				}
 			}
 			//2. 再发送初始化完成消息
-			if gc.StatusTransfrom(GisSendSignPk, GisSendInited) {
+			//sharepiece请求的应答不需要发送GroupInitDone消息,因为此时组已经初始化完成了
+			if !response && gc.StatusTransfrom(GisSendSignPk, GisSendInited) {
 				msg := &model.ConsensusGroupInitedMessage{
-					GHash: spm.GHash,
+					GHash: gHash,
 					GroupPK: jg.GroupPK,
 					GroupID: jg.GroupID,
 					CreateHeight: gh.CreateHeight,
@@ -389,18 +389,25 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 
 				if msg.GenSign(ski, msg) {
 					tlog.log("BroadcastGroupInfo %v", jg.GroupID.ShortS())
-
-					blog.debug("call network service BroadcastGroupInfo...")
 					p.NetServer.BroadcastGroupInfo(msg)
 				} else {
-					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+					err = fmt.Errorf("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+					return
 				}
 			}
 		} else {
-			panic("Processor::OMSP failed, aggr key error.")
+			err = fmt.Errorf("Processor::%v failed, aggr key error.", mtype)
+			return
 		}
 	}
+	return
+}
 
+//收到组内成员发给我的秘密分享片段消息
+func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
+	blog := newBizLog("OMSP")
+
+	p.handleSharePieceMessage(blog, spm.GHash, &spm.Share, &spm.SI, false)
 	//blog.log("prov(%v) end OMSP, sender=%v.", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
@@ -642,40 +649,16 @@ func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 
 func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage) {
 	blog := newBizLog("OMSPRP")
-	gHash := msg.GHash
 
-	blog.log("proc(%v)begin Processor::OMSPRP, sender=%v, gHash=%v...", p.getPrefix(), msg.SI.GetID().ShortS(), gHash.ShortS())
-	tlog := newHashTraceLog("OMSPRP", gHash, msg.SI.GetID())
-
-	gc := p.joiningGroups.GetGroup(gHash)
-	if gc == nil {
-		blog.debug("failed, receive SHAREPIECE msg but gc=nil.")
-		return
-	}
-	if gc.gInfo.GroupHash() != msg.GHash {
-		blog.debug("failed, gisHash diff.")
-		return
-	}
-
-	pk := GetMinerPK(msg.SI.GetID())
-	if pk == nil {
-		blog.debug("miner pk is nil, id=%v", msg.SI.GetID().ShortS())
-		return
-	}
-	if !msg.VerifySign(*pk) {
-		blog.debug("miner sign verify fail")
-		return
-	}
-
-	result := gc.PieceMessage(msg.SI.GetID(), msg.Share)
-
-	blog.log("proc(%v) after gc.PieceMessage, gc result=%v", p.getPrefix(), result)
-
-	tlog.log("收到piece数 %v, 收齐分片%v", gc.node.groupInitPool.GetSize(), result == 1)
-
-	if result == 1 { //已聚合出签名私钥,组公钥，组id
-		jg := gc.GetGroupInfo()
-		p.joinGroup(jg)
+	recover, _ := p.handleSharePieceMessage(blog, msg.GHash, &msg.Share, &msg.SI, true)
+	if recover {
+		le := &logservice.LogEntry{
+			LogType: logservice.LogTypeGroupRecoverFromResponse,
+			Height: p.GroupChain.Count(),
+			Hash: msg.GHash.Hex(),
+			Proposer: "00",
+		}
+		logservice.Instance.AddLog(le)
 	}
 
 	return
