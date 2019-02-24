@@ -189,6 +189,7 @@ type GroupContext struct {
 	gInfo  *model.ConsensusGroupInitInfo //组初始化信息（由父亲组指定）
 	candidates []groupsig.ID
 	sharePieceMap model.SharePieceMap
+	sendLog 	bool
 }
 
 func (gc *GroupContext) GetNode() *GroupNode {

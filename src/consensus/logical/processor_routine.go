@@ -142,12 +142,11 @@ func (p *Processor) releaseRoutine() bool {
 			}
 
 			waitPieceIds := make([]string, 0)
+			waitIds := make([]groupsig.ID, 0)
 			for _, mem := range gc.gInfo.Mems {
 				if !gc.node.hasPiece(mem) {
 					waitPieceIds = append(waitPieceIds, mem.ShortS())
-					if len(waitPieceIds) >= 5 {
-						break
-					}
+					waitIds = append(waitIds, mem)
 				}
 			}
 			//发送日志
@@ -158,9 +157,25 @@ func (p *Processor) releaseRoutine() bool {
 				Proposer: "00",
 				Ext: fmt.Sprintf("MemCnt:%v,Pieces:%v,wait:%v,%v", gc.gInfo.MemberSize(),gc.node.groupInitPool.GetSize(),waitPieceIds,omgied),
 			}
-			if logservice.Instance.IsFirstNInternalNodesInGroup(gc.gInfo.Mems, 50) {
+			if !gc.sendLog && logservice.Instance.IsFirstNInternalNodesInGroup(gc.gInfo.Mems, 50) {
 				logservice.Instance.AddLog(le)
+				gc.sendLog = true
 			}
+
+			msg := &model.ReqSharePieceMessage{
+				GHash: gc.gInfo.GroupHash(),
+			}
+			stdLogger.Infof("reqSharePieceRoutine:req size %v, ghash=%v", len(waitIds), gc.gInfo.GroupHash().ShortS())
+			if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
+				for _, receiver := range waitIds {
+					stdLogger.Infof("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
+					p.NetServer.ReqSharePiece(msg, receiver)
+				}
+			} else {
+				ski := p.getDefaultSeckeyInfo()
+				stdLogger.Infof("gen req sharepiece sign fail, ski=%v %v", ski.ID.ShortS(), ski.SK.ShortS())
+			}
+
 		}
 		return true
 	})
@@ -263,38 +278,5 @@ func (p *Processor) updateGlobalGroups() bool {
 		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
 	}
-	return true
-}
-
-func (p *Processor) getReqSharepieceRoutineName() string {
-	return "req_sharepiece_routine" + p.getPrefix()
-}
-
-func (p *Processor) reqSharePieceRoutine() bool {
-	top := p.MainChain.Height()
-
-	p.joiningGroups.forEach(func(gc *GroupContext) bool {
-		if gc.gInfo == nil || gc.is != GisSendSharePiece || !gc.gInfo.GI.ReadyTimeout(top){
-			return true
-		}
-		lackIds := make([]groupsig.ID, 0)
-		for _, mem := range gc.gInfo.Mems {
-			if !gc.node.hasPiece(mem) {
-				lackIds = append(lackIds, mem)
-			}
-		}
-		if len(lackIds) > 0 {
-			msg := &model.ReqSharePieceMessage{
-				GHash: gc.gInfo.GroupHash(),
-			}
-			if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
-				for _, receiver := range lackIds {
-					stdLogger.Infof("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
-					p.NetServer.ReqSharePiece(msg, receiver)
-				}
-			}
-		}
-		return true
-	})
 	return true
 }
