@@ -640,7 +640,7 @@ func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 		GHash: msg.GHash,
 		Share: piece,
 	}
-	if msg.GenSign(p.getDefaultSeckeyInfo(), pieceMsg) {
+	if pieceMsg.GenSign(p.getDefaultSeckeyInfo(), pieceMsg) {
 		blog.log("response share piece to %v, gHash=%v, share=%v", msg.SI.GetID().ShortS(), msg.GHash.ShortS(), piece.Share.ShortS())
 		p.NetServer.ResponseSharePiece(pieceMsg, msg.SI.GetID())
 	}
