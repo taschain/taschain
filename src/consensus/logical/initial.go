@@ -56,8 +56,9 @@ func InitConsensus() {
 	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	stdLogger = taslog.GetLoggerByIndex(taslog.StdConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	groupLogger = taslog.GetLoggerByIndex(taslog.GroupLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	slowLogger = taslog.GetLoggerByName(fmt.Sprintf("handle_time%v", common.GlobalConf.GetString("instance", "index", "")))
+	slowLogger = taslog.GetLoggerByIndex(taslog.SlowLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	consensusConfManager = cc
+	model.SlowLog = slowLogger
 	model.InitParam(cc)
 	return
 }

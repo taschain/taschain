@@ -24,6 +24,7 @@ import (
 	"middleware/types"
 	"sync"
 	"bytes"
+	"time"
 )
 
 /*
@@ -129,7 +130,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 }
 
 func (p *Processor) blockOnChain(h common.Hash) bool {
-	exist := p.MainChain.QueryBlockByHash(h)
+	exist := p.getBlockHeaderByHash(h)
 	if exist != nil { //已经上链
 		return true
 	}
@@ -137,6 +138,12 @@ func (p *Processor) blockOnChain(h common.Hash) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	begin := time.Now()
+	defer func() {
+		if time.Since(begin).Seconds() > 0.5 {
+			slowLogger.Warnf("slowQueryBlockHeaderByHash: cost %v, hash=%v", time.Since(begin).String(), hash.ShortS())
+		}
+	}()
 	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
