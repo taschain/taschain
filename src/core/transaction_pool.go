@@ -31,12 +31,12 @@ import (
 )
 
 const (
-	MaxRcvTxPoolSize     = 10000
+	MaxRcvTxPoolSize     = 50000
 	MaxMinerTxPoolSize   = 1000
 	MaxMissTxPookSize    = 60000
 	SendingListLength    = 50
 	SendingTimerInterval = time.Second * 3
-	TxCountPerBlock      = 500
+	TxCountPerBlock      = 1000
 	GasLimitMax          = 500000
 )
 
@@ -202,7 +202,7 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
 
-	b, err := pool.addInner(tx, true)
+	b, err := pool.addInner(tx, !types.IsTestTransaction(tx))
 	return b, err
 }
 
@@ -265,7 +265,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, broadcast bool) (bool, error
 		pool.received.Push(tx)
 	}
 
-	if broadcast && !types.IsTestTransaction(tx) {
+	if broadcast {
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()
@@ -346,7 +346,7 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	}
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
-		pool.addInner(tx, false)
+		pool.addInner(tx, true)
 	}
 }
 
