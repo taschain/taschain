@@ -1,4 +1,4 @@
-set version=0.7.2
+set version=0.7.4
 set GOPATH=%cd%\..\..\..\..\taschain_thirdparty;%cd%\..\..\..
 del gtas_windows_v%version%.zip
 cd gtas_windows
