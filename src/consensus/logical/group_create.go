@@ -213,17 +213,18 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if parentGroup == nil {
 		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
+	//TODO: 由于bug导致数据不一致，暂不检查
+	//sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
+	//if err != nil {
+	//	return nil, false, fmt.Errorf("select parent group err %v", err)
+	//}
+	//pid := groupsig.DeserializeId(parentGroup.Id)
+	//if !sgi.GroupID.IsEqual(pid) {
+	//	return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
+	//}
+	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeId(gh.Parent))
 
-	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
-	if err != nil {
-		return nil, false, fmt.Errorf("select parent group err %v", err)
-	}
-	pid := groupsig.DeserializeId(parentGroup.Id)
-	if !sgi.GroupID.IsEqual(pid) {
-		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
-	}
-
-	if !groupsig.VerifySig(sgi.GroupPK, gh.Hash.Bytes(), gInfo.GI.Signature) {
+	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {
 		return nil, false, fmt.Errorf("verify parent sign fail")
 	}
 
