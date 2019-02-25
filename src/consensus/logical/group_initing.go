@@ -272,7 +272,7 @@ func (gc *GroupContext) PieceMessage(id groupsig.ID, share *model.SharePiece) in
 		//由外层启动组外广播（to do : 升级到通知父亲组节点）
 	case 0: //正常接收
 	case -1:
-		panic("GroupContext::PieceMessage failed, SetInitPiece result -1.")
+		//panic("GroupContext::PieceMessage failed, SetInitPiece result -1.")
 	}
 	return result
 }
