@@ -90,9 +90,9 @@ func newSendList() *SendList {
 		ChainPieceInfo:     SendPriorityHigh,
 		ReqChainPieceBlock: SendPriorityHigh,
 		ChainPieceBlock:    SendPriorityHigh,
+		CastVerifyMsg:       SendPriorityHigh,
+		VerifiedCastMsg2:     SendPriorityHigh,
 
-		CastVerifyMsg:       SendPriorityMedium,
-		VerifiedCastMsg2:     SendPriorityMedium,
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
 		TransactionBroadcastMsg: SendPriorityMedium,
