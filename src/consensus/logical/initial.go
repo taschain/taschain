@@ -4,7 +4,6 @@ import (
 	"taslog"
 	"common"
 	"consensus/model"
-	"fmt"
 )
 
 /*
