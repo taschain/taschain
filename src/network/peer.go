@@ -41,7 +41,7 @@ const (
 	SendPriorityLow    SendPriorityType = 2
 )
 const MaxSendPriority = 3
-const MaxPendingSend = 5
+const MaxPendingSend = 256
 const MaxSendListSize = 1024
 const WaitTimeout = 3*time.Second
 
