@@ -67,3 +67,10 @@ func CalcRandomHash(preBH *types.BlockHeader, height uint64) common.Hash {
 	}
 	return hash
 }
+
+func IsGroupDissmisedAt(gh *types.GroupHeader, h uint64) bool {
+	return gh.DismissHeight <= h
+}
+func IsGroupWorkQualifiedAt(gh *types.GroupHeader, h uint64) bool {
+	return !IsGroupDissmisedAt(gh, h) && gh.WorkHeight <= h
+}
