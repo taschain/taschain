@@ -42,7 +42,7 @@ const (
 )
 const MaxSendPriority = 3
 const MaxPendingSend = 5
-const MaxSendListSize = 102400
+const MaxSendListSize = 1024
 const WaitTimeout = 3*time.Second
 
 type SendListItem struct {
