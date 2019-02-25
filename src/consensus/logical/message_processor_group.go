@@ -455,7 +455,7 @@ func (p *Processor) OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage)
 	sender := msg.SI.GetID()
 	var err error
 	defer func() {
-		blog.log("sender=%v, gid=%v, result=%v", sender.ShortS(), msg.GroupID.ShortS(), err.Error())
+		blog.log("sender=%v, gid=%v, result=%v", sender.ShortS(), msg.GroupID.ShortS(), err)
 	}()
 
 	jg := p.belongGroups.getJoinedGroup(msg.GroupID)
