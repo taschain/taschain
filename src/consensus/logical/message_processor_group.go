@@ -91,6 +91,13 @@ func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) 
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
 	blog := newBizLog("OMCGR")
 
+	begin := time.Now()
+	defer func() {
+		if time.Since(begin).Seconds() > 0.5 {
+			slowLogger.Warnf("handle slow:%v, sender=%v, gHash=%v, cost %v", "OMCGR", msg.SI.GetID().ShortS(), msg.GInfo.GroupHash().ShortS(), time.Since(begin).String())
+		}
+	}()
+
 	gh := msg.GInfo.GI.GHeader
 	blog.log("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
 

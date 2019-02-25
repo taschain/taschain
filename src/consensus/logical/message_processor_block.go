@@ -213,9 +213,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupId=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupId.ShortS())
 
 	result := ""
+	begin := time.Now()
 	defer func() {
 		traceLog.logEnd("height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(),groupId.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
+		if time.Since(begin).Seconds() > 0.5 {
+			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, height=%v, preHash=%v, cost %v", mtype, si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height, bh.PreHash.ShortS(), time.Since(begin).String())
+		}
 	}()
 
 	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
@@ -577,9 +581,14 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 		err  error
 	)
 
+	begin := time.Now()
 	defer func() {
 		tlog.logEnd("%v %v", send, err)
 		blog.log("blockHash=%v, result=%v %v", reward.BlockHash.ShortS(), send, err)
+		if time.Since(begin).Seconds() > 0.5 {
+			gid := groupsig.DeserializeId(reward.GroupId)
+			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, cost %v", mtype, msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), gid.ShortS(), time.Since(begin).String())
+		}
 	}()
 
 	//此时块不一定在链上

@@ -4,6 +4,7 @@ import (
 	"taslog"
 	"common"
 	"consensus/model"
+	"fmt"
 )
 
 /*
@@ -48,12 +49,14 @@ var consensusLogger taslog.Logger
 var stdLogger taslog.Logger
 var groupLogger taslog.Logger
 var consensusConfManager common.SectionConfManager
+var slowLogger taslog.Logger
 
 func InitConsensus() {
 	cc := common.GlobalConf.GetSectionManager(ConsensusConfSection)
 	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	stdLogger = taslog.GetLoggerByIndex(taslog.StdConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	groupLogger = taslog.GetLoggerByIndex(taslog.GroupLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+	slowLogger = taslog.GetLoggerByName(fmt.Sprintf("handle_time%v", common.GlobalConf.GetString("instance", "index", "")))
 	consensusConfManager = cc
 	model.InitParam(cc)
 	return
