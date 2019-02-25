@@ -42,7 +42,7 @@ const (
 )
 const MaxSendPriority = 3
 const MaxPendingSend = 5
-const MaxSendListSize = 256
+const MaxSendListSize = 102400
 const WaitTimeout = 3*time.Second
 
 type SendListItem struct {
@@ -50,7 +50,6 @@ type SendListItem struct {
 	list     *list.List
 	quota    int
 	curQuota int
-
 }
 
 func newSendListItem(priority int, quota int) *SendListItem {
@@ -91,9 +90,9 @@ func newSendList() *SendList {
 		ChainPieceInfo:     SendPriorityHigh,
 		ReqChainPieceBlock: SendPriorityHigh,
 		ChainPieceBlock:    SendPriorityHigh,
+		CastVerifyMsg:       SendPriorityHigh,
+		VerifiedCastMsg2:     SendPriorityHigh,
 
-		CastVerifyMsg:       SendPriorityMedium,
-		VerifiedCastMsg2:     SendPriorityMedium,
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
 		TransactionBroadcastMsg: SendPriorityMedium,
@@ -126,7 +125,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v code:%v", peer.Id.GetHexString(), peer.seesionId,code)
 		return
 	}
-	Logger.Debugf("send  net id:%v session:%v size:%v code:%v size:%v", peer.Id.GetHexString(), peer.seesionId,code,packet.Len())
+	Logger.Debugf("send  net id:%v session:%v code:%v size:%v", peer.Id.GetHexString(), peer.seesionId,code,packet.Len())
 	sendListItem.list.PushBack(packet)
 
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))

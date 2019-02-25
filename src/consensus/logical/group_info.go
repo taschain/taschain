@@ -162,12 +162,12 @@ func (sgi *StaticGroupInfo) GetMemberID(i int) groupsig.ID {
 
 func (sgi *StaticGroupInfo) CastQualified(height uint64) bool {
 	gh := sgi.getGroupHeader()
-	return gh.WorkHeight <= height && height < gh.DismissHeight
+	return IsGroupWorkQualifiedAt(gh, height)
 }
 
 //是否已解散
 func (sgi *StaticGroupInfo) Dismissed(height uint64) bool {
-	return height >= sgi.getGroupHeader().DismissHeight
+	return IsGroupDissmisedAt(sgi.getGroupHeader(), height)
 }
 
 func (sgi *StaticGroupInfo) GetReadyTimeout(height uint64) bool {
@@ -377,10 +377,9 @@ func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.
 	iter := gg.chain.NewIterator()
 	groups := make([]*types.Group, 0)
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
-		if g.Header.WorkHeight <= height && g.Header.DismissHeight > height {
+		if IsGroupWorkQualifiedAt(g.Header, height) {
 			groups = append(groups, g)
-		}
-		if g.Header.DismissHeight <= height {
+		} else if IsGroupDissmisedAt(g.Header, height) {
 			g = gg.chain.GetGroupByHeight(0)
 			groups = append(groups, g)
 			break
@@ -391,7 +390,7 @@ func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.
 	for i := 0; i < n; i++ {
 		reverseGroups[n-i-1] = groups[i]
 	}
-	return groups
+	return reverseGroups
 }
 
 func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
