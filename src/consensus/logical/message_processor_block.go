@@ -187,7 +187,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	}
 
 	//未签过名的情况下，需要校验铸块合法性和全量账本检查
-	if slot == nil || !slot.IsSigned() {
+	if slot == nil || slot.IsWaiting() {
 		slog.addStage("checkLegal")
 		ok, _, err2 := p.isCastLegal(bh, preBH)
 		slog.endStage()

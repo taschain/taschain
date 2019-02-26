@@ -191,8 +191,8 @@ func (sc *SlotContext) IsSuccess() bool {
 	return sc.GetSlotStatus() == SS_SUCCESS
 }
 
-func (sc *SlotContext) IsSigned() bool {
-	return sc.GetSlotStatus() == SS_SIGNED
+func (sc *SlotContext) IsWaiting() bool {
+	return sc.GetSlotStatus() == SS_WAITING
 }
 
 //收到一个组内验证签名片段
