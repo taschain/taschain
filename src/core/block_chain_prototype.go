@@ -770,53 +770,15 @@ func (chain *prototypeChain) ensureChainConsistency() {
 	if addBlockByte != nil {
 		block, _ := types.UnMarshalBlock(addBlockByte)
 		Logger.Errorf("ensureChainConsistency find addBlockMark!")
-		chain.ensureConsistencyDump(block)
 		chain.remove(block)
 		chain.eraseAddBlockMark()
-		chain.ensureConsistencyDump(block)
 	}
 
 	removeBlockByte, _ := chain.blocks.Get([]byte(removeBlockMark))
 	if removeBlockByte != nil {
 		block, _ := types.UnMarshalBlock(removeBlockByte)
 		Logger.Errorf("ensureChainConsistency find removeBlockMark!")
-		chain.ensureConsistencyDump(block)
 		chain.remove(block)
 		chain.eraseRemoveBlockMark()
-		chain.ensureConsistencyDump(block)
 	}
-}
-
-func (chain *prototypeChain) ensureConsistencyDump(block *types.Block) {
-	Logger.Debugf("ensureConsistencyDump:")
-	bByHash := chain.queryBlockByHash(block.Header.Hash)
-	if bByHash == nil {
-		Logger.Debugf("query by hash is nil")
-	} else {
-		Logger.Debugf("query by hash is not nil")
-	}
-
-	bByHeight := chain.queryBlockHeaderByHeight(block.Header.Height, false)
-	if bByHeight == nil {
-		Logger.Debugf("query by height is nil")
-	} else {
-		Logger.Debugf("query by height is not nil")
-	}
-
-	state, _ := account.NewAccountDB(block.Header.StateTree, chain.stateCache)
-	if state == nil {
-		Logger.Debugf("query state is nil")
-	} else {
-		Logger.Debugf("query state is not nil")
-	}
-
-	lastBlock := chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
-	if lastBlock.StateTree != block.Header.StateTree {
-		Logger.Debugf("query last block in db is nil")
-	} else {
-		Logger.Debugf("query last block in is not nil")
-	}
-
-	checkValue, _ := chain.GetCheckValue(block.Header.Height)
-	Logger.Debugf("Check value:%v", checkValue)
 }
