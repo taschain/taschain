@@ -17,6 +17,7 @@ const (
 	CONSENSUS_VERSION          = 1            //共识版本号
 	MAX_UNKNOWN_BLOCKS         = 5            //内存保存最大不能上链的未来块（中间块没有收到）
 	GROUP_INIT_MAX_SECONDS     = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
+	MaxSlotSize 			= 3				//每一轮slot数
 
 	SSSS_THRESHOLD int = 51                 //1-100
 	GROUP_MAX_MEMBERS int = 100             //一个组最大的成员数量
@@ -60,6 +61,8 @@ type ConsensusParam struct {
 	VerifyBonus 		uint64	//验证者总奖励
 
 	VerifierStake		uint64 //
+
+	MaxSlotSize			int
 }
 
 
@@ -90,6 +93,7 @@ func InitParam(cc common.SectionConfManager) {
 		CreateGroupInterval: uint64(Group_Create_Interval),
 		GroupCreateGap: uint64(Group_Create_Gap),
 		GroupWaitPongGap: uint64(Group_Wait_Pong_Gap),
+		MaxSlotSize: MaxSlotSize,
 	}
 }
 

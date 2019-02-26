@@ -28,12 +28,6 @@ type BaseSignedMessage struct {
 
 
 func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
-	begin := time.Now()
-	defer func() {
-		if time.Since(begin).Seconds() > 0.5 && SlowLog != nil {
-			SlowLog.Warnf("slowGenSign: cost %v", time.Since(begin).String())
-		}
-	}()
 	if !ski.IsValid() {
 		return false
 	}
@@ -42,12 +36,6 @@ func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
 }
 
 func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) (ok bool) {
-	begin := time.Now()
-	defer func() {
-		if time.Since(begin).Seconds() > 0.5 && SlowLog != nil {
-			SlowLog.Warnf("slowVerifySign: cost %v", time.Since(begin).String())
-		}
-	}()
 	if !sign.SI.GetID().IsValid() {
 		return false
 	}
