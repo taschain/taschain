@@ -227,6 +227,12 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader) (err error) {
 		err = fmt.Errorf("已超时" + vc.expireTime.String())
 		return
 	}
+	slot := vc.GetSlotByHash(bh.Hash)
+	if slot != nil && slot.GetSlotStatus() >= SS_RECOVERD {
+		err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
+		return
+	}
+
 	return
 }
 
