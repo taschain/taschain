@@ -226,9 +226,7 @@ func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, v
 		slog.log("height %v", h)
 	}()
 	for {
-		slog.addStage(fmt.Sprintf("height-%v", h))
 		hash, err := p.MainChain.GetCheckValue(h)
-		slog.endStage()
 
 		if err == nil {
 			return h, hash
@@ -236,8 +234,11 @@ func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, v
 		if h == 0 {
 			panic("cannot find verifyHash of height 0")
 		}
+		//todo 暂不检查取样块高不存在的,可能计算量很大
+		break
 		h--
 	}
+	return
 }
 
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {
