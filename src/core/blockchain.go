@@ -30,26 +30,17 @@ import (
 	"storage/tasdb"
 	"storage/vm"
 	"time"
+	"utility"
 )
-
-//非组内信息签名，改成使用ECDSA算法（目前都是使用bn曲线）  @飞鼠
-//铸块及奖励分红查看及验证  优先级：0    @小甫
-//安全性验证：模拟节点发送请求给组内组外成员，优先级低       @飞鼠
-//分叉频率
-//块全网蔓延时间统计
-//组链去掉成员公钥信息   @小甫
-//矿工申请、撤销、退款等验证   优先级：0  @问勤
-//vrf阈值   优先级：0  @花生
-//铸块次数与权益是否正相关验证     @小甫
-//验证组验证次数是否均匀分布    @小甫
-//建组过程需要把矿工申请高度考虑进去，以防把同一时间申请的矿工分到一个组
-//公链联盟链可通过配置灵活切换
-//实现多种共识算法，并可以灵活切换
 
 const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
+
+	addBlockMark = "addBlockMark"
+
+	removeBlockMark = "removeBlockMark"
 )
 
 var BlockChainImpl BlockChain
@@ -127,11 +118,8 @@ func getBlockChainConfig() *BlockChainConfig {
 }
 
 func initBlockChain(helper types.ConsensusHelper) error {
-
 	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-
 	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-
 	chain := &FullBlockChain{
 		config: getBlockChainConfig(),
 		prototypeChain: prototypeChain{
@@ -167,23 +155,27 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 
 	chain.blockHeight, err = tasdb.NewDatabase(chain.config.blockHeight)
 	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		//todo: 日志
 		return err
 	}
 
 	chain.statedb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		//todo: 日志
 		return err
 	}
 
 	chain.checkdb, err = tasdb.NewDatabase(chain.config.state)
 	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		//todo: 日志
 		return err
 	}
@@ -197,6 +189,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	// todo:特殊的key保存最新的状态，当前写到了ldb，有性能损耗
 	chain.latestBlock = chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
 	if nil != chain.latestBlock {
+		chain.ensureChainConsistency()
 		if !chain.versionValidate() {
 			fmt.Println("Illegal data version! Please delete the directory d0 and restart the program!")
 			os.Exit(0)
@@ -210,17 +203,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 			panic("initBlockChain NewAccountDB fail:" + err.Error())
 		}
 	} else {
-		// 创始块
-		state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
-		if nil == err {
-			block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
-			Logger.Debugf("GenesisBlock StateTree:%s", block.Header.StateTree.Hex())
-
-			_, headerJson := chain.saveBlock(block)
-			chain.updateLastBlock(state, block.Header, headerJson)
-			verifyHash := chain.consensusHelper.VerifyHash(block)
-			chain.PutCheckValue(0, verifyHash.Bytes())
-		}
+		chain.insertGenesisBlock()
 	}
 
 	chain.forkProcessor = initforkProcessor()
@@ -338,7 +321,6 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) ([]common.Hash, int8) {
 	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs))
-	//Logger.Infof("verifyBlock dump:%s", bh.ToString())
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -476,42 +458,6 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block, situ
 	return types.Forking
 }
 
-func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlockResult, []byte) {
-	Logger.Debugf("insertBlock begin hash:%s", remoteBlock.Header.Hash.Hex())
-	var state *account.AccountDB
-	var receipts types.Receipts
-	if value, exit := chain.verifiedBlocks.Get(remoteBlock.Header.Hash); exit {
-		b := value.(*castingBlock)
-		state = b.state
-		receipts = b.receipts
-	} else {
-		var executeTxResult bool
-		executeTxResult, state, receipts = chain.executeTransaction(remoteBlock)
-		if !executeTxResult {
-			return types.AddBlockFailed, nil
-		}
-	}
-
-	result, headerByte := chain.saveBlock(remoteBlock)
-	Logger.Debugf("insertBlock saveBlock hash:%s result:%d", remoteBlock.Header.Hash.Hex(), result)
-	if result != 0 {
-		return types.AddBlockFailed, headerByte
-	}
-	root, _ := state.Commit(true)
-	triedb := chain.stateCache.TrieDB()
-	triedb.Commit(root, false)
-	if chain.updateLastBlock(state, remoteBlock.Header, headerByte) == -1 {
-		return types.AddBlockFailed, headerByte
-	}
-
-	verifyHash := chain.consensusHelper.VerifyHash(remoteBlock)
-	chain.PutCheckValue(remoteBlock.Header.Height, verifyHash.Bytes())
-	chain.transactionPool.MarkExecuted(receipts, remoteBlock.Transactions)
-	chain.transactionPool.Remove(remoteBlock.Header.Hash, remoteBlock.Header.Transactions, remoteBlock.Header.EvictedTxs)
-	chain.successOnChainCallBack(remoteBlock, headerByte)
-	return types.AddBlockSucc, headerByte
-}
-
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
@@ -542,6 +488,117 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 	return true, state, receipts
 }
 
+func (chain *FullBlockChain) insertBlock(remoteBlock *types.Block) (types.AddBlockResult, []byte) {
+	Logger.Debugf("Insert block hash:%s,height:%d", remoteBlock.Header.Hash.Hex(), remoteBlock.Header.Height)
+	blockByte, err := types.MarshalBlock(remoteBlock)
+	if err != nil {
+		Logger.Errorf("Fail to json Marshal, error:%s", err.Error())
+		return types.AddBlockFailed, nil
+	}
+
+	chain.markAddBlock(blockByte)
+	if !chain.saveBlockByHash(remoteBlock.Header.Hash, blockByte) {
+		return types.AddBlockFailed, nil
+	}
+
+	headerByte, err := types.MarshalBlockHeader(remoteBlock.Header)
+	if err != nil {
+		Logger.Errorf("Fail to json Marshal header, error:%s", err.Error())
+		return types.AddBlockFailed, nil
+	}
+	if !chain.saveBlockByHeight(remoteBlock.Header.Height, headerByte) {
+		return types.AddBlockFailed, nil
+	}
+
+	saveStateResult, accountDB, receipts := chain.saveBlockState(remoteBlock)
+	if !saveStateResult {
+		return types.AddBlockFailed, nil
+	}
+
+	if !chain.updateLastBlock(accountDB, remoteBlock.Header, headerByte) {
+		return types.AddBlockFailed, headerByte
+	}
+
+	chain.updateCheckValue(remoteBlock)
+
+	chain.updateTxPool(remoteBlock, receipts)
+	chain.topBlocks.Add(remoteBlock.Header.Height, remoteBlock.Header)
+
+	chain.eraseAddBlockMark()
+	chain.successOnChainCallBack(remoteBlock, headerByte)
+	return types.AddBlockSucc, headerByte
+}
+
+func (chain *FullBlockChain) saveBlockByHash(hash common.Hash, blockByte []byte) bool {
+	err := chain.blocks.Put(hash.Bytes(), blockByte)
+	if err != nil {
+		Logger.Errorf("Fail to put block hash %s  error:%s", hash.String(), err.Error())
+		return false
+	}
+	return true
+}
+
+func (chain *FullBlockChain) saveBlockByHeight(height uint64, headerByte []byte) bool {
+	err := chain.blockHeight.Put(utility.UInt64ToByte(height), headerByte)
+	if err != nil {
+		Logger.Errorf("Fail to put block height:%d  error:%s", height, err.Error())
+		return false
+	}
+	return true
+}
+
+func (chain *FullBlockChain) saveBlockState(b *types.Block) (bool, *account.AccountDB, types.Receipts) {
+	var state *account.AccountDB
+	var receipts types.Receipts
+	if value, exit := chain.verifiedBlocks.Get(b.Header.Hash); exit {
+		b := value.(*castingBlock)
+		state = b.state
+		receipts = b.receipts
+	} else {
+		var executeTxResult bool
+		executeTxResult, state, receipts = chain.executeTransaction(b)
+		if !executeTxResult {
+			Logger.Errorf("Fail to execute txs!")
+			return false, state, receipts
+		}
+	}
+	root, err := state.Commit(true)
+	if err != nil {
+		Logger.Errorf("State commit error:%s", err.Error())
+		return false, state, receipts
+	}
+
+	triedb := chain.stateCache.TrieDB()
+	err = triedb.Commit(root, false)
+	if err != nil {
+		Logger.Errorf("Trie commit error:%s", err.Error())
+		return false, state, receipts
+	}
+	return true, state, receipts
+}
+
+func (chain *FullBlockChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) bool {
+	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
+	if err != nil {
+		Logger.Errorf("Fail to put %s, error:%s", BLOCK_STATUS_KEY, err.Error())
+		return false
+	}
+	chain.latestStateDB = state
+	chain.latestBlock = header
+	Logger.Debugf("Update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
+	return true
+}
+
+func (chain *FullBlockChain) updateCheckValue(block *types.Block) {
+	verifyHash := chain.consensusHelper.VerifyHash(block)
+	chain.PutCheckValue(block.Header.Height, verifyHash.Bytes())
+}
+
+func (chain *FullBlockChain) updateTxPool(block *types.Block, receipts types.Receipts) {
+	chain.transactionPool.MarkExecuted(receipts, block.Transactions)
+	chain.transactionPool.Remove(block.Header.Hash, block.Header.Transactions, block.Header.EvictedTxs)
+}
+
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
 	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: *remoteBlock,})
@@ -569,7 +626,6 @@ func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.Blo
 func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	chain.lock.RLock("QueryBlockByHash")
 	defer chain.lock.RUnlock("QueryBlockByHash")
-
 	return chain.queryBlockByHash(hash)
 }
 
@@ -592,41 +648,6 @@ func (chain *FullBlockChain) QueryBlock(height uint64) *types.Block {
 	return b
 }
 
-// 保存block到ldb
-// todo:错误回滚
-//result code:
-// -1 保存失败
-// 0 保存成功
-func (chain *FullBlockChain) saveBlock(b *types.Block) (int8, []byte) {
-	// 根据hash存block
-	blockJson, err := types.MarshalBlock(b)
-	if err != nil {
-		Logger.Errorf("Fail to json Marshal, error:%s", err.Error())
-		return -1, nil
-	}
-	err = chain.blocks.Put(b.Header.Hash.Bytes(), blockJson)
-	if err != nil {
-		Logger.Errorf("Fail to put key:hash value:block, error:%s", err.Error())
-		return -1, nil
-	}
-
-	// 根据height存blockheader
-	headerJson, err := types.MarshalBlockHeader(b.Header)
-	if err != nil {
-		Logger.Errorf("Fail to json Marshal header, error:%s", err.Error())
-		return -1, nil
-	}
-
-	err = chain.blockHeight.Put(generateHeightKey(b.Header.Height), headerJson)
-	if err != nil {
-		Logger.Errorf("Fail to put key:height value:headerjson, error:%s", err)
-		return -1, nil
-	}
-	chain.topBlocks.Add(b.Header.Height, b.Header)
-
-	return 0, headerJson
-}
-
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
 	chain.lock.Lock("Clear")
@@ -641,6 +662,7 @@ func (chain *FullBlockChain) Clear() error {
 	chain.blocks.Close()
 	chain.blockHeight.Close()
 	chain.statedb.Close()
+	chain.checkdb.Close()
 
 	os.RemoveAll(tasdb.DEFAULT_FILE)
 
@@ -653,18 +675,8 @@ func (chain *FullBlockChain) Clear() error {
 	chain.stateCache = account.NewDatabase(chain.statedb)
 	chain.executor = NewTVMExecutor(chain)
 
-	// 创始块
-	state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
-	if nil == err {
-		chain.latestStateDB = state
-		block := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
-
-		_, headerJson := chain.saveBlock(block)
-		chain.updateLastBlock(state, block.Header, headerJson)
-	}
-
+	chain.insertGenesisBlock()
 	chain.init = true
-
 	chain.transactionPool.Clear()
 	return err
 }
@@ -723,4 +735,22 @@ func (chain *FullBlockChain) versionValidate() bool {
 		return false
 	}
 	return true
+}
+
+func (chain *FullBlockChain) insertGenesisBlock() {
+	state, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
+	if nil == err {
+		genesisBlock := GenesisBlock(state, chain.stateCache.TrieDB(), chain.consensusHelper.GenerateGenesisInfo())
+		Logger.Debugf("GenesisBlock Hash:%s,StateTree:%s", genesisBlock.Header.Hash.String(), genesisBlock.Header.StateTree.Hex())
+		blockByte, _ := types.MarshalBlock(genesisBlock)
+		chain.saveBlockByHash(genesisBlock.Header.Hash, blockByte)
+
+		headerByte, _ := types.MarshalBlockHeader(genesisBlock.Header)
+		chain.saveBlockByHeight(genesisBlock.Header.Height, headerByte)
+
+		chain.updateLastBlock(state, genesisBlock.Header, headerByte)
+		chain.updateCheckValue(genesisBlock)
+	} else {
+		panic("Init block chain error:" + err.Error())
+	}
 }

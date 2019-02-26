@@ -205,7 +205,10 @@ func (chain *prototypeChain) SetAdujsting(isAjusting bool) {
 }
 
 func (chain *prototypeChain) Close() {
+	chain.blocks.Close()
+	chain.blockHeight.Close()
 	chain.statedb.Close()
+	chain.checkdb.Close()
 }
 
 func (chain *prototypeChain) getStartIndex(size uint64) uint64 {
@@ -299,51 +302,47 @@ func (chain *prototypeChain) validateGroupSig(bh *types.BlockHeader) (bool, erro
 	return result, err
 }
 
-//func (chain *prototypeChain) GetTraceHeader(hash []byte) *types.BlockHeader {
-//	traceHeader := TraceChainImpl.GetTraceHeaderByHash(hash)
-//	if traceHeader == nil {
-//		statistics.VrfLogger.Debugf("TraceHeader is nil")
-//		return nil
-//	}
-//	if traceHeader.Random == nil || len(traceHeader.Random) == 0 {
-//		statistics.VrfLogger.Debugf("PreBlock Random is nil")
-//	} else {
-//		statistics.VrfLogger.Debugf("PreBlock Random : %v", common.Bytes2Hex(traceHeader.Random))
-//	}
-//	return &types.BlockHeader{PreHash: traceHeader.PreHash, Hash: traceHeader.Hash, Random: traceHeader.Random, TotalQN: traceHeader.TotalQn, Height: traceHeader.Height}
-//}
-
 // 删除块 只删除最高块
-func (chain *prototypeChain) remove(header *types.BlockHeader) bool {
-	if header.Hash != chain.latestBlock.Hash {
-		return false
-	}
-	Logger.Debugf("remove hash:%s height:%d ", header.Hash.Hex(), header.Height)
-	hash := header.Hash
-	block := chain.queryBlockByHash(hash)
-	chain.topBlocks.Remove(header.Height)
-	chain.blocks.Delete(hash.Bytes())
-	chain.blockHeight.Delete(generateHeightKey(header.Height))
-
-	chain.latestBlock = chain.queryBlockHeaderByHash(chain.latestBlock.PreHash)
-	chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
-
-	// 删除块的交易，返回transactionpool
+func (chain *prototypeChain) remove(block *types.Block) bool {
 	if nil == block {
 		return true
 	}
-	txs := block.Transactions
-	if 0 == len(txs) {
-		return true
+	hash := block.Header.Hash
+	height := block.Header.Height
+	Logger.Debugf("remove hash:%s height:%d ", hash.Hex(), height)
+
+	chain.markRemoveBlock(block)
+
+	chain.topBlocks.Remove(height)
+	chain.blocks.Delete(hash.Bytes())
+	chain.blockHeight.Delete(generateHeightKey(height))
+	chain.checkdb.Delete(utility.UInt64ToByte(height))
+
+	preBlock := chain.queryBlockByHash(chain.latestBlock.PreHash)
+	if preBlock == nil {
+		Logger.Errorf("Query nil block header by hash  while removing block! Hash:%s,height:%d, preHash :%s", hash.Hex(), height, block.Header.PreHash.Hex())
+		return false
 	}
-	chain.transactionPool.UnMarkExecuted(txs)
+	preHeader := preBlock.Header
+	chain.latestBlock = preHeader
+	chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+
+	preHeaderByte, _ := types.MarshalBlockHeader(preHeader)
+	chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), preHeaderByte)
+
+	chain.transactionPool.UnMarkExecuted(block.Transactions)
+	chain.eraseRemoveBlockMark()
 	return true
 }
 
-func (chain *prototypeChain) Remove(header *types.BlockHeader) bool {
+func (chain *prototypeChain) Remove(block *types.Block) bool {
 	chain.lock.Lock("Remove Top")
 	defer chain.lock.Unlock("Remove Top")
-	return chain.remove(header)
+
+	if block.Header.Hash != chain.latestBlock.Hash {
+		return false
+	}
+	return chain.remove(block)
 }
 
 func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.BlockHeader) {
@@ -357,21 +356,13 @@ func (chain *prototypeChain) removeFromCommonAncestor(commonAncestor *types.Bloc
 			//Logger.Debugf("removeFromCommonAncestor nil height:%d", height)
 			continue
 		}
-		chain.remove(header)
-		Logger.Debugf("Remove local chain headers %d", header.Height)
+		block := chain.queryBlockByHash(header.Hash)
+		if block == nil {
+			continue
+		}
+		chain.remove(block)
+		Logger.Debugf("Remove local block hash:%s, height %d", header.Hash.String(), header.Height)
 	}
-}
-
-func (chain *prototypeChain) updateLastBlock(state *account.AccountDB, header *types.BlockHeader, headerJson []byte) int8 {
-	err := chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), headerJson)
-	if err != nil {
-		Logger.Errorf("fail to put current, error:%s \n", err)
-		return -1
-	}
-	chain.latestStateDB = state
-	chain.latestBlock = header
-	Logger.Debugf("blockchain update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
-	return 0
 }
 
 func (chain *prototypeChain) GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader {
@@ -740,4 +731,92 @@ func (chain *prototypeChain) queryBlockHeaderByHash(hash common.Hash) *types.Blo
 		return nil
 	}
 	return block.Header
+}
+
+func (chain *prototypeChain) markAddBlock(blockByte []byte) bool {
+	err := chain.blocks.Put([]byte(addBlockMark), blockByte)
+	if err != nil {
+		Logger.Errorf("Block chain put addBlockMark error:%s", err.Error())
+		return false
+	}
+	return true
+}
+
+func (chain *prototypeChain) eraseAddBlockMark() {
+	chain.blocks.Delete([]byte(addBlockMark))
+}
+
+func (chain *prototypeChain) markRemoveBlock(block *types.Block) bool {
+	blockByte, err := types.MarshalBlock(block)
+	if err != nil {
+		Logger.Errorf("Fail to marshal block, error:%s", err.Error())
+		return false
+	}
+
+	err = chain.blocks.Put([]byte(removeBlockMark), blockByte)
+	if err != nil {
+		Logger.Errorf("Block chain put removeBlockMark error:%s", err.Error())
+		return false
+	}
+	return true
+}
+
+func (chain *prototypeChain) eraseRemoveBlockMark() {
+	chain.blocks.Delete([]byte(removeBlockMark))
+}
+
+func (chain *prototypeChain) ensureChainConsistency() {
+	addBlockByte, _ := chain.blocks.Get([]byte(addBlockMark))
+	if addBlockByte != nil {
+		block, _ := types.UnMarshalBlock(addBlockByte)
+		Logger.Errorf("ensureChainConsistency find addBlockMark!")
+		chain.ensureConsistencyDump(block)
+		chain.remove(block)
+		chain.eraseAddBlockMark()
+		chain.ensureConsistencyDump(block)
+	}
+
+	removeBlockByte, _ := chain.blocks.Get([]byte(removeBlockMark))
+	if removeBlockByte != nil {
+		block, _ := types.UnMarshalBlock(removeBlockByte)
+		Logger.Errorf("ensureChainConsistency find removeBlockMark!")
+		chain.ensureConsistencyDump(block)
+		chain.remove(block)
+		chain.eraseRemoveBlockMark()
+		chain.ensureConsistencyDump(block)
+	}
+}
+
+func (chain *prototypeChain) ensureConsistencyDump(block *types.Block) {
+	Logger.Debugf("ensureConsistencyDump:")
+	bByHash := chain.queryBlockByHash(block.Header.Hash)
+	if bByHash == nil {
+		Logger.Debugf("query by hash is nil")
+	} else {
+		Logger.Debugf("query by hash is not nil")
+	}
+
+	bByHeight := chain.queryBlockHeaderByHeight(block.Header.Height, false)
+	if bByHeight == nil {
+		Logger.Debugf("query by height is nil")
+	} else {
+		Logger.Debugf("query by height is not nil")
+	}
+
+	state, _ := account.NewAccountDB(block.Header.StateTree, chain.stateCache)
+	if state == nil {
+		Logger.Debugf("query state is nil")
+	} else {
+		Logger.Debugf("query state is not nil")
+	}
+
+	lastBlock := chain.queryBlockHeaderByHeight([]byte(BLOCK_STATUS_KEY), false)
+	if lastBlock.StateTree != block.Header.StateTree {
+		Logger.Debugf("query last block in db is nil")
+	} else {
+		Logger.Debugf("query last block in is not nil")
+	}
+
+	checkValue, _ := chain.GetCheckValue(block.Header.Height)
+	Logger.Debugf("Check value:%v", checkValue)
 }

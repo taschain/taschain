@@ -83,7 +83,6 @@ func getInstance() (*LDBDatabase, error) {
 
 	if nil == common.GlobalConf {
 		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
-
 	} else {
 		instanceInner, err = NewLDBDatabase(common.GlobalConf.GetString(CONFIG_SEC, "database", defaultConfig.database), common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
 	}
@@ -133,7 +132,7 @@ func (db *PrefixedDatabase) NewIterator() iterator.Iterator {
 }
 
 func (db *PrefixedDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
-	return db.db.NewIteratorWithPrefix(generateKey(prefix,db.prefix))
+	return db.db.NewIteratorWithPrefix(generateKey(prefix, db.prefix))
 }
 
 func (db *PrefixedDatabase) NewBatch() Batch {
@@ -409,7 +408,7 @@ func (db *MemDatabase) NewIterator() iterator.Iterator {
 	panic("Not support")
 }
 
-func (db *MemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator{
+func (db *MemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
 	panic("Not support")
 }
 
@@ -517,7 +516,7 @@ func (db *LRUMemDatabase) NewIterator() iterator.Iterator {
 	panic("Not support")
 }
 
-func (db *LRUMemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator{
+func (db *LRUMemDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
 	panic("Not support")
 }
 

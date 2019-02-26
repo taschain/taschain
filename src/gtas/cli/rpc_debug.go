@@ -19,15 +19,15 @@ import (
 */
 
 type SysWorkSummary struct {
-	BeginHeight uint64 `json:"begin_height"`
-	ToHeight uint64 `json:"to_height"`
-	GroupSummary []*GroupVerifySummary `json:"group_summary"`
-	AverCastTime float64 `json:"aver_cast_time"`
-	MaxCastTime float64 `json:"max_cast_time"`
-	HeightOfMaxCastTime uint64 `json:"height_of_max_cast_time"`
-	JumpRate float64 `json:"jump_rate"`
-	summaryMap map[string]*GroupVerifySummary
-	allGroup map[string]*types.Group
+	BeginHeight         uint64                `json:"begin_height"`
+	ToHeight            uint64                `json:"to_height"`
+	GroupSummary        []*GroupVerifySummary `json:"group_summary"`
+	AverCastTime        float64               `json:"aver_cast_time"`
+	MaxCastTime         float64               `json:"max_cast_time"`
+	HeightOfMaxCastTime uint64                `json:"height_of_max_cast_time"`
+	JumpRate            float64               `json:"jump_rate"`
+	summaryMap          map[string]*GroupVerifySummary
+	allGroup            map[string]*types.Group
 }
 
 func (s *SysWorkSummary) Len() int {
@@ -42,7 +42,7 @@ func (s *SysWorkSummary) Swap(i, j int) {
 	s.GroupSummary[i], s.GroupSummary[j] = s.GroupSummary[j], s.GroupSummary[i]
 }
 
-func (s *SysWorkSummary) sort()  {
+func (s *SysWorkSummary) sort() {
 	if len(s.summaryMap) == 0 {
 		return
 	}
@@ -74,7 +74,7 @@ func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelect
 		return v
 	}
 	gvs := &GroupVerifySummary{
-		Gid: gidStr,
+		Gid:            gidStr,
 		LastJumpHeight: make([]uint64, 0),
 	}
 	g := s.allGroup[gidStr]
@@ -82,24 +82,21 @@ func (s *SysWorkSummary) getGroupSummary(gid groupsig.ID, top uint64, nextSelect
 	gvs.NextSelected = nextSelected
 	s.summaryMap[gidStr] = gvs
 
-
 	return gvs
 }
 
-
 type GroupVerifySummary struct {
-	Gid  string `json:"gid"`
-	DissmissHeight uint64 `json:"dissmiss_height"`
-	Dissmissed bool `json:"dissmissed"`
-	NumVerify int `json:"num_verify"`
-	NumJump 	int `json:"num_jump"`
+	Gid            string   `json:"gid"`
+	DissmissHeight uint64   `json:"dissmiss_height"`
+	Dissmissed     bool     `json:"dissmissed"`
+	NumVerify      int      `json:"num_verify"`
+	NumJump        int      `json:"num_jump"`
 	LastJumpHeight []uint64 `json:"last_jump_height"`
-	NextSelected bool `json:"next_selected"`
-	JumpRate float64 `json:"jump_rate"`
+	NextSelected   bool     `json:"next_selected"`
+	JumpRate       float64  `json:"jump_rate"`
 }
 
-
-func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
+func (s *GroupVerifySummary) addJumpHeight(h uint64) {
 	if len(s.LastJumpHeight) < 50 {
 		s.LastJumpHeight = append(s.LastJumpHeight, h)
 	} else {
@@ -115,19 +112,19 @@ func (s *GroupVerifySummary) addJumpHeight(h uint64)  {
 			s.LastJumpHeight[0] = h
 		}
 	}
-	s.NumJump+=1
+	s.NumJump += 1
 }
 
-func (s *GroupVerifySummary) calJumpRate()  {
-	s.JumpRate = float64(s.NumJump)/float64(s.NumVerify+s.NumJump)
+func (s *GroupVerifySummary) calJumpRate() {
+	s.JumpRate = float64(s.NumJump) / float64(s.NumVerify+s.NumJump)
 }
 
-func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64)  {
+func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64) {
 	if g == nil {
 		return
 	}
-    s.DissmissHeight = g.Header.DismissHeight
-    s.Dissmissed = s.DissmissHeight <= top
+	s.DissmissHeight = g.Header.DismissHeight
+	s.Dissmissed = s.DissmissHeight <= top
 }
 
 func (api *GtasAPI) DebugContextSummary() (*Result, error) {
@@ -138,7 +135,7 @@ func (api *GtasAPI) DebugContextSummary() (*Result, error) {
 func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
 	gs := make(map[string]*types.Group)
-	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre(){
+	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
 		id := groupsig.DeserializeId(coreGroup.Id)
 		gs[id.GetHexString()] = coreGroup
 	}
@@ -148,7 +145,7 @@ func getAllGroup() map[string]*types.Group {
 
 func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader, deltaHeight uint64) (groupsig.ID, []*types.Group) {
 	qualifiedGs := make(groupArray, 0)
-	h := preBH.Height+deltaHeight
+	h := preBH.Height + deltaHeight
 	for _, g := range gs {
 		if g.Header.WorkHeight <= h && g.Header.DismissHeight > h {
 			qualifiedGs = append(qualifiedGs, g)
@@ -183,12 +180,12 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 
 	summary := &SysWorkSummary{
 		BeginHeight: from,
-		ToHeight: to,
-		summaryMap: make(map[string]*GroupVerifySummary, 0),
-		allGroup: allGroup,
+		ToHeight:    to,
+		summaryMap:  make(map[string]*GroupVerifySummary, 0),
+		allGroup:    allGroup,
 	}
-	nextGroupId,_ := selectNextVerifyGroup(allGroup, top, 1)
-	preBH := chain.QueryBlockByHeight(from-1)
+	nextGroupId, _ := selectNextVerifyGroup(allGroup, top, 1)
+	preBH := chain.QueryBlockByHeight(from - 1)
 
 	t := float64(0)
 	b := 0
@@ -198,7 +195,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	for h := uint64(from); h <= to; h++ {
 		bh := chain.QueryBlockByHeight(h)
 		if bh == nil {
-			expectGid,_ := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
+			expectGid, _ := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupId))
 			gvs.addJumpHeight(h)
 			jump++
@@ -255,8 +252,11 @@ func (api *GtasAPI) DebugJoinGroupInfo(gid string) (*Result, error) {
 func (api *GtasAPI) DebugRemoveBlock(h uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(h)
 	if bh != nil {
-		ret := mediator.Proc.MainChain.Remove(bh)
-		return successResult(ret)
+		b := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
+		if b != nil {
+			ret := mediator.Proc.MainChain.Remove(b)
+			return successResult(ret)
+		}
 	}
 	return successResult("not exist")
 }
