@@ -212,7 +212,7 @@ func (vc *VerifyContext) updateSignedMaxQN(totalQN uint64) bool {
 	return false
 }
 
-func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (err error) {
+func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (slot *SlotContext, err error) {
 	//只签qn不小于已签出的最高块的块
 	if vc.hasSignedBiggerQN(bh.TotalQN) {
 		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxQN(), bh.TotalQN)
@@ -228,7 +228,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 		err = fmt.Errorf("已超时" + vc.expireTime.String())
 		return
 	}
-	slot := vc.GetSlotByHash(bh.Hash)
+	slot = vc.GetSlotByHash(bh.Hash)
 	if slot != nil {
 		if slot.GetSlotStatus() >= SS_RECOVERD {
 			err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)

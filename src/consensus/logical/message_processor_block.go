@@ -137,7 +137,8 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return
 	}
-	err = vctx.baseCheck(bh, si.GetID())
+	var slot *SlotContext
+	slot, err = vctx.baseCheck(bh, si.GetID())
 	if err != nil {
 		return
 	}
@@ -185,28 +186,31 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		}
 	}
 
-	slog.addStage("checkLegal")
-	ok, _, err2 := p.isCastLegal(bh, preBH)
-	slog.endStage()
-	if !ok {
-		err = err2
-		return
-	}
+	//未签过名的情况下，需要校验铸块合法性和全量账本检查
+	if slot == nil || !slot.IsSigned() {
+		slog.addStage("checkLegal")
+		ok, _, err2 := p.isCastLegal(bh, preBH)
+		slog.endStage()
+		if !ok {
+			err = err2
+			return
+		}
 
-	slog.addStage("sampleCheck")
-	//校验提案者是否有全量账本
-	sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
-	realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
-	if !existHash.IsValid() {
-		err = fmt.Errorf("MainChain GetCheckValue error, height=%v, err=%v", sampleHeight, err)
-		return
+		slog.addStage("sampleCheck")
+		//校验提案者是否有全量账本
+		sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
+		realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
+		if !existHash.IsValid() {
+			err = fmt.Errorf("MainChain GetCheckValue error, height=%v, err=%v", sampleHeight, err)
+			return
+		}
+		vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
+		if vHash != existHash {
+			err = fmt.Errorf("check p rove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
+			return
+		}
+		slog.endStage()
 	}
-	vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
-	if vHash != existHash {
-		err = fmt.Errorf("check p rove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
-		return
-	}
-	slog.endStage()
 
 	slog.addStage("UVCheck")
 	blog.debug("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
@@ -214,7 +218,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	slog.endStage()
 
 	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
-	slot := vctx.GetSlotByHash(bh.Hash)
+	slot = vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
 		err = fmt.Errorf("找不到合适的验证槽, 放弃验证")
 		return
@@ -282,7 +286,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	}
 	vctx := bc.GetVerifyContextByHeight(bh.Height)
 	if vctx != nil {
-		err := vctx.baseCheck(bh, si.GetID())
+		_, err := vctx.baseCheck(bh, si.GetID())
 		if err != nil {
 			result = err.Error()
 			return
