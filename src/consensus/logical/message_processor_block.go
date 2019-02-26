@@ -557,10 +557,12 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 				if !exist {
 					continue
 				}
+				slog.addStage(fmt.Sprintf("checkSignMem%v", idx))
 				if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
 					err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())
 					return
 				}
+				slog.endStage()
 			} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
 				if !sign.IsEqual(sig) {
 					err = fmt.Errorf("member sign different id=%v", id.ShortS())
