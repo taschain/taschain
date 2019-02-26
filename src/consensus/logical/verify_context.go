@@ -293,6 +293,7 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	slot, err := vc.prepareSlot(bh, blog)
 	if err != nil {
 		blog.log("prepareSlot fail, err %v", err)
+		return CBMR_ERROR_UNKNOWN
 	}
 
 	slot.initIfNeeded()
