@@ -18,7 +18,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype))
+		_, err := p.doVerify(mtype, msg, tlog, newBizLog(mtype))
 		if err != nil {
 			tlog.logEnd("result=%v", err.Error())
 		}

@@ -54,21 +54,8 @@ func (p *Processor) thresholdPieceVerify(mtype string, sender string, gid groups
 		blog.debug("already cast success, height=%v", bh.Height)
 		return
 	}
-	gpk := p.getGroupPubKey(gid)
 
-	if len(bh.Signature) == 0 {
-		blog.log("bh sign is empty! hash=%v", bh.Hash.ShortS())
-	}
-
-	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
-		blog.log("%v group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.", mtype,
-			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
-		return
-	}
-
-	if slot.IsVerified() {
-		p.reserveBlock(vctx, slot)
-	}
+	p.reserveBlock(vctx, slot)
 
 }
 
@@ -76,6 +63,8 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 	bh := slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
+		vctx.updateSignedMaxQN(bh.TotalQN)
+		vctx.increaseSignedNum()
 		skey := p.getSignKey(gid)
 		var cvm model.ConsensusVerifyMessage
 		cvm.BlockHash = bh.Hash
@@ -93,10 +82,11 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 	}
 }
 
-func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, traceLog *msgTraceLog, blog *bizLog) (err error) {
+func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, traceLog *msgTraceLog, blog *bizLog) (cost string, err error) {
 	bh := &msg.BH
 	si := &msg.SI
 
+	begin := time.Now()
 	sender := si.SignMember.ShortS()
 
 	gid := groupsig.DeserializeId(bh.GroupId)
@@ -105,20 +95,20 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
 	if preBH == nil {
 		p.addFutureVerifyMsg(msg)
-		return fmt.Errorf("父块未到达")
+		return "", fmt.Errorf("父块未到达")
 	}
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
-		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
+		return "", fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
 	} else if bh.Height > 1 {
 		//设置为2倍的最大时间，防止由于时间不同步导致的跳块
 		beginTime := expireTime.Add(-2*time.Second*time.Duration(model.Param.MaxGroupCastTime))
 		if !time.Now().After(beginTime) {
-			return fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
+			return "", fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 		}
 
 	}
 	if !p.IsMinerGroup(gid) {
-		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
+		return "", fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
 	}
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
@@ -131,22 +121,68 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		return
 	}
 
-	//非提案节点消息，即组内验证消息，需要验证随机数签名
-	if !castor.IsEqual(si.GetID()) {
-		pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
-		if !ok {
-			err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+	vctx := bc.GetOrNewVerifyContext(bh, preBH)
+	if vctx == nil {
+		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
+		return
+	}
+	err = vctx.baseCheck(bh)
+	if err != nil {
+		return
+	}
+	cost = fmt.Sprintf("baseCheck:%v", time.Since(begin).String())
+
+	isProposal := castor.IsEqual(si.GetID())
+
+	if isProposal { //提案者
+		castorDO := p.minerReader.getProposeMiner(castor)
+		if castorDO == nil {
+			err = fmt.Errorf("castorDO nil id=%v", castor.ShortS())
 			return
 		}
-		if !msg.VerifyRandomSign(pk, preBH.Random) {
+		vSignBegin := time.Now()
+		b := msg.VerifySign(castorDO.PK)
+		cost = fmt.Sprintf("%v,verifyCastorSign:%v", cost, time.Since(vSignBegin).String())
+
+		if !b {
+			err = fmt.Errorf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
+			return
+		}
+
+	} else {
+		pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
+		if !ok {
+			blog.log("GetMemberSignPubKey not ok, ask id %v", si.GetID().ShortS())
+			return
+		}
+
+		vSignBegin := time.Now()
+		b := msg.VerifySign(pk)
+		cost = fmt.Sprintf("%v,verifySign:%v", cost, time.Since(vSignBegin).String())
+
+		if !b {
+			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
+			return
+		}
+		vRSignBegin := time.Now()
+		b = msg.VerifyRandomSign(pk, preBH.Random)
+		cost = fmt.Sprintf("%v,verifyRSign:%v", cost, time.Since(vRSignBegin).String())
+
+		if !b {
 			err = fmt.Errorf("random sign verify fail, gid %v, pk %v, sign=%v", gid.ShortS(), pk.ShortS(), groupsig.DeserializeSign(msg.BH.Random).GetHexString())
 			return
 		}
 	}
-	if ok, _, err2 := p.isCastLegal(bh, preBH); !ok {
+
+	legalBegin := time.Now()
+	ok, _, err2 := p.isCastLegal(bh, preBH)
+	cost = fmt.Sprintf("%v,legalCheck:%v", cost, time.Since(legalBegin).String())
+	if !ok {
 		err = err2
 		return
 	}
+
+	sampleCheckBegin := time.Now()
 	//校验提案者是否有全量账本
 	sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
 	realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
@@ -159,25 +195,14 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		err = fmt.Errorf("check prove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
 		return
 	}
+	cost = fmt.Sprintf("%v,sampleCheck:%v", cost, time.Since(sampleCheckBegin).String())
 
-	vctx := bc.GetOrNewVerifyContext(bh, preBH)
-	if vctx == nil {
-		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
-		return
-	}
-
-	if vctx.castSuccess() || vctx.broadCasted() {
-		err = fmt.Errorf("已出块")
-		return
-	}
-	if vctx.castExpire() {
-		vctx.markTimeout()
-		err = fmt.Errorf("已超时" + vctx.expireTime.String())
-		return
-	}
-
+	uvBegin := time.Now()
 	blog.debug("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
 	verifyResult := vctx.UserVerified(bh, si)
+
+	cost = fmt.Sprintf("%v,uvCheck:%v", cost, time.Since(uvBegin).String())
+
 	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
@@ -190,11 +215,15 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		if !slot.HasTransLost() {
+			thresholdBegin := time.Now()
 			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
+			cost = fmt.Sprintf("%v,threVerify:%v", cost, time.Since(thresholdBegin).String())
 		}
 
 	case CBMR_PIECE_NORMAL:
+		normBegin := time.Now()
 		p.normalPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
+		cost = fmt.Sprintf("%v,normVerify:%v", cost, time.Since(normBegin).String())
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 	}
@@ -214,11 +243,13 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 
 	result := ""
 	begin := time.Now()
+	costString := ""
+
 	defer func() {
 		traceLog.logEnd("height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(),groupId.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
-		if time.Since(begin).Seconds() > 0.5 {
-			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, height=%v, preHash=%v, cost %v", mtype, si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height, bh.PreHash.ShortS(), time.Since(begin).String())
+		if time.Since(begin).Seconds() > 0.4 {
+			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, height=%v, preHash=%v, cost %v, detail %v", mtype, si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height, bh.PreHash.ShortS(), time.Since(begin).String(), costString)
 		}
 	}()
 
@@ -238,49 +269,32 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		result = fmt.Sprintf("msg genHash %v diff from si.DataHash %v", msg.GenHash().ShortS(), si.DataHash.ShortS())
 		return
 	}
-
-	isProposal := castor.IsEqual(si.GetID())
-
-	if isProposal { //提案者
-
-		castorDO := p.minerReader.getProposeMiner(castor)
-		if castorDO == nil {
-			result = fmt.Sprintf("castorDO nil id=%v", castor.ShortS())
-			return
-		}
-
-		if !msg.VerifySign(castorDO.PK) {
-			result = fmt.Sprintf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
-			return
-		}
-
-	} else {
-		pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(groupId, si.GetID()))
-		if !ok {
-			blog.log("GetMemberSignPubKey not ok, ask id %v", si.GetID().ShortS())
-			return
-		}
-
-		if !msg.VerifySign(pk) {
-			result = fmt.Sprintf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
-			jg := p.belongGroups.getJoinedGroup(groupId)
-			if jg == nil {
-				blog.log("verify sign fail, jg is nil, gid=%v", groupId.ShortS())
-			} else {
-				for idHex, pkt := range jg.Members {
-					blog.log("id:%v, pk:%v", idHex, pkt.GetHexString())
-				}
-			}
+	bc := p.GetBlockContext(groupId)
+	if bc == nil {
+		result = fmt.Sprintf("未获取到blockcontext, gid=" + groupId.ShortS())
+		return
+	}
+	vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if vctx != nil {
+		err := vctx.baseCheck(bh)
+		if err != nil {
+			result = err.Error()
 			return
 		}
 	}
+
+	onChainCheckBegin := time.Now()
 	if p.blockOnChain(bh.Hash) {
 		result = "block onchain already"
 	}
+	costString = fmt.Sprintf("onchainCheck:%v", time.Since(onChainCheckBegin).String())
 
-	if err := p.doVerify(mtype, msg, traceLog, blog); err != nil {
+	verifyBegin := time.Now()
+	cost, err := p.doVerify(mtype, msg, traceLog, blog)
+	if err != nil {
 		result = err.Error()
 	}
+	costString = fmt.Sprintf("%v;verify:%v(detail:%v)", costString, time.Since(verifyBegin).String(), cost)
 	return
 }
 
@@ -307,7 +321,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		PreHash: bh.PreHash.Hex(),
 		Proposer: ccm.SI.GetID().GetHexString(),
 		Verifier: groupsig.DeserializeId(bh.GroupId).GetHexString(),
-		Ext: "external",
+		Ext: fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
 	group := p.GetGroup(groupsig.DeserializeId(bh.GroupId))
 
@@ -472,15 +486,6 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	if group == nil {
 		panic("group is nil")
 	}
-	mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
-	if !ok {
-		err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
-		return
-	}
-	if !msg.VerifySign(mpk) {
-		err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
-		return
-	}
 
 	if !bytes.Equal(bh.GroupId, reward.GroupId) {
 		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
@@ -515,6 +520,16 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 	if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
 		err = fmt.Errorf("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
+		return
+	}
+
+	mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+	if !ok {
+		err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+		return
+	}
+	if !msg.VerifySign(mpk) {
+		err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
 		return
 	}
 
