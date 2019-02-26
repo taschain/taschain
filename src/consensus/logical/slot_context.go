@@ -159,12 +159,8 @@ func (sc SlotContext) MessageSize() int {
 //pk：组公钥
 //返回true验证通过，返回false失败。
 func (sc *SlotContext) VerifyGroupSigns(pk groupsig.Pubkey, preRandom []byte) bool {
-	st := sc.GetSlotStatus()
-	if st == SS_SUCCESS || st == SS_VERIFIED { //已经验证过组签名
+	if sc.IsVerified() || sc.IsSuccess() {
 		return true
-	}
-	if st != SS_RECOVERD {
-		return false
 	}
 	b := sc.gSignGenerator.VerifyGroupSign(pk, sc.BH.Hash.Bytes())
 	if b {
