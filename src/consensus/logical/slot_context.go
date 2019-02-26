@@ -64,6 +64,8 @@ type SlotContext struct {
 	//奖励相关
 	rewardTrans    *types.Transaction
 	rewardGSignGen *model.GroupSignGenerator //奖励交易签名产生器
+
+	signedRewardTxHashs set.Interface	//已签名的交易hash
 }
 
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
@@ -86,9 +88,11 @@ func (sc *SlotContext) initIfNeeded() bool {
 
 	bh := sc.BH
 	if sc.slotStatus == SS_INITING {
-		rtlog := newRtLog("slotInit")
+		slog := newSlowLog("InitSlot", 0.4)
+		slog.addStage("VerifyBlock")
 		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
-		rtlog.log("height=%v, hash=%v, lost trans size %v , ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
+		slog.endStage()
+		slog.log("height=%v, hash=%v, lost trans size %v , ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
 
 		lostTxsStrings := make([]string, len(lostTxs))
 		for idx, tx := range lostTxs {
@@ -193,7 +197,17 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 	if bh.Hash != sc.BH.Hash {
 		return CBMR_BH_HASH_DIFF
 	}
-	add, generate := sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
+
+	var (
+		add bool
+		generate bool
+	)
+	slog := newSlowLog("AcceptPiece", 0.5)
+	defer func() {
+		slog.log("hash=%v, height=%v, result=%v,%v", bh.Hash.ShortS(), bh.Height, add, generate)
+	}()
+
+	add, generate = sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)
 
 	if !add { //已经收到过该成员的验签
 		//忽略
@@ -268,4 +282,18 @@ func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bo
 		}
 	}
 	return
+}
+
+func (sc *SlotContext) addSignedTxHash(hash common.Hash)  {
+	if sc.signedRewardTxHashs == nil {
+		sc.signedRewardTxHashs = set.New(set.ThreadSafe)
+	}
+	sc.signedRewardTxHashs.Add(hash)
+}
+
+func (sc *SlotContext) hasSignedTxHash(hash common.Hash) bool {
+	if sc.signedRewardTxHashs == nil {
+		return false
+	}
+    return sc.signedRewardTxHashs.Has(hash)
 }

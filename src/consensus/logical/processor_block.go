@@ -221,8 +221,15 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
 }
 
 func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
+	slog := newSlowLog("getNearestVerifyHashByHeight", 0.3)
+	defer func() {
+		slog.log("height %v", h)
+	}()
 	for {
+		slog.addStage(fmt.Sprintf("height-%v", h))
 		hash, err := p.MainChain.GetCheckValue(h)
+		slog.endStage()
+
 		if err == nil {
 			return h, hash
 		}

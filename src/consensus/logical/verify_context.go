@@ -25,6 +25,7 @@ import (
 	"time"
 	"consensus/base"
 	"fmt"
+	"consensus/groupsig"
 )
 
 /*
@@ -211,7 +212,7 @@ func (vc *VerifyContext) updateSignedMaxQN(totalQN uint64) bool {
 	return false
 }
 
-func (vc *VerifyContext) baseCheck(bh *types.BlockHeader) (err error) {
+func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (err error) {
 	//只签qn不小于已签出的最高块的块
 	if vc.hasSignedBiggerQN(bh.TotalQN) {
 		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxQN(), bh.TotalQN)
@@ -228,9 +229,15 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader) (err error) {
 		return
 	}
 	slot := vc.GetSlotByHash(bh.Hash)
-	if slot != nil && slot.GetSlotStatus() >= SS_RECOVERD {
-		err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
-		return
+	if slot != nil {
+		if slot.GetSlotStatus() >= SS_RECOVERD {
+			err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
+			return
+		}
+		if _, ok := slot.gSignGenerator.GetWitness(sender); ok {
+			err = fmt.Errorf("重复消息%v", sender.ShortS())
+			return
+		}
 	}
 
 	return

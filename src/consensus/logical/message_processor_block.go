@@ -82,33 +82,44 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 	}
 }
 
-func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, traceLog *msgTraceLog, blog *bizLog) (cost string, err error) {
+func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, traceLog *msgTraceLog, blog *bizLog, slog *slowLog) (err error) {
 	bh := &msg.BH
 	si := &msg.SI
 
-	begin := time.Now()
 	sender := si.SignMember.ShortS()
 
 	gid := groupsig.DeserializeId(bh.GroupId)
 	castor := groupsig.DeserializeId(bh.Castor)
 
+	slog.addStage("checkOnChain")
+	if p.blockOnChain(bh.Hash) {
+		slog.endStage()
+		err = fmt.Errorf("block onchain already")
+		return
+	}
+	slog.endStage()
+
+	slog.addStage("checkPreBlock")
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
+	slog.endStage()
+
+	slog.addStage("baseCheck")
 	if preBH == nil {
 		p.addFutureVerifyMsg(msg)
-		return "", fmt.Errorf("父块未到达")
+		return fmt.Errorf("父块未到达")
 	}
 	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
-		return "", fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
+		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
 	} else if bh.Height > 1 {
 		//设置为2倍的最大时间，防止由于时间不同步导致的跳块
 		beginTime := expireTime.Add(-2*time.Second*time.Duration(model.Param.MaxGroupCastTime))
 		if !time.Now().After(beginTime) {
-			return "", fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
+			return fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 		}
 
 	}
 	if !p.IsMinerGroup(gid) {
-		return "", fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
+		return fmt.Errorf("%v is not in group %v", p.GetMinerID().ShortS(), gid.ShortS())
 	}
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
@@ -126,11 +137,11 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return
 	}
-	err = vctx.baseCheck(bh)
+	err = vctx.baseCheck(bh, si.GetID())
 	if err != nil {
 		return
 	}
-	cost = fmt.Sprintf("baseCheck:%v", time.Since(begin).String())
+	slog.endStage()
 
 	isProposal := castor.IsEqual(si.GetID())
 
@@ -140,9 +151,9 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 			err = fmt.Errorf("castorDO nil id=%v", castor.ShortS())
 			return
 		}
-		vSignBegin := time.Now()
+		slog.addStage("vCastorSign")
 		b := msg.VerifySign(castorDO.PK)
-		cost = fmt.Sprintf("%v,verifyCastorSign:%v", cost, time.Since(vSignBegin).String())
+		slog.endStage()
 
 		if !b {
 			err = fmt.Errorf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
@@ -156,17 +167,17 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 			return
 		}
 
-		vSignBegin := time.Now()
+		slog.addStage("vMemSign")
 		b := msg.VerifySign(pk)
-		cost = fmt.Sprintf("%v,verifySign:%v", cost, time.Since(vSignBegin).String())
+		slog.endStage()
 
 		if !b {
 			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
 			return
 		}
-		vRSignBegin := time.Now()
+		slog.addStage("vMemRandSign")
 		b = msg.VerifyRandomSign(pk, preBH.Random)
-		cost = fmt.Sprintf("%v,verifyRSign:%v", cost, time.Since(vRSignBegin).String())
+		slog.endStage()
 
 		if !b {
 			err = fmt.Errorf("random sign verify fail, gid %v, pk %v, sign=%v", gid.ShortS(), pk.ShortS(), groupsig.DeserializeSign(msg.BH.Random).GetHexString())
@@ -174,15 +185,15 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		}
 	}
 
-	legalBegin := time.Now()
+	slog.addStage("checkLegal")
 	ok, _, err2 := p.isCastLegal(bh, preBH)
-	cost = fmt.Sprintf("%v,legalCheck:%v", cost, time.Since(legalBegin).String())
+	slog.endStage()
 	if !ok {
 		err = err2
 		return
 	}
 
-	sampleCheckBegin := time.Now()
+	slog.addStage("sampleCheck")
 	//校验提案者是否有全量账本
 	sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
 	realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
@@ -192,16 +203,15 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	}
 	vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
 	if vHash != existHash {
-		err = fmt.Errorf("check prove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
+		err = fmt.Errorf("check p rove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
 		return
 	}
-	cost = fmt.Sprintf("%v,sampleCheck:%v", cost, time.Since(sampleCheckBegin).String())
+	slog.endStage()
 
-	uvBegin := time.Now()
+	slog.addStage("UVCheck")
 	blog.debug("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
 	verifyResult := vctx.UserVerified(bh, si)
-
-	cost = fmt.Sprintf("%v,uvCheck:%v", cost, time.Since(uvBegin).String())
+	slog.endStage()
 
 	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
 	slot := vctx.GetSlotByHash(bh.Hash)
@@ -215,15 +225,13 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	switch verifyResult {
 	case CBMR_THRESHOLD_SUCCESS:
 		if !slot.HasTransLost() {
-			thresholdBegin := time.Now()
 			p.thresholdPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
-			cost = fmt.Sprintf("%v,threVerify:%v", cost, time.Since(thresholdBegin).String())
 		}
 
 	case CBMR_PIECE_NORMAL:
-		normBegin := time.Now()
+		slog.addStage("normPiece")
 		p.normalPieceVerify(mtype, sender, gid, vctx, slot, traceLog)
-		cost = fmt.Sprintf("%v,normVerify:%v", cost, time.Since(normBegin).String())
+		slog.endStage()
 
 	case CBMR_PIECE_LOSINGTRANS: //交易缺失
 	}
@@ -238,19 +246,17 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	castor := groupsig.DeserializeId(bh.Castor)
 	groupId := groupsig.DeserializeId(bh.GroupId)
 
+	slog := newSlowLog(mtype, 0.5)
+
 	traceLog.logStart("height=%v, castor=%v", bh.Height, castor.ShortS())
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupId=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupId.ShortS())
 
 	result := ""
-	begin := time.Now()
-	costString := ""
 
 	defer func() {
 		traceLog.logEnd("height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(),groupId.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
-		if time.Since(begin).Seconds() > 0.4 {
-			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, height=%v, preHash=%v, cost %v, detail %v", mtype, si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height, bh.PreHash.ShortS(), time.Since(begin).String(), costString)
-		}
+		slog.log("sender=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height)
 	}()
 
 	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
@@ -276,25 +282,17 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	}
 	vctx := bc.GetVerifyContextByHeight(bh.Height)
 	if vctx != nil {
-		err := vctx.baseCheck(bh)
+		err := vctx.baseCheck(bh, si.GetID())
 		if err != nil {
 			result = err.Error()
 			return
 		}
 	}
 
-	onChainCheckBegin := time.Now()
-	if p.blockOnChain(bh.Hash) {
-		result = "block onchain already"
-	}
-	costString = fmt.Sprintf("onchainCheck:%v", time.Since(onChainCheckBegin).String())
-
-	verifyBegin := time.Now()
-	cost, err := p.doVerify(mtype, msg, traceLog, blog)
+	err := p.doVerify(mtype, msg, traceLog, blog, slog)
 	if err != nil {
 		result = err.Error()
 	}
-	costString = fmt.Sprintf("%v;verify:%v(detail:%v)", costString, time.Since(verifyBegin).String(), cost)
 	return
 }
 
@@ -479,23 +477,14 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 }
 
 
-func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader) (send bool, err error) {
+func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *slowLog) (send bool, err error) {
 	gid := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
 		panic("group is nil")
 	}
-
-	if !bytes.Equal(bh.GroupId, reward.GroupId) {
-		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
-		return
-	}
-	genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
-	if genBonus.TxHash != reward.TxHash {
-		err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
-		return
-	}
+	slog.addStage("baseCheck")
 
 	bc := p.GetBlockContext(gid)
 	if bc == nil {
@@ -518,54 +507,82 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		return
 	}
 
-	if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
-		err = fmt.Errorf("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
+	if !bytes.Equal(bh.GroupId, reward.GroupId) {
+		err = fmt.Errorf("groupID error %v %v", bh.GroupId, reward.GroupId)
 		return
 	}
+	slog.endStage()
+	if !slot.hasSignedTxHash(reward.TxHash) {
 
-	mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
-	if !ok {
-		err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
-		return
-	}
-	if !msg.VerifySign(mpk) {
-		err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
-		return
-	}
-
-	gSignGener := model.NewGroupSignGenerator(bc.threshold())
-
-	//witnesses := slot.gSignGenerator.GetWitnesses()
-	for idx, idIndex := range msg.Reward.TargetIds {
-		id := group.GetMemberID(int(idIndex))
-		sign := msg.SignedPieces[idx]
-		if sig, ok := slot.gSignGenerator.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
-			pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
-			if !exist {
-				continue
-			}
-			if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
-				err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())
-				return
-			}
-		} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
-			if !sign.IsEqual(sig) {
-				err = fmt.Errorf("member sign different id=%v", id.ShortS())
-				return
-			}
+		slog.addStage("GenerateBonus")
+		genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
+		if genBonus.TxHash != reward.TxHash {
+			err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
+			return
 		}
-		gSignGener.AddWitness(id, sign)
-	}
-	if !gSignGener.Recovered() {
-		err = fmt.Errorf("recover group sign fail")
-		return
-	}
-	bhSign := groupsig.DeserializeSign(bh.Signature)
-	if !gSignGener.GetGroupSign().IsEqual(*bhSign) {
-		err = fmt.Errorf("recovered sign differ from bh sign, recover %v, bh %v", gSignGener.GetGroupSign().ShortS(), bhSign.ShortS())
-		return
+		slog.endStage()
+
+		if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
+			err = fmt.Errorf("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
+			return
+		}
+
+		mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+		if !ok {
+			err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+			return
+		}
+		slog.addStage("vMemSign")
+		if !msg.VerifySign(mpk) {
+			slog.endStage()
+			err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
+			return
+		}
+		slog.endStage()
+
+
+		gSignGener := model.NewGroupSignGenerator(bc.threshold())
+
+		slog.addStage("checkTargetSign")
+		//witnesses := slot.gSignGenerator.GetWitnesses()
+		for idx, idIndex := range msg.Reward.TargetIds {
+			id := group.GetMemberID(int(idIndex))
+			sign := msg.SignedPieces[idx]
+			if sig, ok := slot.gSignGenerator.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
+				pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
+				if !exist {
+					continue
+				}
+				if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
+					err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())
+					return
+				}
+			} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
+				if !sign.IsEqual(sig) {
+					err = fmt.Errorf("member sign different id=%v", id.ShortS())
+					return
+				}
+			}
+			gSignGener.AddWitness(id, sign)
+		}
+		slog.endStage()
+
+		if !gSignGener.Recovered() {
+			err = fmt.Errorf("recover group sign fail")
+			return
+		}
+
+		bhSign := groupsig.DeserializeSign(bh.Signature)
+		if !gSignGener.GetGroupSign().IsEqual(*bhSign) {
+			err = fmt.Errorf("recovered sign differ from bh sign, recover %v, bh %v", gSignGener.GetGroupSign().ShortS(), bhSign.ShortS())
+			return
+		}
+
+		slot.addSignedTxHash(reward.TxHash)
 	}
 
+
+	slog.addStage("EndSend")
 	send = true
 	//自己签名
 	signMsg := &model.CastRewardTransSignMessage{
@@ -580,6 +597,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	} else {
 		err = fmt.Errorf("signCastRewardReq genSign fail, id=%v, sk=%v, %v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(gid))
 	}
+	slog.endStage()
 	return
 }
 
@@ -590,32 +608,32 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	tlog := newHashTraceLog("OMCRSR", reward.BlockHash, msg.SI.GetID())
 	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
 	tlog.logStart("txHash=%v", reward.TxHash.ShortS())
+	slog := newSlowLog(mtype, 0.5)
 
 	var (
 		send bool
 		err  error
 	)
 
-	begin := time.Now()
 	defer func() {
-		tlog.logEnd("%v %v", send, err)
-		blog.log("blockHash=%v, result=%v %v", reward.BlockHash.ShortS(), send, err)
-		if time.Since(begin).Seconds() > 0.5 {
-			gid := groupsig.DeserializeId(reward.GroupId)
-			slowLogger.Warnf("handle slow:%v, sender=%v, hash=%v, gid=%v, cost %v", mtype, msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), gid.ShortS(), time.Since(begin).String())
-		}
+		tlog.logEnd("txHash=%v, %v %v", reward.TxHash.ShortS(), send, err)
+		blog.log("blockHash=%v, txHash=%v, result=%v %v", reward.BlockHash.ShortS(), reward.TxHash.ShortS(), send, err)
+		slog.log("sender=%v, hash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
 	}()
 
 	//此时块不一定在链上
+	slog.addStage("ChecBlock")
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
+		slog.endStage()
 		err = fmt.Errorf("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
 		msg.ReceiveTime = time.Now()
 		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
 		return
 	}
+	slog.endStage()
 
-	send, err = p.signCastRewardReq(msg, bh)
+	send, err = p.signCastRewardReq(msg, bh, slog)
 	return
 }
 
