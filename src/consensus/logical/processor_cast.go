@@ -401,6 +401,11 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
+	//签过了自己就不用再发了
+	if slot.hasSignedRewardTx() {
+		blog.log("has signed reward tx")
+		return
+	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(groupID)
@@ -411,15 +416,15 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	idHexs := make([]string, size)
 
 	i := 0
-	slot.gSignGenerator.ForEachWitness(func(idStr string, sig groupsig.Signature) bool {
-		signs[i] = sig
-		var id groupsig.ID
-		id.SetHexString(idStr)
-		idHexs[i] = id.ShortS()
-		targetIdIndexs[i] = int32(group.GetMinerPos(id))
-		i++
-		return true
-	})
+	for idx, mem := range group.GetMembers() {
+		if sig, ok := slot.gSignGenerator.GetWitness(mem); ok {
+			signs[i] = sig
+			targetIdIndexs[i] = int32(idx)
+			idHexs[i] = mem.ShortS()
+			i++
+		}
+	}
+
 
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
