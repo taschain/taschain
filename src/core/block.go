@@ -27,7 +27,7 @@ import (
 	"time"
 )
 
-const ChainDataVersion = 1
+const ChainDataVersion = 2
 
 var emptyHash = common.Hash{}
 
