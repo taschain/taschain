@@ -101,7 +101,7 @@ func (g* Group) genConnectNodes() {
 		nextIndex = g.getNextIndex(nextIndex)
 		g.needConnectNodes = append(g.needConnectNodes,g.members[nextIndex])
 
-		maxCount := int(math.Sqrt(float64(peerSize))/2);
+		maxCount := int(math.Sqrt(float64(peerSize))*0.8);
 		maxCount -=  len(g.needConnectNodes)
 		step := 1
 

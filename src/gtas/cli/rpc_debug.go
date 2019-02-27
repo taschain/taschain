@@ -10,6 +10,7 @@ import (
 	"consensus/base"
 	"common"
 	"math/big"
+	"consensus/logical"
 )
 
 /*
@@ -147,7 +148,7 @@ func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader,
 	qualifiedGs := make(groupArray, 0)
 	h := preBH.Height + deltaHeight
 	for _, g := range gs {
-		if g.Header.WorkHeight <= h && g.Header.DismissHeight > h {
+		if logical.IsGroupWorkQualifiedAt(g.Header, h) {
 			qualifiedGs = append(qualifiedGs, g)
 		}
 	}

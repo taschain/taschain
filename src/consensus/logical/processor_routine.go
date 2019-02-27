@@ -268,8 +268,8 @@ func (p *Processor) getUpdateGlobalGroupsRoutineName() string {
 
 func (p *Processor) updateGlobalGroups() bool {
     top := p.MainChain.Height()
-    chainGroups := p.globalGroups.getCastQualifiedGroupFromChains(top)
-	for _, g := range chainGroups {
+	iter := p.GroupChain.NewIterator()
+	for g := iter.Current(); g != nil && !IsGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
 		gid := groupsig.DeserializeId(g.Id)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue

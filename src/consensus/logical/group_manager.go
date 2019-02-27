@@ -74,6 +74,9 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 	blog.log("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
 
 	ctx := gm.getContext()
+	if ctx == nil {
+		return false, fmt.Errorf("ctx is nil")
+	}
 	if ctx.getStatus() == sendInit {
 		return false, fmt.Errorf("has send inited")
 	}

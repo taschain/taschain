@@ -9,7 +9,9 @@ import (
 	"middleware/types"
 	"bytes"
 	"fmt"
+	"taslog"
 )
+var SlowLog taslog.Logger
 
 type ISignedMessage interface {
 	GenSign(ski SecKeyInfo, hasher Hasher) bool

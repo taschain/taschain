@@ -24,6 +24,7 @@ import (
 	"middleware/types"
 	"sync"
 	"bytes"
+	"time"
 )
 
 /*
@@ -129,7 +130,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 }
 
 func (p *Processor) blockOnChain(h common.Hash) bool {
-	exist := p.MainChain.QueryBlockByHash(h)
+	exist := p.getBlockHeaderByHash(h)
 	if exist != nil { //已经上链
 		return true
 	}
@@ -137,6 +138,12 @@ func (p *Processor) blockOnChain(h common.Hash) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
+	begin := time.Now()
+	defer func() {
+		if time.Since(begin).Seconds() > 0.5 {
+			slowLogger.Warnf("slowQueryBlockHeaderByHash: cost %v, hash=%v", time.Since(begin).String(), hash.ShortS())
+		}
+	}()
 	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
@@ -214,16 +221,24 @@ func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
 }
 
 func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
+	slog := newSlowLog("getNearestVerifyHashByHeight", 0.3)
+	defer func() {
+		slog.log("height %v", h)
+	}()
 	for {
 		hash, err := p.MainChain.GetCheckValue(h)
+
 		if err == nil {
 			return h, hash
 		}
 		if h == 0 {
 			panic("cannot find verifyHash of height 0")
 		}
+		//todo 暂不检查取样块高不存在的,可能计算量很大
+		break
 		h--
 	}
+	return
 }
 
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {

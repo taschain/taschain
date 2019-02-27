@@ -14,6 +14,7 @@ import (
 	"time"
 	"runtime/debug"
 	"logservice"
+	"fmt"
 )
 
 /*
@@ -149,7 +150,7 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 	blog := newBizLog("reserveBLock")
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
-	if slot.StatusTransform(SS_VERIFIED, SS_SUCCESS) {
+	if slot.IsRecovered() {
 		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.blockContexts.addReservedVctx(vctx)
 		if !p.tryBroadcastBlock(vctx) {
@@ -191,7 +192,6 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
 	blog := newBizLog("successNewBlock")
-	blog.log("------------slot status %v %v", slot.slotStatus, vctx.consensusStatus)
 
 	if slot.IsFailed() {
 		blog.log("slot is failed")
@@ -207,10 +207,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	blog.log("----------not on chain")
-
 	block := p.MainChain.GenerateBlock(*bh)
-	blog.log("-------------genearate block")
 
 	if block == nil {
 		blog.log("core.GenerateBlock is nil! won't broadcast block!")
@@ -222,11 +219,14 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	blog.log("-----------start add on chain")
+	gpk := p.getGroupPubKey(groupsig.DeserializeId(bh.GroupId))
+	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
+		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
+			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
+		return
+	}
 
 	r := p.doAddOnChain(block)
-
-	blog.log("-----------end add on chain")
 
 	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
 		if r != int8(types.Forking) {
@@ -258,6 +258,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 	vctx.broadcastSlot = slot
 	vctx.markBroadcast()
+	slot.setSlotStatus(SS_SUCCESS)
 
 	//如果是联盟链，则不打分红交易
 	if !consensusConfManager.GetBool("league", false) {
@@ -369,6 +370,7 @@ func (p *Processor) blockProposal() {
 			PreHash: bh.PreHash.Hex(),
 			Proposer: p.GetMinerID().GetHexString(),
 			Verifier: gb.Gid.GetHexString(),
+			Ext: fmt.Sprintf("qn:%v,totalQN:%v", qn, bh.TotalQN),
 		}
 		logservice.Instance.AddLog(le)
 
@@ -399,6 +401,11 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
+	//签过了自己就不用再发了
+	if slot.hasSignedRewardTx() {
+		blog.log("has signed reward tx")
+		return
+	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(groupID)
@@ -409,15 +416,15 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	idHexs := make([]string, size)
 
 	i := 0
-	slot.gSignGenerator.ForEachWitness(func(idStr string, sig groupsig.Signature) bool {
-		signs[i] = sig
-		var id groupsig.ID
-		id.SetHexString(idStr)
-		idHexs[i] = id.ShortS()
-		targetIdIndexs[i] = int32(group.GetMinerPos(id))
-		i++
-		return true
-	})
+	for idx, mem := range group.GetMembers() {
+		if sig, ok := slot.gSignGenerator.GetWitness(mem); ok {
+			signs[i] = sig
+			targetIdIndexs[i] = int32(idx)
+			idHexs[i] = mem.ShortS()
+			i++
+		}
+	}
+
 
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)

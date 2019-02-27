@@ -305,22 +305,13 @@ func (api *GtasAPI) GetCurrentWorkGroup() (*Result, error) {
 }
 
 func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
-	groups := mediator.Proc.GetCastQualifiedGroups(height)
+	groups := mediator.Proc.GetCastQualifiedGroupsFromChain(height)
 	ret := make([]map[string]interface{}, 0)
-
+	h := height
 	for _, g := range groups {
-		gh := g.GInfo.GI.GHeader
-		gmap := make(map[string]interface{})
-		gmap["id"] = g.GroupID.GetHexString()
-		gmap["parent"] = g.ParentId.GetHexString()
-		gmap["pre"] = g.PrevGroupID.GetHexString()
-		mems := make([]string, 0)
-		for _, mem := range g.GetMembers() {
-			mems = append(mems, mem.ShortS())
-		}
-		gmap["group_members"] = mems
-		gmap["begin_height"] = gh.WorkHeight
-		gmap["dismiss_height"] = gh.DismissHeight
+		gmap := convertGroup(g)
+		gmap["height"] = h
+		h++
 		ret = append(ret, gmap)
 	}
 	return successResult(ret)

@@ -39,11 +39,8 @@ func (gs *GroupSignGenerator) GetWitness(id groupsig.ID) (groupsig.Signature, bo
 	return groupsig.Signature{}, false
 }
 
-func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
-	if gs.Recovered() {
-		return false, true
-	}
-
+//不检查是否已经recover，只是把分片加入
+func (gs *GroupSignGenerator) AddWitnessForce(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
 
@@ -57,6 +54,14 @@ func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Sign
 		return true, gs.generate()
 	}
 	return true, false
+}
+
+func (gs *GroupSignGenerator) AddWitness(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
+	if gs.Recovered() {
+		return false, true
+	}
+
+	return gs.AddWitnessForce(id, signature)
 }
 
 func (gs *GroupSignGenerator) generate() bool {

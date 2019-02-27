@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 	"consensus/base"
+	"fmt"
+	"consensus/groupsig"
 )
 
 /*
@@ -56,6 +58,8 @@ const (
 	CBMR_VERIFY_TIMEOUT                                     //已超时
 	CBMR_SLOT_INIT_FAIL                                     //slot初始化失败
 	CBMR_SLOT_REPLACE_FAIL                                  //slot初始化失败
+	CBMR_SIGNED_MAX_QN										//签过更高的qn
+	CBMR_SIGN_VERIFY_FAIL										//签名错误
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -84,6 +88,9 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "slot初始化失败"
 	case CBMR_SLOT_REPLACE_FAIL:
 		return "slot替换失败"
+	case CBMR_SIGNED_MAX_QN:
+		return "签过更高qn"
+
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }
@@ -117,7 +124,7 @@ type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
 type VerifyContext struct {
 	prevBH     *types.BlockHeader
 	castHeight uint64
-	//signedMaxQN int64
+	signedMaxQN uint64
 	createTime      time.Time
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
@@ -125,6 +132,7 @@ type VerifyContext struct {
 	broadcastSlot 	*SlotContext
 	//castedQNs []int64 //自己铸过的qn
 	blockCtx *BlockContext
+	signedNum 	int32
 	lock     sync.RWMutex
 }
 
@@ -136,10 +144,15 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		expireTime:      expire,
 		createTime:      time.Now(),
 		consensusStatus: CBCS_CASTING,
+		signedMaxQN: 	0,
 		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
+}
+
+func (vc *VerifyContext) increaseSignedNum()  {
+    atomic.AddInt32(&vc.signedNum, 1)
 }
 
 func (vc *VerifyContext) isCasting() bool {
@@ -185,40 +198,52 @@ func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {
 	return nil
 }
 
-//根据QN优先级规则，尝试找到有效的插槽
-//func (vc *VerifyContext) consensusFindSlot(bh *types.BlockHeader) (sc *SlotContext, ret QN_QUERY_SLOT_RESULT) {
-//	vc.lock.RLock()
-//	defer vc.lock.RUnlock()
-//
-//	if sc = vc.findSlot(bh.Hash); sc != nil {
-//		return sc
-//	}
-//	if idx >= 0 {
-//		return vc.slots[idx], QQSR_EXIST_SLOT, idx
-//	}
-//
-//	for idx, slot := range vc.slots {
-//		if !slot.IsValid() {
-//			return vc.slots[idx], QQSR_EMPTY_SLOT, idx
-//		}
-//	}
-//	for idx, slot := range vc.slots {
-//		if slot.IsFailed() {
-//			return vc.slots[idx], QQSR_REPLACE_SLOT, idx
-//		}
-//	}
-//	var (
-//		maxV = new(big.Int).SetUint64(0)
-//	)
-//
-//	for i, slot := range vc.slots {
-//		if slot.vrfValue.Cmp(maxV) > 0 {
-//			maxV = slot.vrfValue
-//			idx = i
-//		}
-//	}
-//	return vc.slots[idx], QQSR_REPLACE_SLOT, idx
-//}
+func (vc *VerifyContext) getSignedMaxQN() uint64 {
+ 	return atomic.LoadUint64(&vc.signedMaxQN)
+}
+
+func (vc *VerifyContext) hasSignedBiggerQN(totalQN uint64) bool {
+	return vc.getSignedMaxQN() > totalQN
+}
+
+func (vc *VerifyContext) updateSignedMaxQN(totalQN uint64) bool {
+	if vc.getSignedMaxQN() < totalQN {
+		atomic.StoreUint64(&vc.signedMaxQN, totalQN)
+		return true
+	}
+	return false
+}
+
+func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (slot *SlotContext, err error) {
+	//只签qn不小于已签出的最高块的块
+	if vc.hasSignedBiggerQN(bh.TotalQN) {
+		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxQN(), bh.TotalQN)
+		return
+	}
+
+	if vc.castSuccess() || vc.broadCasted() {
+		err = fmt.Errorf("已出块")
+		return
+	}
+	if vc.castExpire() {
+		vc.markTimeout()
+		err = fmt.Errorf("已超时" + vc.expireTime.String())
+		return
+	}
+	slot = vc.GetSlotByHash(bh.Hash)
+	if slot != nil {
+		if slot.GetSlotStatus() >= SS_RECOVERD {
+			err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
+			return
+		}
+		if _, ok := slot.gSignGenerator.GetWitness(sender); ok {
+			err = fmt.Errorf("重复消息%v", sender.ShortS())
+			return
+		}
+	}
+
+	return
+}
 
 func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	vc.lock.RLock()
@@ -227,56 +252,103 @@ func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	return vc.findSlot(hash)
 }
 
-//func (vc *VerifyContext) replaceSlot(idx int, old *SlotContext, bh *types.BlockHeader) *SlotContext {
-//	if old.BH.Hash == bh.Hash {
-//		return old
-//	}
-//	slot := createSlotContext(vc.blockCtx.threshold())
-//	slot.init(bh)
-//	vc.lock.Lock()
-//	defer vc.lock.Unlock()
-//	if vc.slots[idx].BH.Hash != bh.Hash {
-//		vc.slots[idx] = slot
-//		return slot
-//	}
-//	return nil
-//}
-
-func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) *SlotContext {
+func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*SlotContext, error) {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
 	if sc := vc.findSlot(bh.Hash); sc != nil {
 		blog.log("prepareSlot find exist, status %v", sc.GetSlotStatus())
-		return sc
+		return sc, nil
 	} else {
-		blog.log("prepareSlot createSlot")
+		if vc.hasSignedBiggerQN(bh.TotalQN) {
+			return nil, fmt.Errorf("hasSignedBiggerQN")
+		}
+
 		sc = createSlotContext(bh, vc.blockCtx.threshold())
+		if len(vc.slots) >= model.Param.MaxSlotSize {
+			minQN := uint64(10000)
+			minQNHash := common.Hash{}
+			for hash, slot := range vc.slots {
+				if slot.BH.TotalQN < minQN {
+					minQN = slot.BH.TotalQN
+					minQNHash = hash
+				}
+			}
+			delete(vc.slots, minQNHash)
+			blog.log("prepreSlot replace slotHash %v, qn %v, commingQN %v, commingHash %v", minQNHash.ShortS(), minQN, bh.TotalQN, bh.Hash.ShortS())
+		} else {
+			blog.log("prepareSlot add slot")
+		}
 		//sc.init(bh)
 		vc.slots[bh.Hash] = sc
-		return sc
+		return sc, nil
 	}
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *slowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
 	blog := newBizLog("UserVerified")
 
-	slot := vc.prepareSlot(bh, blog)
-	blog.log("prepareSlot finished, hash=%v", bh.Hash.ShortS())
+	slog.addStage("prePareSlot")
+	slot, err := vc.prepareSlot(bh, blog)
+	if err != nil {
+		blog.log("prepareSlot fail, err %v", err)
+		return CBMR_ERROR_UNKNOWN, fmt.Errorf("prepareSlot fail, err %v", err)
+	}
+	slog.endStage()
 
+	slog.addStage("initIfNeeded")
 	slot.initIfNeeded()
+	slog.endStage()
 
 	//警惕并发
 	if slot.IsFailed() {
-		return CBMR_STATUS_FAIL
+		return CBMR_STATUS_FAIL, fmt.Errorf("slot fail")
+	}
+	if _, err2 := vc.baseCheck(bh, signData.GetID()); err2 != nil {
+		err = err2
+		return
+	}
+	isProposal := slot.castor.IsEqual(signData.GetID())
+
+	if isProposal { //提案者
+		slog.addStage("vCastorSign")
+		b := signData.VerifySign(pk)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("verify castorsign fail, id %v, pk %v", signData.GetID().ShortS(), pk.ShortS())
+			return
+		}
+
+	} else {
+		slog.addStage("vMemSign")
+		b := signData.VerifySign(pk)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", signData.GetID().ShortS(), pk.GetHexString(), signData.DataSign.GetHexString(), signData.DataHash.Hex())
+			return
+		}
+		sig := groupsig.DeserializeSign(bh.Random)
+		if sig == nil || sig.IsNil() {
+			err = fmt.Errorf("deserialize bh random fail, random %v", bh.Random)
+			return
+		}
+		slog.addStage("vMemRandSign")
+		b = groupsig.VerifySig(pk, vc.prevBH.Random, *sig)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("random sign verify fail")
+			return
+		}
 	}
 	//如果是提案者，因为提案者没有对块进行签名，则直接返回
-	if slot.castor.IsEqual(signData.GetID()) {
-		return CBMR_PIECE_NORMAL
+	if isProposal {
+		return CBMR_PIECE_NORMAL, nil
 	}
-	result := slot.AcceptVerifyPiece(bh, signData)
-	return result
+	return slot.AcceptVerifyPiece(bh, signData)
 }
 
 //（网络接收）新到交易集通知
@@ -311,7 +383,7 @@ func (vc *VerifyContext) Clear()  {
 }
 
 //判断该context是否可以删除，主要考虑是否发送了分红交易
-func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
+func (vc *VerifyContext)shouldRemove(topHeight uint64) bool {
 	//交易签名超时, 可以删除
 	if vc.castRewardSignExpire() {
 		return true
@@ -356,7 +428,7 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 	qns := make([]uint64, 0)
 
 	for _, slot := range vc.slots {
-		if !slot.IsSuccess() {
+		if !slot.IsRecovered() {
 			continue
 		}
 		qns = append(qns, slot.BH.TotalQN)

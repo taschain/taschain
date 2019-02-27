@@ -304,3 +304,7 @@ func (p *Processor) GetAllMinerDOs() ([]*model.MinerDO) {
 	dos = append(dos, miners...)
 	return dos
 }
+
+func (p *Processor) GetCastQualifiedGroupsFromChain(height uint64) []*types.Group {
+	return p.globalGroups.getCastQualifiedGroupFromChains(height)
+}
