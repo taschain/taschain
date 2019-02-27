@@ -52,7 +52,8 @@ type account struct {
 }
 
 var richAccounts []*account
-//脚本测试交易 不广播  判定nonce
+var hosts []url
+
 func main() {
 	interval := flag.Duration("i", time.Second*1, "转账时间间隔")
 	total := flag.Int("t", 100000000, "转账总笔数")
@@ -60,22 +61,19 @@ func main() {
 	flag.Parse()
 
 	loadRichAccounts()
-	urlList := extractUrl(urlInput)
+	hosts = extractUrl(urlInput)
 
 	rand.Seed(time.Now().UnixNano())
-	var nounce = rand.Uint64()
+	nonce := rand.Uint64()
 	for i := 0; i < *total; i++ {
-		account := getRandomScourceAccount()
+		account := getRandomSourceAccount()
 		toAccount := getRandomToAccount()
+		url := getRandomHost()
 
-		nounce += 100
+		nonce += 1
 		var gasPrice uint64 = 1
 		var txType = 0
-		for j := 0; j < len(urlList); j++ {
-			url := urlList[j]
-			go mockSendTransaction(url.host, url.port, account.privateKey, account.address, toAccount, nounce, txType, gasPrice)
-
-		}
+		go mockSendTransaction(url.host, url.port, account.privateKey, account.address, toAccount, nonce, txType, gasPrice)
 		fmt.Printf("Tx from %s to %s\n", account.address, toAccount)
 		time.Sleep(*interval)
 	}
@@ -114,7 +112,7 @@ func loadRichAccounts() {
 	richAccounts = []*account{&account1, &account2, &account3, &account4, &account5, &account6, &account7, &account8, &account9, &account10}
 }
 
-func getRandomScourceAccount() *account {
+func getRandomSourceAccount() *account {
 	num := rand.Intn(len(richAccounts))
 	return richAccounts[num]
 }
@@ -128,7 +126,10 @@ func getRandomToAccount() string {
 	return result
 }
 
-//ScriptTransferTx(privateKey string, from string, to string, amount uint64, nonce uint64, txType int, gasPrice uint64)
+func getRandomHost() url {
+	num := rand.Intn(len(hosts))
+	return hosts[num]
+}
 func mockSendTransaction(host string, port int, privateKey string, from, to string, nounce uint64, txType int, gasPrice uint64) {
 	res, err := rpcPost(host, port, "GTAS_scriptTransferTx", privateKey, from, to, 1, nounce, txType, gasPrice)
 	if err != nil {

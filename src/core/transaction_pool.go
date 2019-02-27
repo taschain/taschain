@@ -265,7 +265,7 @@ func (pool *TxPool) addInner(tx *types.Transaction, broadcast bool) (bool, error
 		pool.received.Push(tx)
 	}
 
-	if broadcast && !types.IsTestTransaction(tx) {
+	if broadcast {
 		pool.sendingTxLock.Lock()
 		pool.sendingList = append(pool.sendingList, tx)
 		pool.sendingTxLock.Unlock()
