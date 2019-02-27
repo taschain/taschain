@@ -60,12 +60,17 @@ layui.use(['form', 'jquery', 'element', 'layer', 'table'], function(){
 
     var work_group_table = table.render({
         elem: '#work_group_detail' //指定原始表格元素选择器（推荐id选择器）
-        ,cols: [[{field:'id',title: '组id', width:140}, {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},
-            {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},
-            {field:'group_members', title: '成员列表'}]] //设置表头
+        ,initSort: {
+            field: 'begin_height',
+            type: 'desc'
+        }
+        ,cols: [[{field:'height',title: '高度', sort: true, width:140}, {field:'group_id',title: '组id', width:140}, {field:'g_hash', title: '组hash', width:140},
+            {field:'parent', title: '父亲组', width:140},{field:'pre', title: '上一组', width:140},{field:'create_height', title: '创建高度', width: 100},
+            {field:'begin_height', title: '生效高度', width: 100},{field:'dismiss_height', title: '解散高度', width:100},{field:'mem_size', title: '成员数量', width:100},
+            {field:'members', title: '成员列表'}]] //设置表头
         ,data: groups
-        ,page: true
-        ,limit:15
+        ,page: false
+        ,limit:200
     });
 
     let bonus_info_table =  table.render({

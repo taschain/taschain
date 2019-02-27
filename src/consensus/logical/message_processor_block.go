@@ -533,15 +533,15 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		}
 		slog.endStage()
 
-
-		gSignGener := model.NewGroupSignGenerator(bc.threshold())
+		//复用原来的generator，避免重复签名验证
+		gSignGener := slot.gSignGenerator
 
 		slog.addStage("checkTargetSign")
 		//witnesses := slot.gSignGenerator.GetWitnesses()
 		for idx, idIndex := range msg.Reward.TargetIds {
 			id := group.GetMemberID(int(idIndex))
 			sign := msg.SignedPieces[idx]
-			if sig, ok := slot.gSignGenerator.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
+			if sig, ok := gSignGener.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
 				pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
 				if !exist {
 					continue
@@ -552,13 +552,14 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 					return
 				}
 				slog.endStage()
+				//加入generator中
+				gSignGener.AddWitnessForce(id, sign)
 			} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
 				if !sign.IsEqual(sig) {
 					err = fmt.Errorf("member sign different id=%v", id.ShortS())
 					return
 				}
 			}
-			gSignGener.AddWitness(id, sign)
 		}
 		slog.endStage()
 

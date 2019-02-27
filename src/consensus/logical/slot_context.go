@@ -250,7 +250,7 @@ func (sc *SlotContext) TransBrief() string {
 }
 
 func (sc *SlotContext) SetRewardTrans(tx *types.Transaction) bool {
-	if sc.StatusTransform(SS_SUCCESS, SS_REWARD_REQ) {
+	if !sc.hasSignedRewardTx() && sc.StatusTransform(SS_SUCCESS, SS_REWARD_REQ) {
 		sc.rewardTrans = tx
 		return true
 	}
@@ -299,4 +299,11 @@ func (sc *SlotContext) hasSignedTxHash(hash common.Hash) bool {
 		return false
 	}
     return sc.signedRewardTxHashs.Has(hash)
+}
+//是否签过分红交易
+func (sc *SlotContext) hasSignedRewardTx() bool {
+	if sc.signedRewardTxHashs == nil {
+		return false
+	}
+	return sc.signedRewardTxHashs.Size() > 0
 }

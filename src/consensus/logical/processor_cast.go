@@ -401,6 +401,11 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
+	//签过了自己就不用再发了
+	if slot.hasSignedRewardTx() {
+		blog.log("has signed reward tx")
+		return
+	}
 
 	groupID := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(groupID)
