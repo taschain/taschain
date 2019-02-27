@@ -88,11 +88,11 @@ func (sc *SlotContext) initIfNeeded() bool {
 
 	bh := sc.BH
 	if sc.slotStatus == SS_INITING {
-		slog := newSlowLog("InitSlot", 0.4)
+		slog := newSlowLog("InitSlot", 0.1)
 		slog.addStage("VerifyBlock")
 		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
 		slog.endStage()
-		slog.log("height=%v, hash=%v, lost trans size %v , ret %v\n", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
+		slog.log("height=%v, hash=%v, lost trans size %v , ret %v", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
 
 		lostTxsStrings := make([]string, len(lostTxs))
 		for idx, tx := range lostTxs {
@@ -197,16 +197,16 @@ func (sc *SlotContext) IsWaiting() bool {
 
 //收到一个组内验证签名片段
 //返回：=0, 验证请求被接受，阈值达到组签名数量。=1，验证请求被接受，阈值尚未达到组签名数量。=2，重复的验签。=3，数据异常。
-func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignData) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
 	if bh.Hash != sc.BH.Hash {
-		return CBMR_BH_HASH_DIFF
+		return CBMR_BH_HASH_DIFF, fmt.Errorf("hash diff")
 	}
 
 	var (
 		add bool
 		generate bool
 	)
-	slog := newSlowLog("AcceptPiece", 0.5)
+	slog := newSlowLog("AcceptPiece", 0.1)
 	defer func() {
 		slog.log("hash=%v, height=%v, result=%v,%v", bh.Hash.ShortS(), bh.Height, add, generate)
 	}()
@@ -215,7 +215,7 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 
 	if !add { //已经收到过该成员的验签
 		//忽略
-		return CBMR_IGNORE_REPEAT
+		return CBMR_IGNORE_REPEAT, fmt.Errorf("CBMR_IGNORE_REPEAT")
 	} else { //没有收到过该用户的签名
 		rsign := groupsig.DeserializeSign(bh.Random)
 		if !rsign.IsValid() {
@@ -230,12 +230,11 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 			if len(sc.BH.Signature) == 0 {
 				newBizLog("AcceptVerifyPiece").log("slot bh sign is empty hash=%v, sign=%v", sc.BH.Hash.ShortS(), sc.gSignGenerator.GetGroupSign().ShortS())
 			}
-			return CBMR_THRESHOLD_SUCCESS
+			return CBMR_THRESHOLD_SUCCESS, nil
 		} else {
-			return CBMR_PIECE_NORMAL
+			return CBMR_PIECE_NORMAL, nil
 		}
 	}
-	return CBMR_ERROR_UNKNOWN
 }
 
 func (sc *SlotContext) IsValid() bool {

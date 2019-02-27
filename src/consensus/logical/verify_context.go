@@ -59,6 +59,7 @@ const (
 	CBMR_SLOT_INIT_FAIL                                     //slot初始化失败
 	CBMR_SLOT_REPLACE_FAIL                                  //slot初始化失败
 	CBMR_SIGNED_MAX_QN										//签过更高的qn
+	CBMR_SIGN_VERIFY_FAIL										//签名错误
 )
 
 func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
@@ -89,6 +90,7 @@ func CBMR_RESULT_DESC(ret CAST_BLOCK_MESSAGE_RESULT) string {
 		return "slot替换失败"
 	case CBMR_SIGNED_MAX_QN:
 		return "签过更高qn"
+
 	}
 	return strconv.FormatInt(int64(ret), 10)
 }
@@ -284,30 +286,69 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData) CAST_BLOCK_MESSAGE_RESULT {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *slowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
 	blog := newBizLog("UserVerified")
-	if vc.hasSignedBiggerQN(bh.TotalQN) {
-		return CBMR_SIGNED_MAX_QN
-	}
 
+	slog.addStage("prePareSlot")
 	slot, err := vc.prepareSlot(bh, blog)
 	if err != nil {
 		blog.log("prepareSlot fail, err %v", err)
-		return CBMR_ERROR_UNKNOWN
+		return CBMR_ERROR_UNKNOWN, fmt.Errorf("prepareSlot fail, err %v", err)
 	}
+	slog.endStage()
 
+	slog.addStage("initIfNeeded")
 	slot.initIfNeeded()
+	slog.endStage()
 
 	//警惕并发
 	if slot.IsFailed() {
-		return CBMR_STATUS_FAIL
+		return CBMR_STATUS_FAIL, fmt.Errorf("slot fail")
+	}
+	if _, err2 := vc.baseCheck(bh, signData.GetID()); err2 != nil {
+		err = err2
+		return
+	}
+	isProposal := slot.castor.IsEqual(signData.GetID())
+
+	if isProposal { //提案者
+		slog.addStage("vCastorSign")
+		b := signData.VerifySign(pk)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("verify castorsign fail, id %v, pk %v", signData.GetID().ShortS(), pk.ShortS())
+			return
+		}
+
+	} else {
+		slog.addStage("vMemSign")
+		b := signData.VerifySign(pk)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", signData.GetID().ShortS(), pk.GetHexString(), signData.DataSign.GetHexString(), signData.DataHash.Hex())
+			return
+		}
+		sig := groupsig.DeserializeSign(bh.Random)
+		if sig == nil || sig.IsNil() {
+			err = fmt.Errorf("deserialize bh random fail, random %v", bh.Random)
+			return
+		}
+		slog.addStage("vMemRandSign")
+		b = groupsig.VerifySig(pk, vc.prevBH.Random, *sig)
+		slog.endStage()
+
+		if !b {
+			err = fmt.Errorf("random sign verify fail")
+			return
+		}
 	}
 	//如果是提案者，因为提案者没有对块进行签名，则直接返回
-	if slot.castor.IsEqual(signData.GetID()) {
-		return CBMR_PIECE_NORMAL
+	if isProposal {
+		return CBMR_PIECE_NORMAL, nil
 	}
-	result := slot.AcceptVerifyPiece(bh, signData)
-	return result
+	return slot.AcceptVerifyPiece(bh, signData)
 }
 
 //（网络接收）新到交易集通知
@@ -342,7 +383,7 @@ func (vc *VerifyContext) Clear()  {
 }
 
 //判断该context是否可以删除，主要考虑是否发送了分红交易
-func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
+func (vc *VerifyContext)shouldRemove(topHeight uint64) bool {
 	//交易签名超时, 可以删除
 	if vc.castRewardSignExpire() {
 		return true

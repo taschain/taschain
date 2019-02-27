@@ -144,46 +144,30 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	}
 	slog.endStage()
 
+	var pk groupsig.Pubkey
 	isProposal := castor.IsEqual(si.GetID())
 
+	slog.addStage("getPK")
 	if isProposal { //提案者
 		castorDO := p.minerReader.getProposeMiner(castor)
 		if castorDO == nil {
 			err = fmt.Errorf("castorDO nil id=%v", castor.ShortS())
 			return
 		}
-		slog.addStage("vCastorSign")
-		b := msg.VerifySign(castorDO.PK)
-		slog.endStage()
-
-		if !b {
-			err = fmt.Errorf("verify sign fail, id %v, pk %v, castorDO %+v", castor.ShortS(), castorDO.PK.GetHexString(), castorDO)
-			return
-		}
+		pk = castorDO.PK
 
 	} else {
-		pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
+		memPK, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, si.GetID()))
 		if !ok {
 			blog.log("GetMemberSignPubKey not ok, ask id %v", si.GetID().ShortS())
 			return
 		}
-
-		slog.addStage("vMemSign")
-		b := msg.VerifySign(pk)
-		slog.endStage()
-
-		if !b {
-			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", si.GetID().ShortS(), pk.GetHexString(), si.DataSign.GetHexString(), si.DataHash.Hex())
-			return
-		}
-		slog.addStage("vMemRandSign")
-		b = msg.VerifyRandomSign(pk, preBH.Random)
-		slog.endStage()
-
-		if !b {
-			err = fmt.Errorf("random sign verify fail, gid %v, pk %v, sign=%v", gid.ShortS(), pk.ShortS(), groupsig.DeserializeSign(msg.BH.Random).GetHexString())
-			return
-		}
+		pk = memPK
+	}
+	slog.endStage()
+	if !pk.IsValid() {
+		err = fmt.Errorf("get pk fail")
+		return
 	}
 
 	//未签过名的情况下，需要校验铸块合法性和全量账本检查
@@ -216,10 +200,13 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 
 	slog.addStage("UVCheck")
 	blog.debug("%v start UserVerified, height=%v, hash=%v", mtype, bh.Height, bh.Hash.ShortS())
-	verifyResult := vctx.UserVerified(bh, si)
+	verifyResult, err := vctx.UserVerified(bh, si, pk, slog)
 	slog.endStage()
+	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.%v", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult), err)
+	if err != nil {
+		return
+	}
 
-	blog.log("proc(%v) UserVerified height=%v, hash=%v, result=%v.", p.getPrefix(), bh.Height, bh.Hash.ShortS(), CBMR_RESULT_DESC(verifyResult))
 	slot = vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
 		err = fmt.Errorf("找不到合适的验证槽, 放弃验证")
