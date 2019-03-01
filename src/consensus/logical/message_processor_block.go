@@ -325,7 +325,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	slog.addStage("addLog")
 	detalHeight := int(bh.Height - p.MainChain.Height())
-	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 20) {
+	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 10) {
 		logservice.Instance.AddLogIfNotInternalNodes(le)
 	}
 	slog.endStage()
