@@ -304,7 +304,12 @@ func (p *Processor) verifyWithCache(cache *verifyMsgCache, vmsg *model.Consensus
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	//statistics.AddBlockLog(common.BootId, statistics.RcvCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
 	//	time.Now().UnixNano(), "", "", common.InstanceIndex, ccm.BH.CurTime.UnixNano())
+	slog := newSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
+	defer func() {
+		slog.log("hash=%v, sender=%v, height=%v, preHash=%v", bh.Hash.ShortS(), ccm.SI.GetID().ShortS(), bh.Height, bh.PreHash.ShortS())
+	}()
+
 	le := &logservice.LogEntry{
 		LogType: logservice.LogTypeProposal,
 		Height: bh.Height,
@@ -314,26 +319,36 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		Verifier: groupsig.DeserializeId(bh.GroupId).GetHexString(),
 		Ext: fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
+	slog.addStage("getGroup")
 	group := p.GetGroup(groupsig.DeserializeId(bh.GroupId))
+	slog.endStage()
 
+	slog.addStage("addLog")
 	detalHeight := int(bh.Height - p.MainChain.Height())
 	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 20) {
 		logservice.Instance.AddLogIfNotInternalNodes(le)
 	}
+	slog.endStage()
 
+	slog.addStage("addtoCache")
 	p.addCastMsgToCache(ccm)
 	cache := p.getVerifyMsgCache(ccm.BH.Hash)
+	slog.endStage()
 
+	slog.addStage("OMC")
 	p.verifyCastMessage("OMC", ccm)
+	slog.endStage()
 
 
 	verifys := cache.getVerifyMsgs()
 	if len(verifys) > 0 {
+		slog.addStage("OMCVerifies")
 		stdLogger.Infof("OMC:getVerifyMsgs from cache size %v, hash=%v", len(verifys), ccm.BH.Hash.ShortS())
 		for _, vmsg := range verifys {
 			p.verifyWithCache(cache, vmsg)
 		}
 		cache.removeVerifyMsgs()
+		slog.endStage()
 	}
 
 }
