@@ -125,7 +125,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v code:%v", peer.Id.GetHexString(), peer.seesionId,code)
 		return
 	}
-	Logger.Debugf("send  net id:%v session:%v code:%v size:%v", peer.Id.GetHexString(), peer.seesionId,code,packet.Len())
+//	Logger.Debugf("send  net id:%v session:%v code:%v size:%v", peer.Id.GetHexString(), peer.seesionId,code,packet.Len())
 	sendListItem.list.PushBack(packet)
 
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
@@ -138,7 +138,7 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) onSendWaited(peer *Peer) {
 	sendList.lastOnWait = time.Now()
-	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
+//	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.Id.GetHexString(), peer.seesionId)
 	sendList.lastOnWait = time.Now()
 	sendList.pendingSend = 0
 	sendList.autoSend(peer)

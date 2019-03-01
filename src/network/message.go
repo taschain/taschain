@@ -105,7 +105,7 @@ func (mm *MessageManager) clear()   {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 	now := time.Now()
-	MessageCacheTime  := 3*time.Minute
+	MessageCacheTime  := 5*time.Minute
 
 	for mid,t := range(mm.messages ) {
 		if now.Sub(t) > MessageCacheTime {

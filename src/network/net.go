@@ -62,7 +62,7 @@ const DefaultNatIp = "120.78.127.246"
 const (
 	respTimeout              = 500 * time.Millisecond
 	clearMessageCacheTimeout = time.Minute
-	expiration               = 30 * time.Second
+	expiration               = 60 * time.Second
 	connectTimeout           = 3 * time.Second
 	groupRefreshInterval     = 5 * time.Second
 	flowMeterInterval        = 1 * time.Minute
@@ -787,6 +787,11 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 		return
 	}
 
+	if expired(req.Expiration) {
+		Logger.Errorf("message expired!")
+		return
+	}
+
 	forwarded := false
 
 	if req.BizMessageId != nil {
@@ -826,9 +831,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 		var dataBuffer *bytes.Buffer = nil
 		if req.RelayCount > 0 {
 			req.RelayCount = req.RelayCount - 1
-			req.Expiration = uint64(time.Now().Add(expiration).Unix())
 			dataBuffer, _, _ = nc.encodePacket(MessageType_MessageData, req)
-
 		} else {
 			dataBuffer = nc.bufferPool.GetBuffer(len(packet))
 			dataBuffer.Write(packet)
