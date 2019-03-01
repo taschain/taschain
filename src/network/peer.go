@@ -156,9 +156,11 @@ func (sendList *SendList) autoSend(peer *Peer) {
 
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
-			if e != nil && e.Value == nil {
+			if e == nil {
+				continue
+			} else if e.Value == nil {
 				item.list.Remove(e)
-				break
+				continue
 			}
 
 			buf := e.Value.(*bytes.Buffer)
