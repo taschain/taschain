@@ -185,12 +185,6 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		}
 
 	}
-	if remain > 0 && sendList.isSendAvailable() {
-
-		sendList.resetQuota()
-		sendList.autoSend(peer)
-	}
-
 }
 
 func (sendList *SendList) resetQuota() {
