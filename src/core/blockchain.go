@@ -49,7 +49,6 @@ var Logger taslog.Logger
 
 var consensusLogger taslog.Logger
 
-// 配置
 type BlockChainConfig struct {
 	block string
 
@@ -151,7 +150,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		return err
 	}
 
-	//从磁盘文件中初始化leveldb
 	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
@@ -215,9 +213,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	chain.lock.Lock("CastBlock")
 	defer chain.lock.Unlock("CastBlock")
-	//beginTime := time.Now()
 	latestBlock := chain.QueryTopBlock()
-	//校验高度
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
@@ -225,7 +221,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 
 	block := new(types.Block)
 
-	block.Transactions = chain.transactionPool.GetTransactionsForCasting()
+	block.Transactions = chain.transactionPool.PackForCast()
 	block.Header = &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     height,
@@ -242,11 +238,8 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 		block.Header.PreTime = latestBlock.CurTime
 	}
 
-	//Logger.Infof("CastingBlock NewAccountDB height:%d StateTree Hash:%s",height,latestBlock.StateTree.Hex())
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
-	//if len(block.Transactions) > 0 {
-	//	Logger.Infof("CastingBlock NewAccountDB height:%d preHash:%s preRoot:%s", height, latestBlock.Hash.Hex(), preRoot.Hex())
-	//}
+
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
@@ -259,7 +252,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 
 	}
 
-	// Process block using the parent state as reference point.
 	statehash, evictedTxs, transactions, receipts, err, _ := chain.executor.Execute(state, block, height, "casting")
 
 	// 准确执行了的交易，入块
@@ -286,21 +278,18 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	block.Header.TxTree = calcTxTree(block.Transactions)
 	block.Header.EvictedTxs = evictedTxs
 
-	//Logger.Infof("CastingBlock block.Header.TxTree height:%d StateTree Hash:%s",height,statehash.Hex())
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 	block.Header.Hash = block.Header.GenHash()
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
 		height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
 		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.String(), preRoot.String())
-	//defer Logger.Infof("casting block dump:%s", block.Header.ToString())
 	//自己铸的块 自己不需要验证
 	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
 		state:    state,
 		receipts: receipts,
 	})
 	chain.castedBlock.Add(block.Header.Hash, block)
-	//Logger.Debugf("CastingBlock into cache! Height:%d-%d,Hash:%x,stateHash:%x,len tx:%d", height, block.Header.ProveValue, block.Header.Hash, block.Header.StateTree, len(block.Transactions))
 
 	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
 	return block
@@ -373,7 +362,6 @@ func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block, situ
 	}
 	chain.lock.Lock("AddBlockOnChain")
 	defer chain.lock.Unlock("AddBlockOnChain")
-	//defer network.Logger.Debugf("add on chain block %d-%d,cast+verify+io+onchain cost%v", b.Header.Height, b.Header.ProveValue, time.Since(b.Header.CurTime))
 	return chain.addBlockOnChain(source, b, situation)
 }
 
@@ -596,7 +584,6 @@ func (chain *FullBlockChain) updateCheckValue(block *types.Block) {
 
 func (chain *FullBlockChain) updateTxPool(block *types.Block, receipts types.Receipts) {
 	chain.transactionPool.MarkExecuted(receipts, block.Transactions)
-	chain.transactionPool.Remove(block.Header.Hash, block.Header.Transactions, block.Header.EvictedTxs)
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
@@ -695,13 +682,6 @@ func Clear() {
 		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
 	}
 	os.RemoveAll(path)
-}
-
-func (chain *FullBlockChain) SetVoteProcessor(processor VoteProcessor) {
-	chain.lock.Lock("SetVoteProcessor")
-	defer chain.lock.Unlock("SetVoteProcessor")
-
-	chain.voteProcessor = processor
 }
 
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {

@@ -17,10 +17,11 @@ package core
 
 import (
 	"common"
-	"math/big"
-	"middleware/types"
 	"storage/account"
 	"storage/vm"
+
+	"math/big"
+	"middleware/types"
 )
 
 //主链接口
@@ -113,6 +114,11 @@ type BlockChain interface {
 	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
 }
 
+type ExecutedTransaction struct {
+	Receipt     *types.Receipt
+	Transaction *types.Transaction
+}
+
 type TransactionPool interface {
 	//add new transaction to the transaction pool
 	AddTransaction(tx *types.Transaction) (bool, error)
@@ -121,11 +127,9 @@ type TransactionPool interface {
 	AddBroadcastTransactions(txs []*types.Transaction)
 
 	//add  local miss transactions while verifying blocks to the transaction pool
-	AddMissTransactions(txs []*types.Transaction) error
+	AddMissTransactions(txs []*types.Transaction)
 
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
-
-	Remove(hash common.Hash, transactions []common.Hash, evictedTxs []common.Hash)
 
 	UnMarkExecuted(txs []*types.Transaction)
 
@@ -133,17 +137,18 @@ type TransactionPool interface {
 
 	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
 
-	GetTransactionsForCasting() []*types.Transaction
+	PackForCast() []*types.Transaction
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
+	//todo 这里应该放到blockchain中实现
 	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
 
 	GetReceived() []*types.Transaction
 
 	Clear()
 
-	GetExecuted(hash common.Hash) *ReceiptWrapper
+	GetExecuted(hash common.Hash) *ExecutedTransaction
 }
 
 //组管理接口
@@ -160,10 +165,4 @@ type AccountRepository interface {
 	GetBalance(address common.Address) *big.Int
 
 	GetNonce(address common.Address) uint64
-}
-
-// chain 对于投票事件接口
-type VoteProcessor interface {
-	BeforeExecuteTransaction(b *types.Block, db account.AccountDB, tx *types.Transaction) ([]byte, error)
-	AfterAllTransactionExecuted(b *types.Block, stateDB account.AccountDB, receipts types.Receipts) error
 }

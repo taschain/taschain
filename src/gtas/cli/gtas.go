@@ -29,7 +29,6 @@ import (
 
 	"consensus/groupsig"
 	"consensus/model"
-	"core/net/handler"
 	"encoding/json"
 	"github.com/vmihailenco/msgpack"
 	"middleware"
@@ -136,12 +135,12 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 			timer := time.NewTimer(time.Second * 10)
 			for {
 				<-timer.C
-				if core.BlockSyncer.IsInit(){
+				if core.BlockSyncer.IsInit() {
 					break
 				} else {
 					var candicateHeight uint64
 					if core.BlockSyncer != nil {
-						_, _, candicateHeight,_ = core.BlockSyncer.GetCandidateForSync()
+						_, _, candicateHeight, _ = core.BlockSyncer.GetCandidateForSync()
 					}
 					localBlockHeight := core.BlockChainImpl.Height()
 					fmt.Printf("Sync candidate block height:%d,local block height:%d\n", candicateHeight, localBlockHeight)
@@ -336,7 +335,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode,addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -391,7 +390,7 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, light bool, keystore string, enableLog bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16, seedIp string, seedId string, light bool, keystore string, enableLog bool) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -422,7 +421,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	}
 	id := minerInfo.ID.GetHexString()
 
-	err = network.Init(common.GlobalConf, isSuper, handler.NewChainHandler(), chandler.MessageHandler, testMode,natIp, natPort, seedIp, seedId, id)
+	err = network.Init(common.GlobalConf, isSuper, core.NewChainHandler(), chandler.MessageHandler, testMode, natIp, natPort, seedIp, seedId, id)
 
 	if err != nil {
 		return err
@@ -445,7 +444,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	if !ok {
 		return errors.New("consensus module error")
 	}
-	if enableLog || common.GlobalConf.GetBool("gtas", "enable_log_service", false){
+	if enableLog || common.GlobalConf.GetBool("gtas", "enable_log_service", false) {
 		logservice.InitLogService(id)
 	}
 

@@ -1,3 +1,17 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
@@ -26,8 +40,7 @@ const (
 type prototypeChain struct {
 	isLightMiner bool
 	blocks       tasdb.Database
-	//key: height, value: blockHeader
-	blockHeight tasdb.Database
+	blockHeight  tasdb.Database
 
 	transactionPool TransactionPool
 
@@ -44,10 +57,9 @@ type prototypeChain struct {
 	init bool
 
 	statedb    tasdb.Database
-	stateCache account.AccountDatabase // State database to reuse between imports (contains state cache)
+	stateCache account.AccountDatabase
 
-	executor      *TVMExecutor
-	voteProcessor VoteProcessor
+	executor *TVMExecutor
 
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
@@ -123,7 +135,6 @@ func (chain *prototypeChain) QueryBlockByHeight(height uint64) *types.BlockHeade
 	return chain.queryBlockHeaderByHeight(height, true)
 }
 
-// 根据指定高度查询块
 func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache bool) *types.BlockHeader {
 	var key []byte
 	switch height.(type) {
@@ -156,7 +167,6 @@ func (chain *prototypeChain) queryBlockHeaderByHeight(height interface{}, cache 
 	}
 }
 
-//根据哈希取得某个交易
 func (chain *prototypeChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
 	return chain.transactionPool.GetTransaction(h)
 }
@@ -165,7 +175,6 @@ func (chain *prototypeChain) GetTransactionPool() TransactionPool {
 	return chain.transactionPool
 }
 
-//todo 轻节点如何处理？
 func (chain *prototypeChain) GetBalance(address common.Address) *big.Int {
 	if nil == chain.latestStateDB {
 		return nil
@@ -174,7 +183,6 @@ func (chain *prototypeChain) GetBalance(address common.Address) *big.Int {
 	return chain.latestStateDB.GetBalance(common.BytesToAddress(address.Bytes()))
 }
 
-//todo 轻节点如何处理？
 func (chain *prototypeChain) GetNonce(address common.Address) uint64 {
 	if nil == chain.latestStateDB {
 		return 0

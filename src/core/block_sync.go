@@ -153,7 +153,6 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	//bs.logger.Debugf("Rcv total qn from:%s,totalQN:%d,height:%d", bnm.Peer, blockInfo.TotalQn, blockInfo.Height)
 	source := bnm.Peer
 	topBlock := BlockChainImpl.QueryTopBlock()
 	localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash

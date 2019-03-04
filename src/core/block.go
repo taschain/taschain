@@ -79,8 +79,6 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 		Nonce:        ChainDataVersion,
 	}
 
-	//blockByte, _ := json.Marshal(block)
-	//block.Header.Hash = common.BytesToHash(common.Sha256(blockByte))
 	block.Header.Signature = common.Sha256([]byte("tas"))
 	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
 
@@ -288,6 +286,5 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	block.Header.Hash = block.Header.GenHash()
 
 	Logger.Debugf("GenesisBlock %+v", block.Header)
-	//block.Transactions = make([]*types.Transaction, 0)
 	return block
 }

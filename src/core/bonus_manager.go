@@ -1,3 +1,17 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
@@ -8,11 +22,6 @@ import (
 	"sync"
 )
 
-/*
-**  Creator: Kaede
-**  Date: 2018/9/25 下午3:05
-**  Description: 在AccountDB上使用特殊地址0存储分红交易执行记录，保证一块只执行一次分红交易
-*/
 type BonusManager struct {
 	lock sync.RWMutex
 }
@@ -38,10 +47,9 @@ func (bm *BonusManager) WhetherBonusTransaction(transaction *types.Transaction) 
 	return transaction.Type == types.TransactionTypeBonus
 }
 
-
-func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction{
+func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction {
 	transactionHash := BlockChainImpl.LatestStateDB().GetData(common.BonusStorageAddress, string(blockHash))
-	if transactionHash == nil{
+	if transactionHash == nil {
 		return nil
 	}
 	transaction, _ := BlockChainImpl.(*FullBlockChain).transactionPool.GetTransaction(common.BytesToHash(transactionHash))
@@ -53,7 +61,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupId)
 	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
-	if len(targetIds) == 0{
+	if len(targetIds) == 0 {
 		panic("GenerateBonus targetIds size 0")
 	}
 	for i := 0; i < len(targetIds); i++ {
@@ -64,7 +72,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
-	if len(buffer.Bytes()) % common.AddressLength != 0{
+	if len(buffer.Bytes())%common.AddressLength != 0 {
 		panic("GenerateBonus ExtraData Size Invalid")
 	}
 	transaction.Value = totalValue / uint64(len(targetIds))
@@ -84,7 +92,7 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 	ids := make([][]byte, 0)
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 		if n != common.AddressLength {
-			Logger.Debugf("ParseBonusTransaction Addr Size:%d Invalid",n)
+			Logger.Debugf("ParseBonusTransaction Addr Size:%d Invalid", n)
 			//panic("ParseBonusTransaction Read Address Fail")
 			break
 		}

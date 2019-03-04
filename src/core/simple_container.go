@@ -1,3 +1,17 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
@@ -13,29 +27,29 @@ type simpleContainer struct {
 	txs    types.PriorityTransactions
 	txsMap map[common.Hash]*types.Transaction
 	limit  int
-	ticker  *time.Ticker
+	ticker *time.Ticker
 }
 
 func newSimpleContainer(l int) *simpleContainer {
-	c:= &simpleContainer{
+	c := &simpleContainer{
 		lock:   sync.RWMutex{},
 		limit:  l,
 		txsMap: map[common.Hash]*types.Transaction{},
 		txs:    types.PriorityTransactions{},
-		ticker:  time.NewTicker(time.Millisecond * 500),
+		ticker: time.NewTicker(time.Millisecond * 500),
 	}
 	go c.loop()
 	return c
 }
 
-func (c *simpleContainer) loop(){
-	for{
+func (c *simpleContainer) loop() {
+	for {
 		<-c.ticker.C
 		c.sort()
 	}
 }
 
-func (c *simpleContainer) sort(){
+func (c *simpleContainer) sort() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	sort.Sort(c.txs)
@@ -97,8 +111,8 @@ func (c *simpleContainer) add(tx *types.Transaction) {
 		return
 	}
 
-	for i,oldtx := range c.txs{
-		if tx.GasPrice >= oldtx.GasPrice{
+	for i, oldtx := range c.txs {
+		if tx.GasPrice >= oldtx.GasPrice {
 			delete(c.txsMap, oldtx.Hash)
 			c.txs[i] = tx
 			c.txsMap[tx.Hash] = tx
@@ -128,6 +142,22 @@ func (c *simpleContainer) Remove(keys []common.Hash) {
 				c.txs = append(c.txs[:i], c.txs[i+1:]...)
 				break
 			}
+		}
+	}
+}
+
+func (c *simpleContainer) remove(key common.Hash) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.txsMap[key] == nil {
+		return
+	}
+
+	delete(c.txsMap, key)
+	for i, tx := range c.txs {
+		if tx.Hash == key {
+			c.txs = append(c.txs[:i], c.txs[i+1:]...)
+			break
 		}
 	}
 }
