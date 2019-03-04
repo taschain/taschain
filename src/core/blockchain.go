@@ -150,6 +150,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		return err
 	}
 
+	chain.verifiedBodyCache, _ = lru.New(50)
+
 	chain.blocks, err = tasdb.NewDatabase(chain.config.block)
 	if err != nil {
 		//todo: 日志
@@ -291,7 +293,9 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	})
 	chain.castedBlock.Add(block.Header.Hash, block)
 
-	chain.transactionPool.ReserveTransactions(block.Header.Hash, block.Transactions)
+	if len(block.Transactions) != 0 {
+		chain.verifiedBlocks.Add(block.Header.Hash, block.Transactions)
+	}
 	return block
 }
 
@@ -338,7 +342,9 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	if !executeTxResult {
 		return nil, -1
 	}
-	chain.transactionPool.ReserveTransactions(bh.Hash, transactions)
+	if len(block.Transactions) != 0 {
+		chain.verifiedBlocks.Add(block.Header.Hash, block.Transactions)
+	}
 	return nil, 0
 }
 

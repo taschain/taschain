@@ -65,11 +65,8 @@ type TxPool struct {
 	broadcastTxLock sync.Mutex
 	broadcastTimer  *time.Timer
 
-	totalReceived uint64
-	lock          middleware.Loglock
-
-	//todo 此处应该删除 放到blockchain中
-	reserved *lru.Cache
+	txCount uint64
+	lock    middleware.Loglock
 }
 
 func NewTransactionPool() TransactionPool {
@@ -82,8 +79,6 @@ func NewTransactionPool() TransactionPool {
 	pool.received = newSimpleContainer(rcvTxPoolSize)
 	pool.minerTxs, _ = lru.New(minerTxCacheSize)
 	pool.missTxs, _ = lru.New(missTxCacheSize)
-	//todo 此处应该删除 放到blockchain中
-	pool.reserved, _ = lru.New(50)
 
 	executed, err := tasdb.NewDatabase(txDataBasePrefix)
 	if err != nil {
@@ -107,9 +102,9 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 		Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
 		return false, err
 	}
-
 	pool.lock.Lock("AddTransaction")
 	defer pool.lock.Unlock("AddTransaction")
+
 	b, err := pool.add(tx, !types.IsTestTransaction(tx))
 	return b, err
 }
@@ -118,9 +113,9 @@ func (pool *TxPool) AddBroadcastTransactions(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-
 	pool.lock.Lock("AddBroadcastTransactions")
 	defer pool.lock.Unlock("AddBroadcastTransactions")
+
 	for _, tx := range txs {
 		if err := pool.verifyTransaction(tx); err != nil {
 			Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
@@ -134,7 +129,6 @@ func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-
 	for _, tx := range txs {
 		pool.missTxs.Add(tx.Hash, tx)
 	}
@@ -178,9 +172,9 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-
 	pool.lock.RLock("UnMarkExecuted")
 	defer pool.lock.RUnlock("UnMarkExecuted")
+
 	for _, tx := range txs {
 		pool.executed.Delete(tx.Hash.Bytes())
 		pool.add(tx, true)
@@ -188,10 +182,26 @@ func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
 }
 
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
-	pool.lock.RLock("GetTransaction")
-	defer pool.lock.RUnlock("GetTransaction")
+	minerTx, existInMinerTxs := pool.minerTxs.Get(hash)
+	if existInMinerTxs {
+		return minerTx.(*types.Transaction), nil
+	}
 
-	return pool.getTransaction(hash)
+	receivedTx := pool.received.Get(hash)
+	if nil != receivedTx {
+		return receivedTx, nil
+	}
+
+	missTx, existInMissTxs := pool.missTxs.Get(hash)
+	if existInMissTxs {
+		return missTx.(*types.Transaction), nil
+	}
+
+	executedTx := pool.GetExecuted(hash)
+	if nil != executedTx {
+		return executedTx.Transaction, nil
+	}
+	return nil, ErrNil
 }
 
 func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
@@ -199,7 +209,6 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	if executedTx == nil {
 		return 0, ErrNil
 	}
-
 	return executedTx.Receipt.Status, nil
 }
 
@@ -234,8 +243,8 @@ func (pool *TxPool) GetExecuted(hash common.Hash) *ExecutedTransaction {
 	return executedTx
 }
 
-func (p *TxPool) GetTotalReceivedTxCount() uint64 {
-	return p.totalReceived
+func (p *TxPool) TxNum() uint64 {
+	return p.txCount
 }
 
 func (pool *TxPool) PackForCast() []*types.Transaction {
@@ -302,7 +311,7 @@ func (pool *TxPool) add(tx *types.Transaction, broadcast bool) (bool, error) {
 	if pool.isTransactionExisted(hash) {
 		return false, ErrExist
 	}
-	pool.totalReceived++
+	pool.txCount++
 
 	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort ||
 		tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
@@ -329,9 +338,6 @@ func (pool *TxPool) remove(txHash common.Hash) {
 	pool.missTxs.Remove(txHash)
 	pool.received.remove(txHash)
 	pool.removeFromBroadcastList(txHash)
-
-	//todo 此处应该删除 放到blockchain中
-	//pool.reserved.Remove(hash)
 }
 
 func (pool *TxPool) removeFromBroadcastList(txHash common.Hash) {
@@ -354,29 +360,6 @@ func (pool *TxPool) checkAndBroadcastTx(immediately bool) {
 		pool.broadcastTxLock.Unlock()
 		go BroadcastTransactions(txs)
 	}
-}
-
-func (pool *TxPool) getTransaction(hash common.Hash) (*types.Transaction, error) {
-	minerTx, existInMinerTxs := pool.minerTxs.Get(hash)
-	if existInMinerTxs {
-		return minerTx.(*types.Transaction), nil
-	}
-
-	receivedTx := pool.received.Get(hash)
-	if nil != receivedTx {
-		return receivedTx, nil
-	}
-
-	missTx, existInMissTxs := pool.missTxs.Get(hash)
-	if existInMissTxs {
-		return missTx.(*types.Transaction), nil
-	}
-
-	executedTx := pool.GetExecuted(hash)
-	if nil != executedTx {
-		return executedTx.Transaction, nil
-	}
-	return nil, ErrNil
 }
 
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
@@ -437,64 +420,4 @@ func (pool *TxPool) packTx(packedTxs []*types.Transaction) []*types.Transaction 
 		}
 	}
 	return packedTxs
-}
-
-//todo 此处应该删除 放到blockchain中
-func (pool *TxPool) ReserveTransactions(hash common.Hash, txs []*types.Transaction) {
-	if 0 == len(txs) {
-		return
-	}
-	Logger.Debugf("ReserveTransactions,hash:%v,len txs:%d", hash.String(), len(txs))
-	pool.reserved.Add(hash, txs)
-}
-
-//todo 此处应该删除 放到blockchain中
-func getTx(reserved []*types.Transaction, hash common.Hash) (*types.Transaction, error) {
-	if nil == reserved {
-		return nil, nil
-	}
-
-	for _, tx := range reserved {
-		if tx.Hash == hash {
-			return tx, nil
-		}
-	}
-	return nil, nil
-}
-
-//验证组 verify todo 此处应该删除 放到blockchain中
-func (pool *TxPool) GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error) {
-	if nil == hashes || 0 == len(hashes) {
-		return nil, nil, ErrNil
-	}
-
-	pool.lock.RLock("GetTransactions")
-	defer pool.lock.RUnlock("GetTransactions")
-	reservedRaw, _ := pool.reserved.Get(reservedHash)
-	var reserved []*types.Transaction
-	if nil != reservedRaw {
-		Logger.Debugf("[GetTransactions]hit reserved!")
-		reserved = reservedRaw.([]*types.Transaction)
-	}
-
-	txs := make([]*types.Transaction, 0)
-	need := make([]common.Hash, 0)
-	var err error
-	for _, hash := range hashes {
-
-		tx, errInner := getTx(reserved, hash)
-
-		if tx == nil {
-			tx, errInner = pool.getTransaction(hash)
-		}
-
-		if nil == errInner {
-			txs = append(txs, tx)
-		} else {
-			need = append(need, hash)
-			err = errInner
-		}
-	}
-
-	return txs, need, err
 }

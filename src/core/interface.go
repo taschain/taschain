@@ -112,6 +112,8 @@ type BlockChain interface {
 	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
 
 	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
+
+	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error)
 }
 
 type ExecutedTransaction struct {
@@ -120,6 +122,8 @@ type ExecutedTransaction struct {
 }
 
 type TransactionPool interface {
+	PackForCast() []*types.Transaction
+
 	//add new transaction to the transaction pool
 	AddTransaction(tx *types.Transaction) (bool, error)
 
@@ -129,26 +133,21 @@ type TransactionPool interface {
 	//add  local miss transactions while verifying blocks to the transaction pool
 	AddMissTransactions(txs []*types.Transaction)
 
+	GetTransaction(hash common.Hash) (*types.Transaction, error)
+
+	GetTransactionStatus(hash common.Hash) (uint, error)
+
+	GetExecuted(hash common.Hash) *ExecutedTransaction
+
+	GetReceived() []*types.Transaction
+
+	TxNum() uint64
+
 	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
 
 	UnMarkExecuted(txs []*types.Transaction)
 
-	GetTransaction(hash common.Hash) (*types.Transaction, error)
-
-	GetTransactions(reservedHash common.Hash, hashes []common.Hash) ([]*types.Transaction, []common.Hash, error)
-
-	PackForCast() []*types.Transaction
-
-	GetTransactionStatus(hash common.Hash) (uint, error)
-
-	//todo 这里应该放到blockchain中实现
-	ReserveTransactions(hash common.Hash, txs []*types.Transaction)
-
-	GetReceived() []*types.Transaction
-
 	Clear()
-
-	GetExecuted(hash common.Hash) *ExecutedTransaction
 }
 
 //组管理接口

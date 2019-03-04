@@ -150,7 +150,7 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
 	detail["source"] = transaction.Source.Hash().Hex()
-	if transaction.Target != nil{
+	if transaction.Target != nil {
 		detail["target"] = transaction.Target.Hash().Hex()
 	}
 	detail["value"] = transaction.Value
@@ -250,7 +250,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 
 	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
-	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().(*core.TxPool).GetTotalReceivedTxCount()
+	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().TxNum()
 	blockDetail["miner_id"] = mediator.Proc.GetPubkeyInfo().ID.ShortS()
 	return successResult(blockDetail)
 }
@@ -791,8 +791,7 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	return successResult(nonce)
 }
 
-
 func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
-    w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
+	w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
 	return successResult(w)
 }

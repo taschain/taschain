@@ -108,7 +108,7 @@ func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
 	if nil == BlockChainImpl {
 		return
 	}
-	transactions, need, e := BlockChainImpl.GetTransactionPool().GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
+	transactions, need, e := BlockChainImpl.GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
 	if e == ErrNil {
 		m.TransactionHashes = need
 	}

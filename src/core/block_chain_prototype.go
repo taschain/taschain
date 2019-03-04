@@ -64,6 +64,8 @@ type prototypeChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
+	verifiedBodyCache *lru.Cache
+
 	isAdujsting bool
 
 	consensusHelper types.ConsensusHelper
@@ -95,7 +97,7 @@ func (chain *prototypeChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	txs, missTxs, _ := chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+	txs, missTxs, _ := chain.GetTransactions(bh.Hash, bh.Transactions)
 
 	if len(missTxs) != 0 {
 		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
@@ -265,7 +267,7 @@ func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.
 	var missing []common.Hash
 	var transactions []*types.Transaction
 	if nil == txs {
-		transactions, missing, _ = chain.transactionPool.GetTransactions(bh.Hash, bh.Transactions)
+		transactions, missing, _ = chain.GetTransactions(bh.Hash, bh.Transactions)
 	} else {
 		transactions = txs
 	}
@@ -789,4 +791,42 @@ func (chain *prototypeChain) ensureChainConsistency() {
 		chain.remove(block)
 		chain.eraseRemoveBlockMark()
 	}
+}
+
+func (chain *prototypeChain) GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error) {
+	if nil == txHashList || 0 == len(txHashList) {
+		return nil, nil, ErrNil
+	}
+
+	verifiedBody, _ := chain.verifiedBodyCache.Get(blockHash)
+	var verifiedTxs []*types.Transaction
+	if nil != verifiedBody {
+		verifiedTxs = verifiedBody.([]*types.Transaction)
+	}
+
+	txs := make([]*types.Transaction, 0)
+	need := make([]common.Hash, 0)
+	var err error
+	for _, hash := range txHashList {
+		var tx *types.Transaction
+		if verifiedTxs != nil {
+			for _, verifiedTx := range verifiedTxs {
+				if verifiedTx.Hash == hash {
+					tx = verifiedTx
+					break
+				}
+			}
+		}
+
+		if tx == nil {
+			tx, err = chain.transactionPool.GetTransaction(hash)
+		}
+
+		if tx != nil {
+			txs = append(txs, tx)
+		} else {
+			need = append(need, hash)
+		}
+	}
+	return txs, need, err
 }
