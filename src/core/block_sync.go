@@ -16,16 +16,16 @@
 package core
 
 import (
-	"time"
-	"taslog"
 	"common"
-	"network"
+	"github.com/gogo/protobuf/proto"
+	"middleware"
 	"middleware/notify"
 	"middleware/pb"
-	"github.com/gogo/protobuf/proto"
-	"utility"
 	"middleware/types"
-	"middleware"
+	"network"
+	"taslog"
+	"time"
+	"utility"
 )
 
 const (
@@ -39,9 +39,9 @@ const (
 var BlockSyncer *blockSyncer
 
 type blockSyncer struct {
-	syncing       bool
-	candidate     string
-	candidatePool map[string]TopBlockInfo
+	syncing       bool                    //同步状态
+	candidate     string                  //候选人
+	candidatePool map[string]TopBlockInfo //候选人池
 	lock          middleware.Loglock
 
 	init                 bool
@@ -75,6 +75,7 @@ func (bs *blockSyncer) IsInit() bool {
 	return bs.init
 }
 
+//尝试进行块同步
 func (bs *blockSyncer) trySync() {
 	bs.lock.Lock("trySync")
 	defer bs.lock.Unlock("trySync")

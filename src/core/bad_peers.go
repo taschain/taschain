@@ -15,8 +15,8 @@
 package core
 
 import (
-	"time"
 	"sync"
+	"time"
 )
 
 const (
@@ -39,6 +39,8 @@ func initPeerManager() *peerManager {
 	go badPeerMeter.loop()
 	return &badPeerMeter
 }
+
+//"黑名单"节点的记录功能：3次标识正式进入黑名单
 func (bpm *peerManager) markEvil(id string) {
 	if id == "" {
 		return
@@ -67,6 +69,7 @@ func (bpm *peerManager) markEvil(id string) {
 	}
 }
 
+//是否在黑名单节点中
 func (bpm *peerManager) isEvil(id string) bool {
 	if id == "" {
 		return false
@@ -77,6 +80,7 @@ func (bpm *peerManager) isEvil(id string) bool {
 	return exit
 }
 
+//黑名单节点释放功能：超过3分钟的黑名单节点直接洗白
 func (bpm *peerManager) loop() {
 	for {
 		select {
