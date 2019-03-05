@@ -99,13 +99,16 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 	}
 
 	rand := mrand.New(mrand.NewSource(time.Now().Unix()))
-	nodeIndex := 0
+	entranceIndex := 0
+	entranceNodes := groupMembers
 	if len(groupMembers) > 0 {
-		nodeIndex = rand.Intn(len(groupMembers))
-	}
-	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d index:%d", groupId, len(groupMembers),nodeIndex)
+		entranceIndex = rand.Intn(len(groupMembers))
+		entranceNodes = groupMembers[entranceIndex:]
 
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, groupMembers[nodeIndex:], 1)
+	}
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d index:%d", groupId, len(groupMembers),entranceIndex)
+
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
 }
 
