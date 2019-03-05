@@ -92,6 +92,11 @@ func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 }
 
 func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+	if groupMembers == nil || len(groupMembers) == 0 {
+		Logger.Errorf("group members is empty!")
+		return errGroupEmpty
+	}
+
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
@@ -99,14 +104,9 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 	}
 
 	rand := mrand.New(mrand.NewSource(time.Now().Unix()))
-	entranceIndex := 0
-	entranceNodes := groupMembers
-	if len(groupMembers) > 0 {
-		entranceIndex = rand.Intn(len(groupMembers))
-		entranceNodes = groupMembers[entranceIndex:]
-
-	}
-	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d index:%d", groupId, len(groupMembers),entranceIndex)
+	entranceIndex := rand.Intn(len(groupMembers))
+	entranceNodes := groupMembers[entranceIndex:]
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers),entranceIndex)
 
 	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
