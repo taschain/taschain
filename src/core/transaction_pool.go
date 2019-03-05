@@ -38,10 +38,10 @@ const (
 	minerTxCacheSize = 1000
 	missTxCacheSize  = 60000
 
-	broadcastListLength         = 50
+	broadcastListLength         = 100
 	broadcastTimerInterval      = time.Second * 3
 	oldTxBroadcastTimerInterval = time.Second * 30
-	oldTxInterval               = time.Minute * 1
+	oldTxInterval               = time.Second * 10
 
 	txCountPerBlock = 1000
 	gasLimitMax     = 500000

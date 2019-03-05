@@ -294,7 +294,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	chain.castedBlock.Add(block.Header.Hash, block)
 
 	if len(block.Transactions) != 0 {
-		chain.verifiedBlocks.Add(block.Header.Hash, block.Transactions)
+		chain.verifiedBodyCache.Add(block.Header.Hash, block.Transactions)
 	}
 	return block
 }
@@ -343,7 +343,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return nil, -1
 	}
 	if len(block.Transactions) != 0 {
-		chain.verifiedBlocks.Add(block.Header.Hash, block.Transactions)
+		chain.verifiedBodyCache.Add(block.Header.Hash, block.Transactions)
 	}
 	return nil, 0
 }
