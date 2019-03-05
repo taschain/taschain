@@ -92,6 +92,9 @@ func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 }
 
 func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+	if Logger == nil {
+		return nil
+	}
 	if groupMembers == nil || len(groupMembers) == 0 {
 		Logger.Errorf("group members is empty!")
 		return errGroupEmpty
