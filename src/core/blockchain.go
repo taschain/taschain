@@ -255,21 +255,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 	}
 
 	statehash, evictedTxs, transactions, receipts, err, _ := chain.executor.Execute(state, block, height, "casting")
-
-	// 准确执行了的交易，入块
-	// 失败的交易也要从池子里，去除掉
-	//block.Header.Transactions = make([]common.Hash, len(executed))
-	//executedTxs := make([]*Transaction, len(executed))
-	//for i, tx := range executed {
-	//	if tx == nil {
-	//		continue
-	//	}
-	//	block.Header.Transactions[i] = tx.Hash
-	//	executedTxs[i] = tx
-	//}
-	//block.Transactions = executedTxs
-	//block.Header.EvictedTxs = errTxs
-
 	transactionHashes := make([]common.Hash, len(transactions))
 
 	block.Transactions = transactions
@@ -589,7 +574,7 @@ func (chain *FullBlockChain) updateCheckValue(block *types.Block) {
 }
 
 func (chain *FullBlockChain) updateTxPool(block *types.Block, receipts types.Receipts) {
-	chain.transactionPool.MarkExecuted(receipts, block.Transactions)
+	chain.transactionPool.MarkExecuted(receipts, block.Transactions, block.Header.EvictedTxs)
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block, headerJson []byte) {
