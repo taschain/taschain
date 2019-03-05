@@ -157,10 +157,10 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		for item.list.Len() > 0 && sendList.isSendAvailable() {
 			e := item.list.Front()
 			if e == nil {
-				continue
+				break
 			} else if e.Value == nil {
 				item.list.Remove(e)
-				continue
+				break
 			}
 
 			buf := e.Value.(*bytes.Buffer)
@@ -185,12 +185,6 @@ func (sendList *SendList) autoSend(peer *Peer) {
 		}
 
 	}
-	if remain > 0 && sendList.isSendAvailable() {
-
-		sendList.resetQuota()
-		sendList.autoSend(peer)
-	}
-
 }
 
 func (sendList *SendList) resetQuota() {
