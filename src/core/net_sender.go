@@ -98,8 +98,8 @@ func BroadcastTransactions(txs []*types.Transaction) {
 		}
 		Logger.Debugf("BroadcastTransactions len:%d", len(txs))
 		message := network.Message{Code: network.TransactionBroadcastMsg, Body: body}
-		heavyMiners := MinerManagerImpl.GetHeavyMiners()
-		go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+		//heavyMiners := MinerManagerImpl.GetHeavyMiners()
+		go network.GetNetInstance().TransmitToNeighbor(message)
 	}
 }
 
