@@ -190,7 +190,6 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	BlockChainImpl.AddBlockOnChain(source, block, types.NewBlock)
 }
 
-//----------------------------------------------------------------------------------------------------------------------
 func unMarshalTransactionRequestMessage(b []byte) (*TransactionRequestMessage, error) {
 	m := new(tas_middleware_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)

@@ -17,26 +17,26 @@ package core
 
 import (
 	"time"
+	"bytes"
+	"math"
+
 	"common"
 	"utility"
-	"github.com/gogo/protobuf/proto"
 	"taslog"
 	"middleware/pb"
 	"middleware/types"
 	"network"
-	"bytes"
 	"middleware/notify"
 	"middleware"
-	"math"
+
+	"github.com/gogo/protobuf/proto"
 )
 
-//todo  消息传输是否需要签名？ 异常代码处理
 const (
 	groupSyncInterval          = 3 * time.Second
 	sendGroupInfoInterval      = 3 * time.Second
 	groupSyncCandidatePoolSize = 3
 	groupSyncReqTimeout        = 3 * time.Second
-	groupSyncDependHoldTimeOut = 3 * time.Minute
 )
 
 var GroupSyncer *groupSyncer
@@ -50,13 +50,13 @@ type groupSyncer struct {
 	syncing       bool
 	candidate     string
 	candidatePool map[string]uint64
-	lock          middleware.Loglock
 
 	init                 bool
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	groupInfoNotifyTimer *time.Timer
 
+	lock   middleware.Loglock
 	logger taslog.Logger
 }
 
@@ -203,6 +203,7 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 			delete(gs.candidatePool, id)
 		}
 	}
+
 	candidateId := ""
 	var candidateMaxHeight uint64 = 0
 	for id, height := range gs.candidatePool {
@@ -227,6 +228,7 @@ func (gs *groupSyncer) addCandidatePool(id string, groupHeight uint64) {
 		gs.candidatePool[id] = groupHeight
 		return
 	}
+
 	heightMinId := ""
 	var minHeight uint64 = math.MaxUint64
 	for id, height := range gs.candidatePool {
@@ -277,7 +279,6 @@ func (gs *groupSyncer) loop() {
 	}
 }
 
-//返回自身组链高度
 func (gs *groupSyncer) sendGroupHeightToNeighbor(localCount uint64) {
 	gs.lock.Lock("sendGroupHeightToNeighbor")
 	gs.groupInfoNotifyTimer.Reset(sendGroupInfoInterval)
@@ -289,14 +290,12 @@ func (gs *groupSyncer) sendGroupHeightToNeighbor(localCount uint64) {
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
 
-//向某一节点请求Group
 func (gs *groupSyncer) requestGroupByGroupId(id string, groupId []byte) {
 	gs.logger.Debugf("Req group for %s,id:%v!", id, groupId)
 	message := network.Message{Code: network.ReqGroupMsg, Body: groupId}
 	network.GetNetInstance().Send(id, message)
 }
 
-//本地查询之后将结果返回
 func (gs *groupSyncer) sendGroups(targetId string, groups []*types.Group, isTop bool) {
 	if len(groups) == 0 {
 		Logger.Debugf("Send nil group to:%s", targetId)

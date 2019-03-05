@@ -188,7 +188,7 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 		return minerTx.(*types.Transaction), nil
 	}
 
-	receivedTx := pool.received.Get(hash)
+	receivedTx := pool.received.get(hash)
 	if nil != receivedTx {
 		return receivedTx, nil
 	}
@@ -321,7 +321,7 @@ func (pool *TxPool) add(tx *types.Transaction, broadcast bool) (bool, error) {
 		}
 		pool.minerTxs.Add(tx.Hash, tx)
 	} else {
-		pool.received.Push(tx)
+		pool.received.push(tx)
 	}
 	pool.txRcvTime.Add(tx.Hash, time.Now())
 
@@ -370,7 +370,7 @@ func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
 		return true
 	}
 
-	existInReceivedTxs := pool.received.Contains(hash)
+	existInReceivedTxs := pool.received.contains(hash)
 	if existInReceivedTxs {
 		return true
 	}
@@ -413,7 +413,7 @@ func (pool *TxPool) packMinerTx() []*types.Transaction {
 }
 
 func (pool *TxPool) packTx(packedTxs []*types.Transaction) []*types.Transaction {
-	txs := pool.received.AsSlice()
+	txs := pool.received.asSlice()
 	sort.Sort(types.Transactions(txs))
 	for _, tx := range txs {
 		packedTxs = append(packedTxs, tx)

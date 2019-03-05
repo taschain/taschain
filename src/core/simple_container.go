@@ -15,44 +15,33 @@
 package core
 
 import (
-	"common"
-	"middleware/types"
 	"sort"
 	"sync"
 	"time"
+
+	"common"
+	"middleware/types"
 )
 
 type simpleContainer struct {
-	lock   sync.RWMutex
+	limit  int
 	txs    types.PriorityTransactions
 	txsMap map[common.Hash]*types.Transaction
-	limit  int
-	ticker *time.Ticker
+
+	sortTicker *time.Ticker
+	lock       sync.RWMutex
 }
 
 func newSimpleContainer(l int) *simpleContainer {
 	c := &simpleContainer{
-		lock:   sync.RWMutex{},
-		limit:  l,
-		txsMap: map[common.Hash]*types.Transaction{},
-		txs:    types.PriorityTransactions{},
-		ticker: time.NewTicker(time.Millisecond * 500),
+		lock:       sync.RWMutex{},
+		limit:      l,
+		txsMap:     map[common.Hash]*types.Transaction{},
+		txs:        types.PriorityTransactions{},
+		sortTicker: time.NewTicker(time.Millisecond * 500),
 	}
 	go c.loop()
 	return c
-}
-
-func (c *simpleContainer) loop() {
-	for {
-		<-c.ticker.C
-		c.sort()
-	}
-}
-
-func (c *simpleContainer) sort() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	sort.Sort(c.txs)
 }
 
 func (c *simpleContainer) Len() int {
@@ -62,86 +51,57 @@ func (c *simpleContainer) Len() int {
 	return len(c.txs)
 }
 
-func (c *simpleContainer) Contains(key common.Hash) bool {
+func (c *simpleContainer) loop() {
+	for {
+		<-c.sortTicker.C
+		c.sort()
+	}
+}
+
+func (c *simpleContainer) sort() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	sort.Sort(c.txs)
+}
+
+func (c *simpleContainer) contains(key common.Hash) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	return c.txsMap[key] != nil
 }
 
-func (c *simpleContainer) Get(key common.Hash) *types.Transaction {
+func (c *simpleContainer) get(key common.Hash) *types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	return c.txsMap[key]
 }
 
-func (c *simpleContainer) AsSlice() []*types.Transaction {
+func (c *simpleContainer) asSlice() []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+
 	return c.txs
 }
 
-func (c *simpleContainer) Push(tx *types.Transaction) {
+func (c *simpleContainer) push(tx *types.Transaction) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.add(tx)
-
-}
-
-func (c *simpleContainer) PushTxs(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	for _, tx := range txs {
-		c.add(tx)
-	}
-
-}
-
-func (c *simpleContainer) add(tx *types.Transaction) {
 	if c.txs.Len() < c.limit {
 		c.txs = append(c.txs, tx)
 		c.txsMap[tx.Hash] = tx
 		return
 	}
 
-	for i, oldtx := range c.txs {
-		if tx.GasPrice >= oldtx.GasPrice {
-			delete(c.txsMap, oldtx.Hash)
+	for i, oldTx := range c.txs {
+		if tx.GasPrice >= oldTx.GasPrice {
+			delete(c.txsMap, oldTx.Hash)
 			c.txs[i] = tx
 			c.txsMap[tx.Hash] = tx
 			break
-		}
-	}
-}
-
-func (c *simpleContainer) Remove(keys []common.Hash) {
-	if nil == keys || 0 == len(keys) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	//Logger.Debugf("[Remove111:]tx pool container remove tx len:%d,contain tx map len %d,contain txs len %d",len(keys),len(c.txsMap),len(c.txs))
-	for _, key := range keys {
-		if c.txsMap[key] == nil {
-			continue
-		}
-		delete(c.txsMap, key)
-		//Logger.Debugf("txsMap delete Value contain tx map len %d",len(c.txsMap))
-
-		for i, tx := range c.txs {
-			if tx.Hash == key {
-				c.txs = append(c.txs[:i], c.txs[i+1:]...)
-				break
-			}
 		}
 	}
 }

@@ -17,15 +17,17 @@ package core
 
 import (
 	"time"
+
 	"taslog"
 	"common"
 	"network"
 	"middleware/notify"
 	"middleware/pb"
-	"github.com/gogo/protobuf/proto"
 	"utility"
 	"middleware/types"
 	"middleware"
+
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -42,13 +44,13 @@ type blockSyncer struct {
 	syncing       bool
 	candidate     string
 	candidatePool map[string]TopBlockInfo
-	lock          middleware.Loglock
 
 	init                 bool
 	reqTimeoutTimer      *time.Timer
 	syncTimer            *time.Timer
 	blockInfoNotifyTimer *time.Timer
 
+	lock   middleware.Loglock
 	logger taslog.Logger
 }
 
@@ -73,6 +75,48 @@ func InitBlockSyncer() {
 
 func (bs *blockSyncer) IsInit() bool {
 	return bs.init
+}
+
+func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
+	topBlock := BlockChainImpl.QueryTopBlock()
+	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
+	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
+	bs.candidatePoolDump()
+
+	uselessCandidate := make([]string, 0, blockSyncCandidatePoolSize)
+	for id, _ := range bs.candidatePool {
+		if PeerManager.isEvil(id) {
+			uselessCandidate = append(uselessCandidate, id)
+		}
+	}
+	if len(uselessCandidate) != 0 {
+		for _, id := range uselessCandidate {
+			delete(bs.candidatePool, id)
+		}
+	}
+	var hasCandidate = false
+	if len(bs.candidatePool) >= blockInitDonePeerNum {
+		hasCandidate = true
+	}
+
+	candidateId := ""
+	var candidateMaxTotalQn uint64 = 0
+	var candidateHeight uint64 = 0
+	for id, topBlockInfo := range bs.candidatePool {
+		if topBlockInfo.TotalQn > candidateMaxTotalQn {
+			candidateId = id
+			candidateMaxTotalQn = topBlockInfo.TotalQn
+			candidateHeight = topBlockInfo.Height
+		}
+	}
+
+	if candidateHeight == localHeight && candidateMaxTotalQn == localTotalQN {
+		candidateId = ""
+	}
+	if localHeight >= candidateHeight {
+		return candidateId, candidateHeight, candidateHeight, hasCandidate
+	}
+	return candidateId, localHeight + 1, candidateHeight, hasCandidate
 }
 
 func (bs *blockSyncer) trySync() {
@@ -131,6 +175,7 @@ func (bs *blockSyncer) sendTopBlockInfoToNeighbor(bi TopBlockInfo) {
 	if bi.Height == 0 {
 		return
 	}
+
 	bs.logger.Debugf("Send local total qn %d to neighbor!", bi.TotalQn)
 	body, e := marshalBlockInfo(bi)
 	if e != nil {
@@ -216,55 +261,14 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) GetCandidateForSync() (string, uint64, uint64, bool) {
-	topBlock := BlockChainImpl.QueryTopBlock()
-	localTotalQN, localTopHash, localHeight := topBlock.TotalQN, topBlock.Hash, topBlock.Height
-	bs.logger.Debugf("Local totalQn:%d,height:%d,topHash:%s", localTotalQN, localHeight, localTopHash.String())
-	bs.candidatePoolDump()
-
-	uselessCandidate := make([]string, 0, blockSyncCandidatePoolSize)
-	for id, _ := range bs.candidatePool {
-		if PeerManager.isEvil(id) {
-			uselessCandidate = append(uselessCandidate, id)
-		}
-	}
-	if len(uselessCandidate) != 0 {
-		for _, id := range uselessCandidate {
-			delete(bs.candidatePool, id)
-		}
-	}
-	var hasCandidate = false
-	if len(bs.candidatePool) >= blockInitDonePeerNum {
-		hasCandidate = true
-	}
-	candidateId := ""
-	var candidateMaxTotalQn uint64 = 0
-	var candidateHeight uint64 = 0
-	for id, topBlockInfo := range bs.candidatePool {
-		if topBlockInfo.TotalQn > candidateMaxTotalQn {
-			candidateId = id
-			candidateMaxTotalQn = topBlockInfo.TotalQn
-			candidateHeight = topBlockInfo.Height
-		}
-	}
-
-	if candidateHeight == localHeight && candidateMaxTotalQn == localTotalQN {
-		candidateId = ""
-	}
-	if localHeight >= candidateHeight {
-		return candidateId, candidateHeight, candidateHeight, hasCandidate
-	}
-	return candidateId, localHeight + 1, candidateHeight, hasCandidate
-}
-
 func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
 	if PeerManager.isEvil(id) {
 		bs.logger.Debugf("Top block info notify id:%s is marked evil.Drop it!", id)
 		return
 	}
-
 	bs.lock.Lock("addCandidatePool")
 	defer bs.lock.Unlock("addCandidatePool")
+
 	if len(bs.candidatePool) < blockSyncCandidatePoolSize {
 		bs.candidatePool[id] = topBlockInfo
 		return
@@ -286,18 +290,18 @@ func (bs *blockSyncer) addCandidatePool(id string, topBlockInfo TopBlockInfo) {
 	}
 }
 
+func (bs *blockSyncer) isUsefulCandidate(localTotalQn uint64, localTopHash common.Hash, candidateTotalQn uint64, candidateTopHash common.Hash) bool {
+	if candidateTotalQn < localTotalQn || (localTotalQn == candidateTotalQn && localTopHash == candidateTopHash) {
+		return false
+	}
+	return true
+}
+
 func (bs *blockSyncer) candidatePoolDump() {
 	bs.logger.Debugf("Candidate Pool Dump:")
 	for id, topBlockInfo := range bs.candidatePool {
 		bs.logger.Debugf("Candidate id:%s,totalQn:%d,height:%d,topHash:%s", id, topBlockInfo.TotalQn, topBlockInfo.Height, topBlockInfo.Hash.String())
 	}
-}
-
-func (bs *blockSyncer) isUsefulCandidate(localTotalQn uint64, localTopHash common.Hash, candidateToltalQn uint64, candidateTopHash common.Hash) bool {
-	if candidateToltalQn < localTotalQn || (localTotalQn == candidateToltalQn && localTopHash == candidateTopHash) {
-		return false
-	}
-	return true
 }
 
 func marshalBlockInfo(bi TopBlockInfo) ([]byte, error) {
