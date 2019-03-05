@@ -328,14 +328,14 @@ func (chain *prototypeChain) remove(block *types.Block) bool {
 	chain.blockHeight.Delete(generateHeightKey(height))
 	chain.checkdb.Delete(utility.UInt64ToByte(height))
 
-	preBlock := chain.queryBlockByHash(chain.latestBlock.PreHash)
+	preBlock := chain.queryBlockByHash(block.Header.PreHash)
 	if preBlock == nil {
 		Logger.Errorf("Query nil block header by hash  while removing block! Hash:%s,height:%d, preHash :%s", hash.Hex(), height, block.Header.PreHash.Hex())
 		return false
 	}
 	preHeader := preBlock.Header
 	chain.latestBlock = preHeader
-	chain.latestStateDB, _ = account.NewAccountDB(chain.latestBlock.StateTree, chain.stateCache)
+	chain.latestStateDB, _ = account.NewAccountDB(preHeader.StateTree, chain.stateCache)
 
 	preHeaderByte, _ := types.MarshalBlockHeader(preHeader)
 	chain.blockHeight.Put([]byte(BLOCK_STATUS_KEY), preHeaderByte)
@@ -349,9 +349,9 @@ func (chain *prototypeChain) Remove(block *types.Block) bool {
 	chain.lock.Lock("Remove Top")
 	defer chain.lock.Unlock("Remove Top")
 
-	if block.Header.Hash != chain.latestBlock.Hash {
-		return false
-	}
+	//if block.Header.Hash != chain.latestBlock.Hash {
+	//	return false
+	//}
 	return chain.remove(block)
 }
 
