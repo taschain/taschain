@@ -26,6 +26,7 @@ import (
 	"middleware/statistics"
 	"strconv"
 	"time"
+	mrand "math/rand"
 )
 
 type server struct {
@@ -91,13 +92,26 @@ func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
 }
 
 func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+	if Logger == nil {
+		return nil
+	}
+	if groupMembers == nil || len(groupMembers) == 0 {
+		Logger.Errorf("group members is empty!")
+		return errGroupEmpty
+	}
+
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d", groupId, len(groupMembers))
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, groupMembers, 1)
+
+	rand := mrand.New(mrand.NewSource(time.Now().Unix()))
+	entranceIndex := rand.Intn(len(groupMembers))
+	entranceNodes := groupMembers[entranceIndex:]
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers),entranceIndex)
+
+	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
 }
 

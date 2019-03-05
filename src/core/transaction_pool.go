@@ -136,7 +136,7 @@ func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) {
 	return
 }
 
-func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction) {
+func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
@@ -166,6 +166,11 @@ func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transacti
 
 	for _, tx := range txs {
 		pool.remove(tx.Hash)
+	}
+	if evictedTxs != nil {
+		for _, hash := range evictedTxs {
+			pool.remove(hash)
+		}
 	}
 }
 

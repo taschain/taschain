@@ -17,6 +17,7 @@ import (
 type MinerPoolReader struct {
 	minerPool *core.MinerManager
 	blog  *bizLog
+	totalStakeCache uint64
 }
 
 func newMinerPoolReader(mp *core.MinerManager) *MinerPoolReader {
@@ -92,13 +93,15 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 	return rets
 }
 
-func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
+func (access *MinerPoolReader) getTotalStake(h uint64, cache bool) uint64 {
+	if cache && access.totalStakeCache > 0 {
+		return access.totalStakeCache
+	}
 	st := access.minerPool.GetTotalStakeByHeight(h)
+	access.totalStakeCache = st
 	return st
 	//return 30
 }
-
-
 //func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
 //    access.minerPool.AddGenesesMiner(miners)
 //}

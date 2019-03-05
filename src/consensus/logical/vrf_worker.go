@@ -84,6 +84,11 @@ func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
     return nil, 0, errors.New("proof fail")
 }
 
+func vrfThreshold(stake, totalStake uint64) *big.Rat {
+	brTStake := new(big.Rat).SetFloat64(float64(totalStake))
+	return new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
+}
+
 func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn uint64) {
 	if totalStake == 0 {
 		stdLogger.Errorf("total stake is 0!")
@@ -94,8 +99,8 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	pr := br.Quo(br, max256)
 
-	brTStake := new(big.Rat).SetFloat64(float64(totalStake))
-	vs := new(big.Rat).Quo(new(big.Rat).SetInt64(int64(stake*uint64(model.Param.PotentialProposal))), brTStake)
+	//brTStake := new(big.Rat).SetFloat64(float64(totalStake))
+	vs := vrfThreshold(stake, totalStake)
 
 	s1, _ := pr.Float64()
 	s2, _ := vs.Float64()

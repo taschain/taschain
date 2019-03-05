@@ -181,7 +181,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		err = fmt.Errorf("miner can't cast at height, id=%v, height=%v(%v-%v)", castor.ShortS(), bh.Height, minerDO.ApplyHeight, minerDO.AbortHeight)
 		return
 	}
-	totalStake := p.minerReader.getTotalStake(preHeader.Height)
+	totalStake := p.minerReader.getTotalStake(preHeader.Height, false)
 	blog.log("totalStake %v", totalStake)
 	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
 		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
