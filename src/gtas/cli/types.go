@@ -125,6 +125,7 @@ type NodeInfo struct {
 	BlockHeight uint64 `json:"block_height"`
 	GroupHeight uint64 `json:"group_height"`
 	MortGages []MortGage `json:"mort_gages"`
+	VrfThreshold float64 `json:"vrf_threshold"`
 }
 
 type PageObjects struct {

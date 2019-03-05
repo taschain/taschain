@@ -154,7 +154,7 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	if pre == nil {
 		return 0
 	}
-	totalStake := p.minerReader.getTotalStake(pre.Height)
+	totalStake := p.minerReader.getTotalStake(pre.Height, false)
 	_, qn := vrfSatisfy(pi, miner.Stake, totalStake)
 	return qn
 }
@@ -188,6 +188,16 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 	h := base.Data2CommonHash(buf)
 	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
 	return h
+}
+
+func (p *Processor) GetVrfThreshold(stake uint64) float64 {
+	totalStake := p.minerReader.getTotalStake(p.MainChain.Height(), true)
+	if totalStake == 0 {
+		return 0
+	}
+	vs := vrfThreshold(stake, totalStake)
+	f, _ := vs.Float64()
+	return f
 }
 
 func (p *Processor) BlockContextSummary() string {
