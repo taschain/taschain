@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 	"strconv"
-	"os/exec"
 )
 
 /*
@@ -63,7 +62,9 @@ func (ns *NodeResStat) startStatLoop()  {
 }
 
 func (s *NodeResStat) statCpuAndMem() {
-	bs, err := sh.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
+	sess := sh.NewSession()
+	sess.ShowCMD = true
+	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
 
 	if err == nil {
 		line := spaceRe.ReplaceAllString(strings.TrimSpace(string(bs)), ",")
@@ -92,7 +93,10 @@ func (s *NodeResStat) statCpuAndMem() {
 }
 
 func (s *NodeResStat) statFlow() {
-	bs, err := exec.Command("sar", "-n DEV", "1", "2").Output()
+	sess := sh.NewSession()
+	sess.ShowCMD = true
+	bs, err := sess.Command("sar", "-n DEV", 1, 2).Command("grep", "eth").Output()
+
 	fmt.Println(string(bs), err)
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(bs)), "\n")
