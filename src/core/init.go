@@ -17,43 +17,21 @@ package core
 
 import "middleware/types"
 
-var (
-	BlockChainConnectorImpl *BlockChainConnector
-	GroupChainConnectorImpl *GroupChainConnector
-)
-
-type BlockChainConnector struct {
-	chain BlockChain
-}
-
-type GroupChainConnector struct {
-	chain *GroupChain
-}
-
 func InitCore(light bool, helper types.ConsensusHelper) error {
 	light = false
-
+	initPeerManager()
 	if nil == BlockChainImpl {
-		var err error
-		err = initBlockChain(helper)
-		if nil != err {
+		err := initBlockChain(helper)
+		if err != nil {
 			return err
 		}
-	}
-	BlockChainConnectorImpl = &BlockChainConnector{
-		chain: BlockChainImpl,
 	}
 
 	if nil == GroupChainImpl {
 		err := initGroupChain(helper.GenerateGenesisInfo(), helper)
-		if nil != err {
+		if err != nil {
 			return err
 		}
 	}
-	GroupChainConnectorImpl = &GroupChainConnector{
-		chain: GroupChainImpl,
-	}
-
-	PeerManager = initPeerManager()
 	return nil
 }

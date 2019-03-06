@@ -34,11 +34,12 @@ type peerManager struct {
 	lock sync.RWMutex
 }
 
-func initPeerManager() *peerManager {
+func initPeerManager() {
 	badPeerMeter := peerManager{badPeerMeter: make(map[string]uint64), badPeers: make(map[string]time.Time), cleaner: time.NewTicker(badPeersCleanInterval), lock: sync.RWMutex{}}
 	go badPeerMeter.loop()
-	return &badPeerMeter
+	PeerManager = &badPeerMeter
 }
+
 func (bpm *peerManager) markEvil(id string) {
 	if id == "" {
 		return

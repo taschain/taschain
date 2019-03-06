@@ -93,7 +93,7 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 }
 
 func (access *MinerPoolReader) getTotalStake(h uint64) uint64 {
-	st := access.minerPool.GetTotalStakeByHeight(h)
+	st := access.minerPool.GetTotalStake(h)
 	return st
 	//return 30
 }

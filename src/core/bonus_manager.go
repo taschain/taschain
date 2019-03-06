@@ -17,9 +17,10 @@ package core
 import (
 	"bytes"
 	"common"
-	"middleware/types"
-	"storage/vm"
 	"sync"
+
+	"storage/vm"
+	"middleware/types"
 )
 
 type BonusManager struct {
@@ -29,22 +30,6 @@ type BonusManager struct {
 func newBonusManager() *BonusManager {
 	manager := &BonusManager{}
 	return manager
-}
-
-func (bm *BonusManager) Contain(blockHash []byte, accountdb vm.AccountDB) bool {
-	value := accountdb.GetData(common.BonusStorageAddress, string(blockHash))
-	if value != nil {
-		return true
-	}
-	return false
-}
-
-func (bm *BonusManager) Put(blockHash []byte, transactionHash []byte, accountdb vm.AccountDB) {
-	accountdb.SetData(common.BonusStorageAddress, string(blockHash), transactionHash)
-}
-
-func (bm *BonusManager) WhetherBonusTransaction(transaction *types.Transaction) bool {
-	return transaction.Type == types.TransactionTypeBonus
 }
 
 func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction {
@@ -101,4 +86,16 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 	}
 	blockHash := common.BytesToHash(transaction.Data)
 	return groupId, ids, blockHash, transaction.Value
+}
+
+func (bm *BonusManager) contain(blockHash []byte, accountdb vm.AccountDB) bool {
+	value := accountdb.GetData(common.BonusStorageAddress, string(blockHash))
+	if value != nil {
+		return true
+	}
+	return false
+}
+
+func (bm *BonusManager) put(blockHash []byte, transactionHash []byte, accountdb vm.AccountDB) {
+	accountdb.SetData(common.BonusStorageAddress, string(blockHash), transactionHash)
 }

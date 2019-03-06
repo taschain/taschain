@@ -272,7 +272,7 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 		miner := &types.Miner{Id: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: common.TAS2RA(100)}
 		miners = append(miners, miner)
 	}
-	MinerManagerImpl.AddGenesesMiner(miners, stateDB)
+	MinerManagerImpl.addGenesesMiner(miners, stateDB)
 	stage = stateDB.IntermediateRoot(false)
 	Logger.Debugf("GenesisBlock Stage2 Root:%s", stage.Hex())
 	stateDB.SetNonce(common.BonusStorageAddress, 1)

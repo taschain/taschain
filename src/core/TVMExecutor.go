@@ -17,19 +17,19 @@ package core
 
 import (
 	"bytes"
-	"common"
 	"fmt"
-	"github.com/vmihailenco/msgpack"
+	"time"
 	"math/big"
+
+	"common"
+	"tvm"
 	"middleware/types"
 	"storage/account"
 	"storage/vm"
-	"time"
-	"tvm"
+
+	"github.com/vmihailenco/msgpack"
 )
 
-//var castorReward = big.NewInt(50)
-//var bonusReward = big.NewInt(20)
 const TransactionGasCost = 1000
 const CodeBytePrice = 0.3814697265625
 const MaxCastBlockTime = time.Second * 3
@@ -44,8 +44,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, mark string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error, []*types.TransactionError) {
-	//Logger.Debugf("TVMExecutor Begin Execute State %s,height:%d,tx len:%d", block.Header.StateTree.Hex(), block.Header.Height, len(block.Transactions))
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, situation string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error, []*types.TransactionError) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
@@ -54,7 +53,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 
 	for i, transaction := range block.Transactions {
 		executeTime := time.Now()
-		if mark == "casting" && executeTime.Sub(beginTime) > MaxCastBlockTime {
+		if situation == "casting" && executeTime.Sub(beginTime) > MaxCastBlockTime {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
 			break
 		}
@@ -81,11 +80,11 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		case types.TransactionTypeBonus:
 			success = executor.executeBonusTx(accountdb, transaction, castor)
 		case types.TransactionTypeMinerApply:
-			success = executor.executeMinerApplyTx(accountdb, transaction, height, mark, castor)
+			success = executor.executeMinerApplyTx(accountdb, transaction, height, situation, castor)
 		case types.TransactionTypeMinerAbort:
-			success = executor.executeMinerAbortTx(accountdb, transaction, height, castor, mark)
+			success = executor.executeMinerAbortTx(accountdb, transaction, height, castor, situation)
 		case types.TransactionTypeMinerRefund:
-			success = executor.executeMinerRefundTx(accountdb, transaction, height, castor, mark)
+			success = executor.executeMinerRefundTx(accountdb, transaction, height, castor, situation)
 		}
 
 		if !success {
@@ -104,7 +103,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			}
 		}
 	}
-	//筑块奖励
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state := accountdb.IntermediateRoot(true)
@@ -143,7 +141,6 @@ func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, tra
 
 func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address, block *types.Block) (success bool, err *types.TransactionError, cumulativeGasUsed uint64, contractAddress common.Address) {
 	success = true
-	//合约创建不支持直接给合约地址转账,因为此时合约不确定一定创建成功
 	txExecuteGasFee := big.NewInt(int64(transaction.GasPrice * TransactionGasCost))
 	gasLimit := transaction.GasLimit
 	gasLimitFee := new(big.Int).SetUint64(transaction.GasLimit * transaction.GasPrice)
@@ -162,7 +159,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 			controller.AccountDB.RevertToSnapshot(snapshot)
 		} else {
 			deploySpend := uint64(float32(len(transaction.Data)) * CodeBytePrice)
-			if gasLimit < deploySpend { //gas not enough
+			if gasLimit < deploySpend {
 				success = false
 				err = types.TxErrorDeployGasNotEnough
 				controller.AccountDB.RevertToSnapshot(snapshot)
@@ -179,7 +176,6 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 				}
 			}
 		}
-		//无论合约创建成功还是失败，VM消耗的GAS不再退还 直接打给矿工
 		gasLeft := controller.GetGasLeft()
 		returnFee := new(big.Int).SetUint64(gasLeft * transaction.GasPrice)
 		accountdb.AddBalance(*transaction.Source, returnFee)
@@ -239,7 +235,7 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 
 func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address) (success bool) {
 	success = false
-	if executor.bc.GetBonusManager().Contain(transaction.Data, accountdb) == false {
+	if executor.bc.GetBonusManager().contain(transaction.Data, accountdb) == false {
 		reader := bytes.NewReader(transaction.ExtraData)
 		groupId := make([]byte, common.GroupIdLength)
 		addr := make([]byte, common.AddressLength)
@@ -256,8 +252,7 @@ func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transa
 			address := common.BytesToAddress(addr)
 			accountdb.AddBalance(address, value)
 		}
-		executor.bc.GetBonusManager().Put(transaction.Data, transaction.Hash[:], accountdb)
-		//分红交易奖励
+		executor.bc.GetBonusManager().put(transaction.Data, transaction.Hash[:], accountdb)
 		accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().PackBonus())
 		success = true
 	}
@@ -289,7 +284,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 		accountdb.AddBalance(castor, txExecuteFee)
 
 		miner.ApplyHeight = height
-		if MinerManagerImpl.AddMiner(transaction.Source[:], &miner, accountdb) > 0 {
+		if MinerManagerImpl.addMiner(transaction.Source[:], &miner, accountdb) > 0 {
 			accountdb.SubBalance(*transaction.Source, amount)
 			Logger.Debugf("TVMExecutor Execute MinerApply Success Source:%s Height:%d Type:%s", transaction.Source.GetHexString(), height, mark)
 		}
@@ -307,7 +302,7 @@ func (executor *TVMExecutor) executeMinerAbortTx(accountdb *account.AccountDB, t
 		accountdb.SubBalance(*transaction.Source, txExecuteFee)
 		accountdb.AddBalance(castor, txExecuteFee)
 		if transaction.Data != nil {
-			success = MinerManagerImpl.AbortMiner(transaction.Source[:], transaction.Data[0], height, accountdb)
+			success = MinerManagerImpl.abortMiner(transaction.Source[:], transaction.Data[0], height, accountdb)
 		}
 	} else {
 		Logger.Debugf("TVMExecutor Execute MinerAbort Fail(Balance Not Enough) Source:%s Height:%d ,Type:%s", transaction.Source.GetHexString(), height, mark)
@@ -331,7 +326,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 	if mexist != nil && mexist.Status == types.MinerStatusAbort {
 		if mexist.Type == types.MinerTypeHeavy {
 			if height > mexist.AbortHeight+10 {
-				MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
+				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
 				amount := big.NewInt(int64(mexist.Stake))
 				accountdb.AddBalance(*transaction.Source, amount)
 				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Success %s,Type:%s", transaction.Source.GetHexString(), mark)
@@ -341,7 +336,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 			}
 		} else {
 			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
-				MinerManagerImpl.RemoveMiner(transaction.Source[:], mexist.Type, accountdb)
+				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
 				amount := big.NewInt(int64(mexist.Stake))
 				accountdb.AddBalance(*transaction.Source, amount)
 				Logger.Debugf("TVMExecutor Execute MinerRefund Light Success %s,Type:%s", transaction.Source.GetHexString())
