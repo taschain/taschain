@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"middleware/types"
 	"time"
-	"logservice"
+	"monitor"
 	"gopkg.in/karalabe/cookiejar.v2/exts/mathext"
 )
 
@@ -310,14 +310,14 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		slog.log("hash=%v, sender=%v, height=%v, preHash=%v", bh.Hash.ShortS(), ccm.SI.GetID().ShortS(), bh.Height, bh.PreHash.ShortS())
 	}()
 
-	le := &logservice.LogEntry{
-		LogType: logservice.LogTypeProposal,
-		Height: bh.Height,
-		Hash: bh.Hash.Hex(),
-		PreHash: bh.PreHash.Hex(),
+	le := &monitor.LogEntry{
+		LogType:  monitor.LogTypeProposal,
+		Height:   bh.Height,
+		Hash:     bh.Hash.Hex(),
+		PreHash:  bh.PreHash.Hex(),
 		Proposer: ccm.SI.GetID().GetHexString(),
 		Verifier: groupsig.DeserializeId(bh.GroupId).GetHexString(),
-		Ext: fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
+		Ext:      fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
 	slog.addStage("getGroup")
 	group := p.GetGroup(groupsig.DeserializeId(bh.GroupId))
@@ -325,8 +325,8 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	slog.addStage("addLog")
 	detalHeight := int(bh.Height - p.MainChain.Height())
-	if mathext.AbsInt(detalHeight) < 100 && logservice.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 10) {
-		logservice.Instance.AddLogIfNotInternalNodes(le)
+	if mathext.AbsInt(detalHeight) < 100 && monitor.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 10) {
+		monitor.Instance.AddLogIfNotInternalNodes(le)
 	}
 	slog.endStage()
 
@@ -714,15 +714,15 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
 
 		////发送日志
-		//le := &logservice.LogEntry{
-		//	LogType: logservice.LogTypeBonusBroadcast,
+		//le := &monitor.LogEntry{
+		//	LogType: monitor.LogTypeBonusBroadcast,
 		//	Height: bh.Height,
 		//	Hash: bh.Hash.Hex(),
 		//	PreHash: bh.PreHash.Hex(),
 		//	Proposer: slot.castor.GetHexString(),
 		//	Verifier: gid.GetHexString(),
 		//}
-		//logservice.Instance.AddLog(le)
+		//monitor.Instance.AddLog(le)
 
 	} else {
 		err = fmt.Errorf("accept %v, recover %v, %v", accept, recover, slot.rewardGSignGen.Brief())

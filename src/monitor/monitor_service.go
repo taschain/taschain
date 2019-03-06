@@ -1,4 +1,4 @@
-package logservice
+package monitor
 
 import (
 	"common"
@@ -17,7 +17,7 @@ import (
 **  Description: 
 */
 
-type LogService struct {
+type MonitorService struct {
 	enable bool
 	cfg 	*gorose.DbConfigSingle
 	queue  []*LogEntry
@@ -25,6 +25,10 @@ type LogService struct {
 	nodeId string
 	status int32
 	mu 	sync.Mutex
+
+	resStat *NodeResStat
+	nodeInfo *NodeInfo
+	lastUpdate time.Time
 
 	internalNodeIds map[string]bool
 }
@@ -67,14 +71,15 @@ func (le *LogEntry) toMap() map[string]interface{} {
     return m
 }
 
-var Instance = &LogService{}
+var Instance = &MonitorService{}
 
 func InitLogService(nodeId string) {
-	Instance = &LogService{
-		nodeId: nodeId,
-		queue:  make([]*LogEntry, 0),
+	Instance = &MonitorService{
+		nodeId:   nodeId,
+		queue:    make([]*LogEntry, 0),
 		lastSend: time.Now(),
-		enable: true,
+		enable:   true,
+		resStat:  initNodeResStat(),
 	}
 	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
 	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
@@ -94,7 +99,8 @@ func InitLogService(nodeId string) {
 }
 
 
-func (ls *LogService) saveLogs(logs []*LogEntry) {
+
+func (ms *MonitorService) saveLogs(logs []*LogEntry) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -102,14 +108,14 @@ func (ls *LogService) saveLogs(logs []*LogEntry) {
 		} else {
 			common.DefaultLogger.Infof("save logs success, size %v", len(logs))
 		}
-		ls.lastSend = time.Now()
-		atomic.StoreInt32(&ls.status, 0)
+		ms.lastSend = time.Now()
+		atomic.StoreInt32(&ms.status, 0)
 	}()
-	if !atomic.CompareAndSwapInt32(&ls.status, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&ms.status, 0, 1) {
 		return
 	}
 
-	connection, err := gorose.Open(ls.cfg)
+	connection, err := gorose.Open(ms.cfg)
 	if err != nil {
 		return
 	}
@@ -128,27 +134,31 @@ func (ls *LogService) saveLogs(logs []*LogEntry) {
 	_, err = sess.Table(TableName).Data(dm).Insert()
 }
 
-func (ls *LogService) doAddLog(log *LogEntry)  {
-	if !ls.enable || ls.cfg == nil || ls.cfg.Dsn == "" {
+func (ms *MonitorService) doAddLog(log *LogEntry)  {
+	if !ms.MonitorEnable() {
 		return
 	}
-	ls.mu.Lock()
-	defer ls.mu.Unlock()
-	ls.queue = append(ls.queue, log)
-	if len(ls.queue) >= 5 || time.Since(ls.lastSend).Seconds() > 15 {
-		go ls.saveLogs(ls.queue)
-		ls.queue = make([]*LogEntry, 0)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.queue = append(ms.queue, log)
+	if len(ms.queue) >= 5 || time.Since(ms.lastSend).Seconds() > 15 {
+		//go ms.saveLogs(ms.queue)
+		ms.queue = make([]*LogEntry, 0)
 	}
 }
 
-func (ls *LogService) AddLog(log *LogEntry) {
-    log.Operator = ls.nodeId
+func (ms *MonitorService) AddLog(log *LogEntry) {
+    log.Operator = ms.nodeId
     log.OperTime = time.Now()
-    ls.doAddLog(log)
+    ms.doAddLog(log)
 }
 
-func (ls *LogService) loadInternalNodesIds() {
-	connection, err := gorose.Open(ls.cfg)
+func (ms *MonitorService) MonitorEnable() bool {
+    return ms.enable && ms.cfg != nil && ms.cfg.Dsn != ""
+}
+
+func (ms *MonitorService) loadInternalNodesIds() {
+	connection, err := gorose.Open(ms.cfg)
 	if err != nil {
 		return
 	}
@@ -170,30 +180,74 @@ func (ls *LogService) loadInternalNodesIds() {
 			ids = append(ids, id)
 		}
 	}
-	ls.internalNodeIds = m
+	ms.internalNodeIds = m
 
 	log.Println("load internal nodes ", ids)
 }
 
-func (ls *LogService) AddLogIfNotInternalNodes(log *LogEntry)  {
-	if _, ok := ls.internalNodeIds[log.Proposer]; !ok {
-		ls.AddLog(log)
+func (ms *MonitorService) AddLogIfNotInternalNodes(log *LogEntry)  {
+	if _, ok := ms.internalNodeIds[log.Proposer]; !ok {
+		ms.AddLog(log)
 		common.DefaultLogger.Infof("addlog of not internal nodes %v", log.Proposer)
 	}
 }
 
-func (ls *LogService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int) bool {
+func (ms *MonitorService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int) bool {
 	cnt := 0
 	for _, mem := range mems {
-		if _, ok := ls.internalNodeIds[mem.GetHexString()]; ok {
+		if _, ok := ms.internalNodeIds[mem.GetHexString()]; ok {
 			cnt++
 			if cnt >= n {
 				break
 			}
-			if mem.GetHexString() == ls.nodeId {
+			if mem.GetHexString() == ms.nodeId {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
+	if !ms.MonitorEnable() {
+		return
+	}
+
+    ms.nodeInfo = ni
+	if time.Since(ms.lastUpdate).Seconds() > 2 {
+		ms.lastUpdate = time.Now()
+		connection, err := gorose.Open(ms.cfg)
+		if err != nil {
+			return
+		}
+		if connection == nil {
+			err = fmt.Errorf("nil connection")
+			return
+		}
+		defer connection.Close()
+
+		sess := connection.NewSession()
+		dm := make(map[string]interface{})
+		dm["MinerId"] = ms.nodeId
+		dm["NType"] = ms.nodeInfo.Type
+		dm["VrfThreshold"] = ms.nodeInfo.VrfThreshold
+		dm["PStake"] = ms.nodeInfo.PStake
+		dm["BlockHeight"] = ms.nodeInfo.BlockHeight
+		dm["GroupHeight"] = ms.nodeInfo.GroupHeight
+		dm["TxPoolCount"] = ms.nodeInfo.TxPoolCount
+		dm["Cpu"] = ms.resStat.Cpu
+		dm["Mem"] = ms.resStat.Mem
+		dm["RcvBps"] = ms.resStat.RcvBps
+		dm["TxBps"] = ms.resStat.TxBps
+
+		affet, err := sess.Table("nodes").Data(dm).Update()
+		if err == nil {
+			if affet <= 0 {
+				sess.Table("nodes").Data(dm).Insert()
+			}
+			fmt.Println("update nodes success, sql=%v", sess.LastSql)
+		} else {
+			fmt.Println("update nodes fail, sql=%v", sess.LastSql)
+		}
+	}
 }

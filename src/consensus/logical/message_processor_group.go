@@ -7,7 +7,7 @@ import (
 	"consensus/net"
 	"time"
 	"common"
-	"logservice"
+	"monitor"
 )
 
 /*
@@ -659,13 +659,13 @@ func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMes
 
 	recover, _ := p.handleSharePieceMessage(blog, msg.GHash, &msg.Share, &msg.SI, true)
 	if recover {
-		le := &logservice.LogEntry{
-			LogType: logservice.LogTypeGroupRecoverFromResponse,
-			Height: p.GroupChain.Count(),
-			Hash: msg.GHash.Hex(),
-			Proposer: "00",
-		}
-		logservice.Instance.AddLog(le)
+		//le := &monitor.LogEntry{
+		//	LogType: monitor.LogTypeGroupRecoverFromResponse,
+		//	Height: p.GroupChain.Count(),
+		//	Hash: msg.GHash.Hex(),
+		//	Proposer: "00",
+		//}
+		//monitor.Instance.AddLog(le)
 	}
 
 	return
