@@ -239,6 +239,7 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 		dm["Mem"] = ms.resStat.Mem
 		dm["RcvBps"] = ms.resStat.RcvBps
 		dm["TxBps"] = ms.resStat.TxBps
+		dm["UpdateTime"] = time.Now()
 
 		affet, err := sess.Table("nodes").Data(dm).Update()
 		if err == nil {
