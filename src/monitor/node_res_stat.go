@@ -62,16 +62,10 @@ func (ns *NodeResStat) startStatLoop()  {
 }
 
 func (s *NodeResStat) statCpuAndMem() {
-	sess := sh.NewSession()
-	sess.ShowCMD = true
-	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
-	var ret string
-	if bs != nil {
-		ret = string(bs)
-	}
-	fmt.Printf("exe cmd:%v %v\n", ret, err)
+	bs, err := sh.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
+
 	if err == nil {
-		line := spaceRe.ReplaceAllString(string(bs), ",")
+		line := spaceRe.ReplaceAllString(strings.TrimSpace(string(bs)), ",")
 		arrs := strings.Split(line, ",")
 		if len(arrs) < 10 {
 			return
@@ -96,14 +90,8 @@ func (s *NodeResStat) statCpuAndMem() {
 }
 
 func (s *NodeResStat) statFlow() {
-	sess := sh.NewSession()
-	sess.ShowCMD = true
-	bs, err := sess.Command("sar", "-n DEV", "1", "2").Command("grep", "eth").Output()
-	var ret string
-	if bs != nil {
-		ret = string(bs)
-	}
-	fmt.Printf("exe cmd:%v %v\n", ret, err)
+	bs, err := sh.Command("sar", "-n DEV", "1", "2").Command("grep", "eth").Output()
+	fmt.Println(string(bs), err)
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(bs)), "\n")
 		if len(lines) < 1 {

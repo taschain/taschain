@@ -199,7 +199,6 @@ func (p *Processor) GetVrfThreshold(stake uint64) float64 {
 		return 0
 	}
 	vs := vrfThreshold(stake, totalStake)
-	fmt.Printf("total stake %v, stake %v", totalStake, stake)
 	f, _ := vs.Float64()
 	return f
 }
