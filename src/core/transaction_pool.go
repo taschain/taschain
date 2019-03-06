@@ -38,10 +38,10 @@ const (
 	minerTxCacheSize = 1000
 	missTxCacheSize  = 60000
 
-	broadcastListLength         = 50
+	broadcastListLength         = 100
 	broadcastTimerInterval      = time.Second * 3
 	oldTxBroadcastTimerInterval = time.Second * 30
-	oldTxInterval               = time.Minute * 1
+	oldTxInterval               = time.Second * 10
 
 	txCountPerBlock = 1000
 	gasLimitMax     = 500000
@@ -136,7 +136,7 @@ func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) {
 	return
 }
 
-func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction) {
+func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash) {
 	if nil == receipts || 0 == len(receipts) {
 		return
 	}
@@ -166,6 +166,11 @@ func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transacti
 
 	for _, tx := range txs {
 		pool.remove(tx.Hash)
+	}
+	if evictedTxs != nil {
+		for _, hash := range evictedTxs {
+			pool.remove(hash)
+		}
 	}
 }
 

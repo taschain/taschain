@@ -328,6 +328,14 @@ func (api *GtasAPI) MonitorNodeInfo() (*Result, error) {
 	}
 	ni.BlockHeight = bh
 	ni.GroupHeight = gh
+	if ni.MortGages != nil {
+		for _, mg := range ni.MortGages {
+			if mg.Type == "重节点" {
+				ni.VrfThreshold = mediator.Proc.GetVrfThreshold(common.TAS2RA(mg.Stake))
+				break
+			}
+		}
+	}
 	return successResult(ni)
 }
 

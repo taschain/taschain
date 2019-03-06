@@ -143,7 +143,7 @@ type TransactionPool interface {
 
 	TxNum() uint64
 
-	MarkExecuted(receipts types.Receipts, txs []*types.Transaction)
+	MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash)
 
 	UnMarkExecuted(txs []*types.Transaction)
 
