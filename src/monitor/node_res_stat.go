@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"strconv"
+	"os/exec"
 )
 
 /*
@@ -91,7 +92,7 @@ func (s *NodeResStat) statCpuAndMem() {
 }
 
 func (s *NodeResStat) statFlow() {
-	bs, err := sh.Command("sar", "-n DEV", "1", "2").Output()
+	bs, err := exec.Command("sar", "-n DEV", "1", "2").Output()
 	fmt.Println(string(bs), err)
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(bs)), "\n")
