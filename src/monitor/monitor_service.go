@@ -241,7 +241,7 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 		dm["TxBps"] = ms.resStat.TxBps
 		dm["UpdateTime"] = time.Now()
 
-		affet, err := sess.Table("nodes").Data(dm).Update()
+		affet, err := sess.Table("nodes").Where("MinerId="+ms.nodeId).Data(dm).Update()
 		if err == nil {
 			if affet <= 0 {
 				sess.Table("nodes").Data(dm).Insert()
