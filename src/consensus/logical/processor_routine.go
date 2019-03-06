@@ -7,7 +7,6 @@ import (
 	"consensus/groupsig"
 	"monitor"
 	"fmt"
-	"middleware/types"
 )
 
 /*

@@ -7,7 +7,6 @@ import (
 	"consensus/net"
 	"time"
 	"common"
-	"monitor"
 )
 
 /*
