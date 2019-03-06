@@ -71,6 +71,7 @@ func (s *NodeResStat) statCpuAndMem() {
 			return
 		}
 		var cpu, mem float64
+		fmt.Println("top", arrs)
 		cpu, _ = strconv.ParseFloat(arrs[8], 64)
 		mems := arrs[5]
 		if mems[len(mems)-1:] == "g" {
@@ -90,7 +91,7 @@ func (s *NodeResStat) statCpuAndMem() {
 }
 
 func (s *NodeResStat) statFlow() {
-	bs, err := sh.Command("sar", "-n DEV", "1", "2").Command("grep", "eth").Output()
+	bs, err := sh.Command("sar", "-n DEV", "1", "2").Output()
 	fmt.Println(string(bs), err)
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(bs)), "\n")
@@ -99,6 +100,7 @@ func (s *NodeResStat) statFlow() {
 		}
 		line := spaceRe.ReplaceAllString(lines[len(lines)-1], ",")
 		arrs := strings.Split(line, ",")
+		fmt.Println("sar", arrs)
 		if len(arrs) < 8 {
 			return
 		}
