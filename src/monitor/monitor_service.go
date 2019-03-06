@@ -142,7 +142,7 @@ func (ms *MonitorService) doAddLog(log *LogEntry)  {
 	defer ms.mu.Unlock()
 	ms.queue = append(ms.queue, log)
 	if len(ms.queue) >= 5 || time.Since(ms.lastSend).Seconds() > 15 {
-		//go ms.saveLogs(ms.queue)
+		go ms.saveLogs(ms.queue)
 		ms.queue = make([]*LogEntry, 0)
 	}
 }

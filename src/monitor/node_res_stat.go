@@ -44,7 +44,7 @@ type NodeResStat struct {
 func initNodeResStat() *NodeResStat {
 	ns := &NodeResStat{
 		cmTicker: time.NewTicker(time.Second*3),
-		flowTicker: time.NewTicker(time.Second*5),
+		flowTicker: time.NewTicker(time.Second*6),
 	}
 	go ns.startStatLoop()
 	return ns
@@ -95,7 +95,6 @@ func (s *NodeResStat) statCpuAndMem() {
 func (s *NodeResStat) statFlow() {
 	sess := sh.NewSession()
 	sess.ShowCMD = true
-	sess.SetTimeout(time.Second*5)
 	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
 
 	if err == nil {
