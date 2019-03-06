@@ -240,6 +240,7 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 		dm["RcvBps"] = ms.resStat.RcvBps
 		dm["TxBps"] = ms.resStat.TxBps
 		dm["UpdateTime"] = time.Now()
+		dm["Instance"] = common.InstanceIndex
 
 		affet, err := sess.Table("nodes").Where(fmt.Sprintf("MinerId='%v'", ms.nodeId)).Data(dm).Update()
 		if err == nil {

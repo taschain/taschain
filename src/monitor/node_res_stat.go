@@ -24,6 +24,7 @@ const (
 
 type NodeInfo struct {
 	Type int
+	Instance int
 	VrfThreshold float64
 	PStake 		uint64
 	BlockHeight uint64
