@@ -246,9 +246,9 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 			if affet <= 0 {
 				sess.Table("nodes").Data(dm).Insert()
 			}
-			fmt.Println("update nodes success, sql=%v", sess.LastSql)
+			fmt.Printf("update nodes success, sql=%v\n", sess.LastSql)
 		} else {
-			fmt.Println("update nodes fail, sql=%v", sess.LastSql)
+			fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 		}
 	}
 }

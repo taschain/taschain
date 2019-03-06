@@ -65,7 +65,12 @@ func (s *NodeResStat) statCpuAndMem() {
 	sess := sh.NewSession()
 	sess.ShowCMD = true
 	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
-	if err != nil {
+	var ret string
+	if bs != nil {
+		ret = string(bs)
+	}
+	fmt.Printf("exe cmd:%v %v\n", ret, err)
+	if err == nil {
 		line := spaceRe.ReplaceAllString(string(bs), ",")
 		arrs := strings.Split(line, ",")
 		if len(arrs) < 10 {
@@ -94,7 +99,12 @@ func (s *NodeResStat) statFlow() {
 	sess := sh.NewSession()
 	sess.ShowCMD = true
 	bs, err := sess.Command("sar", "-n DEV", "1", "2", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "eth").Output()
-	if err != nil {
+	var ret string
+	if bs != nil {
+		ret = string(bs)
+	}
+	fmt.Printf("exe cmd:%v %v\n", ret, err)
+	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(bs)), "\n")
 		if len(lines) < 1 {
 			return
@@ -108,7 +118,7 @@ func (s *NodeResStat) statFlow() {
 		s.TxBps, _ = strconv.ParseFloat(arrs[5], 64)
 		fmt.Printf("rcv %v, tx %v\n", s.RcvBps, s.TxBps)
 	} else {
-
+		fmt.Printf("exe cmd err:%v\n", err)
 	}
 	return
 }
