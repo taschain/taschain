@@ -320,13 +320,13 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*TopBlockInfo, error) {
 	return &blockInfo, nil
 }
 
-func (bs *blockSyncer) unMarshalBlockMsgResponse(b []byte) (*BlockMsgResponse, error) {
+func (bs *blockSyncer) unMarshalBlockMsgResponse(b []byte) (*blockMsgResponse, error) {
 	message := new(tas_middleware_pb.BlockMsgResponse)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		bs.logger.Errorf("unMarshalBlockMsgResponse error:%s", e.Error())
 		return nil, e
 	}
-	bmr := BlockMsgResponse{IsLastBlock: *message.IsLast, Block: types.PbToBlock(message.Block)}
+	bmr := blockMsgResponse{IsLastBlock: *message.IsLast, Block: types.PbToBlock(message.Block)}
 	return &bmr, nil
 }

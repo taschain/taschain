@@ -365,7 +365,7 @@ func (pool *TxPool) checkAndBroadcastTx(immediately bool) {
 		txs := pool.broadcastList
 		pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
 		pool.broadcastTxLock.Unlock()
-		go BroadcastTransactions(txs)
+		go broadcastTransactions(txs)
 	}
 }
 
@@ -436,7 +436,7 @@ func (pool *TxPool) broadcastOldTx() {
 	if len(pool.broadcastList) > 0 {
 		txs := pool.broadcastList
 		pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
-		go BroadcastTransactions(txs)
+		go broadcastTransactions(txs)
 	}
 
 	txHashes := pool.txRcvTime.Keys()
@@ -450,7 +450,7 @@ func (pool *TxPool) broadcastOldTx() {
 	}
 	txs := pool.broadcastList
 	pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
-	go BroadcastTransactions(txs)
+	go broadcastTransactions(txs)
 }
 
 func (pool *TxPool) getOldTx(txHash common.Hash) *types.Transaction {

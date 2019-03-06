@@ -16,24 +16,23 @@ package core
 
 import (
 	"time"
+	"sync"
+
 	"utility"
 	"network"
+	"common"
+	"taslog"
 	"middleware/notify"
 	"middleware/types"
 	"middleware/pb"
+
 	"github.com/gogo/protobuf/proto"
-	"common"
-	"taslog"
-	"sync"
 )
 
-const (
-	forkTimeOut         = 3 * time.Second
-	blockChainPieceSzie = 10
-)
+const forkTimeOut = 3 * time.Second
 
 type forkProcessor struct {
-	candidite string
+	candidate string
 	reqTimer  *time.Timer
 
 	lock   sync.Mutex
@@ -45,12 +44,12 @@ type ChainPieceBlockMsg struct {
 	TopHeader *types.BlockHeader
 }
 
-func initforkProcessor() *forkProcessor {
+func initForkProcessor() *forkProcessor {
 	fh := forkProcessor{lock: sync.Mutex{}, reqTimer: time.NewTimer(forkTimeOut),}
 	fh.logger = taslog.GetLoggerByIndex(taslog.ForkLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	notify.BUS.Subscribe(notify.ChainPieceInfoReq, fh.chainPieceInfoReqHandler)
 	notify.BUS.Subscribe(notify.ChainPieceInfo, fh.chainPieceInfoHandler)
-	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlockReqHanlder)
+	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlockReqHandler)
 	notify.BUS.Subscribe(notify.ChainPieceBlock, fh.chainPieceBlockHandler)
 
 	go fh.loop()
@@ -64,8 +63,8 @@ func (fh *forkProcessor) requestChainPieceInfo(targetNode string, height uint64)
 	if targetNode == "" {
 		return
 	}
-	if fh.candidite != "" {
-		fh.logger.Debugf("Processing fork to %s! Do not req chain piece info anymore", fh.candidite)
+	if fh.candidate != "" {
+		fh.logger.Debugf("Processing fork to %s! Do not req chain piece info anymore", fh.candidate)
 		return
 	}
 
@@ -75,7 +74,7 @@ func (fh *forkProcessor) requestChainPieceInfo(targetNode string, height uint64)
 	}
 
 	fh.lock.Lock()
-	fh.candidite = targetNode
+	fh.candidate = targetNode
 	fh.reqTimer.Reset(forkTimeOut)
 	fh.lock.Unlock()
 	fh.logger.Debugf("Req chain piece info to:%s,local height:%d", targetNode, height)
@@ -94,10 +93,10 @@ func (fh *forkProcessor) chainPieceInfoReqHandler(msg notify.Message) {
 
 	fh.logger.Debugf("Rcv chain piece info req from:%s,req height:%d", id, reqHeight)
 	chainPiece := BlockChainImpl.GetChainPieceInfo(reqHeight)
-	fh.sendChainPieceInfo(id, ChainPieceInfo{ChainPiece: chainPiece, TopHeader: BlockChainImpl.QueryTopBlock()})
+	fh.sendChainPieceInfo(id, chainPieceInfo{ChainPiece: chainPiece, TopHeader: BlockChainImpl.QueryTopBlock()})
 }
 
-func (fh *forkProcessor) sendChainPieceInfo(targetNode string, chainPieceInfo ChainPieceInfo) {
+func (fh *forkProcessor) sendChainPieceInfo(targetNode string, chainPieceInfo chainPieceInfo) {
 	chainPiece := chainPieceInfo.ChainPiece
 	if len(chainPiece) == 0 {
 		return
@@ -105,7 +104,7 @@ func (fh *forkProcessor) sendChainPieceInfo(targetNode string, chainPieceInfo Ch
 	fh.logger.Debugf("Send chain piece %d-%d to:%s", chainPiece[len(chainPiece)-1].Height, chainPiece[0].Height, targetNode)
 	body, e := marshalChainPieceInfo(chainPieceInfo)
 	if e != nil {
-		fh.logger.Errorf("Discard marshalChainPiece because of marshal error:%s!", e.Error())
+		fh.logger.Errorf("Marshal chain piece info error:%s!", e.Error())
 		return
 	}
 	message := network.Message{Code: network.ChainPieceInfo, Body: body}
@@ -119,11 +118,11 @@ func (fh *forkProcessor) chainPieceInfoHandler(msg notify.Message) {
 	}
 	chainPieceInfo, err := fh.unMarshalChainPieceInfo(chainPieceInfoMessage.ChainPieceInfoByte)
 	if err != nil {
-		fh.logger.Errorf("unMarshalChainPiece error:%s", err.Error())
+		fh.logger.Errorf("Unmarshal chain piece info error:%s", err.Error())
 		return
 	}
 	source := chainPieceInfoMessage.Peer
-	if source != fh.candidite {
+	if source != fh.candidate {
 		fh.logger.Debugf("Unexpected chain piece info from %s, expect from %s!", source, chainPieceInfoMessage.Peer)
 		PeerManager.markEvil(source)
 		return
@@ -157,7 +156,7 @@ func (fh *forkProcessor) requestChainPieceBlock(id string, height uint64) {
 	go network.GetNetInstance().Send(id, message)
 }
 
-func (fh *forkProcessor) chainPieceBlockReqHanlder(msg notify.Message) {
+func (fh *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 	m, ok := msg.GetData().(*notify.ChainPieceBlockReqMessage)
 	if !ok {
 		return
@@ -175,7 +174,7 @@ func (fh *forkProcessor) sendChainPieceBlock(targetId string, blocks []*types.Bl
 	fh.logger.Debugf("Send chain piece blocks %d-%d to:%s", blocks[len(blocks)-1].Header.Height, blocks[0].Header.Height, targetId)
 	body, e := fh.marshalChainPieceBlockMsg(ChainPieceBlockMsg{Blocks: blocks, TopHeader: topHeader})
 	if e != nil {
-		fh.logger.Errorf("SendBlock marshal MarshalBlock error:%s", e.Error())
+		fh.logger.Errorf("Marshal chain piece block msg error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.ChainPieceBlock, Body: body}
@@ -188,15 +187,15 @@ func (fh *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		return
 	}
 	source := m.Peer
-	if source != fh.candidite {
-		fh.logger.Debugf("Unexpected chain piece block from %s, expect from %s!", source, fh.candidite)
+	if source != fh.candidate {
+		fh.logger.Debugf("Unexpected chain piece block from %s, expect from %s!", source, fh.candidate)
 		PeerManager.markEvil(source)
 		return
 	}
 
 	chainPieceBlockMsg, e := fh.unmarshalChainPieceBlockMsg(m.ChainPieceBlockMsgByte)
 	if e != nil {
-		fh.logger.Debugf("Discard chain piece msg because unmarshalChainPieceBlockMsg error:%d", e.Error())
+		fh.logger.Debugf("Unmarshal chain piece block msg error:%d", e.Error())
 		return
 	}
 
@@ -222,7 +221,7 @@ func (fh *forkProcessor) reset() {
 	fh.lock.Lock()
 	defer fh.lock.Unlock()
 	fh.logger.Debugf("Fork processor reset!")
-	fh.candidite = ""
+	fh.candidate = ""
 	fh.reqTimer.Stop()
 }
 
@@ -231,18 +230,18 @@ func (fh *forkProcessor) verifyChainPieceInfo(chainPiece []*types.BlockHeader, t
 		return false
 	}
 	if topHeader.Hash != topHeader.GenHash() {
-		Logger.Infof("invalid topHeader!Hash:%s", topHeader.Hash.String())
+		Logger.Infof("Invalid topHeader! Hash:%s", topHeader.Hash.String())
 		return false
 	}
 
 	for i := 0; i < len(chainPiece)-1; i++ {
 		bh := chainPiece[i]
 		if bh.Hash != bh.GenHash() {
-			Logger.Infof("invalid chainPiece element,hash:%s", bh.Hash.String())
+			Logger.Infof("Invalid chainPiece element,hash:%s", bh.Hash.String())
 			return false
 		}
 		if bh.PreHash != chainPiece[i+1].Hash {
-			Logger.Infof("invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
+			Logger.Infof("Invalid preHash,expect prehash:%s,real hash:%s", bh.PreHash.String(), chainPiece[i+1].Hash.String())
 			return false
 		}
 	}
@@ -254,7 +253,7 @@ func (fh *forkProcessor) verifyChainPieceBlocks(chainPiece []*types.Block, topHe
 		return false
 	}
 	if topHeader.Hash != topHeader.GenHash() {
-		fh.logger.Infof("invalid topHeader!Hash:%s", topHeader.Hash.String())
+		fh.logger.Infof("Invalid topHeader! Hash:%s", topHeader.Hash.String())
 		return false
 	}
 
@@ -264,22 +263,22 @@ func (fh *forkProcessor) verifyChainPieceBlocks(chainPiece []*types.Block, topHe
 			return false
 		}
 		if block.Header.Hash != block.Header.GenHash() {
-			fh.logger.Infof("invalid chainPiece element,hash:%s", block.Header.Hash.String())
+			fh.logger.Infof("Invalid chainPiece element,hash:%s", block.Header.Hash.String())
 			return false
 		}
 		if block.Header.PreHash != chainPiece[i-1].Header.Hash {
-			fh.logger.Infof("invalid preHash,expect prehash:%s,real hash:%s", block.Header.PreHash.String(), chainPiece[i+1].Header.Hash.String())
+			fh.logger.Infof("Invalid preHash,expect preHash:%s,real hash:%s", block.Header.PreHash.String(), chainPiece[i+1].Header.Hash.String())
 			return false
 		}
 	}
 	return true
 }
 
-func (fh *forkProcessor) unMarshalChainPieceInfo(b []byte) (*ChainPieceInfo, error) {
+func (fh *forkProcessor) unMarshalChainPieceInfo(b []byte) (*chainPieceInfo, error) {
 	message := new(tas_middleware_pb.ChainPieceInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		fh.logger.Errorf("unMarshalChainPieceInfo error:%s", e.Error())
+		fh.logger.Errorf("UnMarshal chain piece info error:%s", e.Error())
 		return nil, e
 	}
 
@@ -289,7 +288,7 @@ func (fh *forkProcessor) unMarshalChainPieceInfo(b []byte) (*ChainPieceInfo, err
 		chainPiece = append(chainPiece, h)
 	}
 	topHeader := types.PbToBlockHeader(message.TopHeader)
-	chainPieceInfo := ChainPieceInfo{ChainPiece: chainPiece, TopHeader: topHeader}
+	chainPieceInfo := chainPieceInfo{ChainPiece: chainPiece, TopHeader: topHeader}
 	return &chainPieceInfo, nil
 }
 
@@ -307,7 +306,7 @@ func (fh *forkProcessor) unmarshalChainPieceBlockMsg(b []byte) (*ChainPieceBlock
 	message := new(tas_middleware_pb.ChainPieceBlockMsg)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
-		fh.logger.Errorf("unmarshalChainPieceBlockMsg error:%s", e.Error())
+		fh.logger.Errorf("Unmarshal chain piece block msg error:%s", e.Error())
 		return nil, e
 	}
 	topHeader := types.PbToBlockHeader(message.TopHeader)
@@ -323,9 +322,9 @@ func (fh *forkProcessor) loop() {
 	for {
 		select {
 		case <-fh.reqTimer.C:
-			if fh.candidite != "" {
-				fh.logger.Debugf("Fork req time out to  %s", fh.candidite)
-				PeerManager.markEvil(fh.candidite)
+			if fh.candidate != "" {
+				fh.logger.Debugf("Fork req time out to  %s", fh.candidate)
+				PeerManager.markEvil(fh.candidate)
 				fh.reset()
 			}
 		}

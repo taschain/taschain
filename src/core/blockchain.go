@@ -206,7 +206,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		chain.insertGenesisBlock()
 	}
 
-	chain.forkProcessor = initforkProcessor()
+	chain.forkProcessor = initForkProcessor()
 	BlockChainImpl = chain
 	return nil
 }

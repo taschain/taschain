@@ -16,59 +16,30 @@
 package core
 
 import (
+	"math/big"
+
 	"network"
-	"github.com/gogo/protobuf/proto"
 	"common"
 	"utility"
 	"middleware/types"
 	"middleware/pb"
 	"middleware/notify"
-	"github.com/hashicorp/golang-lru"
-	"math/big"
+
+	"github.com/gogo/protobuf/proto"
 )
 
-const (
-	blockResponseSzie = 1
-)
+const blockResponseSize = 1
 
-type ChainHandler struct {
-	headerPending map[common.Hash]blockHeaderNotify
-
-	complete *lru.Cache
-
-	headerCh chan blockHeaderNotify
-
-	bodyCh chan blockBodyNotify
-}
-
-type blockHeaderNotify struct {
-	header types.BlockHeader
-
-	peer string
-}
-
-type blockBodyNotify struct {
-	body []*types.Transaction
-
-	blockHash common.Hash
-
-	peer string
-}
+type ChainHandler struct{}
 
 func NewChainHandler() network.MsgHandler {
-	headerPending := make(map[common.Hash]blockHeaderNotify)
-	complete, _ := lru.New(256)
-	headerCh := make(chan blockHeaderNotify, 100)
-	bodyCh := make(chan blockBodyNotify, 100)
-	handler := ChainHandler{headerPending: headerPending, complete: complete, headerCh: headerCh, bodyCh: bodyCh,}
+	handler := ChainHandler{}
 
 	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
-
-	notify.BUS.Subscribe(notify.TransactionBroadcast, handler.TransactionBroadcastHandler)
+	notify.BUS.Subscribe(notify.TransactionBroadcast, handler.transactionBroadcastHandler)
 	notify.BUS.Subscribe(notify.TransactionReq, handler.transactionReqHandler)
 	notify.BUS.Subscribe(notify.TransactionGot, handler.transactionGotHandler)
-
 	return &handler
 }
 
@@ -76,35 +47,34 @@ func (c *ChainHandler) Handle(sourceId string, msg network.Message) error {
 	return nil
 }
 
-func (ch ChainHandler) TransactionBroadcastHandler(msg notify.Message) {
+func (ch ChainHandler) transactionBroadcastHandler(msg notify.Message) {
 	mtm, ok := msg.(*notify.TransactionBroadcastMessage)
 	if !ok {
-		Logger.Debugf("TransactionBroadcastHandler Message assert not ok!")
+		Logger.Debugf("transactionBroadcastHandler:Message assert not ok!")
 		return
 	}
 	txs, e := types.UnMarshalTransactions(mtm.TransactionsByte)
 	if e != nil {
-		Logger.Errorf("Discard MINER_TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+		Logger.Errorf("Unmarshal transactions error:%s", e.Error())
 		return
 	}
 	BlockChainImpl.GetTransactionPool().AddBroadcastTransactions(txs)
-
 }
 
 func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
 	trm, ok := msg.(*notify.TransactionReqMessage)
 	if !ok {
-		Logger.Debugf("transactionReqHandler Message assert not ok!")
+		Logger.Debugf("transactionReqHandler:Message assert not ok!")
 		return
 	}
 	m, e := unMarshalTransactionRequestMessage(trm.TransactionReqByte)
 	if e != nil {
-		Logger.Errorf("[handler]Discard TransactionRequestMessage because of unmarshal error:%s", e.Error())
+		Logger.Errorf("unmarshal transaction request message error:%s", e.Error())
 		return
 	}
 
 	source := trm.Peer
-	Logger.Debugf("receive REQ_TRANSACTION_MSG from %s,%d-%D,tx_len", source, m.BlockHeight, m.CurrentBlockHash.ShortS(), len(m.TransactionHashes))
+	Logger.Debugf("receive transaction req from %s,%d-%D,tx_len", source, m.BlockHeight, m.CurrentBlockHash.String(), len(m.TransactionHashes))
 	if nil == BlockChainImpl {
 		return
 	}
@@ -114,7 +84,7 @@ func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
 	}
 
 	if nil != transactions && 0 != len(transactions) {
-		SendTransactions(transactions, source, m.BlockHeight, m.BlockPv)
+		sendTransactions(transactions, source)
 	}
 	return
 }
@@ -122,13 +92,13 @@ func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
 func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 	tgm, ok := msg.(*notify.TransactionGotMessage)
 	if !ok {
-		Logger.Debugf("transactionGotHandler Message assert not ok!")
+		Logger.Debugf("transactionGotHandler:Message assert not ok!")
 		return
 	}
 
 	txs, e := types.UnMarshalTransactions(tgm.TransactionGotByte)
 	if e != nil {
-		Logger.Errorf("[handler]Discard TRANSACTION_MSG because of unmarshal error:%s", e.Error())
+		Logger.Errorf("Unmarshal got transactions error:%s", e.Error())
 		return
 	}
 	BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)
@@ -140,19 +110,19 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 
 func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 	if BlockChainImpl.IsLightMiner() {
-		Logger.Debugf("Is Light Miner!")
+		Logger.Debugf("Is light miner!")
 		return
 	}
 
 	m, ok := msg.(*notify.BlockReqMessage)
 	if !ok {
-		Logger.Debugf("blockReqHandler Message assert not ok!")
+		Logger.Debugf("blockReqHandler:Message assert not ok!")
 		return
 	}
 	reqHeight := utility.ByteToUInt64(m.HeightByte)
 	localHeight := BlockChainImpl.Height()
 
-	Logger.Debugf("blockReqHandler:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
+	Logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
 	var count = 0
 	for i := reqHeight; i <= localHeight; i++ {
 		block := BlockChainImpl.QueryBlock(i)
@@ -160,17 +130,17 @@ func (ch ChainHandler) blockReqHandler(msg notify.Message) {
 			continue
 		}
 		count++
-		if count == blockResponseSzie || i == localHeight {
-			SendBlock(m.Peer, block, true)
+		if count == blockResponseSize || i == localHeight {
+			sendBlock(m.Peer, block, true)
 		} else {
-			SendBlock(m.Peer, block, false)
+			sendBlock(m.Peer, block, false)
 		}
-		if count >= blockResponseSzie {
+		if count >= blockResponseSize {
 			break
 		}
 	}
 	if count == 0 {
-		SendBlock(m.Peer, nil, true)
+		sendBlock(m.Peer, nil, true)
 	}
 }
 
@@ -182,7 +152,7 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	source := m.Peer
 	block, e := types.UnMarshalBlock(m.BlockByte)
 	if e != nil {
-		Logger.Debugf("Discard BlockMsg because UnMarshalBlock error:%d", e.Error())
+		Logger.Debugf("UnMarshal block error:%d", e.Error())
 		return
 	}
 
@@ -190,11 +160,11 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	BlockChainImpl.AddBlockOnChain(source, block, types.NewBlock)
 }
 
-func unMarshalTransactionRequestMessage(b []byte) (*TransactionRequestMessage, error) {
+func unMarshalTransactionRequestMessage(b []byte) (*transactionRequestMessage, error) {
 	m := new(tas_middleware_pb.TransactionRequestMessage)
 	e := proto.Unmarshal(b, m)
 	if e != nil {
-		network.Logger.Errorf("[handler]UnMarshal TransactionRequestMessage error:%s", e.Error())
+		network.Logger.Errorf("UnMarshal transaction request message error:%s", e.Error())
 		return nil, e
 	}
 
@@ -206,6 +176,6 @@ func unMarshalTransactionRequestMessage(b []byte) (*TransactionRequestMessage, e
 	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
 	blockPv := &big.Int{}
 	blockPv.SetBytes(m.BlockPv)
-	message := TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
+	message := transactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
 	return &message, nil
 }

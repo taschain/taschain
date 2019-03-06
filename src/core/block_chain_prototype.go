@@ -279,8 +279,8 @@ func (chain *prototypeChain) missTransaction(bh types.BlockHeader, txs []*types.
 			panic("Groupsig id deserialize error:" + error.Error())
 		}
 		//向CASTOR索取交易
-		m := &TransactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
-		go RequestTransaction(*m, castorId.String())
+		m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
+		go requestTransaction(*m, castorId.String())
 		return true, missing, transactions
 	}
 	return false, missing, transactions
