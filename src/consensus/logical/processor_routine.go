@@ -291,8 +291,6 @@ func (p *Processor) updateMonitorInfo() bool {
 	}
 	top := p.MainChain.Height()
 
-	fmt.Println("start update monitor info")
-
 	ni := &monitor.NodeInfo{
 		BlockHeight: top,
 		GroupHeight: p.GroupChain.Count(),
