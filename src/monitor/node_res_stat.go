@@ -95,7 +95,7 @@ func (s *NodeResStat) statCpuAndMem() {
 func (s *NodeResStat) statFlow() {
 	sess := sh.NewSession()
 	sess.ShowCMD = true
-	bs, err := sess.Command("sar", "-n DEV", 1, 2).Command("grep", "eth").Output()
+	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
 
 	fmt.Println(string(bs), err)
 	if err == nil {
