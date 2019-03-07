@@ -43,7 +43,7 @@ const (
 	oldTxBroadcastTimerInterval = time.Second * 30
 	oldTxInterval               = time.Second * 60
 
-	txCountPerBlock = 1000
+	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 )
 
