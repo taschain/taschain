@@ -6,7 +6,7 @@ import (
 	"consensus/base"
 	"consensus/model"
 	"strings"
-	"logservice"
+	"monitor"
 	"consensus/groupsig"
 	"common"
 )
@@ -173,14 +173,14 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIdStrs, ","))
 
 	//发送日志
-	le := &logservice.LogEntry{
-		LogType: logservice.LogTypeCreateGroup,
-		Height: gm.groupChain.Count(),
-		Hash: gh.Hash.Hex(),
+	le := &monitor.LogEntry{
+		LogType:  monitor.LogTypeCreateGroup,
+		Height:   gm.groupChain.Count(),
+		Hash:     gh.Hash.Hex(),
 		Proposer: gm.processor.GetMinerID().GetHexString(),
 	}
-	if logservice.Instance.IsFirstNInternalNodesInGroup(ctx.kings, 20) {
-		logservice.Instance.AddLog(le)
+	if monitor.Instance.IsFirstNInternalNodesInGroup(ctx.kings, 20) {
+		monitor.Instance.AddLog(le)
 	}
 
 	gm.processor.NetServer.SendCreateGroupRawMessage(msg)

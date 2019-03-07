@@ -40,7 +40,7 @@ import (
 	"strconv"
 	"taslog"
 	"time"
-	"logservice"
+	"monitor"
 )
 
 const (
@@ -255,7 +255,7 @@ func (gtas *Gtas) Run() {
 	mineCmd := app.Command("miner", "miner start")
 	// rpc解析
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
-	enableLogSrv := mineCmd.Flag("logservice", "enable log service").Default("false").Bool()
+	enableLogSrv := mineCmd.Flag("monitor", "enable monitor").Default("false").Bool()
 	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
 	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
@@ -444,8 +444,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	if !ok {
 		return errors.New("consensus module error")
 	}
-	if enableLog || common.GlobalConf.GetBool("gtas", "enable_log_service", false) {
-		logservice.InitLogService(id)
+	if enableLog || common.GlobalConf.GetBool("gtas", "enable_monitor", false) {
+		monitor.InitLogService(id)
 	}
 
 	mediator.Proc.BeginGenesisGroupMember()

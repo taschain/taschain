@@ -5,7 +5,7 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
-	"logservice"
+	"monitor"
 	"fmt"
 )
 
@@ -150,15 +150,15 @@ func (p *Processor) releaseRoutine() bool {
 				}
 			}
 			//发送日志
-			le := &logservice.LogEntry{
-				LogType: logservice.LogTypeInitGroupRevPieceTimeout,
-				Height: p.GroupChain.Count(),
-				Hash: gHash.Hex(),
+			le := &monitor.LogEntry{
+				LogType:  monitor.LogTypeInitGroupRevPieceTimeout,
+				Height:   p.GroupChain.Count(),
+				Hash:     gHash.Hex(),
 				Proposer: "00",
-				Ext: fmt.Sprintf("MemCnt:%v,Pieces:%v,wait:%v,%v", gc.gInfo.MemberSize(),gc.node.groupInitPool.GetSize(),waitPieceIds,omgied),
+				Ext:      fmt.Sprintf("MemCnt:%v,Pieces:%v,wait:%v,%v", gc.gInfo.MemberSize(),gc.node.groupInitPool.GetSize(),waitPieceIds,omgied),
 			}
-			if !gc.sendLog && logservice.Instance.IsFirstNInternalNodesInGroup(gc.gInfo.Mems, 50) {
-				logservice.Instance.AddLog(le)
+			if !gc.sendLog && monitor.Instance.IsFirstNInternalNodesInGroup(gc.gInfo.Mems, 50) {
+				monitor.Instance.AddLog(le)
 				gc.sendLog = true
 			}
 
@@ -189,15 +189,15 @@ func (p *Processor) releaseRoutine() bool {
 				gHash = gctx.gInfo.GroupHash().Hex()
 			}
 			//发送日志
-			le := &logservice.LogEntry{
-				LogType: logservice.LogTypeCreateGroupSignTimeout,
-				Height: p.GroupChain.Count(),
-				Hash: gHash,
+			le := &monitor.LogEntry{
+				LogType:  monitor.LogTypeCreateGroupSignTimeout,
+				Height:   p.GroupChain.Count(),
+				Hash:     gHash,
 				Proposer: p.GetMinerID().GetHexString(),
-				Ext: fmt.Sprintf("%v", gctx.gSignGenerator.Brief()),
+				Ext:      fmt.Sprintf("%v", gctx.gSignGenerator.Brief()),
 			}
-			if logservice.Instance.IsFirstNInternalNodesInGroup(gctx.kings, 50) {
-				logservice.Instance.AddLog(le)
+			if monitor.Instance.IsFirstNInternalNodesInGroup(gctx.kings, 50) {
+				monitor.Instance.AddLog(le)
 			}
 		}
 		p.groupManager.removeContext()
@@ -278,5 +278,35 @@ func (p *Processor) updateGlobalGroups() bool {
 		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
 	}
+	return true
+}
+
+func (p *Processor) getUpdateMonitorNodeInfoRoutine() string {
+	return "update_monitor_node_routine_" + p.getPrefix()
+}
+
+func (p *Processor) updateMonitorInfo() bool {
+	if !monitor.Instance.MonitorEnable() {
+		return false
+	}
+	top := p.MainChain.Height()
+
+	ni := &monitor.NodeInfo{
+		BlockHeight: top,
+		GroupHeight: p.GroupChain.Count(),
+		TxPoolCount: len(p.MainChain.GetTransactionPool().GetReceived()),
+	}
+	proposer := p.minerReader.getProposeMiner(p.GetMinerID())
+	if proposer != nil {
+		ni.Type |= monitor.NtypeProposal
+		ni.PStake = proposer.Stake
+		ni.VrfThreshold = p.GetVrfThreshold(ni.PStake)
+	}
+	verifier := p.minerReader.getLightMiner(p.GetMinerID())
+	if verifier != nil {
+		ni.Type |= monitor.NtypeVerifier
+	}
+
+	monitor.Instance.UpdateNodeInfo(ni)
 	return true
 }

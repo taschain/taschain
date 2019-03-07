@@ -31,6 +31,9 @@ func (p *Processor) Start() bool {
 	p.Ticker.RegisterRoutine(p.getUpdateGlobalGroupsRoutineName(), p.updateGlobalGroups, 60)
 	p.Ticker.StartTickerRoutine(p.getUpdateGlobalGroupsRoutineName(), false)
 
+	p.Ticker.RegisterRoutine(p.getUpdateMonitorNodeInfoRoutine(), p.updateMonitorInfo, 3)
+	p.Ticker.StartTickerRoutine(p.getUpdateMonitorNodeInfoRoutine(), false)
+
 	p.triggerCastCheck()
 	p.prepareMiner()
 	p.ready = true

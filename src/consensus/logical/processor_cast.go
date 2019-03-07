@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 	"runtime/debug"
-	"logservice"
+	"monitor"
 	"fmt"
 )
 
@@ -246,15 +246,15 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
 
 	//发送日志
-	le := &logservice.LogEntry{
-		LogType: logservice.LogTypeBlockBroadcast,
-		Height: bh.Height,
-		Hash: bh.Hash.Hex(),
-		PreHash: bh.PreHash.Hex(),
+	le := &monitor.LogEntry{
+		LogType:  monitor.LogTypeBlockBroadcast,
+		Height:   bh.Height,
+		Hash:     bh.Hash.Hex(),
+		PreHash:  bh.PreHash.Hex(),
 		Proposer: slot.castor.GetHexString(),
 		Verifier: gb.Gid.GetHexString(),
 	}
-	logservice.Instance.AddLog(le)
+	monitor.Instance.AddLog(le)
 
 	vctx.broadcastSlot = slot
 	vctx.markBroadcast()
@@ -363,16 +363,16 @@ func (p *Processor) blockProposal() {
 		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
 
 		//发送日志
-		le := &logservice.LogEntry{
-			LogType: logservice.LogTypeProposal,
-			Height: bh.Height,
-			Hash: bh.Hash.Hex(),
-			PreHash: bh.PreHash.Hex(),
+		le := &monitor.LogEntry{
+			LogType:  monitor.LogTypeProposal,
+			Height:   bh.Height,
+			Hash:     bh.Hash.Hex(),
+			PreHash:  bh.PreHash.Hex(),
 			Proposer: p.GetMinerID().GetHexString(),
 			Verifier: gb.Gid.GetHexString(),
-			Ext: fmt.Sprintf("qn:%v,totalQN:%v", qn, bh.TotalQN),
+			Ext:      fmt.Sprintf("qn:%v,totalQN:%v", qn, bh.TotalQN),
 		}
-		logservice.Instance.AddLog(le)
+		monitor.Instance.AddLog(le)
 
 		worker.markProposed()
 
