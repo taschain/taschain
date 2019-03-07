@@ -80,6 +80,9 @@ func (s *NodeResStat) statCpuAndMem() {
 		if mems[len(mems)-1:] == "g" {
 			f,_ := strconv.ParseFloat(mems[:len(mems)-1], 64)
 			mem = f*1000
+		} else if mems[len(mems)-1:] == "m" {
+			f,_ := strconv.ParseFloat(mems[:len(mems)-1], 64)
+			mem = f
 		} else {
 			f,_ := strconv.ParseFloat(mems, 64)
 			mem = f/1000
