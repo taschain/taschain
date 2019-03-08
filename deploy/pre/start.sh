@@ -1,24 +1,31 @@
 #!/bin/bash
-instance_index=$1
-node_num_per_host=$2
-nat_server=$3
-apply=$4
-instance_end=$instance_index+node_num_per_host
-rpc_port=8101
 
-for((;instance_index<instance_end;instance_index++))
+#instance_index1:is_heavy,instance_index2:is_heavy...
+params=$1
+nat_server='120.78.127.246'
+nat_port=3000
+
+if [ ! -d 'logs' ]; then
+    mkdir logs
+fi
+
+if [ ! -d 'pid' ]; then
+    mkdir pid
+fi
+
+arr=(${params//,/ })
+for inst in ${arr[@]}
 do
-	if [ ! -d 'logs' ]; then
-		mkdir logs
-	fi
-
-	if [ ! -d 'pid' ]; then
-		mkdir pid
-	fi
-
-    if [ $instance_index -gt 30 ];then
-        rpc_port=$[8100+$instance_index]
+    cfg=(${inst//:/ })
+    instance_index=${cfg[0]}
+    apply_type=${cfg[1]}
+    apply='light'
+    rpc_port=$[8100+$instance_index]
+    if [ $apply_type = 1 ];then
+        apply='heavy'
+        rpc_port=8101
     fi
+
     pprof_port=$[9000+$instance_index]
     config_file='tas'$instance_index'.ini'
     stdout_log='logs/nohup_out_'$instance_index'.log'
@@ -28,9 +35,9 @@ do
     fi
 
     if [ $instance_index -eq 1 ];then
-        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --nat $nat_server --apply $apply --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --nat $nat_server --natport $natport --apply $apply --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     else
-        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --nat $nat_server --apply $apply --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --nat $nat_server --natport $natport --apply $apply --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     fi
     sleep 0.1
 done
