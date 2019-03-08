@@ -14,6 +14,6 @@ package common
 //const GtasVersion = "0.7.3"	//p2p队列，交易池参数优化
 //const GtasVersion = "0.7.4"	//p2p参数改为1024
 //const GtasVersion = "0.7.5"	//组签名优化，不签更低qn的块
-const GtasVersion = "0.7.6"	//网络消息转发 bug fix
+const GtasVersion = "0.7.7"	//网络消息转发 bug fix
 
 const ConsensusVersion = 1
