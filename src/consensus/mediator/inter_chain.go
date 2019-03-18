@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"math/big"
 	"middleware/types"
+	"math"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,4 +145,13 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 		return false, fmt.Errorf("verify bonus sign fail, gsign=%v", gsign.GetHexString())
 	}
 	return true, nil
+}
+
+func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint64 {
+    height := bh.Height
+	if height == 1 {
+		return 0
+	}
+    castTime := bh.CurTime.Sub(bh.PreTime).Seconds()
+    return height - uint64(math.Ceil(castTime/float64(model.Param.MaxGroupCastTime)))
 }

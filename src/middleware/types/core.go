@@ -42,7 +42,6 @@ const (
 	BlockExisted              AddBlockResult = 1
 	BlockTotalQnLessThanLocal AddBlockResult = 2
 	Forking                   AddBlockResult = 3
-	ValidateBlockOk           AddBlockResult = 100
 )
 const (
 	SUCCESS                             = 0

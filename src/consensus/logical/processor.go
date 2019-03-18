@@ -21,7 +21,7 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/net"
-	"consensus/ticker"
+	"middleware/ticker"
 	"core"
 	"fmt"
 	"middleware/notify"
@@ -108,7 +108,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	pkPoolInit(p.minerReader)
 
 	p.groupManager = NewGroupManager(p)
-	p.Ticker = ticker.GetTickerInstance()
+	p.Ticker = ticker.NewGlobalTicker("consensus")
 
 	if stdLogger != nil {
 		stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())

@@ -22,16 +22,16 @@ import (
 
 //后续如有全局定时器，从这个函数启动
 func (p *Processor) Start() bool {
-	p.Ticker.RegisterRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 1)
-	p.Ticker.RegisterRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
-	p.Ticker.RegisterRoutine(p.getBroadcastRoutineName(), p.broadcastRoutine, 1)
+	p.Ticker.RegisterPeriodicRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 1)
+	p.Ticker.RegisterPeriodicRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
+	p.Ticker.RegisterPeriodicRoutine(p.getBroadcastRoutineName(), p.broadcastRoutine, 1)
 	p.Ticker.StartTickerRoutine(p.getReleaseRoutineName(), false)
 	p.Ticker.StartTickerRoutine(p.getBroadcastRoutineName(), false)
 
-	p.Ticker.RegisterRoutine(p.getUpdateGlobalGroupsRoutineName(), p.updateGlobalGroups, 60)
+	p.Ticker.RegisterPeriodicRoutine(p.getUpdateGlobalGroupsRoutineName(), p.updateGlobalGroups, 60)
 	p.Ticker.StartTickerRoutine(p.getUpdateGlobalGroupsRoutineName(), false)
 
-	p.Ticker.RegisterRoutine(p.getUpdateMonitorNodeInfoRoutine(), p.updateMonitorInfo, 3)
+	p.Ticker.RegisterPeriodicRoutine(p.getUpdateMonitorNodeInfoRoutine(), p.updateMonitorInfo, 3)
 	p.Ticker.StartTickerRoutine(p.getUpdateMonitorNodeInfoRoutine(), false)
 
 	p.triggerCastCheck()

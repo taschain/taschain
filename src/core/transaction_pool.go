@@ -28,7 +28,6 @@ import (
 	"storage/tasdb"
 
 	"github.com/hashicorp/golang-lru"
-	"github.com/vmihailenco/msgpack"
 )
 
 const (
@@ -60,7 +59,7 @@ type TxPool struct {
 	missTxs  *lru.Cache
 	received *simpleContainer
 
-	executed tasdb.Database
+	executed *tasdb.PrefixedDatabase
 	batch    tasdb.Batch
 
 	broadcastList   []*types.Transaction
@@ -74,7 +73,7 @@ type TxPool struct {
 	lock    middleware.Loglock
 }
 
-func NewTransactionPool() TransactionPool {
+func NewTransactionPool(batch tasdb.Batch) TransactionPool {
 	pool := &TxPool{
 		broadcastList:   make([]*types.Transaction, 0, broadcastListLength),
 		broadcastTxLock: sync.Mutex{},
@@ -87,13 +86,13 @@ func NewTransactionPool() TransactionPool {
 	pool.missTxs, _ = lru.New(missTxCacheSize)
 	pool.txBroadcastTime, _ = lru.New(rcvTxPoolSize)
 
-	executed, err := tasdb.NewDatabase(txDataBasePrefix)
+	executed, err := tasdb.NewPrefixDatabase(txDataBasePrefix)
 	if err != nil {
 		Logger.Errorf("Init transaction pool error! Error:%s", err.Error())
 		return nil
 	}
 	pool.executed = executed
-	pool.batch = pool.executed.NewBatch()
+	pool.batch = batch
 	go pool.loop()
 	return pool
 }
@@ -136,56 +135,6 @@ func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) {
 	return
 }
 
-func (pool *TxPool) MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash) {
-	if nil == receipts || 0 == len(receipts) {
-		return
-	}
-	pool.lock.RLock("MarkExecuted")
-	defer pool.lock.RUnlock("MarkExecuted")
-
-	for i, receipt := range receipts {
-		hash := receipt.TxHash
-		executedTx := &ExecutedTransaction{
-			Receipt:     receipt,
-			Transaction: findTxInList(txs, hash, i),
-		}
-		executedTxBytes, err := msgpack.Marshal(executedTx)
-		if nil != err {
-			continue
-		}
-		pool.batch.Put(hash.Bytes(), executedTxBytes)
-		if pool.batch.ValueSize() > 100*1024 {
-			pool.batch.Write()
-			pool.batch.Reset()
-		}
-	}
-	if pool.batch.ValueSize() > 0 {
-		pool.batch.Write()
-		pool.batch.Reset()
-	}
-
-	for _, tx := range txs {
-		pool.remove(tx.Hash)
-	}
-	if evictedTxs != nil {
-		for _, hash := range evictedTxs {
-			pool.remove(hash)
-		}
-	}
-}
-
-func (pool *TxPool) UnMarkExecuted(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-	pool.lock.RLock("UnMarkExecuted")
-	defer pool.lock.RUnlock("UnMarkExecuted")
-
-	for _, tx := range txs {
-		pool.executed.Delete(tx.Hash.Bytes())
-		pool.add(tx, true)
-	}
-}
 
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
 	minerTx, existInMinerTxs := pool.minerTxs.Get(hash)
@@ -210,19 +159,11 @@ func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error)
 	return nil, ErrNil
 }
 
-func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
-	executedTx := pool.GetExecuted(hash)
-	if executedTx == nil {
-		return 0, ErrNil
-	}
-	return executedTx.Receipt.Status, nil
-}
-
 func (pool *TxPool) Clear() {
 	pool.lock.Lock("Clear")
 	defer pool.lock.Unlock("Clear")
 
-	executed, _ := tasdb.NewDatabase(txDataBasePrefix)
+	executed, _ := tasdb.NewPrefixDatabase(txDataBasePrefix)
 	pool.executed = executed
 	pool.batch.Reset()
 
@@ -233,20 +174,6 @@ func (pool *TxPool) Clear() {
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
 	return pool.received.txs
-}
-
-func (pool *TxPool) GetExecuted(hash common.Hash) *ExecutedTransaction {
-	txBytes, _ := pool.executed.Get(hash.Bytes())
-	if txBytes == nil {
-		return nil
-	}
-
-	var executedTx *ExecutedTransaction
-	err := msgpack.Unmarshal(txBytes, &executedTx)
-	if err != nil || executedTx == nil {
-		return nil
-	}
-	return executedTx
 }
 
 func (p *TxPool) TxNum() uint64 {
@@ -480,7 +407,6 @@ func (pool *TxPool) clearTxBroadcastedCache() {
 		}
 	}
 }
-
 
 
 func (pool *TxPool) loop() {

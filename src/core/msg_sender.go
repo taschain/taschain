@@ -34,15 +34,6 @@ type transactionRequestMessage struct {
 	BlockPv           *big.Int
 }
 
-type chainPieceInfo struct {
-	ChainPiece []*types.BlockHeader
-	TopHeader  *types.BlockHeader
-}
-
-type blockMsgResponse struct {
-	Block       *types.Block
-	IsLastBlock bool
-}
 
 func requestTransaction(m transactionRequestMessage, castorId string) {
 	if castorId == "" {
@@ -92,20 +83,7 @@ func broadcastTransactions(txs []*types.Transaction) {
 	}
 }
 
-func sendBlock(targetId string, block *types.Block, isLastBlock bool) {
-	if block == nil {
-		Logger.Debugf("Send nil block to:%s", targetId)
-	} else {
-		Logger.Debugf("Send local block:%d to:%s,isLastBlock:%t", block.Header.Height, targetId, isLastBlock)
-	}
-	body, e := marshalBlockMsgResponse(blockMsgResponse{Block: block, IsLastBlock: isLastBlock})
-	if e != nil {
-		Logger.Errorf("Marshal block msg response error:%s", e.Error())
-		return
-	}
-	message := network.Message{Code: network.BlockResponseMsg, Body: body}
-	network.GetNetInstance().Send(targetId, message)
-}
+
 
 func marshalTransactionRequestMessage(m *transactionRequestMessage) ([]byte, error) {
 	txHashes := make([][]byte, 0)
@@ -118,18 +96,5 @@ func marshalTransactionRequestMessage(m *transactionRequestMessage) ([]byte, err
 	return proto.Marshal(&message)
 }
 
-func marshalChainPieceInfo(chainPieceInfo chainPieceInfo) ([]byte, error) {
-	headers := make([]*tas_middleware_pb.BlockHeader, 0)
-	for _, header := range chainPieceInfo.ChainPiece {
-		h := types.BlockHeaderToPb(header)
-		headers = append(headers, h)
-	}
-	topHeader := types.BlockHeaderToPb(chainPieceInfo.TopHeader)
-	message := tas_middleware_pb.ChainPieceInfo{TopHeader: topHeader, BlockHeaders: headers}
-	return proto.Marshal(&message)
-}
 
-func marshalBlockMsgResponse(bmr blockMsgResponse) ([]byte, error) {
-	message := tas_middleware_pb.BlockMsgResponse{IsLast: &bmr.IsLastBlock, Block: types.BlockToPb(bmr.Block)}
-	return proto.Marshal(&message)
-}
+

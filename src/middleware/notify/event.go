@@ -24,9 +24,9 @@ const (
 	BlockInfoNotify = "block_info_notify"
 
 
-	ChainPieceInfoReq = "chain_piece_info_req"
+	//ChainPieceInfoReq = "chain_piece_info_req"
 
-	ChainPieceInfo = "chain_piece_info"
+	//ChainPieceInfo = "chain_piece_info"
 
 	ChainPieceBlockReq = "chain_piece_block_req"
 

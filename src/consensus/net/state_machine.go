@@ -22,7 +22,7 @@ import (
 	"common"
 	"consensus/model"
 	"time"
-	"consensus/ticker"
+	"middleware/ticker"
 	"fmt"
 	"github.com/hashicorp/golang-lru"
 )
@@ -325,7 +325,7 @@ func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine
 }
 
 func (stm *StateMachines) startCleanRoutine() {
-	ticker.GetTickerInstance().RegisterRoutine(stm.name, stm.cleanRoutine, 2)
+	ticker.GetTickerInstance().RegisterPeriodicRoutine(stm.name, stm.cleanRoutine, 2)
 	ticker.GetTickerInstance().StartTickerRoutine(stm.name, false)
 }
 

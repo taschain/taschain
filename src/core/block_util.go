@@ -31,15 +31,19 @@ const ChainDataVersion = 2
 
 var emptyHash = common.Hash{}
 
-func calcTxTree(tx []*types.Transaction) common.Hash {
-	if nil == tx || 0 == len(tx) {
+func calcTxTree(txs []*types.Transaction) common.Hash {
+	if nil == txs || 0 == len(txs) {
 		return emptyHash
 	}
 
 	buf := new(bytes.Buffer)
-	for i := 0; i < len(tx); i++ {
-		encode, _ := msgpack.Marshal(tx[i])
-		serialize.Encode(buf, encode)
+	//for i := 0; i < len(tx); i++ {
+	//	encode, _ := msgpack.Marshal(tx[i])
+	//	serialize.Encode(buf, encode)
+	//	buf.Write(tx)
+	//}
+	for _, tx := range txs {
+		buf.Write(tx.Hash.Bytes())
 	}
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
@@ -64,24 +68,7 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	return common.BytesToHash(hash.Bytes())
 }
 
-// 创始块
-func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesisInfo *types.GenesisInfo) *types.Block {
-	block := new(types.Block)
-	pv := big.NewInt(0)
-	block.Header = &types.BlockHeader{
-		Height:       0,
-		ExtraData:    common.Sha256([]byte("tas")),
-		CurTime:      time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
-		ProveValue:   pv,
-		TotalQN:      0,
-		Transactions: make([]common.Hash, 0), //important!!
-		EvictedTxs:   make([]common.Hash, 0), //important!!
-		Nonce:        ChainDataVersion,
-	}
-
-	block.Header.Signature = common.Sha256([]byte("tas"))
-	block.Header.Random = common.Sha256([]byte("tas_initial_random"))
-
+func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisInfo) {
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
 	//管理员账户
@@ -264,27 +251,4 @@ func GenesisBlock(stateDB *account.AccountDB, triedb *trie.NodeDatabase, genesis
 	stateDB.SetBalance(common.HexStringToAddress("0x2c6e9e2d789852af52427ee7e486e775107467740c73afd41456f402f0426013"), tenThousandTasBi)
 
 	stateDB.SetBalance(common.HexStringToAddress("0x87c83e834e52fbea9ec7b47534d49fa9ae51c91e22e9b1dae0d3b31e8d8b9be3"), tenThousandTasBi)
-
-	stage := stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
-	miners := make([]*types.Miner, 0)
-	for i, member := range genesisInfo.Group.Members {
-		miner := &types.Miner{Id: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: common.TAS2RA(100)}
-		miners = append(miners, miner)
-	}
-	MinerManagerImpl.addGenesesMiner(miners, stateDB)
-	stage = stateDB.IntermediateRoot(false)
-	Logger.Debugf("GenesisBlock Stage2 Root:%s", stage.Hex())
-	stateDB.SetNonce(common.BonusStorageAddress, 1)
-	stateDB.SetNonce(common.HeavyDBAddress, 1)
-	stateDB.SetNonce(common.LightDBAddress, 1)
-
-	root, _ := stateDB.Commit(true)
-	Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
-	triedb.Commit(root, false)
-	block.Header.StateTree = common.BytesToHash(root.Bytes())
-	block.Header.Hash = block.Header.GenHash()
-
-	Logger.Debugf("GenesisBlock %+v", block.Header)
-	return block
 }

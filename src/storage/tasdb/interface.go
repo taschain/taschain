@@ -23,8 +23,17 @@ type Putter interface {
 	Put(key []byte, value []byte) error
 }
 
+type Deleter interface {
+	Delete(key []byte) error
+}
+
+type SecondaryBatch interface {
+	AddKv(batch Batch, k,v []byte) error
+}
+
 type Batch interface {
 	Putter
+	Deleter
 	ValueSize() int // amount of data in the batch
 	Write() error
 	// Reset resets the batch for reuse
@@ -34,9 +43,9 @@ type Batch interface {
 
 type Database interface {
 	Putter
+	Deleter
 	Get(key []byte) ([]byte, error)
 	Has(key []byte) (bool, error)
-	Delete(key []byte) error
 	Close()
 	NewBatch() Batch
 	NewIterator() iterator.Iterator

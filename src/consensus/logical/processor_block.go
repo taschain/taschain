@@ -130,11 +130,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 }
 
 func (p *Processor) blockOnChain(h common.Hash) bool {
-	exist := p.getBlockHeaderByHash(h)
-	if exist != nil { //已经上链
-		return true
-	}
-	return false
+	return p.MainChain.HasBlock(h)
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
@@ -188,12 +184,6 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 
 	//bc.registerTicker()
 	//p.triggerCastCheck()
-}
-
-func (p *Processor) verifyBlock(bh *types.BlockHeader) ([]common.Hash, int8) {
-	lostTransHash, ret := core.BlockChainImpl.VerifyBlock(*bh)
-	stdLogger.Infof("BlockChainImpl.VerifyCastingBlock result=%v.", ret)
-	return lostTransHash, ret
 }
 
 func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
@@ -300,7 +290,11 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if len(g.Signature) == 0 {
 		return false, fmt.Errorf("sign is empty")
 	}
-
+	top := p.MainChain.Height()
+	if top > g.Header.WorkHeight {
+		err = fmt.Errorf("group too late for work, workheight %v, top %v", g.Header.WorkHeight, top)
+		return
+	}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
 		mems[idx] = groupsig.DeserializeId(mem)
@@ -312,6 +306,7 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 		},
 		Mems: mems,
 	}
+
 	//检验头和签名
 	if _, ok, err := p.groupManager.checkGroupInfo(gInfo); ok {
 		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)

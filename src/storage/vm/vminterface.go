@@ -63,4 +63,6 @@ type ChainReader interface {
 	QueryTopBlock() *types.BlockHeader
 	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
 	QueryBlockByHeight(height uint64) *types.BlockHeader
+	HasBlock(hash common.Hash) bool
+	HasHeight(height uint64) bool
 }

@@ -268,7 +268,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		//	msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
 		//	notify.BUS.Publish(notify.StateInfo, &msg)
 	case ReqBlock:
-		msg := notify.BlockReqMessage{HeightByte: message.Body, Peer: from}
+		msg := notify.BlockReqMessage{ReqBody: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockReq, &msg)
 	case BlockResponseMsg:
 		msg := notify.BlockResponseMessage{BlockResponseByte: message.Body, Peer: from}
@@ -276,16 +276,16 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case NewBlockMsg:
 		msg := notify.NewBlockMessage{BlockByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlock, &msg)
-	case ChainPieceInfoReq:
-		Logger.Debugf("Rcv ChainPieceInfoReq from %s", from)
-		msg := notify.ChainPieceInfoReqMessage{HeightByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceInfoReq, &msg)
-	case ChainPieceInfo:
-		Logger.Debugf("Rcv ChainPieceInfo from %s", from)
-		msg := notify.ChainPieceInfoMessage{ChainPieceInfoByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceInfo, &msg)
+	//case ChainPieceInfoReq:
+	//	Logger.Debugf("Rcv ChainPieceInfoReq from %s", from)
+	//	msg := notify.ChainPieceInfoReqMessage{HeightByte: message.Body, Peer: from}
+	//	notify.BUS.Publish(notify.ChainPieceInfoReq, &msg)
+	//case ChainPieceInfo:
+	//	Logger.Debugf("Rcv ChainPieceInfo from %s", from)
+	//	msg := notify.ChainPieceInfoMessage{ChainPieceInfoByte: message.Body, Peer: from}
+	//	notify.BUS.Publish(notify.ChainPieceInfo, &msg)
 	case ReqChainPieceBlock:
-		msg := notify.ChainPieceBlockReqMessage{ReqHeightByte: message.Body, Peer: from}
+		msg := notify.ChainPieceBlockReqMessage{ReqBody: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPieceBlockReq, &msg)
 	case ChainPieceBlock:
 		msg := notify.ChainPieceBlockMessage{ChainPieceBlockMsgByte: message.Body, Peer: from}

@@ -55,9 +55,9 @@ const (
 
 	GroupMsg uint32 = 18
 	//-----------块链调整---------------------------------
-	ChainPieceInfoReq uint32 = 19
+	//ChainPieceInfoReq uint32 = 19
 
-	ChainPieceInfo uint32 = 20
+	//ChainPieceInfo uint32 = 20
 
 	ReqChainPieceBlock uint32 = 21
 

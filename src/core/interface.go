@@ -26,6 +26,9 @@ import (
 
 //主链接口
 type BlockChain interface {
+	vm.ChainReader
+	AccountRepository
+
 	IsLightMiner() bool
 
 	//构建一个铸块（组内当前铸块人同步操作）
@@ -45,26 +48,21 @@ type BlockChain interface {
 	//        1, 丢弃该块(链上已存在该块）
 	//        2,丢弃该块（链上存在QN值更大的相同高度块)
 	//        3,分叉调整
-	AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult
-
-	Height() uint64
+	AddBlockOnChain(source string, b *types.Block) types.AddBlockResult
 
 	TotalQN() uint64
 
-	//查询最高块
-	QueryTopBlock() *types.BlockHeader
 
 	LatestStateDB() *account.AccountDB
 
-	//根据指定哈希查询块
-	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
-
+	//query block with body by hash
 	QueryBlockByHash(hash common.Hash) *types.Block
 
-	//根据指定高度查询块
-	QueryBlockByHeight(height uint64) *types.BlockHeader
+	//query first block whose height >= height
+	QueryBlockCeil(height uint64) *types.Block
 
-	QueryBlock(height uint64) *types.Block
+	//query first block whose height <= height
+	QueryBlockFloor(height uint64) *types.Block
 
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取
@@ -73,15 +71,7 @@ type BlockChain interface {
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
 
-	GetBalance(address common.Address) *big.Int
-
-	GetNonce(address common.Address) uint64
-
-	GetSateCache() account.AccountDatabase
-
 	IsAdujsting() bool
-
-	SetAdujsting(isAjusting bool)
 
 	Remove(block *types.Block) bool
 
@@ -100,25 +90,18 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetCheckValue(height uint64) (common.Hash, error)
-
-	GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader
-
-	GetChainPieceBlocks(reqHeight uint64) []*types.Block
-
-	//status 0 忽略该消息  不需要同步
-	//status 1 需要同步ChainPieceBlock
-	//status 2 需要继续同步ChainPieceInfo
-	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
-
-	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
-
 	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error)
 }
 
 type ExecutedTransaction struct {
 	Receipt     *types.Receipt
 	Transaction *types.Transaction
+}
+
+type ReceiptStore struct {
+	Receipt     *types.Receipt
+	//Transaction *types.Transaction
+	BlockHash  common.Hash
 }
 
 type TransactionPool interface {
@@ -137,17 +120,21 @@ type TransactionPool interface {
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
+	GetReceipt(hash common.Hash) *types.Receipt
+
 	GetExecuted(hash common.Hash) *ExecutedTransaction
 
 	GetReceived() []*types.Transaction
 
 	TxNum() uint64
 
-	MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash)
+	MarkExecuted(blockHash common.Hash, receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash) error
 
-	UnMarkExecuted(txs []*types.Transaction)
+	UnMarkExecuted(blockHash common.Hash, txs []*types.Transaction) error
 
 	Clear()
+
+	GetTransactionsByBlockHash(hash common.Hash) []*types.Transaction
 }
 
 //组管理接口

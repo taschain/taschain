@@ -708,16 +708,16 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 
 	evictedReceipts := make([]*types.Receipt, 0)
 	for _, tx := range bh.EvictedTxs {
-		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		wrapper := chain.GetTransactionPool().GetReceipt(tx)
 		if wrapper != nil {
-			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
+			evictedReceipts = append(evictedReceipts, wrapper)
 		}
 	}
 	receipts := make([]*types.Receipt, len(bh.Transactions))
 	for i, tx := range bh.Transactions {
-		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		wrapper := chain.GetTransactionPool().GetReceipt(tx)
 		if wrapper != nil {
-			receipts[i] = wrapper.Receipt
+			receipts[i] = wrapper
 		}
 	}
 	br := &BlockReceipt{EvictedReceipts: evictedReceipts, Receipts: receipts}

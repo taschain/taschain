@@ -62,9 +62,7 @@ message TransactionSlice{
 }
 
 message ChainPieceInfo{
-    repeated BlockHeader BlockHeaders = 1;
-
-    required BlockHeader TopHeader = 2;
+    repeated bytes Pieces = 1;
 }
 
 
@@ -116,13 +114,13 @@ message BlockBody{
     repeated Transaction transactions = 2;
 }
 
+
 message Block{
     required BlockHeader Header = 1;
 
     repeated Transaction transactions = 2;
 
 }
-
 
 message BlockSlice{
     repeated Block Blocks = 1;
@@ -410,14 +408,14 @@ message TopBlockInfo{
     required	bytes   PreHash = 4;
 }
 
-message BlockMsgResponse{
-    required bool IsLast = 1;
-    optional Block Block = 2;
+message BlockResponseMsg{
+    repeated Block Blocks = 1;
 }
 
 message ChainPieceBlockMsg{
     required BlockHeader TopHeader = 1;
     repeated Block Blocks  = 2;
+    required bool FindAncestor = 3;
 }
 
 message CreateGroupPingMessage {

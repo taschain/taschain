@@ -71,4 +71,7 @@ type ConsensusHelper interface {
 
 	//verify bonus transaction
 	VerifyBonusTransaction(tx *Transaction) (bool, error)
+
+	//estimate pre height
+	EstimatePreHeight(bh *BlockHeader) uint64
 }

@@ -20,7 +20,6 @@ import (
 
 	"network"
 	"common"
-	"utility"
 	"middleware/types"
 	"middleware/pb"
 	"middleware/notify"
@@ -28,14 +27,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-const blockResponseSize = 1
 
 type ChainHandler struct{}
 
 func NewChainHandler() network.MsgHandler {
 	handler := ChainHandler{}
 
-	notify.BUS.Subscribe(notify.BlockReq, handler.blockReqHandler)
 	notify.BUS.Subscribe(notify.NewBlock, handler.newBlockHandler)
 	notify.BUS.Subscribe(notify.TransactionBroadcast, handler.transactionBroadcastHandler)
 	notify.BUS.Subscribe(notify.TransactionReq, handler.transactionReqHandler)
@@ -108,41 +105,7 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 	return
 }
 
-func (ch ChainHandler) blockReqHandler(msg notify.Message) {
-	if BlockChainImpl.IsLightMiner() {
-		Logger.Debugf("Is light miner!")
-		return
-	}
 
-	m, ok := msg.(*notify.BlockReqMessage)
-	if !ok {
-		Logger.Debugf("blockReqHandler:Message assert not ok!")
-		return
-	}
-	reqHeight := utility.ByteToUInt64(m.HeightByte)
-	localHeight := BlockChainImpl.Height()
-
-	Logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
-	var count = 0
-	for i := reqHeight; i <= localHeight; i++ {
-		block := BlockChainImpl.QueryBlock(i)
-		if block == nil {
-			continue
-		}
-		count++
-		if count == blockResponseSize || i == localHeight {
-			sendBlock(m.Peer, block, true)
-		} else {
-			sendBlock(m.Peer, block, false)
-		}
-		if count >= blockResponseSize {
-			break
-		}
-	}
-	if count == 0 {
-		sendBlock(m.Peer, nil, true)
-	}
-}
 
 func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	m, ok := msg.(*notify.NewBlockMessage)
@@ -157,7 +120,7 @@ func (ch ChainHandler) newBlockHandler(msg notify.Message) {
 	}
 
 	Logger.Debugf("Rcv new block from %s,hash:%v,height:%d,totalQn:%d,tx len:%d", source, block.Header.Hash.Hex(), block.Header.Height, block.Header.TotalQN, len(block.Transactions))
-	BlockChainImpl.AddBlockOnChain(source, block, types.NewBlock)
+	BlockChainImpl.AddBlockOnChain(source, block)
 }
 
 func unMarshalTransactionRequestMessage(b []byte) (*transactionRequestMessage, error) {

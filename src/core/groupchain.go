@@ -114,7 +114,7 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 
 	var err error
 
-	chain.groups, err = tasdb.NewDatabase(chain.config.group)
+	chain.groups, err = tasdb.NewPrefixDatabase(chain.config.group)
 	if nil != err {
 		return err
 	}
@@ -495,32 +495,5 @@ func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uin
 		}
 	}
 
-	//middle := chain.count / 2
-	//for i := middle; i < chain.count; i++ {
-	//	group := chain.GetGroupByHeight(i)
-	//	if group.Header.ReadyHeight > abortHeight {
-	//		break
-	//	}
-	//	for _, member := range group.Members {
-	//		if bytes.Equal(member, id) {
-	//			return true
-	//		}
-	//	}
-	//}
-	//for j := middle - 1; j >= 0; j-- {
-	//	group := chain.GetGroupByHeight(j)
-	//	if group == nil {
-	//		Logger.Infof("WhetherMemberInActiveGroup Group nil height:%d", j)
-	//		break
-	//	}
-	//	if group.Header.DismissHeight < applyHeight || group.Header.DismissHeight < currentHeight {
-	//		break
-	//	}
-	//	for _, member := range group.Members {
-	//		if bytes.Equal(member, id) {
-	//			return true
-	//		}
-	//	}
-	//}
 	return false
 }
