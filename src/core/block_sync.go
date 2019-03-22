@@ -375,13 +375,13 @@ func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *TopBlockInf
 func (bs blockSyncer) blockReqHandler(msg notify.Message) {
 	m, ok := msg.(*notify.BlockReqMessage)
 	if !ok {
-		Logger.Debugf("blockReqHandler:Message assert not ok!")
+		bs.logger.Debugf("blockReqHandler:Message assert not ok!")
 		return
 	}
 	reqHeight := utility.ByteToUInt64(m.ReqBody)
 	localHeight := bs.chain.Height()
 
-	Logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
+	bs.logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
 	blocks := bs.chain.BatchGetBlocksAfterHeight(reqHeight, blockResponseSize)
 	responseBlocks(m.Peer, blocks)
 }
@@ -389,7 +389,6 @@ func (bs blockSyncer) blockReqHandler(msg notify.Message) {
 func responseBlocks(targetId string, blocks []*types.Block) {
 	body, e := marshalBlockMsgResponse(&BlockResponseMessage{Blocks: blocks})
 	if e != nil {
-		Logger.Errorf("Marshal block msg response error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.BlockResponseMsg, Body: body}

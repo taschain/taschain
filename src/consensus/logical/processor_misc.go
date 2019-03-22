@@ -177,14 +177,7 @@ func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
 		return common.Hash{}
 	}
 	buf, err := marshalBlock(b)
-	if b.Transactions == nil {
-		stdLogger.Debugf("marshal block %+v  %v", b.Header, 0)
-	} else {
-		stdLogger.Debugf("marshal block %+v  %v", b.Header, len(b.Transactions))
-		for _, tx := range b.Transactions {
-			stdLogger.Debugf("tx %+v", tx)
-		}
-	}
+
 	if err != nil {
 		panic(fmt.Sprintf("marshal block error, hash=%v, err=%v", b.Header.Hash.ShortS(), err))
 	}

@@ -282,11 +282,6 @@ func (p *Processor) genProveHash(heightLimit uint64, rand []byte, id groupsig.ID
 	h := p.sampleBlockHeight(heightLimit, rand, id)
 	b := p.MainChain.QueryBlockFloor(h)
 	hash := p.GenVerifyHash(b, id)
-	if b != nil {
-		stdLogger.Debugf("gen proveHash: height %v, id %v, sampleHeight %v, realHeight %v, realHash %v, proveHash %v", heightLimit, id.GetHexString(), h, b.Header.Height, b.Header.Hash.String(), hash.String())
-	} else {
-		stdLogger.Debugf("gen proveHash: height %v, id %v, sampleHeight %v, proveHash %v", heightLimit, id.GetHexString(), h, hash.String())
-	}
 
 	return hash
 }

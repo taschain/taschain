@@ -106,6 +106,7 @@ func (c *groupsCache) firstGroup() *types.Group {
 
 type groupSyncer struct {
 	gchain *GroupChain
+	bchain *FullBlockChain
 
 	syncingPeer     string
 	candidatePool map[string]uint64
@@ -121,6 +122,7 @@ type groupSyncer struct {
 func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
 	gs := &groupSyncer{
 		gchain:        gchain,
+		bchain: 		bchain,
 		syncingPeer:   "",
 		candidatePool: make(map[string]uint64),
 		ticker:        bchain.ticker,
@@ -322,7 +324,7 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 
 func (gs *groupSyncer) sendGroups(targetId string, groups []*types.Group) {
 	if len(groups) == 0 {
-		Logger.Debugf("Send nil group to:%s", targetId)
+		gs.logger.Debugf("Send nil group to:%s", targetId)
 	} else {
 		gs.logger.Debugf("Send group to %s,groups:%d-%d", targetId, groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
 	}
