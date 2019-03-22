@@ -269,12 +269,12 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	block.Header = &types.BlockHeader{
 		Height:       0,
 		ExtraData:    common.Sha256([]byte("tas")),
-		CurTime:      time.Date(2018, 6, 14, 10, 0, 0, 0, time.Local),
+		CurTime:      time.Date(2019, 3, 21, 23, 0, 0, 0, time.Local),
 		ProveValue:   pv,
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
 		EvictedTxs:   make([]common.Hash, 0), //important!!
-		Nonce:        ChainDataVersion,
+		Nonce:        common.ChainDataVersion,
 	}
 
 	block.Header.Signature = common.Sha256([]byte("tas"))
@@ -358,7 +358,7 @@ func (chain *FullBlockChain) versionValidate() bool {
 		return false
 	}
 	version := genesisHeader.Nonce
-	if version != ChainDataVersion {
+	if version != common.ChainDataVersion {
 		return false
 	}
 	return true
@@ -429,5 +429,5 @@ func (chain *FullBlockChain) getLatestBlock() *types.BlockHeader {
 }
 
 func (chain *FullBlockChain) Version() int {
-    return ChainDataVersion
+    return common.ChainDataVersion
 }

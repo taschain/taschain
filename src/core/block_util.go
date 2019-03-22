@@ -25,7 +25,6 @@ import (
 	"storage/trie"
 )
 
-const ChainDataVersion = 2
 
 var emptyHash = common.Hash{}
 
