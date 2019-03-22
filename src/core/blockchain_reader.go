@@ -19,16 +19,10 @@ import (
 	"math"
 	"middleware/types"
 	"storage/account"
-	"consensus/groupsig"
 	"math/big"
 	"fmt"
 	"storage/vm"
 )
-
-
-func (chain *FullBlockChain) IsLightMiner() bool {
-	return chain.isLightMiner
-}
 
 
 func (chain *FullBlockChain) Height() uint64 {
@@ -46,7 +40,19 @@ func (chain *FullBlockChain) TotalQN() uint64 {
 }
 
 func (chain *FullBlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
-	return chain.transactionPool.GetTransaction(h)
+	tx := chain.transactionPool.GetTransaction(h)
+	if tx == nil {
+		chain.rwLock.RLock()
+		defer chain.rwLock.RUnlock()
+		bhash := chain.transactionPool.GetTxBlockHash(h)
+		if bhash != nil {
+			tx = chain.queryTransactionByHash(*bhash, h)
+		}
+	}
+	if tx == nil {
+		return nil, fmt.Errorf("tx not exist")
+	}
+	return tx, nil
 }
 
 func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
@@ -63,65 +69,24 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 	return chain.latestStateDB
 }
 
-func (chain *FullBlockChain) missTransaction(bh types.BlockHeader, txs []*types.Transaction) (bool, []common.Hash, []*types.Transaction) {
-	var missing []common.Hash
-	var transactions []*types.Transaction
-	if nil == txs {
-		transactions, missing, _ = chain.GetTransactions(bh.Hash, bh.Transactions)
-	} else {
-		transactions = txs
-	}
 
-	if 0 != len(missing) {
-		var castorId groupsig.ID
-		error := castorId.Deserialize(bh.Castor)
-		if error != nil {
-			panic("Groupsig id deserialize error:" + error.Error())
-		}
-		//向CASTOR索取交易
-		m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash, BlockHeight: bh.Height, BlockPv: bh.ProveValue,}
-		go requestTransaction(*m, castorId.String())
-		return true, missing, transactions
-	}
-	return false, missing, transactions
-}
-
-func (chain *FullBlockChain) GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error) {
-	if nil == txHashList || 0 == len(txHashList) {
-		return nil, nil, ErrNil
-	}
-
-	verifiedBody, _ := chain.verifiedBodyCache.Get(blockHash)
-	var verifiedTxs []*types.Transaction
-	if nil != verifiedBody {
-		verifiedTxs = verifiedBody.([]*types.Transaction)
-	}
-
+func (chain *FullBlockChain) GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
 	txs := make([]*types.Transaction, 0)
-	need := make([]common.Hash, 0)
-	var err error
-	for _, hash := range txHashList {
-		var tx *types.Transaction
-		if verifiedTxs != nil {
-			for _, verifiedTx := range verifiedTxs {
-				if verifiedTx.Hash == hash {
-					tx = verifiedTx
-					break
-				}
-			}
-		}
+	lost := make([]common.Hash, 0)
+	if nil == txHashList || 0 == len(txHashList) {
+		return txs, lost
+	}
 
-		if tx == nil {
-			tx, err = chain.transactionPool.GetTransaction(hash)
-		}
+	for _, hash := range txHashList {
+		tx := chain.transactionPool.GetTransaction(hash)
 
 		if tx != nil {
 			txs = append(txs, tx)
 		} else {
-			need = append(need, hash)
+			lost = append(lost, hash)
 		}
 	}
-	return txs, need, err
+	return txs, lost
 }
 
 //查询最高块
@@ -201,7 +166,8 @@ func (chain *FullBlockChain) QueryBlockFloor(height uint64) *types.Block {
 	if header == nil {
 		return nil
 	}
-	txs := chain.transactionPool.GetTransactionsByBlockHash(header.Hash)
+
+	txs := chain.queryBlockTransactions(header.Hash)
 	b := &types.Block{
 		Header: header,
 		Transactions: txs,
@@ -244,4 +210,10 @@ func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, 
 		return nil, fmt.Errorf("no data at height %v-%v", h, height)
 	}
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
+}
+
+func (chain *FullBlockChain) BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block {
+	chain.rwLock.RLock()
+	defer chain.rwLock.RUnlock()
+    return chain.batchGetBlocksAfterHeight(height, limit)
 }

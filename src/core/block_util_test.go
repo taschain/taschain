@@ -5,6 +5,8 @@ import (
 	"log"
 	"middleware/types"
 	"testing"
+	"github.com/ethereum/go-ethereum/common/math"
+	"math/big"
 )
 
 func TestCalTree(t *testing.T) {
@@ -54,4 +56,22 @@ func TestConsistencyMark(t *testing.T) {
 	fmt.Println("In")
 	panic("Test panic!")
 	fmt.Println("Out")
+}
+
+func TestShrinkPV(t *testing.T) {
+
+	max256, _ := big.NewInt(0).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	max192, _ := big.NewInt(0).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	rat256 := big.NewFloat(1).SetInt(max256)
+	rat192 := big.NewFloat(1).SetInt(max192)
+	t.Log(math.MaxBig256, max256)
+
+	f, _ := rat256.Float64()
+	t.Log(f)
+
+
+	z := new(big.Float).Quo(rat256, rat192)
+	ff, _ := z.Float64()
+	t.Log(z, ff, uint64(ff))
+	t.Log(z.Int64())
 }

@@ -9,6 +9,7 @@ import (
 	"consensus/model"
 	"core"
 	"consensus/mediator"
+	"middleware/types"
 )
 
 /*

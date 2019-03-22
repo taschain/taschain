@@ -61,7 +61,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
 		return
 	}
-	block := message.GetData().(types.Block)
+	block := message.GetData().(*types.Block)
 	bh := block.Header
 
 	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")

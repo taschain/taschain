@@ -660,7 +660,7 @@ func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMes
 	if recover {
 		//le := &monitor.LogEntry{
 		//	LogType: monitor.LogTypeGroupRecoverFromResponse,
-		//	Height: p.GroupChain.Count(),
+		//	Height: p.GroupChain.Height(),
 		//	Hash: msg.GHash.Hex(),
 		//	Proposer: "00",
 		//}

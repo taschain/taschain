@@ -44,6 +44,9 @@ const (
 
 var (
 	ErrBlockExist = errors.New("block exist")
+	ErrPreNotExist = errors.New("pre block not exist")
+	ErrLocalMoreWeight = errors.New("local more weight")
+	ErrCommitBlockFail = errors.New("commit block fail")
 )
 
 var BlockChainImpl BlockChain
@@ -53,6 +56,7 @@ var Logger taslog.Logger
 var consensusLogger taslog.Logger
 
 type BlockChainConfig struct {
+	dbfile 	string
 	block string
 
 	blockHeight string
@@ -62,15 +66,17 @@ type BlockChainConfig struct {
 	bonus string
 
 	tx string
+	receipt string
 	//heavy string
 	//light string
 	//check string
 }
 
 type FullBlockChain struct {
-	isLightMiner bool
+
 	blocks       *tasdb.PrefixedDatabase
 	blockHeight  *tasdb.PrefixedDatabase
+	txdb 			*tasdb.PrefixedDatabase
 	//checkdb tasdb.Database
 	statedb    *tasdb.PrefixedDatabase
 	batch 		tasdb.Batch
@@ -98,7 +104,7 @@ type FullBlockChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
-	verifiedBodyCache *lru.Cache
+	//verifiedBodyCache *lru.Cache
 
 	isAdujsting bool
 
@@ -108,7 +114,7 @@ type FullBlockChain struct {
 
 	forkProcessor *forkProcessor
 	config       *BlockChainConfig
-	castedBlock  *lru.Cache
+	//castedBlock  *lru.Cache
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
 }
@@ -120,55 +126,30 @@ type castingBlock struct {
 }
 
 func getBlockChainConfig() *BlockChainConfig {
-	defaultConfig := &BlockChainConfig{
-		block: "bha",
+	return &BlockChainConfig{
+		dbfile: common.GlobalConf.GetString(CONFIG_SEC, "db_blocks", "d_b")+common.GlobalConf.GetString("instance", "index", ""),
+		block: "bh",
 
-		blockHeight: "bh",
+		blockHeight: "hi",
 
 		state: "st",
 
-		bonus: "bnus",
+		bonus: "nu",
 
 		tx: "tx",
-
-		//light: "light",
-		//
-		//heavy: "heavy",
-		//
-		//check: "check",
+		receipt: "rc",
 	}
-
-	if nil == common.GlobalConf {
-		return defaultConfig
-	}
-
-	return &BlockChainConfig{
-		block: common.GlobalConf.GetString(CONFIG_SEC, "block", defaultConfig.block),
-
-		blockHeight: common.GlobalConf.GetString(CONFIG_SEC, "blockHeight", defaultConfig.blockHeight),
-
-		state: common.GlobalConf.GetString(CONFIG_SEC, "state", defaultConfig.state),
-
-		bonus: common.GlobalConf.GetString(CONFIG_SEC, "bonus", defaultConfig.bonus),
-
-		//heavy: common.GlobalConf.GetString(CONFIG_SEC, "heavy", defaultConfig.heavy),
-
-		//light: common.GlobalConf.GetString(CONFIG_SEC, "light", defaultConfig.light),
-
-		//check: common.GlobalConf.GetString(CONFIG_SEC, "check", defaultConfig.check),
-	}
-
 }
 
 func initBlockChain(helper types.ConsensusHelper) error {
-	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+	instance := common.GlobalConf.GetString("instance", "index", "")
+	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
+	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, instance)
 	chain := &FullBlockChain{
 		config: getBlockChainConfig(),
 		latestBlock:     nil,
 		init:            true,
 		isAdujsting:     false,
-		isLightMiner:    false,
 		consensusHelper: helper,
 		ticker: 		ticker.NewGlobalTicker("chain"),
 	}
@@ -188,38 +169,55 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	if err != nil {
 		return err
 	}
-	chain.castedBlock, err = lru.New(10)
+	//chain.castedBlock, err = lru.New(10)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//chain.verifiedBodyCache, _ = lru.New(50)
+
+	ds, err := tasdb.NewDataSource(chain.config.dbfile)
 	if err != nil {
+		Logger.Errorf("new datasource error:%v", err)
 		return err
 	}
 
-	chain.verifiedBodyCache, _ = lru.New(50)
+	chain.blocks, err = ds.NewPrefixDatabase(chain.config.block)
+	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		return err
+	}
 
-	chain.blocks, err = tasdb.NewPrefixDatabase(chain.config.block)
+	chain.blockHeight, err = ds.NewPrefixDatabase(chain.config.blockHeight)
+	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		return err
+	}
+	chain.txdb, err = ds.NewPrefixDatabase(chain.config.tx)
+	if err != nil {
+		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		return err
+	}
+	chain.statedb, err = ds.NewPrefixDatabase(chain.config.state)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 
-	chain.blockHeight, err = tasdb.NewPrefixDatabase(chain.config.blockHeight)
+	receiptdb, err := ds.NewPrefixDatabase(chain.config.receipt)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 
-	chain.statedb, err = tasdb.NewPrefixDatabase(chain.config.state)
-	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
-		return err
-	}
 	chain.batch = chain.blocks.CreateLDBBatch()
-	chain.transactionPool = NewTransactionPool(chain.batch)
+	chain.transactionPool = NewTransactionPool(chain.batch, receiptdb)
 
 	chain.bonusManager = newBonusManager()
 	chain.stateCache = account.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
-	initMinerManager()
+	initMinerManager(chain.ticker)
 	// 恢复链状态 height,latestBlock
 
 	chain.latestBlock = chain.loadCurrentBlock()
@@ -240,8 +238,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		chain.insertGenesisBlock()
 	}
 
-	chain.forkProcessor = initForkProcessor()
 	BlockChainImpl = chain
+	chain.forkProcessor = initForkProcessor(chain)
 	return nil
 }
 
@@ -315,34 +313,33 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
-	chain.mu.Lock()
-	defer chain.mu.Unlock()
-
-	chain.init = false
-	chain.latestBlock = nil
-	chain.topBlocks, _ = lru.New(1000)
-
-	var err error
-
-	chain.blocks.Close()
-	chain.blockHeight.Close()
-	chain.statedb.Close()
-
-	os.RemoveAll(tasdb.DEFAULT_FILE)
-
-	chain.statedb, err = tasdb.NewPrefixDatabase(chain.config.state)
-	if err != nil {
-		//todo: 日志
-		return err
-	}
-
-	chain.stateCache = account.NewDatabase(chain.statedb)
-	chain.executor = NewTVMExecutor(chain)
-
-	chain.insertGenesisBlock()
-	chain.init = true
-	chain.transactionPool.Clear()
-	return err
+	//chain.mu.Lock()
+	//defer chain.mu.Unlock()
+	//
+	//chain.init = false
+	//chain.latestBlock = nil
+	//chain.topBlocks, _ = lru.New(1000)
+	//
+	//var err error
+	//
+	//chain.blocks.Close()
+	//chain.blockHeight.Close()
+	//chain.statedb.Close()
+	//
+	//os.RemoveAll(tasdb.DEFAULT_FILE)
+	//
+	//chain.statedb, err = ds.NewPrefixDatabase(chain.config.state)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//chain.stateCache = account.NewDatabase(chain.statedb)
+	//chain.executor = NewTVMExecutor(chain)
+	//
+	//chain.insertGenesisBlock()
+	//chain.init = true
+	//chain.transactionPool.Clear()
+	return nil
 }
 
 
@@ -429,4 +426,8 @@ func (chain *FullBlockChain) Remove(block *types.Block) bool {
 func (chain *FullBlockChain) getLatestBlock() *types.BlockHeader {
 	result := chain.latestBlock
 	return result
+}
+
+func (chain *FullBlockChain) Version() int {
+    return ChainDataVersion
 }

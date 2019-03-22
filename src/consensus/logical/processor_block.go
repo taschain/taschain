@@ -19,7 +19,6 @@ import (
 	"common"
 	"consensus/groupsig"
 	"consensus/model"
-	"core"
 	"fmt"
 	"middleware/types"
 	"sync"
@@ -111,7 +110,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	rlog := newRtLog("doAddOnChain")
 	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
-	result = int8(p.MainChain.AddBlockOnChain("", block, types.LocalGenerateNewBlock))
+	result = int8(p.MainChain.AddBlockOnChain("", block))
 
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
@@ -184,51 +183,6 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 
 	//bc.registerTicker()
 	//p.triggerCastCheck()
-}
-
-func (p *Processor) getNearestBlockByHeight(h uint64) *types.Block {
-	for {
-		bh := p.MainChain.QueryBlockByHeight(h)
-		if bh != nil {
-			b := p.MainChain.QueryBlockByHash(bh.Hash)
-			if b != nil {
-				return b
-			} else {
-				//bh2 := p.MainChain.QueryBlockByHeight(h)
-				//stdLogger.Debugf("get bh not nil, but block is nil! hash1=%v, hash2=%v, height=%v", bh.Hash.ShortS(), bh2.Hash.ShortS(), bh.Height)
-				//if bh2.Hash == bh.Hash {
-				//	panic("chain queryBlockByHash nil!")
-				//} else {
-				//	continue
-				//}
-			}
-		}
-		if h == 0 {
-			panic("cannot find block of height 0")
-		}
-		h--
-	}
-}
-
-func (p *Processor) getNearestVerifyHashByHeight(h uint64) (realHeight uint64, vhash common.Hash) {
-	slog := newSlowLog("getNearestVerifyHashByHeight", 0.3)
-	defer func() {
-		slog.log("height %v", h)
-	}()
-	for {
-		hash, err := p.MainChain.GetCheckValue(h)
-
-		if err == nil {
-			return h, hash
-		}
-		if h == 0 {
-			panic("cannot find verifyHash of height 0")
-		}
-		//todo 暂不检查取样块高不存在的,可能计算量很大
-		break
-		h--
-	}
-	return
 }
 
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {

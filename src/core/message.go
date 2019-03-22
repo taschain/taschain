@@ -25,3 +25,21 @@ type BlockPieceReqMessage struct {
 	BeginHash common.Hash
 	EndHash common.Hash
 }
+
+type SyncCandidateInfo struct {
+	Candidate string
+	CandidateHeight uint64
+	ReqHeight uint64
+}
+
+type SyncMessage struct {
+	CandidateInfo *SyncCandidateInfo
+}
+
+func (msg *SyncMessage) GetRaw() []byte {
+	panic("implement me")
+}
+
+func (msg *SyncMessage) GetData() interface{} {
+	return msg.CandidateInfo
+}

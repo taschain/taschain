@@ -35,9 +35,9 @@ import (
 func TestSeedGroupSync(t *testing.T) {
 	mockSeed()
 
-	log.Printf("seed group height:%d", core.GroupChainImpl.Count())
+	log.Printf("seed group height:%d", core.GroupChainImpl.Height())
 	mockGroup()
-	log.Printf("seed group height:%d", core.GroupChainImpl.Count())
+	log.Printf("seed group height:%d", core.GroupChainImpl.Height())
 	sync.InitGroupSyncer()
 
 	time.Sleep(1 * time.Minute)
@@ -46,14 +46,14 @@ func TestSeedGroupSync(t *testing.T) {
 func TestClientGroupSync(t *testing.T) {
 	mockClient(t)
 
-	log.Printf("client group height:%d", core.GroupChainImpl.Count())
-	if core.GroupChainImpl.Count() != 0 {
+	log.Printf("client group height:%d", core.GroupChainImpl.Height())
+	if core.GroupChainImpl.Height() != 0 {
 		t.Fatal("client group height not excepted!")
 	}
 	sync.InitGroupSyncer()
 	time.Sleep(time.Second * 20)
-	log.Printf("client group height:%d", core.GroupChainImpl.Count())
-	if core.GroupChainImpl.Count() != 1 {
+	log.Printf("client group height:%d", core.GroupChainImpl.Height())
+	if core.GroupChainImpl.Height() != 1 {
 		t.Fatal("client group height not excepted after sync!")
 	}
 

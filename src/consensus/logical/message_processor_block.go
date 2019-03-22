@@ -182,18 +182,11 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 
 		slog.addStage("sampleCheck")
 		//校验提案者是否有全量账本
-		sampleHeight := p.sampleBlockHeight(bh.Height, preBH.Random, p.GetMinerID())
-		realHeight, existHash := p.getNearestVerifyHashByHeight(sampleHeight)
-		if realHeight > 0 {
-			if !existHash.IsValid() {
-				err = fmt.Errorf("MainChain GetCheckValue error, height=%v, err=%v", sampleHeight, err)
-				return
-			}
-			vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
-			if vHash != existHash {
-				err = fmt.Errorf("check p rove hash fail, sampleHeight=%v, realHeight=%v, receive hash=%v, exist hash=%v", sampleHeight, realHeight, vHash.ShortS(), existHash.ShortS())
-				return
-			}
+		existHash := p.genProveHash(bh.Height, preBH.Random, p.GetMinerID())
+		vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
+		if vHash != existHash {
+			err = fmt.Errorf("check p rove hash fail, receive hash=%v, exist hash=%v", vHash.ShortS(), existHash.ShortS())
+			return
 		}
 		slog.endStage()
 	}

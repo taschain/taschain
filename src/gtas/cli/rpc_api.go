@@ -104,7 +104,7 @@ func (api *GtasAPI) BlockHeight() (*Result, error) {
 
 // GroupHeight 组块高查询
 func (api *GtasAPI) GroupHeight() (*Result, error) {
-	height := core.GroupChainImpl.Count()
+	height := core.GroupChainImpl.Height()
 	return successResult(height)
 }
 
@@ -156,35 +156,6 @@ func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	detail["value"] = transaction.Value
 	return successResult(detail)
 }
-
-//
-//func convertBlock(bh *types.BlockHeader) interface{} {
-//	blockDetail := make(map[string]interface{})
-//	blockDetail["hash"] = bh.Hash.Hex()
-//	blockDetail["height"] = bh.Height
-//	blockDetail["pre_hash"] = bh.PreHash.Hex()
-//	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-//	blockDetail["queue_number"] = bh.ProveValue
-//	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
-//	var castorId groupsig.ID
-//	castorId.Deserialize(bh.Castor)
-//	blockDetail["castor"] = castorId.String()
-//	//blockDetail["castor"] = hex.EncodeToString(bh.Castor)
-//	var gid groupsig.ID
-//	gid.Deserialize(bh.GroupId)
-//	blockDetail["group_id"] = gid.GetHexString()
-//	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
-//	trans := make([]string, len(bh.Transactions))
-//	for i := range bh.Transactions {
-//		trans[i] = bh.Transactions[i].String()
-//	}
-//	blockDetail["transactions"] = trans
-//	blockDetail["txs"] = len(bh.Transactions)
-//	blockDetail["total_qn"] = bh.TotalQN
-//	blockDetail["qn"] = mediator.Proc.CalcBlockHeaderQN(bh)
-//	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
-//	return blockDetail
-//}
 
 func (api *GtasAPI) GetBlockByHeight(height uint64) (*Result, error) {
 	bh := core.BlockChainImpl.QueryBlockByHeight(height)
@@ -284,10 +255,8 @@ func convertGroup(g *types.Group) map[string]interface{} {
 }
 
 func (api *GtasAPI) GetGroupsAfter(height uint64) (*Result, error) {
-	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
-	if err != nil {
-		return failResult(err.Error())
-	}
+	groups := core.GroupChainImpl.GetGroupsAfterHeight(height, math.MaxInt64)
+
 	ret := make([]map[string]interface{}, 0)
 	h := height
 	for _, g := range groups {
@@ -546,7 +515,7 @@ func (api *GtasAPI) PageGetBlocks(page, limit int) (*Result, error) {
 
 func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 	chain := core.GroupChainImpl
-	total := chain.Count()
+	total := chain.Height()
 	pageObject := PageObjects{
 		Total: total,
 		Data:  make([]interface{}, 0),
@@ -738,7 +707,7 @@ func (api *GtasAPI) TransDetail(h string) (*Result, error) {
 
 func (api *GtasAPI) Dashboard() (*Result, error) {
 	blockHeight := core.BlockChainImpl.Height()
-	groupHeight := core.GroupChainImpl.Count()
+	groupHeight := core.GroupChainImpl.Height()
 	workNum := len(mediator.Proc.GetCastQualifiedGroups(blockHeight))
 	nodeResult, _ := api.NodeInfo()
 	consResult, _ := api.ConnectedNodes()
@@ -752,39 +721,6 @@ func (api *GtasAPI) Dashboard() (*Result, error) {
 	return successResult(dash)
 }
 
-//func bonusStatByHeight(height uint64) BonusInfo {
-//	bh := core.BlockChainImpl.QueryBlockByHeight(height)
-//	casterId := bh.Castor
-//	groupId := bh.GroupId
-//
-//	bonusTx := core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes())
-//	if bonusTx == nil {
-//		return BonusInfo{}
-//	}
-//
-//	// 从交易信息中解析出targetId列表
-//	_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
-//
-//	mems := make([]string, 0)
-//	for _, memId := range memIds {
-//		mems = append(mems, groupsig.DeserializeId(memId).ShortS())
-//	}
-//
-//	data := BonusInfo{
-//		BlockHeight: height,
-//		BlockHash:   bh.Hash,
-//		BonusTxHash: bonusTx.Hash,
-//		GroupId:     groupsig.DeserializeId(groupId).ShortS(),
-//		CasterId:    groupsig.DeserializeId(casterId).ShortS(),
-//		GroupIdW:    groupsig.DeserializeId(groupId).GetHexString(),
-//		CasterIdW:   groupsig.DeserializeId(casterId).GetHexString(),
-//		MemberIds:   mems,
-//		BonusValue:  value,
-//	}
-//
-//	return data
-//}
-
 func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 	address := common.HexToAddress(addr)
 	nonce := core.BlockChainImpl.GetNonce(address)
@@ -792,6 +728,24 @@ func (api *GtasAPI) Nonce(addr string) (*Result, error) {
 }
 
 func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
-	w := core.BlockChainImpl.GetTransactionPool().GetExecuted(common.HexToHash(h))
-	return successResult(w)
+	hash := common.HexToHash(h)
+	rc := core.BlockChainImpl.GetTransactionPool().GetReceipt(hash)
+	if rc != nil {
+		tx, _ := core.BlockChainImpl.GetTransactionByHash(hash)
+		return successResult(&core.ExecutedTransaction{
+			Receipt: rc,
+			Transaction: tx,
+		})
+	}
+	return failResult("tx not exist")
+}
+
+func (api *GtasAPI) RpcSyncBlocks(height uint64, limit int, version int) (*Result, error) {
+	chain := core.BlockChainImpl
+    v := chain.Version()
+	if version != v {
+		return failResult(fmt.Sprintf("version not support, expect version %v", v))
+	}
+	blocks := chain.BatchGetBlocksAfterHeight(height, limit)
+	return successResult(blocks)
 }

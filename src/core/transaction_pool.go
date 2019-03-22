@@ -18,32 +18,27 @@ package core
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
-	"time"
-
 	"common"
-	"middleware"
 	"middleware/types"
 	"storage/tasdb"
-
 	"github.com/hashicorp/golang-lru"
 )
 
 const (
-	txDataBasePrefix = "tx"
-
 	rcvTxPoolSize    = 50000
-	minerTxCacheSize = 1000
-	missTxCacheSize  = 60000
+	bonusTxMaxSize = 1000
+	//missTxCacheSize  = 60000
 
-	broadcastListLength         = 100
-	broadcastTimerInterval      = time.Second * 3
-	oldTxBroadcastTimerInterval = time.Second * 30
-	oldTxInterval               = time.Second * 60
+	//broadcastListLength         = 100
+	//
+	//oldTxBroadcastTimerInterval = time.Second * 30
+	//oldTxInterval               = time.Second * 60
 
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
+
+	txMaxSize 		= 64000	//每个交易最大大小
 )
 
 var (
@@ -55,143 +50,109 @@ var (
 )
 
 type TxPool struct {
-	minerTxs *lru.Cache // miner and bonus tx
-	missTxs  *lru.Cache
+	bonusTxs *lru.Cache // bonus tx
+	//missTxs  *lru.Cache
 	received *simpleContainer
 
-	executed *tasdb.PrefixedDatabase
-	batch    tasdb.Batch
+	receiptdb *tasdb.PrefixedDatabase
+	batch     tasdb.Batch
 
-	broadcastList   []*types.Transaction
-	broadcastTxLock sync.Mutex
-	broadcastTimer  *time.Timer
+	//ticker 	*ticker.GlobalTicker
+	//broadcastList   []*types.Transaction
+	//broadcastTxLock sync.Mutex
+	//broadcastTimer  *time.Timer
+	//
+	//txBroadcastTime       *lru.Cache
+	//oldTxBroadTimer *time.Timer
 
-	txBroadcastTime       *lru.Cache
-	oldTxBroadTimer *time.Timer
-
-	txCount uint64
-	lock    middleware.Loglock
+	lock   sync.RWMutex
 }
 
-func NewTransactionPool(batch tasdb.Batch) TransactionPool {
+func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
 	pool := &TxPool{
-		broadcastList:   make([]*types.Transaction, 0, broadcastListLength),
-		broadcastTxLock: sync.Mutex{},
-		broadcastTimer:  time.NewTimer(broadcastTimerInterval),
-		oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
-		lock:            middleware.NewLoglock("txPool"),
+		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
+		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
+		receiptdb: receiptdb,
+		batch:     batch,
 	}
 	pool.received = newSimpleContainer(rcvTxPoolSize)
-	pool.minerTxs, _ = lru.New(minerTxCacheSize)
-	pool.missTxs, _ = lru.New(missTxCacheSize)
-	pool.txBroadcastTime, _ = lru.New(rcvTxPoolSize)
+	pool.bonusTxs, _ = lru.New(bonusTxMaxSize)
 
-	executed, err := tasdb.NewPrefixDatabase(txDataBasePrefix)
-	if err != nil {
-		Logger.Errorf("Init transaction pool error! Error:%s", err.Error())
-		return nil
-	}
-	pool.executed = executed
-	pool.batch = batch
-	go pool.loop()
+	initBroadcastAget(pool)
 	return pool
 }
 
-func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
+func (pool *TxPool) tryAddTransaction(tx *types.Transaction) (bool, error) {
 	if err := pool.verifyTransaction(tx); err != nil {
 		Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
 		return false, err
 	}
-	pool.lock.Lock("AddTransaction")
-	defer pool.lock.Unlock("AddTransaction")
-
-	b, err := pool.add(tx, !types.IsTestTransaction(tx))
+	b, err := pool.add(tx)
 	return b, err
 }
 
-func (pool *TxPool) AddBroadcastTransactions(txs []*types.Transaction) {
-	if nil == txs || 0 == len(txs) {
-		return
-	}
-	pool.lock.Lock("AddBroadcastTransactions")
-	defer pool.lock.Unlock("AddBroadcastTransactions")
-
-	for _, tx := range txs {
-		if err := pool.verifyTransaction(tx); err != nil {
-			Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
-			continue
-		}
-		pool.add(tx, false)
-	}
+func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
+	return pool.tryAddTransaction(tx)
 }
 
-func (pool *TxPool) AddMissTransactions(txs []*types.Transaction) {
+func (pool *TxPool) AddTransactions(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
 	for _, tx := range txs {
-		pool.missTxs.Add(tx.Hash, tx)
+		pool.tryAddTransaction(tx)
 	}
-	return
 }
 
 
-func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction, error) {
-	minerTx, existInMinerTxs := pool.minerTxs.Get(hash)
-	if existInMinerTxs {
-		return minerTx.(*types.Transaction), nil
+func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction) {
+	bonusTx, ok := pool.bonusTxs.Get(hash)
+	if ok {
+		return bonusTx.(*types.Transaction)
 	}
 
 	receivedTx := pool.received.get(hash)
 	if nil != receivedTx {
-		return receivedTx, nil
+		return receivedTx
 	}
 
-	missTx, existInMissTxs := pool.missTxs.Get(hash)
-	if existInMissTxs {
-		return missTx.(*types.Transaction), nil
-	}
-
-	executedTx := pool.GetExecuted(hash)
-	if nil != executedTx {
-		return executedTx.Transaction, nil
-	}
-	return nil, ErrNil
+	//executedTx := pool.GetExecuted(hash)
+	//if nil != executedTx {
+	//	return executedTx.Transaction, nil
+	//}
+	return nil
 }
 
 func (pool *TxPool) Clear() {
-	pool.lock.Lock("Clear")
-	defer pool.lock.Unlock("Clear")
-
-	executed, _ := tasdb.NewPrefixDatabase(txDataBasePrefix)
-	pool.executed = executed
 	pool.batch.Reset()
-
-	pool.received = newSimpleContainer(rcvTxPoolSize)
-	pool.minerTxs, _ = lru.New(minerTxCacheSize)
-	pool.missTxs, _ = lru.New(missTxCacheSize)
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
-	return pool.received.txs
+	return pool.received.asSlice(rcvTxPoolSize)
 }
 
-func (p *TxPool) TxNum() uint64 {
-	return p.txCount
+func (pool *TxPool) TxNum() uint64 {
+	return uint64(pool.received.Len() + pool.bonusTxs.Len())
 }
 
 func (pool *TxPool) PackForCast() []*types.Transaction {
-	minerTxs := pool.packMinerTx()
-	if len(minerTxs) >= txCountPerBlock {
-		return minerTxs
-	}
-	result := pool.packTx(minerTxs)
+	result := pool.packTx()
 	return result
 }
 
 func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
+	}
+	size := 0
+	if tx.Data != nil {
+		size += len(tx.Data)
+	}
+	if tx.ExtraData != nil {
+		size += len(tx.ExtraData)
+	}
+	if size > txMaxSize {
+		return fmt.Errorf("tx size(%v) should not larger than %v", size, txMaxSize)
 	}
 
 	if tx.Hash != tx.GenHash() {
@@ -234,7 +195,7 @@ func (pool *TxPool) verifySign(tx *types.Transaction) error {
 	return nil
 }
 
-func (pool *TxPool) add(tx *types.Transaction, broadcast bool) (bool, error) {
+func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -243,60 +204,23 @@ func (pool *TxPool) add(tx *types.Transaction, broadcast bool) (bool, error) {
 	if pool.isTransactionExisted(hash) {
 		return false, ErrExist
 	}
-	pool.txCount++
 
-	if tx.Type == types.TransactionTypeMinerApply || tx.Type == types.TransactionTypeMinerAbort ||
-		tx.Type == types.TransactionTypeBonus || tx.Type == types.TransactionTypeMinerRefund {
-
-		if tx.Type == types.TransactionTypeMinerApply {
-			Logger.Debugf("Add TransactionTypeMinerApply,hash:%s,", tx.Hash.String())
-		}
-		pool.minerTxs.Add(tx.Hash, tx)
+	if tx.Type == types.TransactionTypeBonus {
+		pool.bonusTxs.Add(tx.Hash, tx)
 	} else {
 		pool.received.push(tx)
 	}
 
-	if broadcast {
-		pool.broadcastTxLock.Lock()
-		pool.broadcastList = append(pool.broadcastList, tx)
-		pool.broadcastTxLock.Unlock()
-		pool.checkAndBroadcastTx(false)
-	}
 	return true, nil
 }
 
 func (pool *TxPool) remove(txHash common.Hash) {
-	pool.minerTxs.Remove(txHash)
-	pool.missTxs.Remove(txHash)
+	pool.bonusTxs.Remove(txHash)
 	pool.received.remove(txHash)
-	pool.txBroadcastTime.Remove(txHash)
-	pool.removeFromBroadcastList(txHash)
-}
-
-func (pool *TxPool) removeFromBroadcastList(txHash common.Hash) {
-	pool.broadcastTxLock.Lock()
-	defer pool.broadcastTxLock.Unlock()
-	for i, tx := range pool.broadcastList {
-		if tx.Hash == txHash {
-			pool.broadcastList = append(pool.broadcastList[:i], pool.broadcastList[i+1:]...)
-		}
-		break
-	}
-}
-
-func (pool *TxPool) checkAndBroadcastTx(immediately bool) {
-	length := len(pool.broadcastList)
-	if immediately && length > 0 || length >= broadcastListLength {
-		pool.broadcastTxLock.Lock()
-		txs := pool.broadcastList
-		pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
-		pool.broadcastTxLock.Unlock()
-		go broadcastTransactions(txs)
-	}
 }
 
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
-	existInMinerTxs := pool.minerTxs.Contains(hash)
+	existInMinerTxs := pool.bonusTxs.Contains(hash)
 	if existInMinerTxs {
 		return true
 	}
@@ -306,120 +230,38 @@ func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
 		return true
 	}
 
-	isExecutedTx, _ := pool.executed.Has(hash.Bytes())
-	return isExecutedTx
+	return pool.hasReceipt(hash)
 }
 
-func findTxInList(txs []*types.Transaction, txHash common.Hash, receiptIndex int) *types.Transaction {
-	if nil == txs || 0 == len(txs) {
-		return nil
-	}
-	if txs[receiptIndex].Hash == txHash {
-		return txs[receiptIndex]
-	}
-
-	for _, tx := range txs {
-		if tx.Hash == txHash {
-			return tx
+func (pool *TxPool) packTx() []*types.Transaction {
+	txs := make([]*types.Transaction, 0, txCountPerBlock)
+	for _, minerTxHash := range pool.bonusTxs.Keys() {
+		if v, ok := pool.bonusTxs.Get(minerTxHash); ok {
+			txs = append(txs, v.(*types.Transaction))
+		}
+		if len(txs) >= txCountPerBlock {
+			break
 		}
 	}
-	return nil
-}
-
-func (pool *TxPool) packMinerTx() []*types.Transaction {
-	minerTxs := make([]*types.Transaction, 0, txCountPerBlock)
-	minerTxHashes := pool.minerTxs.Keys()
-	for _, minerTxHash := range minerTxHashes {
-		if v, ok := pool.minerTxs.Get(minerTxHash); ok {
-			minerTxs = append(minerTxs, v.(*types.Transaction))
-			if v.(*types.Transaction).Type == types.TransactionTypeMinerApply {
-				Logger.Debugf("pack miner apply tx hash:%s,", v.(*types.Transaction).Hash.String())
-			}
-		}
-		if len(minerTxs) >= txCountPerBlock {
-			return minerTxs
-		}
-	}
-	return minerTxs
-}
-
-func (pool *TxPool) packTx(packedTxs []*types.Transaction) []*types.Transaction {
-	txs := pool.received.asSlice()
-	sort.Sort(types.Transactions(txs))
-	for _, tx := range txs {
-		packedTxs = append(packedTxs, tx)
-		if len(packedTxs) >= txCountPerBlock {
-			return packedTxs
-		}
-	}
-	return packedTxs
-}
-
-func (pool *TxPool) broadcastOldTx() {
-	pool.broadcastTxLock.Lock()
-	defer pool.broadcastTxLock.Unlock()
-
-	if len(pool.broadcastList) > 0 {
-		txs := pool.broadcastList
-		pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
-		go broadcastTransactions(txs)
-	}
-
-	for _, tx := range pool.GetReceived() {
-		if  ! pool.isTxBroadcasted(tx.Hash)  {
-			pool.txBroadcastTime.Add(tx.Hash, time.Now())
-
-			pool.broadcastList = append(pool.broadcastList, tx)
-			if len(pool.broadcastList) >= broadcastListLength {
+	if len(txs) < txCountPerBlock {
+		for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
+			txs = append(txs, tx)
+			if len(txs) >= txCountPerBlock {
 				break
 			}
 		}
 	}
-	txs := pool.broadcastList
-	pool.broadcastList = make([]*types.Transaction, 0, broadcastListLength)
-	Logger.Debugf("TxPool broadcastOldTx, len:%d", len(txs))
-
-	go broadcastTransactions(txs)
+	return txs
 }
 
-func (pool *TxPool) isTxBroadcasted(txHash common.Hash) bool {
-	now := time.Now()
-	if v, ok := pool.txBroadcastTime.Get(txHash); ok {
-		rcvTime := v.(time.Time)
-		if now.Sub(rcvTime) < oldTxInterval {
-			return  true
-		}
-	}
-	return false
-}
-
-
-
-func (pool *TxPool) clearTxBroadcastedCache() {
-	txHashes := pool.txBroadcastTime.Keys()
-	now := time.Now()
-	for _, txHash := range txHashes {
-		if v, ok := pool.txBroadcastTime.Get(txHash); ok {
-			rcvTime := v.(time.Time)
-			if now.Sub(rcvTime) > oldTxInterval {
-				pool.txBroadcastTime.Remove(txHash)
-			}
-		}
+func (pool *TxPool) RemoveFromPool(txs []common.Hash)  {
+	for _, tx := range txs {
+		pool.remove(tx)
 	}
 }
 
-
-func (pool *TxPool) loop() {
-	for {
-		select {
-		case <-pool.broadcastTimer.C:
-			pool.checkAndBroadcastTx(true)
-			pool.broadcastTimer.Reset(broadcastTimerInterval)
-		case <-pool.oldTxBroadTimer.C:
-			pool.clearTxBroadcastedCache()
-			pool.broadcastOldTx()
-			Logger.Debugf("TxPool status: received:%d,minerTxPool:%d", len(pool.received.txs), pool.minerTxs.Len())
-			pool.oldTxBroadTimer.Reset(oldTxBroadcastTimerInterval)
-		}
+func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
+	for _, tx := range txs {
+		pool.add(tx)
 	}
 }

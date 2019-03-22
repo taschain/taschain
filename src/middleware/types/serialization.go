@@ -300,6 +300,7 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 		Members:   g.Members,
 		PubKey:    g.PubKey,
 		Signature: g.Signature,
+		GroupHeight: *g.GroupHeight,
 	}
 	return &group
 }
@@ -448,6 +449,7 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 		Members:   g.Members,
 		PubKey:    g.PubKey,
 		Signature: g.Signature,
+		GroupHeight: &g.GroupHeight,
 	}
 	return &group
 }

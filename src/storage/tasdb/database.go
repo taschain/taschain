@@ -36,8 +36,8 @@ const (
 
 var (
 	ErrLDBInit   = errors.New("LDB instance not inited")
-	instance     *LDBDatabase
-	instanceLock = sync.RWMutex{}
+	//instance     *LDBDatabase
+	//instanceLock = sync.RWMutex{}
 )
 
 type PrefixedDatabase struct {
@@ -52,29 +52,11 @@ type databaseConfig struct {
 	handler  int
 }
 
-func NewPrefixDatabase(prefix string) (*PrefixedDatabase, error) {
-	dbInner, err := getInstance()
-	if nil != err {
-		return nil, err
-	}
-
-	return &PrefixedDatabase{
-		db:     dbInner,
-		prefix: prefix,
-	}, nil
-}
-
-func getInstance() (*LDBDatabase, error) {
-	instanceLock.Lock()
-	defer instanceLock.Unlock()
-
+func getInstance(file string) (*LDBDatabase, error) {
 	var (
 		instanceInner *LDBDatabase
 		err           error
 	)
-	if nil != instance {
-		return instance, nil
-	}
 
 	defaultConfig := &databaseConfig{
 		database: DEFAULT_FILE,
@@ -85,14 +67,10 @@ func getInstance() (*LDBDatabase, error) {
 	if nil == common.GlobalConf {
 		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
 	} else {
-		instanceInner, err = NewLDBDatabase(common.GlobalConf.GetString(CONFIG_SEC, "database", defaultConfig.database), common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
 	}
 
-	if nil == err {
-		instance = instanceInner
-	}
-
-	return instance, err
+	return instanceInner, err
 }
 
 //func (db *PrefixedDatabase) Clear() error {
@@ -105,10 +83,6 @@ func getInstance() (*LDBDatabase, error) {
 //}
 
 func (db *PrefixedDatabase) Close() {
-	instanceLock.Lock()
-	defer instanceLock.Unlock()
-
-	instance = nil
 	db.db.Close()
 }
 

@@ -45,9 +45,9 @@ message TransactionRequestMessage{
 
     required bytes CurrentBlockHash = 2;
 
-    required uint64 BlockHeight = 3;
-
-    required bytes BlockPv = 4;
+//    required uint64 BlockHeight = 3;
+//
+//    required bytes BlockPv = 4;
 }
 
 message TrieNodes{
@@ -177,7 +177,6 @@ message Group{
 
 message GroupInfo{
     repeated Group Groups = 1;
-    required bool IsTopGroup = 2;
 }
 
 message GroupSlice{
@@ -406,6 +405,7 @@ message TopBlockInfo{
     required	uint64   TotalQn = 2;
     required	uint64   Height = 3;
     required	bytes   PreHash = 4;
+    required	uint64   ShrinkPV = 5;
 }
 
 message BlockResponseMsg{

@@ -17,28 +17,29 @@ package core
 
 import (
 	"sync"
-	"encoding/json"
 	"fmt"
-	"encoding/binary"
-	"os"
 	"common"
 	"storage/tasdb"
 	"middleware/types"
 	"middleware/notify"
-	"utility"
 	"bytes"
 	"errors"
+	"github.com/hashicorp/golang-lru"
 )
 
 const GROUP_STATUS_KEY = "gcurrent"
-const GROUP_COUNT_KEY = "gcount"
 
-//var GnesisGroupId = "0x95c0134a0f7954f8719062ef555e725687b2e39f85393d934b1fc10e546b68a4"
+var (
+	errGroupExist = errors.New("group exist")
+)
+
 
 var GroupChainImpl *GroupChain
 
 type GroupChainConfig struct {
+	dbfile 	string
 	group string
+	groupHeight string
 }
 
 type GroupChain struct {
@@ -46,21 +47,19 @@ type GroupChain struct {
 
 	// key id, value group
 	// key number, value id
-	groups tasdb.Database
-
-	count uint64
+	groups		 *tasdb.PrefixedDatabase
+	groupsHeight *tasdb.PrefixedDatabase
 
 	// 读写锁
 	lock sync.RWMutex
 
 	lastGroup *types.Group
+	genesisMembers []string
 
-	activeGroups []*types.Group
+	topGroups *lru.Cache
 
 	consensusHelper types.ConsensusHelper
 
-	//preCache map[string]*types.Group
-	//preCache *sync.Map
 }
 
 type GroupIterator struct {
@@ -86,7 +85,9 @@ func (chain *GroupChain) LastGroup() *types.Group {
 
 func defaultGroupChainConfig() *GroupChainConfig {
 	return &GroupChainConfig{
-		group: "groupldb",
+		dbfile: "d_g",
+		group: "gid",
+		groupHeight: "gh",
 	}
 }
 
@@ -95,14 +96,11 @@ func getGroupChainConfig() *GroupChainConfig {
 	if nil == common.GlobalConf {
 		return defaultConfig
 	}
-
 	return &GroupChainConfig{
-		group: common.GlobalConf.GetString(CONFIG_SEC, "group", defaultConfig.group),
+		dbfile: common.GlobalConf.GetString(CONFIG_SEC, "db_groups", defaultConfig.dbfile)+common.GlobalConf.GetString("instance", "index", ""),
+		group: defaultConfig.group,
+		groupHeight: defaultConfig.groupHeight,
 	}
-}
-
-func ClearGroup(config *GroupChainConfig) {
-	os.RemoveAll("database")
 }
 
 func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.ConsensusHelper) error {
@@ -113,11 +111,24 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 	}
 
 	var err error
-
-	chain.groups, err = tasdb.NewPrefixDatabase(chain.config.group)
+	ds, err := tasdb.NewDataSource(chain.config.dbfile)
+	if err != nil {
+		Logger.Errorf("new datasource error:%v", err)
+		return err
+	}
+	chain.groups, err = ds.NewPrefixDatabase(chain.config.group)
 	if nil != err {
 		return err
 	}
+	chain.groupsHeight, err = ds.NewPrefixDatabase(chain.config.groupHeight)
+	if nil != err {
+		return err
+	}
+	cahe, err := lru.New(10)
+	if err != nil {
+		return err
+	}
+	chain.topGroups = cahe
 
 	build(chain, genesisInfo)
 
@@ -126,228 +137,56 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 }
 
 func build(chain *GroupChain, genesisInfo *types.GenesisInfo) {
-	lastId, _ := chain.groups.Get([]byte(GROUP_STATUS_KEY))
-	count, _ := chain.groups.Get([]byte(GROUP_COUNT_KEY))
-	var lastGroup *types.Group
-	if lastId != nil {
-		data, _ := chain.groups.Get(lastId)
-		err := json.Unmarshal(data, &lastGroup)
-		if err != nil {
-			panic("build group Unmarshal fail")
-		}
-		chain.count = utility.ByteToUInt64(count)
+	var lastGroup = chain.loadLastGroup()
+	if lastGroup != nil {
+		chain.lastGroup = lastGroup
 	} else {
 		lastGroup = &genesisInfo.Group
-		e := chain.save(lastGroup)
+		lastGroup.GroupHeight = 0
+		e := chain.commitGroup(lastGroup)
 		if e != nil {
 			panic("Add genesis group on chain failed:" + e.Error())
 		}
 	}
-	chain.lastGroup = lastGroup
-
-	//chain.count = binary.BigEndian.Uint64(count)
-	//var i uint64
-	//for i = 0; i <= chain.count; i++ {
-	//	groupId, _ := chain.groups.Get(generateKey(i))
-	//	if nil != groupId {
-	//		chain.now = append(chain.now, groupId)
-	//	}
-	//
-	//}
+	genesisGroup := &genesisInfo.Group
+	mems := make([]string, 0)
+	for _, mem := range genesisGroup.Members {
+		mems = append(mems, common.Bytes2Hex(mem))
+	}
+	chain.genesisMembers = mems
 }
 
-func generateKey(i uint64) []byte {
-	return intToBytes(i)
-}
-
-func intToBytes(n uint64) []byte {
-	var buf = make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(n))
-	return buf
-}
-
-func (chain *GroupChain) Count() uint64 {
-	return chain.count
+func (chain *GroupChain) Height() uint64 {
+	if chain.lastGroup == nil {
+		return 0
+	}
+	return chain.lastGroup.GroupHeight
 }
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
 
-func (chain *GroupChain) GetGroupsByHeight(height uint64) ([]*types.Group, error) {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
-	if chain.count <= height {
-		return nil, fmt.Errorf("exceed local height")
-	}
-
-	result := make([]*types.Group, chain.count-height)
-	for i := height; i < chain.count; i++ {
-		group := chain.getGroupByHeight(i)
-		if nil != group {
-			result[i-height] = group
-		}
-
-	}
-	return result, nil
+func (chain *GroupChain) GetGroupsAfterHeight(height uint64, limit int64) ([]*types.Group) {
+	return chain.getGroupsAfterHeight(height, limit)
 }
 
 func (chain *GroupChain) GetGroupByHeight(height uint64) (*types.Group) {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
 	return chain.getGroupByHeight(height)
 }
 
-func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
-	groupId, _ := chain.groups.Get(generateKey(height))
-	if nil != groupId {
-		return chain.getGroupById(groupId)
-	}
-
-	return nil
-}
-
-func (chain *GroupChain) GetSyncGroupsByHeight(height uint64, limit int) ([]*types.Group) {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-	return chain.getSyncGroupsByHeight(height, limit)
-}
-
-func (chain *GroupChain) getSyncGroupsByHeight(height uint64, limit int) []*types.Group {
-	result := make([]*types.Group, 0)
-	for i := 0; i < limit; i++ {
-		groupId, _ := chain.groups.Get(generateKey(height + uint64(i)))
-		if nil != groupId {
-			result = append(result, chain.getGroupById(groupId))
-		} else {
-			break
-		}
-	}
-
-	return result
-}
-
-func (chain *GroupChain) GetOtherLackGroups(topId []byte, existIds [][]byte) ([]*types.Group) {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-	return chain.getOtherLackGroups(topId, existIds)
-}
-
-func (chain *GroupChain) getOtherLackGroups(topId []byte, existIds [][]byte) ([]*types.Group) {
-	result := make([]*types.Group, 0)
-	for group := chain.lastGroup; group != nil && !bytes.Equal(topId, group.Id); group = chain.getPreGroup(group) {
-		if filt(existIds, group.Id) {
-			continue
-		} else {
-			result = append(result, group)
-		}
-	}
-	return result
-}
-
-func (chain *GroupChain) getPreGroup(group *types.Group) *types.Group {
-	if group.Header.PreGroup != nil {
-		return chain.getGroupById(group.Header.PreGroup)
-	} else {
-		return nil
-	}
-}
-
-func filt(existIds [][]byte, target []byte) bool {
-	for _, id := range existIds {
-		if bytes.Equal(id, target) {
-			return true
-		}
-	}
-	return false
-}
-
 func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
-	chain.lock.RLock()
-	defer chain.lock.RUnlock()
-
+	if v, ok := chain.topGroups.Get(common.Bytes2Hex(id)); ok {
+		return v.(*types.Group)
+	}
 	return chain.getGroupById(id)
 }
 
-func (chain *GroupChain) getGroupById(id []byte) *types.Group {
-	data, _ := chain.groups.Get(id)
-	if nil == data || 0 == len(data) {
-		return nil
-	}
-
-	var group *types.Group
-	err := json.Unmarshal(data, &group)
-	if err != nil {
-		return nil
-	}
-	return group
-}
-
-//func (chain *GroupChain) MissingGroupIds() [][]byte{
-//	result := make([][]byte,0)
-//	chain.preCache.Range(func(key, value interface{}) bool {
-//		result = append(result,[]byte(key.(string)))
-//		return true
-//	})
-//
-//	return result
-//}
-//
-//func (chain *GroupChain) ExistingGroupIds() [][]byte{
-//	result := make([][]byte,0)
-//	chain.preCache.Range(func(key, value interface{}) bool {
-//		if group,ok := value.(*types.Group);ok{
-//			result = append(result,group.Id)
-//		}
-//
-//		return true
-//	})
-//
-//	return result
-//}
-
-//func (chain *GroupChain) repairPreGroup(groupId []byte){
-//	for{
-//		if group,ok := chain.preCache.Load(string(groupId));ok{
-//			if group,ok := group.(*types.Group);ok {
-//				if nil == chain.save(group) {
-//					//chain.lastGroup = group
-//					chain.preCache.Delete(string(groupId))
-//					groupId = group.Id
-//				}
-//			}
-//		} else {
-//			break
-//		}
-//	}
-//}
-
-//func (chain *GroupChain) canOnChain(preGroupId []byte) (bool, []*types.Group){
-//	reslut := make([]*types.Group,0)
-//	for{
-//		if preGroupId == nil{
-//			return true,reslut
-//		} else if ok,_ := chain.groups.Has(preGroupId);ok{
-//			return true,reslut
-//		} else {
-//			if g,ok := chain.preCache.Load(string(preGroupId));ok{
-//				group,_ := g.(*types.Group)
-//				reslut = append([]*types.Group{group},reslut...)
-//				preGroupId = group.PreGroup
-//			} else {
-//				return false,reslut
-//			}
-//		}
-//	}
-//}
-
 func (chain *GroupChain) AddGroup(group *types.Group) error {
-	if nil != group.Id {
-		if exist, _ := chain.groups.Has(group.Id); exist {
-			notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
-			return errors.New("group already exist")
-		}
+	if chain.hasGroup(group.Id) {
+		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
+		return errGroupExist
 	}
+
 	//CheckGroup会调用groupchain的接口，需要在加锁前调用
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
@@ -360,137 +199,53 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	if nil == group {
-		return fmt.Errorf("nil group")
-	}
-	if Logger != nil {
-		Logger.Debugf("GroupChain AddGroup %+v", group)
-	}
-	//if !isDebug {
-	if nil != group.Header.Parent {
-		exist, _ := chain.groups.Has(group.Header.Parent)
-		//parent := chain.getGroupById(group.Parent)
-		//if nil == parent {
-		if !exist {
-			return fmt.Errorf("parent is not existed")
-		}
-	}
-	if nil != group.Header.PreGroup {
-		//exist,_ := chain.groups.Has(group.PreGroup)
-		//if !exist{
-		//	chain.preCache.Store(string(group.PreGroup), group)
-		//	return fmt.Errorf("pre group is not existed")
-		//}
-		if !bytes.Equal(chain.lastGroup.Id, group.Header.PreGroup) {
-			return fmt.Errorf("pre not equal lastgroup")
-		}
+	if !bytes.Equal(group.Header.PreGroup, chain.lastGroup.Id) {
+		return fmt.Errorf("preGroup not equal to lastGroup")
 	}
 
-	return chain.save(group)
-	//}
-
-	// todo: 通过父亲节点公钥校验本组的合法性
-	//if nil != group.PreGroup{
-	//	can,preGroups := chain.canOnChain(group.PreGroup)
-	//	if can {
-	//		for _,g := range preGroups{
-	//			chain.save(g)
-	//		}
-	//		return chain.save(group)
-	//	} else{
-	//		chain.preCache.Store(string(group.PreGroup), group)
-	//		return fmt.Errorf("pre group is not existed")
-	//	}
-	//} else {
-	//	return chain.save(group)
-	//}
-	//ret := chain.save(group)
-	//chain.lastGroup = group
-	//if nil == ret{
-	//	chain.repairPreGroup(group.Id)
-	//	//if next,ok := chain.preCache[string(group.Id)];ok{
-	//	//	chain.AddGroup(next, sender, signature)
-	//	//}
-	//}
-	//return ret
-}
-
-func (chain *GroupChain) save(group *types.Group) error {
-
-	group.GroupHeight = chain.count
-	if Logger != nil {
-		Logger.Debugf("GroupChain save %+v", group)
+	if !chain.hasGroup(group.Header.PreGroup) {
+		return fmt.Errorf("pre group not exist")
 	}
-	data, err := json.Marshal(group)
-	if nil != err {
+	if !chain.hasGroup(group.Header.Parent) {
+		return fmt.Errorf("prarent group not exist")
+	}
+	group.GroupHeight = chain.lastGroup.GroupHeight+1
+
+	if err := chain.commitGroup(group); err != nil {
+		Logger.Errorf("commit Group fail ,err=%v, height=%v", err, group.GroupHeight)
 		return err
 	}
-	chain.groups.Put(generateKey(chain.count), group.Id)
-	chain.groups.Put([]byte(GROUP_STATUS_KEY), group.Id)
-	chain.count++
-	chain.groups.Put([]byte(GROUP_COUNT_KEY), utility.UInt64ToByte(chain.count))
-
-	//fmt.Printf("[group]put real one succ.count: %d, overwrite: %t, id:%x \n", chain.count, overWrite, group.Id)
-
-	err = chain.groups.Put(group.Id, data)
-	if nil == err {
-		chain.lastGroup = group
-		//chain.activeGroups = append(chain.activeGroups, group)
-		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
-		if GroupSyncer != nil {
-			GroupSyncer.sendGroupHeightToNeighbor(chain.count)
-		}
-	}
-	return err
-}
-
-func (chain *GroupChain) GetSyncGroupsById(id []byte) []*types.Group {
-	result := make([]*types.Group, 0)
-	group := chain.getGroupById(id)
-	if group == nil {
-		return result
-	}
-	return chain.GetSyncGroupsByHeight(group.GroupHeight+1, 5)
-}
-
-func (chain *GroupChain) RemoveDismissGroupFromCache(blockHeight uint64) {
-	chain.lock.Lock()
-	defer chain.lock.Unlock()
-	for ; len(chain.activeGroups) > 0; {
-		group := chain.activeGroups[0]
-		if group.Header.DismissHeight <= blockHeight {
-			chain.activeGroups = chain.activeGroups[1:]
-		} else {
-			break
-		}
-	}
-}
-
-func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64, applyHeight uint64, abortHeight uint64) bool {
-	//for _,group := range chain.activeGroups{
-	//	for _,member := range group.Members{
-	//		if bytes.Equal(member.Id,id){
-	//			return true
-	//		}
-	//	}
+	chain.topGroups.Add(common.Bytes2Hex(group.Id), group)
+	notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
+	//TODO: 启动同步
+	//if GroupSyncer != nil {
+	//	GroupSyncer.sendGroupHeightToNeighbor(chain.Height())
 	//}
+	return nil
+}
+
+func (chain *GroupChain) GenesisMember() map[string]byte {
+	mems := make(map[string]byte)
+	for _, mem := range chain.genesisMembers {
+		mems[mem] = 1
+	}
+    return mems
+}
+
+func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool {
 	iter := chain.NewIterator()
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
 		//解散，后面的组，除了创世组外也都解散了
-		if g.Header.DismissHeight <= currentHeight {
+		if g.Header.DismissedAt(currentHeight) {
 			//直接跳到创世组检查
 			genisGroup := chain.getGroupByHeight(0)
-			for _, member := range genisGroup.Members {
-				if bytes.Equal(member, id) {
-					return true
-				}
+			if genisGroup.MemberExist(id) {
+				return true
 			}
 			break
 		} else {//有效组
-			for _, member := range g.Members {
-				if bytes.Equal(member, id) {
-					return true
-				}
+			if g.MemberExist(id) {
+				return true
 			}
 		}
 	}

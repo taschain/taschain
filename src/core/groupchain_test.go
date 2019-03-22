@@ -31,7 +31,7 @@ package core
 //	}
 //	GroupChainImpl.AddGroup(group1, nil, nil)
 //
-//	if 1 != GroupChainImpl.Count() {
+//	if 1 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group1")
 //	}
 //
@@ -66,7 +66,7 @@ package core
 //		Signature: []byte{1, 2},
 //	}
 //	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group4")
 //	}
 //}
@@ -88,7 +88,7 @@ package core
 //		Id: id1,
 //	}
 //	GroupChainImpl.AddGroup(group1, nil, nil)
-//	if 1 != GroupChainImpl.Count() {
+//	if 1 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group1")
 //	}
 //
@@ -98,7 +98,7 @@ package core
 //		Parent: id1,
 //	}
 //	GroupChainImpl.AddGroup(group2, nil, nil)
-//	if 2 != GroupChainImpl.Count() {
+//	if 2 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group2")
 //	}
 //
@@ -109,7 +109,7 @@ package core
 //		Signature: []byte{1, 2},
 //	}
 //	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 2 != GroupChainImpl.Count() {
+//	if 2 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group3")
 //	}
 //	check := GroupChainImpl.getGroupById(id2)
@@ -123,12 +123,12 @@ package core
 //		Parent: id1,
 //	}
 //	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group4")
 //	}
 //	group4.Signature = []byte{6, 7}
 //	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to overwrite group4")
 //	}
 //	check = GroupChainImpl.getGroupById([]byte{1, 2, 3, 4, 5})

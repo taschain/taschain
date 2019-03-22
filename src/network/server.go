@@ -237,7 +237,7 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
 	case ReqGroupMsg:
-		msg := notify.GroupReqMessage{GroupIdByte: message.Body, Peer: from}
+		msg := notify.GroupReqMessage{ReqBody: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupReq, &msg)
 	case GroupMsg:
 		Logger.Debugf("Rcv GroupMsg from %s", from)

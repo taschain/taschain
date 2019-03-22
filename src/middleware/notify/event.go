@@ -48,4 +48,7 @@ const (
 	TransactionGot = "transaction_got"
 
 	TransactionGotAddSucc = "transaction_got_add_succ"
+
+	BlockSync = "block_sync"
+	GroupSync = "group_sync"
 )

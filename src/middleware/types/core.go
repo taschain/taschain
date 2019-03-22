@@ -146,29 +146,17 @@ func (tx *Transaction) GenHash() common.Hash {
 	return common.BytesToHash(common.Sha256(buffer.Bytes()))
 }
 
-type Transactions []*Transaction
-
-func (c Transactions) Len() int {
-	return len(c)
-}
-func (c Transactions) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-func (c Transactions) Less(i, j int) bool {
-	return c[i].Nonce < c[j].Nonce
-}
-
-type GasPriceTransactions []*Transaction
-
-func (c GasPriceTransactions) Len() int {
-	return len(c)
-}
-func (c GasPriceTransactions) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-func (c GasPriceTransactions) Less(i, j int) bool {
-	return c[i].GasPrice > c[j].GasPrice
-}
+//type Transactions []*Transaction
+//
+//func (c Transactions) Len() int {
+//	return len(c)
+//}
+//func (c Transactions) Swap(i, j int) {
+//	c[i], c[j] = c[j], c[i]
+//}
+//func (c Transactions) Less(i, j int) bool {
+//	return c[i].Nonce < c[j].Nonce
+//}
 
 // 根据gasprice决定优先级的transaction数组
 // gasprice 低的，放在前
@@ -361,6 +349,14 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
+func (gh *GroupHeader) DismissedAt(h uint64) bool {
+    return gh.DismissHeight <= h
+}
+
+func (gh *GroupHeader) WorkAt(h uint64) bool {
+    return !gh.DismissedAt(h) && gh.WorkHeight <= h
+}
+
 type Group struct {
 	Header *GroupHeader
 	//不参与签名
@@ -370,6 +366,16 @@ type Group struct {
 	Members     [][]byte //成员id列表
 	GroupHeight uint64
 }
+
+func (g *Group) MemberExist(id []byte) bool {
+	for _, mem := range g.Members {
+		if bytes.Equal(mem, id) {
+			return true
+		}
+	}
+	return false
+}
+
 
 type StateNode struct {
 	Key   []byte

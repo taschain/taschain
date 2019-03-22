@@ -26,8 +26,6 @@ import (
 	"middleware/types"
 	"storage/account"
 	"storage/vm"
-
-	"github.com/vmihailenco/msgpack"
 )
 
 const TransactionGasCost = 1000
@@ -52,8 +50,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	errs := make([]*types.TransactionError, len(block.Transactions))
 
 	for i, transaction := range block.Transactions {
-		executeTime := time.Now()
-		if situation == "casting" && executeTime.Sub(beginTime) > MaxCastBlockTime {
+		if situation == "casting" && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
 			break
 		}
@@ -106,7 +103,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state := accountdb.IntermediateRoot(true)
-	Logger.Debugf("TVMExecutor End Execute State %s", state.Hex())
 	return state, evictedTxs, transactions, receipts, nil, errs
 }
 
@@ -268,9 +264,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 		return success
 	}
 
-	data := common.FromHex(string(transaction.Data))
-	var miner types.Miner
-	msgpack.Unmarshal(data, &miner)
+	var miner = MinerManagerImpl.Transaction2Miner(transaction)
 	mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
 	if mexist != nil {
 		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s Type:%s", transaction.Source.GetHexString(), mark)
@@ -284,7 +278,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 		accountdb.AddBalance(castor, txExecuteFee)
 
 		miner.ApplyHeight = height
-		if MinerManagerImpl.addMiner(transaction.Source[:], &miner, accountdb) > 0 {
+		if MinerManagerImpl.addMiner(transaction.Source[:], miner, accountdb) > 0 {
 			accountdb.SubBalance(*transaction.Source, amount)
 			Logger.Debugf("TVMExecutor Execute MinerApply Success Source:%s Height:%d Type:%s", transaction.Source.GetHexString(), height, mark)
 		}
@@ -335,7 +329,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail(Refund height less than abortHeight+10) Hash%s,Type:%s", transaction.Source.GetHexString(), mark)
 			}
 		} else {
-			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height, mexist.ApplyHeight, mexist.AbortHeight) {
+			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height) {
 				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
 				amount := big.NewInt(int64(mexist.Stake))
 				accountdb.AddBalance(*transaction.Source, amount)

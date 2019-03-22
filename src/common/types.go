@@ -187,7 +187,6 @@ func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
 
 // Get the string representation of the underlying hash
-func (h Hash) Str() string   { return string(h[:]) }
 func (h Hash) Bytes() []byte { return h[:] }
 func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 func (h Hash) Hex() string   { return utility.Encode(h[:]) }

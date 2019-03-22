@@ -155,7 +155,7 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 			}
 			err = fmt.Errorf("success")
 			gm.checker.addHeightCreated(group.Header.CreateHeight)
-			stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Count())
+			stdLogger.Infof("AddGroupOnChain success, ID=%v, height=%v\n", sgi.GroupID.ShortS(), gm.groupChain.Height())
 		} else {
 			err = fmt.Errorf("ready timeout, currentHeight %v", top)
 			stdLogger.Infof("AddGroupOnChain group ready timeout, gid %v, timeout height %v, top %v\n", sgi.GroupID.ShortS(), sgi.GInfo.GI.GHeader.ReadyHeight, top)

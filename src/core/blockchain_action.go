@@ -10,6 +10,7 @@ import (
 	"time"
 	"bytes"
 	"fmt"
+	"consensus/groupsig"
 )
 
 /*
@@ -23,16 +24,18 @@ type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
-	chain.mu.Lock()
-	defer chain.mu.Unlock()
-
 	latestBlock := chain.QueryTopBlock()
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
 	}
 
+	begin := time.Now()
 	block := new(types.Block)
+
+	defer func() {
+		Logger.Debugf("cast block, height=%v, hash=%v, cost %v", block.Header.Height, block.Header.Hash.String(), time.Since(begin).String())
+	}()
 
 	block.Transactions = chain.transactionPool.PackForCast()
 	block.Header = &types.BlockHeader{
@@ -87,11 +90,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, prove
 		state:    state,
 		receipts: receipts,
 	})
-	chain.castedBlock.Add(block.Header.Hash, block)
-
-	if len(block.Transactions) != 0 {
-		chain.verifiedBodyCache.Add(block.Header.Hash, block.Transactions)
-	}
 	return block
 }
 
@@ -101,7 +99,7 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	txs, missTxs, _ := chain.GetTransactions(bh.Hash, bh.Transactions)
+	txs, missTxs := chain.GetTransactions(bh.Hash, bh.Transactions)
 
 	if len(missTxs) != 0 {
 		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
@@ -118,43 +116,59 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8) {
-	chain.mu.Lock()
-	defer chain.mu.Unlock()
-
 	_, _, txs, ret := chain.verifyBlock(bh, nil)
 	return txs, ret
 }
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) (*account.AccountDB, types.Receipts, []common.Hash, int8) {
-	Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs))
+	begin := time.Now()
+	var err error
+	defer func() {
+		Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d, cost:%v, err=%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs), time.Since(begin).String(), err)
+	}()
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
+		err = fmt.Errorf("hash diff")
 		return nil, nil, nil, -1
 	}
 
 	if !chain.hasBlock(bh.PreHash) {
+		err = ErrPreNotExist
 		return  nil, nil, nil, 2
 	}
 
-	miss, missingTx, transactions := chain.missTransaction(bh, txs)
-	if miss {
-		return  nil, nil, missingTx, 1
+	transactions := txs
+
+	if txs == nil {
+		gotTxs, missing := chain.GetTransactions(bh.Hash, bh.Transactions)
+		if 0 != len(missing) {
+			var castorId groupsig.ID
+			error := castorId.Deserialize(bh.Castor)
+			if error != nil {
+				panic("Groupsig id deserialize error:" + error.Error())
+			}
+			//向CASTOR索取交易
+			m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash}
+			go requestTransaction(m, castorId.String())
+			err = fmt.Errorf("miss transaction size %v", len(missing))
+			return  nil, nil, missing, 1
+		}
+		transactions = gotTxs
 	}
 
-	Logger.Debugf("validateTxRoot,tx tree root:%v,len txs:%d,miss len:%d", bh.TxTree.Hex(), len(transactions), len(missingTx))
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
+		err = fmt.Errorf("validate tx root fail")
 		return  nil, nil, nil, -1
 	}
 
 	block := types.Block{Header: &bh, Transactions: transactions}
 	executeTxResult, state, receiptes := chain.executeTransaction(&block)
 	if !executeTxResult {
+		err = fmt.Errorf("execute transaction fail")
 		return  nil, nil, nil, -1
 	}
-	if len(block.Transactions) != 0 {
-		chain.verifiedBodyCache.Add(block.Header.Hash, block.Transactions)
-	}
+
 	return state, receiptes, nil, 0
 }
 
@@ -165,7 +179,8 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 //        2,丢弃该块（链上存在QN值更大的相同高度块)
 //        3,分叉调整
 func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) types.AddBlockResult {
-	return chain.addBlockOnChain(source, b)
+	ret, _ := chain.addBlockOnChain(source, b)
+	return ret
 }
 
 func (chain *FullBlockChain) consensusVerifyBlock(bh *types.BlockHeader) (bool, error) {
@@ -191,27 +206,28 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string)  
 	}
 	eh := chain.GetConsensusHelper().EstimatePreHeight(b.Header)
 	if eh <= chain.Height() {	//pre高度小于当前高度，则判断为产生分叉
+		bh := b.Header
+		top := chain.latestBlock
+		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.String(), bh.Height, bh.PreHash.String(), top.Hash.String(), top.Height, top.PreHash.String())
 		chain.forkProcessor.tryToProcessFork(source, b.Header)
 	}
 }
 
-func (chain *FullBlockChain) validateBlock(source string, b *types.Block) bool {
+func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool, error) {
 	if b == nil {
-		return false
+		return false, fmt.Errorf("block is nil")
 	}
 
 	if !chain.hasBlock(b.Header.PreHash) {
-		Logger.Debugf("coming block %s,%d has no pre on local chain.Forking...", b.Header.Hash.String(), b.Header.Height)
 		chain.processFutureBlock(b, source)
-		return false
+		return false, ErrPreNotExist
 	}
 
 	if chain.compareChainWeight(b.Header) > 0 {
-		return false
+		return false, ErrLocalMoreWeight
 	}
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-		Logger.Errorf("checkProveRoot fail, err=%v", err.Error())
-		return false
+		return false, fmt.Errorf("check prove root fail, err=%v", err.Error())
 	}
 
 	groupValidateResult, err := chain.consensusVerifyBlock(b.Header)
@@ -221,22 +237,27 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) bool {
 		} else {
 			Logger.Errorf("Fail to validate group sig!Err:%s", err.Error())
 		}
-		return false
+		return false, fmt.Errorf("consensus verify fail, err=%v", err.Error())
 	}
-	return true
+	return true, nil
 }
 
-func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult) {
+func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult, err error) {
+	begin := time.Now()
+	defer func() {
+		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.String(), b.Header.Height, err, time.Since(begin).String())
+	}()
 	topBlock := chain.getLatestBlock()
 	bh := b.Header
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
 	if chain.hasBlock(bh.Hash) {
-		return types.BlockExisted
+		return types.BlockExisted, ErrBlockExist
 	}
-	if ok := chain.validateBlock(source, b); !ok {
+	if ok, e := chain.validateBlock(source, b); !ok {
 		ret = types.AddBlockFailed
+		err = e
 		return
 	}
 
@@ -248,6 +269,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		//	go chain.forkProcessor.tryToProcessFork(source, chain.latestBlock.Height)
 		//}
 		ret = types.AddBlockFailed
+		err = fmt.Errorf("verify block fail")
 		return
 	}
 
@@ -265,24 +287,27 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	if chain.hasBlock(bh.Hash) {
 		ret = types.BlockExisted
+		err = ErrBlockExist
 		return
 	}
 
 	if !chain.hasBlock(bh.PreHash) {
 		chain.processFutureBlock(b, source)
 		ret = types.AddBlockFailed
+		err = ErrPreNotExist
 		return
 	}
 
 	//直接链上
 	if bh.PreHash == topBlock.Hash {
-		ok, err := chain.commitBlock(b, state, receipts)
+		ok, e := chain.commitBlock(b, state, receipts)
 		if ok {
 			ret = types.AddBlockSucc
 			return
 		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, err)
+			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
 			ret =  types.AddBlockFailed
+			err = ErrCommitBlockFail
 			return
 		}
 	}
@@ -290,28 +315,34 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	cmpWeight := chain.compareChainWeight(bh)
 	if cmpWeight > 0 {	//本地权重更大，丢弃
 		ret = types.BlockTotalQnLessThanLocal
+		err = ErrLocalMoreWeight
 		return
 	} else if cmpWeight == 0 {
 		ret = types.BlockExisted
+		err = ErrBlockExist
 		return
 	} else {//分叉
 		newTop := chain.queryBlockHeaderByHash(bh.PreHash)
-		if err := chain.resetTop(newTop); err != nil {
+		old := chain.latestBlock
+		Logger.Debugf("simple fork reset top: old %v %v %v %v, coming %v %v %v %v", old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, bh.Hash.ShortS(), bh.Height, bh.PreHash.ShortS(), bh.TotalQN)
+		if e := chain.resetTop(newTop); e != nil {
 			Logger.Warnf("reset top err, currTop %v, setTop %v, setHeight %v", topBlock.Hash.String(), newTop.Hash.String(), newTop.Height)
 			ret = types.AddBlockFailed
+			err = fmt.Errorf("reset top err:%v", e)
 			return
 		}
 
 		if chain.getLatestBlock().Hash != bh.PreHash {
 			panic("reset top error")
 		}
-		ok, err := chain.commitBlock(b, state, receipts)
+		ok, e := chain.commitBlock(b, state, receipts)
 		if ok {
 			ret = types.AddBlockSucc
 			return
 		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, err)
+			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
 			ret =  types.AddBlockFailed
+			err = ErrCommitBlockFail
 			return
 		}
 	}
@@ -330,11 +361,18 @@ func (chain *FullBlockChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
-		panic("Pre block nil !!")
+		return false, nil,nil
 	}
+
+	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
+	if cached != nil {
+		cb := cached.(*castingBlock)
+		return true, cb.state, cb.receipts
+	}
+
 	preRoot := preBlock.StateTree
 	if len(block.Transactions) > 0 {
-		Logger.Debugf("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
+		//Logger.Debugf("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
 	}
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
@@ -358,8 +396,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block) {
-	Logger.Infof("ON chain succ! height=%d,hash=%s", remoteBlock.Header.Height, remoteBlock.Header.Hash.Hex())
-	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: *remoteBlock,})
+	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: remoteBlock,})
 
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	//if BlockSyncer != nil {
@@ -369,7 +406,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block) {
 }
 
 func (chain *FullBlockChain) onBlockAddSuccess(message notify.Message)  {
-	b := message.GetData().(types.Block)
+	b := message.GetData().(*types.Block)
 	if value, _ := chain.futureBlocks.Get(b.Header.Hash); value != nil {
 		block := value.(*types.Block)
 		Logger.Debugf("Get block from future blocks,hash:%s,height:%d", block.Header.Hash.String(), block.Header.Height)

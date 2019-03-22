@@ -39,7 +39,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"taslog"
-	"time"
 	"monitor"
 )
 
@@ -116,63 +115,25 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 			return
 		}
 	}
-
 	ok := mediator.StartMiner()
 
 	fmt.Println("Syncing block and group info from tas net.Waiting...")
-	core.InitGroupSyncer()
-	//common.DefaultLogger.Infof("Waiting for group init done!")
-	//for {
-	//	if core.GroupSyncer.IsInit() {
-	//		break
-	//	}
-	//	time.Sleep(time.Millisecond * 500)
-	//}
-	//common.DefaultLogger.Infof("Group first init done!\nStart to init block!")
-	core.InitBlockSyncer()
+	core.InitGroupSyncer(core.GroupChainImpl, core.BlockChainImpl.(*core.FullBlockChain))
+	core.InitBlockSyncer(core.BlockChainImpl.(*core.FullBlockChain))
+
+	var appFun applyFunc
 	if len(apply) > 0 {
-		go func() {
-			timer := time.NewTimer(time.Second * 10)
-			for {
-				<-timer.C
-				if core.BlockSyncer.IsInit() {
-					break
-				} else {
-					var candicateHeight uint64
-					if core.BlockSyncer != nil {
-						_, _, candicateHeight, _ = core.BlockSyncer.GetCandidateForSync()
-					}
-					localBlockHeight := core.BlockChainImpl.Height()
-					fmt.Printf("Sync candidate block height:%d,local block height:%d\n", candicateHeight, localBlockHeight)
-					timer.Reset(time.Second * 5)
-				}
-			}
-			fmt.Println("Sync data finished!")
-			balance := core.BlockChainImpl.GetBalance(common.HexToAddress(gtas.account.Address))
-			if balance.Int64() < common.VerifyStake {
-				fmt.Println("Please check your balance to ensure that you have enough tas coin to pledge to be a miner!")
-				for {
-					time.Sleep(time.Second * 5)
-					balance := core.BlockChainImpl.GetBalance(common.HexToAddress(gtas.account.Address))
-					if balance.Int64() >= common.VerifyStake {
-						break
-					}
-				}
-			}
-			fmt.Println("Balance enough!")
-			fmt.Println("Start Mining...")
-			switch apply {
-			case "heavy":
-				gtas.autoApplyMiner(types.MinerTypeHeavy)
-				//result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeHeavy)
-				//common.DefaultLogger.Infof("initial apply heavy result:%v", result)
-			case "light":
-				gtas.autoApplyMiner(types.MinerTypeLight)
-				//result, _ := GtasAPIImpl.MinerApply(500, types.MinerTypeLight)
-				//common.DefaultLogger.Infof("initial apply light result:%v", result)
-			}
-		}()
+		fmt.Printf("apply role: %v", apply)
+		mtype := types.MinerTypeHeavy
+		if apply == "light" {
+			mtype = types.MinerTypeLight
+		}
+		appFun = func() {
+			gtas.autoApplyMiner(mtype)
+		}
 	}
+	initMsgShower(mediator.Proc.GetMinerID().Serialize(), appFun)
+
 	gtas.inited = true
 	if !ok {
 		return
@@ -449,6 +410,8 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	}
 
 	mediator.Proc.BeginGenesisGroupMember()
+
+
 	return nil
 }
 

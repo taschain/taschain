@@ -18,13 +18,11 @@ package core
 import (
 	"bytes"
 	"common"
-	"github.com/vmihailenco/msgpack"
 	"math/big"
 	"middleware/types"
 	"storage/account"
 	"storage/serialize"
 	"storage/trie"
-	"time"
 )
 
 const ChainDataVersion = 2

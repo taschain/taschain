@@ -86,8 +86,6 @@ func newSendList() *SendList {
 		GroupChainCountMsg: SendPriorityHigh,
 		ReqGroupMsg:        SendPriorityHigh,
 		GroupMsg:           SendPriorityHigh,
-		ChainPieceInfoReq:  SendPriorityHigh,
-		ChainPieceInfo:     SendPriorityHigh,
 		ReqChainPieceBlock: SendPriorityHigh,
 		ChainPieceBlock:    SendPriorityHigh,
 		CastVerifyMsg:       SendPriorityHigh,

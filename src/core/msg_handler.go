@@ -16,8 +16,6 @@
 package core
 
 import (
-	"math/big"
-
 	"network"
 	"common"
 	"middleware/types"
@@ -55,7 +53,7 @@ func (ch ChainHandler) transactionBroadcastHandler(msg notify.Message) {
 		Logger.Errorf("Unmarshal transactions error:%s", e.Error())
 		return
 	}
-	BlockChainImpl.GetTransactionPool().AddBroadcastTransactions(txs)
+	BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 }
 
 func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
@@ -71,14 +69,11 @@ func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
 	}
 
 	source := trm.Peer
-	Logger.Debugf("receive transaction req from %s,%d-%D,tx_len", source, m.BlockHeight, m.CurrentBlockHash.String(), len(m.TransactionHashes))
+	Logger.Debugf("receive transaction req from %s,hash %v,tx_len %v", source, m.CurrentBlockHash.String(), len(m.TransactionHashes))
 	if nil == BlockChainImpl {
 		return
 	}
-	transactions, need, e := BlockChainImpl.GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
-	if e == ErrNil {
-		m.TransactionHashes = need
-	}
+	transactions, _ := BlockChainImpl.GetTransactions(m.CurrentBlockHash, m.TransactionHashes)
 
 	if nil != transactions && 0 != len(transactions) {
 		sendTransactions(transactions, source)
@@ -98,7 +93,7 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 		Logger.Errorf("Unmarshal got transactions error:%s", e.Error())
 		return
 	}
-	BlockChainImpl.GetTransactionPool().AddMissTransactions(txs)
+	BlockChainImpl.GetTransactionPool().AddTransactions(txs)
 
 	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: tgm.Peer}
 	notify.BUS.Publish(notify.TransactionGotAddSucc, &m)
@@ -137,8 +132,7 @@ func unMarshalTransactionRequestMessage(b []byte) (*transactionRequestMessage, e
 	}
 
 	currentBlockHash := common.BytesToHash(m.CurrentBlockHash)
-	blockPv := &big.Int{}
-	blockPv.SetBytes(m.BlockPv)
-	message := transactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: *m.BlockHeight, BlockPv: blockPv}
+
+	message := transactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
 	return &message, nil
 }

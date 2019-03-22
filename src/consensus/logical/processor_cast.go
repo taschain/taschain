@@ -237,7 +237,6 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
-	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
 	cbm := &model.ConsensusBlockMessage{
 		Block: *block,
 	}
@@ -278,15 +277,25 @@ func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groups
 	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
 }
 
+
+func (p *Processor) genProveHash(heightLimit uint64, rand []byte, id groupsig.ID) common.Hash {
+	h := p.sampleBlockHeight(heightLimit, rand, id)
+	b := p.MainChain.QueryBlockFloor(h)
+	hash := p.GenVerifyHash(b, id)
+	if b != nil {
+		stdLogger.Debugf("gen proveHash: height %v, id %v, sampleHeight %v, realHeight %v, realHash %v, proveHash %v", heightLimit, id.GetHexString(), h, b.Header.Height, b.Header.Hash.String(), hash.String())
+	} else {
+		stdLogger.Debugf("gen proveHash: height %v, id %v, sampleHeight %v, proveHash %v", heightLimit, id.GetHexString(), h, hash.String())
+	}
+
+	return hash
+}
+
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	hashs := make([]common.Hash, len(ids))
 
-	//blog := newBizLog("GenProveHashs")
 	for idx, id := range ids {
-		h := p.sampleBlockHeight(heightLimit, rand, id)
-		b := p.getNearestBlockByHeight(h)
-		hashs[idx] = p.GenVerifyHash(b, id)
-		//blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
+		hashs[idx] = p.genProveHash(heightLimit, rand, id)
 	}
 	proves = hashs
 

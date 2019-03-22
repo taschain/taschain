@@ -29,8 +29,6 @@ type BlockChain interface {
 	vm.ChainReader
 	AccountRepository
 
-	IsLightMiner() bool
-
 	//构建一个铸块（组内当前铸块人同步操作）
 	CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
 
@@ -64,6 +62,8 @@ type BlockChain interface {
 	//query first block whose height <= height
 	QueryBlockFloor(height uint64) *types.Block
 
+	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
+
 	//根据哈希取得某个交易
 	// 如果本地有，则立即返回。否则需要调用p2p远程获取
 	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
@@ -90,7 +90,9 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error)
+	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash)
+
+	Version() int
 }
 
 type ExecutedTransaction struct {
@@ -111,30 +113,33 @@ type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
 	//rcv transactions broadcast from other nodes
-	AddBroadcastTransactions(txs []*types.Transaction)
+	AddTransactions(txs []*types.Transaction)
 
 	//add  local miss transactions while verifying blocks to the transaction pool
-	AddMissTransactions(txs []*types.Transaction)
+	//AddMissTransactions(txs []*types.Transaction)
 
-	GetTransaction(hash common.Hash) (*types.Transaction, error)
+	GetTransaction(hash common.Hash) (*types.Transaction)
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
 	GetReceipt(hash common.Hash) *types.Receipt
 
-	GetExecuted(hash common.Hash) *ExecutedTransaction
-
 	GetReceived() []*types.Transaction
 
 	TxNum() uint64
 
-	MarkExecuted(blockHash common.Hash, receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash) error
+	SaveReceipts(blockHash common.Hash, receipts types.Receipts) error
 
-	UnMarkExecuted(blockHash common.Hash, txs []*types.Transaction) error
+	DeleteReceipts(txs []common.Hash) error
+
+	RemoveFromPool(txs []common.Hash)
+
+	BackToPool(txs []*types.Transaction)
 
 	Clear()
 
-	GetTransactionsByBlockHash(hash common.Hash) []*types.Transaction
+	GetTxBlockHash(txHash common.Hash) (*common.Hash)
+
 }
 
 //组管理接口

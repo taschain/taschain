@@ -106,13 +106,12 @@ func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, 
 		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
 	}
 
-	//todo 暂时去掉全量账本验证(当取样块高不存在时可能导致计算量很大)
-	return true, nil
-	//if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
-	//	return true, nil
-	//} else {
-	//	return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
-	//}
+	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
+		return true, nil
+	} else {
+		panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
+		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
+	}
 
 }
 

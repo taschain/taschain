@@ -23,7 +23,11 @@ import (
 
 func TestCreateLDB(t *testing.T) {
 	// 创建ldb实例
-	ldb, err := NewPrefixDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		fmt.Printf("error to create ldb : %s\n", "testldb")
 		return
@@ -81,7 +85,11 @@ func TestCreateLDB(t *testing.T) {
 
 func TestLDBScan(t *testing.T) {
 	//ldb, _ := NewLDBDatabase("/Users/Kaede/TasProject/test1",1,1)
-	ldb, _ := NewPrefixDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	key1 := []byte{0,1,1}
 	key2 := []byte{0,1,2}
 	key3 := []byte{0,2,1}
@@ -120,7 +128,12 @@ func TestLRUMemDatabase(t *testing.T) {
 
 func TestClearLDB(t *testing.T) {
 	// 创建ldb实例
-	ldb, err := NewPrefixDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -148,7 +161,11 @@ func TestClearLDB(t *testing.T) {
 }
 
 func TestBatchPutVisiableBeforeWrite(t *testing.T) {
-	ldb, err := NewPrefixDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -181,7 +198,11 @@ func TestBatchPutVisiableBeforeWrite(t *testing.T) {
 }
 
 func TestIteratorWithPrefix(t *testing.T) {
-	ldb, err := NewPrefixDatabase("testdb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -214,12 +235,17 @@ func TestIteratorWithPrefix(t *testing.T) {
 }
 
 func TestIteratorWithPrefix2(t *testing.T) {
-	ldb, err := NewPrefixDatabase("testdb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
 	}
-	ldb2, err := NewPrefixDatabase("testa")
+
+	ldb2, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return

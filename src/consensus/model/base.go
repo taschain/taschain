@@ -36,7 +36,7 @@ type SignData struct {
 }
 
 func (sd SignData) IsEqual(rhs SignData) bool {
-	return sd.DataHash.Str() == rhs.DataHash.Str() && sd.SignMember.IsEqual(rhs.SignMember) && sd.DataSign.IsEqual(rhs.DataSign)
+	return sd.DataHash == rhs.DataHash && sd.SignMember.IsEqual(rhs.SignMember) && sd.DataSign.IsEqual(rhs.DataSign)
 }
 
 func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {

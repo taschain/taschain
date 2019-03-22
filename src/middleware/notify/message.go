@@ -41,7 +41,7 @@ func (m *BlockResponseMessage) GetData() interface{} {
 }
 
 type BlockOnChainSuccMessage struct {
-	Block types.Block
+	Block *types.Block
 }
 
 func (m *BlockOnChainSuccMessage) GetRaw() []byte {
@@ -179,12 +179,12 @@ func (m *GroupHeightMessage) GetData() interface{} {
 }
 
 type GroupReqMessage struct {
-	GroupIdByte []byte
-	Peer        string
+	ReqBody []byte
+	Peer    string
 }
 
 func (m *GroupReqMessage) GetRaw() []byte {
-	return m.GroupIdByte
+	return m.ReqBody
 }
 func (m *GroupReqMessage) GetData() interface{} {
 	return m

@@ -17,8 +17,6 @@ package core
 
 import (
 	"time"
-	"math/big"
-
 	"common"
 	"network"
 	"middleware/pb"
@@ -30,22 +28,22 @@ import (
 type transactionRequestMessage struct {
 	TransactionHashes []common.Hash
 	CurrentBlockHash  common.Hash
-	BlockHeight       uint64
-	BlockPv           *big.Int
+	//BlockHeight       uint64
+	//BlockPv           *big.Int
 }
 
 
-func requestTransaction(m transactionRequestMessage, castorId string) {
+func requestTransaction(m *transactionRequestMessage, castorId string) {
 	if castorId == "" {
 		return
 	}
 
-	body, e := marshalTransactionRequestMessage(&m)
+	body, e := marshalTransactionRequestMessage(m)
 	if e != nil {
 		Logger.Errorf("Discard MarshalTransactionRequestMessage because of marshal error:%s!", e.Error())
 		return
 	}
-	Logger.Debugf("send REQ_TRANSACTION_MSG to %s,height:%d,tx_len:%d,hash:%s,time at:%v", castorId, m.BlockHeight, m.CurrentBlockHash, len(m.TransactionHashes), time.Now())
+	Logger.Debugf("send REQ_TRANSACTION_MSG to %s,tx_len:%v,hash:%s,time at:%v", castorId, len(m.TransactionHashes),m.CurrentBlockHash.String(), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
 }
@@ -92,7 +90,7 @@ func marshalTransactionRequestMessage(m *transactionRequestMessage) ([]byte, err
 	}
 
 	currentBlockHash := m.CurrentBlockHash.Bytes()
-	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash, BlockHeight: &m.BlockHeight, BlockPv: m.BlockPv.Bytes()}
+	message := tas_middleware_pb.TransactionRequestMessage{TransactionHashes: txHashes, CurrentBlockHash: currentBlockHash}
 	return proto.Marshal(&message)
 }
 
