@@ -281,7 +281,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		return
 	}
 	//如果对方的权重已经低于本地权重，则不用后续处理
-	//if fp.chain.compareBlockWeight(topHeader, ctx.localTop) < 0 {
+	//if fp.gchain.compareBlockWeight(topHeader, ctx.localTop) < 0 {
 	//	fp.logger.Debugf("local weight is bigger than peer:%v, localTop %v %v, peerTop %v %v", source, ctx.localTop.Hash.String(), ctx.localTop.Height, topHeader.Hash.String(), topHeader.Height)
 	//	return
 	//}

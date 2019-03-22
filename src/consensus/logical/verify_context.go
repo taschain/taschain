@@ -26,6 +26,7 @@ import (
 	"consensus/base"
 	"fmt"
 	"consensus/groupsig"
+	"math/big"
 )
 
 /*
@@ -121,10 +122,38 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 
 type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
 
+type blockWeight struct {
+	totalQN uint64
+	pv	*big.Int
+}
+
+func newBlockWeight(bh *types.BlockHeader) *blockWeight {
+	return &blockWeight{
+		totalQN: bh.TotalQN,
+		pv: base.VRF_proof2hash(base.VRFProve(bh.ProveValue.Bytes())).Big(),
+	}
+}
+
+func (bw *blockWeight) moreWeight(bw2 *blockWeight) bool {
+	if bw.totalQN > bw2.totalQN {
+		return true
+	} else if bw.totalQN < bw2.totalQN {
+		return false
+	}
+    return bw.pv.Cmp(bw2.pv) > 0
+}
+
+func (bw *blockWeight) String() string {
+    pvF := new(big.Float).SetInt(bw.pv)
+    f, _ := pvF.Float64()
+    return fmt.Sprintf("QN:%v,PV:%v", bw.totalQN, f)
+}
+
+
 type VerifyContext struct {
 	prevBH     *types.BlockHeader
 	castHeight uint64
-	signedMaxQN uint64
+	signedMaxWeight atomic.Value //*blockWeight
 	createTime      time.Time
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
@@ -144,7 +173,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		expireTime:      expire,
 		createTime:      time.Now(),
 		consensusStatus: CBCS_CASTING,
-		signedMaxQN: 	0,
+		//signedMaxWeight: 	newBlockWeight(),
 		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
 	}
@@ -198,26 +227,38 @@ func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {
 	return nil
 }
 
-func (vc *VerifyContext) getSignedMaxQN() uint64 {
- 	return atomic.LoadUint64(&vc.signedMaxQN)
+func (vc *VerifyContext) getSignedMaxWeight() *blockWeight {
+ 	v := vc.signedMaxWeight.Load()
+	if v == nil {
+		return nil
+	}
+	return v.(*blockWeight)
 }
 
-func (vc *VerifyContext) hasSignedBiggerQN(totalQN uint64) bool {
-	return vc.getSignedMaxQN() > totalQN
+func (vc *VerifyContext) hasSignedMoreWeightThan(bh *types.BlockHeader) bool {
+	bw := vc.getSignedMaxWeight()
+	if bw == nil {
+		return false
+	}
+	bw2 := newBlockWeight(bh)
+	return bw.moreWeight(bw2)
 }
 
-func (vc *VerifyContext) updateSignedMaxQN(totalQN uint64) bool {
-	if vc.getSignedMaxQN() < totalQN {
-		atomic.StoreUint64(&vc.signedMaxQN, totalQN)
+func (vc *VerifyContext) updateSignedMaxWeightBlock(bh *types.BlockHeader) bool {
+	bw := vc.getSignedMaxWeight()
+	bw2 := newBlockWeight(bh)
+	if bw != nil && bw.moreWeight(bw2) {
+		return false
+	} else {
+		vc.signedMaxWeight.Store(bw2)
 		return true
 	}
-	return false
 }
 
 func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (slot *SlotContext, err error) {
 	//只签qn不小于已签出的最高块的块
-	if vc.hasSignedBiggerQN(bh.TotalQN) {
-		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxQN(), bh.TotalQN)
+	if vc.hasSignedMoreWeightThan(bh) {
+		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
 	}
 
@@ -260,8 +301,8 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 		blog.log("prepareSlot find exist, status %v", sc.GetSlotStatus())
 		return sc, nil
 	} else {
-		if vc.hasSignedBiggerQN(bh.TotalQN) {
-			return nil, fmt.Errorf("hasSignedBiggerQN")
+		if vc.hasSignedMoreWeightThan(bh) {
+			return nil, fmt.Errorf("hasSignedMoreWeightThan")
 		}
 
 		sc = createSlotContext(bh, vc.blockCtx.threshold())

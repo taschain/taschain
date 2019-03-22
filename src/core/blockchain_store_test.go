@@ -30,11 +30,11 @@ func TestFullBlockChain_QueryBlockFloor(t *testing.T) {
 	initBlockChain(nil)
 
 	chain := BlockChainImpl.(*FullBlockChain)
-	//top := chain.latestBlock
+	//top := gchain.latestBlock
 	//t.Log(top.Height, top.Hash.String())
 	//
 	//for h := uint64(4460); h <= 4480; h++ {
-	//	bh := chain.queryBlockHeaderByHeightFloor(h)
+	//	bh := gchain.queryBlockHeaderByHeightFloor(h)
 	//	t.Log(bh.Height, bh.Hash.String())
 	//}
 

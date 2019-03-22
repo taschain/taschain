@@ -169,12 +169,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	if err != nil {
 		return err
 	}
-	//chain.castedBlock, err = lru.New(10)
+	//gchain.castedBlock, err = lru.New(10)
 	//if err != nil {
 	//	return err
 	//}
 	//
-	//chain.verifiedBodyCache, _ = lru.New(50)
+	//gchain.verifiedBodyCache, _ = lru.New(50)
 
 	ds, err := tasdb.NewDataSource(chain.config.dbfile)
 	if err != nil {
@@ -313,32 +313,32 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 
 //清除链所有数据
 func (chain *FullBlockChain) Clear() error {
-	//chain.mu.Lock()
-	//defer chain.mu.Unlock()
+	//gchain.mu.Lock()
+	//defer gchain.mu.Unlock()
 	//
-	//chain.init = false
-	//chain.latestBlock = nil
-	//chain.topBlocks, _ = lru.New(1000)
+	//gchain.init = false
+	//gchain.latestBlock = nil
+	//gchain.topBlocks, _ = lru.New(1000)
 	//
 	//var err error
 	//
-	//chain.blocks.Close()
-	//chain.blockHeight.Close()
-	//chain.statedb.Close()
+	//gchain.blocks.Close()
+	//gchain.blockHeight.Close()
+	//gchain.statedb.Close()
 	//
 	//os.RemoveAll(tasdb.DEFAULT_FILE)
 	//
-	//chain.statedb, err = ds.NewPrefixDatabase(chain.config.state)
+	//gchain.statedb, err = ds.NewPrefixDatabase(gchain.config.state)
 	//if err != nil {
 	//	return err
 	//}
 	//
-	//chain.stateCache = account.NewDatabase(chain.statedb)
-	//chain.executor = NewTVMExecutor(chain)
+	//gchain.stateCache = account.NewDatabase(gchain.statedb)
+	//gchain.executor = NewTVMExecutor(gchain)
 	//
-	//chain.insertGenesisBlock()
-	//chain.init = true
-	//chain.transactionPool.Clear()
+	//gchain.insertGenesisBlock()
+	//gchain.init = true
+	//gchain.transactionPool.Clear()
 	return nil
 }
 

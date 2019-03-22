@@ -28,6 +28,7 @@ import (
 	"middleware/ticker"
 	"math/big"
 	"github.com/ethereum/go-ethereum/common/math"
+	"fmt"
 )
 
 const (
@@ -104,9 +105,22 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.BlockInfoNotify, bs.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockReq, bs.blockReqHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, bs.blockResponseMsgHandler)
+	notify.BUS.Subscribe(notify.GroupAddSucc, bs.onGroupAddSuccess)
 
 	BlockSyncer = bs
 
+}
+
+func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message)  {
+	g := msg.GetData().(*types.Group)
+	beginHeight := g.Header.WorkHeight
+	topHeight := bs.chain.Height()
+
+	//当前块高已经超过生效高度了,组可能有点问题
+	if beginHeight < topHeight {
+		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.Id), g.GroupHeight, beginHeight, topHeight)
+		panic(s)
+	}
 }
 
 func (bs *blockSyncer) newTopBlockInfo(top *types.BlockHeader) *TopBlockInfo {
@@ -259,7 +273,7 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 	source := bnm.Peer
 	PeerManager.heardFromPeer(source)
 
-	//topBlock := bs.chain.QueryTopBlock()
+	//topBlock := bs.gchain.QueryTopBlock()
 	//localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash
 	//if !bs.isUsefulCandidate(localTotalQn, localTopHash, blockInfo.TotalQn, blockInfo.Hash) {
 	//	return

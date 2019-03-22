@@ -265,8 +265,8 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	if verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		//if verifyResult == 2 {
-		//	Logger.Debugf("coming block  has no pre on local chain.Forking...", )
-		//	go chain.forkProcessor.tryToProcessFork(source, chain.latestBlock.Height)
+		//	Logger.Debugf("coming block  has no pre on local gchain.Forking...", )
+		//	go gchain.forkProcessor.tryToProcessFork(source, gchain.latestBlock.Height)
 		//}
 		ret = types.AddBlockFailed
 		err = fmt.Errorf("verify block fail")
@@ -400,7 +400,7 @@ func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block) {
 
 	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
 	//if BlockSyncer != nil {
-	//	topBlockInfo := TopBlockInfo{Hash: chain.latestBlock.Hash, TotalQn: chain.latestBlock.TotalQN, Height: chain.latestBlock.Height, PreHash: chain.latestBlock.PreHash}
+	//	topBlockInfo := TopBlockInfo{Hash: gchain.latestBlock.Hash, TotalQn: gchain.latestBlock.TotalQN, Height: gchain.latestBlock.Height, PreHash: gchain.latestBlock.PreHash}
 	//	go BlockSyncer.sendTopBlockInfoToNeighbor(topBlockInfo)
 	//}
 }

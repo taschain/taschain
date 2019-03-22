@@ -14,14 +14,14 @@ import (
 **  Description: 
 */
 
-//func (chain *FullBlockChain) PutCheckValue(height uint64, hash []byte) error {
+//func (gchain *FullBlockChain) PutCheckValue(height uint64, hash []byte) error {
 //	key := utility.UInt64ToByte(height)
-//	return chain.checkdb.Put(key, hash)
+//	return gchain.checkdb.Put(key, hash)
 //}
 //
-//func (chain *FullBlockChain) GetCheckValue(height uint64) (common.Hash, error) {
+//func (gchain *FullBlockChain) GetCheckValue(height uint64) (common.Hash, error) {
 //	key := utility.UInt64ToByte(height)
-//	raw, err := chain.checkdb.Get(key)
+//	raw, err := gchain.checkdb.Get(key)
 //	return common.BytesToHash(raw), err
 //}
 
@@ -244,7 +244,7 @@ func (chain *FullBlockChain) hasBlock(hash common.Hash) bool {
 		return ok
 	}
 	return false
-	//pre := chain.queryBlockHeaderByHash(bh.PreHash)
+	//pre := gchain.queryBlockHeaderByHash(bh.PreHash)
 	//return pre != nil
 }
 

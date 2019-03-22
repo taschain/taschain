@@ -156,7 +156,7 @@ func (m *ChainPieceBlockMessage) GetData() interface{} {
 
 //--------------------------------------------------------------------------------------------------------------------
 type GroupMessage struct {
-	Group types.Group
+	Group *types.Group
 }
 
 func (m *GroupMessage) GetRaw() []byte {

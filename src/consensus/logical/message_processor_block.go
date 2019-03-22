@@ -63,7 +63,7 @@ func (p *Processor) normalPieceVerify(mtype string, sender string, gid groupsig.
 	bh := slot.BH
 	castor := groupsig.DeserializeId(bh.Castor)
 	if slot.StatusTransform(SS_WAITING, SS_SIGNED) && !castor.IsEqual(p.GetMinerID()) {
-		vctx.updateSignedMaxQN(bh.TotalQN)
+		vctx.updateSignedMaxWeightBlock(bh)
 		vctx.increaseSignedNum()
 		skey := p.getSignKey(gid)
 		var cvm model.ConsensusVerifyMessage

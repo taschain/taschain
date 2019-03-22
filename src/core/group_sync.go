@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	sendGroupLocalTopInterval       = 5
+	sendGroupLocalTopInterval       = 10
 	syncGroupNeightborsInterval       = 10
 	syncGroupNeightborTimeout       = 5
 	GroupSyncCandidatePoolSize = 100
@@ -105,7 +105,8 @@ func (c *groupsCache) firstGroup() *types.Group {
 }
 
 type groupSyncer struct {
-	chain 		*GroupChain
+	gchain *GroupChain
+
 	syncingPeer     string
 	candidatePool map[string]uint64
 
@@ -119,11 +120,11 @@ type groupSyncer struct {
 
 func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
 	gs := &groupSyncer{
-		chain: gchain,
-		syncingPeer: "",
+		gchain:        gchain,
+		syncingPeer:   "",
 		candidatePool: make(map[string]uint64),
-		ticker: bchain.ticker,
-		cache: &groupsCache{},
+		ticker:        bchain.ticker,
+		cache:         &groupsCache{},
 	}
 	gs.logger = taslog.GetLoggerByIndex(taslog.GroupSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
@@ -141,6 +142,8 @@ func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
 	GroupSyncer = gs
 }
 
+
+
 func (gs *groupSyncer) onBlockAddSuccess(msg notify.Message)  {
 	b := msg.GetData().(*types.Block)
 	first := gs.cache.firstGroup()
@@ -154,7 +157,7 @@ func (gs *groupSyncer) onBlockAddSuccess(msg notify.Message)  {
 }
 
 func (gs *groupSyncer) notifyNeighbor() bool {
-	gs.sendGroupHeightToNeighbor(gs.chain.Height())
+	gs.sendGroupHeightToNeighbor(gs.gchain.Height())
 	return true
 }
 
@@ -176,7 +179,7 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 	height := utility.ByteToUInt64(groupHeightMsg.HeightByte)
 	PeerManager.heardFromPeer(source)
 
-	localGroupHeight := gs.chain.Height()
+	localGroupHeight := gs.gchain.Height()
 	gs.logger.Debugf("Rcv groupHeight from %v, height %v, local %v", source, height, localGroupHeight)
 
 
@@ -214,7 +217,7 @@ func (gs *groupSyncer) syncTimeoutRoutineName(id string) string {
 }
 
 func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
-	localGroupHeight := gs.chain.Height()
+	localGroupHeight := gs.gchain.Height()
 	gs.logger.Debugf("Local group height:%d", localGroupHeight)
 
 	for id, _ := range gs.candidatePool {
@@ -251,7 +254,7 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 		gs.logger.Debugf("Get no candidate for sync!")
 		return false
 	}
-	local := gs.chain.Height()
+	local := gs.gchain.Height()
 	if local >= candidateHeight {
 		gs.logger.Debugf("local heigher than candidate: %v >= %v", local, candidateHeight)
 		return false
@@ -259,7 +262,7 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 	candInfo := &SyncCandidateInfo{
 		Candidate: id,
 		CandidateHeight: candidateHeight,
-		ReqHeight: gs.chain.Height()+1,
+		ReqHeight: gs.gchain.Height()+1,
 	}
 
 	notify.BUS.Publish(notify.GroupSync, &SyncMessage{CandidateInfo:candInfo})
@@ -312,7 +315,7 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	sourceId := groupReqMsg.Peer
 	reqHeight := utility.ByteToUInt64(groupReqMsg.ReqBody)
 	gs.logger.Debugf("Rcv group req from:%s,height:%v\n", sourceId, reqHeight)
-	groups := gs.chain.GetGroupsAfterHeight(reqHeight, GroupResponseSize)
+	groups := gs.gchain.GetGroupsAfterHeight(reqHeight, GroupResponseSize)
 
 	gs.sendGroups(sourceId, groups)
 }
@@ -370,7 +373,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 	allSuccess := gs.batchAddGroup(groups)
 
 	peerHeight := gs.getPeerHeight(sourceId)
-	if allSuccess && gs.chain.Height() < peerHeight {
+	if allSuccess && gs.gchain.Height() < peerHeight {
 		gs.syncComplete(groupInfoMsg.Peer, false)
 		complete = true
 		go gs.trySyncRoutine()
@@ -380,7 +383,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 func (gs *groupSyncer) batchAddGroup(groups []*types.Group) bool {
 	allSuccess := true
 	for idx, group := range groups {
-		e := gs.chain.AddGroup(group)
+		e := gs.gchain.AddGroup(group)
 		if e != nil && e != errGroupExist {
 			gs.logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
 

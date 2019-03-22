@@ -183,7 +183,7 @@ func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
 
 func (chain *GroupChain) AddGroup(group *types.Group) error {
 	if chain.hasGroup(group.Id) {
-		notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
+		//notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
 		return errGroupExist
 	}
 
@@ -216,11 +216,8 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 		return err
 	}
 	chain.topGroups.Add(common.Bytes2Hex(group.Id), group)
-	notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: *group,})
-	//TODO: 启动同步
-	//if GroupSyncer != nil {
-	//	GroupSyncer.sendGroupHeightToNeighbor(chain.Height())
-	//}
+	notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
+
 	return nil
 }
 
