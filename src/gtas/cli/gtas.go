@@ -123,7 +123,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 
 	var appFun applyFunc
 	if len(apply) > 0 {
-		fmt.Printf("apply role: %v", apply)
+		fmt.Printf("apply role: %v\n", apply)
 		mtype := types.MinerTypeHeavy
 		if apply == "light" {
 			mtype = types.MinerTypeLight

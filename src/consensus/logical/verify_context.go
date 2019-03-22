@@ -146,7 +146,7 @@ func (bw *blockWeight) moreWeight(bw2 *blockWeight) bool {
 func (bw *blockWeight) String() string {
     pvF := new(big.Float).SetInt(bw.pv)
     f, _ := pvF.Float64()
-    return fmt.Sprintf("QN:%v,PV:%v", bw.totalQN, f)
+    return fmt.Sprintf("%v-%v", bw.totalQN, f)
 }
 
 

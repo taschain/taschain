@@ -19,7 +19,7 @@ const (
 	broadcastTimerInterval = 5
 	tickerCheckBroadcast = "check_broadcast"
 	broadcastInterval = 60*time.Second
-	maxBroadcastPerTime = 30
+	maxBroadcastPerTime = 50
 )
 
 type txBroadcastAgent struct {
