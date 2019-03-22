@@ -182,7 +182,9 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 	PeerManager.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()
-	gs.logger.Debugf("Rcv groupHeight from %v, height %v, local %v", source, height, localGroupHeight)
+	if height > localGroupHeight {
+		gs.logger.Debugf("Rcv groupHeight from %v, height %v, local %v", source, height, localGroupHeight)
+	}
 
 
 	gs.addCandidatePool(source, height)

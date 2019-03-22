@@ -308,7 +308,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		} else {
 			old := fp.chain.latestBlock
 			last := blocks[len(blocks)-1].Header
-			fp.logger.Debugf("fork process len %v. reset top: old %v %v %v %v, last %v %v %v %v", len(blocks), old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, last.Hash.String(), last.Height, last.PreHash.String(), last.TotalQN)
+			fp.logger.Debugf("fork process len %v. reset top: old %v %v %v %v, last %v %v %v %v", len(blocks), old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, last.Hash.ShortS(), last.Height, last.PreHash.ShortS(), last.TotalQN)
 
 			fp.chain.ResetTop(ancestorBH)
 			fp.chain.batchAddBlockOnChain(source, blocks, func(b *types.Block, ret types.AddBlockResult) bool {

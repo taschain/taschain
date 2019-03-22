@@ -268,7 +268,9 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height)
+	if blockInfo.Height > bs.chain.Height() {
+		bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height)
+	}
 
 	source := bnm.Peer
 	PeerManager.heardFromPeer(source)
