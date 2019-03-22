@@ -68,18 +68,16 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
 	gid := groupsig.DeserializeId(bh.GroupId)
-	if p.IsMinerGroup(gid) {
-		bc := p.GetBlockContext(gid)
-		if bc != nil {
-			bc.AddCastedHeight(bh.Height, bh.PreHash)
-			vctx := bc.GetVerifyContextByHeight(bh.Height)
-			if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
-				//如果本地没有广播准备，说明是其他节点广播过来的块，则标记为已广播
-				vctx.markBroadcast()
-			}
+	bc := p.GetBlockContext(gid)
+	if bc != nil {
+		bc.AddCastedHeight(bh.Height, bh.PreHash)
+		vctx := bc.GetVerifyContextByHeight(bh.Height)
+		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
+			//如果本地没有广播准备，说明是其他节点广播过来的块，则标记为已广播
+			vctx.markBroadcast()
 		}
-		p.removeVerifyMsgCache(bh.Hash)
 	}
+	p.removeVerifyMsgCache(bh.Hash)
 
 	vrf := p.GetVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
