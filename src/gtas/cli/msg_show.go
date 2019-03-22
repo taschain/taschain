@@ -24,6 +24,7 @@ type msgShower struct {
 	ticker *ticker.GlobalTicker
 	out 	io.Writer
 	bchain core.BlockChain
+	gchain *core.GroupChain
 	id 	[]byte
 	applied bool
 	apply applyFunc
@@ -36,6 +37,7 @@ func initMsgShower(id []byte, apply applyFunc) {
 		ticker: ticker.NewGlobalTicker("cli_ticker"),
 		out: os.Stdout,
 		bchain: core.BlockChainImpl,
+		gchain: core.GroupChainImpl,
 		id: id,
 		apply: apply,
 		applied: false,
@@ -57,7 +59,7 @@ func (ms *msgShower) showMsg(format string, a ...interface{})  {
 
 func (ms *msgShower) showHeightRoutine() bool {
 	height := ms.bchain.Height()
-	ms.showMsg("local height is %v", height)
+	ms.showMsg("local height is %v %v", height, ms.gchain.Height())
 
 	if ms.apply != nil && !ms.applied {
 		balance := core.BlockChainImpl.GetBalance(common.BytesToAddress(ms.id))

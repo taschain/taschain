@@ -64,7 +64,7 @@ func (ns *NodeResStat) startStatLoop()  {
 
 func (s *NodeResStat) statCpuAndMem() {
 	sess := sh.NewSession()
-	sess.ShowCMD = true
+	//sess.ShowCMD = true
 	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
 
 	if err == nil {
@@ -96,7 +96,7 @@ func (s *NodeResStat) statCpuAndMem() {
 
 func (s *NodeResStat) statFlow() {
 	sess := sh.NewSession()
-	sess.ShowCMD = true
+	//sess.ShowCMD = true
 	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
 
 	if err == nil {
