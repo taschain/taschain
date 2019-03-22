@@ -131,6 +131,9 @@ func (fp *forkProcessor) tryToProcessFork(targetNode string, bh *types.BlockHead
 
 func (fp *forkProcessor) reqPieceTimeout(id string) {
 	fp.logger.Debugf("req piece from %v timeout", id)
+	if fp.syncCtx == nil {
+		return
+	}
 	fp.lock.Lock()
 	defer fp.lock.Unlock()
 
@@ -222,7 +225,7 @@ func (fp *forkProcessor) sendChainPieceBlock(targetId string, msg *ChainPieceBlo
 }
 
 func (fp *forkProcessor) reqFinished(id string, reset bool) {
-	if fp.syncCtx.target != id {
+	if fp.syncCtx == nil || fp.syncCtx.target != id {
 		return
 	}
 	PeerManager.heardFromPeer(id)
@@ -255,6 +258,10 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	source := m.Peer
 
 	ctx := fp.syncCtx
+	if ctx == nil {
+		fp.logger.Debugf("ctx is nil: source=%v", source)
+		return
+	}
 	if source != ctx.target {//target改变了
 		fp.logger.Debugf("Unexpected chain piece block from %s, expect from %s!", source, ctx.target)
 		return
