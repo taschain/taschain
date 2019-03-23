@@ -85,7 +85,7 @@ func (fp *forkProcessor) updateContext(id string, bh *types.BlockHeader) bool {
 	}
 
 	ctx := fp.syncCtx
-	if ctx == nil || (ctx.target != id && fp.chain.compareBlockWeight(ctx.targetTop, bh) < 0 ) {
+	if ctx == nil || fp.chain.compareBlockWeight(ctx.targetTop, bh) < 0  {
 		fp.syncCtx = newCtx
 		fp.syncCtx.localTop = fp.chain.QueryTopBlock()
 		return true

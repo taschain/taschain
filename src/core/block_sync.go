@@ -27,7 +27,6 @@ import (
 	"sync"
 	"middleware/ticker"
 	"math/big"
-	"github.com/ethereum/go-ethereum/common/math"
 	"fmt"
 )
 
@@ -155,7 +154,7 @@ func (bs *blockSyncer) getBestCandidate() (string, *TopBlockInfo) {
 	var maxWeight float64 = 0
 
 	for id, top := range bs.candidatePool {
-		w := float64(top.TotalQN)*float64(math.MaxUint64) + float64(top.ShrinkPV)
+		w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
 		if w > maxWeight {
 			maxWeight = w
 			candidateId = id

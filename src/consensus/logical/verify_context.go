@@ -297,6 +297,10 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
+	if vc.slots == nil {
+		return nil, fmt.Errorf("slots is nil")
+	}
+
 	if sc := vc.findSlot(bh.Hash); sc != nil {
 		blog.log("prepareSlot find exist, status %v", sc.GetSlotStatus())
 		return sc, nil
