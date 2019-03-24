@@ -113,7 +113,7 @@ type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
 	//rcv transactions broadcast from other nodes
-	AddTransactions(txs []*types.Transaction)
+	AddTransactions(txs []*types.Transaction, from int)
 
 	//add  local miss transactions while verifying blocks to the transaction pool
 	//AddMissTransactions(txs []*types.Transaction)

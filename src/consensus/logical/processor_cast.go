@@ -210,7 +210,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
-		blog.log("core.GenerateBlock is nil! won't broadcast block!")
+		blog.log("core.GenerateBlock is nil! won't broadcast block! height=%v", bh.Height)
 		return
 	}
 	gb := p.spreadGroupBrief(bh, bh.Height+1)

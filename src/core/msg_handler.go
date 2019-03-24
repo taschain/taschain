@@ -53,7 +53,7 @@ func (ch ChainHandler) transactionBroadcastHandler(msg notify.Message) {
 		Logger.Errorf("Unmarshal transactions error:%s", e.Error())
 		return
 	}
-	BlockChainImpl.GetTransactionPool().AddTransactions(txs)
+	BlockChainImpl.GetTransactionPool().AddTransactions(txs, 1)
 }
 
 func (ch ChainHandler) transactionReqHandler(msg notify.Message) {
@@ -93,7 +93,7 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 		Logger.Errorf("Unmarshal got transactions error:%s", e.Error())
 		return
 	}
-	BlockChainImpl.GetTransactionPool().AddTransactions(txs)
+	BlockChainImpl.GetTransactionPool().AddTransactions(txs, 2)
 
 	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: tgm.Peer}
 	notify.BUS.Publish(notify.TransactionGotAddSucc, &m)

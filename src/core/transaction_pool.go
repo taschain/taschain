@@ -82,9 +82,9 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase) Tr
 	return pool
 }
 
-func (pool *TxPool) tryAddTransaction(tx *types.Transaction) (bool, error) {
+func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, error) {
 	if err := pool.verifyTransaction(tx); err != nil {
-		Logger.Debugf("Tx %s verify sig error:%s, tx type:%d", tx.Hash.String(), err.Error(), tx.Type)
+		Logger.Debugf("Tx verify sig error:%s, tx from %v, type:%d, tx %+v", err.Error(), from, tx.Type, tx)
 		return false, err
 	}
 	b, err := pool.add(tx)
@@ -92,15 +92,15 @@ func (pool *TxPool) tryAddTransaction(tx *types.Transaction) (bool, error) {
 }
 
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
-	return pool.tryAddTransaction(tx)
+	return pool.tryAddTransaction(tx, 0)
 }
 
-func (pool *TxPool) AddTransactions(txs []*types.Transaction) {
+func (pool *TxPool) AddTransactions(txs []*types.Transaction, from int) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
 	for _, tx := range txs {
-		pool.tryAddTransaction(tx)
+		pool.tryAddTransaction(tx, from)
 	}
 }
 
