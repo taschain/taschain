@@ -85,7 +85,8 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm
 
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, error) {
 	if err := pool.verifyTransaction(tx); err != nil {
-		Logger.Debugf("Tx verify sig error:%s, tx from %v, type:%d, tx %+v", err.Error(), from, tx.Type, tx)
+		//Logger.Debugf("Tx verify sig error:%s, tx from %v, type:%d, tx %+v", err.Error(), from, tx.Type, tx)
+		Logger.Debugf("test tx marshal rcv err %v, from %v, %+v  %v", err.Error(), from, tx, tx.Sign.GetHexString())
 		return false, err
 	}
 	b, err := pool.add(tx)

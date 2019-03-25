@@ -49,6 +49,9 @@ func requestTransaction(m *transactionRequestMessage, castorId string) {
 }
 
 func sendTransactions(txs []*types.Transaction, sourceId string) {
+	for _, tx := range txs {
+		Logger.Debugf("test tx marshal:%+v  %v", tx, tx.Sign.GetHexString())
+	}
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
 		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())

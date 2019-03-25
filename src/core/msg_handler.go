@@ -93,6 +93,7 @@ func (ch ChainHandler) transactionGotHandler(msg notify.Message) {
 		Logger.Errorf("Unmarshal got transactions error:%s", e.Error())
 		return
 	}
+
 	BlockChainImpl.GetTransactionPool().AddTransactions(txs, 2)
 
 	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: tgm.Peer}

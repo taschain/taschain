@@ -14,8 +14,8 @@ import (
 
 type bonusPool struct {
 	bm *BonusManager
-	pool *lru.Cache
-	blockHashIndex *lru.Cache
+	pool *lru.Cache				//txHash -> *Transaction
+	blockHashIndex *lru.Cache	//blockHash -> []*Transaction
 }
 
 func newBonusPool(pm *BonusManager, size int) *bonusPool {
