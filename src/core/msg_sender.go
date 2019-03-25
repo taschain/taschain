@@ -50,7 +50,7 @@ func requestTransaction(m *transactionRequestMessage, castorId string) {
 
 func sendTransactions(txs []*types.Transaction, sourceId string) {
 	for _, tx := range txs {
-		Logger.Debugf("test tx marshal:%+v  %v", tx, tx.Sign.GetHexString())
+		Logger.Debugf("test tx marshal 1:%v  %v", tx.Hash.String(), tx.Sign.GetHexString())
 	}
 	body, e := types.MarshalTransactions(txs)
 	if e != nil {
@@ -72,6 +72,9 @@ func broadcastTransactions(txs []*types.Transaction) {
 		if e != nil {
 			Logger.Errorf("Marshal txs error:%s", e.Error())
 			return
+		}
+		for _, tx := range txs {
+			Logger.Debugf("test tx marshal 2:%v  %v", tx.Hash.String(), tx.Sign.GetHexString())
 		}
 		Logger.Debugf("Broadcast transactions len:%d", len(txs))
 		message := network.Message{Code: network.TransactionBroadcastMsg, Body: body}
