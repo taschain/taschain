@@ -87,8 +87,12 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 		ids = append(ids, addr)
 		addr = make([]byte, common.AddressLength)
 	}
-	blockHash := common.BytesToHash(transaction.Data)
+	blockHash := bm.parseBonusBlockHash(transaction)
 	return groupId, ids, blockHash, transaction.Value
+}
+
+func (bm *BonusManager) parseBonusBlockHash(tx *types.Transaction) common.Hash {
+    return common.BytesToHash(tx.Data)
 }
 
 func (bm *BonusManager) contain(blockHash []byte, accountdb vm.AccountDB) bool {

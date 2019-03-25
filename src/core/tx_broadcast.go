@@ -64,15 +64,13 @@ func (ag *txBroadcastAgent) broadcast() bool {
 	ag.clearRecentBroadcast()
 
 	txs := make([]*types.Transaction, 0)
-	for _, k := range ag.pool.bonusTxs.Keys() {
-		tx, _ := ag.pool.bonusTxs.Get(k)
-		if tx != nil && ag.checkTxCanBroadcast(tx.(*types.Transaction).Hash) {
-			txs = append(txs, tx.(*types.Transaction))
-			if len(txs) >= maxBroadcastPerTime {
-				break
-			}
+	ag.pool.bonPool.forEach(func(tx *types.Transaction) bool {
+		if ag.checkTxCanBroadcast(tx.Hash) {
+			txs = append(txs, tx)
+			return len(txs) < maxBroadcastPerTime
 		}
-	}
+		return true
+	})
 	if len(txs) < maxBroadcastPerTime {
 		for _, tx := range ag.pool.received.asSlice(rcvTxPoolSize) {
 			if ag.checkTxCanBroadcast(tx.Hash) {

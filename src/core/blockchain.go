@@ -209,11 +209,11 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
+	chain.bonusManager = newBonusManager()
 
 	chain.batch = chain.blocks.CreateLDBBatch()
-	chain.transactionPool = NewTransactionPool(chain.batch, receiptdb)
+	chain.transactionPool = NewTransactionPool(chain.batch, receiptdb, chain.bonusManager)
 
-	chain.bonusManager = newBonusManager()
 	chain.stateCache = account.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)

@@ -22,7 +22,6 @@ import (
 	"common"
 	"middleware/types"
 	"storage/tasdb"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -50,7 +49,8 @@ var (
 )
 
 type TxPool struct {
-	bonusTxs *lru.Cache // bonus tx
+	//bonusTxs *lru.Cache // bonus tx
+	bonPool *bonusPool
 	//missTxs  *lru.Cache
 	received *simpleContainer
 
@@ -68,7 +68,8 @@ type TxPool struct {
 	lock   sync.RWMutex
 }
 
-func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
+
+func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm *BonusManager) TransactionPool {
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
@@ -76,7 +77,7 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase) Tr
 		batch:     batch,
 	}
 	pool.received = newSimpleContainer(rcvTxPoolSize)
-	pool.bonusTxs, _ = lru.New(bonusTxMaxSize)
+	pool.bonPool = newBonusPool(bm, bonusTxMaxSize)
 
 	initBroadcastAget(pool)
 	return pool
@@ -106,9 +107,9 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from int) {
 
 
 func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction) {
-	bonusTx, ok := pool.bonusTxs.Get(hash)
-	if ok {
-		return bonusTx.(*types.Transaction)
+	bonusTx := pool.bonPool.get(hash)
+	if bonusTx != nil {
+		return bonusTx
 	}
 
 	receivedTx := pool.received.get(hash)
@@ -132,7 +133,7 @@ func (pool *TxPool) GetReceived() []*types.Transaction {
 }
 
 func (pool *TxPool) TxNum() uint64 {
-	return uint64(pool.received.Len() + pool.bonusTxs.Len())
+	return uint64(pool.received.Len() + pool.bonPool.len())
 }
 
 func (pool *TxPool) PackForCast() []*types.Transaction {
@@ -206,7 +207,7 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	}
 
 	if tx.Type == types.TransactionTypeBonus {
-		pool.bonusTxs.Add(tx.Hash, tx)
+		pool.bonPool.add(tx)
 	} else {
 		pool.received.push(tx)
 	}
@@ -215,12 +216,12 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 }
 
 func (pool *TxPool) remove(txHash common.Hash) {
-	pool.bonusTxs.Remove(txHash)
+	pool.bonPool.remove(txHash)
 	pool.received.remove(txHash)
 }
 
 func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
-	existInMinerTxs := pool.bonusTxs.Contains(hash)
+	existInMinerTxs := pool.bonPool.contains(hash)
 	if existInMinerTxs {
 		return true
 	}
@@ -235,14 +236,10 @@ func (pool *TxPool) isTransactionExisted(hash common.Hash) bool {
 
 func (pool *TxPool) packTx() []*types.Transaction {
 	txs := make([]*types.Transaction, 0, txCountPerBlock)
-	for _, minerTxHash := range pool.bonusTxs.Keys() {
-		if v, ok := pool.bonusTxs.Get(minerTxHash); ok {
-			txs = append(txs, v.(*types.Transaction))
-		}
-		if len(txs) >= txCountPerBlock {
-			break
-		}
-	}
+	pool.bonPool.forEach(func(tx *types.Transaction) bool {
+		txs = append(txs, tx)
+		return len(txs) < txCountPerBlock
+	})
 	if len(txs) < txCountPerBlock {
 		for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
 			txs = append(txs, tx)
