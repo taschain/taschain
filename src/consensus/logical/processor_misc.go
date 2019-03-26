@@ -146,7 +146,7 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 }
 
 func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
-	pi := base.VRFProve(bh.ProveValue.Bytes())
+	pi := base.VRFProve(bh.ProveValue)
 	castor := groupsig.DeserializeId(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {

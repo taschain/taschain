@@ -7,6 +7,7 @@ import (
 	"middleware/ticker"
 	"github.com/hashicorp/golang-lru"
 	"common"
+	"network"
 )
 
 /*
@@ -82,11 +83,34 @@ func (ag *txBroadcastAgent) broadcast() bool {
 		}
 	}
 
-	broadcastTransactions(txs)
+	ag.broadcastTransactions(txs)
 
 	for _, tx := range txs {
 		ag.recentBroadcast.Add(tx.Hash, time.Now())
 	}
 
 	return true
+}
+
+func (ag *txBroadcastAgent) broadcastTransactions(txs []*types.Transaction) {
+	defer func() {
+		if r := recover(); r != nil {
+			Logger.Errorf("Runtime error caught: %v", r)
+		}
+	}()
+	if len(txs) > 0 {
+		body, e := types.MarshalTransactions(txs)
+		if e != nil {
+			Logger.Errorf("Marshal txs error:%s", e.Error())
+			return
+		}
+		Logger.Debugf("Broadcast transactions len:%d", len(txs))
+		message := network.Message{Code: network.TransactionBroadcastMsg, Body: body}
+		heavyMiners := MinerManagerImpl.GetHeavyMiners()
+
+		netInstance := network.GetNetInstance()
+		if netInstance != nil {
+			go network.GetNetInstance().SpreadToRandomGroupMember(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMiners, message)
+		}
+	}
 }

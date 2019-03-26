@@ -16,11 +16,10 @@
 package types
 
 import (
+	"bytes"
 	"common"
 	"encoding/json"
 	"time"
-	"math/big"
-	"bytes"
 )
 
 type AddBlockOnChainSituation string
@@ -103,22 +102,24 @@ var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba560957263
 	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
 	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
+//tx data with source
 type Transaction struct {
-	Data   []byte
-	Value  uint64
-	Nonce  uint64
-	Source *common.Address
-	Target *common.Address
-	Type   int32
+	Data   []byte          `msgpack:"dt,omitempty"`
+	Value  uint64          `msgpack:"v"`
+	Nonce  uint64          `msgpack:"nc"`
+	Target *common.Address `msgpack:"tg,omitempty"`
+	Type   int8            `msgpack:"tp"`
 
-	GasLimit uint64
-	GasPrice uint64
-	Hash     common.Hash
+	GasLimit uint64      `msgpack:"gl"`
+	GasPrice uint64      `msgpack:"gp"`
+	Hash     common.Hash `msgpack:"h"`
 
-	ExtraData     []byte
-	ExtraDataType int32
+	ExtraData     []byte `msgpack:"ed"`
+	ExtraDataType int8   `msgpack:"et,omitempty"`
 	//PubKey *common.PublicKey
-	Sign *common.Sign
+	//Sign *common.Sign
+	Sign   []byte          `msgpack:"si"`
+	Source *common.Address `msgpack:"-"`	//don't store
 }
 
 //source,sign在hash计算范围内
@@ -135,15 +136,30 @@ func (tx *Transaction) GenHash() common.Hash {
 	if tx.Target != nil {
 		buffer.Write(tx.Target.Bytes())
 	}
-	buffer.Write(common.UInt32ToByte(tx.Type))
+	buffer.WriteByte(byte(tx.Type))
 	buffer.Write(common.Uint64ToByte(tx.GasLimit))
 	buffer.Write(common.Uint64ToByte(tx.GasPrice))
 	if tx.ExtraData != nil {
 		buffer.Write(tx.ExtraData)
 	}
-	buffer.Write(common.UInt32ToByte(tx.ExtraDataType))
+	buffer.WriteByte(byte(tx.ExtraDataType))
 
 	return common.BytesToHash(common.Sha256(buffer.Bytes()))
+}
+
+func (tx *Transaction) HexSign() string {
+	return common.ToHex(tx.Sign)
+}
+
+
+func (tx *Transaction) RecoverSource() error {
+	sign := common.BytesToSign(tx.Sign)
+	pk, err := sign.RecoverPubkey(tx.Hash.Bytes())
+	if err == nil {
+		src := pk.GetAddress()
+		tx.Source = &src
+	}
+	return err
 }
 
 //type Transactions []*Transaction
@@ -224,7 +240,7 @@ type BlockHeader struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   *big.Int      //轮转序号
+	ProveValue   []byte      //vrf prove
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -245,7 +261,7 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   *big.Int      //轮转序号
+	ProveValue   []byte      //轮转序号
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -350,11 +366,11 @@ func (gh *GroupHeader) GenHash() common.Hash {
 }
 
 func (gh *GroupHeader) DismissedAt(h uint64) bool {
-    return gh.DismissHeight <= h
+	return gh.DismissHeight <= h
 }
 
 func (gh *GroupHeader) WorkAt(h uint64) bool {
-    return !gh.DismissedAt(h) && gh.WorkHeight <= h
+	return !gh.DismissedAt(h) && gh.WorkHeight <= h
 }
 
 type Group struct {
@@ -375,7 +391,6 @@ func (g *Group) MemberExist(id []byte) bool {
 	}
 	return false
 }
-
 
 type StateNode struct {
 	Key   []byte

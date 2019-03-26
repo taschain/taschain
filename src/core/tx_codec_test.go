@@ -8,6 +8,7 @@ import (
 	"consensus/groupsig"
 	"common"
 	"math/rand"
+	"github.com/vmihailenco/msgpack"
 )
 
 /*
@@ -147,4 +148,31 @@ func TestDecodeTransactionByHash(t *testing.T) {
 		t.Fatal("hash diff")
 	}
 	t.Log("success")
+}
+
+
+
+func TestMarshalSign(t *testing.T) {
+	s := common.HexStringToSign("0x220ee8a9b1f85445ef27e1ae82f985087fe40854ccc3f8a6c6a5d47116420dc6000000000000000000000000000000000000000000000000000000000000000000")
+	bs, err := msgpack.Marshal(s)
+	t.Log(bs, err)
+
+	var sign *common.Sign
+	err = msgpack.Unmarshal(bs, &sign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(sign.GetHexString())
+}
+
+func TestMarshalTx(t *testing.T) {
+	tx := genTx("0x123", "0x2343")
+	bs, err := marshalTx(tx)
+	t.Log(tx, tx.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tx1, err := unmarshalTx(bs)
+	t.Log(tx1, tx1.Source)
 }

@@ -17,15 +17,11 @@ package cli
 
 import (
 	"bytes"
-	"common"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
-	"time"
-	"middleware/types"
 )
 
 // 获取rpc接口的message,如果发生错误，error返回result中的错误提示
@@ -70,47 +66,4 @@ func rpcPost(addr string, port uint, method string, params ...interface{}) (*RPC
 		return nil, err
 	}
 	return &resJSON, nil
-}
-
-func genHash(hash string) []byte {
-	bytes3 := []byte(hash)
-	return common.Sha256(bytes3)
-}
-
-func genTx(price uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte,
-	extraDataType int32, cmd int32) *types.Transaction {
-	var sourceAddr, targetAddr *common.Address
-
-	sourcebyte := common.HexToAddress(source)
-	sourceAddr = &sourcebyte
-	if target == "" {
-		targetAddr = nil
-	} else {
-		targetbyte := common.HexToAddress(target)
-		targetAddr = &targetbyte
-	}
-
-	return &types.Transaction{
-		Data:          data,
-		GasPrice:      price,
-		Source:        sourceAddr,
-		Target:        targetAddr,
-		Nonce:         nonce,
-		Value:         value,
-		ExtraData:     extraData,
-		ExtraDataType: extraDataType,
-		GasLimit: 10000000,
-		Type:		   cmd,
-	}
-}
-
-func getRandomString(l int) string {
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	bytess := []byte(str)
-	result := []byte{}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < l; i++ {
-		result = append(result, bytess[r.Intn(len(bytess))])
-	}
-	return string(result)
 }

@@ -116,8 +116,8 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		tx.Nonce = nonce + 1
 		tranx.Hash = tranx.GenHash()
 		sign := privateKey.Sign(tranx.Hash.Bytes())
-		tranx.Sign = &sign
-		tx.Sign = tranx.Sign.GetHexString()
+		tranx.Sign = sign.Bytes()
+		tx.Sign = sign.GetHexString()
 		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
 		//fmt.Printf("%+v\n", tranx)
 

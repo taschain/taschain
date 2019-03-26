@@ -7,7 +7,6 @@ import (
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
-	"middleware/statistics"
 	"middleware/types"
 	"strings"
 	"sync"
@@ -340,7 +339,7 @@ func (p *Processor) blockProposal() {
 	//随机抽取n个块，生成proveHash
 	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 
-	block := p.MainChain.CastBlock(uint64(height), pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), pi, root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -380,8 +379,6 @@ func (p *Processor) blockProposal() {
 
 		worker.markProposed()
 
-		statistics.AddBlockLog(common.BootId, statistics.SendCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
-			time.Now().UnixNano(), p.GetMinerID().ShortS(), gid.ShortS(), common.InstanceIndex, ccm.BH.CurTime.UnixNano())
 	} else {
 		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}

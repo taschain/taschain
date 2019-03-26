@@ -41,7 +41,7 @@ type ConsensusHelper interface {
 	GenerateGenesisInfo() *GenesisInfo
 
 	//vrf prove to value
-	VRFProve2Value(prove *big.Int) *big.Int
+	VRFProve2Value(prove []byte) *big.Int
 
 	//bonus for proposal a block
 	ProposalBonus() *big.Int

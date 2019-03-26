@@ -84,16 +84,14 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm
 }
 
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, error) {
-	if err := pool.verifyTransaction(tx); err != nil {
-		//Logger.Debugf("Tx verify sig error:%s, tx from %v, type:%d, tx %+v", err.Error(), from, tx.Type, tx)
-		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.Sign.GetHexString())
+	if err := pool.checkAndSetSource(tx); err != nil {
+		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
+		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
 		return false, err
 	} else {
-		Logger.Debugf("tryAddTransaction success, from %v, hash %v, sign %v", from, tx.Hash.String(), tx.Sign.GetHexString())
-
+		b, err := pool.add(tx)
+		return b, err
 	}
-	b, err := pool.add(tx)
-	return b, err
 }
 
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
@@ -145,7 +143,7 @@ func (pool *TxPool) PackForCast() []*types.Transaction {
 	return result
 }
 
-func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
+func (pool *TxPool) checkAndSetSource(tx *types.Transaction) (error) {
 	if !tx.Hash.IsValid() {
 		return ErrHash
 	}
@@ -168,37 +166,38 @@ func (pool *TxPool) verifyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("tx sign nil")
 	}
 
-	if tx.Type != types.TransactionTypeBonus && tx.GasPrice == 0 {
-		return fmt.Errorf("illegal tx gasPrice")
-	}
-
-	if tx.Type != types.TransactionTypeBonus && tx.GasLimit > gasLimitMax {
-		return fmt.Errorf("gasLimit too  big! max gas limit is 500000 Ra")
-	}
-
+	var source *common.Address = nil
 	if tx.Type == types.TransactionTypeBonus {
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
 			return err
 		}
 	} else {
-		if err := pool.verifySign(tx); err != nil {
+		if tx.GasPrice == 0 {
+			return fmt.Errorf("illegal tx gasPrice")
+		}
+		if tx.GasLimit > gasLimitMax {
+			return fmt.Errorf("gasLimit too  big! max gas limit is 500000 Ra")
+		}
+		var sign = common.BytesToSign(tx.Sign)
+		if sign == nil {
+			return fmt.Errorf("BytesToSign fail, sign=%v", tx.Sign)
+		}
+		msg := tx.Hash.Bytes()
+		pk, err := sign.RecoverPubkey(msg)
+		if err != nil {
 			return err
 		}
+		src := pk.GetAddress()
+		source = &src
+		if !pk.Verify(msg, sign) {
+			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
+		}
+		tx.Source = source
 	}
+
 	return nil
 }
 
-func (pool *TxPool) verifySign(tx *types.Transaction) error {
-	hashByte := tx.Hash.Bytes()
-	pk, err := tx.Sign.RecoverPubkey(hashByte)
-	if err != nil {
-		return err
-	}
-	if !pk.Verify(hashByte, tx.Sign) {
-		return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
-	}
-	return nil
-}
 
 func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	if tx == nil {
@@ -262,7 +261,14 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash)  {
 }
 
 func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
-	for _, tx := range txs {
-		pool.add(tx)
+	for _, txRaw := range txs {
+		if txRaw.Type != types.TransactionTypeBonus {
+			err := txRaw.RecoverSource()
+			if err != nil {
+				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.String())
+				continue
+			}
+		}
+		pool.add(txRaw)
 	}
 }

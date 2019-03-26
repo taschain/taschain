@@ -21,12 +21,9 @@ package types
 */
 
 import (
-	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"middleware/pb"
-
 	"common"
-	"math/big"
 	"taslog"
 	"time"
 )
@@ -39,12 +36,12 @@ func InitMiddleware() {
 }
 
 // 从[]byte反序列化为*Transaction
-func UnMarshalTransaction(b []byte) (Transaction, error) {
+func UnMarshalTransaction(b []byte) (*Transaction, error) {
 	t := new(tas_middleware_pb.Transaction)
 	error := proto.Unmarshal(b, t)
 	if error != nil {
 		logger.Errorf("[handler]Unmarshal transaction error:%s", error.Error())
-		return Transaction{}, error
+		return &Transaction{}, error
 	}
 	transaction := pbToTransaction(t)
 	return transaction, nil
@@ -159,32 +156,24 @@ func MarshalGroup(g *Group) ([]byte, error) {
 //	return proto.Marshal(group)
 //}
 
-func pbToTransaction(t *tas_middleware_pb.Transaction) Transaction {
+func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 	if t == nil {
-		return Transaction{}
+		return &Transaction{}
 	}
 
-	var source, target *common.Address
-	var sign *common.Sign
-	if t.Source != nil {
-		s := common.BytesToAddress(t.Source)
-		source = &s
-	}
+	var target *common.Address
+	//if t.Source != nil {
+	//	s := common.BytesToAddress(t.Source)
+	//	source = &s
+	//}
 	if t.Target != nil {
 		t := common.BytesToAddress(t.Target)
 		target = &t
 	}
 
-	if t.Sign != nil && len(t.Sign) != 0 {
-		if len(t.Sign) != 65 {
-			fmt.Printf("Bad sign hash:%v, sign:%v\n", common.BytesToHash(t.Hash), t.Sign)
-		}
-		sign = common.BytesToSign(t.Sign)
-	}
-
-	transaction := Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce, Source: source,
+	transaction := &Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce,
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: *t.ExtraDataType, Type: *t.Type, Sign: sign}
+		ExtraData: t.ExtraData, ExtraDataType: int8(*t.ExtraDataType), Type: int8(*t.Type), Sign: t.Sign}
 	return transaction
 }
 
@@ -195,7 +184,7 @@ func PbToTransactions(txs []*tas_middleware_pb.Transaction) []*Transaction {
 	}
 	for _, t := range txs {
 		transaction := pbToTransaction(t)
-		result = append(result, &transaction)
+		result = append(result, transaction)
 	}
 	return result
 }
@@ -239,16 +228,16 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 		return nil
 	}
 
-	pv := &big.Int{}
-	var proveValue *big.Int
-	if h.ProveValue != nil {
-		proveValue = pv.SetBytes(h.ProveValue)
-	} else {
-		proveValue = nil
-	}
+	//pv := &big.Int{}
+	//var proveValue *big.Int
+	//if h.ProveValue != nil {
+	//	proveValue = pv.SetBytes(h.ProveValue)
+	//} else {
+	//	proveValue = nil
+	//}
 	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		ProveValue: proveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: h.ProveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random, ProveRoot: common.BytesToHash(h.ProveRoot), EvictedTxs: hashes2}
 	return &header
@@ -324,30 +313,19 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	}
 	var (
 		target []byte
-		source []byte
-		sign   []byte
 	)
 	if t.Target != nil {
 		target = t.Target.Bytes()
 	}
-	if t.Source != nil {
-		source = t.Source.Bytes()
-	}
-
-	if t.Sign != nil {
-		sign = t.Sign.Bytes()
-		if len(sign) != 65 {
-			logger.Errorf("Bad sign len:%d", len(sign))
-		}
-	}
-	//achates add for testing<<
-	if len(sign) != 65 {
-		fmt.Println("Bad sign in transactionToPb sign=", sign)
-	}
+	//if t.Source != nil {
+	//	source = t.Source.Bytes()
+	//}
+	et := int32(t.ExtraDataType)
+	tp := int32(t.Type)
 	//>>achates add for testing
-	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce, Source: source,
+	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &t.ExtraDataType, Type: &t.Type, Sign: sign}
+		ExtraData: t.ExtraData, ExtraDataType: &et, Type: &tp, Sign: t.Sign}
 	return &transaction
 }
 
@@ -394,15 +372,15 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 		return nil
 	}
 
-	var proveValueByte []byte
-	if h.ProveValue != nil {
-		proveValueByte = h.ProveValue.Bytes()
-	} else {
-		proveValueByte = nil
-	}
+	//var proveValueByte []byte
+	//if h.ProveValue != nil {
+	//	proveValueByte = h.ProveValue.Bytes()
+	//} else {
+	//	proveValueByte = nil
+	//}
 
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		ProveValue: proveValueByte, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: h.ProveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
 		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
 		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, ProveRoot: h.ProveRoot.Bytes(), EvictedTxs: &evictedTxs}
 	return &header

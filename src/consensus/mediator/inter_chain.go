@@ -83,8 +83,8 @@ func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 	return logical.GenerateGenesis()
 }
 
-func (helper *ConsensusHelperImpl) VRFProve2Value(prove *big.Int) *big.Int {
-	return base.VRF_proof2hash(base.VRFProve(prove.Bytes())).Big()
+func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
+	return base.VRF_proof2hash(base.VRFProve(prove)).Big()
 }
 
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
@@ -128,7 +128,7 @@ func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err erro
 }
 
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
-	sign_bytes := tx.Sign.Bytes()
+	sign_bytes := tx.Sign
 	if len(sign_bytes) < common.SignLength {
 		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", sign_bytes)
 	}

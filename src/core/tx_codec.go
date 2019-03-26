@@ -50,6 +50,7 @@ func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 
 			dataBuf.Write(utility.UInt16ToByte(uint16(len(txBytes))))
 			txBuf.Write(txBytes)
+
 		}
 		dataBuf.Write(txBuf.Bytes())
 	}

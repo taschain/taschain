@@ -38,7 +38,7 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 	trans := txRawToTransaction(txRaw)
 	trans.Hash = trans.GenHash()
 	sign := sk.Sign(trans.Hash.Bytes())
-	trans.Sign = &sign
+	trans.Sign = sign.Bytes()
 
 	if err := sendTransaction(trans); err != nil {
 		return failResult(err.Error())

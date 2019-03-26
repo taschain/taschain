@@ -92,8 +92,8 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	tranx := txRawToTransaction(txRaw)
 	tranx.Hash = tranx.GenHash()
 	sign := privateKey.Sign(tranx.Hash.Bytes())
-	tranx.Sign = &sign
-	txRaw.Sign = tranx.Sign.GetHexString()
+	tranx.Sign = sign.Bytes()
+	txRaw.Sign = sign.GetHexString()
 	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
 	//fmt.Printf("%+v\n", tranx)
 	//

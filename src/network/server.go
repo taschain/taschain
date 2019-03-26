@@ -35,8 +35,8 @@ type server struct {
 	netCore *NetCore
 
 	consensusHandler MsgHandler
-
-	chainHandler MsgHandler
+	//
+	//chainHandler MsgHandler
 
 }
 

@@ -20,23 +20,23 @@ message Transaction{
 
     required uint64 Nonce = 3;
 
-    optional bytes Source  = 4 ;
+//    optional bytes Source  = 4 ;
 
-    optional bytes Target  = 5 ;
+    optional bytes Target  = 4 ;
 
-    required uint64 GasLimit = 6;
+    required uint64 GasLimit = 5;
 
-    required uint64 GasPrice = 7;
+    required uint64 GasPrice = 6;
 
-    required bytes Hash  = 8 ;
+    required bytes Hash  = 7 ;
 
-    optional bytes ExtraData  = 9 ;
+    optional bytes ExtraData  = 8 ;
 
-    optional int32 ExtraDataType  = 10 ;
+    optional int32 ExtraDataType  = 9 ;
 
-    required int32 Type = 11;
+    required int32 Type = 10;
 
-    optional bytes Sign = 12;
+    optional bytes Sign = 11;
 }
 
 message TransactionRequestMessage{

@@ -39,7 +39,7 @@ func (chain *FullBlockChain) TotalQN() uint64 {
 	return chain.QueryTopBlock().TotalQN
 }
 
-func (chain *FullBlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction, error) {
+func (chain *FullBlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction) {
 	tx := chain.transactionPool.GetTransaction(h)
 	if tx == nil {
 		chain.rwLock.RLock()
@@ -49,10 +49,7 @@ func (chain *FullBlockChain) GetTransactionByHash(h common.Hash) (*types.Transac
 			tx = chain.queryTransactionByHash(*bhash, h)
 		}
 	}
-	if tx == nil {
-		return nil, fmt.Errorf("tx not exist")
-	}
-	return tx, nil
+	return tx
 }
 
 func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
@@ -70,7 +67,7 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 }
 
 
-func (chain *FullBlockChain) GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
+func (chain *FullBlockChain) getTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
 	txs := make([]*types.Transaction, 0)
 	lost := make([]common.Hash, 0)
 	if nil == txHashList || 0 == len(txHashList) {
@@ -78,7 +75,7 @@ func (chain *FullBlockChain) GetTransactions(blockHash common.Hash, txHashList [
 	}
 
 	for _, hash := range txHashList {
-		tx := chain.transactionPool.GetTransaction(hash)
+		tx := chain.GetTransactionByHash(hash)
 
 		if tx != nil {
 			txs = append(txs, tx)

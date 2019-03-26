@@ -6,7 +6,6 @@ import (
 	"middleware/types"
 	"common"
 	"errors"
-	"math/big"
 	"time"
 	"bytes"
 	"fmt"
@@ -23,7 +22,7 @@ type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
 
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
 	latestBlock := chain.QueryTopBlock()
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
@@ -99,7 +98,7 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	txs, missTxs := chain.GetTransactions(bh.Hash, bh.Transactions)
+	txs, missTxs := chain.getTransactions(bh.Hash, bh.Transactions)
 
 	if len(missTxs) != 0 {
 		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
@@ -116,6 +115,9 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8) {
+	if chain.hasBlock(bh.Hash) {
+		return []common.Hash{}, 0
+	}
 	_, _, txs, ret := chain.verifyBlock(bh, nil)
 	return txs, ret
 }
@@ -141,7 +143,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	transactions := txs
 
 	if txs == nil {
-		gotTxs, missing := chain.GetTransactions(bh.Hash, bh.Transactions)
+		gotTxs, missing := chain.getTransactions(bh.Hash, bh.Transactions)
 		if 0 != len(missing) {
 			var castorId groupsig.ID
 			error := castorId.Deserialize(bh.Castor)
@@ -150,7 +152,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 			}
 			//向CASTOR索取交易
 			m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash}
-			go requestTransaction(m, castorId.String())
+			go chain.requestTransaction(m, castorId.String())
 			err = fmt.Errorf("miss transaction size %v", len(missing))
 			return  nil, nil, missing, 1
 		}

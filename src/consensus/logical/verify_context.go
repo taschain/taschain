@@ -130,7 +130,7 @@ type blockWeight struct {
 func newBlockWeight(bh *types.BlockHeader) *blockWeight {
 	return &blockWeight{
 		totalQN: bh.TotalQN,
-		pv: base.VRF_proof2hash(base.VRFProve(bh.ProveValue.Bytes())).Big(),
+		pv: base.VRF_proof2hash(base.VRFProve(bh.ProveValue)).Big(),
 	}
 }
 
@@ -483,8 +483,8 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 			if maxQNSlot.BH.TotalQN < slot.BH.TotalQN {
 				maxQNSlot = slot
 			} else if maxQNSlot.BH.TotalQN == slot.BH.TotalQN {
-				v1 := base.VRF_proof2hash(maxQNSlot.BH.ProveValue.Bytes()).Big()
-				v2 := base.VRF_proof2hash(slot.BH.ProveValue.Bytes()).Big()
+				v1 := base.VRF_proof2hash(maxQNSlot.BH.ProveValue).Big()
+				v2 := base.VRF_proof2hash(slot.BH.ProveValue).Big()
 				if v1.Cmp(v2) < 0 {
 					maxQNSlot = slot
 				}

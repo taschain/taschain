@@ -21,12 +21,10 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"middleware/types"
 	"taslog"
-	"math/big"
 	"os"
 	"storage/account"
 	"storage/tasdb"
 	"time"
-	"middleware/notify"
 	"github.com/pkg/errors"
 	"middleware/ticker"
 	"sync"
@@ -36,10 +34,6 @@ const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
-
-	addBlockMark = "addBlockMark"
-
-	removeBlockMark = "removeBlockMark"
 )
 
 var (
@@ -154,7 +148,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		ticker: 		ticker.NewGlobalTicker("chain"),
 	}
 
-	notify.BUS.Subscribe(notify.BlockAddSucc, chain.onBlockAddSuccess)
+	chain.initMessageHandler()
 
 	var err error
 	chain.futureBlocks, err = lru.New(10)
@@ -265,12 +259,11 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	}
 
 	block := new(types.Block)
-	pv := big.NewInt(0)
 	block.Header = &types.BlockHeader{
 		Height:       0,
 		ExtraData:    common.Sha256([]byte("tas")),
 		CurTime:      time.Date(2019, 3, 21, 23, 0, 0, 0, time.Local),
-		ProveValue:   pv,
+		ProveValue:   []byte{},
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
 		EvictedTxs:   make([]common.Hash, 0), //important!!

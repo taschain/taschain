@@ -30,7 +30,7 @@ type BlockChain interface {
 	AccountRepository
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -65,8 +65,7 @@ type BlockChain interface {
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易
-	// 如果本地有，则立即返回。否则需要调用p2p远程获取
-	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
+	GetTransactionByHash(h common.Hash) (*types.Transaction)
 
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
@@ -89,8 +88,6 @@ type BlockChain interface {
 	GetAccountDBByHeight(height uint64) (vm.AccountDB, error)
 
 	GetConsensusHelper() types.ConsensusHelper
-
-	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash)
 
 	Version() int
 }

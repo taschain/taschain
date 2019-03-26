@@ -43,3 +43,11 @@ func (msg *SyncMessage) GetRaw() []byte {
 func (msg *SyncMessage) GetData() interface{} {
 	return msg.CandidateInfo
 }
+
+
+type transactionRequestMessage struct {
+	TransactionHashes []common.Hash
+	CurrentBlockHash  common.Hash
+	//BlockHeight       uint64
+	//BlockPv           *big.Int
+}

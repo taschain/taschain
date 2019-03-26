@@ -68,10 +68,10 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 		Nonce: tx.Nonce,
 		//Source: &source,
 		Target: target,
-		Type: int32(tx.TxType),
+		Type: int8(tx.TxType),
 		GasLimit: tx.Gas,
 		GasPrice: tx.Gasprice,
-		Sign: sign,
+		Sign: sign.Bytes(),
 		ExtraData: []byte(tx.ExtraData),
 	}
 }

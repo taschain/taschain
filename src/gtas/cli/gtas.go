@@ -382,7 +382,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	}
 	id := minerInfo.ID.GetHexString()
 
-	err = network.Init(common.GlobalConf, isSuper, core.NewChainHandler(), chandler.MessageHandler, testMode, natIp, natPort, seedIp, seedId, id)
+	err = network.Init(common.GlobalConf, isSuper, chandler.MessageHandler, testMode, natIp, natPort, seedIp, seedId, id)
 
 	if err != nil {
 		return err

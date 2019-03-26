@@ -22,7 +22,6 @@ import (
 	"core"
 	"fmt"
 	"gopkg.in/fatih/set.v0"
-	"math/big"
 	"middleware/types"
 	"sync"
 	"sync/atomic"
@@ -51,7 +50,7 @@ type SlotContext struct {
 	//验证相关
 	BH *types.BlockHeader //出块头详细数据
 	//QueueNumber    int64             //铸块槽序号(<0无效)，等同于出块人序号。
-	vrfValue       *big.Int
+	//vrfValue       *big.Int
 	gSignGenerator *model.GroupSignGenerator //块签名产生器
 	rSignGenerator *model.GroupSignGenerator //随机数签名产生器
 	slotStatus     int32
@@ -71,7 +70,7 @@ type SlotContext struct {
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
 		BH:             bh,
-		vrfValue:       bh.ProveValue,
+		//vrfValue:       bh.ProveValue,
 		castor:         groupsig.DeserializeId(bh.Castor),
 		slotStatus:     SS_INITING,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
@@ -277,10 +276,11 @@ func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bo
 		//铸块分红交易使用组签名
 		if sc.rewardTrans.Sign == nil {
 			sign_bytes := sc.rewardGSignGen.GetGroupSign().Serialize()
-			tmp_bytes := make([]byte, common.SignLength)
+			tmpBytes := make([]byte, common.SignLength)
 			//group signature length = 33, common signature length = 65.  VerifyBonusTransaction() will recover common sig to groupsig
-			copy(tmp_bytes[0:len(sign_bytes)], sign_bytes)
-			sc.rewardTrans.Sign = common.BytesToSign(tmp_bytes)
+			copy(tmpBytes[0:len(sign_bytes)], sign_bytes)
+			sign := common.BytesToSign(tmpBytes)
+			sc.rewardTrans.Sign = sign.Bytes()
 			//fmt.Printf("Bonus sign 1: hash=%v , gsign=%v\n", sd.DataHash.Hex(), sc.rewardGSignGen.GetGroupSign().GetHexString())
 		}
 	}
