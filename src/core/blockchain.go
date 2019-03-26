@@ -28,12 +28,14 @@ import (
 	"github.com/pkg/errors"
 	"middleware/ticker"
 	"sync"
+	"gopkg.in/fatih/set.v0"
 )
 
 const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
+	wantedTxsSize = txCountPerBlock
 )
 
 var (
@@ -111,13 +113,10 @@ type FullBlockChain struct {
 	//castedBlock  *lru.Cache
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
+
+	txsWanted set.Interface
 }
 
-
-type castingBlock struct {
-	state    *account.AccountDB
-	receipts types.Receipts
-}
 
 func getBlockChainConfig() *BlockChainConfig {
 	return &BlockChainConfig{
@@ -140,12 +139,13 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	Logger = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
 	consensusLogger = taslog.GetLoggerByIndex(taslog.ConsensusLogConfig, instance)
 	chain := &FullBlockChain{
-		config: getBlockChainConfig(),
+		config:          getBlockChainConfig(),
 		latestBlock:     nil,
 		init:            true,
 		isAdujsting:     false,
 		consensusHelper: helper,
-		ticker: 		ticker.NewGlobalTicker("chain"),
+		ticker:          ticker.NewGlobalTicker("chain"),
+		txsWanted:       set.New(set.ThreadSafe),
 	}
 
 	chain.initMessageHandler()
@@ -266,7 +266,6 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 		ProveValue:   []byte{},
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
-		EvictedTxs:   make([]common.Hash, 0), //important!!
 		Nonce:        common.ChainDataVersion,
 	}
 
@@ -296,7 +295,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 	block.Header.Hash = block.Header.GenHash()
 
-	ok, err := chain.commitBlock(block, stateDB, nil)
+	ok, err := chain.commitBlock(block, &executePostState{state:stateDB})
 	if !ok {
 		panic("insert genesis block fail, err=%v" + err.Error())
 	}

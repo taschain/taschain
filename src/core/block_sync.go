@@ -267,8 +267,8 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	if blockInfo.Height > bs.chain.Height() {
-		bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height)
+	if blockInfo.Height > bs.chain.Height()+2 {
+		bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v， localHeight %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height, bs.chain.Height())
 	}
 
 	source := bnm.Peer
@@ -290,7 +290,7 @@ func (bs *blockSyncer) syncTimeoutRoutineName(id string) string {
 func (bs *blockSyncer) syncComplete(id string, timeout bool) bool {
 	if timeout {
 		PeerManager.timeoutPeer(id)
-		bs.logger.Warnf("sync from %v timeout", id)
+		bs.logger.Warnf("sync block from %v timeout", id)
 	} else {
 		PeerManager.heardFromPeer(id)
 	}

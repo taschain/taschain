@@ -20,6 +20,11 @@ import (
 
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
 
+type executePostState struct {
+	state    *account.AccountDB
+	receipts types.Receipts
+	evitedTxs []common.Hash
+}
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
@@ -67,7 +72,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 
 	}
 
-	statehash, evictedTxs, transactions, receipts, err, _ := chain.executor.Execute(state, block, height, "casting")
+	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block, height, "casting")
 	transactionHashes := make([]common.Hash, len(transactions))
 
 	block.Transactions = transactions
@@ -76,18 +81,18 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 	}
 	block.Header.Transactions = transactionHashes
 	block.Header.TxTree = calcTxTree(block.Transactions)
-	block.Header.EvictedTxs = evictedTxs
 
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
-	block.Header.ReceiptTree = calcReceiptsTree(receipts)
+	block.Header.ReceiptTree = calcReceiptsTree (receipts)
 	block.Header.Hash = block.Header.GenHash()
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
 		height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
 		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.String(), preRoot.String())
 	//自己铸的块 自己不需要验证
-	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{
+	chain.verifiedBlocks.Add(block.Header.Hash, &executePostState{
 		state:    state,
 		receipts: receipts,
+		evitedTxs: evitTxs,
 	})
 	return block
 }
@@ -98,7 +103,7 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	txs, missTxs := chain.getTransactions(bh.Hash, bh.Transactions)
+	txs, missTxs := chain.GetBlockTransactions(bh.Hash, bh.Transactions)
 
 	if len(missTxs) != 0 {
 		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
@@ -118,11 +123,11 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 	if chain.hasBlock(bh.Hash) {
 		return []common.Hash{}, 0
 	}
-	_, _, txs, ret := chain.verifyBlock(bh, nil)
+	_, txs, ret := chain.verifyBlock(bh, nil)
 	return txs, ret
 }
 
-func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) (*account.AccountDB, types.Receipts, []common.Hash, int8) {
+func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) (ps *executePostState, missTxs []common.Hash, ret int8) {
 	begin := time.Now()
 	var err error
 	defer func() {
@@ -132,18 +137,18 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
 		err = fmt.Errorf("hash diff")
-		return nil, nil, nil, -1
+		return nil, nil, -1
 	}
 
 	if !chain.hasBlock(bh.PreHash) {
 		err = ErrPreNotExist
-		return  nil, nil, nil, 2
+		return  nil, nil, 2
 	}
 
 	transactions := txs
 
 	if txs == nil {
-		gotTxs, missing := chain.getTransactions(bh.Hash, bh.Transactions)
+		gotTxs, missing := chain.GetBlockTransactions(bh.Hash, bh.Transactions)
 		if 0 != len(missing) {
 			var castorId groupsig.ID
 			error := castorId.Deserialize(bh.Castor)
@@ -154,24 +159,28 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 			m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash}
 			go chain.requestTransaction(m, castorId.String())
 			err = fmt.Errorf("miss transaction size %v", len(missing))
-			return  nil, nil, missing, 1
+			return  nil, missing,1
 		}
 		transactions = gotTxs
+	} else {//校验交易签名，恢复source
+		if !chain.validateTxs(transactions) {
+			return nil, nil, -1
+		}
 	}
 
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
 		err = fmt.Errorf("validate tx root fail")
-		return  nil, nil, nil, -1
+		return  nil, nil,-1
 	}
 
 	block := types.Block{Header: &bh, Transactions: transactions}
-	executeTxResult, state, receiptes := chain.executeTransaction(&block)
+	executeTxResult, ps := chain.executeTransaction(&block)
 	if !executeTxResult {
 		err = fmt.Errorf("execute transaction fail")
-		return  nil, nil, nil, -1
+		return  nil, nil,-1
 	}
 
-	return state, receiptes, nil, 0
+	return ps,nil, 0
 }
 
 //铸块成功，上链
@@ -263,7 +272,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		return
 	}
 
-	state, receipts, _, verifyResult := chain.verifyBlock(*bh, b.Transactions)
+	ps, _, verifyResult := chain.verifyBlock(*bh, b.Transactions)
 	if verifyResult != 0 {
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		//if verifyResult == 2 {
@@ -302,7 +311,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	//直接链上
 	if bh.PreHash == topBlock.Hash {
-		ok, e := chain.commitBlock(b, state, receipts)
+		ok, e := chain.commitBlock(b, ps)
 		if ok {
 			ret = types.AddBlockSucc
 			return
@@ -337,7 +346,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if chain.getLatestBlock().Hash != bh.PreHash {
 			panic("reset top error")
 		}
-		ok, e := chain.commitBlock(b, state, receipts)
+		ok, e := chain.commitBlock(b, ps)
 		if ok {
 			ret = types.AddBlockSucc
 			return
@@ -350,6 +359,33 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	}
 }
 
+//check tx sign and recover source
+func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
+	if txs == nil || len(txs) == 0 {
+		return true
+	}
+	for _, tx := range txs {
+		poolTx := chain.transactionPool.GetTransaction(tx.Type == types.TransactionTypeBonus, tx.Hash)
+		if poolTx != nil {
+			if tx.Hash != tx.GenHash() {
+				Logger.Debugf("fail to validate txs: hash diff at %v, expect hash %v", tx.Hash.String(), tx.GenHash().String())
+				return false
+			}
+			if !bytes.Equal(tx.Sign, poolTx.Sign) {
+				Logger.Debugf("fail to validate txs: sign diff at %v, [%v %v]", tx.Hash.String(), tx.Sign, poolTx.Sign)
+				return false
+			}
+			tx.Source = poolTx.Source
+		} else {
+			if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
+				Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.String())
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (chain *FullBlockChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []*types.Transaction) bool {
 	txTree := calcTxTree(txs)
 
@@ -360,16 +396,16 @@ func (chain *FullBlockChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 	return true
 }
 
-func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *account.AccountDB, types.Receipts) {
+func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *executePostState) {
 	preBlock := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if preBlock == nil {
-		return false, nil,nil
+		return false, nil
 	}
 
 	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
 	if cached != nil {
-		cb := cached.(*castingBlock)
-		return true, cb.state, cb.receipts
+		cb := cached.(*executePostState)
+		return true, cb
 	}
 
 	preRoot := preBlock.StateTree
@@ -379,22 +415,23 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *acco
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		Logger.Errorf("Fail to new statedb, error:%s", err)
-		return false, state, nil
+		return false, nil
 	}
 
-	statehash, _, _, receipts, err, _ := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
+	statehash, evitTxs, _, receipts, err := chain.executor.Execute(state, block, block.Header.Height, "fullverify")
 	if statehash != block.Header.StateTree {
 		Logger.Errorf("Fail to verify statetree, hash1:%s hash2:%s", statehash.String(), block.Header.StateTree.String())
-		return false, state, receipts
+		return false, nil
 	}
 	receiptsTree := calcReceiptsTree(receipts)
 	if receiptsTree != block.Header.ReceiptTree {
 		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", receiptsTree.String(), block.Header.ReceiptTree.String())
-		return false, state, receipts
+		return false, nil
 	}
 
-	chain.verifiedBlocks.Add(block.Header.Hash, &castingBlock{state: state, receipts: receipts,})
-	return true, state, receipts
+	eps := &executePostState{state: state, receipts: receipts,evitedTxs:evitTxs}
+	chain.verifiedBlocks.Add(block.Header.Hash, eps)
+	return true, eps
 }
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block) {

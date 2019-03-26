@@ -84,7 +84,7 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm
 }
 
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, error) {
-	if err := pool.checkAndSetSource(tx); err != nil {
+	if err := pool.RecoverAndValidateTx(tx); err != nil {
 		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
 		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
 		return false, err
@@ -108,22 +108,12 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from int) {
 }
 
 
-func (pool *TxPool) GetTransaction(hash common.Hash) (*types.Transaction) {
-	bonusTx := pool.bonPool.get(hash)
-	if bonusTx != nil {
-		return bonusTx
+func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) (*types.Transaction) {
+	var tx = pool.bonPool.get(hash)
+	if bonus || tx != nil {
+		return tx
 	}
-
-	receivedTx := pool.received.get(hash)
-	if nil != receivedTx {
-		return receivedTx
-	}
-
-	//executedTx := pool.GetExecuted(hash)
-	//if nil != executedTx {
-	//	return executedTx.Transaction, nil
-	//}
-	return nil
+	return pool.received.get(hash)
 }
 
 func (pool *TxPool) Clear() {
@@ -143,7 +133,7 @@ func (pool *TxPool) PackForCast() []*types.Transaction {
 	return result
 }
 
-func (pool *TxPool) checkAndSetSource(tx *types.Transaction) (error) {
+func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 	if !tx.Hash.IsValid() {
 		return ErrHash
 	}

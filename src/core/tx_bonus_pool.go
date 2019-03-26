@@ -53,8 +53,11 @@ func (bp *bonusPool) remove(txHash common.Hash)  {
 		bhash := bp.bm.parseBonusBlockHash(tx.(*types.Transaction))
 		txs, _ := bp.blockHashIndex.Get(bhash)
 		if txs != nil {
+			//Logger.Debugf("remove from bonus pool size %v, block %v", len(txs.([]*types.Transaction)), bhash.String())
 			for _, trans := range txs.([]*types.Transaction) {
-				bp.pool.Remove(trans.Hash)
+				if trans.Hash != txHash {
+					bp.pool.Remove(trans.Hash)
+				}
 			}
 			bp.blockHashIndex.Remove(bhash)
 		}

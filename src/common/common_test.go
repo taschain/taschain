@@ -78,3 +78,10 @@ func TestMap(t *testing.T) {
 	t.Logf("%p\n", m)
 
 }
+
+func TestHashEqual(t *testing.T) {
+	h1 := HexToHash("0x123")
+	h2 := HexToHash("0123")
+	t.Log(h1 == h2)
+	t.Logf("%p %p", &h1, &h2)
+}

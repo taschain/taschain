@@ -37,7 +37,7 @@ func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.
 	if transactionHash == nil {
 		return nil
 	}
-	transaction := BlockChainImpl.GetTransactionByHash(common.BytesToHash(transactionHash))
+	transaction := BlockChainImpl.GetTransactionByHash(true, common.BytesToHash(transactionHash))
 	return transaction
 }
 

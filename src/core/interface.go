@@ -65,7 +65,7 @@ type BlockChain interface {
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易
-	GetTransactionByHash(h common.Hash) (*types.Transaction)
+	GetTransactionByHash(onlyBonus bool, h common.Hash) (*types.Transaction)
 
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
@@ -115,7 +115,7 @@ type TransactionPool interface {
 	//add  local miss transactions while verifying blocks to the transaction pool
 	//AddMissTransactions(txs []*types.Transaction)
 
-	GetTransaction(hash common.Hash) (*types.Transaction)
+	GetTransaction(bonus bool, hash common.Hash) (*types.Transaction)
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
@@ -136,6 +136,8 @@ type TransactionPool interface {
 	Clear()
 
 	GetTxBlockHash(txHash common.Hash) (*common.Hash)
+
+	RecoverAndValidateTx(tx *types.Transaction) error
 
 }
 

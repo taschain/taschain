@@ -184,12 +184,12 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	for _, tx := range bh.EvictedTxs {
-		wrapper := chain.GetTransactionPool().GetReceipt(tx)
-		if wrapper != nil {
-			evictedReceipts = append(evictedReceipts, wrapper)
-		}
-	}
+	//for _, tx := range bh.EvictedTxs {
+	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
+	//	if wrapper != nil {
+	//		evictedReceipts = append(evictedReceipts, wrapper)
+	//	}
+	//}
 	receipts := make([]*types.Receipt, len(bh.Transactions))
 	for i, tx := range bh.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx)

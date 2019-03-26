@@ -20,6 +20,7 @@ import (
 	"common"
 	"encoding/json"
 	"time"
+	"utility"
 )
 
 type AddBlockOnChainSituation string
@@ -119,7 +120,7 @@ type Transaction struct {
 	//PubKey *common.PublicKey
 	//Sign *common.Sign
 	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"-"`	//don't store
+	Source *common.Address `msgpack:"-"`	//don't streamlize
 }
 
 //source,sign在hash计算范围内
@@ -254,7 +255,7 @@ type BlockHeader struct {
 	ExtraData    []byte
 	Random       []byte
 	ProveRoot    common.Hash
-	EvictedTxs   []common.Hash
+	//EvictedTxs   []common.Hash
 }
 
 type header struct {
@@ -273,31 +274,46 @@ type header struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	ProveRoot    common.Hash
-	EvictedTxs   []common.Hash
+	//EvictedTxs   []common.Hash
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
-	header := &header{
-		Height:       bh.Height,
-		PreHash:      bh.PreHash,
-		PreTime:      bh.PreTime,
-		ProveValue:   bh.ProveValue,
-		TotalQN:      bh.TotalQN,
-		CurTime:      bh.CurTime,
-		Castor:       bh.Castor,
-		Nonce:        bh.Nonce,
-		Transactions: bh.Transactions,
-		TxTree:       bh.TxTree,
-		ReceiptTree:  bh.ReceiptTree,
-		StateTree:    bh.StateTree,
-		ExtraData:    bh.ExtraData,
-		ProveRoot:    bh.ProveRoot,
-		EvictedTxs:   bh.EvictedTxs,
-	}
-	blockByte, _ := json.Marshal(header)
-	result := common.BytesToHash(common.Sha256(blockByte))
+	buf := bytes.NewBuffer([]byte{})
 
-	return result
+	buf.Write(utility.UInt64ToByte(bh.Height))
+
+	buf.Write(bh.PreHash.Bytes())
+
+	pt, _ := bh.PreTime.MarshalBinary()
+	buf.Write(pt)
+
+	buf.Write(bh.ProveValue)
+
+	buf.Write(utility.UInt64ToByte(bh.TotalQN))
+
+	ct, _ := bh.CurTime.MarshalBinary()
+	buf.Write(ct)
+
+	buf.Write(bh.Castor)
+
+	buf.Write(bh.GroupId)
+
+	buf.Write(utility.UInt64ToByte(bh.Nonce))
+
+	if bh.Transactions != nil {
+		for _, tx := range bh.Transactions {
+			buf.Write(tx.Bytes())
+		}
+	}
+	buf.Write(bh.TxTree.Bytes())
+	buf.Write(bh.ReceiptTree.Bytes())
+	buf.Write(bh.StateTree.Bytes())
+	if bh.ExtraData != nil {
+		buf.Write(bh.ExtraData)
+	}
+	buf.Write(bh.ProveRoot.Bytes())
+
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
 func (bh *BlockHeader) ToString() string {
@@ -316,7 +332,7 @@ func (bh *BlockHeader) ToString() string {
 		StateTree:    bh.StateTree,
 		ExtraData:    bh.ExtraData,
 		ProveRoot:    bh.ProveRoot,
-		EvictedTxs:   bh.EvictedTxs,
+		//EvictedTxs:   bh.EvictedTxs,
 	}
 	blockByte, _ := json.Marshal(header)
 	return string(blockByte)

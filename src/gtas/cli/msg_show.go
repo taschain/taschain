@@ -72,16 +72,9 @@ func (ms *msgShower) showHeightRoutine() bool {
 	return true
 }
 
-func txExecuteFail(tx common.Hash, failTxs []common.Hash) bool {
-	if failTxs == nil {
-		return false
-	}
-	for _, h := range failTxs {
-		if h == tx {
-			return true
-		}
-	}
-	return false
+func (ms *msgShower) txSuccess(tx common.Hash) bool {
+	receipt := ms.bchain.GetTransactionPool().GetReceipt(tx)
+	return receipt != nil && receipt.Status == types.ReceiptStatusSuccessful
 }
 
 func (ms *msgShower) onBlockAddSuccess(message notify.Message) {
@@ -101,7 +94,7 @@ func (ms *msgShower) onBlockAddSuccess(message notify.Message) {
 					}
 				}
 			case types.TransactionTypeMinerApply:
-				if bytes.Equal(tx.Source.Bytes(), ms.id) && !txExecuteFail(tx.Hash, b.Header.EvictedTxs) {
+				if bytes.Equal(tx.Source.Bytes(), ms.id) && ms.txSuccess(tx.Hash) {
 					miner := core.MinerManagerImpl.Transaction2Miner(tx)
 					role := "proposer"
 					if miner.Type == types.MinerTypeLight {
@@ -110,22 +103,20 @@ func (ms *msgShower) onBlockAddSuccess(message notify.Message) {
 					ms.showMsg("congratulations to you on becoming a %v at height %v, start mining", role, b.Header.Height)
 				}
 			case types.TransactionTypeMinerAbort:
-				if bytes.Equal(tx.Source.Bytes(), ms.id) && !txExecuteFail(tx.Hash, b.Header.EvictedTxs)  {
-					miner := core.MinerManagerImpl.Transaction2Miner(tx)
+				if bytes.Equal(tx.Source.Bytes(), ms.id) && ms.txSuccess(tx.Hash)  {
 					role := "proposer"
-					if miner.Type == types.MinerTypeLight {
+					if tx.Data[0] == types.MinerTypeLight {
 						role = "verifier"
 					}
 					ms.showMsg("abort miner role %v success at height %v, stoping mining", role, b.Header.Height)
 				}
 			case types.TransactionTypeMinerRefund:
-				if bytes.Equal(tx.Source.Bytes(), ms.id) && !txExecuteFail(tx.Hash, b.Header.EvictedTxs) {
-					miner := core.MinerManagerImpl.Transaction2Miner(tx)
+				if bytes.Equal(tx.Source.Bytes(), ms.id) && ms.txSuccess(tx.Hash) {
 					role := "proposer"
-					if miner.Type == types.MinerTypeLight {
+					if tx.Data[0] == types.MinerTypeLight {
 						role = "verifier"
 					}
-					ms.showMsg("refund miner role %v success at %v, stake %v TAS", role, b.Header.Height, common.RA2TAS(miner.Stake))
+					ms.showMsg("refund miner role %v success at %v", role, b.Header.Height)
 				}
 			}
 		}

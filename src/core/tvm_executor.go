@@ -42,14 +42,14 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, situation string) (common.Hash, []common.Hash, []*types.Transaction, []*types.Receipt, error, []*types.TransactionError) {
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, situation string) (state common.Hash, evits []common.Hash, txs []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
-	errs := make([]*types.TransactionError, len(block.Transactions))
+	//errs := make([]*types.TransactionError, len(block.Transactions))
 
-	for i, transaction := range block.Transactions {
+	for _, transaction := range block.Transactions {
 		if situation == "casting" && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
 			break
@@ -58,7 +58,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		var success = false
 		var contractAddress common.Address
 		var logs []*types.Log
-		var err *types.TransactionError
+		//var err *types.TransactionError
 		var cumulativeGasUsed uint64
 		castor := common.BytesToAddress(block.Header.Castor)
 
@@ -69,11 +69,11 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 
 		switch transaction.Type {
 		case types.TransactionTypeTransfer:
-			success, err, cumulativeGasUsed = executor.executeTransferTx(accountdb, transaction, castor)
+			success, _, cumulativeGasUsed = executor.executeTransferTx(accountdb, transaction, castor)
 		case types.TransactionTypeContractCreate:
-			success, err, cumulativeGasUsed, contractAddress = executor.executeContractCreateTx(accountdb, transaction, castor, block)
+			success, _, cumulativeGasUsed, contractAddress = executor.executeContractCreateTx(accountdb, transaction, castor, block)
 		case types.TransactionTypeContractCall:
-			success, err, cumulativeGasUsed, logs = executor.executeContractCallTx(accountdb, transaction, castor, block)
+			success, _, cumulativeGasUsed, logs = executor.executeContractCallTx(accountdb, transaction, castor, block)
 		case types.TransactionTypeBonus:
 			success = executor.executeBonusTx(accountdb, transaction, castor)
 		case types.TransactionTypeMinerApply:
@@ -94,7 +94,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 			receipt.TxHash = transaction.Hash
 			receipt.ContractAddress = contractAddress
 			receipts = append(receipts, receipt)
-			errs[i] = err
+			//errs[i] = err
 			if transaction.Source != nil {
 				accountdb.SetNonce(*transaction.Source, transaction.Nonce)
 			}
@@ -102,8 +102,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 	}
 	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
 
-	state := accountdb.IntermediateRoot(true)
-	return state, evictedTxs, transactions, receipts, nil, errs
+	state = accountdb.IntermediateRoot(true)
+	return state, evictedTxs, transactions, receipts, nil
 }
 
 func (executor *TVMExecutor) validateNonce(accountdb *account.AccountDB, transaction *types.Transaction) bool {

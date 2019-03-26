@@ -143,7 +143,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 }
 
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
-	transaction := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(hash))
+	transaction := core.BlockChainImpl.GetTransactionByHash(false, common.HexToHash(hash))
 
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
@@ -210,7 +210,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["height"] = bh.Height
 	blockDetail["pre_hash"] = bh.PreHash.Hex()
 	blockDetail["pre_time"] = bh.PreTime.Format("2006-01-02 15:04:05")
-	blockDetail["queue_number"] = bh.ProveValue
+	blockDetail["total_qn"] = bh.TotalQN
 	blockDetail["cur_time"] = bh.CurTime.Format("2006-01-02 15:04:05")
 	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
 	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
@@ -674,12 +674,12 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	for _, tx := range bh.EvictedTxs {
-		wrapper := chain.GetTransactionPool().GetReceipt(tx)
-		if wrapper != nil {
-			evictedReceipts = append(evictedReceipts, wrapper)
-		}
-	}
+	//for _, tx := range bh.EvictedTxs {
+	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
+	//	if wrapper != nil {
+	//		evictedReceipts = append(evictedReceipts, wrapper)
+	//	}
+	//}
 	receipts := make([]*types.Receipt, len(bh.Transactions))
 	for i, tx := range bh.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx)
@@ -692,7 +692,7 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 }
 
 func (api *GtasAPI) TransDetail(h string) (*Result, error) {
-	tx := core.BlockChainImpl.GetTransactionByHash(common.HexToHash(h))
+	tx := core.BlockChainImpl.GetTransactionByHash(false, common.HexToHash(h))
 
 	if tx != nil {
 		trans := convertTransaction(tx)
@@ -727,7 +727,7 @@ func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
 	hash := common.HexToHash(h)
 	rc := core.BlockChainImpl.GetTransactionPool().GetReceipt(hash)
 	if rc != nil {
-		tx := core.BlockChainImpl.GetTransactionByHash(hash)
+		tx := core.BlockChainImpl.GetTransactionByHash(false, hash)
 		return successResult(&core.ExecutedTransaction{
 			Receipt: rc,
 			Transaction: tx,

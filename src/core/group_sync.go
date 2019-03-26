@@ -182,7 +182,7 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 	PeerManager.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()
-	if height > localGroupHeight {
+	if height > localGroupHeight+1 {
 		gs.logger.Debugf("Rcv groupHeight from %v, height %v, local %v", source, height, localGroupHeight)
 	}
 

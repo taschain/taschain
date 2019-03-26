@@ -67,7 +67,7 @@ func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byt
 }
 
 //persist a block in a batch
-func (chain *FullBlockChain) commitBlock(block *types.Block, state *account.AccountDB, receipts types.Receipts) (ok bool, err error) {
+func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostState) (ok bool, err error) {
 
 	bh := block.Header
 	headerBytes, err := types.MarshalBlockHeader(bh)
@@ -88,7 +88,7 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, state *account.Acco
 	defer 	chain.batch.Reset()
 
 	//提交state
-	if err = chain.saveBlockState(block, state); err != nil {
+	if err = chain.saveBlockState(block, ps.state); err != nil {
 		return
 	}
 	//写hash->block
@@ -104,7 +104,7 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, state *account.Acco
 		return
 	}
 	//写收据
-	if err = chain.transactionPool.SaveReceipts(bh.Hash, receipts); err != nil {
+	if err = chain.transactionPool.SaveReceipts(bh.Hash, ps.receipts); err != nil {
 		return
 	}
 	//写latest->hash
@@ -114,14 +114,15 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, state *account.Acco
 	if err = chain.batch.Write(); err != nil {
 		return
 	}
-	chain.updateLatestBlock(state, bh)
+	chain.updateLatestBlock(ps.state, bh)
 
-	hashs := make([]common.Hash, 0)
-	hashs = append(hashs, bh.Transactions...)
-	if bh.EvictedTxs != nil {
-		hashs = append(hashs, bh.EvictedTxs...)
+	//交易从交易池中删除
+	if bh.Transactions != nil {
+		chain.transactionPool.RemoveFromPool(bh.Transactions)
 	}
-	chain.GetTransactionPool().RemoveFromPool(hashs)
+	if ps.evitedTxs != nil {
+		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
+	}
 
 	ok = true
 	return
@@ -137,6 +138,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	chain.rwLock.Lock()
 	defer chain.rwLock.Unlock()
 
+
 	if nil == block {
 		return fmt.Errorf("block is nil")
 	}
@@ -146,6 +148,8 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	Logger.Debugf("reset top hash:%s height:%d ", block.Hash.Hex(), block.Height)
 
 	var err error
+
+	defer chain.batch.Reset()
 
 	curr := chain.getLatestBlock()
 	recoverTxs := make([]*types.Transaction, 0)
@@ -162,7 +166,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		if err = chain.saveBlockTxs(curr.Hash, nil); err != nil {
 			return err
 		}
-		txs := chain.queryBlockTransactions(curr.Hash)
+		txs := chain.queryBlockTransactionsAll(curr.Hash)
 		if txs != nil {
 			recoverTxs = append(recoverTxs, txs...)
 		}
@@ -189,7 +193,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	}
 	chain.updateLatestBlock(state, block)
 
-	chain.GetTransactionPool().BackToPool(recoverTxs)
+	chain.transactionPool.BackToPool(recoverTxs)
 
 	return nil
 }
@@ -208,6 +212,7 @@ func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
 	Logger.Debugf("remove hash:%s height:%d ", hash.Hex(), height)
 
 	var err error
+	defer chain.batch.Reset()
 
 	if err = chain.saveBlockHeader(hash, nil); err != nil {
 		return err
@@ -221,11 +226,11 @@ func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
 	if err = chain.transactionPool.DeleteReceipts(block.Header.Transactions); err != nil {
 		return err
 	}
-	chain.removeTopBlock(hash)
 
 	if err = chain.batch.Write(); err != nil {
 		return err
 	}
+	chain.removeTopBlock(hash)
 	return nil
 }
 
@@ -296,7 +301,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 	}
 }
 
-func (chain *FullBlockChain) queryBlockTransactions(hash common.Hash) []*types.Transaction {
+func (chain *FullBlockChain) queryBlockTransactionsAll(hash common.Hash) []*types.Transaction {
     bs, err := chain.txdb.Get(hash.Bytes())
 	if err != nil {
 		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.String())
@@ -310,19 +315,6 @@ func (chain *FullBlockChain) queryBlockTransactions(hash common.Hash) []*types.T
 	return txs
 }
 
-func (chain *FullBlockChain) queryTransactionByHash(blockHash common.Hash, txHash common.Hash) *types.Transaction {
-    bh := chain.queryBlockHeaderByHash(blockHash)
-	if bh == nil {
-		return nil
-	}
-	bs, err := chain.txdb.Get(blockHash.Bytes())
-	if err != nil {
-		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), blockHash.String())
-		return nil
-	}
-	tx, _ := decodeTransaction(bh, txHash, bs)
-	return tx
-}
 
 func (chain *FullBlockChain) batchGetBlocksAfterHeight(h uint64, limit int) []*types.Block {
 	blocks := make([]*types.Block, 0)
@@ -363,7 +355,7 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 		return nil
 	}
 
-	txs := chain.queryBlockTransactions(hash)
+	txs := chain.queryBlockTransactionsAll(hash)
 	if len(bh.Transactions) > 0 {
 		if txs == nil || len(txs) != len(bh.Transactions) {
 			bodyLen := 0
@@ -428,4 +420,25 @@ func (chain *FullBlockChain) getTopBlockByHeight(height uint64) *types.Block {
 		}
 	}
 	return nil
+}
+
+func (chain *FullBlockChain) queryBlockTransactionsOptional(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction) {
+	txs := make([]*types.Transaction, 0)
+
+	bh := chain.queryBlockHeaderByHash(blockHash)
+	if bh == nil {
+		return txs
+	}
+	bs, err := chain.txdb.Get(blockHash.Bytes())
+	if err != nil {
+		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), blockHash.String())
+		return  txs
+	}
+	for _, h := range txHashList {
+		tx, _ := decodeTransaction(bh, h, bs)
+		if tx != nil {
+			txs = append(txs, tx)
+		}
+	}
+	return txs
 }

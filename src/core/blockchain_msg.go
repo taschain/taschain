@@ -35,6 +35,33 @@ func (chain *FullBlockChain) initMessageHandler() {
 	notify.BUS.Subscribe(notify.TransactionGot, chain.transactionGotHandler)
 }
 
+func (chain *FullBlockChain) notifyTransactionGot(txs []*types.Transaction, source string, by string)  {
+	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: source}
+	notify.BUS.Publish(notify.TransactionGotAddSucc, &m)
+	Logger.Debugf("Got transactions by %v from source %v, size %v", by, source, len(txs))
+	txHashs := make([]interface{}, len(txs))
+	for i, tx := range txs {
+		txHashs[i] = tx.Hash
+	}
+	chain.txsWanted.Remove(txHashs...)
+}
+
+func (chain *FullBlockChain) addWantedTransactions(txHashs []common.Hash)  {
+	txs := make([]interface{}, len(txHashs))
+	for i, txh := range txs {
+		txs[i] = txh
+	}
+	removeCnt := chain.txsWanted.Size()+len(txs) - wantedTxsSize
+	if removeCnt > 0 {
+		removeTxs := make([]interface{}, 0)
+		chain.txsWanted.Each(func(item interface{}) bool {
+			removeTxs = append(removeTxs, item)
+			return len(removeTxs) < removeCnt
+		})
+		chain.txsWanted.Remove(removeTxs...)
+	}
+	chain.txsWanted.Add(txs...)
+}
 
 func (chain *FullBlockChain) transactionBroadcastHandler(msg notify.Message) {
 	mtm, ok := msg.(*notify.TransactionBroadcastMessage)
@@ -48,6 +75,17 @@ func (chain *FullBlockChain) transactionBroadcastHandler(msg notify.Message) {
 		return
 	}
 	chain.transactionPool.AddTransactions(txs, 1)
+
+	chain.txsWanted.Has()
+	wantedTxs := make([]*types.Transaction, 0)
+	for _, tx := range txs {
+		if chain.txsWanted.Has(tx.Hash) {
+			wantedTxs = append(wantedTxs, tx)
+		}
+	}
+	if len(wantedTxs) > 0 {
+		chain.notifyTransactionGot(wantedTxs, mtm.Peer, "broadcast")
+	}
 }
 
 func (chain *FullBlockChain) transactionReqHandler(msg notify.Message) {
@@ -64,10 +102,8 @@ func (chain *FullBlockChain) transactionReqHandler(msg notify.Message) {
 
 	source := trm.Peer
 	Logger.Debugf("receive transaction req from %s,hash %v,tx_len %v", source, m.CurrentBlockHash.String(), len(m.TransactionHashes))
-	if nil == BlockChainImpl {
-		return
-	}
-	transactions, _ := chain.getTransactions(m.CurrentBlockHash, m.TransactionHashes)
+
+	transactions, _ := chain.GetBlockTransactions(m.CurrentBlockHash, m.TransactionHashes)
 
 	if nil != transactions && 0 != len(transactions) {
 		chain.sendTransactions(transactions, source)
@@ -90,8 +126,7 @@ func (chain *FullBlockChain) transactionGotHandler(msg notify.Message) {
 
 	chain.transactionPool.AddTransactions(txs, 2)
 
-	m := notify.TransactionGotAddSuccMessage{Transactions: txs, Peer: tgm.Peer}
-	notify.BUS.Publish(notify.TransactionGotAddSucc, &m)
+	chain.notifyTransactionGot(txs, tgm.Peer, "request")
 	return
 }
 
@@ -127,6 +162,8 @@ func (chain *FullBlockChain) requestTransaction(m *transactionRequestMessage, ca
 	Logger.Debugf("send REQ_TRANSACTION_MSG to %s,tx_len:%v,hash:%s,time at:%v", castorId, len(m.TransactionHashes),m.CurrentBlockHash.String(), time.Now())
 	message := network.Message{Code: network.ReqTransactionMsg, Body: body}
 	network.GetNetInstance().Send(castorId, message)
+
+	chain.addWantedTransactions(m.TransactionHashes)
 }
 
 func (chain *FullBlockChain) sendTransactions(txs []*types.Transaction, sourceId string) {
@@ -135,6 +172,7 @@ func (chain *FullBlockChain) sendTransactions(txs []*types.Transaction, sourceId
 		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
+	Logger.Debugf("send transactions to %v size %v", len(txs), sourceId)
 	message := network.Message{Code: network.TransactionGotMsg, Body: body}
 	go network.GetNetInstance().Send(sourceId, message)
 }

@@ -39,14 +39,20 @@ func (chain *FullBlockChain) TotalQN() uint64 {
 	return chain.QueryTopBlock().TotalQN
 }
 
-func (chain *FullBlockChain) GetTransactionByHash(h common.Hash) (*types.Transaction) {
-	tx := chain.transactionPool.GetTransaction(h)
+
+func (chain *FullBlockChain) GetTransactionByHash(onlyBonus bool, h common.Hash) (*types.Transaction) {
+	tx := chain.transactionPool.GetTransaction(onlyBonus, h)
 	if tx == nil {
 		chain.rwLock.RLock()
 		defer chain.rwLock.RUnlock()
 		bhash := chain.transactionPool.GetTxBlockHash(h)
 		if bhash != nil {
-			tx = chain.queryTransactionByHash(*bhash, h)
+			hashs := make([]common.Hash, 1)
+			hashs[0] = h
+			txs := chain.queryBlockTransactionsOptional(*bhash, hashs)
+			if len(txs) != 0 {
+				return txs[0]
+			}
 		}
 	}
 	return tx
@@ -67,22 +73,41 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 }
 
 
-func (chain *FullBlockChain) getTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
+func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
 	txs := make([]*types.Transaction, 0)
 	lost := make([]common.Hash, 0)
 	if nil == txHashList || 0 == len(txHashList) {
 		return txs, lost
 	}
 
+	existTxs := make(map[common.Hash]*types.Transaction)
+	needFindInDBs := make([]common.Hash, 0)
+	//先从交易池取
 	for _, hash := range txHashList {
-		tx := chain.GetTransactionByHash(hash)
-
+		tx := chain.transactionPool.GetTransaction(false, hash)
 		if tx != nil {
+			existTxs[hash] = tx
+		} else {
+			needFindInDBs = append(needFindInDBs, hash)
+		}
+	}
+
+	if len(needFindInDBs) > 0 {
+		chain.rwLock.RLock()
+		dbTxs := chain.queryBlockTransactionsOptional(blockHash, needFindInDBs)
+		chain.rwLock.RUnlock()
+		for _, tx := range dbTxs {
+			existTxs[tx.Hash] = tx
+		}
+	}
+	for _, hash := range txHashList {
+		if tx, ok := existTxs[hash]; ok {
 			txs = append(txs, tx)
 		} else {
 			lost = append(lost, hash)
 		}
 	}
+
 	return txs, lost
 }
 
@@ -164,7 +189,7 @@ func (chain *FullBlockChain) QueryBlockFloor(height uint64) *types.Block {
 		return nil
 	}
 
-	txs := chain.queryBlockTransactions(header.Hash)
+	txs := chain.queryBlockTransactionsAll(header.Hash)
 	b := &types.Block{
 		Header: header,
 		Transactions: txs,
