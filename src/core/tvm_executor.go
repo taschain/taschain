@@ -107,7 +107,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 }
 
 func (executor *TVMExecutor) validateNonce(accountdb *account.AccountDB, transaction *types.Transaction) bool {
-	if transaction.Type == types.TransactionTypeBonus || types.IsTestTransaction(transaction) {
+	if transaction.Type == types.TransactionTypeBonus || IsTestTransaction(transaction) {
 		return true
 	}
 	nonce := accountdb.GetNonce(*transaction.Source)

@@ -95,6 +95,8 @@ func InitLogService(nodeId string) {
 		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
 	}
 
+	Instance.insertMinerId()
+
 	Instance.loadInternalNodesIds()
 }
 
@@ -169,13 +171,13 @@ func (ms *MonitorService) loadInternalNodesIds() {
 	defer connection.Close()
 
 	sess := connection.NewSession()
-	ret, err := sess.Table("tas_node_ids").Limit(1000).Get()
+	ret, err := sess.Table("nodes").Fields("MinerId").Limit(1000).Get()
 	 m := make(map[string]bool)
 
 	 ids := make([]string, 0)
 	if ret != nil {
 		for _, d := range ret {
-			id := d["minerId"].(string)
+			id := d["MinerId"].(string)
 			m[id] = true
 			ids = append(ids, id)
 		}
@@ -250,5 +252,36 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 		} else {
 			fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 		}
+	}
+}
+
+func (ms *MonitorService) insertMinerId()  {
+	if !ms.MonitorEnable() {
+		return
+	}
+
+	connection, err := gorose.Open(ms.cfg)
+	if err != nil {
+		return
+	}
+	if connection == nil {
+		err = fmt.Errorf("nil connection")
+		return
+	}
+	defer connection.Close()
+
+	sess := connection.NewSession()
+	dm := make(map[string]interface{})
+	dm["MinerId"] = ms.nodeId
+	dm["UpdateTime"] = time.Now()
+	dm["Instance"] = common.InstanceIndex
+
+	affet, err := sess.Table("nodes").Data(dm).Insert()
+	if err == nil {
+		if affet <= 0 {
+			sess.Table("nodes").Data(dm).Insert()
+		}
+	} else {
+		fmt.Printf("insert nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 	}
 }
