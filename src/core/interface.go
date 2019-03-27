@@ -58,9 +58,11 @@ type BlockChain interface {
 
 	//query first block whose height >= height
 	QueryBlockCeil(height uint64) *types.Block
+	QueryBlockHeaderCeil(height uint64) *types.BlockHeader
 
 	//query first block whose height <= height
 	QueryBlockFloor(height uint64) *types.Block
+	QueryBlockHeaderFloor(height uint64) *types.BlockHeader
 
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
@@ -90,6 +92,8 @@ type BlockChain interface {
 	GetConsensusHelper() types.ConsensusHelper
 
 	Version() int
+
+	ResetTop(bh *types.BlockHeader)
 }
 
 type ExecutedTransaction struct {

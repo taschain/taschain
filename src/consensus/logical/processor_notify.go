@@ -6,6 +6,8 @@ import (
 	"consensus/model"
 	"middleware/notify"
 	"middleware/types"
+	"bytes"
+	"fmt"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
@@ -106,6 +108,35 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	p.joiningGroups.Clean(sgi.GInfo.GroupHash())
 	p.globalGroups.removeInitedGroup(sgi.GInfo.GroupHash())
 
+	beginHeight := group.Header.WorkHeight
+	topHeight := p.MainChain.Height()
+
+	//当前块高已经超过生效高度了,组可能有点问题
+	if beginHeight > 0 && beginHeight <= topHeight {
+		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
+		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight-1)
+		if pre == nil {
+			panic(fmt.Sprintf("block nil at height %v", beginHeight-1))
+		}
+		for h := beginHeight; h <= topHeight; {
+			bh := p.MainChain.QueryBlockHeaderCeil(h)
+			if bh == nil {
+				break
+			}
+			if bh.PreHash != pre.Hash {
+				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.String(), bh.PreHash.String(), bh.Height, pre.Hash.String(), pre.Height))
+			}
+			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
+			if !bytes.Equal(gid.Serialize(), bh.GroupId) {
+				old := p.MainChain.QueryTopBlock()
+				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.String(), old.PreHash.String(), old.Height, pre.Hash.String(), pre.PreHash.String(), pre.Height)
+				p.MainChain.ResetTop(pre)
+				break
+			}
+			pre = bh
+			h = bh.Height+1
+		}
+	}
 }
 
 func (p *Processor) onNewBlockReceive(message notify.Message) {

@@ -163,7 +163,20 @@ func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 
 	return chain.queryBlockByHash(hash)
 }
+func (chain *FullBlockChain) QueryBlockHeaderCeil(height uint64) *types.BlockHeader {
+	if b := chain.getTopBlockByHeight(height); b != nil {
+		return b.Header
+	}
 
+	chain.rwLock.RLock()
+	defer chain.rwLock.RUnlock()
+
+	hash := chain.queryBlockHashCeil(height)
+	if hash == nil {
+		return nil
+	}
+	return chain.queryBlockHeaderByHash(*hash)
+}
 func (chain *FullBlockChain) QueryBlockCeil(height uint64) *types.Block {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b
@@ -178,7 +191,17 @@ func (chain *FullBlockChain) QueryBlockCeil(height uint64) *types.Block {
 	}
 	return chain.queryBlockByHash(*hash)
 }
+func (chain *FullBlockChain) QueryBlockHeaderFloor(height uint64) *types.BlockHeader {
+	if b := chain.getTopBlockByHeight(height); b != nil {
+		return b.Header
+	}
 
+	chain.rwLock.RLock()
+	defer chain.rwLock.RUnlock()
+
+	header := chain.queryBlockHeaderByHeightFloor(height)
+	return header
+}
 func (chain *FullBlockChain) QueryBlockFloor(height uint64) *types.Block {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b

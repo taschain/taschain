@@ -104,7 +104,7 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.BlockInfoNotify, bs.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockReq, bs.blockReqHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, bs.blockResponseMsgHandler)
-	notify.BUS.Subscribe(notify.GroupAddSucc, bs.onGroupAddSuccess)
+	//notify.BUS.Subscribe(notify.GroupAddSucc, bs.onGroupAddSuccess)
 
 	BlockSyncer = bs
 
