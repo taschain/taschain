@@ -103,7 +103,7 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 		Header: &bh,
 	}
 
-	txs, missTxs := chain.GetBlockTransactions(bh.Hash, bh.Transactions)
+	txs, missTxs := chain.GetBlockTransactions(bh.Hash, bh.Transactions, false)
 
 	if len(missTxs) != 0 {
 		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
@@ -148,7 +148,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 	transactions := txs
 
 	if txs == nil {
-		gotTxs, missing := chain.GetBlockTransactions(bh.Hash, bh.Transactions)
+		gotTxs, missing := chain.GetBlockTransactions(bh.Hash, bh.Transactions, true)
 		if 0 != len(missing) {
 			var castorId groupsig.ID
 			error := castorId.Deserialize(bh.Castor)

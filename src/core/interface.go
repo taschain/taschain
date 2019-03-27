@@ -67,7 +67,7 @@ type BlockChain interface {
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易
-	GetTransactionByHash(onlyBonus bool, h common.Hash) (*types.Transaction)
+	GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) (*types.Transaction)
 
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool

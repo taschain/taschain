@@ -40,7 +40,7 @@ func (chain *FullBlockChain) TotalQN() uint64 {
 }
 
 
-func (chain *FullBlockChain) GetTransactionByHash(onlyBonus bool, h common.Hash) (*types.Transaction) {
+func (chain *FullBlockChain) GetTransactionByHash(onlyBonus, needSource bool,  h common.Hash) (*types.Transaction) {
 	tx := chain.transactionPool.GetTransaction(onlyBonus, h)
 	if tx == nil {
 		chain.rwLock.RLock()
@@ -48,6 +48,9 @@ func (chain *FullBlockChain) GetTransactionByHash(onlyBonus bool, h common.Hash)
 		bhash := chain.transactionPool.GetTxBlockHash(h)
 		if bhash != nil {
 			tx = chain.queryBlockTransactionsOptional(*bhash, h)
+			if tx != nil && needSource {
+				tx.RecoverSource()
+			}
 		}
 	}
 	return tx
@@ -68,7 +71,7 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 }
 
 
-func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash) {
+func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashList []common.Hash, needSource bool) ([]*types.Transaction, []common.Hash) {
 	txs := make([]*types.Transaction, 0)
 	lost := make([]common.Hash, 0)
 	if nil == txHashList || 0 == len(txHashList) {
@@ -77,7 +80,7 @@ func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashL
 
 	//先从交易池取
 	for _, hash := range txHashList {
-		tx := chain.GetTransactionByHash(false, hash)
+		tx := chain.GetTransactionByHash(false, needSource, hash)
 		if tx != nil {
 			txs = append(txs, tx)
 		} else {

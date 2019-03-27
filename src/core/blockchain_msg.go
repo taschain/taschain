@@ -103,7 +103,7 @@ func (chain *FullBlockChain) transactionReqHandler(msg notify.Message) {
 	source := trm.Peer
 	Logger.Debugf("receive transaction req from %s,hash %v,tx_len %v", source, m.CurrentBlockHash.String(), len(m.TransactionHashes))
 
-	transactions, _ := chain.GetBlockTransactions(m.CurrentBlockHash, m.TransactionHashes)
+	transactions, _ := chain.GetBlockTransactions(m.CurrentBlockHash, m.TransactionHashes, false)
 
 	if nil != transactions && 0 != len(transactions) {
 		chain.sendTransactions(transactions, source)

@@ -51,7 +51,6 @@ func (chain *FullBlockChain) saveCurrentBlock(hash common.Hash) error {
 func (chain *FullBlockChain) updateLatestBlock(state *account.AccountDB, header *types.BlockHeader)  {
 	chain.latestStateDB = state
 	chain.latestBlock = header
-	Logger.Debugf("Update latestStateDB:%s height:%d", header.StateTree.Hex(), header.Height)
 }
 
 func (chain *FullBlockChain) saveBlockHeader(hash common.Hash, dataBytes []byte) error {

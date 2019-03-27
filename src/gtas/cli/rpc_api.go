@@ -143,7 +143,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 }
 
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
-	transaction := core.BlockChainImpl.GetTransactionByHash(false, common.HexToHash(hash))
+	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
 
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
@@ -691,7 +691,7 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 }
 
 func (api *GtasAPI) TransDetail(h string) (*Result, error) {
-	tx := core.BlockChainImpl.GetTransactionByHash(false, common.HexToHash(h))
+	tx := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(h))
 
 	if tx != nil {
 		trans := convertTransaction(tx)
@@ -726,7 +726,7 @@ func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
 	hash := common.HexToHash(h)
 	rc := core.BlockChainImpl.GetTransactionPool().GetReceipt(hash)
 	if rc != nil {
-		tx := core.BlockChainImpl.GetTransactionByHash(false, hash)
+		tx := core.BlockChainImpl.GetTransactionByHash(false, true, hash)
 		return successResult(&core.ExecutedTransaction{
 			Receipt: rc,
 			Transaction: tx,
