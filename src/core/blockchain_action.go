@@ -120,7 +120,7 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 // 1 无法验证（缺少交易，已异步向网络模块请求）
 // 2 无法验证（前一块在链上不存存在）
 func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8) {
-	if chain.hasBlock(bh.Hash) {
+	if chain.HasBlock(bh.Hash) {
 		return []common.Hash{}, 0
 	}
 	_, txs, ret := chain.verifyBlock(bh, nil)
@@ -140,7 +140,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return nil, nil, -1
 	}
 
-	if !chain.hasBlock(bh.PreHash) {
+	if !chain.HasBlock(bh.PreHash) {
 		err = ErrPreNotExist
 		return  nil, nil, 2
 	}
@@ -229,7 +229,7 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 		return false, fmt.Errorf("block is nil")
 	}
 
-	if !chain.hasBlock(b.Header.PreHash) {
+	if !chain.HasBlock(b.Header.PreHash) {
 		chain.processFutureBlock(b, source)
 		return false, ErrPreNotExist
 	}
@@ -267,7 +267,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
 	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
 
-	if chain.hasBlock(bh.Hash) {
+	if chain.HasBlock(bh.Hash) {
 		return types.BlockExisted, ErrBlockExist
 	}
 	if ok, e := chain.validateBlock(source, b); !ok {
@@ -300,13 +300,13 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	topBlock = chain.getLatestBlock()
 
-	if chain.hasBlock(bh.Hash) {
+	if chain.HasBlock(bh.Hash) {
 		ret = types.BlockExisted
 		err = ErrBlockExist
 		return
 	}
 
-	if !chain.hasBlock(bh.PreHash) {
+	if !chain.HasBlock(bh.PreHash) {
 		chain.processFutureBlock(b, source)
 		ret = types.AddBlockFailed
 		err = ErrPreNotExist

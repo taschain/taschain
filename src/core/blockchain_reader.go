@@ -120,6 +120,9 @@ func (chain *FullBlockChain) QueryTopBlock() *types.BlockHeader {
 }
 
 func (chain *FullBlockChain) HasBlock(hash common.Hash) bool {
+	if b := chain.getTopBlockByHash(hash); b != nil {
+		return true
+	}
     return chain.hasBlock(hash)
 }
 

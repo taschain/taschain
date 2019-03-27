@@ -184,7 +184,7 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 
 func (fp *forkProcessor) findCommonAncestor(piece []common.Hash) *common.Hash {
 	for _, h := range piece {
-		if fp.chain.hasBlock(h) {
+		if fp.chain.HasBlock(h) {
 			return &h
 		}
 	}
@@ -315,7 +315,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		}
 	} else {
 		ancestorBH := blocks[0].Header
-		if !fp.chain.hasBlock(ancestorBH.Hash) {
+		if !fp.chain.HasBlock(ancestorBH.Hash) {
 			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.String(), ancestorBH.Height)
 		} else if len(blocks) > 1 {
 			old := fp.chain.latestBlock
