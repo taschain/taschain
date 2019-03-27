@@ -435,9 +435,11 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(blockHash common.Has
 		return  txs
 	}
 	for _, h := range txHashList {
-		tx, _ := decodeTransaction(bh, h, bs)
+		tx, err := decodeTransaction(bh, h, bs)
 		if tx != nil {
 			txs = append(txs, tx)
+		} else {
+			Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v", h.String(), err.Error())
 		}
 	}
 	return txs

@@ -91,7 +91,7 @@ func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, er
 	} else {
 		b, err := pool.tryAdd(tx)
 		if err != nil {
-			Logger.Debugf("tryAdd tx fail: hash=%v, type=%v, err=%v", tx.Hash.String(), tx.Type, err)
+			Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
 		}
 		return b, err
 	}
@@ -197,8 +197,8 @@ func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
 		return false, ErrNil
 	}
 
-	if pool.isTransactionExisted(tx) {
-		return false, ErrExist
+	if exist, where := pool.isTransactionExisted(tx); exist {
+		return false, fmt.Errorf("tx exist in %v", where)
 	}
 
 	pool.add(tx)
@@ -221,18 +221,24 @@ func (pool *TxPool) remove(txHash common.Hash) {
 	pool.received.remove(txHash)
 }
 
-func (pool *TxPool) isTransactionExisted(tx *types.Transaction) bool {
+func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
 	if tx.Type == types.TransactionTypeBonus {
-		if pool.bonPool.contains(tx.Hash) || pool.bonPool.hasBonus(tx.Data) {
-			return true
+		if pool.bonPool.contains(tx.Hash) {
+			return true, 1
+		}
+		if pool.bonPool.hasBonus(tx.Data) {
+			return true, 2
 		}
 	} else {
 		if pool.received.contains(tx.Hash) {
-			return true
+			return true, 1
 		}
 	}
 
-	return pool.hasReceipt(tx.Hash)
+	if pool.hasReceipt(tx.Hash) {
+		return true, 3
+	}
+	return false, -1
 }
 
 func (pool *TxPool) packTx() []*types.Transaction {
