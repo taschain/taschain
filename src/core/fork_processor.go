@@ -110,7 +110,7 @@ func (fp *forkProcessor) getLocalPieceInfo(topHash common.Hash) *ChainPieceInfo 
 	return &ChainPieceInfo{ChainPiece: pieces}
 }
 
-func (fp *forkProcessor) tryToProcessFork(targetNode string, bh *types.BlockHeader) {
+func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
 	if BlockSyncer == nil {
 		return
 	}
@@ -120,6 +120,12 @@ func (fp *forkProcessor) tryToProcessFork(targetNode string, bh *types.BlockHead
 
 	fp.lock.Lock()
 	defer fp.lock.Unlock()
+
+	bh := b.Header
+	if fp.chain.HasBlock(bh.PreHash) {
+		fp.chain.AddBlockOnChain(targetNode, b)
+		return
+	}
 
 	if !fp.updateContext(targetNode, bh) {
 		fp.logger.Warnf("old target %v %v %v, new target %v %v %v, won't process", fp.syncCtx.target, fp.syncCtx.targetTop.Height, fp.syncCtx.targetTop.TotalQN, targetNode, bh.Height, bh.TotalQN)
@@ -141,7 +147,11 @@ func (fp *forkProcessor) reqPieceTimeout(id string) {
 		return
 	}
 	PeerManager.timeoutPeer(fp.syncCtx.target)
-	fp.syncCtx = nil
+	fp.reset()
+}
+
+func (fp *forkProcessor) reset()  {
+    fp.syncCtx = nil
 }
 
 func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
@@ -150,12 +160,14 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 
 	chainPiece := chainPieceInfo.ChainPiece
 	if len(chainPiece) == 0 {
+		fp.reset()
 		return
 	}
 
 	body, e := marshalChainPieceInfo(chainPieceInfo)
 	if e != nil {
 		fp.logger.Errorf("Marshal chain piece info error:%s!", e.Error())
+		fp.reset()
 		return
 	}
 	message := network.Message{Code: network.ReqChainPieceBlock, Body: body}
@@ -305,13 +317,15 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		ancestorBH := blocks[0].Header
 		if !fp.chain.hasBlock(ancestorBH.Hash) {
 			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.String(), ancestorBH.Height)
-		} else {
+		} else if len(blocks) > 1 {
 			old := fp.chain.latestBlock
 			last := blocks[len(blocks)-1].Header
 			fp.logger.Debugf("fork process len %v. reset top: old %v %v %v %v, last %v %v %v %v", len(blocks), old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, last.Hash.ShortS(), last.Height, last.PreHash.ShortS(), last.TotalQN)
 
-			fp.chain.ResetTop(ancestorBH)
-			fp.chain.batchAddBlockOnChain(source, blocks, func(b *types.Block, ret types.AddBlockResult) bool {
+			if old.Hash != ancestorBH.Hash {
+				fp.chain.ResetTop(ancestorBH)
+			}
+			fp.chain.batchAddBlockOnChain(source, blocks[1:], func(b *types.Block, ret types.AddBlockResult) bool {
 				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
 				return ret == types.AddBlockSucc || ret == types.BlockExisted
 			})

@@ -220,7 +220,7 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string)  
 		bh := b.Header
 		top := chain.latestBlock
 		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.String(), bh.Height, bh.PreHash.String(), top.Hash.String(), top.Height, top.PreHash.String())
-		go chain.forkProcessor.tryToProcessFork(source, b.Header)
+		go chain.forkProcessor.tryToProcessFork(source, b)
 	}
 }
 
@@ -258,6 +258,10 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	defer func() {
 		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.String(), b.Header.Height, err, time.Since(begin).String())
 	}()
+
+	if b == nil {
+		return types.AddBlockFailed, fmt.Errorf("nil block")
+	}
 	topBlock := chain.getLatestBlock()
 	bh := b.Header
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
