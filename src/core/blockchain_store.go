@@ -422,25 +422,22 @@ func (chain *FullBlockChain) getTopBlockByHeight(height uint64) *types.Block {
 	return nil
 }
 
-func (chain *FullBlockChain) queryBlockTransactionsOptional(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction) {
-	txs := make([]*types.Transaction, 0)
+func (chain *FullBlockChain) queryBlockTransactionsOptional(blockHash common.Hash, txHash common.Hash) (*types.Transaction) {
 
 	bh := chain.queryBlockHeaderByHash(blockHash)
 	if bh == nil {
-		return txs
+		return nil
 	}
 	bs, err := chain.txdb.Get(blockHash.Bytes())
 	if err != nil {
 		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), blockHash.String())
-		return  txs
+		return  nil
 	}
-	for _, h := range txHashList {
-		tx, err := decodeTransaction(bh, h, bs)
-		if tx != nil {
-			txs = append(txs, tx)
-		} else {
-			Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v", h.String(), err.Error())
-		}
+	tx, err := decodeTransaction(bh, txHash, bs)
+	if tx != nil {
+		return tx
+	} else {
+		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v", txHash.String(), err.Error())
+		return nil
 	}
-	return txs
 }

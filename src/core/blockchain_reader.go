@@ -47,12 +47,7 @@ func (chain *FullBlockChain) GetTransactionByHash(onlyBonus bool, h common.Hash)
 		defer chain.rwLock.RUnlock()
 		bhash := chain.transactionPool.GetTxBlockHash(h)
 		if bhash != nil {
-			hashs := make([]common.Hash, 1)
-			hashs[0] = h
-			txs := chain.queryBlockTransactionsOptional(*bhash, hashs)
-			if len(txs) != 0 {
-				return txs[0]
-			}
+			tx = chain.queryBlockTransactionsOptional(*bhash, h)
 		}
 	}
 	return tx
@@ -81,32 +76,31 @@ func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashL
 	}
 
 	existTxs := make(map[common.Hash]*types.Transaction)
-	needFindInDBs := make([]common.Hash, 0)
 	//先从交易池取
 	for _, hash := range txHashList {
-		tx := chain.transactionPool.GetTransaction(false, hash)
+		tx := chain.GetTransactionByHash(false, hash)
 		if tx != nil {
 			existTxs[hash] = tx
-		} else {
-			needFindInDBs = append(needFindInDBs, hash)
-		}
-	}
-
-	if len(needFindInDBs) > 0 {
-		chain.rwLock.RLock()
-		dbTxs := chain.queryBlockTransactionsOptional(blockHash, needFindInDBs)
-		chain.rwLock.RUnlock()
-		for _, tx := range dbTxs {
-			existTxs[tx.Hash] = tx
-		}
-	}
-	for _, hash := range txHashList {
-		if tx, ok := existTxs[hash]; ok {
-			txs = append(txs, tx)
 		} else {
 			lost = append(lost, hash)
 		}
 	}
+
+	//if len(needFindInDBs) > 0 {
+	//	chain.rwLock.RLock()
+	//	dbTxs := chain.queryBlockTransactionsOptional(blockHash, needFindInDBs)
+	//	chain.rwLock.RUnlock()
+	//	for _, tx := range dbTxs {
+	//		existTxs[tx.Hash] = tx
+	//	}
+	//}
+	//for _, hash := range txHashList {
+	//	if tx, ok := existTxs[hash]; ok {
+	//		txs = append(txs, tx)
+	//	} else {
+	//		lost = append(lost, hash)
+	//	}
+	//}
 
 	return txs, lost
 }
