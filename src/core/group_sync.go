@@ -328,7 +328,7 @@ func (gs *groupSyncer) sendGroups(targetId string, groups []*types.Group) {
 	if len(groups) == 0 {
 		gs.logger.Debugf("Send nil group to:%s", targetId)
 	} else {
-		gs.logger.Debugf("Send group to %s,groups:%d-%d", targetId, groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
+		gs.logger.Debugf("Send group to %s,size %v, groups:%d-%d", targetId, len(groups), groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
 	}
 	body, e := marshalGroupInfo(groups)
 	if e != nil {

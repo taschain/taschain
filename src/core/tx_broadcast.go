@@ -43,7 +43,7 @@ func initBroadcastAget(pool *TxPool) {
 }
 
 
-func (ag *txBroadcastAgent) clearRecentBroadcast() {
+func (ag *txBroadcastAgent) clearJob() {
 	for _, k := range ag.recentBroadcast.Keys() {
 		t, ok := ag.recentBroadcast.Get(k)
 		if ok {
@@ -52,6 +52,14 @@ func (ag *txBroadcastAgent) clearRecentBroadcast() {
 			}
 		}
 	}
+	ag.pool.bonPool.forEach(func(tx *types.Transaction) bool {
+		if ag.pool.bonPool.hasBonus(tx.Data) {
+			bhash := common.BytesToHash(tx.Data)
+			rm := ag.pool.bonPool.removeByBlockHash(bhash)
+			Logger.Debugf("remove from bonus pool: blockHash %v, size %v", bhash.String(), rm)
+		}
+		return true
+	})
 }
 
 func (ag *txBroadcastAgent) checkTxCanBroadcast(txHash common.Hash) bool {
@@ -62,7 +70,7 @@ func (ag *txBroadcastAgent) checkTxCanBroadcast(txHash common.Hash) bool {
 }
 
 func (ag *txBroadcastAgent) broadcast() bool {
-	ag.clearRecentBroadcast()
+	ag.clearJob()
 
 	txs := make([]*types.Transaction, 0)
 	ag.pool.bonPool.forEach(func(tx *types.Transaction) bool {

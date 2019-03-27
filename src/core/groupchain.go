@@ -181,7 +181,10 @@ func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
 	return chain.getGroupById(id)
 }
 
-func (chain *GroupChain) AddGroup(group *types.Group) error {
+func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
+	defer func() {
+		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.Id), group.GroupHeight, err)
+	}()
 	if chain.hasGroup(group.Id) {
 		//notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
 		return errGroupExist
@@ -200,20 +203,23 @@ func (chain *GroupChain) AddGroup(group *types.Group) error {
 	defer chain.lock.Unlock()
 
 	if !bytes.Equal(group.Header.PreGroup, chain.lastGroup.Id) {
-		return fmt.Errorf("preGroup not equal to lastGroup")
+		err = fmt.Errorf("preGroup not equal to lastGroup")
+		return
 	}
 
 	if !chain.hasGroup(group.Header.PreGroup) {
-		return fmt.Errorf("pre group not exist")
+		err = fmt.Errorf("pre group not exist")
+		return
 	}
 	if !chain.hasGroup(group.Header.Parent) {
-		return fmt.Errorf("prarent group not exist")
+		err = fmt.Errorf("prarent group not exist")
+		return
 	}
 	group.GroupHeight = chain.lastGroup.GroupHeight+1
 
-	if err := chain.commitGroup(group); err != nil {
+	if err = chain.commitGroup(group); err != nil {
 		Logger.Errorf("commit Group fail ,err=%v, height=%v", err, group.GroupHeight)
-		return err
+		return
 	}
 	chain.topGroups.Add(common.Bytes2Hex(group.Id), group)
 	notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})

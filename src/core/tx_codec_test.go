@@ -50,7 +50,7 @@ func genBlockHeader() *types.BlockHeader {
 	bh := &types.BlockHeader{
 		CurTime:    time.Now(), //todo:时区问题
 		Height:     rand.Uint64(),
-		ProveValue: big.NewInt(rand.Int63()),
+		ProveValue: []byte{},
 		Castor:     castor.Serialize(),
 		GroupId:    castor.Serialize(),
 		TotalQN:    rand.Uint64(),

@@ -14,6 +14,15 @@
 ////   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 package core
+
+import (
+	"testing"
+	"middleware"
+	"taslog"
+	"common"
+	"middleware/types"
+)
+
 //
 //import (
 //	"testing"
@@ -160,3 +169,30 @@ package core
 //		t.Fatalf("fail to genesisGroup")
 //	}
 //}
+func TestQueryGroupAfter(t *testing.T) {
+	common.InitConf("/Users/pxf/workspace/tas_develop/test9/tas9.ini")
+	middleware.InitMiddleware()
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+	initGroupChain(&types.GenesisInfo{}, nil)
+
+	//lg := GroupChainImpl.LastGroup()
+	//t.Log(lg.GroupHeight, lg.Id)
+	chain := GroupChainImpl
+	iter := chain.groupsHeight.NewIterator()
+	defer iter.Release()
+
+	limit := 100
+	for iter.Next() {
+		gid := iter.Value()
+		g := chain.getGroupById(gid)
+		if g != nil {
+			t.Log(g.GroupHeight, iter.Key(), g.Id)
+			limit--
+		}
+	}
+
+	//gs := GroupChainImpl.GetGroupsAfterHeight(0, 20)
+	//for _, g := range gs {
+	//	t.Log(g.GroupHeight, g.Id)
+	//}
+}

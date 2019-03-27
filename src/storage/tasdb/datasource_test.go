@@ -287,3 +287,32 @@ func TestIteratorWithPrefix2(t *testing.T) {
 
 	iter.Release()
 }
+
+func TestGetAfter(t *testing.T) {
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+	//for i := 1; i < 13; i++ {
+	//	ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	//}
+
+	iter := ldb.NewIterator()
+	if !iter.Seek(utility.UInt64ToByte(13)) {
+		t.Logf("not found")
+	}
+
+	cnt := 10
+	for cnt > 0 {
+		t.Log(utility.ByteToUInt64(iter.Value()))
+		cnt--
+		if !iter.Next() {
+			break
+		}
+	}
+}

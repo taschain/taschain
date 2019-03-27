@@ -74,7 +74,7 @@ func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int64) ([]*ty
 }
 
 func (chain *GroupChain) loadLastGroup() *types.Group {
-    gid, err := chain.groupsHeight.Get([]byte(GROUP_STATUS_KEY))
+    gid, err := chain.groups.Get([]byte(GROUP_STATUS_KEY))
 	if err != nil {
 		return nil
 	}
@@ -96,7 +96,7 @@ func (chain *GroupChain) commitGroup(group *types.Group) error {
 	if err := chain.groupsHeight.AddKv(batch, utility.UInt64ToByte(group.GroupHeight), group.Id); err != nil {
 		return err
 	}
-	if err := chain.groupsHeight.AddKv(batch, []byte(GROUP_STATUS_KEY), group.Id); err != nil {
+	if err := chain.groups.AddKv(batch, []byte(GROUP_STATUS_KEY), group.Id); err != nil {
 		return err
 	}
 	if err := batch.Write(); err != nil {
