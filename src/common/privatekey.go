@@ -34,13 +34,13 @@ type PrivateKey struct {
 //私钥签名函数
 func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
-	sig, err := secp256k1.Sign(hash, pk.PrivKey.D.Bytes())
+
+	pribytes := pk.PrivKey.D.Bytes()
+	seckey := make([]byte, 32)
+	copy(seckey[32-len(pribytes):32],pribytes) //make sure that the length of seckey is 32 bytes
+
+	sig, err := secp256k1.Sign(hash, seckey)
 	if err == nil {
-		//achates testing <<
-		if len(sig) != 65 {
-			fmt.Printf("secp256k1 sign wrong! hash = %v\n", hash)
-		}
-		//>>achates testing
 		sign = *BytesToSign(sig)
 	} else {
 		panic(fmt.Sprintf("Sign Failed, reason : %v.\n", err.Error()))
