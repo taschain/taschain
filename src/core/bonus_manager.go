@@ -32,6 +32,10 @@ func newBonusManager() *BonusManager {
 	return manager
 }
 
+func (bm *BonusManager) blockHasBonusTransaction(blockHashByte []byte) bool {
+	return BlockChainImpl.LatestStateDB().GetData(common.BonusStorageAddress, string(blockHashByte)) != nil
+}
+
 func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction {
 	transactionHash := BlockChainImpl.LatestStateDB().GetData(common.BonusStorageAddress, string(blockHash))
 	if transactionHash == nil {

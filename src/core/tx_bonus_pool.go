@@ -79,6 +79,10 @@ func (bp *bonusPool) contains(hash common.Hash) bool {
     return bp.pool.Contains(hash)
 }
 
+func (bp *bonusPool) hasBonus(blockHashByte []byte) bool {
+    return bp.bm.blockHasBonusTransaction(blockHashByte)
+}
+
 func (bp *bonusPool) forEach(f func(tx *types.Transaction) bool)  {
 	for _, k := range bp.pool.Keys() {
 		v := bp.get(k.(common.Hash))

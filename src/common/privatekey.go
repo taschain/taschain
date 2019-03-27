@@ -36,10 +36,13 @@ func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
 
 	pribytes := pk.PrivKey.D.Bytes()
-	seckey := make([]byte, 32)
-	copy(seckey[32-len(pribytes):32],pribytes) //make sure that the length of seckey is 32 bytes
+	seckbytes := pribytes
+	if len(pribytes) < 32 {
+		seckbytes = make([]byte, 32)
+		copy(seckbytes[32-len(pribytes):32],pribytes) //make sure that the length of seckey is 32 bytes
+	}
 
-	sig, err := secp256k1.Sign(hash, seckey)
+	sig, err := secp256k1.Sign(hash, seckbytes)
 	if err == nil {
 		sign = *BytesToSign(sig)
 	} else {

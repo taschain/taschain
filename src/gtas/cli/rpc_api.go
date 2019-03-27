@@ -473,9 +473,8 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		ni.WGroupNum = wg
 		ni.AGroupNum = ag
 
-		if txs := core.BlockChainImpl.GetTransactionPool().GetReceived(); txs != nil {
-			ni.TxPoolNum = len(txs)
-		}
+		ni.TxPoolNum = int(core.BlockChainImpl.GetTransactionPool().TxNum())
+
 	}
 	return successResult(ni)
 
