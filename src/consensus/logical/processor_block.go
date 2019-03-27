@@ -244,11 +244,11 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if len(g.Signature) == 0 {
 		return false, fmt.Errorf("sign is empty")
 	}
-	top := p.MainChain.Height()
-	if top > g.Header.WorkHeight {
-		err = fmt.Errorf("group too late for work, workheight %v, top %v", g.Header.WorkHeight, top)
-		return
-	}
+	//top := p.MainChain.Height()
+	//if top > g.Header.WorkHeight {
+	//	err = fmt.Errorf("group too late for work, workheight %v, top %v", g.Header.WorkHeight, top)
+	//	return
+	//}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
 		mems[idx] = groupsig.DeserializeId(mem)
