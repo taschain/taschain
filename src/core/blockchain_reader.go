@@ -75,12 +75,11 @@ func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashL
 		return txs, lost
 	}
 
-	existTxs := make(map[common.Hash]*types.Transaction)
 	//先从交易池取
 	for _, hash := range txHashList {
 		tx := chain.GetTransactionByHash(false, hash)
 		if tx != nil {
-			existTxs[hash] = tx
+			txs = append(txs, tx)
 		} else {
 			lost = append(lost, hash)
 		}
