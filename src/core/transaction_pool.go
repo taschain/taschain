@@ -89,9 +89,9 @@ func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, er
 		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
 		return false, err
 	} else {
-		b, err := pool.add(tx)
+		b, err := pool.tryAdd(tx)
 		if err != nil {
-			Logger.Debugf("add tx fail: hash=%v, type=%v, err=%v", tx.Hash.String(), tx.Type, err)
+			Logger.Debugf("tryAdd tx fail: hash=%v, type=%v, err=%v", tx.Hash.String(), tx.Type, err)
 		}
 		return b, err
 	}
@@ -192,7 +192,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 }
 
 
-func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
+func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -201,6 +201,12 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 		return false, ErrExist
 	}
 
+	pool.add(tx)
+
+	return true, nil
+}
+
+func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	if tx.Type == types.TransactionTypeBonus {
 		pool.bonPool.add(tx)
 	} else {

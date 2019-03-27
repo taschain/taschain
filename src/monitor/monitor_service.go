@@ -250,7 +250,7 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo)  {
 				sess.Table("nodes").Data(dm).Insert()
 			}
 		} else {
-			fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
+			//fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 		}
 	}
 }
