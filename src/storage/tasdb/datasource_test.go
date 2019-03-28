@@ -303,13 +303,13 @@ func TestGetAfter(t *testing.T) {
 	//}
 
 	iter := ldb.NewIterator()
-	if !iter.Seek(utility.UInt64ToByte(13)) {
+	if !iter.Seek(utility.UInt64ToByte(11)) {
 		t.Logf("not found")
 	}
 
 	cnt := 10
 	for cnt > 0 {
-		t.Log(utility.ByteToUInt64(iter.Value()))
+		t.Log(utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
 		cnt--
 		if !iter.Next() {
 			break

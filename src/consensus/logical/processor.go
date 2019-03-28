@@ -57,6 +57,8 @@ type Processor struct {
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 	verifyMsgCaches *lru.Cache			//缓存验证消息
 
+	proveChecker 	*proveChecker
+
 	storage tasdb.Database
 	ready   bool //是否已初始化完成
 
@@ -103,6 +105,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile(), p.getEncryptPrivateKey())
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
+	p.proveChecker = newProveChecker(p.MainChain)
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	pkPoolInit(p.minerReader)

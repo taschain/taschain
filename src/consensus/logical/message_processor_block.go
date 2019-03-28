@@ -183,7 +183,7 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 
 		slog.AddStage("sampleCheck")
 		//校验提案者是否有全量账本
-		existHash := p.genProveHash(bh.Height, preBH.Random, p.GetMinerID())
+		existHash := p.proveChecker.genProveHash(bh.Height, preBH.Random, p.GetMinerID())
 		vHash := msg.ProveHash[p.getMinerPos(gid, p.GetMinerID())]
 		if vHash != existHash {
 			err = fmt.Errorf("check p rove hash fail, receive hash=%v, exist hash=%v", vHash.ShortS(), existHash.ShortS())

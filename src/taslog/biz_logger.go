@@ -3,6 +3,8 @@ package taslog
 import (
 	"time"
 	"fmt"
+	"common"
+	"strconv"
 )
 
 /*
@@ -12,6 +14,10 @@ import (
 */
 
 var SlowLogger = GetLogger(SlowLogConfig)
+
+func InitSlowLogger() {
+	SlowLogger = GetLoggerByIndex(SlowLogConfig, strconv.FormatInt(int64(common.InstanceIndex), 10))
+}
 
 type BLog interface {
 	Log(format string, params ...interface{})
@@ -69,5 +75,9 @@ func (log *SlowLog) Log(format string, params ... interface{})  {
 		detail = fmt.Sprintf("%v,%v(%v)", detail, lt.stage, lt.end.Sub(lt.begin).String())
 	}
 	s = fmt.Sprintf("%v:%v,cost %v, detail %v", log.key, s, c.String(), detail)
-	SlowLogger.Warnf(s)
+	if SlowLogger != nil {
+		SlowLogger.Warnf(s)
+	} else {
+		println(s)
+	}
 }

@@ -1,15 +1,15 @@
 package logical
 
 import (
-	"common"
 	"consensus/groupsig"
 	"consensus/model"
 	"middleware/types"
 	"consensus/base"
-	"github.com/vmihailenco/msgpack"
 	"fmt"
 	"time"
 	"encoding/json"
+	"taslog"
+	"errors"
 )
 
 /*
@@ -162,40 +162,6 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	return qn
 }
 
-func marshalBlock(b *types.Block) ([]byte, error) {
-	if b.Transactions != nil && len(b.Transactions) == 0 {
-		b.Transactions = nil
-	}
-	if b.Header.Transactions != nil && len(b.Header.Transactions) == 0 {
-		b.Header.Transactions = nil
-	}
-	return msgpack.Marshal(b)
-}
-
-func (p *Processor) GenVerifyHash(b *types.Block, id groupsig.ID) common.Hash {
-	if b == nil {
-		return common.Hash{}
-	}
-	buf, err := marshalBlock(b)
-
-	if err != nil {
-		panic(fmt.Sprintf("marshal block error, hash=%v, err=%v", b.Header.Hash.ShortS(), err))
-	}
-	//header := &b.Header
-	//log.Printf("GenVerifyHash aaa bufHash=%v, buf %v", base.Data2CommonHash(buf).ShortS(), buf)
-	//log.Printf("GenVerifyHash aaa headerHash=%v, genHash=%v", b.Header.Hash.ShortS(), b.Header.GenHash().ShortS())
-
-	//headBuf, _ := msgpack.Marshal(header)
-	//log.Printf("GenVerifyHash aaa headerBufHash=%v, headerBuf=%v", base.Data2CommonHash(headBuf).ShortS(), headBuf)
-
-	//log.Printf("GenVerifyHash height:%v,id:%v,%v, bbbbbuf %v", b.Header.Height,id.ShortS(), b.Transactions == nil, buf)
-	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf ids %v", b.Header.Height,id.ShortS(),id.Serialize())
-	buf = append(buf, id.Serialize()...)
-	//log.Printf("GenVerifyHash height:%v,id:%v,bbbbbuf after %v", b.Header.Height,id.ShortS(),buf)
-	h := base.Data2CommonHash(buf)
-	//log.Printf("GenVerifyHash height:%v,id:%v,bh:%v,vh:%v", b.Header.Height,id.ShortS(),b.Header.Hash.ShortS(), h.ShortS())
-	return h
-}
 
 func (p *Processor) GetVrfThreshold(stake uint64) float64 {
 	totalStake := p.minerReader.getTotalStake(p.MainChain.Height(), true)
@@ -324,4 +290,40 @@ func (p *Processor) GetAllMinerDOs() ([]*model.MinerDO) {
 
 func (p *Processor) GetCastQualifiedGroupsFromChain(height uint64) []*types.Group {
 	return p.globalGroups.getCastQualifiedGroupFromChains(height)
+}
+
+func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
+	exist, ok, err := p.proveChecker.getPRootResult(bh.Hash)
+	if exist {
+		return ok, err
+	}
+	slog := taslog.NewSlowLog("checkProveRoot-" + bh.Hash.ShortS(), 0.6)
+	defer func() {
+		slog.Log("hash=%v, height=%v", bh.Hash.String(), bh.Height)
+	}()
+	slog.AddStage("queryBlockHeader")
+	preBH := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
+	slog.EndStage()
+	if preBH == nil {
+		return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
+	}
+	gid := groupsig.DeserializeId(bh.GroupId)
+
+	slog.AddStage("getGroup")
+	group := p.GetGroup(gid)
+	slog.EndStage()
+	if !group.GroupID.IsValid() {
+		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
+	}
+
+	slog.AddStage("genProveHash")
+	if _, root := p.proveChecker.genProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
+		slog.EndStage()
+		p.proveChecker.addPRootResult(bh.Hash, true, nil)
+		return true, nil
+	} else {
+		panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
+		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
+	}
+
 }

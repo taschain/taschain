@@ -64,6 +64,8 @@ type BlockChain interface {
 	QueryBlockFloor(height uint64) *types.Block
 	QueryBlockHeaderFloor(height uint64) *types.BlockHeader
 
+	QueryBlockBytesFloor(height uint64) []byte
+
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易

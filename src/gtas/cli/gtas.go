@@ -291,6 +291,9 @@ func (gtas *Gtas) Run() {
 		common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 		BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
 		types.InitMiddleware()
+
+		taslog.InitSlowLogger()
+
 		if *nat != "" {
 			common.DefaultLogger.Infof("NAT server ip:%s", *nat)
 		}

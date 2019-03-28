@@ -279,17 +279,38 @@ func (chain *FullBlockChain) queryBlockHashCeil(height uint64) *common.Hash {
 	}
 }
 
+func (chain *FullBlockChain) queryBlockHeaderBytesFloor(height uint64) (common.Hash, []byte) {
+	iter := chain.blockHeight.NewIterator()
+	defer iter.Release()
+	if iter.Seek(utility.UInt64ToByte(height)) {
+		realHeight := utility.ByteToUInt64(iter.Key())
+		if realHeight == height {
+			hash := common.BytesToHash(iter.Value())
+			return hash, chain.queryBlockHeaderBytes(hash)
+		}
+	}
+	if iter.Prev() {
+		hash := common.BytesToHash(iter.Value())
+		return hash, chain.queryBlockHeaderBytes(hash)
+	} else {
+		return common.Hash{}, nil
+	}
+}
+
 func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types.BlockHeader {
 	iter := chain.blockHeight.NewIterator()
 	defer iter.Release()
 	if iter.Seek(utility.UInt64ToByte(height)) {
-		hash := common.BytesToHash(iter.Value())
-		bh := chain.queryBlockHeaderByHash(hash)
-		if bh == nil {
-			panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.String()))
-		}
-		if bh.Height == height {
-			return bh
+		realHeight := utility.ByteToUInt64(iter.Key())
+		if realHeight == height {
+			hash := common.BytesToHash(iter.Value())
+			bh := chain.queryBlockHeaderByHash(hash)
+			if bh == nil {
+				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.String()))
+			}
+			if bh.Height != height {
+				panic(fmt.Sprintf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height))
+			}
 		}
 	}
 	if iter.Prev() {
@@ -300,10 +321,18 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 	}
 }
 
-func (chain *FullBlockChain) queryBlockTransactionsAll(hash common.Hash) []*types.Transaction {
-    bs, err := chain.txdb.Get(hash.Bytes())
+func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
+	bs, err := chain.txdb.Get(hash.Bytes())
 	if err != nil {
 		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.String())
+		return nil
+	}
+	return bs
+}
+
+func (chain *FullBlockChain) queryBlockTransactionsAll(hash common.Hash) []*types.Transaction {
+	bs := chain.queryBlockBodyBytes(hash)
+	if bs == nil {
 		return nil
 	}
 	txs, err := decodeBlockTransactions(bs)
@@ -379,11 +408,15 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 	return b
 }
 
+func (chain *FullBlockChain) queryBlockHeaderBytes(hash common.Hash) []byte {
+	result, _ := chain.blocks.Get(hash.Bytes())
+	return result
+}
+
 func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	result, err := chain.blocks.Get(hash.Bytes())
-	if result != nil {
-		var block *types.BlockHeader
-		block, err = types.UnMarshalBlockHeader(result)
+	bs := chain.queryBlockHeaderBytes(hash)
+	if bs != nil {
+		block, err := types.UnMarshalBlockHeader(bs)
 		if err != nil {
 			return nil
 		}

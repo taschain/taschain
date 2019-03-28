@@ -21,12 +21,10 @@ import (
 	"consensus/groupsig"
 	"consensus/logical"
 	"consensus/model"
-	"errors"
 	"fmt"
 	"math/big"
 	"middleware/types"
 	"math"
-	"taslog"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -92,39 +90,8 @@ func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
 }
 
-func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
-	return Proc.GenVerifyHash(b, helper.ID)
-}
-
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	slog := taslog.NewSlowLog("checkProveRoot-" + bh.Hash.ShortS(), 0.6)
-	defer func() {
-		slog.Log("hash=%v, height=%v", bh.Hash.String(), bh.Height)
-	}()
-	slog.AddStage("queryBlockHeader")
-	preBH := Proc.MainChain.QueryBlockHeaderByHash(bh.PreHash)
-	slog.EndStage()
-	if preBH == nil {
-		return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
-	}
-	gid := groupsig.DeserializeId(bh.GroupId)
-
-	slog.AddStage("getGroup")
-	group := Proc.GetGroup(gid)
-	slog.EndStage()
-	if !group.GroupID.IsValid() {
-		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
-	}
-
-	slog.AddStage("genProveHash")
-	if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
-		slog.EndStage()
-		return true, nil
-	} else {
-		panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
-		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
-	}
-
+	return Proc.CheckProveRoot(bh)
 }
 
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {

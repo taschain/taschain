@@ -194,7 +194,8 @@ func (iter *prefixIter) Error() error {
 }
 
 func (iter *prefixIter) Key() []byte {
-	return iter.iter.Key()
+	key := iter.iter.Key()
+	return key[len(iter.prefix):]
 }
 
 func (iter *prefixIter) Value() []byte {

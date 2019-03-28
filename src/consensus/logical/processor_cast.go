@@ -1,7 +1,6 @@
 package logical
 
 import (
-	"bytes"
 	"common"
 	"consensus/base"
 	"consensus/groupsig"
@@ -266,42 +265,6 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	return
 }
 
-//对该id进行区块抽样
-func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
-	//随机抽取10块前的块，确保不抽取到分叉上的块
-	//
-	if heightLimit > 2*model.Param.Epoch {
-		heightLimit -= 2*model.Param.Epoch
-	}
-	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
-}
-
-
-func (p *Processor) genProveHash(heightLimit uint64, rand []byte, id groupsig.ID) common.Hash {
-	h := p.sampleBlockHeight(heightLimit, rand, id)
-	b := p.MainChain.QueryBlockFloor(h)
-	hash := p.GenVerifyHash(b, id)
-
-	return hash
-}
-
-func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
-	hashs := make([]common.Hash, len(ids))
-
-	for idx, id := range ids {
-		hashs[idx] = p.genProveHash(heightLimit, rand, id)
-	}
-	proves = hashs
-
-	buf := bytes.Buffer{}
-	for _, hash := range hashs {
-		buf.Write(hash.Bytes())
-	}
-	root = base.Data2CommonHash(buf.Bytes())
-	buf.Reset()
-	return
-}
-
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -324,6 +287,11 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
+	if p.proveChecker.proveExists(pi) {
+		blog.log("vrf prove exist, not proposal")
+		return
+	}
+
 	if worker.timeout() {
 		blog.log("vrf worker timeout")
 		return
@@ -337,7 +305,7 @@ func (p *Processor) blockProposal() {
 	gid := gb.Gid
 
 	//随机抽取n个块，生成proveHash
-	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+	proveHash, root := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 
 	block := p.MainChain.CastBlock(uint64(height), pi, root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
@@ -376,7 +344,7 @@ func (p *Processor) blockProposal() {
 			Ext:      fmt.Sprintf("qn:%v,totalQN:%v", qn, bh.TotalQN),
 		}
 		monitor.Instance.AddLog(le)
-
+		p.proveChecker.addProve(pi)
 		worker.markProposed()
 
 	} else {
