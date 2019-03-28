@@ -25,6 +25,7 @@ import (
 	"middleware/types"
 	"sync"
 	"sync/atomic"
+	"taslog"
 )
 
 /*
@@ -87,11 +88,11 @@ func (sc *SlotContext) initIfNeeded() bool {
 
 	bh := sc.BH
 	if sc.slotStatus == SS_INITING {
-		slog := newSlowLog("InitSlot", 0.1)
-		slog.addStage("VerifyBlock")
+		slog := taslog.NewSlowLog("InitSlot", 0.1)
+		slog.AddStage("VerifyBlock")
 		lostTxs, ccr := core.BlockChainImpl.VerifyBlock(*bh)
-		slog.endStage()
-		slog.log("height=%v, hash=%v, lost trans size %v , ret %v", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
+		slog.EndStage()
+		slog.Log("height=%v, hash=%v, lost trans size %v , ret %v", bh.Height, bh.Hash.ShortS(), len(lostTxs), ccr)
 
 		lostTxsStrings := make([]string, len(lostTxs))
 		for idx, tx := range lostTxs {
@@ -205,9 +206,9 @@ func (sc *SlotContext) AcceptVerifyPiece(bh *types.BlockHeader, si *model.SignDa
 		add bool
 		generate bool
 	)
-	slog := newSlowLog("AcceptPiece", 0.1)
+	slog := taslog.NewSlowLog("AcceptPiece", 0.1)
 	defer func() {
-		slog.log("hash=%v, height=%v, result=%v,%v", bh.Hash.ShortS(), bh.Height, add, generate)
+		slog.Log("hash=%v, height=%v, result=%v,%v", bh.Hash.ShortS(), bh.Height, add, generate)
 	}()
 
 	add, generate = sc.gSignGenerator.AddWitness(si.SignMember, si.DataSign)

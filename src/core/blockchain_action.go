@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"consensus/groupsig"
+	"taslog"
 )
 
 /*
@@ -123,16 +124,18 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 	if chain.HasBlock(bh.Hash) {
 		return []common.Hash{}, 0
 	}
-	_, txs, ret := chain.verifyBlock(bh, nil)
+	_, txs, ret := chain.verifyBlock(bh, nil, false)
 	return txs, ret
 }
 
-func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction) (ps *executePostState, missTxs []common.Hash, ret int8) {
+func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction, onchain bool) (ps *executePostState, missTxs []common.Hash, ret int8) {
 	begin := time.Now()
 	var err error
 	defer func() {
 		Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d, cost:%v, err=%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs), time.Since(begin).String(), err)
 	}()
+
+	slog := taslog.NewSlowLog("verifyBlock", 0.8)
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -140,16 +143,23 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 		return nil, nil, -1
 	}
 
+	slog.AddStage("hasPre")
 	if !chain.HasBlock(bh.PreHash) {
+		slog.EndStage()
 		err = ErrPreNotExist
 		return  nil, nil, 2
 	}
+	slog.EndStage()
 
 	transactions := txs
 
-	if txs == nil {
+	if !onchain {
+		slog.AddStage("getTxs")
 		gotTxs, missing := chain.GetBlockTransactions(bh.Hash, bh.Transactions, true)
+		slog.EndStage()
+
 		if 0 != len(missing) {
+			slog.AddStage("reqTxs")
 			var castorId groupsig.ID
 			error := castorId.Deserialize(bh.Castor)
 			if error != nil {
@@ -159,22 +169,35 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 			m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash}
 			go chain.requestTransaction(m, castorId.String())
 			err = fmt.Errorf("miss transaction size %v", len(missing))
+			slog.EndStage()
 			return  nil, missing,1
 		}
 		transactions = gotTxs
 	} else {//校验交易签名，恢复source
+		size := 0
+		if transactions != nil {
+			size = len(transactions)
+		}
+		slog.AddStage(fmt.Sprintf("validateTxs%v", size))
 		if !chain.validateTxs(transactions) {
+			slog.EndStage()
 			return nil, nil, -1
 		}
+		slog.EndStage()
 	}
 
+	slog.AddStage("validateTxRoot")
 	if !chain.validateTxRoot(bh.TxTree, transactions) {
+		slog.EndStage()
 		err = fmt.Errorf("validate tx root fail")
 		return  nil, nil,-1
 	}
+	slog.EndStage()
 
+	slog.AddStage("exeTxs")
 	block := types.Block{Header: &bh, Transactions: transactions}
 	executeTxResult, ps := chain.executeTransaction(&block)
+	slog.EndStage()
 	if !executeTxResult {
 		err = fmt.Errorf("execute transaction fail")
 		return  nil, nil,-1
@@ -244,7 +267,8 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	groupValidateResult, err := chain.consensusVerifyBlock(b.Header)
 	if !groupValidateResult {
 		if err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal {
-			Logger.Infof("Add block on chain failed: depend on group!")
+			Logger.Infof("Add block on chain failed: depend on group! trigger group sync")
+			go GroupSyncer.trySyncRoutine()
 		} else {
 			Logger.Errorf("Fail to validate group sig!Err:%s", err.Error())
 		}
@@ -262,6 +286,9 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	if b == nil {
 		return types.AddBlockFailed, fmt.Errorf("nil block")
 	}
+
+	slog := taslog.NewSlowLog("addBlockOnChain", 0.8)
+
 	topBlock := chain.getLatestBlock()
 	bh := b.Header
 	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
@@ -270,14 +297,19 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	if chain.HasBlock(bh.Hash) {
 		return types.BlockExisted, ErrBlockExist
 	}
+	slog.AddStage("validateBlock")
 	if ok, e := chain.validateBlock(source, b); !ok {
+		slog.EndStage()
 		ret = types.AddBlockFailed
 		err = e
 		return
 	}
+	slog.EndStage()
 
-	ps, _, verifyResult := chain.verifyBlock(*bh, b.Transactions)
+	slog.AddStage("verify")
+	ps, _, verifyResult := chain.verifyBlock(*bh, b.Transactions, true)
 	if verifyResult != 0 {
+		slog.EndStage()
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		//if verifyResult == 2 {
 		//	Logger.Debugf("coming block  has no pre on local gchain.Forking...", )
@@ -287,9 +319,12 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		err = fmt.Errorf("verify block fail")
 		return
 	}
+	slog.EndStage()
 
+	slog.AddStage("getMuLock")
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
+	slog.EndStage()
 
 	defer func() {
 		if ret == types.AddBlockSucc {
@@ -300,22 +335,30 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	topBlock = chain.getLatestBlock()
 
+	slog.AddStage("HasBlock")
 	if chain.HasBlock(bh.Hash) {
+		slog.EndStage()
 		ret = types.BlockExisted
 		err = ErrBlockExist
 		return
 	}
+	slog.EndStage()
 
+	slog.AddStage("hasPre")
 	if !chain.HasBlock(bh.PreHash) {
+		slog.EndStage()
 		chain.processFutureBlock(b, source)
 		ret = types.AddBlockFailed
 		err = ErrPreNotExist
 		return
 	}
+	slog.EndStage()
 
 	//直接链上
 	if bh.PreHash == topBlock.Hash {
+		slog.AddStage("commitBlock")
 		ok, e := chain.commitBlock(b, ps)
+		slog.EndStage()
 		if ok {
 			ret = types.AddBlockSucc
 			return
@@ -339,18 +382,24 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	} else {//分叉
 		newTop := chain.queryBlockHeaderByHash(bh.PreHash)
 		old := chain.latestBlock
+		slog.AddStage("resetTop")
 		Logger.Debugf("simple fork reset top: old %v %v %v %v, coming %v %v %v %v", old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, bh.Hash.ShortS(), bh.Height, bh.PreHash.ShortS(), bh.TotalQN)
 		if e := chain.resetTop(newTop); e != nil {
+			slog.EndStage()
 			Logger.Warnf("reset top err, currTop %v, setTop %v, setHeight %v", topBlock.Hash.String(), newTop.Hash.String(), newTop.Height)
 			ret = types.AddBlockFailed
 			err = fmt.Errorf("reset top err:%v", e)
 			return
 		}
+		slog.EndStage()
 
 		if chain.getLatestBlock().Hash != bh.PreHash {
 			panic("reset top error")
 		}
+
+		slog.AddStage("commitBlock2")
 		ok, e := chain.commitBlock(b, ps)
+		slog.EndStage()
 		if ok {
 			ret = types.AddBlockSucc
 			return

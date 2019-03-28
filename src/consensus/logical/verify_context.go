@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"consensus/groupsig"
 	"math/big"
+	"taslog"
 )
 
 /*
@@ -331,20 +332,20 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *slowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *taslog.SlowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
 	blog := newBizLog("UserVerified")
 
-	slog.addStage("prePareSlot")
+	slog.AddStage("prePareSlot")
 	slot, err := vc.prepareSlot(bh, blog)
 	if err != nil {
 		blog.log("prepareSlot fail, err %v", err)
 		return CBMR_ERROR_UNKNOWN, fmt.Errorf("prepareSlot fail, err %v", err)
 	}
-	slog.endStage()
+	slog.EndStage()
 
-	slog.addStage("initIfNeeded")
+	slog.AddStage("initIfNeeded")
 	slot.initIfNeeded()
-	slog.endStage()
+	slog.EndStage()
 
 	//警惕并发
 	if slot.IsFailed() {
@@ -357,9 +358,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	isProposal := slot.castor.IsEqual(signData.GetID())
 
 	if isProposal { //提案者
-		slog.addStage("vCastorSign")
+		slog.AddStage("vCastorSign")
 		b := signData.VerifySign(pk)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("verify castorsign fail, id %v, pk %v", signData.GetID().ShortS(), pk.ShortS())
@@ -367,9 +368,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 		}
 
 	} else {
-		slog.addStage("vMemSign")
+		slog.AddStage("vMemSign")
 		b := signData.VerifySign(pk)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", signData.GetID().ShortS(), pk.GetHexString(), signData.DataSign.GetHexString(), signData.DataHash.Hex())
@@ -380,9 +381,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 			err = fmt.Errorf("deserialize bh random fail, random %v", bh.Random)
 			return
 		}
-		slog.addStage("vMemRandSign")
+		slog.AddStage("vMemRandSign")
 		b = groupsig.VerifySig(pk, vc.prevBH.Random, *sig)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("random sign verify fail")

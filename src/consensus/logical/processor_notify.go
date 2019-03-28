@@ -8,6 +8,7 @@ import (
 	"middleware/types"
 	"bytes"
 	"fmt"
+	"taslog"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
@@ -20,7 +21,7 @@ func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		slog := newSlowLog(mtype, 0.5)
+		slog := taslog.NewSlowLog(mtype, 0.5)
 		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype), slog)
 		if err != nil {
 			tlog.logEnd("result=%v", err.Error())
@@ -38,7 +39,7 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	mtype := "CMCRSR-Future"
 	for _, msg := range futures {
 		blog := newBizLog(mtype)
-		slog := newSlowLog(mtype, 0.5)
+		slog := taslog.NewSlowLog(mtype, 0.5)
 		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh, slog)
 		blog.log("send %v, result %v", send, err)
 	}

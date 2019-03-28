@@ -13,9 +13,7 @@ import (
 **  Description: 
 */
 
-type bLog interface {
-	log(format string, params ...interface{})
-}
+
 
 //业务标准输出日志
 type bizLog struct {
@@ -98,59 +96,5 @@ func (mtl *msgTraceLog) logStart(format string, params ... interface{})  {
 
 func (mtl *msgTraceLog) logEnd(format string, params ... interface{})  {
 	_doLog(mtl.mtype + "-end", mtl.key, mtl.sender, format, params...)
-}
-
-type stageLogTime struct {
-	stage string
-	begin time.Time
-	end time.Time
-}
-
-type slowLog struct {
-	lts []*stageLogTime
-	begin time.Time
-	key string
-	threshold float64
-}
-
-func newSlowLog(key string, thresholdSecs float64) *slowLog {
-	return &slowLog{
-		lts: make([]*stageLogTime, 0),
-		begin: time.Now(),
-		key: key,
-		threshold: thresholdSecs,
-	}
-}
-
-func (log *slowLog) addStage(key string)  {
-    st := &stageLogTime{
-    	begin: time.Now(),
-    	stage: key,
-	}
-	log.lts = append(log.lts, st)
-}
-
-func (log *slowLog) endStage()  {
-	if len(log.lts) > 0 {
-		st := log.lts[len(log.lts)-1]
-		st.end = time.Now()
-	}
-}
-
-func (log *slowLog) log(format string, params ... interface{})  {
-	c := time.Since(log.begin)
-	if c.Seconds() < log.threshold {
-		return
-	}
-	s := fmt.Sprintf(format, params...)
-	detail := ""
-	for _, lt := range log.lts {
-		if lt.end.Nanosecond() == 0 {
-			continue
-		}
-		detail = fmt.Sprintf("%v,%v(%v)", detail, lt.stage, lt.end.Sub(lt.begin).String())
-	}
-	s = fmt.Sprintf("%v:%v,cost %v, detail %v", log.key, s, c.String(), detail)
-	slowLogger.Warnf(s)
 }
 

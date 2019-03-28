@@ -258,6 +258,10 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 		gs.logger.Debugf("Get no candidate for sync!")
 		return false
 	}
+	if gs.syncingPeer == id {
+		gs.logger.Debugf("already syncing with %v", id)
+		return false
+	}
 	local := gs.gchain.Height()
 	if local >= candidateHeight {
 		gs.logger.Debugf("local heigher than candidate: %v >= %v", local, candidateHeight)
