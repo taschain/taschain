@@ -16,7 +16,6 @@
 package types
 
 import (
-	"common"
 	"math/big"
 )
 

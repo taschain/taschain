@@ -3,7 +3,6 @@ package taslog
 import (
 	"time"
 	"fmt"
-	"common"
 	"strconv"
 )
 
@@ -15,8 +14,8 @@ import (
 
 var SlowLogger = GetLogger(SlowLogConfig)
 
-func InitSlowLogger() {
-	SlowLogger = GetLoggerByIndex(SlowLogConfig, strconv.FormatInt(int64(common.InstanceIndex), 10))
+func InitSlowLogger(index int) {
+	SlowLogger = GetLoggerByIndex(SlowLogConfig, strconv.FormatInt(int64(index), 10))
 }
 
 type BLog interface {
