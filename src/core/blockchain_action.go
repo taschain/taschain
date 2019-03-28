@@ -130,12 +130,13 @@ func (chain *FullBlockChain) VerifyBlock(bh types.BlockHeader) ([]common.Hash, i
 
 func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Transaction, onchain bool) (ps *executePostState, missTxs []common.Hash, ret int8) {
 	begin := time.Now()
+	slog := taslog.NewSlowLog("verifyBlock", 0.8)
 	var err error
 	defer func() {
 		Logger.Infof("verifyBlock hash:%v,height:%d,totalQn:%d,preHash:%v,len header tx:%d,len tx:%d, cost:%v, err=%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(bh.Transactions), len(txs), time.Since(begin).String(), err)
+		slog.Log("hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, err)
 	}()
 
-	slog := taslog.NewSlowLog("verifyBlock", 0.8)
 
 	if bh.Hash != bh.GenHash() {
 		Logger.Debugf("Validate block hash error!")
@@ -279,15 +280,16 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 
 func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult, err error) {
 	begin := time.Now()
+	slog := taslog.NewSlowLog("addBlockOnChain", 0.8)
 	defer func() {
 		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.String(), b.Header.Height, err, time.Since(begin).String())
+		slog.Log("hash=%v, height=%v, err=%v", b.Header.Hash.String(), b.Header.Height, err)
 	}()
 
 	if b == nil {
 		return types.AddBlockFailed, fmt.Errorf("nil block")
 	}
 
-	slog := taslog.NewSlowLog("addBlockOnChain", 0.8)
 
 	topBlock := chain.getLatestBlock()
 	bh := b.Header

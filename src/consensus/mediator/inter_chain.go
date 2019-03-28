@@ -98,6 +98,9 @@ func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
 
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	slog := taslog.NewSlowLog("checkProveRoot-" + bh.Hash.ShortS(), 0.6)
+	defer func() {
+		slog.Log("hash=%v, height=%v", bh.Hash.String(), bh.Height)
+	}()
 	slog.AddStage("queryBlockHeader")
 	preBH := Proc.MainChain.QueryBlockHeaderByHash(bh.PreHash)
 	slog.EndStage()
