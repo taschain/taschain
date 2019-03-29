@@ -246,10 +246,6 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		slog.Log("sender=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height)
 	}()
 
-	if time.Since(bh.CurTime).Seconds() > float64(model.Param.MaxGroupCastTime) {
-		result = fmt.Sprintf("estimate expire: curtime=%v, elapsed %v", bh.CurTime, time.Since(bh.CurTime).String())
-		return
-	}
 
 	if !p.IsMinerGroup(groupId) { //检测当前节点是否在该铸块组
 		result = fmt.Sprintf("don't belong to group, gid=%v, hash=%v, id=%v", groupId.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
