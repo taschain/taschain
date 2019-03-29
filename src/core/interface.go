@@ -124,7 +124,8 @@ type TransactionPool interface {
 
 	//rcv transactions broadcast from other nodes
 	AddTransactions(txs []*types.Transaction, from txSource)
-
+	//rcv transactions broadcast from other nodes
+	AsyncAddTxs(txs []*types.Transaction)
 	//add  local miss transactions while verifying blocks to the transaction pool
 	//AddMissTransactions(txs []*types.Transaction)
 

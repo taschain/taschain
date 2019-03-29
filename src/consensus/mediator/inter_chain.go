@@ -114,7 +114,7 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
 	group :=Proc.GroupChain.GetGroupById(groupID)
 	if group == nil {
-		return false, fmt.Errorf("VerifyBonusTransaction fail, Can't get groupinfo(gid=%x)", groupID)
+		return false, common.ErrGroupNil
 	}
 	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
 	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig

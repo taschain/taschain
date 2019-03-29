@@ -35,7 +35,7 @@ const (
 	syncNeightborsInterval       = 3
 	syncNeightborTimeout       = 5
 	blockSyncCandidatePoolSize = 100
-	blockResponseSize = 10
+	blockResponseSize = 30
 )
 
 const (
@@ -45,6 +45,7 @@ const (
 )
 
 var BlockSyncer *blockSyncer
+
 
 type blockSyncer struct {
 	chain 			*FullBlockChain
@@ -178,6 +179,7 @@ func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
 	return nil
 }
 
+
 func (bs *blockSyncer) trySyncRoutine() bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := bs.newTopBlockInfo(topBH)
@@ -246,6 +248,7 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 	network.GetNetInstance().Send(id, message)
 
 	bs.syncingPeers[id] = ci.ReqHeight
+
 	bs.chain.ticker.RegisterOneTimeRoutine(bs.syncTimeoutRoutineName(id), func() bool {
 		return bs.syncComplete(id,true)
 	}, syncNeightborTimeout)
@@ -309,6 +312,7 @@ func (bs *blockSyncer) syncComplete(id string, timeout bool) bool {
 		PeerManager.heardFromPeer(id)
 	}
 	bs.chain.ticker.RemoveRoutine(bs.syncTimeoutRoutineName(id))
+
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 	delete(bs.syncingPeers, id)

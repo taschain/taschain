@@ -416,6 +416,9 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 	}
 	recoverCnt := 0
 	for _, tx := range txs {
+		if tx.Source != nil {
+			continue
+		}
 		poolTx := chain.transactionPool.GetTransaction(tx.Type == types.TransactionTypeBonus, tx.Hash)
 		if poolTx != nil {
 			if tx.Hash != tx.GenHash() {
@@ -521,11 +524,19 @@ func (chain *FullBlockChain) ensureBlocksChained(blocks []*types.Block) bool {
 	return true
 }
 
+
 func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, blocks []*types.Block, callback batchAddBlockCallback)  {
 	if !chain.ensureBlocksChained(blocks) {
 		Logger.Errorf("%v blocks not chained! size %v", module, len(blocks))
 		return
 	}
+	//先预处理恢复交易source
+	for _, b := range blocks {
+		if b.Transactions != nil && len(b.Transactions) > 0 {
+			go chain.transactionPool.AsyncAddTxs(b.Transactions)
+		}
+	}
+
 	chain.batchMu.Lock()
 	defer chain.batchMu.Unlock()
 

@@ -23,6 +23,7 @@ import (
 	"middleware/types"
 	"storage/tasdb"
 	"middleware/notify"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -55,6 +56,8 @@ type TxPool struct {
 	//missTxs  *lru.Cache
 	received *simpleContainer
 
+	asyncAdds *lru.Cache //异步添加的，加速块上链时validateTxs，不参与广播
+
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
 
@@ -84,11 +87,13 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 }
 
 func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm *BonusManager) TransactionPool {
+	cache, _ := lru.New(txCountPerBlock*blockResponseSize)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb: receiptdb,
 		batch:     batch,
+		asyncAdds: cache,
 	}
 	pool.received = newSimpleContainer(maxTxPoolSize)
 	pool.bonPool = newBonusPool(bm, bonusTxMaxSize)
@@ -126,13 +131,46 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs:txs, txSrc:from})
 }
 
+func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction)  {
+	if nil == txs || 0 == len(txs) {
+		return
+	}
+	for _, tx := range txs {
+		if tx.Source != nil {
+			continue
+		}
+		if tx.Type == types.TransactionTypeBonus {
+			if pool.bonPool.get(tx.Hash) != nil {
+				continue
+			}
+		} else {
+			if pool.received.get(tx.Hash) != nil {
+				continue
+			}
+		}
+		if pool.asyncAdds.Contains(tx.Hash) {
+			continue
+		}
+		if err := pool.RecoverAndValidateTx(tx); err == nil {
+			pool.asyncAdds.Add(tx.Hash, tx)
+			pool.syncer.add(tx)
+		}
+	}
+}
 
 func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) (*types.Transaction) {
 	var tx = pool.bonPool.get(hash)
 	if bonus || tx != nil {
 		return tx
 	}
-	return pool.received.get(hash)
+	tx = pool.received.get(hash)
+	if tx != nil {
+		return tx
+	}
+	if v, ok := pool.asyncAdds.Get(hash); ok {
+		return v.(*types.Transaction)
+	}
+	return nil
 }
 
 func (pool *TxPool) Clear() {
@@ -236,6 +274,7 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 func (pool *TxPool) remove(txHash common.Hash) {
 	pool.bonPool.remove(txHash)
 	pool.received.remove(txHash)
+	pool.asyncAdds.Remove(txHash)
 }
 
 func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
@@ -250,6 +289,9 @@ func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 		if pool.received.contains(tx.Hash) {
 			return true, 1
 		}
+	}
+	if pool.asyncAdds.Contains(tx.Hash) {
+		return true, 2
 	}
 
 	if pool.hasReceipt(tx.Hash) {
