@@ -288,8 +288,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	topBlock := chain.getLatestBlock()
 	bh := b.Header
-	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d", b.Header.Hash.Hex(), b.Header.PreHash.Hex(), b.Header.Height, b.Header.TotalQN)
-	Logger.Debugf("Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", topBlock.Hash.Hex(), topBlock.PreHash.Hex(), topBlock.Height, topBlock.TotalQN)
+	Logger.Debugf("coming block:hash=%v, preH=%v, height=%v,totalQn:%d, Local tophash=%v, topPreHash=%v, height=%v,totalQn:%d", b.Header.Hash.ShortS(), b.Header.PreHash.ShortS(), b.Header.Height, b.Header.TotalQN, topBlock.Hash.ShortS(), topBlock.PreHash.ShortS(), topBlock.Height, topBlock.TotalQN)
 
 	if chain.HasBlock(bh.Hash) {
 		return types.BlockExisted, ErrBlockExist
