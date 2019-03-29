@@ -116,7 +116,7 @@ type Transaction struct {
 	//PubKey *common.PublicKey
 	//Sign *common.Sign
 	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"-"`	//don't streamlize
+	Source *common.Address `msgpack:"src"`	//don't streamlize
 }
 
 //source,sign在hash计算范围内
@@ -150,6 +150,9 @@ func (tx *Transaction) HexSign() string {
 
 
 func (tx *Transaction) RecoverSource() error {
+	if tx.Source != nil {
+		return nil
+	}
 	sign := common.BytesToSign(tx.Sign)
 	pk, err := sign.RecoverPubkey(tx.Hash.Bytes())
 	if err == nil {

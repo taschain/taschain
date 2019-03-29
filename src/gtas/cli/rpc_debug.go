@@ -261,3 +261,12 @@ func (api *GtasAPI) DebugRemoveBlock(h uint64) (*Result, error) {
 	}
 	return successResult("not exist")
 }
+
+func (api *GtasAPI) DebugGetTxs(limit int) (*Result, error) {
+    txs := core.BlockChainImpl.GetTransactionPool().GetReceived()
+    hashs := make([]string, 0)
+	for _, tx := range txs {
+		hashs = append(hashs, tx.Hash.String())
+	}
+	return successResult(hashs)
+}

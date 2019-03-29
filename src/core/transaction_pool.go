@@ -250,6 +250,8 @@ func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 
 	if exist, where := pool.isTransactionExisted(tx); exist {
 		return false, fmt.Errorf("tx exist in %v", where)
@@ -318,14 +320,18 @@ func (pool *TxPool) packTx() []*types.Transaction {
 }
 
 func (pool *TxPool) RemoveFromPool(txs []common.Hash)  {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 	for _, tx := range txs {
 		pool.remove(tx)
 	}
 }
 
 func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 	for _, txRaw := range txs {
-		if txRaw.Type != types.TransactionTypeBonus {
+		if txRaw.Type != types.TransactionTypeBonus && txRaw.Source == nil {
 			err := txRaw.RecoverSource()
 			if err != nil {
 				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.String())
