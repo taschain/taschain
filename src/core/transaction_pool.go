@@ -119,7 +119,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-	Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
+	//Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}

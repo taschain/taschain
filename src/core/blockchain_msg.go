@@ -118,7 +118,7 @@ func (chain *FullBlockChain) transactionReqHandler(msg notify.Message) {
 	}
 
 	source := trm.Peer
-	Logger.Debugf("receive transaction req from %s,hash %v,tx_len %v", source, m.CurrentBlockHash.String(), len(m.TransactionHashes))
+	//Logger.Debugf("receive transaction req from %s,hash %v,tx_len %v", source, m.CurrentBlockHash.String(), len(m.TransactionHashes))
 
 	transactions, _ := chain.GetBlockTransactions(m.CurrentBlockHash, m.TransactionHashes, false)
 
@@ -192,7 +192,7 @@ func (chain *FullBlockChain) sendTransactions(txs []*types.Transaction, sourceId
 		Logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	Logger.Debugf("send transactions to %v size %v", len(txs), sourceId)
+	//Logger.Debugf("send transactions to %v size %v", len(txs), sourceId)
 	message := network.Message{Code: network.TransactionGotMsg, Body: body}
 	go network.GetNetInstance().Send(sourceId, message)
 }
