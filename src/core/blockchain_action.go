@@ -9,7 +9,6 @@ import (
 	"time"
 	"bytes"
 	"fmt"
-	"consensus/groupsig"
 	"taslog"
 )
 
@@ -161,14 +160,7 @@ func (chain *FullBlockChain) verifyBlock(bh types.BlockHeader, txs []*types.Tran
 
 		if 0 != len(missing) {
 			slog.AddStage("reqTxs")
-			var castorId groupsig.ID
-			error := castorId.Deserialize(bh.Castor)
-			if error != nil {
-				panic("Groupsig id deserialize error:" + error.Error())
-			}
-			//向CASTOR索取交易
-			m := &transactionRequestMessage{TransactionHashes: missing, CurrentBlockHash: bh.Hash}
-			go chain.requestTransaction(m, castorId.String())
+			go chain.requestTransaction(&bh, missing)
 			err = fmt.Errorf("miss transaction size %v", len(missing))
 			slog.EndStage()
 			return  nil, missing,1
@@ -261,6 +253,7 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	if chain.compareChainWeight(b.Header) > 0 {
 		return false, ErrLocalMoreWeight
 	}
+
 	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
 		return false, fmt.Errorf("check prove root fail, err=%v", err.Error())
 	}
@@ -269,7 +262,9 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	if !groupValidateResult {
 		if err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal {
 			Logger.Infof("Add block on chain failed: depend on group! trigger group sync")
-			go GroupSyncer.trySyncRoutine()
+			if GroupSyncer != nil {
+				go GroupSyncer.trySyncRoutine()
+			}
 		} else {
 			Logger.Errorf("Fail to validate group sig!Err:%s", err.Error())
 		}
@@ -419,6 +414,7 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 	if txs == nil || len(txs) == 0 {
 		return true
 	}
+	recoverCnt := 0
 	for _, tx := range txs {
 		poolTx := chain.transactionPool.GetTransaction(tx.Type == types.TransactionTypeBonus, tx.Hash)
 		if poolTx != nil {
@@ -432,12 +428,15 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 			}
 			tx.Source = poolTx.Source
 		} else {
+			recoverCnt++
+			TxSyncer.add(tx)
 			if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
 				Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.String())
 				return false
 			}
 		}
 	}
+	Logger.Debugf("validate txs size %v, recover cnt %v", len(txs), recoverCnt)
 	return true
 }
 

@@ -22,10 +22,11 @@ import (
 	"common"
 	"middleware/types"
 	"storage/tasdb"
+	"middleware/notify"
 )
 
 const (
-	rcvTxPoolSize    = 50000
+	maxTxPoolSize  = 50000
 	bonusTxMaxSize = 1000
 	//missTxCacheSize  = 60000
 
@@ -57,6 +58,7 @@ type TxPool struct {
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
 
+	syncer 		*txSyncer
 	//ticker 	*ticker.GlobalTicker
 	//broadcastList   []*types.Transaction
 	//broadcastTxLock sync.Mutex
@@ -68,6 +70,18 @@ type TxPool struct {
 	lock   sync.RWMutex
 }
 
+type TxPoolAddMessage struct {
+	txs []*types.Transaction
+	txSrc txSource
+}
+
+func (m *TxPoolAddMessage) GetRaw() []byte {
+	panic("implement me")
+}
+
+func (m *TxPoolAddMessage) GetData() interface{} {
+	panic("implement me")
+}
 
 func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm *BonusManager) TransactionPool {
 	pool := &TxPool{
@@ -76,14 +90,14 @@ func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm
 		receiptdb: receiptdb,
 		batch:     batch,
 	}
-	pool.received = newSimpleContainer(rcvTxPoolSize)
+	pool.received = newSimpleContainer(maxTxPoolSize)
 	pool.bonPool = newBonusPool(bm, bonusTxMaxSize)
-
-	initBroadcastAget(pool)
+	initTxSyncer(pool)
+	pool.syncer = TxSyncer
 	return pool
 }
 
-func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from int) (bool, error) {
+func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
 	if err := pool.RecoverAndValidateTx(tx); err != nil {
 		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
 		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
@@ -101,13 +115,15 @@ func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	return pool.tryAddTransaction(tx, 0)
 }
 
-func (pool *TxPool) AddTransactions(txs []*types.Transaction, from int) {
+func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
+	Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}
+	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs:txs, txSrc:from})
 }
 
 
@@ -124,7 +140,7 @@ func (pool *TxPool) Clear() {
 }
 
 func (pool *TxPool) GetReceived() []*types.Transaction {
-	return pool.received.asSlice(rcvTxPoolSize)
+	return pool.received.asSlice(maxTxPoolSize)
 }
 
 func (pool *TxPool) TxNum() uint64 {
@@ -212,6 +228,7 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	} else {
 		pool.received.push(tx)
 	}
+	pool.syncer.add(tx)
 
 	return true, nil
 }
@@ -226,9 +243,9 @@ func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 		if pool.bonPool.contains(tx.Hash) {
 			return true, 1
 		}
-		if pool.bonPool.hasBonus(tx.Data) {
-			return true, 2
-		}
+		//if pool.bonPool.hasBonus(tx.Data) {
+		//	return true, 2
+		//}
 	} else {
 		if pool.received.contains(tx.Hash) {
 			return true, 1

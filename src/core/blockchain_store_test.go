@@ -5,7 +5,7 @@ import (
 	"common"
 	"middleware/types"
 	"middleware"
-	"utility"
+	"fmt"
 )
 
 /*
@@ -30,6 +30,10 @@ func TestFullBlockChain_QueryBlockFloor(t *testing.T) {
 	initBlockChain(nil)
 
 	chain := BlockChainImpl.(*FullBlockChain)
+
+	fmt.Println("=====")
+	bh := chain.queryBlockHeaderByHeight(0)
+	fmt.Println(bh, bh.Hash.String())
 	//top := gchain.latestBlock
 	//t.Log(top.Height, top.Hash.String())
 	//
@@ -38,16 +42,6 @@ func TestFullBlockChain_QueryBlockFloor(t *testing.T) {
 	//	t.Log(bh.Height, bh.Hash.String())
 	//}
 
-	iter := chain.blockHeight.NewIterator()
-	defer iter.Release()
-	height := uint64(1320)
-
-	if iter.Seek(utility.UInt64ToByte(height)) {
-
-	}
-	for iter.Next() {
-		h := utility.ByteToUInt64(iter.Key()[2:])
-		t.Log(h, iter.Value())
-	}
-
+	bh = chain.queryBlockHeaderByHeightFloor(0)
+	fmt.Println(bh)
 }

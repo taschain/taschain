@@ -230,9 +230,6 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece:
 		n.consensusHandler.Handle(from, *message)
-	case ReqTransactionMsg:
-		msg := notify.TransactionReqMessage{TransactionReqByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.TransactionReq, &msg)
 	case GroupChainCountMsg:
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
@@ -243,30 +240,27 @@ func (n *server) handleMessageInner(message *Message, from string) {
 		Logger.Debugf("Rcv GroupMsg from %s", from)
 		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.Group, &msg)
+	case ReqTransactionMsg:
+		msg := notify.TransactionReqMessage{TransactionReqByte: message.Body, Peer: from}
+		notify.BUS.Publish(notify.TransactionReq, &msg)
 	case TransactionGotMsg:
 		msg := notify.TransactionGotMessage{TransactionGotByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.TransactionGot, &msg)
-	case TransactionBroadcastMsg:
-		msg := notify.TransactionBroadcastMessage{TransactionsByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.TransactionBroadcast, &msg)
+	//case TransactionBroadcastMsg:
+	//	msg := notify.TransactionBroadcastMessage{TransactionsByte: message.Body, Peer: from}
+	//	notify.BUS.Publish(notify.TransactionBroadcast, &msg)
+	case TxSyncNotify:
+		msg := notify.NotifyMessage{Body: message.Body, Source: from}
+		notify.BUS.Publish(notify.TxSyncNotify, &msg)
+	case TxSyncReq:
+		msg := notify.NotifyMessage{Body: message.Body, Source: from}
+		notify.BUS.Publish(notify.TxSyncReq, &msg)
+	case TxSyncResponse:
+		msg := notify.NotifyMessage{Body: message.Body, Source: from}
+		notify.BUS.Publish(notify.TxSyncResponse, &msg)
 	case BlockInfoNotifyMsg:
 		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockInfoNotify, &msg)
-		//case NewBlockHeaderMsg:
-		//	msg := notify.BlockHeaderNotifyMessage{HeaderByte: message.Body, Peer: from}
-		//	notify.BUS.Publish(notify.NewBlockHeader, &msg)
-		//case BlockBodyReqMsg:
-		//	msg := notify.BlockBodyReqMessage{BlockHashByte: message.Body, Peer: from}
-		//	notify.BUS.Publish(notify.BlockBodyReq, &msg)
-		//case BlockBodyMsg:
-		//	msg := notify.BlockBodyNotifyMessage{BodyByte: message.Body, Peer: from}
-		//	notify.BUS.Publish(notify.BlockBody, &msg)
-		//case ReqStateInfoMsg:
-		//	msg := notify.StateInfoReqMessage{StateInfoReqByte: message.Body, Peer: from}
-		//	notify.BUS.Publish(notify.StateInfoReq, &msg)
-		//case StateInfoMsg:
-		//	msg := notify.StateInfoMessage{StateInfoByte: message.Body, Peer: from}
-		//	notify.BUS.Publish(notify.StateInfo, &msg)
 	case ReqBlock:
 		msg := notify.BlockReqMessage{ReqBody: message.Body, Peer: from}
 		notify.BUS.Publish(notify.BlockReq, &msg)
@@ -276,14 +270,6 @@ func (n *server) handleMessageInner(message *Message, from string) {
 	case NewBlockMsg:
 		msg := notify.NewBlockMessage{BlockByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.NewBlock, &msg)
-	//case ChainPieceInfoReq:
-	//	Logger.Debugf("Rcv ChainPieceInfoReq from %s", from)
-	//	msg := notify.ChainPieceInfoReqMessage{HeightByte: message.Body, Peer: from}
-	//	notify.BUS.Publish(notify.ChainPieceInfoReq, &msg)
-	//case ChainPieceInfo:
-	//	Logger.Debugf("Rcv ChainPieceInfo from %s", from)
-	//	msg := notify.ChainPieceInfoMessage{ChainPieceInfoByte: message.Body, Peer: from}
-	//	notify.BUS.Publish(notify.ChainPieceInfo, &msg)
 	case ReqChainPieceBlock:
 		msg := notify.ChainPieceBlockReqMessage{ReqBody: message.Body, Peer: from}
 		notify.BUS.Publish(notify.ChainPieceBlockReq, &msg)

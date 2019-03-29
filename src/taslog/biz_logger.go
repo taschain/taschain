@@ -12,7 +12,7 @@ import (
 **  Description: 
 */
 
-var SlowLogger = GetLogger(SlowLogConfig)
+var SlowLogger Logger
 
 func InitSlowLogger(index int) {
 	SlowLogger = GetLoggerByIndex(SlowLogConfig, strconv.FormatInt(int64(index), 10))

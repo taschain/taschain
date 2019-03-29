@@ -93,7 +93,6 @@ func newSendList() *SendList {
 
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
-		TransactionBroadcastMsg: SendPriorityMedium,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}

@@ -311,6 +311,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 			if bh.Height != height {
 				panic(fmt.Sprintf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height))
 			}
+			return bh
 		}
 	}
 	if iter.Prev() {
@@ -418,6 +419,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.Blo
 	if bs != nil {
 		block, err := types.UnMarshalBlockHeader(bs)
 		if err != nil {
+			fmt.Println(err)
 			return nil
 		}
 		return block

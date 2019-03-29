@@ -330,10 +330,41 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		bs.logger.Debugf("Rcv block response nil from:%s", source)
 	} else {
 		peerTop := bs.getPeerTopBlock(source)
+		localTop := bs.newTopBlockInfo(bs.chain.QueryTopBlock())
+
+		//先比较权重
+		if localTop.moreWeight(peerTop) {
+			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
+			return
+		}
+		addBlocks := blocks
+		for i, b := range blocks {
+			if !bs.chain.HasBlock(b.Header.Hash) {
+				addBlocks = blocks[i:]
+				break
+			}
+		}
+		if len(addBlocks) == 0 {
+			return
+		}
+		firstBH := addBlocks[0]
+
+		if firstBH.Header.PreHash != localTop.Hash {
+			pre := bs.chain.QueryBlockHeaderByHash(firstBH.Header.PreHash)
+			if pre != nil {
+				bs.logger.Debugf("sync block reset top:old %v %v %v, new %v %v %v, peerTop %v %v %v", localTop.Hash.ShortS(), localTop.Height, localTop.TotalQN, pre.Hash.ShortS(), pre.Height, pre.TotalQN, peerTop.Hash.ShortS(), peerTop.Height, peerTop.TotalQN)
+				bs.chain.ResetTop(pre)
+			} else {
+				//大分叉了
+				bs.logger.Debugf("blocksyner detect fork from %v: local %v %v, peer %v %v", source, localTop.Hash.ShortS(), localTop.Height, firstBH.Header.Hash.ShortS(), firstBH.Header.Height)
+				go bs.chain.forkProcessor.tryToProcessFork(source, firstBH)
+				return
+			}
+		}
 
 		allSuccess := true
 
-		bs.chain.batchAddBlockOnChain(source, blocks, func(b *types.Block, ret types.AddBlockResult) bool {
+		bs.chain.batchAddBlockOnChain(source, addBlocks, func(b *types.Block, ret types.AddBlockResult) bool {
 			bs.logger.Debugf("sync block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
 			if ret == types.AddBlockSucc || ret == types.BlockExisted {
 				return true
@@ -342,7 +373,6 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 			return false
 		})
 
-		localTop := bs.newTopBlockInfo(bs.chain.QueryTopBlock())
 		//权重还是比较低，继续同步(必须所有上链成功，否则会造成死循环）
 		if allSuccess && peerTop != nil && peerTop.moreWeight(localTop) {
 			bs.syncComplete(source, false)
