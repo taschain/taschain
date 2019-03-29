@@ -24,7 +24,7 @@ const (
 	txNofifyInterval   = 5
 	txNotifyRoutine    = "ts_notify"
 	txNotifyGap        = 60*time.Second
-	txMaxNotifyPerTime = 100
+	txMaxNotifyPerTime = 50
 
 	txReqRoutine 		= "ts_req"
 	txReqInterval		= 5
