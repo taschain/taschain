@@ -35,7 +35,7 @@ const (
 	syncNeightborsInterval       = 3
 	syncNeightborTimeout       = 5
 	blockSyncCandidatePoolSize = 100
-	blockResponseSize = 30
+	blockResponseSize = 15
 )
 
 const (
