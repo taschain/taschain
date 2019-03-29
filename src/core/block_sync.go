@@ -51,7 +51,7 @@ type blockSyncer struct {
 	//syncing       int32
 
 	candidatePool map[string]*TopBlockInfo
-	syncingPeers 	map[string]byte
+	syncingPeers 	map[string]uint64
 
 	//reqTimeoutTimer      *time.Timer
 	//syncTimer            *time.Timer
@@ -88,7 +88,7 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	bs := &blockSyncer{
 		candidatePool: make(map[string]*TopBlockInfo),
 		chain: chain,
-		syncingPeers: make(map[string]byte),
+		syncingPeers: make(map[string]uint64),
 	}
 	bs.ticker = bs.chain.ticker
 	bs.logger = taslog.GetLoggerByIndex(taslog.BlockSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
@@ -181,6 +181,11 @@ func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
 func (bs *blockSyncer) trySyncRoutine() bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := bs.newTopBlockInfo(topBH)
+
+	if bs.chain.IsAdujsting() {
+		bs.logger.Debugf("chain is adjusting, won't sync")
+		return false
+	}
 	bs.logger.Debugf("Local totalQn:%d,PV:%v, height:%d,topHash:%s", localTopBlock.TotalQN, localTopBlock.ShrinkPV, localTopBlock.Height, localTopBlock.Hash.String())
 
 	bs.lock.Lock()
@@ -206,6 +211,13 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 		beginHeight = candidateTop.Height
 	}
 
+	for syncId, h := range bs.syncingPeers {
+		if h == beginHeight {
+			bs.logger.Debugf("height %v in syncing from %v", beginHeight, syncId)
+			return false
+		}
+	}
+
 	candInfo := &SyncCandidateInfo{
 		Candidate: candidate,
 		CandidateHeight: candidateTop.Height,
@@ -224,6 +236,8 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 	if _, ok := bs.syncingPeers[id]; ok {
 		return
 	}
+
+
 	bs.logger.Debugf("Req block to:%s,height:%d", id, height)
 
 	body := utility.UInt64ToByte(height)
@@ -231,9 +245,9 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 	message := network.Message{Code: network.ReqBlock, Body: body}
 	network.GetNetInstance().Send(id, message)
 
-	bs.syncingPeers[id] = 1
+	bs.syncingPeers[id] = ci.ReqHeight
 	bs.chain.ticker.RegisterOneTimeRoutine(bs.syncTimeoutRoutineName(id), func() bool {
-		return bs.syncComplete(id, true)
+		return bs.syncComplete(id,true)
 	}, syncNeightborTimeout)
 }
 
@@ -267,9 +281,9 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	if blockInfo.Height > bs.chain.Height()+2 {
-		bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v， localHeight %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height, bs.chain.Height())
-	}
+	//if blockInfo.Height > bs.chain.Height()+2 {
+	//	bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v， localHeight %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height, bs.chain.Height())
+	//}
 
 	source := bnm.Peer
 	PeerManager.heardFromPeer(source)
@@ -337,34 +351,10 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
 			return
 		}
-		addBlocks := blocks
-		for i, b := range blocks {
-			if !bs.chain.HasBlock(b.Header.Hash) {
-				addBlocks = blocks[i:]
-				break
-			}
-		}
-		if len(addBlocks) == 0 {
-			return
-		}
-		firstBH := addBlocks[0]
-
-		if firstBH.Header.PreHash != localTop.Hash {
-			pre := bs.chain.QueryBlockHeaderByHash(firstBH.Header.PreHash)
-			if pre != nil {
-				bs.logger.Debugf("sync block reset top:old %v %v %v, new %v %v %v, peerTop %v %v %v", localTop.Hash.ShortS(), localTop.Height, localTop.TotalQN, pre.Hash.ShortS(), pre.Height, pre.TotalQN, peerTop.Hash.ShortS(), peerTop.Height, peerTop.TotalQN)
-				bs.chain.ResetTop(pre)
-			} else {
-				//大分叉了
-				bs.logger.Debugf("blocksyner detect fork from %v: local %v %v, peer %v %v", source, localTop.Hash.ShortS(), localTop.Height, firstBH.Header.Hash.ShortS(), firstBH.Header.Height)
-				go bs.chain.forkProcessor.tryToProcessFork(source, firstBH)
-				return
-			}
-		}
 
 		allSuccess := true
 
-		bs.chain.batchAddBlockOnChain(source, addBlocks, func(b *types.Block, ret types.AddBlockResult) bool {
+		bs.chain.batchAddBlockOnChain(source, "sync", blocks, func(b *types.Block, ret types.AddBlockResult) bool {
 			bs.logger.Debugf("sync block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
 			if ret == types.AddBlockSucc || ret == types.BlockExisted {
 				return true

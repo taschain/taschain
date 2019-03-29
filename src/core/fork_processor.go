@@ -318,14 +318,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		if !fp.chain.HasBlock(ancestorBH.Hash) {
 			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.String(), ancestorBH.Height)
 		} else if len(blocks) > 1 {
-			old := fp.chain.latestBlock
-			last := blocks[len(blocks)-1].Header
-			fp.logger.Debugf("fork process len %v. reset top: old %v %v %v %v, last %v %v %v %v", len(blocks), old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, last.Hash.ShortS(), last.Height, last.PreHash.ShortS(), last.TotalQN)
-
-			if old.Hash != ancestorBH.Hash {
-				fp.chain.ResetTop(ancestorBH)
-			}
-			fp.chain.batchAddBlockOnChain(source, blocks[1:], func(b *types.Block, ret types.AddBlockResult) bool {
+			fp.chain.batchAddBlockOnChain(source, "fork", blocks, func(b *types.Block, ret types.AddBlockResult) bool {
 				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
 				return ret == types.AddBlockSucc || ret == types.BlockExisted
 			})

@@ -521,15 +521,46 @@ func (chain *FullBlockChain) ensureBlocksChained(blocks []*types.Block) bool {
 	return true
 }
 
-func (chain *FullBlockChain) batchAddBlockOnChain(source string, blocks []*types.Block, callback batchAddBlockCallback)  {
+func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, blocks []*types.Block, callback batchAddBlockCallback)  {
 	if !chain.ensureBlocksChained(blocks) {
-		Logger.Errorf("blocks not chained! size %v", len(blocks))
+		Logger.Errorf("%v blocks not chained! size %v", module, len(blocks))
 		return
 	}
 	chain.batchMu.Lock()
 	defer chain.batchMu.Unlock()
 
-	for _, b := range blocks {
+	localTop := chain.latestBlock
+
+	var addBlocks []*types.Block
+	for i, b := range blocks {
+		if !chain.hasBlock(b.Header.Hash) {
+			addBlocks = blocks[i:]
+			break
+		}
+	}
+	if addBlocks == nil || len(addBlocks) == 0 {
+		return
+	}
+	firstBH := addBlocks[0]
+	if firstBH.Header.PreHash != localTop.Hash {
+		pre := chain.QueryBlockHeaderByHash(firstBH.Header.PreHash)
+		if pre != nil {
+			last := addBlocks[len(addBlocks)-1].Header
+			Logger.Debugf("%v batchAdd reset top:old %v %v %v, new %v %v %v, last %v %v %v", module, localTop.Hash.ShortS(), localTop.Height, localTop.TotalQN, pre.Hash.ShortS(), pre.Height, pre.TotalQN, last.Hash.ShortS(), last.Height, last.TotalQN)
+			chain.ResetTop(pre)
+		} else {
+			//大分叉了
+			Logger.Debugf("%v batchAdd detect fork from %v: local %v %v, peer %v %v", module, source, localTop.Hash.ShortS(), localTop.Height, firstBH.Header.Hash.ShortS(), firstBH.Header.Height)
+			go chain.forkProcessor.tryToProcessFork(source, firstBH)
+			return
+		}
+	}
+	chain.isAdujsting = true
+	defer func() {
+		chain.isAdujsting = false
+	}()
+
+	for _, b := range addBlocks {
 		ret := chain.AddBlockOnChain(source, b)
 		if !callback(b, ret) {
 			break
