@@ -526,6 +526,9 @@ func (chain *FullBlockChain) batchAddBlockOnChain(source string, blocks []*types
 		Logger.Errorf("blocks not chained! size %v", len(blocks))
 		return
 	}
+	chain.batchMu.Lock()
+	defer chain.batchMu.Unlock()
+
 	for _, b := range blocks {
 		ret := chain.AddBlockOnChain(source, b)
 		if !callback(b, ret) {

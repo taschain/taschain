@@ -310,7 +310,6 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	if bs == nil {
 		panic("blockSyncer is nil!")
 	}
-	bs.logger.Debugf("blockResponseMsgHandler rcv from %s!", source)
 	var complete = false
 	defer func() {
 		if !complete {
@@ -329,6 +328,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	if blocks == nil || len(blocks) == 0 {
 		bs.logger.Debugf("Rcv block response nil from:%s", source)
 	} else {
+		bs.logger.Debugf("blockResponseMsgHandler rcv from %s! [%v-%v]", source, blocks[0].Header.Height, blocks[len(blocks)-1].Header.Height)
 		peerTop := bs.getPeerTopBlock(source)
 		localTop := bs.newTopBlockInfo(bs.chain.QueryTopBlock())
 

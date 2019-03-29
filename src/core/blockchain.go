@@ -91,6 +91,7 @@ type FullBlockChain struct {
 	rwLock sync.RWMutex
 	//互斥锁
 	mu 		sync.Mutex
+	batchMu sync.Mutex //批量上链锁
 
 	// 是否可以工作
 	init bool
