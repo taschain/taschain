@@ -123,6 +123,18 @@ func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message)  {
 	}
 }
 
+func (bs *blockSyncer) isSyncing() bool {
+	localHeight := bs.chain.Height()
+	bs.lock.RLock()
+	defer bs.lock.RUnlock()
+
+	_, candTop := bs.getBestCandidate()
+	if candTop == nil {
+		return false
+	}
+	return candTop.Height > localHeight+50
+}
+
 func (bs *blockSyncer) newTopBlockInfo(top *types.BlockHeader) *TopBlockInfo {
 	f := float64(0)
 	if top.Height > 0 {

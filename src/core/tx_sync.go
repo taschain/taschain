@@ -356,6 +356,10 @@ func (ts *txSyncer) onTxNotify(msg notify.Message)  {
 }
 
 func (ts *txSyncer) reqTxsRoutine() bool {
+	if BlockSyncer == nil || BlockSyncer.isSyncing() {
+		ts.logger.Debugf("block syncing, won't req txs")
+		return false
+	}
 	ts.logger.Debugf("req txs routine, candidate size %v", ts.candidateKeys.Len())
 	reqMap := make(map[uint64]byte)
 	//去重
