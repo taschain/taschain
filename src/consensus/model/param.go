@@ -13,7 +13,7 @@ import (
 
 const (
 	MAX_GROUP_BLOCK_TIME   int = 10           //组铸块最大允许时间=10s
-	MAX_WAIT_BLOCK_TIME    int = 1            //广播出块前等待最大时间=2s
+	MAX_WAIT_BLOCK_TIME    int = 2            //广播出块前等待最大时间=2s
 	CONSENSUS_VERSION          = 1            //共识版本号
 	MAX_UNKNOWN_BLOCKS         = 5            //内存保存最大不能上链的未来块（中间块没有收到）
 	GROUP_INIT_MAX_SECONDS     = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
