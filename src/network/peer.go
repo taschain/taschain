@@ -304,8 +304,6 @@ func newPeerManager() *PeerManager {
 		GroupChainCountMsg: SendPriorityHigh,
 		ReqGroupMsg:        SendPriorityHigh,
 		GroupMsg:           SendPriorityHigh,
-		ChainPieceInfoReq:  SendPriorityHigh,
-		ChainPieceInfo:     SendPriorityHigh,
 		ReqChainPieceBlock: SendPriorityHigh,
 		ChainPieceBlock:    SendPriorityHigh,
 		CastVerifyMsg:       SendPriorityHigh,
@@ -313,7 +311,6 @@ func newPeerManager() *PeerManager {
 
 		ReqTransactionMsg:   SendPriorityMedium,
 		TransactionGotMsg:   SendPriorityMedium,
-		TransactionBroadcastMsg: SendPriorityMedium,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}
