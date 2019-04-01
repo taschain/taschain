@@ -45,6 +45,8 @@ const MaxPendingSend = 10
 const MaxSendListSize = 256
 const WaitTimeout = 3*time.Second
 
+var priorityTable map[uint32]SendPriorityType
+
 type SendListItem struct {
 	priority int
 	list     *list.List
@@ -61,7 +63,6 @@ func newSendListItem(priority int, quota int) *SendListItem {
 
 type SendList struct {
 	list          [MaxSendPriority]*SendListItem
-	priorityTable map[uint32]SendPriorityType
 	pendingSend   int
 	totalQuota    int
 	curQuota      int
@@ -76,25 +77,6 @@ func newSendList() *SendList {
 	for i := 0; i < MaxSendPriority; i++ {
 		sl.list[i] = newSendListItem(i, PriorityQuota[i])
 		sl.totalQuota += PriorityQuota[i]
-	}
-
-	sl.priorityTable = map[uint32]SendPriorityType{
-		BlockInfoNotifyMsg: SendPriorityHigh,
-		NewBlockMsg:        SendPriorityHigh,
-		ReqBlock:           SendPriorityHigh,
-		BlockResponseMsg:   SendPriorityHigh,
-		GroupChainCountMsg: SendPriorityHigh,
-		ReqGroupMsg:        SendPriorityHigh,
-		GroupMsg:           SendPriorityHigh,
-		ReqChainPieceBlock: SendPriorityHigh,
-		ChainPieceBlock:    SendPriorityHigh,
-		CastVerifyMsg:       SendPriorityHigh,
-		VerifiedCastMsg2:     SendPriorityHigh,
-
-		ReqTransactionMsg:   SendPriorityMedium,
-		TransactionGotMsg:   SendPriorityMedium,
-		CastRewardSignReq:   SendPriorityMedium,
-		CastRewardSignGot:   SendPriorityMedium,
 	}
 
 	return sl
@@ -113,7 +95,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		Logger.Infof("send list  WaitTimeout ！ net id:%v session:%v ", peer.Id.GetHexString(), peer.seesionId)
 	}
 
-	priority, isExist := sendList.priorityTable[uint32(code)]
+	priority, isExist := priorityTable[uint32(code)]
 	if !isExist {
 		priority = MaxSendPriority - 1
 	}
@@ -314,7 +296,27 @@ func newPeerManager() *PeerManager {
 	pm := &PeerManager{
 		peers: make(map[uint64]*Peer),
 	}
+	priorityTable = map[uint32]SendPriorityType{
+		BlockInfoNotifyMsg: SendPriorityHigh,
+		NewBlockMsg:        SendPriorityHigh,
+		ReqBlock:           SendPriorityHigh,
+		BlockResponseMsg:   SendPriorityHigh,
+		GroupChainCountMsg: SendPriorityHigh,
+		ReqGroupMsg:        SendPriorityHigh,
+		GroupMsg:           SendPriorityHigh,
+		ChainPieceInfoReq:  SendPriorityHigh,
+		ChainPieceInfo:     SendPriorityHigh,
+		ReqChainPieceBlock: SendPriorityHigh,
+		ChainPieceBlock:    SendPriorityHigh,
+		CastVerifyMsg:       SendPriorityHigh,
+		VerifiedCastMsg2:     SendPriorityHigh,
 
+		ReqTransactionMsg:   SendPriorityMedium,
+		TransactionGotMsg:   SendPriorityMedium,
+		TransactionBroadcastMsg: SendPriorityMedium,
+		CastRewardSignReq:   SendPriorityMedium,
+		CastRewardSignGot:   SendPriorityMedium,
+	}
 	return pm
 }
 
