@@ -63,7 +63,10 @@ func (indexer *txSimpleIndexer) cacheLen() int {
 func (indexer *txSimpleIndexer) add(tx *types.Transaction)  {
 	indexer.cache.Add(simpleTxKey(tx.Hash), tx.Hash)
 }
-
+func (indexer *txSimpleIndexer) remove(tx *types.Transaction)  {
+	indexer.cache.Remove(simpleTxKey(tx.Hash))
+	indexer.db.Delete(utility.UInt64ToByte(simpleTxKey(tx.Hash)))
+}
 func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 	var txHash common.Hash
 	var exist = false
@@ -177,15 +180,16 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool)  {
 	}
 }
 
-func initTxSyncer(pool *TxPool) {
+func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
 	cache, _ := lru.New(1000)
 	cands, _ := lru.New(100)
 	s := &txSyncer{
 		rctNotifiy:    cache,
 		indexer: buildTxSimpleIndexer(),
-		pool:pool,
+		pool: pool,
 		ticker:        ticker.NewGlobalTicker("tx_syncer"),
 		candidateKeys: cands,
+		chain: 		chain,
 		logger: taslog.GetLoggerByIndex(taslog.TxSyncLogConfig, common.GlobalConf.GetString("instance", "index", "")),
 	}
 	s.ticker.RegisterPeriodicRoutine(txNotifyRoutine, s.notifyTxs, txNofifyInterval)
@@ -231,10 +235,22 @@ func (ts *txSyncer) clearJob() {
 		}
 	}
 	ts.pool.bonPool.forEach(func(tx *types.Transaction) bool {
+		bhash := common.BytesToHash(tx.Data)
+		//链上已经该块的分红交易，或该块不在链上，需要删除相应的分红交易
+		reason := ""
+		remove := false
 		if ts.pool.bonPool.hasBonus(tx.Data) {
-			bhash := common.BytesToHash(tx.Data)
+			remove = true
+			reason = "tx exist"
+		} else if !ts.chain.hasBlock(bhash)  {//块不在链上，有可能是此高度已经过了，也有可能是未来的高度，此处无法区分出来
+			remove = true
+			reason = "block not exist"
+		}
+
+		if remove {
 			rm := ts.pool.bonPool.removeByBlockHash(bhash)
-			ts.logger.Debugf("remove from bonus pool: blockHash %v, size %v", bhash.String(), rm)
+			ts.indexer.remove(tx)
+			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.String(), rm)
 		}
 		return true
 	})

@@ -137,6 +137,8 @@ type TransactionPool interface {
 
 	GetReceived() []*types.Transaction
 
+	GetBonusTxs() []*types.Transaction
+
 	TxNum() uint64
 
 	SaveReceipts(blockHash common.Hash, receipts types.Receipts) error

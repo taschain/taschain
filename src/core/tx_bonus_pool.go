@@ -90,9 +90,9 @@ func (bp *bonusPool) hasBonus(blockHashByte []byte) bool {
 
 func (bp *bonusPool) forEach(f func(tx *types.Transaction) bool)  {
 	for _, k := range bp.pool.Keys() {
-		v := bp.get(k.(common.Hash))
+		v, _ := bp.pool.Peek(k)
 		if v != nil {
-			if !f(v) {
+			if !f(v.(*types.Transaction)) {
 				break
 			}
 		}

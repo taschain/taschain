@@ -61,8 +61,6 @@ type TxPool struct {
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
 
-	syncer 		*txSyncer
-	//ticker 	*ticker.GlobalTicker
 	//broadcastList   []*types.Transaction
 	//broadcastTxLock sync.Mutex
 	//broadcastTimer  *time.Timer
@@ -86,19 +84,19 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 	panic("implement me")
 }
 
-func NewTransactionPool(batch tasdb.Batch, receiptdb *tasdb.PrefixedDatabase, bm *BonusManager) TransactionPool {
+func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
 	cache, _ := lru.New(txCountPerBlock*blockResponseSize)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb: receiptdb,
-		batch:     batch,
+		batch:     chain.batch,
 		asyncAdds: cache,
 	}
 	pool.received = newSimpleContainer(maxTxPoolSize)
-	pool.bonPool = newBonusPool(bm, bonusTxMaxSize)
-	initTxSyncer(pool)
-	pool.syncer = TxSyncer
+	pool.bonPool = newBonusPool(chain.bonusManager, bonusTxMaxSize)
+	initTxSyncer(chain, pool)
+
 	return pool
 }
 
@@ -153,7 +151,7 @@ func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction)  {
 		}
 		if err := pool.RecoverAndValidateTx(tx); err == nil {
 			pool.asyncAdds.Add(tx.Hash, tx)
-			pool.syncer.add(tx)
+			TxSyncer.add(tx)
 		}
 	}
 }
@@ -268,7 +266,7 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	} else {
 		pool.received.push(tx)
 	}
-	pool.syncer.add(tx)
+	TxSyncer.add(tx)
 
 	return true, nil
 }
@@ -340,4 +338,13 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
 		}
 		pool.add(txRaw)
 	}
+}
+
+func (pool *TxPool) GetBonusTxs() []*types.Transaction {
+	txs := make([]*types.Transaction, 0)
+    pool.bonPool.forEach(func(tx *types.Transaction) bool {
+		txs = append(txs, tx)
+		return true
+	})
+    return txs
 }

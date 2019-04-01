@@ -206,10 +206,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 	chain.bonusManager = newBonusManager()
 
-	chain.batch = chain.blocks.CreateLDBBatch()
-
-	chain.transactionPool = NewTransactionPool(chain.batch, receiptdb, chain.bonusManager)
-
 	chain.stateCache = account.NewDatabase(chain.statedb)
 
 	chain.executor = NewTVMExecutor(chain)
@@ -236,6 +232,10 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	BlockChainImpl = chain
 	chain.forkProcessor = initForkProcessor(chain)
+	chain.batch = chain.blocks.CreateLDBBatch()
+
+	chain.transactionPool = NewTransactionPool(chain, receiptdb)
+
 	return nil
 }
 
