@@ -205,6 +205,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		return err
 	}
 	chain.bonusManager = newBonusManager()
+	chain.batch = chain.blocks.CreateLDBBatch()
+	chain.transactionPool = NewTransactionPool(chain, receiptdb)
 
 	chain.stateCache = account.NewDatabase(chain.statedb)
 
@@ -230,12 +232,10 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		chain.insertGenesisBlock()
 	}
 
-	BlockChainImpl = chain
 	chain.forkProcessor = initForkProcessor(chain)
-	chain.batch = chain.blocks.CreateLDBBatch()
 
-	chain.transactionPool = NewTransactionPool(chain, receiptdb)
 
+	BlockChainImpl = chain
 	return nil
 }
 
