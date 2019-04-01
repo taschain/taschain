@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 	"log"
+	"fmt"
+	"common"
+	"taslog"
 )
 
 func handler(str string) RoutineFunc {
@@ -34,13 +37,13 @@ func TestGlobalTicker_RegisterRoutine(t *testing.T) {
 
 	time.Sleep(time.Second * 5)
 
-	ticker.RegisterRoutine("name1", handler("name1 exec1"), uint32(2))
+	ticker.RegisterPeriodicRoutine("name1", handler("name1 exec1"), uint32(2))
 
 	time.Sleep(time.Second * 5)
-	ticker.RegisterRoutine("name2", handler("name2 exec1"), uint32(3))
+	ticker.RegisterPeriodicRoutine("name2", handler("name2 exec1"), uint32(3))
 	time.Sleep(time.Second * 5)
 
-	ticker.RegisterRoutine("name3", handler("name3 exec1"), uint32(4))
+	ticker.RegisterPeriodicRoutine("name3", handler("name3 exec1"), uint32(4))
 
 	ticker.StopTickerRoutine("name1")
 
@@ -49,3 +52,23 @@ func TestGlobalTicker_RegisterRoutine(t *testing.T) {
 	ticker.StopTickerRoutine("name3")
 	time.Sleep(time.Second * 55)
 }
+
+func TestGlobalTicker_RegisterOneTimeRoutine(t *testing.T) {
+	common.DefaultLogger = taslog.GetLoggerByName("aaa")
+	ticker := NewGlobalTicker("test")
+	ticker.RegisterPeriodicRoutine("preiodic_1", func() bool {
+		fmt.Println("preiodic...")
+	return true
+	}, 1)
+	ticker.StartAndTriggerRoutine("preiodic_1")
+
+	ticker.RegisterOneTimeRoutine("onetime_1", func() bool {
+		fmt.Println("onetime...")
+		time.Sleep(time.Minute)
+		return true
+	}, 10)
+
+
+	time.Sleep(time.Minute)
+}
+

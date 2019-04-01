@@ -86,7 +86,7 @@ func BytesToSign(b []byte) *Sign {
 
 func (s Sign) GetHexString() string {
 	buf := s.Bytes()
-	str := PREFIX + hex.EncodeToString(buf)
+	str := ToHex(buf)
 	return str
 }
 

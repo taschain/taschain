@@ -41,7 +41,7 @@ var net *server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, consensusHandler MsgHandler, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, nodeIDHex string) (err error) {
+func Init(config common.ConfManager, isSuper bool, consensusHandler MsgHandler, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, nodeIDHex string) (err error) {
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	statistics.InitStatistics(config)
 
@@ -82,7 +82,7 @@ func Init(config common.ConfManager, isSuper bool, chainHandler MsgHandler, cons
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler, chainHandler: chainHandler}
+	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler}
 	return nil
 }
 

@@ -21,10 +21,10 @@ import (
 	"consensus/groupsig"
 	"consensus/logical"
 	"consensus/model"
-	"errors"
 	"fmt"
 	"math/big"
 	"middleware/types"
+	"math"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -82,37 +82,16 @@ func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 	return logical.GenerateGenesis()
 }
 
-func (helper *ConsensusHelperImpl) VRFProve2Value(prove *big.Int) *big.Int {
-	return base.VRF_proof2hash(base.VRFProve(prove.Bytes())).Big()
+func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
+	return base.VRF_proof2hash(base.VRFProve(prove)).Big()
 }
 
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
 }
 
-func (helper *ConsensusHelperImpl) VerifyHash(b *types.Block) common.Hash {
-	return Proc.GenVerifyHash(b, helper.ID)
-}
-
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	preBH := Proc.MainChain.QueryBlockHeaderByHash(bh.PreHash)
-	if preBH == nil {
-		return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
-	}
-	gid := groupsig.DeserializeId(bh.GroupId)
-	group := Proc.GetGroup(gid)
-	if !group.GroupID.IsValid() {
-		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
-	}
-
-	//todo 暂时去掉全量账本验证(当取样块高不存在时可能导致计算量很大)
-	return true, nil
-	//if _, root := Proc.GenProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
-	//	return true, nil
-	//} else {
-	//	return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
-	//}
-
+	return Proc.CheckProveRoot(bh)
 }
 
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
@@ -128,14 +107,14 @@ func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err erro
 }
 
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
-	sign_bytes := tx.Sign.Bytes()
+	sign_bytes := tx.Sign
 	if len(sign_bytes) < common.SignLength {
 		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", sign_bytes)
 	}
 	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
 	group :=Proc.GroupChain.GetGroupById(groupID)
 	if group == nil {
-		return false, fmt.Errorf("VerifyBonusTransaction fail, Can't get groupinfo(gid=%x)", groupID)
+		return false, common.ErrGroupNil
 	}
 	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
 	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig
@@ -144,4 +123,13 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 		return false, fmt.Errorf("verify bonus sign fail, gsign=%v", gsign.GetHexString())
 	}
 	return true, nil
+}
+
+func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint64 {
+    height := bh.Height
+	if height == 1 {
+		return 0
+	}
+    castTime := bh.CurTime.Sub(bh.PreTime).Seconds()
+    return height - uint64(math.Ceil(castTime/float64(model.Param.MaxGroupCastTime)))
 }

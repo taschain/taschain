@@ -20,23 +20,23 @@ message Transaction{
 
     required uint64 Nonce = 3;
 
-    optional bytes Source  = 4 ;
+//    optional bytes Source  = 4 ;
 
-    optional bytes Target  = 5 ;
+    optional bytes Target  = 4 ;
 
-    required uint64 GasLimit = 6;
+    required uint64 GasLimit = 5;
 
-    required uint64 GasPrice = 7;
+    required uint64 GasPrice = 6;
 
-    required bytes Hash  = 8 ;
+    required bytes Hash  = 7 ;
 
-    optional bytes ExtraData  = 9 ;
+    optional bytes ExtraData  = 8 ;
 
-    optional int32 ExtraDataType  = 10 ;
+    optional int32 ExtraDataType  = 9 ;
 
-    required int32 Type = 11;
+    required int32 Type = 10;
 
-    optional bytes Sign = 12;
+    optional bytes Sign = 11;
 }
 
 message TransactionRequestMessage{
@@ -45,9 +45,9 @@ message TransactionRequestMessage{
 
     required bytes CurrentBlockHash = 2;
 
-    required uint64 BlockHeight = 3;
-
-    required bytes BlockPv = 4;
+//    required uint64 BlockHeight = 3;
+//
+//    required bytes BlockPv = 4;
 }
 
 message TrieNodes{
@@ -62,9 +62,7 @@ message TransactionSlice{
 }
 
 message ChainPieceInfo{
-    repeated BlockHeader BlockHeaders = 1;
-
-    required BlockHeader TopHeader = 2;
+    repeated bytes Pieces = 1;
 }
 
 
@@ -106,7 +104,6 @@ message BlockHeader{
 
      optional bytes ProveRoot = 18;
 
-     optional Hashes EvictedTxs = 19;
 }
 
 message BlockBody{
@@ -116,13 +113,13 @@ message BlockBody{
     repeated Transaction transactions = 2;
 }
 
+
 message Block{
     required BlockHeader Header = 1;
 
     repeated Transaction transactions = 2;
 
 }
-
 
 message BlockSlice{
     repeated Block Blocks = 1;
@@ -179,7 +176,6 @@ message Group{
 
 message GroupInfo{
     repeated Group Groups = 1;
-    required bool IsTopGroup = 2;
 }
 
 message GroupSlice{
@@ -408,16 +404,17 @@ message TopBlockInfo{
     required	uint64   TotalQn = 2;
     required	uint64   Height = 3;
     required	bytes   PreHash = 4;
+    required	uint64   ShrinkPV = 5;
 }
 
-message BlockMsgResponse{
-    required bool IsLast = 1;
-    optional Block Block = 2;
+message BlockResponseMsg{
+    repeated Block Blocks = 1;
 }
 
 message ChainPieceBlockMsg{
     required BlockHeader TopHeader = 1;
     repeated Block Blocks  = 2;
+    required bool FindAncestor = 3;
 }
 
 message CreateGroupPingMessage {

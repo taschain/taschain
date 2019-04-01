@@ -150,7 +150,7 @@
                         txs.text(d.txs)
                         cst = (cur - pre) / 1000.0
                         cost.text(cst)
-                        qn.text(d.queue_number)
+                        qn.text(d.total_qn)
                         aver = stat.total_txs/ stat.total_cost
                         aver_tps.text(aver.toFixed(1))
                         tx_pool_count.text(d.tx_pool_count)
@@ -275,7 +275,7 @@
             })
 
             tryAddHost()
-            setInterval(refreshAll, 1500)
+            setInterval(refreshAll, 2500)
             setInterval(highlight, 5000)
         })
     </script>

@@ -175,7 +175,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	//发送日志
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeCreateGroup,
-		Height:   gm.groupChain.Count(),
+		Height:   gm.groupChain.Height(),
 		Hash:     gh.Hash.Hex(),
 		Proposer: gm.processor.GetMinerID().GetHexString(),
 	}

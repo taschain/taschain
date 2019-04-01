@@ -152,7 +152,7 @@ func (p *Processor) releaseRoutine() bool {
 			//发送日志
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeInitGroupRevPieceTimeout,
-				Height:   p.GroupChain.Count(),
+				Height:   p.GroupChain.Height(),
 				Hash:     gHash.Hex(),
 				Proposer: "00",
 				Ext:      fmt.Sprintf("MemCnt:%v,Pieces:%v,wait:%v,%v", gc.gInfo.MemberSize(),gc.node.groupInitPool.GetSize(),waitPieceIds,omgied),
@@ -191,7 +191,7 @@ func (p *Processor) releaseRoutine() bool {
 			//发送日志
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeCreateGroupSignTimeout,
-				Height:   p.GroupChain.Count(),
+				Height:   p.GroupChain.Height(),
 				Hash:     gHash,
 				Proposer: p.GetMinerID().GetHexString(),
 				Ext:      fmt.Sprintf("%v", gctx.gSignGenerator.Brief()),
@@ -293,8 +293,8 @@ func (p *Processor) updateMonitorInfo() bool {
 
 	ni := &monitor.NodeInfo{
 		BlockHeight: top,
-		GroupHeight: p.GroupChain.Count(),
-		TxPoolCount: len(p.MainChain.GetTransactionPool().GetReceived()),
+		GroupHeight: p.GroupChain.Height(),
+		TxPoolCount: int(p.MainChain.GetTransactionPool().TxNum()),
 	}
 	proposer := p.minerReader.getProposeMiner(p.GetMinerID())
 	if proposer != nil {

@@ -8,7 +8,6 @@ import (
 	"common"
 	"consensus/model"
 	"core"
-	"consensus/mediator"
 )
 
 /*
@@ -45,7 +44,7 @@ func TestCalcVerifyGroup(t *testing.T) {
 
 	addr := common.HexToAddress(common.GlobalConf.GetString("gtas", "miner", ""))
 	mdo := model.NewSelfMinerDO(addr)
-	core.InitCore(false, mediator.NewConsensusHelper(mdo.ID))
+	core.InitCore(false,nil)
 	p := new(Processor)
 
 	p.Init(mdo, common.GlobalConf)

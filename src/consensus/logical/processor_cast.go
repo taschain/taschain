@@ -1,13 +1,11 @@
 package logical
 
 import (
-	"bytes"
 	"common"
 	"consensus/base"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
-	"middleware/statistics"
 	"middleware/types"
 	"strings"
 	"sync"
@@ -210,7 +208,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	block := p.MainChain.GenerateBlock(*bh)
 
 	if block == nil {
-		blog.log("core.GenerateBlock is nil! won't broadcast block!")
+		blog.log("core.GenerateBlock is nil! won't broadcast block! height=%v", bh.Height)
 		return
 	}
 	gb := p.spreadGroupBrief(bh, bh.Height+1)
@@ -237,7 +235,6 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
 
-	tlog.log("height=%v, status=%v", bh.Height, vctx.consensusStatus)
 	cbm := &model.ConsensusBlockMessage{
 		Block: *block,
 	}
@@ -268,37 +265,6 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	return
 }
 
-//对该id进行区块抽样
-func (p *Processor) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
-	//随机抽取10块前的块，确保不抽取到分叉上的块
-	//
-	if heightLimit > 2*model.Param.Epoch {
-		heightLimit -= 2*model.Param.Epoch
-	}
-	return base.RandFromBytes(rand).DerivedRand(id.Serialize()).ModuloUint64(heightLimit)
-}
-
-func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
-	hashs := make([]common.Hash, len(ids))
-
-	//blog := newBizLog("GenProveHashs")
-	for idx, id := range ids {
-		h := p.sampleBlockHeight(heightLimit, rand, id)
-		b := p.getNearestBlockByHeight(h)
-		hashs[idx] = p.GenVerifyHash(b, id)
-		//blog.log("sampleHeight for %v is %v, real height is %v, proveHash is %v", id.ShortS(), h, b.Header.Height, hashs[idx].ShortS())
-	}
-	proves = hashs
-
-	buf := bytes.Buffer{}
-	for _, hash := range hashs {
-		buf.Write(hash.Bytes())
-	}
-	root = base.Data2CommonHash(buf.Bytes())
-	buf.Reset()
-	return
-}
-
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -321,6 +287,11 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
+	if p.proveChecker.proveExists(pi) {
+		blog.log("vrf prove exist, not proposal")
+		return
+	}
+
 	if worker.timeout() {
 		blog.log("vrf worker timeout")
 		return
@@ -334,9 +305,9 @@ func (p *Processor) blockProposal() {
 	gid := gb.Gid
 
 	//随机抽取n个块，生成proveHash
-	proveHash, root := p.GenProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+	proveHash, root := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 
-	block := p.MainChain.CastBlock(uint64(height), pi.Big(), root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), pi, root, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -373,11 +344,9 @@ func (p *Processor) blockProposal() {
 			Ext:      fmt.Sprintf("qn:%v,totalQN:%v", qn, bh.TotalQN),
 		}
 		monitor.Instance.AddLog(le)
-
+		p.proveChecker.addProve(pi)
 		worker.markProposed()
 
-		statistics.AddBlockLog(common.BootId, statistics.SendCast, ccm.BH.Height, ccm.BH.ProveValue.Uint64(), -1, -1,
-			time.Now().UnixNano(), p.GetMinerID().ShortS(), gid.ShortS(), common.InstanceIndex, ccm.BH.CurTime.UnixNano())
 	} else {
 		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}

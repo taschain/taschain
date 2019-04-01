@@ -386,7 +386,7 @@ func doAddBlockOnChain() (ok bool) {
 
 
 	// 上链
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block,types.NewBlock) {
+	if 0 != core.BlockChainImpl.AddBlockOnChain("", block) {
 		fmt.Println("fail to add block")
 		return false
 	} else {

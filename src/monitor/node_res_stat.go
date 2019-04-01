@@ -4,10 +4,10 @@ import (
 	"time"
 	"os"
 	"github.com/codeskyblue/go-sh"
-	"fmt"
 	"regexp"
 	"strings"
 	"strconv"
+	"fmt"
 )
 
 /*
@@ -64,7 +64,7 @@ func (ns *NodeResStat) startStatLoop()  {
 
 func (s *NodeResStat) statCpuAndMem() {
 	sess := sh.NewSession()
-	sess.ShowCMD = true
+	//sess.ShowCMD = true
 	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
 
 	if err == nil {
@@ -74,7 +74,6 @@ func (s *NodeResStat) statCpuAndMem() {
 			return
 		}
 		var cpu, mem float64
-		fmt.Println("top", arrs)
 		cpu, _ = strconv.ParseFloat(arrs[8], 64)
 		mems := arrs[5]
 		if mems[len(mems)-1:] == "g" {
@@ -89,7 +88,6 @@ func (s *NodeResStat) statCpuAndMem() {
 		}
 		s.Cpu = cpu
 		s.Mem = mem
-		fmt.Printf("cpu %v, mem %v\n", cpu, mem)
 	} else {
 
 	}
@@ -98,7 +96,7 @@ func (s *NodeResStat) statCpuAndMem() {
 
 func (s *NodeResStat) statFlow() {
 	sess := sh.NewSession()
-	sess.ShowCMD = true
+	//sess.ShowCMD = true
 	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
 
 	if err == nil {
@@ -108,15 +106,12 @@ func (s *NodeResStat) statFlow() {
 		}
 		line := spaceRe.ReplaceAllString(lines[len(lines)-1], ",")
 		arrs := strings.Split(line, ",")
-		fmt.Println("sar", arrs)
 		if len(arrs) < 8 {
 			return
 		}
 		s.RcvBps, _ = strconv.ParseFloat(arrs[4], 64)
 		s.TxBps, _ = strconv.ParseFloat(arrs[5], 64)
-		fmt.Printf("rcv %v, tx %v\n", s.RcvBps, s.TxBps)
 	} else {
-		fmt.Printf("exe cmd err:%v\n", err)
 	}
 	return
 }

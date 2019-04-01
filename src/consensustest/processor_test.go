@@ -17,10 +17,8 @@ import (
 **  Date: 2019/1/17 下午12:37
 **  Description: 
 */
-
-
-func TestCalcVerifyGroup(t *testing.T) {
-	common.InitConf("tas1.ini")
+func initProcessor(conf string) *logical.Processor {
+	common.InitConf(conf)
 	middleware.InitMiddleware()
 	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 	addr := common.HexToAddress(common.GlobalConf.GetString("gtas", "miner", ""))
@@ -29,6 +27,11 @@ func TestCalcVerifyGroup(t *testing.T) {
 	core.InitCore(false, mediator.NewConsensusHelper(mdo.ID))
 	p := new(logical.Processor)
 	p.Init(mdo, common.GlobalConf)
+	return p
+}
+
+func TestCalcVerifyGroup(t *testing.T) {
+	p := initProcessor("tas3.ini")
 
 	top := p.MainChain.Height()
 	pre := p.MainChain.QueryBlockByHeight(0)
@@ -47,4 +50,17 @@ func TestCalcVerifyGroup(t *testing.T) {
 		t.Logf("height %v ok", h)
 	}
 	t.Log("ok")
+}
+
+
+func TestProcessor_GenProveHashs(t *testing.T) {
+	p := initProcessor("tas3.ini")
+
+	var id groupsig.ID
+	id.SetHexString("0x9d2961d1b4eb4af2d78cb9e29614756ab658671e453ea1f6ec26b4e918c79d02")
+
+	b := p.MainChain.QueryBlockFloor(7)
+	hash := p.GenVerifyHash(b, id)
+	t.Logf(hash.String())
+
 }

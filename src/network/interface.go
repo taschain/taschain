@@ -39,7 +39,7 @@ const (
 
 	TransactionGotMsg uint32 = 10
 
-	TransactionBroadcastMsg uint32 = 11
+	//TransactionBroadcastMsg uint32 = 11
 
 	//-----------块同步---------------------------------
 	BlockInfoNotifyMsg uint32 = 13
@@ -55,9 +55,9 @@ const (
 
 	GroupMsg uint32 = 18
 	//-----------块链调整---------------------------------
-	ChainPieceInfoReq uint32 = 19
+	//ChainPieceInfoReq uint32 = 19
 
-	ChainPieceInfo uint32 = 20
+	//ChainPieceInfo uint32 = 20
 
 	ReqChainPieceBlock uint32 = 21
 
@@ -99,6 +99,11 @@ const (
 
 	ReqSharePiece uint32 = 102
 	ResponseSharePiece uint32 = 103
+
+	//=================交易同步===========
+	TxSyncNotify uint32 = 200
+	TxSyncReq uint32 = 201
+	TxSyncResponse uint32 = 202
 )
 
 type Message struct {

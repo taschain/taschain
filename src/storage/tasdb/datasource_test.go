@@ -18,11 +18,16 @@ package tasdb
 import (
 	"testing"
 	"fmt"
+	"utility"
 )
 
 func TestCreateLDB(t *testing.T) {
 	// 创建ldb实例
-	ldb, err := NewDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	if err != nil {
 		fmt.Printf("error to create ldb : %s\n", "testldb")
 		return
@@ -80,7 +85,11 @@ func TestCreateLDB(t *testing.T) {
 
 func TestLDBScan(t *testing.T) {
 	//ldb, _ := NewLDBDatabase("/Users/Kaede/TasProject/test1",1,1)
-	ldb, _ := NewDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
 	key1 := []byte{0,1,1}
 	key2 := []byte{0,1,2}
 	key3 := []byte{0,2,1}
@@ -119,7 +128,12 @@ func TestLRUMemDatabase(t *testing.T) {
 
 func TestClearLDB(t *testing.T) {
 	// 创建ldb实例
-	ldb, err := NewDatabase("testldb")
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -144,4 +158,161 @@ func TestClearLDB(t *testing.T) {
 	//} else {
 	//	fmt.Printf("get key : testkey, value: null")
 	//}
+}
+
+func TestBatchPutVisiableBeforeWrite(t *testing.T) {
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+
+	key := []byte("test")
+	batch := ldb.CreateLDBBatch()
+	bs, err := ldb.Get(key)
+	t.Log("before put:", string(bs), err)
+
+	ldb.AddKv(batch, key, []byte("i am handsome"))
+	bs, err = ldb.Get(key)
+	t.Log("after put:", string(bs), err)
+
+
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("write fail", err)
+	}
+	bs, err = ldb.Get(key)
+	t.Log("after write:", string(bs), err)
+
+	ldb.AddKv(batch, key, nil)
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("write fail", err)
+	}
+	bs, err = ldb.Get(key)
+	t.Log("after delete:", string(bs), err)
+}
+
+func TestIteratorWithPrefix(t *testing.T) {
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+
+	for i := 1; i < 13; i++ {
+		ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	}
+
+	for i := 20; i < 23; i++ {
+		ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	}
+	ldb.Put(utility.UInt64ToByte(uint64(1000)), utility.UInt64ToByte(uint64(1000)))
+	ldb.Put(utility.UInt64ToByte(uint64(99999)), utility.UInt64ToByte(uint64(99999)))
+
+
+	iter := ldb.NewIterator()
+	//for iter.Next() {
+	//	t.Log("next",utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	//}
+	if iter.Seek(utility.UInt64ToByte(uint64(20))) {
+		t.Log("seek",utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	}
+	for iter.Next() {
+		t.Log("iter", utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	}
+
+
+	iter.Release()
+}
+
+func TestIteratorWithPrefix2(t *testing.T) {
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+
+	ldb2, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+
+	for i := 1; i < 13; i++ {
+		ldb2.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	}
+
+	for i := 1; i < 13; i++ {
+		ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	}
+
+	for i := 20; i < 23; i++ {
+		ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	}
+	ldb.Put(utility.UInt64ToByte(uint64(1000)), utility.UInt64ToByte(uint64(1000)))
+	ldb.Put(utility.UInt64ToByte(uint64(99999)), utility.UInt64ToByte(uint64(99999)))
+
+
+	iter := ldb2.NewIterator()
+	//for iter.Next() {
+	//	t.Log("ldb",utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	//}
+	//
+	//iter2 := ldb2.NewIterator()
+	//for iter2.Next() {
+	//	t.Log("ldb2",utility.ByteToUInt64(iter2.Key()), utility.ByteToUInt64(iter2.Value()))
+	//}
+
+	if iter.Seek(utility.UInt64ToByte(uint64(12))) {
+		t.Log("seek",utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	}
+
+	for iter.Next() {
+		t.Log("iter", utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+	}
+
+
+	iter.Release()
+}
+
+func TestGetAfter(t *testing.T) {
+	ds, err := NewDataSource("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := ds.NewPrefixDatabase("testldb")
+	if err != nil {
+		t.Fatalf("error to create ldb : %s\n", "testldb")
+		return
+	}
+	//for i := 1; i < 13; i++ {
+	//	ldb.Put(utility.UInt64ToByte(uint64(i)), utility.UInt64ToByte(uint64(i)))
+	//}
+
+	iter := ldb.NewIterator()
+	if !iter.Seek(utility.UInt64ToByte(11)) {
+		t.Logf("not found")
+	}
+
+	cnt := 10
+	for cnt > 0 {
+		t.Log(utility.ByteToUInt64(iter.Key()), utility.ByteToUInt64(iter.Value()))
+		cnt--
+		if !iter.Next() {
+			break
+		}
+	}
 }

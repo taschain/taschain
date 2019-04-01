@@ -32,12 +32,16 @@ func newBonusManager() *BonusManager {
 	return manager
 }
 
+func (bm *BonusManager) blockHasBonusTransaction(blockHashByte []byte) bool {
+	return BlockChainImpl.LatestStateDB().GetData(common.BonusStorageAddress, string(blockHashByte)) != nil
+}
+
 func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.Transaction {
 	transactionHash := BlockChainImpl.LatestStateDB().GetData(common.BonusStorageAddress, string(blockHash))
 	if transactionHash == nil {
 		return nil
 	}
-	transaction, _ := BlockChainImpl.(*FullBlockChain).transactionPool.GetTransaction(common.BytesToHash(transactionHash))
+	transaction := BlockChainImpl.GetTransactionByHash(true, false, common.BytesToHash(transactionHash))
 	return transaction
 }
 
@@ -84,8 +88,12 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 		ids = append(ids, addr)
 		addr = make([]byte, common.AddressLength)
 	}
-	blockHash := common.BytesToHash(transaction.Data)
+	blockHash := bm.parseBonusBlockHash(transaction)
 	return groupId, ids, blockHash, transaction.Value
+}
+
+func (bm *BonusManager) parseBonusBlockHash(tx *types.Transaction) common.Hash {
+    return common.BytesToHash(tx.Data)
 }
 
 func (bm *BonusManager) contain(blockHash []byte, accountdb vm.AccountDB) bool {

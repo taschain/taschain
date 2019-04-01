@@ -57,9 +57,11 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 		t := common.HexToAddress(tx.Target)
 		target = &t
 	}
-	var sign *common.Sign
+	var sign []byte
 	if tx.Sign != "" {
-		sign = common.HexStringToSign(tx.Sign)
+		sign = common.HexStringToSign(tx.Sign).Bytes()
+	} else {
+
 	}
 
 	return &types.Transaction{
@@ -68,7 +70,7 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 		Nonce: tx.Nonce,
 		//Source: &source,
 		Target: target,
-		Type: int32(tx.TxType),
+		Type: int8(tx.TxType),
 		GasLimit: tx.Gas,
 		GasPrice: tx.Gasprice,
 		Sign: sign,

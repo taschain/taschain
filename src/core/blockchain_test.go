@@ -173,7 +173,7 @@ package core
 //	//}
 //	//
 //	//if BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))).Int64() != 999999 {
-//	//	t.Fatalf("fail to switch to main chain. %d", BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
+//	//	t.Fatalf("fail to switch to main gchain. %d", BlockChainImpl.latestStateDB.GetBalance(c.BytesToAddress(genHash("1"))))
 //	//}
 //
 //	BlockChainImpl.Close()
@@ -286,7 +286,7 @@ package core
 //	Clear()
 //	initBlockChain()
 //	BlockChainImpl.transactionPool.Clear()
-//	//chain.Clear()
+//	//gchain.Clear()
 //
 //	// 查询创始块
 //	blockHeader := BlockChainImpl.QueryTopBlock()

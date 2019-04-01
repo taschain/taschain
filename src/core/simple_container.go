@@ -17,10 +17,9 @@ package core
 import (
 	"sort"
 	"sync"
-	"time"
-
 	"common"
 	"middleware/types"
+	"container/heap"
 )
 
 type simpleContainer struct {
@@ -28,7 +27,6 @@ type simpleContainer struct {
 	txs    types.PriorityTransactions
 	txsMap map[common.Hash]*types.Transaction
 
-	sortTicker *time.Ticker
 	lock       sync.RWMutex
 }
 
@@ -38,9 +36,8 @@ func newSimpleContainer(l int) *simpleContainer {
 		limit:      l,
 		txsMap:     map[common.Hash]*types.Transaction{},
 		txs:        types.PriorityTransactions{},
-		sortTicker: time.NewTicker(time.Millisecond * 500),
 	}
-	go c.loop()
+	heap.Init(&c.txs)
 	return c
 }
 
@@ -48,15 +45,9 @@ func (c *simpleContainer) Len() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return len(c.txs)
+	return c.txs.Len()
 }
 
-func (c *simpleContainer) loop() {
-	for {
-		<-c.sortTicker.C
-		c.sort()
-	}
-}
 
 func (c *simpleContainer) sort() {
 	c.lock.Lock()
@@ -79,44 +70,56 @@ func (c *simpleContainer) get(key common.Hash) *types.Transaction {
 	return c.txsMap[key]
 }
 
-func (c *simpleContainer) asSlice() []*types.Transaction {
+func (c *simpleContainer) asSlice(limit int) []*types.Transaction {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.txs
+	size := limit
+	if c.txs.Len() < size {
+		size = c.txs.Len()
+	}
+	txs := make([]*types.Transaction, size)
+	copy(txs, c.txs[:size])
+	return txs
 }
 
 func (c *simpleContainer) push(tx *types.Transaction) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.txs.Len() < c.limit {
-		c.txs = append(c.txs, tx)
-		c.txsMap[tx.Hash] = tx
+	if c.txsMap[tx.Hash] != nil {
 		return
 	}
 
-	for i, oldTx := range c.txs {
-		if tx.GasPrice >= oldTx.GasPrice {
-			delete(c.txsMap, oldTx.Hash)
-			c.txs[i] = tx
-			c.txsMap[tx.Hash] = tx
-			break
+	if c.txs.Len() >= c.limit {
+		for i, oldTx := range c.txs {
+			if tx.GasPrice >= oldTx.GasPrice {
+				delete(c.txsMap, oldTx.Hash)
+				c.txs[i] = tx
+				c.txsMap[tx.Hash] = tx
+				heap.Fix(&c.txs, i)
+				break
+			}
 		}
+	} else {
+		heap.Push(&c.txs, tx)
+		c.txsMap[tx.Hash] = tx
 	}
 }
 
 func (c *simpleContainer) remove(key common.Hash) {
+	if !c.contains(key) {
+		return
+	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.txsMap[key] == nil {
 		return
 	}
-
 	delete(c.txsMap, key)
 	for i, tx := range c.txs {
 		if tx.Hash == key {
-			c.txs = append(c.txs[:i], c.txs[i+1:]...)
+			heap.Remove(&c.txs, i)
 			break
 		}
 	}

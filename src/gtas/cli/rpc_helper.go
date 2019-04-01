@@ -41,7 +41,7 @@ func convertBlockHeader(bh *types.BlockHeader) *Block {
 		PreTime: bh.PreTime,
 		Castor:  groupsig.DeserializeId(bh.Castor),
 		GroupID: groupsig.DeserializeId(bh.GroupId),
-		Prove:   bh.ProveValue,
+		Prove:   common.ToHex(bh.ProveValue),
 		Txs:     bh.Transactions,
 		TotalQN: bh.TotalQN,
 		//Qn: mediator.Proc.CalcBlockHeaderQN(bh),
@@ -101,12 +101,7 @@ func sendTransaction(trans *types.Transaction) error {
 	if trans.Sign == nil {
 		return fmt.Errorf("transaction sign is empty")
 	}
-	pk, err := trans.Sign.RecoverPubkey(trans.Hash.Bytes())
-	if err != nil {
-		return err
-	}
-	source := pk.GetAddress()
-	trans.Source = &source
+
 	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {

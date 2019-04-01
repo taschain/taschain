@@ -22,7 +22,7 @@ import (
 	"common"
 	"consensus/model"
 	"time"
-	"consensus/ticker"
+	"middleware/ticker"
 	"fmt"
 	"github.com/hashicorp/golang-lru"
 )
@@ -61,6 +61,7 @@ type StateMachines struct {
 	name      string
 	machines  *lru.Cache
 	generator StateMachineGenerator
+	ticker 		*ticker.GlobalTicker
 	//machines map[string]*StateMachine
 }
 
@@ -80,6 +81,7 @@ func InitStateMachines() {
 		name:      "GroupInsideMachines",
 		generator: &groupInsideMachineGenerator{},
 		machines:  cache,
+		ticker: ticker.NewGlobalTicker("state_machine"),
 	}
 
 	//GroupOutsideMachines = StateMachines{
@@ -325,8 +327,8 @@ func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine
 }
 
 func (stm *StateMachines) startCleanRoutine() {
-	ticker.GetTickerInstance().RegisterRoutine(stm.name, stm.cleanRoutine, 2)
-	ticker.GetTickerInstance().StartTickerRoutine(stm.name, false)
+	stm.ticker.RegisterPeriodicRoutine(stm.name, stm.cleanRoutine, 2)
+	stm.ticker.StartTickerRoutine(stm.name, false)
 }
 
 func (stm *StateMachines) cleanRoutine() bool {

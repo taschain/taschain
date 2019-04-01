@@ -16,7 +16,6 @@
 package types
 
 import (
-	"common"
 	"math/big"
 )
 
@@ -41,7 +40,7 @@ type ConsensusHelper interface {
 	GenerateGenesisInfo() *GenesisInfo
 
 	//vrf prove to value
-	VRFProve2Value(prove *big.Int) *big.Int
+	VRFProve2Value(prove []byte) *big.Int
 
 	//bonus for proposal a block
 	ProposalBonus() *big.Int
@@ -52,9 +51,6 @@ type ConsensusHelper interface {
 	//calcaulate the blockheader's qn
 	//it needs to be equal to the blockheader's totalQN - preHeader's totalQN
 	CalculateQN(bh *BlockHeader) uint64
-
-	//generate verify hash of the block for current node
-	VerifyHash(b *Block) common.Hash
 
 	//check the prove root hash for weight node when add block on chain
 	CheckProveRoot(bh *BlockHeader) (bool, error)
@@ -71,4 +67,7 @@ type ConsensusHelper interface {
 
 	//verify bonus transaction
 	VerifyBonusTransaction(tx *Transaction) (bool, error)
+
+	//estimate pre height
+	EstimatePreHeight(bh *BlockHeader) uint64
 }

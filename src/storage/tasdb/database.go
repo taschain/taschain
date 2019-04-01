@@ -36,8 +36,8 @@ const (
 
 var (
 	ErrLDBInit   = errors.New("LDB instance not inited")
-	instance     *LDBDatabase
-	instanceLock = sync.RWMutex{}
+	//instance     *LDBDatabase
+	//instanceLock = sync.RWMutex{}
 )
 
 type PrefixedDatabase struct {
@@ -45,35 +45,18 @@ type PrefixedDatabase struct {
 	prefix string
 }
 
+
 type databaseConfig struct {
 	database string
 	cache    int
 	handler  int
 }
 
-func NewDatabase(prefix string) (Database, error) {
-	dbInner, err := getInstance()
-	if nil != err {
-		return nil, err
-	}
-
-	return &PrefixedDatabase{
-		db:     dbInner,
-		prefix: prefix,
-	}, nil
-}
-
-func getInstance() (*LDBDatabase, error) {
-	instanceLock.Lock()
-	defer instanceLock.Unlock()
-
+func getInstance(file string) (*LDBDatabase, error) {
 	var (
 		instanceInner *LDBDatabase
 		err           error
 	)
-	if nil != instance {
-		return instance, nil
-	}
 
 	defaultConfig := &databaseConfig{
 		database: DEFAULT_FILE,
@@ -84,14 +67,10 @@ func getInstance() (*LDBDatabase, error) {
 	if nil == common.GlobalConf {
 		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
 	} else {
-		instanceInner, err = NewLDBDatabase(common.GlobalConf.GetString(CONFIG_SEC, "database", defaultConfig.database), common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
 	}
 
-	if nil == err {
-		instance = instanceInner
-	}
-
-	return instance, err
+	return instanceInner, err
 }
 
 //func (db *PrefixedDatabase) Clear() error {
@@ -104,10 +83,6 @@ func getInstance() (*LDBDatabase, error) {
 //}
 
 func (db *PrefixedDatabase) Close() {
-	instanceLock.Lock()
-	defer instanceLock.Unlock()
-
-	instance = nil
 	db.db.Close()
 }
 
@@ -127,17 +102,104 @@ func (db *PrefixedDatabase) Delete(key []byte) error {
 	return db.db.Delete(generateKey(key, db.prefix))
 }
 
+func (db *PrefixedDatabase) newIterator(prefix []byte) iterator.Iterator {
+	iter := db.db.NewIteratorWithPrefix([]byte(db.prefix))
+	return &prefixIter{
+		prefix: []byte(db.prefix),
+		iter: iter,
+	}
+}
+
 func (db *PrefixedDatabase) NewIterator() iterator.Iterator {
-	return db.db.NewIteratorWithPrefix([]byte(db.prefix))
+	return db.NewIteratorWithPrefix(nil)
 }
 
 func (db *PrefixedDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
-	return db.db.NewIteratorWithPrefix(generateKey(prefix, db.prefix))
+	iterPrefix := generateKey(prefix, db.prefix)
+	iter := db.db.NewIteratorWithPrefix(iterPrefix)
+	return &prefixIter{
+		prefix: iterPrefix,
+		iter: iter,
+	}
 }
 
 func (db *PrefixedDatabase) NewBatch() Batch {
-
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix,}
+	//return db.db.NewBatch()
+}
+
+func (db *PrefixedDatabase) AddKv(batch Batch, k, v []byte) error {
+	if v == nil {
+		return db.addDeleteToBatch(batch, k)
+	} else {
+		return db.addKVToBatch(batch, k, v)
+	}
+}
+func (db *PrefixedDatabase) CreateLDBBatch() Batch {
+    return db.db.NewBatch()
+}
+
+func (db *PrefixedDatabase) addKVToBatch(b Batch, k, v []byte) error {
+	key := generateKey(k, db.prefix)
+	return b.Put(key, v)
+}
+
+func (db *PrefixedDatabase) addDeleteToBatch(b Batch, k []byte) error {
+	key := generateKey(k, db.prefix)
+	return b.Delete(key)
+}
+
+type prefixIter struct {
+	prefix []byte
+	iter 	iterator.Iterator
+}
+
+func (iter *prefixIter) First() bool {
+	return iter.iter.First()
+}
+
+func (iter *prefixIter) Last() bool {
+	return iter.iter.Last()
+}
+
+func (iter *prefixIter) Seek(key []byte) bool {
+	buf := bytes.Buffer{}
+	buf.Write(iter.prefix)
+	buf.Write(key)
+	return iter.iter.Seek(buf.Bytes())
+}
+
+func (iter *prefixIter) Next() bool {
+	return iter.iter.Next()
+}
+
+func (iter *prefixIter) Prev() bool {
+	return iter.iter.Prev()
+}
+
+func (iter *prefixIter) Release() {
+	iter.iter.Release()
+}
+
+func (iter *prefixIter) SetReleaser(releaser util.Releaser) {
+	iter.iter.SetReleaser(releaser)
+}
+
+func (iter *prefixIter) Valid() bool {
+	return iter.iter.Valid()
+}
+
+func (iter *prefixIter) Error() error {
+	return iter.iter.Error()
+}
+
+func (iter *prefixIter) Key() []byte {
+	key := iter.iter.Key()
+	return key[len(iter.prefix):]
+}
+
+func (iter *prefixIter) Value() []byte {
+	return iter.iter.Value()
 }
 
 type prefixBatch struct {
@@ -145,6 +207,12 @@ type prefixBatch struct {
 	b      *leveldb.Batch
 	size   int
 	prefix string
+}
+
+func (b *prefixBatch) Delete(key []byte) error {
+	b.b.Delete(generateKey(key, b.prefix))
+	b.size+=1
+	return nil
 }
 
 func (b *prefixBatch) Put(key, value []byte) error {
@@ -169,7 +237,9 @@ func (b *prefixBatch) Reset() {
 // 加入前缀的key
 func generateKey(raw []byte, prefix string) []byte {
 	bytesBuffer := bytes.NewBuffer([]byte(prefix))
-	bytesBuffer.Write(raw)
+	if raw != nil {
+		bytesBuffer.Write(raw)
+	}
 	return bytesBuffer.Bytes()
 }
 
@@ -200,13 +270,14 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 		return nil, err
 	}
 
-	return &LDBDatabase{
+	ldb := &LDBDatabase{
 		filename:      file,
 		db:            db,
 		cacheConfig:   cache,
 		handlesConfig: handles,
 		inited:        true,
-	}, nil
+	}
+	return ldb, nil
 }
 
 // 生成leveldb实例
@@ -325,6 +396,7 @@ func (db *LDBDatabase) Close() {
 
 func (db *LDBDatabase) NewBatch() Batch {
 	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
+	//return db.batch
 }
 
 type ldbBatch struct {
@@ -338,7 +410,11 @@ func (b *ldbBatch) Put(key, value []byte) error {
 	b.size += len(value)
 	return nil
 }
-
+func (b *ldbBatch) Delete(key []byte) error {
+	b.b.Delete(key)
+	b.size += 1
+	return nil
+}
 func (b *ldbBatch) Write() error {
 	return b.db.Write(b.b, nil)
 }
@@ -367,6 +443,8 @@ func (db *MemDatabase) Clear() error {
 	db.db = make(map[string][]byte)
 	return nil
 }
+
+
 func (db *MemDatabase) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -428,8 +506,10 @@ func (db *MemDatabase) NewBatch() Batch {
 
 func (db *MemDatabase) Len() int { return len(db.db) }
 
-type kv struct{ k, v []byte }
-
+type kv struct {
+	k, v []byte
+	del  bool
+}
 type memBatch struct {
 	db     *MemDatabase
 	writes []kv
@@ -437,8 +517,14 @@ type memBatch struct {
 }
 
 func (b *memBatch) Put(key, value []byte) error {
-	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
+	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value), false})
 	b.size += len(value)
+	return nil
+}
+
+func (b *memBatch) Delete(key []byte) error {
+	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
+	b.size += 1
 	return nil
 }
 
@@ -447,6 +533,10 @@ func (b *memBatch) Write() error {
 	defer b.db.lock.Unlock()
 
 	for _, kv := range b.writes {
+		if kv.del {
+			delete(b.db.db, string(kv.k))
+			continue
+		}
 		b.db.db[string(kv.k)] = kv.v
 	}
 	return nil
@@ -460,6 +550,7 @@ func (b *memBatch) Reset() {
 	b.writes = b.writes[:0]
 	b.size = 0
 }
+
 
 type LRUMemDatabase struct {
 	db   *lru.Cache
@@ -527,8 +618,14 @@ type LruMemBatch struct {
 }
 
 func (b *LruMemBatch) Put(key, value []byte) error {
-	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
+	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value), false})
 	b.size += len(value)
+	return nil
+}
+
+func (b *LruMemBatch) Delete(key []byte) error {
+	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
+	b.size += 1
 	return nil
 }
 
@@ -537,7 +634,11 @@ func (b *LruMemBatch) Write() error {
 	defer b.db.lock.Unlock()
 
 	for _, kv := range b.writes {
-		b.db.db.Add(string(kv.k), kv.v)
+		if kv.del {
+			b.db.db.Remove(string(kv.k))
+		} else {
+			b.db.db.Add(string(kv.k), kv.v)
+		}
 	}
 	return nil
 }

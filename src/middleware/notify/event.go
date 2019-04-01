@@ -24,9 +24,9 @@ const (
 	BlockInfoNotify = "block_info_notify"
 
 
-	ChainPieceInfoReq = "chain_piece_info_req"
+	//ChainPieceInfoReq = "chain_piece_info_req"
 
-	ChainPieceInfo = "chain_piece_info"
+	//ChainPieceInfo = "chain_piece_info"
 
 	ChainPieceBlockReq = "chain_piece_block_req"
 
@@ -41,11 +41,20 @@ const (
 
 
 
-	TransactionBroadcast = "transaction_broadcast"
+	//TransactionBroadcast = "transaction_broadcast"
 
 	TransactionReq = "transaction_req"
 
 	TransactionGot = "transaction_got"
 
 	TransactionGotAddSucc = "transaction_got_add_succ"
+
+	BlockSync = "block_sync"
+	GroupSync = "group_sync"
+
+	TxSyncNotify = "tx_sync_notify"
+	TxSyncReq = "tx_sync_req"
+	TxSyncResponse = "tx_sync_response"
+
+	TxPoolAddTxs = "tx_pool_add_txs"
 )

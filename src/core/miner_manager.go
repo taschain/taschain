@@ -17,7 +17,6 @@ package core
 import (
 	"errors"
 	"sync"
-	"time"
 	"utility"
 
 	"common"
@@ -29,10 +28,11 @@ import (
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/vmihailenco/msgpack"
+	"middleware/ticker"
 )
 
 const (
-	heavyMinerNetTriggerInterval = time.Second * 10
+	heavyMinerNetTriggerInterval = 10
 	heavyMinerCountKey           = "heavy_miner_count"
 	lightMinerCountKey           = "light_miner_count"
 )
@@ -48,8 +48,8 @@ var MinerManagerImpl *MinerManager
 type MinerManager struct {
 	hasNewHeavyMiner     bool
 	heavyMiners          []string
-	heavyMinerNetTrigger *time.Timer
 
+	ticker *ticker.GlobalTicker
 	lock sync.RWMutex
 }
 
@@ -62,10 +62,15 @@ type MinerIterator struct {
 	cache    *lru.Cache
 }
 
-func initMinerManager() {
-	MinerManagerImpl = &MinerManager{hasNewHeavyMiner: true, heavyMinerNetTrigger: time.NewTimer(heavyMinerNetTriggerInterval), heavyMiners: make([]string, 0)}
-	MinerManagerImpl.lock = sync.RWMutex{}
-	go MinerManagerImpl.loop()
+func initMinerManager(ticker *ticker.GlobalTicker) {
+	MinerManagerImpl = &MinerManager{
+		hasNewHeavyMiner: true,
+		heavyMiners: make([]string, 0),
+		ticker: ticker,
+	}
+
+	MinerManagerImpl.ticker.RegisterPeriodicRoutine("build_virtual_net", MinerManagerImpl.buildVirtualNetRoutine, heavyMinerNetTriggerInterval)
+	MinerManagerImpl.ticker.StartTickerRoutine("build_virtual_net", false)
 }
 
 func (mm *MinerManager) GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner {
@@ -110,7 +115,11 @@ func (mm *MinerManager) GetTotalStake(height uint64) uint64 {
 }
 
 func (mm *MinerManager) GetHeavyMiners() []string {
-	return mm.heavyMiners
+	mm.lock.RLock()
+	defer mm.lock.RUnlock()
+	mems := make([]string, len(mm.heavyMiners))
+	copy(mems, mm.heavyMiners)
+	return mems
 }
 
 func (mm *MinerManager) MinerIterator(minerType byte, height uint64) *MinerIterator {
@@ -143,24 +152,23 @@ func (mm *MinerManager) LightMinerCount(height uint64) uint64 {
 	return utility.ByteToUInt64(lightMinerCountByte)
 }
 
-func (mm *MinerManager) loop() {
-	for {
-		<-mm.heavyMinerNetTrigger.C
-		if mm.hasNewHeavyMiner {
-			iterator := mm.minerIterator(types.MinerTypeHeavy, nil)
-			array := make([]string, 0)
-			for iterator.Next() {
-				miner, _ := iterator.Current()
-				gid := groupsig.DeserializeId(miner.Id)
-				array = append(array, gid.String())
-			}
-			mm.heavyMiners = array
-			network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
-			Logger.Infof("MinerManager HeavyMinerUpdate Size:%d", len(array))
-			mm.hasNewHeavyMiner = false
+func (mm *MinerManager) buildVirtualNetRoutine() bool {
+	mm.lock.Lock()
+	defer mm.lock.Unlock()
+	if mm.hasNewHeavyMiner {
+		iterator := mm.minerIterator(types.MinerTypeHeavy, nil)
+		array := make([]string, 0)
+		for iterator.Next() {
+			miner, _ := iterator.Current()
+			gid := groupsig.DeserializeId(miner.Id)
+			array = append(array, gid.String())
 		}
-		mm.heavyMinerNetTrigger.Reset(heavyMinerNetTriggerInterval)
+		mm.heavyMiners = array
+		network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
+		Logger.Infof("MinerManager HeavyMinerUpdate Size:%d", len(array))
+		mm.hasNewHeavyMiner = false
 	}
+	return true
 }
 
 func (mm *MinerManager) getMinerDatabase(minerType byte) (common.Address) {
@@ -227,6 +235,9 @@ func (mm *MinerManager) abortMiner(id []byte, ttype byte, height uint64, account
 		db := mm.getMinerDatabase(ttype)
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
+		if ttype == types.MinerTypeHeavy {
+			mm.hasNewHeavyMiner = true
+		}
 		mm.updateMinerCount(ttype, minerCountDecrease, accountdb)
 		Logger.Debugf("Miner manager abort miner update success %+v", miner)
 		return true
@@ -292,4 +303,11 @@ func (mi *MinerIterator) Current() (*types.Miner, error) {
 
 func (mi *MinerIterator) Next() bool {
 	return mi.iterator.Next()
+}
+
+func (mi *MinerManager) Transaction2Miner(tx *types.Transaction) *types.Miner {
+	data := common.FromHex(string(tx.Data))
+	var miner types.Miner
+	msgpack.Unmarshal(data, &miner)
+	return &miner
 }

@@ -26,10 +26,11 @@ import (
 
 //主链接口
 type BlockChain interface {
-	IsLightMiner() bool
+	vm.ChainReader
+	AccountRepository
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, proveValue *big.Int, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block
@@ -45,43 +46,35 @@ type BlockChain interface {
 	//        1, 丢弃该块(链上已存在该块）
 	//        2,丢弃该块（链上存在QN值更大的相同高度块)
 	//        3,分叉调整
-	AddBlockOnChain(source string, b *types.Block, situation types.AddBlockOnChainSituation) types.AddBlockResult
-
-	Height() uint64
+	AddBlockOnChain(source string, b *types.Block) types.AddBlockResult
 
 	TotalQN() uint64
 
-	//查询最高块
-	QueryTopBlock() *types.BlockHeader
 
 	LatestStateDB() *account.AccountDB
 
-	//根据指定哈希查询块
-	QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader
-
+	//query block with body by hash
 	QueryBlockByHash(hash common.Hash) *types.Block
 
-	//根据指定高度查询块
-	QueryBlockByHeight(height uint64) *types.BlockHeader
+	//query first block whose height >= height
+	QueryBlockCeil(height uint64) *types.Block
+	QueryBlockHeaderCeil(height uint64) *types.BlockHeader
 
-	QueryBlock(height uint64) *types.Block
+	//query first block whose height <= height
+	QueryBlockFloor(height uint64) *types.Block
+	QueryBlockHeaderFloor(height uint64) *types.BlockHeader
+
+	QueryBlockBytesFloor(height uint64) []byte
+
+	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易
-	// 如果本地有，则立即返回。否则需要调用p2p远程获取
-	GetTransactionByHash(h common.Hash) (*types.Transaction, error)
+	GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) (*types.Transaction)
 
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
 
-	GetBalance(address common.Address) *big.Int
-
-	GetNonce(address common.Address) uint64
-
-	GetSateCache() account.AccountDatabase
-
 	IsAdujsting() bool
-
-	SetAdujsting(isAjusting bool)
 
 	Remove(block *types.Block) bool
 
@@ -100,26 +93,28 @@ type BlockChain interface {
 
 	GetConsensusHelper() types.ConsensusHelper
 
-	GetCheckValue(height uint64) (common.Hash, error)
+	Version() int
 
-	GetChainPieceInfo(reqHeight uint64) []*types.BlockHeader
-
-	GetChainPieceBlocks(reqHeight uint64) []*types.Block
-
-	//status 0 忽略该消息  不需要同步
-	//status 1 需要同步ChainPieceBlock
-	//status 2 需要继续同步ChainPieceInfo
-	ProcessChainPieceInfo(chainPiece []*types.BlockHeader, topHeader *types.BlockHeader) (status int, reqHeight uint64)
-
-	MergeFork(blockChainPiece []*types.Block, topHeader *types.BlockHeader)
-
-	GetTransactions(blockHash common.Hash, txHashList []common.Hash) ([]*types.Transaction, []common.Hash, error)
+	ResetTop(bh *types.BlockHeader)
 }
 
 type ExecutedTransaction struct {
 	Receipt     *types.Receipt
 	Transaction *types.Transaction
 }
+
+type ReceiptStore struct {
+	Receipt     *types.Receipt
+	//Transaction *types.Transaction
+	BlockHash  common.Hash
+}
+
+type txSource int
+
+const (
+	txSync txSource = 1
+	txRequest txSource = 2
+)
 
 type TransactionPool interface {
 	PackForCast() []*types.Transaction
@@ -128,26 +123,38 @@ type TransactionPool interface {
 	AddTransaction(tx *types.Transaction) (bool, error)
 
 	//rcv transactions broadcast from other nodes
-	AddBroadcastTransactions(txs []*types.Transaction)
-
+	AddTransactions(txs []*types.Transaction, from txSource)
+	//rcv transactions broadcast from other nodes
+	AsyncAddTxs(txs []*types.Transaction)
 	//add  local miss transactions while verifying blocks to the transaction pool
-	AddMissTransactions(txs []*types.Transaction)
+	//AddMissTransactions(txs []*types.Transaction)
 
-	GetTransaction(hash common.Hash) (*types.Transaction, error)
+	GetTransaction(bonus bool, hash common.Hash) (*types.Transaction)
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
-	GetExecuted(hash common.Hash) *ExecutedTransaction
+	GetReceipt(hash common.Hash) *types.Receipt
 
 	GetReceived() []*types.Transaction
 
+	GetBonusTxs() []*types.Transaction
+
 	TxNum() uint64
 
-	MarkExecuted(receipts types.Receipts, txs []*types.Transaction, evictedTxs []common.Hash)
+	SaveReceipts(blockHash common.Hash, receipts types.Receipts) error
 
-	UnMarkExecuted(txs []*types.Transaction)
+	DeleteReceipts(txs []common.Hash) error
+
+	RemoveFromPool(txs []common.Hash)
+
+	BackToPool(txs []*types.Transaction)
 
 	Clear()
+
+	GetTxBlockHash(txHash common.Hash) (*common.Hash)
+
+	RecoverAndValidateTx(tx *types.Transaction) error
+
 }
 
 //组管理接口

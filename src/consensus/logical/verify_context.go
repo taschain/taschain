@@ -26,6 +26,8 @@ import (
 	"consensus/base"
 	"fmt"
 	"consensus/groupsig"
+	"math/big"
+	"taslog"
 )
 
 /*
@@ -121,10 +123,38 @@ func TRANS_ACCEPT_RESULT_DESC(ret int8) string {
 
 type QN_QUERY_SLOT_RESULT int //根据QN查找插槽结果枚举
 
+type blockWeight struct {
+	totalQN uint64
+	pv	*big.Int
+}
+
+func newBlockWeight(bh *types.BlockHeader) *blockWeight {
+	return &blockWeight{
+		totalQN: bh.TotalQN,
+		pv: base.VRF_proof2hash(base.VRFProve(bh.ProveValue)).Big(),
+	}
+}
+
+func (bw *blockWeight) moreWeight(bw2 *blockWeight) bool {
+	if bw.totalQN > bw2.totalQN {
+		return true
+	} else if bw.totalQN < bw2.totalQN {
+		return false
+	}
+    return bw.pv.Cmp(bw2.pv) > 0
+}
+
+func (bw *blockWeight) String() string {
+    pvF := new(big.Float).SetInt(bw.pv)
+    f, _ := pvF.Float64()
+    return fmt.Sprintf("%v-%v", bw.totalQN, f)
+}
+
+
 type VerifyContext struct {
 	prevBH     *types.BlockHeader
 	castHeight uint64
-	signedMaxQN uint64
+	signedMaxWeight atomic.Value //*blockWeight
 	createTime      time.Time
 	expireTime      time.Time //铸块超时时间
 	consensusStatus int32     //铸块状态
@@ -144,7 +174,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		expireTime:      expire,
 		createTime:      time.Now(),
 		consensusStatus: CBCS_CASTING,
-		signedMaxQN: 	0,
+		//signedMaxWeight: 	newBlockWeight(),
 		slots:           make(map[common.Hash]*SlotContext),
 		//castedQNs:       make([]int64, 0),
 	}
@@ -198,26 +228,38 @@ func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {
 	return nil
 }
 
-func (vc *VerifyContext) getSignedMaxQN() uint64 {
- 	return atomic.LoadUint64(&vc.signedMaxQN)
+func (vc *VerifyContext) getSignedMaxWeight() *blockWeight {
+ 	v := vc.signedMaxWeight.Load()
+	if v == nil {
+		return nil
+	}
+	return v.(*blockWeight)
 }
 
-func (vc *VerifyContext) hasSignedBiggerQN(totalQN uint64) bool {
-	return vc.getSignedMaxQN() > totalQN
+func (vc *VerifyContext) hasSignedMoreWeightThan(bh *types.BlockHeader) bool {
+	bw := vc.getSignedMaxWeight()
+	if bw == nil {
+		return false
+	}
+	bw2 := newBlockWeight(bh)
+	return bw.moreWeight(bw2)
 }
 
-func (vc *VerifyContext) updateSignedMaxQN(totalQN uint64) bool {
-	if vc.getSignedMaxQN() < totalQN {
-		atomic.StoreUint64(&vc.signedMaxQN, totalQN)
+func (vc *VerifyContext) updateSignedMaxWeightBlock(bh *types.BlockHeader) bool {
+	bw := vc.getSignedMaxWeight()
+	bw2 := newBlockWeight(bh)
+	if bw != nil && bw.moreWeight(bw2) {
+		return false
+	} else {
+		vc.signedMaxWeight.Store(bw2)
 		return true
 	}
-	return false
 }
 
 func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (slot *SlotContext, err error) {
 	//只签qn不小于已签出的最高块的块
-	if vc.hasSignedBiggerQN(bh.TotalQN) {
-		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxQN(), bh.TotalQN)
+	if vc.hasSignedMoreWeightThan(bh) {
+		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
 	}
 
@@ -256,12 +298,16 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
 
+	if vc.slots == nil {
+		return nil, fmt.Errorf("slots is nil")
+	}
+
 	if sc := vc.findSlot(bh.Hash); sc != nil {
 		blog.log("prepareSlot find exist, status %v", sc.GetSlotStatus())
 		return sc, nil
 	} else {
-		if vc.hasSignedBiggerQN(bh.TotalQN) {
-			return nil, fmt.Errorf("hasSignedBiggerQN")
+		if vc.hasSignedMoreWeightThan(bh) {
+			return nil, fmt.Errorf("hasSignedMoreWeightThan")
 		}
 
 		sc = createSlotContext(bh, vc.blockCtx.threshold())
@@ -286,20 +332,20 @@ func (vc *VerifyContext) prepareSlot(bh *types.BlockHeader, blog *bizLog) (*Slot
 }
 
 //收到某个验证人的验证完成消息（可能会比铸块完成消息先收到）
-func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *slowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
+func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.SignData, pk groupsig.Pubkey, slog *taslog.SlowLog) (ret CAST_BLOCK_MESSAGE_RESULT, err error) {
 	blog := newBizLog("UserVerified")
 
-	slog.addStage("prePareSlot")
+	slog.AddStage("prePareSlot")
 	slot, err := vc.prepareSlot(bh, blog)
 	if err != nil {
 		blog.log("prepareSlot fail, err %v", err)
 		return CBMR_ERROR_UNKNOWN, fmt.Errorf("prepareSlot fail, err %v", err)
 	}
-	slog.endStage()
+	slog.EndStage()
 
-	slog.addStage("initIfNeeded")
+	slog.AddStage("initIfNeeded")
 	slot.initIfNeeded()
-	slog.endStage()
+	slog.EndStage()
 
 	//警惕并发
 	if slot.IsFailed() {
@@ -312,9 +358,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 	isProposal := slot.castor.IsEqual(signData.GetID())
 
 	if isProposal { //提案者
-		slog.addStage("vCastorSign")
+		slog.AddStage("vCastorSign")
 		b := signData.VerifySign(pk)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("verify castorsign fail, id %v, pk %v", signData.GetID().ShortS(), pk.ShortS())
@@ -322,9 +368,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 		}
 
 	} else {
-		slog.addStage("vMemSign")
+		slog.AddStage("vMemSign")
 		b := signData.VerifySign(pk)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("verify sign fail, id %v, pk %v, sig %v hash %v", signData.GetID().ShortS(), pk.GetHexString(), signData.DataSign.GetHexString(), signData.DataHash.Hex())
@@ -335,9 +381,9 @@ func (vc *VerifyContext) UserVerified(bh *types.BlockHeader, signData *model.Sig
 			err = fmt.Errorf("deserialize bh random fail, random %v", bh.Random)
 			return
 		}
-		slog.addStage("vMemRandSign")
+		slog.AddStage("vMemRandSign")
 		b = groupsig.VerifySig(pk, vc.prevBH.Random, *sig)
-		slog.endStage()
+		slog.EndStage()
 
 		if !b {
 			err = fmt.Errorf("random sign verify fail")
@@ -438,8 +484,8 @@ func (vc *VerifyContext) checkBroadcast() (*SlotContext) {
 			if maxQNSlot.BH.TotalQN < slot.BH.TotalQN {
 				maxQNSlot = slot
 			} else if maxQNSlot.BH.TotalQN == slot.BH.TotalQN {
-				v1 := base.VRF_proof2hash(maxQNSlot.BH.ProveValue.Bytes()).Big()
-				v2 := base.VRF_proof2hash(slot.BH.ProveValue.Bytes()).Big()
+				v1 := base.VRF_proof2hash(maxQNSlot.BH.ProveValue).Big()
+				v2 := base.VRF_proof2hash(slot.BH.ProveValue).Big()
 				if v1.Cmp(v2) < 0 {
 					maxQNSlot = slot
 				}

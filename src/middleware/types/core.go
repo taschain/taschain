@@ -16,11 +16,11 @@
 package types
 
 import (
+	"bytes"
 	"common"
 	"encoding/json"
 	"time"
-	"math/big"
-	"bytes"
+	"utility"
 )
 
 type AddBlockOnChainSituation string
@@ -42,7 +42,6 @@ const (
 	BlockExisted              AddBlockResult = 1
 	BlockTotalQnLessThanLocal AddBlockResult = 2
 	Forking                   AddBlockResult = 3
-	ValidateBlockOk           AddBlockResult = 100
 )
 const (
 	SUCCESS                             = 0
@@ -98,28 +97,26 @@ const (
 	TransactionTypeToBeRemoved = -1
 )
 
-var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103", "0xcad6d60fa8f6330f293f4f57893db78cf660e80d6a41718c7ad75e76795000d4",
-	"0xca789a28069db6f1639b60a8bf1084333358672f65c6d6c2e6d58b69187fe402", "0x94bdb92d329dac69d7f107995a7b666d1092c63eadeae2dd495ab2e554bb155d",
-	"0xb50eea221a1eb061dea7ca20f7b7508c2d9639e3558e69f758380e32624337b5", "0xce59fd5e1c6c99d9990b08ccf685260a2b3a03889de56e91b25878a4bf2f89e9",
-	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
-	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
+
+//tx data with source
 type Transaction struct {
-	Data   []byte
-	Value  uint64
-	Nonce  uint64
-	Source *common.Address
-	Target *common.Address
-	Type   int32
+	Data   []byte          `msgpack:"dt,omitempty"`
+	Value  uint64          `msgpack:"v"`
+	Nonce  uint64          `msgpack:"nc"`
+	Target *common.Address `msgpack:"tg,omitempty"`
+	Type   int8            `msgpack:"tp"`
 
-	GasLimit uint64
-	GasPrice uint64
-	Hash     common.Hash
+	GasLimit uint64      `msgpack:"gl"`
+	GasPrice uint64      `msgpack:"gp"`
+	Hash     common.Hash `msgpack:"h"`
 
-	ExtraData     []byte
-	ExtraDataType int32
+	ExtraData     []byte `msgpack:"ed"`
+	ExtraDataType int8   `msgpack:"et,omitempty"`
 	//PubKey *common.PublicKey
-	Sign *common.Sign
+	//Sign *common.Sign
+	Sign   []byte          `msgpack:"si"`
+	Source *common.Address `msgpack:"src"`	//don't streamlize
 }
 
 //source,sign在hash计算范围内
@@ -136,40 +133,46 @@ func (tx *Transaction) GenHash() common.Hash {
 	if tx.Target != nil {
 		buffer.Write(tx.Target.Bytes())
 	}
-	buffer.Write(common.UInt32ToByte(tx.Type))
+	buffer.WriteByte(byte(tx.Type))
 	buffer.Write(common.Uint64ToByte(tx.GasLimit))
 	buffer.Write(common.Uint64ToByte(tx.GasPrice))
 	if tx.ExtraData != nil {
 		buffer.Write(tx.ExtraData)
 	}
-	buffer.Write(common.UInt32ToByte(tx.ExtraDataType))
+	buffer.WriteByte(byte(tx.ExtraDataType))
 
 	return common.BytesToHash(common.Sha256(buffer.Bytes()))
 }
 
-type Transactions []*Transaction
-
-func (c Transactions) Len() int {
-	return len(c)
-}
-func (c Transactions) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-func (c Transactions) Less(i, j int) bool {
-	return c[i].Nonce < c[j].Nonce
+func (tx *Transaction) HexSign() string {
+	return common.ToHex(tx.Sign)
 }
 
-type GasPriceTransactions []*Transaction
 
-func (c GasPriceTransactions) Len() int {
-	return len(c)
+func (tx *Transaction) RecoverSource() error {
+	if tx.Source != nil {
+		return nil
+	}
+	sign := common.BytesToSign(tx.Sign)
+	pk, err := sign.RecoverPubkey(tx.Hash.Bytes())
+	if err == nil {
+		src := pk.GetAddress()
+		tx.Source = &src
+	}
+	return err
 }
-func (c GasPriceTransactions) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-func (c GasPriceTransactions) Less(i, j int) bool {
-	return c[i].GasPrice > c[j].GasPrice
-}
+
+//type Transactions []*Transaction
+//
+//func (c Transactions) Len() int {
+//	return len(c)
+//}
+//func (c Transactions) Swap(i, j int) {
+//	c[i], c[j] = c[j], c[i]
+//}
+//func (c Transactions) Less(i, j int) bool {
+//	return c[i].Nonce < c[j].Nonce
+//}
 
 // 根据gasprice决定优先级的transaction数组
 // gasprice 低的，放在前
@@ -237,7 +240,7 @@ type BlockHeader struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   *big.Int      //轮转序号
+	ProveValue   []byte      //vrf prove
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -251,14 +254,14 @@ type BlockHeader struct {
 	ExtraData    []byte
 	Random       []byte
 	ProveRoot    common.Hash
-	EvictedTxs   []common.Hash
+	//EvictedTxs   []common.Hash
 }
 
 type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   *big.Int      //轮转序号
+	ProveValue   []byte      //轮转序号
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -270,31 +273,46 @@ type header struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	ProveRoot    common.Hash
-	EvictedTxs   []common.Hash
+	//EvictedTxs   []common.Hash
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
-	header := &header{
-		Height:       bh.Height,
-		PreHash:      bh.PreHash,
-		PreTime:      bh.PreTime,
-		ProveValue:   bh.ProveValue,
-		TotalQN:      bh.TotalQN,
-		CurTime:      bh.CurTime,
-		Castor:       bh.Castor,
-		Nonce:        bh.Nonce,
-		Transactions: bh.Transactions,
-		TxTree:       bh.TxTree,
-		ReceiptTree:  bh.ReceiptTree,
-		StateTree:    bh.StateTree,
-		ExtraData:    bh.ExtraData,
-		ProveRoot:    bh.ProveRoot,
-		EvictedTxs:   bh.EvictedTxs,
-	}
-	blockByte, _ := json.Marshal(header)
-	result := common.BytesToHash(common.Sha256(blockByte))
+	buf := bytes.NewBuffer([]byte{})
 
-	return result
+	buf.Write(utility.UInt64ToByte(bh.Height))
+
+	buf.Write(bh.PreHash.Bytes())
+
+	pt, _ := bh.PreTime.MarshalBinary()
+	buf.Write(pt)
+
+	buf.Write(bh.ProveValue)
+
+	buf.Write(utility.UInt64ToByte(bh.TotalQN))
+
+	ct, _ := bh.CurTime.MarshalBinary()
+	buf.Write(ct)
+
+	buf.Write(bh.Castor)
+
+	buf.Write(bh.GroupId)
+
+	buf.Write(utility.UInt64ToByte(bh.Nonce))
+
+	if bh.Transactions != nil {
+		for _, tx := range bh.Transactions {
+			buf.Write(tx.Bytes())
+		}
+	}
+	buf.Write(bh.TxTree.Bytes())
+	buf.Write(bh.ReceiptTree.Bytes())
+	buf.Write(bh.StateTree.Bytes())
+	if bh.ExtraData != nil {
+		buf.Write(bh.ExtraData)
+	}
+	buf.Write(bh.ProveRoot.Bytes())
+
+	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
 func (bh *BlockHeader) ToString() string {
@@ -313,7 +331,7 @@ func (bh *BlockHeader) ToString() string {
 		StateTree:    bh.StateTree,
 		ExtraData:    bh.ExtraData,
 		ProveRoot:    bh.ProveRoot,
-		EvictedTxs:   bh.EvictedTxs,
+		//EvictedTxs:   bh.EvictedTxs,
 	}
 	blockByte, _ := json.Marshal(header)
 	return string(blockByte)
@@ -362,6 +380,14 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
+func (gh *GroupHeader) DismissedAt(h uint64) bool {
+	return gh.DismissHeight <= h
+}
+
+func (gh *GroupHeader) WorkAt(h uint64) bool {
+	return !gh.DismissedAt(h) && gh.WorkHeight <= h
+}
+
 type Group struct {
 	Header *GroupHeader
 	//不参与签名
@@ -372,21 +398,17 @@ type Group struct {
 	GroupHeight uint64
 }
 
-type StateNode struct {
-	Key   []byte
-	Value []byte
-}
-
-func IsTestTransaction(tx *Transaction) bool {
-	if tx == nil || tx.Source == nil {
-		return false
-	}
-
-	source := tx.Source.GetHexString()
-	for _, testAccount := range testTxAccount {
-		if source == testAccount {
+func (g *Group) MemberExist(id []byte) bool {
+	for _, mem := range g.Members {
+		if bytes.Equal(mem, id) {
 			return true
 		}
 	}
 	return false
 }
+
+type StateNode struct {
+	Key   []byte
+	Value []byte
+}
+

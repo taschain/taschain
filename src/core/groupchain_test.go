@@ -14,6 +14,15 @@
 ////   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 package core
+
+import (
+	"testing"
+	"middleware"
+	"taslog"
+	"common"
+	"middleware/types"
+)
+
 //
 //import (
 //	"testing"
@@ -31,7 +40,7 @@ package core
 //	}
 //	GroupChainImpl.AddGroup(group1, nil, nil)
 //
-//	if 1 != GroupChainImpl.Count() {
+//	if 1 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group1")
 //	}
 //
@@ -66,7 +75,7 @@ package core
 //		Signature: []byte{1, 2},
 //	}
 //	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group4")
 //	}
 //}
@@ -88,7 +97,7 @@ package core
 //		Id: id1,
 //	}
 //	GroupChainImpl.AddGroup(group1, nil, nil)
-//	if 1 != GroupChainImpl.Count() {
+//	if 1 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group1")
 //	}
 //
@@ -98,7 +107,7 @@ package core
 //		Parent: id1,
 //	}
 //	GroupChainImpl.AddGroup(group2, nil, nil)
-//	if 2 != GroupChainImpl.Count() {
+//	if 2 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group2")
 //	}
 //
@@ -109,7 +118,7 @@ package core
 //		Signature: []byte{1, 2},
 //	}
 //	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 2 != GroupChainImpl.Count() {
+//	if 2 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group3")
 //	}
 //	check := GroupChainImpl.getGroupById(id2)
@@ -123,12 +132,12 @@ package core
 //		Parent: id1,
 //	}
 //	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to add group4")
 //	}
 //	group4.Signature = []byte{6, 7}
 //	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Count() {
+//	if 3 != GroupChainImpl.Height() {
 //		t.Fatalf("fail to overwrite group4")
 //	}
 //	check = GroupChainImpl.getGroupById([]byte{1, 2, 3, 4, 5})
@@ -160,3 +169,30 @@ package core
 //		t.Fatalf("fail to genesisGroup")
 //	}
 //}
+func TestQueryGroupAfter(t *testing.T) {
+	common.InitConf("/Users/pxf/workspace/tas_develop/test9/tas9.ini")
+	middleware.InitMiddleware()
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+	initGroupChain(&types.GenesisInfo{}, nil)
+
+	//lg := GroupChainImpl.LastGroup()
+	//t.Log(lg.GroupHeight, lg.Id)
+	chain := GroupChainImpl
+	iter := chain.groupsHeight.NewIterator()
+	defer iter.Release()
+
+	limit := 100
+	for iter.Next() {
+		gid := iter.Value()
+		g := chain.getGroupById(gid)
+		if g != nil {
+			t.Log(g.GroupHeight, iter.Key(), g.Id)
+			limit--
+		}
+	}
+
+	//gs := GroupChainImpl.GetGroupsAfterHeight(0, 20)
+	//for _, g := range gs {
+	//	t.Log(g.GroupHeight, g.Id)
+	//}
+}

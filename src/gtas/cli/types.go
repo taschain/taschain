@@ -141,7 +141,7 @@ type Block struct {
 	PreTime     time.Time     `json:"pre_time"`
 	Castor      groupsig.ID   `json:"castor"`
 	GroupID     groupsig.ID   `json:"group_id"`
-	Prove       *big.Int      `json:"prove"`
+	Prove       string      `json:"prove"`
 	TotalQN     uint64        `json:"total_qn"`
 	Qn          uint64        `json:"qn"`
 	Txs         []common.Hash `json:"transactions"`
@@ -202,14 +202,14 @@ type Transaction struct {
 	Nonce  uint64          `json:"nonce"`
 	Source *common.Address `json:"source"`
 	Target *common.Address `json:"target"`
-	Type   int32           `json:"type"`
+	Type   int8           `json:"type"`
 
 	GasLimit uint64      `json:"gas_limit"`
 	GasPrice uint64      `json:"gas_price"`
 	Hash     common.Hash `json:"hash"`
 
 	ExtraData     []byte `json:"extra_data"`
-	ExtraDataType int32  `json:"extra_data_type"`
+	ExtraDataType int8  `json:"extra_data_type"`
 }
 
 type BonusTransaction struct {

@@ -291,7 +291,7 @@ func (bg *BelongGroups) joinedGroup2DBIfConfigExists(file string) bool {
 
 func (bg *BelongGroups) getJoinedGroup(id groupsig.ID) *JoinedGroup {
 	if !bg.ready() {
-		return nil
+		bg.initStore()
 	}
 	v, ok := bg.cache.Get(id.GetHexString())
 	if ok {

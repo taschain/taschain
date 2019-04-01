@@ -79,8 +79,6 @@ func newSendList() *SendList {
 		sl.totalQuota += PriorityQuota[i]
 	}
 
-
-
 	return sl
 }
 

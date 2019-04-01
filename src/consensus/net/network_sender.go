@@ -190,9 +190,26 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 
 	//广播给重节点的虚拟组
 	heavyMinerMembers := core.MinerManagerImpl.GetHeavyMiners()
+
+	validGroupMembers := make([]string, 0)
+	for _, mid := range groupMembers {
+		find := false
+		for _, hid := range heavyMinerMembers {
+			if hid == mid {
+				find = true
+				break
+			}
+		}
+		if !find {
+			validGroupMembers = append(validGroupMembers, mid)
+		}
+	}
+
 	go ns.net.SpreadToGroup(network.FULL_NODE_VIRTUAL_GROUP_ID, heavyMinerMembers, blockMsg, []byte(blockMsg.Hash()))
 	//广播给轻节点的下一个组
-	go ns.net.SpreadToGroup(nextVerifyGroupId, groupMembers, blockMsg, []byte(blockMsg.Hash()))
+	if len(validGroupMembers) > 0 {//防止重复广播
+		go ns.net.SpreadToGroup(nextVerifyGroupId, validGroupMembers, blockMsg, []byte(blockMsg.Hash()))
+	}
 
 	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,msg size:%d, time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(blockMsg.Body), timeFromCast, nextVerifyGroupId)
 	//statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),

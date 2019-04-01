@@ -170,7 +170,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 //查询块详情
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
-	b := chain.QueryBlock(height)
+	b := chain.QueryBlockCeil(height)
 	if b == nil {
 		return failResult("QueryBlock error")
 	}
@@ -184,17 +184,17 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	for _, tx := range bh.EvictedTxs {
-		wrapper := chain.GetTransactionPool().GetExecuted(tx)
-		if wrapper != nil {
-			evictedReceipts = append(evictedReceipts, wrapper.Receipt)
-		}
-	}
+	//for _, tx := range bh.EvictedTxs {
+	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
+	//	if wrapper != nil {
+	//		evictedReceipts = append(evictedReceipts, wrapper)
+	//	}
+	//}
 	receipts := make([]*types.Receipt, len(bh.Transactions))
 	for i, tx := range bh.Transactions {
-		wrapper := chain.GetTransactionPool().GetExecuted(tx)
+		wrapper := chain.GetTransactionPool().GetReceipt(tx)
 		if wrapper != nil {
-			receipts[i] = wrapper.Receipt
+			receipts[i] = wrapper
 		}
 	}
 
@@ -210,10 +210,8 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 //区块链浏览器
 //查询组信息
 func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
-	groups, err := core.GroupChainImpl.GetGroupsByHeight(height)
-	if err != nil {
-		return failResult("no more group")
-	}
+	groups := core.GroupChainImpl.GetGroupsAfterHeight(height, common.MaxInt64)
+
 	ret := make([]map[string]interface{}, 0)
 	h := height
 	for _, g := range groups {
@@ -248,7 +246,7 @@ func explorerConvertGroup(g *types.Group) map[string]interface{} {
 
 func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
-    b := chain.QueryBlock(height)
+    b := chain.QueryBlockCeil(height)
 	if b == nil {
 		return failResult("nil block")
 	}
@@ -284,7 +282,7 @@ func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
 
 	blocks := make([]*BlockDetail, 0)
 	for h := begin; h <= end; h++ {
-		b := chain.QueryBlock(h)
+		b := chain.QueryBlockCeil(h)
 		if b == nil {
 			continue
 		}

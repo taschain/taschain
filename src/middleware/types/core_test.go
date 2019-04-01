@@ -41,3 +41,39 @@ func TestTransaction(t *testing.T) {
 	c,_ := serialize.EncodeToBytes(transaction)
 	fmt.Println(c)
 }
+
+func TestTransactionsMarshalAndUnmarshal(t *testing.T) {
+	src := common.HexToAddress("0x123")
+	sign := common.HexStringToSign("0xa08da536660b93703b979a65e7059f8ef22d1c3c78c82d0ef09ecdaa587612e131800fb69b141db55a6a16bb6686904ea94e50a20603e6d7b84da15c4a77f73900")
+	tx := &Transaction{
+		Value:1,
+		Nonce:11,
+		Source: &src,
+		Type:1,
+		Sign: sign,
+	}
+	tx.Hash = tx.GenHash()
+	t.Log("raw", tx, tx.Sign.GetHexString())
+	txs := make([]*Transaction, 0)
+	txs = append(txs, tx)
+	bs, err := MarshalTransactions(txs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txs1, err := UnMarshalTransactions(bs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx1 := txs1[0]
+	t.Log("after", tx1, tx1.Sign.GetHexString())
+
+	hashByte := tx.Hash.Bytes()
+	pk, err := tx.Sign.RecoverPubkey(hashByte)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !pk.Verify(hashByte, tx.Sign) {
+	}
+	t.Log(tx.Sign.GetHexString())
+}

@@ -21,7 +21,7 @@ import (
 	"common"
 	"consensus/model"
 	"consensus/net"
-	"consensus/ticker"
+	"middleware/ticker"
 	"core"
 	"fmt"
 	"middleware/notify"
@@ -56,6 +56,8 @@ type Processor struct {
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
 	verifyMsgCaches *lru.Cache			//缓存验证消息
+
+	proveChecker 	*proveChecker
 
 	storage tasdb.Database
 	ready   bool //是否已初始化完成
@@ -103,12 +105,13 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile(), p.getEncryptPrivateKey())
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
+	p.proveChecker = newProveChecker(p.MainChain)
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	pkPoolInit(p.minerReader)
 
 	p.groupManager = NewGroupManager(p)
-	p.Ticker = ticker.GetTickerInstance()
+	p.Ticker = ticker.NewGlobalTicker("consensus")
 
 	if stdLogger != nil {
 		stdLogger.Debugf("proc(%v) inited 2.\n", p.getPrefix())
@@ -170,7 +173,6 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 
 //检查铸块组是否合法
 func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
-	blog := newBizLog("isCastLegal")
 	castor := groupsig.DeserializeId(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
 	if minerDO == nil {
@@ -182,7 +184,6 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return
 	}
 	totalStake := p.minerReader.getTotalStake(preHeader.Height, false)
-	blog.log("totalStake %v", totalStake)
 	if ok2, err2 := vrfVerifyBlock(bh, preHeader, minerDO, totalStake); !ok2 {
 		err = fmt.Errorf("vrf verify block fail, err=%v", err2)
 		return

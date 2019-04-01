@@ -126,7 +126,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
-	pi := base.VRFProve(bh.ProveValue.Bytes())
+	pi := base.VRFProve(bh.ProveValue)
 	ok, err := base.VRF_verify(miner.VrfPK, pi, vrfM(preBH.Random, bh.Height-preBH.Height))
 	if !ok {
 		return ok, err
