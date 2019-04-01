@@ -12,6 +12,8 @@ import (
 	"bytes"
 	"utility"
 	"taslog"
+	"storage/tasdb"
+	"fmt"
 )
 
 /*
@@ -28,13 +30,96 @@ const (
 
 	txReqRoutine 		= "ts_req"
 	txReqInterval		= 5
+
+	txIndexPersistRoutine = "tx_index_persist"
+	txIndexPersistInterval = 30
+
+	txIndexPersistPerTime = 1000
 )
+
+type txSimpleIndexer struct {
+	cache *lru.Cache
+	db 		*tasdb.PrefixedDatabase
+}
+
+func buildTxSimpleIndexer() *txSimpleIndexer {
+	indexs, _ := lru.New(10000)
+	f := "d_txidx"+common.GlobalConf.GetString("instance", "index", "")
+	ds, err := tasdb.NewDataSource(f)
+	if err != nil {
+		Logger.Errorf("new datasource error:%v, file=%v", err, f)
+		panic(fmt.Errorf("new data source error:file=%v, err=%v", f, err.Error()))
+	}
+	db, _ := ds.NewPrefixDatabase("tx")
+	return &txSimpleIndexer{
+		cache: indexs,
+		db: db,
+	}
+}
+func (indexer *txSimpleIndexer) cacheLen() int {
+	return indexer.cache.Len()
+}
+
+func (indexer *txSimpleIndexer) add(tx *types.Transaction)  {
+	indexer.cache.Add(simpleTxKey(tx.Hash), tx.Hash)
+}
+
+func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
+	var txHash common.Hash
+	var exist = false
+	if v, ok := indexer.cache.Get(k); ok {
+		txHash = v.(common.Hash)
+		exist = true
+	} else {
+		bs, err := indexer.db.Get(utility.UInt64ToByte(k))
+		if err == nil {
+			txHash = common.BytesToHash(bs)
+			exist = true
+		}
+	}
+	if exist {
+		return BlockChainImpl.GetTransactionByHash(false, false, txHash)
+	}
+	return nil
+}
+
+func (indexer *txSimpleIndexer) has(key uint64) bool {
+	if indexer.cache.Contains(key) {
+		return true
+	}
+	ok, _ := indexer.db.Has(utility.UInt64ToByte(key))
+	return ok
+}
+
+func (indexer *txSimpleIndexer) persistOldest() (int, error) {
+	batch := indexer.db.NewBatch()
+	cnt := 0
+	removes := make([]uint64, 0)
+	for _, k := range indexer.cache.Keys() {
+		v, _ := indexer.cache.Peek(k)
+		if v != nil {
+			cnt++
+			removes = append(removes, k.(uint64))
+			batch.Put(utility.UInt64ToByte(k.(uint64)), v.(common.Hash).Bytes())
+		}
+		if cnt >= txIndexPersistPerTime {
+			break
+		}
+	}
+	if err := batch.Write(); err != nil {
+		return 0, err
+	}
+	for _, k := range removes {
+		indexer.cache.Remove(k)
+	}
+	return len(removes), nil
+}
 
 type txSyncer struct {
 	pool 		*TxPool
 	chain 		*FullBlockChain
 	rctNotifiy    *lru.Cache
-	txSimpleIndex *lru.Cache
+	indexer 	*txSimpleIndexer
 	ticker        *ticker.GlobalTicker
 	candidateKeys *lru.Cache
 	logger 		taslog.Logger
@@ -94,11 +179,10 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool)  {
 
 func initTxSyncer(pool *TxPool) {
 	cache, _ := lru.New(1000)
-	indexs, _ := lru.New(maxTxPoolSize)
 	cands, _ := lru.New(100)
 	s := &txSyncer{
 		rctNotifiy:    cache,
-		txSimpleIndex: indexs,
+		indexer: buildTxSimpleIndexer(),
 		pool:pool,
 		ticker:        ticker.NewGlobalTicker("tx_syncer"),
 		candidateKeys: cands,
@@ -109,6 +193,10 @@ func initTxSyncer(pool *TxPool) {
 
 	s.ticker.RegisterPeriodicRoutine(txReqRoutine, s.reqTxsRoutine, txReqInterval)
 	s.ticker.StartTickerRoutine(txReqRoutine, false)
+
+	s.ticker.RegisterPeriodicRoutine(txIndexPersistRoutine, s.persistIndexRoutine, txIndexPersistInterval)
+	s.ticker.StartTickerRoutine(txIndexPersistRoutine, false)
+
 
 	notify.BUS.Subscribe(notify.TxSyncNotify, s.onTxNotify)
 	notify.BUS.Subscribe(notify.TxSyncReq, s.onTxReq)
@@ -121,22 +209,16 @@ func simpleTxKey(hash common.Hash) uint64 {
 }
 
 func (ts *txSyncer) add(tx *types.Transaction)  {
-    ts.txSimpleIndex.Add(simpleTxKey(tx.Hash), tx.Hash)
+	if ts.indexer.cacheLen() >= 10000 {
+		ts.indexer.persistOldest()
+	}
+    ts.indexer.add(tx)
 }
 
-func (ts *txSyncer) get(k uint64) *types.Transaction {
-    if v, ok := ts.txSimpleIndex.Get(k); ok {
-    	txHash := v.(common.Hash)
-		return BlockChainImpl.GetTransactionByHash(false, false, txHash)
-	}
-	return nil
-}
-
-func (ts *txSyncer) has(key uint64) bool {
-	if _, ok := ts.txSimpleIndex.Get(key); ok {
-		return ok
-	}
-	return false
+func (ts *txSyncer) persistIndexRoutine() bool {
+    cnt, err := ts.indexer.persistOldest()
+	ts.logger.Infof("persist tx index cache total %v, persist %v, %v",  ts.indexer.cacheLen(), cnt, err)
+	return true
 }
 
 func (ts *txSyncer) clearJob() {
@@ -247,7 +329,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message)  {
 	accepts := make([]uint64, 0)
 
 	for _, k := range keys {
-		if !ts.has(k) {
+		if !ts.indexer.has(k) {
 			accepts = append(accepts, k)
 		}
 	}
@@ -284,7 +366,7 @@ func (ts *txSyncer) reqTxsRoutine() bool {
 		}
 		rqs := make([]uint64, 0)
 		ptk.forEach(func(k uint64) bool {
-			if !ts.has(k) {
+			if !ts.indexer.has(k) {
 				rqs = append(rqs, k)
 			}
 			return true
@@ -327,7 +409,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message)  {
 
 	txs := make([]*types.Transaction, 0)
 	for _, k := range keys {
-		tx := ts.get(k)
+		tx := ts.indexer.get(k)
 		if tx != nil {
 			txs = append(txs, tx)
 		}
@@ -340,7 +422,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message)  {
 		ts.logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	ts.logger.Debugf("send transactions to %v size %v", len(txs), nm.Source)
+	ts.logger.Debugf("send transactions to %v size %v", nm.Source, len(txs))
 	message := network.Message{Code: network.TxSyncResponse, Body: body}
 	network.GetNetInstance().Send(nm.Source, message)
 }
