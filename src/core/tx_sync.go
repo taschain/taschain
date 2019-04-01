@@ -70,7 +70,7 @@ func (indexer *txSimpleIndexer) remove(tx *types.Transaction)  {
 func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 	var txHash common.Hash
 	var exist = false
-	if v, ok := indexer.cache.Get(k); ok {
+	if v, ok := indexer.cache.Peek(k); ok {
 		txHash = v.(common.Hash)
 		exist = true
 	} else {
@@ -289,6 +289,7 @@ func (ts *txSyncer) notifyTxs() bool {
 
 	for _, tx := range txs {
 		ts.rctNotifiy.Add(tx.Hash, time.Now())
+		ts.indexer.add(tx)
 	}
 
 	return true
