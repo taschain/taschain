@@ -120,6 +120,38 @@ func TestContractCallContract(t *testing.T) {
 	//}
 }
 
+func TestTnsContract(t *testing.T) {
+	middleware.InitMiddleware()
+	common.InitConf("../../deploy/tvm/tas1.ini")
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
+	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
+
+	core.InitCore(false, mediator.NewConsensusHelper(minerInfo.ID))
+	mediator.ConsensusInit(minerInfo, common.GlobalConf)
+
+	mediator.Proc.Start()
+
+	code := tvm.Read0("../tvm/py/test/tns.py")
+	contract := tvm.Contract{code, "Tns", nil}
+	jsonString, _ := json.Marshal(contract)
+	//fmt.Println(string(jsonString))
+	OnChainFunc(string(jsonString), "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+
+	//注册账户名
+	contractAddr := "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
+	abi := `{"FuncName": "register_account", "Args": ["helloworld"]}`
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+
+	//设置地址
+	contractAddr = "0xb50aca677104d98b76c87a9576774db7540ff5464494eb5e73452fe658fcc5e5"
+	abi = `{"FuncName": "set_account_address", "Args": ["helloworld", "0x12345678"]}`
+	CallContract(contractAddr, abi, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+
+	//断言
+	result := getContractDatas(contractAddr, "account_address@helloworld")
+	fmt.Printf("result: %s\n", result)
+}
+
 // 合约深度测试用例，当前运行到第8层没有做控制，底层会有异常。整体控制是ok的，对应的日志也做了处理。
 func TestContractMaxLength(t *testing.T) {
 	core.BlockChainImpl.Clear()
