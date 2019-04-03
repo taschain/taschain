@@ -12,6 +12,8 @@ import (
 	"taslog"
 	"testing"
 	"tvm"
+	"network"
+	"consensus/net"
 )
 
 //0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd 公钥对应的私钥
@@ -127,9 +129,15 @@ func TestTnsContract(t *testing.T) {
 	minerInfo := model.NewSelfMinerDO(common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"))
 
 	core.InitCore(false, mediator.NewConsensusHelper(minerInfo.ID))
+
+	err := network.Init(common.GlobalConf, false, net.MessageHandler, true, "", 0, "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	mediator.ConsensusInit(minerInfo, common.GlobalConf)
 
-	//mediator.Proc.Start()
+	mediator.Proc.Start()
 
 	code := tvm.Read0("../tvm/py/test/tns.py")
 	contract := tvm.Contract{code, "Tns", nil}

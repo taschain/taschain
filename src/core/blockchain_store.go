@@ -110,6 +110,7 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	if err = chain.saveCurrentBlock(bh.Hash); err != nil {
 		return
 	}
+	//写入磁盘：事务
 	if err = chain.batch.Write(); err != nil {
 		return
 	}
