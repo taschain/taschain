@@ -7,7 +7,6 @@ class Tns():
         self.account_owner = TasCollectionStorage()
         self.account_address = TasCollectionStorage()
         self.admin = msg.sender
-        print("tns deploy")
 
     # 检查权限
     def check_owner(self, account):

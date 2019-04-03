@@ -37,7 +37,7 @@ const (
 	//oldTxInterval               = time.Second * 60
 
 	txCountPerBlock = 3000
-	gasLimitMax     = 500000
+	GasLimitMax     = 500000
 
 	txMaxSize 		= 64000	//每个交易最大大小
 )
@@ -220,7 +220,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 		if tx.GasPrice == 0 {
 			return fmt.Errorf("illegal tx gasPrice")
 		}
-		if tx.GasLimit > gasLimitMax {
+		if tx.GasLimit > GasLimitMax {
 			return fmt.Errorf("gasLimit too  big! max gas limit is 500000 Ra")
 		}
 		var sign = common.BytesToSign(tx.Sign)

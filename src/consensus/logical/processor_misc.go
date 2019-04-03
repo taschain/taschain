@@ -1,6 +1,7 @@
 package logical
 
 import (
+	"common"
 	"consensus/groupsig"
 	"consensus/model"
 	"middleware/types"
@@ -327,4 +328,8 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 	return true, nil
+}
+
+func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
+	return p.proveChecker.genProveHashs(heightLimit, rand, ids)
 }

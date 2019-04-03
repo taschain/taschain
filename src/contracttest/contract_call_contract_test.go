@@ -129,7 +129,7 @@ func TestTnsContract(t *testing.T) {
 	core.InitCore(false, mediator.NewConsensusHelper(minerInfo.ID))
 	mediator.ConsensusInit(minerInfo, common.GlobalConf)
 
-	mediator.Proc.Start()
+	//mediator.Proc.Start()
 
 	code := tvm.Read0("../tvm/py/test/tns.py")
 	contract := tvm.Contract{code, "Tns", nil}

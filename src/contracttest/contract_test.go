@@ -51,7 +51,7 @@ func GeneteRandom() uint64 {
 //	BlockChainImpl.transactionPool.Clear()
 //}
 //
-func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32, txType int32) *types.Transaction {
+func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int8, txType int8) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
 	sourcebyte := common.HexStringToAddress(source)
@@ -80,8 +80,8 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 
 
 	privateKey := common.HexStringToSecKey(SK)
-	sign := privateKey.Sign(result.Hash.Bytes())
-	result.Sign = &sign
+	sign := privateKey.Sign(result.Hash.Bytes()).Bytes()
+	result.Sign = sign
 	return result
 }
 
@@ -339,7 +339,7 @@ func doAddBlockOnChain() (ok bool) {
 	castHeight := pre.Height+1
 
 	worker := logical.NewVRFWorker(processor.GetSelfMinerDO(), pre, castHeight, time.Now().Add(10*time.Second))
-	totalStake := core.MinerManagerImpl.GetTotalStakeByHeight(castHeight)
+	totalStake := core.MinerManagerImpl.GetTotalStake(castHeight)
 	pi, qn, err := worker.Prove(totalStake)
 	if err != nil {
 		fmt.Printf("vrf worker prove fail, err=%v\n", err.Error())
@@ -352,7 +352,7 @@ func doAddBlockOnChain() (ok bool) {
 	}
 	_, root := processor.GenProveHashs(castHeight, pre.Random, memIds)
 
-	block := core.BlockChainImpl.CastBlock(castHeight, pi.Big(), root, qn, castor, groupid)
+	block := core.BlockChainImpl.CastBlock(castHeight, pi, root, qn, castor, groupid)
 	if nil == block {
 		fmt.Println("fail to cast new block")
 	}
@@ -385,9 +385,10 @@ func doAddBlockOnChain() (ok bool) {
 	block.Header.Random = rSignGen.GetGroupSign().Serialize()
 
 
+	code := core.BlockChainImpl.AddBlockOnChain("", block)
 	// 上链
-	if 0 != core.BlockChainImpl.AddBlockOnChain("", block) {
-		fmt.Println("fail to add block")
+	if 0 != code {
+		fmt.Printf("fail to add block code: %v\n", code)
 		return false
 	} else {
 		fmt.Println("add block onchain success, height", block.Header.Height)
