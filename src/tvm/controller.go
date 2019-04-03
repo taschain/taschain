@@ -37,13 +37,12 @@ func NewController(accountDB vm.AccountDB,
 	return controller
 }
 
-func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
+func (con *Controller) DeployWithMsg(sender *common.Address, contract *Contract, msg Msg) (int,string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	defer func() {
 		con.Vm.DelTvm()
 	}()
 	con.Vm.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
 	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
 
 	if errorCodeDeploy != 0 {
@@ -55,6 +54,11 @@ func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,s
 	}
 	con.GasLeft = uint64(con.Vm.Gas())
 	return 0,""
+}
+
+func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
+	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	return con.DeployWithMsg(sender, contract, msg)
 }
 
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
