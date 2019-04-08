@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"taslog"
 	"errors"
-	"github.com/gogo/protobuf/test/group"
 )
 
 /*
