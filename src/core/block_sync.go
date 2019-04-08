@@ -363,7 +363,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		localTop := bs.newTopBlockInfo(bs.chain.QueryTopBlock())
 
 		//先比较权重
-		if localTop.moreWeight(peerTop) {
+		if peerTop != nil && localTop.moreWeight(peerTop) {
 			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
 			return
 		}
