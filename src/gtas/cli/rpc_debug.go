@@ -295,3 +295,12 @@ func (api *GtasAPI) DebugGetBonusTxs(limit int) (*Result, error) {
 	}
 	return successResult(hashs)
 }
+
+func (api *GtasAPI) DebugPrintCheckProve(hash string) (*Result, error) {
+    bh := core.BlockChainImpl.QueryBlockHeaderByHash(common.HexToHash(hash))
+    if bh == nil {
+    	return failResult("nil block")
+	 }
+	ss := mediator.Proc.DebugPrintCheckProves(bh)
+	 return successResult(ss)
+}

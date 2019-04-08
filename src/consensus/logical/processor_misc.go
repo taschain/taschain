@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"taslog"
 	"errors"
+	"github.com/gogo/protobuf/test/group"
 )
 
 /*
@@ -327,4 +328,29 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 	return true, nil
+}
+
+func (p *Processor) DebugPrintCheckProves(bh *types.BlockHeader) []string {
+	gid := groupsig.DeserializeId(bh.GroupId)
+
+	preBH := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
+	group := p.GetGroup(gid)
+	ss := make([]string, 0)
+	for _, id := range group.GetMembers() {
+		h := p.proveChecker.sampleBlockHeight(bh.Height, preBH.Random, id)
+		bs := p.MainChain.QueryBlockBytesFloor(h)
+		block := p.MainChain.QueryBlockFloor(h)
+		hash := p.proveChecker.genVerifyHash(bs, id)
+
+		var s string
+		if block == nil {
+			s = fmt.Sprintf("id %v, height %v, bytes %v, prove hash %v block nil", id.GetHexString(), h, bs, hash.Hex())
+			stdLogger.Debugf("id %v, height %v, bytes %v, prove hash %v block nil", id.GetHexString(), h, bs, hash.Hex())
+		} else {
+			s = fmt.Sprintf("id %v, height %v, bytes %v, prove hash %v blockheader %+v, body %+v", id.GetHexString(), h, bs, hash.Hex(), block.Header, block.Transactions)
+			stdLogger.Debugf("id %v, height %v, bytes %v, prove hash %v blockheader %+v, body %+v", id.GetHexString(), h, bs, hash.Hex(), block.Header, block.Transactions)
+		}
+		ss = append(ss, s)
+	}
+	return ss
 }
