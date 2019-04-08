@@ -136,15 +136,9 @@ func setupTnsContract(stateDB *account.AccountDB) {
 		return
 	}
 
-	abi := `{"FuncName": "register_account", "Args": ["Tns"]}`
-	success, _, err := controller.ExecuteAbi(&tnsManager, &contractData, abi)
-	if !success  {
-		Logger.Errorf("tns contract register_account ExecuteAbi error: %v", err)
-		return
-	}
 	//设置地址
-	abi = fmt.Sprintf(`{"FuncName": "set_account_address", "Args": ["Tns", "%v"]}`,contractData)
-	success, _, err = controller.ExecuteAbi(&tnsManager, &contractData, abi)
+	abi := fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["Tns", "%v"]}`, contractAddr)
+	success, _, err := controller.ExecuteAbi(&tnsManager, &contractData, abi)
 	if !success  {
 		Logger.Errorf("tns contract set_account_address ExecuteAbi error: %v", err)
 		return
