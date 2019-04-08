@@ -330,14 +330,12 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	return true, nil
 }
 
-func (p *Processor) DebugPrintCheckProves(bh *types.BlockHeader) []string {
-	gid := groupsig.DeserializeId(bh.GroupId)
+func (p *Processor) DebugPrintCheckProves(preBH *types.BlockHeader, height uint64, gid groupsig.ID) []string {
 
-	preBH := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
 	group := p.GetGroup(gid)
 	ss := make([]string, 0)
 	for _, id := range group.GetMembers() {
-		h := p.proveChecker.sampleBlockHeight(bh.Height, preBH.Random, id)
+		h := p.proveChecker.sampleBlockHeight(height, preBH.Random, id)
 		bs := p.MainChain.QueryBlockBytesFloor(h)
 		block := p.MainChain.QueryBlockFloor(h)
 		hash := p.proveChecker.genVerifyHash(bs, id)

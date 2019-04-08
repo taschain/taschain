@@ -296,11 +296,13 @@ func (api *GtasAPI) DebugGetBonusTxs(limit int) (*Result, error) {
 	return successResult(hashs)
 }
 
-func (api *GtasAPI) DebugPrintCheckProve(hash string) (*Result, error) {
-    bh := core.BlockChainImpl.QueryBlockHeaderByHash(common.HexToHash(hash))
-    if bh == nil {
-    	return failResult("nil block")
+func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) (*Result, error) {
+    pre := core.BlockChainImpl.QueryBlockByHeight(preheight)
+    if pre == nil {
+    	return failResult("nil pre block")
 	 }
-	ss := mediator.Proc.DebugPrintCheckProves(bh)
+	 gidBytes := common.Hex2Bytes(gids)
+	 gid := groupsig.DeserializeId(gidBytes)
+	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)
 	 return successResult(ss)
 }
