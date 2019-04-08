@@ -301,8 +301,10 @@ func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) 
     if pre == nil {
     	return failResult("nil pre block")
 	 }
-	 gidBytes := common.Hex2Bytes(gids)
+	 gidBytes := common.FromHex(gids)
 	 gid := groupsig.DeserializeId(gidBytes)
+
+	 common.DefaultLogger.Debugf("debug print check prove: %v %v %v %v", height, preheight, gids, gid.GetHexString())
 	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)
 	 return successResult(ss)
 }
