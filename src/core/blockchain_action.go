@@ -24,10 +24,14 @@ type executePostState struct {
 	state    *account.AccountDB
 	receipts types.Receipts
 	evitedTxs []common.Hash
+	txs 	[]*types.Transaction
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
+	chain.mu.Lock()
+	defer chain.mu.Unlock()
+
 	latestBlock := chain.QueryTopBlock()
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
@@ -93,6 +97,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 		state:    state,
 		receipts: receipts,
 		evitedTxs: evitTxs,
+		txs: 		block.Transactions,
 	})
 	return block
 }
@@ -102,12 +107,19 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 	block := &types.Block{
 		Header: &bh,
 	}
+	var txs []*types.Transaction
+	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
+	if cached != nil {
+		cb := cached.(*executePostState)
+		txs = cb.txs
+	} else {
+		var missTxs []common.Hash
+		txs, missTxs = chain.GetBlockTransactions(bh.Hash, bh.Transactions, false)
 
-	txs, missTxs := chain.GetBlockTransactions(bh.Hash, bh.Transactions, false)
-
-	if len(missTxs) != 0 {
-		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
-		return nil
+		if len(missTxs) != 0 {
+			Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
+			return nil
+		}
 	}
 	block.Transactions = txs
 	return block

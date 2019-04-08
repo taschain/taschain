@@ -189,7 +189,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 
 	bh := slot.BH
 
-	blog := newBizLog("successNewBlock")
+	blog := newBizLog("successNewBlock—"+bh.Hash.ShortS())
 
 	if slot.IsFailed() {
 		blog.log("slot is failed")
