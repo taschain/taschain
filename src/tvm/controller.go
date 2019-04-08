@@ -33,7 +33,10 @@ func NewController(accountDB vm.AccountDB,
 	controller.Vm = nil
 	controller.LibPath = libPath
 	controller.VmStack = make([]*Tvm, 0)
-	controller.GasLeft = transaction.GasLimit
+	if transaction != nil {
+		controller.GasLeft = transaction.GasLimit
+	}
+
 	return controller
 }
 

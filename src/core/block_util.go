@@ -18,11 +18,14 @@ package core
 import (
 	"bytes"
 	"common"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"middleware/types"
 	"storage/account"
 	"storage/serialize"
 	"storage/trie"
+	"tvm"
 )
 
 var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103", "0xcad6d60fa8f6330f293f4f57893db78cf660e80d6a41718c7ad75e76795000d4",
@@ -101,4 +104,50 @@ func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisI
 	for _, acc := range testTxAccount {
 		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
 	}
+
+	setupTnsContract(stateDB)
 }
+
+func setupTnsContract(stateDB *account.AccountDB) {
+
+	tnsManager :=common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(tnsManager[:], common.Uint64ToByte(stateDB.GetNonce(tnsManager)))))
+	code := tvm.Read0("../tvm/py/test/tns.py")
+	contractData := tvm.Contract{code, "Tns", &contractAddr}
+	jsonString, _ := json.Marshal(contractData)
+	if len(jsonString) <= 0 {
+		return
+	}
+
+	Logger.Debugf("tns contract address: %v", contractAddr)
+
+	stateDB.CreateAccount(contractAddr)
+	stateDB.SetCode(contractAddr, jsonString)
+	stateDB.SetNonce(contractAddr, 1)
+
+	controller := tvm.NewController(stateDB, nil, nil, nil, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	controller.GasLeft = 1000000
+
+	msg := tvm.Msg{Data: nil, Value: 0, Sender: tnsManager.GetHexString()}
+
+	errorCode, errorMsg := controller.DeployWithMsg(&tnsManager, &contractData, msg)
+	if errorCode != 0 {
+		Logger.Errorf("tns contract deploy error: %v", errorMsg)
+		return
+	}
+
+	abi := `{"FuncName": "register_account", "Args": ["Tns"]}`
+	success, _, err := controller.ExecuteAbi(&tnsManager, &contractData, abi)
+	if !success  {
+		Logger.Errorf("tns contract register_account ExecuteAbi error: %v", err)
+		return
+	}
+	//设置地址
+	abi = fmt.Sprintf(`{"FuncName": "set_account_address", "Args": ["Tns", "%v"]}`,contractData)
+	success, _, err = controller.ExecuteAbi(&tnsManager, &contractData, abi)
+	if !success  {
+		Logger.Errorf("tns contract set_account_address ExecuteAbi error: %v", err)
+		return
+	}
+}
+
