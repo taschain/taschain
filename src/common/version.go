@@ -15,7 +15,8 @@ package common
 //const GtasVersion = "0.7.4"	//p2p参数改为1024
 //const GtasVersion = "0.7.5"	//组签名优化，不签更低qn的块
 //const GtasVersion = "0.7.7"	//网络消息转发 bug fix
-const GtasVersion = "0.8.0"		//链优化
+//const GtasVersion = "0.8.0"		//链优化
+const GtasVersion = "0.8.1"		//bug fix。提案时验证时间是否在前一块时间之后
 
 const ConsensusVersion = 1
 
