@@ -21,10 +21,10 @@ class Tns():
     def check_account(self, account):
         if len(account) == 10:
             for ch in account:
-                if "a" <= ch <= "z" or "A" <= ch <= "Z" or ord("0") <= ord(ch) <= ord("9"):
+                if "a" <= ch <= "z" or ord("0") <= ord(ch) <= ord("9"):
                     return True
                 else:
-                    raise Exception("account只能使用a~z A~Z 0~9")
+                    raise Exception("account只能使用a~z 0~9")
         else:
             raise Exception("account长度必须等于10")
 
