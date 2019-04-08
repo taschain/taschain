@@ -112,7 +112,7 @@ func setupTnsContract(stateDB *account.AccountDB) {
 
 	tnsManager :=common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(tnsManager[:], common.Uint64ToByte(stateDB.GetNonce(tnsManager)))))
-	code := tvm.Read0("../tvm/py/test/tns.py")
+	code := tvm.Read0("./py/tns.py")
 	contractData := tvm.Contract{code, "Tns", &contractAddr}
 	jsonString, _ := json.Marshal(contractData)
 	if len(jsonString) <= 0 {
