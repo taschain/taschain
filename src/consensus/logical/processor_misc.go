@@ -323,7 +323,7 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 		p.proveChecker.addPRootResult(bh.Hash, true, nil)
 		return true, nil
 	} else {
-		panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
+		//panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
 		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 	return true, nil
