@@ -62,6 +62,11 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 		block.Header.PreTime = latestBlock.CurTime
 	}
 
+	if !block.Header.CurTime.After(block.Header.PreTime) {
+		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, block.Header.PreTime)
+		return nil
+	}
+
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
 
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
