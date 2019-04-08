@@ -30,3 +30,5 @@ src/gopkg.in
 main
 
 venv/
+
+__pycache__
