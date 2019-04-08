@@ -502,7 +502,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		return false, nil
 	}
 
-	eps := &executePostState{state: state, receipts: receipts,evitedTxs:evitTxs}
+	eps := &executePostState{state: state, receipts: receipts,evitedTxs:evitTxs, txs:block.Transactions}
 	chain.verifiedBlocks.Add(block.Header.Hash, eps)
 	return true, eps
 }
