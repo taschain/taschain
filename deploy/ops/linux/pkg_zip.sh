@@ -10,5 +10,6 @@ cd ../ops/linux
 mkdir -p gtas_linux/py
 cp ../../../src/tvm/py/time.py ./gtas_linux/py
 cp ../../../src/tvm/py/coin.py ./gtas_linux/py
+cp ../../../src/tvm/py/tns.py ./gtas_linux/py
 #
 zip -r gtas_linux_v${version}.zip gtas_linux

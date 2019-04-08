@@ -10,5 +10,6 @@ cd ../ops/darwin
 mkdir gtas_mac/py
 cp ../../../src/tvm/py/time.py ./gtas_mac/py
 cp ../../../src/tvm/py/coin.py ./gtas_mac/py
+cp ../../../src/tvm/py/tns.py ./gtas_mac/py
 #
 zip -r gtas_mac_v${version}.zip gtas_mac
