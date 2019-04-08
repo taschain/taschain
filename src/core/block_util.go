@@ -137,7 +137,7 @@ func setupTnsContract(stateDB *account.AccountDB) {
 	}
 
 	//设置地址
-	abi := fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["Tns", "%v"]}`, contractAddr)
+	abi := fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["tns", "%v"]}`, contractAddr)
 	success, _, err := controller.ExecuteAbi(&tnsManager, &contractData, abi)
 	if !success  {
 		Logger.Errorf("tns contract set_account_address ExecuteAbi error: %v", err)

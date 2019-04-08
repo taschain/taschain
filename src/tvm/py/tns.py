@@ -21,9 +21,7 @@ class Tns():
     def check_account(self, account):
         if len(account) == 10:
             for ch in account:
-                if "a" <= ch <= "z" or ord("0") <= ord(ch) <= ord("9"):
-                    return True
-                else:
+                if not ("a" <= ch <= "z" or ord("0") <= ord(ch) <= ord("9")):
                     raise Exception("account只能使用a~z 0~9")
         else:
             raise Exception("account长度必须等于10")
@@ -67,6 +65,12 @@ class Tns():
     # 设置短账户地址
     @register.public(str, str)
     def set_short_account_address(self, account, address):
+        for ch in account:
+            if not ("a" <= ch <= "z" or
+                    ord("0") <= ord(ch) <= ord("9") or
+                    ch == "."):
+                raise Exception("account只能使用a~z 0~9 \".\"")
+
         if self.account_owner[account] is None:
             if self.admin == msg.sender:
                 self.account_owner[account] = msg.sender
