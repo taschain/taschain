@@ -308,3 +308,13 @@ func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) 
 	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)
 	 return successResult(ss)
 }
+
+func (api *GtasAPI) DebugGetRawTx(hash string) (*Result, error) {
+	tx := core.BlockChainImpl.GetTransactionByHash(false, false, common.HexToHash(hash))
+
+	if tx != nil {
+		trans := convertTransaction(tx)
+		return successResult(trans)
+	}
+	return successResult(nil)
+}
