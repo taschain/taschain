@@ -207,7 +207,7 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 		} else {
 			snapshot := controller.AccountDB.Snapshot()
 			var success bool
-			success, logs, err = controller.ExecuteAbi(transaction.Source, contract, string(transaction.Data))
+			success, logs, err = controller.ExecuteAbiTransaction(transaction.Source, contract, string(transaction.Data))
 			if !success {
 				controller.AccountDB.RevertToSnapshot(snapshot)
 				success = false

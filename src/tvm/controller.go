@@ -73,7 +73,40 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*types.Log,*types.TransactionError) {
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string, msg Msg) (bool, string) {
+	con.Vm = NewTvm(sender, contract, con.LibPath)
+	con.Vm.SetGas(int(con.GasLeft))
+	defer func() {
+		con.Vm.DelTvm()
+		con.GasLeft = uint64(con.Vm.Gas())
+	}()
+
+	errorCode,errorMsg,libLen := con.Vm.CreateContractInstance(msg)
+	if errorCode != 0{
+		return false, errorMsg
+	}
+	abi := ABI{}
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return false, errorMsg
+	}
+	errorCode, errorMsg = con.Vm.checkABI(abi)//checkABI
+	if errorCode != 0{
+		return false, errorMsg
+	}
+	con.Vm.SetLibLine(libLen)
+	errorCode, errorMsg = con.Vm.ExecutedAbiVmSucceed(abi)//execute
+	if errorCode != 0{
+		return false, errorMsg
+	}
+	errorCode, errorMsg = con.Vm.StoreData()//store
+	if errorCode != 0{
+		return false, errorMsg
+	}
+	return true, ""
+}
+
+func (con *Controller) ExecuteAbiTransaction(sender *common.Address, contract *Contract, abiJson string) (bool,[]*types.Log,*types.TransactionError) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))
 	defer func() {
