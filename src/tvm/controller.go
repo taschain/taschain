@@ -73,6 +73,27 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
+func (con *Controller) ExecuteAbiResult(sender *common.Address, contract *Contract, abiJson string, msg Msg) (*ExecuteResult) {
+	con.Vm = NewTvm(sender, contract, con.LibPath)
+	con.Vm.SetGas(int(con.GasLeft))
+	defer func() {
+		con.Vm.DelTvm()
+		con.GasLeft = uint64(con.Vm.Gas())
+	}()
+
+	errorCode,_,_ := con.Vm.CreateContractInstance(msg)
+	if errorCode != 0{
+		panic(nil)
+	}
+
+	abi := ABI{}
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		panic(nil)
+	}
+	return con.Vm.ExecuteABIKindEval(abi)
+}
+
 func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string, msg Msg) (bool, string) {
 	con.Vm = NewTvm(sender, contract, con.LibPath)
 	con.Vm.SetGas(int(con.GasLeft))

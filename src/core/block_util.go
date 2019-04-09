@@ -130,6 +130,7 @@ func setupTnsContract(stateDB *account.AccountDB) {
 
 	msg := tvm.Msg{Data: nil, Value: 0, Sender: tnsManager.GetHexString()}
 
+	//部署tns合约
 	errorCode, errorMsg := controller.DeployWithMsg(&tnsManager, &contractData, msg)
 	if errorCode != 0 {
 		Logger.Errorf("tns contract deploy error: %v", errorMsg)
@@ -140,8 +141,16 @@ func setupTnsContract(stateDB *account.AccountDB) {
 	abi := fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["tns", "%v"]}`, contractAddr)
 	success, errorMsg := controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
 	if !success  {
-		Logger.Errorf("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
+		Logger.Errorf("tns contract set_short_account_address error: %v", errorMsg)
 		return
 	}
+
+	//获取account对应的地址
+	abi = fmt.Sprintf(`{"FuncName": "get_address", "Args": ["tns"]}`)
+	result := controller.ExecuteAbiResult(&tnsManager, &contractData, abi, msg)
+	//if !success  {
+		Logger.Debugf("tns contract get_address: %v", result.Content)
+		//return
+	//}
 }
 
