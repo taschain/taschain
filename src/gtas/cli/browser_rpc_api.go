@@ -42,130 +42,6 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	}
 	return successResult(account)
 }
-
-//区块链浏览器
-////查询铸块和分红信息
-//func (api *GtasAPI) CastBlockAndBonusStat(height uint64) (*Result, error) {
-//	var bonusValueMap, bonusNumMap, castBlockNumMap map[string]uint64
-//
-//	if _, ok := BonusValueStatMap[height]; !ok {
-//		var i uint64 = 1
-//		for ; i <= height; i++ {
-//			if _, ok := BonusValueStatMap[i]; !ok {
-//				break
-//			}
-//		}
-//
-//		for j := i; j <= height; j++ {
-//			bh := core.BlockChainImpl.QueryBlockByHeight(j)
-//
-//			bonusValuePreMap := BonusValueStatMap[j-1]
-//			bonusNumPreMap := BonusNumStatMap[j-1]
-//			castBlockPreMap := CastBlockStatMap[j-1]
-//
-//			// 获取验证分红的交易信息
-//			// 此方法取到的分红交易有时候为空
-//			var bonusTx *types.Transaction
-//			if bonusTx = core.BlockChainImpl.GetBonusManager().GetBonusTransactionByBlockHash(bh.Hash.Bytes()); bonusTx == nil || bh.Castor == nil {
-//				BonusLogger.Infof("[Bonus or Castor is NIL] height: %v, blockHash: %v", j, bh.Hash.ShortS())
-//				BonusValueStatMap[j] = bonusValuePreMap
-//				BonusNumStatMap[j] = bonusNumPreMap
-//				CastBlockStatMap[j] = castBlockPreMap
-//				continue
-//			}
-//
-//			// 从交易信息中解析出targetId列表
-//			_, memIds, _, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(bonusTx)
-//
-//			bonusValueCurrentMap := make(map[string]uint64)
-//			bonusNumCurrentMap := make(map[string]uint64)
-//			castBlockCurrentMap := make(map[string]uint64)
-//
-//			for k, v := range bonusValuePreMap {
-//				bonusValueCurrentMap[k] = v
-//			}
-//
-//			for k, v := range bonusNumPreMap {
-//				bonusNumCurrentMap[k] = v
-//			}
-//
-//			for k, v := range castBlockPreMap {
-//				castBlockCurrentMap[k] = v
-//			}
-//
-//			for _, mv := range memIds {
-//				memId := groupsig.DeserializeId(mv).GetHexString()
-//
-//				if v, ok := bonusValueCurrentMap[memId]; ok {
-//					bonusValueCurrentMap[memId] = value + v
-//					if v, ok := bonusNumCurrentMap[memId]; ok {
-//						bonusNumCurrentMap[memId] = v + 1
-//					} else {
-//						bonusNumCurrentMap[memId] = 1
-//					}
-//				} else {
-//					bonusValueCurrentMap[memId] = value
-//					bonusNumCurrentMap[memId] = 1
-//				}
-//			}
-//
-//			casterId := groupsig.DeserializeId(bh.Castor)
-//			if v, ok := castBlockCurrentMap[casterId.GetHexString()]; ok {
-//				castBlockCurrentMap[casterId.GetHexString()] = v + 1
-//			} else {
-//				castBlockCurrentMap[casterId.GetHexString()] = 1
-//			}
-//
-//			BonusValueStatMap[j] = bonusValueCurrentMap
-//			BonusNumStatMap[j] = bonusNumCurrentMap
-//			CastBlockStatMap[j] = castBlockCurrentMap
-//		}
-//	}
-//
-//	bonusValueMap = BonusValueStatMap[height]
-//	bonusNumMap = BonusNumStatMap[height]
-//	castBlockNumMap = CastBlockStatMap[height]
-//
-//	bonusStatResults := make([]BonusStatInfo, 0, 10)
-//	lightMinerIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
-//	for lightMinerIter.Next() {
-//		miner, _ := lightMinerIter.Current()
-//		minerId := groupsig.DeserializeId(miner.Id)
-//		bonusStatItem := BonusStatInfo{
-//			MemberId:        minerId.ShortS(),
-//			MemberIdW:       minerId.GetHexString(),
-//			BonusNum:        bonusNumMap[minerId.GetHexString()],
-//			TotalBonusValue: bonusValueMap[minerId.GetHexString()],
-//		}
-//
-//		bonusStatResults = append(bonusStatResults, bonusStatItem)
-//	}
-//
-//	castBlockResults := make([]CastBlockStatInfo, 0, 10)
-//	heavyIter := core.MinerManagerImpl.MinerIterator(types.MinerTypeHeavy, nil)
-//	for heavyIter.Next() {
-//		miner, _ := heavyIter.Current()
-//		minerId := groupsig.DeserializeId(miner.Id)
-//		castBlockItem := CastBlockStatInfo{
-//			CasterId:     minerId.ShortS(),
-//			CasterIdW:    minerId.GetHexString(),
-//			Stake:        miner.Stake,
-//			CastBlockNum: castBlockNumMap[minerId.GetHexString()],
-//		}
-//		castBlockResults = append(castBlockResults, castBlockItem)
-//	}
-//
-//	bonusInfo := bonusStatByHeight(height)
-//
-//	result := CastBlockAndBonusResult{
-//		BonusInfoAtHeight:  bonusInfo,
-//		BonusStatInfos:     bonusStatResults,
-//		CastBlockStatInfos: castBlockResults,
-//	}
-//
-//	return successResult(result)
-//}
-
 //区块链浏览器
 //查询块详情
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
@@ -184,12 +60,7 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	//for _, tx := range bh.EvictedTxs {
-	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
-	//	if wrapper != nil {
-	//		evictedReceipts = append(evictedReceipts, wrapper)
-	//	}
-	//}
+
 	receipts := make([]*types.Receipt, len(bh.Transactions))
 	for i, tx := range bh.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx)

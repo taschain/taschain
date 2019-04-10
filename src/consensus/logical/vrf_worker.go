@@ -10,6 +10,7 @@ import (
 	"math"
 	"fmt"
 	"consensus/base"
+	time2 "middleware/time"
 )
 
 /*
@@ -42,15 +43,17 @@ type vrfWorker struct {
 	expire     time.Time
 	//writable
 	status int32
+	ts 			time2.TimeService
 }
 
-func NewVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time) *vrfWorker {
+func NewVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time, ts time2.TimeService) *vrfWorker {
 	return &vrfWorker{
 		miner:      miner,
 		baseBH:     bh,
 		castHeight: castHeight,
 		expire:     expire,
 		status:     prove,
+		ts: 		ts,
 	}
 }
 
@@ -165,9 +168,9 @@ func (vrf *vrfWorker) getStatus() int32 {
 }
 
 func (vrf *vrfWorker) workingOn(bh *types.BlockHeader, castHeight uint64) bool {
-	return bh.Hash == vrf.baseBH.Hash && castHeight == vrf.castHeight && !time.Now().After(vrf.expire)
+	return bh.Hash == vrf.baseBH.Hash && castHeight == vrf.castHeight && !vrf.timeout()
 }
 
 func (vrf *vrfWorker) timeout() bool {
-	return time.Now().After(vrf.expire)
+	return vrf.ts.NowAfter(vrf.expire)
 }

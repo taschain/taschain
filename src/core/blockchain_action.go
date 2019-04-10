@@ -47,7 +47,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 
 	block.Transactions = chain.transactionPool.PackForCast()
 	block.Header = &types.BlockHeader{
-		CurTime:    time.Now(), //todo:时区问题
+		CurTime:    chain.ts.Now(), //todo:时区问题
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,

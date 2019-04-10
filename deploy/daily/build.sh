@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export GOPATH=$GOPATH:/Users/pxf/workspace/tas_develop/tas
 main_dir=../../src/gtas/main.go
 
 rm -f ./gtas
