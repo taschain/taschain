@@ -53,7 +53,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		castHeight  uint64
 		deltaHeight uint64
 	)
-	d := time.Since(top.CurTime)
+	d := p.ts.Since(top.CurTime)
 	if d < 0 {
 		return false
 	}
@@ -77,7 +77,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	} else {
 		blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-		worker = NewVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime)
+		worker = NewVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
 		p.setVrfWorker(worker)
 		p.blockProposal()
 	}

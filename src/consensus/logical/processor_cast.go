@@ -9,7 +9,6 @@ import (
 	"middleware/types"
 	"strings"
 	"sync"
-	"time"
 	"runtime/debug"
 	"monitor"
 	"fmt"
@@ -164,7 +163,7 @@ func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 	if sc := vctx.checkBroadcast(); sc != nil {
 		bh := sc.BH
 		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
-		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, time.Since(bh.CurTime).Seconds())
+		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime).Seconds())
 
 		//异步进行，使得请求快速返回，防止消息积压
 		go p.successNewBlock(vctx, sc) //上链和组外广播
@@ -240,7 +239,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	}
 
 	p.NetServer.BroadcastNewBlock(cbm, gb)
-	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, time.Since(bh.CurTime).Seconds())
+	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime).Seconds())
 
 	//发送日志
 	le := &monitor.LogEntry{
@@ -261,7 +260,7 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 	if !consensusConfManager.GetBool("league", false) {
 		p.reqRewardTransSign(vctx, bh)
 	}
-	blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), time.Now().Format(TIMESTAMP_LAYOUT))
+	blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), p.ts.Now().Format(TIMESTAMP_LAYOUT))
 	return
 }
 
@@ -279,8 +278,8 @@ func (p *Processor) blockProposal() {
 	}
 	height := worker.castHeight
 
-	if !time.Now().After(worker.baseBH.CurTime) {
-		blog.log("not the time!now=%v, pre=%v, height=%v", time.Now(), worker.baseBH.CurTime, height)
+	if !p.ts.NowAfter(worker.baseBH.CurTime) {
+		blog.log("not the time!now=%v, pre=%v, height=%v", p.ts.Now(), worker.baseBH.CurTime, height)
 		return
 	}
 
