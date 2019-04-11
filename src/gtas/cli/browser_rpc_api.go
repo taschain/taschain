@@ -8,6 +8,7 @@ import (
 	"consensus/model"
 	"consensus/mediator"
 	"github.com/pmylund/sortutil"
+	"tns"
 )
 
 // 区块链浏览器
@@ -221,6 +222,13 @@ func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 		ret = append(ret, gmap)
 	}
 	return successResult(ret)
+}
+
+//账号绑定查询
+func (api *GtasAPI)TnsGetAddress(account string) (*Result, error) {
+	accoundDb := core.BlockChainImpl.LatestStateDB()
+	address := tns.GetAddressByAccount(accoundDb,account)
+	return successResult(address)
 }
 
 func explorerConvertGroup(g *types.Group) map[string]interface{} {

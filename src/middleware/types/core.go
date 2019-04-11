@@ -49,6 +49,7 @@ const (
 	TxErrorCode_ContractAddressConflict = 2
 	TxErrorCode_DeployGasNotEnough      = 3
 	TxErrorCode_NO_CODE                 = 4
+	TxErrorCode_AccounNotExist      	= 5
 
 	Syntax_Error = 1001
 	GasNotEnough = 1002
@@ -74,6 +75,8 @@ var (
 	TxErrorBalanceNotEnough   = NewTransactionError(TxErrorCode_BalanceNotEnough, "balance not enough")
 	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough, "gas not enough")
 	TxErrorAbiJson            = NewTransactionError(Sys_Abi_JSON_Error, "abi json format error")
+	TxErrorAccounNotExist= NewTransactionError(TxErrorCode_AccounNotExist, "accoun not exist")
+
 )
 
 type TransactionError struct {
@@ -105,6 +108,7 @@ type Transaction struct {
 	Value  uint64          `msgpack:"v"`
 	Nonce  uint64          `msgpack:"nc"`
 	Target *common.Address `msgpack:"tg,omitempty"`
+	TargetAccount string   `msgpack:"tgac,omitempty"`
 	Type   int8            `msgpack:"tp"`
 
 	GasLimit uint64      `msgpack:"gl"`

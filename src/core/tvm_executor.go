@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 	"math/big"
+	"tns"
 
 	"common"
 	"tvm"
@@ -120,9 +121,18 @@ func (executor *TVMExecutor) validateNonce(accountdb *account.AccountDB, transac
 
 func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address) (success bool, err *types.TransactionError, cumulativeGasUsed uint64) {
 	success = true
+
+	targetAddr :=tns.GetAddressByAccount(accountdb,transaction.TargetAccount)
+	if len(targetAddr) > 0 {
+		target := common.HexToAddress(targetAddr)
+		transaction.Target = &target
+	}
 	amount := big.NewInt(int64(transaction.Value))
 	gas := big.NewInt(int64(transaction.GasPrice * TransactionGasCost))
-	if canTransfer(accountdb, *transaction.Source, amount, gas) {
+	if transaction.Target == nil {
+		success = false
+		err = types.TxErrorAccounNotExist
+	} else if canTransfer(accountdb, *transaction.Source, amount, gas) {
 		transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 		accountdb.SubBalance(*transaction.Source, gas)
 		accountdb.AddBalance(castor, gas)
