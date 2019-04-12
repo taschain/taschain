@@ -81,7 +81,7 @@ func GetAddressByAccount(stateDB *account.AccountDB ,account string) string{
 	msg := tvm.Msg{Data: nil, Value: 0, Sender: ""}
 
 	//获取account对应的地址
-	abi := fmt.Sprintf(`{"FuncName": "get_address", "Args": ["tns"]}`)
+	abi := fmt.Sprintf(`{"FuncName": "get_address", "Args": ["%v"]}`, account)
 	result := controller.ExecuteAbiResult(&tnsManager, contract, abi, msg)
 	if result != nil && result.ResultType ==  2 /*C.RETURN_TYPE_STRING*/ {
 		return result.Content
