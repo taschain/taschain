@@ -1,13 +1,13 @@
 package cli
 
 import (
-	"core"
-	"middleware/types"
-	"consensus/groupsig"
 	"common"
-	"consensus/model"
+	"consensus/groupsig"
 	"consensus/mediator"
+	"consensus/model"
+	"core"
 	"github.com/pmylund/sortutil"
+	"middleware/types"
 	"tns"
 )
 

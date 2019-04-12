@@ -47,6 +47,12 @@ class Tns():
         self.check_owner(account)
         self.account_address[account] = address
 
+    # 注册并设置账户名对应的地址
+    @register.public(str, str)
+    def register_and_set_account_address(self, account, address):
+        self.register_account(account)
+        self.set_account_address(account, address)
+
     # 账户名权限转让
     @register.public(str, str)
     def set_account_owner(self, account, new_owner_address):

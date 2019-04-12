@@ -52,6 +52,12 @@ type MinerInfo struct {
 }
 
 func txRawToTransaction(tx *txRawData) *types.Transaction {
+	var target *common.Address
+	if tx.Target != "" {
+		t := common.HexToAddress(tx.Target)
+		target = &t
+	}
+
 	var sign []byte
 	if tx.Sign != "" {
 		sign = common.HexStringToSign(tx.Sign).Bytes()
@@ -65,6 +71,7 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 		Nonce: tx.Nonce,
 		//Source: &source,
 		TargetAccount: tx.Target,
+		Target:target,
 		Type: int8(tx.TxType),
 		GasLimit: tx.Gas,
 		GasPrice: tx.Gasprice,

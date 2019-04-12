@@ -2,6 +2,7 @@ package cli
 
 import (
 	"common"
+	"core"
 	"fmt"
 )
 
@@ -44,4 +45,15 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 		return failResult(err.Error())
 	}
 	return successResult(trans.Hash.String())
+}
+
+func (api *GtasAPI) TxUnSafeNotNonce(privateKey, target string, value, gas, gasprice uint64, txType int, data string) (*Result, error) {
+
+	sk := common.HexStringToSecKey(privateKey)
+	if sk == nil {
+		return failResult(fmt.Sprintf("parse private key fail:%v", privateKey))
+	}
+	nonce := core.BlockChainImpl.GetNonce(sk.GetPubKey().GetAddress()) + 1
+
+	return api.TxUnSafe(privateKey, target, value, gas, gasprice, nonce, txType, data)
 }
