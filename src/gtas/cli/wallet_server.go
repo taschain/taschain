@@ -51,8 +51,6 @@ func (ws *WalletServer) Start() error {
 //	ret, _ := failResult(err)
 //	response(w, ret)
 //}
-
-
 func (ws *WalletServer) SignData(source, target, unlockPassword string, value float64, gas uint64, gaspriceStr string, txType int, nonce uint64, data string) (*Result) {
 	gp, err := common.ParseCoin(gaspriceStr)
 	if err != nil {

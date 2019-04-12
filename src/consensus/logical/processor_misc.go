@@ -324,12 +324,37 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 		p.proveChecker.addPRootResult(bh.Hash, true, nil)
 		return true, nil
 	} else {
-		panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
-		return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
+		//TODO: 2019-04-08:bug 导致部分分红交易的source存进了db，全量账本校验失败，删库重启后再放开
+		//panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
+		//return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
 	}
 	return true, nil
 }
 
+
 func (p *Processor) GenProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
 	return p.proveChecker.genProveHashs(heightLimit, rand, ids)
+}
+
+func (p *Processor) DebugPrintCheckProves(preBH *types.BlockHeader, height uint64, gid groupsig.ID) []string {
+
+	group := p.GetGroup(gid)
+	ss := make([]string, 0)
+	for _, id := range group.GetMembers() {
+		h := p.proveChecker.sampleBlockHeight(height, preBH.Random, id)
+		bs := p.MainChain.QueryBlockBytesFloor(h)
+		block := p.MainChain.QueryBlockFloor(h)
+		hash := p.proveChecker.genVerifyHash(bs, id)
+
+		var s string
+		if block == nil {
+			s = fmt.Sprintf("id %v, height %v, bytes %v, prove hash %v block nil", id.GetHexString(), h, bs, hash.Hex())
+			stdLogger.Debugf("id %v, height %v, bytes %v, prove hash %v block nil", id.GetHexString(), h, bs, hash.Hex())
+		} else {
+			s = fmt.Sprintf("id %v, height %v, bytes %v, prove hash %v blockheader %+v, body %+v", id.GetHexString(), h, bs, hash.Hex(), block.Header, block.Transactions)
+			stdLogger.Debugf("id %v, height %v, bytes %v, prove hash %v blockheader %+v, body %+v", id.GetHexString(), h, bs, hash.Hex(), block.Header, block.Transactions)
+		}
+		ss = append(ss, s)
+	}
+	return ss
 }

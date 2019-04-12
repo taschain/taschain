@@ -28,6 +28,7 @@ import (
 	"consensus/groupsig"
 	"math/big"
 	"taslog"
+	time2 "middleware/time"
 )
 
 /*
@@ -164,6 +165,7 @@ type VerifyContext struct {
 	blockCtx *BlockContext
 	signedNum 	int32
 	lock     sync.RWMutex
+	ts 			time2.TimeService
 }
 
 func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, preBH *types.BlockHeader) *VerifyContext {
@@ -176,6 +178,7 @@ func newVerifyContext(bc *BlockContext, castHeight uint64, expire time.Time, pre
 		consensusStatus: CBCS_CASTING,
 		//signedMaxWeight: 	newBlockWeight(),
 		slots:           make(map[common.Hash]*SlotContext),
+		ts: 			bc.Proc.ts,
 		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
@@ -213,12 +216,12 @@ func (vc *VerifyContext) markBroadcast() bool {
 
 //铸块是否过期
 func (vc *VerifyContext) castExpire() bool {
-	return time.Now().After(vc.expireTime)
+	return vc.ts.NowAfter(vc.expireTime)
 }
 
 //分红交易签名是否过期
 func (vc *VerifyContext) castRewardSignExpire() bool {
-	return time.Now().After(vc.expireTime.Add(time.Duration(30*model.Param.MaxGroupCastTime)*time.Second))
+	return vc.ts.NowAfter(vc.expireTime.Add(time.Duration(30*model.Param.MaxGroupCastTime)*time.Second))
 }
 
 func (vc *VerifyContext) findSlot(hash common.Hash) *SlotContext {

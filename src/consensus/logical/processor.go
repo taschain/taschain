@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 	"strings"
 	"github.com/hashicorp/golang-lru"
+	"middleware/time"
 )
 
 var PROC_TEST_MODE bool
@@ -71,6 +72,8 @@ type Processor struct {
 
 	NetServer net.NetworkServer
 	conf 		common.ConfManager
+
+	ts 			time.TimeService
 }
 
 func (p Processor) getPrefix() string {
@@ -106,6 +109,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.blockContexts = NewCastBlockContexts()
 	p.NetServer = net.NewNetworkServer()
 	p.proveChecker = newProveChecker(p.MainChain)
+	p.ts = time.TSInstance
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	pkPoolInit(p.minerReader)

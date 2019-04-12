@@ -154,7 +154,7 @@ func (tx *Transaction) HexSign() string {
 
 
 func (tx *Transaction) RecoverSource() error {
-	if tx.Source != nil {
+	if tx.Source != nil || tx.Type == TransactionTypeBonus {
 		return nil
 	}
 	sign := common.BytesToSign(tx.Sign)

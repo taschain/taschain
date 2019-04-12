@@ -24,10 +24,14 @@ type executePostState struct {
 	state    *account.AccountDB
 	receipts types.Receipts
 	evitedTxs []common.Hash
+	txs 	[]*types.Transaction
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
+	chain.mu.Lock()
+	defer chain.mu.Unlock()
+
 	latestBlock := chain.QueryTopBlock()
 	if latestBlock != nil && height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
@@ -43,7 +47,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 
 	block.Transactions = chain.transactionPool.PackForCast()
 	block.Header = &types.BlockHeader{
-		CurTime:    time.Now(), //todo:时区问题
+		CurTime:    chain.ts.Now(), //todo:时区问题
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,
@@ -56,6 +60,11 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 	if latestBlock != nil {
 		block.Header.PreHash = latestBlock.Hash
 		block.Header.PreTime = latestBlock.CurTime
+	}
+
+	if !block.Header.CurTime.After(block.Header.PreTime) {
+		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, block.Header.PreTime)
+		return nil
 	}
 
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
@@ -93,6 +102,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 		state:    state,
 		receipts: receipts,
 		evitedTxs: evitTxs,
+		txs: 		block.Transactions,
 	})
 	return block
 }
@@ -102,12 +112,19 @@ func (chain *FullBlockChain) GenerateBlock(bh types.BlockHeader) *types.Block {
 	block := &types.Block{
 		Header: &bh,
 	}
+	var txs []*types.Transaction
+	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
+	if cached != nil {
+		cb := cached.(*executePostState)
+		txs = cb.txs
+	} else {
+		var missTxs []common.Hash
+		txs, missTxs = chain.GetBlockTransactions(bh.Hash, bh.Transactions, false)
 
-	txs, missTxs := chain.GetBlockTransactions(bh.Hash, bh.Transactions, false)
-
-	if len(missTxs) != 0 {
-		Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
-		return nil
+		if len(missTxs) != 0 {
+			Logger.Debugf("GenerateBlock can not get all txs,return nil block!")
+			return nil
+		}
 	}
 	block.Transactions = txs
 	return block
@@ -485,7 +502,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		return false, nil
 	}
 
-	eps := &executePostState{state: state, receipts: receipts,evitedTxs:evitTxs}
+	eps := &executePostState{state: state, receipts: receipts,evitedTxs:evitTxs, txs:block.Transactions}
 	chain.verifiedBlocks.Add(block.Header.Hash, eps)
 	return true, eps
 }

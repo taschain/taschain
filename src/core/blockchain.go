@@ -29,6 +29,7 @@ import (
 	"middleware/ticker"
 	"sync"
 	"gopkg.in/fatih/set.v0"
+	time2 "middleware/time"
 )
 
 const (
@@ -114,6 +115,7 @@ type FullBlockChain struct {
 	//castedBlock  *lru.Cache
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
+	ts 			time2.TimeService
 
 	txsWanted set.Interface
 }
@@ -147,6 +149,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		consensusHelper: helper,
 		ticker:          ticker.NewGlobalTicker("chain"),
 		txsWanted:       set.New(set.ThreadSafe),
+		ts: 			time2.TSInstance,
 	}
 
 	chain.initMessageHandler()

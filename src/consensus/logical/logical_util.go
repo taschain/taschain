@@ -52,10 +52,10 @@ func DeltaHeightByTime(bh *types.BlockHeader, preBH *types.BlockHeader) uint64 {
 	return deltaHeightByTime
 }
 
-func VerifyBHExpire(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time, bool) {
-	expire := GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
-	return expire, time.Now().After(expire)
+func ExpireTime(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time) {
+	return GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
 }
+
 func CalcRandomHash(preBH *types.BlockHeader, height uint64) common.Hash {
 	data := preBH.Random
 	var hash common.Hash

@@ -92,6 +92,10 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 	gid := groupsig.DeserializeId(bh.GroupId)
 	castor := groupsig.DeserializeId(bh.Castor)
 
+	if p.ts.Since(bh.CurTime) < -1*time.Second {
+		return fmt.Errorf("block too early: now %v, curtime %v", p.ts.Now(), bh.CurTime)
+	}
+
 	slog.AddStage("checkOnChain")
 	if p.blockOnChain(bh.Hash) {
 		slog.EndStage()
@@ -109,12 +113,14 @@ func (p *Processor) doVerify(mtype string, msg *model.ConsensusCastMessage, trac
 		p.addFutureVerifyMsg(msg)
 		return fmt.Errorf("父块未到达")
 	}
-	if expireTime, expire := VerifyBHExpire(bh, preBH); expire {
+
+
+	expireTime := ExpireTime(bh, preBH)
+	if p.ts.NowAfter(expireTime) {
 		return fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", gid.ShortS(), preBH.CurTime, expireTime)
 	} else if bh.Height > 1 {
-		//设置为2倍的最大时间，防止由于时间不同步导致的跳块
-		beginTime := expireTime.Add(-2*time.Second*time.Duration(model.Param.MaxGroupCastTime))
-		if !time.Now().After(beginTime) {
+		beginTime := expireTime.Add(-time.Second*time.Duration(model.Param.MaxGroupCastTime+1))
+		if !p.ts.NowAfter(beginTime) {
 			return fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 		}
 
@@ -261,6 +267,10 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	if msg.GenHash() != si.DataHash {
 		blog.debug("msg proveHash=%v", msg.ProveHash)
 		result = fmt.Sprintf("msg genHash %v diff from si.DataHash %v", msg.GenHash().ShortS(), si.DataHash.ShortS())
+		return
+	}
+	if bh.CurTime.Before(bh.PreTime) {
+		result = fmt.Sprintf("curtime before pretime")
 		return
 	}
 	bc := p.GetBlockContext(groupId)

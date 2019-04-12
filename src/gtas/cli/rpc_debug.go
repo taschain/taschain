@@ -295,3 +295,26 @@ func (api *GtasAPI) DebugGetBonusTxs(limit int) (*Result, error) {
 	}
 	return successResult(hashs)
 }
+
+func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) (*Result, error) {
+    pre := core.BlockChainImpl.QueryBlockByHeight(preheight)
+    if pre == nil {
+    	return failResult("nil pre block")
+	 }
+	 gidBytes := common.FromHex(gids)
+	 gid := groupsig.DeserializeId(gidBytes)
+
+	 common.DefaultLogger.Debugf("debug print check prove: %v %v %v %v", height, preheight, gids, gid.GetHexString())
+	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)
+	 return successResult(ss)
+}
+
+func (api *GtasAPI) DebugGetRawTx(hash string) (*Result, error) {
+	tx := core.BlockChainImpl.GetTransactionByHash(false, false, common.HexToHash(hash))
+
+	if tx != nil {
+		trans := convertTransaction(tx)
+		return successResult(trans)
+	}
+	return successResult(nil)
+}
