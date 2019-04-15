@@ -47,24 +47,17 @@ class Tns():
         self.check_owner(account)
         self.account_address[account] = address
 
-    # 账户名权限转让
-    @register.public(str, str)
-    def set_account_owner(self, account, new_owner_address):
-        self.check_owner(account)
-        self.account_owner[account] = new_owner_address
-
     # 注册并设置账户名对应的地址
     @register.public(str, str)
     def register_and_set_account_address(self, account, address):
         self.register_account(account)
         self.set_account_address(account, address)
 
-    # 代理注册账户并设置账户名对应的地址
+    # 账户名权限转让
     @register.public(str, str)
-    def proxy_register_and_set_account_address(self, account, address):
-        self.register_account(account)
-        self.set_account_address(account, address)
-        self.set_account_owner(account, address)
+    def set_account_owner(self, account, new_owner_address):
+        self.check_owner(account)
+        self.account_owner[account] = new_owner_address
 
     # 获取account绑定的地址
     @register.public(str)
