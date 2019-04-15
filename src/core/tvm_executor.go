@@ -17,16 +17,15 @@ package core
 
 import (
 	"bytes"
-	"fmt"
-	"time"
-	"math/big"
-	"tns"
-
 	"common"
-	"tvm"
+	"fmt"
+	"math/big"
 	"middleware/types"
 	"storage/account"
 	"storage/vm"
+	"time"
+	"tns"
+	"tvm"
 )
 
 const TransactionGasCost = 1000
@@ -202,6 +201,13 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 	txExecuteFee := big.NewInt(int64(transaction.GasPrice * TransactionGasCost))
 	gasLimit := transaction.GasLimit
 	gasLimitFee := new(big.Int).SetUint64(transaction.GasLimit * transaction.GasPrice)
+	if transaction.Target == nil {
+		targetAddr :=tns.GetAddressByAccount(accountdb,transaction.TargetAccount)
+		if len(targetAddr) > 0 {
+			target := common.HexToAddress(targetAddr)
+			transaction.Target = &target
+		}
+	}
 
 	totalAmount := new(big.Int).Add(transferAmount, gasLimitFee)
 	if canTransfer(accountdb, *transaction.Source, totalAmount, txExecuteFee) {
@@ -235,7 +241,7 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 		success = false
 		err = types.TxErrorBalanceNotEnough
 	}
-	Logger.Debugf("TVMExecutor Execute ContractCall Transaction %s,success:%t", transaction.Hash.Hex(), success)
+	Logger.Debugf("TVMExecutor Execute ContractCall Transaction:%s, target account: %s, target: %v, success:%t", transaction.Hash.Hex(), transaction.TargetAccount, transaction.Target.GetHexString(), success)
 	return success, err, cumulativeGasUsed, logs
 }
 

@@ -55,6 +55,22 @@ func SetupGenesisContract(stateDB *account.AccountDB) {
 		return
 	}
 
+	//设置地址
+	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["node1", "%v"]}`, "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
+	success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
+	if !success  {
+		fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
+		return
+	}
+
+	//设置地址
+	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["node2", "%v"]}`, "0xd3d410ec7c917f084e0f4b604c7008f01a923676d0352940f68a97264d49fb76")
+	success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
+	if !success  {
+		fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
+		return
+	}
+
 	//获取account对应的地址
 	abi = fmt.Sprintf(`{"FuncName": "get_address", "Args": ["tns"]}`)
 	result := controller.ExecuteAbiResult(&tnsManager, &contractData, abi, msg)

@@ -19,7 +19,9 @@ func convertTransaction(tx *types.Transaction) *Transaction {
 	trans := &Transaction{
 		Hash:          tx.Hash,
 		Source:        tx.Source,
+		SourceAccount: tx.SourceAccount,
 		Target:        tx.Target,
+		TargetAccount: tx.TargetAccount,
 		Type:          tx.Type,
 		GasLimit:      tx.GasLimit,
 		GasPrice:      tx.GasPrice,

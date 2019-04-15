@@ -37,6 +37,11 @@ message Transaction{
     required int32 Type = 10;
 
     optional bytes Sign = 11;
+
+    optional string TargetAccount = 12;
+
+    optional string SourceAccount= 13;
+
 }
 
 message TransactionRequestMessage{

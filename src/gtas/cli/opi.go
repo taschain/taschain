@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"core"
 	"fmt"
 	"middleware/types"
 	"common"
+	"tns"
 )
 
 /*
@@ -52,8 +54,19 @@ type MinerInfo struct {
 }
 
 func txRawToTransaction(tx *txRawData) *types.Transaction {
+
 	var target *common.Address
-	if tx.Target != "" {
+	if core.BlockChainImpl != nil {
+		accountDB := core.BlockChainImpl.LatestStateDB()
+
+		targetAddr :=tns.GetAddressByAccount(accountDB,tx.Target)
+		if len(targetAddr) > 0 {
+			t := common.HexToAddress(targetAddr)
+			target = &t
+		}
+	}
+
+	if target == nil &&  tx.Target != "" {
 		t := common.HexToAddress(tx.Target)
 		target = &t
 	}

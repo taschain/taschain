@@ -201,7 +201,9 @@ type Transaction struct {
 	Value  float64          `json:"value"`
 	Nonce  uint64          `json:"nonce"`
 	Source *common.Address `json:"source"`
+	SourceAccount string `json:"source_acct"`
 	Target *common.Address `json:"target"`
+	TargetAccount string `json:"target_acct"`
 	Type   int8           `json:"type"`
 
 	GasLimit uint64      `json:"gas_limit"`

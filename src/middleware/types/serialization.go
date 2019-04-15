@@ -173,7 +173,7 @@ func pbToTransaction(t *tas_middleware_pb.Transaction) *Transaction {
 
 	transaction := &Transaction{Data: t.Data, Value: *t.Value, Nonce: *t.Nonce,
 		Target: target, GasLimit: *t.GasLimit, GasPrice: *t.GasPrice, Hash: common.BytesToHash(t.Hash),
-		ExtraData: t.ExtraData, ExtraDataType: int8(*t.ExtraDataType), Type: int8(*t.Type), Sign: t.Sign}
+		ExtraData: t.ExtraData, ExtraDataType: int8(*t.ExtraDataType), Type: int8(*t.Type), Sign: t.Sign, TargetAccount:*t.TargetAccount, SourceAccount:*t.SourceAccount}
 	return transaction
 }
 
@@ -325,7 +325,7 @@ func transactionToPb(t *Transaction) *tas_middleware_pb.Transaction {
 	//>>achates add for testing
 	transaction := tas_middleware_pb.Transaction{Data: t.Data, Value: &t.Value, Nonce: &t.Nonce,
 		Target: target, GasLimit: &t.GasLimit, GasPrice: &t.GasPrice, Hash: t.Hash.Bytes(),
-		ExtraData: t.ExtraData, ExtraDataType: &et, Type: &tp, Sign: t.Sign}
+		ExtraData: t.ExtraData, ExtraDataType: &et, Type: &tp, Sign: t.Sign, TargetAccount:&t.TargetAccount, SourceAccount:&t.SourceAccount}
 	return &transaction
 }
 

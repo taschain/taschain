@@ -108,7 +108,6 @@ type Transaction struct {
 	Value  uint64          `msgpack:"v"`
 	Nonce  uint64          `msgpack:"nc"`
 	Target *common.Address `msgpack:"tg,omitempty"`
-	TargetAccount string   `msgpack:"tgac,omitempty"`
 	Type   int8            `msgpack:"tp"`
 
 	GasLimit uint64      `msgpack:"gl"`
@@ -119,8 +118,11 @@ type Transaction struct {
 	ExtraDataType int8   `msgpack:"et,omitempty"`
 	//PubKey *common.PublicKey
 	//Sign *common.Sign
+	TargetAccount string   `msgpack:"tgac,omitempty"`
+	SourceAccount string   `msgpack:"tgac,omitempty"`
 	Sign   []byte          `msgpack:"si"`
 	Source *common.Address `msgpack:"src"`	//don't streamlize
+
 }
 
 //source,sign在hash计算范围内
@@ -134,9 +136,8 @@ func (tx *Transaction) GenHash() common.Hash {
 	}
 	buffer.Write(common.Uint64ToByte(tx.Value))
 	buffer.Write(common.Uint64ToByte(tx.Nonce))
-	if tx.Target != nil {
-		buffer.Write(tx.Target.Bytes())
-	}
+
+
 	buffer.WriteByte(byte(tx.Type))
 	buffer.Write(common.Uint64ToByte(tx.GasLimit))
 	buffer.Write(common.Uint64ToByte(tx.GasPrice))
@@ -144,7 +145,14 @@ func (tx *Transaction) GenHash() common.Hash {
 		buffer.Write(tx.ExtraData)
 	}
 	buffer.WriteByte(byte(tx.ExtraDataType))
-
+	if len(tx.TargetAccount) > 0 {
+		buffer.Write([]byte(tx.TargetAccount))
+	} else if tx.Target != nil {
+		buffer.Write(tx.Target.Bytes())
+	}
+	if len(tx.SourceAccount) > 0 {
+		buffer.Write([]byte(tx.SourceAccount))
+	}
 	return common.BytesToHash(common.Sha256(buffer.Bytes()))
 }
 
