@@ -202,6 +202,11 @@ type Peer struct {
 	mutex      sync.RWMutex
 	connecting bool
 	source     PeerSource
+
+	bytesReceived 	int
+	bytesSend 		int
+	sendWaitCout 	int
+	disconnectCount int
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
@@ -211,16 +216,17 @@ func newPeer(Id NodeID, seesionId uint32) *Peer {
 	return p
 }
 
-func (p *Peer) addData(data []byte) {
+func (p *Peer) addRecvData(data []byte) {
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	b := netCore.bufferPool.GetBuffer(len(data))
 	b.Write(data)
 	p.recvList.PushBack(b)
+	p.bytesReceived += len(data)
 }
 
-func (p *Peer) addDataToHead(data *bytes.Buffer) {
+func (p *Peer) addRecvDataToHead(data *bytes.Buffer) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.recvList.PushFront(data)
@@ -242,6 +248,7 @@ func (p *Peer) onSendWaited() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.sendList.onSendWaited(p)
+	p.sendWaitCout += 1
 }
 
 func (p *Peer) resetData() {
@@ -329,7 +336,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	}
 
 	p.write(packet, code)
-
+	p.bytesSend += packet.Len()
 	if p.seesionId != 0 {
 		return nil
 	}
@@ -388,7 +395,7 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 	if p != nil {
 
 		Logger.Infof("OnDisconnected id：%v  session:%v ip:%v port:%v ", p.Id.GetHexString(), session, p.Ip, p.Port)
-
+		p.disconnectCount += 1
 		p.connecting = false
 		if p.seesionId == session {
 			p.seesionId = 0
@@ -418,6 +425,19 @@ func (pm *PeerManager) disconnect(id NodeID) {
 func (pm *PeerManager) OnChecked(p2pType uint32, privateIp string, publicIp string) {
 
 }
+
+func (pm *PeerManager) checkPeers() {
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
+//	Logger.Infof("[PeerManager] [checkPeers] peers :%v ", len( pm.peers))
+	for _, p := range pm.peers {
+		if p.bytesReceived == 0 {
+			Logger.Infof("[PeerManager] [checkPeers] peer ip:%v port:%v bytes recv:%v ,bytes send:%v disconnect count:%v send wait count:%v ", p.Ip, p.Port,p.bytesReceived,p.bytesSend,p.disconnectCount,p.sendWaitCout)
+
+		}
+	}
+}
+
 
 //SendDataToAll 向所有已经连接的节点发送自定义数据包
 func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {

@@ -374,6 +374,7 @@ func (nc *NetCore) loop() {
 		case <-flowMeter.C:
 			nc.flowMeter.print()
 			nc.flowMeter.reset()
+			nc.peerManager.checkPeers()
 		case <-groupRefresh.C:
 			go nc.groupManager.doRefresh()
 		}
@@ -551,7 +552,7 @@ func (nc *NetCore) recvData(netId uint64, session uint32, data []byte) {
 		nc.peerManager.addPeer(netId, p)
 	}
 
-	p.addData(data)
+	p.addRecvData(data)
 	nc.unhandled <- p
 }
 
@@ -651,7 +652,7 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 		}
 	}
 	if header.Len() < PacketHeadSize {
-		p.addDataToHead(header)
+		p.addRecvDataToHead(header)
 		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 
@@ -683,7 +684,7 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 		}
 	}
 	if msgBuffer.Len() < packetSize {
-		p.addDataToHead(msgBuffer)
+		p.addRecvDataToHead(msgBuffer)
 		return MessageType_MessageNone, 0, nil, nil, errPacketTooSmall
 	}
 	msgBytes := msgBuffer.Bytes()
@@ -693,7 +694,7 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	if msgBuffer.Len() > packetSize {
 		buf := nc.bufferPool.GetBuffer(len(msgBytes) - packetSize)
 		buf.Write(msgBytes[packetSize:])
-		p.addDataToHead(buf)
+		p.addRecvDataToHead(buf)
 	}
 
 	var req proto.Message
