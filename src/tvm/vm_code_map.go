@@ -282,8 +282,8 @@ class TasJson:
         if type(key) != TasJson.TypeStr:
             raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
-        if len(x) > 45:
-            raise LibException("the length of key cannot more than 45!",3)
+        if len(x) > 66:
+            raise LibException("the length of key cannot more than 66!",3)
 `
 	return code
 }

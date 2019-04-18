@@ -102,6 +102,13 @@ func (api *GtasAPI)TnsGetAddress(account string) (*Result, error) {
 	return successResult(address)
 }
 
+//账号绑定查询
+func (api *GtasAPI)TnsGetAccount(address string) (*Result, error) {
+	accountDb := core.BlockChainImpl.LatestStateDB()
+	account := tns.GetAccountByAddress(accountDb,address)
+	return successResult(account)
+}
+
 func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {

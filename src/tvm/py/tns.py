@@ -6,6 +6,7 @@ class Tns():
     def __init__(self):
         self.account_owner = TasCollectionStorage()
         self.account_address = TasCollectionStorage()
+        self.address_account = TasCollectionStorage()
         self.admin = msg.sender
 
     # 检查权限
@@ -46,6 +47,7 @@ class Tns():
     def set_account_address(self, account, address):
         self.check_owner(account)
         self.account_address[account] = address
+        self.address_account[address] = account
 
     # 账户名权限转让
     @register.public(str, str)
@@ -75,6 +77,14 @@ class Tns():
         else:
             Exception("account暂未注册")
 
+    # 获取地址对应的account
+    @register.public(str)
+    def get_account(self, address):
+        if self.address_account[address] is not None:
+            return self.address_account[address]
+        else:
+            Exception("account暂未注册")
+
     # 设置短账户地址
     @register.public(str, str)
     def set_short_account_address(self, account, address):
@@ -94,6 +104,7 @@ class Tns():
                 raise Exception("没有owner权限")
 
         self.account_address[account] = address
+        self.address_account[address] = account
 
     # 转让admin权限
     @register.public(str)

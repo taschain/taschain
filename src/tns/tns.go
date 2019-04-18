@@ -104,3 +104,22 @@ func GetAddressByAccount(stateDB *account.AccountDB ,account string) string{
 	}
 	return ""
 }
+
+func GetAccountByAddress(stateDB *account.AccountDB ,address string) string{
+
+	tnsManager :=common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
+	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(tnsManager[:], common.Uint64ToByte(uint64(1)))))
+	contract := tvm.LoadContract(contractAddr)
+
+	controller := tvm.NewController(stateDB, nil, nil, nil, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+	controller.GasLeft = 1000000
+
+	msg := tvm.Msg{Data: nil, Value: 0, Sender: ""}
+
+	abi := fmt.Sprintf(`{"FuncName": "get_account", "Args": ["%v"]}`, address)
+	result := controller.ExecuteAbiResult(&tnsManager, contract, abi, msg)
+	if result != nil && result.ResultType ==  2 /*C.RETURN_TYPE_STRING*/ {
+		return result.Content
+	}
+	return ""
+}
