@@ -21,7 +21,6 @@ import (
 	"network"
 	"middleware/notify"
 	"middleware/pb"
-	"utility"
 	"middleware/types"
 	"github.com/gogo/protobuf/proto"
 	"sync"
@@ -35,7 +34,7 @@ const (
 	syncNeightborsInterval       = 3
 	syncNeightborTimeout       = 5
 	blockSyncCandidatePoolSize = 100
-	blockResponseSize = 15
+	//blockResponseSize = 15
 )
 
 const (
@@ -45,6 +44,7 @@ const (
 )
 
 var BlockSyncer *blockSyncer
+
 
 
 type blockSyncer struct {
@@ -93,9 +93,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	}
 	bs.ticker = bs.chain.ticker
 	bs.logger = taslog.GetLoggerByIndex(taslog.BlockSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	//BlockSyncer.reqTimeoutTimer = time.NewTimer(blockSyncReqTimeout)
-	//BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
-	//BlockSyncer.blockInfoNotifyTimer = time.NewTimer(sendTopBlockInfoInterval)
 	bs.ticker.RegisterPeriodicRoutine(tickerSendLocalTop, bs.notifyLocalTopBlockRoutine, sendLocalTopInterval)
 	bs.ticker.StartTickerRoutine(tickerSendLocalTop, false)
 
@@ -105,7 +102,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.BlockInfoNotify, bs.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockReq, bs.blockReqHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, bs.blockResponseMsgHandler)
-	//notify.BUS.Subscribe(notify.GroupAddSucc, bs.onGroupAddSuccess)
 
 	BlockSyncer = bs
 
@@ -224,6 +220,9 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 	if bs.chain.HasBlock(candidateTop.PreHash) {
 		beginHeight = candidateTop.Height
 	}
+	if beginHeight > candidateTop.Height {
+		return false
+	}
 
 	for syncId, h := range bs.syncingPeers {
 		if h == beginHeight {
@@ -254,7 +253,16 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 
 	bs.logger.Debugf("Req block to:%s,height:%d", id, height)
 
-	body := utility.UInt64ToByte(height)
+	br := &SyncRequest{
+		ReqHeight: height,
+		ReqSize:  int32(PeerManager.getPeerReqBlockCount(id)),
+	}
+
+	body, err := MarshalSyncRequest(br)
+	if err != nil {
+		bs.logger.Errorf("marshalSyncRequest error %v", err)
+		return
+	}
 
 	message := network.Message{Code: network.ReqBlock, Body: body}
 	network.GetNetInstance().Send(id, message)
@@ -323,6 +331,7 @@ func (bs *blockSyncer) syncComplete(id string, timeout bool) bool {
 	} else {
 		PeerManager.heardFromPeer(id)
 	}
+	PeerManager.updateReqBlockCnt(id, !timeout)
 	bs.chain.ticker.RemoveRoutine(bs.syncTimeoutRoutineName(id))
 
 	bs.lock.Lock()
@@ -415,11 +424,16 @@ func (bs blockSyncer) blockReqHandler(msg notify.Message) {
 		bs.logger.Debugf("blockReqHandler:Message assert not ok!")
 		return
 	}
-	reqHeight := utility.ByteToUInt64(m.ReqBody)
+
+	br, err := UnmarshalSyncRequest(m.ReqBody)
+	if err != nil {
+		bs.logger.Errorf("unmarshalSyncRequest error %v", err)
+		return
+	}
 	localHeight := bs.chain.Height()
 
-	bs.logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
-	blocks := bs.chain.BatchGetBlocksAfterHeight(reqHeight, blockResponseSize)
+	bs.logger.Debugf("Rcv block request:reqHeight:%d, reqSize:%v, localHeight:%d", br.ReqHeight, br.ReqSize, localHeight)
+	blocks := bs.chain.BatchGetBlocksAfterHeight(br.ReqHeight, int(br.ReqSize))
 	responseBlocks(m.Peer, blocks)
 }
 

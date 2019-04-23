@@ -166,7 +166,7 @@ func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
 
-func (chain *GroupChain) GetGroupsAfterHeight(height uint64, limit int64) ([]*types.Group) {
+func (chain *GroupChain) GetGroupsAfterHeight(height uint64, limit int) ([]*types.Group) {
 	return chain.getGroupsAfterHeight(height, limit)
 }
 

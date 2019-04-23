@@ -61,8 +61,14 @@ message TransactionSlice{
     repeated Transaction transactions = 1;
 }
 
-message ChainPieceInfo{
+message ChainPieceReq{
     repeated bytes Pieces = 1;
+    optional int32 ReqCnt = 2;
+}
+
+message SyncRequest {
+    required uint64 ReqHeight = 1;
+    required int32 ReqSize = 2;
 }
 
 
