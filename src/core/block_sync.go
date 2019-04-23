@@ -124,7 +124,7 @@ func (bs *blockSyncer) isSyncing() bool {
 	bs.lock.RLock()
 	defer bs.lock.RUnlock()
 
-	_, candTop := bs.getBestCandidate()
+	_, candTop := bs.getBestCandidate("")
 	if candTop == nil {
 		return false
 	}
@@ -149,25 +149,27 @@ func (bs *blockSyncer) newTopBlockInfo(top *types.BlockHeader) *TopBlockInfo {
 	}
 }
 
-func (bs *blockSyncer) getBestCandidate() (string, *TopBlockInfo) {
-	for id, _ := range bs.candidatePool {
-		if PeerManager.isEvil(id) {
-			delete(bs.candidatePool, id)
+func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockInfo) {
+	if candidateId == "" {
+		for id, _ := range bs.candidatePool {
+			if PeerManager.isEvil(id) {
+				delete(bs.candidatePool, id)
+			}
 		}
-	}
-	//bs.candidatePoolDump()
-	if len(bs.candidatePool) == 0 {
-		return "", nil
-	}
-	candidateId := ""
-	var maxWeight float64 = 0
+		//bs.candidatePoolDump()
+		if len(bs.candidatePool) == 0 {
+			return "", nil
+		}
+		var maxWeight float64 = 0
 
-	for id, top := range bs.candidatePool {
-		w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
-		if w > maxWeight {
-			maxWeight = w
-			candidateId = id
+		for id, top := range bs.candidatePool {
+			w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
+			if w > maxWeight {
+				maxWeight = w
+				candidateId = id
+			}
 		}
+
 	}
 	maxTop := bs.candidatePool[candidateId]
 	if maxTop == nil {
@@ -186,9 +188,11 @@ func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
 	}
 	return nil
 }
-
-
 func (bs *blockSyncer) trySyncRoutine() bool {
+	return bs.syncFrom("")
+}
+
+func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := bs.newTopBlockInfo(topBH)
 
@@ -201,7 +205,7 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
-	candidate, candidateTop := bs.getBestCandidate()
+	candidate, candidateTop := bs.getBestCandidate(from)
 	if candidate == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		return false

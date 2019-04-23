@@ -254,6 +254,8 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string)  
 		top := chain.latestBlock
 		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.String(), bh.Height, bh.PreHash.String(), top.Hash.String(), top.Height, top.PreHash.String())
 		go chain.forkProcessor.tryToProcessFork(source, b)
+	} else {//
+		go BlockSyncer.syncFrom(source)
 	}
 }
 
