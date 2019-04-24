@@ -108,7 +108,7 @@ message BlockHeader{
 
      optional bytes Random = 17;
 
-     optional bytes ProveRoot = 18;
+//     optional bytes ProveRoot = 18;
 
 }
 
@@ -358,7 +358,7 @@ message ConsensusCastMessage{
 
     required SignData	Sign = 3;
 
-    repeated bytes  ProveHash = 4;
+    required bytes  ProveHash = 4;
 }
 message ConsensusVerifyMessage{
     required bytes BlockHash = 1;

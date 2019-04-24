@@ -4,7 +4,6 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
-	"middleware/types"
 )
 
 /*
@@ -68,7 +67,7 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction)
+	SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID)
 

@@ -165,7 +165,7 @@ func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 type ConsensusCastMessage struct {
 	BH types.BlockHeader
 	//GroupID groupsig.ID
-	ProveHash []common.Hash
+	ProveHash common.Hash
 	BaseSignedMessage
 }
 

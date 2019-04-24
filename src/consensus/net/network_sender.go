@@ -7,6 +7,9 @@ import (
 	"consensus/model"
 	"time"
 	"core"
+	"common"
+	"middleware/pb"
+	"github.com/gogo/protobuf/proto"
 )
 
 type NetworkServerImpl struct {
@@ -124,36 +127,22 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 //-----------------------------------------------------------------组铸币----------------------------------------------
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction) {
+func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash) {
+	bh := types.BlockHeaderToPb(&ccm.BH)
+	//groupId := m.GroupID.Serialize()
+	si := signDataToPb(&ccm.SI)
 
-	//txs, e := types.MarshalTransactions(body)
-	//if e != nil {
-	//	logger.Errorf("[peer]Discard send cast verify because of MarshalTransactions error:%s", e.Error())
-	//	return
-	//}
-
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(ccm.BH.GroupId)
-	if e1 != nil {
-		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e1.Error())
-		return
+	for idx, mem := range gb.MemIds {
+		message := &tas_middleware_pb.ConsensusCastMessage{Bh: bh, Sign: si, ProveHash: proveHashs[idx].Bytes()}
+		body, err := proto.Marshal(message)
+		if err != nil {
+			logger.Errorf("marshalConsensusCastMessage error:%v %v", err, mem.String())
+			continue
+		}
+		m := network.Message{Code: network.CastVerifyMsg, Body: body}
+		go ns.net.Send(mem.String(), m)
 	}
-	timeFromCast := time.Since(ccm.BH.CurTime)
-	begin := time.Now()
-
-	mems := id2String(group.MemIds)
-
-	//txMsg := network.Message{Code: network.TransactionMsg, Body: txs}
-	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, txMsg, ccm.BH.TxTree.Bytes())
-
-	ccMsg, e := marshalConsensusCastMessage(ccm)
-	if e != nil {
-		logger.Errorf("[peer]Discard send cast verify because of marshalConsensusCastMessage error:%s", e.Error())
-		return
-	}
-	m := network.Message{Code: network.CastVerifyMsg, Body: ccMsg}
-	go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
-	logger.Debugf("send CAST_VERIFY_MSG,%d-%d to group:%s,invoke SpreadToGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.TotalQN, groupId.GetHexString(), time.Since(begin), timeFromCast,  ccm.BH.Hash.String())
+	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默

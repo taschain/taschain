@@ -169,14 +169,9 @@ func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error
 
 	bh := types.PbToBlockHeader(m.Bh)
 
-	hashs := make([]common.Hash, len(m.ProveHash))
-	for i, h := range m.ProveHash {
-		hashs[i] = common.BytesToHash(h)
-	}
-
 	return &model.ConsensusCastMessage{
 		BH:                *bh,
-		ProveHash:         hashs,
+		ProveHash:         common.BytesToHash(m.ProveHash),
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}, nil
 }

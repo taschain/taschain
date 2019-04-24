@@ -253,7 +253,7 @@ type BlockHeader struct {
 	StateTree    common.Hash
 	ExtraData    []byte
 	Random       []byte
-	ProveRoot    common.Hash
+	//ProveRoot    common.Hash
 	//EvictedTxs   []common.Hash
 }
 
@@ -310,7 +310,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 	if bh.ExtraData != nil {
 		buf.Write(bh.ExtraData)
 	}
-	buf.Write(bh.ProveRoot.Bytes())
+	//buf.Write(bh.ProveRoot.Bytes())
 
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
@@ -330,7 +330,7 @@ func (bh *BlockHeader) ToString() string {
 		ReceiptTree:  bh.ReceiptTree,
 		StateTree:    bh.StateTree,
 		ExtraData:    bh.ExtraData,
-		ProveRoot:    bh.ProveRoot,
+		//ProveRoot:    bh.ProveRoot,
 		//EvictedTxs:   bh.EvictedTxs,
 	}
 	blockByte, _ := json.Marshal(header)

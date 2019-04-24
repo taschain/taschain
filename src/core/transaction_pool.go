@@ -85,7 +85,7 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 }
 
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
-	cache, _ := lru.New(txCountPerBlock*blockResponseSize)
+	cache, _ := lru.New(txCountPerBlock*maxReqBlockCount)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),

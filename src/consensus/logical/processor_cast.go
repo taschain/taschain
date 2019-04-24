@@ -2,7 +2,6 @@ package logical
 
 import (
 	"common"
-	"consensus/base"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
@@ -308,10 +307,7 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	//随机抽取n个块，生成proveHash
-	proveHash, root := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
-
-	block := p.MainChain.CastBlock(uint64(height), pi, root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -323,19 +319,21 @@ func (p *Processor) blockProposal() {
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
-		//发送该出块消息
-		var ccm model.ConsensusCastMessage
-		ccm.BH = *bh
-		ccm.ProveHash = proveHash
-		//ccm.GroupID = gid
-		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
+
+		ccm := &model.ConsensusCastMessage{
+			BH: *bh,
+		}
+		//发给每个人的消息hash是相同的，签名也相同
+		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), ccm) {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		blog.log("hash=%v, proveRoot=%v, pi=%v, piHash=%v", bh.Hash.ShortS(), root.ShortS(), pi.ShortS(), common.Bytes2Hex(base.VRF_proof2hash(pi)))
+		//生成全量账本hash
+		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
+
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
 		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
-		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
 
 		//发送日志
 		le := &monitor.LogEntry{

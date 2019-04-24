@@ -30,7 +30,7 @@ type BlockChain interface {
 	AccountRepository
 
 	//构建一个铸块（组内当前铸块人同步操作）
-	CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block
+	CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block
 
 	//根据BlockHeader构建block
 	GenerateBlock(bh types.BlockHeader) *types.Block

@@ -91,7 +91,8 @@ func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 }
 
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	return Proc.CheckProveRoot(bh)
+	//return Proc.CheckProveRoot(bh)
+	return true, nil	//上链时不再校验，只在共识时校验（update：2019-04-23）
 }
 
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {

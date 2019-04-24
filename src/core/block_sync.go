@@ -153,6 +153,7 @@ func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockIn
 	if candidateId == "" {
 		for id, _ := range bs.candidatePool {
 			if PeerManager.isEvil(id) {
+				bs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
 				delete(bs.candidatePool, id)
 			}
 		}

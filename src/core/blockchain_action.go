@@ -28,7 +28,7 @@ type executePostState struct {
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
-func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRoot common.Hash, qn uint64, castor []byte, groupid []byte) *types.Block {
+func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
 
@@ -54,7 +54,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, proveRo
 		GroupId:    groupid,
 		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
-		ProveRoot:  proveRoot,
+		//ProveRoot:  proveRoot,
 	}
 
 	if latestBlock != nil {
@@ -273,9 +273,9 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 		return false, ErrLocalMoreWeight
 	}
 
-	if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-		return false, fmt.Errorf("check prove root fail, err=%v", err.Error())
-	}
+	//if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
+	//	return false, fmt.Errorf("check prove root fail, err=%v", err.Error())
+	//}
 
 	groupValidateResult, err := chain.consensusVerifyBlock(b.Header)
 	if !groupValidateResult {
