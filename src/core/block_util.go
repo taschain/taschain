@@ -103,5 +103,5 @@ func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisI
 		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
 	}
 
-	tns.SetupGenesisContract(stateDB)
+	tns.SetupGenesisContract(stateDB, genesisInfo)
 }

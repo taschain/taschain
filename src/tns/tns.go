@@ -4,12 +4,13 @@ import "C"
 import (
 	"common"
 	"fmt"
+	"middleware/types"
 	"storage/account"
 	"tvm"
 	"encoding/json"
 )
 
-func SetupGenesisContract(stateDB *account.AccountDB) {
+func SetupGenesisContract(stateDB *account.AccountDB, genesisInfo *types.GenesisInfo) {
 
 	tnsManager :=common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine(tnsManager[:], common.Uint64ToByte(uint64(1)))))
@@ -48,38 +49,34 @@ func SetupGenesisContract(stateDB *account.AccountDB) {
 
 
 	//设置地址
-	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["tnsmanager", "%v"]}`, contractAddr)
+	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["tnsmanager", "%v"]}`, "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd")
 	success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
 	if !success  {
 		fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
 		return
 	}
 
-	//设置地址
-	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["node1", "%v"]}`, "0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019")
-	success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
-	if !success  {
-		fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
-		return
-	}
-
-	//设置地址
-	abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["node2", "%v"]}`, "0xd3d410ec7c917f084e0f4b604c7008f01a923676d0352940f68a97264d49fb76")
-	success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
-	if !success  {
-		fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
-		return
+	index := 0
+	for _, mem := range genesisInfo.Group.Members {
+		index++
+		addr := common.BytesToAddress(mem)
+		abi = fmt.Sprintf(`{"FuncName": "set_short_account_address", "Args": ["tas.node%v", "%v"]}`,index, addr)
+		success, errorMsg = controller.ExecuteAbi(&tnsManager, &contractData, abi, msg)
+		if !success  {
+			fmt.Println("tns contract set_account_address ExecuteAbi error: %v", errorMsg)
+			return
+		}
 	}
 
 	//获取account对应的地址
-	abi = fmt.Sprintf(`{"FuncName": "get_address", "Args": ["tns"]}`)
-	result := controller.ExecuteAbiResult(&tnsManager, &contractData, abi, msg)
-	if result != nil  {
-		fmt.Println("tns contract get_address: ", result.Content)
-
-	}
-	tnsAddr := GetAddressByAccount(stateDB,"tns")
-	fmt.Println("tnsGetAddressByAccount: ", tnsAddr)
+	//abi = fmt.Sprintf(`{"FuncName": "get_address", "Args": ["tns"]}`)
+	//result := controller.ExecuteAbiResult(&tnsManager, &contractData, abi, msg)
+	//if result != nil  {
+	//	fmt.Println("tns contract get_address: ", result.Content)index
+	//
+	//}
+	//tnsAddr := GetAddressByAccount(stateDB,"tns")
+	//fmt.Println("tnsGetAddressByAccount: ", tnsAddr)
 
 }
 

@@ -29,6 +29,8 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	account.CodeHash = accoundDb.GetCodeHash(address).String()
 	account.Code = string(accoundDb.GetCode(address)[:])
 	account.Type = 0
+	account.Account = tns.GetAccountByAddress(core.BlockChainImpl.LatestStateDB(),hash)
+
 	if len(account.Code) > 0 {
 		account.Type = 1
 		account.StateData = make(map[string]interface{})

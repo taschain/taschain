@@ -140,6 +140,7 @@ type Block struct {
 	CurTime     time.Time     `json:"cur_time"`
 	PreTime     time.Time     `json:"pre_time"`
 	Castor      groupsig.ID   `json:"castor"`
+	CastorAccount  string  `json:"castor_acct"`
 	GroupID     groupsig.ID   `json:"group_id"`
 	Prove       string      `json:"prove"`
 	TotalQN     uint64        `json:"total_qn"`
@@ -270,6 +271,7 @@ type ExplorerAccount struct {
 	Type      uint32   `json:"type"`
 	CodeHash  string   `json:"code_hash"`
 	Code      string   `json:"code"`
+	Account      string   `json:"account"`
 	StateData map[string]interface{}   `json:"state_data"`
 }
 

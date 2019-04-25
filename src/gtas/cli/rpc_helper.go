@@ -7,6 +7,7 @@ import (
 	"common"
 	"core"
 	"fmt"
+	"tns"
 )
 
 /*
@@ -16,11 +17,25 @@ import (
 */
 
 func convertTransaction(tx *types.Transaction) *Transaction {
+
+	target:= tx.Target
+	sourceAccount:= ""
+
+	if core.BlockChainImpl != nil {
+		if target == nil && len(tx.SourceAccount) > 0 {
+			t :=common.HexToAddress(tns.GetAddressByAccount(core.BlockChainImpl.LatestStateDB(),tx.SourceAccount))
+			target = &t
+		}
+		if tx.Source !=nil {
+			sourceAccount = tns.GetAccountByAddress(core.BlockChainImpl.LatestStateDB(),tx.Source.GetHexString())
+		}
+	}
+
 	trans := &Transaction{
 		Hash:          tx.Hash,
 		Source:        tx.Source,
-		SourceAccount: tx.SourceAccount,
-		Target:        tx.Target,
+		SourceAccount: sourceAccount,
+		Target:        target,
 		TargetAccount: tx.TargetAccount,
 		Type:          tx.Type,
 		GasLimit:      tx.GasLimit,
@@ -31,17 +46,22 @@ func convertTransaction(tx *types.Transaction) *Transaction {
 		Nonce:         tx.Nonce,
 		Value:         common.RA2TAS(tx.Value),
 	}
+
 	return trans
 }
 
 func convertBlockHeader(bh *types.BlockHeader) *Block {
+	castor :=groupsig.DeserializeId(bh.Castor)
+	castorAccount := tns.GetAccountByAddress(core.BlockChainImpl.LatestStateDB(), castor.GetHexString())
+
 	block := &Block{
 		Height:  bh.Height,
 		Hash:    bh.Hash,
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime,
 		PreTime: bh.PreTime,
-		Castor:  groupsig.DeserializeId(bh.Castor),
+		Castor:  castor,
+		CastorAccount:castorAccount,
 		GroupID: groupsig.DeserializeId(bh.GroupId),
 		Prove:   common.ToHex(bh.ProveValue),
 		Txs:     bh.Transactions,
