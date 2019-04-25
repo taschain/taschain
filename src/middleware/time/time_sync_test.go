@@ -35,3 +35,13 @@ func TestSync(t *testing.T) {
 	InitTimeSync()
 	time.Sleep(time.Hour)
 }
+
+func TestUTCAndLocal(t *testing.T) {
+	InitTimeSync()
+	now := time.Now()
+
+	utc := time.Now().UTC()
+	t.Log(now, utc)
+
+	t.Log(utc.After(now), utc.Local().After(now), utc.Before(now))
+}

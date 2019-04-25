@@ -22,7 +22,8 @@ type TimeSync struct {
 }
 
 
-
+//time service return utc time;
+//all input time will convert to utc time
 type TimeService interface {
 	Now() time.Time
 	Since(t time.Time) time.Duration
@@ -56,13 +57,13 @@ func (ts *TimeSync) syncRoutine() bool {
 }
 
 func (ts *TimeSync) Now() time.Time {
-	return time.Now().Add(ts.currentOffset)
+	return time.Now().Add(ts.currentOffset).UTC()
 }
 
 func (ts *TimeSync) Since(t time.Time) time.Duration {
-	return ts.Now().Sub(t)
+	return ts.Now().Sub(t.UTC())
 }
 
 func (ts *TimeSync) NowAfter(t time.Time) bool {
-    return ts.Now().After(t)
+    return ts.Now().After(t.UTC())
 }

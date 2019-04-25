@@ -253,10 +253,10 @@ func (fp *forkProcessor) reqFinished(id string, reset bool) {
 	}
 	PeerManager.heardFromPeer(id)
 	fp.chain.ticker.RemoveRoutine(tickerReqPieceBlock)
+	PeerManager.updateReqBlockCnt(id, true)
 	if reset {
 		fp.syncCtx = nil
 	}
-	PeerManager.updateReqBlockCnt(fp.syncCtx.target, true)
 	return
 }
 

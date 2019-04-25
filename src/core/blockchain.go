@@ -267,7 +267,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	block.Header = &types.BlockHeader{
 		Height:       0,
 		ExtraData:    common.Sha256([]byte("tas")),
-		CurTime:      time.Date(2019, 3, 21, 23, 0, 0, 0, time.Local),
+		CurTime:      time.Date(2019, 4, 25, 0, 0, 0, 0, time.UTC),
 		ProveValue:   []byte{},
 		TotalQN:      0,
 		Transactions: make([]common.Hash, 0), //important!!
