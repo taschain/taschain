@@ -49,15 +49,14 @@ var (
 	errExpired          = errors.New("expired")
 	errUnsolicitedReply = errors.New("unsolicited reply")
 	errUnknownNode      = errors.New("unknown node")
-	errGroupEmpty      = errors.New("group empty")
+	errGroupEmpty       = errors.New("group empty")
 	errTimeout          = errors.New("RPC timeout")
 	errClockWarp        = errors.New("reply deadline too far in the future")
 	errClosed           = errors.New("socket closed")
 )
 
-
-const DefaultNatPort = 3100
-const DefaultNatIp = "120.78.127.246"
+const DefaultNatPort = 80
+const DefaultNatIp = "119.23.205.254"
 
 // Timeouts
 const (
@@ -74,18 +73,19 @@ type NetCore struct {
 	ourEndPoint      RpcEndPoint
 	id               NodeID
 	nid              uint64
+	natType          uint32
 	addpending       chan *pending
 	gotreply         chan reply
 	unhandled        chan *Peer
 	unhandledDataMsg int
 	closing          chan struct{}
 
-	kad                *Kad
-	peerManager        *PeerManager
-	groupManager       *GroupManager
-	messageManager     *MessageManager
-	flowMeter          *FlowMeter
-	bufferPool         *BufferPool
+	kad            *Kad
+	peerManager    *PeerManager
+	groupManager   *GroupManager
+	messageManager *MessageManager
+	flowMeter      *FlowMeter
+	bufferPool     *BufferPool
 }
 
 type pending struct {
@@ -132,8 +132,8 @@ type NetCoreConfig struct {
 	Id                 NodeID
 	Seeds              []*Node
 	NatTraversalEnable bool
-	NatPort uint16
-	NatIp  string
+	NatPort            uint16
+	NatIp              string
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -162,10 +162,10 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.peerManager.natTraversalEnable = cfg.NatTraversalEnable
 	nc.peerManager.natIp = cfg.NatIp
 	nc.peerManager.natPort = cfg.NatPort
-	if len(nc.peerManager.natIp)  == 0 {
+	if len(nc.peerManager.natIp) == 0 {
 		nc.peerManager.natIp = DefaultNatIp
 	}
-	if nc.peerManager.natPort  == 0 {
+	if nc.peerManager.natPort == 0 {
 		nc.peerManager.natPort = DefaultNatPort
 	}
 	nc.groupManager = newGroupManager()
@@ -179,8 +179,8 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	P2PConfig(nc.nid)
 
 	if cfg.NatTraversalEnable {
-		Logger.Infof("P2PProxy: %v %v", nc.peerManager.natIp , uint16(nc.peerManager.natPort))
-		P2PProxy(nc.peerManager.natIp , uint16(nc.peerManager.natPort))
+		Logger.Infof("P2PProxy: %v %v", nc.peerManager.natIp, uint16(nc.peerManager.natPort))
+		P2PProxy(nc.peerManager.natIp, uint16(nc.peerManager.natPort))
 	} else {
 		Logger.Infof("P2PListen: %v %v", realaddr.IP.String(), uint16(realaddr.Port))
 		P2PListen(realaddr.IP.String(), uint16(realaddr.Port))
@@ -221,13 +221,31 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		NodeId:     nc.id[:],
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
+	Logger.Infof("[send ping ] id : %v  ip:%v port:%v", toid.GetHexString(), nc.ourEndPoint.Ip, nc.ourEndPoint.Port)
 
 	packet, _, err := nc.encodePacket(MessageType_MessagePing, req)
 	if err != nil {
 		return err
 	}
 
-	nc.peerManager.write(toid, toaddr, packet, P2PMessageCodeBase+uint32(MessageType_MessagePing))
+	nc.peerManager.write(toid, toaddr, packet, P2PMessageCodeBase+uint32(MessageType_MessagePing),false)
+
+	return nil
+}
+
+func (nc *NetCore) RelayTest(toid NodeID) error {
+
+	req := &MsgRelay{
+		NodeId: toid[:],
+	}
+	Logger.Infof("[Relay] test node id : %v", toid.GetHexString())
+
+	packet, _, err := nc.encodePacket(MessageType_MessageRelayTest, req)
+	if err != nil {
+		return err
+	}
+
+	nc.peerManager.SendAll(packet, P2PMessageCodeBase+uint32(MessageType_MessagePing))
 
 	return nil
 }
@@ -375,6 +393,7 @@ func (nc *NetCore) loop() {
 			nc.flowMeter.print()
 			nc.flowMeter.reset()
 			nc.peerManager.checkPeers()
+
 		case <-groupRefresh.C:
 			go nc.groupManager.doRefresh()
 		}
@@ -385,13 +404,13 @@ func init() {
 
 }
 
-//Send 发送包F
+//Send 发送包
 func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageType, req proto.Message, code uint32) {
 	packet, _, err := nc.encodePacket(ptype, req)
 	if err != nil {
 		return
 	}
-	nc.peerManager.write(toid, toaddr, packet, code)
+	nc.peerManager.write(toid, toaddr, packet, code,false)
 	nc.bufferPool.FreeBuffer(packet)
 }
 
@@ -457,7 +476,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		if p != nil && p.seesionId > 0 {
 			count += 1
 			nodesHasSend[id] = true
-			nc.peerManager.write(id, nil, packet, code)
+			nc.peerManager.write(id, nil, packet, code,false)
 		}
 	}
 
@@ -466,7 +485,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		id := NewNodeID(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
 			count += 1
-			nc.peerManager.write(id, nil, packet, code)
+			nc.peerManager.write(id, nil, packet, code,false)
 		}
 	}
 
@@ -499,12 +518,12 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberId
 
 //SendData 发送自定义数据包C
 func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uint32) {
-	packet, _, err := nc.encodeDataPacket(data, DataType_DataNormal, code, "", nil, nil, -1)
+	packet, _, err := nc.encodeDataPacket(data, DataType_DataNormal, code, "", &toid, nil, -1)
 	if err != nil {
 		Logger.Debugf("Send encodeDataPacket err :%v ", toid.GetHexString())
 		return
 	}
-	nc.peerManager.write(toid, toaddr, packet, code)
+	nc.peerManager.write(toid, toaddr, packet, code,true)
 	nc.bufferPool.FreeBuffer(packet)
 }
 
@@ -535,8 +554,11 @@ func (nc *NetCore) OnSendWaited(id uint64, session uint32) {
 
 //OnChecked 网络类型检查
 func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) {
-	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 8686}, 8686)
+	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 0}, 0)
+	nc.natType = p2pType
 	nc.peerManager.OnChecked(p2pType, privateIP, publicIP)
+	Logger.Debugf("OnChecked, nat type :%v public ip: %v private ip :%v", p2pType,publicIP,privateIP)
+
 }
 
 //OnRecved 数据回调
@@ -576,7 +598,7 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, code uint32,
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
-	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v code:%v", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount,code)
+	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v code:%v", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount, code)
 
 	return nc.encodePacket(MessageType_MessageData, msgData)
 }
@@ -614,7 +636,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	}
 	fromId := p.Id
 
-//	Logger.Debugf("handleMessage : msgType: %v ", msgType)
+	//	Logger.Debugf("handleMessage : msgType: %v ", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -627,12 +649,16 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		nc.handleFindNode(msg.(*MsgFindNode), fromId)
 	case MessageType_MessageNeighbors:
 		nc.handleNeighbors(msg.(*MsgNeighbors), fromId)
+	case MessageType_MessageRelayTest:
+		nc.handleRelayTest(msg.(*MsgRelay), fromId)
+	case MessageType_MessageRelayNode:
+		nc.handleRelayNode(msg.(*MsgRelay), fromId)
 	case MessageType_MessageData:
 		nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromId)
 	default:
 		return Logger.Errorf("unknown type: %d", msgType)
 	}
-	if buf  != nil {
+	if buf != nil {
 		nc.bufferPool.FreeBuffer(buf)
 	}
 	return nil
@@ -661,10 +687,10 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 	msgLen := binary.BigEndian.Uint32(headerBytes[PacketTypeSize:PacketHeadSize])
 	packetSize := int(msgLen + PacketHeadSize)
 
-	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(),header)
+	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(), header)
 
 	if packetSize > 16*1024*1024 || packetSize <= 0 {
-		Logger.Infof("[ decodePacket ] session : %v bad packet reset data!",p.seesionId)
+		Logger.Infof("[ decodePacket ] session : %v bad packet reset data!", p.seesionId)
 		p.resetData()
 		return MessageType_MessageNone, 0, nil, nil, errBadPacket
 	}
@@ -707,6 +733,10 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 		req = new(MsgNeighbors)
 	case MessageType_MessageData:
 		req = new(MsgData)
+	case MessageType_MessageRelayTest:
+		req = new(MsgRelay)
+	case MessageType_MessageRelayNode:
+		req = new(MsgRelay)
 	default:
 		return msgType, packetSize, nil, msgBuffer, fmt.Errorf("unknown type: %d", msgType)
 	}
@@ -727,6 +757,7 @@ func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 	if expired(req.Expiration) {
 		return errExpired
 	}
+
 	p := nc.peerManager.peerByID(fromId)
 	ip := nnet.ParseIP(req.From.Ip)
 	port := int(req.From.Port)
@@ -735,10 +766,17 @@ func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 		p.Port = port
 	}
 	from := nnet.UDPAddr{IP: nnet.ParseIP(req.From.Ip), Port: int(req.From.Port)}
+	Logger.Infof("[ping ] id : %v  ip:%v port:%v", fromId.GetHexString(), ip, port)
 
 	if !nc.handleReply(fromId, MessageType_MessagePing, req) {
 		go nc.kad.onPingNode(fromId, &from)
 	}
+
+	if !p.isPinged {
+		netCore.ping(fromId, nil)
+		p.isPinged = true
+	}
+
 	return nil
 }
 
@@ -767,6 +805,34 @@ func (nc *NetCore) handleFindNode(req *MsgFindNode, fromId NodeID) error {
 
 	return nil
 }
+func (nc *NetCore) handleRelayTest(req *MsgRelay, fromId NodeID) error {
+	TestNodeId := NodeID{}
+	TestNodeId.SetBytes(req.NodeId)
+	TestPeer := nc.peerManager.peerByID(TestNodeId)
+
+	if TestPeer != nil && TestPeer.seesionId > 0 {
+		nc.SendMessage(fromId, nil, MessageType_MessageRelayNode, req, P2PMessageCodeBase+uint32(MessageType_MessageRelayNode))
+		Logger.Infof("[Relay] handle relay test YES, test node id : %v", TestNodeId.GetHexString())
+	} else {
+		Logger.Infof("[Relay] handle relay test NO, test node id : %v", TestNodeId.GetHexString())
+
+	}
+
+	return nil
+}
+
+func (nc *NetCore) handleRelayNode(req *MsgRelay, fromId NodeID) error {
+	TestNodeId := NodeID{}
+	TestNodeId.SetBytes(req.NodeId)
+	TestPeer := nc.peerManager.peerByID(TestNodeId)
+
+	if TestPeer != nil  {
+		TestPeer.relayId = fromId
+	}
+
+	Logger.Infof("[Relay] handle relay node, test  node id : %v", TestNodeId.GetHexString())
+	return nil
+}
 
 func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 	if expired(req.Expiration) {
@@ -781,11 +847,26 @@ func (nc *NetCore) handleNeighbors(req *MsgNeighbors, fromId NodeID) error {
 func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	srcNodeId := NodeID{}
 	srcNodeId.SetBytes(req.SrcNodeId)
-	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v code:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg,req.MessageCode)
+	destNodeId := NodeID{}
+	destNodeId.SetBytes(req.DestNodeId)
+
+	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v code:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg, req.MessageCode)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
-		nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
+		if destNodeId.IsValid() && destNodeId != nc.id {
+			var dataBuffer *bytes.Buffer = nc.bufferPool.GetBuffer(len(packet))
+			dataBuffer.Write(packet)
+
+			Logger.Debugf("[Relay]Relay message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v RelayCount:%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString(), req.RelayCount)
+
+			nc.peerManager.write(destNodeId, nil, dataBuffer, uint32(req.MessageCode),false)
+
+		} else {
+			nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
+
+		}
+
 		return
 	}
 
@@ -808,8 +889,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 		return
 	}
 
-	destNodeId := NodeID{}
-	destNodeId.SetBytes(req.DestNodeId)
 
 	nc.messageManager.forward(req.MessageId)
 	if req.BizMessageId != nil {

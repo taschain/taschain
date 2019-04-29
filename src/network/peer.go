@@ -44,6 +44,7 @@ const MaxSendPriority = 3
 const MaxPendingSend = 10
 const MaxSendListSize = 256
 const WaitTimeout = 3*time.Second
+const RelayTestTimeOut = 30*time.Minute
 
 var priorityTable map[uint32]SendPriorityType
 
@@ -192,7 +193,9 @@ func (sendList *SendList) getDataSize() int {
 
 //Peer 节点连接对象
 type Peer struct {
-	Id         NodeID
+	Id         	NodeID
+	relayId    	NodeID
+	relayTestTime     time.Time
 	seesionId  uint32
 	Ip         nnet.IP
 	Port       int
@@ -201,6 +204,7 @@ type Peer struct {
 	expiration uint64
 	mutex      sync.RWMutex
 	connecting bool
+	isPinged   bool
 	source     PeerSource
 
 	bytesReceived 	int
@@ -274,6 +278,7 @@ func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	defer p.mutex.Unlock()
 	b := netCore.bufferPool.GetBuffer(packet.Len())
 	b.Write(packet.Bytes())
+
 	p.sendList.send(p, b, int(code))
 }
 
@@ -324,7 +329,7 @@ func newPeerManager() *PeerManager {
 	return pm
 }
 
-func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer, code uint32) error {
+func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer, code uint32, relay bool) error {
 
 	netId := netCoreNodeID(toid)
 	p := pm.peerByNetID(netId)
@@ -334,9 +339,24 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		p.connecting = false
 		pm.addPeer(netId, p)
 	}
+	//test
+	//if time.Since(p.relayTestTime) > RelayTestTimeOut {
+	//	p.relayTestTime = time.Now()
+	//	netCore.RelayTest(toid)
+	//}
+	if  p.relayId.IsValid() && relay {
+		relayPeer := pm.peerByID(p.relayId)
 
-	p.write(packet, code)
-	p.bytesSend += packet.Len()
+		if relayPeer != nil && relayPeer.seesionId > 0  {
+			Logger.Infof("[Relay] send with relay , relay node Id: %v ,to id :%v",p.relayId.GetHexString(),toid.GetHexString())
+			go pm.write(p.relayId,nil,packet,code,false)
+			return nil
+		}
+	} else {
+		p.write(packet, code)
+		p.bytesSend += packet.Len()
+	}
+
 	if p.seesionId != 0 {
 		return nil
 	}
@@ -358,6 +378,11 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		}
 	}
 
+	if !p.relayId.IsValid() &&  p.disconnectCount > 1 && p.bytesReceived == 0 && time.Since(p.relayTestTime) > RelayTestTimeOut {
+		p.relayTestTime = time.Now()
+		netCore.RelayTest(toid)
+	}
+
 	return nil
 }
 
@@ -375,7 +400,11 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	}
 	p.connecting = false
 
-	netCore.ping(p.Id, nil)
+	if len(p.Id.GetHexString()) > 0 && !p.isPinged {
+		netCore.ping(p.Id, nil)
+		p.isPinged = true
+	}
+
 	p.sendList.pendingSend = 0
 	p.sendList.autoSend(p)
 	Logger.Infof("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.Id.GetHexString(), id, session, isAccepted)

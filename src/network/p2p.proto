@@ -9,6 +9,8 @@ enum MessageType
 	MessageFindnode = 3;
 	MessageNeighbors = 4;
     MessageData = 5;
+    MessageRelayTest = 6;
+    MessageRelayNode = 7;
 
 };
 enum DataType
@@ -35,6 +37,10 @@ message MsgPing{
     RpcEndPoint To =3;
     bytes  NodeId=4;
 	uint64 Expiration =5;
+}
+
+message MsgRelay{
+    bytes NodeId=1;
 }
 
 message MsgFindNode {

@@ -183,15 +183,15 @@ func (g *Group) send(packet *bytes.Buffer,code uint32) {
 		}
 		p := netCore.peerManager.peerByID(id)
 		if p != nil {
-			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet, code)
+			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet, code,false)
 		} else {
 			node := netCore.kad.find(id)
 			if node != nil && node.Ip != nil && node.Port > 0 {
 				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet, code)
+				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet, code,false)
 			} else {
 				Logger.Debugf("SendGroup node not connected and not in KAD : id：%v", id.GetHexString())
-				netCore.peerManager.write(id, nil, packet, code)
+				netCore.peerManager.write(id, nil, packet, code,false)
 			}
 		}
 	}
