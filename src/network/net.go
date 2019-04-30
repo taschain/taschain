@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-//Version 版本号
+//P2pProtoVersion 版本号
 const Version = 1
 
 const (
@@ -86,6 +86,9 @@ type NetCore struct {
 	messageManager *MessageManager
 	flowMeter      *FlowMeter
 	bufferPool     *BufferPool
+
+	chainId         uint32 //链id
+	protocolVersion uint32 //协议id
 }
 
 type pending struct {
@@ -132,8 +135,11 @@ type NetCoreConfig struct {
 	Id                 NodeID
 	Seeds              []*Node
 	NatTraversalEnable bool
-	NatPort            uint16
-	NatIp              string
+
+	NatPort         uint16
+	NatIp           string
+	ChainId         uint32
+	ProtocolVersion uint32
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -158,6 +164,8 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	nc.addpending = make(chan *pending)
 	nc.unhandled = make(chan *Peer, 64)
 	nc.nid = netCoreNodeID(cfg.Id)
+	nc.chainId = cfg.ChainId
+	nc.protocolVersion = cfg.ProtocolVersion
 	nc.peerManager = newPeerManager()
 	nc.peerManager.natTraversalEnable = cfg.NatTraversalEnable
 	nc.peerManager.natIp = cfg.NatIp
@@ -215,11 +223,13 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		to = MakeEndPoint(toaddr, 0)
 	}
 	req := &MsgPing{
-		Version:    Version,
-		From:       &nc.ourEndPoint,
-		To:         &to,
-		NodeId:     nc.id[:],
-		Expiration: uint64(time.Now().Add(expiration).Unix()),
+		Version:         Version,
+		From:            &nc.ourEndPoint,
+		To:              &to,
+		NodeId:          nc.id[:],
+		Expiration:      uint64(time.Now().Add(expiration).Unix()),
+		ChainId:         nc.chainId,
+		ProtocolVersion: nc.protocolVersion,
 	}
 	Logger.Infof("[send ping ] id : %v  ip:%v port:%v", toid.GetHexString(), nc.ourEndPoint.Ip, nc.ourEndPoint.Port)
 
@@ -228,7 +238,7 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		return err
 	}
 
-	nc.peerManager.write(toid, toaddr, packet, P2PMessageCodeBase+uint32(MessageType_MessagePing),false)
+	nc.peerManager.write(toid, toaddr, packet, P2PMessageCodeBase+uint32(MessageType_MessagePing), false)
 
 	return nil
 }
@@ -410,7 +420,7 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 	if err != nil {
 		return
 	}
-	nc.peerManager.write(toid, toaddr, packet, code,false)
+	nc.peerManager.write(toid, toaddr, packet, code, false)
 	nc.bufferPool.FreeBuffer(packet)
 }
 
@@ -476,7 +486,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		if p != nil && p.seesionId > 0 {
 			count += 1
 			nodesHasSend[id] = true
-			nc.peerManager.write(id, nil, packet, code,false)
+			nc.peerManager.write(id, nil, packet, code, false)
 		}
 	}
 
@@ -485,7 +495,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		id := NewNodeID(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
 			count += 1
-			nc.peerManager.write(id, nil, packet, code,false)
+			nc.peerManager.write(id, nil, packet, code, false)
 		}
 	}
 
@@ -523,7 +533,7 @@ func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uin
 		Logger.Debugf("Send encodeDataPacket err :%v ", toid.GetHexString())
 		return
 	}
-	nc.peerManager.write(toid, toaddr, packet, code,true)
+	nc.peerManager.write(toid, toaddr, packet, code, true)
 	nc.bufferPool.FreeBuffer(packet)
 }
 
@@ -557,7 +567,7 @@ func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) 
 	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 0}, 0)
 	nc.natType = p2pType
 	nc.peerManager.OnChecked(p2pType, privateIP, publicIP)
-	Logger.Debugf("OnChecked, nat type :%v public ip: %v private ip :%v", p2pType,publicIP,privateIP)
+	Logger.Debugf("OnChecked, nat type :%v public ip: %v private ip :%v", p2pType, publicIP, privateIP)
 
 }
 
@@ -644,9 +654,9 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		if fromId != p.Id {
 			p.Id = fromId
 		}
-		nc.handlePing(msg.(*MsgPing), fromId)
+		err = nc.handlePing(msg.(*MsgPing), fromId)
 	case MessageType_MessageFindnode:
-		nc.handleFindNode(msg.(*MsgFindNode), fromId)
+		err = nc.handleFindNode(msg.(*MsgFindNode), fromId)
 	case MessageType_MessageNeighbors:
 		nc.handleNeighbors(msg.(*MsgNeighbors), fromId)
 	case MessageType_MessageRelayTest:
@@ -661,7 +671,7 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	if buf != nil {
 		nc.bufferPool.FreeBuffer(buf)
 	}
-	return nil
+	return err
 }
 
 func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *bytes.Buffer, error) {
@@ -689,7 +699,9 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 
 	Logger.Debugf("[ decodePacket ] session : %v packetSize: %v  msgType: %v  msgLen:%v   bufSize:%v buffer address:%p ", p.seesionId, packetSize, msgType, msgLen, header.Len(), header)
 
-	if packetSize > 16*1024*1024 || packetSize <= 0 {
+	const MaxPacketSize = 16 * 1024 * 1024
+
+	if packetSize > MaxPacketSize || packetSize <= 0 {
 		Logger.Infof("[ decodePacket ] session : %v bad packet reset data!", p.seesionId)
 		p.resetData()
 		return MessageType_MessageNone, 0, nil, nil, errBadPacket
@@ -741,10 +753,8 @@ func (nc *NetCore) decodePacket(p *Peer) (MessageType, int, proto.Message, *byte
 		return msgType, packetSize, nil, msgBuffer, fmt.Errorf("unknown type: %d", msgType)
 	}
 
-	var err error
-	if req != nil {
-		err = proto.Unmarshal(data, req)
-	}
+	err := proto.Unmarshal(data, req)
+
 	if msgType != MessageType_MessageData {
 		nc.flowMeter.recv(P2PMessageCodeBase+int64(msgType), int64(packetSize))
 	}
@@ -761,12 +771,17 @@ func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 	p := nc.peerManager.peerByID(fromId)
 	ip := nnet.ParseIP(req.From.Ip)
 	port := int(req.From.Port)
-	if p != nil && ip != nil && port > 0 {
-		p.Ip = ip
-		p.Port = port
+	if p != nil {
+		if ip != nil && port > 0 {
+			p.Ip = ip
+			p.Port = port
+		}
+		p.chainId = req.ChainId
+		p.protocolVersion = req.ProtocolVersion
 	}
 	from := nnet.UDPAddr{IP: nnet.ParseIP(req.From.Ip), Port: int(req.From.Port)}
-	Logger.Infof("[ping ] id : %v  ip:%v port:%v", fromId.GetHexString(), ip, port)
+
+	Logger.Debugf("ping from:%v id:%v port:%d chain id:%v protocol version:%v", fromId.GetHexString(), ip, port, req.ChainId, req.ProtocolVersion)
 
 	if !nc.handleReply(fromId, MessageType_MessagePing, req) {
 		go nc.kad.onPingNode(fromId, &from)
@@ -826,7 +841,7 @@ func (nc *NetCore) handleRelayNode(req *MsgRelay, fromId NodeID) error {
 	TestNodeId.SetBytes(req.NodeId)
 	TestPeer := nc.peerManager.peerByID(TestNodeId)
 
-	if TestPeer != nil  {
+	if TestPeer != nil {
 		TestPeer.relayId = fromId
 	}
 
@@ -860,13 +875,12 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 
 			Logger.Debugf("[Relay]Relay message DataType:%v messageId:%X DestNodeId：%v SrcNodeId：%v RelayCount:%v", req.DataType, req.MessageId, destNodeId.GetHexString(), srcNodeId.GetHexString(), req.RelayCount)
 
-			nc.peerManager.write(destNodeId, nil, dataBuffer, uint32(req.MessageCode),false)
+			nc.peerManager.write(destNodeId, nil, dataBuffer, uint32(req.MessageCode), false)
 
 		} else {
-			nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
+			nc.onHandleDataMessage(req.Data, srcNodeId)
 
 		}
-
 		return
 	}
 
@@ -889,7 +903,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 		return
 	}
 
-
 	nc.messageManager.forward(req.MessageId)
 	if req.BizMessageId != nil {
 		bizId := nc.messageManager.ByteToBizId(req.BizMessageId)
@@ -897,7 +910,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	}
 	//需处理
 	if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-		nc.onHandleDataMessage(req.Data, srcNodeId.GetHexString())
+		nc.onHandleDataMessage(req.Data, srcNodeId)
 	}
 	broadcast := false
 	//需广播
@@ -929,14 +942,19 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	}
 }
 
-func (nc *NetCore) onHandleDataMessage(b []byte, from string) {
+func (nc *NetCore) onHandleDataMessage(b []byte, fromId NodeID) {
 	if nc.unhandledDataMsg > MaxUnhandledMessageCount {
 		Logger.Errorf("unhandled message too much , drop this message !")
 		return
 	}
+	p := nc.peerManager.peerByID(fromId)
+	if p != nil && !p.IsCompatible() {
+		Logger.Errorf("node chain id or  porotocal version is not compatible, drop this message !")
+		return
+	}
 	nc.unhandledDataMsg += 1
 	if net != nil {
-		net.handleMessage(b, from)
+		net.handleMessage(b, fromId.GetHexString())
 	}
 
 }

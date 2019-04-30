@@ -23,7 +23,7 @@ enum DataType
 message RpcNode  {
     string Ip = 1;
     int32 Port = 2;
-    string Id =3;
+    string Id = 3;
 }
 
 message RpcEndPoint  {
@@ -32,11 +32,13 @@ message RpcEndPoint  {
 }
 
 message MsgPing{
-	int32 Version =1;
-    RpcEndPoint From =2;
-    RpcEndPoint To =3;
-    bytes  NodeId=4;
-	uint64 Expiration =5;
+    int32 Version = 1;
+    RpcEndPoint From = 2;
+    RpcEndPoint To = 3;
+    bytes  NodeId = 4;
+	uint64 Expiration = 5;
+    uint32 ChainId = 6;
+    uint32 ProtocolVersion = 7;
 }
 
 message MsgRelay{
@@ -44,26 +46,26 @@ message MsgRelay{
 }
 
 message MsgFindNode {
-    bytes Target =1;
-    uint64 Expiration =2;
+    bytes Target = 1;
+    uint64 Expiration = 2;
 }
 
 message MsgNeighbors {
-    repeated RpcNode Nodes =1;
-    uint64  Expiration =2;
+    repeated RpcNode Nodes = 1;
+    uint64  Expiration = 2;
 }
 
 message MsgData {
-    DataType DataType =1;
-    string GroupId =2;
-    uint64 Expiration =3;
+    DataType DataType = 1;
+    string GroupId = 2;
+    uint64 Expiration = 3;
     uint64 MessageId = 4;
-    bytes BizMessageId =5;
-    bytes DestNodeId=6;
-    bytes SrcNodeId=7;
-    bytes Data=8;
-    int32 RelayCount=9;
-    int32 MessageCode=10;
+    bytes BizMessageId = 5;
+    bytes DestNodeId = 6;
+    bytes SrcNodeId = 7;
+    bytes Data = 8;
+    int32 RelayCount = 9;
+    int32 MessageCode = 10;
 }
 
 

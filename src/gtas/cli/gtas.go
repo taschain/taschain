@@ -33,13 +33,13 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"middleware"
 	"middleware/types"
+	"monitor"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"taslog"
-	"monitor"
 )
 
 const (
@@ -385,7 +385,15 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	}
 	id := minerInfo.ID.GetHexString()
 
-	err = network.Init(common.GlobalConf, isSuper, chandler.MessageHandler, testMode, natIp, natPort, seedIp, seedId, id)
+	netCfg := network.NetworkConfig{IsSuper: isSuper,
+		TestMode:  testMode,
+		NatIp:     natIp,
+		NatPort:   natPort,
+		SeedIp:    seedIp,
+		SeedId:    seedId,
+		NodeIDHex: id}
+
+	err = network.Init(common.GlobalConf, chandler.MessageHandler, netCfg)
 
 	if err != nil {
 		return err
@@ -413,7 +421,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	}
 
 	mediator.Proc.BeginGenesisGroupMember()
-
 
 	return nil
 }
