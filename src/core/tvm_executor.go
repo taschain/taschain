@@ -119,12 +119,13 @@ func (executor *TVMExecutor) validateNonce(accountdb *account.AccountDB, transac
 
 func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address) (success bool, err *types.TransactionError, cumulativeGasUsed uint64) {
 	success = false
-	amount := big.NewInt(int64(transaction.Value))
+
+	amount := new(big.Int).SetUint64(transaction.Value)
 	intriGas,err := intrinsicGas(transaction)
 	if err != nil{
 		return
 	}
-	gasFee := big.NewInt(int64(transaction.GasPrice * intriGas))
+	gasFee := new(big.Int).SetUint64(transaction.GasPrice * intriGas)
 	if canTransfer(accountdb, *transaction.Source, amount, gasFee) {
 		transfer(accountdb, *transaction.Source, *transaction.Target, amount)
 		accountdb.SubBalance(*transaction.Source, gasFee)
@@ -228,7 +229,7 @@ func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transa
 		reader := bytes.NewReader(transaction.ExtraData)
 		groupId := make([]byte, common.GroupIdLength)
 		addr := make([]byte, common.AddressLength)
-		value := big.NewInt(int64(transaction.Value))
+		value := new(big.Int).SetUint64(transaction.Value)
 		if n, _ := reader.Read(groupId); n != common.GroupIdLength {
 			Logger.Errorf("TVMExecutor Read GroupId Fail")
 			return success
@@ -261,7 +262,8 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 	if err != nil{
 		return
 	}
-	txExecuteFee := big.NewInt(int64(transaction.GasPrice * intriGas))
+	txExecuteFee := new(big.Int).SetUint64(transaction.GasPrice * intriGas)
+
 
 	var miner = MinerManagerImpl.Transaction2Miner(transaction)
 	mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
@@ -269,7 +271,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s Type:%s", transaction.Source.GetHexString(), mark)
 		return success
 	}
-	amount := big.NewInt(int64(miner.Stake))
+	amount := new(big.Int).SetUint64(miner.Stake)
 
 	if canTransfer(accountdb, *transaction.Source, amount, txExecuteFee) {
 		accountdb.SubBalance(*transaction.Source, txExecuteFee)
@@ -294,7 +296,7 @@ func (executor *TVMExecutor) executeMinerAbortTx(accountdb *account.AccountDB, t
 	if err != nil{
 		return
 	}
-	txExecuteFee := big.NewInt(int64(transaction.GasPrice * intriGas))
+	txExecuteFee := new(big.Int).SetUint64(transaction.GasPrice * intriGas)
 	if canTransfer(accountdb, *transaction.Source, new(big.Int).SetUint64(0), txExecuteFee) {
 		accountdb.SubBalance(*transaction.Source, txExecuteFee)
 		accountdb.AddBalance(castor, txExecuteFee)
@@ -315,7 +317,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 		return
 	}
 
-	txExecuteFee := big.NewInt(int64(transaction.GasPrice * intriGas))
+	txExecuteFee := new(big.Int).SetUint64(transaction.GasPrice * intriGas)
 	if canTransfer(accountdb, *transaction.Source, new(big.Int).SetUint64(0), txExecuteFee) {
 		accountdb.SubBalance(*transaction.Source, txExecuteFee)
 		accountdb.AddBalance(castor, txExecuteFee)
@@ -329,7 +331,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 		if mexist.Type == types.MinerTypeHeavy {
 			if height > mexist.AbortHeight+10 {
 				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
-				amount := big.NewInt(int64(mexist.Stake))
+				amount := new(big.Int).SetUint64(mexist.Stake)
 				accountdb.AddBalance(*transaction.Source, amount)
 				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Success %s,Type:%s", transaction.Source.GetHexString(), mark)
 				success = true
@@ -339,7 +341,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 		} else {
 			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height) {
 				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
-				amount := big.NewInt(int64(mexist.Stake))
+				amount := new(big.Int).SetUint64(mexist.Stake)
 				accountdb.AddBalance(*transaction.Source, amount)
 				Logger.Debugf("TVMExecutor Execute MinerRefund Light Success %s,Type:%s", transaction.Source.GetHexString())
 				success = true
@@ -364,6 +366,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	accountdb.SetNonce(contractAddr, 1)
 	return contractAddr, nil
 }
+
 
 /**
 交易固定消耗gas
