@@ -386,12 +386,14 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	id := minerInfo.ID.GetHexString()
 
 	netCfg := network.NetworkConfig{IsSuper: isSuper,
-		TestMode:  testMode,
-		NatIp:     natIp,
-		NatPort:   natPort,
-		SeedIp:    seedIp,
-		SeedId:    seedId,
-		NodeIDHex: id}
+		TestMode:        testMode,
+		NatIp:           natIp,
+		NatPort:         natPort,
+		SeedIp:          seedIp,
+		SeedId:          seedId,
+		NodeIDHex:       id,
+		ChainId:         common.ChainID,
+		ProtocolVersion: common.ProtocalVersion}
 
 	err = network.Init(common.GlobalConf, chandler.MessageHandler, netCfg)
 
