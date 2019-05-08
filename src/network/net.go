@@ -879,7 +879,6 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 
 		} else {
 			nc.onHandleDataMessage(req.Data, srcNodeId)
-
 		}
 		return
 	}

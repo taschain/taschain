@@ -34,6 +34,7 @@ const (
 	BASE_SECTION = "network"
 
 	PRIVATE_KEY  = "private_key"
+
 	NodeIdLength = 66
 )
 
