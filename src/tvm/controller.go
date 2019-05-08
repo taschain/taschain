@@ -77,7 +77,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}()
 	//先转账
 	if con.Transaction.Value > 0 {
-		amount := big.NewInt(int64(con.Transaction.Value))
+		amount := new(big.Int).SetUint64(con.Transaction.Value)
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
 		} else {
