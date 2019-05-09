@@ -144,14 +144,19 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
-
+	if transaction == nil {
+		return failResult("transaction not exists")
+	}
 	detail := make(map[string]interface{})
 	detail["hash"] = hash
-	detail["source"] = transaction.Source.Hash().Hex()
+	if transaction.Source != nil {
+		detail["source"] = transaction.Source.Hash().Hex()
+	}
 	if transaction.Target != nil {
 		detail["target"] = transaction.Target.Hash().Hex()
 	}
 	detail["value"] = transaction.Value
+
 	return successResult(detail)
 }
 
