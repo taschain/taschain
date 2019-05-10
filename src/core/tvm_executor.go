@@ -156,7 +156,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 
 	if canTransfer(accountdb, *transaction.Source, new(big.Int).SetUint64(0), gasLimitFee) {
 		accountdb.SubBalance(*transaction.Source, gasLimitFee)
-		controller := tvm.NewController(accountdb, BlockChainImpl, bh, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+		controller := tvm.NewController(accountdb, BlockChainImpl, bh, transaction, intriGas, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		snapshot := controller.AccountDB.Snapshot()
 		contractAddress, err = createContract(accountdb, transaction)
 		if err != nil {
