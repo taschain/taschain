@@ -42,15 +42,18 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.Block, height uint64, situation string) (state common.Hash, evits []common.Hash, txs []*types.Transaction, recps []*types.Receipt, err error) {
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
+	idx := 0
+	castor := common.BytesToAddress(bh.Castor)
+
 	//errs := make([]*types.TransactionError, len(block.Transactions))
 
-	for _, transaction := range block.Transactions {
-		if situation == "casting" && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
+	for _, transaction := range txs {
+		if pack && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
 			break
 		}
@@ -60,7 +63,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		var logs []*types.Log
 		//var err *types.TransactionError
 		var cumulativeGasUsed uint64
-		castor := common.BytesToAddress(block.Header.Castor)
 
 		if !executor.validateNonce(accountdb, transaction) {
 			evictedTxs = append(evictedTxs, transaction.Hash)
@@ -71,21 +73,22 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		case types.TransactionTypeTransfer:
 			success, _, cumulativeGasUsed = executor.executeTransferTx(accountdb, transaction, castor)
 		case types.TransactionTypeContractCreate:
-			success, _, cumulativeGasUsed, contractAddress = executor.executeContractCreateTx(accountdb, transaction, castor, block)
+			success, _, cumulativeGasUsed, contractAddress = executor.executeContractCreateTx(accountdb, transaction, castor, bh)
 		case types.TransactionTypeContractCall:
-			success, _, cumulativeGasUsed, logs = executor.executeContractCallTx(accountdb, transaction, castor, block)
+			success, _, cumulativeGasUsed, logs = executor.executeContractCallTx(accountdb, transaction, castor, bh)
 		case types.TransactionTypeBonus:
 			success = executor.executeBonusTx(accountdb, transaction, castor)
 			if !success {
+				evictedTxs = append(evictedTxs, transaction.Hash)
 				//failed bonus tx should not be included in block
 				continue
 			}
 		case types.TransactionTypeMinerApply:
-			success = executor.executeMinerApplyTx(accountdb, transaction, height, situation, castor)
+			success = executor.executeMinerApplyTx(accountdb, transaction, bh.Height, castor)
 		case types.TransactionTypeMinerAbort:
-			success = executor.executeMinerAbortTx(accountdb, transaction, height, castor, situation)
+			success = executor.executeMinerAbortTx(accountdb, transaction, bh.Height, castor)
 		case types.TransactionTypeMinerRefund:
-			success = executor.executeMinerRefundTx(accountdb, transaction, height, castor, situation)
+			success = executor.executeMinerRefundTx(accountdb, transaction, bh.Height, castor)
 		}
 
 		transactions = append(transactions, transaction)
@@ -93,13 +96,16 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, block *types.
 		receipt.Logs = logs
 		receipt.TxHash = transaction.Hash
 		receipt.ContractAddress = contractAddress
+		receipt.TxIndex = uint16(idx)
+		receipt.Height = bh.Height
 		receipts = append(receipts, receipt)
+		//errs[i] = err
 		if transaction.Source != nil {
 			accountdb.SetNonce(*transaction.Source, transaction.Nonce)
 		}
 
 	}
-	accountdb.AddBalance(common.BytesToAddress(block.Header.Castor), executor.bc.GetConsensusHelper().ProposalBonus())
+	accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state = accountdb.IntermediateRoot(true)
 	return state, evictedTxs, transactions, receipts, nil
@@ -139,7 +145,7 @@ func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, tra
 	return success, err, cumulativeGasUsed
 }
 
-func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address, block *types.Block) (success bool, err *types.TransactionError, cumulativeGasUsed uint64, contractAddress common.Address) {
+func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address, bh *types.BlockHeader) (success bool, err *types.TransactionError, cumulativeGasUsed uint64, contractAddress common.Address) {
 	success = false
 	intriGas,err := intrinsicGas(transaction)
 	if err != nil{
@@ -150,8 +156,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 
 	if canTransfer(accountdb, *transaction.Source, new(big.Int).SetUint64(0), gasLimitFee) {
 		accountdb.SubBalance(*transaction.Source, gasLimitFee)
-
-		controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction,intriGas, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+		controller := tvm.NewController(accountdb, BlockChainImpl, bh, transaction, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		snapshot := controller.AccountDB.Snapshot()
 		contractAddress, err = createContract(accountdb, transaction)
 		if err != nil {
@@ -183,7 +188,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 	return success, err, cumulativeGasUsed, contractAddress
 }
 
-func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address, block *types.Block) (success bool, err *types.TransactionError, cumulativeGasUsed uint64, logs []*types.Log) {
+func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB, transaction *types.Transaction, castor common.Address, bh *types.BlockHeader) (success bool, err *types.TransactionError, cumulativeGasUsed uint64, logs []*types.Log) {
 	success = false
 	transferAmount := new(big.Int).SetUint64(transaction.Value)
 	intriGas, err := intrinsicGas(transaction)
@@ -195,7 +200,7 @@ func (executor *TVMExecutor) executeContractCallTx(accountdb *account.AccountDB,
 
 	if canTransfer(accountdb, *transaction.Source, transferAmount, gasLimitFee) {
 		accountdb.SubBalance(*transaction.Source, gasLimitFee)
-		controller := tvm.NewController(accountdb, BlockChainImpl, block.Header, transaction, intriGas, common.GlobalConf.GetString("tvm", "pylib", "lib"))
+		controller := tvm.NewController(accountdb, BlockChainImpl, bh, transaction, intriGas, common.GlobalConf.GetString("tvm", "pylib", "lib"))
 		contract := tvm.LoadContract(*transaction.Target)
 		if contract.Code == "" {
 			err = types.NewTransactionError(types.TxErrorCode_NO_CODE, fmt.Sprintf(types.NO_CODE_ERROR_MSG, *transaction.Target))
@@ -250,11 +255,11 @@ func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transa
 	return success
 }
 
-func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, mark string, castor common.Address) (success bool) {
+func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, castor common.Address) (success bool) {
 	Logger.Debugf("Execute miner apply tx:%s,source: %v\n", transaction.Hash.String(), transaction.Source.GetHexString())
 	success = false
 	if transaction.Data == nil {
-		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Tx data is nil) Source:%s Height:%d Type:%s", transaction.Source.GetHexString(), height, mark)
+		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Tx data is nil) Source:%s Height:%d", transaction.Source.GetHexString(), height)
 		return success
 	}
 
@@ -268,7 +273,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 	var miner = MinerManagerImpl.Transaction2Miner(transaction)
 	mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
 	if mexist != nil {
-		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s Type:%s", transaction.Source.GetHexString(), mark)
+		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s", transaction.Source.GetHexString())
 		return success
 	}
 	amount := new(big.Int).SetUint64(miner.Stake)
@@ -280,16 +285,16 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 		miner.ApplyHeight = height
 		if MinerManagerImpl.addMiner(transaction.Source[:], miner, accountdb) > 0 {
 			accountdb.SubBalance(*transaction.Source, amount)
-			Logger.Debugf("TVMExecutor Execute MinerApply Success Source:%s Height:%d Type:%s", transaction.Source.GetHexString(), height, mark)
+			Logger.Debugf("TVMExecutor Execute MinerApply Success Source:%s Height:%d", transaction.Source.GetHexString(), height)
 		}
 		success = true
 	} else {
-		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Balance Not Enough) Source:%s Height:%d Type:%s", transaction.Source.GetHexString(), height, mark)
+		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Balance Not Enough) Source:%s Height:%d", transaction.Source.GetHexString(), height)
 	}
 	return success
 }
 
-func (executor *TVMExecutor) executeMinerAbortTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, castor common.Address, mark string) (success bool) {
+func (executor *TVMExecutor) executeMinerAbortTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, castor common.Address) (success bool) {
 	success = false
 
 	intriGas, err := intrinsicGas(transaction)
@@ -304,13 +309,13 @@ func (executor *TVMExecutor) executeMinerAbortTx(accountdb *account.AccountDB, t
 			success = MinerManagerImpl.abortMiner(transaction.Source[:], transaction.Data[0], height, accountdb)
 		}
 	} else {
-		Logger.Debugf("TVMExecutor Execute MinerAbort Fail(Balance Not Enough) Source:%s Height:%d ,Type:%s", transaction.Source.GetHexString(), height, mark)
+		Logger.Debugf("TVMExecutor Execute MinerAbort Fail(Balance Not Enough) Source:%s Height:%d ", transaction.Source.GetHexString(), height)
 	}
-	Logger.Debugf("TVMExecutor Execute MinerAbort Tx %s,Source:%s, Success:%t,Type:%s", transaction.Hash.String(), transaction.Source.GetHexString(), success, mark)
+	Logger.Debugf("TVMExecutor Execute MinerAbort Tx %s,Source:%s, Success:%t", transaction.Hash.String(), transaction.Source.GetHexString(), success)
 	return success
 }
 
-func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, castor common.Address, mark string) (success bool) {
+func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, transaction *types.Transaction, height uint64, castor common.Address) (success bool) {
 	success = false
 	intriGas, err := intrinsicGas(transaction)
 	if err != nil{
@@ -322,7 +327,7 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 		accountdb.SubBalance(*transaction.Source, txExecuteFee)
 		accountdb.AddBalance(castor, txExecuteFee)
 	} else {
-		Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Balance Not Enough) Hash:%s,Source:%s,Type:%s", transaction.Hash.String(), transaction.Source.GetHexString(), mark)
+		Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Balance Not Enough) Hash:%s,Source:%s", transaction.Hash.String(), transaction.Source.GetHexString())
 		return success
 	}
 
@@ -333,10 +338,10 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 				MinerManagerImpl.removeMiner(transaction.Source[:], mexist.Type, accountdb)
 				amount := new(big.Int).SetUint64(mexist.Stake)
 				accountdb.AddBalance(*transaction.Source, amount)
-				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Success %s,Type:%s", transaction.Source.GetHexString(), mark)
+				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Success %s", transaction.Source.GetHexString())
 				success = true
 			} else {
-				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail(Refund height less than abortHeight+10) Hash%s,Type:%s", transaction.Source.GetHexString(), mark)
+				Logger.Debugf("TVMExecutor Execute MinerRefund Heavy Fail(Refund height less than abortHeight+10) Hash%s", transaction.Source.GetHexString())
 			}
 		} else {
 			if !GroupChainImpl.WhetherMemberInActiveGroup(transaction.Source[:], height) {
@@ -346,11 +351,11 @@ func (executor *TVMExecutor) executeMinerRefundTx(accountdb *account.AccountDB, 
 				Logger.Debugf("TVMExecutor Execute MinerRefund Light Success %s,Type:%s", transaction.Source.GetHexString())
 				success = true
 			} else {
-				Logger.Debugf("TVMExecutor Execute MinerRefund Light Fail(Still In Active Group) %s,Type:%s", transaction.Source.GetHexString(), mark)
+				Logger.Debugf("TVMExecutor Execute MinerRefund Light Fail(Still In Active Group) %s", transaction.Source.GetHexString())
 			}
 		}
 	} else {
-		Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Not Exist Or Not Abort) %s,Type:%s", transaction.Source.GetHexString(), mark)
+		Logger.Debugf("TVMExecutor Execute MinerRefund Fail(Not Exist Or Not Abort) %s", transaction.Source.GetHexString())
 	}
 	return success
 }

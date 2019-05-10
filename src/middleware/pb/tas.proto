@@ -61,8 +61,14 @@ message TransactionSlice{
     repeated Transaction transactions = 1;
 }
 
-message ChainPieceInfo{
+message ChainPieceReq{
     repeated bytes Pieces = 1;
+    optional int32 ReqCnt = 2;
+}
+
+message SyncRequest {
+    required uint64 ReqHeight = 1;
+    required int32 ReqSize = 2;
 }
 
 
@@ -74,13 +80,13 @@ message BlockHeader{
 
      optional bytes PreHash  = 3 ;
 
-     optional bytes PreTime  = 4 ;
+     optional int32 Elapsed  = 4 ;
 
      optional bytes ProveValue = 5;
 
      optional uint64 TotalQN = 6;
 
-     optional bytes CurTime  = 7 ;
+     optional int64 CurTime  = 7 ;
 
      optional bytes Castor  = 8 ;
 
@@ -88,31 +94,23 @@ message BlockHeader{
 
      optional bytes Signature  = 10 ;
 
-     optional uint64 Nonce = 11;
+     optional int32 Nonce = 11;
 
-     optional Hashes transactions = 12;
+//     optional Hashes transactions = 12;
 
-     optional bytes TxTree  = 13 ;
+     optional bytes TxTree  = 12 ;
 
-     optional bytes ReceiptTree  = 14 ;
+     optional bytes ReceiptTree  = 13 ;
 
-     optional bytes StateTree  = 15 ;
+     optional bytes StateTree  = 14 ;
 
-     optional bytes ExtraData  = 16 ;
+     optional bytes ExtraData  = 15 ;
 
-     optional bytes Random = 17;
+     optional bytes Random = 16;
 
-     optional bytes ProveRoot = 18;
+//     optional bytes ProveRoot = 18;
 
 }
-
-message BlockBody{
-
-    required bytes BlockHash  = 1;
-
-    repeated Transaction transactions = 2;
-}
-
 
 message Block{
     required BlockHeader Header = 1;
@@ -144,7 +142,7 @@ message GroupHeader{
 
     optional string Name = 5;
 
-    optional bytes BeginTime = 6;
+    optional int64 BeginTime = 6;
 
     optional bytes MemberRoot = 7;
 
@@ -352,7 +350,7 @@ message ConsensusCastMessage{
 
     required SignData	Sign = 3;
 
-    repeated bytes  ProveHash = 4;
+    required bytes  ProveHash = 4;
 }
 message ConsensusVerifyMessage{
     required bytes BlockHash = 1;
@@ -439,4 +437,11 @@ message ResponseSharePieceMessage {
     required bytes GHash = 1;
     required SharePiece  SharePiece = 2;
     required SignData Sign = 3;
+}
+
+
+message BlockSignAggrMessage {
+    required bytes BlockHash = 1;
+    required bytes Sign = 2;
+    required bytes Random = 3;
 }

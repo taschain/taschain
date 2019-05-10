@@ -18,9 +18,8 @@ package types
 import (
 	"bytes"
 	"common"
-	"encoding/json"
-	"time"
 	"utility"
+	"middleware/time"
 )
 
 type AddBlockOnChainSituation string
@@ -234,47 +233,30 @@ type Miner struct {
 	Status       byte
 }
 
+
 //区块头结构
 type BlockHeader struct {
-	Hash         common.Hash   // 本块的hash，to do : 是对哪些数据的哈希
-	Height       uint64        // 本块的高度
-	PreHash      common.Hash   //上一块哈希
-	PreTime      time.Time     //上一块铸块时间
-	ProveValue   []byte      //vrf prove
-	TotalQN      uint64        //整条链的QN
-	CurTime      time.Time     //当前铸块时间
-	Castor       []byte        //出块人ID
-	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Signature    []byte        // 组签名
-	Nonce        uint64        //盐
-	Transactions []common.Hash // 交易集哈希列表
+	Hash       common.Hash     // 本块的hash，to do : 是对哪些数据的哈希
+	Height     uint64          // 本块的高度
+	PreHash    common.Hash     //上一块哈希
+	Elapsed    int32           //距离上一块铸块时间的时长
+	ProveValue []byte          //vrf prove
+	TotalQN    uint64          //整条链的QN
+	CurTime    time.TimeStamp //当前铸块时间
+	Castor     []byte          //出块人ID
+	GroupId    []byte          //组ID，groupsig.ID的二进制表示
+	Signature  []byte          // 组签名
+	Nonce      int32           //盐
+	//Transactions []common.Hash // 交易集哈希列表
 	TxTree       common.Hash   // 交易默克尔树根hash
 	ReceiptTree  common.Hash
 	StateTree    common.Hash
 	ExtraData    []byte
 	Random       []byte
-	ProveRoot    common.Hash
+	//ProveRoot    common.Hash
 	//EvictedTxs   []common.Hash
 }
 
-type header struct {
-	Height       uint64        // 本块的高度
-	PreHash      common.Hash   //上一块哈希
-	PreTime      time.Time     //上一块铸块时间
-	ProveValue   []byte      //轮转序号
-	TotalQN      uint64        //整条链的QN
-	CurTime      time.Time     //当前铸块时间
-	Castor       []byte        //出块人ID
-	GroupId      []byte        //组ID，groupsig.ID的二进制表示
-	Nonce        uint64        //盐
-	Transactions []common.Hash // 交易集哈希列表
-	TxTree       common.Hash   // 交易默克尔树根hash
-	ReceiptTree  common.Hash
-	StateTree    common.Hash
-	ExtraData    []byte
-	ProveRoot    common.Hash
-	//EvictedTxs   []common.Hash
-}
 
 func (bh *BlockHeader) GenHash() common.Hash {
 	buf := bytes.NewBuffer([]byte{})
@@ -283,63 +265,58 @@ func (bh *BlockHeader) GenHash() common.Hash {
 
 	buf.Write(bh.PreHash.Bytes())
 
-	pt, _ := bh.PreTime.MarshalBinary()
-	buf.Write(pt)
+	buf.Write(utility.Int32ToByte(bh.Elapsed))
 
 	buf.Write(bh.ProveValue)
 
 	buf.Write(utility.UInt64ToByte(bh.TotalQN))
 
-	ct, _ := bh.CurTime.MarshalBinary()
-	buf.Write(ct)
+	buf.Write(bh.CurTime.Bytes())
 
 	buf.Write(bh.Castor)
 
 	buf.Write(bh.GroupId)
 
-	buf.Write(utility.UInt64ToByte(bh.Nonce))
+	buf.Write(utility.Int32ToByte(bh.Nonce))
 
-	if bh.Transactions != nil {
-		for _, tx := range bh.Transactions {
-			buf.Write(tx.Bytes())
-		}
-	}
+	//if bh.Transactions != nil {
+	//	for _, tx := range bh.Transactions {
+	//		buf.Write(tx.Bytes())
+	//	}
+	//}
 	buf.Write(bh.TxTree.Bytes())
 	buf.Write(bh.ReceiptTree.Bytes())
 	buf.Write(bh.StateTree.Bytes())
 	if bh.ExtraData != nil {
 		buf.Write(bh.ExtraData)
 	}
-	buf.Write(bh.ProveRoot.Bytes())
+	//buf.Write(bh.ProveRoot.Bytes())
 
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
-func (bh *BlockHeader) ToString() string {
-	header := &header{
-		Height:       bh.Height,
-		PreHash:      bh.PreHash,
-		PreTime:      bh.PreTime,
-		ProveValue:   bh.ProveValue,
-		TotalQN:      bh.TotalQN,
-		CurTime:      bh.CurTime,
-		Castor:       bh.Castor,
-		Nonce:        bh.Nonce,
-		Transactions: bh.Transactions,
-		TxTree:       bh.TxTree,
-		ReceiptTree:  bh.ReceiptTree,
-		StateTree:    bh.StateTree,
-		ExtraData:    bh.ExtraData,
-		ProveRoot:    bh.ProveRoot,
-		//EvictedTxs:   bh.EvictedTxs,
-	}
-	blockByte, _ := json.Marshal(header)
-	return string(blockByte)
+func (bh *BlockHeader) PreTime() time.TimeStamp {
+    return bh.CurTime.Add(int64(-bh.Elapsed))
+}
+
+func (bh *BlockHeader) HasTransactions() bool {
+    return bh.TxTree != common.EmptyHash
 }
 
 type Block struct {
 	Header       *BlockHeader
 	Transactions []*Transaction
+}
+
+func (b *Block) GetTransactionHashs() []common.Hash {
+	if b.Transactions == nil {
+		return []common.Hash{}
+	}
+    hashs := make([]common.Hash, 0)
+	for _, tx := range b.Transactions {
+		hashs = append(hashs, tx.Hash)
+	}
+	return hashs
 }
 
 type Member struct {
@@ -353,7 +330,7 @@ type GroupHeader struct {
 	PreGroup      []byte      //前一块的ID
 	Authority     uint64      //权限相关数据（父亲组赋予）
 	Name          string      //父亲组取的名字
-	BeginTime     time.Time
+	BeginTime     time.TimeStamp
 	MemberRoot    common.Hash //成员列表hash
 	CreateHeight  uint64      //建组高度
 	ReadyHeight   uint64      //准备就绪最迟高度

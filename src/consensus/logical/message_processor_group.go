@@ -513,11 +513,6 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	blog.debug("Add to Global static groups, result=%v, groups=%v.", add, p.globalGroups.GetGroupSize())
 	if staticGroup.MemExist(p.GetMinerID()) {
 		p.prepareForCast(staticGroup)
-		//jg := p.belongGroups.getJoinedGroup(staticGroup.GroupID)
-		//if jg != nil {
-		//} else {
-		//	blog.log("[ERROR]cannot find joined group info, gid=%v", staticGroup.GroupID.ShortS())
-		//}
 	}
 }
 

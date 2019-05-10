@@ -129,13 +129,9 @@ func (bg *BelongGroups) initStore()  {
 		stdLogger.Errorf("newLDBDatabase fail, file=%v, err=%v\n", bg.storeDir, err.Error())
 		return
 	}
-	cache, err := lru.New(30)
-	if err != nil {
-		stdLogger.Errorf("fail to New lru cache")
-		return
-	}
+
 	bg.store = db
-	bg.cache = cache
+	bg.cache = common.MustNewLRUCache(30)
 }
 
 func (bg *BelongGroups) ready() bool {

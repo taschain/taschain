@@ -22,6 +22,7 @@ import (
 	"bytes"
 )
 
+
 var hasherPool = sync.Pool{
 	New: func() interface{} {
 		return sha256.New()

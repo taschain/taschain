@@ -33,3 +33,12 @@ func TestByteToInt(t *testing.T){
 		fmt.Errorf("Failed")
 	}
 }
+
+func TestInt64ToByte(t *testing.T) {
+	i := int32(2222)
+	bs := Int32ToByte(i)
+	t.Log(bs)
+
+	i2 := ByteToInt32(bs)
+	t.Log(i2)
+}

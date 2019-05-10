@@ -50,8 +50,7 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	if b == nil {
 		return failResult("QueryBlock error")
 	}
-	bh := b.Header
-	block := convertBlockHeader(bh)
+	block := convertBlockHeader(b)
 
 	trans := make([]Transaction, 0)
 
@@ -61,9 +60,9 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 
 	evictedReceipts := make([]*types.Receipt, 0)
 
-	receipts := make([]*types.Receipt, len(bh.Transactions))
-	for i, tx := range bh.Transactions {
-		wrapper := chain.GetTransactionPool().GetReceipt(tx)
+	receipts := make([]*types.Receipt, len(b.Transactions))
+	for i, tx := range b.Transactions {
+		wrapper := chain.GetTransactionPool().GetReceipt(tx.Hash)
 		if wrapper != nil {
 			receipts[i] = wrapper
 		}
@@ -158,7 +157,7 @@ func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
 			continue
 		}
 		bh := b.Header
-		block := convertBlockHeader(bh)
+		block := convertBlockHeader(b)
 
 		if pre == nil {
 			pre = chain.QueryBlockByHash(bh.PreHash)

@@ -67,7 +67,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SharepieceMsg receive from:%v, gHash:%v",sourceId, m.GHash.Hex())
+		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceId, m.GHash.Hex())
 	case network.SignPubkeyMsg:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
@@ -75,7 +75,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v",sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
+		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
@@ -190,8 +190,16 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageSharePieceResponse(m)
-	}
 
+	case network.BlockSignAggr:
+		m, e := unmarshalBlockSignAggrMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalBlockSignAggrMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageBlockSignAggrMessage(m)
+
+	}
 	return nil
 }
 

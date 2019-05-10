@@ -169,14 +169,9 @@ func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error
 
 	bh := types.PbToBlockHeader(m.Bh)
 
-	hashs := make([]common.Hash, len(m.ProveHash))
-	for i, h := range m.ProveHash {
-		hashs[i] = common.BytesToHash(h)
-	}
-
 	return &model.ConsensusCastMessage{
 		BH:                *bh,
-		ProveHash:         hashs,
+		ProveHash:         common.BytesToHash(m.ProveHash),
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}, nil
 }
@@ -455,6 +450,20 @@ func unMarshalSharePieceResponseMessage(b []byte) (*model.ResponseSharePieceMess
 		BaseSignedMessage: base,
 		GHash:       common.BytesToHash(message.GHash),
 		Share: *pbToSharePiece(message.SharePiece),
+	}
+	return m, nil
+}
+
+func unmarshalBlockSignAggrMessage(b []byte) (*model.BlockSignAggrMessage, error) {
+	message := &tas_middleware_pb.BlockSignAggrMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	m := &model.BlockSignAggrMessage{
+		Hash: common.BytesToHash(message.BlockHash),
+		Sign: *groupsig.DeserializeSign(message.Sign),
+		Random: *groupsig.DeserializeSign(message.Random),
 	}
 	return m, nil
 }

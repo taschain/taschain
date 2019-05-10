@@ -128,10 +128,10 @@ func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64) {
 	s.Dissmissed = s.DissmissHeight <= top
 }
 
-func (api *GtasAPI) DebugContextSummary() (*Result, error) {
-	s := mediator.Proc.BlockContextSummary()
-	return successResult(s)
-}
+//func (api *GtasAPI) DebugContextSummary() (*Result, error) {
+//	s := mediator.Proc.BlockContextSummary()
+//	return successResult(s)
+//}
 
 func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
@@ -186,7 +186,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 		allGroup:    allGroup,
 	}
 	nextGroupId, _ := selectNextVerifyGroup(allGroup, top, 1)
-	preBH := chain.QueryBlockByHeight(from - 1)
+	preBH := chain.QueryBlockHeaderByHeight(from - 1)
 
 	t := float64(0)
 	b := 0
@@ -194,7 +194,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 	maxHeight := uint64(0)
 	jump := 0
 	for h := uint64(from); h <= to; h++ {
-		bh := chain.QueryBlockByHeight(h)
+		bh := chain.QueryBlockHeaderByHeight(h)
 		if bh == nil {
 			expectGid, _ := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupId))
@@ -211,7 +211,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 			}
 			if h != 1 {
 				b++
-				cost := bh.CurTime.Sub(preBH.CurTime).Seconds()
+				cost := float64(bh.Elapsed)
 				t += cost
 				if cost > max {
 					max = cost
@@ -220,14 +220,6 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 			}
 			//expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gid := groupsig.DeserializeId(bh.GroupId)
-			//if !expectGid.IsEqual(gid) {
-			//	fmt.Printf("bh %+v\n", bh)
-			//	fmt.Printf("pre %+v\n", preBH)
-			//	for _, g := range gs {
-			//		fmt.Printf("g workheight=%v, id=%v, pre=%v\n", g.Header.WorkHeight, groupsig.DeserializeId(g.Id).ShortS(), groupsig.DeserializeId(g.Header.PreGroup))
-			//	}
-			//	return failResult(fmt.Sprintf("expect gid not equal, height=%v, expect %v, real %v", bh.Height, expectGid.GetHexString(), gid.GetHexString()))
-			//}
 			preBH = bh
 			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupId))
 			gvs.NumVerify += 1
@@ -251,7 +243,7 @@ func (api *GtasAPI) DebugJoinGroupInfo(gid string) (*Result, error) {
 }
 
 func (api *GtasAPI) DebugRemoveBlock(h uint64) (*Result, error) {
-	bh := core.BlockChainImpl.QueryBlockByHeight(h)
+	bh := core.BlockChainImpl.QueryBlockHeaderByHeight(h)
 	if bh != nil {
 		b := core.BlockChainImpl.QueryBlockByHash(bh.Hash)
 		if b != nil {
@@ -297,7 +289,7 @@ func (api *GtasAPI) DebugGetBonusTxs(limit int) (*Result, error) {
 }
 
 func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) (*Result, error) {
-    pre := core.BlockChainImpl.QueryBlockByHeight(preheight)
+    pre := core.BlockChainImpl.QueryBlockHeaderByHeight(preheight)
     if pre == nil {
     	return failResult("nil pre block")
 	 }

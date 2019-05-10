@@ -45,11 +45,10 @@ func IsTestTransaction(tx *types.Transaction) bool {
 	return false
 }
 
-var emptyHash = common.Hash{}
 
 func calcTxTree(txs []*types.Transaction) common.Hash {
 	if nil == txs || 0 == len(txs) {
-		return emptyHash
+		return common.EmptyHash
 	}
 
 	buf := new(bytes.Buffer)
@@ -66,7 +65,7 @@ func calcTxTree(txs []*types.Transaction) common.Hash {
 
 func calcReceiptsTree(receipts types.Receipts) common.Hash {
 	if nil == receipts || 0 == len(receipts) {
-		return emptyHash
+		return common.EmptyHash
 	}
 
 	keybuf := new(bytes.Buffer)

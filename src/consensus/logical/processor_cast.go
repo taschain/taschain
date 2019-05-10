@@ -2,14 +2,11 @@ package logical
 
 import (
 	"common"
-	"consensus/base"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
 	"middleware/types"
 	"strings"
-	"sync"
-	"runtime/debug"
 	"monitor"
 	"fmt"
 )
@@ -20,87 +17,6 @@ import (
 **  Description:
  */
 
-type CastBlockContexts struct {
-	blockCtxs    sync.Map //string -> *BlockContext
-	reservedVctx sync.Map //uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
-}
-
-func NewCastBlockContexts() *CastBlockContexts {
-	return &CastBlockContexts{
-		blockCtxs: sync.Map{},
-	}
-}
-
-func (bctx *CastBlockContexts) addBlockContext(bc *BlockContext) (add bool) {
-	_, load := bctx.blockCtxs.LoadOrStore(bc.MinerID.Gid.GetHexString(), bc)
-	return !load
-}
-
-func (bctx *CastBlockContexts) getBlockContext(gid groupsig.ID) *BlockContext {
-	if v, ok := bctx.blockCtxs.Load(gid.GetHexString()); ok {
-		return v.(*BlockContext)
-	}
-	return nil
-}
-
-func (bctx *CastBlockContexts) blockContextSize() int32 {
-	size := int32(0)
-	bctx.blockCtxs.Range(func(key, value interface{}) bool {
-		size++
-		return true
-	})
-	return size
-}
-
-func (bctx *CastBlockContexts) removeBlockContexts(gids []groupsig.ID) {
-	for _, id := range gids {
-		stdLogger.Infof("removeBlockContexts %v", id.ShortS())
-		bc := bctx.getBlockContext(id)
-		if bc != nil {
-			//bc.removeTicker()
-			for _, vctx := range bc.SafeGetVerifyContexts() {
-				bctx.removeReservedVctx(vctx.castHeight)
-			}
-			bctx.blockCtxs.Delete(id.GetHexString())
-		}
-	}
-}
-
-func (bctx *CastBlockContexts) forEachBlockContext(f func(bc *BlockContext) bool) {
-	bctx.blockCtxs.Range(func(key, value interface{}) bool {
-		v := value.(*BlockContext)
-		return f(v)
-	})
-}
-
-func (bctx *CastBlockContexts) removeReservedVctx(height uint64) {
-	bctx.reservedVctx.Delete(height)
-}
-
-func (bctx *CastBlockContexts) addReservedVctx(vctx *VerifyContext) bool {
-	_, load := bctx.reservedVctx.LoadOrStore(vctx.castHeight, vctx)
-	return !load
-}
-
-func (bctx *CastBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) bool) {
-	bctx.reservedVctx.Range(func(key, value interface{}) bool {
-		v := value.(*VerifyContext)
-		return f(v)
-	})
-}
-
-//增加一个铸块上下文（一个组有一个铸块上下文）
-func (p *Processor) AddBlockContext(bc *BlockContext) bool {
-	var add = p.blockContexts.addBlockContext(bc)
-	newBizLog("AddBlockContext").log("gid=%v, result=%v\n.", bc.MinerID.Gid.ShortS(), add)
-	return add
-}
-
-//取得一个铸块上下文
-//gid:组ID hex 字符串
-func (p *Processor) GetBlockContext(gid groupsig.ID) *BlockContext {
-	return p.blockContexts.getBlockContext(gid)
-}
 
 //立即触发一次检查自己是否下个铸块组
 func (p *Processor) triggerCastCheck() {
@@ -150,23 +66,21 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	if slot.IsRecovered() {
 		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.blockContexts.addReservedVctx(vctx)
-		if !p.tryBroadcastBlock(vctx) {
+		if !p.tryNotify(vctx) {
 			blog.log("reserved, height=%v", vctx.castHeight)
 		}
-
 	}
 
 	return
 }
 
-func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
-	if sc := vctx.checkBroadcast(); sc != nil {
+func (p *Processor) tryNotify(vctx *VerifyContext) bool {
+	if sc := vctx.checkNotify(); sc != nil {
 		bh := sc.BH
-		tlog := newHashTraceLog("tryBroadcastBlock", bh.Hash, p.GetMinerID())
-		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime).Seconds())
+		tlog := newHashTraceLog("tryNotify", bh.Hash, p.GetMinerID())
+		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime))
 
-		//异步进行，使得请求快速返回，防止消息积压
-		go p.successNewBlock(vctx, sc) //上链和组外广播
+		p.consensusFinalize(vctx, sc) //上链和组外广播
 
 		p.blockContexts.removeReservedVctx(vctx.castHeight)
 		return true
@@ -174,45 +88,57 @@ func (p *Processor) tryBroadcastBlock(vctx *VerifyContext) bool {
 	return false
 }
 
-//在某个区块高度的QN值成功出块，保存上链，向组外广播
-//同一个高度，可能会因QN不同而多次调用该函数
-//但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
-func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
-	defer func() {
-		if r := recover(); r != nil {
-			common.DefaultLogger.Errorf("error：%v\n", r)
-			s := debug.Stack()
-			common.DefaultLogger.Errorf(string(s))
-		}
-	}()
-
-	bh := slot.BH
-
-	blog := newBizLog("successNewBlock—"+bh.Hash.ShortS())
-
-	if slot.IsFailed() {
-		blog.log("slot is failed")
-		return
-	}
-	if vctx.broadCasted() {
-		blog.log("block broadCasted!")
-		return
-	}
-
-	if p.blockOnChain(bh.Hash) { //已经上链
-		blog.log("block alreayd onchain!")
-		return
-	}
-
-	block := p.MainChain.GenerateBlock(*bh)
-
+func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signature, random groupsig.Signature) error {
+	block := p.blockContexts.getProposed(hash)
 	if block == nil {
-		blog.log("core.GenerateBlock is nil! won't broadcast block! height=%v", bh.Height)
-		return
+		return fmt.Errorf("block is nil hash=%v", hash.ShortS())
+	}
+	block.Header.Signature = sign.Serialize()
+	block.Header.Random = random.Serialize()
+
+	r := p.doAddOnChain(block)
+
+	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
+		return fmt.Errorf("onchain result %v", r)
+	}
+
+	bh := block.Header
+	tlog := newHashTraceLog("onBlockSignAggregation", bh.Hash, p.GetMinerID())
+
+	cbm := &model.ConsensusBlockMessage{
+		Block: *block,
 	}
 	gb := p.spreadGroupBrief(bh, bh.Height+1)
 	if gb == nil {
-		blog.log("spreadGroupBrief nil, bh=%v, height=%v", bh.Hash.ShortS(), bh.Height)
+		return fmt.Errorf("next group is nil")
+	}
+	p.NetServer.BroadcastNewBlock(cbm, gb)
+	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime))
+
+	//发送日志
+	le := &monitor.LogEntry{
+		LogType:  monitor.LogTypeBlockBroadcast,
+		Height:   bh.Height,
+		Hash:     bh.Hash.Hex(),
+		PreHash:  bh.PreHash.Hex(),
+		Proposer: groupsig.DeserializeId(bh.Castor).GetHexString(),
+		Verifier: gb.Gid.GetHexString(),
+	}
+	monitor.Instance.AddLog(le)
+	p.blockContexts.removeProposed(hash)
+	return nil
+}
+
+//在某个区块高度的QN值成功出块，保存上链，向组外广播
+//同一个高度，可能会因QN不同而多次调用该函数
+//但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
+func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
+	bh := slot.BH
+
+	blog := newBizLog("consensusFinalize—"+bh.Hash.ShortS())
+
+	if p.blockOnChain(bh.Hash) { //已经上链
+		blog.log("block alreayd onchain!")
 		return
 	}
 
@@ -223,44 +149,28 @@ func (p *Processor) successNewBlock(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	r := p.doAddOnChain(block)
-
-	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
-		if r != int8(types.Forking) {
-			slot.setSlotStatus(SS_FAILED)
+	//如果自己是提案者，则直接上链再广播
+	if slot.castor.IsEqual(p.GetMinerID()) {
+		err := p.onBlockSignAggregation(bh.Hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
+		if err != nil {
+			blog.log("onBlockSignAggregation fail: %v", err)
+			slot.setSlotStatus(slFailed)
+			return
 		}
-		return
+	} else { //通知提案者
+		aggrMsg := &model.BlockSignAggrMessage{
+			Hash: bh.Hash,
+			Sign: slot.gSignGenerator.GetGroupSign(),
+			Random: slot.rSignGenerator.GetGroupSign(),
+		}
+		tlog := newHashTraceLog("consensusFinalize", bh.Hash, p.GetMinerID())
+		tlog.log("send sign aggr msg to %v", slot.castor.ShortS())
+		p.NetServer.SendBlockSignAggrMessage(aggrMsg, slot.castor)
+
 	}
-
-	tlog := newHashTraceLog("successNewBlock", bh.Hash, p.GetMinerID())
-
-	cbm := &model.ConsensusBlockMessage{
-		Block: *block,
-	}
-
-	p.NetServer.BroadcastNewBlock(cbm, gb)
-	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime).Seconds())
-
-	//发送日志
-	le := &monitor.LogEntry{
-		LogType:  monitor.LogTypeBlockBroadcast,
-		Height:   bh.Height,
-		Hash:     bh.Hash.Hex(),
-		PreHash:  bh.PreHash.Hex(),
-		Proposer: slot.castor.GetHexString(),
-		Verifier: gb.Gid.GetHexString(),
-	}
-	monitor.Instance.AddLog(le)
-
-	vctx.broadcastSlot = slot
-	vctx.markBroadcast()
-	slot.setSlotStatus(SS_SUCCESS)
-
-	//如果是联盟链，则不打分红交易
-	if !consensusConfManager.GetBool("league", false) {
-		p.reqRewardTransSign(vctx, bh)
-	}
-	blog.log("After BroadcastNewBlock hash=%v:%v", bh.Hash.ShortS(), p.ts.Now().Format(TIMESTAMP_LAYOUT))
+	slot.setSlotStatus(slSuccess)
+	vctx.markNotified()
+	vctx.successSlot = slot
 	return
 }
 
@@ -291,7 +201,7 @@ func (p *Processor) blockProposal() {
 		return
 	}
 
-	if p.proveChecker.proveExists(pi) {
+	if height > 1 && p.proveChecker.proveExists(pi) {
 		blog.log("vrf prove exist, not proposal")
 		return
 	}
@@ -308,10 +218,7 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	//随机抽取n个块，生成proveHash
-	proveHash, root := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
-
-	block := p.MainChain.CastBlock(uint64(height), pi, root, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	block := p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -323,19 +230,21 @@ func (p *Processor) blockProposal() {
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
 		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
-		//发送该出块消息
-		var ccm model.ConsensusCastMessage
-		ccm.BH = *bh
-		ccm.ProveHash = proveHash
-		//ccm.GroupID = gid
-		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &ccm) {
+
+		ccm := &model.ConsensusCastMessage{
+			BH: *bh,
+		}
+		//发给每个人的消息hash是相同的，签名也相同
+		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), ccm) {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		blog.log("hash=%v, proveRoot=%v, pi=%v, piHash=%v", bh.Hash.ShortS(), root.ShortS(), pi.ShortS(), common.Bytes2Hex(base.VRF_proof2hash(pi)))
+		//生成全量账本hash
+		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
+
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
-		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.CurTime.Sub(bh.PreTime).Seconds(), ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
-		p.NetServer.SendCastVerify(&ccm, gb, block.Transactions)
+		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.Elapsed, ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 
 		//发送日志
 		le := &monitor.LogEntry{
@@ -350,6 +259,8 @@ func (p *Processor) blockProposal() {
 		monitor.Instance.AddLog(le)
 		p.proveChecker.addProve(pi)
 		worker.markProposed()
+
+		p.blockContexts.addProposed(block)
 
 	} else {
 		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
