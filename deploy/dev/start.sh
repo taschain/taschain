@@ -36,9 +36,9 @@ do
     fi
 
     if [ $instance_index -eq 1 ];then
-        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     else
-        nohup ./gtas miner --config $config_file --monitor --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     fi
     sleep 0.1
 done
