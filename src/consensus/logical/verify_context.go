@@ -85,6 +85,7 @@ type VerifyContext struct {
 	createTime 		time.TimeStamp
 	consensusStatus int32     //铸块状态
 	slots           map[common.Hash]*SlotContext
+	proposers 		map[string]common.Hash
 	successSlot     *SlotContext
 	//castedQNs []int64 //自己铸过的qn
 	group 		*StaticGroupInfo
@@ -106,6 +107,7 @@ func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.Tim
 		slots:           make(map[common.Hash]*SlotContext),
 		ts: 			time.TSInstance,
 		createTime:		time.TSInstance.Now(),
+		proposers: 		make(map[string]common.Hash),
 		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
@@ -258,8 +260,14 @@ func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error
 	if vc.hasSignedMoreWeightThan(bh) {
 		return nil, fmt.Errorf("hasSignedMoreWeightThan")
 	}
-
 	sc := createSlotContext(bh, model.Param.GetGroupK(vc.group.GetMemberCount()))
+	if v, ok := vc.proposers[sc.castor.GetHexString()]; ok {
+		if v != bh.Hash {
+			return nil, fmt.Errorf("too many proposals: castor %v", sc.castor.GetHexString())
+		}
+	} else {
+		vc.proposers[sc.castor.GetHexString()] = bh.Hash
+	}
 	if len(vc.slots) >= model.Param.MaxSlotSize {
 		var (
 			minWeight *blockWeight

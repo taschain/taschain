@@ -234,17 +234,19 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog.EndStage()
 
 	if ok {
-		verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
-		if verifys != nil {
-			blog.log("verify cache msg hash:%v, size:%v", bh.Hash.ShortS(), len(verifys.verifyMsgs))
-			slog.AddStage("OMCVerifies")
-			for _, vmsg := range verifys.verifyMsgs {
-				p.OnMessageVerify(vmsg)
+		go func() {
+			verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
+			if verifys != nil {
+				blog.log("verify cache msg hash:%v, size:%v", bh.Hash.ShortS(), len(verifys.verifyMsgs))
+				slog.AddStage(fmt.Sprintf("OMCVerifies-%v", len(verifys.verifyMsgs)))
+				for _, vmsg := range verifys.verifyMsgs {
+					p.OnMessageVerify(vmsg)
+				}
+				slog.EndStage()
 			}
-			slog.EndStage()
-		}
+			p.blockContexts.removeVerifyMsgCache(bh.Hash)
+		}()
 	}
-	p.blockContexts.removeVerifyMsgCache(bh.Hash)
 }
 
 func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyContext) (ret int8, err error) {
