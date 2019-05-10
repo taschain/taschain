@@ -107,6 +107,7 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 	chain := &GroupChain{
 		config:          getGroupChainConfig(),
 		consensusHelper: consensusHelper,
+		topGroups: 			common.MustNewLRUCache(10),
 		//preCache: new(sync.Map),
 	}
 
@@ -124,11 +125,6 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 	if nil != err {
 		return err
 	}
-	cahe, err := lru.New(10)
-	if err != nil {
-		return err
-	}
-	chain.topGroups = cahe
 
 	build(chain, genesisInfo)
 

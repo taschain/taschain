@@ -131,6 +131,5 @@ func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint
 	if height == 1 {
 		return 0
 	}
-    castTime := bh.CurTime.Sub(bh.PreTime).Seconds()
-    return height - uint64(math.Ceil(castTime/float64(model.Param.MaxGroupCastTime)))
+    return height - uint64(math.Ceil(float64(bh.Elapsed)/float64(model.Param.MaxGroupCastTime)))
 }

@@ -28,11 +28,9 @@ type prootCheckResult struct {
 }
 
 func newProveChecker(chain core.BlockChain) *proveChecker {
-	rootCache, _ := lru.New(20)
-	vrfCache, _ := lru.New(20)
     return &proveChecker{
-    	proveRootCaches: rootCache,
-    	proposalVrfHashs: vrfCache,
+    	proveRootCaches: common.MustNewLRUCache(20),
+    	proposalVrfHashs: common.MustNewLRUCache(20),
     	chain:chain,
 	}
 }

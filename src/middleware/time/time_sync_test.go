@@ -5,6 +5,7 @@ import (
 	"github.com/beevik/ntp"
 	"time"
 	"fmt"
+	"common"
 )
 
 /*
@@ -44,4 +45,22 @@ func TestUTCAndLocal(t *testing.T) {
 	t.Log(now, utc)
 
 	t.Log(utc.After(now), utc.Local().After(now), utc.Before(now))
+}
+
+func TestTimeMarshal(t *testing.T) {
+	now := time.Now().UTC()
+	bs, _ := now.MarshalBinary()
+	t.Log(bs, len(bs))
+}
+
+func TestTimeUnixSec(t *testing.T) {
+	now := time.Now()
+	t.Log(now.Unix(), now.UTC().Unix())
+
+	t.Log(time.Unix(now.Unix(), 0))
+	t.Log(time.Unix(int64(common.MaxUint32),0))
+}
+
+func TestTimeStampString(t *testing.T) {
+	fmt.Printf("ts:%v", TimeToTimeStamp(time.Now()))
 }

@@ -88,13 +88,12 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 }
 
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
-	cache, _ := lru.New(txCountPerBlock*maxReqBlockCount)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb: receiptdb,
 		batch:     chain.batch,
-		asyncAdds: cache,
+		asyncAdds: common.MustNewLRUCache(txCountPerBlock*maxReqBlockCount),
 		chain: chain,
 		gasPriceLowerBound:uint64(common.GlobalConf.GetInt("chain", "gasprice_lower_bound", 1)),
 	}

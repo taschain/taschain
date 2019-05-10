@@ -206,11 +206,13 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
+	//bs.candidatePoolDump()
 	candidate, candidateTop := bs.getBestCandidate(from)
 	if candidate == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		return false
 	}
+	bs.logger.Debugf("candidate info: id %v, top %v %v %v", candidate, candidateTop.Hash.String(), candidateTop.Height, candidateTop.TotalQN)
 
 	if localTopBlock.moreWeight(candidateTop) {
 		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.String(), localTopBlock.ShrinkPV, candidateTop.Height, candidateTop.Hash.String(), candidateTop.ShrinkPV)
@@ -220,11 +222,15 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 		bs.logger.Debugf("local has block %v, won't sync", candidateTop.Hash.String())
 		return false
 	}
-
-	beginHeight := bs.chain.Height()+1
-	if bs.chain.HasBlock(candidateTop.PreHash) {
+	beginHeight := uint64(0)
+	localHeight := bs.chain.Height()
+	if candidateTop.Height <= localHeight {
 		beginHeight = candidateTop.Height
+	} else {
+		beginHeight = localHeight+1
 	}
+
+	bs.logger.Debugf("beginHeight %v, candidateHeight %v", beginHeight, candidateTop.Height)
 	if beginHeight > candidateTop.Height {
 		return false
 	}

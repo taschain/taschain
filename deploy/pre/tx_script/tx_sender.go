@@ -55,9 +55,9 @@ var richAccounts []*account
 var hosts []url
 
 func main() {
-	interval := flag.Duration("i", time.Second*1, "转账时间间隔")
+	interval := flag.Duration("i", time.Millisecond*2, "转账时间间隔")
 	total := flag.Int("t", 100000000, "转账总笔数")
-	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102,127.0.0.1:8103,127.0.0.1:8104,127.0.0.1:8105,127.0.0.1:8106", "随机发送地址列表")
+	urlInput := flag.String("l", "127.0.0.1:8101,127.0.0.1:8102,127.0.0.1:8103,127.0.0.1:8104,127.0.0.1:8105,127.0.0.1:8106,127.0.0.1:8107,127.0.0.1:8108,127.0.0.1:8109", "随机发送地址列表")
 	flag.Parse()
 
 	loadRichAccounts()

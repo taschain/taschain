@@ -51,6 +51,9 @@ type MessageProcessor interface {
 
 	OnMessageSharePieceReq(msg *model.ReqSharePieceMessage)
 	OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage)
+
+	OnMessageBlockSignAggrMessage(msg *model.BlockSignAggrMessage)
+
 }
 
 type GroupBrief struct {
@@ -94,4 +97,6 @@ type NetworkServer interface {
 	SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief)
 	ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID)
 	ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID)
+	SendBlockSignAggrMessage(msg *model.BlockSignAggrMessage, target groupsig.ID)
+
 }

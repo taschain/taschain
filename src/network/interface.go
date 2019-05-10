@@ -15,6 +15,8 @@
 
 package network
 
+const FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
+
 const (
 	//-----------组初始化---------------------------------
 
@@ -35,9 +37,9 @@ const (
 
 	NewBlockMsg uint32 = 8
 	//--------------交易-----------------------------
-	ReqTransactionMsg uint32 = 9
-
-	TransactionGotMsg uint32 = 10
+	//ReqTransactionMsg uint32 = 9
+	//
+	//TransactionGotMsg uint32 = 10
 
 	//TransactionBroadcastMsg uint32 = 11
 
@@ -54,10 +56,6 @@ const (
 	ReqGroupMsg uint32 = 17
 
 	GroupMsg uint32 = 18
-	//-----------块链调整---------------------------------
-	//ChainPieceInfoReq uint32 = 19
-
-	//ChainPieceInfo uint32 = 20
 
 	ReqChainPieceBlock uint32 = 21
 
@@ -66,26 +64,13 @@ const (
 	CreateGroupaRaw uint32 = 23
 
 	CreateGroupSign uint32 = 24
-	//---------------------轻节点状态同步-----------------------
-	ReqStateInfoMsg uint32 = 25
 
-	StateInfoMsg uint32 = 26
 
 	//==================铸块分红=========
 	CastRewardSignReq uint32 = 27
 	CastRewardSignGot uint32 = 28
 
-	//==================Trace=========
-	RequestTraceMsg  uint32 = 29
-	ResponseTraceMsg uint32 = 30
 
-	//------------------------------
-	NewBlockHeaderMsg uint32 = 31
-
-	BlockBodyReqMsg uint32 = 32
-
-	BlockBodyMsg uint32 = 33
-	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 
 	//===================请求组内成员签名公钥======
 	AskSignPkMsg uint32 = 34
@@ -104,6 +89,9 @@ const (
 	TxSyncNotify uint32 = 200
 	TxSyncReq uint32 = 201
 	TxSyncResponse uint32 = 202
+
+	//================signed===============
+	BlockSignAggr uint32 = 300
 )
 
 type Message struct {

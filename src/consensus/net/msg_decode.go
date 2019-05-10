@@ -453,3 +453,17 @@ func unMarshalSharePieceResponseMessage(b []byte) (*model.ResponseSharePieceMess
 	}
 	return m, nil
 }
+
+func unmarshalBlockSignAggrMessage(b []byte) (*model.BlockSignAggrMessage, error) {
+	message := &tas_middleware_pb.BlockSignAggrMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	m := &model.BlockSignAggrMessage{
+		Hash: common.BytesToHash(message.BlockHash),
+		Sign: *groupsig.DeserializeSign(message.Sign),
+		Random: *groupsig.DeserializeSign(message.Random),
+	}
+	return m, nil
+}

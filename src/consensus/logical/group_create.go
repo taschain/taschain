@@ -3,7 +3,6 @@ package logical
 import (
 	"middleware/types"
 	"fmt"
-	"consensus/base"
 	"consensus/model"
 	"strings"
 	"monitor"
@@ -18,19 +17,20 @@ import (
 */
 
 func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupId []byte) (*StaticGroupInfo, error) {
-	rand := baseBH.Random
-	rand = append(rand, preGroupId...)
-    gid, err := gm.processor.globalGroups.SelectNextGroupFromChain(base.Data2CommonHash(rand), baseBH.Height)
-	if err != nil {
-		return nil, err
-	}
-	return gm.processor.GetGroup(gid), nil
+	//rand := baseBH.Random
+	//rand = append(rand, preGroupId...)
+	//gid, err := gm.processor.globalGroups.SelectNextGroupFromChain(base.Data2CommonHash(rand), baseBH.Height)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return gm.processor.GetGroup(gid), nil
+	return gm.processor.globalGroups.getGenesisGroup(), nil
 }
 
 
 func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGroupBaseContext, error) {
 	lastGroup := gm.groupChain.LastGroup()
-	baseBH := gm.mainChain.QueryBlockByHeight(baseHeight)
+	baseBH := gm.mainChain.QueryBlockHeaderByHeight(baseHeight)
 	if !checkCreate(baseHeight) {
 		return nil, fmt.Errorf("cannot create group at the height")
 	}
@@ -38,7 +38,7 @@ func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGr
 		return nil, fmt.Errorf("base block is nil, height=%v", baseHeight)
 	}
 	sgi, err := gm.selectParentGroup(baseBH, lastGroup.Id)
-	if err != nil {
+	if sgi == nil || err != nil {
 		return nil, fmt.Errorf("select parent group err %v", err)
 	}
 	enough, candidates := gm.checker.selectCandidates(baseBH)
@@ -200,7 +200,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if !checkCreate(gh.CreateHeight) {
 		return nil, false, fmt.Errorf("cannot create at the height %v", gh.CreateHeight)
 	}
-	baseBH := gm.mainChain.QueryBlockByHeight(gh.CreateHeight)
+	baseBH := gm.mainChain.QueryBlockHeaderByHeight(gh.CreateHeight)
 	if baseBH == nil {
 		return nil, false, common.ErrCreateBlockNil
 	}
@@ -213,15 +213,14 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if parentGroup == nil {
 		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
-	//TODO: 由于bug导致数据不一致，暂不检查
-	//sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
-	//if err != nil {
-	//	return nil, false, fmt.Errorf("select parent group err %v", err)
-	//}
-	//pid := groupsig.DeserializeId(parentGroup.Id)
-	//if !sgi.GroupID.IsEqual(pid) {
-	//	return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
-	//}
+	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
+	if err != nil {
+		return nil, false, fmt.Errorf("select parent group err %v", err)
+	}
+	pid := groupsig.DeserializeId(parentGroup.Id)
+	if !sgi.GroupID.IsEqual(pid) {
+		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
+	}
 	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeId(gh.Parent))
 
 	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {

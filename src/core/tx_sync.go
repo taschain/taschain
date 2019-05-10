@@ -43,7 +43,6 @@ type txSimpleIndexer struct {
 }
 
 func buildTxSimpleIndexer() *txSimpleIndexer {
-	indexs, _ := lru.New(10000)
 	f := "d_txidx"+common.GlobalConf.GetString("instance", "index", "")
 	ds, err := tasdb.NewDataSource(f)
 	if err != nil {
@@ -52,7 +51,7 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 	}
 	db, _ := ds.NewPrefixDatabase("tx")
 	return &txSimpleIndexer{
-		cache: indexs,
+		cache: common.MustNewLRUCache(10000),
 		db: db,
 	}
 }
@@ -181,14 +180,12 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool)  {
 }
 
 func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
-	cache, _ := lru.New(1000)
-	cands, _ := lru.New(100)
 	s := &txSyncer{
-		rctNotifiy:    cache,
+		rctNotifiy:    common.MustNewLRUCache(1000),
 		indexer: buildTxSimpleIndexer(),
 		pool: pool,
 		ticker:        ticker.NewGlobalTicker("tx_syncer"),
-		candidateKeys: cands,
+		candidateKeys: common.MustNewLRUCache(100),
 		chain: 		chain,
 		logger: taslog.GetLoggerByIndex(taslog.TxSyncLogConfig, common.GlobalConf.GetString("instance", "index", "")),
 	}

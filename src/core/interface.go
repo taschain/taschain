@@ -32,13 +32,6 @@ type BlockChain interface {
 	//构建一个铸块（组内当前铸块人同步操作）
 	CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block
 
-	//根据BlockHeader构建block
-	GenerateBlock(bh types.BlockHeader) *types.Block
-
-	//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
-	//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已异步向网络模块请求
-	//返回缺失交易列表
-	VerifyBlock(bh types.BlockHeader) ([]common.Hash, int8)
 
 	//铸块成功，上链
 	//返回值: 0,上链成功
@@ -55,6 +48,7 @@ type BlockChain interface {
 
 	//query block with body by hash
 	QueryBlockByHash(hash common.Hash) *types.Block
+	QueryBlockByHeight(height uint64) *types.Block
 
 	//query first block whose height >= height
 	QueryBlockCeil(height uint64) *types.Block
@@ -103,12 +97,6 @@ type ExecutedTransaction struct {
 	Transaction *types.Transaction
 }
 
-type ReceiptStore struct {
-	Receipt     *types.Receipt
-	//Transaction *types.Transaction
-	BlockHash  common.Hash
-}
-
 type txSource int
 
 const (
@@ -150,8 +138,6 @@ type TransactionPool interface {
 	BackToPool(txs []*types.Transaction)
 
 	Clear()
-
-	GetTxBlockHash(txHash common.Hash) (*common.Hash)
 
 	RecoverAndValidateTx(tx *types.Transaction) error
 

@@ -17,6 +17,7 @@ package core
 import (
 	"time"
 	"github.com/hashicorp/golang-lru"
+	"common"
 )
 
 const (
@@ -71,12 +72,8 @@ type peerManager struct {
 }
 
 func initPeerManager() {
-	cache, err := lru.New(100)
-	if err != nil {
-		panic(err)
-	}
 	badPeerMeter := peerManager{
-		peerMeters: cache,
+		peerMeters: common.MustNewLRUCache(100),
 	}
 	//go badPeerMeter.loop()
 	PeerManager = &badPeerMeter

@@ -165,7 +165,6 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 
 //对外广播经过组签名的block 全网广播
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
-	timeFromCast := time.Since(cbm.Block.Header.CurTime)
 	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
@@ -200,9 +199,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		go ns.net.SpreadToGroup(nextVerifyGroupId, validGroupMembers, blockMsg, []byte(blockMsg.Hash()))
 	}
 
-	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,msg size:%d, time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(blockMsg.Body), timeFromCast, nextVerifyGroupId)
-	//statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
-	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
+	core.Logger.Debugf("Broad new block %d-%d,hash:%v, spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(),  nextVerifyGroupId)
 }
 
 
@@ -330,4 +327,15 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 	m := network.Message{Code: network.ResponseSharePiece, Body: body}
 
 	ns.net.Send(receiver.String(), m)
+}
+
+func (ns *NetworkServerImpl) SendBlockSignAggrMessage(msg *model.BlockSignAggrMessage, target groupsig.ID) {
+	body, e := marshalBlockSignAggrMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalBlockSignAggrMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.BlockSignAggr, Body: body}
+
+	ns.net.Send(target.String(), m)
 }

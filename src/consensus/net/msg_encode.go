@@ -239,3 +239,12 @@ func marshalSharePieceResponseMessage(msg *model.ResponseSharePieceMessage) ([]b
 	}
 	return proto.Marshal(message)
 }
+
+func marshalBlockSignAggrMessage(msg *model.BlockSignAggrMessage) ([]byte, error) {
+	m := &tas_middleware_pb.BlockSignAggrMessage{
+		BlockHash: msg.Hash.Bytes(),
+		Sign: msg.Sign.Serialize(),
+		Random: msg.Random.Serialize(),
+	}
+	return proto.Marshal(m)
+}
