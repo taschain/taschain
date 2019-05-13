@@ -294,18 +294,19 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	groupID := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(groupID)
 
-	size := slot.gSignGenerator.WitnessSize()
-	targetIdIndexs := make([]int32, size)
-	signs := make([]groupsig.Signature, size)
-	idHexs := make([]string, size)
+	targetIdIndexs := make([]int32, 0)
+	signs := make([]groupsig.Signature, 0)
+	idHexs := make([]string, 0)
 
-	i := 0
+	threshold := model.Param.GetGroupK(group.GetMemberCount())
 	for idx, mem := range group.GetMembers() {
 		if sig, ok := slot.gSignGenerator.GetWitness(mem); ok {
-			signs[i] = sig
-			targetIdIndexs[i] = int32(idx)
-			idHexs[i] = mem.ShortS()
-			i++
+			signs = append(signs, sig)
+			targetIdIndexs = append(targetIdIndexs, int32(idx))
+			idHexs = append(idHexs, mem.ShortS())
+			if len(signs) >= threshold {
+				break
+			}
 		}
 	}
 

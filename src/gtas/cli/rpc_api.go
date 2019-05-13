@@ -202,7 +202,11 @@ func (api *GtasAPI) GetBlocks(from uint64, to uint64) (*Result, error) {
 			if preBH == nil {
 				preBH = core.BlockChainImpl.QueryBlockHeaderByHash(b.Header.PreHash)
 			}
-			block.Qn = b.Header.TotalQN - preBH.TotalQN
+			if preBH == nil {
+				block.Qn = b.Header.TotalQN
+			} else {
+				block.Qn = b.Header.TotalQN - preBH.TotalQN
+			}
 			preBH = b.Header
 			blocks = append(blocks, block)
 		}
