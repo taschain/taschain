@@ -3,8 +3,8 @@
 #instance_index1:is_heavy,instance_index2:is_heavy...
 params=$1
 
-seed='120.77.155.204'
-seedid='0xed890e78fc5d07e85e66b7926d8370c095570abb5259e346438abd3ea7a56a8a'
+nat_server='120.77.155.204'
+nat_port=3100
 
 if [ ! -d 'logs' ]; then
     mkdir logs
@@ -32,9 +32,9 @@ do
     fi
 
     if [ $instance_index -eq 1 ];then
-        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port --super --instance $instance_index --pprof $pprof_port --nat $nat_server --natport $nat_port --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     else
-        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --test --seed $seed --seedid $seedid --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
+        nohup ./gtas miner --config $config_file --rpc --rpcport $rpc_port  --instance $instance_index --pprof $pprof_port --nat $nat_server --natport $nat_port --keystore keystore$instance_index > $stdout_log 2>&1 & echo $! > $pid_file
     fi
     sleep 0.1
 done
