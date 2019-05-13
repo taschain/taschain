@@ -456,7 +456,7 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	if tx != nil {
 		return tx
 	} else {
-		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v", txHash.String(), err.Error())
+		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
 		return nil
 	}
 }

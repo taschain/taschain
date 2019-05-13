@@ -47,7 +47,6 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
-	idx := 0
 	castor := common.BytesToAddress(bh.Castor)
 
 	//errs := make([]*types.TransactionError, len(block.Transactions))
@@ -91,6 +90,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 			success = executor.executeMinerRefundTx(accountdb, transaction, bh.Height, castor)
 		}
 
+		idx := len(transactions)
 		transactions = append(transactions, transaction)
 		receipt := types.NewReceipt(nil, !success, cumulativeGasUsed)
 		receipt.Logs = logs
