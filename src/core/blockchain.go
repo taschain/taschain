@@ -28,7 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"middleware/ticker"
 	"sync"
-	"gopkg.in/fatih/set.v0"
 	time2 "middleware/time"
 )
 
@@ -116,8 +115,6 @@ type FullBlockChain struct {
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
 	ts 			time2.TimeService
-
-	txsWanted set.Interface
 }
 
 
@@ -148,31 +145,13 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		isAdujsting:     false,
 		consensusHelper: helper,
 		ticker:          ticker.NewGlobalTicker("chain"),
-		txsWanted:       set.New(set.ThreadSafe),
 		ts: 			time2.TSInstance,
+		futureBlocks: 	common.MustNewLRUCache(10),
+		verifiedBlocks: common.MustNewLRUCache(10),
+		topBlocks: 		common.MustNewLRUCache(20),
 	}
 
 	chain.initMessageHandler()
-
-	var err error
-	chain.futureBlocks, err = lru.New(10)
-	if err != nil {
-		return err
-	}
-	chain.verifiedBlocks, err = lru.New(10)
-	if err != nil {
-		return err
-	}
-	chain.topBlocks, _ = lru.New(20)
-	if err != nil {
-		return err
-	}
-	//gchain.castedBlock, err = lru.New(10)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//gchain.verifiedBodyCache, _ = lru.New(50)
 
 	ds, err := tasdb.NewDataSource(chain.config.dbfile)
 	if err != nil {
@@ -265,12 +244,13 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 
 	block := new(types.Block)
 	block.Header = &types.BlockHeader{
-		Height:       0,
-		ExtraData:    common.Sha256([]byte("tas")),
-		CurTime:      time.Date(2019, 3, 21, 23, 0, 0, 0, time.Local),
-		ProveValue:   []byte{},
-		TotalQN:      0,
-		Transactions: make([]common.Hash, 0), //important!!
+		Height:     0,
+		ExtraData:  common.Sha256([]byte("tas")),
+		CurTime:    time2.TimeToTimeStamp(time.Date(2019, 4, 25, 0, 0, 0, 0, time.UTC)),
+		ProveValue: []byte{},
+		Elapsed:    0,
+		TotalQN:    0,
+		//Transactions: make([]common.Hash, 0), //important!!
 		Nonce:        common.ChainDataVersion,
 	}
 

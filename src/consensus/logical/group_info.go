@@ -28,13 +28,6 @@ import (
 
 type STATIC_GROUP_STATUS int
 
-const (
-	SGS_UNKNOWN      STATIC_GROUP_STATUS = iota //组状态未知
-	SGS_INITING                                 //组已创建，在初始化中
-	SGS_INIT_TIMEOUT                            //组初始化失败
-	SGS_CASTOR                                  //合法的矿工组
-	SGS_DISUSED                                 //组已废弃
-)
 
 //静态组结构（组创建成功后加入到GlobalGroups）
 type StaticGroupInfo struct {
@@ -490,4 +483,15 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 
 	gg.groups = newGS
 	gg.gIndex = indexMap
+}
+
+func (gg *GlobalGroups) getGenesisGroup() *StaticGroupInfo {
+	if gg.GetGroupSize() == 0 {
+		return nil
+	}
+	g := gg.groups[0]
+	if g.GInfo.GI.GHeader.WorkHeight != 0 {
+		panic("genesis group error")
+	}
+    return g
 }

@@ -73,14 +73,10 @@ var logger taslog.Logger
 func InitStateMachines() {
 	logger = taslog.GetLoggerByIndex(taslog.StateMachineLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
-	cache, err := lru.New(50)
-	if err != nil {
-		panic("new lru cache fail, err:" + err.Error())
-	}
 	GroupInsideMachines = StateMachines{
 		name:      "GroupInsideMachines",
 		generator: &groupInsideMachineGenerator{},
-		machines:  cache,
+		machines:  common.MustNewLRUCache(50),
 		ticker: ticker.NewGlobalTicker("state_machine"),
 	}
 

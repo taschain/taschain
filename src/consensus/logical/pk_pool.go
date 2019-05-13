@@ -3,6 +3,7 @@ package logical
 import (
 	"consensus/groupsig"
 	"github.com/hashicorp/golang-lru"
+	"common"
 )
 
 /*
@@ -20,10 +21,9 @@ type pubkeyPool struct {
 var pkPool pubkeyPool
 
 func init() {
-	pkc, _ := lru.New(100)
 	//vrfc, _ := lru.New(100)
 	pkPool = pubkeyPool{
-		pkCache: pkc,
+		pkCache: common.MustNewLRUCache(100),
 		//vrfPKCache: vrfc,
 	}
 }

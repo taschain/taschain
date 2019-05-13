@@ -50,7 +50,7 @@ func (chain *GroupChain) getGroupById(id []byte) *types.Group {
 	return &group
 }
 
-func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int64) ([]*types.Group) {
+func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int) ([]*types.Group) {
 	result := make([]*types.Group, 0)
 	iter := chain.groupsHeight.NewIterator()
 	defer iter.Release()

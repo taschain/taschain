@@ -3,6 +3,8 @@ package core
 import (
 	"middleware/types"
 	"common"
+	"middleware/pb"
+	"github.com/gogo/protobuf/proto"
 )
 
 /*
@@ -52,3 +54,25 @@ type transactionRequestMessage struct {
 	//BlockPv           *big.Int
 }
 
+type SyncRequest struct {
+	ReqHeight uint64
+	ReqSize 	int32
+}
+
+
+func MarshalSyncRequest(r *SyncRequest) ([]byte, error) {
+	pbr := &tas_middleware_pb.SyncRequest{
+		ReqSize: &r.ReqSize,
+		ReqHeight: &r.ReqHeight,
+	}
+	return proto.Marshal(pbr)
+}
+
+func UnmarshalSyncRequest(b []byte) (*SyncRequest, error) {
+	m := new(tas_middleware_pb.SyncRequest)
+	e := proto.Unmarshal(b, m)
+	if e != nil {
+		return nil, e
+	}
+	return &SyncRequest{ReqHeight:*m.ReqHeight, ReqSize:*m.ReqSize}, nil
+}

@@ -20,6 +20,7 @@ import (
 	"taslog"
 	"log"
 	"github.com/hashicorp/golang-lru"
+	"common"
 )
 
 type TestMachineGenerator struct {
@@ -45,10 +46,7 @@ func (t *TestMachineGenerator) Generate(id string) *StateMachine {
 
 func TestStateMachine_GroupMachine(t *testing.T) {
 	logger = taslog.GetLoggerByName("test_machine.log")
-	cache, err := lru.New(2)
-	if err != nil {
-		panic("new lru cache fail, err:" + err.Error())
-	}
+	cache:= common.MustNewLRUCache(2)
 	testMachines := StateMachines{
 		name: "GroupOutsideMachines",
 		generator: &TestMachineGenerator{},

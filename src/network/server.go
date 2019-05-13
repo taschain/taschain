@@ -228,8 +228,14 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 	code := message.Code
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
+<<<<<<< HEAD
 		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece:
 		s.consensusHandler.Handle(from, *message)
+=======
+		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg,
+		AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece,BlockSignAggr:
+		n.consensusHandler.Handle(from, *message)
+>>>>>>> origin/develop
 	case GroupChainCountMsg:
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
@@ -240,15 +246,6 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 		Logger.Debugf("Rcv GroupMsg from %s", from)
 		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.Group, &msg)
-	case ReqTransactionMsg:
-		msg := notify.TransactionReqMessage{TransactionReqByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.TransactionReq, &msg)
-	case TransactionGotMsg:
-		msg := notify.TransactionGotMessage{TransactionGotByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.TransactionGot, &msg)
-	//case TransactionBroadcastMsg:
-	//	msg := notify.TransactionBroadcastMessage{TransactionsByte: message.Body, Peer: from}
-	//	notify.BUS.Publish(notify.TransactionBroadcast, &msg)
 	case TxSyncNotify:
 		msg := notify.NotifyMessage{Body: message.Body, Source: from}
 		notify.BUS.Publish(notify.TxSyncNotify, &msg)

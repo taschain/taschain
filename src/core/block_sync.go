@@ -21,7 +21,6 @@ import (
 	"network"
 	"middleware/notify"
 	"middleware/pb"
-	"utility"
 	"middleware/types"
 	"github.com/gogo/protobuf/proto"
 	"sync"
@@ -35,7 +34,7 @@ const (
 	syncNeightborsInterval       = 3
 	syncNeightborTimeout       = 5
 	blockSyncCandidatePoolSize = 100
-	blockResponseSize = 15
+	//blockResponseSize = 15
 )
 
 const (
@@ -45,6 +44,7 @@ const (
 )
 
 var BlockSyncer *blockSyncer
+
 
 
 type blockSyncer struct {
@@ -93,9 +93,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	}
 	bs.ticker = bs.chain.ticker
 	bs.logger = taslog.GetLoggerByIndex(taslog.BlockSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	//BlockSyncer.reqTimeoutTimer = time.NewTimer(blockSyncReqTimeout)
-	//BlockSyncer.syncTimer = time.NewTimer(blockSyncInterval)
-	//BlockSyncer.blockInfoNotifyTimer = time.NewTimer(sendTopBlockInfoInterval)
 	bs.ticker.RegisterPeriodicRoutine(tickerSendLocalTop, bs.notifyLocalTopBlockRoutine, sendLocalTopInterval)
 	bs.ticker.StartTickerRoutine(tickerSendLocalTop, false)
 
@@ -105,7 +102,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.BlockInfoNotify, bs.topBlockInfoNotifyHandler)
 	notify.BUS.Subscribe(notify.BlockReq, bs.blockReqHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, bs.blockResponseMsgHandler)
-	//notify.BUS.Subscribe(notify.GroupAddSucc, bs.onGroupAddSuccess)
 
 	BlockSyncer = bs
 
@@ -128,7 +124,7 @@ func (bs *blockSyncer) isSyncing() bool {
 	bs.lock.RLock()
 	defer bs.lock.RUnlock()
 
-	_, candTop := bs.getBestCandidate()
+	_, candTop := bs.getBestCandidate("")
 	if candTop == nil {
 		return false
 	}
@@ -153,25 +149,28 @@ func (bs *blockSyncer) newTopBlockInfo(top *types.BlockHeader) *TopBlockInfo {
 	}
 }
 
-func (bs *blockSyncer) getBestCandidate() (string, *TopBlockInfo) {
-	for id, _ := range bs.candidatePool {
-		if PeerManager.isEvil(id) {
-			delete(bs.candidatePool, id)
+func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockInfo) {
+	if candidateId == "" {
+		for id, _ := range bs.candidatePool {
+			if PeerManager.isEvil(id) {
+				bs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
+				delete(bs.candidatePool, id)
+			}
 		}
-	}
-	//bs.candidatePoolDump()
-	if len(bs.candidatePool) == 0 {
-		return "", nil
-	}
-	candidateId := ""
-	var maxWeight float64 = 0
+		//bs.candidatePoolDump()
+		if len(bs.candidatePool) == 0 {
+			return "", nil
+		}
+		var maxWeight float64 = 0
 
-	for id, top := range bs.candidatePool {
-		w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
-		if w > maxWeight {
-			maxWeight = w
-			candidateId = id
+		for id, top := range bs.candidatePool {
+			w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
+			if w > maxWeight {
+				maxWeight = w
+				candidateId = id
+			}
 		}
+
 	}
 	maxTop := bs.candidatePool[candidateId]
 	if maxTop == nil {
@@ -190,9 +189,11 @@ func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
 	}
 	return nil
 }
-
-
 func (bs *blockSyncer) trySyncRoutine() bool {
+	return bs.syncFrom("")
+}
+
+func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := bs.newTopBlockInfo(topBH)
 
@@ -205,11 +206,13 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
-	candidate, candidateTop := bs.getBestCandidate()
+	//bs.candidatePoolDump()
+	candidate, candidateTop := bs.getBestCandidate(from)
 	if candidate == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
 		return false
 	}
+	bs.logger.Debugf("candidate info: id %v, top %v %v %v", candidate, candidateTop.Hash.String(), candidateTop.Height, candidateTop.TotalQN)
 
 	if localTopBlock.moreWeight(candidateTop) {
 		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.String(), localTopBlock.ShrinkPV, candidateTop.Height, candidateTop.Hash.String(), candidateTop.ShrinkPV)
@@ -219,10 +222,17 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 		bs.logger.Debugf("local has block %v, won't sync", candidateTop.Hash.String())
 		return false
 	}
-
-	beginHeight := bs.chain.Height()+1
-	if bs.chain.HasBlock(candidateTop.PreHash) {
+	beginHeight := uint64(0)
+	localHeight := bs.chain.Height()
+	if candidateTop.Height <= localHeight {
 		beginHeight = candidateTop.Height
+	} else {
+		beginHeight = localHeight+1
+	}
+
+	bs.logger.Debugf("beginHeight %v, candidateHeight %v", beginHeight, candidateTop.Height)
+	if beginHeight > candidateTop.Height {
+		return false
 	}
 
 	for syncId, h := range bs.syncingPeers {
@@ -254,7 +264,16 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 
 	bs.logger.Debugf("Req block to:%s,height:%d", id, height)
 
-	body := utility.UInt64ToByte(height)
+	br := &SyncRequest{
+		ReqHeight: height,
+		ReqSize:  int32(PeerManager.getPeerReqBlockCount(id)),
+	}
+
+	body, err := MarshalSyncRequest(br)
+	if err != nil {
+		bs.logger.Errorf("marshalSyncRequest error %v", err)
+		return
+	}
 
 	message := network.Message{Code: network.ReqBlock, Body: body}
 	network.GetNetInstance().Send(id, message)
@@ -323,6 +342,7 @@ func (bs *blockSyncer) syncComplete(id string, timeout bool) bool {
 	} else {
 		PeerManager.heardFromPeer(id)
 	}
+	PeerManager.updateReqBlockCnt(id, !timeout)
 	bs.chain.ticker.RemoveRoutine(bs.syncTimeoutRoutineName(id))
 
 	bs.lock.Lock()
@@ -415,11 +435,16 @@ func (bs blockSyncer) blockReqHandler(msg notify.Message) {
 		bs.logger.Debugf("blockReqHandler:Message assert not ok!")
 		return
 	}
-	reqHeight := utility.ByteToUInt64(m.ReqBody)
+
+	br, err := UnmarshalSyncRequest(m.ReqBody)
+	if err != nil {
+		bs.logger.Errorf("unmarshalSyncRequest error %v", err)
+		return
+	}
 	localHeight := bs.chain.Height()
 
-	bs.logger.Debugf("Rcv block request:reqHeight:%d,localHeight:%d", reqHeight, localHeight)
-	blocks := bs.chain.BatchGetBlocksAfterHeight(reqHeight, blockResponseSize)
+	bs.logger.Debugf("Rcv block request:reqHeight:%d, reqSize:%v, localHeight:%d", br.ReqHeight, br.ReqSize, localHeight)
+	blocks := bs.chain.BatchGetBlocksAfterHeight(br.ReqHeight, int(br.ReqSize))
 	responseBlocks(m.Peer, blocks)
 }
 

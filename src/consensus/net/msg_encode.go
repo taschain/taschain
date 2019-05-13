@@ -91,19 +91,6 @@ func marshalConsensusSignPubKeyReqMessage(m *model.ConsensusSignPubkeyReqMessage
 
 //--------------------------------------------组铸币--------------------------------------------------------------------
 
-func marshalConsensusCastMessage(m *model.ConsensusCastMessage) ([]byte, error) {
-	bh := types.BlockHeaderToPb(&m.BH)
-	//groupId := m.GroupID.Serialize()
-	si := signDataToPb(&m.SI)
-
-	hashs := make([][]byte, len(m.ProveHash))
-	for i, h := range m.ProveHash {
-		hashs[i] = h.Bytes()
-	}
-
-	message := tas_middleware_pb.ConsensusCastMessage{Bh: bh, Sign: si, ProveHash: hashs}
-	return proto.Marshal(&message)
-}
 
 func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
 	message := &tas_middleware_pb.ConsensusVerifyMessage{
@@ -251,4 +238,13 @@ func marshalSharePieceResponseMessage(msg *model.ResponseSharePieceMessage) ([]b
 		SharePiece: sharePieceToPb(&msg.Share),
 	}
 	return proto.Marshal(message)
+}
+
+func marshalBlockSignAggrMessage(msg *model.BlockSignAggrMessage) ([]byte, error) {
+	m := &tas_middleware_pb.BlockSignAggrMessage{
+		BlockHash: msg.Hash.Bytes(),
+		Sign: msg.Sign.Serialize(),
+		Random: msg.Random.Serialize(),
+	}
+	return proto.Marshal(m)
 }

@@ -25,7 +25,7 @@ import (
 	"middleware/pb"
 	"common"
 	"taslog"
-	"time"
+	time2 "middleware/time"
 )
 
 // middleware模块统一logger
@@ -193,15 +193,15 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	if h == nil {
 		return nil
 	}
-	hashBytes := h.Transactions
-	hashes := make([]common.Hash, 0, len(hashBytes.Hashes))
-
-	if hashBytes != nil {
-		for _, hashByte := range hashBytes.Hashes {
-			hash := common.BytesToHash(hashByte)
-			hashes = append(hashes, hash)
-		}
-	}
+	//hashBytes := h.Transactions
+	//hashes := make([]common.Hash, 0, len(hashBytes.Hashes))
+	//
+	//if hashBytes != nil {
+	//	for _, hashByte := range hashBytes.Hashes {
+	//		hash := common.BytesToHash(hashByte)
+	//		hashes = append(hashes, hash)
+	//	}
+	//}
 
 	//hashBytes2 := h.EvictedTxs
 	//hashes2 := make([]common.Hash, 0)
@@ -213,20 +213,20 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	//	}
 	//}
 
-	var preTime time.Time
-	e1 := preTime.UnmarshalBinary(h.PreTime)
-	if e1 != nil {
-		logger.Errorf("[handler]pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
-		return nil
-	}
-
-	var curTime time.Time
-	curTime.UnmarshalBinary(h.CurTime)
-	e2 := curTime.UnmarshalBinary(h.CurTime)
-	if e2 != nil {
-		logger.Errorf("[handler]pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
-		return nil
-	}
+	//var preTime time.Time
+	//e1 := preTime.UnmarshalBinary(h.PreTime)
+	//if e1 != nil {
+	//	logger.Errorf("[handler]pbToBlockHeader preTime UnmarshalBinary error:%s", e1.Error())
+	//	return nil
+	//}
+	//
+	//var curTime time.Time
+	//curTime.UnmarshalBinary(h.CurTime)
+	//e2 := curTime.UnmarshalBinary(h.CurTime)
+	//if e2 != nil {
+	//	logger.Errorf("[handler]pbToBlockHeader curTime UnmarshalBinary error:%s", e2.Error())
+	//	return nil
+	//}
 
 	//pv := &big.Int{}
 	//var proveValue *big.Int
@@ -236,10 +236,10 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	//	proveValue = nil
 	//}
 	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
-	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), PreTime: preTime,
-		ProveValue: h.ProveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
-		Nonce: *h.Nonce, Transactions: hashes, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
-		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random, ProveRoot: common.BytesToHash(h.ProveRoot)}
+	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), Elapsed: *h.Elapsed,
+		ProveValue: h.ProveValue, CurTime: time2.Int64ToTimeStamp(*h.CurTime), Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		Nonce: *h.Nonce, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
+		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random, }
 	return &header
 }
 
@@ -258,15 +258,13 @@ func PbToBlock(b *tas_middleware_pb.Block) *Block {
 }
 
 func PbToGroupHeader(g *tas_middleware_pb.GroupHeader) *GroupHeader {
-	var beginTime time.Time
-	beginTime.UnmarshalBinary(g.BeginTime)
 	header := GroupHeader{
 		Hash:          common.BytesToHash(g.Hash),
 		Parent:        g.Parent,
 		PreGroup:      g.PreGroup,
 		Authority:     *g.Authority,
 		Name:          *g.Name,
-		BeginTime:     beginTime,
+		BeginTime:     time2.Int64ToTimeStamp(*g.BeginTime),
 		MemberRoot:    common.BytesToHash(g.MemberRoot),
 		CreateHeight:  *g.CreateHeight,
 		ReadyHeight:   *g.ReadyHeight,
@@ -342,15 +340,15 @@ func TransactionsToPb(txs []*Transaction) []*tas_middleware_pb.Transaction {
 }
 
 func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
-	hashes := h.Transactions
-	hashBytes := make([][]byte, 0)
-
-	if hashes != nil {
-		for _, hash := range hashes {
-			hashBytes = append(hashBytes, hash.Bytes())
-		}
-	}
-	txHashes := tas_middleware_pb.Hashes{Hashes: hashBytes}
+	//hashes := h.Transactions
+	//hashBytes := make([][]byte, 0)
+	//
+	//if hashes != nil {
+	//	for _, hash := range hashes {
+	//		hashBytes = append(hashBytes, hash.Bytes())
+	//	}
+	//}
+	//txHashes := tas_middleware_pb.Hashes{Hashes: hashBytes}
 	//hashes2 := h.EvictedTxs
 	//hashBytes2 := make([][]byte, 0)
 	//
@@ -360,17 +358,17 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	//	}
 	//}
 	//evictedTxs := tas_middleware_pb.Hashes{Hashes: hashBytes2}
-	preTime, e1 := h.PreTime.MarshalBinary()
-	if e1 != nil {
-		logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
-		return nil
-	}
-
-	curTime, e2 := h.CurTime.MarshalBinary()
-	if e2 != nil {
-		logger.Errorf("BlockHeaderToPb marshal cur time error:%s", e2.Error())
-		return nil
-	}
+	//preTime, e1 := h.PreTime.MarshalBinary()
+	//if e1 != nil {
+	//	logger.Errorf("BlockHeaderToPb marshal pre time error:%s\n", e1.Error())
+	//	return nil
+	//}
+	//
+	//curTime, e2 := h.CurTime.MarshalBinary()
+	//if e2 != nil {
+	//	logger.Errorf("BlockHeaderToPb marshal cur time error:%s", e2.Error())
+	//	return nil
+	//}
 
 	//var proveValueByte []byte
 	//if h.ProveValue != nil {
@@ -378,11 +376,11 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	//} else {
 	//	proveValueByte = nil
 	//}
-
-	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), PreTime: preTime,
-		ProveValue: h.ProveValue, CurTime: curTime, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
-		Nonce: &h.Nonce, Transactions: &txHashes, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
-		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, ProveRoot: h.ProveRoot.Bytes()}
+	ts := h.CurTime.Unix()
+	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), Elapsed: &h.Elapsed,
+		ProveValue: h.ProveValue, CurTime: &ts, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		Nonce: &h.Nonce, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
+		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random, }
 	return &header
 }
 
@@ -397,14 +395,14 @@ func BlockToPb(b *Block) *tas_middleware_pb.Block {
 }
 
 func GroupToPbHeader(g *GroupHeader) *tas_middleware_pb.GroupHeader {
-	beginTime, _ := g.BeginTime.MarshalBinary()
+	t := g.BeginTime.Unix()
 	header := tas_middleware_pb.GroupHeader{
 		Hash:          g.Hash.Bytes(),
 		Parent:        g.Parent,
 		PreGroup:      g.PreGroup,
 		Authority:     &g.Authority,
 		Name:          &g.Name,
-		BeginTime:     beginTime,
+		BeginTime:     &t,
 		MemberRoot:    g.MemberRoot.Bytes(),
 		CreateHeight:  &g.CreateHeight,
 		ReadyHeight:   &g.ReadyHeight,

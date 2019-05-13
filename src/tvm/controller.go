@@ -22,7 +22,9 @@ type Controller struct {
 func NewController(accountDB vm.AccountDB,
 	chainReader vm.ChainReader,
 	header *types.BlockHeader,
-	transaction *types.Transaction, libPath string) *Controller {
+	transaction *types.Transaction,
+	gasUsed uint64,
+	libPath string) *Controller {
 	if controller == nil {
 		controller = &Controller{}
 	}
@@ -33,7 +35,7 @@ func NewController(accountDB vm.AccountDB,
 	controller.Vm = nil
 	controller.LibPath = libPath
 	controller.VmStack = make([]*Tvm, 0)
-	controller.GasLeft = transaction.GasLimit
+	controller.GasLeft = transaction.GasLimit - gasUsed
 	return controller
 }
 
@@ -75,7 +77,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 	}()
 	//先转账
 	if con.Transaction.Value > 0 {
-		amount := big.NewInt(int64(con.Transaction.Value))
+		amount := new(big.Int).SetUint64(con.Transaction.Value)
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
 		} else {

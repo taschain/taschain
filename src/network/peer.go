@@ -329,10 +329,15 @@ func newPeerManager() *PeerManager {
 		CastVerifyMsg:      SendPriorityHigh,
 		VerifiedCastMsg2:   SendPriorityHigh,
 
+<<<<<<< HEAD
 		ReqTransactionMsg: SendPriorityMedium,
 		TransactionGotMsg: SendPriorityMedium,
 		CastRewardSignReq: SendPriorityMedium,
 		CastRewardSignGot: SendPriorityMedium,
+=======
+		CastRewardSignReq:   SendPriorityMedium,
+		CastRewardSignGot:   SendPriorityMedium,
+>>>>>>> origin/develop
 	}
 	return pm
 }

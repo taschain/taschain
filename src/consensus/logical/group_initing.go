@@ -304,12 +304,8 @@ type JoiningGroups struct {
 }
 
 func NewJoiningGroups() *JoiningGroups {
-	cache, err := lru.New(50)
-	if err != nil {
-		panic(err)
-	}
 	return &JoiningGroups{
-		groups: cache,
+		groups: common.MustNewLRUCache(50),
 	}
 }
 

@@ -30,6 +30,8 @@
             <li>查询工作组</li>
             <li>共识验证</li>
             <li lay-id="block_detail_tab">块详情</li>
+            <li lay-id="tx_detail_tab">交易详情</li>
+
         </ul>
         <div class="layui-tab-content">
             <div class="layui-tab-item  layui-show">
@@ -619,6 +621,88 @@
                         </fieldset>
                     </div>
                 </div>
+
+
+            </div>
+
+            <!-- 交易详情 -->
+            <div class="layui-tab-item">
+                <div class="layui-row layui-col-space20">
+                    <div class="layui-col-md2"></div>
+                    <div class="layui-col-md4">
+                        <input type="text" name="account"   autocomplete="off" class="layui-input" placeholder="交易hash" id="query_tx_hash">
+                    </div>
+                    <div class="layui-col-md1">
+                        <button class="layui-btn query_btn" id="query_tx_btn">查询</button>
+                    </div>
+                    <div class="layui-col-md2"></div>
+                </div>
+                <div class="layui-row">
+                    <div class="layui-row" id="tx_detail_result">
+                        <div class="layui-row layui-col-space20">
+                            <div class="layui-col-md12" id="tx_detail_set">
+                                <fieldset class="layui-elem-field" >
+                                    <legend>交易详情</legend>
+                                    <div class="layui-field-box">
+                                        <div class="layui-row layui-col-space5">
+                                            <div class="layui-col-md2">hash：</div>
+                                            <div class="layui-col-md4" id="tx_hash">--</div>
+                                        </div>
+
+                                        <div class="layui-row layui-col-space5">
+                                            <div class="layui-col-md2">发送者：</div>
+                                            <div class="layui-col-md4" id="tx_source">--</div>
+                                        </div>
+                                        <div class="layui-row layui-col-space5">
+                                            <div class="layui-col-md2">接收者：</div>
+                                            <div class="layui-col-md4" id="tx_target">--</div>
+                                        </div>
+                                        <div class="layui-row layui-col-space5">
+                                            <div class="layui-col-md2">价值：</div>
+                                            <div class="layui-col-md4" id="tx_value">0</div>
+                                        </div>
+                                        <div class="layui-row layui-col-space5">
+                                            <div class="layui-col-md2">Data：</div>
+                                            <div class="layui-col-md4" id="tx_data">0</div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+
+                            </div>
+                            <div class="layui-col-md12" id="tx_receipt_set">
+                            <fieldset class="layui-elem-field" >
+                                <legend>交易回执</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-row layui-col-space5">
+                                        <div class="layui-col-md2">状态：</div>
+                                        <div class="layui-col-md4" id="tx_status">--</div>
+                                    </div>
+                                    <div class="layui-row layui-col-space5">
+                                        <div class="layui-col-md2">交易类型：</div>
+                                        <div class="layui-col-md4" id="tx_type">--</div>
+                                    </div>
+                                    <div class="layui-row layui-col-space5">
+                                        <div class="layui-col-md2">消费gas：</div>
+                                        <div class="layui-col-md4" id="tx_cumulativeGasUsed">--</div>
+                                    </div>
+                                    <div class="layui-row layui-col-space5">
+                                        <div class="layui-col-md2">日志：</div>
+                                        <div class="layui-col-md4" id="tx_logs">--</div>
+                                    </div>
+                                    <div class="layui-row layui-col-space5">
+                                        <div class="layui-col-md2">合约地址：</div>
+                                        <div class="layui-col-md4" id="tx_contractAddress">--</div>
+                                    </div>
+
+                                </div>
+                            </fieldset>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

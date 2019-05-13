@@ -47,6 +47,9 @@ func (gm *GroupManager) removeContext() {
 }
 
 func (gm *GroupManager) CreateNextGroupRoutine() {
+	if !gm.processor.genesisMember {
+		return
+	}
 	top := gm.mainChain.QueryTopBlock()
 	topHeight := top.Height
 

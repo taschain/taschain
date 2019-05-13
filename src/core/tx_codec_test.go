@@ -9,6 +9,7 @@ import (
 	"common"
 	"math/rand"
 	"github.com/vmihailenco/msgpack"
+	time2 "middleware/time"
 )
 
 /*
@@ -48,14 +49,13 @@ func genBlockHeader() *types.BlockHeader {
 	castor := groupsig.ID{}
 	castor.SetBigInt(big.NewInt(1000))
 	bh := &types.BlockHeader{
-		CurTime:    time.Now(), //todo:时区问题
+		CurTime:    time2.TimeToTimeStamp(time.Now()),
 		Height:     rand.Uint64(),
 		ProveValue: []byte{},
 		Castor:     castor.Serialize(),
 		GroupId:    castor.Serialize(),
 		TotalQN:    rand.Uint64(),
 		StateTree:  common.Hash{},
-		ProveRoot:  common.HexToHash("0x123"),
 	}
 	return bh
 }
@@ -69,7 +69,6 @@ func genBlock(txNum int) *types.Block {
 		txs = append(txs, tx)
 		txHashs = append(txHashs, tx.Hash)
 	}
-	bh.Transactions = txHashs
 	return &types.Block{
 		Header: bh,
 		Transactions: txs,
@@ -116,19 +115,22 @@ func TestDecodeBlockTransactionWithTransactions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, tx := range txs {
-		t.Logf("after %v: %+v", i, tx)
+		if tx.Hash != b.Transactions[i].Hash {
+			t.Fatal("tx hash error")
+		}
 	}
 }
 
 func TestDecodeTransactionByHash(t *testing.T) {
-	b := genBlock(23)
+	b := genBlock(11)
 	t.Logf("block is %+v", b.Header)
 	var testHash common.Hash
-	r := 24
+	var testIndex int
+	r := 11//rand.Intn(len(b.Transactions))
 	for i, tx := range b.Transactions {
-		t.Logf("before %v: %+v", i, tx.Hash.String())
 		if i == r {
 			testHash = tx.Hash
+			testIndex = i
 			t.Log("test hash",i, testHash.String())
 		}
 	}
@@ -136,8 +138,7 @@ func TestDecodeTransactionByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	tx, err := decodeTransaction(b.Header, testHash, bs)
+	tx, err := decodeTransaction(testIndex, testHash, bs)
 	if err != nil {
 		t.Fatal(err)
 	}
