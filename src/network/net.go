@@ -87,8 +87,8 @@ type NetCore struct {
 	flowMeter      *FlowMeter
 	bufferPool     *BufferPool
 
-	chainId         uint32 //链id
-	protocolVersion uint32 //协议id
+	chainId         uint16 //链id
+	protocolVersion uint16 //协议id
 }
 
 type pending struct {
@@ -138,8 +138,8 @@ type NetCoreConfig struct {
 
 	NatPort         uint16
 	NatIp           string
-	ChainId         uint32
-	ProtocolVersion uint32
+	ChainId         uint16
+	ProtocolVersion uint16
 }
 
 //MakeEndPoint 创建节点描述对象
@@ -183,6 +183,8 @@ func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 	realaddr := cfg.ListenAddr
 
 	Logger.Infof("kad id: %v ", nc.id.GetHexString())
+	Logger.Infof("chain id: %v ", nc.chainId)
+	Logger.Infof("protocol version : %v ", nc.protocolVersion)
 	Logger.Infof("P2PConfig: %v ", nc.nid)
 	P2PConfig(nc.nid)
 
@@ -223,13 +225,11 @@ func (nc *NetCore) ping(toid NodeID, toaddr *nnet.UDPAddr) error {
 		to = MakeEndPoint(toaddr, 0)
 	}
 	req := &MsgPing{
-		Version:         Version,
-		From:            &nc.ourEndPoint,
-		To:              &to,
-		NodeId:          nc.id[:],
-		Expiration:      uint64(time.Now().Add(expiration).Unix()),
-		ChainId:         nc.chainId,
-		ProtocolVersion: nc.protocolVersion,
+		Version:    Version,
+		From:       &nc.ourEndPoint,
+		To:         &to,
+		NodeId:     nc.id[:],
+		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
 	Logger.Infof("[send ping ] id : %v  ip:%v port:%v", toid.GetHexString(), nc.ourEndPoint.Ip, nc.ourEndPoint.Port)
 
@@ -602,11 +602,12 @@ func (nc *NetCore) encodeDataPacket(data []byte, dataType DataType, code uint32,
 		DataType:     dataType,
 		GroupId:      groupId,
 		MessageId:    nc.messageManager.genMessageId(),
-		MessageCode:  int32(code),
+		MessageCode:  uint32(code),
 		DestNodeId:   nodeIdBytes,
 		SrcNodeId:    nc.id.Bytes(),
 		BizMessageId: bizMessageIdBytes,
 		RelayCount:   relayCount,
+		MessageInfo:  encodeMessageInfo(nc.chainId, nc.protocolVersion),
 		Expiration:   uint64(time.Now().Add(expiration).Unix())}
 	Logger.Debugf("encodeDataPacket  DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v code:%v", msgData.DataType, msgData.MessageId, msgData.BizMessageId, msgData.RelayCount, code)
 
@@ -776,12 +777,10 @@ func (nc *NetCore) handlePing(req *MsgPing, fromId NodeID) error {
 			p.Ip = ip
 			p.Port = port
 		}
-		p.chainId = req.ChainId
-		p.protocolVersion = req.ProtocolVersion
 	}
 	from := nnet.UDPAddr{IP: nnet.ParseIP(req.From.Ip), Port: int(req.From.Port)}
 
-	Logger.Debugf("ping from:%v id:%v port:%d chain id:%v protocol version:%v", fromId.GetHexString(), ip, port, req.ChainId, req.ProtocolVersion)
+	Logger.Debugf("ping from:%v id:%v port:%d", fromId.GetHexString(), ip, port)
 
 	if !nc.handleReply(fromId, MessageType_MessagePing, req) {
 		go nc.kad.onPingNode(fromId, &from)
@@ -865,7 +864,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	destNodeId := NodeID{}
 	destNodeId.SetBytes(req.DestNodeId)
 
-	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v code:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg, req.MessageCode)
+	Logger.Debugf("data from:%v  len:%v DataType:%v messageId:%X ,BizMessageId:%v ,RelayCount:%v  unhandleDataMsg:%v code:%v messageInfo:%v", srcNodeId, len(req.Data), req.DataType, req.MessageId, req.BizMessageId, req.RelayCount, nc.unhandledDataMsg, req.MessageCode,req.MessageInfo)
 
 	statistics.AddCount("net.handleData", uint32(req.DataType), uint64(len(req.Data)))
 	if req.DataType == DataType_DataNormal {
@@ -878,7 +877,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 			nc.peerManager.write(destNodeId, nil, dataBuffer, uint32(req.MessageCode), false)
 
 		} else {
-			nc.onHandleDataMessage(req.Data, srcNodeId)
+			nc.onHandleDataMessage(req, srcNodeId)
 		}
 		return
 	}
@@ -909,7 +908,7 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	}
 	//需处理
 	if len(req.DestNodeId) == 0 || destNodeId == nc.id {
-		nc.onHandleDataMessage(req.Data, srcNodeId)
+		nc.onHandleDataMessage(req, srcNodeId)
 	}
 	broadcast := false
 	//需广播
@@ -941,19 +940,25 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromId NodeID) {
 	}
 }
 
-func (nc *NetCore) onHandleDataMessage(b []byte, fromId NodeID) {
+func (nc *NetCore) onHandleDataMessage(data *MsgData, fromId NodeID) {
 	if nc.unhandledDataMsg > MaxUnhandledMessageCount {
 		Logger.Errorf("unhandled message too much , drop this message !")
 		return
 	}
-	p := nc.peerManager.peerByID(fromId)
-	if p != nil && !p.IsCompatible() {
-		Logger.Errorf("node chain id or  porotocal version is not compatible, drop this message !")
-		return
-	}
+
 	nc.unhandledDataMsg += 1
+	chainId, protocolVersion := decodeMessageInfo(data.MessageInfo)
+	p := nc.peerManager.peerByID(fromId)
+	if p != nil {
+		p.chainId = chainId
+		if !p.IsCompatible() {
+			Logger.Errorf("node chain id not compatible, drop this message !")
+			return
+		}
+	}
+
 	if net != nil {
-		net.handleMessage(b, fromId.GetHexString())
+		net.handleMessage(data.Data, fromId.GetHexString(), chainId, protocolVersion)
 	}
 
 }

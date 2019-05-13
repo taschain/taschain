@@ -44,13 +44,13 @@ type NetworkConfig struct {
 	NatPort      uint16
 	SeedIp       string
 	SeedId       string
-	ChainId      uint32 //链id
-	ProtocolVersion uint32 //协议id
-	TestMode     bool   //是否为测试模式
-	IsSuper      bool   //是否为超级节点
+	ChainId      uint16 //链id
+	ProtocolVersion uint16 //协议id
+	TestMode     bool
+	IsSuper      bool
 }
 
-var net *server
+var net *Server
 
 var Logger taslog.Logger
 
@@ -64,20 +64,24 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
-	//if index == "4" {
-	//	networkConfig.ChainId = 2
-	//	networkConfig.ProtocolVersion = 2
-	//} else {
-	//	networkConfig.ChainId = 1
-	//	networkConfig.ProtocolVersion = 1
-	//
-	//}
+
+	//test
+
+	if index == "14" {
+		networkConfig.ChainId = 2
+		networkConfig.ProtocolVersion = 2
+	} else {
+		networkConfig.ChainId = 1
+		networkConfig.ProtocolVersion = 1
+	}
+
 	if networkConfig.SeedIp == "" {
 		networkConfig.SeedIp = seedDefaultIp
 	}
 	if networkConfig.SeedId == "" {
 		networkConfig.SeedId = seedDefaultId
 	}
+
 	_, _, seedPort := getSeedInfo(config)
 
 	seeds := make([]*Node, 0, 16)
@@ -107,7 +111,7 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler}
+	net = &Server{Self: self, netCore: n, consensusHandler: consensusHandler}
 	return nil
 }
 

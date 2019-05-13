@@ -84,11 +84,11 @@ const (
 
 	BlockBodyReqMsg uint32 = 32
 
-	BlockBodyMsg uint32 = 33
-	FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
+	BlockBodyMsg               uint32 = 33
+	FULL_NODE_VIRTUAL_GROUP_ID        = "full_node_virtual_group_id"
 
 	//===================请求组内成员签名公钥======
-	AskSignPkMsg uint32 = 34
+	AskSignPkMsg    uint32 = 34
 	AnswerSignPkMsg uint32 = 35
 
 	VerifiedCastMsg2 uint32 = 77
@@ -97,19 +97,20 @@ const (
 	GroupPing uint32 = 100
 	GroupPong uint32 = 101
 
-	ReqSharePiece uint32 = 102
+	ReqSharePiece      uint32 = 102
 	ResponseSharePiece uint32 = 103
 
 	//=================交易同步===========
-	TxSyncNotify uint32 = 200
-	TxSyncReq uint32 = 201
+	TxSyncNotify   uint32 = 200
+	TxSyncReq      uint32 = 201
 	TxSyncResponse uint32 = 202
 )
 
 type Message struct {
-	Code uint32
-
-	Body []byte
+	Code            uint32
+	ChainId         uint16
+	ProtocolVersion uint16
+	Body            []byte
 }
 
 type Conn struct {

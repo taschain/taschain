@@ -211,10 +211,7 @@ type Peer struct {
 	bytesSend       int
 	sendWaitCount   int
 	disconnectCount int
-
-	chainId         uint32 //链id
-	protocolVersion uint32 //协议id
-
+	chainId            uint16 //链id
 }
 
 func newPeer(Id NodeID, seesionId uint32) *Peer {
@@ -286,10 +283,6 @@ func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.sendList.send(p, b, int(code))
 }
 
-func (p *Peer) IsCompatible() bool {
-	return netCore.chainId == p.chainId && netCore.protocolVersion == p.protocolVersion
-}
-
 func (p *Peer) getDataSize() int {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -302,6 +295,12 @@ func (p *Peer) getDataSize() int {
 	return size
 }
 
+func (p *Peer) IsCompatible() bool {
+	return netCore.chainId == p.chainId
+}
+
+
+
 //PeerManager 节点连接管理
 type PeerManager struct {
 	peers              map[uint64]*Peer //key为网络ID
@@ -309,6 +308,7 @@ type PeerManager struct {
 	natTraversalEnable bool
 	natPort            uint16
 	natIp              string
+
 }
 
 func newPeerManager() *PeerManager {

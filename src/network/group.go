@@ -84,9 +84,9 @@ func (g* Group) genConnectNodes() {
 		}
 	}
 
-	Logger.Debugf("[genConnectNodes] curIndex:%v",g.curIndex)
+	Logger.Debugf("[genConnectNodes] curIndex: %v",g.curIndex)
 	for i:= 0;i<len(g.members);i++ {
-		Logger.Debugf("[genConnectNodes] members id：%v",g.members[i].GetHexString())
+		Logger.Debugf("[genConnectNodes] members id: %v",g.members[i].GetHexString())
 	}
 
 	connectCount := GroupBaseConnectNodeCount
@@ -119,7 +119,7 @@ func (g* Group) genConnectNodes() {
 	}
 
 	for i:= 0;i<len(g.needConnectNodes);i++ {
-		Logger.Debugf("[genConnectNodes] needConnectNodes id：%v", g.needConnectNodes[i].GetHexString())
+		Logger.Debugf("[genConnectNodes] needConnectNodes id: %v", g.needConnectNodes[i].GetHexString())
 	}
 
 }

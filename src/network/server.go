@@ -1,12 +1,12 @@
 //   Copyright (C) 2018 TASChain
 //
-//   This program is free software: you can redistribute it and/or modify
+//   This program is free software: you cas redistribute it and/or modify
 //   it under the terms of the GNU General Public License as published by
-//   the Free Software Foundation, either version 3 of the License, or
-//   (at your option) any later version.
+//   the Free Software Foundation, either versios 3 of the License, or
+//   (at your option) any later versios.
 //
-//   This program is distributed in the hope that it will be useful,
-//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   This program is distributed is the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without eves the implied warranty of
 //   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //   GNU General Public License for more details.
 //
@@ -29,7 +29,7 @@ import (
 	mrand "math/rand"
 )
 
-type server struct {
+type Server struct {
 	Self *Node
 
 	netCore *NetCore
@@ -37,61 +37,59 @@ type server struct {
 	consensusHandler MsgHandler
 	//
 	//chainHandler MsgHandler
-
 }
 
-func (n *server) Send(id string, msg Message) error {
-	bytes, err := marshalMessage(msg)
+func (s *Server) Send(id string, msg Message) error {
+	bytes,err := marshalMessage(msg)
 	if err != nil {
-		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	if id == n.Self.Id.GetHexString() {
-		n.sendSelf(bytes)
+	if id == s.Self.Id.GetHexString() {
+		s.sendSelf(bytes)
 		return nil
 	}
-	go n.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
+	go s.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
 	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) SendWithGroupRelay(id string, groupId string, msg Message) error {
+func (s *Server) SendWithGroupRelay(id string, groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
+	s.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
 	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) RandomSpreadInGroup(groupId string, msg Message) error {
+func (s *Server) RandomSpreadInGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
+	s.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
 	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) SpreadAmongGroup(groupId string, msg Message) error {
+func (s *Server) SpreadAmongGroup(groupId string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
+	s.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
 	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+func (s *Server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
 	if Logger == nil {
 		return nil
 	}
@@ -111,11 +109,11 @@ func (n *server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 	entranceNodes := groupMembers[entranceIndex:]
 	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers),entranceIndex)
 
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
+	s.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
 }
 
-func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+func (s *Server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
@@ -123,51 +121,51 @@ func (n *server) SpreadToGroup(groupId string, groupMembers []string, msg Messag
 	}
 
 	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
-	n.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, digest, groupMembers, -1)
+	s.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, digest, groupMembers, -1)
 
 	return nil
 }
 
-func (n *server) TransmitToNeighbor(msg Message) error {
+func (s *Server) TransmitToNeighbor(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	n.netCore.SendAll(bytes, msg.Code, false, nil, -1)
+	s.netCore.SendAll(bytes, msg.Code, false, nil, -1)
 
 	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) Relay(msg Message, relayCount int32) error {
+func (s *Server) Relay(msg Message, relayCount int32) error {
 
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	//n.netCore.SendAll(bytes, true,nil,-1)
-	n.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
+	//s.netCore.SendAll(bytes, true,nil,-1)
+	s.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
 	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) Broadcast(msg Message) error {
+func (s *Server) Broadcast(msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	n.netCore.SendAll(bytes, msg.Code, true, nil, -1)
+	s.netCore.SendAll(bytes, msg.Code, true, nil, -1)
 	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
-func (n *server) ConnInfo() []Conn {
+func (s *Server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
-	peers := n.netCore.peerManager.peers
+	peers := s.netCore.peerManager.peers
 	for _, p := range peers {
 		if p.seesionId > 0 && p.Ip != nil && p.Port > 0 {
 			c := Conn{Id: p.Id.GetHexString(), Ip: p.Ip.String(), Port: strconv.Itoa(p.Port)}
@@ -177,59 +175,61 @@ func (n *server) ConnInfo() []Conn {
 	return result
 }
 
-func (n *server) BuildGroupNet(groupId string, members []string) {
+func (s *Server) BuildGroupNet(groupId string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	n.netCore.groupManager.buildGroup(groupId, nodes)
+	s.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
-func (n *server) DissolveGroupNet(groupId string) {
-	n.netCore.groupManager.removeGroup(groupId)
+func (s *Server) DissolveGroupNet(groupId string) {
+	s.netCore.groupManager.removeGroup(groupId)
 }
 
-func (n *server) AddGroup(groupId string, members []string) *Group {
+func (s *Server) AddGroup(groupId string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	return n.netCore.groupManager.buildGroup(groupId, nodes)
+	return s.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
 //RemoveGroup 移除组
-func (n *server) RemoveGroup(ID string) {
-	n.netCore.groupManager.removeGroup(ID)
+func (s *Server) RemoveGroup(ID string) {
+	s.netCore.groupManager.removeGroup(ID)
 }
 
-func (n *server) sendSelf(b []byte) {
-	n.handleMessage(b, n.Self.Id.GetHexString())
+func (s *Server) sendSelf(b []byte) {
+	s.handleMessage(b, s.Self.Id.GetHexString(),s.netCore.chainId,s.netCore.protocolVersion)
 }
 
-func (n *server) handleMessage(b []byte, from string) {
+func (s *Server) handleMessage(b []byte,from string, chaidId uint16, protocolVersion uint16) {
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("Proto unmarshal error:%s", error.Error())
 		return
 	}
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s", from, message.Code, len(b), message.Hash())
-	statistics.AddCount("server.handleMessage", message.Code, uint64(len(b)))
-	n.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
+	message.ChainId = chaidId
+	message.ProtocolVersion = protocolVersion
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainId:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(),chaidId,protocolVersion)
+	statistics.AddCount("Server.handleMessage", message.Code, uint64(len(b)))
+	s.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b
-	go n.handleMessageInner(message, from)
+	go s.handleMessageInner(message, from)
 }
 
-func (n *server) handleMessageInner(message *Message, from string) {
+func (s *Server) handleMessageInner(message *Message, from string) {
 
-	defer n.netCore.onHandleDataMessageDone(from)
+	defer s.netCore.onHandleDataMessageDone(from)
 
 	begin := time.Now()
 	code := message.Code
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
 		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece:
-		n.consensusHandler.Handle(from, *message)
+		s.consensusHandler.Handle(from, *message)
 	case GroupChainCountMsg:
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
