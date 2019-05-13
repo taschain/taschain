@@ -150,7 +150,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	}
 
 	//如果自己是提案者，则直接上链再广播
-	if slot.castor.IsEqual(p.GetMinerID()) {
+	if false {	//会导致提案者分布不均衡
 		err := p.onBlockSignAggregation(bh.Hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
 		if err != nil {
 			blog.log("onBlockSignAggregation fail: %v", err)
