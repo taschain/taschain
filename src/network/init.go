@@ -67,13 +67,13 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 
 	//test
 
-	if index == "14" {
-		networkConfig.ChainId = 2
-		networkConfig.ProtocolVersion = 2
-	} else {
-		networkConfig.ChainId = 1
-		networkConfig.ProtocolVersion = 1
-	}
+	//if index == "4" {
+	//	networkConfig.ChainId = 2
+	//	networkConfig.ProtocolVersion = 2
+	//} else {
+	//	networkConfig.ChainId = 1
+	//	networkConfig.ProtocolVersion = 1
+	//}
 
 	if networkConfig.SeedIp == "" {
 		networkConfig.SeedIp = seedDefaultIp
