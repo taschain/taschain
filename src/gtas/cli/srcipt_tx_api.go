@@ -18,7 +18,29 @@ import (
 //}
 
 func (api *GtasAPI) ScriptTransferTx(privateKey string, from string, to string, amount uint64, nonce uint64, txType int, gasPrice uint64) (*Result, error) {
-	return api.TxUnSafe(privateKey, to, amount, gasPrice, gasPrice, nonce, txType, "")
+	//can't reuse the TxUnSafe because of TxUnSafe is used by others
+	txRaw := &txRawData{
+		Target:   to,
+		Value:    amount,
+		Gas:      10000,
+		Gasprice: gasPrice,
+		Nonce:    nonce,
+		TxType:   txType,
+		Data:     "",
+	}
+	sk := common.HexStringToSecKey(privateKey)
+	if sk == nil {
+		return failResult(fmt.Sprintf("parse private key fail:%v", privateKey))
+	}
+	trans := txRawToTransaction(txRaw)
+	trans.Hash = trans.GenHash()
+	sign := sk.Sign(trans.Hash.Bytes())
+	trans.Sign = sign.Bytes()
+
+	if err := sendTransaction(trans); err != nil {
+		return failResult(err.Error())
+	}
+	return successResult(trans.Hash.String())
 }
 
 func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, nonce uint64, txType int, data string) (*Result, error) {
