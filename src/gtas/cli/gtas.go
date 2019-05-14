@@ -100,9 +100,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string, enableLog bool) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string, enableLog bool, chainId uint16) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore, enableLog)
+	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore, enableLog, chainId)
 	if err != nil {
 		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
@@ -237,6 +237,7 @@ func (gtas *Gtas) Run() {
 	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
 	natPort := mineCmd.Flag("natport", "nat server port").Default("0").Uint16()
+	chainId := mineCmd.Flag("chainid", "chain id").Default("0").Uint16()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -299,7 +300,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv)
+		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv, *chainId)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -354,7 +355,7 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 	}
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16, seedIp string, seedId string, light bool, keystore string, enableLog bool) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16, seedIp string, seedId string, light bool, keystore string, enableLog bool, chainId uint16) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -392,7 +393,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 		SeedIp:          seedIp,
 		SeedId:          seedId,
 		NodeIDHex:       id,
-		ChainId:         common.ChainID,
+		ChainId:         chainId,
 		ProtocolVersion: common.ProtocalVersion}
 
 	err = network.Init(common.GlobalConf, chandler.MessageHandler, netCfg)

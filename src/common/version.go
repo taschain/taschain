@@ -23,6 +23,4 @@ const ConsensusVersion = 1
 
 const ChainDataVersion = 3
 
-const ChainID = 1
-
 const ProtocalVersion = 1
