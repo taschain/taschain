@@ -28,12 +28,10 @@ func (chain *FullBlockChain) initMessageHandler() {
 
 
 func (chain *FullBlockChain) newBlockHandler(msg notify.Message) {
-	m, ok := msg.(*notify.NewBlockMessage)
-	if !ok {
-		return
-	}
-	source := m.Peer
-	block, e := types.UnMarshalBlock(m.BlockByte)
+	m := notify.AsDefault(msg)
+
+	source := m.Source()
+	block, e := types.UnMarshalBlock(m.Body())
 	if e != nil {
 		Logger.Debugf("UnMarshal block error:%d", e.Error())
 		return

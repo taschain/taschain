@@ -18,77 +18,63 @@ package network
 const FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
 
 const (
-	//-----------组初始化---------------------------------
+	/********************** consensus message code ***********************
+	*********************** range from 1 to 9999 ***********************
+	**/
 
-	GroupInitMsg uint32 = 1
+	GroupPing uint32 = 1
+	GroupPong uint32 = 2
+	CreateGroupaRaw uint32 = 3
+	CreateGroupSign uint32 = 4
 
-	KeyPieceMsg uint32 = 2
+	GroupInitMsg uint32 = 5
 
-	SignPubkeyMsg uint32 = 3
+	KeyPieceMsg uint32 = 6
 
-	GroupInitDoneMsg uint32 = 4
+	SignPubkeyMsg uint32 = 7
 
-	//-----------组铸币---------------------------------
-	CurrentGroupCastMsg uint32 = 5
+	GroupInitDoneMsg uint32 = 8
 
-	CastVerifyMsg uint32 = 6
+	AskSignPkMsg    uint32 = 9
+	AnswerSignPkMsg uint32 = 10
 
-	VerifiedCastMsg uint32 = 7
+	ReqSharePiece      uint32 = 11
+	ResponseSharePiece uint32 = 12
 
-	NewBlockMsg uint32 = 8
-	//--------------交易-----------------------------
-	//ReqTransactionMsg uint32 = 9
-	//
-	//TransactionGotMsg uint32 = 10
+	CurrentGroupCastMsg uint32 = 13
+	CastVerifyMsg uint32 = 14
+	VerifiedCastMsg uint32 = 15
+	CastRewardSignReq uint32 = 16
+	CastRewardSignGot uint32 = 17
+	BlockSignAggr uint32 = 18
 
-	//TransactionBroadcastMsg uint32 = 11
+	/*********************** chain message code ***********************
+	************************* range from 10000 to 19999 **************
+	 */
 
-	//-----------块同步---------------------------------
-	BlockInfoNotifyMsg uint32 = 13
+	BlockInfoNotifyMsg uint32 = 10001
 
-	ReqBlock uint32 = 14
+	ReqBlock uint32 = 10002
 
-	BlockResponseMsg uint32 = 15
+	BlockResponseMsg uint32 = 10003
 
-	//-----------组同步---------------------------------
-	GroupChainCountMsg uint32 = 16
+	NewBlockMsg uint32 = 10004
 
-	ReqGroupMsg uint32 = 17
+	GroupChainCountMsg uint32 = 10005
 
-	GroupMsg uint32 = 18
+	ReqGroupMsg uint32 = 10006
 
-	ReqChainPieceBlock uint32 = 21
+	GroupMsg uint32 = 10007
 
-	ChainPieceBlock uint32 = 22
-	//---------------------组创建确认-----------------------
-	CreateGroupaRaw uint32 = 23
+	ReqChainPieceBlock uint32 = 10008
 
-	CreateGroupSign uint32 = 24
+	ChainPieceBlock uint32 = 10009
 
-	//==================铸块分红=========
-	CastRewardSignReq uint32 = 27
-	CastRewardSignGot uint32 = 28
+	TxSyncNotify   uint32 = 10010
+	TxSyncReq      uint32 = 10011
+	TxSyncResponse uint32 = 10012
 
-	//===================请求组内成员签名公钥======
-	AskSignPkMsg    uint32 = 34
-	AnswerSignPkMsg uint32 = 35
 
-	VerifiedCastMsg2 uint32 = 77
-
-	//建组时ping pong
-	GroupPing uint32 = 100
-	GroupPong uint32 = 101
-
-	ReqSharePiece      uint32 = 102
-	ResponseSharePiece uint32 = 103
-
-	//=================交易同步===========
-	TxSyncNotify   uint32 = 200
-	TxSyncReq      uint32 = 201
-	TxSyncResponse uint32 = 202
-
-	//================signed===============
-	BlockSignAggr uint32 = 300
 )
 
 type Message struct {

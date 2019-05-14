@@ -327,7 +327,7 @@ func newPeerManager() *PeerManager {
 		ReqChainPieceBlock: SendPriorityHigh,
 		ChainPieceBlock:    SendPriorityHigh,
 		CastVerifyMsg:      SendPriorityHigh,
-		VerifiedCastMsg2:   SendPriorityHigh,
+		VerifiedCastMsg:   SendPriorityHigh,
 		CastRewardSignReq:   SendPriorityMedium,
 		CastRewardSignGot:   SendPriorityMedium,
 	}

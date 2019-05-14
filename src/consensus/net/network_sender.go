@@ -152,7 +152,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.VerifiedCastMsg2, Body: body}
+	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 
 	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 	go ns.send2Self(cvm.SI.GetID(), m)

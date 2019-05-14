@@ -17,7 +17,7 @@ package network
 
 import (
 	"github.com/golang/protobuf/proto"
-	tas_middleware_pb "middleware/pb"
+	"middleware/pb"
 
 	"common"
 	mrand "math/rand"
@@ -220,54 +220,50 @@ func (s *Server) handleMessage(b []byte, from string, chaidId uint16, protocolVe
 	go s.handleMessageInner(message, from)
 }
 
+func newNotifyMessage(message *Message, from string) *notify.DefaultMessage {
+	return notify.NewDefaultMessage(message.Body, from, message.ChainId, message.ProtocolVersion)
+}
+
 func (s *Server) handleMessageInner(message *Message, from string) {
 
 	defer s.netCore.onHandleDataMessageDone(from)
 
 	begin := time.Now()
 	code := message.Code
-	switch code {
-	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
-		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg,
-		AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece, BlockSignAggr:
+	if code < 10000 {
 		s.consensusHandler.Handle(from, *message)
-	case GroupChainCountMsg:
-		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.GroupHeight, &msg)
-	case ReqGroupMsg:
-		msg := notify.GroupReqMessage{ReqBody: message.Body, Peer: from}
-		notify.BUS.Publish(notify.GroupReq, &msg)
-	case GroupMsg:
-		Logger.Debugf("Rcv GroupMsg from %s", from)
-		msg := notify.GroupInfoMessage{GroupInfoByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.Group, &msg)
-	case TxSyncNotify:
-		msg := notify.NotifyMessage{Body: message.Body, Source: from}
-		notify.BUS.Publish(notify.TxSyncNotify, &msg)
-	case TxSyncReq:
-		msg := notify.NotifyMessage{Body: message.Body, Source: from}
-		notify.BUS.Publish(notify.TxSyncReq, &msg)
-	case TxSyncResponse:
-		msg := notify.NotifyMessage{Body: message.Body, Source: from}
-		notify.BUS.Publish(notify.TxSyncResponse, &msg)
-	case BlockInfoNotifyMsg:
-		msg := notify.BlockInfoNotifyMessage{BlockInfo: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockInfoNotify, &msg)
-	case ReqBlock:
-		msg := notify.BlockReqMessage{ReqBody: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockReq, &msg)
-	case BlockResponseMsg:
-		msg := notify.BlockResponseMessage{BlockResponseByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.BlockResponse, &msg)
-	case NewBlockMsg:
-		msg := notify.NewBlockMessage{BlockByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.NewBlock, &msg)
-	case ReqChainPieceBlock:
-		msg := notify.ChainPieceBlockReqMessage{ReqBody: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceBlockReq, &msg)
-	case ChainPieceBlock:
-		msg := notify.ChainPieceBlockMessage{ChainPieceBlockMsgByte: message.Body, Peer: from}
-		notify.BUS.Publish(notify.ChainPieceBlock, &msg)
+	} else {
+		topicId := ""
+		switch code {
+		case GroupChainCountMsg:
+			topicId = notify.GroupHeight
+		case ReqGroupMsg:
+			topicId = notify.GroupReq
+		case GroupMsg:
+			topicId = notify.Group
+		case TxSyncNotify:
+			topicId = notify.TxSyncNotify
+		case TxSyncReq:
+			topicId = notify.TxSyncReq
+		case TxSyncResponse:
+			topicId = notify.TxSyncResponse
+		case BlockInfoNotifyMsg:
+			topicId = notify.BlockInfoNotify
+		case ReqBlock:
+			topicId = notify.BlockReq
+		case BlockResponseMsg:
+			topicId = notify.BlockResponse
+		case NewBlockMsg:
+			topicId = notify.NewBlock
+		case ReqChainPieceBlock:
+			topicId = notify.ChainPieceBlockReq
+		case ChainPieceBlock:
+			topicId = notify.ChainPieceBlock
+		}
+		if topicId != "" {
+			msg := newNotifyMessage(message, from)
+			notify.BUS.Publish(topicId, msg)
+		}
 	}
 
 	if time.Since(begin) > 100*time.Millisecond {

@@ -200,12 +200,10 @@ func (fp *forkProcessor) findCommonAncestor(piece []common.Hash) *common.Hash {
 }
 
 func (fp *forkProcessor) chainPieceBlocReqHandler(msg notify.Message) {
-	m, ok := msg.GetData().(*notify.ChainPieceBlockReqMessage)
-	if !ok {
-		return
-	}
-	source := m.Peer
-	pieceReq, err := unMarshalChainPieceInfo(m.ReqBody)
+	m := notify.AsDefault(msg)
+
+	source := m.Source()
+	pieceReq, err := unMarshalChainPieceInfo(m.Body())
 	if err != nil {
 		fp.logger.Errorf("unMarshalChainPieceInfo err %v", err)
 		return
@@ -271,22 +269,19 @@ func (fp *forkProcessor) getNextSyncHash() *common.Hash {
 }
 
 func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
-	m, ok := msg.GetData().(*notify.ChainPieceBlockMessage)
-	if !ok {
-		return
-	}
+	m := notify.AsDefault(msg)
 
 	fp.lock.Lock()
 	defer fp.lock.Unlock()
 
-	source := m.Peer
+	source := m.Source()
 
 	ctx := fp.syncCtx
 	if ctx == nil {
 		fp.logger.Debugf("ctx is nil: source=%v", source)
 		return
 	}
-	chainPieceBlockMsg, e := unmarshalChainPieceBlockMsg(m.ChainPieceBlockMsgByte)
+	chainPieceBlockMsg, e := unmarshalChainPieceBlockMsg(m.Body())
 	if e != nil {
 		fp.logger.Debugf("Unmarshal chain piece block msg error:%d", e.Error())
 		return
