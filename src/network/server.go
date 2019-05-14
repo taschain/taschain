@@ -17,16 +17,16 @@ package network
 
 import (
 	"github.com/golang/protobuf/proto"
-
-	"middleware/pb"
+	tas_middleware_pb "middleware/pb"
 
 	"common"
-	"golang.org/x/crypto/sha3"
+	mrand "math/rand"
 	"middleware/notify"
 	"middleware/statistics"
 	"strconv"
 	"time"
-	mrand "math/rand"
+
+	"golang.org/x/crypto/sha3"
 )
 
 type Server struct {
@@ -40,7 +40,7 @@ type Server struct {
 }
 
 func (s *Server) Send(id string, msg Message) error {
-	bytes,err := marshalMessage(msg)
+	bytes, err := marshalMessage(msg)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (s *Server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 	rand := mrand.New(mrand.NewSource(time.Now().Unix()))
 	entranceIndex := rand.Intn(len(groupMembers))
 	entranceNodes := groupMembers[entranceIndex:]
-	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers),entranceIndex)
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers), entranceIndex)
 
 	s.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
@@ -201,10 +201,10 @@ func (s *Server) RemoveGroup(ID string) {
 }
 
 func (s *Server) sendSelf(b []byte) {
-	s.handleMessage(b, s.Self.Id.GetHexString(),s.netCore.chainId,s.netCore.protocolVersion)
+	s.handleMessage(b, s.Self.Id.GetHexString(), s.netCore.chainId, s.netCore.protocolVersion)
 }
 
-func (s *Server) handleMessage(b []byte,from string, chaidId uint16, protocolVersion uint16) {
+func (s *Server) handleMessage(b []byte, from string, chaidId uint16, protocolVersion uint16) {
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
@@ -213,7 +213,7 @@ func (s *Server) handleMessage(b []byte,from string, chaidId uint16, protocolVer
 	}
 	message.ChainId = chaidId
 	message.ProtocolVersion = protocolVersion
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainId:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(),chaidId,protocolVersion)
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainId:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(), chaidId, protocolVersion)
 	statistics.AddCount("Server.handleMessage", message.Code, uint64(len(b)))
 	s.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 	// 快速释放b
@@ -228,14 +228,9 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 	code := message.Code
 	switch code {
 	case GroupInitMsg, KeyPieceMsg, SignPubkeyMsg, GroupInitDoneMsg, CurrentGroupCastMsg, CastVerifyMsg,
-<<<<<<< HEAD
-		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg, AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece:
-		s.consensusHandler.Handle(from, *message)
-=======
 		VerifiedCastMsg2, CreateGroupaRaw, CreateGroupSign, CastRewardSignGot, CastRewardSignReq, AskSignPkMsg,
-		AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece,BlockSignAggr:
-		n.consensusHandler.Handle(from, *message)
->>>>>>> origin/develop
+		AnswerSignPkMsg, GroupPing, GroupPong, ReqSharePiece, ResponseSharePiece, BlockSignAggr:
+		s.consensusHandler.Handle(from, *message)
 	case GroupChainCountMsg:
 		msg := notify.GroupHeightMessage{HeightByte: message.Body, Peer: from}
 		notify.BUS.Publish(notify.GroupHeight, &msg)
