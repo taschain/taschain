@@ -50,7 +50,6 @@ type BlockChain interface {
 
 	TotalQN() uint64
 
-
 	LatestStateDB() *account.AccountDB
 
 	//query block with body by hash
@@ -69,7 +68,7 @@ type BlockChain interface {
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
 	//根据哈希取得某个交易
-	GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) (*types.Transaction)
+	GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) *types.Transaction
 
 	// 返回等待入块的交易池
 	GetTransactionPool() TransactionPool
@@ -104,15 +103,15 @@ type ExecutedTransaction struct {
 }
 
 type ReceiptStore struct {
-	Receipt     *types.Receipt
+	Receipt *types.Receipt
 	//Transaction *types.Transaction
-	BlockHash  common.Hash
+	BlockHash common.Hash
 }
 
 type txSource int
 
 const (
-	txSync txSource = 1
+	txSync    txSource = 1
 	txRequest txSource = 2
 )
 
@@ -129,13 +128,13 @@ type TransactionPool interface {
 	//add  local miss transactions while verifying blocks to the transaction pool
 	//AddMissTransactions(txs []*types.Transaction)
 
-	GetTransaction(bonus bool, hash common.Hash) (*types.Transaction)
+	GetTransaction(bonus bool, hash common.Hash) *types.Transaction
 
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
 	GetReceipt(hash common.Hash) *types.Receipt
 
-	GetReceived() []*types.Transaction
+	//GetReceived() []*types.Transaction
 
 	GetBonusTxs() []*types.Transaction
 
@@ -151,10 +150,9 @@ type TransactionPool interface {
 
 	Clear()
 
-	GetTxBlockHash(txHash common.Hash) (*common.Hash)
+	GetTxBlockHash(txHash common.Hash) *common.Hash
 
 	RecoverAndValidateTx(tx *types.Transaction) error
-
 }
 
 //组管理接口

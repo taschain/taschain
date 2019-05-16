@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"common"
 	"encoding/json"
+	datacommon "github.com/Workiva/go-datastructures/common"
 	"time"
 	"utility"
 )
@@ -97,8 +98,6 @@ const (
 	TransactionTypeToBeRemoved = -1
 )
 
-
-
 //tx data with source
 type Transaction struct {
 	Data   []byte          `msgpack:"dt,omitempty"`
@@ -116,7 +115,7 @@ type Transaction struct {
 	//PubKey *common.PublicKey
 	//Sign *common.Sign
 	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"src"`	//don't streamlize
+	Source *common.Address `msgpack:"src"` //don't streamlize
 }
 
 //source,sign在hash计算范围内
@@ -148,7 +147,6 @@ func (tx *Transaction) HexSign() string {
 	return common.ToHex(tx.Sign)
 }
 
-
 func (tx *Transaction) RecoverSource() error {
 	if tx.Source != nil || tx.Type == TransactionTypeBonus {
 		return nil
@@ -160,6 +158,58 @@ func (tx *Transaction) RecoverSource() error {
 		tx.Source = &src
 	}
 	return err
+}
+
+func (tx *Transaction) Compare(e datacommon.Comparator) int {
+	tx2 := e.(*Transaction)
+
+	if tx.Hash != tx2.Hash {
+		if tx.GasPrice > tx2.GasPrice {
+			return 1
+		}
+		if tx.GasPrice < tx2.GasPrice {
+			return -1
+		}
+
+		if tx.GasPrice == tx2.GasPrice {
+			if tx.Nonce > tx2.Nonce {
+				return -1
+			}
+			if tx.Nonce < tx2.Nonce {
+				return 1
+			}
+			return -1
+		}
+
+	}
+	return 0
+
+	//return int(tx.Nonce) - int(tx2.Nonce)
+
+	//txHashByte := tx.Hash[:]
+	//tx2HashByte := tx2.Hash[:]
+	//
+	//if bytes.Compare(txHashByte,tx2HashByte) != 0{
+	//	if tx.GasPrice != tx2.GasPrice {
+	//		if tx.GasPrice > tx2.GasPrice {
+	//			return 1
+	//		}
+	//		return -1
+	//	}else {
+	//		if tx.Nonce != tx2.Nonce {
+	//			if tx.Nonce > tx2.Nonce {
+	//				return -1
+	//			}
+	//
+	//			return 1
+	//		}
+	//
+	//		return bytes.Compare(txHashByte,tx2HashByte)
+	//	}
+	//}
+	//
+	//return 0
+
 }
 
 //type Transactions []*Transaction
@@ -176,36 +226,36 @@ func (tx *Transaction) RecoverSource() error {
 
 // 根据gasprice决定优先级的transaction数组
 // gasprice 低的，放在前
-type PriorityTransactions []*Transaction
-
-func (pt PriorityTransactions) Len() int {
-	return len(pt)
-}
-func (pt PriorityTransactions) Swap(i, j int) {
-	pt[i], pt[j] = pt[j], pt[i]
-}
-func (pt PriorityTransactions) Less(i, j int) bool {
-	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved {
-		return true
-	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved {
-		return false
-	} else {
-		return pt[i].GasPrice < pt[j].GasPrice
-	}
-}
-func (pt *PriorityTransactions) Push(x interface{}) {
-	item := x.(*Transaction)
-	*pt = append(*pt, item)
-}
-
-func (pt *PriorityTransactions) Pop() interface{} {
-	old := *pt
-	n := len(old)
-	item := old[n-1]
-
-	*pt = old[0 : n-1]
-	return item
-}
+//type PriorityTransactions []*Transaction
+//
+//func (pt PriorityTransactions) Len() int {
+//	return len(pt)
+//}
+//func (pt PriorityTransactions) Swap(i, j int) {
+//	pt[i], pt[j] = pt[j], pt[i]
+//}
+//func (pt PriorityTransactions) Less(i, j int) bool {
+//	if pt[i].Type == TransactionTypeToBeRemoved && pt[j].Type != TransactionTypeToBeRemoved {
+//		return true
+//	} else if pt[i].Type != TransactionTypeToBeRemoved && pt[j].Type == TransactionTypeToBeRemoved {
+//		return false
+//	} else {
+//		return pt[i].GasPrice < pt[j].GasPrice
+//	}
+//}
+//func (pt *PriorityTransactions) Push(x interface{}) {
+//	item := x.(*Transaction)
+//	*pt = append(*pt, item)
+//}
+//
+//func (pt *PriorityTransactions) Pop() interface{} {
+//	old := *pt
+//	n := len(old)
+//	item := old[n-1]
+//
+//	*pt = old[0 : n-1]
+//	return item
+//}
 
 type Bonus struct {
 	TxHash     common.Hash
@@ -240,7 +290,7 @@ type BlockHeader struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   []byte      //vrf prove
+	ProveValue   []byte        //vrf prove
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -261,7 +311,7 @@ type header struct {
 	Height       uint64        // 本块的高度
 	PreHash      common.Hash   //上一块哈希
 	PreTime      time.Time     //上一块铸块时间
-	ProveValue   []byte      //轮转序号
+	ProveValue   []byte        //轮转序号
 	TotalQN      uint64        //整条链的QN
 	CurTime      time.Time     //当前铸块时间
 	Castor       []byte        //出块人ID
@@ -411,4 +461,3 @@ type StateNode struct {
 	Key   []byte
 	Value []byte
 }
-

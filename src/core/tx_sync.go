@@ -1,37 +1,37 @@
 package core
 
 import (
-	"middleware/types"
-	"time"
-	"sync"
-	"middleware/ticker"
-	"github.com/hashicorp/golang-lru"
-	"common"
-	"network"
-	"middleware/notify"
 	"bytes"
-	"utility"
-	"taslog"
-	"storage/tasdb"
+	"common"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
+	"middleware/notify"
+	"middleware/ticker"
+	"middleware/types"
+	"network"
+	"storage/tasdb"
+	"sync"
+	"taslog"
+	"time"
+	"utility"
 )
 
 /*
 **  Creator: pxf
 **  Date: 2019/3/20 下午5:02
-**  Description: 
-*/
+**  Description:
+ */
 
 const (
 	txNofifyInterval   = 5
 	txNotifyRoutine    = "ts_notify"
-	txNotifyGap        = 60*time.Second
+	txNotifyGap        = 60 * time.Second
 	txMaxNotifyPerTime = 50
 
-	txReqRoutine 		= "ts_req"
-	txReqInterval		= 5
+	txReqRoutine  = "ts_req"
+	txReqInterval = 5
 
-	txIndexPersistRoutine = "tx_index_persist"
+	txIndexPersistRoutine  = "tx_index_persist"
 	txIndexPersistInterval = 30
 
 	txIndexPersistPerTime = 1000
@@ -39,12 +39,12 @@ const (
 
 type txSimpleIndexer struct {
 	cache *lru.Cache
-	db 		*tasdb.PrefixedDatabase
+	db    *tasdb.PrefixedDatabase
 }
 
 func buildTxSimpleIndexer() *txSimpleIndexer {
 	indexs, _ := lru.New(10000)
-	f := "d_txidx"+common.GlobalConf.GetString("instance", "index", "")
+	f := "d_txidx" + common.GlobalConf.GetString("instance", "index", "")
 	ds, err := tasdb.NewDataSource(f)
 	if err != nil {
 		Logger.Errorf("new datasource error:%v, file=%v", err, f)
@@ -53,17 +53,17 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 	db, _ := ds.NewPrefixDatabase("tx")
 	return &txSimpleIndexer{
 		cache: indexs,
-		db: db,
+		db:    db,
 	}
 }
 func (indexer *txSimpleIndexer) cacheLen() int {
 	return indexer.cache.Len()
 }
 
-func (indexer *txSimpleIndexer) add(tx *types.Transaction)  {
+func (indexer *txSimpleIndexer) add(tx *types.Transaction) {
 	indexer.cache.Add(simpleTxKey(tx.Hash), tx.Hash)
 }
-func (indexer *txSimpleIndexer) remove(tx *types.Transaction)  {
+func (indexer *txSimpleIndexer) remove(tx *types.Transaction) {
 	indexer.cache.Remove(simpleTxKey(tx.Hash))
 	indexer.db.Delete(utility.UInt64ToByte(simpleTxKey(tx.Hash)))
 }
@@ -119,19 +119,19 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 }
 
 type txSyncer struct {
-	pool 		*TxPool
-	chain 		*FullBlockChain
+	pool          *TxPool
+	chain         *FullBlockChain
 	rctNotifiy    *lru.Cache
-	indexer 	*txSimpleIndexer
+	indexer       *txSimpleIndexer
 	ticker        *ticker.GlobalTicker
 	candidateKeys *lru.Cache
-	logger 		taslog.Logger
-
+	logger        taslog.Logger
 }
+
 var TxSyncer *txSyncer
 
 type peerTxsKeys struct {
-	lock sync.RWMutex
+	lock   sync.RWMutex
 	txKeys map[uint64]byte
 }
 
@@ -141,7 +141,7 @@ func newPeerTxsKeys() *peerTxsKeys {
 	}
 }
 
-func (ptk *peerTxsKeys) addKeys(ks []uint64)  {
+func (ptk *peerTxsKeys) addKeys(ks []uint64) {
 	ptk.lock.Lock()
 	defer ptk.lock.Unlock()
 	for _, k := range ks {
@@ -149,7 +149,7 @@ func (ptk *peerTxsKeys) addKeys(ks []uint64)  {
 	}
 }
 
-func (ptk *peerTxsKeys) removeKeys(ks []uint64)  {
+func (ptk *peerTxsKeys) removeKeys(ks []uint64) {
 	ptk.lock.Lock()
 	defer ptk.lock.Unlock()
 	for _, k := range ks {
@@ -157,7 +157,7 @@ func (ptk *peerTxsKeys) removeKeys(ks []uint64)  {
 	}
 }
 
-func (ptk *peerTxsKeys) reset()  {
+func (ptk *peerTxsKeys) reset() {
 	ptk.lock.Lock()
 	defer ptk.lock.Unlock()
 	ptk.txKeys = make(map[uint64]byte)
@@ -170,7 +170,7 @@ func (ptk *peerTxsKeys) hasKey(k uint64) bool {
 	return ok
 }
 
-func (ptk *peerTxsKeys) forEach(f func(k uint64) bool)  {
+func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	ptk.lock.RLock()
 	defer ptk.lock.RUnlock()
 	for k, _ := range ptk.txKeys {
@@ -185,12 +185,12 @@ func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
 	cands, _ := lru.New(100)
 	s := &txSyncer{
 		rctNotifiy:    cache,
-		indexer: buildTxSimpleIndexer(),
-		pool: pool,
+		indexer:       buildTxSimpleIndexer(),
+		pool:          pool,
 		ticker:        ticker.NewGlobalTicker("tx_syncer"),
 		candidateKeys: cands,
-		chain: 		chain,
-		logger: taslog.GetLoggerByIndex(taslog.TxSyncLogConfig, common.GlobalConf.GetString("instance", "index", "")),
+		chain:         chain,
+		logger:        taslog.GetLoggerByIndex(taslog.TxSyncLogConfig, common.GlobalConf.GetString("instance", "index", "")),
 	}
 	s.ticker.RegisterPeriodicRoutine(txNotifyRoutine, s.notifyTxs, txNofifyInterval)
 	s.ticker.StartTickerRoutine(txNotifyRoutine, false)
@@ -200,7 +200,6 @@ func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
 
 	s.ticker.RegisterPeriodicRoutine(txIndexPersistRoutine, s.persistIndexRoutine, txIndexPersistInterval)
 	s.ticker.StartTickerRoutine(txIndexPersistRoutine, false)
-
 
 	notify.BUS.Subscribe(notify.TxSyncNotify, s.onTxNotify)
 	notify.BUS.Subscribe(notify.TxSyncReq, s.onTxReq)
@@ -212,16 +211,16 @@ func simpleTxKey(hash common.Hash) uint64 {
 	return hash.Big().Uint64()
 }
 
-func (ts *txSyncer) add(tx *types.Transaction)  {
+func (ts *txSyncer) add(tx *types.Transaction) {
 	if ts.indexer.cacheLen() >= 10000 {
 		ts.indexer.persistOldest()
 	}
-    ts.indexer.add(tx)
+	ts.indexer.add(tx)
 }
 
 func (ts *txSyncer) persistIndexRoutine() bool {
-    cnt, err := ts.indexer.persistOldest()
-	ts.logger.Infof("persist tx index cache total %v, persist %v, %v",  ts.indexer.cacheLen(), cnt, err)
+	cnt, err := ts.indexer.persistOldest()
+	ts.logger.Infof("persist tx index cache total %v, persist %v, %v", ts.indexer.cacheLen(), cnt, err)
 	return true
 }
 
@@ -242,7 +241,7 @@ func (ts *txSyncer) clearJob() {
 		if ts.pool.bonPool.hasBonus(tx.Data) {
 			remove = true
 			reason = "tx exist"
-		} else if !ts.chain.hasBlock(bhash)  {//块不在链上，有可能是此高度已经过了，也有可能是未来的高度，此处无法区分出来
+		} else if !ts.chain.hasBlock(bhash) { //块不在链上，有可能是此高度已经过了，也有可能是未来的高度，此处无法区分出来
 			remove = true
 			reason = "block not exist"
 		}
@@ -274,15 +273,26 @@ func (ts *txSyncer) notifyTxs() bool {
 		}
 		return true
 	})
+	//if len(txs) < txMaxNotifyPerTime {
+	//	for _, tx := range ts.pool.received.asSlice(maxTxPoolSize) {
+	//		if ts.checkTxCanBroadcast(tx.Hash) {
+	//			txs = append(txs, tx)
+	//			if len(txs) >= txMaxNotifyPerTime {
+	//				break
+	//			}
+	//		}
+	//	}
+	//}
+
 	if len(txs) < txMaxNotifyPerTime {
-		for _, tx := range ts.pool.received.asSlice(maxTxPoolSize) {
+		ts.pool.received.forEach(func(tx *types.Transaction) bool {
 			if ts.checkTxCanBroadcast(tx.Hash) {
 				txs = append(txs, tx)
-				if len(txs) >= txMaxNotifyPerTime {
-					break
-				}
+				return len(txs) <= txMaxNotifyPerTime
 			}
-		}
+			return true
+		})
+		ts.pool.received.recoverFromCache()
 	}
 
 	ts.sendSimpleTxKeys(txs)
@@ -319,7 +329,7 @@ func (ts *txSyncer) sendSimpleTxKeys(txs []*types.Transaction) {
 }
 
 func (ts *txSyncer) getOrAddCandidateKeys(id string) *peerTxsKeys {
-    v, _ := ts.candidateKeys.Get(id)
+	v, _ := ts.candidateKeys.Get(id)
 	if v == nil {
 		v = newPeerTxsKeys()
 		ts.candidateKeys.Add(id, v)
@@ -327,7 +337,7 @@ func (ts *txSyncer) getOrAddCandidateKeys(id string) *peerTxsKeys {
 	return v.(*peerTxsKeys)
 }
 
-func (ts *txSyncer) onTxNotify(msg notify.Message)  {
+func (ts *txSyncer) onTxNotify(msg notify.Message) {
 	nm := msg.(*notify.NotifyMessage)
 	reader := bytes.NewReader(nm.Body)
 
@@ -400,7 +410,7 @@ func (ts *txSyncer) reqTxsRoutine() bool {
 	return true
 }
 
-func (ts *txSyncer) requestTxs(id string, keys []uint64)  {
+func (ts *txSyncer) requestTxs(id string, keys []uint64) {
 	ts.logger.Debugf("request txs from %v, size %v", id, len(keys))
 
 	bodyBuf := bytes.NewBuffer([]byte{})
@@ -413,7 +423,7 @@ func (ts *txSyncer) requestTxs(id string, keys []uint64)  {
 	network.GetNetInstance().Send(id, message)
 }
 
-func (ts *txSyncer) onTxReq(msg notify.Message)  {
+func (ts *txSyncer) onTxReq(msg notify.Message) {
 	nm := msg.(*notify.NotifyMessage)
 	reader := bytes.NewReader(nm.Body)
 	keys := make([]uint64, 0)
@@ -448,7 +458,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message)  {
 	network.GetNetInstance().Send(nm.Source, message)
 }
 
-func (ts *txSyncer) onTxResponse(msg notify.Message)  {
+func (ts *txSyncer) onTxResponse(msg notify.Message) {
 	nm := msg.(*notify.NotifyMessage)
 	txs, e := types.UnMarshalTransactions(nm.Body)
 	if e != nil {

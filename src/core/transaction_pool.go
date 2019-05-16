@@ -16,18 +16,21 @@
 package core
 
 import (
+	"common"
 	"errors"
 	"fmt"
-	"sync"
-	"common"
+	"github.com/Workiva/go-datastructures/slice/skip"
+	"github.com/hashicorp/golang-lru"
+	"middleware/notify"
 	"middleware/types"
 	"storage/tasdb"
-	"middleware/notify"
-	"github.com/hashicorp/golang-lru"
+	"sync"
 )
 
 const (
 	maxTxPoolSize  = 50000
+	maxPendingSize = 40000
+	maxQueueSize   = 10000
 	bonusTxMaxSize = 1000
 	//missTxCacheSize  = 60000
 
@@ -39,7 +42,7 @@ const (
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
-	txMaxSize 		= 64000	//每个交易最大大小
+	txMaxSize = 64000 //每个交易最大大小
 )
 
 var (
@@ -68,11 +71,11 @@ type TxPool struct {
 	//txBroadcastTime       *lru.Cache
 	//oldTxBroadTimer *time.Timer
 
-	lock   sync.RWMutex
+	lock sync.RWMutex
 }
 
 type TxPoolAddMessage struct {
-	txs []*types.Transaction
+	txs   []*types.Transaction
 	txSrc txSource
 }
 
@@ -85,7 +88,7 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 }
 
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
-	cache, _ := lru.New(txCountPerBlock*blockResponseSize)
+	cache, _ := lru.New(txCountPerBlock * blockResponseSize)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
@@ -93,7 +96,7 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 		batch:     chain.batch,
 		asyncAdds: cache,
 	}
-	pool.received = newSimpleContainer(maxTxPoolSize)
+	pool.received = newSimpleContainer(maxPendingSize, maxQueueSize)
 	pool.bonPool = newBonusPool(chain.bonusManager, bonusTxMaxSize)
 	initTxSyncer(chain, pool)
 
@@ -126,10 +129,10 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}
-	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs:txs, txSrc:from})
+	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs: txs, txSrc: from})
 }
 
-func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction)  {
+func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
@@ -156,7 +159,7 @@ func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction)  {
 	}
 }
 
-func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) (*types.Transaction) {
+func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transaction {
 	var tx = pool.bonPool.get(hash)
 	if bonus || tx != nil {
 		return tx
@@ -175,9 +178,8 @@ func (pool *TxPool) Clear() {
 	pool.batch.Reset()
 }
 
-func (pool *TxPool) GetReceived() []*types.Transaction {
-	return pool.received.asSlice(maxTxPoolSize)
-}
+//func (pool *TxPool) GetReceived() []*types.Transaction {
+//}
 
 func (pool *TxPool) TxNum() uint64 {
 	return uint64(pool.received.Len() + pool.bonPool.len())
@@ -188,7 +190,7 @@ func (pool *TxPool) PackForCast() []*types.Transaction {
 	return result
 }
 
-func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
+func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
 	}
@@ -242,7 +244,6 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 
 	return nil
 }
-
 
 func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
 	if tx == nil {
@@ -306,18 +307,33 @@ func (pool *TxPool) packTx() []*types.Transaction {
 		txs = append(txs, tx)
 		return len(txs) < txCountPerBlock
 	})
+	//if len(txs) < txCountPerBlock {
+	//	for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
+	//		txs = append(txs, tx)
+	//		if len(txs) >= txCountPerBlock {
+	//			break
+	//		}
+	//	}
+	//}
+
+	sortedList := skip.New(uint16(16))
 	if len(txs) < txCountPerBlock {
-		for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
+		pool.received.forEach(func(tx *types.Transaction) bool {
+			sortedList.Insert(tx)
+			return len(txs) <= txCountPerBlock
+		})
+
+		pool.received.recoverFromCache()
+
+		for i := sortedList.Len(); i > 0; i-- {
+			tx := sortedList.IterAtPosition(i - 1).Value().(*types.Transaction)
 			txs = append(txs, tx)
-			if len(txs) >= txCountPerBlock {
-				break
-			}
 		}
 	}
 	return txs
 }
 
-func (pool *TxPool) RemoveFromPool(txs []common.Hash)  {
+func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, tx := range txs {
@@ -325,7 +341,7 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash)  {
 	}
 }
 
-func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
+func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, txRaw := range txs {
@@ -342,9 +358,9 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction)  {
 
 func (pool *TxPool) GetBonusTxs() []*types.Transaction {
 	txs := make([]*types.Transaction, 0)
-    pool.bonPool.forEach(func(tx *types.Transaction) bool {
+	pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		txs = append(txs, tx)
 		return true
 	})
-    return txs
+	return txs
 }
