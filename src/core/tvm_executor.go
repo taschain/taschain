@@ -162,7 +162,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 			} else {
 				controller.GasLeft -= deploySpend
 				contract := tvm.LoadContract(contractAddress)
-				errorCode, errorMsg := controller.Deploy(transaction.Source, contract)
+				errorCode, errorMsg := controller.Deploy(contract)
 				if errorCode != 0 {
 					success = false
 					err = types.NewTransactionError(errorCode, errorMsg)
