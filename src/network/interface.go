@@ -22,8 +22,8 @@ const (
 	*********************** range from 1 to 9999 ***********************
 	**/
 
-	GroupPing uint32 = 1
-	GroupPong uint32 = 2
+	GroupPing       uint32 = 1
+	GroupPong       uint32 = 2
 	CreateGroupaRaw uint32 = 3
 	CreateGroupSign uint32 = 4
 
@@ -42,11 +42,14 @@ const (
 	ResponseSharePiece uint32 = 12
 
 	CurrentGroupCastMsg uint32 = 13
-	CastVerifyMsg uint32 = 14
-	VerifiedCastMsg uint32 = 15
-	CastRewardSignReq uint32 = 16
-	CastRewardSignGot uint32 = 17
-	BlockSignAggr uint32 = 18
+	CastVerifyMsg       uint32 = 14
+	VerifiedCastMsg     uint32 = 15
+	CastRewardSignReq   uint32 = 16
+	CastRewardSignGot   uint32 = 17
+	BlockSignAggr       uint32 = 18
+
+	ReqProposalBlock      uint32 = 19
+	ResponseProposalBlock uint32 = 20
 
 	/*********************** chain message code ***********************
 	************************* range from 10000 to 19999 **************
@@ -73,8 +76,6 @@ const (
 	TxSyncNotify   uint32 = 10010
 	TxSyncReq      uint32 = 10011
 	TxSyncResponse uint32 = 10012
-
-
 )
 
 type Message struct {

@@ -17,7 +17,6 @@ package network
 
 import (
 	"github.com/golang/protobuf/proto"
-	"middleware/pb"
 
 	"common"
 	mrand "math/rand"
@@ -25,6 +24,7 @@ import (
 	"middleware/statistics"
 	"strconv"
 	"time"
+	"middleware/pb"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -230,6 +230,7 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 
 	begin := time.Now()
 	code := message.Code
+
 	if code < 10000 {
 		s.consensusHandler.Handle(from, *message)
 	} else {

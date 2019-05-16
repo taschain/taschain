@@ -467,3 +467,31 @@ func unmarshalBlockSignAggrMessage(b []byte) (*model.BlockSignAggrMessage, error
 	}
 	return m, nil
 }
+
+func unmarshalReqProposalBlockMessage(b []byte) (*model.ReqProposalBlock, error) {
+	message := &tas_middleware_pb.ReqProposalBlockMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	m := &model.ReqProposalBlock{
+		Hash: common.BytesToHash(message.Hash),
+	}
+	return m, nil
+}
+
+
+func unmarshalResponseProposalBlockMessage(b []byte) (*model.ResponseProposalBlock, error) {
+	message := &tas_middleware_pb.ResponseProposalBlockMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	block := types.PbToBlock(message.Block)
+
+	m := &model.ResponseProposalBlock{
+		Block: *block,
+	}
+	return m, nil
+}
+

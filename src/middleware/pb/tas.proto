@@ -445,3 +445,11 @@ message BlockSignAggrMessage {
     required bytes Sign = 2;
     required bytes Random = 3;
 }
+
+message ReqProposalBlockMessage {
+    required bytes Hash = 1;
+}
+
+message ResponseProposalBlockMessage {
+    required Block Block = 1;
+}

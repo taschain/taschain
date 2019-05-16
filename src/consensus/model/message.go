@@ -360,6 +360,14 @@ type BlockSignAggrMessage struct {
 	Random groupsig.Signature
 }
 
+type ReqProposalBlock struct {
+	Hash common.Hash
+}
+
+
+type ResponseProposalBlock struct {
+	Block   types.Block
+}
 //type BlockBodyResponse struct {
 //	Hash common.Hash
 //	Height uint64

@@ -599,3 +599,46 @@ func (p *Processor) OnMessageBlockSignAggrMessage(msg *model.BlockSignAggrMessag
 		blog.log("onBlockSignAggregation err:%v", err)
 	}
 }
+
+func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock,sourceId string) {
+	blog := newBizLog("OMRPB")
+	blog.log("hash %v", msg.Hash.ShortS())
+
+	block := p.blockContexts.getProposed(msg.Hash)
+	if block == nil {
+		fmt.Errorf("block is nil hash=%v", msg.Hash.ShortS())
+	}
+	m := &model.ResponseProposalBlock{
+		Block:   *block,
+	}
+
+	p.NetServer.ResponseProposalBlock(m,sourceId)
+}
+
+func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
+	blog := newBizLog("OMRSPB")
+	hash := msg.Block.Header.Hash
+	blog.log("hash %v", hash.ShortS())
+
+	if p.blockOnChain(hash) {
+		return
+	}
+	vctx := p.blockContexts.getVctxByHash(hash)
+	if vctx == nil {
+		fmt.Errorf("verify context is nil, cache msg")
+		return
+	}
+	slot := vctx.GetSlotByHash(hash)
+	if slot == nil {
+		 fmt.Errorf("slot is nil")
+		return
+	}
+	p.blockContexts.addProposed(&msg.Block)
+	err := p.onBlockSignAggregation(hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
+	if err != nil {
+		blog.log("onBlockSignAggregation fail: %v", err)
+		slot.setSlotStatus(slFailed)
+		return
+	}
+}
+

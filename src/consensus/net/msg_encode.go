@@ -241,10 +241,28 @@ func marshalSharePieceResponseMessage(msg *model.ResponseSharePieceMessage) ([]b
 }
 
 func marshalBlockSignAggrMessage(msg *model.BlockSignAggrMessage) ([]byte, error) {
-	m := &tas_middleware_pb.BlockSignAggrMessage{
-		BlockHash: msg.Hash.Bytes(),
-		Sign: msg.Sign.Serialize(),
-		Random: msg.Random.Serialize(),
+
+		m := &tas_middleware_pb.BlockSignAggrMessage{
+			BlockHash: msg.Hash.Bytes(),
+			Sign:      msg.Sign.Serialize(),
+		}
+		return proto.Marshal(m)
+}
+
+func marshalReqProposalBlockMessage(msg *model.ReqProposalBlock) ([]byte, error) {
+	m := &tas_middleware_pb.ReqProposalBlockMessage{
+		Hash: msg.Hash.Bytes(),
 	}
+	return proto.Marshal(m)
+}
+
+func marshalResponseProposalBlockMessage(msg *model.ResponseProposalBlock) ([]byte, error) {
+	block := types.BlockToPb(&msg.Block)
+	if block == nil {
+		logger.Errorf("[peer]Block is nil while marshalResponseProposalBlockMessage")
+	}
+	m := &tas_middleware_pb.ResponseProposalBlockMessage{
+		Block: block,
+		}
 	return proto.Marshal(m)
 }

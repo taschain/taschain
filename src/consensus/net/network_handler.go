@@ -199,7 +199,24 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		c.processor.OnMessageBlockSignAggrMessage(m)
 
+	case network.ReqProposalBlock:
+		m, e := unmarshalReqProposalBlockMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalReqProposalBlockMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageReqProposalBlock(m,sourceId)
+
+	case network.ResponseProposalBlock:
+		m, e := unmarshalResponseProposalBlockMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalResponseProposalBlockMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageResponseProposalBlock(m)
+
 	}
+
 	return nil
 }
 
