@@ -60,6 +60,39 @@ type Worker struct {
 	Remote url
 }
 
+
+type txRawData struct {
+	//from string
+	Target   string `json:"target"`
+	Value    uint64 `json:"value"`
+	Gas      uint64 `json:"gas"`
+	Gasprice uint64 `json:"gasprice"`
+	TxType   int `json:"tx_type"`
+	Nonce    uint64 `json:"nonce"`
+	Data     string `json:"data"`
+	Sign     string `json:"sign"`
+	ExtraData string `json:"extra_data"`
+}
+
+type Transaction struct {
+	Data   []byte          `msgpack:"dt,omitempty"`
+	Value  uint64          `msgpack:"v"`
+	Nonce  uint64          `msgpack:"nc"`
+	Target *common.Address `msgpack:"tg,omitempty"`
+	Type   int8            `msgpack:"tp"`
+
+	GasLimit uint64      `msgpack:"gl"`
+	GasPrice uint64      `msgpack:"gp"`
+	Hash     common.Hash `msgpack:"h"`
+
+	ExtraData     []byte `msgpack:"ed"`
+	ExtraDataType int8   `msgpack:"et,omitempty"`
+	//PubKey *common.PublicKey
+	//Sign *common.Sign
+	Sign   []byte          `msgpack:"si"`
+	Source *common.Address `msgpack:"src"`	//don't streamlize
+}
+
 var richAccounts []*Account
 var hosts []url
 var tps int
@@ -115,6 +148,7 @@ func getRandomHost() url {
 
 func main()  {
 	var defaultNodeUrls = "120.77.155.204:8101,120.77.155.204:8102,120.77.155.204:8103,47.104.189.61:8104,47.104.189.61:8105,47.104.189.61:8106,119.23.9.65:8107,119.23.9.65:8108,119.23.9.65:8109";
+	//defaultNodeUrls = "127.0.0.1:8103"
 	var urlInput string
 
 	flag.IntVar(&tps,"t", 200, "Tps")
@@ -131,8 +165,11 @@ func main()  {
 	senders := genericAccounts(count)
 
 	loadRichAccounts()
+	fmt.Printf("Start init %d accounts \n",count)
 	initSenderAccount(senders)
+	fmt.Printf("End of init %d accounts \n",count)
 
+	fmt.Printf("Start perfornace testing \n",)
 	startTest(senders)
 }
 
@@ -149,7 +186,9 @@ func initSenderAccount(senders *ring.Ring)  {
 		nonce += 1
 		toAddr := senders.Value.(*Worker).address
 		//SaveSendAddress(senderFile,toAddr)
-		go mockSendTransaction(url.host, url.port, sender.privateKey, sender.address, toAddr,1000000, nonce, txType, gasPrice)
+
+		go mockSendRawTransaction(url.host, url.port, sender.privateKey, sender.address, toAddr,1000000, nonce, txType, gasPrice)
+
 		senders = senders.Next()
 		if i%tps == 0 {
 			fmt.Printf("sleep 1 senond for every %d transcations\n", tps)
@@ -188,7 +227,7 @@ func startTest(senders *ring.Ring){
 			ac := worker.Account
 			url := worker.Remote
 			targetAddr := senders.Value.(*Worker).address
-			go mockSendTransaction(url.host, url.port, ac.privateKey, ac.address, targetAddr,1, nonce, 0, 1)
+			go mockSendRawTransaction(url.host, url.port, ac.privateKey, ac.address, targetAddr,1, nonce, 0, 1)
 			if i%tps == 0 {
 				fmt.Printf("sleep 1 senond for every %d transcations\n", tps)
 				time.Sleep(time.Second)
@@ -202,10 +241,28 @@ func startTest(senders *ring.Ring){
 
 //------RPC----------
 
-func mockSendTransaction(host string, port int, privateKey string, from, to string, value, nonce uint64, txType int, gasPrice uint64) {
-	//var gas uint64 = 2000	//TODO: set gasLimit
 
-	res, err := rpcPost(host, port, "GTAS_scriptTransferTx", privateKey, from, to, value, nonce, txType, gasPrice)
+func mockSendRawTransaction(host string, port int, privateKey string, from, to string, value, nonce uint64, txType int, gasPrice uint64) {
+	txRaw := &txRawData{
+		Target:   to,
+		Value:    value,
+		Gas:      10000,
+		Gasprice: gasPrice,
+		Nonce:    nonce,
+		TxType:   txType,
+		Data:     "",
+	}
+	sk := common.HexStringToSecKey(privateKey)
+
+	trans := txRawToTransaction(txRaw)
+	trans.Hash = trans.GenHash()
+	sign := sk.Sign(trans.Hash.Bytes())
+	trans.Sign = sign.Bytes()
+	txRaw.Sign = sign.GetHexString()
+
+	transStr,_ := json.Marshal(txRaw)
+
+	res, err := rpcPost(host, port, "GTAS_tx", string(transStr))
 	if err != nil {
 		fmt.Println("err:", err)
 		return
@@ -219,6 +276,55 @@ func mockSendTransaction(host string, port int, privateKey string, from, to stri
 		fmt.Println(host, ":", port, "result:", res)
 	} else {
 		//fmt.Println(host, ":", port, "result:", res.Result.Message, " hash:", res.Result.Data)
+	}
+}
+func (tx *Transaction) GenHash() common.Hash {
+	if nil == tx {
+		return common.Hash{}
+	}
+	buffer := bytes.Buffer{}
+	if tx.Data != nil {
+		buffer.Write(tx.Data)
+	}
+	buffer.Write(common.Uint64ToByte(tx.Value))
+	buffer.Write(common.Uint64ToByte(tx.Nonce))
+	if tx.Target != nil {
+		buffer.Write(tx.Target.Bytes())
+	}
+	buffer.WriteByte(byte(tx.Type))
+	buffer.Write(common.Uint64ToByte(tx.GasLimit))
+	buffer.Write(common.Uint64ToByte(tx.GasPrice))
+	if tx.ExtraData != nil {
+		buffer.Write(tx.ExtraData)
+	}
+	buffer.WriteByte(byte(tx.ExtraDataType))
+
+	return common.BytesToHash(common.Sha256(buffer.Bytes()))
+}
+func txRawToTransaction(tx *txRawData) *Transaction {
+	var target *common.Address
+	if tx.Target != "" {
+		t := common.HexToAddress(tx.Target)
+		target = &t
+	}
+	var sign []byte
+	if tx.Sign != "" {
+		sign = common.HexStringToSign(tx.Sign).Bytes()
+	} else {
+
+	}
+
+	return &Transaction{
+		Data: []byte(tx.Data),
+		Value: tx.Value,
+		Nonce: tx.Nonce,
+		//Source: &source,
+		Target: target,
+		Type: int8(tx.TxType),
+		GasLimit: tx.Gas,
+		GasPrice: tx.Gasprice,
+		Sign: sign,
+		ExtraData: []byte(tx.ExtraData),
 	}
 }
 
