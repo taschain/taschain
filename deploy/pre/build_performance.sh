@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #export GOPATH=$GOPATH:/Users/fenglei108/git/tas/taschain
+export GOPATH=$GOPATH:/var/lib/jenkins/workspace/tas_develop/
 
 main_dir=performance/main.go
 

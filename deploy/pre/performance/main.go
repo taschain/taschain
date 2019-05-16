@@ -153,7 +153,7 @@ func main()  {
 
 	flag.IntVar(&tps,"t", 200, "Tps")
 	flag.IntVar(&count,"c", 10000, "Count of senders")
-	flag.StringVar(&urlInput,"h", defaultNodeUrls, "Remote hosts")
+	flag.StringVar(&urlInput,"r", defaultNodeUrls, "Remote hosts")
 	flag.Parse()
 
 	fmt.Printf("TPS = %d \n",tps)
