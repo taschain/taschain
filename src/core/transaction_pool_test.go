@@ -132,7 +132,7 @@ type TransactionPoolTest interface {
 	Add(tx *types.Transaction) (bool, error)
 }
 
-const Count = 20
+const Count = 30
 
 var Addresses []*common.Address
 
@@ -148,10 +148,6 @@ func (pool *TxPool) Add(tx *types.Transaction) (bool, error) {
 
 func TestPush(t *testing.T) {
 
-	//bytes1 := []byte("65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7135c621b45555")
-	//bytes2 := []byte("65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7135c621b45666")
-	//bytes3 := []byte("65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7135c621b45777")
-	//bytes4 := []byte("1111111")
 	hex1 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f71111111111111"
 	hex2 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f73333333333333"
 	hex3 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f71777777777777"
@@ -162,8 +158,6 @@ func TestPush(t *testing.T) {
 	hex8 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7aaaaaaaaaaaaa"
 	hex9 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7fffffffffffff"
 	hex0 := "65e85ec7613cdb6bc6e40d3b09c1c2efd9556b82a1e4b3db5f7eeeeeeeeeeeee"
-
-	//var addr1,addr2,addr3,addr4 common.Address
 
 	addr1 := common.BytesToAddress(common.Hex2Bytes(hex1))
 	addr2 := common.BytesToAddress(common.Hex2Bytes(hex2))
@@ -203,7 +197,7 @@ func TestPush(t *testing.T) {
 			//Nonce:    uint64(i)+1,
 			Nonce: uint64(rand.Intn(10)),
 			//Nonce:    uint64(50-i),
-			Source: Addresses[rand.Intn(9)],
+			Source: Addresses[rand.Intn(8)],
 		}
 		txs = append(txs, tx)
 		hashes = append(hashes, txhash)
@@ -218,48 +212,19 @@ func TestPush(t *testing.T) {
 	fmt.Println(usedAddr)
 
 	for i := 0; i < Count; i++ {
-		//pool.received.sortedTxsByPrice.Insert(txs[i])
 		pool.Add(txs[i])
-		//fmt.Printf("gas:%d,hash:%v,data:%s\n",txs[i].GasPrice,txs[i].Hash,txs[i].Data)
-		//fmt.Println(pool.received.Len())
 	}
 
+	///////////
 	fmt.Println("ByPrice---------------------------")
 	iter1 := pool.received.sortedTxsByPrice.IterAtPosition(0)
 	for j := 0; iter1.Next() && j < pool.received.Len(); j++ {
 		fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", iter1.Value().(*types.Transaction).Hash, iter1.Value().(*types.Transaction).GasPrice, iter1.Value().(*types.Transaction).Nonce, *iter1.Value().(*types.Transaction).Source)
 	}
+	///////////
 
-	//fmt.Println("PendingAll---------------------------")
-	//for i:=0;i<len(usedAddr) ;i++  {
-	//	addr := *usedAddr[i]
-	//	if pending,ok := pool.received.pending[addr];ok{
-	//		for  pending.indexes.Len() > 0{
-	//			nonce := heap.Pop(pending.indexes)
-	//			//fmt.Printf("i:%d\tnonce:%d\t\n",i,nonce)
-	//			tx := pool.received.pending[addr].items[nonce.(uint64)]
-	//			fmt.Printf("Source:%s,\tGas:%d,\tNonce:%d,\titemsHash:%x,\n",addr,tx.GasPrice,nonce,tx.Hash)
-	//
-	//		}
-	//	}
-	//}
-
-	//
-	//allTxs1 := pool.received.sortedTxs
-	//for i := 0; i < allTxs1.Len();i++ {
-	//	fmt.Printf("???????????? Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n",allTxs1[i].Hash,allTxs1[i].GasPrice,allTxs1[i].Nonce,allTxs1[i].Source)
-	//}
-
-	//allTxs := pool.received.sortedTxs
-	//for allTxs.Len()>0 {
-	//	tx := allTxs.Pop().(*types.Transaction)
-	//	fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", tx.Hash, tx.GasPrice,tx.Nonce,tx.Source)
-	//}
-	//
-	//fmt.Println("---------------------------")
-
+	///////////
 	fmt.Println("AllTxsMap---------------------------")
-
 	for i := 0; i < len(hashes); i++ {
 		if tx := pool.received.AllTxs[hashes[i]]; tx != nil {
 			fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", hashes[i], tx.GasPrice, tx.Nonce, tx.Source)
@@ -267,34 +232,14 @@ func TestPush(t *testing.T) {
 			fmt.Printf("Hash:%x,\t\n", hashes[i])
 		}
 	}
+	///////////
 
-	//txsLen := pool.received.Len()
-
-	//size := Count
-	//if int(pool.received.sortedTxsByPrice.Len()) < size {
-	//	size = int(pool.received.sortedTxsByPrice.Len())
-	//}
-	//
-	//// 将交易添加至新的切片
-	//txsNew := make([]*types.Transaction, 0)
-	//iter := pool.received.sortedTxsByPrice.IterAtPosition(0)
-	//
-	//count := 0
-	//for ; count < size && iter.Next(); count++ {
-	//	txsNew = append(txsNew, iter.Value().(*types.Transaction))
-	//}
-	//for _,value := range txsNew{
-	//	fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", value.Hash, value.GasPrice,value.Nonce,*value.Source)
-	//}
-	//
-	//fmt.Println("txpoolLen:", txsLen)
-	//fmt.Println("count:", count)
-	//fmt.Println("sliceLen:", len(txsNew))
-
+	///////////
 	var pendingTxsCount int
 	for _, v := range pool.received.pending {
 		pendingTxsCount += v.indexes.Len()
 	}
+	///////////
 
 	///////////
 	fmt.Println("GetFromPendingAll---------------------------")
@@ -308,8 +253,9 @@ func TestPush(t *testing.T) {
 	//
 	fmt.Println("CountOfPending---------------------------")
 	fmt.Println(pendingTxsCount)
-	//////////////
+	///////////
 
+	///////////
 	// 从交易池取出交易
 	// 将交易添加至新的切片
 	//txsNew := make([]*types.Transaction, 0)
@@ -340,6 +286,7 @@ func TestPush(t *testing.T) {
 	//for _,value := range txsNew{
 	//	fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", value.Hash, value.GasPrice,value.Nonce,*value.Source)
 	//}
+	///////////
 
 	fmt.Println("GetFromQueue---------------------------")
 	queueTxs := pool.received.queue

@@ -6,18 +6,18 @@ import (
 	"consensus/mediator"
 	"consensus/model"
 	"core"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/vmihailenco/msgpack"
 	"log"
+	"math"
 	"math/big"
 	"middleware/types"
-	"taslog"
-	"time"
 	"network"
 	"strconv"
-	"encoding/hex"
-	"math"
+	"taslog"
+	"time"
 )
 
 /*
@@ -126,21 +126,21 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	return successResult(conns)
 }
 
-// TransPool 查询缓冲区的交易信息。
-func (api *GtasAPI) TransPool() (*Result, error) {
-	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
-	transList := make([]Transactions, 0, len(transactions))
-	for _, v := range transactions {
-		transList = append(transList, Transactions{
-			Hash:   v.Hash.String(),
-			Source: v.Source.GetHexString(),
-			Target: v.Target.GetHexString(),
-			Value:  strconv.FormatInt(int64(v.Value), 10),
-		})
-	}
-
-	return successResult(transList)
-}
+//// TransPool 查询缓冲区的交易信息。
+//func (api *GtasAPI) TransPool() (*Result, error) {
+//	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
+//	transList := make([]Transactions, 0, len(transactions))
+//	for _, v := range transactions {
+//		transList = append(transList, Transactions{
+//			Hash:   v.Hash.String(),
+//			Source: v.Source.GetHexString(),
+//			Target: v.Target.GetHexString(),
+//			Value:  strconv.FormatInt(int64(v.Value), 10),
+//		})
+//	}
+//
+//	return successResult(transList)
+//}
 
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
@@ -223,7 +223,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["txs"] = len(bh.Transactions)
 	blockDetail["tps"] = math.Round(float64(len(bh.Transactions)) / bh.CurTime.Sub(bh.PreTime).Seconds())
 
-	blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
+	//blockDetail["tx_pool_count"] = len(core.BlockChainImpl.GetTransactionPool().GetReceived())
 	blockDetail["tx_pool_total"] = core.BlockChainImpl.GetTransactionPool().TxNum()
 	blockDetail["miner_id"] = mediator.Proc.GetPubkeyInfo().ID.ShortS()
 	return successResult(blockDetail)
@@ -733,7 +733,7 @@ func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
 	if rc != nil {
 		tx := core.BlockChainImpl.GetTransactionByHash(false, true, hash)
 		return successResult(&core.ExecutedTransaction{
-			Receipt: rc,
+			Receipt:     rc,
 			Transaction: tx,
 		})
 	}
@@ -742,7 +742,7 @@ func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
 
 func (api *GtasAPI) RpcSyncBlocks(height uint64, limit int, version int) (*Result, error) {
 	chain := core.BlockChainImpl
-    v := chain.Version()
+	v := chain.Version()
 	if version != v {
 		return failResult(fmt.Sprintf("version not support, expect version %v", v))
 	}

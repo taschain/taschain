@@ -30,18 +30,13 @@ type simpleContainer struct {
 
 	//txs    types.PriorityTransactions
 	sortedTxsByPrice *skip.SkipList
-	//sortedTxs sortedTxsByPrice
-	pending map[common.Address]*sortedTxsByNonce
-	queue   []*types.Transaction
+	pending          map[common.Address]*sortedTxsByNonce
+	queue            []*types.Transaction
 
 	AllTxs map[common.Hash]*types.Transaction
 
 	lock sync.RWMutex
 }
-
-//type txList struct {
-//	sortedTxsByPrice *skip.SkipList
-//}
 
 type nonceHeap []uint64
 
@@ -100,7 +95,6 @@ func (c *simpleContainer) contains(key common.Hash) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//return c.AllTxs[key] != nil
 	_, ok := c.AllTxs[key]
 	return ok
 }
@@ -126,18 +120,6 @@ func (c *simpleContainer) forEach(f func(tx *types.Transaction) bool) {
 		}
 		count++
 	}
-	//for i := 0; i < len(c.pending); i++  {
-	//	if f()
-	//}
-	//
-	//
-	//
-	//iter := c.sortedTxsByPrice.IterAtPosition(0)
-	//for iter.Next() {
-	//	if !f(iter.Value().(*types.Transaction)) {
-	//		break
-	//	}
-	//}
 }
 
 func (c *simpleContainer) recoverFromCache() {
@@ -159,55 +141,38 @@ func (c *simpleContainer) push(tx *types.Transaction) {
 		return
 	}
 
-	// TODO 长度定义 应为 pending+queue 长度 ??
-	var pendingTxsCount int
-	for _, v := range c.pending {
-		pendingTxsCount += v.indexes.Len()
-	}
+	// TODO 长度定义 应为 pending+queue 长度
+	pendingTxsCount := c.getPendingTxsLen()
 
 	// 清除空间
 	if pendingTxsCount >= c.pendingLimit {
 
+		// 得到gas最低的交易（相同gas得到nonce最大的交易）
 		e := c.sortedTxsByPrice.ByPosition(0)
 		headTx := e.(*types.Transaction)
 		headTxPrice := headTx.GasPrice
-		//nonce := headTx.Nonce
-		//headTxHash := headTx.Hash
-		//headTxSource := *headTx.Source
 
-		// TODO 本地堆是否存在
 		pending, isExistInPending := c.pending[*tx.Source]
-		// 还需判断queue是否存在以及是否满了
-		//var isExistInQueue bool
-		//for _, v := range c.queue{
-		//	if bytes.Equal((*tx.Source)[:],v.Source[:]){
-		//		isExistInQueue = true
-		//	}
-		//}
-		//
 		if !isExistInPending && tx.GasPrice <= headTxPrice {
 			return
 		}
 
 		// pending 中是否存在
 		if isExistInPending {
-			//fmt.Println("Instart")
-
 			if tx.Nonce < pending.getMinNonce() {
-				if ok, txs := pending.removeEnd(pending); ok && len(txs) >= 0 {
-					//fmt.Println("pending in removeEnd")
-					//TODO 放到queue中
-					//for _, willInQueue := range txs{
-					c.queue = append(c.queue, txs...)
-					//	fmt.Printf("Will in queue 2>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-					//}
+				if pending.isNonceContinuous(tx.Nonce) {
+					if ok, txs := pending.removeEnd(pending); ok && len(txs) >= 0 {
+						//TODO 放到queue中
+						c.queue = append(c.queue, txs...)
+					}
+					if len(pending.items) == 0 {
+						delete(c.pending, *tx.Source)
+					}
 				}
-				if len(pending.items) == 0 {
-					//fmt.Println("del")
-					delete(c.pending, *tx.Source)
+
+				if !pending.isNonceContinuous(tx.Nonce) {
+					return
 				}
-				//c.sortedTxsByPrice.Delete(oldTx)
-				//delete(c.AllTxs, oldTx.Hash)
 			}
 
 			if tx.Nonce > pending.getMaxNonce() {
@@ -217,32 +182,13 @@ func (c *simpleContainer) push(tx *types.Transaction) {
 				return
 			}
 
-			if tx.Nonce > pending.getMinNonce() && tx.Nonce < pending.getMaxNonce() {
-				if ok, txs := pending.removeEnd(pending); ok && len(txs) >= 0 {
-					fmt.Println("pending in removeEnd")
-					fmt.Println(len(txs))
-					//TODO 放到queue中
-					//for _, willInQueue := range txs{
-					c.queue = append(c.queue, txs...)
-					//	fmt.Printf("Will in queue 2>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-					//}
-				}
-				if len(pending.items) == 0 {
-					//fmt.Println("del")
-					delete(c.pending, *tx.Source)
-				}
-			}
-
 			if find, oldTx := pending.FindSameNonce(tx.Nonce); find {
 				if oldTx.GasPrice >= tx.GasPrice {
 					return
 				}
 				if ok, txs := pending.remove(oldTx); ok && len(txs) >= 0 {
 					//TODO 放到queue中
-					//for _, willInQueue := range txs{
 					c.queue = append(c.queue, txs...)
-					//	fmt.Printf("Will in queue 1>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-					//}
 				}
 
 				if len(pending.items) == 0 {
@@ -251,112 +197,31 @@ func (c *simpleContainer) push(tx *types.Transaction) {
 				c.sortedTxsByPrice.Delete(oldTx)
 				delete(c.AllTxs, oldTx.Hash)
 			}
-
-			//for nonce, oldTx := range pending.items{
-			//	//fmt.Println(nonce)
-			//	// 从pending中删除
-			//	if tx.Nonce == nonce {
-			//		//fmt.Println("Instart1")
-			//		if oldTx.GasPrice >= tx.GasPrice {
-			//			return
-			//		}
-			//		if ok, txs := pending.remove(oldTx); ok && len(txs) >=0{
-			//			//TODO 放到queue中
-			//			for _, willInQueue := range txs{
-			//				c.queue=append(c.queue, txs...)
-			//				fmt.Printf("Will in queue 1>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-			//			}
-			//		}
-			//
-			//		if len(pending.items) == 0 {
-			//			delete(c.pending, *tx.Source)
-			//		}
-			//		c.sortedTxsByPrice.Delete(oldTx)
-			//		delete(c.AllTxs, oldTx.Hash)
-			//		break
-			//	}
-			//
-			//	// 移除小于交易nonce的该地址pending最大nonce交易到queue
-			//	if tx.Nonce < nonce {
-			//		//fmt.Println("Instart2")
-			//		if ok, txs := pending.removeEnd(pending); ok && len(txs) >= 0{
-			//			//fmt.Println("pending in removeEnd")
-			//			//TODO 放到queue中
-			//			for _, willInQueue := range txs{
-			//				c.queue=append(c.queue, txs...)
-			//				fmt.Printf("Will in queue 2>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-			//			}
-			//		}
-			//		if len(pending.items) == 0 {
-			//			//fmt.Println("del")
-			//			delete(c.pending, *tx.Source)
-			//		}
-			//		//c.sortedTxsByPrice.Delete(oldTx)
-			//		//delete(c.AllTxs, oldTx.Hash)
-			//		break
-			//	}
-			//
-			//	if tx.Nonce > pending.getMaxNonce(){
-			//		//fmt.Println("directly in queue")
-			//		c.queue=append(c.queue,tx)
-			//		c.AllTxs[tx.Hash]=tx
-			//		c.sortedTxsByPrice.Insert(tx)
-			//		return
-			//	}
-			//
-			//}
-			//fmt.Println("InEnd")
 		}
 
-		// TODO 插入queue中,若有空间……
-		//if !isExistInPending {
-		// TODO 去queue中寻找
-		//fmt.Println("notInStart")
-		//if ok, txs := pending.remove(e.(*types.Transaction)); ok && len(txs) >= 0{
-		//	// 放到queue中
-		//	for _, willInQueue := range txs{
-		//		fmt.Printf("Will in queue 3>> Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", willInQueue.Hash, willInQueue.GasPrice,willInQueue.Nonce,willInQueue.Source)
-		//	}
-		//}
-		//
-		//if len(pending.items) == 0 {
-		//	delete(c.pending, headTxSource)
-		//}
-		//c.sortedTxsByPrice.Delete(e)
-		//delete(c.AllTxs, headTxHash)
-		//fmt.Println("notInEnd")
-		//fmt.Println("queue>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-
-		//}
 		if !isExistInPending {
 			c.queue = append(c.queue, tx)
 			c.AllTxs[tx.Hash] = tx
 			c.sortedTxsByPrice.Insert(tx)
-			fmt.Println("not in pending")
 			return
 		}
 
 	}
 
 	if pending := c.pending[*tx.Source]; pending != nil {
-
 		old, exist := pending.items[tx.Nonce]
 		if !exist {
-			//fmt.Println("CommonInsertNotExist")
 			c.insertPending(tx, false)
 			return
 		}
 
 		if exist && old.GasPrice < tx.GasPrice {
-			//fmt.Println("CommonInsertExistReplace")
 			c.replace(old, tx)
 			return
-
 		}
-
+		return
 	}
 	c.insertPending(tx, true)
-	//fmt.Println("AllLastInsert")
 }
 
 func (c *simpleContainer) remove(key common.Hash) {
@@ -380,13 +245,6 @@ func (c *simpleContainer) remove(key common.Hash) {
 			c.pending[*tx.Source].cache = nil
 		}
 	}
-
-	//for i, tx := range c.txs {
-	//	if tx.Hash == key {
-	//		heap.Remove(&c.txs, i)
-	//		break
-	//	}
-	//}
 }
 
 func (c *simpleContainer) replace(old, new *types.Transaction) {
@@ -404,11 +262,19 @@ func (c *simpleContainer) replace(old, new *types.Transaction) {
 }
 
 func (c *simpleContainer) insertPending(new *types.Transaction, isFirstTime bool) {
-	// TODO 决定是放在queue中还是pending中  现在是不验证nonce，直接放在pending中
 	addr := *new.Source
 	nonce := new.Nonce
+	if !c.pending[*new.Source].isNonceContinuous(new.Nonce) && !isFirstTime {
+		if new.Nonce > c.pending[*new.Source].getMaxNonce() {
+			c.queue = append(c.queue, new)
+			c.sortedTxsByPrice.Insert(new)
+			c.AllTxs[new.Hash] = new
+			return
+		}
+		return
+	}
 
-	if isFirstTime {
+	if c.pending[*new.Source] == nil {
 		c.pending[addr] = newSortedTxsByNonce()
 		heap.Init(c.pending[addr].indexes)
 	}
@@ -417,6 +283,15 @@ func (c *simpleContainer) insertPending(new *types.Transaction, isFirstTime bool
 	c.pending[addr].items[nonce] = new
 	c.sortedTxsByPrice.Insert(new)
 	c.AllTxs[new.Hash] = new
+
+}
+
+func (c *simpleContainer) getPendingTxsLen() int {
+	var pendingTxsLen int
+	for _, v := range c.pending {
+		pendingTxsLen += v.indexes.Len()
+	}
+	return pendingTxsLen
 }
 
 func newSortedTxsByNonce() *sortedTxsByNonce {
@@ -426,6 +301,29 @@ func newSortedTxsByNonce() *sortedTxsByNonce {
 		cache:   make([]uint64, 0),
 	}
 	return s
+}
+
+func (s *sortedTxsByNonce) isNonceContinuous(nonce uint64) bool {
+
+	if s != nil {
+		if s.indexes.Len() > 1 {
+			maxNonce := s.getMaxNonce()
+			minNonce := s.getMinNonce()
+			if nonce != minNonce-1 && nonce != maxNonce+1 {
+				return false
+			}
+			return true
+		}
+
+		if s.indexes.Len() == 1 {
+			singleNonce := s.getMaxNonce()
+			if nonce != singleNonce-1 && nonce != singleNonce+1 {
+				return false
+			}
+			return true
+		}
+	}
+	return true
 }
 
 func (s *sortedTxsByNonce) getMaxNonce() uint64 {
@@ -458,7 +356,6 @@ func (s *sortedTxsByNonce) FindSameNonce(targetNonce uint64) (bool, *types.Trans
 
 func (s *sortedTxsByNonce) removeEnd(pending *sortedTxsByNonce) (bool, []*types.Transaction) {
 	removedNonce := heap.Remove(pending.indexes, pending.indexes.Len()-1).(uint64)
-	fmt.Println(removedNonce)
 
 	// 放到queue中
 	return true, s.filter(func(tx *types.Transaction) bool { return tx.Nonce >= removedNonce })
@@ -486,12 +383,10 @@ func (s *sortedTxsByNonce) remove(tx *types.Transaction) (bool, []*types.Transac
 
 func (s *sortedTxsByNonce) filter(filter func(*types.Transaction) bool) []*types.Transaction {
 	var removed []*types.Transaction
-
 	if len(s.items) == 0 && s.indexes.Len() == 0 {
 		return nil
 	}
-	// Collect all the transactions to filter out
-	//position := 0
+
 	for nonce, tx := range s.items {
 		if filter(tx) {
 			removed = append(removed, tx)
@@ -499,7 +394,7 @@ func (s *sortedTxsByNonce) filter(filter func(*types.Transaction) bool) []*types
 			delete(s.items, nonce)
 		}
 	}
-	// If transactions were removed, the heap are ruined
+	// 更新堆
 	if len(removed) > 0 {
 		*s.indexes = make([]uint64, 0, len(s.items))
 		for nonce := range s.items {
@@ -507,7 +402,6 @@ func (s *sortedTxsByNonce) filter(filter func(*types.Transaction) bool) []*types
 		}
 		// 更新index堆
 		heap.Init(s.indexes)
-
 	}
 	return removed
 }
