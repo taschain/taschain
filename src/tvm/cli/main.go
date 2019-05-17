@@ -21,6 +21,10 @@ var (
 	contractAddress = callContract.Arg("contractAddress", "contract address.").Required().String()
 	contractAbi = callContract.Arg("abiPath", "").Required().String()
 
+	exportAbi = app.Command("export", "export abi.")
+	exportAbiContractName = exportAbi.Arg("name", "").Required().String()
+	exportAbiContractPath = exportAbi.Arg("path", "").Required().String()
+
 )
 
 func main() {
@@ -33,7 +37,7 @@ func main() {
 	case deployContract.FullCommand():
 		f, err := ioutil.ReadFile(filepath.Dir(os.Args[0]) + "/" + *contractPath) //读取文件
 		if err != nil {
-			fmt.Println("read the " + *contractPath + " file failed ", err)
+			fmt.Println("read the ", *contractPath, " file failed ", err)
 			return
 		}
 		tvmCli.Deploy(*contractName, string(f))
@@ -42,10 +46,18 @@ func main() {
 	case callContract.FullCommand():
 		f, err := ioutil.ReadFile(filepath.Dir(os.Args[0]) + "/" + *contractAbi) //读取文件
 		if err != nil {
-			fmt.Println("read the " + *contractAbi + " file failed ", err)
+			fmt.Println("read the ", *contractAbi, " file failed ", err)
 			return
 		}
 		tvmCli.Call(*contractAddress, string(f))
-	}
 
+	// export ./cli/erc20.py
+	case exportAbi.FullCommand():
+		f, err := ioutil.ReadFile(filepath.Dir(os.Args[0]) + "/" + *exportAbiContractPath) //读取文件
+		if err != nil {
+			fmt.Println("read the ", *exportAbiContractPath, " file failed ", err)
+			return
+		}
+		tvmCli.ExportAbi(*exportAbiContractName, string(f))
+	}
 }
