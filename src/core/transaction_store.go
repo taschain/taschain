@@ -21,11 +21,7 @@ func (pool *TxPool) SaveReceipts(bhash common.Hash, receipts types.Receipts) err
 		return nil
 	}
 	for _, receipt := range receipts {
-		executedTx := &ReceiptStore{
-			Receipt:     receipt,
-			BlockHash:  bhash,
-		}
-		executedTxBytes, err := msgpack.Marshal(executedTx)
+		executedTxBytes, err := msgpack.Marshal(receipt)
 		if nil != err {
 			return err
 		}
@@ -57,16 +53,16 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	if executedTx == nil {
 		return 0, ErrNil
 	}
-	return executedTx.Receipt.Status, nil
+	return executedTx.Status, nil
 }
 
-func (pool *TxPool) loadReceipt(hash common.Hash) *ReceiptStore {
+func (pool *TxPool) loadReceipt(hash common.Hash) *types.Receipt {
 	txBytes, _ := pool.receiptdb.Get(hash.Bytes())
 	if txBytes == nil {
 		return nil
 	}
 
-	var rs ReceiptStore
+	var rs types.Receipt
 	err := msgpack.Unmarshal(txBytes, &rs)
 	if err != nil {
 		return nil
@@ -84,14 +80,5 @@ func (pool *TxPool) GetReceipt(hash common.Hash) *types.Receipt {
 	if rs == nil {
 		return nil
 	}
-	return rs.Receipt
-}
-
-func (pool *TxPool) GetTxBlockHash(txHash common.Hash) (*common.Hash) {
-    rs := pool.loadReceipt(txHash)
-	if rs != nil {
-		h := rs.BlockHash
-		return &h
-	}
-	return nil
+	return rs
 }

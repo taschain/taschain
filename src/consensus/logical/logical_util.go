@@ -2,11 +2,11 @@ package logical
 
 import (
 
-	"time"
 	"middleware/types"
 	"consensus/model"
 	"common"
 	"consensus/base"
+	"middleware/time"
 )
 
 /*
@@ -17,12 +17,12 @@ import (
 
 
 
-func GetCastExpireTime(base time.Time, deltaHeight uint64, castHeight uint64) time.Time {
+func GetCastExpireTime(base time.TimeStamp, deltaHeight uint64, castHeight uint64) time.TimeStamp {
 	t := uint64(0)
 	if castHeight == 1 {//铸高度1的时候，过期时间为5倍，以防节点启动不同步时，先提案的块过早过期导致同一节点对高度1提案多次
 		t = 2
 	}
-	return base.Add(time.Second * time.Duration((t + deltaHeight) * uint64(model.Param.MaxGroupCastTime)))
+	return base.Add(int64(t + deltaHeight) * int64(model.Param.MaxGroupCastTime))
 }
 
 func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo) *types.Group {
@@ -44,15 +44,15 @@ func DeltaHeightByTime(bh *types.BlockHeader, preBH *types.BlockHeader) uint64 {
 		deltaHeightByTime uint64
 	)
 	if bh.Height == 1 {
-		d := time.Since(preBH.CurTime)
-		deltaHeightByTime = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
+		d := time.TSInstance.Since(preBH.CurTime)
+		deltaHeightByTime = uint64(d)/uint64(model.Param.MaxGroupCastTime) + 1
 	} else {
 		deltaHeightByTime = bh.Height - preBH.Height
 	}
 	return deltaHeightByTime
 }
 
-func ExpireTime(bh *types.BlockHeader, preBH *types.BlockHeader) (time.Time) {
+func ExpireTime(bh *types.BlockHeader, preBH *types.BlockHeader) time.TimeStamp {
 	return GetCastExpireTime(preBH.CurTime, DeltaHeightByTime(bh, preBH), bh.Height)
 }
 

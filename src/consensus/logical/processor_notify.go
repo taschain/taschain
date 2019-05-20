@@ -11,21 +11,18 @@ import (
 	"taslog"
 )
 
-func (p *Processor) triggerFutureVerifyMsg(hash common.Hash) {
-	futures := p.getFutureVerifyMsgs(hash)
+func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
+	futures := p.getFutureVerifyMsgs(bh.Hash)
 	if futures == nil || len(futures) == 0 {
 		return
 	}
-	p.removeFutureVerifyMsgs(hash)
+	p.removeFutureVerifyMsgs(bh.Hash)
 	mtype := "FUTURE_VERIFY"
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		slog := taslog.NewSlowLog(mtype, 0.5)
-		err := p.doVerify(mtype, msg, tlog, newBizLog(mtype), slog)
-		if err != nil {
-			tlog.logEnd("result=%v", err.Error())
-		}
+		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		tlog.logEnd("result=%v %v", ok, err)
 	}
 
 }
@@ -45,20 +42,6 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	}
 }
 
-//func (p *Processor) triggerFutureBlockMsg(preBH *types.BlockHeader) {
-//	futureMsgs := p.getFutureBlockMsgs(preBH.Hash)
-//	if futureMsgs == nil || len(futureMsgs) == 0 {
-//		return
-//	}
-//	log.Printf("handle future blocks, size=%v\n", len(futureMsgs))
-//	for _, msg := range futureMsgs {
-//		tbh := msg.Block.Header
-//		tlog := newHashTraceLog("OMB-FUTRUE", tbh.Hash, groupsig.DeserializeId(tbh.Castor))
-//		tlog.log( "%v", "trigger cached future block")
-//		p.receiveBlock(&msg.Block, preBH)
-//	}
-//	p.removeFutureBlockMsgs(preBH.Hash)
-//}
 
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
@@ -71,16 +54,18 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
 	gid := groupsig.DeserializeId(bh.GroupId)
-	bc := p.GetBlockContext(gid)
-	if bc != nil {
-		bc.AddCastedHeight(bh.Height, bh.PreHash)
-		vctx := bc.GetVerifyContextByHeight(bh.Height)
+	if p.IsMinerGroup(gid) {
+		p.blockContexts.addCastedHeight(bh.Height, bh.PreHash)
+		vctx := p.blockContexts.getVctxByHeight(bh.Height)
 		if vctx != nil && vctx.prevBH.Hash == bh.PreHash {
-			//如果本地没有广播准备，说明是其他节点广播过来的块，则标记为已广播
-			vctx.markBroadcast()
+			if vctx.isWorking() {
+				vctx.markCastSuccess()
+			}
+			if !p.conf.GetBool("consensus", "league", false) {
+				p.reqRewardTransSign(vctx, bh)
+			}
 		}
 	}
-	p.removeVerifyMsgCache(bh.Hash)
 
 	vrf := p.GetVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
@@ -89,11 +74,10 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	//p.triggerCastCheck()
 
 	//p.triggerFutureBlockMsg(bh)
-	p.triggerFutureVerifyMsg(bh.Hash)
+	p.triggerFutureVerifyMsg(bh)
 	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()
-
-	p.cleanVerifyContext(bh.Height)
+	p.blockContexts.removeProposed(bh.Hash)
 }
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {

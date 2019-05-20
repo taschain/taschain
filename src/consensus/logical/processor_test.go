@@ -50,12 +50,14 @@ func TestCalcVerifyGroup(t *testing.T) {
 	p.Init(mdo, common.GlobalConf)
 
 	top := p.MainChain.Height()
-	pre := p.MainChain.QueryBlockByHeight(0)
+	preB := p.MainChain.QueryBlockByHeight(0)
+	pre := preB.Header
 	for h := uint64(1); h <= top; h++ {
-		bh := p.MainChain.QueryBlockByHeight(h)
-		if bh == nil {
+		b := p.MainChain.QueryBlockByHeight(h)
+		if b == nil {
 			continue
 		}
+		bh := b.Header
 		gid := groupsig.DeserializeId(bh.GroupId)
 		expectGid := p.CalcVerifyGroupFromChain(pre, h)
 		pre = bh

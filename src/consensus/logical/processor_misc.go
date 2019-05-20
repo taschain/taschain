@@ -6,10 +6,6 @@ import (
 	"middleware/types"
 	"consensus/base"
 	"fmt"
-	"time"
-	"encoding/json"
-	"taslog"
-	"errors"
 )
 
 /*
@@ -59,14 +55,15 @@ func (p *Processor) prepareMiner() {
 		}
 		needBreak := false
 		sgi := NewSGIFromCoreGroup(coreGroup)
-		//if sgi.Dismissed(topHeight) {
-		//	needBreak = true
-		//	genesis := p.GroupChain.GetGroupByHeight(0)
-		//	if coreGroup == nil {
-		//		panic("get genesis group nil")
-		//	}
-		//	sgi = NewSGIFromCoreGroup(genesis)
-		//}
+		if sgi.Dismissed(topHeight) && len(groups) > 100 {
+			needBreak = true
+			genesis := p.GroupChain.GetGroupByHeight(0)
+			if genesis == nil {
+				panic("get genesis group nil")
+			}
+			sgi = NewSGIFromCoreGroup(genesis)
+
+		}
 		groups = append(groups, sgi)
 		stdLogger.Infof("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
@@ -75,6 +72,10 @@ func (p *Processor) prepareMiner() {
 				stdLogger.Infof("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
 				p.joinGroup(jg)
+			}
+			if sgi.GInfo.GI.CreateHeight() == 0 {
+				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().String())
+				p.genesisMember = true
 			}
 		}
 		if needBreak {
@@ -173,102 +174,101 @@ func (p *Processor) GetVrfThreshold(stake uint64) float64 {
 	return f
 }
 
-func (p *Processor) BlockContextSummary() string {
-
-	type slotSummary struct {
-		Hash string `json:"hash"`
-		GSigSize int `json:"g_sig_size"`
-		RSigSize int `json:"r_sig_size"`
-		TxSigSize int `json:"tx_sig_size"`
-		LostTxSize int `json:"lost_tx_size"`
-		Status int32 `json:"status"`
-	}
-	type vctxSummary struct {
-		CastHeight uint64 `json:"cast_height"`
-		Status int32 `json:"status"`
-		Slots  []*slotSummary `json:"slots"`
-		NumSlots int `json:"num_slots"`
-		Expire time.Time `json:"expire"`
-		ShouldRemove bool `json:"should_remove"`
-	}
-	type bctxSummary struct {
-    	Gid string `json:"gid"`
-    	NumRvh int `json:"num_rvh"`
-    	NumVctx int `json:"num_vctx"`
-    	Vctxs []*vctxSummary `json:"vctxs"`
-	}
-	type contextSummary struct {
-		NumBctxs int `json:"num_bctxs"`
-		Bctxs []*bctxSummary `json:"bctxs"`
-		NumReserVctx int `json:"num_reser_vctx"`
-		ReservVctxs []*vctxSummary `json:"reserv_vctxs"`
-		NumFutureVerifyMsg int `json:"num_future_verify_msg"`
-		NumFutureRewardMsg int `json:"num_future_reward_msg"`
-		NumVerifyCache int `json:"num_verify_cache"`
-	}
-	bctxs := make([]*bctxSummary, 0)
-	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
-		vs := make([]*vctxSummary, 0)
-		for _, vctx := range bc.SafeGetVerifyContexts() {
-			ss := make([]*slotSummary, 0)
-			for _, slot := range vctx.GetSlots() {
-				s := &slotSummary{
-					Hash: slot.BH.Hash.String(),
-					GSigSize: slot.gSignGenerator.WitnessSize(),
-					RSigSize: slot.rSignGenerator.WitnessSize(),
-					LostTxSize: slot.lostTxHash.Size(),
-					Status: slot.GetSlotStatus(),
-				}
-				if slot.rewardGSignGen != nil {
-					s.TxSigSize = slot.rewardGSignGen.WitnessSize()
-				}
-				ss = append(ss, s)
-			}
-			v := &vctxSummary{
-				CastHeight: vctx.castHeight,
-				Status: vctx.consensusStatus,
-				NumSlots: len(vctx.slots),
-				Expire: vctx.expireTime,
-				ShouldRemove: vctx.castRewardSignExpire() || (vctx.broadcastSlot != nil && vctx.broadcastSlot.IsRewardSent()),
-				Slots:ss,
-			}
-			vs = append(vs, v)
-		}
-		b := &bctxSummary{
-			Gid: bc.MinerID.Gid.GetHexString(),
-			NumRvh: len(bc.recentCasted),
-			NumVctx: len(vs),
-			Vctxs: vs,
-		}
-		bctxs = append(bctxs, b)
-		return true
-	})
-	reservVctxs := make([]*vctxSummary, 0)
-	p.blockContexts.forEachReservedVctx(func(vctx *VerifyContext) bool {
-		v := &vctxSummary{
-			CastHeight: vctx.castHeight,
-			Status: vctx.consensusStatus,
-			NumSlots: len(vctx.slots),
-			Expire: vctx.expireTime,
-			ShouldRemove: vctx.castRewardSignExpire() || (vctx.broadcastSlot != nil && vctx.broadcastSlot.IsRewardSent()),
-		}
-		reservVctxs = append(reservVctxs, v)
-		return true
-	})
-	cs := &contextSummary{
-		Bctxs: bctxs,
-		ReservVctxs: reservVctxs,
-		NumBctxs:len(bctxs),
-		NumReserVctx: len(reservVctxs),
-		NumFutureVerifyMsg: p.futureVerifyMsgs.size(),
-		NumFutureRewardMsg: p.futureRewardReqs.size(),
-		NumVerifyCache: p.verifyMsgCaches.Len(),
-	}
-	b, _ := json.MarshalIndent(cs, "", "\t")
-	fmt.Printf("%v\n", string(b))
-	fmt.Println("============================================================")
-	return string(b)
-}
+//func (p *Processor) BlockContextSummary() string {
+//
+//	type slotSummary struct {
+//		Hash string `json:"hash"`
+//		GSigSize int `json:"g_sig_size"`
+//		RSigSize int `json:"r_sig_size"`
+//		TxSigSize int `json:"tx_sig_size"`
+//		LostTxSize int `json:"lost_tx_size"`
+//		Status int32 `json:"status"`
+//	}
+//	type vctxSummary struct {
+//		CastHeight uint64 `json:"cast_height"`
+//		Status int32 `json:"status"`
+//		Slots  []*slotSummary `json:"slots"`
+//		NumSlots int `json:"num_slots"`
+//		Expire time.Time `json:"expire"`
+//		ShouldRemove bool `json:"should_remove"`
+//	}
+//	type bctxSummary struct {
+//    	Gid string `json:"gid"`
+//    	NumRvh int `json:"num_rvh"`
+//    	NumVctx int `json:"num_vctx"`
+//    	Vctxs []*vctxSummary `json:"vctxs"`
+//	}
+//	type contextSummary struct {
+//		NumBctxs int `json:"num_bctxs"`
+//		Bctxs []*bctxSummary `json:"bctxs"`
+//		NumReserVctx int `json:"num_reser_vctx"`
+//		ReservVctxs []*vctxSummary `json:"reserv_vctxs"`
+//		NumFutureVerifyMsg int `json:"num_future_verify_msg"`
+//		NumFutureRewardMsg int `json:"num_future_reward_msg"`
+//		NumVerifyCache int `json:"num_verify_cache"`
+//	}
+//	bctxs := make([]*bctxSummary, 0)
+//	p.blockContexts.forEachBlockContext(func(bc *BlockContext) bool {
+//		vs := make([]*vctxSummary, 0)
+//		for _, vctx := range bc.SafeGetVerifyContexts() {
+//			ss := make([]*slotSummary, 0)
+//			for _, slot := range vctx.GetSlots() {
+//				s := &slotSummary{
+//					Hash: slot.BH.Hash.String(),
+//					GSigSize: slot.gSignGenerator.WitnessSize(),
+//					RSigSize: slot.rSignGenerator.WitnessSize(),
+//					Status: slot.GetSlotStatus(),
+//				}
+//				if slot.rewardGSignGen != nil {
+//					s.TxSigSize = slot.rewardGSignGen.WitnessSize()
+//				}
+//				ss = append(ss, s)
+//			}
+//			v := &vctxSummary{
+//				CastHeight: vctx.castHeight,
+//				Status: vctx.consensusStatus,
+//				NumSlots: len(vctx.slots),
+//				Expire: vctx.expireTime.Local(),
+//				ShouldRemove: vctx.castRewardSignExpire() || (vctx.successSlot != nil && vctx.successSlot.IsRewardSent()),
+//				Slots:ss,
+//			}
+//			vs = append(vs, v)
+//		}
+//		b := &bctxSummary{
+//			Gid: bc.MinerID.Gid.GetHexString(),
+//			NumRvh: len(bc.recentCasted),
+//			NumVctx: len(vs),
+//			Vctxs: vs,
+//		}
+//		bctxs = append(bctxs, b)
+//		return true
+//	})
+//	reservVctxs := make([]*vctxSummary, 0)
+//	p.blockContexts.forEachReservedVctx(func(vctx *VerifyContext) bool {
+//		v := &vctxSummary{
+//			CastHeight: vctx.castHeight,
+//			Status: vctx.consensusStatus,
+//			NumSlots: len(vctx.slots),
+//			Expire: vctx.expireTime.Local(),
+//			ShouldRemove: vctx.castRewardSignExpire() || (vctx.successSlot != nil && vctx.successSlot.IsRewardSent()),
+//		}
+//		reservVctxs = append(reservVctxs, v)
+//		return true
+//	})
+//	cs := &contextSummary{
+//		Bctxs: bctxs,
+//		ReservVctxs: reservVctxs,
+//		NumBctxs:len(bctxs),
+//		NumReserVctx: len(reservVctxs),
+//		NumFutureVerifyMsg: p.futureVerifyMsgs.size(),
+//		NumFutureRewardMsg: p.futureRewardReqs.size(),
+//		NumVerifyCache: p.verifyMsgCaches.Len(),
+//	}
+//	b, _ := json.MarshalIndent(cs, "", "\t")
+//	fmt.Printf("%v\n", string(b))
+//	fmt.Println("============================================================")
+//	return string(b)
+//}
 
 func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
 	var id groupsig.ID
@@ -293,40 +293,40 @@ func (p *Processor) GetCastQualifiedGroupsFromChain(height uint64) []*types.Grou
 }
 
 func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	exist, ok, err := p.proveChecker.getPRootResult(bh.Hash)
-	if exist {
-		return ok, err
-	}
-	slog := taslog.NewSlowLog("checkProveRoot-" + bh.Hash.ShortS(), 0.6)
-	defer func() {
-		slog.Log("hash=%v, height=%v", bh.Hash.String(), bh.Height)
-	}()
-	slog.AddStage("queryBlockHeader")
-	preBH := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
-	slog.EndStage()
-	if preBH == nil {
-		return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
-	}
-	gid := groupsig.DeserializeId(bh.GroupId)
+	//exist, ok, err := p.proveChecker.getPRootResult(bh.Hash)
+	//if exist {
+	//	return ok, err
+	//}
+	//slog := taslog.NewSlowLog("checkProveRoot-" + bh.Hash.ShortS(), 0.6)
+	//defer func() {
+	//	slog.Log("hash=%v, height=%v", bh.Hash.String(), bh.Height)
+	//}()
+	//slog.AddStage("queryBlockHeader")
+	//preBH := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
+	//slog.EndStage()
+	//if preBH == nil {
+	//	return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
+	//}
+	//gid := groupsig.DeserializeId(bh.GroupId)
+	//
+	//slog.AddStage("getGroup")
+	//group := p.GetGroup(gid)
+	//slog.EndStage()
+	//if !group.GroupID.IsValid() {
+	//	return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
+	//}
 
-	slog.AddStage("getGroup")
-	group := p.GetGroup(gid)
-	slog.EndStage()
-	if !group.GroupID.IsValid() {
-		return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
-	}
-
-	//这个还是很耗时
-	slog.AddStage("genProveHash")
-	if _, root := p.proveChecker.genProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
-		slog.EndStage()
-		p.proveChecker.addPRootResult(bh.Hash, true, nil)
-		return true, nil
-	} else {
-		//TODO: 2019-04-08:bug 导致部分分红交易的source存进了db，全量账本校验失败，删库重启后再放开
-		//panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
-		//return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
-	}
+	////这个还是很耗时
+	//slog.AddStage("genProveHash")
+	//if _, root := p.proveChecker.genProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
+	//	slog.EndStage()
+	//	p.proveChecker.addPRootResult(bh.Hash, true, nil)
+	//	return true, nil
+	//} else {
+	//	//TODO: 2019-04-08:bug 导致部分分红交易的source存进了db，全量账本校验失败，删库重启后再放开
+	//	//panic(fmt.Errorf("check prove fail, hash=%v, height=%v", bh.Hash.String(), bh.Height))
+	//	//return false, errors.New(fmt.Sprintf("proveRoot expect %v, receive %v", bh.ProveRoot.String(), root.String()))
+	//}
 	return true, nil
 }
 

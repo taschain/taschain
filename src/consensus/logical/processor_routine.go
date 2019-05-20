@@ -1,12 +1,13 @@
 package logical
 
 import (
-	"time"
+	"middleware/time"
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
 	"monitor"
 	"fmt"
+	time2 "time"
 )
 
 /*
@@ -49,7 +50,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	//}
 
 	var (
-		expireTime  time.Time
+		expireTime  time.TimeStamp
 		castHeight  uint64
 		deltaHeight uint64
 	)
@@ -58,7 +59,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	deltaHeight = uint64(d.Seconds())/uint64(model.Param.MaxGroupCastTime) + 1
+	deltaHeight = uint64(d)/uint64(model.Param.MaxGroupCastTime) + 1
 	if top.Height > 0 {
 		castHeight = top.Height + deltaHeight
 	} else {
@@ -86,7 +87,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 
 func (p *Processor) broadcastRoutine() bool {
 	p.blockContexts.forEachReservedVctx(func(vctx *VerifyContext) bool {
-		p.tryBroadcastBlock(vctx)
+		p.tryNotify(vctx)
 		return true
 	})
 	return true
@@ -97,10 +98,6 @@ func (p *Processor) releaseRoutine() bool {
 	if topHeight <= model.Param.CreateGroupInterval {
 		return true
 	}
-
-	//删除verifyContext
-	p.cleanVerifyContext(topHeight)
-
 	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
 	groups := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
 	ids := make([]groupsig.ID, 0)
@@ -108,12 +105,13 @@ func (p *Processor) releaseRoutine() bool {
 		ids = append(ids, g.GroupID)
 	}
 
+	p.blockContexts.cleanVerifyContext(topHeight)
+
 	blog := newBizLog("releaseRoutine")
 
 	if len(ids) > 0 {
 		blog.log("clean group %v\n", len(ids))
 		p.globalGroups.RemoveGroups(ids)
-		p.blockContexts.removeBlockContexts(ids)
 		p.belongGroups.leaveGroups(ids)
 		for _, g := range groups {
 			gid := g.GroupID
@@ -181,7 +179,7 @@ func (p *Processor) releaseRoutine() bool {
 	})
 	gctx := p.groupManager.getContext()
 	if gctx != nil && gctx.readyTimeout(topHeight) {
-		groupLogger.Infof("releaseRoutine:info=%v, elapsed %v. ready timeout.", gctx.logString(), time.Since(gctx.createTime))
+		groupLogger.Infof("releaseRoutine:info=%v, elapsed %v. ready timeout.", gctx.logString(), time2.Since(gctx.createTime))
 
 		if gctx.isKing() {
 			gHash := "0000"
@@ -238,7 +236,7 @@ func (p *Processor) releaseRoutine() bool {
 	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.CastRewardTransSignReqMessage)
-			if time.Now().After(b.ReceiveTime.Add(400*time.Second)) {//400s不能处理的，都删除
+			if time2.Now().After(b.ReceiveTime.Add(400*time2.Second)) {//400s不能处理的，都删除
 				p.futureRewardReqs.remove(key)
 				blog.debug("remove future reward msg, hash=%v", key.String())
 				break
@@ -250,12 +248,12 @@ func (p *Processor) releaseRoutine() bool {
 	//清理超时的签名公钥请求
 	cleanSignPkReqRecord()
 
-	for _, h := range p.verifyMsgCaches.Keys() {
+	for _, h := range p.blockContexts.verifyMsgCaches.Keys() {
 		hash := h.(common.Hash)
-		cache := p.getVerifyMsgCache(hash)
+		cache := p.blockContexts.getVerifyMsgCache(hash)
 		if cache != nil && cache.expired() {
 			blog.debug("remove verify cache msg, hash=%v", hash.ShortS())
-			p.removeVerifyMsgCache(hash)
+			p.blockContexts.removeVerifyMsgCache(hash)
 		}
 	}
 

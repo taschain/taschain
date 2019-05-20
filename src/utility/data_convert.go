@@ -20,54 +20,74 @@ import (
 	"encoding/binary"
 )
 
-func UInt32ToByte(i uint32) []byte {
+func numberToByte(number interface{}) []byte {
 	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, binary.BigEndian, i)
+	binary.Write(buf, binary.BigEndian, number)
 	return buf.Bytes()
 }
 
-func ByteToUInt32(b []byte) uint32 {
+func bytesToNumber(ptr interface{}, b []byte)  {
 	buf := bytes.NewBuffer(b)
+	binary.Read(buf, binary.BigEndian, ptr)
+}
+
+func UInt32ToByte(i uint32) []byte {
+	return numberToByte(i)
+}
+
+func ByteToUInt32(b []byte) uint32 {
 	var x uint32
-	binary.Read(buf, binary.BigEndian, &x)
+	bytesToNumber(&x, b)
 	return x
 }
 
 func IntToByte(i int) []byte {
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, binary.BigEndian, i)
-	return buf.Bytes()
+	return numberToByte(i)
 }
 
 func ByteToInt(b []byte) int {
-	buf := bytes.NewBuffer(b)
 	var x int
-	binary.Read(buf, binary.BigEndian, &x)
+	bytesToNumber(&x, b)
 	return x
 }
 
 func UInt64ToByte(i uint64) []byte {
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, binary.BigEndian, i)
-	return buf.Bytes()
+	return numberToByte(i)
 }
 
 func ByteToUInt64(b []byte) uint64 {
-	buf := bytes.NewBuffer(b)
 	var x uint64
-	binary.Read(buf, binary.BigEndian, &x)
+	bytesToNumber(&x, b)
 	return x
 }
 
 func UInt16ToByte(i uint16) []byte {
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, binary.BigEndian, i)
-	return buf.Bytes()
+	return numberToByte(i)
 }
 
 func ByteToUInt16(b []byte) uint16 {
-	buf := bytes.NewBuffer(b)
 	var x uint16
-	binary.Read(buf, binary.BigEndian, &x)
+	bytesToNumber(&x, b)
+	return x
+}
+
+
+func Int64ToByte(i int64) []byte {
+	return numberToByte(i)
+}
+
+func ByteToInt64(b []byte) int64 {
+	var x int64
+	bytesToNumber(&x, b)
+	return x
+}
+
+func Int32ToByte(i int32) []byte {
+	return numberToByte(i)
+}
+
+func ByteToInt32(b []byte) int32 {
+	var x int32
+	bytesToNumber(&x, b)
 	return x
 }

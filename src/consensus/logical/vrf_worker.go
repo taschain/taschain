@@ -6,11 +6,10 @@ import (
 	"math/big"
 	"middleware/types"
 	"sync/atomic"
-	"time"
 	"math"
 	"fmt"
 	"consensus/base"
-	time2 "middleware/time"
+	"middleware/time"
 )
 
 /*
@@ -40,13 +39,13 @@ type vrfWorker struct {
 	miner      *model.SelfMinerDO
 	baseBH     *types.BlockHeader
 	castHeight uint64
-	expire     time.Time
+	expire     time.TimeStamp
 	//writable
 	status int32
-	ts 			time2.TimeService
+	ts 			time.TimeService
 }
 
-func NewVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.Time, ts time2.TimeService) *vrfWorker {
+func NewVRFWorker(miner *model.SelfMinerDO, bh *types.BlockHeader, castHeight uint64, expire time.TimeStamp, ts time.TimeService) *vrfWorker {
 	return &vrfWorker{
 		miner:      miner,
 		baseBH:     bh,

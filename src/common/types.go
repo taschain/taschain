@@ -177,6 +177,8 @@ func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 //256位哈希
 type Hash [HashLength]byte
 
+var EmptyHash = Hash{}
+
 func BytesToHash(b []byte) Hash {
 	var h Hash
 	h.SetBytes(b)
@@ -261,9 +263,6 @@ func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 	return reflect.ValueOf(h)
 }
 
-func EmptyHash(h Hash) bool {
-	return h == Hash{}
-}
 
 // UnprefixedHash allows marshaling a Hash without 0x prefix.
 type UnprefixedHash Hash

@@ -166,23 +166,12 @@ func (p *Processor) removeFutureVerifyMsgs(hash common.Hash) {
 }
 
 func (p *Processor) blockPreview(bh *types.BlockHeader) string {
-	return fmt.Sprintf("hash=%v, height=%v, curTime=%v, preHash=%v, preTime=%v", bh.Hash.ShortS(), bh.Height, bh.CurTime, bh.PreHash.ShortS(), bh.PreTime)
+	return fmt.Sprintf("hash=%v, height=%v, curTime=%v, preHash=%v, preTime=%v", bh.Hash.ShortS(), bh.Height, bh.CurTime, bh.PreHash.ShortS(), bh.CurTime.Add(-int64(bh.Elapsed)))
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	//组建组网络
 	p.NetServer.BuildGroupNet(sgi.GroupID.GetHexString(), sgi.GetMembers())
-
-	bc := NewBlockContext(p, sgi)
-
-	bc.pos = sgi.GetMinerPos(p.GetMinerID())
-	stdLogger.Debugf("prepareForCast current ID %v in group pos=%v.\n", p.GetMinerID().ShortS(), bc.pos)
-	//to do:只有自己属于这个组的节点才需要调用AddBlockConext
-	b := p.AddBlockContext(bc)
-	stdLogger.Infof("(proc:%v) prepareForCast Add BlockContext result = %v, bc_size=%v.\n", p.getPrefix(), b, p.blockContexts.blockContextSize())
-
-	//bc.registerTicker()
-	//p.triggerCastCheck()
 }
 
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {

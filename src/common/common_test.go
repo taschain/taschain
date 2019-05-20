@@ -85,3 +85,8 @@ func TestHashEqual(t *testing.T) {
 	t.Log(h1 == h2)
 	t.Logf("%p %p", &h1, &h2)
 }
+
+func TestLen(t *testing.T) {
+	var arr []int = nil
+	t.Log(len(arr))
+}

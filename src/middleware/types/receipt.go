@@ -45,6 +45,8 @@ type Receipt struct {
 
 	TxHash          common.Hash    `json:"transactionHash" gencodec:"required"`
 	ContractAddress common.Address `json:"contractAddress"`
+	Height 			uint64 `json:"height"`
+	TxIndex 		uint16 `json:"tx_index"`
 }
 
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
@@ -83,9 +85,9 @@ func (r *Receipt) Size() common.StorageSize {
 
 func (r *Receipt) String() string {
 	if len(r.PostState) == 0 {
-		return fmt.Sprintf("receipt{status=%d cgas=%v bloom=%x logs=%v}", r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs)
+		return fmt.Sprintf("receipt{status=%d cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.String(), r.Height, r.TxIndex)
 	}
-	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs)
+	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.String(), r.Height, r.TxIndex)
 }
 
 type Receipts []*Receipt

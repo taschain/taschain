@@ -148,8 +148,7 @@
                         h.text(d.height)
                         tps.text(d.tps)
                         txs.text(d.txs)
-                        cst = (cur - pre) / 1000.0
-                        cost.text(cst)
+                        cost.text(d.elapsed)
                         qn.text(d.total_qn)
                         aver = stat.total_txs/ stat.total_cost
                         aver_tps.text(aver.toFixed(1))
