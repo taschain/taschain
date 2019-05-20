@@ -292,7 +292,6 @@ func (ts *txSyncer) notifyTxs() bool {
 			}
 			return true
 		})
-		ts.pool.received.recoverFromCache()
 	}
 
 	ts.sendSimpleTxKeys(txs)

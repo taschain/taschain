@@ -19,7 +19,6 @@ import (
 	"common"
 	"errors"
 	"fmt"
-	"github.com/Workiva/go-datastructures/slice/skip"
 	"github.com/hashicorp/golang-lru"
 	"middleware/notify"
 	"middleware/types"
@@ -272,10 +271,11 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	return true, nil
 }
 
-func (pool *TxPool) remove(txHash common.Hash) {
+func (pool *TxPool) reset(txHash common.Hash) {
 	pool.bonPool.remove(txHash)
 	pool.received.remove(txHash)
 	pool.asyncAdds.Remove(txHash)
+	pool.received.reset(txHash)
 }
 
 func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
@@ -316,19 +316,11 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	//	}
 	//}
 
-	sortedList := skip.New(uint16(16))
 	if len(txs) < txCountPerBlock {
 		pool.received.forEach(func(tx *types.Transaction) bool {
-			sortedList.Insert(tx)
+			txs = append(txs, tx)
 			return len(txs) <= txCountPerBlock
 		})
-
-		pool.received.recoverFromCache()
-
-		for i := sortedList.Len(); i > 0; i-- {
-			tx := sortedList.IterAtPosition(i - 1).Value().(*types.Transaction)
-			txs = append(txs, tx)
-		}
 	}
 	return txs
 }
@@ -337,7 +329,7 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, tx := range txs {
-		pool.remove(tx)
+		pool.reset(tx)
 	}
 }
 

@@ -1,18 +1,18 @@
-////   Copyright (C) 2018 TASChain
-////
-////   This program is free software: you can redistribute it and/or modify
-////   it under the terms of the GNU General Public License as published by
-////   the Free Software Foundation, either version 3 of the License, or
-////   (at your option) any later version.
-////
-////   This program is distributed in the hope that it will be useful,
-////   but WITHOUT ANY WARRANTY; without even the implied warranty of
-////   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-////   GNU General Public License for more details.
-////
-////   You should have received a copy of the GNU General Public License
-////   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//   Copyright (C) 2018 TASChain
 //
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -20,6 +20,7 @@ import (
 	"container/heap"
 	"crypto/sha256"
 	"fmt"
+	"github.com/Workiva/go-datastructures/slice/skip"
 	"github.com/hashicorp/golang-lru"
 	"math/rand"
 	"middleware/types"
@@ -27,106 +28,6 @@ import (
 	"testing"
 	"time"
 )
-
-//
-//import (
-//	"testing"
-//	"fmt"
-//	"common"
-//	"middleware/types"
-//	"math/rand"
-//)
-//
-//func TestCreatePool(t *testing.T) {
-//
-//	pool := NewTransactionPool()
-//
-//	fmt.Printf("received: %d transactions\n")
-//
-//	transaction := &types.Transaction{
-//		GasPrice: 1234,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-//
-//	transaction = &types.Transaction{
-//		GasPrice: 12345,
-//		Hash:     h,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	tGet, error := pool.GetTransaction(h)
-//	if nil == error {
-//		fmt.Printf("GasPrice: %d\n", tGet.GasPrice)
-//	}
-//
-//	casting := pool.GetTransactionsForCasting()
-//	fmt.Printf("length for casting: %d\n", len(casting))
-//
-//	fmt.Printf("%d\n", casting[0])
-//	//fmt.Printf("%d\n", casting[1])
-//	//fmt.Printf("%d\n", casting[2].gasprice)
-//	//fmt.Printf("%d\n", casting[3].gasprice)
-//
-//}
-//
-//func TestContainer(t *testing.T) {
-//	pool := NewTransactionPool()
-//	//pool.received.limit = 1
-//	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-//	e := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b42")
-//
-//	transaction := &types.Transaction{
-//		GasPrice: 1234,
-//		Hash:     e,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	transaction = &types.Transaction{
-//		GasPrice: 12345,
-//		Hash:     h,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	tGet, error := pool.GetTransaction(h)
-//	if nil == error {
-//		fmt.Printf("%d\n", tGet.GasPrice)
-//	}
-//
-//	tGet, _ = pool.GetTransaction(e)
-//	if nil != tGet {
-//		fmt.Printf("%d\n", tGet.GasPrice)
-//	} else {
-//		fmt.Printf("success %x\n", e)
-//	}
-//}
-//
-//func TestMaxTxsPerBlock(t *testing.T) {
-//	pool := NewTransactionPool()
-//	for i := 0; i < 100000; i++ {
-//		transaction := &types.Transaction{
-//			GasPrice: rand.Uint64(),
-//			Nonce:    rand.Uint64(),
-//		}
-//
-//		transaction.Hash = transaction.GenHash()
-//		pool.AddTransaction(transaction)
-//
-//		//fmt.Printf("%d\n", pool.received.Len())
-//	}
-//
-//	casting := pool.GetTransactionsForCasting()
-//	fmt.Printf("length for casting: %d\n", len(casting))
-//}
 
 type TransactionPoolTest interface {
 	Add(tx *types.Transaction) (bool, error)
@@ -144,6 +45,44 @@ func (pool *TxPool) Add(tx *types.Transaction) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (pool *TxPool) PendingWillPacked() {
+	fmt.Println("PendingWillPacked---------------------------")
+	//从交易池取出交易
+	//将交易添加至新的切片
+	txsNew := make([]*types.Transaction, 0)
+	sortedList := skip.New(uint16(16))
+	var willPackedTx *types.Transaction
+
+	// 计数器：存储每个地址取出来多少个交易
+	count := make(map[common.Address]int)
+
+	for _, sortedTxs := range pool.received.pending {
+
+		nonce := uint64((*sortedTxs.indexes)[0])
+		willPackedTx = sortedTxs.items[nonce]
+		sortedList.Insert(willPackedTx)
+		count[*willPackedTx.Source]++
+	}
+
+	for sortedList.Len() > 0 {
+		tx := sortedList.IterAtPosition(sortedList.Len() - 1).Value().(*types.Transaction)
+		if count[*tx.Source] < pool.received.pending[*tx.Source].indexes.Len() {
+			nextTxNonce := uint64((*pool.received.pending[*tx.Source].indexes)[count[*tx.Source]])
+			nextTx := pool.received.pending[*tx.Source].items[nextTxNonce]
+
+			sortedList.Insert(nextTx)
+			count[*tx.Source]++
+		}
+
+		txsNew = append(txsNew, tx)
+		sortedList.Delete(tx)
+	}
+	for _, value := range txsNew {
+		fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", value.Hash, value.GasPrice, value.Nonce, *value.Source)
+	}
+	///////////
 }
 
 func TestPush(t *testing.T) {
@@ -235,13 +174,18 @@ func TestPush(t *testing.T) {
 	///////////
 
 	///////////
+	// penging中将要被打包的交易
+	pool.PendingWillPacked()
+	///////////
+
+	/////////
 	var pendingTxsCount int
 	for _, v := range pool.received.pending {
 		pendingTxsCount += v.indexes.Len()
 	}
-	///////////
+	fmt.Println("CountOfPending---------------------------")
+	fmt.Println(pendingTxsCount)
 
-	///////////
 	fmt.Println("GetFromPendingAll---------------------------")
 	for _, v := range pool.received.pending {
 		for v.indexes.Len() > 0 {
@@ -250,50 +194,23 @@ func TestPush(t *testing.T) {
 		}
 
 	}
-	//
-	fmt.Println("CountOfPending---------------------------")
-	fmt.Println(pendingTxsCount)
-	///////////
+	/////////
 
-	///////////
-	// 从交易池取出交易
-	// 将交易添加至新的切片
-	//txsNew := make([]*types.Transaction, 0)
-	//sortedList := skip.New(uint16(16))
-	//for _, v := range pool.received.pending {
-	//	if v.indexes.Len() >0 {
-	//		nonce := heap.Pop(v.indexes).(uint64)
-	//		v.cache = append(v.cache, nonce)
-	//		fmt.Println(v.cache)
-	//		fmt.Println(*v.indexes)
-	//		tx:= v.items[nonce]
-	//		sortedList.Insert(tx)
-	//		pool.received.recoverFromCache()
-	//	}
-	//	fmt.Println(*v.indexes)
-	//
-	//
-	//}
-	//for i := sortedList.Len() ; i > 0; i--{
-	//	tx := sortedList.IterAtPosition(i-1).Value().(*types.Transaction)
-	//	txsNew = append(txsNew, tx)
-	//}
-	//fmt.Println(sortedList.Len())
-	//fmt.Println(len(txsNew))
-	//
-	//
-	//fmt.Println("GetFromPending---------------------------")
-	//for _,value := range txsNew{
-	//	fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", value.Hash, value.GasPrice,value.Nonce,*value.Source)
-	//}
-	///////////
+	/////////
+	var queueTxsCount int
+	for _, v := range pool.received.queue {
+		queueTxsCount += v.indexes.Len()
+	}
+	fmt.Println("CountOfQueue---------------------------")
+	fmt.Println(queueTxsCount)
 
 	fmt.Println("GetFromQueue---------------------------")
-	queueTxs := pool.received.queue
-	for i := 0; i < len(queueTxs); i++ {
-		fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", queueTxs[i].Hash, queueTxs[i].GasPrice, queueTxs[i].Nonce, *queueTxs[i].Source)
+	for _, v := range pool.received.queue {
+		for v.indexes.Len() > 0 {
+			tx := v.items[heap.Pop(v.indexes).(uint64)]
+			fmt.Printf("Hash:%x,\tGas:%d,\tNonce:%d,\tSource:%s\n", tx.Hash, tx.GasPrice, tx.Nonce, *tx.Source)
+		}
 
 	}
-	fmt.Println(len(queueTxs))
-
+	/////////
 }
