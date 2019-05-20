@@ -70,6 +70,10 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 
 	vctx := p.blockContexts.getVctxByHeight(bh.Height)
 	if vctx != nil {
+		if vctx.blockSigned(bh.Hash) {
+			err = fmt.Errorf("block signed")
+			return
+		}
 		err = vctx.baseCheck(bh, si.GetID())
 		if err != nil {
 			return
@@ -104,7 +108,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		return
 	}
 
-	vctx = p.blockContexts.createVerifyContext(group, bh, preBH)
+	vctx = p.blockContexts.getOrNewVerifyContext(group, bh, preBH)
 	if vctx == nil {
 		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return

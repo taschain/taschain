@@ -201,7 +201,7 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 	return vctx
 }
 
-func (bctx *castBlockContexts) createVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
+func (bctx *castBlockContexts) getOrNewVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
 	deltaHeightByTime := DeltaHeightByTime(bh, preBH)
 
 	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)

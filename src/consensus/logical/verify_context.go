@@ -26,6 +26,7 @@ import (
 	"consensus/groupsig"
 	"math/big"
 	"middleware/time"
+	"gopkg.in/fatih/set.v0"
 )
 
 /*
@@ -81,6 +82,7 @@ type VerifyContext struct {
 	prevBH          *types.BlockHeader
 	castHeight      uint64
 	signedMaxWeight atomic.Value //*blockWeight
+	signedBlockHashs set.Interface
 	expireTime      time.TimeStamp //铸块超时时间
 	createTime 		time.TimeStamp
 	consensusStatus int32     //铸块状态
@@ -108,6 +110,7 @@ func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.Tim
 		ts: 			time.TSInstance,
 		createTime:		time.TSInstance.Now(),
 		proposers: 		make(map[string]common.Hash),
+		signedBlockHashs: set.New(set.ThreadSafe),
 		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
@@ -390,9 +393,17 @@ func (vc *VerifyContext) checkNotify() (*SlotContext) {
 }
 
 func (vc *VerifyContext) increaseVerifyNum()  {
-    atomic.AddInt32(&vc.verifyNum, 1)
+	atomic.AddInt32(&vc.verifyNum, 1)
 }
 
 func (vc *VerifyContext) increaseAggrNum()  {
 	atomic.AddInt32(&vc.aggrNum, 1)
+}
+
+func (vc *VerifyContext) addSignedBlock(hash common.Hash)  {
+	vc.signedBlockHashs.Add(hash)
+}
+
+func (vc *VerifyContext) blockSigned(hash common.Hash) bool {
+	return vc.signedBlockHashs.Has(hash)
 }
