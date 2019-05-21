@@ -20,11 +20,11 @@ import (
 	"utility"
 
 	"common"
-	"network"
-	"storage/vm"
-	"storage/trie"
-	"middleware/types"
 	"consensus/groupsig"
+	"middleware/types"
+	"network"
+	"storage/trie"
+	"storage/vm"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/vmihailenco/msgpack"
@@ -41,6 +41,22 @@ var (
 	emptyValue         [0]byte
 	minerCountIncrease = MinerCountOperation{0}
 	minerCountDecrease = MinerCountOperation{1}
+)
+
+type StakeStatus = int
+
+const (
+	Staked StakeStatus = iota
+	StakeFrozen
+)
+
+type StakeFlagByte = byte
+
+const (
+	LightStaked StakeFlagByte = (types.MinerTypeLight << 4) | byte(Staked)
+	LightStakeFrozen StakeFlagByte = (types.MinerTypeLight << 4) | byte(StakeFrozen)
+	HeavyStaked StakeFlagByte = (types.MinerTypeHeavy << 4) | byte(Staked)
+	HeavyStakeFrozen StakeFlagByte = (types.MinerTypeHeavy << 4) | byte(StakeFrozen)
 )
 
 var MinerManagerImpl *MinerManager
@@ -188,14 +204,43 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	if accountdb.GetData(db, string(id)) != nil {
 		return -1
 	} else {
+		if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
+			miner.Status = types.MinerStatusAbort
+		} else {
+			mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+		}
 		data, _ := msgpack.Marshal(miner)
 		accountdb.SetData(db, string(id), data)
 		if miner.Type == types.MinerTypeHeavy {
 			mm.hasNewHeavyMiner = true
 		}
-		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 		return 1
 	}
+}
+
+func(mm *MinerManager) activateMiner(miner *types.Miner, accountdb vm.AccountDB) {
+	db := mm.getMinerDatabase(miner.Type)
+	minerData := accountdb.GetData(db, string(miner.Id))
+	if minerData == nil || len(minerData) == 0 {
+		return
+	}
+	var dbMiner types.Miner
+	err := msgpack.Unmarshal(minerData, &dbMiner)
+	if err != nil {
+		Logger.Errorf("activateMiner: Unmarshal %d error, ", miner.Id)
+		return
+	}
+	if dbMiner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight{
+		return
+	}
+	miner.Stake = dbMiner.Stake
+	miner.Status = types.MinerStatusNormal
+	data, _ := msgpack.Marshal(miner)
+	accountdb.SetData(db, string(miner.Id), data)
+	if miner.Type == types.MinerTypeHeavy {
+		mm.hasNewHeavyMiner = true
+	}
+	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 }
 
 func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.AccountDB) {
@@ -207,6 +252,7 @@ func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			miner.Type = types.MinerTypeHeavy
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
+			mm.AddStakeDetail(miner.Id, miner, miner.Stake, accountdb)
 			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.Id).String())
 			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease, accountdb)
 		}
@@ -214,6 +260,7 @@ func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			miner.Type = types.MinerTypeLight
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbl, string(miner.Id), data)
+			mm.AddStakeDetail(miner.Id, miner, miner.Stake, accountdb)
 			mm.updateMinerCount(types.MinerTypeLight, minerCountIncrease, accountdb)
 		}
 	}
@@ -281,6 +328,161 @@ func (mm *MinerManager) updateMinerCount(minerType byte, operation MinerCountOpe
 		return
 	}
 	Logger.Error("Unknown miner type:%d", minerType)
+}
+
+func (mm *MinerManager) getMinerStakeDetailDatabase() (common.Address) {
+	return common.MinerStakeDetailDBAddress
+}
+
+func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte, status StakeStatus) []byte{
+	var pledgFlagByte = (types.MinerTypeHeavy << 4) | byte(status)
+	key := []byte{StakeFlagByte(pledgFlagByte)}
+	key = append(key, minerAddr...)
+	key = append(key, from...)
+	Logger.Debugf("getDetailDBKey: toHex-> %s", common.ToHex(key))
+	return key
+}
+
+func (mm *MinerManager) AddStakeDetail(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool{
+	dbAddr := mm.getMinerStakeDetailDatabase()
+	key := mm.getDetailDBKey(from, miner.Id, miner.Type, Staked)
+	detailData := accountdb.GetData(dbAddr, string(key))
+	if detailData == nil || len(detailData) == 0 {
+		Logger.Debugf("MinerManager.AddStakeDetail set new key: %s, value: %s", common.ToHex(key), common.ToHex(common.Uint64ToByte(amount)))
+		accountdb.SetData(dbAddr, string(key), common.Uint64ToByte(amount))
+	} else {
+		preAmount := common.ByteToUint64(detailData)
+		// if overflow
+		if preAmount + amount < preAmount {
+			Logger.Debug("MinerManager.AddStakeDetail return false(overflow)")
+			return false
+		}
+		Logger.Debugf("MinerManager.AddStakeDetail set key: %s, value: %s", common.ToHex(key), common.ToHex(common.Uint64ToByte(amount)))
+		accountdb.SetData(dbAddr, string(key), common.Uint64ToByte(preAmount+amount))
+	}
+	return true
+}
+
+func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool {
+	dbAddr := mm.getMinerStakeDetailDatabase()
+	key := mm.getDetailDBKey(from, miner.Id, miner.Type, Staked)
+	stakedData := accountdb.GetData(dbAddr, string(key))
+	if stakedData == nil || len(stakedData) == 0 {
+		Logger.Debug("MinerManager.CancelStake  false(cannot find stake data)")
+		return false
+	} else {
+		preStake := common.ByteToUint64(stakedData)
+		frozenKey := mm.getDetailDBKey(from, miner.Id, miner.Type, StakeFrozen)
+		frozenData := accountdb.GetData(dbAddr, string(frozenKey))
+		var preFrozen, newFrozen, newStake uint64
+		if frozenData == nil || len(frozenData) == 0 {
+			preFrozen = 0
+		} else {
+			preFrozen = common.ByteToUint64(frozenData[:8])
+		}
+		newStake = preStake - amount
+		newFrozen = preFrozen + amount
+		if preStake < amount || newFrozen < preFrozen{
+			//preStake: 200000000000, preFrozen: 0, newStake: 18446743973709551616, newFrozen: 300000000000
+			Logger.Debugf("MinerManager.CancelStake return false(overflow or not enough staked: preStake: %d, " +
+				"preFrozen: %d, newStake: %d, newFrozen: %d)", preStake, preFrozen, newStake, newFrozen)
+			return false
+		}
+		if newStake == 0 {
+			accountdb.RemoveData(dbAddr, string(key))
+		} else {
+			accountdb.SetData(dbAddr, string(key), common.Uint64ToByte(newStake))
+		}
+		newFrozenData := common.Uint64ToByte(newFrozen)
+		newFrozenData = append(newFrozenData, common.Uint64ToByte(height)...)
+		accountdb.SetData(dbAddr, string(frozenKey), newFrozenData)
+		Logger.Debugf("MinerManager.CancelStake success from:%s, to: %s, value: %d ", common.ToHex(from), common.ToHex(miner.Id), amount)
+		return true
+	}
+}
+
+func (mm MinerManager) GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64{
+	dbAddr := mm.getMinerStakeDetailDatabase()
+	frozenKey := mm.getDetailDBKey(from, miner.Id, miner.Type, StakeFrozen)
+	frozenData := accountdb.GetData(dbAddr, string(frozenKey))
+	if frozenData == nil || len(frozenData) == 0{
+		return common.MaxUint64
+	} else {
+		return common.ByteToUint64(frozenData[8:])
+	}
+}
+
+func (mm *MinerManager) RefundStake(from []byte, miner *types.Miner, accountdb vm.AccountDB) (uint64, bool) {
+	dbAddr := mm.getMinerStakeDetailDatabase()
+	frozenKey := mm.getDetailDBKey(from, miner.Id, miner.Type, StakeFrozen)
+	frozenData := accountdb.GetData(dbAddr, string(frozenKey))
+	if frozenData == nil || len(frozenData) == 0 {
+		Logger.Debug("MinerManager.RefundStake return false(cannot find frozen data)")
+		return 0, false
+	} else {
+		preFrozen := common.ByteToUint64(frozenData[:8])
+		accountdb.RemoveData(dbAddr, string(frozenKey))
+		return preFrozen, true
+	}
+}
+
+
+func (mm *MinerManager) AddStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool {
+	Logger.Debugf("Miner manager addStake, minerid: %d", miner.Id)
+	db := mm.getMinerDatabase(miner.Type)
+	miner.Stake += amount
+	if miner.Stake < amount {
+		Logger.Debug("MinerManager.AddStake return false (overflow)")
+		return false
+	}
+	if miner.Status == types.MinerStatusAbort &&
+		miner.Type == types.MinerTypeLight &&
+		miner.Stake >= common.VerifyStake {
+		miner.Status = types.MinerStatusNormal
+		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+	}
+	data, _ := msgpack.Marshal(miner)
+	accountdb.SetData(db, string(id), data)
+	return true
+}
+
+func(mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool {
+	Logger.Debugf("Miner manager reduceStake, minerid: %d", miner.Id)
+	db := mm.getMinerDatabase(miner.Type)
+	if miner.Stake < amount {
+		return false
+	}
+	miner.Stake -= amount
+	if miner.Status == types.MinerStatusNormal &&
+		miner.Type == types.MinerTypeLight &&
+		miner.Stake < common.VerifyStake {
+		if GroupChainImpl.WhetherMemberInActiveGroup(id, height) {
+			Logger.Debugf("TVMExecutor Execute MinerRefund Light Fail(Still In Active Group) %s", common.ToHex(id))
+			return false
+		}
+		miner.Status = types.MinerStatusAbort
+		mm.updateMinerCount(miner.Type, minerCountDecrease, accountdb)
+	}
+	data, _ := msgpack.Marshal(miner)
+	accountdb.SetData(db, string(id), data)
+	return true
+}
+
+
+func(mm *MinerManager) Transaction2MinerParams(tx *types.Transaction) ( _type byte, id []byte, value uint64){
+	data := common.FromHex(string(tx.Data))
+	if len(data) == 0 {
+		return
+	}
+	_type = data[0]
+	if len(data) < common.AddressLength+1 {
+		return
+	}
+	id = data[1:common.AddressLength+1]
+	if len(data) > common.AddressLength+1 {
+		value = common.ByteToUint64(data[common.AddressLength+1:])
+	}
+	return
 }
 
 func (mi *MinerIterator) Current() (*types.Miner, error) {

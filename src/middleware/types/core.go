@@ -92,6 +92,8 @@ const (
 	TransactionTypeMinerApply     = 4
 	TransactionTypeMinerAbort     = 5
 	TransactionTypeMinerRefund    = 6
+	TransactionTypeMinerCancelStake    = 7
+	TransactionTypeMinerStake    = 8
 
 	TransactionTypeToBeRemoved = -1
 )

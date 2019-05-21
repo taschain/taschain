@@ -17,6 +17,22 @@ type Controller struct {
 	LibPath     string
 	VmStack     []*Tvm
 	GasLeft     uint64
+	mm          MinerManager
+	gcm 		GroupChainManager
+}
+
+type MinerManager interface {
+	GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner
+	GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64
+	RefundStake(from []byte, miner *types.Miner, accountdb vm.AccountDB) (uint64, bool)
+	CancelStake(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool
+	ReduceStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool
+	AddStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool
+	AddStakeDetail(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool
+}
+
+type GroupChainManager interface {
+	WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool
 }
 
 func NewController(accountDB vm.AccountDB,
@@ -24,7 +40,8 @@ func NewController(accountDB vm.AccountDB,
 	header *types.BlockHeader,
 	transaction *types.Transaction,
 	gasUsed uint64,
-	libPath string) *Controller {
+	libPath string,
+	manager MinerManager, chainManager GroupChainManager) *Controller {
 	if controller == nil {
 		controller = &Controller{}
 	}
@@ -36,6 +53,8 @@ func NewController(accountDB vm.AccountDB,
 	controller.LibPath = libPath
 	controller.VmStack = make([]*Tvm, 0)
 	controller.GasLeft = transaction.GasLimit - gasUsed
+	controller.mm = manager
+	controller.gcm = chainManager
 	return controller
 }
 

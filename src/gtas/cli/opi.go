@@ -115,7 +115,11 @@ type chainOp interface {
 
 	AbortMiner(mtype int, gas, gasprice uint64) *Result
 
-	RefundMiner(mtype int, gas, gasprice uint64) *Result
+	RefundMiner(mtype int, addrStr string, gas, gasprice uint64) *Result
+
+	MinerStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result
+
+	MinerCancelStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result
 
 	TxInfo(hash string) *Result
 

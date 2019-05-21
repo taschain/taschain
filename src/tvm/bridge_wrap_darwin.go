@@ -249,6 +249,21 @@ char* wrap_get_data_iter_next(char* iter)
 	char* DataNext(char*);
 	return DataNext(iter);
 }
+
+_Bool wrap_miner_stake(const char* minerAddr, int _type, const char* value) {
+	_Bool MinerStake(const char*, int, const char*);
+	return MinerStake(minerAddr, _type, value);
+}
+
+_Bool wrap_miner_cancel_stake(const char* minerAddr, int _type, const char* value) {
+	_Bool MinerCancelStake(const char*, int, const char*);
+	return MinerCancelStake(minerAddr, _type, value);
+}
+
+_Bool wrap_miner_refund_stake(const char* minerAddr, int _type) {
+	_Bool MinerRefundStake(const char*, int);
+	return MinerRefundStake(minerAddr, _type);
+}
 */
 import "C"
 import (
@@ -391,6 +406,9 @@ func bridge_init() {
 	//C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
 	//C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
 	C.event_call = (C.Function11)(unsafe.Pointer(C.wrap_event_call))
+	C.miner_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_stake))
+	C.miner_cancel_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_cancel_stake))
+	C.miner_refund_stake = (C.Function16)(unsafe.Pointer(C.wrap_miner_refund_stake))
 }
 
 type Contract struct {

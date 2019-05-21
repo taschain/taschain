@@ -87,6 +87,8 @@ typedef char* (*Function14) (unsigned long long);
 typedef char* (*Function15) ();
 typedef void (*Function16)(const char*, int len);
 typedef void (*Function17) (const char*, const char*, const char*, ExecuteResult *result);
+typedef _Bool (*Function18)(const char*, int len, const char*);
+typedef _Bool (*Function19)(const char*, int len);
 
 
  TransferFunc transferFunc;
@@ -128,6 +130,9 @@ typedef void (*Function17) (const char*, const char*, const char*, ExecuteResult
 //event
  Function11 event_call;
  Function1 remove_data;
+Function18 miner_stake;
+Function18 miner_cancel_stake;
+Function19 miner_refund_stake;
  //Function10 get_data_iter_next;
  //Function3 get_data_iter;
 #ifdef __cplusplus

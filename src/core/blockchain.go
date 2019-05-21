@@ -273,6 +273,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	stateDB.SetNonce(common.BonusStorageAddress, 1)
 	stateDB.SetNonce(common.HeavyDBAddress, 1)
 	stateDB.SetNonce(common.LightDBAddress, 1)
+	stateDB.SetNonce(common.MinerStakeDetailDBAddress, 1)
 
 	root, _ := stateDB.Commit(true)
 	//Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
