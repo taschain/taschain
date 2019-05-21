@@ -191,14 +191,6 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		c.processor.OnMessageSharePieceResponse(m)
 
-	case network.BlockSignAggr:
-		m, e := unmarshalBlockSignAggrMessage(body)
-		if e != nil {
-			logger.Errorf("[handler]Discard unmarshalBlockSignAggrMessage because of unmarshal error:%s", e.Error())
-			return e
-		}
-		c.processor.OnMessageBlockSignAggrMessage(m)
-
 	case network.ReqProposalBlock:
 		m, e := unmarshalReqProposalBlockMessage(body)
 		if e != nil {

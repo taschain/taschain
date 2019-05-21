@@ -21,18 +21,17 @@ import (
 	"consensus/groupsig"
 	"consensus/model"
 	"fmt"
-	"middleware/types"
-	"time"
-	"monitor"
 	"gopkg.in/karalabe/cookiejar.v2/exts/mathext"
+	"math"
+	"middleware/types"
+	"monitor"
 	"taslog"
+	"time"
 )
-
 
 func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext) {
 	p.reserveBlock(vctx, slot)
 }
-
 
 func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
@@ -50,7 +49,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		err = fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", groupId.ShortS(), preBH.CurTime, expireTime)
 		return
 	} else if bh.Height > 1 {
-		beginTime := expireTime.Add(-int64(model.Param.MaxGroupCastTime+1))
+		beginTime := expireTime.Add(-int64(model.Param.MaxGroupCastTime + 1))
 		if !p.ts.NowAfter(beginTime) {
 			err = fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
 			return
@@ -181,7 +180,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		if err != nil {
 			result = err.Error()
 		}
-		traceLog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(),groupId.ShortS(), result)
+		traceLog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
 		slog.Log("senderShort=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height)
 	}()
@@ -362,7 +361,6 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 	return
 }
 
-
 func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *taslog.SlowLog) (send bool, err error) {
 	gid := groupsig.DeserializeId(bh.GroupId)
 	group := p.GetGroup(gid)
@@ -464,7 +462,6 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 		slot.addSignedTxHash(reward.TxHash)
 	}
-
 
 	slog.AddStage("EndSend")
 	send = true
@@ -586,58 +583,67 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	}
 }
 
-func (p *Processor) OnMessageBlockSignAggrMessage(msg *model.BlockSignAggrMessage) {
-	blog := newBizLog("OMBSAM")
+func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceId string) {
+	blog := newBizLog("OMRPB")
+	blog.log("hash %v", msg.Hash.ShortS())
+
+	pb := p.blockContexts.getProposed(msg.Hash)
+	if pb == nil || pb.block == nil {
+		blog.log("block is nil hash=%v", msg.Hash.ShortS())
+		return
+	}
+
+	if pb.maxResponseCount == 0 {
+		gid := groupsig.DeserializeId(pb.block.Header.GroupId)
+		group ,err:= p.globalGroups.GetGroupByID(gid)
+		if err != nil {
+			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err , msg.Hash.ShortS())
+			return
+		}
+
+		pb.maxResponseCount =uint(math.Ceil(float64(group.GetMemberCount())/3))
+	}
+
+	if pb.responseCount >= pb.maxResponseCount {
+
+		blog.log("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
+		return
+	}
+
+	pb.responseCount += 1
+
+	blog.log("block proposal response, count=%v, max count=%v, hash=%v", pb.responseCount,pb.maxResponseCount,msg.Hash.ShortS())
+
+	m := &model.ResponseProposalBlock{
+		Hash:         pb.block.Header.Hash,
+		Transactions: pb.block.Transactions,
+	}
+
+	p.NetServer.ResponseProposalBlock(m, sourceId)
+}
+
+func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
+	blog := newBizLog("OMRSPB")
 	blog.log("hash %v", msg.Hash.ShortS())
 
 	if p.blockOnChain(msg.Hash) {
 		return
 	}
-	err := p.onBlockSignAggregation(msg.Hash, msg.Sign, msg.Random)
-	if err != nil {
-		blog.log("onBlockSignAggregation err:%v", err)
-	}
-}
-
-func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock,sourceId string) {
-	blog := newBizLog("OMRPB")
-	blog.log("hash %v", msg.Hash.ShortS())
-
-	block := p.blockContexts.getProposed(msg.Hash)
-	if block == nil {
-		fmt.Errorf("block is nil hash=%v", msg.Hash.ShortS())
-	}
-	m := &model.ResponseProposalBlock{
-		Block:   *block,
-	}
-
-	p.NetServer.ResponseProposalBlock(m,sourceId)
-}
-
-func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
-	blog := newBizLog("OMRSPB")
-	hash := msg.Block.Header.Hash
-	blog.log("hash %v", hash.ShortS())
-
-	if p.blockOnChain(hash) {
-		return
-	}
-	vctx := p.blockContexts.getVctxByHash(hash)
+	vctx := p.blockContexts.getVctxByHash(msg.Hash)
 	if vctx == nil {
-		fmt.Errorf("verify context is nil, cache msg")
+		blog.log("verify context is nil, cache msg")
 		return
 	}
-	slot := vctx.GetSlotByHash(hash)
+	slot := vctx.GetSlotByHash(msg.Hash)
 	if slot == nil {
-		 fmt.Errorf("slot is nil")
+		blog.log("slot is nil")
 		return
 	}
-	p.blockContexts.addProposed(&msg.Block)
-	err := p.onBlockSignAggregation(hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
+	block := types.Block{Header: slot.BH, Transactions: msg.Transactions}
+	err := p.onBlockSignAggregation(&block, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
 	if err != nil {
 		blog.log("onBlockSignAggregation fail: %v", err)
 		slot.setSlotStatus(slFailed)
 		return
 	}
 }
-

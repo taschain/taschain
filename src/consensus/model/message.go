@@ -366,12 +366,9 @@ type ReqProposalBlock struct {
 
 
 type ResponseProposalBlock struct {
-	Block   types.Block
+	Hash common.Hash
+	Transactions []*types.Transaction
 }
-//type BlockBodyResponse struct {
-//	Hash common.Hash
-//	Height uint64
-//	Txs []*types.Transaction
-//}
+
 
 

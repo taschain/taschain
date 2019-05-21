@@ -35,8 +35,7 @@ type Server struct {
 	netCore *NetCore
 
 	consensusHandler MsgHandler
-	//
-	//chainHandler MsgHandler
+
 }
 
 func (s *Server) Send(id string, msg Message) error {
@@ -49,7 +48,7 @@ func (s *Server) Send(id string, msg Message) error {
 		return nil
 	}
 	go s.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
-	//Logger.Debugf("[Sender]Send to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -61,7 +60,6 @@ func (s *Server) SendWithGroupRelay(id string, groupId string, msg Message) erro
 	}
 
 	s.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
-	//Logger.Debugf("[Sender]SendWithGroupRely to id:%s,code:%d,msg size:%d", id, msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -73,7 +71,7 @@ func (s *Server) RandomSpreadInGroup(groupId string, msg Message) error {
 	}
 
 	s.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
-	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -85,7 +83,7 @@ func (s *Server) SpreadAmongGroup(groupId string, msg Message) error {
 	}
 
 	s.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
-	//Logger.Debugf("Multicast to group:%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -135,7 +133,6 @@ func (s *Server) TransmitToNeighbor(msg Message) error {
 
 	s.netCore.SendAll(bytes, msg.Code, false, nil, -1)
 
-	//Logger.Debugf("[Sender]TransmitToNeighbor,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
 	return nil
 }
 
@@ -146,9 +143,8 @@ func (s *Server) Relay(msg Message, relayCount int32) error {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	//s.netCore.SendAll(bytes, true,nil,-1)
 	s.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
-	//Logger.Debugf("[Sender]Relay,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -159,7 +155,7 @@ func (s *Server) Broadcast(msg Message) error {
 		return err
 	}
 	s.netCore.SendAll(bytes, msg.Code, true, nil, -1)
-	//Logger.Debugf("[Sender]Broadcast,code:%d,msg size:%d", msg.Code, len(msg.Body)+4)
+
 	return nil
 }
 
@@ -195,7 +191,6 @@ func (s *Server) AddGroup(groupId string, members []string) *Group {
 	return s.netCore.groupManager.buildGroup(groupId, nodes)
 }
 
-//RemoveGroup 移除组
 func (s *Server) RemoveGroup(ID string) {
 	s.netCore.groupManager.removeGroup(ID)
 }
@@ -216,7 +211,7 @@ func (s *Server) handleMessage(b []byte, from string, chaidId uint16, protocolVe
 	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainId:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(), chaidId, protocolVersion)
 	statistics.AddCount("Server.handleMessage", message.Code, uint64(len(b)))
 	s.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
-	// 快速释放b
+
 	go s.handleMessageInner(message, from)
 }
 
