@@ -64,24 +64,21 @@ type blockSyncer struct {
 }
 
 type TopBlockInfo struct {
-	ShrinkPV uint64
-	TotalQN uint64
+	types.BlockWeight
 	Hash    common.Hash
 	Height  uint64
-	PreHash common.Hash
 }
+
 var maxInt194, _ = new(big.Int).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 var float194 = new(big.Float).SetInt(maxInt194)
 
 
-func (tb *TopBlockInfo) moreWeight(tb1 *TopBlockInfo) bool {
-	if tb.TotalQN > tb1.TotalQN {
-		return true
+func newTopBlockInfo(topBH *types.BlockHeader) *TopBlockInfo {
+	return &TopBlockInfo{
+		BlockWeight:  *types.NewBlockWeight(topBH),
+		Hash:     topBH.Hash,
+		Height:   topBH.Height,
 	}
-	if tb.TotalQN < tb1.TotalQN {
-		return false
-	}
-	return tb.ShrinkPV > tb1.ShrinkPV
 }
 
 
@@ -131,23 +128,6 @@ func (bs *blockSyncer) isSyncing() bool {
 	return candTop.Height > localHeight+50
 }
 
-func (bs *blockSyncer) newTopBlockInfo(top *types.BlockHeader) *TopBlockInfo {
-	f := float64(0)
-	if top.Height > 0 {
-		pv := bs.chain.consensusHelper.VRFProve2Value(top.ProveValue)
-		pvFloat := new(big.Float).SetInt(pv)
-		w := new(big.Float).Quo(pvFloat, float194)
-		f, _ = w.Float64()
-	}
-
-	return &TopBlockInfo{
-		ShrinkPV: uint64(f),
-		TotalQN: top.TotalQN,
-		Hash: top.Hash,
-		Height: top.Height,
-		PreHash: top.PreHash,
-	}
-}
 
 func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockInfo) {
 	if candidateId == "" {
@@ -161,12 +141,11 @@ func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockIn
 		if len(bs.candidatePool) == 0 {
 			return "", nil
 		}
-		var maxWeight float64 = 0
+		var maxWeightBlock *TopBlockInfo
 
 		for id, top := range bs.candidatePool {
-			w := float64(top.TotalQN)*float64(common.MaxUint64) + float64(top.ShrinkPV)
-			if w > maxWeight {
-				maxWeight = w
+			if maxWeightBlock == nil || top.MoreWeight(&maxWeightBlock.BlockWeight) {
+				maxWeightBlock = top
 				candidateId = id
 			}
 		}
@@ -195,13 +174,13 @@ func (bs *blockSyncer) trySyncRoutine() bool {
 
 func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
-	localTopBlock := bs.newTopBlockInfo(topBH)
+	localTopBlock := newTopBlockInfo(topBH)
 
 	if bs.chain.IsAdujsting() {
 		bs.logger.Debugf("chain is adjusting, won't sync")
 		return false
 	}
-	bs.logger.Debugf("Local totalQn:%d,PV:%v, height:%d,topHash:%s", localTopBlock.TotalQN, localTopBlock.ShrinkPV, localTopBlock.Height, localTopBlock.Hash.String())
+	bs.logger.Debugf("Local Weight:%v, height:%d,topHash:%s", localTopBlock.BlockWeight.String(), localTopBlock.Height, localTopBlock.Hash.String())
 
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
@@ -214,8 +193,8 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	}
 	bs.logger.Debugf("candidate info: id %v, top %v %v %v", candidate, candidateTop.Hash.String(), candidateTop.Height, candidateTop.TotalQN)
 
-	if localTopBlock.moreWeight(candidateTop) {
-		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.String(), localTopBlock.ShrinkPV, candidateTop.Height, candidateTop.Hash.String(), candidateTop.ShrinkPV)
+	if localTopBlock.MoreWeight(&candidateTop.BlockWeight) {
+		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.String(), localTopBlock.BlockWeight, candidateTop.Height, candidateTop.Hash.String(), candidateTop.BlockWeight)
 		return false
 	}
 	if bs.chain.HasBlock(candidateTop.Hash) {
@@ -290,7 +269,7 @@ func (bs *blockSyncer) notifyLocalTopBlockRoutine() bool {
 	if top.Height == 0 {
 		return false
 	}
-	topBlockInfo := bs.newTopBlockInfo(top)
+	topBlockInfo := newTopBlockInfo(top)
 
 	bs.logger.Debugf("Send local %d,%v to neighbor!", top.TotalQN, top.Hash.String())
 	body, e := marshalTopBlockInfo(topBlockInfo)
@@ -375,10 +354,10 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	} else {
 		bs.logger.Debugf("blockResponseMsgHandler rcv from %s! [%v-%v]", source, blocks[0].Header.Height, blocks[len(blocks)-1].Header.Height)
 		peerTop := bs.getPeerTopBlock(source)
-		localTop := bs.newTopBlockInfo(bs.chain.QueryTopBlock())
+		localTop := newTopBlockInfo(bs.chain.QueryTopBlock())
 
 		//先比较权重
-		if peerTop != nil && localTop.moreWeight(peerTop) {
+		if peerTop != nil && localTop.MoreWeight(&peerTop.BlockWeight) {
 			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
 			return
 		}
@@ -395,7 +374,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		})
 
 		//权重还是比较低，继续同步(必须所有上链成功，否则会造成死循环）
-		if allSuccess && peerTop != nil && peerTop.moreWeight(localTop) {
+		if allSuccess && peerTop != nil && peerTop.MoreWeight(&localTop.BlockWeight) {
 			bs.syncComplete(source, false)
 			complete = true
 			go bs.trySyncRoutine()
@@ -416,7 +395,7 @@ func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *TopBlockInf
 		return
 	}
 	for id, tbi := range bs.candidatePool {
-		if topBlockInfo.moreWeight(tbi) {
+		if topBlockInfo.MoreWeight(&tbi.BlockWeight) {
 			delete(bs.candidatePool, id)
 			bs.candidatePool[source] = topBlockInfo
 		}
@@ -461,12 +440,12 @@ func marshalBlockMsgResponse(bmr *BlockResponseMessage) ([]byte, error) {
 func (bs *blockSyncer) candidatePoolDump() {
 	bs.logger.Debugf("Candidate Pool Dump:")
 	for id, topBlockInfo := range bs.candidatePool {
-		bs.logger.Debugf("Candidate id:%s,totalQn:%d, pv:%v, height:%d,topHash:%s", id, topBlockInfo.TotalQN, topBlockInfo.ShrinkPV, topBlockInfo.Height, topBlockInfo.Hash.String())
+		bs.logger.Debugf("Candidate id:%s,totalQn:%d, pv:%v, height:%d,topHash:%s", id, topBlockInfo.TotalQN, topBlockInfo.PV, topBlockInfo.Height, topBlockInfo.Hash.String())
 	}
 }
 
 func marshalTopBlockInfo(bi *TopBlockInfo) ([]byte, error) {
-	blockInfo := tas_middleware_pb.TopBlockInfo{Hash: bi.Hash.Bytes(), TotalQn: &bi.TotalQN, ShrinkPV: &bi.ShrinkPV, Height: &bi.Height, PreHash: bi.PreHash.Bytes()}
+	blockInfo := tas_middleware_pb.TopBlockInfo{Hash: bi.Hash.Bytes(), TotalQn: &bi.TotalQN, PVBig: bi.PV.Bytes(), Height: &bi.Height}
 	return proto.Marshal(&blockInfo)
 }
 
@@ -477,7 +456,12 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*TopBlockInfo, error) {
 		bs.logger.Errorf("unMarshalBlockInfo error:%s", e.Error())
 		return nil, e
 	}
-	blockInfo := TopBlockInfo{Hash: common.BytesToHash(message.Hash), TotalQN: *message.TotalQn, ShrinkPV: *message.ShrinkPV, Height: *message.Height, PreHash: common.BytesToHash(message.PreHash)}
+	pv := big.NewInt(0).SetBytes(message.PVBig)
+	bw := &types.BlockWeight{
+		TotalQN: *message.TotalQn,
+		PV: pv,
+	}
+	blockInfo := TopBlockInfo{Hash: common.BytesToHash(message.Hash), BlockWeight: *bw, Height: *message.Height}
 	return &blockInfo, nil
 }
 

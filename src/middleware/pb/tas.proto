@@ -401,8 +401,7 @@ message TopBlockInfo{
     required	bytes   Hash = 1;
     required	uint64   TotalQn = 2;
     required	uint64   Height = 3;
-    required	bytes   PreHash = 4;
-    required	uint64   ShrinkPV = 5;
+    required	bytes   PVBig = 4;
 }
 
 message BlockResponseMsg{

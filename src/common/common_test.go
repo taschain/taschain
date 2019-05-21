@@ -21,6 +21,8 @@ import (
 	"log"
 	"fmt"
 	"runtime/debug"
+	"github.com/ethereum/go-ethereum/common/math"
+	"math/big"
 )
 
 /*
@@ -89,4 +91,13 @@ func TestHashEqual(t *testing.T) {
 func TestLen(t *testing.T) {
 	var arr []int = nil
 	t.Log(len(arr))
+}
+
+func TestBigMarshal(t *testing.T) {
+	bi := math.MaxBig256
+	bs, _ := (bi.MarshalText())
+	t.Log(len(bs), len(bi.Bytes()))
+
+	bi=big.NewInt(1000)
+	t.Log(len(bi.Bytes()))
 }

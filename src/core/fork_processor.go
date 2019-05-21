@@ -35,9 +35,9 @@ const tickerReqPieceBlock = "req_chain_piece_block"
 
 type forkSyncContext struct {
 	target 		string
-	targetTop 	*types.BlockHeader
+	targetTop 	*TopBlockInfo
 	lastReqPiece *ChainPieceReq
-	localTop	*types.BlockHeader
+	localTop	*TopBlockInfo
 }
 
 func (fctx *forkSyncContext) getLastHash() common.Hash {
@@ -72,24 +72,36 @@ func initForkProcessor(chain *FullBlockChain) *forkProcessor {
 	fh.logger = taslog.GetLoggerByIndex(taslog.ForkLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	//notify.BUS.Subscribe(notify.ChainPieceInfoReq, fh.chainPieceInfoReqHandler)
 	//notify.BUS.Subscribe(notify.ChainPieceInfo, fh.chainPieceInfoHandler)
-	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlocReqHandler)
+	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlockReqHandler)
 	notify.BUS.Subscribe(notify.ChainPieceBlock, fh.chainPieceBlockHandler)
 
 	return &fh
 }
 
-func (fp *forkProcessor) updateContext(id string, bh *types.BlockHeader) bool {
-	newCtx := &forkSyncContext{
-		target: id,
-		targetTop: bh,
+func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *TopBlockInfo {
+	targetTop := BlockSyncer.getPeerTopBlock(id)
+	tb := newTopBlockInfo(bh)
+	if targetTop != nil && targetTop.MoreWeight(&tb.BlockWeight) {
+		return targetTop
 	}
+	return tb
+}
 
+func (fp *forkProcessor) updateContext(id string, bh *types.BlockHeader) bool {
 	ctx := fp.syncCtx
-	if ctx == nil || fp.chain.compareBlockWeight(ctx.targetTop, bh) < 0  {
+	targetTop := fp.targetTop(id, bh)
+
+	if ctx == nil || targetTop.MoreWeight(&ctx.targetTop.BlockWeight)  {
+		newCtx := &forkSyncContext{
+			target: id,
+			targetTop: targetTop,
+			localTop: 	newTopBlockInfo(fp.chain.QueryTopBlock()),
+		}
 		fp.syncCtx = newCtx
-		fp.syncCtx.localTop = fp.chain.QueryTopBlock()
 		return true
 	}
+	fp.logger.Warnf("old target %v %v %v, new target %v %v %v, won't process", fp.syncCtx.target, fp.syncCtx.targetTop.Height, fp.syncCtx.targetTop.TotalQN, id, targetTop.Height, targetTop.TotalQN)
+
 	return false
 }
 
@@ -128,7 +140,6 @@ func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
 	}
 
 	if !fp.updateContext(targetNode, bh) {
-		fp.logger.Warnf("old target %v %v %v, new target %v %v %v, won't process", fp.syncCtx.target, fp.syncCtx.targetTop.Height, fp.syncCtx.targetTop.TotalQN, targetNode, bh.Height, bh.TotalQN)
 		return
 	}
 
@@ -199,7 +210,7 @@ func (fp *forkProcessor) findCommonAncestor(piece []common.Hash) *common.Hash {
 	return nil
 }
 
-func (fp *forkProcessor) chainPieceBlocReqHandler(msg notify.Message) {
+func (fp *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 	m := notify.AsDefault(msg)
 
 	source := m.Source()
