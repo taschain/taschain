@@ -161,6 +161,14 @@ func (tx *Transaction) RecoverSource() error {
 	return err
 }
 
+func (tx Transaction) GetData() []byte{return tx.Data}
+func (tx Transaction) GetGasLimit() uint64 {return tx.GasLimit}
+func (tx Transaction) GetValue() uint64    {return tx.Value}
+func (tx Transaction) GetSource() *common.Address {return tx.Source}
+func (tx Transaction) GetTarget() *common.Address {return tx.Target}
+func (tx Transaction) GetHash() common.Hash {return tx.Hash}
+
+
 //type Transactions []*Transaction
 //
 //func (c Transactions) Len() int {

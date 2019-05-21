@@ -164,10 +164,11 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 			controller.AccountDB.RevertToSnapshot(snapshot)
 		} else {
 			contract := tvm.LoadContract(contractAddress)
-			errorCode, errorMsg := controller.Deploy(transaction.Source, contract)
+			errorCode, errorMsg := controller.Deploy(contract)
 			if errorCode != 0 {
 				err = types.NewTransactionError(errorCode, errorMsg)
 				controller.AccountDB.RevertToSnapshot(snapshot)
+        Logger.Debugf("Contract deploy failed! Tx hash:%s, contract addr:%s errorCode:%d errorMsg%s", transaction.Hash.String(), contractAddress.String(), errorCode, errorMsg)
 			} else {
 				success = true
 				Logger.Debugf("Contract create success! Tx hash:%s, contract addr:%s", transaction.Hash.String(), contractAddress.String())
@@ -184,7 +185,7 @@ func (executor *TVMExecutor) executeContractCreateTx(accountdb *account.AccountD
 		err = types.TxErrorBalanceNotEnough
 		Logger.Infof("ContractCreate balance not enough! transaction %s source %s  ", transaction.Hash.String(), transaction.Source.String())
 	}
-	//Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s,success:%t", transaction.Hash.Hex(),success)
+	Logger.Debugf("TVMExecutor Execute ContractCreate Transaction %s,success:%t", transaction.Hash.Hex(),success)
 	return success, err, cumulativeGasUsed, contractAddress
 }
 

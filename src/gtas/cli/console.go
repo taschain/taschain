@@ -1,18 +1,17 @@
 package cli
 
 import (
+	"common"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/peterh/liner"
 	"io/ioutil"
-	"middleware/types"
 	"os"
 	"regexp"
 	"strings"
 	"tvm"
-	"common"
 )
 
 /*
@@ -353,97 +352,97 @@ func (c *sendTxCmd) parse(args []string) bool {
 	return true
 }
 
-type exportAbiCmd struct {
-	baseCmd
-	contractName string
-	contractPath string
-	contract tvm.Contract
-}
+//type exportAbiCmd struct {
+//	baseCmd
+//	contractName string
+//	contractPath string
+//	contract tvm.Contract
+//}
 
-func genExportAbiCmd() *exportAbiCmd {
-	c := &exportAbiCmd{
-		baseCmd: *genbaseCmd("exportabi", "export contract ABI"),
-	}
+//func genExportAbiCmd() *exportAbiCmd {
+//	c := &exportAbiCmd{
+//		baseCmd: *genbaseCmd("exportabi", "export contract ABI"),
+//	}
+//
+//	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
+//	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
+//
+//	return c
+//}
 
-	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
-	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
+//func (c *exportAbiCmd) parse(args []string) bool {
+//	if err := c.fs.Parse(args); err != nil {
+//		fmt.Println(err.Error())
+//		return false
+//	}
+//
+//	if strings.TrimSpace(c.contractName) == "" { //合约名字非空
+//		fmt.Println("please input the contractName")
+//		c.fs.PrintDefaults()
+//		return false
+//	}
+//
+//	if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+//		fmt.Println("please input the contractPath")
+//		c.fs.PrintDefaults()
+//		return false
+//	}
+//
+//	f, err := ioutil.ReadFile(c.contractPath) //读取文件
+//	if err != nil {
+//		fmt.Println("read the "+c.contractPath+"file failed ", err)
+//		c.fs.PrintDefaults()
+//		return false
+//	}
+//	c.contract = tvm.Contract{string(f), c.contractName, nil}
+//
+//	return true
+//}
 
-	return c
-}
-
-func (c *exportAbiCmd) parse(args []string) bool {
-	if err := c.fs.Parse(args); err != nil {
-		fmt.Println(err.Error())
-		return false
-	}
-
-	if strings.TrimSpace(c.contractName) == "" { //合约名字非空
-		fmt.Println("please input the contractName")
-		c.fs.PrintDefaults()
-		return false
-	}
-
-	if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
-		fmt.Println("please input the contractPath")
-		c.fs.PrintDefaults()
-		return false
-	}
-
-	f, err := ioutil.ReadFile(c.contractPath) //读取文件
-	if err != nil {
-		fmt.Println("read the "+c.contractPath+"file failed ", err)
-		c.fs.PrintDefaults()
-		return false
-	}
-	c.contract = tvm.Contract{string(f), c.contractName, nil}
-
-	return true
-}
-
-func (c *exportAbiCmd) export () {
-	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
-	defer func() {
-		vm.DelTvm()
-	}()
-	str := `
-class Register(object):
-    def __init__(self):
-        self.funcinfo = {}
-        self.abiinfo = []
-
-    def public(self , *dargs):
-        def wrapper(func):
-            paranametuple = func.__para__
-            paraname = list(paranametuple)
-            paraname.remove("self")
-            paratype = []
-            for i in range(len(paraname)):
-                paratype.append(dargs[i])
-            self.funcinfo[func.__name__] = [paraname,paratype]
-            tmp = {}
-            tmp["FuncName"] = func.__name__
-            tmp["Args"] = paratype
-            self.abiinfo.append(tmp)
-            abiexport(str(self.abiinfo))
-            
-            def _wrapper(*args , **kargs):
-                return func(*args, **kargs)
-            return _wrapper
-        return wrapper
-
-import builtins
-builtins.register = Register()
-`
-	//fmt.Println(str)
-	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
-	if errorCode == types.SUCCESS {
-		result := vm.ExecutedScriptKindFile(c.contract.Code)
-		fmt.Println(result.Abi)
-	} else {
-		fmt.Println(errorMsg)
-	}
-
-}
+//func (c *exportAbiCmd) export () {
+//	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
+//	defer func() {
+//		vm.DelTvm()
+//	}()
+//	str := `
+//class Register(object):
+//    def __init__(self):
+//        self.funcinfo = {}
+//        self.abiinfo = []
+//
+//    def public(self , *dargs):
+//        def wrapper(func):
+//            paranametuple = func.__para__
+//            paraname = list(paranametuple)
+//            paraname.remove("self")
+//            paratype = []
+//            for i in range(len(paraname)):
+//                paratype.append(dargs[i])
+//            self.funcinfo[func.__name__] = [paraname,paratype]
+//            tmp = {}
+//            tmp["FuncName"] = func.__name__
+//            tmp["Args"] = paratype
+//            self.abiinfo.append(tmp)
+//            abiexport(str(self.abiinfo))
+//
+//            def _wrapper(*args , **kargs):
+//                return func(*args, **kargs)
+//            return _wrapper
+//        return wrapper
+//
+//import builtins
+//builtins.register = Register()
+//`
+//	fmt.Println(str)
+//	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
+//	if errorCode == types.SUCCESS {
+//		result := vm.ExecutedScriptKindFile(c.contract.Code)
+//		fmt.Println(result.Abi)
+//	} else {
+//		fmt.Println(errorMsg)
+//	}
+//
+//}
 
 type minerApplyCmd struct {
 	gasBaseCmd
@@ -554,7 +553,7 @@ var cmdGroupHeight = genbaseCmd("groupheight", "the current group height")
 var cmdTx = genTxCmd()
 var cmdBlock = genBlockCmd()
 var cmdSendTx = genSendTxCmd()
-var cmdExportAbi = genExportAbiCmd()
+//var cmdExportAbi = genExportAbiCmd()
 var cmdMinerApply = genMinerApplyCmd()
 var cmdMinerAbort = genMinerAbortCmd()
 var cmdMinerRefund = genMinerRefundCmd()
@@ -577,7 +576,7 @@ func init() {
 	list = append(list, &cmdTx.baseCmd)
 	list = append(list, &cmdBlock.baseCmd)
 	list = append(list, &cmdSendTx.baseCmd)
-	list = append(list, &cmdExportAbi.baseCmd)
+	//list = append(list, &cmdExportAbi.baseCmd)
 	list = append(list, &cmdMinerApply.baseCmd)
 	list = append(list, &cmdMinerAbort.baseCmd)
 	list = append(list, &cmdMinerRefund.baseCmd)
@@ -795,11 +794,11 @@ func loop(acm accountOp, chainOp chainOp) {
 					return chainOp.SendRaw(cmd.toTxRaw())
 				})
 			}
-		case cmdExportAbi.name:
-			cmd := genExportAbiCmd()
-			if cmd.parse(inputArr[1:]) {
-				cmd.export()
-			}
+		//case cmdExportAbi.name:
+		//	cmd := genExportAbiCmd()
+		//	if cmd.parse(inputArr[1:]) {
+		//		cmd.export()
+		//	}
 
 		case cmdMinerApply.name:
 			cmd := genMinerApplyCmd()
