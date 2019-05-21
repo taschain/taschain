@@ -22,3 +22,5 @@ const GtasVersion = "0.8.2"		//时间同步和矫正
 const ConsensusVersion = 1
 
 const ChainDataVersion = 3
+
+const ProtocalVersion = 1

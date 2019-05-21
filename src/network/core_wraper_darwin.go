@@ -272,7 +272,6 @@ func P2PSend(session uint32, data []byte) {
 		if sendSize > maxSize {
 			sendSize = maxSize
 		}
-		//Logger.Debugf("P2PSend : session:%v curPos:%v sendSize:%v totalSize: %v p2pChacheSize:%v",session,curPos,sendSize,totalLen,P2PCacheSize())
 		C.p2p_send(C.uint(session),unsafe.Pointer(&data[curPos]), C.uint(sendSize))
 		curPos += sendSize
 	}

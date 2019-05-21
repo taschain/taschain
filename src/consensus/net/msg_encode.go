@@ -240,11 +240,16 @@ func marshalSharePieceResponseMessage(msg *model.ResponseSharePieceMessage) ([]b
 	return proto.Marshal(message)
 }
 
-func marshalBlockSignAggrMessage(msg *model.BlockSignAggrMessage) ([]byte, error) {
-	m := &tas_middleware_pb.BlockSignAggrMessage{
-		BlockHash: msg.Hash.Bytes(),
-		Sign: msg.Sign.Serialize(),
-		Random: msg.Random.Serialize(),
+
+func marshalReqProposalBlockMessage(msg *model.ReqProposalBlock) ([]byte, error) {
+	m := &tas_middleware_pb.ReqProposalBlockMessage{
+		Hash: msg.Hash.Bytes(),
 	}
+	return proto.Marshal(m)
+}
+
+func marshalResponseProposalBlockMessage(msg *model.ResponseProposalBlock) ([]byte, error) {
+	transactions := types.TransactionsToPb(msg.Transactions)
+	m := &tas_middleware_pb.ResponseProposalBlockMessage{Hash: msg.Hash.Bytes(),Transactions:transactions}
 	return proto.Marshal(m)
 }

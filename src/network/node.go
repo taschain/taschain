@@ -34,10 +34,20 @@ const (
 	BASE_SECTION = "network"
 
 	PRIVATE_KEY  = "private_key"
+
 	NodeIdLength = 66
 )
 
 type NodeID [NodeIdLength]byte
+
+func (nid NodeID) IsValid() bool {
+	for i:=0;i<NodeIdLength;i++ {
+		if nid[i] > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func (nid NodeID) GetHexString() string {
 	return string(nid[:])

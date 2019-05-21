@@ -325,8 +325,8 @@ func (ts *txSyncer) getOrAddCandidateKeys(id string) *peerTxsKeys {
 }
 
 func (ts *txSyncer) onTxNotify(msg notify.Message)  {
-	nm := msg.(*notify.NotifyMessage)
-	reader := bytes.NewReader(nm.Body)
+	nm := notify.AsDefault(msg)
+	reader := bytes.NewReader(nm.Body())
 
 	keys := make([]uint64, 0)
 	buf := make([]byte, 8)
@@ -338,7 +338,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message)  {
 		keys = append(keys, utility.ByteToUInt64(buf))
 	}
 
-	candidateKeys := ts.getOrAddCandidateKeys(nm.Source)
+	candidateKeys := ts.getOrAddCandidateKeys(nm.Source())
 
 	accepts := make([]uint64, 0)
 
@@ -348,7 +348,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message)  {
 		}
 	}
 	candidateKeys.addKeys(accepts)
-	ts.logger.Debugf("Rcv txs notify from %v, size %v, accept %v, totalOfSource %v", nm.Source, len(keys), len(accepts), len(candidateKeys.txKeys))
+	ts.logger.Debugf("Rcv txs notify from %v, size %v, accept %v, totalOfSource %v", nm.Source(), len(keys), len(accepts), len(candidateKeys.txKeys))
 
 }
 
@@ -411,8 +411,8 @@ func (ts *txSyncer) requestTxs(id string, keys []uint64)  {
 }
 
 func (ts *txSyncer) onTxReq(msg notify.Message)  {
-	nm := msg.(*notify.NotifyMessage)
-	reader := bytes.NewReader(nm.Body)
+	nm := notify.AsDefault(msg)
+	reader := bytes.NewReader(nm.Body())
 	keys := make([]uint64, 0)
 	buf := make([]byte, 8)
 	for {
@@ -423,7 +423,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message)  {
 		keys = append(keys, utility.ByteToUInt64(buf))
 	}
 
-	ts.logger.Debugf("Rcv tx req from %v, size %v", nm.Source, len(keys))
+	ts.logger.Debugf("Rcv tx req from %v, size %v", nm.Source(), len(keys))
 
 	txs := make([]*types.Transaction, 0)
 	for _, k := range keys {
@@ -440,19 +440,19 @@ func (ts *txSyncer) onTxReq(msg notify.Message)  {
 		ts.logger.Errorf("Discard MarshalTransactions because of marshal error:%s!", e.Error())
 		return
 	}
-	ts.logger.Debugf("send transactions to %v size %v", nm.Source, len(txs))
+	ts.logger.Debugf("send transactions to %v size %v", nm.Source(), len(txs))
 	message := network.Message{Code: network.TxSyncResponse, Body: body}
-	network.GetNetInstance().Send(nm.Source, message)
+	network.GetNetInstance().Send(nm.Source(), message)
 }
 
 func (ts *txSyncer) onTxResponse(msg notify.Message)  {
-	nm := msg.(*notify.NotifyMessage)
-	txs, e := types.UnMarshalTransactions(nm.Body)
+	nm := notify.AsDefault(msg)
+	txs, e := types.UnMarshalTransactions(nm.Body())
 	if e != nil {
 		ts.logger.Errorf("Unmarshal got transactions error:%s", e.Error())
 		return
 	}
 
-	ts.logger.Debugf("Rcv txs from %v, size %v", nm.Source, len(txs))
+	ts.logger.Debugf("Rcv txs from %v, size %v", nm.Source(), len(txs))
 	ts.pool.AddTransactions(txs, txSync)
 }

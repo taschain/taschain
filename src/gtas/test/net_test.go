@@ -14,7 +14,8 @@ import (
 
 func TestNet1(test *testing.T) {
 	common.InitConf("tas1.ini")
-	network.Init(common.GlobalConf, true, nil, nil, true, "10.0.0.66","","")
+	netCfg :=  network.NetworkConfig{IsSuper:true,TestMode:true,SeedIp: "10.0.0.66"}
+	network.Init(common.GlobalConf, nil, netCfg)
 	pprof()
 	go sendMsg()
 	go sendMsg()
@@ -24,7 +25,8 @@ func TestNet1(test *testing.T) {
 
 func TestNet2(test *testing.T) {
 	common.InitConf("tas2.ini")
-	network.Init(common.GlobalConf, false, nil, nil, true, "10.0.0.66","","")
+	netCfg :=  network.NetworkConfig{IsSuper:false,TestMode:true,SeedIp: "10.0.0.66"}
+	network.Init(common.GlobalConf, nil, netCfg)
 	go sendMsg()
 	go sendMsg()
 	go sendMsg()

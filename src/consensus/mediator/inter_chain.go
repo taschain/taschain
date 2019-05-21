@@ -83,6 +83,9 @@ func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 }
 
 func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
+	if len(prove) == 0 {
+		return big.NewInt(0)
+	}
 	return base.VRF_proof2hash(base.VRFProve(prove)).Big()
 }
 

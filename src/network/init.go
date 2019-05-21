@@ -37,52 +37,81 @@ const (
 	seedDefaultPort = 1122
 )
 
-var net *server
+//网络配置
+type NetworkConfig struct {
+	NodeIDHex    string
+	NatIp        string
+	NatPort      uint16
+	SeedIp       string
+	SeedId       string
+	ChainId      uint16 //链id
+	ProtocolVersion uint16 //协议id
+	TestMode     bool
+	IsSuper      bool
+}
+
+var net *Server
 
 var Logger taslog.Logger
 
-func Init(config common.ConfManager, isSuper bool, consensusHandler MsgHandler, testMode bool, natIp string, natPort uint16,seedIp string, seedId string, nodeIDHex string) (err error) {
-	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
+func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig NetworkConfig) (err error) {
+	index := common.GlobalConf.GetString("instance", "index", "")
+	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, index)
 	statistics.InitStatistics(config)
 
-	self, err := InitSelfNode(config, isSuper, NewNodeID(nodeIDHex))
+	self, err := InitSelfNode(config, networkConfig.IsSuper, NewNodeID(networkConfig.NodeIDHex))
 	if err != nil {
 		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
-	if seedIp == "" {
-		seedIp = seedDefaultIp
+
+	//test
+
+	//if index == "4" {
+	//	networkConfig.ChainId = 2
+	//	networkConfig.ProtocolVersion = 2
+	//} else {
+	//	networkConfig.ChainId = 1
+	//	networkConfig.ProtocolVersion = 1
+	//}
+
+	if networkConfig.SeedIp == "" {
+		networkConfig.SeedIp = seedDefaultIp
 	}
-	if seedId == "" {
-		seedId = seedDefaultId
+	if networkConfig.SeedId == "" {
+		networkConfig.SeedId = seedDefaultId
 	}
+
 	_, _, seedPort := getSeedInfo(config)
 
-	if len(seedId) > 0  {
-
-	}
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := NewNode(NewNodeID(seedId), nnet.ParseIP(seedIp), seedPort)
+	bnNode := NewNode(NewNodeID(networkConfig.SeedId), nnet.ParseIP(networkConfig.SeedIp), seedPort)
 
-	if bnNode.Id != self.Id && !isSuper {
+	if bnNode.Id != self.Id && !networkConfig.IsSuper {
 		seeds = append(seeds, bnNode)
 	}
 	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
 
 	var natEnable bool
-	if testMode {
+	if networkConfig.TestMode {
 		natEnable = false
-		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(seedIp), Port: self.Port}
+		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(networkConfig.SeedIp), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{Id: self.Id, ListenAddr: &listenAddr, Seeds: seeds, NatTraversalEnable: natEnable,NatIp:natIp,NatPort:natPort}
+	netConfig := NetCoreConfig{Id: self.Id,
+		ListenAddr: &listenAddr, Seeds: seeds,
+		NatTraversalEnable: natEnable,
+		NatIp:              networkConfig.NatIp,
+		NatPort:            networkConfig.NatPort,
+		ChainId:            networkConfig.ChainId,
+		ProtocolVersion:    networkConfig.ProtocolVersion}
 
 	var netcore NetCore
 	n, _ := netcore.InitNetCore(netConfig)
 
-	net = &server{Self: self, netCore: n, consensusHandler: consensusHandler}
+	net = &Server{Self: self, netCore: n, consensusHandler: consensusHandler}
 	return nil
 }
 
