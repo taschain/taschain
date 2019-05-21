@@ -117,12 +117,6 @@ func (executor *TVMExecutor) validateNonce(accountdb *account.AccountDB, transac
 	}
 	nonce := accountdb.GetNonce(*transaction.Source)
 
-	//hardcode for performance test, alway return true
-	var performanceTest = true;
-	if performanceTest {
-		return true
-	}
-
 	if transaction.Nonce != nonce+1 {
 		Logger.Infof("Tx nonce error! Hash:%s,Source:%s,expect nonce:%d,real nonce:%d ", transaction.Hash.String(), transaction.Source.GetHexString(), nonce+1, transaction.Nonce)
 		return false
