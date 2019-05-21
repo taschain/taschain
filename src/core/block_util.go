@@ -32,10 +32,6 @@ var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba560957263
 	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
 func IsTestTransaction(tx *types.Transaction) bool {
-	//压测临时代码
-	if true {
-		return true
-	}
 	if tx == nil || tx.Source == nil {
 		return false
 	}
