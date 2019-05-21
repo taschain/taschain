@@ -1,7 +1,6 @@
 package logical
 
 import (
-	"common"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
@@ -87,10 +86,10 @@ func (p *Processor) tryNotify(vctx *VerifyContext) bool {
 	return false
 }
 
-func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signature, random groupsig.Signature) error {
-	block := p.blockContexts.getProposed(hash)
+func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Signature, random groupsig.Signature) error {
+
 	if block == nil {
-		return fmt.Errorf("block is nil hash=%v", hash.ShortS())
+		return fmt.Errorf("block is nil")
 	}
 	block.Header.Signature = sign.Serialize()
 	block.Header.Random = random.Serialize()
@@ -124,7 +123,6 @@ func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signa
 		Verifier: gb.Gid.GetHexString(),
 	}
 	monitor.Instance.AddLog(le)
-	p.blockContexts.removeProposed(hash)
 	return nil
 }
 

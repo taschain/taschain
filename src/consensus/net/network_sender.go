@@ -329,16 +329,6 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 	ns.net.Send(receiver.String(), m)
 }
 
-func (ns *NetworkServerImpl) SendBlockSignAggrMessage(msg *model.BlockSignAggrMessage, target groupsig.ID) {
-	body, e := marshalBlockSignAggrMessage(msg)
-	if e != nil {
-		network.Logger.Errorf("[peer]Discard send marshalBlockSignAggrMessage because of marshal error:%s", e.Error())
-		return
-	}
-	m := network.Message{Code: network.BlockSignAggr, Body: body}
-
-	ns.net.Send(target.String(), m)
-}
 
 func (ns *NetworkServerImpl)ReqProposalBlock(msg *model.ReqProposalBlock, target string) {
 	body, e := marshalReqProposalBlockMessage(msg)

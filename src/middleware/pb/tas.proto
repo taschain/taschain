@@ -439,17 +439,11 @@ message ResponseSharePieceMessage {
     required SignData Sign = 3;
 }
 
-
-message BlockSignAggrMessage {
-    required bytes BlockHash = 1;
-    required bytes Sign = 2;
-    required bytes Random = 3;
-}
-
 message ReqProposalBlockMessage {
     required bytes Hash = 1;
 }
 
 message ResponseProposalBlockMessage {
-    required Block Block = 1;
+    required bytes Hash = 1;
+    repeated Transaction Transactions = 2;
 }
