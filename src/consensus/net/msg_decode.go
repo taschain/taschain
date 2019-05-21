@@ -454,16 +454,31 @@ func unMarshalSharePieceResponseMessage(b []byte) (*model.ResponseSharePieceMess
 	return m, nil
 }
 
-func unmarshalBlockSignAggrMessage(b []byte) (*model.BlockSignAggrMessage, error) {
-	message := &tas_middleware_pb.BlockSignAggrMessage{}
+func unmarshalReqProposalBlockMessage(b []byte) (*model.ReqProposalBlock, error) {
+	message := &tas_middleware_pb.ReqProposalBlockMessage{}
 	e := proto.Unmarshal(b, message)
 	if e != nil {
 		return nil, e
 	}
-	m := &model.BlockSignAggrMessage{
-		Hash: common.BytesToHash(message.BlockHash),
-		Sign: *groupsig.DeserializeSign(message.Sign),
-		Random: *groupsig.DeserializeSign(message.Random),
+	m := &model.ReqProposalBlock{
+		Hash: common.BytesToHash(message.Hash),
 	}
 	return m, nil
 }
+
+
+func unmarshalResponseProposalBlockMessage(b []byte) (*model.ResponseProposalBlock, error) {
+	message := &tas_middleware_pb.ResponseProposalBlockMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	transactions := types.PbToTransactions(message.Transactions)
+
+	m := &model.ResponseProposalBlock{
+		Hash: common.BytesToHash(message.Hash),
+		Transactions: transactions,
+	}
+	return m, nil
+}
+

@@ -1,14 +1,14 @@
 package logical
 
 import (
-	"consensus/model"
-	"sync"
 	"common"
-	"time"
-	"github.com/hashicorp/golang-lru"
-	"middleware/types"
-	time2 "middleware/time"
+	"consensus/model"
 	"core"
+	"github.com/hashicorp/golang-lru"
+	time2 "middleware/time"
+	"middleware/types"
+	"sync"
+	"time"
 )
 
 /*
@@ -24,6 +24,12 @@ type verifyMsgCache struct {
 	verifyMsgs []*model.ConsensusVerifyMessage
 	expire time.Time
 	lock sync.RWMutex
+}
+
+type proposedBlock struct {
+	block *types.Block
+	responseCount uint
+	maxResponseCount uint
 }
 
 func newVerifyMsgCache() *verifyMsgCache {
@@ -106,12 +112,13 @@ func (bctx *castBlockContexts) forEachReservedVctx(f func(vctx *VerifyContext) b
 }
 
 func (bctx *castBlockContexts) addProposed(b *types.Block)  {
-	bctx.proposed.Add(b.Header.Hash, b)
+	pb :=proposedBlock{block:b}
+	bctx.proposed.Add(b.Header.Hash, &pb)
 }
 
-func (bctx *castBlockContexts) getProposed(hash common.Hash) *types.Block {
+func (bctx *castBlockContexts) getProposed(hash common.Hash) *proposedBlock {
 	if v, ok := bctx.proposed.Peek(hash); ok {
-		return v.(*types.Block)
+		return v.(*proposedBlock)
 	}
 	return nil
 }
@@ -201,7 +208,7 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 	return vctx
 }
 
-func (bctx *castBlockContexts) createVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
+func (bctx *castBlockContexts) getOrNewVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
 	deltaHeightByTime := DeltaHeightByTime(bh, preBH)
 
 	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)

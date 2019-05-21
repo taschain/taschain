@@ -102,7 +102,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageCast(m)
-	case network.VerifiedCastMsg2:
+	case network.VerifiedCastMsg:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
@@ -191,15 +191,24 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		}
 		c.processor.OnMessageSharePieceResponse(m)
 
-	case network.BlockSignAggr:
-		m, e := unmarshalBlockSignAggrMessage(body)
+	case network.ReqProposalBlock:
+		m, e := unmarshalReqProposalBlockMessage(body)
 		if e != nil {
-			logger.Errorf("[handler]Discard unmarshalBlockSignAggrMessage because of unmarshal error:%s", e.Error())
+			logger.Errorf("[handler]Discard unmarshalReqProposalBlockMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		c.processor.OnMessageBlockSignAggrMessage(m)
+		c.processor.OnMessageReqProposalBlock(m,sourceId)
+
+	case network.ResponseProposalBlock:
+		m, e := unmarshalResponseProposalBlockMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalResponseProposalBlockMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageResponseProposalBlock(m)
 
 	}
+
 	return nil
 }
 

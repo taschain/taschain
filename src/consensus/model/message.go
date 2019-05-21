@@ -360,10 +360,15 @@ type BlockSignAggrMessage struct {
 	Random groupsig.Signature
 }
 
-//type BlockBodyResponse struct {
-//	Hash common.Hash
-//	Height uint64
-//	Txs []*types.Transaction
-//}
+type ReqProposalBlock struct {
+	Hash common.Hash
+}
+
+
+type ResponseProposalBlock struct {
+	Hash common.Hash
+	Transactions []*types.Transaction
+}
+
 
 

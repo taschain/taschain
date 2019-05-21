@@ -1,14 +1,13 @@
 package logical
 
 import (
-	"common"
 	"consensus/groupsig"
 	"consensus/model"
 	"consensus/net"
-	"middleware/types"
-	"strings"
-	"monitor"
 	"fmt"
+	"middleware/types"
+	"monitor"
+	"strings"
 )
 
 /*
@@ -17,14 +16,13 @@ import (
 **  Description:
  */
 
-
 //立即触发一次检查自己是否下个铸块组
 func (p *Processor) triggerCastCheck() {
 	//p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash = CalcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
@@ -35,7 +33,7 @@ func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height ui
 	return &selectGroup
 }
 
-func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) (*groupsig.ID) {
+func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash = CalcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromChain(hash, height)
@@ -88,10 +86,10 @@ func (p *Processor) tryNotify(vctx *VerifyContext) bool {
 	return false
 }
 
-func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signature, random groupsig.Signature) error {
-	block := p.blockContexts.getProposed(hash)
+func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Signature, random groupsig.Signature) error {
+
 	if block == nil {
-		return fmt.Errorf("block is nil hash=%v", hash.ShortS())
+		return fmt.Errorf("block is nil")
 	}
 	block.Header.Signature = sign.Serialize()
 	block.Header.Random = random.Serialize()
@@ -125,7 +123,6 @@ func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signa
 		Verifier: gb.Gid.GetHexString(),
 	}
 	monitor.Instance.AddLog(le)
-	p.blockContexts.removeProposed(hash)
 	return nil
 }
 
@@ -135,7 +132,7 @@ func (p *Processor) onBlockSignAggregation(hash common.Hash, sign groupsig.Signa
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
-	blog := newBizLog("consensusFinalize—"+bh.Hash.ShortS())
+	blog := newBizLog("consensusFinalize—" + bh.Hash.ShortS())
 
 	if p.blockOnChain(bh.Hash) { //已经上链
 		blog.log("block alreayd onchain!")
@@ -150,24 +147,31 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	}
 
 	//如果自己是提案者，则直接上链再广播
-	if slot.castor.IsEqual(p.GetMinerID()) {
-		err := p.onBlockSignAggregation(bh.Hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
-		if err != nil {
-			blog.log("onBlockSignAggregation fail: %v", err)
-			slot.setSlotStatus(slFailed)
-			return
-		}
-	} else { //通知提案者
-		aggrMsg := &model.BlockSignAggrMessage{
-			Hash: bh.Hash,
-			Sign: slot.gSignGenerator.GetGroupSign(),
-			Random: slot.rSignGenerator.GetGroupSign(),
-		}
-		tlog := newHashTraceLog("consensusFinalize", bh.Hash, p.GetMinerID())
-		tlog.log("send sign aggr msg to %v", slot.castor.ShortS())
-		p.NetServer.SendBlockSignAggrMessage(aggrMsg, slot.castor)
-
+	//if false {	//会导致提案者分布不均衡
+	//	err := p.onBlockSignAggregation(bh.Hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
+	//	if err != nil {
+	//		blog.log("onBlockSignAggregation fail: %v", err)
+	//		slot.setSlotStatus(slFailed)
+	//		return
+	//	}
+	//} else if false { //通知提案者
+	//	aggrMsg := &model.BlockSignAggrMessage{
+	//		Hash: bh.Hash,
+	//		Sign: slot.gSignGenerator.GetGroupSign(),
+	//		Random: slot.rSignGenerator.GetGroupSign(),
+	//	}
+	//	tlog := newHashTraceLog("consensusFinalize", bh.Hash, p.GetMinerID())
+	//	tlog.log("send sign aggr msg to %v", slot.castor.ShortS())
+	//	p.NetServer.SendBlockSignAggrMessage(aggrMsg, slot.castor)
+	//
+	//向提案者要完整块
+	msg := &model.ReqProposalBlock{
+		Hash: bh.Hash,
 	}
+	tlog := newHashTraceLog("consensusFinalize", bh.Hash, p.GetMinerID())
+	tlog.log("send ReqProposalBlock msg to %v", slot.castor.ShortS())
+	p.NetServer.ReqProposalBlock(msg, slot.castor.GetHexString())
+
 	slot.setSlotStatus(slSuccess)
 	vctx.markNotified()
 	vctx.successSlot = slot
@@ -309,7 +313,6 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 			}
 		}
 	}
-
 
 	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)

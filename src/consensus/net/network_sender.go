@@ -152,7 +152,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.VerifiedCastMsg2, Body: body}
+	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 
 	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 	go ns.send2Self(cvm.SI.GetID(), m)
@@ -329,13 +329,27 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 	ns.net.Send(receiver.String(), m)
 }
 
-func (ns *NetworkServerImpl) SendBlockSignAggrMessage(msg *model.BlockSignAggrMessage, target groupsig.ID) {
-	body, e := marshalBlockSignAggrMessage(msg)
+
+func (ns *NetworkServerImpl)ReqProposalBlock(msg *model.ReqProposalBlock, target string) {
+	body, e := marshalReqProposalBlockMessage(msg)
 	if e != nil {
-		network.Logger.Errorf("[peer]Discard send marshalBlockSignAggrMessage because of marshal error:%s", e.Error())
+		network.Logger.Errorf("[peer]Discard send marshalReqProposalBlockMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.BlockSignAggr, Body: body}
+	m := network.Message{Code: network.ReqProposalBlock, Body: body}
 
-	ns.net.Send(target.String(), m)
+	ns.net.Send(target, m)
 }
+
+func (ns *NetworkServerImpl)ResponseProposalBlock(msg *model.ResponseProposalBlock, target string) {
+
+	body, e := marshalResponseProposalBlockMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalResponseProposalBlockMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.ResponseProposalBlock, Body: body}
+
+	ns.net.Send(target, m)
+}
+

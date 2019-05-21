@@ -20,6 +20,8 @@ import (
 	"common"
 	"utility"
 	"middleware/time"
+	"math/big"
+	"fmt"
 )
 
 type AddBlockOnChainSituation string
@@ -161,6 +163,14 @@ func (tx *Transaction) RecoverSource() error {
 	return err
 }
 
+func (tx Transaction) GetData() []byte{return tx.Data}
+func (tx Transaction) GetGasLimit() uint64 {return tx.GasLimit}
+func (tx Transaction) GetValue() uint64    {return tx.Value}
+func (tx Transaction) GetSource() *common.Address {return tx.Source}
+func (tx Transaction) GetTarget() *common.Address {return tx.Target}
+func (tx Transaction) GetHash() common.Hash {return tx.Hash}
+
+
 //type Transactions []*Transaction
 //
 //func (c Transactions) Len() int {
@@ -256,7 +266,6 @@ type BlockHeader struct {
 	//ProveRoot    common.Hash
 	//EvictedTxs   []common.Hash
 }
-
 
 func (bh *BlockHeader) GenHash() common.Hash {
 	buf := bytes.NewBuffer([]byte{})
@@ -389,3 +398,35 @@ type StateNode struct {
 	Value []byte
 }
 
+type BlockWeight struct {
+	TotalQN 	uint64
+	PV			*big.Int
+}
+
+type PvFunc func(pvBytes []byte) *big.Int
+
+var DefaultPVFunc PvFunc
+
+func (bw *BlockWeight) MoreWeight(bw2 *BlockWeight) bool {
+	return bw.Cmp(bw2) > 0
+}
+
+func (bw *BlockWeight) Cmp(bw2 *BlockWeight) int {
+	if bw.TotalQN > bw2.TotalQN {
+		return 1
+	} else if bw.TotalQN < bw2.TotalQN {
+		return -1
+	}
+	return bw.PV.Cmp(bw2.PV)
+}
+
+func NewBlockWeight(bh *BlockHeader) *BlockWeight {
+	return &BlockWeight{
+		TotalQN: bh.TotalQN,
+		PV: DefaultPVFunc(bh.ProveValue),
+	}
+}
+
+func (bw *BlockWeight) String() string {
+    return fmt.Sprintf("%v-%v", bw.TotalQN, bw.PV.Uint64())
+}

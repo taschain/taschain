@@ -170,14 +170,10 @@ func (gs *groupSyncer) sendGroupHeightToNeighbor(gheight uint64) {
 }
 
 func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
-	groupHeightMsg, ok := msg.GetData().(*notify.GroupHeightMessage)
-	if !ok {
-		gs.logger.Errorf("groupHeightHandler GetData assert not ok!")
-		return
-	}
+	groupHeightMsg := notify.AsDefault(msg)
 
-	source := groupHeightMsg.Peer
-	height := utility.ByteToUInt64(groupHeightMsg.HeightByte)
+	source := groupHeightMsg.Source()
+	height := utility.ByteToUInt64(groupHeightMsg.Body())
 	PeerManager.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()
@@ -322,19 +318,15 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 
 
 func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
-	groupReqMsg, ok := msg.GetData().(*notify.GroupReqMessage)
-	if !ok {
-		gs.logger.Errorf("groupReqHandler GetData assert not ok!")
-		return
-	}
+	groupReqMsg := notify.AsDefault(msg)
 
-	gr, err := UnmarshalSyncRequest(groupReqMsg.ReqBody)
+	gr, err := UnmarshalSyncRequest(groupReqMsg.Body())
 	if err != nil {
 		gs.logger.Errorf("unmarshalSyncRequest error %v", err)
 		return
 	}
 
-	sourceId := groupReqMsg.Peer
+	sourceId := groupReqMsg.Source()
 	reqHeight := gr.ReqHeight
 	gs.logger.Debugf("Rcv group req from:%s,height:%v, reqSize:%v\n", sourceId, reqHeight, gr.ReqSize)
 	groups := gs.gchain.GetGroupsAfterHeight(reqHeight, int(gr.ReqSize))
@@ -367,24 +359,21 @@ func (gs *groupSyncer) getPeerHeight(id string) uint64 {
 }
 
 func (gs *groupSyncer) groupHandler(msg notify.Message) {
-	groupInfoMsg, ok := msg.GetData().(*notify.GroupInfoMessage)
-	if !ok {
-		gs.logger.Errorf("groupHandler GetData assert not ok!")
-		return
-	}
+	groupInfoMsg := notify.AsDefault(msg)
+
 	var complete = false
 	defer func() {
 		if !complete {
-			gs.syncComplete(groupInfoMsg.Peer, false)
+			gs.syncComplete(groupInfoMsg.Source(), false)
 		}
 	}()
 
-	groupInfo, e := gs.unMarshalGroupInfo(groupInfoMsg.GroupInfoByte)
+	groupInfo, e := gs.unMarshalGroupInfo(groupInfoMsg.Body())
 	if e != nil {
 		gs.logger.Errorf("Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 		return
 	}
-	sourceId := groupInfoMsg.Peer
+	sourceId := groupInfoMsg.Source()
 
 	groups := groupInfo.Groups
 	rg := ""
@@ -396,7 +385,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 
 	peerHeight := gs.getPeerHeight(sourceId)
 	if allSuccess && gs.gchain.Height() < peerHeight {
-		gs.syncComplete(groupInfoMsg.Peer, false)
+		gs.syncComplete(groupInfoMsg.Source(), false)
 		complete = true
 		go gs.trySyncRoutine()
 	}

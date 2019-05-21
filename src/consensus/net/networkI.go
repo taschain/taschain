@@ -52,7 +52,8 @@ type MessageProcessor interface {
 	OnMessageSharePieceReq(msg *model.ReqSharePieceMessage)
 	OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage)
 
-	OnMessageBlockSignAggrMessage(msg *model.BlockSignAggrMessage)
+	OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceId string)
+	OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock)
 
 }
 
@@ -95,8 +96,13 @@ type NetworkServer interface {
 	SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID)
 
 	SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief)
+
 	ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID)
+
 	ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID)
-	SendBlockSignAggrMessage(msg *model.BlockSignAggrMessage, target groupsig.ID)
+
+	ReqProposalBlock(msg *model.ReqProposalBlock, target string)
+
+	ResponseProposalBlock(msg *model.ResponseProposalBlock, target string)
 
 }
