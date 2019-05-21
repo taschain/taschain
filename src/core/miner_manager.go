@@ -335,7 +335,7 @@ func (mm *MinerManager) getMinerStakeDetailDatabase() (common.Address) {
 }
 
 func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte, status StakeStatus) []byte{
-	var pledgFlagByte = (types.MinerTypeHeavy << 4) | byte(status)
+	var pledgFlagByte = (_type << 4) | byte(status)
 	key := []byte{StakeFlagByte(pledgFlagByte)}
 	key = append(key, minerAddr...)
 	key = append(key, from...)

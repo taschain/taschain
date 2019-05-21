@@ -316,6 +316,7 @@ func DataNext(cvalue *C.char)*C.char{
 
 //export MinerStake
 func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+	fmt.Println("VM MinerStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
 	if !ok{
@@ -338,6 +339,7 @@ func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
 
 //export MinerCancelStake
 func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+	fmt.Println("VM MinerCancelStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
 	if !ok{
@@ -357,6 +359,7 @@ func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
 
 //export MinerRefundStake
 func MinerRefundStake(minerAddr *C.char, _type int) bool{
+	fmt.Println("VM MinerRefundStake", _type)
 	var success = false
 	ss := controller.AccountDB.Snapshot()
 	source := controller.Vm.ContractAddress
@@ -375,7 +378,6 @@ func MinerRefundStake(minerAddr *C.char, _type int) bool{
 				}
 			}
 		} else {
-			controller.mm.RefundStake(source.Bytes(), mexist, controller.AccountDB)
 			value, ok := controller.mm.RefundStake(source.Bytes(), mexist, controller.AccountDB)
 			if ok {
 				refundValue := big.NewInt(0).SetUint64(value)

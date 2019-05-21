@@ -408,7 +408,7 @@ func bridge_init() {
 	C.event_call = (C.Function11)(unsafe.Pointer(C.wrap_event_call))
 	C.miner_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_stake))
 	C.miner_cancel_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_cancel_stake))
-	C.miner_refund_stake = (C.Function16)(unsafe.Pointer(C.wrap_miner_refund_stake))
+	C.miner_refund_stake = (C.Function19)(unsafe.Pointer(C.wrap_miner_refund_stake))
 }
 
 type Contract struct {
