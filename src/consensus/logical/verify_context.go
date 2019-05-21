@@ -116,9 +116,6 @@ func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.Tim
 	return ctx
 }
 
-func (vc *VerifyContext) increaseSignedNum()  {
-    atomic.AddInt32(&vc.signedNum, 1)
-}
 
 func (vc *VerifyContext) isWorking() bool {
 	status := atomic.LoadInt32(&vc.consensusStatus)
@@ -215,6 +212,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	if !vc.group.GroupID.IsEqual(gid) {
 		return fmt.Errorf("groupId error:vc-%v, bh-%v", vc.group.GroupID.ShortS(), gid.ShortS())
 	}
+
 	//只签qn不小于已签出的最高块的块
 	if vc.hasSignedMoreWeightThan(bh) {
 		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
@@ -400,8 +398,10 @@ func (vc *VerifyContext) increaseAggrNum()  {
 	atomic.AddInt32(&vc.aggrNum, 1)
 }
 
-func (vc *VerifyContext) addSignedBlock(hash common.Hash)  {
-	vc.signedBlockHashs.Add(hash)
+func (vc *VerifyContext) markSignedBlock(bh *types.BlockHeader)  {
+	vc.signedBlockHashs.Add(bh.Hash)
+	atomic.AddInt32(&vc.signedNum, 1)
+	vc.updateSignedMaxWeightBlock(bh)
 }
 
 func (vc *VerifyContext) blockSigned(hash common.Hash) bool {

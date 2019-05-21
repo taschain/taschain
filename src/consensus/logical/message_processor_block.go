@@ -78,10 +78,6 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		if err != nil {
 			return
 		}
-		if bh.Height > 1 && vctx.prevBH.Hash == bh.PreHash {
-			err = fmt.Errorf("duplicate cast message")
-			return
-		}
 	}
 	castorDO := p.minerReader.getProposeMiner(castor)
 	if castorDO == nil {
@@ -123,8 +119,6 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		return
 	}
 
-	vctx.updateSignedMaxWeightBlock(bh)
-	vctx.increaseSignedNum()
 	skey := p.getSignKey(groupId)
 	var cvm model.ConsensusVerifyMessage
 	cvm.BlockHash = bh.Hash
@@ -133,6 +127,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 		p.NetServer.SendVerifiedCast(&cvm, groupId)
 		slot.setSlotStatus(slSigned)
 		p.blockContexts.attachVctx(bh, vctx)
+		vctx.markSignedBlock(bh)
 		ok = true
 	} else {
 		err = fmt.Errorf("gen sign fail")
