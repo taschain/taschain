@@ -302,8 +302,11 @@ func (c *simpleContainer) insertPending(new *types.Transaction) {
 
 	heap.Push(c.pending[addr].indexes, nonce)
 	c.pending[addr].items[nonce] = new
-	c.sortedTxsByPrice.Insert(new)
-	c.AllTxs[new.Hash] = new
+
+	if c.AllTxs[new.Hash] == nil {
+		c.AllTxs[new.Hash] = new
+		c.sortedTxsByPrice.Insert(new)
+	}
 }
 
 func (c *simpleContainer) getPendingTxsLen() int {
