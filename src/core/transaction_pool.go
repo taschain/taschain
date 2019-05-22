@@ -271,11 +271,10 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	return true, nil
 }
 
-func (pool *TxPool) reset(txHash common.Hash) {
+func (pool *TxPool) remove(txHash common.Hash) {
 	pool.bonPool.remove(txHash)
 	pool.received.remove(txHash)
 	pool.asyncAdds.Remove(txHash)
-	pool.received.reset(txHash)
 }
 
 func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
@@ -329,8 +328,9 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, tx := range txs {
-		pool.reset(tx)
+		pool.remove(tx)
 	}
+	pool.received.promoteQueueToPending()
 }
 
 func (pool *TxPool) BackToPool(txs []*types.Transaction) {
