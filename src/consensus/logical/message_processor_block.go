@@ -587,8 +587,18 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	blog := newBizLog("OMRPB")
 	blog.log("hash %v", msg.Hash.ShortS())
 
+	from :=  groupsig.ID{}
+	from.SetHexString(sourceId)
+	tlog := newHashTraceLog("OMRPB", msg.Hash, from)
+
+	var s string
+	defer func() {
+		tlog.log("result:%v", s)
+	}()
+
 	pb := p.blockContexts.getProposed(msg.Hash)
 	if pb == nil || pb.block == nil {
+		s = fmt.Sprintf("block is nil")
 		blog.log("block is nil hash=%v", msg.Hash.ShortS())
 		return
 	}
@@ -597,6 +607,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		gid := groupsig.DeserializeId(pb.block.Header.GroupId)
 		group ,err:= p.globalGroups.GetGroupByID(gid)
 		if err != nil {
+			s = fmt.Sprintf("get group error")
 			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err , msg.Hash.ShortS())
 			return
 		}
@@ -605,13 +616,14 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	}
 
 	if pb.responseCount >= pb.maxResponseCount {
-
+		s = fmt.Sprintf("response count exceed")
 		blog.log("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
 		return
 	}
 
 	pb.responseCount += 1
 
+	s = fmt.Sprintf("response txs size %v", len(pb.block.Transactions))
 	blog.log("block proposal response, count=%v, max count=%v, hash=%v", pb.responseCount,pb.maxResponseCount,msg.Hash.ShortS())
 
 	m := &model.ResponseProposalBlock{
@@ -626,16 +638,25 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	blog := newBizLog("OMRSPB")
 	blog.log("hash %v", msg.Hash.ShortS())
 
+	tlog := newHashTraceLog("OMRSPB", msg.Hash, groupsig.ID{})
+	var s string
+	defer func() {
+		tlog.log("result:%v", s)
+	}()
+
 	if p.blockOnChain(msg.Hash) {
+		s = "block onchain"
 		return
 	}
 	vctx := p.blockContexts.getVctxByHash(msg.Hash)
 	if vctx == nil {
+		s = "vctx is nil"
 		blog.log("verify context is nil, cache msg")
 		return
 	}
 	slot := vctx.GetSlotByHash(msg.Hash)
 	if slot == nil {
+		s = "slot is nil"
 		blog.log("slot is nil")
 		return
 	}
@@ -644,6 +665,8 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	if err != nil {
 		blog.log("onBlockSignAggregation fail: %v", err)
 		slot.setSlotStatus(slFailed)
+		s = fmt.Sprintf("on block fail err=%v", err)
 		return
 	}
+	s = "success"
 }

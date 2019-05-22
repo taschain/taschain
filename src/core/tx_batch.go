@@ -40,8 +40,8 @@ func (tv *txBatchAdder) batchAdd(txs []*types.Transaction) {
 			end = len(txs)
 		}
 		copySlice := txs[begin:end]
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 			tv.pool.AsyncAddTxs(copySlice)
 		}()
