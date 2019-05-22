@@ -58,6 +58,8 @@ const (
 	Sys_Check_Abi_Error              = 2002
 	Sys_Abi_JSON_Error               = 2003
 	Sys_CONTRACT_CALL_MAX_DEEP_Error = 2004
+
+	txFixSize		= 200	//每个交易固定字段大小
 )
 
 var (
@@ -161,6 +163,10 @@ func (tx *Transaction) RecoverSource() error {
 		tx.Source = &src
 	}
 	return err
+}
+
+func (tx *Transaction) Size() int {
+    return txFixSize + len(tx.Data) + len(tx.ExtraData)
 }
 
 //type Transactions []*Transaction
