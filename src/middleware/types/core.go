@@ -397,6 +397,7 @@ type StateNode struct {
 }
 
 type BlockWeight struct {
+	Hash 		common.Hash
 	TotalQN 	uint64
 	PV			*big.Int
 }
@@ -422,9 +423,10 @@ func NewBlockWeight(bh *BlockHeader) *BlockWeight {
 	return &BlockWeight{
 		TotalQN: bh.TotalQN,
 		PV: DefaultPVFunc(bh.ProveValue),
+		Hash: bh.Hash,
 	}
 }
 
 func (bw *BlockWeight) String() string {
-    return fmt.Sprintf("%v-%v", bw.TotalQN, bw.PV.Uint64())
+    return fmt.Sprintf("%v:%v-%v", bw.Hash.String(), bw.TotalQN, bw.PV.Uint64())
 }
