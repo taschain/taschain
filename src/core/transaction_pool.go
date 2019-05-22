@@ -247,10 +247,10 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 		if !IsTestTransaction(tx) && (tx.Nonce <= stateNonce || tx.Nonce > stateNonce+1000) {
 			return fmt.Errorf("nonce error:%v %v", tx.Nonce, stateNonce)
 		}
-
-		if !pk.Verify(msg, sign) {
-			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
-		}
+		//
+		//if !pk.Verify(msg, sign) {
+		//	return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
+		//}
 	}
 
 	return nil

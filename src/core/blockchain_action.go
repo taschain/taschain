@@ -121,7 +121,7 @@ func (chain *FullBlockChain) verifyTxs(bh *types.BlockHeader, txs []*types.Trans
 		size = len(txs)
 	}
 	slog.AddStage(fmt.Sprintf("validateTxs%v", size))
-	if !chain.validateTxs(txs) {
+	if !chain.validateTxs(bh, txs) {
 		slog.EndStage()
 		return nil,  -1
 	}
@@ -361,7 +361,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 }
 
 //check tx sign and recover source
-func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
+func (chain *FullBlockChain) validateTxs(bh *types.BlockHeader, txs []*types.Transaction) bool {
 	if txs == nil || len(txs) == 0 {
 		return true
 	}
@@ -400,7 +400,7 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 		}
 	}
 
-	Logger.Debugf("validate txs size %v, recover cnt %v", len(txs), len(addTxs))
+	Logger.Debugf("block %v, validate txs size %v, recover cnt %v", bh.Hash.String(), len(txs), len(addTxs))
 	return true
 }
 

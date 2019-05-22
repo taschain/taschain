@@ -165,6 +165,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		}
 
 		chain.removeTopBlock(curr.Hash)
+		Logger.Debugf("remove block %v", curr.Hash.String())
 		if curr.PreHash == block.Hash {
 			break
 		}
