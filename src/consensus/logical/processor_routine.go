@@ -48,6 +48,12 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	//	blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
 	//	return false
 	//}
+	//测试需要，禁止一个人连续提两块
+	topCastor := groupsig.DeserializeId(top.Castor)
+	if topCastor.IsEqual(p.GetMinerID()) {
+		blog.log("top is my proposal, give up the chance...")
+		return false
+	}
 
 	var (
 		expireTime  time.TimeStamp
