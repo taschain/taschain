@@ -65,7 +65,6 @@ type blockSyncer struct {
 
 type TopBlockInfo struct {
 	types.BlockWeight
-	Hash    common.Hash
 	Height  uint64
 }
 
@@ -76,7 +75,6 @@ var float194 = new(big.Float).SetInt(maxInt194)
 func newTopBlockInfo(topBH *types.BlockHeader) *TopBlockInfo {
 	return &TopBlockInfo{
 		BlockWeight:  *types.NewBlockWeight(topBH),
-		Hash:     topBH.Hash,
 		Height:   topBH.Height,
 	}
 }
@@ -460,8 +458,9 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*TopBlockInfo, error) {
 	bw := &types.BlockWeight{
 		TotalQN: *message.TotalQn,
 		PV: pv,
+		Hash: common.BytesToHash(message.Hash),
 	}
-	blockInfo := TopBlockInfo{Hash: common.BytesToHash(message.Hash), BlockWeight: *bw, Height: *message.Height}
+	blockInfo := TopBlockInfo{BlockWeight: *bw, Height: *message.Height}
 	return &blockInfo, nil
 }
 
