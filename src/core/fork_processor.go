@@ -24,6 +24,7 @@ import (
 	"middleware/pb"
 
 	"github.com/gogo/protobuf/proto"
+	"fmt"
 )
 
 const (
@@ -167,6 +168,10 @@ func (fp *forkProcessor) reset()  {
     fp.syncCtx = nil
 }
 
+func (fp *forkProcessor) timeoutTickerName(id string) string {
+    return tickerReqPieceBlock + id
+}
+
 func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 
 	chainPieceInfo := fp.getLocalPieceInfo(topHash)
@@ -196,7 +201,7 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 	fp.syncCtx.lastReqPiece = pieceReq
 
 	//启动定时器
-	fp.chain.ticker.RegisterOneTimeRoutine(tickerReqPieceBlock, func() bool {
+	fp.chain.ticker.RegisterOneTimeRoutine(fp.timeoutTickerName(fp.syncCtx.target), func() bool {
 		fp.reqPieceTimeout(fp.syncCtx.target)
 		return true
 	}, reqPieceTimeout)
@@ -262,7 +267,7 @@ func (fp *forkProcessor) reqFinished(id string, reset bool) {
 		return
 	}
 	PeerManager.heardFromPeer(id)
-	fp.chain.ticker.RemoveRoutine(tickerReqPieceBlock)
+	fp.chain.ticker.RemoveRoutine(fp.timeoutTickerName(id))
 	PeerManager.updateReqBlockCnt(id, true)
 	if reset {
 		fp.syncCtx = nil
@@ -301,6 +306,13 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 
 	blocks := chainPieceBlockMsg.Blocks
 	topHeader := chainPieceBlockMsg.TopHeader
+
+	localTop := fp.chain.QueryTopBlock()
+	s := "no blocks"
+	if len(blocks) > 0 {
+		s = fmt.Sprintf("%v-%v", blocks[0].Header.Height, blocks[len(blocks)-1].Header.Height)
+	}
+	fp.logger.Debugf("rev block piece from %v, top %v-%v, blocks %v, local %v-%v, ctx target:%v %v", source, topHeader.Hash.String(), topHeader.Height, s, localTop.Hash.String(), localTop.Height, ctx.target, ctx.targetTop.Height)
 
 	if source != ctx.target {//target改变了
 		//如果收到的块里包含了ctx请求的分支，则可以继续上链处理
@@ -344,9 +356,9 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 
 	//给出去的piece不足以找到共同祖先，继续请求piece
 	if !chainPieceBlockMsg.FindAncestor {
-		fp.logger.Debugf("cannot find common ancestor from %v, keep finding", source)
 		nextSync := fp.getNextSyncHash()
 		if nextSync != nil {
+			fp.logger.Debugf("cannot find common ancestor from %v, keep finding", source)
 			fp.requestPieceBlock(*nextSync)
 			reset = false
 		}
