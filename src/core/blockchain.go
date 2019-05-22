@@ -35,7 +35,6 @@ const (
 	BLOCK_STATUS_KEY = "bcurrent"
 
 	CONFIG_SEC = "chain"
-	wantedTxsSize = txCountPerBlock
 )
 
 var (
@@ -112,6 +111,8 @@ type FullBlockChain struct {
 	forkProcessor *forkProcessor
 	config       *BlockChainConfig
 	//castedBlock  *lru.Cache
+
+	txBatch 	*txBatchAdder
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
 	ts 			time2.TimeService
@@ -191,6 +192,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.bonusManager = newBonusManager()
 	chain.batch = chain.blocks.CreateLDBBatch()
 	chain.transactionPool = NewTransactionPool(chain, receiptdb)
+
+	chain.txBatch = newTxBatchAdder(chain.transactionPool)
 
 	chain.stateCache = account.NewDatabase(chain.statedb)
 

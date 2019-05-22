@@ -142,7 +142,8 @@ func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
 	if !fp.updateContext(targetNode, bh) {
 		return
 	}
-
+	ctx := fp.syncCtx
+	fp.logger.Debugf("fork process from %v: targetTop:%v-%v, local:%v-%v", ctx.target, ctx.targetTop.Hash.String(), ctx.targetTop.Height, ctx.localTop.Hash.String(), ctx.localTop.Height)
 	fp.requestPieceBlock(fp.chain.QueryTopBlock().Hash)
 }
 

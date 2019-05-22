@@ -365,7 +365,8 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 	if txs == nil || len(txs) == 0 {
 		return true
 	}
-	recoverCnt := 0
+
+	addTxs := make([]*types.Transaction, 0)
 	for _, tx := range txs {
 		if tx.Source != nil {
 			continue
@@ -382,15 +383,24 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 			}
 			tx.Source = poolTx.Source
 		} else {
-			recoverCnt++
-			TxSyncer.add(tx)
-			if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
-				Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.String())
-				return false
-			}
+			addTxs = append(addTxs, tx)
+			//recoverCnt++
+			//TxSyncer.add(tx)
+			//if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
+			//	Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.String())
+			//	return false
+			//}
 		}
 	}
-	Logger.Debugf("validate txs size %v, recover cnt %v", len(txs), recoverCnt)
+	chain.txBatch.batchAdd(addTxs)
+	for _, tx := range addTxs {
+		if err := tx.RecoverSource(); err != nil {
+			Logger.Errorf("tx source recover fail:%s", tx.Hash.String())
+			return false
+		}
+	}
+
+	Logger.Debugf("validate txs size %v, recover cnt %v", len(txs), len(addTxs))
 	return true
 }
 
