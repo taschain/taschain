@@ -32,10 +32,11 @@ type executePostState struct {
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
+	block := new(types.Block)
 
 	traceLog := monitor.NewPerformTraceLogger("CastBlock", common.Hash{}, height)
 	defer func() {
-		traceLog.Log("")
+		traceLog.Log("txs size %v", len(block.Transactions))
 	}()
 
 	latestBlock := chain.QueryTopBlock()
@@ -45,7 +46,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	}
 
 	begin := time.Now()
-	block := new(types.Block)
 
 	defer func() {
 		Logger.Debugf("cast block, height=%v, hash=%v, cost %v", block.Header.Height, block.Header.Hash.String(), time.Since(begin).String())
